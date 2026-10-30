@@ -2588,6 +2588,64 @@ def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_
     assert plan_mark_boundaries(level.obj).mesh == level.obj
 
 
+def test_p0510_refine_writes_the_trailing_edge_nodes_in_the_solver_layout_for_termination(
+    tmp_path,
+):
+    """FR-3401: the level writes <level>.<family>.fs.nodes.txt and <level>.fs.nodes.txt, the
+    trailing edge's NODES (end vertices, not mid-points) in the solver file's layout, and a
+    boundaries file whose wake_termination_nodes names it marks exactly those nodes.
+
+    Control: the nodes are the ids of <level>.Wing.nodes.txt, every row is a vertex of the
+    level OBJ, and the mid-points of <level>.Wing.fs.te.txt are not.
+    """
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    _, _, _, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
+    level = refine_mesh(src, out_dir=tmp_path / "y")
+    stem = level.obj.stem
+    verts = numpy.asarray(
+        [
+            [float(v) for v in line.split()[1:4]]
+            for line in level.obj.read_text(encoding="utf-8").splitlines()
+            if line.startswith("v ")
+        ]
+    )
+
+    def solver_rows(name):
+        lines = (level.folder / name).read_text(encoding="utf-8").splitlines()
+        assert lines[1] == "0,0,0" and int(lines[0]) == len(lines) - 2
+        return numpy.asarray([[float(c) for c in row.split(",")] for row in lines[2:]])
+
+    listing = (level.folder / f"{stem}.Wing.nodes.txt").read_text(encoding="utf-8")
+    listed = [int(row.split(",")[0]) for row in listing.splitlines() if not row.startswith("#")]
+    own = solver_rows(f"{stem}.Wing.fs.nodes.txt")
+    assert len(own) == len(listed) > 2
+    assert numpy.allclose(own, verts[[i - 1 for i in listed]])
+    assert len(solver_rows(f"{stem}.fs.nodes.txt")) == len(listed)
+    mids = solver_rows(f"{stem}.Wing.fs.te.txt")
+    assert all(numpy.linalg.norm(verts - m, axis=1).min() > 1e-6 for m in mids)
+
+    side = level.obj.with_suffix(".obj.boundaries.toml")
+    block = side.read_text(encoding="utf-8").split("# The level's trailing edges")[1]
+    block = block.replace(
+        'type = "STANDARD"',
+        f'type = "STANDARD"\nwake_termination_nodes = "{stem}.Wing.fs.nodes.txt"',
+        1,
+    )
+    faces = sum(obj_face_counts(level.obj))
+    side.write_text(
+        f'fs_build = "26.125"\nboundaries = ["Wing"]\n'
+        f'mesh_sha256 = "{hashlib.sha256(level.obj.read_bytes()).hexdigest()}"\n'
+        f'boundary_faces = [{faces}]\nmesh_faces = {faces}\n[import]\nunits = "METER"\n'
+        "# The level's trailing edges" + block,
+        encoding="utf-8",
+    )
+    plan = plan_mark_boundaries(level.obj)
+    assert sorted(plan.nodes["Wing"]) == sorted(listed)
+    assert plan.script.count("SELECT_MESH_NODE") == len(listed)
+    assert "MARK_WAKE_TERMINATION_NODES" in plan.script
+
+
 def test_a_trailing_edge_listed_in_two_parts_is_one_perimeter():
     """A trailing edge whose node list leaves a node out gives two chains on one perimeter
     of the piece: both are kept. Control: a hole's loop stays out (one perimeter only).

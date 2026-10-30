@@ -53,7 +53,7 @@ DEFAULT_FAMILY = "default"
 
 def output_stems(names: Sequence[str]) -> dict[str, str]:
     """Reserve level and family filenames, renaming collisions in source order (FR-3319)."""
-    suffixes = (".te.txt", ".fs.te.txt", ".nodes.txt")
+    suffixes = (".te.txt", ".fs.te.txt", ".nodes.txt", ".fs.nodes.txt")
 
     def paths(name: str) -> set[str]:
         return {f".{name}{suffix}".casefold() for suffix in suffixes}
@@ -63,6 +63,7 @@ def output_stems(names: Sequence[str]) -> dict[str, str]:
         ".te.txt",
         ".nodes.te.txt",
         ".nodes.txt",
+        ".fs.nodes.txt",
         ".refine.json",
         ".audit.json",
         ".inspect.pdf",
@@ -96,7 +97,7 @@ def restore_node_names(paths: Sequence[Path], stems: dict[str, str]) -> None:
     if not renamed:
         return
     for path in paths:
-        if not path.name.endswith(".nodes.txt"):
+        if not path.name.endswith(".nodes.txt") or path.name.endswith(".fs.nodes.txt"):
             continue
         lines = []
         for line in path.read_text(encoding="utf-8").splitlines(keepends=True):

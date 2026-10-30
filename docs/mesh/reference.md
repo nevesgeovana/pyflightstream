@@ -74,7 +74,10 @@ A trailing-edge entry requires `type`: `STANDARD`, `RELAXED`, `JET_OUTFLOW` or
 `VORTEX_SHEDDING`. Replace `file` with `detect = "auto"` or
 `detect = { surfaces = ["wing"], sweep_angle = 30.0 }` for detection, which
 accepts only `STANDARD`. File matching defaults to `tolerance = 0.0001` metres.
-Termination nodes may name a points file instead of `"auto"`.
+Termination nodes may name a points file instead of `"auto"`: the package's
+points file (a unit line, then x,y,z), or the solver-layout nodes file a refined
+level writes, `<level>.<family>.fs.nodes.txt`, read in the `[import]` unit.
+Each point must match exactly one mesh vertex within the tolerance.
 
 Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
 `"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A merge destination
@@ -590,6 +593,7 @@ through the package's one text route, without a carriage return.
 | `<stem>_<tag>.<family>.te.txt` | a `[[perimeter]]` list exports trailing edges or names `te_families` | the same points for one output family |
 | `<stem>_<tag>.nodes.te.txt`, `<stem>_<tag>.<family>.fs.te.txt` | the level has a trailing edge on a quad family | the trailing edges of every quad family, and of each, in the format the solver's wake-edge import reads when the FSM is marked |
 | `<stem>_<tag>.nodes.txt`, `<stem>_<tag>.<family>.nodes.txt` | the same | the same trailing edges as ANSA node lists (Id, Name, X, Y, Z), the ids the level OBJ's vertex numbers |
+| `<stem>_<tag>.fs.nodes.txt`, `<stem>_<tag>.<family>.fs.nodes.txt` | the same | the same nodes (end vertices, not mid-points) in the solver file's layout, in the level's unit; a boundaries file's `wake_termination_nodes` names one to mark them as wake-termination nodes |
 | `<stem>_<tag>.obj.boundaries.toml` | the source has a sidecar, or a perimeter list exports trailing edges | updated inventory and preserved declarations, with component renames only |
 | `<stem>_<tag>.refine.json` | always | what was done to each family |
 | `<stem>_<tag>.audit.json` | always | the audit of the level against its source |

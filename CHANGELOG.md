@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- A refined level with a trailing edge on a quad family also writes
+  `<level>.fs.nodes.txt` and `<level>.<family>.fs.nodes.txt`: the trailing
+  edge's nodes (the edges' end vertices, not their mid-points) in the solver
+  file's layout, in the level's unit. A boundaries file's
+  `wake_termination_nodes` accepts such a file, read in the `[import]` unit,
+  so `mark-boundaries` marks those nodes as wake-termination nodes (FR-3401).
+
 ## [0.50.3] - 2026-10-30
 
 ### Fixed

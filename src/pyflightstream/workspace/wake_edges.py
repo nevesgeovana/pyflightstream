@@ -1227,8 +1227,12 @@ def write_level_trailing_edges(
     ``<stem>.nodes.te.txt`` and ``<stem>.<family>.fs.te.txt`` in the format the
     solver's wake-edge import reads (:func:`write_node_file`, in ``unit``), and
     ``<stem>.nodes.txt`` and ``<stem>.<family>.nodes.txt`` as ANSA node lists
-    (Id, Name, X, Y, Z), the ids the level OBJ's vertex numbers. Families with
-    no edge write nothing; an empty ``found`` writes nothing.
+    (Id, Name, X, Y, Z), the ids the level OBJ's vertex numbers, and
+    ``<stem>.fs.nodes.txt`` and ``<stem>.<family>.fs.nodes.txt``, the same nodes
+    (the edges' end vertices, not their mid-points) in the solver file's layout,
+    in ``unit``, which a boundaries file's ``wake_termination_nodes`` reads
+    (FR-3401). Families with no edge write nothing; an empty ``found`` writes
+    nothing.
 
     Parameters
     ----------
@@ -1261,6 +1265,7 @@ def write_level_trailing_edges(
         unit=unit,
         simulation_unit=None,
     )
+    written.append(_write_end_nodes(folder / f"{stem}.fs.nodes.txt", verts, every, unit))
     for name, edges in found.items():
         written += _write_identified(
             verts,
@@ -1271,7 +1276,16 @@ def write_level_trailing_edges(
             unit=unit,
             simulation_unit=None,
         )
+        written.append(_write_end_nodes(folder / f"{stem}.{name}.fs.nodes.txt", verts, edges, unit))
     return written
+
+
+def _write_end_nodes(
+    path: Path, verts: numpy.ndarray, edges: set[tuple[int, int]], unit: str
+) -> Path:
+    """Write the edges' end vertices in the solver file's layout, in the node lists' order."""
+    ends = sorted({v for e in edges for v in e}, key=lambda v: float(verts[v, 1]))
+    return write_node_file(path, verts[ends], unit=unit, simulation_unit=unit, overwrite=True)
 
 
 #: A listed node is joined to each other node closer than this many times its distance
@@ -1649,8 +1663,14 @@ def bind_wake_termination(conditions, geometry, mesh_import, solver):
 def matched_wake_termination_nodes(
     marking: WakeTerminationMarking, mesh: Path, mesh_unit: str
 ) -> WakeTerminationMarking:
-    """Match each point to exactly one mesh vertex, refusing absent or ambiguous matches."""
-    read = read_trailing_edge_points(marking.points_file)
+    """Match each point to exactly one mesh vertex, refusing absent or ambiguous matches.
+
+    The points file is the package's (a unit line, then x,y,z) or the solver
+    file's layout refine writes as ``<level>.<family>.fs.nodes.txt`` (a count,
+    a placeholder line, then x,y,z), which carries no unit and is read in
+    ``mesh_unit`` (FR-3401).
+    """
+    read = _read_termination_points(Path(marking.points_file), mesh_unit)
     if mesh.suffix.lower() == ".obj":
         # SELECT uses the written OBJ vertex index. A mesh loader may weld,
         # reorder or discard vertices, so its indices cannot identify these nodes.
@@ -1681,6 +1701,43 @@ def matched_wake_termination_nodes(
         # SELECT_MESH_NODE uses node 1 in qa/_spec_0400_gap.py P1-10 (RPT-166).
         nodes.append(int(matches[0]) + 1)
     return marking.model_copy(update={"nodes": tuple(nodes)})
+
+
+def _read_termination_points(path: Path, mesh_unit: str) -> TrailingEdgePoints:
+    """Read a termination points file in the package's layout or in the solver file's."""
+    try:
+        rows = [line.strip() for line in path.read_text(encoding="utf-8-sig").splitlines()]
+    except (OSError, UnicodeDecodeError):
+        return read_trailing_edge_points(path)  # refuses with the package's message
+    numbered = [(number, row) for number, row in enumerate(rows, start=1) if row]
+    if not numbered or not numbered[0][1].isdigit():
+        return read_trailing_edge_points(path)
+    count = int(numbered[0][1])
+    body = numbered[2:]
+    if len(numbered) < 2 or len(body) != count:
+        raise InputArtifactError(
+            f"{path}: the first line counts {count} nodes and {len(body)} follow the "
+            "placeholder line; a solver-layout node file is a count, one placeholder "
+            "line, then one x,y,z per node",
+            kind="wake_edges",
+        )
+    points = []
+    for number, row in body:
+        try:
+            values = [float(value) for value in row.split(",")]
+        except ValueError:
+            values = []
+        if len(values) != 3 or not all(numpy.isfinite(values)):
+            raise InputArtifactError(
+                f"{path}: line {number} is {row!r}, not three finite numbers x,y,z",
+                kind="wake_edges",
+            )
+        points.append(values)
+    return TrailingEdgePoints(
+        unit=mesh_unit,
+        points=numpy.asarray(points, dtype=float),
+        lines=tuple(number for number, _ in body),
+    )
 
 
 def matched_trailing_edge_sets(
