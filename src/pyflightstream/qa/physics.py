@@ -78,6 +78,11 @@ from pyflightstream.run import (
 from pyflightstream.script import Script
 from pyflightstream.versions import known_versions
 
+#: The builds whose loads table prints the pressure and viscous drag split (CDp, CDv) where
+#: the earlier builds print CDi and CDo; 26.126 prints the 26.125 header (its own run of
+#: 2026-10-30), so it reads and writes the same pressure-drag references.
+PRESSURE_DRAG_BUILDS = ("26.125", "26.126")
+
 PHYSICS_SCHEMA = "pyflightstream-physics-report/1"
 REFERENCE_SCHEMA = "pyflightstream-physics-reference/1"
 
@@ -662,7 +667,7 @@ class PhysicsCase:
 
     def specs_for_version(self, version: str) -> dict[str, MetricSpec]:
         """Return specs for one drag vocabulary, preserving the distinct quantities."""
-        excluded = ("CDi", "CDo") if version == "26.125" else ("CDp", "CDv")
+        excluded = ("CDi", "CDo") if version in PRESSURE_DRAG_BUILDS else ("CDp", "CDv")
         return {
             name: spec
             for name, spec in self.specs_by_name.items()
@@ -1110,7 +1115,7 @@ def load_reference(
         carries the reference of another case than ``case_id``.
     """
     directory = Path(references_dir) if references_dir else _references_dir()
-    if fs_version == "26.125":
+    if fs_version in PRESSURE_DRAG_BUILDS:
         directory = directory / "pressure-drag"
     path = directory / f"{case_id}.yaml"
     if not path.is_file():
@@ -1722,7 +1727,7 @@ def update_reference(
             "update references from a repository checkout, or name a directory with "
             "references_dir (CLI: --references-dir)"
         )
-    if str(report["fs_version"]) == "26.125":
+    if str(report["fs_version"]) in PRESSURE_DRAG_BUILDS:
         directory = directory / "pressure-drag"
     directory.mkdir(parents=True, exist_ok=True)
     document = {

@@ -11,7 +11,7 @@ removed in 0.43.0; use keyword arguments and `--sims`. The changelog records the
 ## 0.41.0 - 2026-10-15
 
 Python 3.12 or newer is required. The registered FlightStream builds are
-25.000, 25.100, 26.000, 26.100, 26.101 and 26.120 through 26.125. See
+25.000, 25.100, 26.000, 26.100, 26.101 and 26.120 through 26.126. See
 [builds](builds.md) for vendor names, support levels and the evidence boundary.
 
 This release consolidates workspace migration, removes authored campaign-file

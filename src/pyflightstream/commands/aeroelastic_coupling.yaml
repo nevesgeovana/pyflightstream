@@ -240,7 +240,7 @@ SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
     "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
-    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     Full command executed per coupling iteration in the working
     directory. The dry run observed a bare invocation: no arguments
@@ -297,7 +297,7 @@ SET_AEROELASTIC_CONVERGENCE_THRESHOLD:
   default_ref: "FSM-26.125 p.390"
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.390, the first edition to document it"}
-    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.390, the first edition to document it"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.390, the first edition to document it"}
   notes: >
     Sets the convergence threshold of an aeroelastic coupling run. The
     page gives 1E-3 as the default and prints 1E-05 in its sample. First

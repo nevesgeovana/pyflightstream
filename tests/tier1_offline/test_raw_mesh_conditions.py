@@ -1001,7 +1001,7 @@ if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
 def test_p0460_marking_policy_refuses_unmeasured_builds(build):
     from pyflightstream.script import ScriptOrderError
 
-    with pytest.raises(ScriptOrderError, match="26.124 and 26.125"):
+    with pytest.raises(ScriptOrderError, match=f"26.124, 26.125 and 26.126.*targets {build}"):
         Script.for_marking(build)
 
 

@@ -546,3 +546,31 @@ def test_p0510_26126_is_operational_on_its_own_runs():
     assert "26.126 is operational" in rows["26.126"].summary
     assert rows["26.126"].commands_probed > 150 and not rows["26.126"].workflow_missing
     assert "26.125 is operational" in rows["26.125"].summary
+
+
+def test_p0510_the_commands_26126_refuses_are_recorded_by_name():
+    """FR-3402: the probe campaigns on 26.126 measured one name refused and six commands that
+    stop the script; each is recorded so on 26.126 and cites a 26.126 run.
+
+    Control: the rotor and solver commands the unsteady rotor workflow emits are verified.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    commands = CommandRegistry.load().commands
+    v126 = resolve("26.126")
+    broken = {
+        "CAD_CREATE_IMPORT_CURVE_TXT",
+        "CAD_CREATE_AUTO_CROSS_SECTIONS",
+        "CREATE_NEW_6DOF_EXTERNAL_FORCE",
+        "NEW_STREAMLINE_DISTRIBUTION",
+        "CREATE_FREE_SURFACE_TFI_MESH",
+        "NEW_OFF_BODY_STREAMLINE",
+    }
+    for name in broken:
+        record = commands[name].status_in(v126)
+        assert str(record.status) == "broken" and record.report.startswith(
+            "reports/compat/CMP-26126_"
+        ), name
+    removed = commands["SET_VORTICITY_LIFT_MODEL"].status_in(v126)
+    assert str(removed.status) == "removed" and "CMP-26126_" in removed.report
+    assert str(commands["SOLVER_SET_AOA"].status_in(v126).status) == "verified"

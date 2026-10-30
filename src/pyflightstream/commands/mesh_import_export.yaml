@@ -71,7 +71,7 @@ CCS_IMPORT:
     "26.123": {status: documented, note: "FSM-26.123 p.311, unchanged from FSM-26.122 p.311"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
-    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
     control hole-filling at component ends, whether the simulation
@@ -132,7 +132,7 @@ DELETE_SURFACES:
     "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123. Run on 26.124 by the licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
-    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the

@@ -72,7 +72,7 @@ is the one its identity run printed (`reports/compat/CMP-26125_2026-10-05_identi
 and its size is the file's as delivered.
 
 The 26.126 row was added on 2026-10-30, when that build was registered: its build
-is the one its log printed at start-up (no compat report exists for it yet), and
+is the one its log printed at start-up (its probe campaigns are CMP-26126_2026-10-30_probe-campaign and -fsm), and
 its name and size are those of the executable in the corrected vendor package as
 extracted.
 
