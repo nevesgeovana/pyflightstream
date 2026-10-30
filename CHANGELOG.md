@@ -45,6 +45,17 @@ FlightStream versions.
   commands, since no run has measured them in that position.
   migration: such a row is planned with the warning where it was refused.
 
+### Fixed
+
+- `--accept-unregistered-build` applies to the builds the matrix rows state
+  (FR-3405): a row whose FS_BUILD names a build id the package does not
+  register, mapped in `inputs/executables.toml`, is planned and run without
+  `--fs-version`. Its scripts are written for the version its entry declares
+  (`version = "..."`), else for the newest registered version not after the
+  build id, which the plan names in a warning. A matrix whose first build
+  entry declares a version now binds the campaign to that version rather than
+  to the build id. Without the flag such rows stay refused.
+
 ## [0.51.0] - 2026-10-30
 
 ### Added

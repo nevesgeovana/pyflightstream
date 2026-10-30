@@ -65,9 +65,7 @@ from pyflightstream.cases import point_name as point_name
 from pyflightstream.cases.matrix import (
     LEGACY_WORKFLOW,
     MatrixError,
-    MatrixRow,
     read_matrix,
-    refuse_silent_rows_without_default,
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
@@ -112,7 +110,7 @@ from pyflightstream.run._additional import (
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
-from pyflightstream.run._identity import entry_accepted_builds
+from pyflightstream.run._identity import entry_accepted_builds, settle_the_matrix_default
 from pyflightstream.run._ids import _selected, narrow_to_selection, whole_sweeps
 from pyflightstream.run._matrix_warnings import (
     _warn_matrix_inputs,
@@ -265,30 +263,6 @@ def _default_version(
     # (PFS-2029.01). refuse_silent_rows_without_default names rows with empty
     # cells before binding anything.
     return default_fs_version
-
-
-def _refuse_a_run_that_names_no_build(
-    path: str | Path,
-    default: str | None,
-    rows: list[MatrixRow] | None = None,
-) -> None:
-    """Refuse, before anything is bound, a run with no build named anywhere.
-
-    Both entry points call this BETWEEN resolving the default and calling
-    :func:`~pyflightstream.workspace.matrix.resolve_matrix`, which is the
-    only position that satisfies the whole acceptance: resolution builds
-    the :class:`~pyflightstream.cases.Campaign` and selects the
-    executable, and the executor is built after that, so a check inside
-    or below it cannot promise that none of the three exists
-    (PFS-2009.08.03).
-
-    The rows are read here rather than borrowed from the resolution
-    below, which costs one extra parse of a small text file and buys the
-    ordering. :func:`~pyflightstream.cases.matrix.to_campaign` carries
-    the same call, so a caller that converts a matrix without planning it
-    meets the same refusal.
-    """
-    refuse_silent_rows_without_default(read_matrix(path) if rows is None else rows, default, path)
 
 
 def _bind_row_builds(
@@ -547,7 +521,9 @@ def plan_matrix(
     selected_rows, sims = _selected(path, workspace, name, recipes, sims=sims, points=points)
     # Read once: a second read would repeat each malformed-row warning (FR-3391).
     selected_rows = read_matrix(path) if selected_rows is None else selected_rows
-    _refuse_a_run_that_names_no_build(path, default, selected_rows)
+    default = settle_the_matrix_default(
+        path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
+    )
     resolved = resolve_matrix(
         path,
         workspace,
@@ -1034,7 +1010,9 @@ def run_matrix(
     selected_rows, sims = _selected(
         path, workspace, name, recipes, sims=sims, points=points, redoing=force_rerun_all
     )
-    _refuse_a_run_that_names_no_build(path, default, selected_rows)
+    default = settle_the_matrix_default(
+        path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
+    )
     resolved = resolve_matrix(
         path,
         workspace,

@@ -1211,7 +1211,11 @@ def _bind_build(
                 f"installation the override names, or drop the override so each row runs "
                 f"on the build its cell names through the registry."
             )
-        campaign_version = named[0]
+        # The first build's registry entry may declare the version it emits
+        # under (a table entry with `version`), which is what the build id
+        # means on this machine; only an entry declaring none lends its id.
+        declared = builds[named[0]].fs_version if named[0] in builds else None
+        campaign_version = declared or named[0]
     campaign = to_campaign(
         path,
         name=name,

@@ -128,6 +128,14 @@ state. In `inputs/executables.toml` the key is refused, naming the key and the
 file. However it is stated, the run warns on every run exactly as the option
 does, naming where the acceptance came from.
 
+A row may name a build the package does not register yet, such as a new
+vendor build mapped in `inputs/executables.toml`. With
+`--accept-unregistered-build` and no `--fs-version`, its scripts are written
+for the version its entry declares (`version = "..."` on a table entry), or,
+when the entry declares none, for the newest registered version not after the
+build id, and the plan warns, naming both. `--fs-version` or a declared
+`version` chooses another.
+
 ## What the plan and the records say
 
 `plan.json` and every run record carry `settings_sources`, an object mapping
