@@ -176,6 +176,16 @@ MARCH_ACTIONS: MarchStrategy = "actions"
 #: start over every time step, and every export after it.
 MARCH_SINGLE: MarchStrategy = "single_march"
 
+#: The loads selections :meth:`Script.emit_before_the_solve` carries before
+#: START_SOLVER on a march (FR-3404), in the order a setup states them.
+_SELECTIONS_BEFORE_THE_SOLVE: tuple[str, ...] = (
+    "SET_LOADS_AND_MOMENTS_UNITS",
+    "SET_SOLVER_ANALYSIS_BOUNDARIES",
+    "SET_INVISCID_LOADS",
+    "DELETE_VORTICITY_DRAG_BOUNDARIES",
+    "SET_VORTICITY_DRAG_BOUNDARIES",
+)
+
 
 class ScriptOrderError(PyflightstreamError, ValueError):
     """A command was emitted after its phase had already passed.
@@ -499,6 +509,57 @@ class Script(_ScriptRendering):
         if self._phase_index is not None and self._phase_index >= _ORDERED_PHASES.index(Phase.EXEC):
             raise ScriptOrderError("deferred vorticity selection must precede the solve")
         _emit_deferred_vorticity(self)
+
+    def emit_before_the_solve(self, name: str, /, *args: object, **kwargs: object) -> None:
+        """Emit one loads selection of a march right before ``START_SOLVER`` (FR-3404).
+
+        The loads selections are analysis-phase commands in the database. On a
+        march a selection stated after the solve starts reached the final export
+        and no step export where it was measured (RPT-064 for the loads frame,
+        RPT-133 for the vorticity drag list), so a march states them before.
+        Like :meth:`emit_deferred_vorticity_before_solve`, this carries one
+        loads selection (the loads units, the analysis boundaries, the inviscid
+        loads, the vorticity drag list or its deletion) past the phase guard
+        without moving the phase; every other check of :meth:`emit` applies.
+
+        Parameters
+        ----------
+        name : str
+            One of the loads selections the summary names.
+        *args, **kwargs
+            The command's arguments, as :meth:`emit` takes them.
+
+        Raises
+        ------
+        ScriptOrderError
+            If ``name`` is not a loads selection, or the solver was already started.
+        CommandNotInVersionError, CommandArgumentError, ScriptReferenceError
+            As :meth:`emit` raises them.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> script = Script(version="26.124")
+        >>> script.emit_before_the_solve("DELETE_VORTICITY_DRAG_BOUNDARIES")
+        >>> script.emit("START_SOLVER")
+        >>> script.render().split()
+        ['DELETE_VORTICITY_DRAG_BOUNDARIES', 'START_SOLVER']
+        """
+        if name not in _SELECTIONS_BEFORE_THE_SOLVE:
+            raise ScriptOrderError(
+                f"{name} is not a loads selection; only {', '.join(_SELECTIONS_BEFORE_THE_SOLVE)} "
+                "may be stated before the solve this way"
+            )
+        if self._phase_index is not None and self._phase_index >= _ORDERED_PHASES.index(Phase.EXEC):
+            raise ScriptOrderError(
+                f"{name}: a selection before the solve must precede START_SOLVER"
+            )
+        previous = self._through_the_door
+        self._through_the_door = True
+        try:
+            self.emit(name, *args, **kwargs)
+        finally:
+            self._through_the_door = previous
 
     def carry_unsteady_actions(
         self, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]

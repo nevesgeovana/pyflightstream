@@ -6,8 +6,8 @@ import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
 from pyflightstream.cases.workflows._solver_settings import (
-    _refuse_the_loads_selections_on_a_march,
     _settings,
+    _warn_of_the_loads_selections_on_a_march,
 )
 from pyflightstream.script import Script
 from pyflightstream.workspace.setup_standards import (
@@ -99,7 +99,7 @@ def test_unsteady_presets_do_not_inject_even_false_steady_only_load_selection(co
         sweep=SweepAxis(type="alpha", values=[0.0]),
         solver=SolverSettings.model_validate(parsed),
     )
-    _refuse_the_loads_selections_on_a_march(case)
+    _warn_of_the_loads_selections_on_a_march(case)
 
 
 def test_guide_groups_physical_controls_and_explains_unknown_saved_state():

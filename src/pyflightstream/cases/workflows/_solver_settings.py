@@ -55,14 +55,23 @@ from ._vocabulary import (
     SYMMETRY_VARIABLE,
 )
 
+#: The command each loads selection key of a setup writes (G09, FR-3404).
+_SELECTION_COMMANDS = {
+    "analysis_families": "SET_SOLVER_ANALYSIS_BOUNDARIES",
+    "load_units": "SET_LOADS_AND_MOMENTS_UNITS",
+    "inviscid_loads": "SET_INVISCID_LOADS",
+    "clear_vorticity_drag_boundaries": "DELETE_VORTICITY_DRAG_BOUNDARIES",
+}
 
-def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
-    """Refuse a loads selection on a row of an unsteady run type (G09).
 
-    Emitted after the solve starts, it would reach the final export and not the
-    per-step exports and plots an unsteady product is read from, which is the
-    shape RPT-064 measured for the loads frame; moving it before the solve is not
-    measured. They are supported only on steady rows.
+def _warn_of_the_loads_selections_on_a_march(case: SimCase) -> None:
+    """Warn that a march's loads selections are stated before the solve, unmeasured there (G09).
+
+    A march emits them right before ``START_SOLVER``
+    (:func:`~pyflightstream.cases._setup_link.loads_selections_before_the_solve`,
+    FR-3404), the position RPT-064 measured for the loads frame and RPT-133 for
+    the vorticity drag list; no run has measured these commands there, so the
+    plan says so, naming each. A key stated False selects nothing and is silent.
     """
     stated = [
         key
@@ -71,13 +80,15 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     ]
     if not stated:
         return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} names the run type {declared_run_type(case)!r} and its setup states "
-        f"{', '.join(stated)}. The loads selections are applied after the solve starts, "
-        "and on a march that reaches only the final export, not the step exports and "
-        "plots the unsteady products are read from (RPT-064 measured this for the loads "
-        "frame); they are supported only on steady rows. Drop the key from the preset this "
-        "row names, or give the row a preset of its own."
+    commands = ", ".join(_SELECTION_COMMANDS[key] for key in stated)
+    warn(
+        f"case {case.sim_id!r} names the run type {declared_run_type(case)!r} and its setup "
+        f"states {', '.join(stated)}: {commands} are emitted before START_SOLVER so that the "
+        "step exports of the march carry them, the position measured for the loads frame "
+        "(RPT-064) and the vorticity drag list (RPT-133); no run has measured these commands "
+        "in that position yet.",
+        PyflightstreamWarning,
+        stacklevel=3,
     )
 
 

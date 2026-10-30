@@ -180,7 +180,7 @@ mesh being rebuilt, while a family name is a fact about the aircraft.
 |---|---|---|
 | `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
 | `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
-| `analysis_families` (steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
+| `analysis_families` | families that enter the loads (before `START_SOLVER` on an unsteady row, warned); every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
 
 ```toml
 vorticity_drag_families   = ["Wing", "HTP", "VTP"]

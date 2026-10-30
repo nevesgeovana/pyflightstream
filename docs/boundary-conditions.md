@@ -58,7 +58,7 @@ These optional keys belong at the root of an `s<>.toml` setup, without a
 | `remove_initialization = true` | Remove saved initialization before the workflow initializes again. This is distinct from clearing a solution. |
 | `delete_inlets = [2, 1]` / `delete_outlets = [1]` | Unmark existing port indices in the written order before initialization. The native port sequence is separate from mesh boundary indices. |
 | `delete_transition_trips = [3, 1]` | Delete saved trip indices in precisely this order. No saved inventory or renumbering is invented. |
-| `clear_vorticity_drag_boundaries = true` | Clear the induced-drag selection after a steady solve and before export. It conflicts with an explicit family selection and is refused on an unsteady march, where it would not affect earlier step products. |
+| `clear_vorticity_drag_boundaries = true` | Clear the induced-drag selection: after a steady solve and before export, and before `START_SOLVER` on an unsteady march, so every step export reads it; the plan warns on a march, where no run has measured the command in that position. It conflicts with an explicit family selection. |
 
 Typed input, inspection and emission establish the requested script. Native acceptance additionally requires executable identity, input and script hashes, logs, and measured state or output changes. Parser acceptance and exit code zero alone are insufficient.
 

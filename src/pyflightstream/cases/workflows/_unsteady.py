@@ -95,8 +95,8 @@ from ._skeleton import (
 from ._solver_settings import (
     _custom_flags,
     _raw_commands,
-    _refuse_the_loads_selections_on_a_march,
     _settings,
+    _warn_of_the_loads_selections_on_a_march,
 )
 from ._timing import (
     rotor_time_stepping,
@@ -261,7 +261,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     (PFS-2184.10). Declared rotor blocks place their hub and RMRP frames; an
     explicit RPM turns the latter with no moving boundary.
     """
-    _refuse_the_loads_selections_on_a_march(case)
+    _warn_of_the_loads_selections_on_a_march(case)
     _refuse_cold_start_on_a_march(case, "unsteady")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below

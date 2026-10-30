@@ -36,6 +36,14 @@ FlightStream versions.
   are emitted on every build (FR-3404); on a build other than 26.124 and
   26.125, where they were measured, the plan warns, naming the build.
   migration: such a row is planned with the warning where it was refused.
+- The setup keys `clear_vorticity_drag_boundaries`, `load_units`,
+  `inviscid_loads` and `analysis_families` are accepted on `unsteady` and
+  `unsteady_rotor` rows (FR-3404): `DELETE_VORTICITY_DRAG_BOUNDARIES`,
+  `SET_LOADS_AND_MOMENTS_UNITS`, `SET_INVISCID_LOADS` and
+  `SET_SOLVER_ANALYSIS_BOUNDARIES` are emitted before `START_SOLVER`, so every
+  step export of the march reads them, and the plan warns, naming the
+  commands, since no run has measured them in that position.
+  migration: such a row is planned with the warning where it was refused.
 
 ## [0.51.0] - 2026-10-30
 

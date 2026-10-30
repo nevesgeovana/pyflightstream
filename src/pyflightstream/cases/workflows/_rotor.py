@@ -120,7 +120,7 @@ from ._skeleton import (
 from ._solver_settings import (
     _custom_flags,
     _raw_commands,
-    _refuse_the_loads_selections_on_a_march,
+    _warn_of_the_loads_selections_on_a_march,
 )
 from ._timing import (
     rotor_time_stepping,
@@ -549,7 +549,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     before it would be discarded with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
-    _refuse_the_loads_selections_on_a_march(case)
+    _warn_of_the_loads_selections_on_a_march(case)
     _refuse_cold_start_on_a_march(case, "unsteady_rotor")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a

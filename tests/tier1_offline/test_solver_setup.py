@@ -1901,9 +1901,11 @@ def test_f5_0102_f268_start_solver_warns_that_the_deferred_selection_lands_after
 # --- F5-1112: an explicit false loads flag is not a stated selection (F-1324) ---
 
 
-def test_an_explicit_false_loads_flag_does_not_refuse_an_unsteady_march():
+def test_an_explicit_false_loads_flag_is_silent_on_an_unsteady_march():
+    import warnings
+
     from pyflightstream.cases.workflows._solver_settings import (
-        _refuse_the_loads_selections_on_a_march,
+        _warn_of_the_loads_selections_on_a_march,
     )
 
     def case(**solver):
@@ -1915,10 +1917,14 @@ def test_an_explicit_false_loads_flag_does_not_refuse_an_unsteady_march():
             solver=SolverSettings(**solver),
         )
 
-    _refuse_the_loads_selections_on_a_march(case(inviscid_loads=False))
-    # THE CONTROL: a stated True is still refused.
-    with pytest.raises(CampaignConfigError, match="inviscid_loads"):
-        _refuse_the_loads_selections_on_a_march(case(inviscid_loads=True))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _warn_of_the_loads_selections_on_a_march(case(inviscid_loads=False))
+    # THE CONTROL: a stated True is warned. THE EXPECTATION CHANGED WITH THE
+    # REQUIREMENT (FR-3404, 0.52.0): it was refused, it is now emitted before
+    # START_SOLVER and the plan names the command.
+    with pytest.warns(PyflightstreamWarning, match="inviscid_loads.*SET_INVISCID_LOADS"):
+        _warn_of_the_loads_selections_on_a_march(case(inviscid_loads=True))
 
 
 def test_p0430_f5_a_hand_edited_snapshot_is_refused_not_replayed_by_key_order():

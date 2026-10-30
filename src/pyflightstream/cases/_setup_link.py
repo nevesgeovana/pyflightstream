@@ -228,10 +228,41 @@ def analysis_indices(case: SimCase, script: Script) -> list[int] | None:
     )
 
 
-#: The setup keys that select what the loads analysis reads (G09), each
-#: an analysis-phase command emitted after START_SOLVER, which is why a row of an
-#: unsteady run type may not state them.
+#: The setup keys that select what the loads analysis reads (G09), each an
+#: analysis-phase command: emitted after START_SOLVER on a steady row, and
+#: before it on a march (:func:`loads_selections_before_the_solve`, FR-3404).
 LOADS_SELECTION_KEYS: tuple[str, ...] = ("analysis_families", "load_units", "inviscid_loads")
+
+
+def loads_selections_before_the_solve(case: SimCase, script: Script) -> list[str]:
+    """Emit a march's loads selections and drag-list clear before ``START_SOLVER`` (FR-3404).
+
+    On a march a selection stated after the solve starts reaches the final
+    export and not the step exports the unsteady products are read from
+    (RPT-064 measured it for the loads frame, RPT-133 for the vorticity drag
+    list), so the march states them right before the solve, in the order a
+    steady row states them after it, the clear of the vorticity drag list
+    last. A key stated False (``inviscid_loads = false``) emits nothing, as
+    before. Returns the commands emitted, for the caller's warning.
+    """
+    solver = case.solver
+    emitted: list[str] = []
+    if solver.load_units is not None:
+        script.emit_before_the_solve("SET_LOADS_AND_MOMENTS_UNITS", solver.load_units)
+        emitted.append("SET_LOADS_AND_MOMENTS_UNITS")
+    boundaries = analysis_indices(case, script)
+    if boundaries is not None:
+        script.emit_before_the_solve(
+            "SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries)
+        )
+        emitted.append("SET_SOLVER_ANALYSIS_BOUNDARIES")
+    if solver.inviscid_loads:
+        script.emit_before_the_solve("SET_INVISCID_LOADS", "ENABLE")
+        emitted.append("SET_INVISCID_LOADS")
+    if solver.clear_vorticity_drag_boundaries:
+        script.emit_before_the_solve("DELETE_VORTICITY_DRAG_BOUNDARIES")
+        emitted.append("DELETE_VORTICITY_DRAG_BOUNDARIES")
+    return emitted
 
 
 def loads_selections(case: SimCase, script: Script) -> None:

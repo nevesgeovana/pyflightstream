@@ -91,6 +91,7 @@
       "tests/tier1_offline/test_p0451_probe_phases.py",
       "tests/tier1_offline/test_p0461_power_off_hub.py",
       "tests/tier1_offline/test_p0520_norefusal.py",
+      "tests/tier1_offline/test_p0520_norefusal_loads.py",
       "tests/tier1_offline/test_p0520_norefusal_marking.py",
       "tests/tier1_offline/test_p0520_norefusal_probes.py",
       "tests/tier1_offline/test_periodic_native_zones.py",

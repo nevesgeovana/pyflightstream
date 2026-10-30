@@ -741,6 +741,11 @@ def _script_solve_and_export(
     solver that was initialised once and is never cleared between them.
     That retained state makes warm start a sweep model.
     """
+    if unsteady:
+        # FR-3404: a march states its loads selections and the clear of its
+        # vorticity drag list before the solve, so the step exports carry them;
+        # before the row's raw exec commands, which open the exec phase.
+        _setup_link.loads_selections_before_the_solve(case, script)
     _raw_commands(case, script, "exec")
     if unsteady:
         _vorticity_list_before_the_solve(script)
