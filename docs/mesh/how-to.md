@@ -514,9 +514,15 @@ pyfs-matrix refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
 ```
 
 Or call `refine_mesh("inputs/geometries/W1/W1_patches.obj", 2, visual_inspect=True)`.
-Open `<level>.inspect.pdf` beside the resulting OBJ: each output family or
-component has a patches page and a directions page with the same colors and P/N
-labels as preparation. Recorded continuity changes are annotated.
+Open `<level>.refine-governors.pdf` beside the resulting OBJ. Its first page
+lists each governing family, the direction it governs (PARALLEL or NORMAL), its
+bands and the number of families it governs. Then one page per governing family
+and direction shows the whole aircraft faint, the governing family in a strong
+color and every family it governs in that direction in a lighter tint of it,
+whatever their component. Each output family or component then has a patches
+page and a directions page with the same colors and P/N labels as preparation.
+Recorded continuity changes are annotated. `visual-inspect` on the level OBJ
+writes `<level>.inspect.pdf`, a separate file.
 If refinement refuses after reading the source, open the
 `<stem>.refine-refusal.pdf` named at the end of the error. Its first page locates
 the affected families, nodes and points from structured refusal data; family

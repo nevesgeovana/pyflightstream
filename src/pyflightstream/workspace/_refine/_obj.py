@@ -66,6 +66,7 @@ def output_stems(names: Sequence[str]) -> dict[str, str]:
         ".refine.json",
         ".audit.json",
         ".inspect.pdf",
+        ".refine-governors.pdf",
         ".obj.boundaries.toml",
     }
     original = set().union(*(paths(name) for name in names))

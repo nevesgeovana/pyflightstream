@@ -314,9 +314,10 @@ Factors stated on `keep` are warned and skipped.
 
 Inspection is part of the refinement contract. `prepare-to-refine --visual-inspect`
 writes `<stem>_patches.inspect.pdf`, with a patches page and a directions page per
-original family. `refine --visual-inspect` writes `<level>.inspect.pdf` beside the
-output OBJ with the same page pair per output component or ungrouped family,
-including continuity notes from the record. Patches pages distinguish GOVERNING
+original family. `refine --visual-inspect` writes `<level>.refine-governors.pdf`
+beside the output OBJ: a governors summary, one page per governing family and
+direction read from the recorded bands, then the same page pair per output
+component or ungrouped family, including continuity notes from the record. Patches pages distinguish GOVERNING
 PARALLEL and GOVERNING NORMAL; directions pages draw planner arcs, P/N band labels
 and leads. A refusal after the mesh is read attempts
 `<stem>.refine-refusal.pdf` beside the source, regardless of the inspection flag.
