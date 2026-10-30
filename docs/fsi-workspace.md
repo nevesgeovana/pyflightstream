@@ -97,16 +97,17 @@ shell, spar, hollow-section, shear-center or second structural model.
 
 | Workflow | FSI in this release |
 | --- | --- |
-| `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release (the morph is applied to the un-rotated blade, reported to the vendor). |
+| `unsteady_rotor` | Accepted and warned: the coupling block is emitted before `START_SOLVER`, [below](#automatic-workspace-coupling), and the plan warns that the solver applies the morph of a rotating blade at its imported azimuth. |
 | `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
 | `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing-0370). Refused on a whole wheel. |
 
-On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
-each structural call the surface is the un-rotated blade carrying the
+On 26.124 and 26.125 a mapped rotating blade is morphed at its imported azimuth:
+after each structural call the surface is the un-rotated blade carrying the
 displacement, and the next time step restores the rigid rotated blade. The
-morph replaces the rotation instead of composing with it, so no coupled rotor
-number of that route is a rotor result. The rotor wiring below is kept, tested, and closed by
-the plan until the route is released.
+morph replaces the rotation instead of composing with it, so a coupled rotor
+number of that route is not yet the result of the deformed rotating blade. The
+plan emits the route and says so in a warning on every coupled `unsteady_rotor`
+row; the vendor has the reproduction.
 
 ## Quasi-steady sector FSI
 
@@ -303,7 +304,7 @@ q L^4 / (8 E I) and the absence of any centrifugal term.
 ## Automatic workspace coupling
 
 Selecting `FSI: f001` on an `unsteady_rotor` row prepares the existing
-driver's complete input interface (refused in this release, above). Planning derives the node CSV and
+driver's complete input interface (planned with the warning above). Planning derives the node CSV and
 ordering map from the effective configuration, resolves blade boundaries and
 rotating frames, and records the emitted section-load order in
 `fsi_family_map.json`. The run writer stages and hashes these files, the native

@@ -159,7 +159,8 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
     quasi-steady coupled row stays out: ``EXECUTE_AEROELASTIC_ANALYSIS`` starts its coupling
     loop only after the script ends, so no point can follow it in one instance (FR-410,
-    FR-421). ``unsteady_rotor`` refuses FSI when it builds.
+    FR-421). A coupled ``unsteady_rotor`` row couples inside its march, as the unsteady
+    fixed wing does, and joins like it (FR-3404).
 
     A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405):
     the split puts it only with polars stating the same actions, and the job registers

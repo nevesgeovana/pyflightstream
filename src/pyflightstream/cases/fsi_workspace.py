@@ -25,8 +25,8 @@ THE ROUTES: :func:`wire_fixed_wing_fsi` couples a fixed wing on
 ``steady`` and ``unsteady`` (FSI-G), :func:`wire_quasi_steady_sector_fsi`
 the blade of a ``qsteady_rotor`` periodic sector (steady, the blade held
 still, the structure turning at the speed the free stream turns), and
-:func:`wire_workspace_fsi` the rotor's blades on ``unsteady_rotor``, refused
-by the workflow gate; all three stage and emit through one helper.
+:func:`wire_workspace_fsi` the rotor's blades on ``unsteady_rotor``, accepted
+and warned with :data:`FSI_ROTOR_IN_DEBUG`; all three stage and emit through one helper.
 """
 
 from __future__ import annotations
@@ -98,9 +98,11 @@ CALLBACK_FILE = "fsi_callback.py"
 #: structural route (FSI-G, :func:`wire_fixed_wing_fsi`),
 #: required because fixed-wing coupling is the basic FSI case.
 #:
-#: ``unsteady_rotor``: refused. On 26.124 the morph of a mapped rotating
-#: blade is applied to the blade at its imported azimuth and replaces the
-#: rotation instead of composing with it (RPT-093, "aeroelastic coupling on
+#: ``unsteady_rotor``: ACCEPTED and warned (FR-3404). The coupling block is
+#: emitted before ``START_SOLVER`` (:func:`wire_workspace_fsi`) and the plan
+#: warns with :data:`FSI_ROTOR_IN_DEBUG`: on 26.124 the morph of a mapped
+#: rotating blade is applied to the blade at its imported azimuth and replaces
+#: the rotation instead of composing with it (RPT-093, "aeroelastic coupling on
 #: 26.124", 2026-09-29, section 3; the same on 26.125 in RPT-155).
 #:
 #: ``qsteady_rotor``: ACCEPTED on a periodic SECTOR, the route of the FSI
@@ -109,13 +111,18 @@ CALLBACK_FILE = "fsi_callback.py"
 #: whose structural solve applies the centrifugal loads. The WHEEL stays
 #: refused by its builder: several clockings averaged are not the state of
 #: one structure.
+#:
+#: The warning a coupled ``unsteady_rotor`` row is planned with (FR-3404): the
+#: measured solver behaviour that the coupled loads of the row carry.
 FSI_ROTOR_IN_DEBUG = (
-    "FSI on unsteady_rotor is still in debug (the morph is applied "
-    "to the un-rotated blade, reported to the vendor)."
+    "the solver applies the aeroelastic morph of a rotating blade to the blade at its "
+    "imported azimuth, where it replaces the rotation instead of composing with it "
+    "(measured on 26.124 and 26.125, reported to the vendor), so the coupled loads of "
+    "this row are not yet those of the deformed rotating blade."
 )
 FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
     {
-        "unsteady_rotor": FSI_ROTOR_IN_DEBUG,
+        "unsteady_rotor": None,
         "steady": None,
         "unsteady": None,
         "qsteady_rotor": None,
@@ -216,7 +223,9 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
         The refusal's reason, from :data:`FSI_WORKFLOW_STATE`; None when
         the workflow accepts FSI (``steady`` and ``unsteady``, the fixed
         wing; ``qsteady_rotor``, whose builder accepts it on a sector
-        only).
+        only; ``unsteady_rotor``, planned with the warning
+        :data:`FSI_ROTOR_IN_DEBUG`). A workflow outside the package's is
+        refused.
     """
     if workflow in FSI_WORKFLOW_STATE:
         return FSI_WORKFLOW_STATE[workflow]
@@ -759,6 +768,13 @@ def validate_workspace_fsi(
         return
     _check_output_attachment(case)
     _refuse_the_workflow(case, workflow, script.version)
+    if workflow == "unsteady_rotor":
+        warn(
+            f"case {case.sim_id!r} couples a rotating blade on unsteady_rotor: "
+            f"{FSI_ROTOR_IN_DEBUG}",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     _refuse_a_wing_mismatch(case, workflow)
     if continuation:
         raise CampaignConfigError(

@@ -1,7 +1,7 @@
 """Tier 1: the coupled-route pieces of FSI-1 and the FSI-GUARD of 0.30.0.
 
-Each piece is tested on its own. unsteady_rotor is refused while the rotor
-morph is in debug; steady and unsteady accept FSI through the fixed-wing
+Each piece is tested on its own. unsteady_rotor is planned with the warning
+of the measured rotor morph (FR-3404); steady and unsteady accept FSI through the fixed-wing
 route (FSI-G, ``test_fsig_fixed_wing.py``). The rotor wiring that calls
 these pieces is exercised in ``test_aeroelastic_typed_setup.py`` with the
 guard opened for that module.
@@ -25,18 +25,17 @@ from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 # FSI-GUARD: which workflows accept FSI in this release.
 
 
-def test_unsteady_rotor_with_fsi_is_refused_as_in_debug(tmp_path):
-    # P0300-FSI-GUARD
+def test_unsteady_rotor_with_fsi_is_planned_with_the_measured_warning(tmp_path):
+    # P0300-FSI-GUARD, P0520-NOREFUSAL-FSI-ROTOR: THE EXPECTATION CHANGED BECAUSE
+    # THE OWNER CHANGED THE REQUIREMENT (2026-10-30, no command refused): the row
+    # is built with its coupling block and warned with the measured solver
+    # behaviour, where 0.30.0 to 0.51.0 refused it.
     case = coupled_case(tmp_path)
     script = Script("26.124")
-    with pytest.raises(CampaignConfigError) as refused:
+    with pytest.warns(Warning, match="imported azimuth"):
         build_script(case, script)
-    assert (
-        "FSI on unsteady_rotor is still in debug (the morph is applied "
-        "to the un-rotated blade, reported to the vendor)."
-    ) in str(refused.value)
-    assert "AEROELASTIC" not in script.render()
-    assert "fsi_callback.py" not in script.pending_input_files
+    assert "SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE" in script.render()
+    assert "fsi_callback.py" in script.pending_input_files
 
 
 @pytest.mark.requirement("FR-169")
@@ -63,7 +62,8 @@ def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_accepts_it():
     # Every registered workflow is named in the table, so FSI on a new one
     # is a decision there and not an accident of the lookup.
     assert set(WORKFLOWS) <= set(ws.FSI_WORKFLOW_STATE)
-    assert ws.fsi_workflow_refusal("unsteady_rotor") == ws.FSI_ROTOR_IN_DEBUG
+    # FR-3404 (2026-10-30): unsteady_rotor is accepted and warned.
+    assert ws.fsi_workflow_refusal("unsteady_rotor") is None
     # THE REQUIREMENT CHANGED, by the owner (2026-09-29, GOAL-035): FSI on a
     # qsteady_rotor sector is wired in 0.30.0 ("no qsteady_rotor, o solver
     # estrutural tem que aplicar as cargas centrifugas"); the table accepts

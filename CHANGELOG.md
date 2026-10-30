@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- FSI on an `unsteady_rotor` row is planned and built (FR-3404): the
+  Aeroelastic toolbox block (`AEROELASTIC_RBF_TYPE`, the structural nodes in
+  each blade's rotating frame, the working directory, the post-processing
+  script, the structural command, `SET_AEROELASTIC_ITERATIONS 1` and
+  `SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE`) is emitted before
+  `START_SOLVER`, and the plan warns that the solver applies the morph of a
+  rotating blade at its imported azimuth (measured on 26.124 and 26.125).
+  migration: a coupled `unsteady_rotor` row that the plan refused now runs,
+  with that warning.
+
 ## [0.51.0] - 2026-10-30
 
 ### Added

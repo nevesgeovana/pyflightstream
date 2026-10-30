@@ -132,13 +132,14 @@ def unsteady_wing_case(tmp_path: Path, cfg: FsiConfig | None = None) -> SimCase:
 
 
 # --------------------------------------------------------------------------
-# The guard: steady and unsteady accept FSI; unsteady_rotor stays refused.
+# The guard: steady and unsteady accept FSI; unsteady_rotor is accepted and
+# warned (FR-3404, the owner's decision of 2026-10-30: no command refused).
 
 
-def test_the_guard_allows_steady_and_unsteady_and_keeps_the_rotor_refused():
+def test_the_guard_allows_steady_unsteady_and_the_warned_rotor():
     assert ws.fsi_workflow_refusal("steady") is None
     assert ws.fsi_workflow_refusal("unsteady") is None
-    assert ws.fsi_workflow_refusal("unsteady_rotor") == ws.FSI_ROTOR_IN_DEBUG
+    assert ws.fsi_workflow_refusal("unsteady_rotor") is None
     # The owner's requirement moved (GOAL-035): the qsteady_rotor sector couples
     # in 0.30.0, so the table accepts it; its builder refuses the wheel.
     assert ws.fsi_workflow_refusal("qsteady_rotor") is None
@@ -150,9 +151,8 @@ def test_a_wing_configuration_on_the_rotor_workflow_is_refused(tmp_path):
 
     case = coupled_case(tmp_path).model_copy(update={"fsi": wing_config()})
     script = Script("26.124")
-    # unsteady_rotor is refused wholesale (FSI_ROTOR_IN_DEBUG), before the wing
-    # check ever runs; qsteady_rotor is the rotor workflow FSI now couples on
-    # (GOAL-035), so a wing on it is what the wing/workflow check itself refuses.
+    # qsteady_rotor is a rotor workflow FSI couples on (GOAL-035), so a wing on
+    # it is what the wing/workflow check itself refuses.
     with pytest.raises(CampaignConfigError, match="a fixed wing couples on"):
         ws.validate_workspace_fsi(case, script, workflow="qsteady_rotor", continuation=False)
 
