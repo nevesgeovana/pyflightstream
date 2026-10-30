@@ -470,8 +470,9 @@ def _governor_page(pdf, scene, views, governor, *, strong, factor, unit, dpi):
     if len(scene.faces):
         scene.base = np.array([fills[n] for n in scene.names])[scene.owner]
     scene.labelled = {lead, *governed}
-    scene.highlight = {lead} & set(scene.names)
-    scene.highlight_labels = {lead: f"GOVERNS {direction.upper()}"}
+    # The title names the direction; a framed label over the lead would repeat it and hide the mesh.
+    scene.highlight = set()
+    scene.highlight_labels = {}
     fig = plt.figure(figsize=PAGE)
     views_page(fig, scene, views, [], [], labels=True, unit=unit)
     pw, ph = fig.get_size_inches()

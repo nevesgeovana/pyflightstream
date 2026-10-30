@@ -1462,6 +1462,8 @@ def test_p0502_component_governor_governs_its_other_refined_grids(tmp_path, monk
     assert "Parallel factor 2. It governs 2 other families" in " ".join(pages[1].split())
     assert "B governs the NORMAL direction" in pages[2]
     assert "Normal factor 3. It governs 2 other families" in " ".join(pages[2].split())
+    # The title carries the direction; no framed label repeats it over the mesh.
+    assert not any("GOVERNS " in page for page in pages[1:3])
 
 
 def test_p0490_visual_strict_factor_refusal_has_pdf_and_location(tmp_path):
