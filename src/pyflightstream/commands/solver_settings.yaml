@@ -18,6 +18,7 @@ SET_SOLVER_STEADY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -43,6 +44,7 @@ SET_SOLVER_UNSTEADY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two
@@ -69,6 +71,7 @@ SET_BOUNDARY_LAYER_TYPE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   default: TRANSITIONAL
   default_ref: "FSM-26.120 p.203"
   notes: >
@@ -97,6 +100,7 @@ SET_SOLVER_VISCOUS_COUPLING:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.358, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.358, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.357, unchanged from FSM-26.125 p.358"}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
     flow solution. Attached-flow viscosity only; stall capture also
@@ -126,6 +130,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented
@@ -149,6 +154,7 @@ DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.124": {status: documented, note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Clears the viscous-exclusion list, restoring viscous coupling on
     every boundary. The helper spells the clear as an empty
@@ -285,6 +291,7 @@ CREATE_AIRFOIL_SEPARATION:
         - name: boundary_indices
           cites: boundaries
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.353 replaces the third argument: FSM-26.124 p.346 took the Valarezo criterion as ENABLE or DISABLE, and this edition takes the type of the leading edge instead, one of ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT or SHARP. The boundary count, its -1 form and the index line are unchanged", "args": [{"name": "name"}, {"name": "num_boundaries", "cites": null}, {"name": "leading_edge_type", "type": "enum", "values": ["ROUNDED_UNSWEPT", "ROUNDED_SWEPT", "HIGH_LIFT", "SHARP"]}, {"name": "boundary_indices", "cites": "boundaries"}]}
+    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.352 (against FSM-26.125 p.353: parameters, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.353 replaces the third argument: FSM-26.124 p.346 took the Valarezo criterion as ENABLE or DISABLE, and this edition takes the type of the leading edge instead, one of ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT or SHARP. The boundary count, its -1 form and the index line are unchanged", "args": [{"name": "name"}, {"name": "num_boundaries", "cites": null}, {"name": "leading_edge_type", "type": "enum", "values": ["ROUNDED_UNSWEPT", "ROUNDED_SWEPT", "HIGH_LIFT", "SHARP"]}, {"name": "boundary_indices", "cites": "boundaries"}]}
   notes: >
     Assigns the airfoil (trailing-edge) separation model to the listed
     boundaries, with the Valarezo maximum-lift criterion enabled or
@@ -326,6 +333,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
     "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
+    "26.127": {status: documented, note: "FSM-26.127 p.353, unchanged from FSM-26.125 p.354"}
   notes: >
     Assigns the axial vortex separation model to a slender body. FRAME
     is the 1-based index of the coordinate system acting as the body
@@ -360,6 +368,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
     "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.354, read against FSM-26.124 p.347: the parameter table differs in layout spacing only"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.354, read against FSM-26.124 p.347: the parameter table differs in layout spacing only"}
+    "26.127": {status: documented, note: "FSM-26.127 p.353, unchanged from FSM-26.125 p.354"}
   notes: >
     The cylindrical bulk separation model, split out of the
     SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on
@@ -388,6 +397,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
     "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
+    "26.127": {status: documented, note: "FSM-26.127 p.353, unchanged from FSM-26.125 p.354"}
   notes: >
     The Stratford bulk separation model, which takes no diameter. As
     with the cylindrical command above, RPT-015 accepted it on 26.120
@@ -410,6 +420,7 @@ DELETE_SEPARATION:
     "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
+    "26.127": {status: documented, note: "FSM-26.127 p.354, unchanged from FSM-26.125 p.355"}
   notes: >
     Deletes one separation model by its 1-based index in the order the
     models were created; -1 deletes every one of them (FSM-26.120 p.342).
@@ -624,6 +635,7 @@ SET_SURFACE_ROUGHNESS:
     "26.124": {status: documented, note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
+    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Surface roughness height for the boundary layer model, in
     NANOMETRES, which the manual states and which is worth carrying
@@ -655,6 +667,7 @@ SET_THIN_BOUNDARIES:
     "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
+    "26.127": {status: documented, note: "FSM-26.127 p.354, unchanged from FSM-26.125 p.355"}
   notes: >
     Marks boundaries as thin, so the solver treats both faces of a
     surface rather than one. The indices follow on the next line,
@@ -679,6 +692,7 @@ DELETE_THIN_BOUNDARIES:
     "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
+    "26.127": {status: documented, note: "FSM-26.127 p.354, unchanged from FSM-26.125 p.355"}
   notes: >
     Clears the thin boundary list entirely. It takes no argument, so
     there is no way to remove one boundary from the list: a script that
@@ -699,6 +713,7 @@ SOLVER_STABILIZATION:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Maximum level of stabilization applied to the main convergence,
     dimensionless, from 0 to 1. The manual states that 0 is the same as
@@ -729,6 +744,7 @@ DISABLE_SOLVER_REF_VELOCITY:
     "26.124": {status: documented, note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
+    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Makes the solver reference velocity equal the free-stream velocity,
     which is what the manual's sample comment states, rather than

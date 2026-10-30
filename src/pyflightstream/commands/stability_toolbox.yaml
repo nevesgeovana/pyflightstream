@@ -48,6 +48,7 @@ STABILITY_TOOLBOX_SETTINGS:
     "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
+    "26.127": {status: documented, note: "FSM-26.127 p.383, unchanged from FSM-26.125 p.384"}
   notes: >
     Settings shared by every coefficient the toolbox computes.
 
@@ -136,6 +137,7 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
         - name: boundary_indices
           cites: boundaries
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.384 lists CDP and CDV among the numerators where FSM-26.124 p.378 listed CDI and CDO, as the edition renames the drag split of its loads table to pressure drag and viscous and separation drag (the 26.125 entry of manual_editions in _meta.yaml)", "args": [{"name": "name"}, {"name": "numerator", "values": ["CL", "CDP", "CDV", "CD", "FORCE_X", "FORCE_Y", "FORCE_Z", "MOMENT_X", "MOMENT_Y", "MOMENT_Z"]}, {"name": "denominator"}, {"name": "frame", "cites": "frames"}, {"name": "units"}, {"name": "constant"}, {"name": "boundaries", "cites": null}, {"name": "boundary_indices", "cites": "boundaries"}]}
+    "26.127": {"status": "documented", "note": "FSM-26.127 p.383, unchanged from FSM-26.125 p.384", "args": [{"name": "name"}, {"name": "numerator", "values": ["CL", "CDP", "CDV", "CD", "FORCE_X", "FORCE_Y", "FORCE_Z", "MOMENT_X", "MOMENT_Y", "MOMENT_Z"]}, {"name": "denominator"}, {"name": "frame", "cites": "frames"}, {"name": "units"}, {"name": "constant"}, {"name": "boundaries", "cites": null}, {"name": "boundary_indices", "cites": "boundaries"}]}
   notes: >
     Defines one derivative: a numerator variable over a denominator
     variable, scaled by a constant, computed on a named set of
@@ -181,6 +183,7 @@ STABILITY_TOOLBOX_DELETE_ALL:
     "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
+    "26.127": {status: documented, note: "FSM-26.127 p.383, unchanged from FSM-26.125 p.384"}
   notes: >
     Deletes every user-defined coefficient. There is no command deleting
     one, so correcting a single definition means rebuilding the set.
@@ -202,6 +205,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
     "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.385, unchanged from FSM-26.124 p.378"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.385, unchanged from FSM-26.124 p.378"}
+    "26.127": {status: documented, note: "FSM-26.127 p.384, unchanged from FSM-26.125 p.385"}
   notes: >
     Runs the whole set.
 
@@ -233,6 +237,7 @@ STABILITY_TOOLBOX_EXPORT:
     "26.124": {status: documented, note: "FSM-26.124 p.379, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.385, unchanged from FSM-26.124 p.379"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.385, unchanged from FSM-26.124 p.379"}
+    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.384 (against FSM-26.125 p.385: sample, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.385, unchanged from FSM-26.124 p.379"}
   notes: >
     Writes the computed coefficients to a file, the path on the next
     line. It is the only command in the chapter that produces an
@@ -251,6 +256,7 @@ STABILITY_TOOLBOX_ANGLE_INCREMENT:
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.384, the first edition to document it"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.384, the first edition to document it"}
+    "26.127": {status: documented, note: "FSM-26.127 p.383, unchanged from FSM-26.125 p.384"}
   notes: >
     Sets the angle step, in degrees, the stability and control toolbox
     applies to the angle of attack and the sideslip angle when it forms

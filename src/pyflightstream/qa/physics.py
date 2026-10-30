@@ -80,8 +80,9 @@ from pyflightstream.versions import known_versions
 
 #: The builds whose loads table prints the pressure and viscous drag split (CDp, CDv) where
 #: the earlier builds print CDi and CDo; 26.126 prints the 26.125 header (its own run of
-#: 2026-10-30), so it reads and writes the same pressure-drag references.
-PRESSURE_DRAG_BUILDS = ("26.125", "26.126")
+#: 2026-10-30), so it reads and writes the same pressure-drag references; 26.127 is carried
+#: from 26.126, its manual keeping the CDp and CDv columns (FSM-26.127 pp.229 and 231).
+PRESSURE_DRAG_BUILDS = ("26.125", "26.126", "26.127")
 
 PHYSICS_SCHEMA = "pyflightstream-physics-report/1"
 REFERENCE_SCHEMA = "pyflightstream-physics-reference/1"

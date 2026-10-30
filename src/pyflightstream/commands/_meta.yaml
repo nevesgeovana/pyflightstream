@@ -250,6 +250,28 @@ versions:
     build: "10282026"
     prints: "2612"
     inherits_base: false
+  - canonical: "26.127"
+    alias: "26.12"
+    # The vendor's corrected 26.12 build of 2026-10-30, which replaced 26.126
+    # the same day. build and prints come from its banner, captured by
+    # pyfs-qa probe on 2026-10-30 (reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml,
+    # solver_identity): Simcenter Flightstream version 2612, build #10282026.
+    #
+    # THE BUILD NUMBER DOES NOT TELL IT FROM 26.126: both print 2612 and build
+    # 10282026, while the executables differ (19549576 bytes here, 18795072 for
+    # 26.126; RPT-032). A solver log therefore cannot show which of the two
+    # ran; the executable path the campaign names is the only distinction.
+    #
+    # Its package ships a NEW manual edition, FSM-26.127 (created 2026-10-30,
+    # 422 pages), so its rows are read from it: pyfs-manual register wrote a
+    # documented row citing FSM-26.127 for every command it describes as
+    # FSM-26.125 does (339), and the rest are carried from 26.126 (the 29 it
+    # describes differently, the ten it drops, and those neither edition
+    # prints), a status a 26.126 run decided becoming documented until a run
+    # on this build judges it. Every carried note says so.
+    build: "10282026"
+    prints: "2612"
+    inherits_base: false
 
 # Each edition states two inclusive ranges: pages carrying scripting
 # signature headings, and the contiguous Script Index pages parsed for
@@ -492,3 +514,17 @@ manual_editions:
     own: the manual in its package is an older edition (created 2026-04-24,
     409 pages, 363 commands under the pre-26.125 names) than FSM-26.125
     (created 2026-09-25), so the newest 26.12 edition remains the reading.
+  "26.127": >
+    FSM-26.127: Simcenter Flightstream User Guide shipped in the 26.127
+    package (file title FlightStream user guide, created 2026-10-30), 422
+    pages, scripting reference pp.286-387 with its Script Index at
+    pp.388-394; cited in version notes as "FSM-26.127 p.N". It documents
+    372 commands against FSM-26.125's 380. It drops the nine Acoustics
+    Toolbox commands and DETECT_LEADING_EDGES_WAKES_BY_SURFACE, prints
+    DETECT_LEADING_EDGE_WAKES_BY_SURFACE and FREE_SURFACE_WAVE_PROFILE_EXPORT,
+    which the database does not hold, and describes 29 commands differently
+    (among them new trailing arguments of CAD_CREATE_IMPORT_CURVE_TXT and
+    CREATE_NEW_6DOF_EXTERNAL_FORCE). A dropped command keeps its FSM-26.125
+    reading on 26.127, since an edition that stops printing a command is not
+    a run that refuses it. The loads chapter keeps the CDp and CDv columns
+    (FSM-26.127 pp.229 and 231).

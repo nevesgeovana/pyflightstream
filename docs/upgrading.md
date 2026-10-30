@@ -7,6 +7,16 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.52.0
+
+FlightStream 26.127 (vendor 26.12, the corrected build of 2026-10-30) is a
+supported build. To run on it, add its executable to `inputs/executables.toml`
+under `"26.127"` and set `FS_BUILD` to `26.127` in the matrix rows, or pass
+`--fs-version 26.127`; then plan again. Its solver prints the same release and
+build number as 26.126 (2612, build 10282026), so a log cannot tell the two
+apart: name the executable of the build the rows state, and compare 26.126 and
+26.127 results only as two builds, never as one series (FR-3406).
+
 ## 0.51.0
 
 FlightStream 26.126 (vendor 26.12, build 10282026) is a supported build. To

@@ -34,6 +34,7 @@ DELETE_TRANSITION_TRIP:
     "26.124": {status: documented, note: "FSM-26.124 p.332, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.339, unchanged from FSM-26.124 p.332"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.339, unchanged from FSM-26.124 p.332"}
+    "26.127": {status: documented, note: "FSM-26.127 p.338, unchanged from FSM-26.125 p.339"}
   notes: >
     Deletes one set of boundary-layer transition trip edges by its
     1-based index. The manual requires an index greater than zero and

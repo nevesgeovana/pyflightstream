@@ -173,8 +173,9 @@ def test_the_new_commands_are_entered_on_26125_alone_with_a_probe_each():
     registry = CommandRegistry.load()
     for name in NEW_IN_26125:
         entry = registry.commands[name]
-        # 26.126 carries every 26.125 row (FR-3402); no build before 26.125 gains one.
-        assert set(entry.versions) == {"26.125", "26.126"}, name
+        # 26.126 carries every 26.125 row (FR-3402) and 26.127 every 26.126 row
+        # (FR-3406); no build before 26.125 gains one.
+        assert set(entry.versions) == {"26.125", "26.126", "26.127"}, name
         row = entry.versions["26.125"]
         assert row.status is Status.DOCUMENTED or row.report.endswith(CAMPAIGN), name
         assert entry.manual_ref.startswith("FSM-26.125 p."), name

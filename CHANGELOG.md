@@ -64,6 +64,19 @@ FlightStream versions.
   warning. A matrix whose first build entry declares a version now binds the
   campaign to that version rather than to the build id. Without the flag such
   a build stays refused.
+### Added
+
+- FlightStream 26.127 (vendor 26.12, the corrected build of 2026-10-30) is a
+  supported build: `--fs-version 26.127` and `FS_BUILD 26.127` plan and run.
+  Its solver prints the release and build number of 26.126 (2612, build
+  10282026), so only the executable path tells the two apart. Its package
+  ships a new manual edition, FSM-26.127: the 339 commands it describes as
+  FSM-26.125 does are read from it, and the rest are carried from 26.126
+  with their grammar, among them the nine Acoustics Toolbox commands it no
+  longer prints, which keep their rows. Where 26.126 has its own script form
+  (the trailing-edge detection form, the aeroelastic frame check, the
+  marking order, the pressure-drag columns), 26.127 takes the same
+  (FR-3406).
 
 ## [0.51.0] - 2026-10-30
 

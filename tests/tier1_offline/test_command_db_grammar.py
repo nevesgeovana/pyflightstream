@@ -532,6 +532,21 @@ PER_VERSION_OPTIONAL.update(
     }
 )
 
+# 26.127 (FR-3406): its own edition, FSM-26.127, is read, and every command whose
+# grammar it changes is carried with the 26.126 override until that difference is
+# read (the row's note names it). So each 26.126 delta and optionality line is a
+# 26.127 line too, derived rather than retyped for the reason given above.
+for _command, _rows in PER_VERSION_GRAMMAR.items():
+    if "26.126" in _rows:
+        _rows["26.127"] = _rows["26.126"]
+PER_VERSION_OPTIONAL.update(
+    {
+        (_command, "26.127"): _optional
+        for (_command, _version), _optional in list(PER_VERSION_OPTIONAL.items())
+        if _version == "26.126"
+    }
+)
+
 
 def _layout_delta(command: str, version: str, arg: str, field: str) -> bool:
     """Say whether a delta table names this field of this argument (the 26.125 forms)."""
@@ -763,7 +778,8 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # and inherit the rest, 142 fields more.
     # P0420: the ten manual layout readings add two inherited fields.
     # FR-3402: the 26.125 overrides carried to 26.126 word for word, 141 more.
-    assert checked == 321, (
+    # FR-3406: the same overrides carried again to 26.127, 141 more.
+    assert checked == 462, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -880,8 +896,9 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # `sentinel:` or `command_line` delta names are skipped for that argument only.
     # 1821 since the 26.125 revolve export override (five arguments the base carries).
     # 2682 since FR-3402: the 26.125 overrides carried to 26.126 word for word add
-    # the 733 comparisons they make on 26.125.
-    assert compared == 2682, (
+    # the 733 comparisons they make on 26.125. 3415 since FR-3406: carried again to
+    # 26.127, the same 733.
+    assert compared == 3415, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"

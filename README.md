@@ -106,6 +106,7 @@ and the evidence behind it is narrower than for the supported rows.
 | 26.124 | 26.12 | `operational` | `8172026` |
 | 26.125 | 26.12 | `operational` | `10052026` |
 | 26.126 | 26.12 | `operational` | `10282026` |
+| 26.127 | 26.12 | `operational` | `10282026` |
 
 `operational` means the minimal geometry-to-loads workflow builds for that
 version, checked by a test. `documented` describes the database support level;

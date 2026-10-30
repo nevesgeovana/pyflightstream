@@ -41,6 +41,7 @@ CREATE_NEW_SURFACE_SECTION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
+    "26.127": {status: documented, note: "FSM-26.127 p.375, unchanged from FSM-26.125 p.376"}
   notes: >
     SURFACES takes -1 for all boundaries; otherwise the space-separated
     surface indices follow on the next line.
@@ -178,6 +179,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
+    "26.127": {status: documented, note: "FSM-26.127 p.375, unchanged from FSM-26.125 p.376"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line.
@@ -214,6 +216,7 @@ COMPUTE_SURFACE_SECTIONAL_LOADS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
+    "26.127": {status: documented, note: "FSM-26.127 p.375, unchanged from FSM-26.125 p.376"}
   notes: >
     Integrates the surface section properties into per-section loads.
     Call it only after the relevant sections are updated and before
@@ -239,6 +242,7 @@ EXPORT_SURFACE_SECTIONAL_LOADS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
   notes: >
     Writes the sectional loads file consumed by the sectional-loads
     parser and the FSI coupling loop.
@@ -260,6 +264,7 @@ UPDATE_ALL_SURFACE_SECTIONS:
     "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
 
 EXPORT_ALL_SURFACE_SECTIONS:
   layout: param_lines
@@ -281,6 +286,7 @@ EXPORT_ALL_SURFACE_SECTIONS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
 
 EXPORT_SURFACE_SECTIONS:
   layout: mixed_inline
@@ -300,6 +306,7 @@ EXPORT_SURFACE_SECTIONS:
     "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.377; the previous probe consumed its END sentinel as the filename, so it does not verify this grammar. See RPT-036b finding 1."}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.377; the previous probe consumed its END sentinel as the filename, so it does not verify this grammar. See RPT-036b finding 1."}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
   notes: >
     Exports one surface section by index (index greater than 0), with a
     filename on the following line. FSM-26.120 p.365 names the command;
@@ -330,6 +337,7 @@ DELETE_SURFACE_SECTION:
     "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
 
 DELETE_ALL_SURFACE_SECTIONS:
   layout: bare
@@ -348,6 +356,7 @@ DELETE_ALL_SURFACE_SECTIONS:
     "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
+    "26.127": {status: documented, note: "FSM-26.127 p.376, unchanged from FSM-26.125 p.377"}
   notes: >
     Deletes every surface section.
 

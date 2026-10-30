@@ -58,6 +58,7 @@ SET_PLOT_TYPE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-24_plots.yaml", note: "FSM-26.124 p.367, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: documented, note: "FSM-26.125 p.373, unchanged from FSM-26.124 p.367"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.373, unchanged from FSM-26.124 p.367"}
+    "26.127": {status: documented, note: "FSM-26.127 p.372, unchanged from FSM-26.125 p.373"}
   notes: >
     Selects which plot the pane shows.
 
@@ -101,6 +102,7 @@ SAVE_PLOT_TO_FILE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-24_plots.yaml", note: "FSM-26.124 p.367, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: documented, note: "FSM-26.125 p.373, unchanged from FSM-26.124 p.367"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.373, unchanged from FSM-26.124 p.367"}
+    "26.127": {status: documented, note: "FSM-26.127 p.372, unchanged from FSM-26.125 p.373"}
   notes: >
     Writes the plot currently shown to a text file, the path on the next
     line. It takes no plot type, so which plot is written depends on the

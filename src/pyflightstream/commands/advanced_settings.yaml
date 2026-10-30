@@ -43,6 +43,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -67,6 +68,7 @@ SOLVER_MINIMUM_CP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   default: -20
   default_ref: "FSM-26.120 p.221"
   notes: >
@@ -110,6 +112,7 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Toggles the Reynolds-averaged (flat plate) boundary layer
     calculations.
@@ -134,6 +137,7 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
 
 SOLVER_SET_FARFIELD_LAYERS:
   layout: inline
@@ -155,6 +159,7 @@ SOLVER_SET_FARFIELD_LAYERS:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   default: 3
   default_ref: "FSM-26.120 p.344"
   notes: >
@@ -181,6 +186,7 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Toggles the unsteady Bernoulli and Kutta terms of the unsteady
     solver.
@@ -205,6 +211,7 @@ SET_WAKE_TERMINATION_TIME_STEPS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Number of time steps after which a wake vortex filament edge that
     lost all of its strength is removed from the simulation.
@@ -226,6 +233,7 @@ SET_WAKE_ON_WAKE_INDUCTION:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Toggles the wake-on-wake induced velocity computation.
 
@@ -246,6 +254,7 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Performs one additional wake relaxation iteration.
 
@@ -265,6 +274,7 @@ AEROELASTIC_RBF_TYPE:
     "26.124": {status: documented, note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
+    "26.127": {status: documented, note: "FSM-26.127 p.386, unchanged from FSM-26.125 p.389"}
   notes: >
     RBF mesh morphing algorithm of the aeroelastic coupling. The manual
     gives the options as a NUMBERED list of five and says the input may
@@ -299,6 +309,7 @@ LAMINAR_SEPARATION:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Laminar boundary layer separation. This is the one member of the
     flow-separation family that survived the 26.101 redesign unchanged
@@ -322,6 +333,7 @@ KUTTA_JOUKOWSKI_LIFT_FORCES:
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Computes the inviscid lift by the Kutta-Joukowski theorem, from the
     bound circulation, instead of by integrating the surface pressure,
@@ -351,6 +363,7 @@ PRINT_ROTOR_INDUCED_VELOCITIES:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Prints the rotor-induced velocities to the log at every time step of
     an unsteady run, which is what the manual's sample comment states.
@@ -374,6 +387,7 @@ SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   notes: >
     Refines the field-source grid where the solution needs it. The
     manual's sample comment marks this transonic only; what it does on a
@@ -395,6 +409,7 @@ ROTOR_INDUCED_VELOCITY_BLENDING:
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   default: 0.25
   default_ref: "FSM-26.120 p.345"
   notes: >
@@ -423,6 +438,7 @@ SET_WAKE_NUMERICAL_RELAXATION:
     "26.124": {status: documented, note: "FSM-26.124 p.351, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.358, unchanged from FSM-26.124 p.351"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.358, unchanged from FSM-26.124 p.351"}
+    "26.127": {status: documented, note: "FSM-26.127 p.357, unchanged from FSM-26.125 p.358"}
   default: 0.15
   default_ref: "FSM-26.120 p.346"
   notes: >
@@ -448,6 +464,7 @@ SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
     "26.124": {status: documented, note: "FSM-26.124 p.351, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, default: 10.0, default_ref: "FSM-26.125 p.358", note: "FSM-26.125 p.358, read against FSM-26.124 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
     "26.126": {"status": "documented", "default": 10.0, "default_ref": "FSM-26.125 p.358", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.358, read against FSM-26.124 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
+    "26.127": {"status": "documented", "note": "FSM-26.127 p.357, unchanged from FSM-26.125 p.358", "default": 10.0, "default_ref": "FSM-26.125 p.358"}
   default: 100.0
   default_ref: "FSM-26.120 p.346"
   notes: >
@@ -552,6 +569,7 @@ SET_WAKE_DECAY_CONSTANT:
     "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
+    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.354 (against FSM-26.125 p.355: parameters, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
   notes: >
     Rate at which wake vorticity decays with distance.
 

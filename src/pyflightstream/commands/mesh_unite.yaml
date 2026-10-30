@@ -35,6 +35,7 @@ BOOLEAN_UNITE_PATH:
     "26.124": {status: documented, note: "FSM-26.124 p.320, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.326, unchanged from FSM-26.124 p.320"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.326, unchanged from FSM-26.124 p.320"}
+    "26.127": {status: documented, note: "FSM-26.127 p.325, unchanged from FSM-26.125 p.326"}
   notes: >
     Location of the OpenVSP executable used for the unite. The manual
     states it must be called BEFORE BOOLEAN_UNITE_MESH, which is the one
@@ -102,6 +103,7 @@ BOOLEAN_UNITE_MESH:
     "26.124": {status: documented, note: "FSM-26.124 p.320, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.326, unchanged from FSM-26.124 p.320"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.326, unchanged from FSM-26.124 p.320"}
+    "26.127": {status: documented, note: "FSM-26.127 p.325, unchanged from FSM-26.125 p.326"}
   notes: >
     Intersects and unites several mesh bodies into one. The count sits
     on the command line and the indices follow on the next.

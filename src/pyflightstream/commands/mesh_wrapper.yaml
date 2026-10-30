@@ -46,6 +46,7 @@ WRAPPER_SET_INPUT:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Chooses which surfaces the wrap is built over: the count on the
     command line and the indices comma separated on the next, the same
@@ -73,6 +74,7 @@ WRAPPER_SET_GLOBAL_SIZE:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Target triangle edge length of the wrapped mesh, everywhere no local
     or volume control overrides it. The manual states the value must be
@@ -98,6 +100,7 @@ WRAPPER_SET_VERTEX_PROJECTION:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Whether the wrapped mesh's vertices are projected back onto the
     input surfaces, which keeps sharp features the wrap would otherwise
@@ -132,6 +135,7 @@ WRAPPER_SET_ANISOTROPY:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Stretches the target cell size per axis, so 2 1 1 asks for cells
     twice as long in X as in the other two directions. The three are
@@ -159,6 +163,7 @@ WRAPPER_CREATE_LOCAL_CONTROL:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Appends an empty local control, which is then configured by
     WRAPPER_EDIT_LOCAL_CONTROL. It takes nothing and reports nothing, so
@@ -200,6 +205,7 @@ WRAPPER_EDIT_LOCAL_CONTROL:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Gives one local control the surfaces it applies to and the cell size
     it asks for there, overriding the global size on those surfaces.
@@ -231,6 +237,7 @@ WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
+    "26.127": {status: documented, note: "FSM-26.127 p.323, unchanged from FSM-26.125 p.324"}
   notes: >
     Deletes every local control. Use WRAPPER_EDIT_LOCAL_CONTROL to correct
     one control without deleting the set. No individual deletion command
@@ -282,6 +289,7 @@ WRAPPER_NEW_VOLUME_CONTROL:
     "26.124": {status: documented, note: "FSM-26.124 p.319, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
+    "26.127": {status: documented, note: "FSM-26.127 p.324, unchanged from FSM-26.125 p.325"}
   notes: >
     Creates a box in which the wrap uses a different cell size, given by
     two opposite corners in a coordinate system. Unlike a local control,
@@ -313,6 +321,7 @@ WRAPPER_DELETE_ALL_VOLUME_CONTROLS:
     "26.124": {status: documented, note: "FSM-26.124 p.319, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
+    "26.127": {status: documented, note: "FSM-26.127 p.324, unchanged from FSM-26.125 p.325"}
   notes: >
     Deletes every volume control, and as with the local controls there
     is no command deleting one.
@@ -334,6 +343,7 @@ WRAPPER_EXECUTE:
     "26.124": {status: documented, note: "FSM-26.124 p.319, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
+    "26.127": {status: documented, note: "FSM-26.127 p.324, unchanged from FSM-26.125 p.325"}
   notes: >
     Performs the wrap with everything configured above. The one command
     in the chapter that does work rather than describing it, and the
@@ -359,6 +369,7 @@ WRAPPER_TRANSFER:
     "26.124": {status: documented, note: "FSM-26.124 p.319, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.325, unchanged from FSM-26.124 p.319"}
+    "26.127": {status: documented, note: "FSM-26.127 p.324, unchanged from FSM-26.125 p.325"}
   notes: >
     Moves the wrapped result into the simulation as geometry, and
     decides what becomes of the surfaces it was built from: REPLACE

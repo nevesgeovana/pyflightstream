@@ -695,8 +695,9 @@ def test_the_build_page_counts_the_shared_release_names_it_actually_shares():
     # which is the whole reason the printed name is a field of its own;
     # six until 26.124's identity report of 2026-09-14 did the same.
     # Nine since 26.126 was registered on 2026-10-30: its log prints 2612,
-    # the printed name of 26.125, so those two share a name as well.
-    assert _sharing_a_printed_name(versions) == 9
+    # the printed name of 26.125, so those two share a name as well. Ten since
+    # 26.127 (FR-3406): its banner prints 2612 too, and even 26.126's build number.
+    assert _sharing_a_printed_name(versions) == 10
 
 
 def test_a_machine_promoted_removal_shows_its_run_in_the_rendered_matrix():

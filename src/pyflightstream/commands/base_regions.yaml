@@ -50,6 +50,7 @@ CREATE_NEW_BASE_REGION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
+    "26.127": {status: documented, note: "FSM-26.127 p.326, unchanged from FSM-26.125 p.327"}
   notes: >
     Marks one mesh boundary as a base region and gives it a pressure
     model. No all-form is stated, so -1 is not accepted here;
@@ -102,6 +103,7 @@ SET_BASE_REGION_CP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
+    "26.127": {status: documented, note: "FSM-26.127 p.326, unchanged from FSM-26.125 p.327"}
   notes: >
     Changes the pressure model of a base region that already exists.
 
@@ -146,6 +148,7 @@ SET_BASE_REGION_BENDING_ANGLE:
     "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.293, read against FSM-26.124 p.288: the sample no longer carries the chapter heading the reader took from the next page; the grammar is unchanged"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.293, read against FSM-26.124 p.288: the sample no longer carries the chapter heading the reader took from the next page; the grammar is unchanged"}
+    "26.127": {status: documented, note: "FSM-26.127 p.291, unchanged from FSM-26.125 p.293"}
   notes: >
     Threshold on how far a surface may bend away from the aft-facing
     direction and still be detected as part of a base region, which is
@@ -214,6 +217,7 @@ DETECT_BASE_REGIONS_BY_SURFACE:
           cites: boundaries
           all_sentinel: -1
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.327 adds -1, every boundary, to the boundary index FSM-26.124 p.321 took as positive only, and its second sample passes it", "args": [{"name": "boundary_index", "cites": "boundaries", "all_sentinel": -1}]}
+    "26.127": {"status": "documented", "note": "FSM-26.127 p.326, unchanged from FSM-26.125 p.327", "args": [{"name": "boundary_index", "cites": "boundaries", "all_sentinel": -1}]}
   notes: >
     The same detection restricted to one mesh boundary, for a geometry
     where the whole-model form marks more than intended. Through 26.124
@@ -240,6 +244,7 @@ SET_BASE_REGION_TRAILING_EDGES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
+    "26.127": {status: documented, note: "FSM-26.127 p.326, unchanged from FSM-26.125 p.327"}
   notes: >
     Marks the rim of a base region as a trailing edge, which is what
     lets the wake leave the body there. The manual documents -1 for
@@ -269,6 +274,7 @@ DELETE_BASE_REGION:
     "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
+    "26.127": {status: documented, note: "FSM-26.127 p.326, unchanged from FSM-26.125 p.327"}
   notes: >
     Unmarks one base region. NO ALL-FORM IS STATED HERE, unlike the two
     neighbouring commands that take the same kind of index and document
@@ -295,6 +301,7 @@ SELECT_BASE_REGION_FACES:
     "26.124": {status: documented, note: "FSM-26.124 p.322, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
+    "26.127": {status: documented, note: "FSM-26.127 p.327, unchanged from FSM-26.125 p.328"}
   notes: >
     Selects the mesh faces of a base region, or of all of them with -1,
     which the sample passes. Selection is application state rather than
@@ -329,6 +336,7 @@ REMESH_BASE_REGION:
     "26.124": {status: documented, note: "FSM-26.124 p.322, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
+    "26.127": {status: documented, note: "FSM-26.127 p.327, unchanged from FSM-26.125 p.328"}
   notes: >
     Rebuilds a base region's faces as a radial distribution, which a
     detected base region does not have: it inherits whatever the import
@@ -397,6 +405,7 @@ SET_OUTFLOW_TRAILING_EDGES:
       successor: SET_OUTLET_TRAILING_EDGES
       note: "FSM-26.125 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as FSM-26.123 and FSM-26.124 did; not run on 26.125"
     "26.126": {"status": "removed", "successor": "SET_OUTLET_TRAILING_EDGES", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as FSM-26.123 and FSM-26.124 did; not run on 26.125"}
+    "26.127": {"status": "removed", "note": "Carried from 26.126: neither FSM-26.125 nor FSM-26.127 prints it; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as FSM-26.123 and FSM-26.124 did; not run on 26.125", "successor": "SET_OUTLET_TRAILING_EDGES"}
 
 SET_OUTLET_TRAILING_EDGES:
   layout: inline
@@ -430,3 +439,4 @@ SET_OUTLET_TRAILING_EDGES:
       note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"
     "26.125": {status: documented, note: "FSM-26.125 p.337, read against FSM-26.124 p.331: the placeholder is renamed INDEX and the table describes it as the positive index of the outlet boundary whose edges are marked, while the sample still passes -1; the grammar is unchanged"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.337, read against FSM-26.124 p.331: the placeholder is renamed INDEX and the table describes it as the positive index of the outlet boundary whose edges are marked, while the sample still passes -1; the grammar is unchanged"}
+    "26.127": {status: documented, note: "FSM-26.127 p.336, unchanged from FSM-26.125 p.337"}

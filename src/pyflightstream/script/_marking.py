@@ -34,10 +34,11 @@ class _MarkingPolicy(Protocol):
 
 def require_marking_build(script: Script) -> None:
     """Refuse a build whose FSI marking order is neither measured nor carried (FR-3402)."""
-    if script.version.canonical not in {"26.124", "26.125", "26.126"}:
+    if script.version.canonical not in {"26.124", "26.125", "26.126", "26.127"}:
         raise ScriptOrderError(
-            "the FSI marking order is supported on 26.124, 26.125 and 26.126 (measured on "
-            f"the first two, carried to 26.126); this script targets {script.version.canonical}"
+            "the FSI marking order is supported on 26.124, 26.125, 26.126 and 26.127 (measured "
+            "on the first two, carried to 26.126 and 26.127); this script targets "
+            f"{script.version.canonical}"
         )
 
 

@@ -127,6 +127,7 @@ def test_known_versions_ordered_by_list_position():
         "26.124",
         "26.125",
         "26.126",
+        "26.127",
     ]
     assert [v.index for v in versions] == list(range(len(versions)))
     # strict=False on purpose: this zips the list against itself
@@ -574,3 +575,52 @@ def test_p0510_the_commands_26126_refuses_are_recorded_by_name():
     removed = commands["SET_VORTICITY_LIFT_MODEL"].status_in(v126)
     assert str(removed.status) == "removed" and "CMP-26126_" in removed.report
     assert str(commands["SOLVER_SET_AOA"].status_in(v126).status) == "verified"
+
+
+def test_p0520_26127_is_registered_with_the_build_its_banner_prints():
+    """FR-3406: 26.127 follows 26.126, inherits nothing, and is registered with the build its
+    banner printed, which is 26.126's build number: the two cannot be told apart by a log.
+
+    Control: 26.125 keeps its own, different build.
+    """
+    v127, v126, v125 = resolve("26.127"), resolve("26.126"), resolve("26.125")
+    assert (v127.build, v127.prints, v127.inherits_base) == ("10282026", "2612", False)
+    assert v126 < v127 and v127.build == v126.build
+    assert v125.build != v127.build
+
+
+def test_p0520_every_26126_command_has_a_26127_row_read_or_carried_with_its_grammar():
+    """FR-3406: each command with a 26.126 row has a 26.127 row with the same grammar (until a
+    reading of FSM-26.127 moves it); a row no 26.127 run judged either cites FSM-26.127 as
+    unchanged from FSM-26.125 or says it was carried from 26.126, and cites no report; a run
+    on 26.127 is the only report a 26.127 row cites.
+
+    Control: no command gains a 26.127 row without a 26.126 one, and the commands FSM-26.127
+    stops printing keep a row (an edition is not a run).
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    registry = CommandRegistry.load()
+    v127, v126 = resolve("26.127"), resolve("26.126")
+    on126, on127 = registry.for_version(v126), registry.for_version(v127)
+    read = carried = judged = 0
+    for name, entry in registry.commands.items():
+        old, new = entry.versions.get("26.126"), entry.versions.get("26.127")
+        assert (old is None) == (new is None), name
+        if new is None:
+            continue
+        if name in on126 and name in on127:
+            assert on126[name].args == on127[name].args, name
+            assert on126[name].layout == on127[name].layout, name
+        if new.report is not None:
+            assert new.report.startswith("reports/compat/CMP-26127_"), name
+            judged += 1
+        elif new.note.startswith("FSM-26.127 p."):
+            assert "unchanged from FSM-26.125" in new.note and str(new.status) == "documented"
+            read += 1
+        else:
+            assert new.note.startswith("Carried from 26.126"), name
+            carried += 1
+    assert read + carried + judged == 382
+    for dropped in ("ACOUSTIC_SOURCES", "DETECT_LEADING_EDGES_WAKES_BY_SURFACE"):
+        assert dropped in on127, dropped

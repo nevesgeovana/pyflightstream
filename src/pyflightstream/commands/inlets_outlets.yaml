@@ -78,6 +78,7 @@ CREATE_NEW_INLET:
     "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
+    "26.127": {status: documented, note: "FSM-26.127 p.335, unchanged from FSM-26.125 p.336"}
   notes: >
     Marks one mesh boundary as an inlet with a uniform velocity along
     the surface normal of its faces. The manual states the index must be
@@ -114,6 +115,7 @@ SET_INLET_CUSTOM_PROFILE:
     "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
+    "26.127": {status: documented, note: "FSM-26.127 p.335, unchanged from FSM-26.125 p.336"}
   notes: >
     Replaces an inlet's uniform velocity with a profile read from a text
     file, whose path follows on the next line. Has no outlet
@@ -156,6 +158,7 @@ REMESH_INLET:
     "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
+    "26.127": {status: documented, note: "FSM-26.127 p.335, unchanged from FSM-26.125 p.336"}
   notes: >
     Rebuilds an inlet's faces as a radial distribution. The manual gives
     no reason for wanting one and none is asserted here; what the page
@@ -194,6 +197,7 @@ DELETE_INLET:
     "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
+    "26.127": {status: documented, note: "FSM-26.127 p.335, unchanged from FSM-26.125 p.336"}
   notes: >
     Unmarks one inlet. No all-form is stated and there is no
     delete-all command, so removing several takes one call each.
@@ -222,6 +226,7 @@ CREATE_NEW_OUTLET:
     "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
+    "26.127": {status: documented, note: "FSM-26.127 p.335, unchanged from FSM-26.125 p.336"}
   notes: >
     Marks one mesh boundary as an outlet with a uniform normal velocity.
     Always uniform: there is no outlet profile command.
@@ -277,6 +282,7 @@ REMESH_OUTLET:
     "26.124": {status: documented, note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.337, unchanged from FSM-26.124 p.331"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.337, unchanged from FSM-26.124 p.331"}
+    "26.127": {status: documented, note: "FSM-26.127 p.336, unchanged from FSM-26.125 p.337"}
   notes: >
     The outlet counterpart of REMESH_INLET, differing only in the name
     of its first keyword.
@@ -298,6 +304,7 @@ DELETE_OUTLET:
     "26.124": {status: documented, note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.337, read against FSM-26.124 p.331: the parameter table now describes the one argument, the index of the outlet to delete, positive; the signature is unchanged"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.337, read against FSM-26.124 p.331: the parameter table now describes the one argument, the index of the outlet to delete, positive; the signature is unchanged"}
+    "26.127": {status: documented, note: "FSM-26.127 p.336, unchanged from FSM-26.125 p.337"}
   notes: >
     Unmarks one outlet. Its table row is labelled INLET in all four
     editions, which is the copy that runs through this chapter; the

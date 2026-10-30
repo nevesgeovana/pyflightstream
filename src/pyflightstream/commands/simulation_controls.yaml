@@ -22,6 +22,7 @@ SET_SIMULATION_LENGTH_UNITS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
+    "26.127": {status: documented, note: "FSM-26.127 p.291, unchanged from FSM-26.125 p.293"}
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.
@@ -46,6 +47,7 @@ SET_SIGNIFICANT_DIGITS:
     "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.288"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.288"}
+    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Output precision, integer between 1 and 8; applies to the values
     the solver writes into its exports.
@@ -70,6 +72,7 @@ SET_TRAILING_EDGE_SWEEP_ANGLE:
     "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
+    "26.127": {status: documented, note: "FSM-26.127 p.291, unchanged from FSM-26.125 p.293"}
   notes: >
     Threshold used by trailing-edge detection: how far an edge may sweep
     away from the reference direction and still be detected. The manual
@@ -159,6 +162,7 @@ SET_VERTEX_MERGE_TOLERANCE:
     "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
+    "26.127": {status: documented, note: "FSM-26.127 p.291, unchanged from FSM-26.125 p.293"}
   notes: >
     Distance below which two mesh vertices are treated as one, which is
     what closes the gaps of an imported surface. The manual states only
@@ -200,3 +204,4 @@ SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
     "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
+    "26.127": {status: documented, note: "FSM-26.127 p.291, unchanged from FSM-26.125 p.293"}
