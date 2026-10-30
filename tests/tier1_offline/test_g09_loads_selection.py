@@ -21,6 +21,7 @@ import json
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, SolverSettings, case_at_point
 from pyflightstream.cases.workflows import build_steady_sweep
 from pyflightstream.options import option_context
@@ -134,14 +135,26 @@ def test_g09_analysis_families_the_geometry_lacks_are_refused_naming_the_key(tmp
     ],
     ids=["load_units", "inviscid_loads", "analysis_families"],
 )
-def test_g09_the_keys_are_refused_on_an_unsteady_row(make, solver):
-    """Set after the solve starts, a march's step exports would not see them."""
+def test_g09_the_keys_of_an_unsteady_row_precede_the_solve_and_warn(make, solver, tmp_path):
+    """FR-3404 (0.52.0): a march states them before START_SOLVER, warned, where they were refused.
+
+    THE EXPECTATION CHANGED WITH THE REQUIREMENT: set after the solve starts, a
+    march's step exports would not see them, so they are emitted before it and
+    the plan names the key, the run type and the command, which no run has
+    measured in that position.
+    """
     case = make().model_copy(update={"solver": SolverSettings(**solver)})
-    with pytest.raises(CampaignConfigError) as raised:
-        _render(case)
-    text = str(raised.value)
     (key,) = solver
-    assert key in text and repr(case.recipe) in text, text
+    if key == "analysis_families":
+        # A family the opened geometry carries; one it lacks is refused (above).
+        case = _with_geometry(case, tmp_path)
+    with pytest.warns(PyflightstreamWarning, match=key) as caught:
+        lines = _render(case)
+    text = " ".join(str(item.message) for item in caught)
+    assert repr(case.recipe) in text and "before START_SOLVER" in text, text
+    words = [line.split(" ")[0] for line in lines]
+    for command in set(COMMANDS) & set(words):
+        assert words.index(command) < words.index("START_SOLVER"), command
 
 
 def test_g09_a_preset_that_says_nothing_emits_none_of_the_three(tmp_path):

@@ -1330,8 +1330,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.run._identity"><summary><code>pyflightstream.run._identity</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream">pyflightstream</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (module)</li>
@@ -3480,6 +3482,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.script._arg_checks">pyflightstream.script._arg_checks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._build_forms">pyflightstream.script._build_forms</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._marking">pyflightstream.script._marking</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.script._phase_order">pyflightstream.script._phase_order</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._relaxed_te">pyflightstream.script._relaxed_te</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._settings">pyflightstream.script._settings</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._wake_edge_file">pyflightstream.script._wake_edge_file</a> (module)</li>
