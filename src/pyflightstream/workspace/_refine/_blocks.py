@@ -255,6 +255,12 @@ def _features(verts: Points, topo: _Topology, te: frozenset[int]) -> set[Edge]:
     return {e for e, angle in sharp.items() if angle > RIDGE_DEGREES or (e[0] in te and e[1] in te)}
 
 
+#: A family's boundary is cut into sides where it turns by more than this, in degrees.
+#: A turn at or under it does not split a side, so patches there still count as one side
+#: (the same rule the side split uses, and the loose-line test of :class:`_Cuts`).
+SIDE_CORNER_DEGREES = 45.0
+
+
 @dataclass(frozen=True, eq=False)
 class _Cuts:
     """The arcs of a traced layout, the patches holding each, for finding loose lines."""
@@ -561,10 +567,6 @@ def _arcs(
 #: degrees of the trailing-edge segment nearest each: the mean of |cos| at least cos 45.
 #: Absolute cosine tolerance 1e-14 includes the boundary despite floating-point roundoff.
 SPANWISE_COS = math.cos(math.radians(45.0))
-
-
-#: A family's boundary is cut into sides where it turns by more than this, in degrees.
-SIDE_CORNER_DEGREES = 45.0
 
 
 def longest_boundary_side(verts: Points, blocks: Blocks, patches: Sequence[int]) -> Points:
