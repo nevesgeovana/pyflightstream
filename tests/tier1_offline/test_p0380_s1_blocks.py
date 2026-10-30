@@ -1175,7 +1175,7 @@ def test_p0502_an_extra_junction_node_does_not_stop_a_family_coarsening(
     assert report["BR"]["faces"][0] == report["BR"]["faces"][1] == 8 * nx
 
 
-# ------------------- P0502 review R1: the loose-line join, its fallback and the corners it keeps
+# ------------------- P0502 review R1: the corners the loose-line join must keep
 
 
 def _wing_and_body(*, strip_families: bool = False, bend_far: bool = False, ridge: bool = False):
@@ -1201,52 +1201,22 @@ def _wing_and_body(*, strip_families: bool = False, bend_far: bool = False, ridg
     return np.array(verts, dtype=float), faces, family, {20 * k + 19 for k in range(4)}
 
 
-def _recover(case, monkeypatch, *, traced: bool, te=None):
-    from pyflightstream.workspace._refine import _blocks
+def _wing_patches(case, te=None) -> list[tuple]:
+    """Return the wing's patches (vertices below 80) of the joined layout, as vertex tuples."""
     from pyflightstream.workspace._refine._layout import edge_faces
 
     verts, faces, family, te_far = case
     joins = {
         e for e, fs in edge_faces(faces).items() if len(fs) == 2 and family[fs[0]] != family[fs[1]]
     }
-    if traced:
-        monkeypatch.setattr(_blocks, "_loose_lines", lambda *args: set())
     found = recover_joined(verts, faces, te_far if te is None else te, joins)
     assert isinstance(found, Blocks), found
-    return found
+    return sorted(tuple(p.ravel().tolist()) for p in found.patches if int(p.max()) < 80)
 
 
-def _wing(blocks: Blocks) -> list[tuple]:
-    """Return the wing's patches (vertices below 80) as tuples, ignoring the body's."""
-    return sorted(tuple(p.ravel().tolist()) for p in blocks.patches if int(p.max()) < 80)
-
-
-def _same(a: Blocks, b: Blocks) -> bool:
-    return len(a.patches) == len(b.patches) and _wing(a) == _wing(b) and a.arcs == b.arcs
-
-
-def test_p0502_r1_f1_a_join_that_is_not_four_sided_returns_the_traced_layout(monkeypatch):
-    """FR-3397: when the merged cut has no four-sided patches, the traced layout is returned."""
-    from pyflightstream.workspace._refine import _blocks
-
-    case = _wing_and_body()
-    with monkeypatch.context() as m:
-        traced = _recover(case, m, traced=True)
-    joined = _recover(case, monkeypatch, traced=False)
-    assert len(joined.patches) < len(traced.patches)  # the control: the join happens
-
-    real, calls = _blocks._patches, []
-
-    def second_fails(topo, cut):
-        calls.append(1)
-        if len(calls) == 2:
-            raise _blocks._NoLayoutError("merged patch is not four-sided")
-        return real(topo, cut)
-
-    monkeypatch.setattr(_blocks, "_patches", second_fails)
-    fallen = _recover(case, monkeypatch, traced=False)
-    assert len(calls) == 2
-    assert _same(fallen, traced)
+def test_p0502_r1_f2_control_the_loose_lines_join_the_wing_into_one_patch():
+    """FR-3397: with no corner on them, the two station lines are joined (one 3 x 19 patch)."""
+    assert len(_wing_patches(_wing_and_body())) == 1
 
 
 @pytest.mark.parametrize(
@@ -1254,21 +1224,11 @@ def test_p0502_r1_f1_a_join_that_is_not_four_sided_returns_the_traced_layout(mon
     [{"bend_far": True}, {"ridge": True}, {"strip_families": True}],
     ids=["end-bends-over-45", "ridge-on-the-line", "line-shared-with-another-family"],
 )
-def test_p0502_r1_f2_a_real_corner_on_the_cut_line_stays_cut(monkeypatch, kwargs):
+def test_p0502_r1_f2_a_real_corner_on_the_cut_line_stays_cut(kwargs):
     """FR-3397: a bend, a ridge or a family change on the cut line keeps its patches apart."""
-    case = _wing_and_body(**kwargs)
-    kept = _recover(case, monkeypatch, traced=False)
-    with monkeypatch.context() as m:
-        traced = _recover(case, m, traced=True)
-    assert _wing(kept) == _wing(traced)
-    assert len(_wing(kept)) == 3
+    assert len(_wing_patches(_wing_and_body(**kwargs))) == 3  # the traced layout: 3 strips
 
 
-def test_p0502_r1_f2_a_trailing_edge_on_the_cut_line_stays_cut(monkeypatch):
-    case = _wing_and_body()
-    te = {20 * 1 + j for j in range(20)} | {20 * 2 + j for j in range(20)}
-    kept = _recover(case, monkeypatch, traced=False, te=te)
-    with monkeypatch.context() as m:
-        traced = _recover(case, m, traced=True, te=te)
-    assert _wing(kept) == _wing(traced)
-    assert len(_wing(kept)) > 3  # nothing joined: every wing face is its own patch
+def test_p0502_r1_f2_a_trailing_edge_on_the_cut_line_stays_cut():
+    te = {20 * k + j for k in (1, 2) for j in range(20)}
+    assert len(_wing_patches(_wing_and_body(), te=te)) > 3  # nothing joined
