@@ -19,7 +19,8 @@ FlightStream versions.
   color, the families it governs in that direction (any component) in a tint,
   and a title saying PARALLEL or NORMAL with the bands, counts and factor. The
   patches and directions pages follow as before (FR-3398).
-  migration: open `<level>.refine-governors.pdf` where `<level>.inspect.pdf` was read.
+  migration: open `<level>.refine-governors.pdf` where `<level>.inspect.pdf` was read
+  (the standalone `visual-inspect` command still writes `<mesh>.inspect.pdf`).
 
 ### Fixed
 
