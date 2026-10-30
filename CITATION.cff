@@ -10,7 +10,7 @@ authors:
 license: MIT
 # Version and date describe this release; development versions have no release date.
 # Version-specific archive identifiers are added after publication.
-version: 0.50.1
+version: 0.50.2
 date-released: 2026-10-29
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
