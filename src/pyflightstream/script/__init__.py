@@ -1659,15 +1659,9 @@ class Script(_ScriptRendering):
         base/merge order without INITIALIZE_SOLVER. Command evidence admission
         remains the planner's separate per-build VERIFIED gate.
         """
-        script = cls(version, registry)
-        if script.version.canonical not in {"26.124", "26.125", "26.126"}:
-            raise ScriptOrderError(
-                "the FSI marking order is supported on 26.124, 26.125 and 26.126 (measured "
-                f"on the first two, carried to 26.126); this script targets "
-                f"{script.version.canonical}"
-            )
-        script._marking_only = True
-        return script
+        from pyflightstream.script._marking import marking_only
+
+        return marking_only(cls(version, registry))
 
     def _check_phase(self, entry: CommandEntry) -> tuple[int, tuple[str, int]] | None:
         from pyflightstream.script._phase_order import check_phase

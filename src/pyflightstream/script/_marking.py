@@ -32,14 +32,26 @@ class _MarkingPolicy(Protocol):
     _marking_only: bool
 
 
-@contextmanager
-def marking_import(script: Script):
-    """Scope B1's measured marking phase to a fresh FSI import before initialization."""
+def require_marking_build(script: Script) -> None:
+    """Refuse a build whose FSI marking order is neither measured nor carried (FR-3402)."""
     if script.version.canonical not in {"26.124", "26.125", "26.126"}:
         raise ScriptOrderError(
             "the FSI marking order is supported on 26.124, 26.125 and 26.126 (measured on "
             f"the first two, carried to 26.126); this script targets {script.version.canonical}"
         )
+
+
+def marking_only(script: Script) -> Script:
+    """Return ``script`` as a marking-only script, after refusing an unsupported build."""
+    require_marking_build(script)
+    cast(_MarkingPolicy, script)._marking_only = True
+    return script
+
+
+@contextmanager
+def marking_import(script: Script):
+    """Scope B1's measured marking phase to a fresh FSI import before initialization."""
+    require_marking_build(script)
     if script._initialized_at is not None:
         raise ScriptOrderError("FSI marking requires a fresh import before initialization")
     previous = getattr(script, "_marking_only", False)

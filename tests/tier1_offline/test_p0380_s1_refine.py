@@ -2665,15 +2665,18 @@ def test_p0510_a_solver_layout_termination_file_that_disagrees_with_itself_is_re
 
     Control: the same file with the count and rows agreeing is read, in the mesh's unit.
     """
-    from pyflightstream.workspace.wake_edges import _read_termination_points
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+    from pyflightstream.workspace.wake_edges import matched_wake_termination_nodes
 
+    mesh = tmp_path / "w.obj"
+    mesh.write_text("v 1 2 3\nv 4 5 6\nv 0 0 0\ng Wing\nf 1 2 3\n", encoding="utf-8")
     path = tmp_path / "w.Wing.fs.nodes.txt"
+    marking = WakeTerminationMarking(points_file=str(path), tolerance=1e-6)
     path.write_text(text, encoding="utf-8")
     with pytest.raises(InputArtifactError, match=re.escape(message)):
-        _read_termination_points(path, "MILLIMETER")
+        matched_wake_termination_nodes(marking, mesh, "MILLIMETER")
     path.write_text("2\n0,0,0\n1,2,3\n4,5,6\n", encoding="utf-8")
-    read = _read_termination_points(path, "MILLIMETER")
-    assert read.unit == "MILLIMETER" and read.points.tolist() == [[1, 2, 3], [4, 5, 6]]
+    assert matched_wake_termination_nodes(marking, mesh, "MILLIMETER").nodes == (1, 2)
 
 
 def test_a_trailing_edge_listed_in_two_parts_is_one_perimeter():

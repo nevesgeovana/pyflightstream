@@ -22,12 +22,16 @@ FlightStream versions.
   (unrecognised, as on 26.124), `CREATE_NEW_6DOF_EXTERNAL_FORCE`,
   `NEW_STREAMLINE_DISTRIBUTION` and two CAD Create commands (the script
   stops at them).
-  Compatibility note, measured: for an identical unsteady rotor script
-  (periodic blade, J 1.7, 10 deg per step, 4 revolutions), 26.126 gives a
-  rotor thrust 30.7 percent and a torque 25.0 percent higher in magnitude
-  than 26.125, with four times the solver iterations. A property of the
-  build; the package does not compensate for it, so do not mix 26.125 and
-  26.126 results in one series.
+  **Unsteady rotor results on 26.126 are under investigation; use 26.125
+  for rotor campaigns until the vendor answers.** Measured with identical
+  solver scripts on both builds: a synthetic periodic blade (J 1.7, 10 deg
+  per step, 4 revolutions) gives a rotor thrust 30.7 percent and a torque
+  25.0 percent higher in magnitude on 26.126; a six-copy periodic rotor
+  sector (20 deg per step, 3 revolutions) gives a thrust 15.5 percent and a
+  torque 12.0 percent lower, and in-plane rotor forces of a few newtons
+  where 26.100, 26.124 and 26.125 agree within 4 percent on thrust and give
+  in-plane forces below 0.1 N. The package does not compensate for it; do
+  not mix 26.125 and 26.126 results in one series.
   Where 26.125 has its own script form (the trailing-edge detection form,
   the aeroelastic frame check, the marking order), 26.126 takes the same
   (FR-3402).
