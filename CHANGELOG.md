@@ -26,6 +26,12 @@ FlightStream versions.
   warns, naming the command and the build, and emits it.
   A frozen replay with direct morphing is still refused: its file holds the
   structural node rows.
+- `morphing = "direct_deflected"` is accepted (FR-3404): the script emits
+  `SET_DIRECT_AEROELASTIC_MESH_MORPHING <frame> DEFLECTED`, and since the
+  solver applies what is written to the surface already deflected, the
+  structural program writes each call's increment over the total it wrote
+  before. The plan warns that the route is not verified.
+  migration: an FSI input stating `direct_deflected`, refused when read, now plans.
 - The boundary marking of a coupled (FSI) row no longer refuses a marking
   command (for example `IMPORT_WAKE_EDGES_FROM_FILE` or
   `AUTO_DETECT_WAKE_TERMINATION_NODES`) that the command database records

@@ -263,18 +263,20 @@ def test_the_fsi_input_states_the_route_in_its_config_table_fr_341(tmp_path):
 # ----------------------------------------------------------- the refusals --
 
 
-def test_deflected_nodes_are_refused_naming_the_measured_gap_fr_341():
-    """P0370-S6-DIRECT-MORPHING (FR-341): DEFLECTED is refused where the configuration is read."""
+def test_deflected_nodes_are_a_value_of_the_route_fr_341():
+    """P0370-S6-DIRECT-MORPHING (FR-341), P0520-NOREFUSAL-DEFLECTED (FR-3404).
+
+    THE EXPECTATION CHANGED WITH THE REQUIREMENT (0.52.0): ``direct_deflected``
+    was refused where the configuration is read; it is now a value of the
+    route, planned with a warning (test_p0520_norefusal_direct.py). A value
+    outside the three is still no value of the route.
+    """
     plain = make_uniform_blade_config(blade_count=1)
-    with pytest.raises(ValidationError) as caught:
-        FsiConfig.model_validate({**plain.model_dump(), "morphing": "direct_deflected"})
-    said = str(caught.value)
-    assert "DEFLECTED" in said and "already deflected" in said and "morphing = 'direct'" in said
-    assert "RPT-" not in said
-    # The refused value is no value of the route: the type offers the two it takes.
+    cfg = FsiConfig.model_validate({**plain.model_dump(), "morphing": "direct_deflected"})
+    assert cfg.morphing == "direct_deflected"
     schema = FsiConfig.model_json_schema()["properties"]["morphing"]
-    assert schema["enum"] == ["mapped", "direct"], schema
-    with pytest.raises(ValidationError, match="'mapped' or 'direct'"):
+    assert schema["enum"] == ["mapped", "direct", "direct_deflected"], schema
+    with pytest.raises(ValidationError, match="'mapped', 'direct' or 'direct_deflected'"):
         FsiConfig.model_validate({**plain.model_dump(), "morphing": "deflected"})
 
 

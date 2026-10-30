@@ -37,6 +37,7 @@ from pyflightstream._errors import FsiInputError
 __all__ = [
     "DIRECT_MORPHING",
     "DIRECT_MORPHING_DEFLECTED",
+    "DIRECT_NODE_TYPES",
     "MAPPED_MORPHING",
     "BladeProperties",
     "BladePropertiesProvenance",
@@ -58,11 +59,16 @@ logger = logging.getLogger(__name__)
 #: displacements written at them onto the surface. ``direct`` is the solver's
 #: direct mesh morphing with RIGID aerodynamic nodes: the solver writes the
 #: surface vertices it morphs and reads one displacement per vertex back.
-#: ``direct_deflected`` (DEFLECTED nodes) is named so a configuration asking
-#: for it hears why it is refused.
+#: ``direct_deflected`` is the same route with DEFLECTED aerodynamic nodes: the
+#: solver lists the vertices where the surface already is and applies what is
+#: written to that deflected surface (RPT-155, arm Q3, 26.125), so the
+#: structural program writes each call's increment over the total it wrote
+#: before (FR-3404; planned with a warning, the route not yet verified).
 MAPPED_MORPHING: Final = "mapped"
 DIRECT_MORPHING: Final = "direct"
 DIRECT_MORPHING_DEFLECTED: Final = "direct_deflected"
+#: The direct routes, and the aerodynamic node type each names to the solver.
+DIRECT_NODE_TYPES: Final = {DIRECT_MORPHING: "RIGID", DIRECT_MORPHING_DEFLECTED: "DEFLECTED"}
 
 _STATION_ARRAY_FIELDS = (
     "chord_m",
@@ -637,7 +643,8 @@ class FsiConfig(BaseModel):
         displacement per surface vertex the solver lists. ``"direct"`` is
         offered on a rotor blade (a quasi-steady sector or an unsteady rotor,
         FR-3404), and the plan refuses it on a fixed wing;
-        ``"direct_deflected"`` is refused here. ``"mapped"`` is not
+        ``"direct_deflected"`` is the same route with DEFLECTED nodes, each
+        call writing its increment (:data:`DIRECT_NODE_TYPES`). ``"mapped"`` is not
         serialised, so a configuration that does not choose a route dumps
         and hashes exactly as before.
 
@@ -675,7 +682,7 @@ class FsiConfig(BaseModel):
     phases: PhaseSchedule = Field(default_factory=PhaseSchedule)
     node_map_file: str = "fsi_node_map.json"
     wing: FixedWing | None = None
-    morphing: Literal["mapped", "direct"] = MAPPED_MORPHING
+    morphing: Literal["mapped", "direct", "direct_deflected"] = MAPPED_MORPHING
 
     @model_serializer(mode="wrap")
     def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -691,38 +698,17 @@ class FsiConfig(BaseModel):
             data.pop("morphing", None)
         return data
 
-    @model_validator(mode="before")
-    @classmethod
-    def _deflected_morphing_is_explained(cls, data: object) -> object:
-        """Refuse the direct route the measurement did not close, saying why (FR-678).
-
-        ``direct_deflected`` is not a value of the route; it is read before the
-        route's type so the refusal explains it rather than listing the values.
-        The measurement is RPT-155 (direct aeroelastic morphing on 26.125,
-        2026-10-05: arm Q3 DEFLECTED did not close the exact two-cycle check).
-        """
-        if isinstance(data, dict) and data.get("morphing") == DIRECT_MORPHING_DEFLECTED:
-            raise FsiInputError(
-                "morphing = 'direct_deflected' is not offered: with DEFLECTED aerodynamic "
-                "nodes the solver of build 26.125 placed the surface as written after the "
-                "first coupling cycle, and from the second on applied the written "
-                "displacements to the surface already deflected, not to the undeformed one. "
-                "Use morphing = 'direct' (RIGID nodes, where two coupling cycles moved the "
-                "surface exactly as written) or leave morphing out (the mapped route)."
-            )
-        return data
-
     @model_validator(mode="after")
     def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
         """Refuse direct morphing on a fixed wing, which couples through its nodes (FR-341)."""
-        if self.morphing == DIRECT_MORPHING and self.blade_count != 1:
+        if self.morphing in DIRECT_NODE_TYPES and self.blade_count != 1:
             raise FsiInputError(
-                f"morphing = 'direct' requires blade_count = 1; got {self.blade_count}. "
-                "Use one rotor sector or mapped morphing for several blades."
+                f"morphing = {self.morphing!r} requires blade_count = 1; got "
+                f"{self.blade_count}. Use one rotor sector or mapped morphing for several blades."
             )
-        if self.morphing == DIRECT_MORPHING and self.wing is not None:
+        if self.morphing in DIRECT_NODE_TYPES and self.wing is not None:
             raise FsiInputError(
-                "morphing = 'direct' couples a quasi-steady rotor sector; a fixed wing "
+                f"morphing = {self.morphing!r} couples a rotor blade; a fixed wing "
                 "([config.wing]) couples through its structural nodes. Leave morphing out."
             )
         return self

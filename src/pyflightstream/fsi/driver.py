@@ -76,7 +76,13 @@ import pyflightstream.fsi._direct_morphing as _direct_morphing
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
-from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
+from pyflightstream.fsi.config import (
+    DIRECT_MORPHING_DEFLECTED,
+    DIRECT_NODE_TYPES,
+    FsiConfig,
+    config_sha256,
+    load_config,
+)
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
@@ -560,9 +566,21 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     return layout
 
 
-def _write_displacements(run_dir: Path, state: FsiState, written: np.ndarray) -> None:
-    """Write ``FSIDisp.txt`` and remember the rows as the next call's previous ones."""
-    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
+def _write_displacements(
+    run_dir: Path, state: FsiState, written: np.ndarray, *, increment: bool = False
+) -> None:
+    """Write ``FSIDisp.txt`` and remember the rows as the next call's previous ones.
+
+    ``increment`` is the DEFLECTED direct route (FR-3404): the solver applies
+    what is written to the surface already deflected (RPT-155, arm Q3), so the
+    file holds this call's total minus the total written before, and the state
+    keeps the total, which relaxation and the next increment read.
+    """
+    previous = state.previous_displacements
+    rows = written
+    if increment and previous is not None:
+        rows = written - np.asarray(previous, dtype=float)
+    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, rows)
     state.previous_displacements = written.tolist()
 
 
@@ -593,7 +611,7 @@ def _relaxed_station_rows(
 
 def _rows_the_solver_reads(run_dir: Path, cfg: FsiConfig, layout: nodes.NodeOrderingMap) -> int:
     """How many displacement rows this call writes: a vertex each under direct morphing."""
-    if cfg.morphing == DIRECT_MORPHING:
+    if cfg.morphing in DIRECT_NODE_TYPES:
         return len(_direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE))
     return layout.total_nodes
 
@@ -621,7 +639,7 @@ def _relaxed(state: FsiState, computed: np.ndarray, relaxation: float) -> np.nda
 
 def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
     """Replay the stored deformation without coupling (FSI-R10)."""
-    if cfg.morphing == DIRECT_MORPHING:
+    if cfg.morphing in DIRECT_NODE_TYPES:
         raise FsiInputError(
             "frozen replay does not support morphing = 'direct': aerodynamic node rows "
             "differ from structural station rows. Use mapped morphing or resume coupling."
@@ -875,12 +893,12 @@ def _per_blade_densities(
     total_normal_force = 0.0
     applied = (
         state.station_displacements_m
-        if cfg.morphing == DIRECT_MORPHING
+        if cfg.morphing in DIRECT_NODE_TYPES
         else state.previous_displacements
     )
     if (
         applied is None
-        and cfg.morphing == DIRECT_MORPHING
+        and cfg.morphing in DIRECT_NODE_TYPES
         and state.previous_displacements is not None
     ):
         raise FsiInputError(
@@ -955,9 +973,11 @@ def _steady_coupling_step(
     relaxation = cfg.phases.coupling_relaxation
     computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
     written = _relaxed(state, computed, relaxation)
-    if cfg.morphing == DIRECT_MORPHING:
+    if cfg.morphing in DIRECT_NODE_TYPES:
         _relaxed_station_rows(state, call.layout, solutions, relaxation)
-    _write_displacements(run_dir, state, written)
+    _write_displacements(
+        run_dir, state, written, increment=cfg.morphing == DIRECT_MORPHING_DEFLECTED
+    )
     state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
     _commit_call(
         run_dir,
@@ -1031,7 +1051,7 @@ def _computed_displacements(
     (:func:`_at_the_elastic_axis_nodes`).
     """
     at_nodes = _at_the_elastic_axis_nodes(layout, solutions)
-    if cfg.morphing == DIRECT_MORPHING:
+    if cfg.morphing in DIRECT_NODE_TYPES:
         points = _direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE)
         return _direct_morphing.translations_at_points(layout, at_nodes, points)
     return _mapped_displacements(layout, solutions)
@@ -1379,7 +1399,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     applied_twist_settled = True
     if solved is None or relaxation is None:
         written = np.zeros((_rows_the_solver_reads(run_dir, cfg, call.layout), 3))
-        if cfg.morphing == DIRECT_MORPHING:
+        if cfg.morphing in DIRECT_NODE_TYPES:
             # FR-3404: the applied station state of a direct run is the zero field too,
             # so the next call projects its loads on the undeformed stations.
             state.station_displacements_m = np.zeros((call.layout.total_nodes, 3)).tolist()
@@ -1396,7 +1416,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         # written rows are the vertices'.
         station_rows = (
             _relaxed_station_rows(state, call.layout, solutions, relaxation)
-            if cfg.morphing == DIRECT_MORPHING
+            if cfg.morphing in DIRECT_NODE_TYPES
             else written
         )
         state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
@@ -1413,7 +1433,9 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
             )
             lag = abs(math.degrees(solution.elastic_twist_rad[-1] - applied_twist[-1]))
             applied_twist_settled &= lag < cfg.phases.tip_twist_tolerance_deg
-    _write_displacements(run_dir, state, written)
+    _write_displacements(
+        run_dir, state, written, increment=cfg.morphing == DIRECT_MORPHING_DEFLECTED
+    )
 
     _record_the_revolution(
         cfg,
@@ -1518,7 +1540,7 @@ def _refuse_direct_morphing_off_its_route(
     configuration refuses direct morphing on a wing itself. ``quasi_steady``
     names the route in the message.
     """
-    if cfg.morphing != DIRECT_MORPHING or not frozen:
+    if cfg.morphing not in DIRECT_NODE_TYPES or not frozen:
         return
     route = "quasi-steady rotor" if quasi_steady else "unsteady rotor"
     raise FsiInputError(

@@ -803,7 +803,7 @@ def _frozen_replay(
                 f"{source}: frozen_displacements_file {spec.frozen_displacements_file!r} leaves "
                 "the folder of the input; name a file beside it or below it."
             )
-        if effective.morphing == "direct":
+        if effective.morphing in ("direct", "direct_deflected"):
             raise FsiSetupError("Frozen replay requires mapped structural node rows.")
         rows = read_fsidisp(frozen, expected_rows=generate_node_layout(effective).total_nodes)
         if not np.isfinite(rows).all():

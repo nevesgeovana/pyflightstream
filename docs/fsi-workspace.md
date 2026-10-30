@@ -185,10 +185,17 @@ carries the rotor warning [above](#which-workflows-accept-fsi). Where the
 command database records the command documented and not verified on the row's
 build, the plan warns, naming the command and the build, and emits it.
 
-Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`; `"direct"`
-on `steady` and `unsteady` (a fixed wing couples through its structural nodes),
-on a wheel, and on a build that does not run the command. Leaving `morphing`
-out, or stating `"mapped"`, uses the mapped displacement route.
+`morphing = "direct_deflected"` takes the same route with DEFLECTED
+aerodynamic nodes: the command names `DEFLECTED`, the solver lists the vertices
+where the surface already is, and on 26.125 it applied what was written to that
+deflected surface (from the second coupling cycle on), so each call writes its
+increment over the total it wrote before. The route is not verified, and the
+plan warns.
+
+Refused by the plan, each naming the remedy: a direct route on `steady` and
+`unsteady` (a fixed wing couples through its structural nodes), on a wheel, in
+a frozen replay, and on a build that does not run the command. Leaving
+`morphing` out, or stating `"mapped"`, uses the mapped displacement route.
 
 ## Fixed-wing FSI
 

@@ -14,7 +14,12 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
-from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
+from pyflightstream.fsi.config import (
+    DIRECT_NODE_TYPES,
+    FsiConfig,
+    config_sha256,
+    load_config,
+)
 from pyflightstream.fsi.kinematics import decode_station_translations
 from pyflightstream.fsi.nodes import (
     NodeOrderingMap,
@@ -162,7 +167,7 @@ def append_tip_columns(ctx: SimContext, path: Path, runs: Sequence[str]) -> None
 
 def _recorded_displacements(folder: Path, config: FsiConfig, layout: NodeOrderingMap):
     """Read the applied displacement source and validate its recorded configuration."""
-    if config.morphing == DIRECT_MORPHING:
+    if config.morphing in DIRECT_NODE_TYPES:
         source = folder / "state.json"
         state = load_state(source)
         if state.config_sha256 != config_sha256(config):

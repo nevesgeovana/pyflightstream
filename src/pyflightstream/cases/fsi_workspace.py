@@ -39,7 +39,7 @@ from types import MappingProxyType
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig
+from pyflightstream.fsi.config import DIRECT_NODE_TYPES, FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
@@ -147,8 +147,10 @@ FIXED_WING_WORKFLOWS: tuple[str, ...] = ("steady", "unsteady")
 #: every call, and on build 26.125 two coupling cycles moved the surface by
 #: exactly the totals written, one case measured (RPT-155, "direct aeroelastic
 #: morphing on 26.125", 2026-10-05: arm Q4, maximum error 5e-16 m); DEFLECTED did
-#: not keep them (arm Q3, exact two-cycle check did not close), and is refused
-#: where the configuration is read (:class:`~pyflightstream.fsi.config.FsiConfig`).
+#: not keep them (arm Q3: from the second cycle on the solver applied what was
+#: written to the surface already deflected). ``morphing = "direct_deflected"``
+#: emits DEFLECTED (FR-3404), its structural program writes each call's
+#: increment, and the plan warns (:func:`validate_workspace_fsi`).
 DIRECT_MORPHING_COMMAND = "SET_DIRECT_AEROELASTIC_MESH_MORPHING"
 DIRECT_MORPHING_NODES = "RIGID"
 
@@ -158,9 +160,18 @@ DIRECT_MORPHING_WORKFLOWS: tuple[str, ...] = (QUASI_STEADY_WORKFLOW, "unsteady_r
 
 
 def _warn_of_an_unverified_direct_morphing(case: SimCase, version: str | FsVersion) -> None:
-    """Warn where the build's database records the direct command and not verified (FR-3404)."""
-    if case.fsi is None or case.fsi.morphing != DIRECT_MORPHING:
+    """Warn where the direct route is unverified, on the build or with DEFLECTED nodes."""
+    if case.fsi is None or case.fsi.morphing not in DIRECT_NODE_TYPES:
         return
+    if DIRECT_NODE_TYPES[case.fsi.morphing] == "DEFLECTED":
+        warn(
+            f"case {case.sim_id!r}: {DIRECT_MORPHING_COMMAND} with DEFLECTED nodes is emitted "
+            "and not verified: on 26.125 the solver applied what was written to the surface "
+            "already deflected (RPT-155, arm Q3), so the structural program writes each "
+            "call's increment over the total it wrote before; no run has confirmed the totals.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     entry = CommandRegistry.load().commands.get(DIRECT_MORPHING_COMMAND)
     if entry is None:
         return
@@ -206,7 +217,7 @@ def direct_morphing_refusal(
         The refusal, naming the remedy; None when the row does not choose
         direct morphing, or chooses it where it is offered.
     """
-    if case.fsi is None or case.fsi.morphing != DIRECT_MORPHING:
+    if case.fsi is None or case.fsi.morphing not in DIRECT_NODE_TYPES:
         return None
     if workflow not in DIRECT_MORPHING_WORKFLOWS:
         return (
@@ -1063,8 +1074,8 @@ def _stage_and_emit(
     script.emit("ASSIGN_AEROELASTIC_SURFACES", len(boundaries), list(boundaries))
     script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", len(frames), list(frames))
     for frame in frames:
-        if cfg.morphing == DIRECT_MORPHING:
-            script.emit(DIRECT_MORPHING_COMMAND, frame, DIRECT_MORPHING_NODES)
+        if cfg.morphing in DIRECT_NODE_TYPES:
+            script.emit(DIRECT_MORPHING_COMMAND, frame, DIRECT_NODE_TYPES[cfg.morphing])
         else:
             script.emit("IMPORT_AEROELASTIC_STRUCTURAL_NODES", frame, "DISABLE", NODES_FILE)
     script.emit("SET_AEROELASTIC_WORKING_DIRECTORY", ".")
