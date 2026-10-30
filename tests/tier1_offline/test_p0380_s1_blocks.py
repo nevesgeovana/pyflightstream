@@ -25,7 +25,12 @@ import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace import refine_mesh
-from pyflightstream.workspace._refine._blocks import Blocks, recover_family, refine_blocks
+from pyflightstream.workspace._refine._blocks import (
+    Blocks,
+    recover_family,
+    recover_joined,
+    refine_blocks,
+)
 from pyflightstream.workspace._refine._grid import (
     Grid,
     not_a_knot,
@@ -1168,3 +1173,77 @@ def test_p0502_an_extra_junction_node_does_not_stop_a_family_coarsening(
         assert report["WR"]["faces"] == [57, 18]
         assert report["WR"]["blocks"] == [{"rows": [3, 2], "columns": [19, 9]}]
     assert report["BR"]["faces"][0] == report["BR"]["faces"][1] == 8 * nx
+
+
+# ------------------- P0502 review R1: the loose-line join, its fallback and the corners it keeps
+
+
+def _wing_and_body(*, strip_families: bool = False, bend_far: bool = False, ridge: bool = False):
+    """Return (verts, faces, family of each face, te vertices) of the extra-node junction, nx=3.
+
+    The wing node (k, j) is vertex ``20 k + j``. ``strip_families`` gives each station
+    interval its own family; ``bend_far`` moves the far-row nodes at stations 1 and 2 in y so
+    the boundary turns there; ``ridge`` lifts odd stations so every station line is a ridge.
+    """
+    mesh: tuple[list, dict, list] = ([], {}, [])
+    _junction_side(mesh, 1.0, "R", extra=True, nx=3)
+    verts = [list(v) for v in mesh[0]]
+    for k in (1, 2):
+        if bend_far:
+            verts[20 * k + 19][1] += 1.0
+    if ridge:
+        for k in range(4):
+            for j in range(20):
+                verts[20 * k + j][2] += 0.5 * (k % 2)
+    wing, body = mesh[1]["WR"], mesh[1]["BR"]
+    faces = [*wing, *body]
+    family = [f // 19 if strip_families else 0 for f in range(len(wing))] + [3] * len(body)
+    return np.array(verts, dtype=float), faces, family, {20 * k + 19 for k in range(4)}
+
+
+def _recover(case, monkeypatch, *, traced: bool, te=None):
+    from pyflightstream.workspace._refine import _blocks
+    from pyflightstream.workspace._refine._layout import edge_faces
+
+    verts, faces, family, te_far = case
+    joins = {
+        e for e, fs in edge_faces(faces).items() if len(fs) == 2 and family[fs[0]] != family[fs[1]]
+    }
+    if traced:
+        monkeypatch.setattr(_blocks, "_loose_lines", lambda *args: set())
+    found = recover_joined(verts, faces, te_far if te is None else te, joins)
+    assert isinstance(found, Blocks), found
+    return found
+
+
+def _wing(blocks: Blocks) -> list[tuple]:
+    """Return the wing's patches (vertices below 80) as tuples, ignoring the body's."""
+    return sorted(tuple(p.ravel().tolist()) for p in blocks.patches if int(p.max()) < 80)
+
+
+def _same(a: Blocks, b: Blocks) -> bool:
+    return len(a.patches) == len(b.patches) and _wing(a) == _wing(b) and a.arcs == b.arcs
+
+
+def test_p0502_r1_f1_a_join_that_is_not_four_sided_returns_the_traced_layout(monkeypatch):
+    """FR-3397: when the merged cut has no four-sided patches, the traced layout is returned."""
+    from pyflightstream.workspace._refine import _blocks
+
+    case = _wing_and_body()
+    with monkeypatch.context() as m:
+        traced = _recover(case, m, traced=True)
+    joined = _recover(case, monkeypatch, traced=False)
+    assert len(joined.patches) < len(traced.patches)  # the control: the join happens
+
+    real, calls = _blocks._patches, []
+
+    def second_fails(topo, cut):
+        calls.append(1)
+        if len(calls) == 2:
+            raise _blocks._NoLayoutError("merged patch is not four-sided")
+        return real(topo, cut)
+
+    monkeypatch.setattr(_blocks, "_patches", second_fails)
+    fallen = _recover(case, monkeypatch, traced=False)
+    assert len(calls) == 2
+    assert _same(fallen, traced)
