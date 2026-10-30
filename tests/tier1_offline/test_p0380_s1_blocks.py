@@ -1247,3 +1247,28 @@ def test_p0502_r1_f1_a_join_that_is_not_four_sided_returns_the_traced_layout(mon
     fallen = _recover(case, monkeypatch, traced=False)
     assert len(calls) == 2
     assert _same(fallen, traced)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"bend_far": True}, {"ridge": True}, {"strip_families": True}],
+    ids=["end-bends-over-45", "ridge-on-the-line", "line-shared-with-another-family"],
+)
+def test_p0502_r1_f2_a_real_corner_on_the_cut_line_stays_cut(monkeypatch, kwargs):
+    """FR-3397: a bend, a ridge or a family change on the cut line keeps its patches apart."""
+    case = _wing_and_body(**kwargs)
+    kept = _recover(case, monkeypatch, traced=False)
+    with monkeypatch.context() as m:
+        traced = _recover(case, m, traced=True)
+    assert _wing(kept) == _wing(traced)
+    assert len(_wing(kept)) == 3
+
+
+def test_p0502_r1_f2_a_trailing_edge_on_the_cut_line_stays_cut(monkeypatch):
+    case = _wing_and_body()
+    te = {20 * 1 + j for j in range(20)} | {20 * 2 + j for j in range(20)}
+    kept = _recover(case, monkeypatch, traced=False, te=te)
+    with monkeypatch.context() as m:
+        traced = _recover(case, m, traced=True, te=te)
+    assert _wing(kept) == _wing(traced)
+    assert len(_wing(kept)) > 3  # nothing joined: every wing face is its own patch
