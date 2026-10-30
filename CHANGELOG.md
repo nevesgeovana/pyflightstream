@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.50.3] - 2026-10-30
+
+### Fixed
+
+- Under `[[perimeter]]` `te_families`, a rear panel's `<level>.<family>.te.txt`
+  holds the family's own trailing edge, not the hinge it shares with the front
+  panel, and the level's `te.txt` no longer lists that hinge. Every coarsened
+  interval of a curved trailing edge is written; before, a coarsened chord whose
+  sagitta exceeded the surface distance was dropped. Export format and file
+  names are unchanged (FR-3400).
+
 ## [0.50.2] - 2026-10-29
 
 ### Changed

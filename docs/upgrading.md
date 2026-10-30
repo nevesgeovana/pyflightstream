@@ -7,6 +7,14 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.50.3
+
+A level whose `[[perimeter]]` list names a front and a rear panel in
+`te_families` now writes the rear panel's own trailing edge to its
+`<level>.<family>.te.txt` and to the level's `te.txt`, where 0.50.2 wrote the
+hinge; a curved trailing edge also keeps every coarsened interval. Refine the
+level again to regenerate the trailing-edge files (FR-3400).
+
 ## 0.50.2
 
 `refine --visual-inspect` now writes `<level>.refine-governors.pdf` beside the
