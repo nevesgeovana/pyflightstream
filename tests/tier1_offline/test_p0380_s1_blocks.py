@@ -1305,20 +1305,27 @@ def test_p0502_control_without_the_base_strip_each_sheet_is_one_patch(tmp_path):
         assert report[name]["faces"] == [48, 12], report[name]
 
 
-def test_p0502_a_prepare_style_list_of_every_rearmost_line_cuts_no_family(tmp_path):
-    """FR-3399 guard: front panel F, rear panel R and strip S, each rearmost line listed.
+def test_p0502_perimeter_list_orients_never_cuts_a_rectangle(tmp_path):
+    """FR-3399 (FR-932, FR-3299): front panel F, hinge strip S and rear panel R stay one patch.
 
-    As prepare-to-refine lists them, the hinge F-R, the edge R-S and the trailing
-    edge carry three listed nodes per station; each family stays one patch and
-    coarsens 8 station intervals to 4, S keeping its one interval across.
+    S, one element across with no [families] table, joins F and R at the hinge. As
+    prepare-to-refine lists every patch's rearmost line, the node list holds F's
+    rear row, S's rear row and R's trailing edge: three listed nodes per station,
+    and both long sides of S are reference lines (R, longer at its front, is
+    oriented by it). Each family is one patch, its rows along the stations (the
+    parallel direction), coarsening 8 station intervals to 4 with the factor 0.5,
+    S keeping its one interval across. Before FR-3399 every edge across S was
+    traced as a trailing edge: 8 patches per family, the parallel count held and
+    S unchanged.
     """
+    xs = (0.0, 0.25, 0.5, 0.75, 1.0, 1.05, 1.3, 1.55, 1.8, 2.05)
     verts: list[tuple[float, float, float]] = []
     at: dict[tuple[int, int], int] = {}
     for k in range(9):
-        for i in range(10):
-            x, y = (0.25 * i if i <= 8 else 2.05), 1.5 * k / 8
+        for i, x in enumerate(xs):
+            y = 1.5 * k / 8
             at[k, i] = len(verts)
-            verts.append((x, y, 0.05 * np.sin(np.pi * min(x, 2.0) / 2) + 0.02 * np.sin(2 * y)))
+            verts.append((x, y, 0.05 * np.sin(np.pi * x / 2.1) + 0.02 * (3.0 - x) * np.sin(2 * y)))
 
     def quads(lo: int, hi: int) -> list[list[int]]:
         return [
@@ -1327,18 +1334,21 @@ def test_p0502_a_prepare_style_list_of_every_rearmost_line_cuts_no_family(tmp_pa
             for i in range(lo, hi)
         ]
 
-    families = {"F": quads(0, 4), "R": quads(4, 8), "S": quads(8, 9)}
+    families = {"F": quads(0, 4), "S": quads(4, 5), "R": quads(5, 9)}
     folder = tmp_path / "src"
     src = write_source(folder, "trio", Composite(np.array(verts), families, np.zeros((0, 3)), {}))
-    listed = [at[k, i] for i in (4, 8, 9) for k in range(9)]
+    listed = [at[k, i] for i in (4, 5, 9) for k in range(9)]
     rows = [f"{v + 1}, , {x:.9f}, {y:.9f}, {z:.9f}" for v in listed for x, y, z in [verts[v]]]
     (folder / "trio.nodes.txt").write_text("#  Id, Name, X , Y, Z\n" + "\n".join(rows) + "\n")
     toml = "".join(
         f"[families.{n}]\nnormal_factor = 0.5\nparallel_factor = 0.5\n{lead}\n"
         for n, lead in (("F", "governing_parallel = true\n"), ("R", ""))
     )
-    toml += '[[perimeter]]\nfile = "trio.nodes.txt"\nte_families = ["F", "R", "S"]\n'
+    toml += '[[perimeter]]\nfile = "trio.nodes.txt"\nte_families = ["F", "S", "R"]\n'
     (folder / "trio.refine.toml").write_text(toml)
     report = refine_mesh(src, out_dir=tmp_path / "level").report
     for name, across in (("F", [4, 2]), ("R", [4, 2]), ("S", [1, 1])):
         assert report[name]["blocks"] == [{"rows": [8, 4], "columns": across}], report[name]
+    assert report["F"]["faces"] == report["R"]["faces"] == [32, 8]
+    assert report["S"]["faces"] == [8, 4]
+    assert report["S"]["continuity"]["directions"] == ["parallel"], report["S"]
