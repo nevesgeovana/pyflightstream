@@ -3395,6 +3395,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.script._arg_checks">pyflightstream.script._arg_checks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._build_forms">pyflightstream.script._build_forms</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script._ledger_tables">pyflightstream.script._ledger_tables</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.script._marking">pyflightstream.script._marking</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script._phase_order">pyflightstream.script._phase_order</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script._settings">pyflightstream.script._settings</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script._surface_averaging">pyflightstream.script._surface_averaging</a> (module)</li>

@@ -120,7 +120,7 @@ def _fan(f: list[int], k: int = 0) -> Faces:
     return [[g[0], g[j], g[j + 1]] for j in range(1, len(g) - 1)]
 
 
-def _triangulate(verts: Points, f: list[int]) -> Faces:
+def triangulate_polygon(verts: Points, f: list[int]) -> Faces:
     """Return a polygon's triangles: the fan of its first corner, else ear clipping (F-309).
 
     The fan of a convex polygon is kept as it was, unless it holds a sliver
@@ -192,7 +192,7 @@ def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:
     labels: list[str] = []
     for n in names:
         for f in source[n]:
-            fan = _triangulate(verts, f)
+            fan = triangulate_polygon(verts, f)
             faces += fan
             labels += [n] * len(fan)
     return _Group(ids, verts, faces, labels, source)

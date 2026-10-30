@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-10-30
+
 ### Added
 
 - FlightStream 26.126 (vendor 26.12, build 10282026, the end-of-October

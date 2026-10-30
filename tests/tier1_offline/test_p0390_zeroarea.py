@@ -474,12 +474,12 @@ def test_fr3403_triangulation_cuts_no_sliver():
     Their fan from the first corner holds the sliver; the pentagon takes the
     fan of its best corner, the quadrilateral its other diagonal.
     """
-    from pyflightstream.workspace._refine._remesh_group import _triangulate
+    from pyflightstream.workspace._refine._remesh_group import triangulate_polygon
 
     pentagon = np.array([(0, 0, 0), (0.5, -SLIVER, 0), (1, 0, 0), (1, 2, 0), (0, 2, 0)], float)
     quad = np.array([(0, 0, 0), (0.5, -SLIVER, 0), (1, 0, 0), (0.5, 2, 0)], float)
     for verts in (pentagon, quad):
-        cut = _triangulate(verts, list(range(len(verts))))
+        cut = triangulate_polygon(verts, list(range(len(verts))))
         assert len(cut) == len(verts) - 2
         assert _degenerate(verts, cut) == 0
         _, fan_angle = _shapes(verts, [[0, k, k + 1] for k in range(1, len(verts) - 1)])
@@ -495,7 +495,7 @@ def test_fr3403_clean_family_comes_out_identical(monkeypatch):
     """
     from pyflightstream.workspace._refine import _remesh
     from pyflightstream.workspace._refine._obj import ObjMesh
-    from pyflightstream.workspace._refine._remesh_group import _triangulate
+    from pyflightstream.workspace._refine._remesh_group import triangulate_polygon
     from tests.p0380_mesh_fixtures import plate_nodes
 
     nodes = plate_nodes(8, 8)
@@ -505,7 +505,7 @@ def test_fr3403_clean_family_comes_out_identical(monkeypatch):
         for i in range(8)
     ]
     for f in quads:
-        assert _triangulate(nodes, f) == [[f[0], f[1], f[2]], [f[0], f[2], f[3]]]
+        assert triangulate_polygon(nodes, f) == [[f[0], f[1], f[2]], [f[0], f[2], f[3]]]
     mesh = ObjMesh(nodes, {"Q": quads})
     repaired = refine_group(mesh, ["Q"], set(), 2.0)
     assert _degenerate(repaired.points, repaired.families["Q"]) == 0
