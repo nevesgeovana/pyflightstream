@@ -1351,9 +1351,117 @@ def test_p0490_visual_refine_writes_pdf_beside_level(tmp_path):
     source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
     prepared = prepare_to_refine(source)
     level = refine_mesh(prepared.obj, 2, out_dir=tmp_path / "levels", visual_inspect=True)
-    pdf = level.folder / f"{level.folder.name}.inspect.pdf"
+    pdf = level.folder / f"{level.folder.name}.refine-governors.pdf"
     assert pdf in level.files and pdf.read_bytes().startswith(b"%PDF")
     assert level.audit.path.is_file() and level.report
+
+
+def _p0502_pages(monkeypatch):
+    """Record the texts of every page saved to a PDF, in order."""
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    pages: list[str] = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        texts = [t.get_text() for t in fig.texts]
+        for ax in fig.axes:
+            texts += [t.get_text() for t in ax.texts]
+            texts += [c.get_text().get_text() for tb in ax.tables for c in tb.get_celld().values()]
+        pages.append("\n".join(texts))
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    return pages
+
+
+def test_p0502_refine_governors_pdf_one_page_per_lead_and_direction(tmp_path, monkeypatch):
+    (tmp_path / "source").mkdir()
+    source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+    pages = _p0502_pages(monkeypatch)
+    level = refine_mesh(prepared.obj, 2, out_dir=tmp_path / "levels", visual_inspect=True)
+    name = level.folder.name
+    pdf = level.folder / f"{name}.refine-governors.pdf"
+    assert pdf in level.files and pdf.read_bytes().startswith(b"%PDF")
+    assert not (level.folder / f"{name}.inspect.pdf").exists()
+    assert not any(p.name.endswith(".inspect.pdf") for p in level.files)
+    data = json.loads((level.folder / f"{name}.refine.json").read_text(encoding="utf-8"))
+    pairs = {(b["lead"], b["direction"]) for lay in data["layouts"] for b in lay["bands"]}
+    pairs |= {
+        (lead, d) for g in data.get("component_governors", {}).values() for d, lead in g.items()
+    }
+    assert len(pairs) == 3  # the fixture's planner leads N1, N2 and P1
+    governors = pages[1 : 1 + len(pairs)]
+    assert "governing families" in pages[0]
+    assert all(lead in pages[0] for lead, _ in pairs)
+    drawn = set()
+    for text in governors:
+        found = [
+            (lead, d) for lead, d in pairs if f"{lead} governs the {d.upper()} direction" in text
+        ]
+        assert len(found) == 1, text
+        drawn |= set(found)
+    assert drawn == pairs
+    # The patches and directions pages follow the governor pages in the same file.
+    assert pages[1 + len(pairs) :] and all(": family " in t for t in pages[1 + len(pairs) :])
+
+
+def test_p0502_standalone_visual_inspect_keeps_its_own_name(tmp_path):
+    from pyflightstream.workspace import visual_inspect
+
+    (tmp_path / "source").mkdir()
+    source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+    level = refine_mesh(prepared.obj, 2, out_dir=tmp_path / "levels", visual_inspect=True)
+    governors = level.folder / f"{level.folder.name}.refine-governors.pdf"
+    before = governors.read_bytes()
+    written = visual_inspect(level.obj)
+    assert written == level.obj.with_name(level.obj.stem + ".inspect.pdf")
+    assert written.read_bytes().startswith(b"%PDF")
+    assert governors.read_bytes() == before
+
+
+def test_p0502_component_governor_governs_its_other_refined_grids(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._inspect_pages import refined_pdf
+    from pyflightstream.workspace._refine._config import FamilySpec
+
+    vertices = np.array([[x, y, 0.0] for x in range(5) for y in range(2)], dtype=float)
+    quad = lambda i: [[2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1]]  # noqa: E731
+    work = SimpleNamespace(
+        mesh=SimpleNamespace(verts=vertices, families={n: quad(i) for i, n in enumerate("ABCK")}),
+        bands={},
+        parts={},
+        specs={
+            "A": FamilySpec(method="grid", spanwise=2.0),
+            "B": FamilySpec(method="grid", chordwise=3.0),
+            "C": FamilySpec(method="grid_auto"),
+            "K": FamilySpec(method="keep"),
+        },
+        layouts={},
+        te_unit="METER",
+    )
+    record = tmp_path / "level.refine.json"
+    record.write_text(
+        json.dumps(
+            {
+                "components": {"Wing": ["A", "B", "C", "K"]},
+                "component_governors": {"Wing": {"parallel": "A", "normal": "B"}},
+                "families": {},
+                "layouts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    pages = _p0502_pages(monkeypatch)
+    pdf = refined_pdf(work, tmp_path / "level.obj", record)
+    assert pdf == tmp_path / "level.refine-governors.pdf" and pdf.is_file()
+    assert "A governs the PARALLEL direction" in pages[1]
+    assert "Parallel factor 2. It governs 2 other families" in " ".join(pages[1].split())
+    assert "B governs the NORMAL direction" in pages[2]
+    assert "Normal factor 3. It governs 2 other families" in " ".join(pages[2].split())
 
 
 def test_p0490_visual_strict_factor_refusal_has_pdf_and_location(tmp_path):

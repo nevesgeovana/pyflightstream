@@ -351,6 +351,8 @@ class Scene:
         self.box = box
         self.highlight: set[str] = set()  # names whose label is drawn bold in a red frame
         self.highlight_labels: dict[str, str] = {}
+        self.labelled: set[str] | None = None  # names labelled when labels are drawn (None: all)
+        self.perimeter_color: tuple[float, ...] = (0.05, 0.05, 0.05, 1.0)
         self.direction_arcs: list[tuple[np.ndarray, str, str, bool]] = []
         self.perimeter, self.perimeter_faces = self._perimeters()
 
@@ -427,7 +429,7 @@ def draw_view(
         )
         polygons += [flat[e] for e in scene.perimeter]
         fills = np.vstack([fills, np.zeros((len(scene.perimeter), 4))])
-        lines = np.vstack([lines, np.tile((0.05, 0.05, 0.05, 1.0), (len(scene.perimeter), 1))])
+        lines = np.vstack([lines, np.tile(scene.perimeter_color, (len(scene.perimeter), 1))])
         widths += [scene.perimeter_width] * len(scene.perimeter)
     order = np.argsort(-depth, kind="stable")
     collection = PolyCollection(
@@ -447,7 +449,7 @@ def draw_view(
     if labels and len(scene.faces):
         for number, name in enumerate(scene.names):
             mine = scene.owner == number
-            if mine.any():
+            if mine.any() and (scene.labelled is None or name in scene.labelled):
                 at = scene.centroids[mine].mean(axis=0) @ to_screen
                 lead = name in scene.highlight
                 ax.text(

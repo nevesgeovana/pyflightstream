@@ -386,7 +386,8 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--visual-inspect",
         action="store_true",
-        help="write the level's patches and directions PDF beside its OBJ",
+        help="write <level>.refine-governors.pdf beside its OBJ: the governing families "
+        "per direction, then the patches and directions pages",
     )
     add_console_arguments(refine, _VERBOSE_HELP)
     refine.add_argument(

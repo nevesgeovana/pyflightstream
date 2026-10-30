@@ -956,10 +956,28 @@ step graduates from this page to the reference.
 
 `prepare-to-refine --visual-inspect` writes `<stem>_patches.inspect.pdf` beside
 the prepared OBJ. `refine --visual-inspect` (API `refine_mesh(visual_inspect=True)`)
-writes `<level>.inspect.pdf` beside the level OBJ and includes it in `level.files`.
+writes `<level>.refine-governors.pdf` beside the level's `refine.json` and includes
+it in `level.files`; the name differs from the `<mesh>.inspect.pdf` that
+`visual-inspect` writes, so neither replaces the other.
 Preparation groups pages by original family; refinement groups them by output
 family or component. Each has a colored patches page followed by a directions
 page in the same top, front, side and isometric views.
+
+The refinement PDF opens with its governor pages, read from the `layouts` bands
+and `component_governors` of `refine.json`. A summary page tabulates each
+governing family, its direction, its bands with their counts, its factor in that
+direction and the number of families it governs. One page follows per governing
+family and direction, in name order, parallel first: the whole mesh in faint grey
+with grey perimeters, the governing family filled in a strong color and labelled
+GOVERNS PARALLEL or GOVERNS NORMAL, and every family it governs in that direction
+filled in a lighter tint of that color and labelled. A family is governed when
+one of its patches holds an arc of a band the governing family leads, or, under
+`keep_within_component`, when it is another refined grid of the component the
+governing family governs; its component does not matter. The title states
+"<family> governs the PARALLEL direction" or "... the NORMAL direction"; the side
+text says that parallel runs along the family's reference perimeter and normal
+across it, and gives the bands, counts and factor. The patches and directions
+pages follow.
 
 Direction pages have light grey faces, faint mixed patches, blue parallel arcs
 and orange normal arcs. The reference is the trailing edge, else the longest
