@@ -849,3 +849,9 @@ class TestP0501RefineVars:
         record = (second.folder / f"{second.folder.name}.refine.json").read_text("utf-8")
         assert "${" not in record
         assert json.loads(record)["specs"]["G"]["factor"] == 2.0
+
+
+def test_p0502_r1_f4_refine_mesh_docstring_names_the_governors_pdf():
+    from pyflightstream.workspace import refine_mesh
+
+    assert "refine-governors" in (refine_mesh.__doc__ or "")

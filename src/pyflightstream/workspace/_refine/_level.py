@@ -1247,7 +1247,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         ``m`` intervals, the least a tube's caps carry) to that least, with a
         warning (the default); False refuses such a factor (CLI ``--strict-factors``).
     visual_inspect : bool
-        Write a patches and directions PDF beside the level OBJ.
+        Write ``<level>.refine-governors.pdf`` beside the level OBJ: a summary page, one page
+        per governing family and direction, then the patches and directions pages.
     keep_within_component : bool, optional
         Share directional governors across each declared component. None (the default) reads
         ``keep_within_component`` under ``[refine]`` of the refine file; True or False overrides it.
