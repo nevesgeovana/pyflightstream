@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-10-31
+
 ### Fixed
 
 - A run whose solver log says `Unsteady solver run aborted!` is recorded
