@@ -56,7 +56,12 @@ logger = logging.getLogger(__name__)
 # realistic stiffness ratios (contraction is roughly the ratio of the
 # propeller moment stiffening to GJ).
 _INNER_TOLERANCE_RAD = 1.0e-6
-_INNER_MAX_SOLVES = 8
+# The cap bounds a diverging iteration, not a converging one: the flap half contracts
+# by about the softening over the bending stiffness, so a softer blade takes more
+# solves to the same relative tolerance. Eight refused a settled XPROP blade at 20
+# percent stiffness (residual 2.7e-9 m against 8.2e-10 m; nine solves reached
+# 3.2e-10 m); each solve costs milliseconds.
+_INNER_MAX_SOLVES = 30
 # The flap half of the same iteration (the in-plane softening depends on
 # the flap it softens): the largest flap change of an iteration against
 # the largest flap, relative, with a floor for a blade that barely moves.

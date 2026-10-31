@@ -15,6 +15,11 @@ FlightStream versions.
   file of the time step alone and lists the DEFLECTED nodes undeformed, so the
   increment over the total written before, which the steady route keeps
   (RPT-155, arm Q3), relaxed the blade back to rigid within a revolution.
+- The rotating blade's inner twist and flap iteration may take up to 30 solves
+  before its result is refused as unsettled (it took 8). The flap half contracts by
+  about the softening over the bending stiffness, so a softer blade needs more
+  solves to the same tolerance: the XPROP blade at 20 percent stiffness had
+  settled to 3.2e-10 m after nine solves and was refused after eight.
 
 ## [0.52.1] - 2026-10-31
 
