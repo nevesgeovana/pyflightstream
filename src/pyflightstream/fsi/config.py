@@ -647,6 +647,16 @@ class FsiConfig(BaseModel):
         call writing its increment (:data:`DIRECT_NODE_TYPES`). ``"mapped"`` is not
         serialised, so a configuration that does not choose a route dumps
         and hashes exactly as before.
+    export_surface_before_call : bool
+        Off by default (FR-3408). On an ``unsteady_rotor`` row, the
+        aeroelastic post-processing script also exports the surface as
+        :data:`pyflightstream.fsi.state.BEFORE_CALL_SURFACE_FILE` after the
+        loads, so the surface the solver holds just before each structural
+        call is on disk when the call starts, and each call's archive
+        (``fsi_archive/call_NNNN/``) keeps that copy; the row's per-step
+        surface export shows the blade after the call. Another workflow
+        warns and skips it. False is not serialised, so a configuration
+        that leaves it off dumps and hashes exactly as before.
 
     Examples
     --------
@@ -683,19 +693,22 @@ class FsiConfig(BaseModel):
     node_map_file: str = "fsi_node_map.json"
     wing: FixedWing | None = None
     morphing: Literal["mapped", "direct", "direct_deflected"] = MAPPED_MORPHING
+    export_surface_before_call: bool = False
 
     @model_serializer(mode="wrap")
     def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialise the wing only for a wing and the route only when chosen.
+        """Serialise the wing only for a wing, and the route and the export only when chosen.
 
         So a blade's digest, and a configuration's that chooses no morphing
-        route, are unchanged.
+        route and no export before the call, are unchanged.
         """
         data: dict[str, object] = handler(self)
         if data.get("wing") is None:
             data.pop("wing", None)
         if data.get("morphing") == MAPPED_MORPHING:
             data.pop("morphing", None)
+        if data.get("export_surface_before_call") is False:
+            data.pop("export_surface_before_call", None)
         return data
 
     @model_validator(mode="after")

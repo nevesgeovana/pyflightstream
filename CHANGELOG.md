@@ -29,6 +29,16 @@ FlightStream versions.
   migration: a coupled `unsteady_rotor` row with symmetry copies that the plan
   refused ("without symmetry copies") now runs, with that warning.
 
+### Added
+
+- `export_surface_before_call` in the FSI input's `[config]` (default false,
+  FR-3408): on an `unsteady_rotor` row the aeroelastic post-processing script
+  also exports the surface after the loads as `fsi_before_call.vtk`, and each
+  structural call copies it into `fsi_archive/call_NNNN/`, so the blade before
+  each call is kept beside the row's per-step surface after it. Another
+  workflow warns and skips it; left false, `config.json` and its digest are
+  unchanged.
+
 ## [0.52.0] - 2026-10-30
 
 ### Changed

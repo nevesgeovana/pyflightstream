@@ -31,6 +31,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
 
 __all__ = [
+    "BEFORE_CALL_SURFACE_FILE",
     "DISPLACEMENT_FILE",
     "FsiState",
     "LOADS_FILE",
@@ -63,6 +64,12 @@ QUASI_STEADY_ROTOR_FILE = "fsi_quasi_steady_rotor"
 #: without the [fsi] extra.
 LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 DISPLACEMENT_FILE = "FSIDisp.txt"
+
+#: The surface the aeroelastic post-processing script exports after the loads
+#: when the FSI input sets ``export_surface_before_call`` (FR-3408): on disk
+#: when a structural call starts, and copied into that call's archive, so each
+#: call keeps the blade as the solver held it just before the call.
+BEFORE_CALL_SURFACE_FILE = "fsi_before_call.vtk"
 
 logger = logging.getLogger(__name__)
 

@@ -40,7 +40,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import add_warning_option
 from pyflightstream.fsi._direct_morphing import AERO_NODES_FILE
-from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
+from pyflightstream.fsi.state import BEFORE_CALL_SURFACE_FILE, DISPLACEMENT_FILE, LOADS_FILE
 
 __all__ = [
     "ARCHIVE_DIR",
@@ -107,9 +107,12 @@ def _archive_call_files(cwd: Path, archive: Path) -> None:
     The loads the call read, the displacement file, and the solver's
     per-call ``FSInodes.txt`` when it wrote one: a direct-morphing call
     reads that vertex list, so without it the call cannot be replayed.
+    And the surface exported just before the call, when the FSI input asks
+    for it (FR-3408, ``export_surface_before_call``): the blade as the solver
+    held it when the call started.
     """
     archive.mkdir(parents=True, exist_ok=True)
-    for name in (LOADS_FILE, DISPLACEMENT_FILE, AERO_NODES_FILE):
+    for name in (LOADS_FILE, DISPLACEMENT_FILE, AERO_NODES_FILE, BEFORE_CALL_SURFACE_FILE):
         source = cwd / name
         if source.is_file():
             shutil.copy2(source, archive / name)

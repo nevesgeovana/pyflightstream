@@ -383,6 +383,26 @@ planned and built (FR-3408), each step warned:
  sector, on 26.126 only, diverged after the first non-zero structural call
  on two routes.
 
+### The surface before each structural call
+
+`export_surface_before_call = true` under `[config]` (off by default) makes
+the aeroelastic post-processing script of an `unsteady_rotor` row also export
+the surface, after the loads, as `fsi_before_call.vtk` (FR-3408). The solver
+runs that script before each structural call, so the file is on disk when the
+call starts, and the call copies it into its archive,
+`fsi_archive/call_NNNN/fsi_before_call.vtk`: the blade as the solver held it
+just before that call. The row's per-step surface export
+(`EXPORT_UNSTEADY_AFTER_ITER`) shows the blade after the call, so the two
+together give the blade position before and after each call. Another
+workflow warns and skips the option.
+
+```toml
+[config]
+blade_count = 1
+omega_rad_per_s = 46.797679864567904
+export_surface_before_call = true
+```
+
 ### The pproc entry
 
 For example, the corresponding pproc entry for a one-blade rotor whose family

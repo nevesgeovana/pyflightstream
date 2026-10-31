@@ -44,7 +44,11 @@ from pyflightstream.fsi.config import DIRECT_NODE_TYPES, FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
-from pyflightstream.fsi.state import LOADS_FILE, QUASI_STEADY_ROTOR_FILE
+from pyflightstream.fsi.state import (
+    BEFORE_CALL_SURFACE_FILE,
+    LOADS_FILE,
+    QUASI_STEADY_ROTOR_FILE,
+)
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, known_versions
 from pyflightstream.versions import resolve as resolve_version
@@ -53,6 +57,7 @@ from . import CampaignConfigError, RotorBlock, SimCase
 
 __all__ = [
     "BEAM_LINE_RBF_TYPE",
+    "BEFORE_CALL_SURFACE_FILE",
     "CALLBACK_FILE",
     "DEFORMED_SURFACE_FILE",
     "DIRECT_MORPHING_COMMAND",
@@ -992,6 +997,14 @@ def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion)
             PyflightstreamWarning,
             stacklevel=3,
         )
+    elif case.fsi is not None and case.fsi.export_surface_before_call:
+        # FR-3408: the export before each call is the unsteady rotor's; skipped elsewhere.
+        warn(
+            f"case {case.sim_id!r}: export_surface_before_call applies to unsteady_rotor "
+            f"rows and is skipped on {workflow}.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     _warn_of_an_unverified_direct_morphing(case, version)
 
 
@@ -1004,6 +1017,7 @@ def wire_workspace_fsi(
     delta_time_s: float,
     frames: Mapping[str, int | None | Mapping[str, int]],
     interpreter: str,
+    exports: Callable[[Script], None] | None = None,
 ) -> None:
     """Stage one structural source and emit the native unsteady callback contract.
 
@@ -1032,6 +1046,10 @@ def wire_workspace_fsi(
         among them.
     interpreter : str
         The Python the structural callback runs under.
+    exports : callable, optional
+        Emits exports into the aeroelastic post-processing script after the loads the
+        structural program reads: the surface before each structural call, where the FSI
+        input sets ``export_surface_before_call`` (FR-3408).
 
     Raises
     ------
@@ -1101,7 +1119,7 @@ def wire_workspace_fsi(
         script,
         layout=layout,
         family_map=family_map,
-        post=aeroelastic_post_script(script.version),
+        post=aeroelastic_post_script(script.version, exports=exports),
         boundaries=boundaries,
         frames=frame_indices,
         interpreter=interpreter,
@@ -1195,6 +1213,7 @@ def _stage_and_emit(
         CALLBACK_FILE.casefold(),
         LOADS_FILE.casefold(),
         DEFORMED_SURFACE_FILE.casefold(),
+        BEFORE_CALL_SURFACE_FILE.casefold(),
         QUASI_STEADY_ROTOR_FILE.casefold(),
     }
     map_name = cfg.node_map_file

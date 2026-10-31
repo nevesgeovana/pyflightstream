@@ -476,6 +476,7 @@ def _script_init(
             delta_time_s=_rotor_clock(case).delta_time_s,
             frames=frames,
             interpreter=_action_interpreter(sys.executable),
+            exports=_the_surface_before_each_call(case),
         )
     # THE LOADS FRAME AND THE MOMENTS MODEL, LAST IN THE INIT GROUP (B05). After
     # the initialisation and the sections, which is run A of RPT-064, and before
@@ -528,6 +529,23 @@ def _wire_the_fixed_wing(
         exports=exports,
         updates=updates,
     )
+
+
+def _the_surface_before_each_call(case: SimCase) -> Callable[[Script], None] | None:
+    """Return the post-processing export of the surface before each structural call (FR-3408).
+
+    None unless the FSI input sets ``export_surface_before_call``. The export
+    follows the loads the call reads, so the file is on disk when the call
+    starts, and the call archives it.
+    """
+    if case.fsi is None or not case.fsi.export_surface_before_call:
+        return None
+    from ..fsi_workspace import BEFORE_CALL_SURFACE_FILE
+
+    def exports(post: Script) -> None:
+        _export_surface_vtk(post, case, BEFORE_CALL_SURFACE_FILE)
+
+    return exports
 
 
 def _validate_the_external_structure(case: SimCase, script: Script, *, continuation: bool) -> None:

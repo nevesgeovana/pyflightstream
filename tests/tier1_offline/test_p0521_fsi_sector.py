@@ -4,7 +4,10 @@ Written from the requirement: an ``unsteady_rotor`` row coupled on a saved
 simulation is built with the boundary ID and the section order read from the
 saved file and a warning saying they are not proved by a fresh import; a row
 with symmetry copies couples the blade it names in that blade's rotating frame
-and warns that the solver's treatment of the copies is unmeasured.
+and warns that the solver's treatment of the copies is unmeasured; and the FSI
+input option ``export_surface_before_call`` (off by default) exports the surface
+in the aeroelastic post-processing script after the loads, so each structural
+call archives the surface the solver held just before it.
 """
 
 from __future__ import annotations
@@ -15,8 +18,13 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import fsi_workspace as ws
+from pyflightstream.fsi import cli as fsi_cli
+from pyflightstream.fsi.state import BEFORE_CALL_SURFACE_FILE, LOADS_FILE
+from pyflightstream.run._pending import _write_pending_files
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
+from tests.tier1_offline.test_p0370_s6_direct_morphing import LOADS
 from tests.tier1_offline.test_p0520_norefusal import ROTOR_COUPLING, build, first_words, messages
+from tests.tier1_offline.test_p0520_norefusal_direct import _stage_unsteady
 
 #: A saved simulation of a hub and a blade whose records carry the IDs 4 and 5,
 #: in metres, with two surface sections of its own in its post block, laid out
@@ -98,3 +106,32 @@ def test_p0521_a_rotor_with_periodic_copies_couples_the_named_blade_and_warns(tm
     assert lines[at + 1] == str(frame), "the named blade couples in its own rotating frame"
     warned = [m for m in messages(caught) if "symmetry copies" in m]
     assert warned and "not measured" in warned[0], warned
+
+
+@pytest.mark.requirement("FR-3408")
+def test_p0521_the_surface_before_each_call_is_exported_and_archived_when_asked(tmp_path):
+    # P0521-FSI-SECTOR-BEFORE-CALL
+    case = coupled_case(tmp_path)
+    assert case.fsi is not None and case.fsi.export_surface_before_call is False
+    plain, _ = build(case)
+    assert BEFORE_CALL_SURFACE_FILE not in plain.pending_input_files[ws.POST_FILE]
+    assert "export_surface_before_call" not in case.fsi.model_dump()
+    asked = case.model_copy(
+        update={"fsi": case.fsi.model_copy(update={"export_surface_before_call": True})}
+    )
+    script, _ = build(asked)
+    post = [line for line in script.pending_input_files[ws.POST_FILE].splitlines() if line]
+    loads = post.index(LOADS_FILE)
+    assert BEFORE_CALL_SURFACE_FILE in post[loads:], "the surface follows the loads export"
+    assert "EXPORT_SOLVER_ANALYSIS_VTK" in post[loads:]
+    staged = tmp_path / "staged"
+    _write_pending_files(script, staged, case=asked, recorded={})
+    assert json.loads((staged / "config.json").read_text())["export_surface_before_call"]
+    # A structural call archives the surface on disk when it starts.
+    run_dir = tmp_path / "call"
+    _stage_unsteady(run_dir, "mapped")
+    (run_dir / LOADS_FILE).write_text(LOADS, encoding="utf-8")
+    (run_dir / BEFORE_CALL_SURFACE_FILE).write_text("before the call\n")
+    assert fsi_cli.coupled_step(run_dir) == 0
+    archived = run_dir / "fsi_archive" / "call_0001" / BEFORE_CALL_SURFACE_FILE
+    assert archived.read_text() == "before the call\n"
