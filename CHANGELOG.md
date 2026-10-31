@@ -11,6 +11,13 @@ FlightStream versions.
 
 ### Fixed
 
+- Direct morphing (`morphing = "direct"` or `"direct_deflected"`) reads the
+  solver's aerodynamic nodes file as the solver writes it (FR-3410): the line of
+  dashes below the column header is a separator and the one after the last row
+  ends the table, before the footer of units, version and date. Every direct
+  morphing call failed at its first structural call with "line 21 is not 9
+  finite numbers" (measured on 26.125 and 26.127).
+
 - A run whose solver log says `Unsteady solver run aborted!` is recorded
   `FAILED_EXECUTION`, quoting the line, at run and at collect (FR-3409). It was
   recorded `CONVERGED` from the converged residual table of the steady

@@ -43,7 +43,7 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 0.52.1 budgets the test module of the XPROP sector's coupled rows (FR-3408:
 #: tests/tier1_offline/test_p0521_fsi_sector.py, +1 tracked file), measured.
 LEAN_CAPS = {
-    "tracked_files": 2047,
+    "tracked_files": 2048,
     "reports_files": 101,
     "reports_lines": 161906,
     "tests_files": 1147,

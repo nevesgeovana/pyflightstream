@@ -94,9 +94,16 @@ def _aero_rows(text: str, name: str) -> np.ndarray:
         raise FsiInputError(
             f"{name} has no valid aerodynamic node count and column header. {remedy}"
         )
-    rows = []
+    rows: list[list[float]] = []
     for number, line in enumerate(lines[header + 1 :], start=header + 2):
         if not line.strip():
+            continue
+        # FR-3410: the solver draws a line of dashes below the column header and another
+        # after the last row, followed by a footer of units, version and date (measured
+        # on 26.125 and 26.127). Before the first row it is a separator; after, the end.
+        if not line.strip().strip("-"):
+            if rows:
+                break
             continue
         values = _numbers(line)
         if values is None or len(values) != AERO_NODE_COLUMNS or not np.isfinite(values).all():
