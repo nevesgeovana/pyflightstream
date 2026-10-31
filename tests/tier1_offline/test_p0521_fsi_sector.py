@@ -2,7 +2,9 @@
 
 Written from the requirement: an ``unsteady_rotor`` row coupled on a saved
 simulation is built with the boundary ID and the section order read from the
-saved file and a warning saying they are not proved by a fresh import.
+saved file and a warning saying they are not proved by a fresh import; a row
+with symmetry copies couples the blade it names in that blade's rotating frame
+and warns that the solver's treatment of the copies is unmeasured.
 """
 
 from __future__ import annotations
@@ -79,3 +81,20 @@ def test_p0521_an_unread_post_block_couples_the_named_blade_alone_and_warns(tmp_
     assert [f["name"] for f in staged["families"]] == ["Blade1"]
     warned = [m for m in messages(caught) if "saved simulation" in m]
     assert warned and "could not be read" in warned[0], warned
+
+
+@pytest.mark.requirement("FR-3408")
+def test_p0521_a_rotor_with_periodic_copies_couples_the_named_blade_and_warns(tmp_path):
+    # P0521-FSI-SECTOR-COPIES
+    case = coupled_case(tmp_path)
+    copies = {"SYMMETRY": "PERIODIC", "PERIODIC_COPIES": 6}
+    case = case.model_copy(update={"variables": {**case.variables, **copies}})
+    script, caught = build(case)
+    text = script.render()
+    _block_precedes_the_solve(text)
+    frame = int(script.section_blocks[0]["frame_index"])
+    lines = text.splitlines()
+    at = lines.index("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS 1")
+    assert lines[at + 1] == str(frame), "the named blade couples in its own rotating frame"
+    warned = [m for m in messages(caught) if "symmetry copies" in m]
+    assert warned and "not measured" in warned[0], warned

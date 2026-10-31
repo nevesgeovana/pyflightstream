@@ -62,6 +62,7 @@ __all__ = [
     "FIXED_WING_WORKFLOWS",
     "FSI_ON_A_SAVED_FILE",
     "FSI_ROTOR_IN_DEBUG",
+    "FSI_WITH_SYMMETRY_COPIES",
     "FSI_WORKFLOW_STATE",
     "IMPORT_BOUNDARY_ID_OFFSET",
     "NODES_FILE",
@@ -145,6 +146,19 @@ FSI_ON_A_SAVED_FILE = (
     "ahead of the row's), not proved by a fresh mesh import."
 )
 
+#: The warning a coupled ``unsteady_rotor`` row with symmetry copies is planned
+#: with (FR-3408). The blade the row names is coupled in its own rotating frame
+#: and its copies are left to the solver's symmetry. How the solver treats the
+#: copies of a coupled blade is not measured: a hand-built run of the XPROP
+#: sector (14_NX_B45_NMIN, six periodic copies) diverged after the first
+#: non-zero structural call on two of its routes, measured on 26.126 only and
+#: not reproduced on another build.
+FSI_WITH_SYMMETRY_COPIES = (
+    "the blade the row names is coupled in its own rotating frame and its copies are left to "
+    "the solver's symmetry; how the solver treats the copies of a coupled blade is not "
+    "measured (a run of this kind diverged after the first non-zero structural call on "
+    "26.126), so the copies may not carry the deformation."
+)
 FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
     {
         "unsteady_rotor": None,
@@ -865,8 +879,10 @@ def validate_workspace_fsi(
     CampaignConfigError
         If the workflow is refused for FSI, the point is a continuation, the script carries raw
         commands or custom flags, the mesh is not freshly imported (a saved simulation couples
-        on ``unsteady_rotor``, FR-3408), blades or sections rely on symmetry
-        copies, or the rotor speed is not positive.
+        on ``unsteady_rotor``, FR-3408), the sections include symmetry copies, the blades rely on
+        symmetry copies off ``unsteady_rotor`` and ``qsteady_rotor`` (an ``unsteady_rotor`` row
+        with copies couples the blade it names and is warned, FR-3408), or the rotor speed is not
+        positive.
     """
     if case.fsi is None:
         return
@@ -903,13 +919,7 @@ def validate_workspace_fsi(
     # A QUASI-STEADY SECTOR IS PERIODIC BY DEFINITION: one blade meshed, the
     # others its images. Its structure is the meshed blade alone, so the copies
     # are refused where they would reach the structure, in the sections below.
-    if (
-        workflow != QUASI_STEADY_WORKFLOW
-        and str(case.variables.get("SYMMETRY", "NONE")).upper() != "NONE"
-    ):
-        raise CampaignConfigError(
-            "Workspace FSI requires all blades explicitly, without symmetry copies."
-        )
+    _couple_or_refuse_the_copies(case, workflow)
     if case.pproc is None:
         raise CampaignConfigError(
             "Workspace FSI requires a post-processing block that states explicit per-blade "
@@ -919,6 +929,30 @@ def validate_workspace_fsi(
         raise CampaignConfigError(
             "Workspace FSI requires explicit per-blade sections without symmetry copies."
         )
+
+
+def _couple_or_refuse_the_copies(case: SimCase, workflow: str) -> None:
+    """Warn of an unsteady rotor's symmetry copies, refuse them off the two rotor routes.
+
+    FR-3408: an ``unsteady_rotor`` row with copies couples the blade it names
+    in that blade's own rotating frame and leaves the copies to the solver's
+    symmetry, warned with :data:`FSI_WITH_SYMMETRY_COPIES`. A quasi-steady
+    sector is periodic by definition and its copies are refused where they
+    would reach the structure, in the sections.
+    """
+    symmetry = str(case.variables.get("SYMMETRY", "NONE")).upper()
+    if symmetry == "NONE" or workflow == QUASI_STEADY_WORKFLOW:
+        return
+    if workflow != "unsteady_rotor":
+        raise CampaignConfigError(
+            "Workspace FSI requires all blades explicitly, without symmetry copies."
+        )
+    warn(
+        f"case {case.sim_id!r} couples its rotor with {symmetry} symmetry copies: "
+        f"{FSI_WITH_SYMMETRY_COPIES}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
 
 
 def _refuse_a_wing_mismatch(case: SimCase, workflow: str) -> None:

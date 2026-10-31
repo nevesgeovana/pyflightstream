@@ -19,6 +19,16 @@ FlightStream versions.
   holds the row's blades alone and the warning says so.
   migration: a coupled `unsteady_rotor` row on a saved simulation that the
   plan refused ("requires a fresh mesh import") now runs, with that warning.
+- A coupled `unsteady_rotor` row with symmetry copies (for example a periodic
+  sector with `PERIODIC_COPIES: 6`) is planned and built (FR-3408): the blade
+  the rotor names is coupled in its own rotating frame and its copies are left
+  to the solver's symmetry. The plan warns that the solver's treatment of the
+  copies of a coupled blade is not measured; a run of the XPROP sector
+  diverged after the first non-zero structural call on two routes, measured
+  on 26.126 only.
+  migration: a coupled `unsteady_rotor` row with symmetry copies that the plan
+  refused ("without symmetry copies") now runs, with that warning.
+
 ## [0.52.0] - 2026-10-30
 
 ### Changed

@@ -97,7 +97,7 @@ shell, spar, hollow-section, shear-center or second structural model.
 
 | Workflow | FSI in this release |
 | --- | --- |
-| `unsteady_rotor` | Accepted and warned: the coupling block is emitted before `START_SOLVER`, [below](#automatic-workspace-coupling), and the plan warns that the solver applies the morph of a rotating blade at its imported azimuth. A saved simulation is accepted and warned too ([a saved sector with copies](#a-saved-sector-with-copies)). |
+| `unsteady_rotor` | Accepted and warned: the coupling block is emitted before `START_SOLVER`, [below](#automatic-workspace-coupling), and the plan warns that the solver applies the morph of a rotating blade at its imported azimuth. A saved simulation and symmetry copies are accepted and warned too ([a saved sector with copies](#a-saved-sector-with-copies)). |
 | `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
 | `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing-0370). Refused on a whole wheel. |
 
@@ -338,8 +338,10 @@ The initial automatic route is deliberately bounded:
  length unit must be `METER`; other node-file units are not yet established
  for this adapter. A saved simulation (`.fsm`) is coupled too (FR-3408): see
  [a saved sector with copies](#a-saved-sector-with-copies) below.
-- Exactly one moving rotor resolves to all of its explicit blades. Periodic or
- mirror symmetry, missing blades and ambiguous rotor selection are refused.
+- Exactly one moving rotor resolves to its blades. Missing blades and
+ ambiguous rotor selection are refused. With periodic or mirror symmetry
+ copies, the blades the rotor names are coupled and the copies are left to the
+ solver, with a warning (FR-3408, below).
 - The existing structural `rotor_frame` convention requires shaft X and blade
  datum Z. The declared geometry and structural pitch must describe that same
  physical blade; this adapter does not infer a new basis or re-pitch the mesh.
@@ -374,6 +376,13 @@ planned and built (FR-3408), each step warned:
  sections than the map holds.
 - **The warning** says that the ID and the order are taken from the saved
  file and not proved by a fresh mesh import.
+- **Symmetry copies.** The blade the row's rotor names (`families_blades`,
+ for example `Blade1`) is coupled in its own rotating frame; its copies are
+ left to the solver's symmetry. How the solver treats the copies of a
+ coupled blade is not measured, and the plan says so. A run of the XPROP
+ sector, on 26.126 only, diverged after the first non-zero structural call
+ on two routes.
+
 ### The pproc entry
 
 For example, the corresponding pproc entry for a one-blade rotor whose family
