@@ -571,10 +571,12 @@ def _write_displacements(
 ) -> None:
     """Write ``FSIDisp.txt`` and remember the rows as the next call's previous ones.
 
-    ``increment`` is the DEFLECTED direct route (FR-3404): the solver applies
-    what is written to the surface already deflected (RPT-155, arm Q3), so the
-    file holds this call's total minus the total written before, and the state
-    keeps the total, which relaxation and the next increment read.
+    ``increment`` is the DEFLECTED direct route of the steady calls (FR-3404):
+    the solver applies what is written to the surface already deflected
+    (RPT-155, arm Q3), so the file holds this call's total minus the total
+    written before, and the state keeps the total, which relaxation and the
+    next increment read. The unsteady rotor writes the total on every route
+    (:func:`_unsteady_rotor_step`).
     """
     previous = state.previous_displacements
     rows = written
@@ -1433,9 +1435,14 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
             )
             lag = abs(math.degrees(solution.elastic_twist_rad[-1] - applied_twist[-1]))
             applied_twist_settled &= lag < cfg.phases.tip_twist_tolerance_deg
-    _write_displacements(
-        run_dir, state, written, increment=cfg.morphing == DIRECT_MORPHING_DEFLECTED
-    )
+    # The unsteady rotor writes the TOTAL field on the DEFLECTED direct route too. Each time
+    # step the solver places the blade by its motion and morphs it by the file of that step
+    # alone: on 26.127 (pyfs-debugging row 9873, the section cuts exported after every step)
+    # the surface after call 36 carried that call's rows, after call 37 half of them, as the
+    # rows halved, and from call 100 none, while the listed DEFLECTED nodes never moved from
+    # the undeformed ones. The increment of the steady route (RPT-155, arm Q3) relaxed this
+    # blade back to rigid.
+    _write_displacements(run_dir, state, written, increment=False)
 
     _record_the_revolution(
         cfg,

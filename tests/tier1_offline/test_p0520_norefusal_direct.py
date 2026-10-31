@@ -173,10 +173,12 @@ def test_p0520_direct_deflected_on_unsteady_rotor_is_emitted_and_warned(tmp_path
 
 
 @pytest.mark.requirement("FR-3404")
-def test_p0520_direct_deflected_calls_write_the_increment_over_the_written_total(tmp_path):
-    # P0520-NOREFUSAL-DEFLECTED: the solver applies what is written to the surface
-    # already deflected (RPT-155, arm Q3), so each call writes its total minus the
-    # total of the call before: the RIGID route's rows, differenced call by call.
+def test_p0520_direct_deflected_unsteady_calls_write_the_total_like_the_rigid_route(tmp_path):
+    # P0520-NOREFUSAL-DEFLECTED: on the unsteady rotor the solver morphs the blade by the
+    # file of the step alone and lists the DEFLECTED nodes undeformed (26.127, the section
+    # cuts of pyfs-debugging row 9873 after calls 36, 37 and 100), so every call writes
+    # the relaxed TOTAL, the RIGID route's rows; an increment over the total written
+    # before relaxed that blade back to rigid.
     rigid_dir, deflected_dir = tmp_path / "rigid", tmp_path / "deflected"
     cfg = _stage_unsteady(rigid_dir, "direct")
     _stage_unsteady(deflected_dir, "direct_deflected")
@@ -184,13 +186,13 @@ def test_p0520_direct_deflected_calls_write_the_increment_over_the_written_total
     _write_aero_nodes(rigid_dir, vertices)
     _write_aero_nodes(deflected_dir, vertices)
     previous = np.zeros((len(vertices), 3))
-    moved = 0
+    after_a_nonzero_total = 0
     for number in range(4):
         _call(rigid_dir, 100 + 40 * number)
         _call(deflected_dir, 100 + 40 * number)
         total = nodes.read_fsidisp(rigid_dir / driver.DISPLACEMENT_FILE)
-        increment = nodes.read_fsidisp(deflected_dir / driver.DISPLACEMENT_FILE)
-        np.testing.assert_allclose(increment, total - previous, rtol=0, atol=1e-12)
-        moved += int(np.abs(total - previous).max() > 0 and np.abs(previous).max() > 0)
+        written = nodes.read_fsidisp(deflected_dir / driver.DISPLACEMENT_FILE)
+        np.testing.assert_allclose(written, total, rtol=0, atol=1e-12)
+        after_a_nonzero_total += int(np.abs(previous).max() > 0 and np.abs(total).max() > 0)
         previous = total
-    assert moved >= 1, "a call after a non-zero total writes an increment, not the total"
+    assert after_a_nonzero_total >= 1, "no call followed a non-zero total, so nothing was tested"

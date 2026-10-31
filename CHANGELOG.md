@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- The DEFLECTED direct route on the unsteady rotor (`morphing = "direct_deflected"`
+  on an `unsteady_rotor` row) writes the relaxed total field at every call, as the
+  RIGID route does (FR-3404). On 26.127 the solver morphs the turning blade by the
+  file of the time step alone and lists the DEFLECTED nodes undeformed, so the
+  increment over the total written before, which the steady route keeps
+  (RPT-155, arm Q3), relaxed the blade back to rigid within a revolution.
+
 ## [0.52.1] - 2026-10-31
 
 ### Fixed
