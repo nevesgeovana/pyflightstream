@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 _INNER_TOLERANCE_RAD = 1.0e-6
 # The cap bounds a diverging iteration, not a converging one: the flap half contracts
 # by about the softening over the bending stiffness, so a softer blade takes more
-# solves to the same relative tolerance. Eight refused a settled XPROP blade at 20
+# solves to the same relative tolerance. Eight refused a settled propeller blade at 20
 # percent stiffness (residual 2.7e-9 m against 8.2e-10 m; nine solves reached
 # 3.2e-10 m); each solve costs milliseconds.
 _INNER_MAX_SOLVES = 30
