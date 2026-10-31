@@ -7,6 +7,21 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.52.1
+
+A coupled `unsteady_rotor` row on a saved simulation, or with symmetry copies,
+is planned and built, with a warning naming what is not measured; it was
+refused. `export_surface_before_call = true` under the FSI input's `[config]`
+exports the blade surface before each structural call (FR-3408).
+
+A run whose solver log says `Unsteady solver run aborted!` is now
+`FAILED_EXECUTION`, where it was recorded `CONVERGED`: run such a point again
+(`pyfs-matrix run ... --force-rerun <point>`) before posting it (FR-3409).
+
+Direct morphing reads the solver's aerodynamic nodes file as the solver
+writes it; every direct morphing call failed at the first structural call
+before. Rerun a direct morphing row that failed that way (FR-3410).
+
 ## 0.52.0
 
 FlightStream 26.127 (vendor 26.12, the corrected build of 2026-10-30) is a
