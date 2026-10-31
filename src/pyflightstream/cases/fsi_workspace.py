@@ -154,8 +154,8 @@ FSI_ON_A_SAVED_FILE = (
 #: The warning a coupled ``unsteady_rotor`` row with symmetry copies is planned
 #: with (FR-3408). The blade the row names is coupled in its own rotating frame
 #: and its copies are left to the solver's symmetry. How the solver treats the
-#: copies of a coupled blade is not measured: a hand-built run of the XPROP
-#: sector (14_NX_B45_NMIN, six periodic copies) diverged after the first
+#: copies of a coupled blade is not measured: a hand-built run of a propeller
+#: sector (one blade, six periodic copies) diverged after the first
 #: non-zero structural call on two of its routes, measured on 26.126 only and
 #: not reproduced on another build.
 FSI_WITH_SYMMETRY_COPIES = (

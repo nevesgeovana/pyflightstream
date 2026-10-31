@@ -32,7 +32,7 @@ FlightStream versions.
   sector with `PERIODIC_COPIES: 6`) is planned and built (FR-3408): the blade
   the rotor names is coupled in its own rotating frame and its copies are left
   to the solver's symmetry. The plan warns that the solver's treatment of the
-  copies of a coupled blade is not measured; a run of the XPROP sector
+  copies of a coupled blade is not measured; a run of a six-blade propeller sector
   diverged after the first non-zero structural call on two routes, measured
   on 26.126 only.
   migration: a coupled `unsteady_rotor` row with symmetry copies that the plan

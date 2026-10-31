@@ -379,8 +379,8 @@ planned and built (FR-3408), each step warned:
 - **Symmetry copies.** The blade the row's rotor names (`families_blades`,
  for example `Blade1`) is coupled in its own rotating frame; its copies are
  left to the solver's symmetry. How the solver treats the copies of a
- coupled blade is not measured, and the plan says so. A run of the XPROP
- sector, on 26.126 only, diverged after the first non-zero structural call
+ coupled blade is not measured, and the plan says so. A run of a six-blade
+ periodic propeller sector, on 26.126 only, diverged after the first non-zero structural call
  on two routes.
 
 ### The surface before each structural call

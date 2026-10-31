@@ -779,7 +779,7 @@ def saved_surface_section_count(path: str | Path) -> int | None:
     FR-3408: the sections a saved file carries are its own, and a script that
     opens it adds its distributions to them, so a coupled row on a saved file
     needs their count. The post block's fifth line is that count, read on two
-    saved shapes: the XPROP sector ``14_NX_B45_NMIN.fsm`` (``0``, followed by
+    saved shapes: a saved propeller sector (``0``, followed by
     nothing but closing counts) and a 26.126 save carrying 30 sections
     (``30``, followed by 30 records of five lines, each record's second line a
     flag line such as `` T,6,3,1``). A block of any other shape reads as None
