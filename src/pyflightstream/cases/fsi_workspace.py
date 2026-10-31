@@ -38,6 +38,7 @@ from pathlib import PurePath
 from types import MappingProxyType
 
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._fsm import MeshReadError, boundary_ids, saved_surface_section_count
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.fsi.config import DIRECT_NODE_TYPES, FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
@@ -59,12 +60,15 @@ __all__ = [
     "DIRECT_MORPHING_WORKFLOWS",
     "FAMILY_FILE",
     "FIXED_WING_WORKFLOWS",
+    "FSI_ON_A_SAVED_FILE",
     "FSI_ROTOR_IN_DEBUG",
     "FSI_WORKFLOW_STATE",
     "IMPORT_BOUNDARY_ID_OFFSET",
     "NODES_FILE",
     "POST_FILE",
     "QUASI_STEADY_WORKFLOW",
+    "SAVED_SECTIONS_FAMILY",
+    "SAVED_SIMULATION_SUFFIX",
     "STEADY_AEROELASTIC_COMPLETION",
     "STEADY_AEROELASTIC_ITERATIONS",
     "aeroelastic_post",
@@ -122,6 +126,25 @@ FSI_ROTOR_IN_DEBUG = (
     "(measured on 26.124 and 26.125, reported to the vendor), so the coupled loads of "
     "this row are not yet those of the deformed rotating blade."
 )
+
+#: THE GEOMETRY SUFFIX OF A SAVED SIMULATION (FR-3408). An ``unsteady_rotor``
+#: row couples on one: :func:`aeroelastic_surface_ids` reads each boundary's ID
+#: from the head line of its record in the file's mesh block, and
+#: :func:`wire_workspace_fsi` reads how many surface sections the file carries
+#: (:func:`pyflightstream._fsm.saved_surface_section_count`), which stand ahead
+#: of the row's own in the loads export, and warns with
+#: :data:`FSI_ON_A_SAVED_FILE`.
+SAVED_SIMULATION_SUFFIX = ".fsm"
+
+#: The warning a coupled ``unsteady_rotor`` row on a saved simulation is
+#: planned with (FR-3408): what a fresh import would have proved and the
+#: saved file only states.
+FSI_ON_A_SAVED_FILE = (
+    "the coupled blade's boundary ID and the section order the structural program reads "
+    "are taken from the saved file (the ID on its boundary record; its own surface sections "
+    "ahead of the row's), not proved by a fresh mesh import."
+)
+
 FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
     {
         "unsteady_rotor": None,
@@ -325,13 +348,18 @@ def aeroelastic_surface_ids(
     Raises
     ------
     CampaignConfigError
-        If the geometry is not a fresh import whose numbering was
-        measured, or the setup deletes surfaces and a cited boundary's name is
-        not one the opened inventory holds exactly once, rather than guessing
-        the ID.
+        If the geometry is neither a fresh import whose numbering was
+        measured nor a saved simulation whose mesh block states the IDs
+        (FR-3408: read from each boundary record's head line), or a cited
+        boundary's name is not one the opened inventory holds exactly once
+        where the ID is looked up by name (after ``delete_surfaces``, or in a
+        saved simulation), rather than guessing the ID.
     """
     suffix = PurePath(str(case.geometry)).suffix.lower() if case.geometry is not None else ""
     offset = IMPORT_BOUNDARY_ID_OFFSET.get(suffix)
+    saved = _saved_boundary_ids(case) if suffix == SAVED_SIMULATION_SUFFIX else None
+    if saved is not None:
+        return _ids_in_a_saved_file(case, script, boundaries, saved, context=context)
     if offset is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: {context} needs the solver's boundary ID, and how the "
@@ -342,6 +370,46 @@ def aeroelastic_surface_ids(
     if not case.solver.delete_surfaces:
         return [script.resolve_boundary(value, context=context) + offset for value in boundaries]
     return _ids_after_a_deletion(case, script, boundaries, offset, context=context)
+
+
+def _saved_boundary_ids(case: SimCase) -> dict[str, int] | None:
+    """Return the boundary IDs a saved simulation's mesh block states, None where unreadable."""
+    try:
+        return boundary_ids(str(case.geometry))
+    except MeshReadError:
+        return None
+
+
+def _ids_in_a_saved_file(
+    case: SimCase,
+    script: Script,
+    boundaries: Sequence[int | str],
+    saved: Mapping[str, int],
+    *,
+    context: str,
+) -> list[int]:
+    """Return the IDs of boundaries cited on a saved simulation, from its own records (FR-3408).
+
+    The file states each boundary's ID on the head line of its record, so the
+    ID is looked up by the boundary's NAME, found from its position in the tree
+    as the script left it, and a name the file does not hold exactly once is
+    not guessed.
+    """
+    by_position = {
+        position: name for name, position in script.entities.labels("boundaries").items()
+    }
+    ids: list[int] = []
+    for value in boundaries:
+        name = by_position.get(script.resolve_boundary(value, context=context))
+        if name is None or name not in saved:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {context} cites boundary {value!r}, and the saved "
+                f"simulation {PurePath(str(case.geometry)).name} does not hold its name exactly "
+                "once, so the ID the solver gives it is not known. Name each surface once in "
+                "the geometry."
+            )
+        ids.append(saved[name])
+    return ids
 
 
 def _ids_after_a_deletion(
@@ -796,8 +864,9 @@ def validate_workspace_fsi(
     ------
     CampaignConfigError
         If the workflow is refused for FSI, the point is a continuation, the script carries raw
-        commands or custom flags, the mesh is not freshly imported, blades or sections rely on
-        symmetry copies, or the rotor speed is not positive.
+        commands or custom flags, the mesh is not freshly imported (a saved simulation couples
+        on ``unsteady_rotor``, FR-3408), blades or sections rely on symmetry
+        copies, or the rotor speed is not positive.
     """
     if case.fsi is None:
         return
@@ -813,7 +882,11 @@ def validate_workspace_fsi(
         raise CampaignConfigError(
             "Workspace FSI requires positive omega; zero-speed coupling is unsupported."
         )
-    if case.geometry is None or PurePath(str(case.geometry)).suffix.lower() not in {".obj", ".stl"}:
+    suffix = PurePath(str(case.geometry)).suffix.lower() if case.geometry is not None else ""
+    # FR-3408: A SAVED SIMULATION COUPLES ON unsteady_rotor, its boundary IDs and
+    # section order read from the file and warned (wire_workspace_fsi).
+    saved_rotor = workflow == "unsteady_rotor" and suffix == SAVED_SIMULATION_SUFFIX
+    if not saved_rotor and suffix not in {".obj", ".stl"}:
         raise CampaignConfigError(
             "Workspace FSI requires a fresh mesh import: inherited saved-FSM section order "
             "has no proof. Export an inspected mesh and provide its boundary sidecar."
@@ -900,6 +973,13 @@ def wire_workspace_fsi(
 ) -> None:
     """Stage one structural source and emit the native unsteady callback contract.
 
+    On a saved simulation (FR-3408) the surface sections the file carries
+    stand ahead of the row's in the loads export, so the section-order map
+    opens with them as one family the structural solve does not read, and the
+    plan warns with :data:`FSI_ON_A_SAVED_FILE`; where the file's post block
+    is not a shape the reader knows, the map holds the row's blades alone and
+    the warning says so.
+
     Parameters
     ----------
     case : SimCase
@@ -979,6 +1059,7 @@ def wire_workspace_fsi(
         if not isinstance(count, int) or count < 1:
             raise CampaignConfigError("FSI section count is not established.")
         families.append(SectionFamily(name=blade, count=count, is_blade=True))
+    families = _saved_sections_first(case, families)
     family_map = SectionFamilyMap(families=families)
     layout = structural_node_layout(cfg)
     _stage_and_emit(
@@ -992,6 +1073,43 @@ def wire_workspace_fsi(
         interpreter=interpreter,
         steady=False,
     )
+
+
+#: The family the section-order map gives a saved simulation's own surface
+#: sections (FR-3408): split off the loads export and never fed to the beam.
+SAVED_SECTIONS_FAMILY = "saved-file sections"
+
+
+def _saved_sections_first(case: SimCase, families: list[SectionFamily]) -> list[SectionFamily]:
+    """Open the section-order map with a saved simulation's own sections, warned (FR-3408).
+
+    A fresh import carries no section, so its map is the row's blades. A saved
+    simulation keeps the sections it was saved with, and the row's distributions
+    are added after them, so they stand first in the loads export. Their count
+    is read from the file; where it cannot be read, the map is the row's blades
+    alone, and the structural call refuses an export whose section count the
+    map does not account for.
+    """
+    if PurePath(str(case.geometry)).suffix.lower() != SAVED_SIMULATION_SUFFIX:
+        return families
+    blades = ", ".join(family.name for family in families)
+    count = saved_surface_section_count(str(case.geometry))
+    if count is None:
+        found = (
+            "the count of the file's own surface sections could not be read, so the map holds "
+            f"{blades} alone and a structural call refuses an export with more sections"
+        )
+    else:
+        found = f"the file carries {count} surface section(s) of its own"
+    warn(
+        f"case {case.sim_id!r} couples {blades} on the saved simulation "
+        f"{PurePath(str(case.geometry)).name}: {FSI_ON_A_SAVED_FILE} Here {found}.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+    if not count:
+        return families
+    return [SectionFamily(name=SAVED_SECTIONS_FAMILY, count=count, is_blade=False), *families]
 
 
 #: The cap on a steady coupled run's coupling iterations (FSI-G). The solver

@@ -2394,6 +2394,11 @@
     },
     {
       "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream.cases",
       "kind": "module"
     },

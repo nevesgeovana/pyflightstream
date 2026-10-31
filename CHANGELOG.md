@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- A coupled `unsteady_rotor` row on a saved simulation (`.fsm`) is planned
+  and built (FR-3408). The coupled blade's boundary ID is read from its record
+  in the file's mesh block, and the surface sections the file carries, counted
+  from its post block, open `fsi_family_map.json` as one family the structural
+  solve does not read (`saved-file sections`); the plan warns that the ID and
+  the section order are taken from the saved file and not proved by a fresh
+  mesh import. Where the post block is not a shape the reader knows, the map
+  holds the row's blades alone and the warning says so.
+  migration: a coupled `unsteady_rotor` row on a saved simulation that the
+  plan refused ("requires a fresh mesh import") now runs, with that warning.
 ## [0.52.0] - 2026-10-30
 
 ### Changed

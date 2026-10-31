@@ -97,7 +97,7 @@ shell, spar, hollow-section, shear-center or second structural model.
 
 | Workflow | FSI in this release |
 | --- | --- |
-| `unsteady_rotor` | Accepted and warned: the coupling block is emitted before `START_SOLVER`, [below](#automatic-workspace-coupling), and the plan warns that the solver applies the morph of a rotating blade at its imported azimuth. |
+| `unsteady_rotor` | Accepted and warned: the coupling block is emitted before `START_SOLVER`, [below](#automatic-workspace-coupling), and the plan warns that the solver applies the morph of a rotating blade at its imported azimuth. A saved simulation is accepted and warned too ([a saved sector with copies](#a-saved-sector-with-copies)). |
 | `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
 | `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing-0370). Refused on a whole wheel. |
 
@@ -335,8 +335,9 @@ package must remain available to that interpreter on the execution host.
 The initial automatic route is deliberately bounded:
 
 - A fresh OBJ/STL mesh import creates `NEW_SIMULATION`; the selected native
- length unit must be `METER`. Saved-FSM section inheritance and other node-file
- units are not yet established for this adapter.
+ length unit must be `METER`; other node-file units are not yet established
+ for this adapter. A saved simulation (`.fsm`) is coupled too (FR-3408): see
+ [a saved sector with copies](#a-saved-sector-with-copies) below.
 - Exactly one moving rotor resolves to all of its explicit blades. Periodic or
  mirror symmetry, missing blades and ambiguous rotor selection are refused.
 - The existing structural `rotor_frame` convention requires shaft X and blade
@@ -353,6 +354,27 @@ The initial automatic route is deliberately bounded:
 - Zero-speed coupling and continuation are named refusals. Continuation
  needs compatible structural state and inherited section-order evidence;
  creating fresh maps beside a stopped run would not establish that evidence.
+
+### A saved sector with copies
+
+An `unsteady_rotor` row whose geometry is a saved simulation, such as a
+periodic sector of one blade, a spinner and a nacelle with six copies, is
+planned and built (FR-3408), each step warned:
+
+- **The boundary ID is read from the saved file.** Each boundary record of
+ the file's mesh block opens with the boundary's ID, and the surface list
+ takes the coupled blade's ID from there, by the blade's name.
+- **The section order is read from the saved file.** The surface sections a
+ saved file carries stand ahead of the row's own distributions in the loads
+ export, so `fsi_family_map.json` opens with them as one family, named
+ `saved-file sections`, which the structural solve does not read. Their count
+ is read from the file's post block. Where that block is not a shape the
+ reader knows, the map holds the row's blades alone, the warning says the
+ count could not be read, and a structural call refuses an export with more
+ sections than the map holds.
+- **The warning** says that the ID and the order are taken from the saved
+ file and not proved by a fresh mesh import.
+### The pproc entry
 
 For example, the corresponding pproc entry for a one-blade rotor whose family
 is `Blade1` is:
@@ -388,9 +410,10 @@ These pieces are shared by every coupled route
  `ASSIGN_AEROELASTIC_SURFACES` as written and maps the boundaries whose ID
  matches, while a script cites a boundary by its position in the geometry
  tree. An OBJ import numbers its boundaries from 2, an STL import from 1, so
- an OBJ blade at position 1 is surface 2, the ID its motion holds. Any other
- geometry is refused rather than guessed: a wrong ID maps no vertex, in
- silence.
+ an OBJ blade at position 1 is surface 2, the ID its motion holds. A saved
+ simulation states each ID on its boundary record, and the ID is read from
+ there (FR-3408). Any other geometry is refused rather than guessed: a wrong
+ ID maps no vertex, in silence.
 - **The structural nodes sit inside the blade.** When the configuration
  carries the blade's sections (a calculated blade does; a supplied blade may
  state `section_contours_m` under `[config.blade]`, one closed polygon of

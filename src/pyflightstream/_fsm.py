@@ -58,6 +58,7 @@ __all__ = [
     "MESH_MARKER",
     "element_count",
     "MeshReadError",
+    "boundary_ids",
     "boundary_labels",
     "boundary_names",
     "boundary_owners",
@@ -69,6 +70,7 @@ __all__ = [
     "saved_solver_actions",
     "saved_length_unit",
     "saved_mesh_coordinate_unit",
+    "saved_surface_section_count",
     "surface_mesh",
     "trailing_edge_midpoints",
     "without_saved_solver_actions",
@@ -711,6 +713,105 @@ def boundary_names(path: str | Path) -> tuple[str, ...] | None:
                 )
             names.append(name)
     return tuple(names)
+
+
+def boundary_ids(path: str | Path) -> dict[str, int] | None:
+    """Return the number each boundary record of a saved simulation opens with, by name.
+
+    FR-3408: the number on a boundary's head line is the ID the solver gives
+    that boundary, the one a motion's boundary list and the Aeroelastic
+    toolbox's surface list hold (``IMPORT_BOUNDARY_ID_OFFSET`` in
+    :mod:`pyflightstream.cases.fsi_workspace` says why for a fresh import). It
+    is NOT the boundary's position, which :func:`boundary_names` gives. A name
+    carried by more than one boundary is left out: its ID cannot be told by name.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    dict of str to int or None
+        The ID of every uniquely named boundary, or None where the file carries
+        no mesh block.
+
+    Raises
+    ------
+    MeshReadError
+        As :func:`boundary_names`.
+    """
+    # THE SHAPE IS CHECKED BY boundary_names, which refuses every deviation, so
+    # this second read of the same few hundred bytes takes each head's number.
+    names = boundary_names(path)
+    if names is None:
+        return None
+    with Path(path).open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if line.strip() == MESH_MARKER:
+                break
+        for _ in range(_LINES_BEFORE_COUNT + 1):
+            handle.readline()
+        numbers: list[int] = []
+        for _ in names:
+            numbers.append(int(handle.readline().split(",", 1)[0]))
+            for _ in range(_RECORD_LINES - 1):
+                handle.readline()
+    pairs = zip(numbers, names, strict=True)
+    return {name: number for number, name in pairs if names.count(name) == 1}
+
+
+#: A surface section record's flag line in the post block (FR-3408), as both
+#: measured shapes below write it: `` T,6,3,1``.
+_SECTION_FLAG_LINE = re.compile(r"^[TF],\s*\d+,\s*\d+,\s*\d+$")
+
+#: Lines per surface section record of the post block: the name, the flag line,
+#: the plane point, the boundary list and a closing pair.
+_SECTION_RECORD_LINES = 5
+
+#: Lines of the post block before its surface section count.
+_POST_LINES_BEFORE_SECTIONS = 4
+
+
+def saved_surface_section_count(path: str | Path) -> int | None:
+    """Return how many surface sections a saved simulation carries, or None where unknown.
+
+    FR-3408: the sections a saved file carries are its own, and a script that
+    opens it adds its distributions to them, so a coupled row on a saved file
+    needs their count. The post block's fifth line is that count, read on two
+    saved shapes: the XPROP sector ``14_NX_B45_NMIN.fsm`` (``0``, followed by
+    nothing but closing counts) and a 26.126 save carrying 30 sections
+    (``30``, followed by 30 records of five lines, each record's second line a
+    flag line such as `` T,6,3,1``). A block of any other shape reads as None
+    rather than as a guess, and so does a file with no post block.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    int or None
+        The count, or None where the post block is absent or not that shape.
+    """
+    try:
+        lines = _block(path, "POST")
+    except MeshReadError:
+        return None
+    if lines is None or len(lines) <= _POST_LINES_BEFORE_SECTIONS:
+        return None
+    head = [line.strip() for line in lines[: _POST_LINES_BEFORE_SECTIONS + 1]]
+    if head[0] not in {"T", "F"} or not all(_NUMERIC.match(value) for value in head[2:]):
+        return None
+    count = int(head[-1])
+    records = lines[_POST_LINES_BEFORE_SECTIONS + 1 :]
+    if count < 0 or len(records) < count * _SECTION_RECORD_LINES:
+        return None
+    flags = records[1 : count * _SECTION_RECORD_LINES : _SECTION_RECORD_LINES]
+    if not all(_SECTION_FLAG_LINE.match(line.strip()) for line in flags):
+        return None
+    return count
 
 
 def boundary_labels(

@@ -40,8 +40,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: tests/tier1_offline/test_p0520_norefusal*.py, +6 tracked files) and the 26.127
 #: evidence (FR-3406, FR-3407: reports/compat/CMP-26127_2026-10-30_probe-campaign and
 #: -fsm, yaml and md, the vendor CCS export report, the 26.127 row of RPT-032), measured.
+#: 0.52.1 budgets the test module of the XPROP sector's coupled rows (FR-3408:
+#: tests/tier1_offline/test_p0521_fsi_sector.py, +1 tracked file), measured.
 LEAN_CAPS = {
-    "tracked_files": 2045,
+    "tracked_files": 2046,
     "reports_files": 101,
     "reports_lines": 161906,
     "tests_files": 1147,

@@ -183,12 +183,14 @@ def test_no_fsi_preserves_existing_run_without_callback(tmp_path):
     assert not any(name.startswith("fsi_") for name in script.pending_input_files)
 
 
-def test_saved_fsm_section_order_is_not_guessed(tmp_path):
+def test_saved_fsm_without_a_mesh_block_does_not_guess_the_blade_id(tmp_path):
+    # 0.52.1 (FR-3408): a saved simulation couples with the ID its boundary record
+    # states; a file with no mesh block states none, so the ID is not guessed.
     case = coupled_case(tmp_path)
     saved = tmp_path / "existing.fsm"
     saved.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n")
     case = case.model_copy(update={"geometry": str(saved), "mesh_import": None})
-    with pytest.raises(ValueError, match="inherited.*section|saved.*section"):
+    with pytest.raises(ValueError, match="boundary ID.*not measured"):
         _lines(case)
 
 
