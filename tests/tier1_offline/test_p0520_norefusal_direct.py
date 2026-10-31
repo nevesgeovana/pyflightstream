@@ -35,6 +35,8 @@ from tests.tier1_offline.test_p0370_s6_direct_morphing import (
     _rotating_config,
     _write_aero_nodes,
 )
+from tests.tier1_offline.test_p0370_s6_direct_morphing import _call as _call_quasi_steady
+from tests.tier1_offline.test_p0370_s6_direct_morphing import _stage as _stage_quasi_steady
 from tests.tier1_offline.test_p0520_norefusal import build, first_words, messages
 
 
@@ -196,3 +198,27 @@ def test_p0520_direct_deflected_unsteady_calls_write_the_total_like_the_rigid_ro
         after_a_nonzero_total += int(np.abs(previous).max() > 0 and np.abs(total).max() > 0)
         previous = total
     assert after_a_nonzero_total >= 1, "no call followed a non-zero total, so nothing was tested"
+
+
+@pytest.mark.requirement("FR-3404")
+def test_p0520_direct_deflected_steady_calls_still_write_the_increment(tmp_path):
+    # P0520-NOREFUSAL-DEFLECTED: a steady call keeps the increment (RPT-155, arm Q3): the
+    # solver applies the file to the surface already deflected, so each call writes its
+    # total minus the total written before, the RIGID route's rows differenced call by call.
+    rigid_dir, deflected_dir = tmp_path / "rigid", tmp_path / "deflected"
+    cfg = _stage_quasi_steady(rigid_dir, "direct")
+    _stage_quasi_steady(deflected_dir, "direct_deflected")
+    vertices = nodes.node_positions(nodes.generate_node_layout(cfg))
+    _write_aero_nodes(rigid_dir, vertices)
+    _write_aero_nodes(deflected_dir, vertices)
+    previous = np.zeros((len(vertices), 3))
+    moved = 0
+    for number in range(4):
+        _call_quasi_steady(rigid_dir, 100 + 40 * number)
+        _call_quasi_steady(deflected_dir, 100 + 40 * number)
+        total = nodes.read_fsidisp(rigid_dir / driver.DISPLACEMENT_FILE)
+        written = nodes.read_fsidisp(deflected_dir / driver.DISPLACEMENT_FILE)
+        np.testing.assert_allclose(written, total - previous, rtol=0, atol=1e-12)
+        moved += int(np.abs(previous).max() > 0 and np.abs(total - previous).max() > 0)
+        previous = total
+    assert moved >= 1, "no call followed a non-zero total, so the increment was not tested"
