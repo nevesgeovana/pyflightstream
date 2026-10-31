@@ -48,6 +48,36 @@ def test_fr3409_the_control_without_the_line_stays_converged(tmp_path):
     assert record.status is RunStatus.CONVERGED, (record.status, record.error)
 
 
+@pytest.mark.parametrize("aborted", [True, False], ids=["aborted", "control"])
+def test_fr3409_a_collected_point_whose_log_says_the_march_was_aborted_is_failed_execution(
+    tmp_path, aborted
+):
+    """A submitted point is judged at collect: the abort in its collected log makes it
+    FAILED_EXECUTION over the assessor's CONVERGED, and the same log without it stays CONVERGED."""
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    workspace, sim = _submitted_workspace(tmp_path)
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    log = _solver_log(ABORT_LINES) if aborted else _solver_log(None)
+    (sim / "run_log.txt").write_bytes(log.encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    if not aborted:
+        assert outcome.record.status is RunStatus.CONVERGED, outcome.record.error
+        return
+    assert outcome.record.status is RunStatus.FAILED_EXECUTION, (
+        outcome.record.status,
+        outcome.record.error,
+    )
+    assert UNSTEADY_ABORT in outcome.record.error, outcome.record.error
+
+
 def test_fr3409_the_line_is_read_through_the_nul_a_hidden_export_writes():
     """A hidden-mode log puts a NUL alone on the line after every line; the line is still read."""
     assert unsteady_abort_verdict(None, "", _aborted_log(None)) is not None
