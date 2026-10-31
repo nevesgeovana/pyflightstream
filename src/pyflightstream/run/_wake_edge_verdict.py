@@ -339,6 +339,46 @@ def collected_log_texts(
     return texts
 
 
+#: The line the solver logs when its unsteady march stops before the last step, measured on
+#: 26.127 (an action program that could not execute, after the steady initialization had
+#: converged: the pyfs-debugging register, row 7163 of 2026-10-30).
+UNSTEADY_ABORT = "Unsteady solver run aborted!"
+
+
+def unsteady_abort_verdict(*log_texts: str | None) -> tuple[RunStatus, str] | None:
+    """Judge a run by whether the solver logged that its unsteady march was aborted.
+
+    FR-3409. The steady initialization before the march converges and leaves its
+    residual table in the log, so the assessor reads CONVERGED; the line says the
+    march itself stopped, so the outputs are not the row's.
+
+    Parameters
+    ----------
+    *log_texts : str or None
+        Every log of the run there is to read, as for :func:`actuator_profile_verdict`.
+
+    Returns
+    -------
+    tuple of (RunStatus, str) or None
+        None when no log carries the line; else FAILED_EXECUTION with a reason
+        that quotes it.
+    """
+    for text in log_texts:
+        if text and UNSTEADY_ABORT in text.replace("\x00", ""):
+            return (
+                RunStatus.FAILED_EXECUTION,
+                f"the solver logged '{UNSTEADY_ABORT}': the unsteady march stopped before its "
+                "last step, so these outputs are not the row's; the log lines before it name "
+                "the cause. Run the point again",
+            )
+    return None
+
+
+def log_verdict(*log_texts: str | None) -> tuple[RunStatus, str] | None:
+    """Return the verdict the run's logs give: an aborted march first, then the profile (G06)."""
+    return unsteady_abort_verdict(*log_texts) or actuator_profile_verdict(*log_texts)
+
+
 def with_log_verdict(
     status: RunStatus,
     error: str | None,

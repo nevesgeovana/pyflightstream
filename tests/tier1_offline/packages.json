@@ -183,6 +183,7 @@
       "tests/tier1_offline/test_free_space_list.py",
       "tests/tier1_offline/test_fsig_fixed_wing.py",
       "tests/tier1_offline/test_g04_solver_plots.py",
+      "tests/tier1_offline/test_fr3409_unsteady_abort.py",
       "tests/tier1_offline/test_g06_actuator_disc.py",
       "tests/tier1_offline/test_g10_force_distributions.py",
       "tests/tier1_offline/test_g15_custom_freestream.py",

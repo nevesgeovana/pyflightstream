@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- A run whose solver log says `Unsteady solver run aborted!` is recorded
+  `FAILED_EXECUTION`, quoting the line, at run and at collect (FR-3409). It was
+  recorded `CONVERGED` from the converged residual table of the steady
+  initialization before the march, and post then wrote products from a march
+  that stopped at its first steps (measured on 26.127).
+  migration: such a run is now a failed point; run it again.
+
 ### Changed
 
 - A coupled `unsteady_rotor` row on a saved simulation (`.fsm`) is planned

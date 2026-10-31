@@ -103,8 +103,8 @@ from pyflightstream.run._pending import (
 )
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.run._wake_edge_verdict import (
-    actuator_profile_verdict,
     collected_log_texts,
+    log_verdict,
     with_log_verdict,
 )
 from pyflightstream.script import Script
@@ -1182,7 +1182,7 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
     status, error = with_log_verdict(
         status,
         error,
-        actuator_profile_verdict(
+        log_verdict(
             log_text,
             job.result.log_text,
             printed,

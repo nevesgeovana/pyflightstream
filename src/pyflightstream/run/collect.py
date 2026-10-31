@@ -1353,9 +1353,9 @@ def _log_verdicts(
     """
     from pyflightstream.run._wake_edge_verdict import (
         SOLVER_OWN_LOG,
-        actuator_profile_verdict,
         collected_log_texts,
         collected_solver_log,
+        log_verdict,
         with_log_verdict,
     )
 
@@ -1385,9 +1385,7 @@ def _log_verdicts(
     return with_log_verdict(
         status,
         verdict,
-        actuator_profile_verdict(
-            log_text, job_log, *own, *collected_log_texts(sim_dir, collected, declared)
-        ),
+        log_verdict(log_text, job_log, *own, *collected_log_texts(sim_dir, collected, declared)),
     )
 
 
