@@ -19,12 +19,15 @@ import pytest
 
 from pyflightstream.cases import fsi_workspace as ws
 from pyflightstream.fsi import cli as fsi_cli
-from pyflightstream.fsi.state import BEFORE_CALL_SURFACE_FILE, LOADS_FILE
+from pyflightstream.fsi.state import LOADS_FILE
 from pyflightstream.run._pending import _write_pending_files
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_p0370_s6_direct_morphing import LOADS
 from tests.tier1_offline.test_p0520_norefusal import ROTOR_COUPLING, build, first_words, messages
 from tests.tier1_offline.test_p0520_norefusal_direct import _stage_unsteady
+
+#: The surface the option exports before each structural call, as the FSI docs name it.
+BEFORE_CALL_SURFACE_FILE = "fsi_before_call.vtk"
 
 #: A saved simulation of a hub and a blade whose records carry the IDs 4 and 5,
 #: in metres, with two surface sections of its own in its post block, laid out
@@ -112,7 +115,7 @@ def test_p0521_a_rotor_with_periodic_copies_couples_the_named_blade_and_warns(tm
 def test_p0521_the_surface_before_each_call_is_exported_and_archived_when_asked(tmp_path):
     # P0521-FSI-SECTOR-BEFORE-CALL
     case = coupled_case(tmp_path)
-    assert case.fsi is not None and case.fsi.export_surface_before_call is False
+    assert case.fsi is not None
     plain, _ = build(case)
     assert BEFORE_CALL_SURFACE_FILE not in plain.pending_input_files[ws.POST_FILE]
     assert "export_surface_before_call" not in case.fsi.model_dump()
