@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-01
+
 ### Added
 
 - Matrix keys `FSI_START_REV` and `FSI_START_ITER` set, for one row, when the structural
