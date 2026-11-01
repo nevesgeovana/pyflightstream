@@ -312,7 +312,10 @@ def r10_outputs(tmp_path: Path) -> dict[str, str]:
         for name, argv in (
             ("plan", ["plan", "polars.fs", "--fs-version", "26.120", accept]),
             ("run", ["run", "polars.fs", "--fs-version", "26.120", accept]),
-            ("post", ["post", "polars"]),
+            (
+                "post",
+                ["post", "polars", "--force-overwrite", "--yes"],
+            ),  # run posted it already (PFS-2185.18)
             ("collect", ["collect"]),
         ):
             outputs[f"{name}.console"] = _said([*argv, "--workspace", str(root)])

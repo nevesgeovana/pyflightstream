@@ -974,6 +974,48 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"write the sweep table (a point\n"
         b"           submitted to a scheduler is posted by `collect` once its outputs land)\n",
     )
+    # PFS-2185.18: `run` posts each simulation as it finishes, so the post block of the
+    # console comes before the sweep table instead of after the executed-rows line.
+    post_block = (
+        b"[post] started: .\n[post: simulations] 0/1, 0%, <CLOCK> elapsed, sim_7002\n"
+        b"[post: simulations] done: 1/1, <CLOCK>\n[post] finished\n"
+    )
+    assert post_block in captured["run.console"]
+    captured["run.console"] = (
+        captured["run.console"]
+        .replace(post_block, b"")
+        .replace(
+            b"     camp/sim_7002/V0300RE120AL+000  CONVERGED\n",
+            b"     camp/sim_7002/V0300RE120AL+000  CONVERGED\n" + post_block,
+        )
+    )
+    log_post = (
+        b"<TIME> [post] started: <ROOT>\n<TIME> [post] finished: \n"
+        b'{"duration_s": <S>, "outcomes": {}}\n'
+    )
+    log_name = "tree/logs/activity.log"
+    log_text = captured[log_name]
+    log_run_post = log_post + b"<TIME> [run] finished: "
+    assert log_run_post in log_text
+    log_text = log_text.replace(log_run_post, b"<TIME> [run] finished: ", 1)
+    captured[log_name] = log_text.replace(
+        b"V0300RE120AL+000  CONVERGED\n", b"V0300RE120AL+000  CONVERGED\n" + log_post, 1
+    )
+    jsonl_post = (
+        b'{"timestamp": "<TIME>", "stage": "post", "event": "started", "message": "<ROOT>"}\n'
+        b'{"timestamp": "<TIME>", "stage": "post", "event": "finished", "message": "", '
+        b'"duration_s": <S>, "outcomes": {}}\n'
+    )
+    jsonl_name = "tree/logs/activity.log.jsonl"
+    jsonl_run = jsonl_post + b'{"timestamp": "<TIME>", "stage": "run", "event": "finished"'
+    assert jsonl_run in captured[jsonl_name]
+    captured[jsonl_name] = (
+        captured[jsonl_name]
+        .replace(jsonl_run, jsonl_run[len(jsonl_post) :], 1)
+        .replace(
+            b'V0300RE120AL+000  CONVERGED"}\n', b'V0300RE120AL+000  CONVERGED"}\n' + jsonl_post, 1
+        )
+    )
     # FR-395 now records the full matrix's stable alias order (PFS-2094.034).
     captured[plan_name] = captured[plan_name].replace(
         b'  "matrix_sha256":',
@@ -1803,14 +1845,30 @@ def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
     assert code == 0, err
     assert re.fullmatch(r"1 point\(s\) in \S+: CONVERGED 1\n", out), out
     assert "sweep table" not in out and "[run] started" not in err and SIGNATURE in err
-    code, out, err = call(capsys, matrix_main, ["post", "polars", "--workspace", str(root)])
+    # The run already posted its point (PFS-2185.18), so a post rebuilds only on request.
+    code, out, err = call(
+        capsys,
+        matrix_main,
+        ["post", "polars", "--workspace", str(root), "--force-overwrite", "--yes"],
+    )
     assert code == 0, err
     assert re.fullmatch(r"\d+ product\(s\) written under \S.*\n", out), out
     code, out, err = call(capsys, matrix_main, ["collect", "--workspace", str(root)])
     assert code == 0, err
     assert out == "collected 0, failed 0, outstanding 0, unknown 0\n"
     code, out, err = call(
-        capsys, matrix_main, ["post", "polars", "--workspace", str(root), "--log-level", "normal"]
+        capsys,
+        matrix_main,
+        [
+            "post",
+            "polars",
+            "--workspace",
+            str(root),
+            "--log-level",
+            "normal",
+            "--force-overwrite",
+            "--yes",
+        ],
     )
     assert code == 0 and "product(s) written under" in out.strip().splitlines()[-1]
     assert out.count("\n") > 1
