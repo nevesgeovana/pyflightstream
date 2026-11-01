@@ -547,6 +547,16 @@ def _variant_a(ctx: SimContext, point: PolarPoint, sloads: Path | None = None) -
         return []
     inventory = ctx.record_of[point.name].inventory or list(blocks)
     selected = _selected(spec.families or "all", inventory, ctx.aliases, ctx.pproc.is_blade)
+    if not selected:
+        # FR-3455: the plan skipped the entry on this row and warned; nothing to trace.
+        _skip(
+            ctx,
+            key,
+            point.name,
+            f"families = {spec.families!r} names no family this simulation's geometry "
+            "carries, so the entry is skipped on it; its other products are written",
+        )
+        return []
     chosen = [name for name in selected if name in blocks]
     for name in (name for name in selected if name not in blocks):
         _skip(

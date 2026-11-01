@@ -282,6 +282,27 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
     return chosen
 
 
+def _families_the_row_lacks(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> str:
+    """Say why an entry none of whose families the row carries is skipped on it, else ``""``.
+
+    FR-3455, in the FR-320 reading (:mod:`pyflightstream.cases._skipped_families`).
+    An entry the row carries in part is traced over what it carries and its
+    absent families are noted where the plan cuts it (``farfield_sections``);
+    ``all`` lacks none.
+    """
+    from pyflightstream.cases._skipped_families import declared_names_the_geometry_lacks
+
+    if spec.families is None or not _analyses(spec, case) or _selected(case, spec, inventory):
+        return ""
+    aliases = _the_names_a_rotor_answers_to(case)
+    lacked = declared_names_the_geometry_lacks(spec.families, inventory, aliases)
+    absent = ", ".join(repr(name) for _owner, name in lacked)
+    return absent and (
+        f"families = {spec.families!r} names no family this row's geometry carries; "
+        f"absent: {absent}"
+    )
+
+
 def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
     """Return the families a declared distribution cuts alone in XZ of the reference axes.
 
@@ -723,15 +744,17 @@ def _resolve(
     if spec is None:
         return None
     window = _entry_window(spec, case)
-    if window:
-        # P0471: an entry whose window this row cannot take is not applicable here.
+    lacking = "" if window else _families_the_row_lacks(case, spec, inventory)
+    if window or lacking:
+        # P0471: an entry whose window this row cannot take is not applicable here;
+        # FR-3455: so is one none of whose families the row's geometry carries.
         return FarfieldResolution(
             tuple(
                 FarfieldInput(
                     analysis,
-                    "window",
+                    "window" if window else "families",
                     "not_applicable",
-                    reason=window,
+                    reason=window or lacking,
                     entry=spec.name,
                     variant=spec.variant,
                 )

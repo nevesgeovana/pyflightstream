@@ -73,6 +73,13 @@ FlightStream versions.
 
 ### Changed
 
+- A `[[farfields]]` `sections` entry naming a family a row's geometry does not carry no
+  longer stops the plan: it is warned and skipped on that row. An entry the row carries
+  none of emits nothing there, and the warning names the entry, the absent families and the
+  rows; an entry the row carries some of is traced over those, and the absent ones are
+  warned. Every other entry and product of the row is written, and post skips that entry's
+  Trefftz A on such a simulation and writes the rest. `families = "all"` is unchanged
+  (FR-3455).
 - Every workflow script switches the application to the plots scene (`CHANGE_SCENE_TO_PLOTS`) on the line before each `START_SOLVER`, so the solver runs with the plots scene active. Measured 12 percent faster on an unsteady 26.127 row with identical loads (FR-3442).
 - `pyfs-matrix run` posts each simulation it ran as soon as its last point of the run is
   recorded, before the next simulation's points run, and only that simulation: every other
