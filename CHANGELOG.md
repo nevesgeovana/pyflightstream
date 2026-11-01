@@ -84,7 +84,8 @@ FlightStream versions.
   discarded. `post --sims` now writes the named simulations' super files too (FR-3443).
 - `pyfs-matrix post <matrix>` posts only the simulations whose rows state RUN = 1 (a
   RUN = 0 simulation keeps its products; a matrix with no RUN = 1 row is warned and
-  nothing is posted), and with no other option only those not posted yet. `--archive` and
+  nothing is posted), and with no other option only those not posted yet (a point with no
+  provenance document, or one that ran again or changed status since). `--archive` and
   `--force-overwrite` rebuild every RUN = 1 simulation; `--sims` rebuilds exactly the named
   ones (FR-3443). migration: to rebuild everything, post with `--archive`.
 - Sections cut from the mesh: an FSI input's `[sections]` may state `source = "mesh"` with

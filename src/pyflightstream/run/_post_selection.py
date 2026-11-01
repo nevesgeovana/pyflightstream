@@ -29,7 +29,7 @@ def post_selection(
     products; its RUN = 1 simulations are rebuilt by ``--archive`` or
     ``--force-overwrite``, and otherwise only those with a recorded point
     the last post did not see (no provenance document, or one written
-    before the point ran again). A selection that is every recorded
+    before the point ran again or its status changed). A selection that is every recorded
     simulation of the matrix is the whole post; a matrix with no RUN = 1
     row, or with nothing pending, is said and skipped.
     """
@@ -90,9 +90,11 @@ def _not_posted_yet(
     PFS-2185.18. A post writes one provenance document per recorded run,
     stating when the solver ended (``prov:endTime``), and names it in
     ``products.json``. A run that document names is posted; one it does not
-    name, or whose document states another end than its record (a point run
-    again), is pending. A simulation whose products stand on disk with no
-    ``products.json`` to read (brought by a sync) is posted, so a post on a
+    name, or whose document states another end (a point run again) or
+    another status (``pyfs:status``: a record a later command re-classified,
+    discarded or marked converged) than its record, is pending. A simulation
+    whose products stand on disk with no ``products.json`` to read (brought by
+    a sync) is posted, so a post on a
     machine without the exports never touches it. A submitted point waits
     for collect.
     """
@@ -119,6 +121,7 @@ def _not_posted_yet(
             text = (out / relative).read_text(encoding="utf-8")
         except OSError:
             continue  # named by the manifest and not on this machine: posted
-        if record.finished_at is not None and record.finished_at not in text:
+        stale_end = record.finished_at is not None and record.finished_at not in text
+        if stale_end or f'"pyfs:status": "{record.status.value}"' not in text:
             pending.add(record.sim_id)
     return pending
