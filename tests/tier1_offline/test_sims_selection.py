@@ -405,8 +405,6 @@ def test_a_plain_post_reads_a_manifest_cut_off_mid_rewrite_from_its_staged_copy_
     "polars on disk is posted", and posted nothing of 6001, which the manifest
     being written no longer names.
     """
-    from pyflightstream.run._post_selection import _not_posted_yet
-
     workspace = _three_sims(tmp_path)
     out = _post_whole(workspace)
     whole = _document(out)
@@ -415,10 +413,10 @@ def test_a_plain_post_reads_a_manifest_cut_off_mid_rewrite_from_its_staged_copy_
     text = json.dumps(staged, indent=1) + "\n"
     (out / "products.json.tmp").write_text(text, encoding="utf-8")
     (out / "products.json").write_text(text[: len(text) // 2], encoding="utf-8")
-    records = workspace.read_manifest()
     # The control: the 6001 polars the earlier post wrote are on disk.
     assert list((out / "polars").glob("P6001-*"))
-    assert _not_posted_yet(workspace, "matriz", records, {"6001", "6002", "6009"}) == {"6001"}
+    assert matrix_cli.main(["post", "matriz", "--workspace", str(workspace.root)]) == 0
+    assert _document(out)["partial"]["sims"] == ["6001"]
 
 
 # --------------------------------------------------------------- collect --sims
