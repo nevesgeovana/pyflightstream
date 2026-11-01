@@ -869,6 +869,48 @@ def _a_turned_frame_the_row_leaves_out(
     return True
 
 
+def _the_frame_the_entry_lands_in(
+    case: SimCase,
+    script: Script,
+    frames: Frames,
+    declared: ProbesSpec,
+    probes: ProbesSpec,
+    *,
+    unsteady: bool,
+) -> int | None:
+    """Return the index of the frame a `[[probes]]` entry is laid in, or None to leave it out.
+
+    ``probes`` is ``declared`` with its frame resolved (:func:`_the_probe_frame`).
+    """
+    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not place
+    # that frame leaves the entry out, warned and never refused: one artifact
+    # serves the power-on row that places PUSHER_RMRP and the power-off row
+    # that places PUSHER_SMRP only. A frame NO declared rotor owns is still
+    # refused below, by `_pproc_frame`, because it cannot come right on
+    # another row.
+    if (
+        EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
+        and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
+        and (
+            _the_rotor_whose_frame_this_is(case, probes.frame) is not None
+            or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
+        )
+        and frames.get(probes.frame) is None
+    ):
+        _leave_out_the_entry(case, declared, probes.frame)
+        return None
+    frame = (
+        1
+        if probes.frame == "REFERENCE"
+        else _pproc_frame(case, frames, probes.frame, "the probe lines")
+    )
+    if not unsteady and _a_turned_frame_the_row_leaves_out(
+        case, script, frame, probes.frame, _entry_name(case, declared)
+    ):
+        return None
+    return frame
+
+
 def _emit_one_probe_table(
     case, script, frames, probes, vertex: int, *, unsteady: bool, parts=None
 ) -> int:
@@ -890,31 +932,8 @@ def _emit_one_probe_table(
         return vertex
     declared = probes
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
-    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not place
-    # that frame leaves the entry out, warned and never refused: one artifact
-    # serves the power-on row that places PUSHER_RMRP and the power-off row
-    # that places PUSHER_SMRP only. A frame NO declared rotor owns is still
-    # refused below, by `_pproc_frame`, because it cannot come right on
-    # another row.
-    if (
-        EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
-        and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
-        and (
-            _the_rotor_whose_frame_this_is(case, probes.frame) is not None
-            or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
-        )
-        and frames.get(probes.frame) is None
-    ):
-        _leave_out_the_entry(case, declared, probes.frame)
-        return vertex
-    frame = (
-        1
-        if probes.frame == "REFERENCE"
-        else _pproc_frame(case, frames, probes.frame, "the probe lines")
-    )
-    if not unsteady and _a_turned_frame_the_row_leaves_out(
-        case, script, frame, probes.frame, _entry_name(case, declared)
-    ):
+    frame = _the_frame_the_entry_lands_in(case, script, frames, declared, probes, unsteady=unsteady)
+    if frame is None:
         return vertex
     scale = 1.0
     if probes.scale == "rotor_radius":
