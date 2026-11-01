@@ -25,6 +25,11 @@ FlightStream versions.
 
 ### Fixed
 
+- The refinement writes a level inside a folder of its own that keeps only the first eight
+  characters of the level's name (`wing_R2.partial-<random>` for `wing_R2`), where it kept
+  the whole name: the name stood three times in the staged path (the run's folder, the
+  level folder and the file), and a deep user folder passed the 260 characters of Windows
+  (WinError 3, 267 characters). The level folder and its files are named as before.
 - The DEFLECTED direct route on the unsteady rotor (`morphing = "direct_deflected"`
   on an `unsteady_rotor` row) writes the relaxed total field at every call, as the
   RIGID route does (FR-3404). On 26.127 the solver morphs the turning blade by the

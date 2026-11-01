@@ -593,6 +593,7 @@
       "tests/tier1_offline/test_p0380_cheatsheet_options.py",
       "tests/tier1_offline/test_p0380_guards.py",
       "tests/tier1_offline/test_p0380_independent_review.py",
+      "tests/tier1_offline/test_p0530_refine_path_length.py",
       "tests/tier1_offline/test_p0380_s1_refine.py",
       "tests/tier1_offline/test_p0380_s6_degapi.py",
       "tests/tier1_offline/test_p0380_s7_origin.py",

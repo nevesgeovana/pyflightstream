@@ -68,10 +68,10 @@ from pyflightstream.workspace._refine._geometry import NearestIndex, order_like
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 from pyflightstream.workspace._refine._staging import (
     PREVIOUS_SUFFIX,
-    STAGING_SUFFIX,
     _place,
     _publish,
     _release,
+    staging_prefix,
 )
 from pyflightstream.workspace.sidecars import ensure_inventory
 
@@ -1344,7 +1344,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         work.unchanged = _unchanged_grids(work, list(faces))
         folder.parent.mkdir(parents=True, exist_ok=True)
         # The run's own folder: created here under a unique name, and the only one it removes.
-        owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
+        owned = Path(tempfile.mkdtemp(prefix=staging_prefix(folder.name), dir=folder.parent))
         try:
             staging = owned / folder.name
             staging.mkdir()

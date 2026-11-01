@@ -14,9 +14,32 @@ from pathlib import Path
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine import _obj
 
-#: The prefix of the folder a level is written into before it is renamed to its own name
-#: (FR-919); a unique name the run creates and alone removes, ``<level>.partial-<random>``.
+#: The prefix of the run's own folder, inside which a level is written before it is renamed to
+#: its own name (FR-919); a unique name the run creates and alone removes,
+#: ``<level start>.partial-<random>``.
 STAGING_SUFFIX = ".partial"
+#: How many characters of the level's name the run's own folder keeps. The level folder inside
+#: it and every file in that carry the whole name, so the folder repeating it a third time was
+#: what broke a deep user folder at Windows' 260 characters (PFS-2185.08).
+STAGING_STEM_CHARS = 8
+
+
+def staging_prefix(level: str) -> str:
+    """Return the name prefix of the run's own folder for the level called ``level``.
+
+    Parameters
+    ----------
+    level : str
+        The level folder's name.
+
+    Returns
+    -------
+    str
+        The first ``STAGING_STEM_CHARS`` characters of the name, ``.partial-``.
+    """
+    return f"{level[:STAGING_STEM_CHARS]}{STAGING_SUFFIX}-"
+
+
 #: The name, inside the run's own staging folder, an existing level is moved to while
 #: ``overwrite`` replaces it, until the new level is in place (FR-919): an error before
 #: then puts it back.
