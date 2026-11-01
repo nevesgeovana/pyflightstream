@@ -387,6 +387,7 @@ def _retire_campaign_products(
     archive: bool,
     archive_stamp: datetime,
     keep_unrebuilt: bool = False,
+    check_frozen: bool = False,
 ) -> None:
     # What a previous post made from steps free-space has since
     # pruned stays, file and entry, and is therefore not retired below.
@@ -416,9 +417,12 @@ def _retire_campaign_products(
             )
     _retire_optional_products(skipped, previous_products, products_index)
     refused = products_to_retire(skipped, previous_products)
-    if keep_unrebuilt and not archive:
+    if keep_unrebuilt and not archive and not check_frozen:
         _keep_unrebuilt_products(out, refused, skipped, previous_products, products_index)
-        return
+    # PFS-2185.18: a post that keeps what it cannot rebuild deletes nothing. What
+    # it still retires (a table its rebuild wrote under another name, a refusal
+    # of the frozen check) leaves the products and is moved under archive/.
+    move = archive or keep_unrebuilt
     for name in refused - products_index.keys():
         if name in previous_products:
             skipped.setdefault(
@@ -426,8 +430,8 @@ def _retire_campaign_products(
             )
         path = out / name
         if path.resolve().is_relative_to(out.resolve()) and path.is_file():
-            refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
-            if not archive:
+            refuse_an_existing_product(path, archive=move, stamp=archive_stamp)
+            if not move:
                 path.unlink()
 
 
@@ -445,12 +449,23 @@ def _keep_unrebuilt_products(
     it could not rebuild. Each is now kept as the last post wrote it, its
     reason in ``skipped`` says so, and one warning names how many; ``--archive``
     or a confirmed ``--force-overwrite`` retires them as before.
+
+    A polar table of a simulation this post wrote a polar table for is not
+    kept: the rebuild named the polar after its current contributors, so the
+    old name holds stale numbers, and the caller moves it aside.
     """
+    rebuilt = {
+        entry.get("sim_id")
+        for name, entry in products_index.items()
+        if name.startswith(f"{_stage.POLARS_DIR}/") and name not in previous_products
+    }
     kept: list[str] = []
     for name in sorted(refused - products_index.keys()):
         entry = previous_products.get(name)
         path = out / name
         if entry is None or not path.is_file():
+            continue
+        if name.startswith(f"{_stage.POLARS_DIR}/") and entry.get("sim_id") in rebuilt:
             continue
         products_index[name] = dict(entry)
         reason = skipped.get(name, "this post did not rebuild it")

@@ -110,6 +110,8 @@ FlightStream versions.
   on a machine holding products brought by `sync` without the exports deleted them. `post`,
   `post --sims`, `collect` and the run's own post now keep such a product, file and entry,
   and warn; `--archive` moves it and a confirmed `--force-overwrite` removes it (FR-3443).
+  A polar table the rebuild wrote under another name, and with `--check-frozen` a product
+  the frozen check refuses, is not kept current: these posts move it under `archive/`.
 
 - On Windows, `free-space`, `sync` and the archive move of a datapoint reach a file whose path
   passes the 260 characters of the system (an earlier attempt moved into `archive/<stamp>/`

@@ -563,8 +563,11 @@ def write_campaign_products(
         (PFS-2185.18) Without ``archive``, a previous product this post did not
         rebuild is KEPT, file and ``products.json`` entry, and warned, rather
         than removed: a post with no data for a product (exports not on this
-        machine) never deletes it. The command line and the run's own post
-        pass True unless ``--force-overwrite`` was confirmed.
+        machine) never deletes it. A polar table the rebuild wrote under
+        another name, and with ``check_frozen`` every product the frozen check
+        refuses, is moved under ``archive/`` instead of kept current. The
+        command line and the run's own post pass True unless
+        ``--force-overwrite`` was confirmed.
 
     Returns
     -------
@@ -908,6 +911,7 @@ def _campaign_products(
             archive=archive,
             archive_stamp=archive_stamp,
             keep_unrebuilt=keep_unrebuilt,
+            check_frozen=check_frozen,
         )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}

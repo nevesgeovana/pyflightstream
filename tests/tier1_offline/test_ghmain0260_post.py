@@ -214,6 +214,69 @@ def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
                 assert copies[0].read_bytes() == old_bytes
 
 
+@pytest.mark.requirement("FR-3443")
+def test_p0530_a_post_that_keeps_moves_a_renamed_polar_aside(tmp_path, monkeypatch):
+    """PFS-2185.18 with Y: keeping what a post cannot rebuild never keeps a stale table current.
+
+    The command line and the run's own post keep a product they cannot rebuild
+    (keep_unrebuilt). A polar the rebuild wrote under another name is not one of
+    those: its old table holds the stale numbers, so it leaves the products and
+    is moved under archive/, never deleted.
+    """
+    workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
+    spec.products.polars = True
+    spec.groups = {"TOTAL": ["all"]}
+    sim = workspace.sim_dir("7001")
+    failed = healthy.model_copy(
+        update={
+            "run_id": "failed-first",
+            "point_name": "AL-999",
+            "sweep_name": "AL-999",
+            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "outputs": ["AL-999.txt"],
+        }
+    )
+    (sim / "AL-999.txt").write_bytes((sim / "AL-020.txt").read_bytes())
+    records = [failed]
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: records)
+    write_campaign_products(workspace)
+    out = workspace.products_dir(None)
+    old_key = "polars/P7001-AL-999_TOTAL.csv"
+    old_bytes = (out / old_key).read_bytes()
+    records[:] = [failed, healthy]
+    (sim / "AL-999.txt").write_text("loads export truncated\n")
+    write_campaign_products(workspace, overwrite=True, keep_unrebuilt=True)
+    manifest = _products_manifest(workspace)
+    assert "polars/P7001-AL-020_TOTAL.csv" in manifest["products"], manifest["skipped"]
+    assert old_key not in manifest["products"], "a stale table stays current"
+    assert {p.name for p in (out / "polars").glob("P7001-*_TOTAL.csv")} == {
+        "P7001-AL-020_TOTAL.csv"
+    }
+    copies = list((out / "polars").glob("archive/*/P7001-AL-999_TOTAL.csv"))
+    assert [copy.read_bytes() for copy in copies] == [old_bytes], "the old table was deleted"
+
+
+@pytest.mark.requirement("FR-3443")
+def test_p0530_a_post_that_keeps_still_retires_what_the_frozen_check_refuses(tmp_path, monkeypatch):
+    """PFS-2185.18 with W: --check-frozen asks for a refusal, and keeping does not undo it."""
+    workspace = _post_workspace(tmp_path, 2411, (58, 61))
+    record = workspace.read_manifest()[0]
+    record.status = RunStatus.FAILED_INCOMPLETE_OUTPUT
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
+    write_campaign_products(workspace)
+    out = workspace.products_dir(None)
+    before = {key: (out / key).read_bytes() for key in _products_manifest(workspace)["products"]}
+    assert "probes/AL-020_time_average.csv" in before
+    write_campaign_products(workspace, overwrite=True, check_frozen=True, keep_unrebuilt=True)
+    manifest = _products_manifest(workspace)
+    assert not manifest["products"], sorted(manifest["products"])
+    for key, contents in before.items():
+        path = out / key
+        assert not path.exists(), f"stale product remains current: {key}"
+        copies = list(path.parent.glob(f"archive/*/{path.name}"))
+        assert [copy.read_bytes() for copy in copies] == [contents], f"{key} was deleted"
+
+
 def test_z_combined_entry_does_not_integrate_separate_recorded_blocks(tmp_path, monkeypatch):
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
