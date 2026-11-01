@@ -48,6 +48,7 @@ from pyflightstream.cases import (
     case_at_point,
     classify_outputs,
 )
+from pyflightstream.cases.pproc import VolumeSectionSpec
 from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     build_script,
@@ -526,3 +527,66 @@ def test_p0410_pc_obsolete_volume_export_refusal_offers_sampled_plane_remedy():
     assert "EXPORT_PROBE_POINTS" in commands
     assert not any(line.startswith("EXPORT_VOLUME_SECTION") for line in commands)
     assert not any("_vsec" in name for name in case.outputs)
+
+
+KIND_TABLE = {
+    "shape": "rectangle",
+    "frame": "REFERENCE",
+    "plane": "XZ",
+    "corners_m": [-1, -1, 1, 1],
+    "points": [2, 2],
+}
+
+
+def _kind_text(make, **extra):
+    pproc = PprocSpec.model_validate({"volume_section": {**KIND_TABLE, **extra}})
+    case = make().model_copy(update={"pproc": pproc, "pproc_id": "p005"})
+    script = Script("26.124")
+    build_script(case, script)
+    return script, script.render()
+
+
+@pytest.mark.requirement("FR-3420")
+@pytest.mark.parametrize("make", [unsteady_case, rotor_case])
+def test_p0530_default_kind_samples_the_plane_once_by_probe_points(make):
+    script, text = _kind_text(make, kind="default")
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text
+    assert "PROBE_POINT" in text
+    layout = script.probe_field_layout[0]
+    assert layout["kind"] == "volume-section"
+    assert layout["export_kind"] == "steady-probe"
+    assert layout["sampled_at"] == "last-time-step"
+    assert len(layout["probe_ids"]) == 4
+
+
+@pytest.mark.requirement("FR-3420")
+@pytest.mark.parametrize("extra", [{}, {"kind": "instantaneous"}])
+@pytest.mark.parametrize("make", [unsteady_case, rotor_case])
+def test_p0530_instantaneous_and_unstated_keep_the_fluid_plots(make, extra):
+    script, text = _kind_text(make, **extra)
+    assert text.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 12
+    assert script.probe_field_layout[0]["export_kind"] == "unsteady-fluid-plot"
+
+
+@pytest.mark.requirement("FR-3420")
+def test_p0530_the_default_pproc_samples_normal_probes_and_the_unstated_does_not():
+    default = PprocSpec.model_validate({"volume_section": {**KIND_TABLE, "kind": "default"}})
+    assert default.samples_normal_probes()
+    assert not PprocSpec.model_validate({"volume_section": KIND_TABLE}).samples_normal_probes()
+
+
+@pytest.mark.requirement("FR-3420")
+def test_p0530_an_unknown_kind_is_refused_naming_both():
+    with pytest.raises(
+        ValidationError, match=r"kind 'weekly' is not one of 'default' or 'instantaneous'"
+    ):
+        VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "weekly"})
+
+
+@pytest.mark.requirement("FR-3420")
+def test_p0530_the_aliases_map_and_warn():
+    with pytest.warns(Warning, match="deprecated"):
+        assert VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "normal"}).kind == "default"
+    with pytest.warns(Warning, match="deprecated"):
+        section = VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "unsteady"})
+    assert section.kind == "instantaneous"
