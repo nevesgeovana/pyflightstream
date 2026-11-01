@@ -110,11 +110,16 @@ FlightStream versions.
 - A row whose `ROTATE` turns a rotor (`ALIAS: PUSHER`) no longer blocks the plan when a
   probe table or the sampled volume section lies in that rotor's `PUSHER_SMRP` or
   `PUSHER_RMRP` and is placed in reference coordinates (a steady row, or an unsteady row's
-  `kind = "default"` entry): the turn moves the frame where the package does not follow it,
-  so the entry is warned once per campaign and left out of that row, and the row plans with
-  its frames, its turn and its motion (FR-3455). A power-off `unsteady_rotor` row whose
-  geometry carries the spinner and none of the blades plans this way and spins the spinner
-  at the record's advance ratio. `kind = "instantaneous"` keeps the entry, in the turned frame.
+  `kind = "default"` entry). The package now follows the turn: the frame's origin turns
+  about the origin of the frame named in `AXIS`, and its axes turn, right-handed about that
+  axis by the row's angle, and a turn by 0 leaves the frame as it was. The entry is PLACED
+  at the turned frame's position, so the probes and the disc turn with the rotor and the
+  disc stays in the propeller plane of the tilted rotor (FR-3455). A power-off
+  `unsteady_rotor` row whose geometry carries the spinner and none of the blades plans this
+  way and spins the spinner at the record's advance ratio. The right-hand sense is the one
+  the quasi-steady wheel already assumes; the manual does not state it, and one recorded
+  solver export is to confirm it. Only an entry in a frame whose position the package does
+  not know (one an opened project carries) is warned once per campaign and left out.
 
 - A post without `--archive` removed every previous product it could not rebuild, so a post
   on a machine holding products brought by `sync` without the exports deleted them. `post`,

@@ -835,21 +835,24 @@ def _leave_out_the_entry(case: SimCase, declared: ProbesSpec, frame: str) -> Non
     )
 
 
-def _a_turned_frame_the_row_leaves_out(
-    case: SimCase, script: Script, frame: int, name: str, entry: str
+def _an_unplaced_frame_the_row_leaves_out(
+    case: SimCase, script: Script, frame: int, name: str, entry: str | ProbesSpec
 ) -> bool:
-    """Leave out an entry laid in reference coordinates from a frame this row turned (PFS-2185.20).
+    """Leave out an entry laid in reference coordinates from a frame of unknown pose (PFS-2185.20).
 
     A steady probe, and a probe or volume section an unsteady row samples once
     after the march (``kind = "default"``), is placed in REFERENCE coordinates
     computed from where this script placed its frame
     (:func:`_in_the_reference_frame`). A row's ``ROTATE`` of a rotor alias turns
     that rotor's ``<ALIAS>_SMRP`` and ``<ALIAS>_RMRP`` with it, and the placement
-    ledger forgets a turned frame's pose, because the manual does not state the
-    sense of the turn. The same entry lands on every row that does not turn the
-    frame, so on this row it is WARNED AND SKIPPED, once per campaign, and never
-    refused (the owner's rule of 2026-10-27): the row plans and every other entry
-    is emitted. Returns True when the entry is left out.
+    ledger follows the turn (``ROTATE_COORDINATE_SYSTEM``, right-handed), so such
+    an entry is PLACED in the turned frame. Only a frame whose pose this script
+    does not know (an opened project carries it, or a command the ledger does
+    not follow moved it) leaves the entry out, WARNED AND SKIPPED once per
+    campaign and never refused (the owner's rule of 2026-10-27): the row plans
+    and every other entry is emitted. Returns True when the entry is left out.
+    ``entry`` is the message's name for it, or the declared `[[probes]]` entry,
+    named by its position only when it is left out.
     """
     if frame == 1:
         return False
@@ -859,12 +862,11 @@ def _a_turned_frame_the_row_leaves_out(
     leave_out_what_the_row_cannot_take(
         case.sim_id,
         _artifact_of(case),
-        entry,
-        f"is laid in the frame {name!r}, whose pose this script does not follow on this row (a "
-        "ROTATE of the row turned it, and the manual does not state the sense of that turn, or "
-        "an opened project carries it), and the entry is placed in reference coordinates "
-        'computed from that pose. On an unsteady row, kind = "instantaneous" hands the solver '
-        "the frame itself",
+        entry if isinstance(entry, str) else _entry_name(case, entry),
+        f"is laid in the frame {name!r}, whose pose this script does not know on this row (an "
+        "opened project carries it, or a command the script does not follow moved it), and the "
+        "entry is placed in reference coordinates computed from that pose. On an unsteady row, "
+        'kind = "instantaneous" hands the solver the frame itself',
     )
     return True
 
@@ -904,8 +906,8 @@ def _the_frame_the_entry_lands_in(
         if probes.frame == "REFERENCE"
         else _pproc_frame(case, frames, probes.frame, "the probe lines")
     )
-    if not unsteady and _a_turned_frame_the_row_leaves_out(
-        case, script, frame, probes.frame, _entry_name(case, declared)
+    if not unsteady and _an_unplaced_frame_the_row_leaves_out(
+        case, script, frame, probes.frame, declared
     ):
         return None
     return frame
@@ -1267,7 +1269,7 @@ def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) 
         if section.frame == "REFERENCE"
         else _pproc_frame(case, frames, section.frame, "the volume section sampled through probes")
     )
-    if not unsteady and _a_turned_frame_the_row_leaves_out(
+    if not unsteady and _an_unplaced_frame_the_row_leaves_out(
         case, script, frame, section.frame, "[volume_section]"
     ):
         return

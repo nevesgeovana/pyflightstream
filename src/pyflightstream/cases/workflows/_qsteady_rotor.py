@@ -55,6 +55,7 @@ from pyflightstream.script import (
     Script,
     helpers,
 )
+from pyflightstream.script._ledger_tables import turned_about
 
 from ._clock import (
     unsteady_export_threshold,
@@ -936,33 +937,6 @@ def _solve_one_clocking(
             script.emit(verb, name)
 
 
-def _turned_about(
-    vector: Sequence[float], axis: Sequence[float], angle_deg: float
-) -> tuple[float, float, float]:
-    """Return ``vector`` turned right-handed about the direction ``axis`` by ``angle_deg``.
-
-    Rodrigues' rotation, the axis normalised here; each component is rounded to
-    twelve decimals, so a frame turned by a whole passage reads as the axes it
-    is and not as their last-bit residue.
-
-    Examples
-    --------
-    >>> _turned_about((0.0, 1.0, 0.0), (1.0, 0.0, 0.0), 90.0)
-    (0.0, 0.0, 1.0)
-    """
-    norm = math.sqrt(sum(float(value) ** 2 for value in axis))
-    kx, ky, kz = (float(value) / norm for value in axis)
-    vx, vy, vz = (float(value) for value in vector)
-    cos, sin = math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg))
-    dot = kx * vx + ky * vy + kz * vz
-    cross = (ky * vz - kz * vy, kz * vx - kx * vz, kx * vy - ky * vx)
-    x, y, z = (
-        round(v * cos + c * sin + k * dot * (1.0 - cos), 12) + 0.0
-        for v, c, k in zip((vx, vy, vz), cross, (kx, ky, kz), strict=True)
-    )
-    return x, y, z
-
-
 def _placement_of(case: SimCase, script: Script, index: int, name: str) -> FramePlacement:
     """Return where the script placed frame ``index``, refusing a frame it cannot place.
 
@@ -1010,7 +984,7 @@ def _qsteady_blade_frames(
         if family.casefold() not in inventory:
             continue
         angle = rotor.blade1.azimuth_deg + (number - 1) * 360.0 / rotor.blade_count
-        x_axis, y_axis, z_axis = (_turned_about(each, shaft, angle) for each in hub.axes)
+        x_axis, y_axis, z_axis = (turned_about(each, shaft, angle) for each in hub.axes)
         created[f"{rotor.alias}_RMRP{number}"] = helpers.coordinate_frame(
             script,
             name=f"{rotor.alias}_RMRP{number}",
@@ -1108,9 +1082,9 @@ def _qsteady_section_frames(
             arm = [a - b for a, b in zip(placement.origin, hub.origin, strict=True)]
             origin = [
                 round(a + b, 12) + 0.0
-                for a, b in zip(hub.origin, _turned_about(arm, shaft, turn), strict=True)
+                for a, b in zip(hub.origin, turned_about(arm, shaft, turn), strict=True)
             ]
-            x_axis, y_axis, z_axis = (_turned_about(each, shaft, turn) for each in placement.axes)
+            x_axis, y_axis, z_axis = (turned_about(each, shaft, turn) for each in placement.axes)
             turned[name] = helpers.coordinate_frame(
                 script,
                 name=f"{name}{_qsteady.POSITION_SUFFIX.upper()}{position:02d}",

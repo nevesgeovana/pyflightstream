@@ -832,11 +832,11 @@ def _the_axis_in_reference_axes(
 ) -> tuple[float, float, float]:
     """Return the unit direction of one axis of a frame, in reference axes (FR-100).
 
-    Read off where THIS SCRIPT placed the frame. A frame a command turned by
-    a sign the manual does not state has no axes in the ledger, and is
-    refused as the axis of a translation, naming the frames of this case
-    whose axes ARE stated: a blade frame is placed by such a turn, and its
-    rotor's hub carries the same origin with the axes the reference declares.
+    Read off where THIS SCRIPT placed the frame, a frame turned by
+    ``ROTATE_COORDINATE_SYSTEM`` included (followed right-handed, PFS-2185.20).
+    A frame whose axes the ledger does not hold (an opened project carries it,
+    or a command the ledger does not follow moved it) is refused as the axis of
+    a translation, naming the frames of this case whose axes ARE stated.
     """
     placement = script.frame_placements.get(frame)
     if placement is None or placement.axes is None:
@@ -847,9 +847,9 @@ def _the_axis_in_reference_axes(
         }
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} along {frame_name}-{axis}, and "
-            f"this script cannot state which way {frame_name}'s axes point: it was turned "
-            "into place, or carried by an opened project. Move along a frame whose axes it "
-            f"can state; on this case those are {_frame_names(oriented)}."
+            f"this script cannot state which way {frame_name}'s axes point: a command it does "
+            "not follow moved it, or an opened project carries it. Move along a frame whose "
+            f"axes it can state; on this case those are {_frame_names(oriented)}."
         )
     x, y, z = placement.axes[_AXIS_POSITION[axis]]
     length = math.sqrt(x * x + y * y + z * z)
