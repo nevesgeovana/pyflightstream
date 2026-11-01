@@ -11,6 +11,10 @@ FlightStream versions.
 
 ### Added
 
+- `[volume_section]` takes `kind`, with the values and aliases of `[[probes]]`. On an unsteady
+  or rotor row, `"default"` samples the plane once, by probe points at the last time step, and
+  post writes one field; `"instantaneous"` (the value when unstated, so existing inputs are
+  unchanged) samples it by fluid plots at every step. A steady row samples once whatever the kind.
 - Matrix keys `FSI_START_REV` and `FSI_START_ITER` set, for one row, when the structural
   solver starts, replacing the FSI input's `wake_development_revolutions` as the
   `FSI_<PROPERTY>_FACTOR` keys replace a calibration factor. `FSI_START_REV` states

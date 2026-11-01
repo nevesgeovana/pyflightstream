@@ -13,7 +13,7 @@ uses no native volume-section index.
 | Samples | Rectangle `points` gives the two axis counts (25 by 25 when omitted); each extra `refinement_layers` bisects intervals. A circle states radial/azimuthal counts and samples its zero-radius center once. |
 | Source | The written probe CSV, derived from the native steady probe export or the actual unsteady fluid-plot STEPs. No missing STEP is synthesized. |
 | Physical meaning | Positions in REFERENCE coordinates and meters; absolute REFERENCE velocity components in m/s. Export-kind, unit, executable and motion evidence must support the conversion. |
-| Time | One instantaneous steady sample set, or a separate field for each actual unsteady STEP; never an implied time average. |
+| Time | One instantaneous steady sample set; on an unsteady or rotor row, a separate field for each actual STEP with `kind = "instantaneous"` (unstated), or one field of the last step, sampled by probe points, with `kind = "default"`; never an implied time average. |
 | Provenance | Source hash, recorded sample identities/positions, declared and resolved frames, units, actual STEP where present, native convention evidence and recorded solver setup. Unknown setup values remain unknown. |
 
 A saved FSM may already contain native sections: the new sampling grid does

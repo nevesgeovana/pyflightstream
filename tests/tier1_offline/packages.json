@@ -317,6 +317,7 @@
       "tests/tier1_offline/test_field_motion_record.py",
       "tests/tier1_offline/test_frozen_check_is_opt_in.py",
       "tests/tier1_offline/test_g05_volume_section.py",
+      "tests/tier1_offline/test_p0530_volume_section_kind.py",
       "tests/tier1_offline/test_g09_loads_selection.py",
       "tests/tier1_offline/test_g16_polar_column.py",
       "tests/tier1_offline/test_g25_surface_time_average.py",

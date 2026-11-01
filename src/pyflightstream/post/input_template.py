@@ -259,6 +259,7 @@ offset_m = 0.0                    # along the plane's normal, from the frame's o
 corners_m = [-1.0, -1.0, 1.0, 1.0]   # x1, y1, x2, y2, two diagonal corners in the plane
 refinement_layers = 1
 format = "vtk"                    # vtk or tecplot
+kind = "instantaneous"            # every step on unsteady rows; default samples only the last step
 
 # The unsteady force plots: which parameters, over which groups of families.
 [plots]

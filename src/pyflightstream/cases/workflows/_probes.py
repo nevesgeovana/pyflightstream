@@ -459,6 +459,18 @@ def _last_step_entries(case, script, frames):
                 f"probes[{record['entry']}]", points, "default", records=[record], parts=parts
             )
         )
+    section = pproc.volume_section
+    if section is not None and section.kind == "default":
+        first = len(scratch.probe_points)
+        layouts = len(scratch.probe_field_layout)
+        _pproc_sampled_volume(case, scratch, frames, first, unsteady=False)
+        if len(scratch.probe_field_layout) > layouts:
+            record = scratch.probe_field_layout[-1]
+            points = [tuple(point[1:4]) for point in scratch.probe_points[first:]]
+            record["count"] = len(points)
+            record["sampled_at"] = "last-time-step"
+            record["import_phase"] = "after-march"
+            sets.append(_ProbeSet("volume_section", points, "default", records=[record]))
     return scratch, sets
 
 
@@ -1184,6 +1196,8 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
 def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) -> None:
     """Sample a declared volume plane without using the FSM's section indices."""
     section = case.pproc.volume_section
+    if section is not None and unsteady and section.kind == "default":
+        return  # sampled once, after the march, by _last_step_entries
     if section is None or _a_rotor_frame_the_row_leaves_out(
         case, frames, section.frame, "[volume_section]"
     ):
