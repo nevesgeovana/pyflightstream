@@ -1253,7 +1253,7 @@ POINT = "DP-" + "M144RE438MU17890A3403T2882PS101325AL+000BE+000RPM00447" * 2
 STAMP = "20261031-144049"
 
 
-def _ws(tmp_path: Path, name: str) -> CampaignWorkspace:
+def _lp_ws(tmp_path: Path, name: str) -> CampaignWorkspace:
     root = tmp_path / name
     workspace = CampaignWorkspace(root)
     workspace.init(root)
@@ -1299,7 +1299,7 @@ def test_p0530_the_extended_spelling_is_read_for_windows_and_left_alone_elsewher
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_prune_step_exports_reaches_a_file_past_the_windows_limit(tmp_path):
-    workspace = _ws(tmp_path, "camp")
+    workspace = _lp_ws(tmp_path, "camp")
     paths = _steps(workspace)
     entry = free_space(
         workspace.root, _recipe(workspace, f'[[{PRUNE_MODE}]]\nsims = "all"\n'), apply=True
@@ -1312,7 +1312,7 @@ def test_p0530_prune_step_exports_reaches_a_file_past_the_windows_limit(tmp_path
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_delete_extensions_reaches_a_file_past_the_windows_limit(tmp_path):
-    workspace = _ws(tmp_path, "camp")
+    workspace = _lp_ws(tmp_path, "camp")
     paths = _steps(workspace, steps=(1,))
     recipe = _recipe(workspace, '[[delete_extensions]]\nsims = "all"\nextensions = [".txt"]\n')
     entry = free_space(workspace.root, recipe, apply=True)
@@ -1322,7 +1322,7 @@ def test_p0530_delete_extensions_reaches_a_file_past_the_windows_limit(tmp_path)
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_one_file_that_cannot_be_deleted_is_warned_and_skipped(tmp_path, monkeypatch):
-    workspace = _ws(tmp_path, "camp")
+    workspace = _lp_ws(tmp_path, "camp")
     paths = _steps(workspace, steps=(1, 2, 3, 4))
     real_unlink = Path.unlink
 
@@ -1344,9 +1344,9 @@ def test_p0530_one_file_that_cannot_be_deleted_is_warned_and_skipped(tmp_path, m
     assert "interrupted" not in storage_module.read_storage_calls(workspace.root)[-1]
 
 
-def _sync_pair(tmp_path: Path) -> tuple[CampaignWorkspace, CampaignWorkspace]:
-    main = _ws(tmp_path, "main")
-    other = _ws(tmp_path, "other")
+def _lp_sync_pair(tmp_path: Path) -> tuple[CampaignWorkspace, CampaignWorkspace]:
+    main = _lp_ws(tmp_path, "main")
+    other = _lp_ws(tmp_path, "other")
     config = main.root / storage_module.SYNC_CONFIG
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(
@@ -1360,7 +1360,7 @@ def _sync_pair(tmp_path: Path) -> tuple[CampaignWorkspace, CampaignWorkspace]:
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_sync_copies_to_a_destination_past_the_windows_limit(tmp_path):
-    main, other = _sync_pair(tmp_path)
+    main, other = _lp_sync_pair(tmp_path)
     paths = _steps(other, steps=(1, 2))
     (entry,) = sync_workspaces(main.root, "all", apply=True, include_archives=True)
     for path in paths:
@@ -1372,7 +1372,7 @@ def test_p0530_sync_copies_to_a_destination_past_the_windows_limit(tmp_path):
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_a_file_the_sync_cannot_copy_is_warned_and_the_rest_completes(tmp_path, monkeypatch):
-    main, other = _sync_pair(tmp_path)
+    main, other = _lp_sync_pair(tmp_path)
     paths = _steps(other, steps=(1, 2, 3))
     real_replace = storage_module.os.replace
 
