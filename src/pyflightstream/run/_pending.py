@@ -177,7 +177,7 @@ def _with_the_blade_mesh(
 
     The ``blade_mesh`` record (unit, hub as the script placed the blade frames,
     whether the row moves the mesh, each blade's name in the file) the post
-    placement check reads the recorded OBJ by; a row off the coupled
+    placement check reads the recorded mesh file by; a row off the coupled
     ``unsteady_rotor`` route is unchanged.
     """
     mesh = blade_mesh_record(case, script)

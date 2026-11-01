@@ -318,22 +318,46 @@ def placement_check(
     return rows
 
 
-def _not_judged_reason(blade_mesh: Mapping[str, Any] | None) -> str | None:
-    """Return why the recorded mesh cannot be placed where the solver has the blade, or None."""
+def _is_saved_simulation(geometry: Path) -> bool:
+    """Return whether the run imported its geometry from a saved simulation (``.fsm``)."""
+    return geometry.suffix.lower() == ".fsm"
+
+
+def _metres_per_unit(geometry: Path, blade_mesh: Mapping[str, Any]) -> object:
+    """Return the factor taking the mesh file's coordinates to metres, as far as it is known.
+
+    A saved simulation states the unit it stores its coordinates in, and its
+    import states none, so the file's own unit is read
+    (:func:`pyflightstream._fsm.saved_mesh_coordinate_unit`); an OBJ is in the
+    unit its ``[import]`` states, which the run staged in ``blade_mesh``.
+    """
+    if _is_saved_simulation(geometry):
+        from pyflightstream._fsm import saved_mesh_coordinate_unit
+        from pyflightstream._lengths import scale
+
+        unit = saved_mesh_coordinate_unit(geometry)
+        return scale(unit, "METER") if unit else None
+    return blade_mesh.get("metres_per_unit")
+
+
+def _mesh_scale(
+    blade_mesh: Mapping[str, Any] | None, geometry: Path
+) -> tuple[float | None, str | None]:
+    """Return the mesh file's metres per unit, or None and why the blade cannot be placed."""
     if not isinstance(blade_mesh, Mapping):
-        return (
+        return None, (
             f"the run's fsi-provenance.json records no {BLADE_MESH_RECORD} (a run staged before "
             "the package recorded it), so the mesh file's length unit and the hub are not known"
         )
     if blade_mesh.get("moves_mesh") is not False:
-        return (
+        return None, (
             "the row moves the mesh before the solve, so the mesh file does not hold the blade "
             "where the solver has it"
         )
-    factor = blade_mesh.get("metres_per_unit")
-    if not isinstance(factor, int | float) or not math.isfinite(factor) or factor <= 0:
-        return "the mesh's import unit names no length"
-    return None
+    metres = _metres_per_unit(geometry, blade_mesh)
+    if not isinstance(metres, int | float) or not math.isfinite(metres) or metres <= 0:
+        return None, "the mesh's import unit names no length"
+    return float(metres), None
 
 
 def placement_check_of_mesh(
@@ -346,11 +370,13 @@ def placement_check_of_mesh(
 ) -> tuple[list[tuple[object, ...]], str | None]:
     """Return the placement check rows of a coupled point's blades, read off its mesh file.
 
-    The mesh file is read as the run staged it in ``blade_mesh`` (FR-3416): scaled
-    to metres by its ``metres_per_unit``, each blade from its ``groups`` name, and
-    both the blade and the exported cuts measured about the hub ``hub_m``, on
-    which the blades turn about +X (:func:`placement_check`). Where the record is
-    missing (a run staged before the package recorded it), the row moved the mesh, or the unit
+    The mesh file is read as the run staged it in ``blade_mesh`` (FR-3416): each
+    blade from its ``groups`` name (an OBJ's group, a saved simulation's
+    boundary), scaled to metres (an OBJ by the record's ``metres_per_unit``, a
+    saved simulation by the unit the file stores), and both the blade and the
+    exported cuts measured about the hub ``hub_m``, on which the blades turn
+    about +X (:func:`placement_check`). Where the record is missing (a run
+    staged before the package recorded it), the row moved the mesh, or the unit
     names no length, every step is stated not judged, with the reason in the
     ``not_judged`` column, ``NA`` distances and ``NA`` for ``misplaced``.
 
@@ -359,7 +385,7 @@ def placement_check_of_mesh(
     blades : sequence of (str, mapping of int to numpy.ndarray)
         Each coupled blade, numbered from 1 in this order, and its cut points per step [m].
     geometry : pathlib.Path
-        The OBJ the run imported.
+        The OBJ or the saved simulation (``.fsm``) the run imported.
     blade_mesh : mapping or None
         The ``blade_mesh`` record of the run's ``fsi-provenance.json``.
     step_azimuth_rad : float
@@ -373,9 +399,10 @@ def placement_check_of_mesh(
         The rows, each ``(blade, *the other columns of PLACEMENT_CHECK_COLUMNS)``, and the
         reason the steps were not judged, or None.
     """
+    from pyflightstream._fsm import boundary_surface
     from pyflightstream._mesh import obj_group_surface
 
-    reason = _not_judged_reason(blade_mesh)
+    metres, reason = _mesh_scale(blade_mesh, geometry)
     rows: list[tuple[object, ...]] = []
     for number, (name, cuts) in enumerate(blades, start=1):
         if reason is not None:
@@ -392,12 +419,16 @@ def placement_check_of_mesh(
                     )
                 )
             continue
-        assert blade_mesh is not None  # a missing record is a reason
+        assert blade_mesh is not None and metres is not None  # a missing record is a reason
         groups = blade_mesh.get("groups")
         group = groups.get(name, name) if isinstance(groups, Mapping) else name
         hub = np.asarray(blade_mesh.get("hub_m") or (0.0, 0.0, 0.0), dtype=float)
-        raw, faces = obj_group_surface(geometry, str(group))
-        vertices = raw * float(blade_mesh["metres_per_unit"]) - hub
+        if _is_saved_simulation(geometry):
+            points, triangles = boundary_surface(geometry, str(group))
+            raw, faces = np.asarray(points, dtype=float), np.asarray(triangles, dtype=int)
+        else:
+            raw, faces = obj_group_surface(geometry, str(group))
+        vertices = raw * metres - hub
         about_hub = {
             step: np.asarray(points, dtype=float).reshape(-1, 3) - hub
             for step, points in cuts.items()
@@ -431,17 +462,17 @@ def _blade_sections(record: Any, blade: str) -> list[int]:
     return numbers
 
 
-def _blade_geometry(ctx: SimContext, record: Any) -> Path:
-    """Return the OBJ the coupled run imported, its digest the recorded one."""
+def recorded_blade_geometry(ctx: SimContext, record: Any) -> Path:
+    """Return the OBJ or saved simulation the coupled run imported, its digest the recorded one."""
     for name, digest in record.inputs_sha256.items():
-        if Path(name).name != name or not name.lower().endswith(".obj"):
+        if Path(name).name != name or not name.lower().endswith((".obj", ".fsm")):
             continue
         path = ctx.workspace.sim_dir(record.sim_id) / "inputs" / name
         if path.is_file() and file_sha256(path) == digest:
             return path
     raise InputValueError(
-        "the run imported no OBJ whose recorded copy is in the simulation's inputs; the check "
-        "reads the blade as imported from it"
+        "the run imported no OBJ or saved simulation (.fsm) whose recorded copy is in the "
+        "simulation's inputs; the check reads the blade as imported from it"
     )
 
 
@@ -488,7 +519,7 @@ def _placement_rows(
     families = SectionFamilyMap.model_validate_json(
         (folder / "fsi_family_map.json").read_text(encoding="utf-8-sig")
     )
-    geometry = _blade_geometry(ctx, record)
+    geometry = recorded_blade_geometry(ctx, record)
     provenance = json.loads((folder / "fsi-provenance.json").read_text(encoding="utf-8-sig"))
     blade_mesh = provenance.get(BLADE_MESH_RECORD) if isinstance(provenance, dict) else None
     blades = []

@@ -131,11 +131,13 @@ opens with `POL` and the condition block, then one row per blade and step:
 | `misplaced` | - | `True` when `prescribed_median_m` exceeds 0.02 m and `import_median_m` is smaller; `NA` on a step not judged |
 | `not_judged` | - | empty on a judged step; otherwise why the step was not judged |
 
-The undeformed surface is the blade's group of the OBJ the run imported,
-read from the simulation's recorded copy as the run staged it in
-`fsi-provenance.json` (`blade_mesh`): scaled to metres by the unit its
-`[import]` states, the blade found under its name in the file (before the
-import's renames), and the surface and the cut points both measured about the
+The undeformed surface is the blade as the run imported it: its group of an
+OBJ, or its boundary of a saved simulation (`.fsm`), read from the
+simulation's recorded copy as the run staged it in `fsi-provenance.json`
+(`blade_mesh`): scaled to metres by the unit the OBJ's `[import]` states, or
+by the unit the saved simulation stores its coordinates in, the blade found
+under its name in the file (before the import's renames), and the surface and
+the cut points both measured about the
 hub the blades' rotating frames sit on (the rotor's origin, or the row's
 `ROTOR_ORIGIN` on a row that turns its rotor without `MOTIONS`), on which
 the blade turns about +X. A run whose
@@ -150,6 +152,6 @@ radius; a blade the solver left at its import azimuth shows the reverse. The
 tolerance of 0.02 m lies between the two. A step with no cut point states
 `NA` distances and is not misplaced. Where a step is misplaced, post warns,
 naming the point, the steps and the table. A point whose configuration,
-section-order map or recorded OBJ cannot be read is a named skip.
+section-order map or recorded mesh file (OBJ or `.fsm`) cannot be read is a named skip.
 
 ---

@@ -62,6 +62,7 @@ __all__ = [
     "boundary_labels",
     "boundary_names",
     "boundary_owners",
+    "boundary_surface",
     "resolve_family",
     "saved_actuators",
     "saved_base_regions",
@@ -1321,3 +1322,58 @@ def boundary_vertices(
         name: tuple(vertices[index] for index in sorted(used.get(position, ())))
         for name, position in labels.items()
     }
+
+
+def boundary_surface(
+    path: str | Path, name: str
+) -> tuple[tuple[tuple[float, float, float], ...], tuple[tuple[int, int, int], ...]]:
+    """Return the surface of one named boundary of a saved simulation (FR-3416).
+
+    The faces are those the block's boundary row assigns to the boundary
+    ``name`` selects; the vertices are the ones those faces use, each once,
+    in the order the block stores them, and the triangles index them from 0.
+    A name more than one boundary carries selects none, as
+    :func:`boundary_labels` leaves it out of the inventory.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+    name : str
+        The boundary's name in the file.
+
+    Returns
+    -------
+    tuple of (x, y, z)
+        The boundary's vertices in stored internal coordinates
+        (:func:`saved_mesh_coordinate_unit` says their unit).
+    tuple of (int, int, int)
+        Its triangles, as 0-based indices into those vertices.
+
+    Raises
+    ------
+    MeshReadError
+        As :func:`surface_mesh`; also when the block carries no boundary
+        row, so no face can be told to a boundary, or no single boundary
+        carries ``name``.
+    """
+    vertices, triangles, _, owners = _mesh_block(path)
+    if not owners or len(owners) != len(triangles):
+        raise MeshReadError(
+            f"{Path(path).name}: its mesh block carries no boundary row, so no face can be "
+            f"told to the boundary {name!r}"
+        )
+    labels, _ = boundary_labels(boundary_names(path) or ())
+    position = labels.get(name)
+    if position is None:
+        raise MeshReadError(
+            f"{Path(path).name}: no single boundary is named {name!r}; its boundaries are "
+            f"{', '.join(sorted(labels)) or 'none'}"
+        )
+    faces = [face for face, owner in zip(triangles, owners, strict=True) if owner == position]
+    used = sorted({index for face in faces for index in face})
+    renumber = {old: new for new, old in enumerate(used)}
+    return (
+        tuple(vertices[index] for index in used),
+        tuple((renumber[a], renumber[b], renumber[c]) for a, b, c in faces),
+    )

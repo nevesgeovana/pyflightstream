@@ -292,6 +292,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.post._structure"><summary><code>pyflightstream.post._structure</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>

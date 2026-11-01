@@ -45,7 +45,8 @@ FlightStream versions.
   where the cuts lie more than 0.02 m from the first and nearer the second; post warns,
   naming the misplaced steps. The run stages in `fsi-provenance.json` (`blade_mesh`) the
   mesh file's unit, the hub and whether the row moves the mesh, and the check reads the
-  OBJ by them; a run staged without them, or a row that moves the mesh, states its steps
+  imported OBJ, or the imported saved simulation (`.fsm`) in the unit it stores, by them;
+  a run staged without them, or a row that moves the mesh, states its steps
   not judged with the reason and is warned once. Defined in the post-processing
   definitions (FR-3416).
 - A coupled `unsteady_rotor` or `qsteady_rotor` row whose FSI input carries its section

@@ -3553,3 +3553,84 @@ def test_p0530_a_record_without_the_mesh_frame_states_its_steps_not_judged(
     assert [row[1] for row in rows] == [18, 36]
     for row in rows:
         assert row[4:9] == ("NA",) * 5 and row[-1] == said
+
+
+def _placement_fsm(path: Path) -> Path:
+    """The flat blade and the hub of ``PLACEMENT_BLADE_OBJ`` on ``PLACEMENT_HUB_M``, saved.
+
+    A saved simulation in metres (the ``1`` / ``5`` head of the global block)
+    with two boundaries, ``Hub`` and ``Blade1``; the boundary row (the seventh
+    per-face row before the T/F rows) tells each face to its boundary.
+    """
+    vertices: list[list[float]] = []
+    triangles: list[tuple[int, int, int]] = []
+    owners: list[int] = []
+    names: list[str] = []
+    for line in PLACEMENT_BLADE_OBJ.splitlines():
+        words = line.split()
+        if words and words[0] == "o":
+            names.append(words[1])
+        elif words and words[0] == "v":
+            point = zip(words[1:4], PLACEMENT_HUB_M, strict=True)
+            vertices.append([float(w) + h for w, h in point])
+        elif words and words[0] == "f":
+            triangles.append(tuple(int(w) - 1 for w in words[1:4]))
+            owners.append(len(names))
+    faces = len(triangles)
+
+    def row(values) -> str:
+        return ",".join(str(value) for value in values) + ","
+
+    lines = ["26,1", "2122026", "$GLOBAL_START$", "1", "5", "$GLOBAL_END$", "$MESH_START$"]
+    lines += ["header one", "header two", str(len(names))]
+    for number, name in enumerate(names, start=1):
+        lines += [f"{number}, T, F, F", name, ".494,.573,.576"]
+    lines += [str(faces), row(range(1, faces + 1)), row([3] * faces)]
+    lines += [row(t[slot] + 1 for t in triangles) for slot in range(3)]
+    lines += [row(owners if index == 6 else [0] * faces) for index in range(15)]
+    lines += [" " + ",".join([" F"] * faces) + ","] * 5
+    lines += ["0", str(len(vertices))]
+    lines += [row(f"{v[axis]:.9f}" for v in vertices) for axis in range(3)]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.requirement("FR-3416")
+def test_p0530_the_placement_check_reads_a_blade_imported_from_a_saved_simulation(tmp_path):
+    # P0530-PLACEMENT-FSM: a coupled row imports its geometry from a saved simulation, so its
+    # blade_mesh record states no import unit. The check finds the recorded .fsm among the
+    # simulation's inputs, reads the blade's boundary in the unit the file stores, and flags
+    # the misplaced step and not the placed one.
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.post._structure import placement_check_of_mesh, recorded_blade_geometry
+
+    inputs = tmp_path / "sims" / "sim_7" / "inputs"
+    inputs.mkdir(parents=True)
+    fsm = _placement_fsm(inputs / "rotor.fsm")
+    workspace = SimpleNamespace(sim_dir=lambda sim_id: tmp_path / "sims" / f"sim_{sim_id}")
+    record = SimpleNamespace(
+        sim_id=7, inputs_sha256={"config.json": "0" * 64, "rotor.fsm": file_sha256(fsm)}
+    )
+    geometry = recorded_blade_geometry(SimpleNamespace(workspace=workspace), record)
+    assert geometry == fsm
+    blade_mesh = {
+        "metres_per_unit": None,
+        "hub_m": list(PLACEMENT_HUB_M),
+        "moves_mesh": False,
+        "groups": {"Blade1": "Blade1"},
+    }
+    cuts = {18: _cuts_on_the_hub(90.0), 36: _cuts_on_the_hub(0.0)}
+    rows, reason = placement_check_of_mesh(
+        [("Blade1", cuts)], geometry, blade_mesh, step_azimuth_rad=np.radians(5.0)
+    )
+    assert reason is None
+    (placed, misplaced) = rows
+    assert placed[:2] == (1, 18) and placed[-2:] == (False, "")
+    assert placed[4] == pytest.approx(0.001, abs=1e-9)
+    assert placed[6] > 0.3
+    assert misplaced[:2] == (1, 36) and misplaced[-2:] == (True, "")
+    assert misplaced[6] == pytest.approx(0.001, abs=1e-9)
