@@ -426,3 +426,55 @@ def test_p0530_the_helper_keeps_every_other_table_and_writes_a_file_that_loads(t
     np.testing.assert_allclose(
         np.asarray(loaded.blade.section_contours_m), np.asarray(written), atol=1e-12
     )
+
+
+def _contour_warnings_of_a_row(tmp_path, units: str, metres_per_unit: float) -> list[str]:
+    """Build a coupled rotor row whose OBJ is the aft-placed blade written in ``units``.
+
+    The blade sits on the fixture rotor's hub, off the origin, where the script places the
+    blade's frame; the contours are placed in that frame.
+    """
+    from pyflightstream.cases.mesh import MeshImport
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case, coupled_case
+    from tests.tier1_offline.test_p0520_norefusal import build, messages
+
+    sections = _quarter_chord_sections()
+    cfg = FsiConfig(
+        blade_count=1,
+        omega_rad_per_s=40 * math.pi,
+        time_increment_s=0.0001,
+        blade=_blade(sections),
+    )
+    vertices, faces = _prism_mesh(sections, AFT_OFFSETS)
+    case = coupled_case(tmp_path)
+    hub = np.asarray(case.rotors["ROTOR"].origin)
+    assert np.abs(hub).max() > 0.05, "the fixture's hub must sit off the origin"
+    mesh = tmp_path / "blade.obj"
+    lines = ["o Blade1"]
+    lines += [
+        "v " + " ".join(repr(float(value) / metres_per_unit) for value in vertex + hub)
+        for vertex in vertices
+    ]
+    lines += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in faces]
+    mesh.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    case = _named_fsi_case(case.model_copy(update={"geometry": str(mesh), "fsi": cfg}))
+    case = case.model_copy(update={"mesh_import": MeshImport(units=units)})
+    _, caught = build(case, "26.124")
+    return [m for m in messages(caught) if "cut of the imported mesh" in m]
+
+
+@pytest.mark.requirement("FR-3417")
+@pytest.mark.parametrize(("units", "metres_per_unit"), [("METER", 1.0), ("MILLIMETER", 0.001)])
+def test_p0530_the_plan_reads_the_blade_in_the_unit_its_import_states(
+    tmp_path, units, metres_per_unit
+):
+    # REL-002: an OBJ written in millimetres is the same blade as one written in metres, and a
+    # blade on a hub off the origin is placed in the frame on that hub; the plan's contour
+    # check reads the mesh in the unit the import states about the hub, so both rows warn
+    # alike, with the offsets the blade has.
+    said = _contour_warnings_of_a_row(tmp_path, units, metres_per_unit)
+    assert len(said) == 1, said
+    for station, (d_le, d_suction) in enumerate(AFT_OFFSETS, start=1):
+        assert f"station {station} (r = {RADII[station - 1]:.4g} m)" in said[0]
+        assert f"{1e3 * d_le:+.1f} mm toward the leading edge" in said[0]
+        assert f"{1e3 * d_suction:+.1f} mm toward the suction side" in said[0]

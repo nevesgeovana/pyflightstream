@@ -574,25 +574,49 @@ def _ids_after_a_deletion(
     return ids
 
 
-def _warn_of_contours_off_the_mesh(case: SimCase, cfg: FsiConfig, blade: str) -> None:
+def _warn_of_contours_off_the_mesh(
+    case: SimCase, cfg: FsiConfig, blade: str, *, origin: Sequence[float] = (0.0, 0.0, 0.0)
+) -> None:
     """Warn where blade one's section contours, as placed, lie off its cut of the mesh (FR-3417).
 
     Judged for a configuration that carries its sections (``section_contours_m``) on a
     row importing an OBJ that holds the blade's group, blade one being where the
     contours are placed (:func:`pyflightstream.fsi.sections.warn_of_contours_off_the_mesh_cut`).
-    Nothing else is read and nothing is refused.
+    The OBJ is read in the unit its ``[import]`` states, taken to metres, about the
+    rotor's ``origin``; a row that moves the mesh before the solve (``ROTATE``,
+    ``TRANSLATE`` or an import operation other than ``rename``) is not judged, since the
+    file no longer holds the blade where the solver has it. Nothing is refused.
     """
+    import numpy as np
+
+    from pyflightstream._lengths import scale
     from pyflightstream._mesh import obj_group_surface
 
     path = Path(str(case.geometry)) if case.geometry is not None else None
     if cfg.blade.section_contours_m is None or path is None or path.suffix.lower() != ".obj":
         return
+    units = getattr(case.mesh_import, "units", None)
+    factor = scale(str(units), "METER") if units else None
+    operations = getattr(case.mesh_import, "operations", None) or ()
+    moved = any(
+        str(case.variables.get(key, "")).strip() not in ("", "-") for key in ("ROTATE", "TRANSLATE")
+    ) or any(operation.op != "rename" for operation in operations)
+    if factor is None or moved:
+        return
+    # The solver names the blade after the import's renames; the file names it before them.
+    group = blade
+    for operation in reversed(operations):
+        if operation.op == "rename" and operation.to == group and operation.surface:
+            group = operation.surface
     try:
-        vertices, faces = obj_group_surface(path, blade)
+        vertices, faces = obj_group_surface(path, group)
     except (OSError, ValueError):
         return
     warn_of_contours_off_the_mesh_cut(
-        cfg, vertices, faces, where=f"case {case.sim_id!r} blade {blade}"
+        cfg,
+        vertices * factor - np.asarray(origin, dtype=float),
+        faces,
+        where=f"case {case.sim_id!r} blade {blade}",
     )
 
 
@@ -1255,7 +1279,7 @@ def wire_workspace_fsi(
     families = _saved_sections_first(case, families)
     family_map = SectionFamilyMap(families=families)
     layout = structural_node_layout(cfg)
-    _warn_of_contours_off_the_mesh(case, cfg, blades[0])
+    _warn_of_contours_off_the_mesh(case, cfg, blades[0], origin=rotor.origin)
     _stage_and_emit(
         case,
         script,

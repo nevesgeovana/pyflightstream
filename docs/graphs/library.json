@@ -2399,6 +2399,11 @@
     },
     {
       "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream._lengths",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream._mesh",
       "kind": "deferred"
     },
