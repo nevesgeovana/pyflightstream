@@ -332,6 +332,8 @@ class _CampaignState:
     #: The simulations this call posted, each once, as its last point of the
     #: call was recorded (PFS-2185.18).
     posted: list[str] = field(default_factory=list)
+    #: What the last sweep table derivation said, said once after the loop.
+    sweep_said: list[warnings.WarningMessage] = field(default_factory=list)
     case_builds: list[SolverBuild | None] = field(init=False)
     manifest: dict[str, RunRecord] = field(init=False)
     recorded: set[str] = field(init=False)
@@ -606,6 +608,8 @@ def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
             _execute_campaign_points(state)
         if last_case[case.sim_id] == index:
             _post_the_simulation(state, case.sim_id)
+    for said in state.sweep_said:
+        warnings.warn_explicit(said.message, said.category, said.filename, said.lineno)
     return _finish_campaign(state)
 
 
@@ -617,6 +621,8 @@ def _post_the_simulation(state: _CampaignState, sim_id: str) -> None:
     finished so far as the matrix runs. A simulation with a point submitted
     to a scheduler is left to ``collect``, which posts it once its outputs
     land. A post that fails is warned and the run goes on (PFS-2029.15.03).
+    The table is derived after every polar, so what its derivation says is
+    kept and said once, from the last, after the loop.
     """
     ran = [record for record in state.records if record.sim_id == sim_id]
     if not ran or any(record.status is RunStatus.SUBMITTED for record in ran):
@@ -625,7 +631,10 @@ def _post_the_simulation(state: _CampaignState, sim_id: str) -> None:
     problem = _leave_products(state.workspace, matrix, [sim_id])
     if problem is not None:
         warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
-    problem = _leave_sweep_table(state.workspace, matrix, state.sweep_csv)
+    with warnings.catch_warnings(record=True) as said:
+        warnings.simplefilter("always")
+        problem = _leave_sweep_table(state.workspace, matrix, state.sweep_csv)
+    state.sweep_said = said
     if problem is not None:
         warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
     state.posted.append(sim_id)
