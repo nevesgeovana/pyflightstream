@@ -267,3 +267,95 @@ def test_a_map_without_camber_offsets_serialises_as_before():
     assert "le_offset_normal_m" not in dumped
     assert "te_offset_normal_m" not in dumped
     assert "section_contours_m" not in json.loads(cfg.model_dump_json())["blade"]
+
+
+# ------------------------------- P0530 contours placed on the mesh cut (FR-3417) --
+
+
+def _prism_mesh(sections, offsets):
+    """A blade mesh built synthetically: at each station a short prism of the station's real
+    section, 0.02 m either side of its radius, the real section being the stated contour
+    moved by ``offsets`` (toward the leading edge, toward the suction side) in its frame.
+
+    The rotor-frame section axes are written here from their definition (the span along Z,
+    the section turned by the pitch beta about Z): toward the leading edge
+    (-sin beta, -cos beta, 0), toward the suction side (-cos beta, sin beta, 0).
+    """
+    vertices, faces = [], []
+    for radius, beta_deg, contour, (d_le, d_suction) in zip(
+        RADII, PITCH, sections, offsets, strict=True
+    ):
+        beta = math.radians(beta_deg)
+        e_le = np.array([-math.sin(beta), -math.cos(beta), 0.0])
+        e_suction = np.array([-math.cos(beta), math.sin(beta), 0.0])
+        real = np.asarray(contour) + (d_le, d_suction)
+        n = len(real)
+        base = len(vertices)
+        for z in (radius - 0.02, radius + 0.02):
+            vertices.extend(c * e_le + s * e_suction + (0.0, 0.0, z) for c, s in real)
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append((base + i, base + j, base + n + j))
+            faces.append((base + i, base + n + j, base + n + i))
+    return np.asarray(vertices), np.asarray(faces)
+
+
+def _quarter_chord_sections():
+    return [
+        airfoil_section_contour(
+            naca4_contour("4412", 80), chord_m=c, pitch_axis_chord_fraction=PITCH_AXIS
+        )
+        for c in CHORDS
+    ]
+
+
+#: Like the study's first contours: written about the quarter chord with the origin placed
+#: on the pitch axis, so the beam sits 26 to 50 mm aft of the blade's real section.
+AFT_OFFSETS = [(0.026, 0.0035), (0.038, 0.007), (0.050, 0.011)]
+
+
+@pytest.mark.requirement("FR-3417")
+def test_p0530_a_contour_off_the_mesh_cut_warns_and_a_placed_one_is_silent():
+    # P0530-CONTOUR-PLACEMENT: an f201-like blade warns, naming each station and its
+    # offset; an f204-like one (the contour IS the mesh's section) says nothing.
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.fsi.sections import (
+        CONTOUR_PLACEMENT_TOLERANCE_M,
+        warn_of_contours_off_the_mesh_cut,
+    )
+
+    sections = _quarter_chord_sections()
+    cfg = _config(_blade(sections))
+    aft = _prism_mesh(sections, AFT_OFFSETS)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        warned = warn_of_contours_off_the_mesh_cut(cfg, *aft, where="blade Blade1")
+    assert warned == [1, 2, 3]
+    message = str(caught[0].message)
+    for station, (d_le, d_suction) in enumerate(AFT_OFFSETS, start=1):
+        assert f"station {station} (r = {RADII[station - 1]:.4g} m)" in message
+        assert f"{1e3 * d_le:+.1f} mm toward the leading edge" in message
+        assert f"{1e3 * d_suction:+.1f} mm toward the suction side" in message
+    placed = _prism_mesh(sections, [(0.0, 0.0)] * 3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert warn_of_contours_off_the_mesh_cut(cfg, *placed, where="blade Blade1") == []
+    assert CONTOUR_PLACEMENT_TOLERANCE_M < 0.026
+
+
+@pytest.mark.requirement("FR-3417")
+def test_p0530_the_helper_writes_the_contours_placed_on_the_mesh_cut():
+    from pyflightstream.fsi.sections import contour_mesh_offsets, place_on_mesh_cut
+
+    sections = _quarter_chord_sections()
+    cfg = _config(_blade(sections))
+    aft = _prism_mesh(sections, AFT_OFFSETS)
+    moved = place_on_mesh_cut(cfg, *aft)
+    for contour, before, offset in zip(
+        moved, cfg.blade.section_contours_m, AFT_OFFSETS, strict=True
+    ):
+        np.testing.assert_allclose(np.asarray(contour), np.asarray(before) + offset, atol=1e-9)
+    replaced = _config(_blade([np.asarray(contour) for contour in moved]))
+    for offset in contour_mesh_offsets(replaced, *aft):
+        assert offset is not None and math.hypot(*offset) < 1e-9

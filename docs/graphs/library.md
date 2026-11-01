@@ -2533,6 +2533,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.cases.fsi_workspace"><summary><code>pyflightstream.cases.fsi_workspace</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.setup_surfaces">pyflightstream.cases.setup_surfaces</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
@@ -2541,6 +2542,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.fsi.errors">pyflightstream.fsi.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.loads">pyflightstream.fsi.loads</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.nodes">pyflightstream.fsi.nodes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.fsi.sections">pyflightstream.fsi.sections</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.state">pyflightstream.fsi.state</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
@@ -3256,9 +3258,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.fsi.sections"><summary><code>pyflightstream.fsi.sections</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.config">pyflightstream.fsi.config</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.errors">pyflightstream.fsi.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.fsi.materials">pyflightstream.fsi.materials</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.fsi.nodes">pyflightstream.fsi.nodes</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.fsi.state"><summary><code>pyflightstream.fsi.state</code></summary><ul>

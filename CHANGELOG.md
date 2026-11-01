@@ -42,6 +42,13 @@ FlightStream versions.
   surface at its prescribed azimuth and at its import azimuth, and marks a step misplaced
   where the cuts lie more than 0.02 m from the first and nearer the second; post warns,
   naming the misplaced steps. Defined in the post-processing definitions (FR-3416).
+- A coupled `unsteady_rotor` or `qsteady_rotor` row whose FSI input carries its section
+  contours and whose geometry is an OBJ is warned where a contour, as the package places it
+  (origin on the pitch axis), lies more than 5 mm off blade one's cut of the mesh: the
+  warning names each station, its radius and its offset toward the leading edge and toward
+  the suction side. Nothing is refused. `pyflightstream.fsi.sections.place_on_mesh_cut`
+  returns the contours moved onto the mesh cut, to write as `sections_m`;
+  `contour_mesh_offsets` and `obj_group_surface` are public beside it (FR-3417).
 
 ### Fixed
 

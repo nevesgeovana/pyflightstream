@@ -630,6 +630,25 @@ shear modulus. Calibration never rewrites the source material database. A custom
 table with `document`, `table`, `condition`, `url` and `consulted`. The material
 checks require finite positive density/E/G and `-1 < poisson_ratio < 0.5`.
 
+### Contours placed on the mesh cut
+
+The package places each contour with its origin on the pitch axis, at the
+station's radius along the span, turned by the station's pitch. A contour
+written about another point (the quarter chord, say) then puts the beam's
+section, and so its elastic and mass axes, beside the blade's real section.
+On an `unsteady_rotor` or `qsteady_rotor` row that imports an OBJ, the plan
+cuts blade one's group of the mesh at every station and compares the cut with
+the placed contour: where the two lie more than 5 mm apart
+(`CONTOUR_PLACEMENT_TOLERANCE_M`, the distance between the perimeter centroids
+of the two curves in the section plane), one warning names each such station,
+its radius and its offset toward the leading edge and toward the suction side.
+Nothing is refused; the beam is built from the contours as stated.
+
+`pyflightstream.fsi.sections.place_on_mesh_cut(config, vertices, faces)`
+returns the contours moved by those offsets, ready to write as `sections_m`;
+`contour_mesh_offsets` returns the offsets themselves. The mesh is read with
+`pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`.
+
 ## Calibration and provenance
 
 Every factor is dimensionless, finite and positive. Omission selects the file

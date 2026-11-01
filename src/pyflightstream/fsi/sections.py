@@ -60,9 +60,12 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._mesh import obj_group_surface
 from pyflightstream.fsi.config import (
     BladeProperties,
     BladePropertiesProvenance,
+    FsiConfig,
     MaterialProvenance,
 )
 from pyflightstream.fsi.errors import FsiInputError
@@ -71,6 +74,7 @@ from pyflightstream.fsi.materials import material as material_entry
 
 __all__ = [
     "BENDING_STIFFNESS_RULE",
+    "CONTOUR_PLACEMENT_TOLERANCE_M",
     "DEFAULT_TORSION_GRID_CELLS",
     "ELASTIC_AXIS_HYPOTHESIS",
     "MAX_TORSION_GRID_CELLS_LONG",
@@ -81,10 +85,14 @@ __all__ = [
     "TorsionConstant",
     "airfoil_section_contour",
     "blade_properties_from_sections",
+    "contour_mesh_offsets",
+    "obj_group_surface",
+    "place_on_mesh_cut",
     "polygon_area_moments",
     "solid_section_properties",
     "thin_section_torsion_estimate",
     "torsion_constant",
+    "warn_of_contours_off_the_mesh_cut",
 ]
 
 #: Default number of grid cells across the SHORTER side of a section's
@@ -1187,3 +1195,167 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
         (x + half_thickness * np.sin(theta), camber - half_thickness * np.cos(theta))
     )
     return np.vstack((lower[::-1], upper[1:]))
+
+
+# ---------------------------------------- contour placement on the mesh (FR-3417) --
+
+#: How far a section contour, as the package places it, may lie from the blade's own cut
+#: of the imported mesh before the plan warns [m] (FR-3417): the distance between the
+#: perimeter centroids of the two curves in the section plane.
+CONTOUR_PLACEMENT_TOLERANCE_M = 0.005
+
+
+def _perimeter_centroid(segments: np.ndarray) -> np.ndarray:
+    """Return the length-weighted mean of the segment midpoints, ``segments`` shape (k, 2, 3)."""
+    lengths = np.linalg.norm(segments[:, 1] - segments[:, 0], axis=1)
+    return (lengths[:, None] * segments.mean(axis=1)).sum(axis=0) / lengths.sum()
+
+
+def contour_mesh_offsets(
+    config: FsiConfig, vertices: ArrayLike, faces: ArrayLike
+) -> list[tuple[float, float] | None]:
+    """Return how far each placed section contour lies from the blade's cut of the mesh.
+
+    The package places a station's contour ``(c, n)`` at ``origin + r span + c e_le
+    + n e_suction`` (:func:`pyflightstream.fsi.nodes.node_positions`, the axes of
+    :func:`pyflightstream.fsi.nodes.config_triads`). The mesh is cut by the plane
+    through ``origin + r span`` normal to the span; the offset is the translation, in
+    the section frame, that carries the perimeter centroid of the placed contour onto
+    that of the cut. The perimeter centroid moves with a translation exactly, so a
+    contour that is the mesh's own section, displaced, gives that displacement.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        A configuration whose blade carries ``section_contours_m``.
+    vertices, faces : array_like
+        The blade's surface as imported: vertices ``(v, 3)`` [m] and 0-based triangles ``(f, 3)``.
+
+    Returns
+    -------
+    list
+        Per station, ``(toward_leading_edge_m, toward_suction_m)``, or None where the
+        station's plane does not cut the mesh.
+
+    Raises
+    ------
+    FsiInputError
+        If the blade carries no section contours.
+    """
+    from pyflightstream._mesh import mesh_reader
+    from pyflightstream.fsi.nodes import config_triads
+
+    contours = config.blade.section_contours_m
+    if contours is None:
+        raise FsiInputError("the blade carries no section contours to place on the mesh")
+    trimesh = mesh_reader()
+    surface = trimesh.Trimesh(
+        vertices=np.asarray(vertices, dtype=float), faces=np.asarray(faces), process=False
+    )
+    origin = np.asarray(config.wing.origin_m if config.wing else (0.0, 0.0, 0.0), dtype=float)
+    offsets: list[tuple[float, float] | None] = []
+    for radius, contour, (toward_le, toward_suction, span) in zip(
+        config.blade.station_radii_m, contours, config_triads(config), strict=True
+    ):
+        centre = origin + radius * span
+        cut = trimesh.intersections.mesh_plane(surface, plane_normal=span, plane_origin=centre)
+        if not len(cut):
+            offsets.append(None)
+            continue
+        polygon = np.asarray(contour, dtype=float)
+        placed = centre + polygon[:, :1] * toward_le + polygon[:, 1:2] * toward_suction
+        edges = np.stack([placed, np.roll(placed, -1, axis=0)], axis=1)
+        moved = _perimeter_centroid(np.asarray(cut, dtype=float)) - _perimeter_centroid(edges)
+        offsets.append((float(moved @ toward_le), float(moved @ toward_suction)))
+    return offsets
+
+
+def warn_of_contours_off_the_mesh_cut(
+    config: FsiConfig,
+    vertices: ArrayLike,
+    faces: ArrayLike,
+    *,
+    where: str,
+    tolerance_m: float = CONTOUR_PLACEMENT_TOLERANCE_M,
+) -> list[int]:
+    """Warn of each station whose placed contour lies off the mesh cut by over ``tolerance_m``.
+
+    One warning names every such station, its radius and its offset toward the
+    leading edge and toward the suction side, and points to :func:`place_on_mesh_cut`.
+    Never a refusal: the beam is built from the contours as stated.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        A configuration whose blade carries ``section_contours_m``; one without them is not judged.
+    vertices, faces : array_like
+        The blade's surface as imported.
+    where : str
+        What the warning is about, such as ``"case '7001' blade Blade1"``.
+    tolerance_m : float, optional
+        :data:`CONTOUR_PLACEMENT_TOLERANCE_M` by default.
+
+    Returns
+    -------
+    list of int
+        The 1-based stations warned of.
+    """
+    if config.blade.section_contours_m is None:
+        return []
+    off = [
+        (station, config.blade.station_radii_m[station - 1], offset)
+        for station, offset in enumerate(contour_mesh_offsets(config, vertices, faces), start=1)
+        if offset is not None and math.hypot(*offset) > tolerance_m
+    ]
+    if off:
+        listed = "; ".join(
+            f"station {station} (r = {radius:.4g} m): {1e3 * le:+.1f} mm toward the leading edge, "
+            f"{1e3 * suction:+.1f} mm toward the suction side"
+            for station, radius, (le, suction) in off
+        )
+        warn(
+            f"{where}: the section contour as placed (origin on the pitch axis) lies off the "
+            f"blade's cut of the imported mesh by more than {1e3 * tolerance_m:g} mm at {listed}. "
+            "The beam's sections, and so its elastic and mass axes, sit where the contours are; "
+            "pyflightstream.fsi.sections.place_on_mesh_cut writes the contours placed on the "
+            "mesh cut.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return [station for station, _, _ in off]
+
+
+def place_on_mesh_cut(
+    config: FsiConfig, vertices: ArrayLike, faces: ArrayLike
+) -> list[list[list[float]]]:
+    """Return the blade's section contours moved onto the blade's cut of the imported mesh.
+
+    Each contour is translated in its section frame by its
+    :func:`contour_mesh_offsets`, so its perimeter centroid lies on the mesh cut's;
+    a station whose plane does not cut the mesh keeps its contour. The result is
+    written as the input's ``sections_m``; nothing else of the configuration moves.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        A configuration whose blade carries ``section_contours_m``.
+    vertices, faces : array_like
+        The blade's surface as imported: vertices ``(v, 3)`` [m] and 0-based triangles ``(f, 3)``.
+
+    Returns
+    -------
+    list of list of list of float
+        Per station, the contour's ``(chordwise, normal)`` points [m], placed.
+
+    Raises
+    ------
+    FsiInputError
+        If the blade carries no section contours.
+    """
+    contours = config.blade.section_contours_m
+    offsets = contour_mesh_offsets(config, vertices, faces)
+    assert contours is not None  # contour_mesh_offsets refused a blade without them
+    return [
+        (np.asarray(contour, dtype=float) + (offset or (0.0, 0.0))).tolist()
+        for contour, offset in zip(contours, offsets, strict=True)
+    ]

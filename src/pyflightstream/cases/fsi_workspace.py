@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from types import MappingProxyType
 
 from pyflightstream._errors import PyflightstreamWarning, warn
@@ -50,6 +50,7 @@ from pyflightstream.fsi.config import (
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
+from pyflightstream.fsi.sections import warn_of_contours_off_the_mesh_cut
 from pyflightstream.fsi.state import (
     BEFORE_CALL_SURFACE_FILE,
     LOADS_FILE,
@@ -571,6 +572,28 @@ def _ids_after_a_deletion(
             )
         ids.append(opened.index(name) + 1 + offset)
     return ids
+
+
+def _warn_of_contours_off_the_mesh(case: SimCase, cfg: FsiConfig, blade: str) -> None:
+    """Warn where blade one's section contours, as placed, lie off its cut of the mesh (FR-3417).
+
+    Judged for a configuration that carries its sections (``section_contours_m``) on a
+    row importing an OBJ that holds the blade's group, blade one being where the
+    contours are placed (:func:`pyflightstream.fsi.sections.warn_of_contours_off_the_mesh_cut`).
+    Nothing else is read and nothing is refused.
+    """
+    from pyflightstream._mesh import obj_group_surface
+
+    path = Path(str(case.geometry)) if case.geometry is not None else None
+    if cfg.blade.section_contours_m is None or path is None or path.suffix.lower() != ".obj":
+        return
+    try:
+        vertices, faces = obj_group_surface(path, blade)
+    except (OSError, ValueError):
+        return
+    warn_of_contours_off_the_mesh_cut(
+        cfg, vertices, faces, where=f"case {case.sim_id!r} blade {blade}"
+    )
 
 
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
@@ -1232,6 +1255,7 @@ def wire_workspace_fsi(
     families = _saved_sections_first(case, families)
     family_map = SectionFamilyMap(families=families)
     layout = structural_node_layout(cfg)
+    _warn_of_contours_off_the_mesh(case, cfg, blades[0])
     _stage_and_emit(
         case,
         script,
@@ -1600,6 +1624,7 @@ def wire_quasi_steady_sector_fsi(
     boundaries = aeroelastic_surface_ids(case, script, [blade], context="FSI blade")
     family_map = SectionFamilyMap(families=[SectionFamily(name=blade, count=count, is_blade=True)])
     layout = structural_node_layout(config)
+    _warn_of_contours_off_the_mesh(case, config, blade)
     post = aeroelastic_post(script.version, exports=exports, updates=updates)
     _stage_and_emit(
         case,

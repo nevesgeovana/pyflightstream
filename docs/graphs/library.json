@@ -2399,6 +2399,11 @@
     },
     {
       "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream._mesh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -2435,6 +2440,11 @@
     {
       "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream.fsi.nodes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream.fsi.sections",
       "kind": "module"
     },
     {
@@ -5224,6 +5234,21 @@
     },
     {
       "source": "pyflightstream.fsi.sections",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.fsi.sections",
+      "target": "pyflightstream._mesh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.fsi.sections",
+      "target": "pyflightstream._mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.fsi.sections",
       "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
@@ -5236,6 +5261,11 @@
       "source": "pyflightstream.fsi.sections",
       "target": "pyflightstream.fsi.materials",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.fsi.sections",
+      "target": "pyflightstream.fsi.nodes",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.fsi.state",
