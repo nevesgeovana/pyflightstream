@@ -722,6 +722,57 @@ def test_p0450_d7_missing_a_family_names_the_entry():
     assert "[[farfields]]" in reason and "wing" in reason and "missing" in reason
 
 
+def _p0530_ffmiss_plan(root: Path, entries: list[dict]):
+    """Build one row's script and its plan record as the campaign plan does, with its warnings."""
+    from pyflightstream.cases._skipped_families import (
+        noting_the_families_rows_lack,
+        noting_the_unplaced_rotor_frames,
+    )
+    from pyflightstream.cases.workflows._farfield import plan_record
+
+    case = _farfield_plan___case(root, entries)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack(), noting_the_unplaced_rotor_frames():
+            script = _farfield_plan___script(case)
+            record = plan_record(case, "26.124", script)
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    return script, record, said
+
+
+@pytest.mark.requirement("FR-3455")
+def test_p0530_ffmiss_an_entry_whose_families_the_row_lacks_is_warned_and_skipped(tmp_path):
+    """FR-3455: no family of the entry on the row warns and skips it; the plane is still laid.
+
+    RED on e4041f303: the plan stopped with "the far field of the pproc artifact
+    'p9' cannot be produced on this row: ... names no family of the geometry".
+    """
+    entries = [{"name": "wing", "variant": "sections", "families": ["wing"]}, {"variant": "plane"}]
+    script, record, said = _p0530_ffmiss_plan(tmp_path, entries)
+    assert _farfield_plan___distributions(script.render()) == 0
+    assert [shape["kind"] for shape in script.farfield_layout[-1]["shapes"]] == ["plane"]
+    states = {(item["entry"], item["state"]) for item in record["inputs"]}
+    assert ("wing", "not_applicable") in states and ("plane", "added") in states
+    assert not [item for item in record["inputs"] if item["state"] == "refused"]
+    (warning,) = [message for message in said if "entry 'wing'" in message]
+    assert "'wing'" in warning.split("entry 'wing'", 1)[1] and "'7002'" in warning
+    assert "ignored" in warning
+
+
+@pytest.mark.requirement("FR-3455")
+def test_p0530_ffmiss_an_entry_lacking_one_of_two_families_traces_the_present_one(tmp_path):
+    """FR-3455: one of two families absent warns once naming it, and A is cut over the other.
+
+    RED on e4041f303: the plan cut W and said nothing of 'tail'.
+    """
+    entries = [{"name": "wt", "variant": "sections", "families": ["W", "tail"]}]
+    script, record, said = _p0530_ffmiss_plan(tmp_path, entries)
+    assert [block["families"] for block in script.section_blocks] == [["W"]]
+    assert {item["state"] for item in record["inputs"]} <= {"added", "reused"}
+    (warning,) = [message for message in said if "'tail'" in message]
+    assert "[[farfields]] entry 'wt'" in warning and "'7002'" in warning
+
+
 class TestFarfieldPlan:
     """P0400-FFPLAN: the plan reuses, adds, and refuses only the impossible (FR-455).
 

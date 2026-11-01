@@ -891,6 +891,28 @@ def _farfield_products___add_outputs(
     manifest.write_text(json.dumps(encode_rows(runs), indent=1), encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-3455")
+def test_p0530_ffmiss_post_skips_an_entry_the_simulation_lacks_and_writes_the_rest(tmp_path):
+    """FR-3455: a sections entry naming only families the run lacks is skipped, said as such.
+
+    RED on e4041f303: the skip said "the plan of a new run adds one", which no
+    plan does for a family the geometry does not carry.
+    """
+    workspace = _farfield_products___workspace(tmp_path, farfield=True)
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    text = pproc.read_text(encoding="utf-8")
+    pproc.write_text(
+        text.replace('families = "all"', 'name = "wing"\nfamilies = ["wing"]'), encoding="utf-8"
+    )
+    messages = _farfield_products___post(workspace)
+    root = Path(workspace.root)
+    rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
+    assert {row["VARIANT"] for row in rows} == {"B", "C"}
+    assert sorted(root.rglob("polars/P3207-*.csv")), "the polar is written"
+    (said,) = [message for message in messages if "entry=wing" in message]
+    assert "['wing']" in said and "names no family" in said and "new run" not in said
+
+
 class TestFarfieldProducts:
     """P0400-FFOUT: the far-field products of a posted simulation (FR-456).
 
