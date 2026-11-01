@@ -52,8 +52,14 @@ def test_p0430_rb2_rebuild_refuses_unreadable_history(tmp_path):
 
 
 def _posted(root: Path, capsys) -> tuple[dict, str]:
-    """Post the matrix as she does and return its products manifest and its log."""
-    code, said = pyfs(["post", MATRIX], root, capsys)
+    """Post the matrix's simulations and return its products manifest and its log.
+
+    ``the_owner_s_deletions`` sets row 7003 to RUN 0, and ``post <matrix>`` rebuilds
+    only the RUN = 1 rows (PFS-2185.18, FR-3443, the owner's row 171 of 2026-11-01:
+    "ele tem que respeitar o preenchimento do run"); ``--sims`` names exactly what
+    is rebuilt, so both simulations are posted.
+    """
+    code, said = pyfs(["post", MATRIX, "--sims", "7001,7003"], root, capsys)
     assert code == 0, said
     folder = root / "post" / MATRIX
     return json.loads((folder / "products.json").read_text("utf-8")), (
