@@ -651,8 +651,10 @@ Nothing is refused; the beam is built from the contours as stated.
 source=..., target=...)` writes the FSI input `source` to `target` with its
 `[sections]` table stating the contours moved by those offsets as `sections_m`
 (in place of `sections_m`, `airfoil` or `naca`) and `geometry_source` saying
-they were placed on the mesh cut; every other line is kept, and `source` is
-written only when `target` is the same path. It returns the contours it wrote.
+they were placed on the mesh cut, with a comment line opening the table that
+names the key the contours replaced (the `naca` designation, the `airfoil`, or
+the earlier `sections_m`); every other line is kept, and `source` is written
+only when `target` is the same path. It returns the contours it wrote.
 `config` is the configuration `source` resolves to. `contour_mesh_offsets`
 returns the offsets themselves. The mesh is read with
 `pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`:

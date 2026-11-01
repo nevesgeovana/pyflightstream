@@ -1336,6 +1336,17 @@ _TABLE_HEADER = re.compile(r"""^\s*\[\[?\s*[A-Za-z_"'][^\]]*\]\]?\s*(?:#.*)?$"""
 _SECTIONS_HEADER = re.compile(r"^\s*\[\s*sections\s*\]\s*(?:#.*)?$")
 
 
+def _replaced_contours(table: dict[str, Any]) -> str:
+    """Say, for a comment line, what the placed ``sections_m`` replaced in ``table``."""
+    if isinstance(table.get("naca"), str):
+        was = f"naca = {json.dumps(table['naca'])}"
+    elif table.get("airfoil") is not None:
+        was = f"airfoil ({len(table['airfoil'])} points of a unit contour)"
+    else:
+        was = "the earlier sections_m"
+    return f"sections_m: the contours placed on the mesh cut (place_on_mesh_cut), replacing {was}"
+
+
 def _toml_value(value: object) -> str:
     """Write one value of a ``[sections]`` table: a string, a bool, a number or a nested list."""
     if isinstance(value, str):
@@ -1365,8 +1376,10 @@ def place_on_mesh_cut(
     written as a copy of the FSI input ``source`` (``mode = "calculated"``) whose
     ``[sections]`` table states the moved contours as ``sections_m`` in place of
     ``sections_m``, ``airfoil`` or ``naca``, and whose ``geometry_source`` says the
-    contours were placed on the mesh cut; every other line of ``source`` is kept.
-    ``source`` is written only when ``target`` is the same path.
+    contours were placed on the mesh cut; a comment line opening the table names the
+    key the contours replaced (the ``naca`` designation, the ``airfoil``, or the
+    earlier ``sections_m``). Every other line of ``source`` is kept. ``source`` is
+    written only when ``target`` is the same path.
 
     Parameters
     ----------
@@ -1419,7 +1432,12 @@ def place_on_mesh_cut(
     rows = {k: v for k, v in table.items() if k not in ("sections_m", "airfoil", "naca")}
     rows["geometry_source"] = f"{table.get('geometry_source', '')}; contours placed on the mesh cut"
     rows["sections_m"] = placed
-    written = ["[sections]", *(f"{key} = {_toml_value(value)}" for key, value in rows.items()), ""]
+    written = [
+        "[sections]",
+        f"# {_replaced_contours(table)}",
+        *(f"{key} = {_toml_value(value)}" for key, value in rows.items()),
+        "",
+    ]
     out = "\n".join([*lines[: starts[0]], *written, *lines[end:]]).rstrip("\n") + "\n"
     # Nothing is written that does not read back as the input with only [sections] replaced,
     # so a layout this line rewrite misreads can neither corrupt the input nor drop a table.

@@ -428,6 +428,29 @@ def test_p0530_the_helper_keeps_every_other_table_and_writes_a_file_that_loads(t
     )
 
 
+@pytest.mark.requirement("FR-3417")
+def test_p0530_the_written_file_names_what_the_placed_contours_replaced(tmp_path):
+    # REL-006: a comment line in [sections] names the key replaced (naca here, then the
+    # earlier sections_m on a second placement) and that the contours were placed.
+    from pyflightstream.fsi.sections import place_on_mesh_cut
+    from pyflightstream.workspace.fsi_setup import resolve_fsi_setup
+
+    source, target, again = (tmp_path / f"f00{n}.toml" for n in (1, 2, 3))
+    source.write_text(CALCULATED_INPUT, encoding="utf-8")
+    cfg = resolve_fsi_setup(source).effective
+    aft = _prism_mesh(cfg.blade.section_contours_m, AFT_OFFSETS)
+    place_on_mesh_cut(cfg, *aft, source=source, target=target)
+    lines = target.read_text(encoding="utf-8").splitlines()
+    opened = lines[lines.index("[sections]") + 1]
+    assert opened == (
+        "# sections_m: the contours placed on the mesh cut (place_on_mesh_cut), "
+        'replacing naca = "4412"'
+    )
+    place_on_mesh_cut(resolve_fsi_setup(target).effective, *aft, source=target, target=again)
+    lines = again.read_text(encoding="utf-8").splitlines()
+    assert lines[lines.index("[sections]") + 1].endswith("replacing the earlier sections_m")
+
+
 def _contour_warnings_of_a_row(tmp_path, units: str, metres_per_unit: float) -> list[str]:
     """Build a coupled rotor row whose OBJ is the aft-placed blade written in ``units``.
 
