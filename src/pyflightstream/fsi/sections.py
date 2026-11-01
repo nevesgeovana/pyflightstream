@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -1328,6 +1329,13 @@ def warn_of_contours_off_the_mesh_cut(
     return [station for station, _, _ in off]
 
 
+#: A TOML table header line, ``[name]`` or ``[[name]]``, indented or not, with an optional comment;
+#: the name opens with a letter, an underscore or a quote, so an array row is never one.
+_TABLE_HEADER = re.compile(r"""^\s*\[\[?\s*[A-Za-z_"'][^\]]*\]\]?\s*(?:#.*)?$""")
+#: The ``[sections]`` header line, indented or not, with an optional comment.
+_SECTIONS_HEADER = re.compile(r"^\s*\[\s*sections\s*\]\s*(?:#.*)?$")
+
+
 def _toml_value(value: object) -> str:
     """Write one value of a ``[sections]`` table: a string, a bool, a number or a nested list."""
     if isinstance(value, str):
@@ -1392,9 +1400,10 @@ def place_on_mesh_cut(
         for contour, offset in zip(contours, offsets, strict=True)
     ]
     text = Path(source).read_text(encoding="utf-8-sig")
-    table = tomllib.loads(text).get("sections")
+    stated = tomllib.loads(text)
+    table = stated.get("sections")
     lines = text.splitlines()
-    starts = [i for i, line in enumerate(lines) if line.strip() == "[sections]"]
+    starts = [i for i, line in enumerate(lines) if _SECTIONS_HEADER.match(line)]
     if not isinstance(table, dict) or len(starts) != 1:
         raise FsiInputError(f"{Path(source).name} holds no [sections] table to place")
     if len(table.get("station_radii_m", ())) != len(placed):
@@ -1402,13 +1411,32 @@ def place_on_mesh_cut(
             f"{Path(source).name} states {len(table.get('station_radii_m', ()))} stations and "
             f"the configuration {len(placed)}; pass the configuration the input resolves to"
         )
+    # The table ends at the next table header, indented or not; a row of an array written one
+    # item a line (``[0.95, 0.01],``) is not a header.
     end = next(
-        (i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith("[")), len(lines)
+        (i for i in range(starts[0] + 1, len(lines)) if _TABLE_HEADER.match(lines[i])), len(lines)
     )
     rows = {k: v for k, v in table.items() if k not in ("sections_m", "airfoil", "naca")}
     rows["geometry_source"] = f"{table.get('geometry_source', '')}; contours placed on the mesh cut"
     rows["sections_m"] = placed
     written = ["[sections]", *(f"{key} = {_toml_value(value)}" for key, value in rows.items()), ""]
-    out = [*lines[: starts[0]], *written, *lines[end:]]
-    Path(target).write_text("\n".join(out).rstrip("\n") + "\n", encoding="utf-8")
+    out = "\n".join([*lines[: starts[0]], *written, *lines[end:]]).rstrip("\n") + "\n"
+    # Nothing is written that does not read back as the input with only [sections] replaced,
+    # so a layout this line rewrite misreads can neither corrupt the input nor drop a table.
+    try:
+        reread: dict[str, Any] | None = tomllib.loads(out)
+    except tomllib.TOMLDecodeError:
+        reread = None
+    others = {k: v for k, v in stated.items() if k != "sections"}
+    if (
+        reread is None
+        or reread.get("sections") != rows
+        or {k: v for k, v in reread.items() if k != "sections"} != others
+    ):
+        raise FsiInputError(
+            f"{Path(source).name}: the [sections] table could not be rewritten without changing "
+            "the rest of the file, so nothing was written; move each contour by its "
+            "contour_mesh_offsets and state them as sections_m by hand."
+        )
+    Path(target).write_text(out, encoding="utf-8")
     return placed

@@ -387,3 +387,42 @@ def test_p0530_the_helper_writes_the_contours_placed_on_the_mesh_cut(tmp_path):
     assert "placed on the mesh cut" in loaded.blade.provenance.geometry_source
     for offset in contour_mesh_offsets(loaded, *aft):
         assert offset is not None and math.hypot(*offset) < 1e-9
+
+
+@pytest.mark.requirement("FR-3417")
+def test_p0530_the_helper_keeps_every_other_table_and_writes_a_file_that_loads(tmp_path):
+    # REL-001: an airfoil written one point a line, a [sections] header with a comment and an
+    # indented table after [sections] are valid TOML; the rewrite must neither corrupt the input
+    # in place nor drop a table, and the file it writes loads back with the placed contours.
+    import tomllib
+
+    from pyflightstream.fsi.sections import place_on_mesh_cut
+    from pyflightstream.workspace.fsi_setup import resolve_fsi_setup
+
+    unit = naca4_contour("4412", 20).tolist()
+    points = ",\n".join(f"[{x!r}, {y!r}]" for x, y in unit)
+    text = (
+        'mode = "calculated"\nmaterial = "ti-6al-4v-grade5-annealed"\n\n'
+        "[config]\nblade_count = 2\nomega_rad_per_s = 100.0\n\n"
+        "[sections]  # the blade's stations\n"
+        f"station_radii_m = {RADII}\nchord_m = {CHORDS}\ngeometric_pitch_deg = {PITCH}\n"
+        f"pitch_axis_chord_fraction = {PITCH_AXIS}\n"
+        'geometry_source = "unit airfoil, one point a line"\ntorsion_grid_cells = 16\n'
+        f"airfoil = [\n{points}\n]\n\n"
+        "  [calibration]\n  bending_stiffness_n_m2 = 2.0\n"
+    )
+    source = tmp_path / "f001.toml"
+    source.write_text(text, encoding="utf-8")
+    before = tomllib.loads(text)
+    cfg = resolve_fsi_setup(source).effective
+    aft = _prism_mesh(cfg.blade.section_contours_m, AFT_OFFSETS)
+    written = place_on_mesh_cut(cfg, *aft, source=source, target=source)
+    after = tomllib.loads(source.read_text(encoding="utf-8"))
+    assert {k: v for k, v in after.items() if k != "sections"} == {
+        k: v for k, v in before.items() if k != "sections"
+    }
+    assert after["sections"]["sections_m"] == written and "airfoil" not in after["sections"]
+    loaded = resolve_fsi_setup(source).effective
+    np.testing.assert_allclose(
+        np.asarray(loaded.blade.section_contours_m), np.asarray(written), atol=1e-12
+    )
