@@ -1271,11 +1271,6 @@
       "path": "run/_sweep.py"
     },
     {
-      "id": "pyflightstream.run._visual_inspect",
-      "layer": 1,
-      "path": "run/_visual_inspect.py"
-    },
-    {
       "id": "pyflightstream.run._wake_edge_verdict",
       "layer": 1,
       "path": "run/_wake_edge_verdict.py"
@@ -10084,7 +10079,7 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream.run._visual_inspect",
+      "target": "pyflightstream.run._plan_report",
       "kind": "module"
     },
     {
@@ -10994,7 +10989,17 @@
     },
     {
       "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.cases.matrix",
       "kind": "module"
     },
     {
@@ -11005,6 +11010,21 @@
     {
       "source": "pyflightstream.run._plan_report",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.workspace._matrix_homes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.workspace.cli",
       "kind": "module"
     },
     {
@@ -11438,31 +11458,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.run._visual_inspect",
-      "target": "pyflightstream._errors",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._visual_inspect",
-      "target": "pyflightstream.cases.matrix",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._visual_inspect",
-      "target": "pyflightstream.workspace",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._visual_inspect",
-      "target": "pyflightstream.workspace._matrix_homes",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._visual_inspect",
-      "target": "pyflightstream.workspace.cli",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.run._wake_edge_verdict",
       "target": "pyflightstream.cases",
       "kind": "module"
@@ -11584,8 +11579,8 @@
     },
     {
       "source": "pyflightstream.run.cli",
-      "target": "pyflightstream.run._visual_inspect",
-      "kind": "module"
+      "target": "pyflightstream.run._plan_report",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run.cli",

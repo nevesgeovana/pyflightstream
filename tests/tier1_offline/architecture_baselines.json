@@ -1390,7 +1390,6 @@
     "_rebuild_evidence",
     "_rebuild_grouped",
     "_mark_converged",
-    "_visual_inspect",
     "_assemble",
     "collect",
     "_collect_notes",
