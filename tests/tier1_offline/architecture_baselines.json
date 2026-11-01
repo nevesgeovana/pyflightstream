@@ -217,8 +217,8 @@
    "positional": 1
   },
   "cases/workflows/_skeleton.py:_script_init": {
-   "complexity": 16,
-   "branches": 16,
+   "complexity": 13,
+   "branches": 12,
    "statements": 43,
    "positional": 3
   },
