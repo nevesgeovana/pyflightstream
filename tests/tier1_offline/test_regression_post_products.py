@@ -1977,21 +1977,24 @@ def test_f3_0203_f781_aliases_that_differ_only_in_case_are_refused():
 
 def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_superfile(tmp_path):
     """F-791: the limitation recorded for a super file travels with the file the post keeps."""
-    from tests.tier1_offline.test_post_products import (
-        _products_manifest,
-        _steady_workspace_with_provenance,
-    )
+    from tests.tier1_offline.test_sims_selection import _three_sims
 
-    workspace = _steady_workspace_with_provenance(tmp_path)
-    write_campaign_products(workspace)
-    path = workspace.root / "post" / "products" / "products.json"
+    # PFS-2185.18 (FR-3443): a partial post now rewrites the named simulations' super
+    # files under the column set the last superfile measurement names, so a super file
+    # is RETAINED only when that measurement cannot be read while another simulation's
+    # super files stand: two simulations, the measurement removed.
+    workspace = _three_sims(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    path = workspace.products_dir("matriz") / "products.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
-    (name,) = [key for key in manifest["products"] if "SUPER-3207" in key]
+    name = next(key for key in manifest["products"] if "SUPER-6009" in key)
     reason = "the group has no coefficient columns"
     manifest["skipped"][f"{name}#columns"] = reason
+    (workspace.root / manifest["superfile_report"]).unlink()
     path.write_text(json.dumps(manifest), encoding="utf-8")
-    write_campaign_products(workspace, overwrite=True, sims=["3207"])
-    kept = _products_manifest(workspace)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, sims=["6009"])
+    kept = json.loads(path.read_text(encoding="utf-8"))
+    assert name in kept["partial"]["not_rebuilt"], kept["partial"]
     assert name in kept["products"] and kept["skipped"][f"{name}#columns"] == reason
 
 
