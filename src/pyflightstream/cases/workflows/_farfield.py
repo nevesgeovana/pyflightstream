@@ -282,48 +282,25 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
     return chosen
 
 
-def _families_the_row_lacks(
-    case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]
-) -> list[tuple[str | None, str]]:
-    """Return the families an entry names that this row's geometry does not carry (FR-3455).
+def _families_the_row_lacks(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> str:
+    """Say why an entry none of whose families the row carries is skipped on it, else ``""``.
 
-    The FR-320 reading, so a far-field entry and a section distribution name a
-    missing family alike: ``(the alias declaring it or None, the name)``. An
-    entry stating no families (``all``) lacks none.
+    FR-3455, in the FR-320 reading (:mod:`pyflightstream.cases._skipped_families`).
+    An entry the row carries in part is traced over what it carries and its
+    absent families are noted where the plan cuts it (``farfield_sections``);
+    ``all`` lacks none.
     """
     from pyflightstream.cases._skipped_families import declared_names_the_geometry_lacks
 
-    if spec.families is None:
-        return []
-    return declared_names_the_geometry_lacks(
-        spec.families, inventory, _the_names_a_rotor_answers_to(case)
+    if spec.families is None or not _analyses(spec, case) or _selected(case, spec, inventory):
+        return ""
+    aliases = _the_names_a_rotor_answers_to(case)
+    lacked = declared_names_the_geometry_lacks(spec.families, inventory, aliases)
+    absent = ", ".join(repr(name) for _owner, name in lacked)
+    return absent and (
+        f"families = {spec.families!r} names no family this row's geometry carries; "
+        f"absent: {absent}"
     )
-
-
-def _note_the_families_the_row_lacks(case: SimCase, inventory: Sequence[str]) -> None:
-    """Note, for the plan's one FR-320 warning, each family a traced entry names and the row lacks.
-
-    FR-3455: an entry whose families the row carries in part is traced over
-    those it carries; the others are said once per plan, naming the entry and
-    the rows. An entry the row carries none of is skipped whole and said by
-    :func:`_say_what_the_row_skips`.
-    """
-    from pyflightstream.cases._skipped_families import note_the_families_a_row_lacks
-
-    from ._names import _artifact_of
-
-    for entry in _entry_cases(case) or [case]:
-        spec = _spec(entry)
-        if spec is None or "trefftz:sections" not in _analyses(spec, entry):
-            continue
-        if not _selected(entry, spec, inventory):
-            continue
-        note_the_families_a_row_lacks(
-            case.sim_id,
-            _artifact_of(case),
-            f"[[farfields]] entry {spec.name!r}",
-            _families_the_row_lacks(entry, spec, inventory),
-        )
 
 
 def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
@@ -767,15 +744,17 @@ def _resolve(
     if spec is None:
         return None
     window = _entry_window(spec, case)
-    if window:
-        # P0471: an entry whose window this row cannot take is not applicable here.
+    lacking = "" if window else _families_the_row_lacks(case, spec, inventory)
+    if window or lacking:
+        # P0471: an entry whose window this row cannot take is not applicable here;
+        # FR-3455: so is one none of whose families the row's geometry carries.
         return FarfieldResolution(
             tuple(
                 FarfieldInput(
                     analysis,
-                    "window",
+                    "window" if window else "families",
                     "not_applicable",
-                    reason=window,
+                    reason=window or lacking,
                     entry=spec.name,
                     variant=spec.variant,
                 )
@@ -791,36 +770,13 @@ def _resolve(
             for s in shapes
         )
 
-    # An entry the row does not apply to selects nothing: its families may be
-    # absent from this row's geometry (a wing on a quasi-steady rotor's pproc).
-    analyses = _analyses(spec, case)
-    selected = _selected(case, spec, inventory) if analyses else []
-    absent = _families_the_row_lacks(case, spec, inventory) if analyses and not selected else []
-    if absent:
-        # FR-3455: NONE OF THE ENTRY'S FAMILIES ON THIS ROW skips the entry here, never
-        # refused, so one pproc serves the configurations that carry them and those that do not.
-        why = (
-            f"families = {spec.families!r} names no family this row's geometry carries; "
-            f"absent: {', '.join(repr(name) for _owner, name in absent)}"
-        )
-        return FarfieldResolution(
-            tuple(
-                FarfieldInput(
-                    analysis,
-                    "families",
-                    "not_applicable",
-                    reason=why,
-                    entry=spec.name,
-                    variant=spec.variant,
-                )
-                for analysis in analyses
-            )
-        )
     resolution = resolve_farfield(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
-        selected_families=selected,
+        # An entry the row does not apply to selects nothing: its families may be
+        # absent from this row's geometry (a wing on a quasi-steady rotor's pproc).
+        selected_families=_selected(case, spec, inventory) if _analyses(spec, case) else [],
         exports=dict(case.pproc.exports) if case.pproc is not None else {},
         declares_lattice=declares("lattice"),
         declares_plane=declares("plane"),
@@ -905,7 +861,6 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
         # An entry whose lattice the build left out was said there, with its frame.
         said = {s.get("farfield_entry") for s in shapes if s.get("kind") == "skipped"}
         _say_what_the_row_skips(case, resolution, said)
-        _note_the_families_the_row_lacks(case, inventory)
     record = resolution.as_record()
     if shapes:
         record["probes"] = [dict(shape) for shape in shapes]

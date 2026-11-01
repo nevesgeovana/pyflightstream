@@ -35,6 +35,8 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._farfield_spec import FarfieldSpec
 from pyflightstream.cases._skipped_families import (
+    declared_names_the_geometry_lacks,
+    note_the_families_a_row_lacks,
     saying_the_families_each_row_skips,
 )
 from pyflightstream.cases.farfield_inputs import (
@@ -900,6 +902,12 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     inventory = _inventory(script)
     covered = _covered(case, inventory)
     selected = _selected(case, spec, inventory)
+    if selected and spec.families is not None:
+        # FR-3455: traced over the families the row carries; the plan names the others (FR-320).
+        aliases = _the_names_a_rotor_answers_to(case)
+        lacked = declared_names_the_geometry_lacks(spec.families, inventory, aliases)
+        what = f"[[farfields]] entry {spec.name!r}"
+        note_the_families_a_row_lacks(case.sim_id, _artifact_of(case), what, lacked)
     missing = [name for name in selected if name not in covered]
     stations = spec.trefftz.stations if spec.trefftz is not None else 80
     mirror = str(_variable(case, "SYMMETRY") or "").strip().upper() == "MIRROR"
