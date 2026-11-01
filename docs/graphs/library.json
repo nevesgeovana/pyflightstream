@@ -1231,6 +1231,11 @@
       "path": "run/_points.py"
     },
     {
+      "id": "pyflightstream.run._post_selection",
+      "layer": 1,
+      "path": "run/_post_selection.py"
+    },
+    {
       "id": "pyflightstream.run._rebuild",
       "layer": 1,
       "path": "run/_rebuild.py"
@@ -9959,6 +9964,11 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.workspace.fsi_setup",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.workspace.trailing_edges",
       "kind": "deferred"
     },
@@ -11138,6 +11148,31 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream.cases.matrix",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream.cases.matrix",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream.workspace",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.run._rebuild",
       "target": "pyflightstream",
       "kind": "deferred"
@@ -11544,6 +11579,11 @@
     },
     {
       "source": "pyflightstream.run.cli",
+      "target": "pyflightstream.run._campaign",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.cli",
       "target": "pyflightstream.run._cli_geometry",
       "kind": "deferred"
     },
@@ -11581,6 +11621,11 @@
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.run._plan_report",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run.cli",
+      "target": "pyflightstream.run._post_selection",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.run.cli",
@@ -13255,6 +13300,11 @@
     {
       "source": "pyflightstream.workspace._matrix_phases",
       "target": "pyflightstream.cases.workflows",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._matrix_phases",
+      "target": "pyflightstream.cases.workflows",
       "kind": "module"
     },
     {
@@ -14149,8 +14199,28 @@
     },
     {
       "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
       "target": "pyflightstream._errors",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream._fsm",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream._lengths",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream._mesh",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.fsi_setup",
@@ -14199,7 +14269,17 @@
     },
     {
       "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream.workspace._visual_inspect",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
       "target": "pyflightstream.workspace.fsi_external_setup",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "deferred"
     },
     {

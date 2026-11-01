@@ -665,7 +665,46 @@ def blade_mesh_record(case: SimCase, script: Script | None = None) -> dict[str, 
     if case.fsi is None or select_workflow(case) != "unsteady_rotor":
         return None
     rotor = _the_coupled_rotor(case)[0]
-    return blade_mesh_frame(case, list(rotor.families_blades), origin=rotor.origin, script=script)
+    record = blade_mesh_frame(case, list(rotor.families_blades), origin=rotor.origin, script=script)
+    # PFS-2185.11: the .beam.toml the blade's sections were read from, by name and sha256.
+    beam = (case.fsi_provenance or {}).get("beam_sections")
+    if beam:
+        record["beam_toml"], record["beam_toml_sha256"] = beam["file"], beam["sha256"]
+    return record
+
+
+def coupled_blade_frame(case: SimCase) -> tuple[str, dict[str, Any]]:
+    """Return blade one's name in the mesh file and how the file holds it (PFS-2185.11).
+
+    Blade one of the rotor the FSI row couples, as :func:`blade_mesh_record` resolves it
+    with no script: its sections are cut from the row's mesh about the rotor's origin.
+
+    Parameters
+    ----------
+    case : SimCase
+        The matrix row as bound so far, its geometry and its import stated.
+
+    Returns
+    -------
+    tuple of (str, dict)
+        The blade's name in the mesh file, and the :func:`blade_mesh_frame` facts.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row couples no one resolved rotor, or the rotor names no blade.
+    """
+    from ..fsi_workspace import blade_mesh_frame
+
+    rotor = _the_coupled_rotor(case)[0]
+    if not rotor.families_blades:
+        raise CampaignConfigError(
+            f"rotor {rotor.alias} names no blade (families_blades), so no blade's sections can "
+            "be cut from the mesh."
+        )
+    blade = rotor.families_blades[0]
+    frame = blade_mesh_frame(case, [blade], origin=rotor.origin)
+    return frame["groups"][blade], frame
 
 
 def effective_fsi_config(

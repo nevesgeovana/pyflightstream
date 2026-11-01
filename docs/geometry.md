@@ -441,6 +441,13 @@ the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and
 `degenerate` and give the same result. The `pyfs-matrix` names still work and
 warn that the group is their home.
 
+`pyfs-workspace geometry beam <geometry> --families <family ...> --stations <n>
+[--visual-inspection]` cuts each named blade's sections from the mesh into
+`<geometry>.<family>.beam.toml` beside it, the file an FSI input with
+`[sections] source = "mesh"` reads; `--visual-inspection` also draws
+`<geometry>.<family>.beam.pdf`. See
+[Sections from the mesh](fsi-workspace.md#sections-from-the-mesh).
+
 ## Matrix geometry
 
 `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ

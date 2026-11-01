@@ -70,7 +70,7 @@ collect_once(workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INT
 ### Build engineering products
 
 ```text
-write_campaign_products(workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None) -> list[Path]
+write_campaign_products(workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None, keep_unrebuilt: bool=False) -> list[Path]
 ```
 
 ### Refine source mesh

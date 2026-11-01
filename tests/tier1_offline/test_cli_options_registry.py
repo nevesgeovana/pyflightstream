@@ -199,6 +199,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "png"): SWITCH,
     ("pyfs-workspace", "visual_inspect"): SWITCH,
     ("pyfs-matrix", "visual_inspect"): SWITCH,
+    # 0.53.0 (PFS-2185.11): `geometry beam --visual-inspection` draws one more file.
+    ("pyfs-workspace", "visual_inspection"): SWITCH,
     ("pyfs-workspace", "keep_within_component"): SWITCH,
     ("pyfs-matrix", "keep_within_component"): SWITCH,
     ("pyfs-workspace", "audit_off"): SWITCH,
@@ -883,6 +885,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "apply",
                 "archive",
                 "audit",
+                "beam",
                 "build",
                 "calibrate",
                 "cancel",
@@ -994,7 +997,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "family"): frozenset({"profile"}),
     ("pyfs-workspace", "component"): frozenset({"profile"}),
     ("pyfs-workspace", "sign"): frozenset({"profile"}),
-    ("pyfs-workspace", "stations"): frozenset({"profile"}),
+    ("pyfs-workspace", "stations"): frozenset({"beam", "profile"}),
     ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
     ("pyfs-workspace", "ref"): frozenset({"profile"}),
     ("pyfs-workspace", "disc"): frozenset({"profile"}),
@@ -1014,6 +1017,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "png"): frozenset({"build", "visual-inspect"}),
     ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine", "refine"}),
     ("pyfs-matrix", "visual_inspect"): frozenset({"refine"}),
+    ("pyfs-workspace", "visual_inspection"): frozenset({"beam"}),
     ("pyfs-workspace", "keep_within_component"): frozenset({"prepare-to-refine", "refine"}),
     ("pyfs-matrix", "keep_within_component"): frozenset({"refine"}),
     ("pyfs-workspace", "audit_off"): frozenset({"refine"}),
@@ -1023,7 +1027,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "rows"): frozenset({"build"}),
     ("pyfs-workspace", "matrix"): frozenset({"build", "calibrate"}),
     ("pyfs-workspace", "names"): frozenset({"accept"}),
-    ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
+    ("pyfs-workspace", "geometry"): frozenset({"beam", "degenerate", "from-sidecar", "inventory"}),
     ("pyfs-workspace", "mesh"): frozenset(
         {
             "audit",
@@ -1036,7 +1040,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
-    ("pyfs-workspace", "families"): frozenset({"refine", "identify-te", "visual-inspect"}),
+    ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),
     ("pyfs-workspace", "normal"): frozenset({"refine"}),

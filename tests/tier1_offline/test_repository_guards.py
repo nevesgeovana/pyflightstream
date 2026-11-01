@@ -44,8 +44,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: tests/tier1_offline/test_p0521_fsi_sector.py, +1 tracked file), measured.
 #: 0.53.0 (PFS-2185.18) budgets run/_post_selection.py, the post selection moved out of
 #: run/cli.py to hold its AD-18 size bound (+1 tracked file), measured.
+#: The p0410 manual-help test folded into test_p0410_fx3_contributing.py (-1 tracked file).
 LEAN_CAPS = {
-    "tracked_files": 2049,
+    "tracked_files": 2048,
     "reports_files": 101,
     "reports_lines": 161906,
     "tests_files": 1147,

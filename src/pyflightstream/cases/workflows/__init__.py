@@ -251,6 +251,7 @@ from ._sixdof import (
 )
 from ._skeleton import (
     blade_mesh_record,
+    coupled_blade_frame,
     effective_fsi_config,
     frame_compensation_skip_reason,
 )
@@ -626,4 +627,5 @@ __all__ = [
     "effective_fsi_config",
     "frame_compensation_skip_reason",
     "blade_mesh_record",
+    "coupled_blade_frame",
 ]

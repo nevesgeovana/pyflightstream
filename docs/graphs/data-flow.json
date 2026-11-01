@@ -91,9 +91,9 @@
       "outputs": [
         "product tables, provenance and post log"
       ],
-      "parameters": "workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
+      "parameters": "workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None, keep_unrebuilt: bool=False",
       "returns": "list[Path]",
-      "source_sha256": "d45072b3264f14b5e9b8024144fabb246f53a04e85232de588ee7ea6360f60db"
+      "source_sha256": "3d5ea85a64b4c1684d013b084b6e1436e3eccb8d5bc82a05b7f5418931d6fc9b"
     },
     {
       "id": "refine",

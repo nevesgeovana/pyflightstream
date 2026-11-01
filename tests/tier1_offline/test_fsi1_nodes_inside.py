@@ -501,3 +501,482 @@ def test_p0530_the_plan_reads_the_blade_in_the_unit_its_import_states(
         assert f"station {station} (r = {RADII[station - 1]:.4g} m)" in said[0]
         assert f"{1e3 * d_le:+.1f} mm toward the leading edge" in said[0]
         assert f"{1e3 * d_suction:+.1f} mm toward the suction side" in said[0]
+
+
+# --------------------------------- P0530 sections cut from the mesh (PFS-2185.11) --
+
+#: The synthetic blade, written from its definition: NACA 4412 about its quarter chord on the
+#: z axis, chord 0.2 m at r = 0.2 m tapering to 0.1 m at r = 1.0 m, twisted from 40 deg to
+#: 15 deg, placed with the rotor-frame axes (toward the leading edge (-sin b, -cos b, 0),
+#: toward the suction side (-cos b, sin b, 0)).
+ROOT_M, TIP_M = 0.2, 1.0
+
+
+def _chord_at(radius):
+    return 0.2 - 0.1 * (radius - ROOT_M) / (TIP_M - ROOT_M)
+
+
+def _twist_at(radius):
+    return 40.0 - 25.0 * (radius - ROOT_M) / (TIP_M - ROOT_M)
+
+
+def _naca_blade(rings=41, panels=80, *, open_band=None, open_te=False, flare=0.0):
+    """Vertices [m] and 0-based triangles of the blade, ring by ring, flat end caps.
+
+    ``open_band`` (r0, r1) leaves out the lower-surface faces between those radii, so no cut
+    there closes; ``open_te`` drops the points aft of 99 % chord and the faces across the gap,
+    leaving the trailing edge open; ``flare`` widens the rings below 0.26 m as a root fillet.
+    """
+    unit = naca4_contour("4412", panels)[:-1]
+    lower = np.arange(len(unit)) <= panels  # the contour runs the lower surface first
+    if open_te:
+        keep = unit[:, 0] < 0.99
+        unit, lower = unit[keep], lower[keep]
+    count = len(unit)
+    vertices, faces = [], []
+    radii = np.linspace(ROOT_M, TIP_M, rings)
+    for radius in radii:
+        beta = math.radians(_twist_at(radius))
+        lead = np.array([-math.sin(beta), -math.cos(beta), 0.0])
+        suction = np.array([-math.cos(beta), math.sin(beta), 0.0])
+        grow = 1.0 + flare * max(0.0, (0.26 - radius) / 0.06) ** 2
+        section = airfoil_section_contour(unit, chord_m=_chord_at(radius)) * grow
+        vertices += [c * lead + s * suction + (0.0, 0.0, radius) for c, s in section]
+    for k in range(rings - 1):
+        band = open_band and open_band[0] - 1e-9 <= radii[k] and radii[k + 1] <= open_band[1] + 1e-9
+        for i in range(count - 1 if open_te else count):
+            j = (i + 1) % count
+            if band and lower[i] and lower[j]:
+                continue
+            a, b, c, d = k * count + i, k * count + j, (k + 1) * count + j, (k + 1) * count + i
+            faces += [(a, b, c), (a, c, d)]
+    if not open_te:
+        for k in (0, rings - 1):
+            centre = len(vertices)
+            vertices.append(np.mean(vertices[k * count : (k + 1) * count], axis=0))
+            faces += [(centre, k * count + i, k * count + (i + 1) % count) for i in range(count)]
+    return np.asarray(vertices), np.asarray(faces)
+
+
+def _write_obj(path, vertices, faces, metres_per_unit=1.0, units="METER"):
+    lines = ["o Blade1"]
+    lines += [
+        "v " + " ".join(repr(float(v) / metres_per_unit) for v in point) for point in vertices
+    ]
+    lines += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in faces]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.with_suffix(".obj.boundaries.toml").write_text(
+        f'boundaries = ["Blade1"]\n[import]\nunits = "{units}"\n', encoding="utf-8"
+    )
+    return path
+
+
+def _write_fsm(path, vertices, faces):
+    """The blade as a saved simulation in metres with one boundary, Blade1 (the layout of
+    test_post_products' placement .fsm: the boundary row is the seventh per-face row)."""
+
+    def row(values):
+        return ",".join(str(value) for value in values) + ","
+
+    count = len(faces)
+    lines = ["26,1", "2122026", "$GLOBAL_START$", "1", "5", "$GLOBAL_END$", "$MESH_START$"]
+    lines += ["header one", "header two", "1", "1, T, F, F", "Blade1", ".494,.573,.576"]
+    lines += [str(count), row(range(1, count + 1)), row([3] * count)]
+    lines += [row(int(t[slot]) + 1 for t in faces) for slot in range(3)]
+    lines += [row([1] * count if index == 6 else [0] * count) for index in range(15)]
+    lines += [" " + ",".join([" F"] * count) + ","] * 5
+    lines += ["0", str(len(vertices))]
+    lines += [row(f"{v[axis]:.12f}" for v in vertices) for axis in range(3)]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _reference_naca(points=4000):
+    """The NACA 4412 curve finely, the angle its longest chord makes with the chord line
+    (the leading edge being the point farthest from the trailing edge), and that chord."""
+    dense = naca4_contour("4412", points)
+    far = dense[int(np.argmax(np.hypot(dense[:, 0] - 1.0, dense[:, 1])))]
+    return dense, math.degrees(math.atan2(far[1], 1.0 - far[0])), math.hypot(1.0 - far[0], far[1])
+
+
+def _off_the_curve(contour, radius, pitch, dense):
+    """Largest distance [chord] of a derived contour from the NACA curve of its radius."""
+    beta, twist = math.radians(pitch), math.radians(_twist_at(radius))
+    points = np.asarray(contour)
+    xy = points[:, :1] * [-math.sin(beta), -math.cos(beta)]
+    xy = xy + points[:, 1:] * [-math.cos(beta), math.sin(beta)]
+    along = xy @ [-math.sin(twist), -math.cos(twist)]
+    across = xy @ [-math.cos(twist), math.sin(twist)]
+    unit = np.column_stack([0.25 - along / _chord_at(radius), across / _chord_at(radius)])
+    start, step = dense[:-1], np.diff(dense, axis=0)
+    share = np.einsum("pkj,kj->pk", unit[:, None, :] - start[None], step) / np.sum(step**2, axis=1)
+    nearest = start[None] + np.clip(share, 0.0, 1.0)[..., None] * step[None]
+    return float(np.linalg.norm(unit[:, None, :] - nearest, axis=2).min(axis=1).max())
+
+
+def _properties(table, sections_key="sections_m"):
+    return blade_properties_from_sections(
+        table["station_radii_m"],
+        sections_m=table[sections_key],
+        chord_m=table["chord_m"],
+        geometric_pitch_deg=table["geometric_pitch_deg"],
+        material="ti-6al-4v-grade5-annealed",
+        geometry_source="the synthetic blade",
+        torsion_grid_cells=32,
+    )
+
+
+@pytest.mark.requirement("FR-3450")
+@pytest.mark.parametrize(("units", "metres_per_unit"), [("METER", 1.0), ("MILLIMETER", 0.001)])
+def test_p0530_mesh_sections_recover_a_twisted_naca_blade(tmp_path, units, metres_per_unit):
+    # P0530-MESH-SECTIONS A1: the blade written in metres and in millimetres; each section's
+    # contour within 0.1 % chord of the NACA curve, its pitch within 0.05 deg of the twist plus
+    # the angle of the airfoil's own longest chord, and EI, GJ within 1 % of the analytic ones.
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    obj = _write_obj(tmp_path / "blade.obj", *_naca_blade(), metres_per_unit, units)
+    table = beam_sections(obj, "Blade1", 5).sections
+    dense, angle, longest = _reference_naca()
+    radii = table["station_radii_m"]
+    np.testing.assert_allclose(radii, np.linspace(ROOT_M, TIP_M, 5), atol=1e-5)
+    for radius, chord, pitch, contour in zip(
+        radii, table["chord_m"], table["geometric_pitch_deg"], table["sections_m"], strict=True
+    ):
+        assert abs(pitch - (_twist_at(radius) + angle)) < 0.05, (radius, pitch)
+        assert abs(chord / (_chord_at(radius) * longest) - 1.0) < 1e-3, (radius, chord)
+        assert _off_the_curve(contour, radius, pitch, dense) < 1e-3, radius
+    analytic = {
+        "sections_m": [
+            airfoil_section_contour(naca4_contour("4412", 300), chord_m=_chord_at(r)).tolist()
+            for r in radii
+        ]
+    }
+    derived, expected = _properties(table), _properties({**table, **analytic})
+    for name in ("bending_stiffness_n_m2", "torsion_stiffness_n_m2"):
+        np.testing.assert_allclose(getattr(derived, name), getattr(expected, name), rtol=0.01)
+
+
+@pytest.mark.requirement("FR-3450")
+def test_p0530_the_same_blade_saved_as_fsm_gives_the_sections_of_the_obj(tmp_path):
+    # P0530-MESH-SECTIONS A2: the saved simulation of the same blade, read in the unit it
+    # stores, gives the sections of the OBJ.
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    vertices, faces = _naca_blade()
+    (tmp_path / "obj").mkdir()
+    (tmp_path / "fsm").mkdir()
+    obj = beam_sections(_write_obj(tmp_path / "obj" / "blade.obj", vertices, faces), "Blade1", 5)
+    fsm = beam_sections(_write_fsm(tmp_path / "fsm" / "blade.fsm", vertices, faces), "Blade1", 5)
+    assert fsm.path.name == "blade.Blade1.beam.toml"
+    for key in ("station_radii_m", "chord_m", "geometric_pitch_deg"):
+        np.testing.assert_allclose(fsm.sections[key], obj.sections[key], rtol=1e-9, atol=1e-9)
+    for ours, theirs in zip(fsm.sections["sections_m"], obj.sections["sections_m"], strict=True):
+        np.testing.assert_allclose(ours, theirs, atol=1e-9)
+
+
+@pytest.mark.requirement("FR-3451")
+def test_p0530_an_open_trailing_edge_is_closed_by_its_segment(tmp_path):
+    # P0530-MESH-SECTIONS A3: the trailing edge left open (points aft of 99 % chord dropped,
+    # no face across the gap) still gives every station, each closed by the gap's segment.
+    import warnings
+
+    from pyflightstream.fsi.sections import polygon_area_moments, sections_from_mesh
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cut = sections_from_mesh(*_naca_blade(21, 40, open_te=True), 5)
+    assert cut.trailing_edge_closed == [True] * 5 and cut.left_out_radii_m == []
+    for radius, contour in zip(cut.station_radii_m, cut.sections_m, strict=True):
+        area = polygon_area_moments(contour).area_m2
+        closed = polygon_area_moments(
+            airfoil_section_contour(naca4_contour("4412", 40), chord_m=_chord_at(radius))
+        ).area_m2
+        assert abs(area / closed - 1.0) < 0.01, radius
+
+
+@pytest.mark.requirement("FR-3451")
+def test_p0530_the_root_station_is_the_first_closed_cut_above_a_fillet(tmp_path):
+    # P0530-MESH-SECTIONS A3: a flared root whose lower surface stops short of 0.26 m (the cut
+    # crosses the fillet's open edge there): the first station is the first closed cut, at
+    # 0.26 m, and the file records that radius.
+    import tomllib
+
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    blade = _naca_blade(41, 40, open_band=(ROOT_M, 0.26), flare=0.5)
+    written = beam_sections(_write_obj(tmp_path / "blade.obj", *blade), "Blade1", 5)
+    stated = tomllib.loads(written.path.read_text(encoding="utf-8"))
+    assert abs(stated["requested_radii_m"][0] - 0.26) < 1e-5
+    assert stated["sections"]["station_radii_m"][0] == stated["requested_radii_m"][0]
+    assert abs(stated["sections"]["station_radii_m"][-1] - TIP_M) < 1e-5
+
+
+@pytest.mark.requirement("FR-3451")
+def test_p0530_a_station_that_does_not_close_moves_to_the_nearest_closed_cut(tmp_path):
+    # P0530-MESH-SECTIONS A3: stations at 0.2, 0.4, 0.6, 0.8, 1.0 m; the lower surface is open
+    # from 0.76 to 0.86 m, so the 0.8 m station is cut at 0.76 m, the nearest closed radius
+    # within its window (0.7 to 0.9 m); the file states the radius used and it is warned.
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.fsi.sections import sections_from_mesh
+
+    with pytest.warns(PyflightstreamWarning, match=r"does not close at 0\.8 m to 0\.75999"):
+        cut = sections_from_mesh(*_naca_blade(51, 40, open_band=(0.76, 0.86)), 5, where="b")
+    assert cut.requested_radii_m[3] == pytest.approx(0.8, abs=1e-5)
+    assert cut.station_radii_m[3] == pytest.approx(0.76, abs=1e-4)
+    assert len(cut.station_radii_m) == 5 and cut.left_out_radii_m == []
+
+
+@pytest.mark.requirement("FR-3451")
+def test_p0530_a_station_with_no_closed_cut_in_its_window_is_left_out(tmp_path):
+    # P0530-MESH-SECTIONS A3: open from 0.66 to 0.94 m, no cut closes in the 0.8 m station's
+    # window (0.7 to 0.9 m), next to the tip: that station is warned and left out.
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.fsi.sections import sections_from_mesh
+
+    with pytest.warns(PyflightstreamWarning, match=r"0\.8 m, so those stations are left out"):
+        cut = sections_from_mesh(*_naca_blade(51, 40, open_band=(0.66, 0.94)), 5, where="b")
+    assert cut.left_out_radii_m == [pytest.approx(0.8, abs=1e-5)]
+    np.testing.assert_allclose(cut.station_radii_m, [0.2, 0.4, 0.6, 1.0], atol=1e-5)
+
+
+@pytest.mark.requirement("FR-3450")
+def test_p0530_the_derived_contours_lie_on_the_mesh_cut(tmp_path):
+    # P0530-MESH-SECTIONS A4: the beam built from the derived sections places every contour
+    # on the blade's cut of the mesh to below 0.01 mm (contour_mesh_offsets), and the plan's
+    # placement check says nothing.
+    import warnings
+
+    from pyflightstream.fsi.sections import contour_mesh_offsets, warn_of_contours_off_the_mesh_cut
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    vertices, faces = _naca_blade()
+    table = beam_sections(_write_obj(tmp_path / "blade.obj", vertices, faces), "Blade1", 7)
+    cfg = FsiConfig(blade_count=1, omega_rad_per_s=100.0, blade=_properties(table.sections))
+    offsets = contour_mesh_offsets(cfg, vertices, faces)
+    assert all(offset is not None and math.hypot(*offset) < 1e-5 for offset in offsets), offsets
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert warn_of_contours_off_the_mesh_cut(cfg, vertices, faces, where="b") == []
+
+
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_kept_beam_file_is_used_as_it_is_and_recut_on_a_changed_mesh_or_count(
+    tmp_path,
+):
+    # P0530-MESH-SECTIONS A5: same sha256 and count, the file is untouched and its hand edit
+    # used; a changed mesh, then a changed count, is warned, the old file kept as .bak and the
+    # sections cut again.
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    obj = _write_obj(tmp_path / "blade.obj", *_naca_blade(21, 40))
+    first = beam_sections(obj, "Blade1", 4)
+    text = first.path.read_text(encoding="utf-8")
+    chord = repr(first.sections["chord_m"][1])
+    edited = text.replace(
+        f"chord_m = [{repr(first.sections['chord_m'][0])}, {chord}",
+        f"chord_m = [{repr(first.sections['chord_m'][0])}, 0.123",
+        1,
+    )
+    assert edited != text
+    first.path.write_text(edited, encoding="utf-8")
+    again = beam_sections(obj, "Blade1", 4)
+    assert again.path.read_text(encoding="utf-8") == edited
+    assert again.sections["chord_m"][1] == 0.123
+    backup = first.path.with_name("blade.Blade1.beam.toml.bak")
+    obj.write_text(obj.read_text(encoding="utf-8") + "# moved\n", encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="cut from a mesh of sha256"):
+        recut = beam_sections(obj, "Blade1", 4)
+    assert backup.read_text(encoding="utf-8") == edited
+    assert recut.sections["chord_m"][1] == first.sections["chord_m"][1]
+    with pytest.warns(PyflightstreamWarning, match="holds 4 stations and 6 are asked for"):
+        six = beam_sections(obj, "Blade1", 6)
+    assert len(six.sections["station_radii_m"]) == 6
+    assert "stations = 4" in backup.read_text(encoding="utf-8")
+
+
+#: An FSI input whose sections come from the row's mesh.
+MESH_INPUT = """mode = "calculated"
+material = "ti-6al-4v-grade5-annealed"
+[config]
+blade_count = 1
+omega_rad_per_s = 100.0
+[sections]
+source = "mesh"
+{stations}torsion_grid_cells = 16
+"""
+
+
+@pytest.mark.requirement("FR-3453")
+def test_p0530_an_input_from_the_mesh_without_stations_stops_the_plan(tmp_path):
+    # P0530-MESH-SECTIONS A6: source = "mesh" and no stations states no usable sections; the
+    # plan stops on the input, asking for stations = <n>.
+    import sys
+    from pathlib import Path
+
+    from tests.support_helpers import make_library
+    from tests.tier1_offline.test_raw_mesh_conditions import _case as bind_row
+
+    workspace = make_library(tmp_path, register_build=("26.124", Path(sys.executable).as_posix()))
+    _write_obj(workspace.inputs_dir / "geometries" / "blade.obj", *_naca_blade(21, 40))
+    (workspace.inputs_dir / "fsi" / "f001.toml").write_text(MESH_INPUT.format(stations=""))
+    with pytest.raises(
+        ValueError,
+        match=r'f001\.toml: \[sections\] source = "mesh" states no'
+        r" stations.*add stations = <n>",
+    ):
+        bind_row(tmp_path, workspace, geometry="blade.obj", tail=" / FSI: f001")
+
+
+@pytest.mark.requirement("FR-3453")
+def test_p0530_fewer_than_two_usable_stations_stop_the_input_naming_the_radii(tmp_path):
+    # P0530-MESH-SECTIONS A6: one station, or a blade whose cuts never close, is no beam; the
+    # input is refused naming the radii tried.
+    from pyflightstream.workspace.fsi_setup import FsiSetupError, beam_sections, resolve_row_fsi
+
+    obj = _write_obj(tmp_path / "blade.obj", *_naca_blade(21, 40))
+    inputs = tmp_path / "inputs"
+    (inputs / "fsi").mkdir(parents=True)
+    (inputs / "fsi" / "f001.toml").write_text(MESH_INPUT.format(stations="stations = 1\n"))
+    with pytest.raises(
+        FsiSetupError,
+        match=r"f001\.toml: .*fewer than two usable stations.*"
+        r"the radii tried were 0\.2 m",
+    ):
+        resolve_row_fsi(
+            inputs, {"FSI": "f001"}, mesh_sections=lambda n: beam_sections(obj, "Blade1", n)
+        )
+    open_blade = _write_obj(tmp_path / "open.obj", *_naca_blade(21, 40, open_band=(0.0, 2.0)))
+    with pytest.raises(FsiSetupError, match="fewer than two usable stations.*no cut of the mesh"):
+        beam_sections(open_blade, "Blade1", 5)
+
+
+def _rotor_workspace(tmp_path, stations=5, *, hub=(0.0, 0.0, 0.0), command_first=False):
+    """A workspace whose reference r003 holds one rotor at ``hub``, blade one Blade1 on Z,
+    a mesh blade.obj of that blade, and f001 cutting its sections from the mesh; with
+    ``command_first``, ``geometry beam`` writes the file (about the mesh's origin) before
+    the row is bound."""
+    import hashlib
+    import sys
+    from pathlib import Path
+
+    from pyflightstream.workspace.cli import main as workspace_main
+    from tests.support_helpers import make_library
+    from tests.tier1_offline.test_raw_mesh_conditions import _case as bind_row
+
+    workspace = make_library(tmp_path, register_build=("26.124", Path(sys.executable).as_posix()))
+    vertices, faces = _naca_blade(21, 40)
+    obj = _write_obj(workspace.inputs_dir / "geometries" / "blade.obj", vertices, faces)
+    obj.with_suffix(".obj.boundaries.toml").write_text(
+        'fs_build = "26.124"\nboundaries = ["Blade1"]\n'
+        f"boundary_faces = [{len(faces)}]\nmesh_faces = {len(faces)}\n"
+        f'mesh_sha256 = "{hashlib.sha256(obj.read_bytes()).hexdigest()}"\n'
+        '[import]\nunits = "METER"\n'
+        '[trailing_edges.main]\ndetect = "auto"\ntype = "STANDARD"\n',
+        encoding="utf-8",
+    )
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"
+        '[rotors.ROTOR]\nalias = "ROTOR"\n'
+        f'x_m = {hub[0]}\ny_m = {hub[1]}\nz_m = {hub[2]}\naxis = "X"\n'
+        'rpm_sign = 1\ndiameter_m = 2.0\nfamilies_blades = ["Blade1"]\n'
+        'blade1 = { azimuth_deg = 0.0, zero = "Z" }\n',
+        encoding="utf-8",
+    )
+    (workspace.inputs_dir / "fsi" / "f001.toml").write_text(
+        MESH_INPUT.format(stations=f"stations = {stations}\n")
+    )
+    if command_first:
+        argv = ["geometry", "beam", str(obj), "--families", "Blade1", "--stations", str(stations)]
+        assert workspace_main(argv) == 0
+    tail = " / FSI: f001 / RPM: 955"
+    return workspace, bind_row(tmp_path, workspace, geometry="blade.obj", tail=tail)
+
+
+@pytest.mark.requirement("FR-3452")
+def test_p0530_the_plan_cuts_the_rows_mesh_into_the_geometrys_beam_file(tmp_path):
+    # P0530-MESH-SECTIONS: the plan of a row whose input states source = "mesh" writes
+    # blade.Blade1.beam.toml beside the mesh and builds the beam from it, and the provenance
+    # names the file and its sha256.
+    import tomllib
+
+    from pyflightstream._digest import file_sha256
+
+    workspace, case = _rotor_workspace(tmp_path)
+    written = workspace.inputs_dir / "geometries" / "blade.Blade1.beam.toml"
+    stated = tomllib.loads(written.read_text(encoding="utf-8"))["sections"]
+    assert case.fsi.blade.station_radii_m == stated["station_radii_m"]
+    assert case.fsi.blade.geometric_pitch_deg == stated["geometric_pitch_deg"]
+    record = {"file": written.name, "sha256": file_sha256(written)}
+    assert case.fsi_provenance["beam_sections"] == record
+    assert case.fsi.blade.provenance.geometry_file_name == written.name
+
+
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_beam_file_cut_about_another_hub_is_cut_again_and_one_on_it_is_reused(
+    tmp_path,
+):
+    # P0530-MESH-SECTIONS A5: the hub is an input like the sha256 and the count. The command
+    # writes the file about the mesh's origin; a row whose rotor sits on the origin reuses it
+    # byte for byte, and a row whose rotor sits 0.05 m off it warns, keeps the old file as
+    # .bak and cuts the sections again about its hub.
+    import tomllib
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    with warnings.catch_warnings(record=True) as said:
+        warnings.simplefilter("always")
+        on, _ = _rotor_workspace(tmp_path / "on", command_first=True)
+    assert not [w for w in said if "beam.toml" in str(w.message)], [str(w.message) for w in said]
+    geometries = on.inputs_dir / "geometries"
+    assert not (geometries / "blade.Blade1.beam.toml.bak").exists()
+    assert tomllib.loads((geometries / "blade.Blade1.beam.toml").read_text())["hub_m"] == [0.0] * 3
+
+    with pytest.warns(PyflightstreamWarning, match=r"cut about the hub \[0\.0, 0\.0, 0\.0\] m"):
+        off, case = _rotor_workspace(tmp_path / "off", hub=(0.0, 0.0, 0.05), command_first=True)
+    geometries = off.inputs_dir / "geometries"
+    backup = tomllib.loads((geometries / "blade.Blade1.beam.toml.bak").read_text())
+    again = tomllib.loads((geometries / "blade.Blade1.beam.toml").read_text())
+    assert backup["hub_m"] == [0.0] * 3 and again["hub_m"] == [0.0, 0.0, 0.05]
+    np.testing.assert_allclose(
+        again["sections"]["station_radii_m"],
+        np.asarray(backup["sections"]["station_radii_m"]) - 0.05,
+        atol=1e-5,
+    )
+    assert case.fsi.blade.station_radii_m == again["sections"]["station_radii_m"]
+
+
+@pytest.mark.requirement("FR-3452")
+def test_p0530_the_run_names_the_beam_file_in_its_blade_mesh_record(tmp_path):
+    # P0530-MESH-SECTIONS: blade_mesh, the run's record of how the mesh holds the blade,
+    # names the .beam.toml the sections were read from and its sha256.
+    from pyflightstream.cases.workflows import blade_mesh_record
+    from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
+
+    beam = {"file": "blade.Blade1.beam.toml", "sha256": "ab" * 32}
+    case = coupled_case(tmp_path).model_copy(update={"fsi_provenance": {"beam_sections": beam}})
+    record = blade_mesh_record(case)
+    assert record["beam_toml"] == beam["file"] and record["beam_toml_sha256"] == beam["sha256"]
+
+
+@pytest.mark.requirement("FR-3454")
+def test_p0530_the_beam_command_writes_the_plans_file_and_its_drawing(tmp_path):
+    # P0530-MESH-SECTIONS A7: pyfs-workspace geometry beam writes, for the same mesh, the file
+    # the plan wrote, byte for byte; --visual-inspection draws blade.Blade1.beam.pdf.
+    import shutil
+
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    workspace, _ = _rotor_workspace(tmp_path / "plan")
+    planned = workspace.inputs_dir / "geometries" / "blade.Blade1.beam.toml"
+    alone = tmp_path / "alone"
+    alone.mkdir()
+    for name in ("blade.obj", "blade.obj.boundaries.toml"):
+        shutil.copy2(workspace.inputs_dir / "geometries" / name, alone / name)
+    argv = ["geometry", "beam", str(alone / "blade.obj"), "--families", "Blade1"]
+    assert workspace_main([*argv, "--stations", "5", "--visual-inspection"]) == 0
+    assert (alone / "blade.Blade1.beam.toml").read_bytes() == planned.read_bytes()
+    pdf = alone / "blade.Blade1.beam.pdf"
+    assert pdf.read_bytes().startswith(b"%PDF") and pdf.read_bytes().count(b"/Type /Page") >= 2

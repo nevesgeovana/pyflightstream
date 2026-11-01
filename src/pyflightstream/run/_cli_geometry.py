@@ -236,6 +236,56 @@ def add_geometry_commands(subparsers: Any) -> None:
         )
 
 
+def _add_beam(verbs: Any) -> None:
+    """Add ``geometry beam``: a blade's sections cut from its mesh (PFS-2185.11)."""
+    beam = verbs.add_parser(
+        "beam",
+        help="cut a blade's sections from its mesh into <geometry>.<family>.beam.toml",
+        description=(
+            "Writes <geometry>.<family>.beam.toml beside the mesh for each family: the "
+            "family's sections cut at --stations radii evenly spaced from its first closed "
+            "cut at the root to its last at the tip, the file an FSI input with [sections] "
+            'source = "mesh" reads, cut about the origin of the mesh. A file of the same '
+            "mesh sha256, station count and hub is kept as it is; another is kept as .bak and "
+            "cut again (docs/fsi-workspace.md)."
+        ),
+    )
+    beam.add_argument("geometry", metavar="GEOMETRY", help="the OBJ or saved simulation (.fsm)")
+    beam.add_argument(
+        "--families",
+        nargs="+",
+        required=True,
+        metavar="FAMILY",
+        help="the blades to cut, by their names in the mesh",
+    )
+    beam.add_argument(
+        "--stations", type=int, required=True, metavar="N", help="how many radii to cut"
+    )
+    beam.add_argument(
+        "--visual-inspection",
+        action="store_true",
+        help="also draw <geometry>.<family>.beam.pdf: the sections on the blade and each contour",
+    )
+
+
+def _cmd_beam(args: argparse.Namespace) -> int:
+    """Write each family's sections cut from the mesh, and their drawing when asked."""
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    try:
+        for family in args.families:
+            written = beam_sections(
+                args.geometry, family, args.stations, inspection=args.visual_inspection
+            )
+            print(written.path)
+            if written.pdf is not None:
+                print(written.pdf)
+    except (PyflightstreamError, OSError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    return 0
+
+
 def _add_mesh_verbs(verbs: Any) -> None:
     """Add the verbs that read a mesh or a node list and need no solver.
 
@@ -383,6 +433,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
         ),
     )
     _add_visual_inspect(verbs)
+    _add_beam(verbs)
     prepare.add_argument(
         "--keep-within-component",
         action="store_true",
@@ -991,6 +1042,7 @@ def run_geometry(args: argparse.Namespace) -> int:
         "identify-te": _cmd_identify_te,
         "prepare-to-refine": _cmd_prepare_to_refine,
         "visual-inspect": _cmd_visual_inspect,
+        "beam": _cmd_beam,
         "build": _cmd_build,
         "accept": _cmd_accept,
         "from-sidecar": _cmd_from_sidecar,

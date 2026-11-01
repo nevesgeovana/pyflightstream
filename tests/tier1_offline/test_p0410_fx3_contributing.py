@@ -2,10 +2,13 @@
 
 import ast
 import io
+import subprocess
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,3 +65,13 @@ def test_p0410_fx3_contributing_mirror_and_navigation(monkeypatch):
                 yield from routes(child)
 
     assert "contributing.md" in set(routes(config["nav"]))
+
+
+@pytest.mark.parametrize("flag", ["--help", "-h"], ids=["P0410-help", "P0410-short-help"])
+def test_p0410_fx3_converter_help_succeeds(flag):
+    script = ROOT / "scripts" / "chm_to_pdf.py"
+    result = subprocess.run([sys.executable, str(script), flag], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout.lower()
+    assert "PYFS_CHROME" in result.stdout
+    assert not result.stderr
