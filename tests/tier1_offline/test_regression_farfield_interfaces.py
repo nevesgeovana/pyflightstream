@@ -2307,6 +2307,32 @@ def test_p0530_fw_rotor_row_windows_in_steps_and_in_turns():
 
 
 @pytest.mark.requirement("FR-3430")
+@pytest.mark.parametrize("turns", ["1", "0.51", "0.7"])
+def test_p0530_fw_the_far_field_window_is_the_window_the_run_records(turns):
+    """LAST_REV that is no whole number of steps: the far field exports the recorded window.
+
+    The post reads the window from the run record's export window (its first
+    step), and averages only when a file exists at every step of it, so the far
+    field must export exactly those steps, rounded as the record rounds them.
+    """
+    from pyflightstream.cases.workflows import unsteady_export_threshold
+    from tests.tier1_offline.test_regression_workflow_emission import (
+        _cases_workflows_clock___two_speeds,
+    )
+
+    spec = PprocSpec.model_validate(
+        {"farfields": [{"variant": "plane", "export_type": "export_window"}]}
+    )
+    case = _cases_workflows_clock___two_speeds(
+        **{LAST_REV: turns, "LAST_REVS_AVG": "0.25"}
+    ).model_copy(update={"pproc": spec})
+    recorded = unsteady_export_threshold(case, version="26.124")
+    assert recorded is not None
+    window = farfield_export_windows(case)
+    assert window == ((recorded.first_step, recorded.time_iterations, "farfield_probes"),)
+
+
+@pytest.mark.requirement("FR-3430")
 def test_p0530_fw_a_row_without_the_window_warns_and_skips(tmp_path):
     """No LAST_ITER or LAST_REV (AFTER_ITER alone does not count): no window, no refusal."""
     for variables in ({}, {"EXPORT_UNSTEADY_AFTER_ITER": "2"}):

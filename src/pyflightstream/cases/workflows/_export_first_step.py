@@ -13,14 +13,17 @@ calls it before its first emission.
 
 from __future__ import annotations
 
-import math
-
 from pyflightstream._errors import NotApplicableWarning, demote
 from pyflightstream.cases import CampaignConfigError, SimCase
 
 from ._exports import surface_time_averaging
 from ._rows import _required_float, _required_int, _variable
-from ._timing import POWER_OFF_CLOCK_REMEDY, TimeStepping, revolution_keys_without_a_clock
+from ._timing import (
+    POWER_OFF_CLOCK_REMEDY,
+    TimeStepping,
+    revolution_keys_without_a_clock,
+    revolution_steps,
+)
 from ._vocabulary import (
     EXPORT_THRESHOLD_VARIABLES,
     EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
@@ -41,9 +44,6 @@ _FORM_OF_KEY = {
 }
 _REVOLUTION_KEYS = (EXPORT_UNSTEADY_AFTER_REV_VARIABLE, EXPORT_UNSTEADY_LAST_REV_VARIABLE)
 _UNSTEADY_WORKFLOWS = ("unsteady", "unsteady_rotor")
-#: Steps beyond which a product of revolutions and steps a turn is no run at all; it is
-#: capped there so the length check refuses it instead of the conversion overflowing.
-_STEP_CAP = 10**15
 _LAST_KEYS = (EXPORT_UNSTEADY_LAST_REV_VARIABLE, EXPORT_UNSTEADY_LAST_ITER_VARIABLE)
 #: The key that works where the revolutions form cannot, per revolutions key.
 _ITER_REMEDY = {
@@ -208,10 +208,7 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
 
 def _steps_of(number: float, per_revolution: float) -> int:
     """Return ``ceil(number x per_revolution - 1e-9)`` (the after-form's tolerance), capped."""
-    product = number * per_revolution
-    if not math.isfinite(product) or product >= _STEP_CAP:
-        return _STEP_CAP
-    return math.ceil(product - 1e-9)
+    return revolution_steps(number, per_revolution)
 
 
 def _revolutions_to_steps(

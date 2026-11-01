@@ -72,14 +72,11 @@ from ._rows import (
 )
 from ._timing import (
     POWER_OFF_CLOCK_REMEDY,
+    export_window_variables,
     power_off_steps_per_revolution,
     unsteady_time_stepping,
 )
-from ._vocabulary import (
-    EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
-    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
-    ROTOR_ORIGIN_VARIABLE,
-)
+from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
     "FARFIELD_PLOT_PARAMETERS",
@@ -160,21 +157,6 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     ]
 
 
-def _export_window_variables(case: SimCase) -> dict[str, str] | None:
-    """Return the row EXPORT_UNSTEADY_LAST_* window as averaging variables, or None.
-
-    AFTER_ITER and AFTER_REV are not read by ``export_window``.
-    """
-    for name, average in (
-        (EXPORT_UNSTEADY_LAST_REV_VARIABLE, "LAST_REVS_AVG"),
-        (EXPORT_UNSTEADY_LAST_ITER_VARIABLE, "LAST_ITERS_AVG"),
-    ):
-        text = _variable(case, name)
-        if text is not None:
-            return {average: text}
-    return None
-
-
 def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
     """Return why this row cannot take the entry's averaging window, or ``""``.
 
@@ -204,7 +186,7 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
             f'case {case.sim_id!r}: {key} requires export_type = "avg_window"'
         )
     variables = (
-        _export_window_variables(case)
+        export_window_variables(case)
         if exported
         else {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value}
     )
@@ -1365,7 +1347,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
         if entry.variant == "wake" and not _rotor(case):
             continue
         variables = (
-            (_export_window_variables(case) or {})
+            (export_window_variables(case, clock.steps_per_revolution) or {})
             if entry.export_type == "export_window"
             else {"LAST_REVS_AVG": entry.last_revs}
             if entry.last_revs is not None

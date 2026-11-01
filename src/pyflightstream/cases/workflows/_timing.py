@@ -728,6 +728,47 @@ REVOLUTION_KEYS: tuple[str, ...] = (
     EXPORT_UNSTEADY_LAST_REV_VARIABLE,
     LAST_REVS_AVG_VARIABLE,
 )
+#: Steps beyond which a product of revolutions and steps a turn is no run at all; it is
+#: capped there so the length check refuses it instead of the conversion overflowing.
+_STEP_CAP = 10**15
+
+
+def revolution_steps(number: float, per_revolution: float) -> int:
+    """Return the steps ``number`` revolutions of the export keys make (ceil, 1e-9 off, capped).
+
+    The one rounding of ``EXPORT_UNSTEADY_AFTER_REV`` and ``EXPORT_UNSTEADY_LAST_REV``,
+    shared by the run record's export window and the far field's ``export_window``.
+    """
+    product = number * per_revolution
+    if not math.isfinite(product) or product >= _STEP_CAP:
+        return _STEP_CAP
+    return math.ceil(product - 1e-9)
+
+
+def export_window_variables(
+    case: SimCase, per_revolution: float | None = None
+) -> dict[str, object] | None:
+    """Return the row EXPORT_UNSTEADY_LAST_* window as averaging variables, or None (FR-3430).
+
+    AFTER_ITER and AFTER_REV are not read by the far field's ``export_window``.
+    With the clock's ``per_revolution``, a LAST_REV window is the steps the run
+    record's export window counts (:func:`revolution_steps`), so the far field
+    exports exactly the steps the post reads.
+    """
+    for name, average in (
+        (EXPORT_UNSTEADY_LAST_REV_VARIABLE, "LAST_REVS_AVG"),
+        (EXPORT_UNSTEADY_LAST_ITER_VARIABLE, "LAST_ITERS_AVG"),
+    ):
+        text = _variable(case, name)
+        if text is None:
+            continue
+        if average == "LAST_REVS_AVG" and per_revolution:
+            try:
+                return {"LAST_ITERS_AVG": revolution_steps(float(text), per_revolution)}
+            except ValueError:
+                pass  # not a number: the averaging window refuses it by name
+        return {average: text}
+    return None
 
 
 def revolution_keys_without_a_clock(case: SimCase) -> tuple[str, ...]:
