@@ -716,11 +716,9 @@ def coupled_blade_frame(case: SimCase) -> tuple[str, dict[str, Any]]:
     ):
         # A flat row's ROTOR_ORIGIN places the hub and the blade frames (_frames._rotor_frame),
         # in the simulation's unit: metres after a raw import, the saved unit of a .fsm.
-        unit = (
-            saved_length_unit(case.geometry)
-            if PurePath(str(case.geometry)).suffix.lower() == SIMULATION_SUFFIX
-            else "METER"
-        )
+        geometry = case.geometry
+        saved = geometry is not None and PurePath(str(geometry)).suffix.lower() == SIMULATION_SUFFIX
+        unit = (saved_length_unit(geometry) if saved and geometry is not None else None) or "METER"
         origin = [value * (scale(unit, "METER") or 1.0) for value in _origin(case)]
     frame = blade_mesh_frame(case, [blade], origin=origin)
     return frame["groups"][blade], frame
