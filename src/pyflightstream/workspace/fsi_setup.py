@@ -1190,7 +1190,9 @@ def beam_sections(
     mesh = Path(geometry)
     target = mesh.with_name(f"{mesh.stem}.{family}.beam.toml")
     mesh_sha256 = file_sha256(mesh)
-    table = _kept_beam(target, mesh_sha256, stations, hub_m)
+    table = _kept_beam(
+        target, mesh_sha256, stations, hub_m, _mesh_metres(mesh, metres_per_unit) or 1.0
+    )
     if table is None:
         vertices, faces, metres = _blade_surface(mesh, family, metres_per_unit)
         try:
@@ -1223,7 +1225,11 @@ def beam_sections(
 
 
 def _changed_inputs(
-    stated: Mapping[str, Any], mesh_sha256: str, stations: int, hub_m: Sequence[float]
+    stated: Mapping[str, Any],
+    mesh_sha256: str,
+    stations: int,
+    hub_m: Sequence[float],
+    metres: float,
 ) -> list[str]:
     """Say which of the inputs a ``.beam.toml`` records differ from the ones asked for."""
     changed = []
@@ -1236,26 +1242,36 @@ def _changed_inputs(
         changed.append(f"it holds {stated.get('stations')} stations and {stations} are asked for")
     hub = [float(value) for value in hub_m]
     recorded = stated.get("hub_m")
-    try:
-        cut_about = [float(value) for value in recorded]  # type: ignore[union-attr]
-        same = len(cut_about) == 3 and all(
-            abs(a - b) <= 1e-9 for a, b in zip(cut_about, hub, strict=True)
-        )
-    except (TypeError, ValueError):
-        same = False
-    if not same:
+    if not _same_numbers(recorded, hub, 1e-9):
         changed.append(f"it was cut about the hub {recorded} m and the hub is now {hub} m")
+    cut_at = stated.get("metres_per_unit")
+    if not _same_numbers([cut_at], [metres], 1e-12 * max(abs(metres), 1.0)):
+        changed.append(
+            f"it was cut at metres_per_unit {cut_at} and the mesh's unit now gives {metres!r}"
+        )
     return changed
 
 
+def _same_numbers(recorded: object, wanted: Sequence[float], tolerance: float) -> bool:
+    """Whether ``recorded`` is a list of numbers each within ``tolerance`` of ``wanted``."""
+    try:
+        values = [float(value) for value in recorded]  # type: ignore[attr-defined]
+    except (TypeError, ValueError):
+        return False
+    return len(values) == len(wanted) and all(
+        abs(a - b) <= tolerance for a, b in zip(values, wanted, strict=True)
+    )
+
+
 def _kept_beam(
-    target: Path, mesh_sha256: str, stations: int, hub_m: Sequence[float]
+    target: Path, mesh_sha256: str, stations: int, hub_m: Sequence[float], metres: float
 ) -> dict[str, Any] | None:
     """Return the sections of a ``.beam.toml`` cut from these inputs, else None.
 
-    The inputs are the mesh's sha256, the station count and the hub the sections were
-    cut about. A file cut from other inputs, or one that does not read as sections, is
-    warned and moved to ``.bak`` so the sections are cut again.
+    The inputs are the mesh's sha256, the station count, the hub the sections were
+    cut about and the factor that took the mesh to metres. A file cut from other
+    inputs, or one that does not read as sections, is warned and moved to ``.bak``
+    so the sections are cut again.
     """
     if not target.is_file():
         return None
@@ -1265,7 +1281,7 @@ def _kept_beam(
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
         why = f"it does not read as sections ({str(error).splitlines()[0]})"
     else:
-        changed = _changed_inputs(stated, mesh_sha256, stations, hub_m)
+        changed = _changed_inputs(stated, mesh_sha256, stations, hub_m, metres)
         if not changed:
             return table
         why = "; ".join(changed)
@@ -1286,28 +1302,21 @@ def _blade_surface(
     """Return a blade's vertices in metres, its triangles and the factor that scaled them."""
     import numpy as np
 
-    from pyflightstream._fsm import boundary_surface, saved_mesh_coordinate_unit
-    from pyflightstream._lengths import scale
+    from pyflightstream._fsm import boundary_surface
     from pyflightstream._mesh import obj_group_surface
-    from pyflightstream.workspace.sidecars import inventory_sidecar, read_mesh_import
 
     points: Any
     triangles: Any
     try:
         if mesh.suffix.lower() == ".fsm":
             points, triangles = boundary_surface(mesh, family)
-            unit = saved_mesh_coordinate_unit(mesh)
         else:
             points, triangles = obj_group_surface(mesh, family)
-            sidecar = inventory_sidecar(mesh, "obj")
-            stated = read_mesh_import(sidecar) if sidecar.is_file() else None
-            unit = stated.units if stated is not None else None
     except (OSError, ValueError) as error:
         raise FsiSetupError(
             f"{mesh.name}: the blade {family!r} cannot be read from the mesh: {error}"
         ) from error
-    metres = metres_per_unit if mesh.suffix.lower() != ".fsm" else None
-    metres = metres or (scale(str(unit), "METER") if unit else None)
+    metres = _mesh_metres(mesh, metres_per_unit)
     if metres is None:
         warn(
             f"{mesh.name}: the mesh states no length unit (the sidecar's [import] units), so "
@@ -1317,6 +1326,33 @@ def _blade_surface(
         )
         metres = 1.0
     return np.asarray(points, dtype=float) * metres, np.asarray(triangles), metres
+
+
+def _mesh_metres(mesh: Path, metres_per_unit: float | None) -> float | None:
+    """Return the factor taking the mesh's coordinates to metres, or None when none is stated.
+
+    A saved simulation's stored unit, else ``metres_per_unit``, else the OBJ sidecar's
+    ``[import] units``. An input of the cut: a kept ``.beam.toml`` cut at another factor is
+    cut again (:func:`_changed_inputs`).
+    """
+    from pyflightstream._fsm import saved_mesh_coordinate_unit
+    from pyflightstream._lengths import scale
+    from pyflightstream.workspace.sidecars import inventory_sidecar, read_mesh_import
+
+    try:
+        if mesh.suffix.lower() == ".fsm":
+            unit = saved_mesh_coordinate_unit(mesh)
+        elif metres_per_unit:
+            return metres_per_unit
+        else:
+            sidecar = inventory_sidecar(mesh, "obj")
+            stated = read_mesh_import(sidecar) if sidecar.is_file() else None
+            unit = stated.units if stated is not None else None
+    except (OSError, ValueError) as error:
+        raise FsiSetupError(
+            f"{mesh.name}: the mesh's length unit cannot be read: {error}"
+        ) from error
+    return scale(str(unit), "METER") if unit else None
 
 
 def _floats(values: Sequence[float]) -> str:
@@ -1335,8 +1371,8 @@ def _beam_text(
     return "\n".join(
         [
             f"# The sections of the blade {family} cut from {mesh.name} by pyflightstream.",
-            '# An FSI input with [sections] source = "mesh" reads them. While mesh_sha256 and',
-            "# stations match the mesh and the input, this file is used as it is, hand edits",
+            '# An FSI input with [sections] source = "mesh" reads them. While mesh_sha256,',
+            "# stations, hub_m and metres_per_unit match, this file is used as it is, hand edits",
             "# included. Each contour is (toward the leading edge, toward the suction side) in",
             "# metres about the pitch axis, at the radius station_radii_m states.",
             f'mesh = "{mesh.name}"',

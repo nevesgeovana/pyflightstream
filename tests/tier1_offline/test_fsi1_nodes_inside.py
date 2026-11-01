@@ -795,6 +795,25 @@ def test_p0530_a_kept_beam_file_is_used_as_it_is_and_recut_on_a_changed_mesh_or_
     assert "stations = 4" in backup.read_text(encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_kept_beam_file_cut_in_another_unit_is_cut_again(tmp_path):
+    # REL-R2-003: the mesh's unit is an input of the cut, as the sha256, the count and the hub.
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    vertices, faces = _naca_blade(21, 40)
+    obj = _write_obj(tmp_path / "blade.obj", vertices, faces, metres_per_unit=0.001)
+    first = beam_sections(obj, "Blade1", 4)
+    obj.with_suffix(".obj.boundaries.toml").write_text(
+        'boundaries = ["Blade1"]\n[import]\nunits = "MILLIMETER"\n', encoding="utf-8"
+    )
+    with pytest.warns(PyflightstreamWarning, match="metres_per_unit"):
+        again = beam_sections(obj, "Blade1", 4)
+    assert again.sections["station_radii_m"] == pytest.approx(
+        [radius / 1000.0 for radius in first.sections["station_radii_m"]], rel=1e-6
+    )
+
+
 #: An FSI input whose sections come from the row's mesh.
 MESH_INPUT = """mode = "calculated"
 material = "ti-6al-4v-grade5-annealed"

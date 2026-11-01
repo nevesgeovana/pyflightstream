@@ -681,12 +681,13 @@ saved simulation `.fsm`) and writes it:
   the suction side in metres about the pitch axis, so the contour check of the next
   section finds every contour on the cut.
 
-The file records the mesh's sha256, the station count and the hub it was cut
-about (`hub_m`). With the same three it is used as it is, hand edits included.
-With another sha256, another count or another hub (a file the command below wrote
-about the mesh's origin, read by a row whose rotor sits elsewhere), or when it does
-not read as sections, it is warned, kept as `<geometry>.<family>.beam.toml.bak`,
-and the sections are cut again.
+The file records the mesh's sha256, the station count, the hub it was cut
+about (`hub_m`) and the factor that took the mesh to metres (`metres_per_unit`).
+With the same four it is used as it is, hand edits included. With another sha256,
+another count, another hub (a file the command below wrote about the mesh's
+origin, read by a row whose rotor sits elsewhere) or another unit (a corrected
+`[import] units`), or when it does not read as sections, it is warned, kept as
+`<geometry>.<family>.beam.toml.bak`, and the sections are cut again.
 
 The beam is built from the file exactly as from stated contours. The run's
 `fsi-provenance.json` records the file in `beam_sections` (its name and sha256) and
