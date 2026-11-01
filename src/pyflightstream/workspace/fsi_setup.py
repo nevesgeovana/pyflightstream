@@ -8,7 +8,7 @@ import json
 import math
 import re
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -16,6 +16,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError
 
 import pyflightstream._textio as _textio
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import FsiInputError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.fsi.calibration import (
     CALIBRATION_FACTORS,
@@ -38,10 +39,12 @@ from pyflightstream.fsi.materials import (
 
 __all__ = [
     "FSI_TEMPLATE",
+    "BeamSections",
     "FsiSetupError",
     "FsiSetupSpec",
     "ResolvedFsiSetup",
     "SolidSections",
+    "beam_sections",
     "fsi_input_payloads",
     "load_fsi_setup",
     "resolve_fsi_setup",
@@ -85,19 +88,59 @@ sections_m = [
 
 
 class SolidSections(BaseModel):
-    """Closed solid section contours, in metres in the existing section frame."""
+    """Closed solid section contours, in metres in the existing section frame.
+
+    ``source = "mesh"`` with ``stations = <n>`` states none of them: they are cut from
+    the row's mesh into ``<geometry>.<family>.beam.toml`` (:func:`beam_sections`).
+    """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-    station_radii_m: list[float]
+    source: Literal["mesh"] | None = None
+    stations: int | None = Field(default=None, ge=1)
+    station_radii_m: list[float] | None = None
     sections_m: list[list[list[float]]] | None = None
     airfoil: list[list[float]] | None = None
     naca: str | None = Field(default=None, pattern=r"^[0-9]{4}$")
     chord_panels: int = Field(default=40, ge=4, le=512)
     pitch_axis_chord_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
+    chord_m: list[float] | None = None
+    geometric_pitch_deg: list[float] | None = None
+    geometry_source: str | None = Field(default=None, min_length=1)
+    torsion_grid_cells: int = Field(default=64, ge=8, le=512)
+
+
+class _BeamTable(BaseModel):
+    """The ``[sections]`` table of a ``.beam.toml``, as a hand edit may leave it."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    geometry_source: str = Field(min_length=1)
+    station_radii_m: list[float]
     chord_m: list[float]
     geometric_pitch_deg: list[float]
-    geometry_source: str = Field(min_length=1)
-    torsion_grid_cells: int = Field(default=64, ge=8, le=512)
+    sections_m: list[list[list[float]]]
+
+
+@dataclass(frozen=True)
+class BeamSections:
+    """A geometry's ``<geometry>.<family>.beam.toml``, as :func:`beam_sections` left it.
+
+    Attributes
+    ----------
+    path : Path
+        The file.
+    sha256 : str
+        Its sha256.
+    sections : dict
+        Its ``[sections]`` table: ``station_radii_m``, ``chord_m``, ``geometric_pitch_deg``,
+        ``sections_m`` and ``geometry_source``.
+    pdf : Path or None
+        The ``<geometry>.<family>.beam.pdf`` drawn, when one was asked for.
+    """
+
+    path: Path
+    sha256: str
+    sections: dict[str, Any]
+    pdf: Path | None = None
 
 
 class FsiSetupSpec(BaseModel):
@@ -131,6 +174,7 @@ class ResolvedFsiSetup:
     allow_configuration_change: bool = False
     structural_start: dict[str, Any] | None = None
     frame_compensation: dict[str, Any] | None = None
+    beam_sections: dict[str, str] | None = None
 
     def provenance(self) -> dict[str, Any]:
         """Return the source, base/effective configurations and factor origins.
@@ -138,7 +182,9 @@ class ResolvedFsiSetup:
         A row that states ``FSI_START_REV`` or ``FSI_START_ITER`` adds a ``structural_start``
         record: the key, its value, the revolutions it became and the file's own value. An
         input or a row that states the solver-frame compensation adds a ``frame_compensation``
-        record: its value and its origin (``matrix``, ``file`` or ``default``, FR-3415).
+        record: its value and its origin (``matrix``, ``file`` or ``default``, FR-3415). An
+        input whose sections come from the mesh adds ``beam_sections``: the name and the
+        sha256 of the ``.beam.toml`` its sections were read from.
         """
         record: dict[str, Any] = {
             "source": str(self.source),
@@ -159,6 +205,8 @@ class ResolvedFsiSetup:
             record["structural_start"] = self.structural_start
         if self.frame_compensation is not None:
             record["frame_compensation"] = self.frame_compensation
+        if self.beam_sections is not None:
+            record["beam_sections"] = self.beam_sections
         return record
 
 
@@ -338,7 +386,9 @@ def _material(value: str | dict[str, Any] | None) -> Material:
     raise FsiSetupError("calculated mode needs a material key or a sourced material table.")
 
 
-def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
+def _solid(
+    spec: FsiSetupSpec, substance: Material, beam: BeamSections | None = None
+) -> BladeProperties:
     # Numerical section construction is loaded only for the calculated branch.
     from pyflightstream.fsi import naca4_contour
     from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
@@ -348,6 +398,26 @@ def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
             "calculated mode needs [sections] with closed solid contours in metres."
         )
     sections = spec.sections
+    if beam is not None:
+        # PFS-2185.11: the sections the geometry's .beam.toml states, exactly as stated ones.
+        return blade_properties_from_sections(
+            material=substance,
+            geometry_file=beam.path,
+            torsion_grid_cells=sections.torsion_grid_cells,
+            **beam.sections,
+        )
+    missing = [
+        name
+        for name in ("station_radii_m", "chord_m", "geometric_pitch_deg", "geometry_source")
+        if getattr(sections, name) is None
+    ]
+    if missing:
+        raise FsiSetupError(
+            f'[sections] needs {", ".join(missing)}; or state source = "mesh" and '
+            "stations = <n> to cut the sections from the row's mesh."
+        )
+    assert sections.station_radii_m is not None and sections.chord_m is not None
+    assert sections.geometric_pitch_deg is not None and sections.geometry_source is not None
     if (
         sum(value is not None for value in (sections.sections_m, sections.airfoil, sections.naca))
         != 1
@@ -410,7 +480,10 @@ def _refuse_double_calibration(source: Path, factors: Mapping[str, float]) -> No
 
 
 def resolve_fsi_setup(
-    path: str | Path, *, matrix_calibration: Mapping[str, float] | None = None
+    path: str | Path,
+    *,
+    matrix_calibration: Mapping[str, float] | None = None,
+    mesh_sections: Callable[[int], BeamSections] | None = None,
 ) -> ResolvedFsiSetup:
     """Resolve one artifact; an explicit matrix factor replaces its file factor once.
 
@@ -424,6 +497,9 @@ def resolve_fsi_setup(
     matrix_calibration : mapping of str to float, optional
         The calibration factors the matrix row states, each replacing the file's factor of the same
         name.
+    mesh_sections : callable, optional
+        For an input whose ``[sections]`` state ``source = "mesh"``: called with its
+        ``stations``, it returns the row's :class:`BeamSections` (:func:`beam_sections`).
 
     Returns
     -------
@@ -436,10 +512,12 @@ def resolve_fsi_setup(
     FsiSetupError
         If the file cannot be read, the mode and the artifact's content disagree, a factor
         calibrates one property twice, the material or the sections are refused by the FSI
-        package, or the effective inertias are out of order.
+        package, the effective inertias are out of order, or sections from the mesh state no
+        stations or give fewer than two usable stations.
     """
     source = Path(path).resolve()
     raw = _read_input(source)
+    beam: BeamSections | None = None
     try:
         spec = FsiSetupSpec.model_validate(tomllib.loads(raw.decode("utf-8-sig")))
         file_factors = _factors(spec.calibration, f"{source} [calibration]")
@@ -482,8 +560,11 @@ def resolve_fsi_setup(
             _calibrate_shear(substance, factors, changed, origins)
             calibrated = replace(substance, **changed)
             material_effective = asdict(calibrated)
-            base = FsiConfig.model_validate({**spec.config, "blade": _solid(spec, substance)})
-            effective_blade = base.blade if calibrated == substance else _solid(spec, calibrated)
+            beam = _mesh_beam(spec, source, mesh_sections)
+            base = FsiConfig.model_validate({**spec.config, "blade": _solid(spec, substance, beam)})
+            effective_blade = (
+                base.blade if calibrated == substance else _solid(spec, calibrated, beam)
+            )
         blade_data = effective_blade.model_dump()
         for key in PROPERTY_FACTORS:
             blade_data[key] = [value * factors[key] for value in blade_data[key]]
@@ -518,7 +599,45 @@ def resolve_fsi_setup(
         frozen_path,
         frozen_digest,
         spec.allow_configuration_change,
+        beam_sections=None if beam is None else {"file": beam.path.name, "sha256": beam.sha256},
     )
+
+
+def _mesh_beam(
+    spec: FsiSetupSpec, source: Path, mesh_sections: Callable[[int], BeamSections] | None
+) -> BeamSections | None:
+    """Return the sections cut from the row's mesh for ``source = "mesh"``, else None."""
+    sections = spec.sections
+    if sections is None or sections.source != "mesh":
+        return None
+    if sections.stations is None:
+        raise FsiSetupError(
+            f'{source}: [sections] source = "mesh" states no stations, so the input states no '
+            "usable sections; add stations = <n>, the number of sections to cut from the "
+            "blade's mesh."
+        )
+    stated = [
+        key
+        for key in ("station_radii_m", "chord_m", "geometric_pitch_deg", "sections_m", "airfoil")
+        if getattr(sections, key) is not None
+    ] + (["naca"] if sections.naca is not None else [])
+    if stated:
+        warn(
+            f'{source}: [sections] source = "mesh" cuts the sections from the mesh, so the '
+            f"stated {', '.join(stated)} {'is' if len(stated) == 1 else 'are'} skipped.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+    if mesh_sections is None:
+        raise FsiSetupError(
+            f'{source}: [sections] source = "mesh" cuts the sections from the mesh of the '
+            "row that names this input, and no row's mesh is known here; resolve the input "
+            "through a matrix row that names its GEOMETRY."
+        )
+    try:
+        return mesh_sections(sections.stations)
+    except FsiSetupError as error:
+        raise FsiSetupError(f"{source}: {error}") from error
 
 
 def load_fsi_setup(
@@ -594,7 +713,11 @@ def _resolve_external_row(
 
 
 def resolve_row_fsi(
-    inputs_dir: str | Path, variables: Mapping[str, Any], *, require_beam: bool = False
+    inputs_dir: str | Path,
+    variables: Mapping[str, Any],
+    *,
+    require_beam: bool = False,
+    mesh_sections: Callable[[int], BeamSections] | None = None,
 ) -> ResolvedFsiSetup | ExternalStructure | None:
     """Resolve ``FSI: f001`` and named factor keys from the matrix free cell.
 
@@ -609,6 +732,9 @@ def resolve_row_fsi(
         The row's free-cell variables.
     require_beam : bool, optional
         Refuse external mode before binding its program, for structural-only studies.
+    mesh_sections : callable, optional
+        The row's sections cut from its mesh, for an input of ``[sections] source = "mesh"``
+        (:func:`resolve_fsi_setup`).
 
     Returns
     -------
@@ -670,7 +796,9 @@ def resolve_row_fsi(
                 stacklevel=2,
             )
         return external
-    resolved = resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
+    resolved = resolve_fsi_setup(
+        path, matrix_calibration=_stated_factors(factor_cells), mesh_sections=mesh_sections
+    )
     resolved = _with_frame_compensation(resolved)
     return _with_structural_start(resolved, start_cells, variables)
 
@@ -985,3 +1113,238 @@ def _frozen_replay(
         frozen_path = str(frozen)
         frozen_digest = hashlib.sha256(frozen.read_bytes()).hexdigest()
     return frozen_path, frozen_digest
+
+
+# ------------------------------------------ sections cut from the mesh (PFS-2185.11) --
+
+
+def beam_sections(
+    geometry: str | Path,
+    family: str,
+    stations: int,
+    *,
+    metres_per_unit: float | None = None,
+    hub_m: Sequence[float] = (0.0, 0.0, 0.0),
+    inspection: bool = False,
+) -> BeamSections:
+    r"""Return a blade's sections cut from its mesh, kept in ``<geometry>.<family>.beam.toml``.
+
+    The file sits beside the mesh and its ``<geometry>.boundaries.toml``, and records the
+    mesh's sha256 and the station count. A file of the same sha256 and count is used as it
+    is, hand edits included. One of another sha256 or count, or one that does not read as
+    sections, is warned and kept as ``<geometry>.<family>.beam.toml.bak``, and the sections
+    are cut again (:func:`pyflightstream.fsi.sections.sections_from_mesh`) from the blade's
+    surface in metres about the hub. The plan of an FSI input with ``[sections] source =
+    "mesh"`` and ``pyfs-workspace geometry beam`` both call it, so both write the same file.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        The OBJ or the saved simulation (``.fsm``) holding the blade.
+    family : str
+        The blade's name in the mesh: an OBJ group, a saved simulation's boundary.
+    stations : int
+        How many evenly spaced radii to cut.
+    metres_per_unit : float, optional
+        The factor taking an OBJ's coordinates to metres; by default the one its sidecar's
+        ``[import] units`` states. A saved simulation is read in the unit it stores.
+    hub_m : sequence of float, optional
+        The hub [m] the blade's frame sits on, the shaft along x and the blade along +z
+        from it; the mesh's origin by default.
+    inspection : bool, optional
+        Also draw ``<geometry>.<family>.beam.pdf`` beside the file: the sections on the
+        blade and each station's contour.
+
+    Returns
+    -------
+    BeamSections
+        The file, its sha256, its ``[sections]`` table and the drawing.
+
+    Raises
+    ------
+    FsiSetupError
+        If the mesh holds no such family or the cut gives fewer than two usable stations.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> faces = [(i, (i + 1) % 3, 3 + (i + 1) % 3) for i in range(3)]
+    >>> faces += [(i, 3 + (i + 1) % 3, 3 + i) for i in range(3)]
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     mesh = Path(folder) / "blade.obj"
+    ...     _ = mesh.write_text("o Blade1\n" + "".join(
+    ...         f"v {x} {y} {z}\n" for z in (0.1, 0.5)
+    ...         for x, y in ((0.0, -0.02), (0.002, 0.01), (-0.002, 0.01)))
+    ...         + "".join(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in faces))
+    ...     written = beam_sections(mesh, "Blade1", 2, metres_per_unit=1.0)
+    ...     name = written.path.name
+    >>> name, [round(r, 3) for r in written.sections["station_radii_m"]]
+    ('blade.Blade1.beam.toml', [0.1, 0.5])
+    """
+    import numpy as np
+
+    from pyflightstream.fsi.sections import sections_from_mesh
+
+    mesh = Path(geometry)
+    target = mesh.with_name(f"{mesh.stem}.{family}.beam.toml")
+    mesh_sha256 = file_sha256(mesh)
+    table = _kept_beam(target, mesh_sha256, stations, hub_m)
+    if table is None:
+        vertices, faces, metres = _blade_surface(mesh, family, metres_per_unit)
+        try:
+            cut = sections_from_mesh(
+                vertices - np.asarray(hub_m, dtype=float),
+                faces,
+                stations,
+                where=f"{mesh.name} family {family}",
+            )
+        except FsiInputError as error:
+            raise FsiSetupError(str(error)) from error
+        text = _beam_text(
+            mesh, family, mesh_sha256=mesh_sha256, metres=metres, hub_m=hub_m, cut=cut
+        )
+        _textio.write_text(target, text)
+        table = _BeamTable.model_validate(tomllib.loads(text)["sections"]).model_dump()
+    pdf = None
+    if inspection:
+        from pyflightstream.workspace._visual_inspect import beam_pdf
+
+        vertices, faces, _ = _blade_surface(mesh, family, metres_per_unit)
+        pdf = beam_pdf(
+            target.with_suffix(".pdf"),
+            vertices - np.asarray(hub_m, dtype=float),
+            faces,
+            table,
+            title=f"{target.name}: family {family} of {mesh.name}",
+        )
+    return BeamSections(target, file_sha256(target), table, pdf)
+
+
+def _kept_beam(
+    target: Path, mesh_sha256: str, stations: int, hub_m: Sequence[float]
+) -> dict[str, Any] | None:
+    """Return the sections of a ``.beam.toml`` cut from this mesh at this count, else None.
+
+    A file cut from another mesh or at another count, or one that does not read as
+    sections, is warned and moved to ``.bak`` so the sections are cut again.
+    """
+    if not target.is_file():
+        return None
+    try:
+        stated = tomllib.loads(target.read_text(encoding="utf-8-sig"))
+        table = _BeamTable.model_validate(stated.get("sections")).model_dump()
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
+        why = f"it does not read as sections ({str(error).splitlines()[0]})"
+    else:
+        if stated.get("mesh_sha256") == mesh_sha256 and stated.get("stations") == stations:
+            cut_about = [float(value) for value in stated.get("hub_m", (0.0, 0.0, 0.0))]
+            if max(abs(a - float(b)) for a, b in zip(cut_about, hub_m, strict=True)) > 1e-9:
+                warn(
+                    f"{target.name} was cut about the hub {stated.get('hub_m')} m and the row's "
+                    f"blade frame sits on {list(hub_m)} m; its sections are used as they are. "
+                    "Delete the file to cut them again about this hub.",
+                    PyflightstreamWarning,
+                    stacklevel=4,
+                )
+            return table
+        why = (
+            f"it holds {stated.get('stations')} stations and {stations} are asked for"
+            if stated.get("mesh_sha256") == mesh_sha256
+            else f"it was cut from a mesh of sha256 {str(stated.get('mesh_sha256'))[:16]}, "
+            f"and the mesh's is now {mesh_sha256[:16]}"
+        )
+    backup = target.with_name(target.name + ".bak")
+    warn(
+        f"{target.name}: {why}; the file is kept as {backup.name} and the sections are cut "
+        "again from the mesh.",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+    target.replace(backup)
+    return None
+
+
+def _blade_surface(
+    mesh: Path, family: str, metres_per_unit: float | None
+) -> tuple[Any, Any, float]:
+    """Return a blade's vertices in metres, its triangles and the factor that scaled them."""
+    import numpy as np
+
+    from pyflightstream._fsm import boundary_surface, saved_mesh_coordinate_unit
+    from pyflightstream._lengths import scale
+    from pyflightstream._mesh import obj_group_surface
+    from pyflightstream.workspace.sidecars import inventory_sidecar, read_mesh_import
+
+    points: Any
+    triangles: Any
+    try:
+        if mesh.suffix.lower() == ".fsm":
+            points, triangles = boundary_surface(mesh, family)
+            unit = saved_mesh_coordinate_unit(mesh)
+        else:
+            points, triangles = obj_group_surface(mesh, family)
+            sidecar = inventory_sidecar(mesh, "obj")
+            stated = read_mesh_import(sidecar) if sidecar.is_file() else None
+            unit = stated.units if stated is not None else None
+    except (OSError, ValueError) as error:
+        raise FsiSetupError(
+            f"{mesh.name}: the blade {family!r} cannot be read from the mesh: {error}"
+        ) from error
+    metres = metres_per_unit if mesh.suffix.lower() != ".fsm" else None
+    metres = metres or (scale(str(unit), "METER") if unit else None)
+    if metres is None:
+        warn(
+            f"{mesh.name}: the mesh states no length unit (the sidecar's [import] units), so "
+            "the blade is read in metres.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+        metres = 1.0
+    return np.asarray(points, dtype=float) * metres, np.asarray(triangles), metres
+
+
+def _floats(values: Sequence[float]) -> str:
+    """Write numbers as a TOML array, each to ten significant digits."""
+    return "[" + ", ".join(repr(float(f"{value:.10g}")) for value in values) + "]"
+
+
+def _beam_text(
+    mesh: Path, family: str, *, mesh_sha256: str, metres: float, hub_m: Sequence[float], cut: Any
+) -> str:
+    """Write a ``.beam.toml``: what the sections were cut from, then the ``[sections]`` table."""
+    contours = ",\n".join(
+        "  [" + ", ".join(_floats(point) for point in contour) + "]" for contour in cut.sections_m
+    )
+    stations = len(cut.requested_radii_m)
+    return "\n".join(
+        [
+            f"# The sections of the blade {family} cut from {mesh.name} by pyflightstream.",
+            '# An FSI input with [sections] source = "mesh" reads them. While mesh_sha256 and',
+            "# stations match the mesh and the input, this file is used as it is, hand edits",
+            "# included. Each contour is (toward the leading edge, toward the suction side) in",
+            "# metres about the pitch axis, at the radius station_radii_m states.",
+            f'mesh = "{mesh.name}"',
+            f'mesh_sha256 = "{mesh_sha256}"',
+            f'family = "{family}"',
+            f"stations = {stations}",
+            f"metres_per_unit = {metres!r}",
+            f"hub_m = {_floats(hub_m)}",
+            "# The radii asked for: evenly spaced from the first closed cut at the root to the",
+            "# last at the tip. A station whose cut does not close is cut at the nearest radius",
+            "# that closes; one with none within half the distance to each neighbour is left out.",
+            f"requested_radii_m = {_floats(cut.requested_radii_m)}",
+            f"left_out_radii_m = {_floats(cut.left_out_radii_m)}",
+            "trailing_edge_closed = ["
+            + ", ".join("true" if closed else "false" for closed in cut.trailing_edge_closed)
+            + "]",
+            "",
+            "[sections]",
+            f'geometry_source = "the cut of {mesh.name} (family {family}) at {stations} stations"',
+            f"station_radii_m = {_floats(cut.station_radii_m)}",
+            f"chord_m = {_floats(cut.chord_m)}",
+            f"geometric_pitch_deg = {_floats(cut.geometric_pitch_deg)}",
+            f"sections_m = [\n{contours}\n]",
+            "",
+        ]
+    )

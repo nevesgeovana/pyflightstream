@@ -632,6 +632,77 @@ shear modulus. Calibration never rewrites the source material database. A custom
 table with `document`, `table`, `condition`, `url` and `consulted`. The material
 checks require finite positive density/E/G and `-1 < poisson_ratio < 0.5`.
 
+### Sections from the mesh
+
+In place of the contours, `[sections]` can ask for the sections to be cut from the
+blade's own mesh:
+
+```toml
+[sections]
+source = "mesh"
+stations = 16          # required with source = "mesh"
+torsion_grid_cells = 64
+```
+
+`stations` is required. An input with `source = "mesh"` and no `stations` states no
+usable sections, and the plan stops on it asking for `stations = <n>`. The radii,
+chords, pitches and contours come from the mesh; `station_radii_m`, `chord_m`,
+`geometric_pitch_deg`, `sections_m`, `airfoil` or `naca` stated beside
+`source = "mesh"` are warned and skipped.
+
+The sections belong to the geometry. The plan reads
+`inputs/geometries/<geometry>/<geometry>.<family>.beam.toml`, beside
+`<geometry>.boundaries.toml`, where `<family>` is blade one's name in the mesh
+(`Blade1`, say). When the file is missing, the plan cuts the row's mesh (an OBJ or a
+saved simulation `.fsm`) and writes it:
+
+- The mesh is read in metres (an OBJ in the unit its sidecar's `[import] units`
+  states, a saved simulation in the unit it stores) about the hub of the rotor the
+  row couples, the shaft along x and blade one along +z, the frame the contour check
+  below reads the mesh in.
+- The stations are `stations` radii evenly spaced from the first closed cut at the
+  root to the last at the tip. A cut is the plane normal to the span; the triangles
+  it crosses are chained into loops through the mesh's own edges, and the loop
+  around the beam axis is the section (any other piece of the cut is warned). Faces
+  within 10 deg of normal to the span, the flat caps of a tip or a root, are not cut.
+  A trailing edge left open in the mesh is closed by the segment joining its two
+  sides.
+- A station whose cut does not close is cut at the nearest radius that closes,
+  within half the distance to each neighbouring station; the file states the radius
+  used and the plan warns. A station with no closed cut in that window is warned
+  and left out. Fewer than two usable stations stop the plan: there is no beam.
+- In each section the trailing edge is the thinner end of the longest chord (the
+  middle of the segment closing an open one) and the leading edge is the vertex
+  farthest from it; the chord is their distance, and the geometric pitch is the
+  angle of the line between them, toward the leading edge `(-sin b, -cos b, 0)`.
+  The leading edge being a vertex of the mesh, the pitch is resolved to the mesh's
+  spacing at the nose: half that spacing over the chord, in radians.
+- The contour is the cut's own points, stated toward the leading edge and toward
+  the suction side in metres about the pitch axis, so the contour check of the next
+  section finds every contour on the cut.
+
+The file records the mesh's sha256 and the station count. With the same sha256 and
+count it is used as it is, hand edits included. With another sha256 or another
+count, or when it does not read as sections, it is warned, kept as
+`<geometry>.<family>.beam.toml.bak`, and the sections are cut again. A file cut
+about another hub than the row's is warned and used as it is.
+
+The beam is built from the file exactly as from stated contours. The run's
+`fsi-provenance.json` records the file in `beam_sections` (its name and sha256) and
+names it in its `blade_mesh` record as `beam_toml` and `beam_toml_sha256`; the
+blade's provenance names it as the geometry file its contours were read from.
+
+`pyfs-workspace geometry beam` writes the same file on demand, for each family
+named, cutting about the mesh's origin:
+
+```bash
+pyfs-workspace geometry beam inputs/geometries/rotor/rotor.obj --families Blade1 --stations 16 --visual-inspection
+```
+
+`--visual-inspection` also writes `<geometry>.<family>.beam.pdf` beside it: the
+blade drawn as `geometry visual-inspect` draws a mesh, with every section placed on
+it, then each station's contour with its chord line and its pitch axis.
+
 ### Contours placed on the mesh cut
 
 The package places each contour with its origin on the pitch axis, at the

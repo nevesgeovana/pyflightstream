@@ -76,7 +76,12 @@ from pyflightstream.workspace.flight_condition import (
     pinned_state_mismatch,
     resolve_flight_condition,
 )
-from pyflightstream.workspace.fsi_setup import resolve_row_fsi
+from pyflightstream.workspace.fsi_setup import (
+    BeamSections,
+    FsiSetupError,
+    beam_sections,
+    resolve_row_fsi,
+)
 from pyflightstream.workspace.inputs import (
     PprocArtifact,
     RegisteredBuild,
@@ -88,8 +93,10 @@ from pyflightstream.workspace.inputs import (
 from pyflightstream.workspace.naming import group_token
 from pyflightstream.workspace.sidecars import (
     boundaries_for_matrix,
+    inventory_sidecar,
     load_toml,
     read_marking_record,
+    read_mesh_import,
     write_inventory,
 )
 from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
@@ -1385,12 +1392,38 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
     return update
 
 
-def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object]) -> None:
+def _mesh_sections(binding: _Binding, case: SimCase, row: MatrixRow, update: dict[str, object]):
+    """Return how the row cuts blade one's sections from its mesh (PFS-2185.11)."""
+
+    def cut(stations: int) -> BeamSections:
+        from pyflightstream.cases.workflows._skeleton import coupled_blade_frame
+
+        stem = row.variables.get(GEOMETRY_VARIABLE, "")
+        if not stem:
+            raise FsiSetupError(f"matrix row POL {row.pol} names no GEOMETRY to cut them from.")
+        geometry = _resolve_geometry(binding.workspace, stem, row.pol)
+        sidecar = inventory_sidecar(geometry, "obj")
+        stated = read_mesh_import(sidecar) if sidecar.is_file() else None
+        bound = {**update, "geometry": str(geometry), "mesh_import": stated}
+        family, frame = coupled_blade_frame(case.model_copy(update=bound))
+        # The unit is the one the sidecar's [import] states, as beam_sections reads it.
+        return beam_sections(geometry, family, stations, hub_m=frame["hub_m"])
+
+    return cut
+
+
+def _bind_geometry(
+    binding: _Binding, case: SimCase, row: MatrixRow, update: dict[str, object]
+) -> None:
     """Resolve FSI and geometry in the order their values reach the case."""
     # An absent or blank GEOMETRY cell names nothing and leaves the field
     # absent. The reader already strips VAR_NAMES_VALUES, so no second strip
     # is needed. test_matrix_run checks this across reading and binding.
-    fsi = resolve_row_fsi(binding.workspace.inputs_dir, row.variables)
+    fsi = resolve_row_fsi(
+        binding.workspace.inputs_dir,
+        row.variables,
+        mesh_sections=_mesh_sections(binding, case, row, update),
+    )
     if isinstance(fsi, ExternalStructure):
         # FR-462: the user's program, hashed; the run stages its manifest.
         update["fsi_external"] = fsi
@@ -1589,7 +1622,7 @@ def _bind_rows(binding: _Binding) -> None:
     """Apply the row phases in order and bind setup ports after all row values."""
     for case, row in zip(binding.campaign.sims, binding.rows, strict=True):
         update = _row_update(binding, case, row)
-        _bind_geometry(binding, row, update)
+        _bind_geometry(binding, case, row, update)
         _bind_profiles(binding, case, row, update)
         _bind_row_variables(binding, case, row, update)
         _bind_states(binding, row, update)

@@ -56,6 +56,21 @@ FlightStream versions.
   writes the FSI input to the path given with its contours moved onto the mesh cut as
   `sections_m` (the input itself only when that is the path given) and returns them;
   `contour_mesh_offsets` and `obj_group_surface` are public beside it (FR-3417).
+- Sections cut from the mesh: an FSI input's `[sections]` may state `source = "mesh"` with
+  the required `stations = <n>`, and the plan cuts blade one's sections from the row's mesh
+  (OBJ or `.fsm`) at `n` radii evenly spaced from the first closed cut at the root to the
+  last at the tip, into `inputs/geometries/<geometry>/<geometry>.<family>.beam.toml` beside
+  the mesh. The file records the mesh's sha256 and the count: the same ones keep the file
+  as it is, hand edits included; another sha256 or count is warned, the old file kept as
+  `.beam.toml.bak` and the sections cut again. A station whose cut does not close is cut at
+  the nearest radius that closes within half the distance to each neighbour, stated in the
+  file and warned; one with none in that window is warned and left out. An input with no
+  `stations`, or fewer than two usable stations, stops the plan. The beam is built from
+  the file as from stated contours, which lie on the mesh cut, and the run's `blade_mesh`
+  record names the file and its sha256. `pyfs-workspace geometry beam <geometry> --families
+  <family ...> --stations <n> [--visual-inspection]` writes the same file on demand and
+  draws `<geometry>.<family>.beam.pdf` (FR-3440 to FR-3444). Migration: none; an input
+  with stated contours reads as before.
 
 ### Fixed
 
