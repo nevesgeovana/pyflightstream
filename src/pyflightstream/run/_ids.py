@@ -478,6 +478,41 @@ def already_recorded_error(
     )
 
 
+def post_stage_options(
+    stage: object, *, sims: Sequence[str] | None = None, keep: bool = False
+) -> dict[str, object]:
+    """Return the PFS-2185.18 keywords a post stage takes: ``sims``, ``keep_unrebuilt``.
+
+    Each is passed only when asked and only to a stage that accepts it, by name
+    or through ``**options``, as ``check_frozen`` is, so a stage registered
+    before them keeps working: one without ``sims`` rebuilds its matrix whole
+    when the run posts a simulation, as every stage did before the run posted
+    each polar as it finished.
+    """
+    import inspect
+
+    try:
+        parameters: Any = inspect.signature(stage).parameters  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        parameters = None
+
+    def takes(name: str) -> bool:
+        return (
+            parameters is None
+            or name in parameters
+            or any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+            )
+        )
+
+    options: dict[str, object] = {}
+    if sims is not None and takes("sims"):
+        options["sims"] = list(sims)
+    if keep and takes("keep_unrebuilt"):
+        options["keep_unrebuilt"] = True
+    return options
+
+
 # FR-326 (P0340-RUN-ONE-POINT): a selection of the matrix, planned or run alone.
 def _names_of(case: SimCase) -> list[str]:
     """Return the point names of one case, in sweep order, as the plan prints them."""

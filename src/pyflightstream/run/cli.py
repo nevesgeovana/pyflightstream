@@ -85,7 +85,6 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
-from pyflightstream.run._campaign import keep_unrebuilt_option
 from pyflightstream.run._cli_parsers import (
     GEOMETRY_COMMANDS,
     _build_parser,
@@ -108,7 +107,7 @@ from pyflightstream.run._cli_print import (
 from pyflightstream.run._cli_query import QUERY_COMMANDS, run_query
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
 from pyflightstream.run._grouped import planner_for, runner_for
-from pyflightstream.run._ids import _AlreadyRecordedError
+from pyflightstream.run._ids import _AlreadyRecordedError, post_stage_options
 from pyflightstream.run._post_selection import post_selection
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
@@ -723,7 +722,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 # FR-307: the post of `collect --sims` is limited to the same simulations.
                 **({"sims": sims} if sims is not None else {}),
                 # PFS-2185.18: without --archive, a product it cannot rebuild is kept.
-                **keep_unrebuilt_option(stage, keep=not args.archive),
+                **post_stage_options(stage, keep=not args.archive),
             )
 
     # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
@@ -930,7 +929,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                             **({"sims": sims_of[matrix]} if matrix in sims_of else {}),
                             # PFS-2185.18: only a confirmed --force-overwrite (or
                             # --archive, which moves them) retires what it cannot rebuild.
-                            **keep_unrebuilt_option(stage, keep=not args.force_overwrite),
+                            **post_stage_options(stage, keep=not args.force_overwrite),
                         )
                     )
                 progress.advance(files=1, current=workspace.products_dir(matrix))

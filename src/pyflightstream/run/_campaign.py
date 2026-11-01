@@ -88,6 +88,7 @@ from pyflightstream.run._ids import (
     _run_id,
     _say,
     already_recorded_error,
+    post_stage_options,
 )
 from pyflightstream.run._plan import (
     _output_collision,
@@ -200,9 +201,8 @@ def _leave_products(
                 workspace,
                 overwrite=True,
                 matrix_stem=matrix_stem,
-                **({"sims": list(sims)} if sims is not None else {}),
-                # PFS-2185.18: a product the run's post cannot rebuild is kept.
-                **keep_unrebuilt_option(stage, keep=sims is not None),
+                # PFS-2185.18: this run's simulations only; what it cannot rebuild is kept.
+                **post_stage_options(stage, sims=sims, keep=sims is not None),
             )
     except Exception as error:
         whose = (
@@ -219,27 +219,6 @@ def _leave_products(
             "`pyfs-matrix post --workspace <root> --archive`, which keeps replaced products."
         )
     return None
-
-
-def keep_unrebuilt_option(stage: object, *, keep: bool) -> dict[str, bool]:
-    """Return ``keep_unrebuilt=True`` for a post stage that takes it, else nothing.
-
-    PFS-2185.18. Passed only when asked and only to a stage that accepts it,
-    by name or through ``**options``, as ``check_frozen`` is: a registered
-    stage written before the keyword keeps working.
-    """
-    if not keep:
-        return {}
-    import inspect
-
-    try:
-        parameters = inspect.signature(stage).parameters  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return {"keep_unrebuilt": True}
-    takes = "keep_unrebuilt" in parameters or any(
-        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
-    )
-    return {"keep_unrebuilt": True} if takes else {}
 
 
 def _leave_sweep_table(
