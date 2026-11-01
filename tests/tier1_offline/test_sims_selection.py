@@ -2,8 +2,9 @@
 
 ``post [matrix] --sims 6001`` rebuilds only the named simulations' products of
 that matrix, in place: the others' files keep their bytes and their
-``products.json`` entries, and the super files, whose columns are the union
-over every simulation of the matrix, are left as they were and named under
+``products.json`` entries; the named simulations' super files are written
+under the column set the others' carry (PFS-2185.18), and when that set cannot
+be read every super file is left as it was and named under
 ``partial.not_rebuilt`` and in ``post.log``. ``collect --sims`` sweeps only the
 SUBMITTED records of the named simulations. Every workspace is a real
 ``tmp_path`` tree built as a run leaves it.
@@ -110,13 +111,10 @@ def _violations(before_hashes, after_hashes, before, after, named: str) -> list[
     found: list[str] = []
     for name, digest in before_hashes.items():
         sim = _sim_of(name, before)
-        cross = Path(name).name.startswith("SUPER-")
-        if (sim != named or cross) and after_hashes.get(name) != digest:
+        if sim != named and after_hashes.get(name) != digest:
             found.append(f"bytes of {name} changed")
     for name, entry in before["products"].items():
-        if (entry.get("sim_id") != named or Path(name).name.startswith("SUPER-")) and after[
-            "products"
-        ].get(name) != entry:
+        if entry.get("sim_id") != named and after["products"].get(name) != entry:
             found.append(f"entry of {name} changed")
     for run_id, relative in before["provenance"].items():
         if f"sim_{named}/" not in run_id and after["provenance"].get(run_id) != relative:
@@ -160,7 +158,8 @@ def test_post_sims_rewrites_only_the_named_simulation_fr_307(tmp_path):
     assert ",0.187158," in (out / kept).read_text(encoding="utf-8")
     assert ",0.287158," not in (out / kept).read_text(encoding="utf-8")
     # The archive of this rebuild (each folder's archive/<stamp>/) holds the
-    # named simulation's files and nothing of another's.
+    # named simulation's files and nothing of another's; the campaign-wide
+    # settings table and superfile measurement are rewritten with them (PFS-2185.18).
     stamp = _SECOND.strftime("%Y%m%d-%H%M%S")
     archived = [
         path.relative_to(out).as_posix()
@@ -170,7 +169,10 @@ def test_post_sims_rewrites_only_the_named_simulation_fr_307(tmp_path):
         and path.name not in {"post.log", "post.log.json", "products.json"}
     ]
     assert archived
-    assert all("6001" in Path(name).name for name in archived), archived
+    assert all(
+        "6001" in Path(name).name or name.split("/")[0] in {"settings", "reports"}
+        for name in archived
+    ), archived
 
 
 def test_post_sims_replaces_only_the_named_entries_and_skips_fr_307(tmp_path):
@@ -188,9 +190,46 @@ def test_post_sims_replaces_only_the_named_entries_and_skips_fr_307(tmp_path):
         assert after["provenance"][run_id] == relative
 
 
-def test_post_sims_leaves_the_super_files_and_says_so_fr_307(tmp_path):
+def test_post_sims_rewrites_the_named_super_file_under_the_others_header_0530(tmp_path):
+    """PFS-2185.18: the named simulation's super file is rebuilt, the others' kept."""
     # Verifies FR-307.
     _, out, before_hashes, before, after_hashes, after = _partial_post(tmp_path)
+    supers = sorted(name for name in before["products"] if Path(name).name.startswith("SUPER-"))
+    named = [name for name in supers if before["products"][name]["sim_id"] == "6001"]
+    others = [name for name in supers if name not in named]
+    assert named and others
+    not_rebuilt = after["partial"]["not_rebuilt"]
+    for name in others:
+        assert after_hashes[name] == before_hashes[name]
+        assert after["products"][name] == before["products"][name]
+        assert name not in not_rebuilt
+    header = (out / others[0]).read_text(encoding="utf-8").splitlines()[0]
+    for name in named:
+        assert after_hashes[name] != before_hashes[name]
+        assert (out / name).read_text(encoding="utf-8").splitlines()[0] == header
+        assert name not in not_rebuilt
+    assert any(",0.28716," in (out / name).read_text(encoding="utf-8") for name in named)
+    assert after["superfile_report"] == before["superfile_report"]
+    assert "superfile_report" not in not_rebuilt
+    report = json.loads((out.parents[1] / after["superfile_report"]).read_text(encoding="utf-8"))
+    assert sorted(entry["name"] for entry in report["files"]) == sorted(
+        Path(name).name for name in supers
+    )
+
+
+def test_post_sims_without_the_measurement_leaves_the_super_files_and_says_so_fr_307(tmp_path):
+    """FR-307: with no readable superfile measurement, no super file is rebuilt."""
+    # Verifies FR-307.
+    workspace = _three_sims(tmp_path)
+    out = _post_whole(workspace)
+    before = _document(out)
+    (workspace.root / before["superfile_report"]).unlink()
+    before_hashes = _hashes(out)
+    _rerun_every_export(workspace)
+    write_campaign_products(
+        workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_SECOND, sims=["6001"]
+    )
+    after_hashes, after = _hashes(out), _document(out)
     supers = sorted(name for name in before["products"] if Path(name).name.startswith("SUPER-"))
     assert supers
     not_rebuilt = after["partial"]["not_rebuilt"]
@@ -199,7 +238,6 @@ def test_post_sims_leaves_the_super_files_and_says_so_fr_307(tmp_path):
         assert after["products"][name] == before["products"][name]
         assert name in not_rebuilt
         assert "union" in not_rebuilt[name]
-    assert after["superfile_report"] == before["superfile_report"]
     assert "superfile_report" in not_rebuilt
     log = (out / "post.log").read_text(encoding="utf-8")
     assert "not rebuilt" in log
@@ -487,3 +525,126 @@ def test_post_sims_does_not_name_the_stop_of_another_simulations_chain_fr_307(tm
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_THIRD)
     skipped_all = _document(workspace.products_dir("matriz")).get("skipped", {})
     assert f"runs/{stopped.run_id}" in skipped_all, skipped_all
+
+
+# ------------------------------------------------------- PFS-2185.18: what plain post posts
+
+
+def _stamps(out: Path) -> dict[str, tuple[str, int]]:
+    """The sha256 and the mtime of every product file, outside the archive and the post's own."""
+    own = {"products.json", "post.log", "post.log.json"}
+    return {
+        path.relative_to(out).as_posix(): (
+            hashlib.sha256(path.read_bytes()).hexdigest(),
+            path.stat().st_mtime_ns,
+        )
+        for path in sorted(out.rglob("*"))
+        if path.is_file()
+        and "archive" not in path.relative_to(out).parts
+        and path.relative_to(out).as_posix() not in own
+    }
+
+
+def _of_sim(stamps: dict, document: dict, sim: str) -> dict:
+    return {name: stamp for name, stamp in stamps.items() if _sim_of(name, document) == sim}
+
+
+def _set_run(workspace: CampaignWorkspace, pol: str, run: str) -> None:
+    """Set the RUN cell of one row of the fixture matrix."""
+    path = workspace.root / "matriz.fs"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header = [cell.strip() for cell in lines[0].split("|")]
+    at = header.index("RUN")
+    for index, line in enumerate(lines[2:], start=2):
+        cells = line.split("|")
+        if cells[0].strip() == pol:
+            cells[at] = f" {run} "
+            lines[index] = "|".join(cells)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_post_rebuilds_only_the_run_1_simulations(tmp_path):
+    """A RUN = 0 simulation keeps its products byte for byte; a RUN = 1 one is rebuilt."""
+    workspace = _three_sims(tmp_path)
+    out = _post_whole(workspace)
+    before = _document(out)
+    stamps = _stamps(out)
+    _rerun_every_export(workspace)
+    _set_run(workspace, "6002", "0")
+    code = matrix_cli.main(["post", "matriz", "--workspace", str(workspace.root), "--archive"])
+    assert code == 0
+    after_stamps = _stamps(out)
+    kept = _of_sim(stamps, before, "6002")
+    assert kept
+    for name, stamp in kept.items():
+        assert after_stamps[name] == stamp, name
+    for name, entry in before["products"].items():
+        if entry.get("sim_id") == "6002":
+            assert _document(out)["products"][name] == entry, name
+    assert _document(out)["partial"]["sims"] == ["6001"]
+    rebuilt = next(name for name in after_stamps if name.startswith("polars/P6001-"))
+    assert ",0.287158," in (out / rebuilt).read_text(encoding="utf-8")
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_post_with_no_run_1_row_warns_and_posts_nothing(tmp_path, capsys):
+    workspace = _three_sims(tmp_path)
+    out = _post_whole(workspace)
+    manifest = (out / "products.json").read_bytes()
+    for pol in ("6001", "6002", "6003"):
+        _set_run(workspace, pol, "0")
+    code = matrix_cli.main(["post", "matriz", "--workspace", str(workspace.root), "--archive"])
+    assert code == 0
+    assert "no row with RUN = 1" in capsys.readouterr().err
+    assert (out / "products.json").read_bytes() == manifest
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_plain_post_posts_only_what_is_not_posted_yet(tmp_path, capsys):
+    """Plain post: the unposted simulation only, then nothing; --archive: every RUN = 1."""
+    workspace = _workspace(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, sims=["6002"])
+    out = workspace.products_dir("matriz")
+    first = _document(out)
+    stamps = _stamps(out)
+    root = str(workspace.root)
+    assert matrix_cli.main(["post", "matriz", "--workspace", root]) == 0
+    document = _document(out)
+    assert document["partial"]["sims"] == ["6001"]
+    after = _stamps(out)
+    for name, stamp in _of_sim(stamps, first, "6002").items():
+        assert after[name] == stamp, name
+    assert any(entry.get("sim_id") == "6001" for entry in document["products"].values())
+    # Nothing is pending now: the second plain post writes nothing.
+    manifest = (out / "products.json").read_bytes()
+    capsys.readouterr()
+    assert matrix_cli.main(["post", "matriz", "--workspace", root]) == 0
+    assert "already posted" in capsys.readouterr().out
+    assert (out / "products.json").read_bytes() == manifest
+    assert _stamps(out) == after
+    # --archive rebuilds every RUN = 1 simulation, here every recorded one: the whole post.
+    assert matrix_cli.main(["post", "matriz", "--workspace", root, "--archive"]) == 0
+    assert "partial" not in _document(out)
+    assert _stamps(out) != after
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_post_without_the_exports_keeps_every_product(tmp_path):
+    """Products brought by a sync, exports absent: plain post and --sims delete nothing."""
+    workspace = _workspace(tmp_path)
+    out = _post_whole(workspace)
+    for export in workspace.root.glob("sims/sim_*/outputs/*"):
+        export.unlink()
+    before = _document(out)
+    products = {name: stamp for name, stamp in _stamps(out).items() if name in before["products"]}
+    assert products
+    root = str(workspace.root)
+    assert matrix_cli.main(["post", "matriz", "--workspace", root]) == 0
+    assert matrix_cli.main(["post", "matriz", "--workspace", root, "--sims", "6001"]) == 0
+    after = _stamps(out)
+    for name, (digest, _mtime) in products.items():
+        assert name in after, f"{name} was deleted"
+        assert after[name][0] == digest, name
+    for name in products:
+        assert name in _document(out)["products"], name

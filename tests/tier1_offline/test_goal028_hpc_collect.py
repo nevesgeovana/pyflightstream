@@ -255,7 +255,7 @@ def test_each_collected_matrix_is_posted_once_and_a_sweep_that_collects_nothing_
         interval=0.0,
         sleep=_no_sleep,
         assessor=accept,
-        post_matrix=lambda _ws, stem: posted.append(stem),
+        post_matrix=lambda _ws, stem, sims=None: posted.append(stem),
     )
     # Two records of `matriz` and one of `outra`: one rebuild each, first seen first.
     assert posted == ["matriz", "outra"]
@@ -265,6 +265,6 @@ def test_each_collected_matrix_is_posted_once_and_a_sweep_that_collects_nothing_
         interval=0.0,
         sleep=_no_sleep,
         assessor=accept,
-        post_matrix=lambda _ws, stem: posted.append(stem),
+        post_matrix=lambda _ws, stem, sims=None: posted.append(stem),
     )
     assert posted == ["matriz", "outra"], "a sweep that collected nothing rebuilt products"

@@ -211,7 +211,9 @@ def test_discard_precedes_post(tmp_path, earlier):
         collect_and_post(workspace, interval=0, assessor=converged)
     seen = []
 
-    def post(ws, matrix):
+    def post(ws, matrix, sims=None):
+        # PFS-2185.18: the post names the simulations the sweep collected or discarded.
+        assert sims == sorted({entry.sim_id for entry in ws.read_manifest()})
         seen.append((matrix, [entry.status for entry in ws.read_manifest()]))
 
     collect_and_post(

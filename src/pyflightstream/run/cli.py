@@ -85,6 +85,7 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
+from pyflightstream.run._campaign import keep_unrebuilt_option
 from pyflightstream.run._cli_parsers import (
     GEOMETRY_COMMANDS,
     _build_parser,
@@ -112,6 +113,7 @@ from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
     InputArtifactError,
+    RunRecord,
     RunStatus,
     WorkspaceError,
     post_diagnostics,
@@ -720,6 +722,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 **({"check_frozen": True} if args.check_frozen else {}),
                 # FR-307: the post of `collect --sims` is limited to the same simulations.
                 **({"sims": sims} if sims is not None else {}),
+                # PFS-2185.18: without --archive, a product it cannot rebuild is kept.
+                **keep_unrebuilt_option(stage, keep=not args.archive),
             )
 
     # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
@@ -860,6 +864,12 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 if chosen & held:
                     sims_of[matrix] = sorted(chosen & held)
             matrices = [matrix for matrix in matrices if matrix in sims_of]
+        elif not args.additional_pproc and not getattr(args, "diagnostics", False):
+            # PFS-2185.18: the RUN = 1 simulations only, and without --archive or
+            # --force-overwrite only those not posted yet.
+            matrices = _post_selection(args, workspace, records, matrices, sims_of)
+            if not matrices:
+                return 0
         if getattr(args, "diagnostics", False):
             # A --check-frozen a settings file gave is left unused here (FR-993).
             if (
@@ -918,6 +928,9 @@ def _cmd_post(args: argparse.Namespace) -> int:
                             **({"check_frozen": True} if args.check_frozen else {}),
                             # FR-307, and only when set, for the same reason.
                             **({"sims": sims_of[matrix]} if matrix in sims_of else {}),
+                            # PFS-2185.18: only a confirmed --force-overwrite (or
+                            # --archive, which moves them) retires what it cannot rebuild.
+                            **keep_unrebuilt_option(stage, keep=not args.force_overwrite),
                         )
                     )
                 progress.advance(files=1, current=workspace.products_dir(matrix))
@@ -952,6 +965,114 @@ def _cmd_post(args: argparse.Namespace) -> int:
         )
         return 3
     return 0
+
+
+def _post_selection(
+    args: argparse.Namespace,
+    workspace: CampaignWorkspace,
+    records: list[RunRecord],
+    matrices: list[str | None],
+    sims_of: dict[str | None, list[str]],
+) -> list[str | None]:
+    """Return the matrices ``post`` rebuilds, filling ``sims_of`` where it is partial.
+
+    PFS-2185.18. A matrix's simulations whose rows state RUN = 0 keep their
+    products; its RUN = 1 simulations are rebuilt by ``--archive`` or
+    ``--force-overwrite``, and otherwise only those with a recorded point
+    the last post did not see (no provenance document, or one written
+    before the point ran again). A selection that is every recorded
+    simulation of the matrix is the whole post; a matrix with no RUN = 1
+    row, or with nothing pending, is said and skipped.
+    """
+    rebuild = bool(args.archive or args.force_overwrite)
+    kept: list[str | None] = []
+    for matrix in matrices:
+        recorded = {record.sim_id for record in records if record.matrix_stem == matrix}
+        active = _active_pols(workspace, matrix, args.matrix)
+        if active is not None and not active:
+            print(
+                f"warning: matrix {matrix} has no row with RUN = 1, so nothing of it is "
+                "posted; set RUN = 1 on the rows to post, or name them with --sims.",
+                file=sys.stderr,
+            )
+            continue
+        chosen = recorded if active is None else recorded & active
+        if not rebuild:
+            chosen = _not_posted_yet(workspace, matrix, records, chosen)
+        if not chosen:
+            say_summary(
+                f"matrix {matrix}: every RUN = 1 simulation is already posted; nothing to "
+                "post (--archive or --force-overwrite rebuilds them)"
+            )
+            continue
+        if chosen != recorded:
+            sims_of[matrix] = sorted(chosen)
+        kept.append(matrix)
+    return kept
+
+
+def _active_pols(
+    workspace: CampaignWorkspace, matrix: str | None, named: str | None
+) -> set[str] | None:
+    """Return the POLs of the matrix's RUN = 1 rows, or None when its file cannot be read."""
+    from pyflightstream.cases.matrix import read_matrix
+    from pyflightstream.workspace import find_matrix
+
+    if matrix is None:
+        return None
+    try:
+        path = Path(named) if named and Path(named).is_file() else None
+        path = path or find_matrix(workspace.root, matrix)
+        if path is None:
+            return None
+        return {row.pol for row in read_matrix(path, active_only=True)}
+    except (MatrixError, OSError, WorkspaceError):
+        return None
+
+
+def _not_posted_yet(
+    workspace: CampaignWorkspace,
+    matrix: str | None,
+    records: list[RunRecord],
+    sims: set[str],
+) -> set[str]:
+    """Return the simulations of ``sims`` holding a point the last post did not see.
+
+    PFS-2185.18. A post writes one provenance document per recorded run,
+    stating when the solver ended (``prov:endTime``), and names it in
+    ``products.json``. A run that document names is posted; one it does not
+    name, or whose document states another end than its record (a point run
+    again), is pending. A simulation whose products stand on disk with no
+    ``products.json`` to read (brought by a sync) is posted, so a post on a
+    machine without the exports never touches it. A submitted point waits
+    for collect.
+    """
+    import json
+
+    out = workspace.products_dir(matrix)
+    try:
+        document = json.loads((out / "products.json").read_text(encoding="utf-8"))
+        provenance = document.get("provenance") or {}
+    except (OSError, ValueError, AttributeError):
+        on_disk = {sim for sim in sims if any((out / "polars").glob(f"P{sim}-*"))}
+        return set(sims) - on_disk
+    pending: set[str] = set()
+    for record in records:
+        if record.matrix_stem != matrix or record.sim_id not in sims or record.sim_id in pending:
+            continue
+        if record.status is RunStatus.SUBMITTED:
+            continue
+        relative = provenance.get(record.run_id)
+        if not relative:
+            pending.add(record.sim_id)
+            continue
+        try:
+            text = (out / relative).read_text(encoding="utf-8")
+        except OSError:
+            continue  # named by the manifest and not on this machine: posted
+        if record.finished_at is not None and record.finished_at not in text:
+            pending.add(record.sim_id)
+    return pending
 
 
 def _additional_post(

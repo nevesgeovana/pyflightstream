@@ -518,7 +518,10 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert "SREF" in (products / "post.log").read_text(encoding="utf-8"), "the doubt is in the log"
     # Since 0.29, post warnings and skip details remain in the durable log.
     # The CLI is quiet by default; --diagnostics reads the complete detail.
-    assert main(["post", "--workspace", str(workspace.root), "--check-frozen"]) == 0
+    # Since 0.53.0 (PFS-2185.18) a plain post posts only what is not posted yet,
+    # and only a confirmed --force-overwrite removes a product it refuses.
+    rebuild = ["--force-overwrite", "--yes"]
+    assert main(["post", "--workspace", str(workspace.root), "--check-frozen", *rebuild]) == 0
     out = capsys.readouterr()
     assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the simulation that agrees"
     assert not (polars / "P3208-M200AL-020_g01.csv").exists(), "the refused polar is not written"
@@ -539,7 +542,10 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
     # No --overwrite since 0.17.0: a rebuild archives what is there, so
     # there is nothing to ask permission for.
-    assert main(["post", "--workspace", str(workspace.root), "--strict", "--check-frozen"]) == 3
+    assert (
+        main(["post", "--workspace", str(workspace.root), "--strict", "--check-frozen", *rebuild])
+        == 3
+    )
     err = capsys.readouterr().err
     assert "--strict" in err and "exit 3" in err, err
     assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the products are still written in full"

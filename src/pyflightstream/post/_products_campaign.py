@@ -386,6 +386,7 @@ def _retire_campaign_products(
     by_sim: Mapping[str, list[RunRecord]],
     archive: bool,
     archive_stamp: datetime,
+    keep_unrebuilt: bool = False,
 ) -> None:
     # What a previous post made from steps free-space has since
     # pruned stays, file and entry, and is therefore not retired below.
@@ -415,6 +416,9 @@ def _retire_campaign_products(
             )
     _retire_optional_products(skipped, previous_products, products_index)
     refused = products_to_retire(skipped, previous_products)
+    if keep_unrebuilt and not archive:
+        _keep_unrebuilt_products(out, refused, skipped, previous_products, products_index)
+        return
     for name in refused - products_index.keys():
         if name in previous_products:
             skipped.setdefault(
@@ -425,6 +429,41 @@ def _retire_campaign_products(
             refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
             if not archive:
                 path.unlink()
+
+
+def _keep_unrebuilt_products(
+    out: Path,
+    refused: set[str],
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: dict[str, dict[str, object]],
+) -> None:
+    """Keep, file and entry, every previous product this post did not rebuild (PFS-2185.18).
+
+    Without an archive the retirement removed the file, so a post on a machine
+    without the exports (the products brought by a sync) deleted every product
+    it could not rebuild. Each is now kept as the last post wrote it, its
+    reason in ``skipped`` says so, and one warning names how many; ``--archive``
+    or a confirmed ``--force-overwrite`` retires them as before.
+    """
+    kept: list[str] = []
+    for name in sorted(refused - products_index.keys()):
+        entry = previous_products.get(name)
+        path = out / name
+        if entry is None or not path.is_file():
+            continue
+        products_index[name] = dict(entry)
+        reason = skipped.get(name, "this post did not rebuild it")
+        skipped[name] = f"kept as the last post wrote it, not rebuilt: {reason}"
+        kept.append(name)
+    if kept:
+        warn(
+            f"{len(kept)} product(s) this post could not rebuild were kept as the last post "
+            f"wrote them, each named under skipped in products.json (first: {kept[0]}); "
+            "post with --archive or --force-overwrite to retire them.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
 
 
 def _retire_optional_products(

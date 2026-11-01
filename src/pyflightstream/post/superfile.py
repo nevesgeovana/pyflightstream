@@ -722,8 +722,13 @@ def write_superfiles(
     target: Callable[[Path], Path],
     fmt: str = "csv",
     overwrite: bool = True,
+    leading: Sequence[str] = (),
 ) -> tuple[list[Path], dict[Path, dict[str, object]], tuple[str, ...]]:
     """Write every superfile of a campaign under ONE column set, its union.
+
+    ``leading`` is the column set super files already written for the same
+    campaign carry (PFS-2185.18): the union starts from it, so a post limited
+    to some simulations writes theirs under the header the others hold.
 
     ``fmt`` is one of :data:`SUPERFILE_FORMATS`. It is SELECTED and never
     guessed: a writer that decided the format from the file name, or from what
@@ -744,6 +749,8 @@ def write_superfiles(
     overwrite : bool, optional
         Replace a file that already exists, as the writer always did (the default).
         False refuses an existing file, naming it, before it is replaced.
+    leading : sequence of str, optional
+        The columns the union starts from; empty by default.
 
     Returns
     -------
@@ -756,8 +763,8 @@ def write_superfiles(
         If the format is not one this package writes.
     """
     _validate_superfile_formats(drafts, fmt)
-    columns: list[str] = []
-    seen: set[str] = set()
+    columns: list[str] = list(dict.fromkeys(leading))
+    seen: set[str] = set(columns)
     for draft in drafts:
         for row in draft.rows:
             for key in row:

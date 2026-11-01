@@ -6197,3 +6197,124 @@ def test_x_f_1316_a_geometry_id_with_a_space_or_bracket_is_refused_naming_the_ch
     message = str(caught.value)
     assert "the character ' '" in message, message
     assert "'my_wing_v2'" in message, "the renamed id is not suggested"
+
+
+# ------------------------------------------------- PFS-2185.18: the run posts per polar
+
+
+def _two_rows_matrix(tmp_path, runs=("1", "1")):
+    """The one-row workspace of :func:`_steady_sweep_matrix` with a second row, 5002."""
+    workspace, path = _steady_sweep_matrix(tmp_path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    second = lines[2].replace("5001", "5002", 1)
+    path.write_text("\n".join([*lines[:3], second]) + "\n", encoding="utf-8")
+    _set_runs(path, runs)
+    return workspace, path
+
+
+def _set_runs(path, runs):
+    """Set the RUN cell of the matrix's rows, in order."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header = [cell.strip() for cell in lines[0].split("|")]
+    at = header.index("RUN")
+    rows = []
+    for line, run in zip(lines[2:], runs, strict=True):
+        cells = [cell.strip() for cell in line.split("|")]
+        cells[at] = run
+        rows.append(" | ".join(cells))
+    path.write_text("\n".join([*lines[:2], *rows]) + "\n", encoding="utf-8")
+
+
+def _run_the_matrix(workspace, matrix, stub):
+    return run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=stub,
+        resume=True,
+    )
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_the_run_posts_each_simulation_before_the_next_runs(tmp_path, monkeypatch):
+    """Each polar is posted, alone, as soon as its points are recorded, and once."""
+    import pyflightstream.run._campaign as campaign_module
+
+    workspace, matrix = _two_rows_matrix(tmp_path)
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    calls = []
+
+    def spy(ws, **options):
+        sweep = ws.products_dir("warm") / "campaign_sweep.csv"
+        calls.append(
+            (
+                options.get("sims"),
+                sorted({r.sim_id for r in ws.read_manifest()}),
+                sweep.read_text(encoding="utf-8") if sweep.is_file() else "",
+            )
+        )
+        return []
+
+    monkeypatch.setattr(campaign_module, "post_stages", lambda: (spy,))
+    _run_the_matrix(workspace, matrix, stub)
+    assert [sims for sims, _, _ in calls] == [["5001"], ["5002"]]
+    # The first post ran before any point of 5002 was recorded.
+    assert calls[0][1] == ["5001"]
+    # The sweep table written after the first post already holds 5001.
+    assert "5001" in calls[1][2] and "5002" not in calls[1][2]
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_a_failed_post_of_one_simulation_warns_and_the_next_is_posted(
+    tmp_path, monkeypatch
+):
+    import pyflightstream.run._campaign as campaign_module
+
+    workspace, matrix = _two_rows_matrix(tmp_path)
+    posted = []
+
+    def stage(ws, **options):
+        if options.get("sims") == ["5001"]:
+            raise OSError("disk full")
+        posted.append(options.get("sims"))
+        return []
+
+    monkeypatch.setattr(campaign_module, "post_stages", lambda: (stage,))
+    with pytest.warns(PyflightstreamWarning, match=r"simulation\(s\) 5001 were NOT written"):
+        _run_the_matrix(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
+    assert posted == [["5002"]]
+
+
+@pytest.mark.requirement("FR-3443")
+def test_pfs_2185_18_a_run_of_one_simulation_leaves_the_others_products_untouched(tmp_path):
+    """The real post: 5001's files keep their bytes and mtimes when 5002 runs later.
+
+    The settings table and the measurements are campaign-wide and take 5002 in.
+    """
+    workspace, matrix = _two_rows_matrix(tmp_path, runs=("1", "0"))
+    _run_the_matrix(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
+    out = workspace.products_dir("warm")
+    document = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    own = {"products.json", "post.log", "post.log.json", "campaign_sweep.csv"}
+    files = {
+        path: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in out.rglob("*")
+        if path.is_file() and path.name not in own and not {"reports", "settings"} & set(path.parts)
+    }
+    assert files
+    first = dict(document["products"])
+    assert first and all(entry.get("sim_id") in ("5001", None) for entry in first.values())
+    _set_runs(matrix, ("0", "1"))
+    _run_the_matrix(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
+    after = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    for path, (data, mtime) in files.items():
+        assert path.read_bytes() == data, path
+        assert path.stat().st_mtime_ns == mtime, path
+    for name, entry in first.items():
+        if entry.get("sim_id") == "5001":
+            assert after["products"][name] == entry, name
+    assert any(entry.get("sim_id") == "5002" for entry in after["products"].values())

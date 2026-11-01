@@ -35,7 +35,7 @@ import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -606,14 +606,23 @@ class _PartialPost:
     """What a post limited to some simulations keeps of the previous manifest (FR-307).
 
     ``products``, ``skipped`` and ``provenance`` are the previous entries of
-    every other simulation, carried unchanged, and the entries of every
-    CROSS-SIMULATION product, which such a post does not rebuild: the super
-    files, whose columns are the union over every simulation of the matrix.
+    every other simulation, carried unchanged, their super files included.
     ``not_rebuilt`` names each product left as the last whole post wrote it,
     with the reason; it is the manifest's ``partial.not_rebuilt`` and the post
     log's warning. ``rebuild_sections`` says whether the sections measurement,
     which reads every recorded point's script, can be rebuilt as a whole post
     rebuilds it.
+
+    ``super_columns`` (PFS-2185.18) is the column set the other simulations'
+    super files carry, read from the last superfile measurement, and empty when
+    no other simulation has a super file. A super file's columns are the union
+    over every simulation of the matrix, so the named simulations' super files
+    are written under that set, and a post limited to one polar leaves that
+    polar's super file beside the others'. None when the set cannot be read
+    while other super files stand: every super file, the named ones included,
+    is then left as the last whole post wrote it and named in ``not_rebuilt``.
+    ``super_report_files`` holds each file of that measurement by name, with
+    its columns and its row count, for the measurement this post rewrites.
     """
 
     sims: frozenset[str]
@@ -623,6 +632,8 @@ class _PartialPost:
     not_rebuilt: dict[str, str]
     rebuild_sections: bool
     whole: str
+    super_columns: tuple[str, ...] | None = None
+    super_report_files: dict[str, tuple[tuple[str, ...], int]] = field(default_factory=dict)
 
 
 def _is_a_super_file(name: str) -> bool:
@@ -683,10 +694,17 @@ def _partial_post(
     }
     label = ", ".join(sorted(sims))
     whole = f"pyfs-matrix post {matrix_stem}" if matrix_stem else "pyfs-matrix post"
+    others_super = any(
+        _is_a_super_file(name) and entry.get("sim_id") not in sims
+        for name, entry in previous_products.items()
+    )
+    super_columns, super_report_files = (
+        _previous_superfiles(workspace, previous) if others_super else ((), {})
+    )
     products = {
         name: dict(entry)
         for name, entry in previous_products.items()
-        if entry.get("sim_id") not in sims or _is_a_super_file(name)
+        if entry.get("sim_id") not in sims or (_is_a_super_file(name) and super_columns is None)
     }
     not_rebuilt = {
         name: (
@@ -695,9 +713,9 @@ def _partial_post(
             f"last whole post wrote, and {whole} rebuilds it"
         )
         for name in products
-        if _is_a_super_file(name)
+        if _is_a_super_file(name) and super_columns is None
     }
-    if previous.get("superfile_report"):
+    if previous.get("superfile_report") and super_columns is None:
         not_rebuilt["superfile_report"] = (
             "the measurement of the super files, which this post did not rebuild; it is the "
             f"one the last whole post wrote, and {whole} rebuilds it"
@@ -727,7 +745,35 @@ def _partial_post(
         not_rebuilt=not_rebuilt,
         rebuild_sections=not unread,
         whole=whole,
+        super_columns=super_columns,
+        super_report_files=super_report_files,
     )
+
+
+def _previous_superfiles(
+    workspace: CampaignWorkspace, previous: Mapping[str, Any]
+) -> tuple[tuple[str, ...] | None, dict[str, tuple[tuple[str, ...], int]]]:
+    """Return the super files' columns the last superfile measurement names, and its files.
+
+    PFS-2185.18. The columns in the order its files carry them, a column first
+    met in a later file after those of the earlier ones, and each file by name
+    with its columns and rows. The columns are None when the previous manifest
+    names no measurement, or it cannot be read.
+    """
+    relative = previous.get("superfile_report")
+    if not isinstance(relative, str):
+        return None, {}
+    columns: list[str] = []
+    files: dict[str, tuple[tuple[str, ...], int]] = {}
+    try:
+        report = json.loads((workspace.root / relative).read_text(encoding="utf-8"))
+        for entry in report["files"]:
+            held = tuple(map(str, entry["columns"]))
+            files[str(entry["name"])] = (held, int(entry["rows"]))
+            columns.extend(column for column in held if column not in columns)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, {}
+    return (tuple(columns) or None), files
 
 
 def _number(text: object) -> float | None:

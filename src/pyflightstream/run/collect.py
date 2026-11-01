@@ -1674,7 +1674,14 @@ def _post_each(
     recorded = workspace.read_manifest() if selected is not None else []
     for stem in dict.fromkeys(stems):
         if selected is None:
-            post_matrix(workspace, stem)
+            # PFS-2185.18: only the simulations this sweep collected or
+            # discarded are posted; every other one keeps its products.
+            touched = {
+                record.sim_id
+                for record in [*records, *report.discarded]
+                if record.matrix_stem == stem
+            }
+            post_matrix(workspace, stem, sims=sorted(touched))
             continue
         of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
         post_matrix(workspace, stem, sims=sorted(selected & of_matrix))

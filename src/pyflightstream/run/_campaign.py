@@ -176,8 +176,15 @@ def _runs_as_one_job(campaign: Campaign, case: SimCase, executor: Executor) -> b
     return _is_one_job(campaign, case) and not isinstance(executor, GroupingExecutor)
 
 
-def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
+def _leave_products(
+    workspace: CampaignWorkspace, matrix_stem: str | None, sims: Sequence[str] | None = None
+) -> str | None:
     """Write the campaign's products under its products root, never raising.
+
+    ``sims`` limits the post to those simulations (FR-307's partial rebuild):
+    the run posts each simulation it ran as soon as its last point of the run
+    is recorded, and every other simulation's products stay as they were
+    (PFS-2185.18).
 
     PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
     same rule: the products are derived from the manifest and the collected
@@ -189,10 +196,22 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
     where = workspace.products_dir(matrix_stem)
     try:
         for stage in post_stages():
-            stage(workspace, overwrite=True, matrix_stem=matrix_stem)
+            stage(
+                workspace,
+                overwrite=True,
+                matrix_stem=matrix_stem,
+                **({"sims": list(sims)} if sims is not None else {}),
+                # PFS-2185.18: a product the run's post cannot rebuild is kept.
+                **keep_unrebuilt_option(stage, keep=sims is not None),
+            )
     except Exception as error:
+        whose = (
+            "its products were"
+            if sims is None
+            else (f"the products of simulation(s) {', '.join(sims)} were")
+        )
         return (
-            f"the campaign ran and its products were NOT written under "
+            f"the campaign ran and {whose} NOT written under "
             f"{where}: {type(error).__name__}: {error}. "
             f"No run outcome is affected and nothing is lost: every point is recorded in "
             f"{workspace.manifest_path}. Fix the cause and rebuild them with "
@@ -200,6 +219,27 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
             "`pyfs-matrix post --workspace <root> --archive`, which keeps replaced products."
         )
     return None
+
+
+def keep_unrebuilt_option(stage: object, *, keep: bool) -> dict[str, bool]:
+    """Return ``keep_unrebuilt=True`` for a post stage that takes it, else nothing.
+
+    PFS-2185.18. Passed only when asked and only to a stage that accepts it,
+    by name or through ``**options``, as ``check_frozen`` is: a registered
+    stage written before the keyword keeps working.
+    """
+    if not keep:
+        return {}
+    import inspect
+
+    try:
+        parameters = inspect.signature(stage).parameters  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return {"keep_unrebuilt": True}
+    takes = "keep_unrebuilt" in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+    return {"keep_unrebuilt": True} if takes else {}
 
 
 def _leave_sweep_table(
@@ -310,6 +350,9 @@ class _CampaignState:
     accept_unregistered_build: bool
     sweep_csv: str | Path | None
     accepted_builds: Collection[str] = ()
+    #: The simulations this call posted, each once, as its last point of the
+    #: call was recorded (PFS-2185.18).
+    posted: list[str] = field(default_factory=list)
     case_builds: list[SolverBuild | None] = field(init=False)
     manifest: dict[str, RunRecord] = field(init=False)
     recorded: set[str] = field(init=False)
@@ -561,7 +604,10 @@ def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
     """Execute the resolved schedule, keeping replacement failures recoverable."""
     _preflight_campaign_schedule(state)
     _start_campaign_progress(state)
-    for case, build, pending in state.scheduled:
+    # PFS-2185.18: each simulation is posted once its last scheduled case of
+    # this call has run, before the next case's points run.
+    last_case = {case.sim_id: index for index, (case, _, _) in enumerate(state.scheduled)}
+    for index, (case, build, pending) in enumerate(state.scheduled):
         state.case, state.build, state.pending = case, build, pending
         _prepare_campaign_case(state)
         if (
@@ -579,7 +625,31 @@ def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
             _execute_campaign_sweep(state, cold=cold)
         else:
             _execute_campaign_points(state)
+        if last_case[case.sim_id] == index:
+            _post_the_simulation(state, case.sim_id)
     return _finish_campaign(state)
+
+
+def _post_the_simulation(state: _CampaignState, sim_id: str) -> None:
+    """Post one simulation this call ran, and rewrite the sweep table, never raising.
+
+    PFS-2185.18. Only the simulation's own products are rebuilt, through the
+    partial post (FR-307), so the products folder holds every simulation
+    finished so far as the matrix runs. A simulation with a point submitted
+    to a scheduler is left to ``collect``, which posts it once its outputs
+    land. A post that fails is warned and the run goes on (PFS-2029.15.03).
+    """
+    ran = [record for record in state.records if record.sim_id == sim_id]
+    if not ran or any(record.status is RunStatus.SUBMITTED for record in ran):
+        return
+    matrix = state.campaign.matrix_stem
+    problem = _leave_products(state.workspace, matrix, [sim_id])
+    if problem is not None:
+        warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
+    problem = _leave_sweep_table(state.workspace, matrix, state.sweep_csv)
+    if problem is not None:
+        warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
+    state.posted.append(sim_id)
 
 
 def _resolve_campaign_schedule(state: _CampaignState) -> None:
@@ -1330,10 +1400,10 @@ def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
             "(add --watch to wait), which posts once "
             "their outputs land."
         )
-    elif state.recorded:
-        problem = _leave_products(state.workspace, state.campaign.matrix_stem)
-        if problem is not None:
-            warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
+    elif state.recorded and not state.posted:
+        # PFS-2185.18: every simulation this call ran was posted as its last
+        # point was recorded, so nothing is posted again here; a call that
+        # ran nothing (a resume) still leaves the sweep table.
         problem = _leave_sweep_table(state.workspace, state.campaign.matrix_stem, state.sweep_csv)
         if problem is not None:
             # The one residual, stated rather than hidden: under
