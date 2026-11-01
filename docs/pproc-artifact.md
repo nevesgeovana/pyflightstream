@@ -642,13 +642,13 @@ described with [the export threshold](workflow-unsteady-rotor.md#exports-that-be
 configured:
 
 ```text
-pyfs-matrix post matriz.fs --workspace . # overwrites products in place
+pyfs-matrix post matriz.fs --workspace . # its RUN = 1 simulations not posted yet
 pyfs-matrix post --workspace . # every matrix the manifest names
 pyfs-matrix post --workspace . --strict # exit 3 if any product was skipped
-pyfs-matrix post --workspace . --archive # keeps a copy before overwriting
+pyfs-matrix post --workspace . --archive # every RUN = 1 simulation, a copy kept
 ```
 
-**A rebuild overwrites products in place by default.** Add `--archive` to keep a copy of replaced products. The `--force-overwrite` and `--yes` flags add an explicit confirmation path; they do not change the archive policy.
+**A rebuild overwrites products in place by default.** With no option a post rebuilds only the simulations whose rows state RUN = 1 and that are not posted yet; `--archive` and `--force-overwrite` rebuild every RUN = 1 simulation, and `--sims` exactly the named ones ([posting some simulations](definitions/posting-and-collecting-some-simulations.md)). `--archive` keeps a copy of replaced products. A product the post cannot rebuild is kept and warned, unless `--archive` moves it into the archive or a `--force-overwrite`, confirmed (`--yes` in a script), removes it.
 
 A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole

@@ -34,7 +34,8 @@ and its `products.json` entries as they are, and a matrix with no RUN = 1 row
 is warned and nothing of it is posted. With no other option it posts only the
 RUN = 1 simulations not posted yet: those holding a recorded point for which
 the last post wrote no provenance document, or whose document states another
-solver end than the record (a point run again). Products brought by `sync`
+solver end (a point run again) or another status (a record a later command
+re-classified, discarded or marked converged) than the record. Products brought by `sync`
 count as posted. When nothing is pending it says so and exits 0. `--archive`
 and `--force-overwrite` rebuild every RUN = 1 simulation; when that is every
 recorded simulation of the matrix, it is the whole post. `--sims` rebuilds
@@ -44,7 +45,12 @@ No post deletes a product it could not rebuild, such as a product whose
 exports are not on this machine. Without `--archive` the product is kept,
 file and `products.json` entry, its reason under `skipped` begins with "kept
 as the last post wrote it", and one warning counts them. `--archive` moves it
-into `archive/<stamp>/`, and a confirmed `--force-overwrite` removes it.
+into `archive/<stamp>/`, and a confirmed `--force-overwrite` removes it. Two
+products a post retires on purpose are moved into `archive/<stamp>/` even
+without `--archive`, never kept current and never deleted: a polar table of a
+simulation the post rebuilt under another name (polar names follow the
+contributing records, so the old name holds stale numbers), and, under
+`--check-frozen`, every product the frozen check refuses.
 
 `pyfs-matrix collect --sims 2006,2007` sweeps only the SUBMITTED records of
 those simulations, and of their additional extractions; every other record is
