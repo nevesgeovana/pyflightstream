@@ -19,7 +19,8 @@ their module, where they are documented and imported.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import math
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -288,29 +289,85 @@ def _placed_by_origin(
     placements[frame] = FramePlacement(origin=origin, axes=held.axes if held is not None else None)
 
 
+def turned_about(
+    vector: Sequence[float], axis: Sequence[float], angle_deg: float
+) -> tuple[float, float, float]:
+    """Return ``vector`` turned right-handed about the direction ``axis`` by ``angle_deg``.
+
+    Rodrigues' rotation, the axis normalised here; each component is rounded to
+    twelve decimals, so a frame turned by a whole passage reads as the axes it
+    is and not as their last-bit residue. The one rotation of the package's
+    frames: the placement ledger turns a frame with it (``ROTATE_COORDINATE_SYSTEM``)
+    and a quasi-steady wheel turns its blade and clocking frames with it.
+
+    Examples
+    --------
+    >>> turned_about((0.0, 1.0, 0.0), (1.0, 0.0, 0.0), 90.0)
+    (0.0, 0.0, 1.0)
+    """
+    norm = math.sqrt(sum(float(value) ** 2 for value in axis))
+    kx, ky, kz = (float(value) / norm for value in axis)
+    vx, vy, vz = (float(value) for value in vector)
+    cos, sin = math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg))
+    dot = kx * vx + ky * vy + kz * vz
+    cross = (ky * vz - kz * vy, kz * vx - kx * vz, kx * vy - ky * vx)
+    x, y, z = (
+        round(v * cos + c * sin + k * dot * (1.0 - cos), 12) + 0.0
+        for v, c, k in zip((vx, vy, vz), cross, (kx, ky, kz), strict=True)
+    )
+    return x, y, z
+
+
+#: The axis ``ROTATE_COORDINATE_SYSTEM`` names, by its index among the pivot's
+#: axes: the letters, and the digits 1, 2, 3 read in frame order (cad.yaml).
+_TURN_AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2, "1": 0, "2": 1, "3": 2}
+
+
 def _placed_by_turn(
     placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
 ) -> None:
-    """``ROTATE_COORDINATE_SYSTEM`` turns by a sign the manual does not state.
+    """``ROTATE_COORDINATE_SYSTEM`` turns a frame about an axis of another (FSM-26.120 p.330).
 
-    The axes are forgotten; the origin survives only when the frame sits at the
-    origin of the frame it turns about, which a turn about that point cannot
-    move whatever its sign.
+    The frame's origin turns about the pivot frame's origin, and its axes turn,
+    right-handed about the pivot's named axis by ``angle`` degrees
+    (:func:`turned_about`, the sense ``ROTATE_SURFACE`` is given everywhere in
+    the package). A turn by 0 leaves the frame exactly as it was. A part of the
+    pose the turn needs and the ledger does not hold is forgotten: the origin
+    needs the frame's origin and the pivot's origin and axes, the axes need the
+    frame's axes and the pivot's axes.
     """
-    # NO ZERO-TURN SHORTCUT (GOAL-034 Q4, GEO-060 A1b/A1c): that a turn by 0
-    # leaves a frame in place is a claim about the solver with no owner decision
-    # and no recorded native export behind it, so the turn is treated as any other.
+    # THE TURN IS FOLLOWED, RIGHT-HANDED (owner's answer to GOAL-034 Q4 for a
+    # rotor's frames, inbox row 182, 2026-11-01: the rotate turns the spinner,
+    # blades or none, and the local frames go with it). The manual does not
+    # state the sense; it is to be confirmed by one recorded solver export, the
+    # turn-check case (+30 deg about Y, a kind = "default" probe line in a frame
+    # offset from its pivot), until which the right-hand rule is the package's
+    # assumption, the one the quasi-steady wheel already makes.
     held = placements.get(frame)
+    angle = float(bound["angle"])  # type: ignore[arg-type]
+    if angle == 0.0:
+        return
     pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[call-overload]
-    stays = (
-        held is not None
-        and pivot is not None
-        and held.origin is not None
-        and held.origin == pivot.origin
-    )
-    placements[frame] = FramePlacement(
-        origin=held.origin if stays and held is not None else None, axes=None
-    )
+    which = _TURN_AXIS_INDEX.get(str(bound.get("rotation_axis")).strip().upper())
+    shaft = None
+    if pivot is not None and pivot.axes is not None and which is not None:
+        shaft = pivot.axes[which]
+    if shaft is None or not any(float(value) for value in shaft) or held is None:
+        placements[frame] = FramePlacement(origin=None, axes=None)
+        return
+    origin = None
+    if held.origin is not None and pivot is not None and pivot.origin is not None:
+        arm = [a - b for a, b in zip(held.origin, pivot.origin, strict=True)]
+        x, y, z = (
+            round(a + b, 12) + 0.0
+            for a, b in zip(pivot.origin, turned_about(arm, shaft, angle), strict=True)
+        )
+        origin = (x, y, z)
+    axes = None
+    if held.axes is not None:
+        ex, ey, ez = (turned_about(each, shaft, angle) for each in held.axes)
+        axes = (ex, ey, ez)
+    placements[frame] = FramePlacement(origin=origin, axes=axes)
 
 
 def _placed_by_delete(

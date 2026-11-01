@@ -140,8 +140,10 @@ and not solved, and whether such a model is acceptable is the study's call.
 A frame moves to an ABSOLUTE origin, which the package computes from where its
 script placed the frame, reading that origin in metres and converting from the simulation's length
 unit, so a translation is in metres whatever that unit is. A frame it cannot place is refused by name rather than
-moved to a guess, and the axis of a frame it cannot orient is refused the same
-way: a blade frame is turned into place, so move along its hub frame instead.
+moved to a guess, and the axis of a frame it cannot orient (one an opened
+project carries) is refused the same way, naming the frames it can. A frame
+turned by `ROTATE_COORDINATE_SYSTEM`, a blade frame or a frame a row's `ROTATE`
+turns, is followed right-handed about the axis it turns about.
 
 One row is one position, so a translation is not swept; the positions of a
 study are one row each, beside an aerodynamic sweep if the row has one. The

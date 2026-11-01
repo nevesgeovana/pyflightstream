@@ -740,9 +740,9 @@ def _p0530_ffmiss_plan(root: Path, entries: list[dict]):
     return script, record, said
 
 
-@pytest.mark.requirement("FR-3455")
+@pytest.mark.requirement("FR-3456")
 def test_p0530_ffmiss_an_entry_whose_families_the_row_lacks_is_warned_and_skipped(tmp_path):
-    """FR-3455: no family of the entry on the row warns and skips it; the plane is still laid.
+    """FR-3456: no family of the entry on the row warns and skips it; the plane is still laid.
 
     RED on e4041f303: the plan stopped with "the far field of the pproc artifact
     'p9' cannot be produced on this row: ... names no family of the geometry".
@@ -759,9 +759,9 @@ def test_p0530_ffmiss_an_entry_whose_families_the_row_lacks_is_warned_and_skippe
     assert "ignored" in warning
 
 
-@pytest.mark.requirement("FR-3455")
+@pytest.mark.requirement("FR-3456")
 def test_p0530_ffmiss_an_entry_lacking_one_of_two_families_traces_the_present_one(tmp_path):
-    """FR-3455: one of two families absent warns once naming it, and A is cut over the other.
+    """FR-3456: one of two families absent warns once naming it, and A is cut over the other.
 
     RED on e4041f303: the plan cut W and said nothing of 'tail'.
     """

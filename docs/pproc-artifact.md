@@ -284,6 +284,22 @@ streamline seed) on a row that does not place it is LEFT OUT of that row too,
 and the plan says so once per campaign, naming the rows. A frame name no
 declared rotor owns, such as a misspelling, is REFUSED.
 
+A row that turns a rotor with `ROTATE` turns its `<ALIAS>_SMRP` and
+`<ALIAS>_RMRP` with it, whether the geometry carries the blades or only the
+spinner. The package follows the turn: the frame's origin turns about the
+origin of the frame the `AXIS` names, and its axes turn, right-handed about
+that axis by the row's angle; a turn by 0 leaves the frame where it was placed.
+A probe table or the sampled volume section that a row places in reference
+coordinates (every steady row, and an unsteady row's `kind = "default"`
+entries, sampled once after the march) is PLACED at the turned frame's
+position, so the probes turn with the rotor and the disc stays in the
+propeller plane of the tilted rotor. The manual does not state the sense of the
+turn; the right-hand rule is the one the quasi-steady wheel already assumes,
+and one recorded solver export is to confirm it. On an unsteady row,
+`kind = "instantaneous"` hands the solver the frame itself. An entry in a frame
+whose position the package does not know (one an opened project carries) is
+LEFT OUT of that row, and the plan says so once per campaign, naming the rows.
+
 !!! warning "A rotor's frames are named from its alias"
 
  A motion record that names a rotor block of the reference

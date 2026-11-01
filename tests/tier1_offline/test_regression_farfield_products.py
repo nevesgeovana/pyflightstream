@@ -891,9 +891,9 @@ def _farfield_products___add_outputs(
     manifest.write_text(json.dumps(encode_rows(runs), indent=1), encoding="utf-8")
 
 
-@pytest.mark.requirement("FR-3455")
+@pytest.mark.requirement("FR-3456")
 def test_p0530_ffmiss_post_skips_an_entry_the_simulation_lacks_and_writes_the_rest(tmp_path):
-    """FR-3455: a sections entry naming only families the run lacks is skipped, said as such.
+    """FR-3456: a sections entry naming only families the run lacks is skipped, said as such.
 
     RED on e4041f303: the skip said "the plan of a new run adds one", which no
     plan does for a family the geometry does not carry.

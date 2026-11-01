@@ -903,7 +903,7 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     covered = _covered(case, inventory)
     selected = _selected(case, spec, inventory)
     if selected and spec.families is not None:
-        # FR-3455: traced over the families the row carries; the plan names the others (FR-320).
+        # FR-3456: traced over the families the row carries; the plan names the others (FR-320).
         aliases = _the_names_a_rotor_answers_to(case)
         lacked = declared_names_the_geometry_lacks(spec.families, inventory, aliases)
         what = f"[[farfields]] entry {spec.name!r}"

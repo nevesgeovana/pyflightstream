@@ -266,14 +266,19 @@ def test_goal022_refusals_what_the_case_does_not_have_is_refused_by_name(tmp_pat
         assert message.count(clause) == 1, (clause, message)
 
 
-def test_goal022_refusals_a_frame_turned_into_place_is_not_an_axis_to_move_along(tmp_path):
-    """A blade frame is placed by a turn whose sign the manual does not state."""
+@pytest.mark.requirement("FR-3455")
+def test_p2185_20_a_frame_turned_into_place_is_an_axis_to_move_along(tmp_path):
+    """A blade frame is placed by a turn the ledger follows (PFS-2185.20), so its axes
+    are known: the row moves the wheel along PUSHER_RMRP1-X, the shaft, and the hub with
+    it. Until 0.53.0 the axis was refused as one the script could not orient."""
     case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP1-X / ALIAS: PUSHER}")
-    with pytest.raises(PyflightstreamError) as refused:
-        lines_of(case)
-    message = str(refused.value)
-    for clause in ("along PUSHER_RMRP1-X", "cannot state which way", "'PUSHER_SMRP'"):
-        assert message.count(clause) == 1, (clause, message)
+    lines = lines_of(case)
+    blade, hub = (index_of_frame(lines, name) for name in ("PUSHER_RMRP1", "PUSHER_SMRP"))
+    moves = surface_moves(lines)
+    assert moves and all(
+        move.startswith(f"TRANSLATE_SURFACE_IN_FRAME {blade} 0.1 0.0 0.0 METER ") for move in moves
+    ), moves
+    assert f"SET_COORDINATE_SYSTEM_ORIGIN {hub} 7.3 0.0 0.0 METER" in origin_moves(lines)
 
 
 # ---------------------------------------------------------------- emission
@@ -559,14 +564,30 @@ def test_goal022_refusals_a_case_authored_in_python_meets_the_finite_distance_re
 
 
 def test_goal022_refusals_an_axis_it_cannot_orient_lists_only_frames_it_can(tmp_path):
-    """A blade frame is turned into place; the remedy names the frames whose axes are stated."""
-    case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP1-X / ALIAS: PUSHER}")
+    """A frame a command moved behind the ledger has no axes the script can state; the
+    remedy names the frames whose axes are stated, and not that one."""
+    from pyflightstream.cases.workflows._frames import _translations
+    from pyflightstream.script import helpers
+
+    script = Script("26.123")
+    script.declare_existing(boundaries={"Wing": 1, "Body": 2})
+    frames = {
+        name: helpers.coordinate_frame(
+            script, name=name, origin=(0.4, 0.0, 0.1), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+        )
+        for name in ("NAC", "MRP", "TAIL")
+    }
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", frames["NAC"])
+    case = wing_case(
+        tmp_path, translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: Wing}")
+    )
     with pytest.raises(PyflightstreamError) as refused:
-        lines_of(case)
+        _translations(case, script, frames)
     message = str(refused.value)
+    assert "along NAC-X" in message and "cannot state which way" in message, message
     listing = message.split("on this case those are ", 1)[1]
-    assert "'PUSHER_SMRP'" in listing and "'LIFT_L1_SMRP'" in listing, listing
-    assert "RMRP1" not in listing and "<ALIAS>" not in message, listing
+    assert "'MRP'" in listing and "'TAIL'" in listing, listing
+    assert "NAC" not in listing, listing
 
 
 def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
@@ -616,6 +637,65 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
     script.emit("DELETE_COORDINATE_SYSTEM", index)
     assert later not in script.frame_placements, "a delete shifts every index above it"
     assert list(script.frame_placements) == [1]
+
+
+@pytest.mark.requirement("FR-3455")
+def test_p2185_20_the_ledger_turns_a_frame_right_handed_about_its_pivots_axis():
+    """RED on ed16855c7: a turned frame's axes were forgotten, and its origin with them.
+
+    ROTATE_COORDINATE_SYSTEM turns the frame's origin about the pivot's origin and
+    its axes, right-handed about the pivot's named axis by the stated angle (the
+    owner's answer of 2026-11-01). The pivot's Y here is the reference's Z, so a
+    90 deg turn carries pivot + (1, 0, 0) to pivot + (0, 1, 0), exactly; the other
+    sense would carry it to pivot + (0, -1, 0).
+    """
+    from pyflightstream.script import helpers
+
+    script = Script("26.123")
+    pivot = helpers.coordinate_frame(
+        script, name="TILT", origin=(1.0, 2.0, 3.0), x_axis=(0, 1, 0), y_axis=(0, 0, 1)
+    )
+    hub = helpers.coordinate_frame(
+        script, name="HUB", origin=(2.0, 2.0, 3.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    script.emit("ROTATE_COORDINATE_SYSTEM", hub, pivot, "Y", 90.0)
+    held = script.frame_placements[hub]
+    assert held.origin == (1.0, 3.0, 3.0)
+    assert held.axes == ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    # The digit spelling names the same axis of the pivot, and the turn adds up.
+    script.emit("ROTATE_COORDINATE_SYSTEM", hub, pivot, "2", -90.0)
+    held = script.frame_placements[hub]
+    assert held.origin == (2.0, 2.0, 3.0)
+    assert held.axes == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    # A pivot whose pose the script does not know turns the frame somewhere unknown.
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", pivot)
+    script.emit("ROTATE_COORDINATE_SYSTEM", hub, pivot, "Y", 30.0)
+    held = script.frame_placements[hub]
+    assert held.origin is None and held.axes is None
+
+
+@pytest.mark.requirement("FR-3455")
+def test_p2185_20_a_turn_by_zero_keeps_the_frame_exactly_as_it_was():
+    """A turn by 0 leaves the frame as placed, bit for bit, whatever its pivot."""
+    from pyflightstream.script import helpers
+
+    script = Script("26.123")
+    pivot = helpers.coordinate_frame(
+        script, name="TILT", origin=(9.2602, 0.0, 1.419), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    hub = helpers.coordinate_frame(
+        script,
+        name="HUB",
+        origin=(1.0 / 3.0, 0.1234567890123456, 2.0 / 7.0),
+        x_axis=(0.6, 0.8, 0),
+        y_axis=(-0.8, 0.6, 0),
+    )
+    before = script.frame_placements[hub]
+    script.emit("ROTATE_COORDINATE_SYSTEM", hub, pivot, "Y", 0.0)
+    assert script.frame_placements[hub] == before
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", pivot)
+    script.emit("ROTATE_COORDINATE_SYSTEM", hub, pivot, "Y", 0.0)
+    assert script.frame_placements[hub] == before
 
 
 def test_goal022_frames_move_a_frame_moved_behind_the_ledger_is_refused_not_moved(tmp_path):

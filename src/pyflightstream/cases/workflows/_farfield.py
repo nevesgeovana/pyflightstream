@@ -285,7 +285,7 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
 def _families_the_row_lacks(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> str:
     """Say why an entry none of whose families the row carries is skipped on it, else ``""``.
 
-    FR-3455, in the FR-320 reading (:mod:`pyflightstream.cases._skipped_families`).
+    FR-3456, in the FR-320 reading (:mod:`pyflightstream.cases._skipped_families`).
     An entry the row carries in part is traced over what it carries and its
     absent families are noted where the plan cuts it (``farfield_sections``);
     ``all`` lacks none.
@@ -747,7 +747,7 @@ def _resolve(
     lacking = "" if window else _families_the_row_lacks(case, spec, inventory)
     if window or lacking:
         # P0471: an entry whose window this row cannot take is not applicable here;
-        # FR-3455: so is one none of whose families the row's geometry carries.
+        # FR-3456: so is one none of whose families the row's geometry carries.
         return FarfieldResolution(
             tuple(
                 FarfieldInput(

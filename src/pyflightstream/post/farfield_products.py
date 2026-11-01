@@ -548,7 +548,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint, sloads: Path | None = None) -
     inventory = ctx.record_of[point.name].inventory or list(blocks)
     selected = _selected(spec.families or "all", inventory, ctx.aliases, ctx.pproc.is_blade)
     if not selected:
-        # FR-3455: the plan skipped the entry on this row and warned; nothing to trace.
+        # FR-3456: the plan skipped the entry on this row and warned; nothing to trace.
         _skip(
             ctx,
             key,

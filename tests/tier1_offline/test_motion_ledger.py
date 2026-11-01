@@ -180,16 +180,18 @@ def test_saved_timing_resolution_keeps_original_and_marks_other_build_unproven(m
     )
 
 
+@pytest.mark.requirement("FR-3455")
 @pytest.mark.parametrize("angle", [0.0, 30.0])
-def test_a_turn_about_a_pivot_elsewhere_forgets_placement_even_at_zero(angle):
-    """GOAL-034 Q4 (GEO-060 A1b/A1c): no zero-turn shortcut without a native export.
+def test_p2185_20_a_turn_about_a_pivot_elsewhere_carries_the_frame_right_handed(angle):
+    """GOAL-034 Q4, the owner's answer of 2026-11-01: the turn is followed, right-handed.
 
-    A turn whose sign the manual does not state leaves the frame's placement
-    unknown; a zero angle is not exempted, because that exemption is a claim
-    about the solver no owner decision or recorded native export supports.
+    The frame 0.2 m from the hub along its Y, turned about the hub's X, stands at
+    (4.5, 0.2 cos a, 0.2 sin a) with its X unchanged; a turn by 0 leaves it where
+    it was placed. Until 0.53.0 a turn left the frame's placement unknown, at zero too.
     """
     script, hub, moving = placed_script()
-    assert script.frame_motions[moving]["state"] == "known"
+    before = script.frame_motions[moving]
+    assert before["state"] == "known"
     script.emit(
         "ROTATE_COORDINATE_SYSTEM",
         frame=moving,
@@ -198,8 +200,15 @@ def test_a_turn_about_a_pivot_elsewhere_forgets_placement_even_at_zero(angle):
         angle=angle,
     )
     after = script.frame_motions[moving]
-    assert after["state"] == "unknown"
-    assert after["origin_native"] is None and after["x_axis"] is None
+    assert after["state"] == "known"
+    turn = math.radians(angle)
+    assert after["origin_native"] == pytest.approx(
+        [4.5, 0.2 * math.cos(turn), 0.2 * math.sin(turn)], abs=1e-12
+    )
+    assert after["x_axis"] == pytest.approx([1.0, 0.0, 0.0], abs=1e-12)
+    if angle == 0.0:
+        pose = ("origin_native", "x_axis", "y_axis", "z_axis")
+        assert [after[key] for key in pose] == [before[key] for key in pose]
 
 
 def test_measured_timing_is_bound_to_executable_build_and_unit():

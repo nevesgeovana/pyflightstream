@@ -821,16 +821,96 @@ def _emit_surveyed_probes(case, script, probes, vertex: int, *, unsteady: bool) 
     return None
 
 
-def _leave_out_the_entry(case: SimCase, declared: ProbesSpec, frame: str) -> None:
-    """Say that the `[[probes]]` entry ``declared`` is ignored on this row (laid in ``frame``)."""
+def _entry_name(case: SimCase, declared: ProbesSpec) -> str:
+    """Return how a message names the `[[probes]]` entry ``declared``, by its position."""
     entries = case.pproc.probes if case.pproc is not None else []
     number = next((n for n, entry in enumerate(entries, start=1) if entry is declared), None)
+    return f"[[probes]] entry {number}" if number is not None else "a [[probes]] entry"
+
+
+def _leave_out_the_entry(case: SimCase, declared: ProbesSpec, frame: str) -> None:
+    """Say that the `[[probes]]` entry ``declared`` is ignored on this row (laid in ``frame``)."""
     leave_out_an_unplaced_rotor_frame(
+        case.sim_id, _artifact_of(case), _entry_name(case, declared), frame
+    )
+
+
+def _an_unplaced_frame_the_row_leaves_out(
+    case: SimCase, script: Script, frame: int, name: str, entry: str | ProbesSpec
+) -> bool:
+    """Leave out an entry laid in reference coordinates from a frame of unknown pose (PFS-2185.20).
+
+    A steady probe, and a probe or volume section an unsteady row samples once
+    after the march (``kind = "default"``), is placed in REFERENCE coordinates
+    computed from where this script placed its frame
+    (:func:`_in_the_reference_frame`). A row's ``ROTATE`` of a rotor alias turns
+    that rotor's ``<ALIAS>_SMRP`` and ``<ALIAS>_RMRP`` with it, and the placement
+    ledger follows the turn (``ROTATE_COORDINATE_SYSTEM``, right-handed), so such
+    an entry is PLACED in the turned frame. Only a frame whose pose this script
+    does not know (an opened project carries it, or a command the ledger does
+    not follow moved it) leaves the entry out, WARNED AND SKIPPED once per
+    campaign and never refused (the owner's rule of 2026-10-27): the row plans
+    and every other entry is emitted. Returns True when the entry is left out.
+    ``entry`` is the message's name for it, or the declared `[[probes]]` entry,
+    named by its position only when it is left out.
+    """
+    if frame == 1:
+        return False
+    placement = script.frame_placements.get(frame)
+    if placement is not None and placement.origin is not None and placement.axes is not None:
+        return False
+    leave_out_what_the_row_cannot_take(
         case.sim_id,
         _artifact_of(case),
-        f"[[probes]] entry {number}" if number is not None else "a [[probes]] entry",
-        frame,
+        entry if isinstance(entry, str) else _entry_name(case, entry),
+        f"is laid in the frame {name!r}, whose pose this script does not know on this row (an "
+        "opened project carries it, or a command the script does not follow moved it), and the "
+        "entry is placed in reference coordinates computed from that pose. On an unsteady row, "
+        'kind = "instantaneous" hands the solver the frame itself',
     )
+    return True
+
+
+def _the_frame_the_entry_lands_in(
+    case: SimCase,
+    script: Script,
+    frames: Frames,
+    declared: ProbesSpec,
+    probes: ProbesSpec,
+    *,
+    unsteady: bool,
+) -> int | None:
+    """Return the index of the frame a `[[probes]]` entry is laid in, or None to leave it out.
+
+    ``probes`` is ``declared`` with its frame resolved (:func:`_the_probe_frame`).
+    """
+    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not place
+    # that frame leaves the entry out, warned and never refused: one artifact
+    # serves the power-on row that places PUSHER_RMRP and the power-off row
+    # that places PUSHER_SMRP only. A frame NO declared rotor owns is still
+    # refused below, by `_pproc_frame`, because it cannot come right on
+    # another row.
+    if (
+        EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
+        and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
+        and (
+            _the_rotor_whose_frame_this_is(case, probes.frame) is not None
+            or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
+        )
+        and frames.get(probes.frame) is None
+    ):
+        _leave_out_the_entry(case, declared, probes.frame)
+        return None
+    frame = (
+        1
+        if probes.frame == "REFERENCE"
+        else _pproc_frame(case, frames, probes.frame, "the probe lines")
+    )
+    if not unsteady and _an_unplaced_frame_the_row_leaves_out(
+        case, script, frame, probes.frame, declared
+    ):
+        return None
+    return frame
 
 
 def _emit_one_probe_table(
@@ -854,28 +934,9 @@ def _emit_one_probe_table(
         return vertex
     declared = probes
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
-    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not place
-    # that frame leaves the entry out, warned and never refused: one artifact
-    # serves the power-on row that places PUSHER_RMRP and the power-off row
-    # that places PUSHER_SMRP only. A frame NO declared rotor owns is still
-    # refused below, by `_pproc_frame`, because it cannot come right on
-    # another row.
-    if (
-        EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
-        and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
-        and (
-            _the_rotor_whose_frame_this_is(case, probes.frame) is not None
-            or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
-        )
-        and frames.get(probes.frame) is None
-    ):
-        _leave_out_the_entry(case, declared, probes.frame)
+    frame = _the_frame_the_entry_lands_in(case, script, frames, declared, probes, unsteady=unsteady)
+    if frame is None:
         return vertex
-    frame = (
-        1
-        if probes.frame == "REFERENCE"
-        else _pproc_frame(case, frames, probes.frame, "the probe lines")
-    )
     scale = 1.0
     if probes.scale == "rotor_radius":
         scale = _the_radius_the_probe_lines_are_in(case, probes.frame) / 2.0
@@ -1208,6 +1269,10 @@ def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) 
         if section.frame == "REFERENCE"
         else _pproc_frame(case, frames, section.frame, "the volume section sampled through probes")
     )
+    if not unsteady and _an_unplaced_frame_the_row_leaves_out(
+        case, script, frame, section.frame, "[volume_section]"
+    ):
+        return
     if section.shape == "rectangle":
         count_u, count_v = section.points or (25, 25)
         count_u = (count_u - 1) * 2 ** (section.refinement_layers - 1) + 1
