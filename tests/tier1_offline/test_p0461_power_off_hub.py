@@ -555,3 +555,145 @@ def test_rel2_001_a_row_declaring_no_rotor_counts_no_revolutions(tmp_path):
     row = SimpleNamespace(variables=dict(case.variables))
     assert _matrix_window(row, SimpleNamespace(reductions=record)) is None
     assert "7621" in _farfield_windows_skipped(plan)
+
+
+# --- PFS-2185.20: a power-off rotor row whose rotor has only its spinner --------------
+
+#: A reference shaped as the owner's power-off study declares it: a pusher whose
+#: block lists a spinner and four blades, and the two frames its rows turn about.
+_SPINNER_REFERENCE = """\
+area_m2 = 19.502
+chord_m = 1.322
+span_m = 15.059
+
+[moment_point]
+x_m = 4.0221
+y_m = 0.0
+z_m = 1.4125
+
+[aliases]
+elev_LH = ["Elev_LH"]
+morph_push = ["BodyRing"]
+
+[[frames]]
+name = "ENGTILT_DN"
+origin = [9.2602, 0.0, 1.4190]
+
+[[frames]]
+name = "HINGE_ELEV"
+origin = [8.64041, 0.0, 1.44404]
+
+[PUSHER]
+kind = "rotor"
+x_m = 9.35791
+y_m = 0.0
+z_m = 1.14813
+axis = "X"
+rpm_sign = -1
+diameter_m = 2.04
+families_general = ["Spinner"]
+families_blades = ["Blade1", "Blade2", "Blade3", "Blade4"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+"""
+
+#: The power-off geometry: the airframe and the spinner, no blade at all. A file
+#: with no mesh block, so its sidecar is the inventory the row reads.
+_SPINNER_ONLY = ["Body", "BodyRing", "Elev_LH", "Spinner"]
+
+#: Her probes and disc, sampled once after the march, in the pusher's frames,
+#: beside a probe in MRP that no turn of the pusher touches.
+_SPINNER_PPROC = (
+    _probe("PUSHER_SMRP")
+    + _probe("PUSHER_RMRP")
+    + _probe("MRP")
+    + '[volume_section]\nshape = "circle"\nframe = "PUSHER_RMRP"\nplane = "YZ"\n'
+    'offset_m = 0.0\nradii_m = [0.0, 1.224]\npoints = [3, 4]\nformat = "tecplot"\n'
+    'kind = "default"\n'
+)
+
+
+def _spinner_row(turn: float) -> str:
+    """The owner's power-off row: elevator, ring and pusher turned, the spinner at J."""
+    return (
+        "7701 | 0 | 1 | Pusher | - | P2185 | MACH:0.157, ALTFT:3600, ALPHA:sweep, BETA:0 | 0.0 "
+        "| 92_SPINNER_ONLY.fsm | r912 | s002 | p912 | NONE | - | - | - | 26.124 | unsteady_rotor "
+        "| ROTATE: {ANGLE: -2.5 / AXIS: HINGE_ELEV-Y / ALIAS: elev_LH},"
+        "{ANGLE: 0.0 / AXIS: ENGTILT_DN-Y / ALIAS: morph_push},"
+        f"{{ANGLE: {turn} / AXIS: ENGTILT_DN-Y / ALIAS: PUSHER}} / DELTA_THETA: 10.0 / "
+        "REVOLUTIONS: 4.0 / LAST_REVS_AVG: 1.0 / CLOCK_MOTION: PUSHER / "
+        "MOTIONS: {MOVING_BC_ALIAS: PUSHER / ADVANCE_RATIO: 0.78}"
+    )
+
+
+def _smrp_plan(tmp_path, turn: float = 1.5):
+    """Plan the owner's power-off row over the spinner-only geometry."""
+    root = _tier3_copy(tmp_path)
+    inputs = root / "inputs"
+    (inputs / "references" / "r912.toml").write_text(_SPINNER_REFERENCE, encoding="utf-8")
+    (inputs / "pproc" / "p912.toml").write_text(_SPINNER_PPROC, encoding="utf-8")
+    geometries = inputs / "geometries"
+    (geometries / "92_SPINNER_ONLY.fsm").write_text(
+        "$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", encoding="utf-8"
+    )
+    names = "".join(f'    "{name}",\n' for name in _SPINNER_ONLY)
+    (geometries / "92_SPINNER_ONLY.boundaries.toml").write_text(
+        f'file = "92_SPINNER_ONLY.fsm"\nboundaries = [\n{names}]\n', encoding="utf-8"
+    )
+    header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
+    matrix = root / "p2185.fs"
+    matrix.write_text("\n".join([header, rule, _spinner_row(turn)]) + "\n", encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan, rendered = _rendered(root, matrix)
+    return plan, rendered, [str(item.message) for item in caught]
+
+
+def _block(lines: list[str], start: int, size: int) -> list[str]:
+    """The ``size`` lines of the command block that starts at line ``start``."""
+    return lines[start : start + size]
+
+
+@pytest.mark.requirement("FR-3455")
+@pytest.mark.parametrize("turn", [0.0, 1.5])
+def test_p2185_20_power_off_spinner_row_plans_and_turns_the_pusher_with_its_frames(tmp_path, turn):
+    """RED on e4041f303: the row was BLOCKED, the PUSHER_SMRP probes refused once turned.
+
+    A reference declaring blades, a geometry carrying the spinner alone: the row
+    places the pusher's frames, spins the spinner at the record's J, turns the
+    pusher and its frames about ENGTILT_DN, and plans. The entries laid in
+    reference coordinates from a frame the row turned are warned and skipped.
+    """
+    plan, rendered, said = _smrp_plan(tmp_path, turn)
+    assert not plan.blocked, plan.summary()
+    text = _only(rendered)
+    lines = text.splitlines()
+    for name in ("PUSHER_SMRP", "PUSHER_RMRP", "PUSHER_BMRP"):
+        assert lines.count(f"NAME {name}") == 1, name
+    assert not any(line.startswith("NAME PUSHER_RMRP1") for line in lines)
+    tilt, hub, turning = (
+        _frame_index(text, name) for name in ("ENGTILT_DN", "PUSHER_SMRP", "PUSHER_RMRP")
+    )
+    spinner = 1 + _SPINNER_ONLY.index("Spinner")
+    # THE SPINNER TURNS, about the hub, at the record's J and the rotor's sign.
+    at = lines.index("CREATE_NEW_MOTION ROTARY")
+    assert _block(lines, at + 1, 2) == ["SET_MOTION_BOUNDARIES 1 1", str(spinner)]
+    assert f"SET_MOTION_COORDINATE_SYSTEM 1 {hub}" in lines
+    velocity = float(next(x for x in lines if x.startswith("SOLVER_SET_VELOCITY ")).split()[1])
+    rpm = float(next(x for x in lines if x.startswith("SET_MOTION_ROTOR_RPM 1 ")).split()[2])
+    assert rpm == pytest.approx(-60.0 * velocity / (0.78 * 2.04), rel=1e-6)
+    # THE PUSHER TURNS ABOUT ENGTILT_DN-Y, its spinner and both of its frames.
+    turned = f"ROTATE_SURFACE {tilt} Y {turn} 1 DISABLE"
+    assert [turned, str(spinner)] in [_block(lines, at, 2) for at in range(len(lines))]
+    for frame in (hub, turning):
+        at = lines.index(f"FRAME {frame}", lines.index("ROTATE_COORDINATE_SYSTEM"))
+        assert lines[at - 1] == "ROTATE_COORDINATE_SYSTEM"
+        assert _block(lines, at + 1, 3) == [
+            f"ROTATION_FRAME {tilt}",
+            "ROTATION_AXIS Y",
+            f"ANGLE {turn}",
+        ]
+    # WARNED AND SKIPPED on this row, each once; the MRP probe is not touched.
+    assert [m for m in _ignored(said, "PUSHER_SMRP") if "entry 1" in m]
+    assert [m for m in _ignored(said, "PUSHER_RMRP") if "entry 2" in m]
+    assert [m for m in _ignored(said, "PUSHER_RMRP") if "[volume_section]" in m]
+    assert not _ignored(said, "MRP")

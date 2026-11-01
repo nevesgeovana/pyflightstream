@@ -107,6 +107,15 @@ FlightStream versions.
 
 ### Fixed
 
+- A row whose `ROTATE` turns a rotor (`ALIAS: PUSHER`) no longer blocks the plan when a
+  probe table or the sampled volume section lies in that rotor's `PUSHER_SMRP` or
+  `PUSHER_RMRP` and is placed in reference coordinates (a steady row, or an unsteady row's
+  `kind = "default"` entry): the turn moves the frame where the package does not follow it,
+  so the entry is warned once per campaign and left out of that row, and the row plans with
+  its frames, its turn and its motion (FR-3455). A power-off `unsteady_rotor` row whose
+  geometry carries the spinner and none of the blades plans this way and spins the spinner
+  at the record's advance ratio. `kind = "instantaneous"` keeps the entry, in the turned frame.
+
 - A post without `--archive` removed every previous product it could not rebuild, so a post
   on a machine holding products brought by `sync` without the exports deleted them. `post`,
   `post --sims`, `collect` and the run's own post now keep such a product, file and entry,
