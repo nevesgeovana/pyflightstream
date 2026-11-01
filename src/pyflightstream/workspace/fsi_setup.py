@@ -525,7 +525,7 @@ def resolve_fsi_setup(
 def load_fsi_setup(
     path: str | Path, *, matrix_calibration: Mapping[str, float] | None = None
 ) -> FsiConfig:
-    """Load the effective config for the established FSI driver.
+    r"""Load the effective config for the established FSI driver.
 
     Parameters
     ----------
@@ -539,6 +539,25 @@ def load_fsi_setup(
     -------
     FsiConfig
         The effective configuration.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = Path(folder) / "f001.toml"
+    ...     _ = path.write_text(
+    ...         'mode = "calculated"\nmaterial = "ti-6al-4v-grade5-annealed"\n'
+    ...         "[config]\nblade_count = 2\nomega_rad_per_s = 100.0\n"
+    ...         "[sections]\nstation_radii_m = [0.3, 0.6]\nchord_m = [0.2, 0.15]\n"
+    ...         'geometric_pitch_deg = [30.0, 20.0]\nnaca = "4412"\n'
+    ...         'pitch_axis_chord_fraction = 0.25\ngeometry_source = "NACA 4412"\n'
+    ...         "torsion_grid_cells = 16\n",
+    ...         encoding="utf-8",
+    ...     )
+    ...     config = load_fsi_setup(path)
+    >>> config.blade_count
+    2
     """
     return resolve_fsi_setup(path, matrix_calibration=matrix_calibration).effective
 

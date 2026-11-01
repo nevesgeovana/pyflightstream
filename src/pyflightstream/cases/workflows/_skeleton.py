@@ -613,6 +613,19 @@ def frame_compensation_skip_reason(case: SimCase, version: str | FsVersion) -> s
     The facts :func:`pyflightstream.cases.fsi_workspace.frame_compensation_skip`
     judges, read from the case: its workflow, and on ``unsteady_rotor`` the
     coupled rotor's signed speed.
+
+    Parameters
+    ----------
+    case : SimCase
+        The expanded matrix row.
+    version : str or FsVersion
+        The solver version the row runs on.
+
+    Returns
+    -------
+    str or None
+        The reason the compensation is skipped, or None when the row does not request it
+        or it applies.
     """
     from ..fsi_workspace import frame_compensation_skip
 
@@ -634,6 +647,18 @@ def blade_mesh_record(case: SimCase, script: Script | None = None) -> dict[str, 
     the mesh, and each blade's name in the file. The run stages them in
     ``fsi-provenance.json`` (``blade_mesh``), where the post placement check
     reads them.
+
+    Parameters
+    ----------
+    case : SimCase
+        The expanded matrix row.
+    script : Script, optional
+        The row's built script, whose blade frames locate the hub.
+
+    Returns
+    -------
+    dict or None
+        The blade mesh record, or None off the coupled ``unsteady_rotor`` route.
     """
     from ..fsi_workspace import blade_mesh_frame
 
