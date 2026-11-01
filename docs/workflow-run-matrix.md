@@ -506,3 +506,31 @@ with `--resume` added, ready to paste.
 is written by the row's `FLIGHT_CONDITION`, so correcting a value in that cell
 gives the point a new identity: it is simply a new point, and `--resume` runs it
 beside the old record.
+
+## Looking at the design of experiments of your matrices
+
+`pyfs-matrix visual-inspect --matrices A B --params ADVANCE_RATIO ALPHA elev_RH` draws the points
+your matrices will run as a pair plot: a scatter of every pair of the parameters asked, the
+histogram of each on the diagonal, one colour and marker per matrix with its point count in the
+legend. It reads the matrices only; it needs no executable and spends no seat, so it is the quick
+way to see whether two studies overlap, leave a gap, or repeat a level.
+
+- `--matrices` names matrix files of the workspace, with or without `.fs`, or `all` for every
+  matrix the workspace holds at its root or under `inputs/matrices/`.
+- `--params` names FLIGHT_CONDITION keys (`ALPHA`, `ADVANCE_RATIO`, `MACH`, ...), scalar
+  VAR_NAMES_VALUES keys (`REVOLUTIONS`, ...) and ROTATE aliases, where the parameter is the alias
+  and its value the ANGLE. An alias turned about more than one axis across the matrices is named
+  `alias:AXIS`, for example `morph_push:ENGTILT_DN-Y`. With no `--params`, every parameter that
+  varies is drawn. A parameter the matrices do not state is warned and skipped, and the warning
+  lists the parameters they do state; with none left, nothing is written.
+- Each active row is expanded into its points: the FLIGHT_CONDITION key marked `sweep` takes each
+  SWEEP_VALUES value. A ROTATE alias a row does not state is not turned, so its angle is 0; any
+  other parameter a row does not state leaves that point out of the panels that need it.
+- ADVANCE_RATIO is read from FLIGHT_CONDITION like any other key. A row that declares none (a
+  power-off row states the spinner speed as RPM in its MOTIONS record) has no ADVANCE_RATIO
+  point, and an RPM inside a MOTIONS record is not a parameter.
+- The diagonal draws one bar per level when a parameter has at most 25 levels, else 16 bins; each
+  axis spans the levels with a 6 percent margin.
+
+The figure is written to `post/visual-inspect/doe_<matrices>.pdf` under the workspace
+(`doe_all.pdf` for `all`), and its path is printed.
