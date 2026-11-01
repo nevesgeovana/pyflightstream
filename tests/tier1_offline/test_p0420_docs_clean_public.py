@@ -73,8 +73,14 @@ def test_p0420_sweeps_no_private_source_ids():
 STUDY_NAMES = re.compile(r"pyfs-debugging|fts-research")
 
 
+#: The shipped trees the rule names: the package, its docs and its guide.
+STUDY_SWEPT = ("src/", "docs/", "guide/")
+
+
 def study_names_in_the_package(sources):
-    return [path for path, text in sources if path.startswith("src/") and STUDY_NAMES.search(text)]
+    return [
+        path for path, text in sources if path.startswith(STUDY_SWEPT) and STUDY_NAMES.search(text)
+    ]
 
 
 def test_p0530_the_package_names_no_study():
@@ -82,6 +88,16 @@ def test_p0530_the_package_names_no_study():
     assert not (failures := study_names_in_the_package(tracked_texts())), failures
     planted = [("src/fixture.py", "# measured on the pyfs-debugging register"), ("docs/a.md", "")]
     assert study_names_in_the_package(planted) == ["src/fixture.py"]
+
+
+def test_p0530_the_study_sweep_reads_the_docs_and_the_guide_as_well():
+    # REL-2-002: the owner's rule keeps a study name out of src, docs and the guide alike.
+    planted = [
+        ("docs/page.md", "measured on fts-research"),
+        ("guide/step.md", "the pyfs-debugging register"),
+        ("tests/test_x.py", "pyfs-debugging"),
+    ]
+    assert study_names_in_the_package(planted) == ["docs/page.md", "guide/step.md"]
 
 
 def test_p0420_sweeps_private_source_id_planted_control(monkeypatch):
