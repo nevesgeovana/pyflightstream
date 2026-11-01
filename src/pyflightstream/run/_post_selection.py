@@ -129,13 +129,20 @@ def _not_posted_yet(
     whose products stand on disk with no ``products.json`` to read (brought by
     a sync) is posted, so a post on a
     machine without the exports never touches it. A submitted point waits
-    for collect.
+    for collect. ``products.json`` is read under the campaign lock, as the post
+    reads it, so one cut off by a post's in-place rewrite is read from its
+    staged copy (REL-R3-002).
     """
     import json
 
+    from pyflightstream import _textio
+
     out = workspace.products_dir(matrix)
+    manifest = out / "products.json"
     try:
-        document = json.loads((out / "products.json").read_text(encoding="utf-8"))
+        if not manifest.is_file():
+            raise FileNotFoundError(manifest)
+        document = json.loads(_textio.locked_document_text(manifest, wait=_textio.LOCK_WAIT))
         provenance = document.get("provenance") or {}
     except (OSError, ValueError, AttributeError):
         on_disk = {sim for sim in sims if any((out / "polars").glob(f"P{sim}-*"))}

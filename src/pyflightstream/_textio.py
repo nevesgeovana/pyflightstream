@@ -425,6 +425,37 @@ def exclusive(path: str | os.PathLike[str], *, wait: float) -> Iterator[IO[bytes
                 pass
 
 
+def _a_json_object(text: str) -> bool:
+    try:
+        return isinstance(json.loads(text), dict)
+    except ValueError:
+        return False
+
+
+def locked_document_text(path: str | os.PathLike[str], *, wait: float) -> str:
+    """Read a JSON document under :func:`exclusive`, as its locked writer leaves it.
+
+    A writer stages the whole document as ``<name>.tmp`` and then rewrites the
+    file in place (:func:`replace_content`); a document cut off there is read
+    from that staged copy, which stays until the rewrite completes. Every
+    reader of such a document reads it here, so none reads it half written
+    (REL-R3-002). An empty file reads as ``""``.
+    """
+    target = Path(path)
+    with exclusive(target, wait=wait) as handle:
+        if handle is None:
+            text = target.read_text(encoding="utf-8")
+        else:
+            handle.seek(0)
+            text = handle.read().decode("utf-8")
+    staged = target.with_name(f"{target.name}.tmp")
+    if text.strip() and not _a_json_object(text) and staged.is_file():
+        backup = staged.read_text(encoding="utf-8")
+        if _a_json_object(backup):
+            return backup
+    return text
+
+
 def replace_content(handle: IO[bytes], text: str) -> None:
     """Replace the whole content of a locked ``handle`` with ``text`` in UTF-8, flushed to disk."""
     data = memoryview(text.encode("utf-8"))

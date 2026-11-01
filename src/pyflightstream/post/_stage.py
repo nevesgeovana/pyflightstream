@@ -608,19 +608,10 @@ def manifest_text(out: Path) -> str:
     """Read ``products.json`` under the campaign lock, ``{}`` for an empty file.
 
     A manifest cut off while it was rewritten in place is read from the staged
-    copy the write leaves beside it until the rewrite completes.
+    copy the write leaves beside it until the rewrite completes
+    (:func:`pyflightstream._textio.locked_document_text`).
     """
-    target = out / PRODUCTS_MANIFEST
-    with campaign_lock(out) as handle:
-        if handle is None:
-            text = target.read_text(encoding="utf-8")
-        else:
-            handle.seek(0)
-            text = handle.read().decode("utf-8")
-    staged = target.with_name(f"{target.name}.tmp")
-    if text.strip() and _parsed(text) is None and staged.is_file():
-        if _parsed(backup := staged.read_text(encoding="utf-8")) is not None:
-            return backup
+    text = _textio.locked_document_text(out / PRODUCTS_MANIFEST, wait=_textio.LOCK_WAIT)
     return text if text.strip() else "{}"
 
 

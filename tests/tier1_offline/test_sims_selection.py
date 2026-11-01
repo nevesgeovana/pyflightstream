@@ -394,6 +394,33 @@ def test_two_posts_of_one_matrix_keep_both_log_blocks_rel_r2_017(tmp_path, monke
     ]
 
 
+def test_a_plain_post_reads_a_manifest_cut_off_mid_rewrite_from_its_staged_copy_rel_r3_002(
+    tmp_path,
+):
+    """REL-R3-002: the pending selection reads products.json as the post does.
+
+    The REL-R2-017 write rewrites products.json in place, so a post killed in it
+    (or read by another process meanwhile) leaves a cut-off file beside the whole
+    staged copy. The plain post's selection read the cut-off file, fell back to
+    "polars on disk is posted", and posted nothing of 6001, which the manifest
+    being written no longer names.
+    """
+    from pyflightstream.run._post_selection import _not_posted_yet
+
+    workspace = _three_sims(tmp_path)
+    out = _post_whole(workspace)
+    whole = _document(out)
+    staged = dict(whole)
+    staged["provenance"] = {r: p for r, p in whole["provenance"].items() if "sim_6001" not in r}
+    text = json.dumps(staged, indent=1) + "\n"
+    (out / "products.json.tmp").write_text(text, encoding="utf-8")
+    (out / "products.json").write_text(text[: len(text) // 2], encoding="utf-8")
+    records = workspace.read_manifest()
+    # The control: the 6001 polars the earlier post wrote are on disk.
+    assert list((out / "polars").glob("P6001-*"))
+    assert _not_posted_yet(workspace, "matriz", records, {"6001", "6002", "6009"}) == {"6001"}
+
+
 # --------------------------------------------------------------- collect --sims
 
 
