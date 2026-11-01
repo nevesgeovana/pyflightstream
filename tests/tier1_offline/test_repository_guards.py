@@ -42,8 +42,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: -fsm, yaml and md, the vendor CCS export report, the 26.127 row of RPT-032), measured.
 #: 0.52.1 budgets the test module of the XPROP sector's coupled rows (FR-3408:
 #: tests/tier1_offline/test_p0521_fsi_sector.py, +1 tracked file), measured.
+#: 0.53.0 (PFS-2185.18) budgets run/_post_selection.py, the post selection moved out of
+#: run/cli.py to hold its AD-18 size bound (+1 tracked file), measured.
 LEAN_CAPS = {
-    "tracked_files": 2048,
+    "tracked_files": 2049,
     "reports_files": 101,
     "reports_lines": 161906,
     "tests_files": 1147,
