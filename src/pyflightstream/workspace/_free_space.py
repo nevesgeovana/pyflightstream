@@ -20,9 +20,10 @@ import os
 import shutil
 import zipfile
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from importlib import metadata
 from pathlib import Path, PureWindowsPath
-from typing import Any
+from typing import IO, Any
 
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
@@ -345,26 +346,76 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
     for manifest in sorted(post.rglob("products.json")) if post.is_dir() and deleted else []:
         if ARCHIVE_DIR in manifest.relative_to(post).parts:
             continue
-        # UNDER THE POST'S LOCK (REL-R3-003): a post of the matrix holds products.json
-        # open while it rewrites it in place, so a replace here was refused on Windows
-        # after the exports were unlinked, and elsewhere one of the two writes was lost.
-        with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
-            if handle is None:
-                warn(
-                    f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so the "
-                    "deleted step exports were not taken out of it; post the matrix again.",
-                    PyflightstreamWarning,
-                    stacklevel=2,
-                )
-                continue
-            gone = _forget_listings_in(workspace, manifest, handle, deleted)
+        with products_lock(manifest, "the deleted step exports") as handle:
+            gone = (
+                0 if handle is None else _forget_listings_in(workspace, manifest, handle, deleted)
+            )
         if gone:
             changed[manifest.relative_to(workspace.root).as_posix()] = gone
     return changed
 
 
+@contextmanager
+def products_lock(manifest: Path, what: str) -> Iterator[IO[bytes] | None]:
+    """Hold a post's lock on ``manifest``; None, warned, when a post held it past the wait.
+
+    REL-R3-003: a post of the matrix holds ``products.json`` open while it
+    rewrites it in place, so a storage command's replace was refused on Windows
+    after its files were deleted, and elsewhere one of the two writes was lost.
+    ``what`` names what the caller takes out of the manifest, for the warning.
+    """
+    with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
+        if handle is None:
+            warn(
+                f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so {what} "
+                "were not taken out of it; post the matrix again.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+        yield handle
+
+
+def _forget_products(
+    manifest: Path,
+    item: dict[str, list[str]],
+    run_ids: set[str],
+    *,
+    sims: list[str],
+    stamp: str,
+    root: Path,
+) -> None:
+    """Take the deleted files out of ``products.json`` and say which products are stale.
+
+    The products manifest never claims a file that is not on disk
+    (ARCHITECTURE invariant 3), so the deleted entries leave it; the shared
+    products that still hold the deleted points are named under
+    ``deleted_by_storage`` until a post rebuilds the manifest. Under the post's
+    lock, rewritten in place as the post writes it (REL-R3-003).
+    """
+    with products_lock(manifest, "the deleted simulations") as handle:
+        if handle is None:
+            return
+        document = json.loads(_textio.locked_document_text(manifest, wait=_textio.LOCK_WAIT))
+        products = dict(document.get("products", {}))
+        for name in item["own"]:
+            products.pop(name, None)
+        document["products"] = products
+        provenance = document.get("provenance")
+        if isinstance(provenance, dict):
+            document["provenance"] = {k: v for k, v in provenance.items() if k not in run_ids}
+        notes = list(document.get("deleted_by_storage", []))
+        notes.append(
+            {"at": _now().isoformat(), "stamp": stamp, "sims": sims, "stale": item["shared"]}
+        )
+        document["deleted_by_storage"] = notes
+        # Every writer of a restorable file archives the previous copy first, so `restore
+        # products` can bring back what this rewrite removes.
+        archive_previous(root, manifest, matrix=manifest.parent.name)
+        _textio.rewrite_locked(handle, manifest, json.dumps(document, indent=2) + "\n")
+
+
 def _forget_listings_in(
-    workspace: CampaignWorkspace, manifest: Path, handle: Any, deleted: set[Path]
+    workspace: CampaignWorkspace, manifest: Path, handle: IO[bytes], deleted: set[Path]
 ) -> int:
     """Take the deleted files out of one locked ``products.json``; return how many left it."""
     try:

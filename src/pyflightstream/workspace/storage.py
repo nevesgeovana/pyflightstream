@@ -78,6 +78,7 @@ from pyflightstream.workspace._free_space import (
     _check_extracted,
     _check_selections,
     _check_step_values,
+    _forget_products,
     _library_target,
     _now,
     _plan_points_without_record,
@@ -1004,62 +1005,6 @@ def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
             "delete-sims removes only files of the post folder, so nothing is deleted. "
             "Correct the entry (pyfs-matrix restore products) or rebuild it with a post."
         )
-
-
-def _forget_products(
-    manifest: Path,
-    item: dict[str, list[str]],
-    run_ids: set[str],
-    *,
-    sims: list[str],
-    stamp: str,
-    root: Path,
-) -> None:
-    """Take the deleted files out of ``products.json`` and say which products are stale.
-
-    The products manifest never claims a file that is not on disk
-    (ARCHITECTURE invariant 3), so the deleted entries leave it; the shared
-    products that still hold the deleted points are named under
-    ``deleted_by_storage`` until a post rebuilds the manifest. Rewritten under
-    the post's lock, in place, as the post writes it (REL-R3-003).
-    """
-    with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
-        if handle is None:
-            warn(
-                f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so the "
-                "deleted simulations were not taken out of it; post the matrix again.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-            return
-        _forget_products_in(manifest, handle, item, run_ids, sims=sims, stamp=stamp, root=root)
-
-
-def _forget_products_in(
-    manifest: Path,
-    handle: Any,
-    item: dict[str, list[str]],
-    run_ids: set[str],
-    *,
-    sims: list[str],
-    stamp: str,
-    root: Path,
-) -> None:
-    document = _load_json(manifest, "products manifest")
-    products = dict(document.get("products", {}))
-    for name in item["own"]:
-        products.pop(name, None)
-    document["products"] = products
-    provenance = document.get("provenance")
-    if isinstance(provenance, dict):
-        document["provenance"] = {k: v for k, v in provenance.items() if k not in run_ids}
-    notes = list(document.get("deleted_by_storage", []))
-    notes.append({"at": _now().isoformat(), "stamp": stamp, "sims": sims, "stale": item["shared"]})
-    document["deleted_by_storage"] = notes
-    # Every writer of a restorable file archives the previous copy first, so `restore
-    # products` can bring back what this rewrite removes.
-    archive_previous(root, manifest, matrix=manifest.parent.name)
-    _textio.rewrite_locked(handle, manifest, json.dumps(document, indent=2) + "\n")
 
 
 def delete_sims(
