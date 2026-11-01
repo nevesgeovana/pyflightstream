@@ -670,6 +670,21 @@ def test_p0530_the_run_stages_how_the_mesh_file_holds_the_coupled_blades(tmp_pat
     }
 
 
+@pytest.mark.requirement("FR-3416")
+def test_p0530_the_staged_hub_is_where_the_row_places_the_blade_frames(tmp_path):
+    # REL-2-001: a flat row's ROTOR_ORIGIN moves the hub, and the blades' rotating frames with
+    # it, off the rotor block's origin; the staged hub is the one the frames sit on.
+    case = coupled_case(tmp_path)
+    case = case.model_copy(update={"variables": {**case.variables, "ROTOR_ORIGIN": "0.5,0.6,0.7"}})
+    script, _ = build(case, "26.124")
+    placed = script.frame_placements[script.entities.labels("frames")["blade_axis:Blade1"]]
+    assert tuple(placed.origin) == (0.5, 0.6, 0.7) != tuple(case.rotors["ROTOR"].origin)
+    run_dir = tmp_path / "run"
+    _write_pending_files(script, run_dir, case=case, recorded={})
+    provenance = json.loads((run_dir / "fsi-provenance.json").read_text(encoding="utf-8"))
+    assert provenance["blade_mesh"]["hub_m"] == [0.5, 0.6, 0.7]
+
+
 @pytest.mark.requirement("FR-3412")
 def test_p0530_the_start_governs_the_deformation_and_compensated_rigid_writes_the_turn(tmp_path):
     # REL-004: before the start the beam field is zero; compensated Direct RIGID still writes

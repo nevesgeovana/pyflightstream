@@ -577,7 +577,12 @@ def _ids_after_a_deletion(
 
 
 def _warn_of_contours_off_the_mesh(
-    case: SimCase, cfg: FsiConfig, blade: str, *, origin: Sequence[float] = (0.0, 0.0, 0.0)
+    case: SimCase,
+    cfg: FsiConfig,
+    blade: str,
+    *,
+    origin: Sequence[float] = (0.0, 0.0, 0.0),
+    script: Script | None = None,
 ) -> None:
     """Warn where blade one's section contours, as placed, lie off its cut of the mesh (FR-3417).
 
@@ -585,9 +590,10 @@ def _warn_of_contours_off_the_mesh(
     row importing an OBJ that holds the blade's group, blade one being where the
     contours are placed (:func:`pyflightstream.fsi.sections.warn_of_contours_off_the_mesh_cut`).
     The OBJ is read in the unit its ``[import]`` states, taken to metres, about the
-    rotor's ``origin``; a row that moves the mesh before the solve (``ROTATE``,
-    ``TRANSLATE`` or an import operation other than ``rename``) is not judged, since the
-    file no longer holds the blade where the solver has it. Nothing is refused.
+    hub the blades' frames sit on (:func:`blade_mesh_frame`); a row that moves the mesh
+    before the solve (``ROTATE``, ``TRANSLATE`` or an import operation other than
+    ``rename``) is not judged, since the file no longer holds the blade where the solver
+    has it. Nothing is refused.
     """
     import numpy as np
 
@@ -596,7 +602,7 @@ def _warn_of_contours_off_the_mesh(
     path = Path(str(case.geometry)) if case.geometry is not None else None
     if cfg.blade.section_contours_m is None or path is None or path.suffix.lower() != ".obj":
         return
-    frame = blade_mesh_frame(case, [blade], origin=origin)
+    frame = blade_mesh_frame(case, [blade], origin=origin, script=script)
     factor = frame["metres_per_unit"]
     if factor is None or frame["moves_mesh"]:
         return
@@ -613,15 +619,22 @@ def _warn_of_contours_off_the_mesh(
 
 
 def blade_mesh_frame(
-    case: SimCase, blades: Sequence[str], *, origin: Sequence[float] = (0.0, 0.0, 0.0)
+    case: SimCase,
+    blades: Sequence[str],
+    *,
+    origin: Sequence[float] = (0.0, 0.0, 0.0),
+    script: Script | None = None,
 ) -> dict[str, Any]:
     """Return how a row's mesh file holds its coupled blades, in metres about the hub.
 
     The facts the plan's contour check (FR-3417) and the post placement check
     (FR-3416) read the imported mesh by, resolved once: ``metres_per_unit``,
     the factor taking the unit the import states (``[import] units``) to
-    metres, None where it names no length; ``hub_m``, the rotor's origin, on
-    which the blades' rotating frames sit; ``moves_mesh``, whether the row
+    metres, None where it names no length; ``hub_m``, the hub the blades'
+    rotating frames sit on: where ``script`` placed the first blade's frame,
+    taken from the simulation's length unit to metres (a flat row's
+    ``ROTOR_ORIGIN`` moves it off the rotor block's origin), else ``origin``;
+    ``moves_mesh``, whether the row
     moves the mesh before the solve (``ROTATE``, ``TRANSLATE``, or an import
     operation other than ``rename``), so the file no longer holds the blade
     where the solver has it; and ``groups``, each blade's name in the file,
@@ -634,7 +647,9 @@ def blade_mesh_frame(
     blades : sequence of str
         The blade names the solver sees.
     origin : sequence of float, optional
-        The rotor's origin [m].
+        The rotor's origin [m], the hub where ``script`` placed no blade frame.
+    script : Script, optional
+        The row's built script, whose placed blade frame gives the hub.
 
     Returns
     -------
@@ -643,6 +658,14 @@ def blade_mesh_frame(
     """
     from pyflightstream._lengths import scale
 
+    hub = [float(value) for value in origin]
+    if script is not None and blades:
+        index = script.entities.labels("frames").get(f"blade_axis:{blades[0]}")
+        placement = script.frame_placements.get(index) if isinstance(index, int) else None
+        unit = script.simulation_length_unit
+        metres = scale(unit, "METER") if unit else 1.0
+        if placement is not None and placement.origin is not None and metres is not None:
+            hub = [float(value) * metres for value in placement.origin]
     units = getattr(case.mesh_import, "units", None)
     operations = getattr(case.mesh_import, "operations", None) or ()
     moved = any(
@@ -657,7 +680,7 @@ def blade_mesh_frame(
         groups[blade] = group
     return {
         "metres_per_unit": scale(str(units), "METER") if units else None,
-        "hub_m": [float(value) for value in origin],
+        "hub_m": hub,
         "moves_mesh": moved,
         "groups": groups,
     }
@@ -1322,7 +1345,7 @@ def wire_workspace_fsi(
     families = _saved_sections_first(case, families)
     family_map = SectionFamilyMap(families=families)
     layout = structural_node_layout(cfg)
-    _warn_of_contours_off_the_mesh(case, cfg, blades[0], origin=rotor.origin)
+    _warn_of_contours_off_the_mesh(case, cfg, blades[0], origin=rotor.origin, script=script)
     _stage_and_emit(
         case,
         script,

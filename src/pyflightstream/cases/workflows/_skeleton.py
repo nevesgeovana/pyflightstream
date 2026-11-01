@@ -623,22 +623,24 @@ def frame_compensation_skip_reason(case: SimCase, version: str | FsVersion) -> s
     return frame_compensation_skip(case.fsi, workflow=workflow, version=version, rpm=rpm)
 
 
-def blade_mesh_record(case: SimCase) -> dict[str, Any] | None:
+def blade_mesh_record(case: SimCase, script: Script | None = None) -> dict[str, Any] | None:
     """Return how the mesh file holds a coupled rotor's blades, or None off that route (FR-3416).
 
     For a coupled ``unsteady_rotor`` row, the facts
     :func:`pyflightstream.cases.fsi_workspace.blade_mesh_frame` resolves for the
-    coupled rotor's blades about its origin: the import's metres per unit, the
-    hub, whether the row moves the mesh, and each blade's name in the file. The
-    run stages them in ``fsi-provenance.json`` (``blade_mesh``), where the post
-    placement check reads them.
+    coupled rotor's blades: the import's metres per unit, the hub (where the
+    row's built ``script`` placed the blade frames, which a flat row's
+    ``ROTOR_ORIGIN`` moves, else the rotor's origin), whether the row moves
+    the mesh, and each blade's name in the file. The run stages them in
+    ``fsi-provenance.json`` (``blade_mesh``), where the post placement check
+    reads them.
     """
     from ..fsi_workspace import blade_mesh_frame
 
     if case.fsi is None or select_workflow(case) != "unsteady_rotor":
         return None
     rotor = _the_coupled_rotor(case)[0]
-    return blade_mesh_frame(case, list(rotor.families_blades), origin=rotor.origin)
+    return blade_mesh_frame(case, list(rotor.families_blades), origin=rotor.origin, script=script)
 
 
 def effective_fsi_config(

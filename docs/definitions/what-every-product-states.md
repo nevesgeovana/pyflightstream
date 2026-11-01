@@ -136,7 +136,9 @@ read from the simulation's recorded copy as the run staged it in
 `fsi-provenance.json` (`blade_mesh`): scaled to metres by the unit its
 `[import]` states, the blade found under its name in the file (before the
 import's renames), and the surface and the cut points both measured about the
-rotor's origin, on which the blade turns about +X. A run whose
+hub the blades' rotating frames sit on (the rotor's origin, or the row's
+`ROTOR_ORIGIN` on a row that turns its rotor without `MOTIONS`), on which
+the blade turns about +X. A run whose
 `fsi-provenance.json` holds no `blade_mesh` (staged before the package recorded it), a row that
 moves the mesh before the solve (`ROTATE`, `TRANSLATE`, or an import operation
 other than `rename`), and a unit that names no length leave every step not
