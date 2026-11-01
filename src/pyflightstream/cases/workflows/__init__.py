@@ -250,6 +250,7 @@ from ._sixdof import (
     sixdof_commands,
 )
 from ._skeleton import (
+    blade_mesh_record,
     effective_fsi_config,
     frame_compensation_skip_reason,
 )
@@ -624,4 +625,5 @@ __all__ = [
     "qsteady_inflow_map_inputs",
     "effective_fsi_config",
     "frame_compensation_skip_reason",
+    "blade_mesh_record",
 ]

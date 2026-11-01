@@ -3464,3 +3464,92 @@ def test_p0530_the_placement_check_names_the_misplaced_step_and_not_the_placed_o
     assert misplaced["import_median_m"] == pytest.approx(0.001, abs=1e-9)
     assert misplaced["prescribed_median_m"] > PLACEMENT_TOLERANCE_M
     assert PLACEMENT_CHECK_PRODUCT == "placement_check"
+
+
+#: A hub off the origin, on which the blade's rotating frame sits.
+PLACEMENT_HUB_M = (0.1, 0.2, 0.3)
+
+
+def _placement_mesh_in_millimetres(tmp_path) -> Path:
+    """The flat blade on ``PLACEMENT_HUB_M``, written in millimetres."""
+    lines = []
+    for line in PLACEMENT_BLADE_OBJ.splitlines():
+        words = line.split()
+        if words and words[0] == "v":
+            point = [1e3 * (float(w) + h) for w, h in zip(words[1:4], PLACEMENT_HUB_M, strict=True)]
+            line = "v " + " ".join(repr(value) for value in point)
+        lines.append(line)
+    geometry = tmp_path / "blade.obj"
+    geometry.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return geometry
+
+
+def _cuts_on_the_hub(azimuth_deg: float):
+    import numpy as np
+
+    return np.vstack(_blade_cuts(azimuth_deg)) + np.asarray(PLACEMENT_HUB_M)
+
+
+@pytest.mark.requirement("FR-3416")
+def test_p0530_the_placement_check_reads_the_mesh_in_its_unit_about_the_hub(tmp_path):
+    # REL-003: the recorded OBJ in millimetres on a hub off the origin; the run's blade_mesh
+    # record scales it and measures it about the hub, so the placed step is not flagged and
+    # the misplaced one is.
+    import numpy as np
+
+    from pyflightstream.post._structure import placement_check_of_mesh
+
+    geometry = _placement_mesh_in_millimetres(tmp_path)
+    record = {
+        "metres_per_unit": 0.001,
+        "hub_m": list(PLACEMENT_HUB_M),
+        "moves_mesh": False,
+        "groups": {"Blade1": "Blade1"},
+    }
+    cuts = {18: _cuts_on_the_hub(90.0), 36: _cuts_on_the_hub(0.0)}
+    rows, reason = placement_check_of_mesh(
+        [("Blade1", cuts)], geometry, record, step_azimuth_rad=np.radians(5.0)
+    )
+    assert reason is None
+    (placed, misplaced) = rows
+    assert placed[:2] == (1, 18) and placed[-2:] == (False, "")
+    assert placed[4] == pytest.approx(0.001, abs=1e-9)
+    assert misplaced[:2] == (1, 36) and misplaced[-2:] == (True, "")
+    assert misplaced[6] == pytest.approx(0.001, abs=1e-9)
+    # Control: the same file read as metres about the origin, as the check read it before,
+    # puts the placed step's cuts far from the blade.
+    raw = {**record, "metres_per_unit": 1.0, "hub_m": [0.0, 0.0, 0.0]}
+    rows, _ = placement_check_of_mesh(
+        [("Blade1", cuts)], geometry, raw, step_azimuth_rad=np.radians(5.0)
+    )
+    assert rows[0][4] > 0.1
+
+
+@pytest.mark.requirement("FR-3416")
+@pytest.mark.parametrize(
+    ("record", "reason"),
+    [
+        (None, "staged before the package recorded it"),
+        (
+            {"metres_per_unit": 1.0, "hub_m": [0, 0, 0], "moves_mesh": True, "groups": {}},
+            "moves the mesh",
+        ),
+    ],
+)
+def test_p0530_a_record_without_the_mesh_frame_states_its_steps_not_judged(
+    tmp_path, record, reason
+):
+    # REL-003: never a false "misplaced": every step is stated not judged, with the reason.
+    import numpy as np
+
+    from pyflightstream.post._structure import placement_check_of_mesh
+
+    geometry = _placement_mesh_in_millimetres(tmp_path)
+    cuts = {18: _cuts_on_the_hub(90.0), 36: _cuts_on_the_hub(0.0)}
+    rows, said = placement_check_of_mesh(
+        [("Blade1", cuts)], geometry, record, step_azimuth_rad=np.radians(5.0)
+    )
+    assert said is not None and reason in said
+    assert [row[1] for row in rows] == [18, 36]
+    for row in rows:
+        assert row[4:9] == ("NA",) * 5 and row[-1] == said

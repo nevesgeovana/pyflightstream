@@ -647,3 +647,24 @@ def test_p0530_an_unreadable_or_inapplicable_matrix_key_is_warned_and_skipped(tm
         if resolved is not None:
             assert resolved.effective.solver_frame_compensation is False
             assert resolved.provenance()["frame_compensation"]["origin"] == "default"
+
+
+@pytest.mark.requirement("FR-3416")
+def test_p0530_the_run_stages_how_the_mesh_file_holds_the_coupled_blades(tmp_path):
+    # REL-003: fsi-provenance.json carries the facts the post placement check reads the
+    # recorded OBJ by, resolved by the plan's own function (the contour check's).
+    case = coupled_case(tmp_path)
+    script, _ = build(case, "26.124")
+    run_dir = tmp_path / "run"
+    _write_pending_files(script, run_dir, case=case, recorded={})
+    provenance = json.loads((run_dir / "fsi-provenance.json").read_text(encoding="utf-8"))
+    rotor = case.rotors["ROTOR"]
+    assert provenance["blade_mesh"] == ws.blade_mesh_frame(
+        case, rotor.families_blades, origin=rotor.origin
+    )
+    assert provenance["blade_mesh"] == {
+        "metres_per_unit": 1.0,
+        "hub_m": list(rotor.origin),
+        "moves_mesh": False,
+        "groups": {"Blade1": "Blade1"},
+    }

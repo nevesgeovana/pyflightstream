@@ -128,11 +128,21 @@ opens with `POL` and the condition block, then one row per blade and step:
 | `cut_points` | - | the cut points of the blade's own sections in that export |
 | `prescribed_median_m`, `prescribed_p95_m` | m | the median and the 95th percentile of the distance of each cut point to the blade's undeformed surface placed at the prescribed azimuth |
 | `import_median_m`, `import_p95_m` | m | the same to the undeformed surface at the import azimuth, the blade as the mesh imported it |
-| `misplaced` | - | `True` when `prescribed_median_m` exceeds 0.02 m and `import_median_m` is smaller |
+| `misplaced` | - | `True` when `prescribed_median_m` exceeds 0.02 m and `import_median_m` is smaller; `NA` on a step not judged |
+| `not_judged` | - | empty on a judged step; otherwise why the step was not judged |
 
 The undeformed surface is the blade's group of the OBJ the run imported,
-read from the simulation's recorded copy. A distance is to the nearest point
-of that surface. A blade in place shows a prescribed distance of the order of
+read from the simulation's recorded copy as the run staged it in
+`fsi-provenance.json` (`blade_mesh`): scaled to metres by the unit its
+`[import]` states, the blade found under its name in the file (before the
+import's renames), and the surface and the cut points both measured about the
+rotor's origin, on which the blade turns about +X. A run whose
+`fsi-provenance.json` holds no `blade_mesh` (staged before the package recorded it), a row that
+moves the mesh before the solve (`ROTATE`, `TRANSLATE`, or an import operation
+other than `rename`), and a unit that names no length leave every step not
+judged: `NA` distances, `NA` for `misplaced` and the reason in `not_judged`;
+post warns once, naming the point and the reason. A distance is to the nearest
+point of that surface. A blade in place shows a prescribed distance of the order of
 its deflection (millimetres) and an import distance of the order of its
 radius; a blade the solver left at its import azimuth shows the reverse. The
 tolerance of 0.02 m lies between the two. A step with no cut point states

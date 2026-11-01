@@ -41,7 +41,11 @@ FlightStream versions.
   step the median and 95th-percentile distance of the cuts to the blade's undeformed
   surface at its prescribed azimuth and at its import azimuth, and marks a step misplaced
   where the cuts lie more than 0.02 m from the first and nearer the second; post warns,
-  naming the misplaced steps. Defined in the post-processing definitions (FR-3416).
+  naming the misplaced steps. The run stages in `fsi-provenance.json` (`blade_mesh`) the
+  mesh file's unit, the hub and whether the row moves the mesh, and the check reads the
+  OBJ by them; a run staged without them, or a row that moves the mesh, states its steps
+  not judged with the reason and is warned once. Defined in the post-processing
+  definitions (FR-3416).
 - A coupled `unsteady_rotor` or `qsteady_rotor` row whose FSI input carries its section
   contours and whose geometry is an OBJ is warned where a contour, as the package places it
   (origin on the pitch axis), lies more than 5 mm off blade one's cut of the mesh: the

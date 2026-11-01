@@ -35,6 +35,7 @@ from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_PROGRAM,
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_CLOCK_STATE,
+    blade_mesh_record,
     effective_fsi_config,
     frame_compensation_skip_reason,
 )
@@ -169,6 +170,19 @@ def _with_the_applied_compensation(
     return provenance
 
 
+def _with_the_blade_mesh(case: SimCase, provenance: dict[str, Any]) -> dict[str, Any]:
+    """Add how the mesh file holds a coupled rotor's blades to the provenance (FR-3416).
+
+    The ``blade_mesh`` record (unit, hub, whether the row moves the mesh, each
+    blade's name in the file) the post placement check reads the recorded OBJ
+    by; a row off the coupled ``unsteady_rotor`` route is unchanged.
+    """
+    mesh = blade_mesh_record(case)
+    if mesh is not None:
+        provenance["blade_mesh"] = mesh
+    return provenance
+
+
 def _write_pending_files(
     script: Script,
     work_dir: Path,
@@ -247,7 +261,7 @@ def _write_pending_files(
                 "staged": effective.omega_rad_per_s,
                 "rule": "qsteady_rotor sector: the structure turns at the row's RPM",
             }
-        payloads = fsi_input_payloads(effective, provenance)
+        payloads = fsi_input_payloads(effective, _with_the_blade_mesh(case, provenance))
         source_name = case.fsi_provenance.get("source")
         if source_name:
             source = Path(str(source_name))

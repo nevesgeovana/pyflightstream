@@ -219,7 +219,11 @@ PLACEMENT_CHECK_COLUMNS = (
     "import_median_m",
     "import_p95_m",
     "misplaced",
+    "not_judged",
 )
+#: The provenance record the run stages for the check (``fsi-provenance.json``): the mesh
+#: file's metres per unit, the hub, whether the row moves the mesh, and each blade's group.
+BLADE_MESH_RECORD = "blade_mesh"
 
 
 def _turned(points: np.ndarray, angle_rad: float) -> np.ndarray:
@@ -290,7 +294,12 @@ def placement_check(
         }
         if not len(points):
             rows.append(
-                {**row, **dict.fromkeys(PLACEMENT_CHECK_COLUMNS[4:8], "NA"), "misplaced": False}
+                {
+                    **row,
+                    **dict.fromkeys(PLACEMENT_CHECK_COLUMNS[4:8], "NA"),
+                    "misplaced": False,
+                    "not_judged": "",
+                }
             )
             continue
         prescribed = surface.nearest.on_surface(_turned(points, -azimuth))[1]
@@ -305,8 +314,99 @@ def placement_check(
             stats["prescribed_median_m"] > tolerance_m
             and stats["import_median_m"] < stats["prescribed_median_m"]
         )
-        rows.append({**row, **stats, "misplaced": misplaced})
+        rows.append({**row, **stats, "misplaced": misplaced, "not_judged": ""})
     return rows
+
+
+def _not_judged_reason(blade_mesh: Mapping[str, Any] | None) -> str | None:
+    """Return why the recorded mesh cannot be placed where the solver has the blade, or None."""
+    if not isinstance(blade_mesh, Mapping):
+        return (
+            f"the run's fsi-provenance.json records no {BLADE_MESH_RECORD} (a run staged before "
+            "the package recorded it), so the mesh file's length unit and the hub are not known"
+        )
+    if blade_mesh.get("moves_mesh") is not False:
+        return (
+            "the row moves the mesh before the solve, so the mesh file does not hold the blade "
+            "where the solver has it"
+        )
+    factor = blade_mesh.get("metres_per_unit")
+    if not isinstance(factor, int | float) or not math.isfinite(factor) or factor <= 0:
+        return "the mesh's import unit names no length"
+    return None
+
+
+def placement_check_of_mesh(
+    blades: Sequence[tuple[str, Mapping[int, np.ndarray]]],
+    geometry: Path,
+    blade_mesh: Mapping[str, Any] | None,
+    *,
+    step_azimuth_rad: float,
+    tolerance_m: float = PLACEMENT_TOLERANCE_M,
+) -> tuple[list[tuple[object, ...]], str | None]:
+    """Return the placement check rows of a coupled point's blades, read off its mesh file.
+
+    The mesh file is read as the run staged it in ``blade_mesh`` (FR-3416): scaled
+    to metres by its ``metres_per_unit``, each blade from its ``groups`` name, and
+    both the blade and the exported cuts measured about the hub ``hub_m``, on
+    which the blades turn about +X (:func:`placement_check`). Where the record is
+    missing (a run staged before the package recorded it), the row moved the mesh, or the unit
+    names no length, every step is stated not judged, with the reason in the
+    ``not_judged`` column, ``NA`` distances and ``NA`` for ``misplaced``.
+
+    Parameters
+    ----------
+    blades : sequence of (str, mapping of int to numpy.ndarray)
+        Each coupled blade, numbered from 1 in this order, and its cut points per step [m].
+    geometry : pathlib.Path
+        The OBJ the run imported.
+    blade_mesh : mapping or None
+        The ``blade_mesh`` record of the run's ``fsi-provenance.json``.
+    step_azimuth_rad : float
+        The blades' turn per time step about +X [rad], signed with the rotor's hand.
+    tolerance_m : float, optional
+        The misplacement tolerance [m].
+
+    Returns
+    -------
+    tuple
+        The rows, each ``(blade, *the other columns of PLACEMENT_CHECK_COLUMNS)``, and the
+        reason the steps were not judged, or None.
+    """
+    from pyflightstream._mesh import obj_group_surface
+
+    reason = _not_judged_reason(blade_mesh)
+    rows: list[tuple[object, ...]] = []
+    for number, (name, cuts) in enumerate(blades, start=1):
+        if reason is not None:
+            for step in sorted(cuts):
+                azimuth = step * step_azimuth_rad
+                rows.append(
+                    (
+                        number,
+                        step,
+                        round(math.degrees(azimuth) % 360.0, 9),
+                        len(np.asarray(cuts[step]).reshape(-1, 3)),
+                        *("NA",) * 5,
+                        reason,
+                    )
+                )
+            continue
+        assert blade_mesh is not None  # a missing record is a reason
+        groups = blade_mesh.get("groups")
+        group = groups.get(name, name) if isinstance(groups, Mapping) else name
+        hub = np.asarray(blade_mesh.get("hub_m") or (0.0, 0.0, 0.0), dtype=float)
+        raw, faces = obj_group_surface(geometry, str(group))
+        vertices = raw * float(blade_mesh["metres_per_unit"]) - hub
+        about_hub = {
+            step: np.asarray(points, dtype=float).reshape(-1, 3) - hub
+            for step, points in cuts.items()
+        }
+        for row in placement_check(
+            about_hub, vertices, faces, step_azimuth_rad=step_azimuth_rad, tolerance_m=tolerance_m
+        ):
+            rows.append((number, *(row[column] for column in PLACEMENT_CHECK_COLUMNS[1:])))
+    return rows, reason
 
 
 def section_cut_points(path: Path, sections: Sequence[int]) -> np.ndarray:
@@ -360,9 +460,12 @@ def _rotor_hand(record: Any) -> float:
     return -1.0 if speeds and speeds[0] < 0 else 1.0
 
 
-def _placement_rows(ctx: SimContext, record: Any) -> list[tuple[object, ...]] | None:
-    """Return the placement check rows of one coupled point, or None where it exported no cut."""
-    from pyflightstream._mesh import obj_group_surface
+def _placement_rows(
+    ctx: SimContext, record: Any
+) -> tuple[list[tuple[object, ...]], str | None] | None:
+    """Return one coupled point's placement rows and any not-judged reason, None with no cut."""
+    import json
+
     from pyflightstream.fsi.loads import SectionFamilyMap
     from pyflightstream.post._condition import classify_record_outputs
     from pyflightstream.post.series import stamped_exports
@@ -386,14 +489,14 @@ def _placement_rows(ctx: SimContext, record: Any) -> list[tuple[object, ...]] | 
         (folder / "fsi_family_map.json").read_text(encoding="utf-8-sig")
     )
     geometry = _blade_geometry(ctx, record)
-    rows: list[tuple[object, ...]] = []
-    for number, family in enumerate((f for f in families.families if f.is_blade), start=1):
-        vertices, faces = obj_group_surface(geometry, family.name)
+    provenance = json.loads((folder / "fsi-provenance.json").read_text(encoding="utf-8-sig"))
+    blade_mesh = provenance.get(BLADE_MESH_RECORD) if isinstance(provenance, dict) else None
+    blades = []
+    for family in (f for f in families.families if f.is_blade):
         sections = _blade_sections(record, family.name)
         cuts = {step: section_cut_points(path, sections) for step, path in exports.items()}
-        for row in placement_check(cuts, vertices, faces, step_azimuth_rad=turn):
-            rows.append((number, *(row[column] for column in PLACEMENT_CHECK_COLUMNS[1:])))
-    return rows
+        blades.append((family.name, cuts))
+    return placement_check_of_mesh(blades, geometry, blade_mesh, step_azimuth_rad=turn)
 
 
 def placement_check_products(ctx: SimContext) -> None:
@@ -401,9 +504,10 @@ def placement_check_products(ctx: SimContext) -> None:
 
     Per blade and per step, the distances of the solver's exported cuts to the
     blade at its prescribed and at its import azimuth (:func:`placement_check`).
-    A point with a misplaced step is warned, naming the steps. A point that
-    exported no cut writes nothing; one whose inputs cannot be read is skipped
-    with its reason.
+    A point with a misplaced step is warned, naming the steps. A point whose
+    steps cannot be judged (:func:`placement_check_of_mesh`) writes them as not
+    judged, with the reason, and is warned once. A point that exported no cut
+    writes nothing; one whose inputs cannot be read is skipped with its reason.
     """
     for point in ctx.points:
         record = ctx.record_of[point.name]
@@ -411,12 +515,20 @@ def placement_check_products(ctx: SimContext) -> None:
             continue
         relative = f"structure/{point.name}_{PLACEMENT_CHECK_PRODUCT}.csv"
         try:
-            rows = _placement_rows(ctx, record)
+            placed = _placement_rows(ctx, record)
         except (OSError, ValueError, PyflightstreamError) as error:
             ctx.skipped[relative] = f"{PLACEMENT_CHECK_PRODUCT}: {error}"
             continue
-        if rows is None:
+        if placed is None:
             continue
+        rows, reason = placed
+        if reason is not None:
+            warn(
+                f"{point.name}: {PLACEMENT_CHECK_PRODUCT} states its steps not judged: {reason} "
+                f"({relative}).",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         target = ctx.target(ctx.out / relative)
         target.parent.mkdir(parents=True, exist_ok=True)
         context = context_row(ctx.condition(point), ctx.reference.as_lengths())
@@ -425,7 +537,8 @@ def placement_check_products(ctx: SimContext) -> None:
             writer.writerow((POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *PLACEMENT_CHECK_COLUMNS))
             writer.writerows((ctx.sim_id, *context, *row) for row in rows)
         ctx.add(target, {"runs": ctx.sources[point.name], "kind": PLACEMENT_CHECK_PRODUCT})
-        misplaced = sorted({int(str(row[1])) for row in rows if row[-1] is True})
+        flag = PLACEMENT_CHECK_COLUMNS.index("misplaced")
+        misplaced = sorted({int(str(row[1])) for row in rows if row[flag] is True})
         if misplaced:
             warn(
                 f"{point.name}: {PLACEMENT_CHECK_PRODUCT} finds the coupled blade's cuts off its "

@@ -36,6 +36,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path, PurePath
 from types import MappingProxyType
+from typing import Any
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_ids, saved_surface_section_count
@@ -88,6 +89,7 @@ __all__ = [
     "aeroelastic_post_script",
     "aeroelastic_rbf_type",
     "aeroelastic_surface_ids",
+    "blade_mesh_frame",
     "direct_morphing_refusal",
     "emit_aeroelastic_rbf_type",
     "emit_steady_aeroelastic_analysis",
@@ -589,35 +591,76 @@ def _warn_of_contours_off_the_mesh(
     """
     import numpy as np
 
-    from pyflightstream._lengths import scale
     from pyflightstream._mesh import obj_group_surface
 
     path = Path(str(case.geometry)) if case.geometry is not None else None
     if cfg.blade.section_contours_m is None or path is None or path.suffix.lower() != ".obj":
         return
-    units = getattr(case.mesh_import, "units", None)
-    factor = scale(str(units), "METER") if units else None
-    operations = getattr(case.mesh_import, "operations", None) or ()
-    moved = any(
-        str(case.variables.get(key, "")).strip() not in ("", "-") for key in ("ROTATE", "TRANSLATE")
-    ) or any(operation.op != "rename" for operation in operations)
-    if factor is None or moved:
+    frame = blade_mesh_frame(case, [blade], origin=origin)
+    factor = frame["metres_per_unit"]
+    if factor is None or frame["moves_mesh"]:
         return
-    # The solver names the blade after the import's renames; the file names it before them.
-    group = blade
-    for operation in reversed(operations):
-        if operation.op == "rename" and operation.to == group and operation.surface:
-            group = operation.surface
     try:
-        vertices, faces = obj_group_surface(path, group)
+        vertices, faces = obj_group_surface(path, frame["groups"][blade])
     except (OSError, ValueError):
         return
     warn_of_contours_off_the_mesh_cut(
         cfg,
-        vertices * factor - np.asarray(origin, dtype=float),
+        vertices * factor - np.asarray(frame["hub_m"], dtype=float),
         faces,
         where=f"case {case.sim_id!r} blade {blade}",
     )
+
+
+def blade_mesh_frame(
+    case: SimCase, blades: Sequence[str], *, origin: Sequence[float] = (0.0, 0.0, 0.0)
+) -> dict[str, Any]:
+    """Return how a row's mesh file holds its coupled blades, in metres about the hub.
+
+    The facts the plan's contour check (FR-3417) and the post placement check
+    (FR-3416) read the imported mesh by, resolved once: ``metres_per_unit``,
+    the factor taking the unit the import states (``[import] units``) to
+    metres, None where it names no length; ``hub_m``, the rotor's origin, on
+    which the blades' rotating frames sit; ``moves_mesh``, whether the row
+    moves the mesh before the solve (``ROTATE``, ``TRANSLATE``, or an import
+    operation other than ``rename``), so the file no longer holds the blade
+    where the solver has it; and ``groups``, each blade's name in the file,
+    before the import's renames.
+
+    Parameters
+    ----------
+    case : SimCase
+        The coupled row.
+    blades : sequence of str
+        The blade names the solver sees.
+    origin : sequence of float, optional
+        The rotor's origin [m].
+
+    Returns
+    -------
+    dict
+        ``metres_per_unit``, ``hub_m``, ``moves_mesh`` and ``groups``.
+    """
+    from pyflightstream._lengths import scale
+
+    units = getattr(case.mesh_import, "units", None)
+    operations = getattr(case.mesh_import, "operations", None) or ()
+    moved = any(
+        str(case.variables.get(key, "")).strip() not in ("", "-") for key in ("ROTATE", "TRANSLATE")
+    ) or any(operation.op != "rename" for operation in operations)
+    groups: dict[str, str] = {}
+    for blade in blades:
+        group = blade
+        for operation in reversed(operations):
+            if operation.op == "rename" and operation.to == group and operation.surface:
+                group = operation.surface
+        groups[blade] = group
+    return {
+        "metres_per_unit": scale(str(units), "METER") if units else None,
+        "hub_m": [float(value) for value in origin],
+        "moves_mesh": moved,
+        "groups": groups,
+    }
 
 
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
