@@ -515,7 +515,7 @@ def test_the_campaign_sweep_table_a_run_writes_holds_no_cr_with_crlf_forced(
     beside text mode forced to CRLF. The control: under the same forcing a ``to_csv``
     that states no line terminator writes a CR, so the check can fail.
     """
-    pd = pytest.importorskip("pandas")
+    pd = pytest.importorskip("pandas", reason="needs the optional extra: pandas")
 
     from pyflightstream.run import SWEEP_TABLE_NAME
     from tests.tier1_offline.test_goal028_hpc_sweep_csv import _run

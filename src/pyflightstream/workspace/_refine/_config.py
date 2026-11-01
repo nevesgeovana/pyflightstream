@@ -565,10 +565,25 @@ def _lookup(name: str, declared: Mapping[str, Any], chain: tuple[str, ...]) -> A
     return _expand(declared[name], declared, (*chain, name))
 
 
+def _spliced(items: list[Any], expanded: list[Any]) -> list[Any]:
+    """Return an array's replaced items, a list variable written alone as an item spliced in.
+
+    ``members = ["G", "T"]`` and ``Wing = ["${members}", "U"]`` read ``["G", "T", "U"]``,
+    where the list would otherwise sit inside the array as an item no check reads.
+    """
+    out: list[Any] = []
+    for item, new in zip(items, expanded, strict=True):
+        if isinstance(new, list) and isinstance(item, str) and VARIABLE.fullmatch(item):
+            out.extend(new)
+        else:
+            out.append(new)
+    return out
+
+
 def _expand(value: Any, declared: Mapping[str, Any], chain: tuple[str, ...] = ()) -> Any:
     """Return a value with every reference replaced: a whole ``${name}`` keeps its type."""
     if isinstance(value, list):
-        return [_expand(item, declared, chain) for item in value]
+        return _spliced(value, [_expand(item, declared, chain) for item in value])
     if not isinstance(value, str):
         return value
     whole = VARIABLE.fullmatch(value)
@@ -588,10 +603,13 @@ def _substitute(source: str, keys: tuple[str, ...], node: Any, declared: Mapping
         return {k: _substitute(source, (*keys, k), v, declared) for k, v in node.items()}
     if isinstance(node, list):
         last = keys[-1] if keys else ""
-        return [
-            _substitute(source, (*keys[:-1], f"{last}[{i}]"), v, declared)
-            for i, v in enumerate(node)
-        ]
+        return _spliced(
+            node,
+            [
+                _substitute(source, (*keys[:-1], f"{last}[{i}]"), v, declared)
+                for i, v in enumerate(node)
+            ],
+        )
     if not isinstance(node, str) or not VARIABLE.search(node):
         return node
     try:
@@ -611,7 +629,9 @@ def resolve_variables(source: Path, data: dict[str, Any]) -> dict[str, Any]:
 
     Runs on the parsed file before any check, so every check reads the
     substituted value. A text that is exactly ``${name}`` takes the variable's
-    own type; inside a longer text the value is written as text. A variable
+    own type; inside a longer text the value is written as text. A list
+    variable written alone as an item of an array is spliced into it
+    (``["${members}", "U"]`` reads ``["G", "T", "U"]``). A variable
     may reference another. A name that is not declared, a cycle, a bad name or
     a value that is not a number, text, boolean or list of them is warned and
     left as written (``warning_refusals`` refuses).

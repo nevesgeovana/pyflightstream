@@ -127,7 +127,7 @@ def test_cancel_and_stale_whole_workbook(
 
 def test_reordered_columns_formula_and_drawings_survive(tmp_path: Path) -> None:
     # GOAL033:excel:checks:preserve_custom_order_formulas
-    xlsxwriter = pytest.importorskip("xlsxwriter")
+    xlsxwriter = pytest.importorskip("xlsxwriter", reason="needs the optional extra: excel")
 
     from pyflightstream.workspace.excel_file import read_snapshot
 
@@ -298,7 +298,7 @@ def test_public_saved_workbook_example(tmp_path: Path) -> None:
 def test_dictionary_header_ambiguity_is_refused_before_preview(
     tmp_path: Path, kind: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    xlsxwriter = pytest.importorskip("xlsxwriter")
+    xlsxwriter = pytest.importorskip("xlsxwriter", reason="needs the optional extra: excel")
 
     source = matrix(tmp_path)
     original_matrix = source.read_bytes()

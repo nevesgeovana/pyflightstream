@@ -79,7 +79,10 @@ classifiers = [
 # with, which the same test measures. The CI leg `test-floors` installs the
 # floors of every runtime dependency and user extra and runs tier 1 on them. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
-# is written against (field_validator, model_validator).
+# is written against (field_validator, model_validator). Its floor is a patch release,
+# 2.10.4, because workspace/inputs.py annotates a wrap validator with
+# ModelWrapValidatorHandler, which the 2.10.0 and 2.10.3 wheels do not export and
+# the 2.10.4 wheel does.
 # matplotlib and scipy carry the SPEC 0 floor computed on 2026-10-28 (the oldest
 # minor released within two years): matplotlib 3.10 of 2024-12, scipy 1.15 of
 # 2025-01. rtree is not a SPEC 0 project: its floor is 1.1, the first release

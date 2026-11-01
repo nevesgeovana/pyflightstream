@@ -54,7 +54,8 @@
       "tests/tier1_offline/test_p0520_norefusal_direct.py",
       "tests/tier1_offline/test_p0530_fsi_structural_start.py",
       "tests/tier1_offline/test_p0530_rbf_rotor_26127_warning.py",
-      "tests/tier1_offline/test_p0530_l3_rows.py"
+      "tests/tier1_offline/test_p0530_l3_rows.py",
+      "tests/tier1_offline/test_p0530_lows.py"
     ],
     "cases": [
       "tests/tier1_offline/test_base_region_setup.py",

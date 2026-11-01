@@ -25,6 +25,13 @@ FlightStream versions.
 
 ### Fixed
 
+- In a refinement file a list variable written alone as an item of an array is spliced
+  into it: `Wing = ["${members}", "U"]` with `members = ["G", "T"]` reads
+  `["G", "T", "U"]`, where the list sat inside the array and the family check refused it
+  without saying why (FR-3396).
+- The low findings of the 0.50.0 push review: the pydantic floor comment in
+  `pyproject.toml` says why it is a patch release, two tests that skip on an absent extra
+  name it, and the test conftest's extras map is pinned to the import-isolation test's.
 - The requirements table `tests/requirements_l3.csv` names the reachability audit
   (FR-3411, PFS-2140.023, closed at 0.50.0 with no row) and the structural start keys,
   the RBF warning and the refine path of this release (FR-3412 to FR-3414), each with its
