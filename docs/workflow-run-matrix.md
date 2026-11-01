@@ -550,6 +550,7 @@ A figure of that name that exists is kept, with a warning, unless `--overwrite` 
 marker; a point that has not is drawn larger, white-faced and on top, the legend names both, and
 the terminal prints finished/total per matrix. `--finished-by products` (the default) calls a
 point finished when the polar table of its simulation under `post/<matrix>/polars/` holds a row at
-its swept values; `--finished-by sims` calls it finished when its run record in `runs.json` ended
+its swept values (a row sweeping a key no polar table states, such as PPA or RPM, cannot tell its
+points apart: they are drawn not finished, with a warning); `--finished-by sims` calls it finished when its run record in `runs.json` ended
 CONVERGED, COMPLETED_MAX_ITER, MAX_ITER_REACHED or RAN_MISSING_LOG. With no such folder or file,
 every point is not finished.

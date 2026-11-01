@@ -447,6 +447,53 @@ def test_p0530_vi_sims_without_runs_json_every_point_is_not_finished(workspace, 
     assert "'doe-power-off': '0/55'" in capsys.readouterr().out
 
 
+def _one_row_matrix(workspace, stem, condition, values):
+    """Write ``<stem>.fs``: the first doe-power-off row with ``condition`` swept over ``values``."""
+    section = next(s for s in DOE_MATRICES.split("#### ")[1:] if s.startswith(f"{_OFF}.fs"))
+    head, rule, row = section.partition("\n")[2].splitlines()[:3]
+    row = row.replace("MACH:0.157, ALTFT:3600, ALPHA:sweep, BETA:0", condition)
+    row = row.replace("| 0, 1, 2, 3, 4     |", f"| {values} |")
+    path = workspace / f"{stem}.fs"
+    path.write_text("\n".join([head, rule, row]) + "\n", encoding="utf-8")
+    return read_matrix(path)
+
+
+def test_p0530_vi_products_tells_the_points_of_a_speed_sweep_apart_rel_r3_001(workspace):
+    # REL-R3-001: a row sweeping TASmps at one ALPHA. The table holds the 30 m/s point only;
+    # matched on ALPHA, BETA, MACH and J alone, all three points read finished.
+    from pyflightstream.run._plan_report import finished_points
+
+    rows = _one_row_matrix(
+        workspace, "tas", "TASmps:sweep, ALTFT:3600, ALPHA:0, BETA:0", "30, 40, 50"
+    )
+    folder = workspace / "post" / "tas" / "polars"
+    folder.mkdir(parents=True)
+    (folder / "P9851-x_g01.csv").write_text(
+        "POL,VINF,ALT,ALPHA,BETA,MACH\n9851,30.00000,3600.00000,0.00000,0.00000,0.08816\n",
+        encoding="utf-8",
+    )
+    assert finished_points(workspace, "tas", rows, "products") == [True, False, False]
+
+
+def test_p0530_vi_products_draws_a_sweep_no_table_states_not_finished_and_warns_rel_r3_001(
+    workspace,
+):
+    # A swept key the polar tables carry no column of (DELTA_THETA here) cannot tell its
+    # points apart: drawn not finished, warned, never all finished.
+    from pyflightstream.run._plan_report import finished_points
+
+    rows = _one_row_matrix(
+        workspace, "dth", "MACH:0.157, ALTFT:3600, ALPHA:0, BETA:0, PPA:sweep", "90000, 95000"
+    )
+    folder = workspace / "post" / "dth" / "polars"
+    folder.mkdir(parents=True)
+    (folder / "P9851-x_g01.csv").write_text(
+        "POL,ALPHA,BETA,MACH\n9851,0,0,0.157\n", encoding="utf-8"
+    )
+    with pytest.warns(NotApplicableWarning, match="PPA"):
+        assert finished_points(workspace, "dth", rows, "products") == [False, False]
+
+
 def test_p0530_vi_the_option_takes_products_or_sims_only(workspace):
     from pyflightstream.run._plan_report import FINISHED_BY_CHOICES, FINISHED_BY_OPTION
 

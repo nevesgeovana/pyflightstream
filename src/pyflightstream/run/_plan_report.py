@@ -353,6 +353,19 @@ _POLARS_DIR = "polars"
 #: (``ADVANCE_RATIO`` is the ``J`` column).
 _MATCH_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "MACH": "MACH", "ADVANCE_RATIO": "J"}
 
+#: The other swept axes a polar table states, by its column, in the same unit (the post's
+#: ``CONDITION_KEY_ALIASES``, restated: the run layer does not import the post). Matched only
+#: where a row sweeps them, which is what tells its points apart (REL-R3-001).
+_SWEPT_COLUMNS = {
+    **_MATCH_COLUMNS,
+    "TASmps": "VINF",
+    "ALTFT": "ALT",
+    "REmi": "RE",
+    "RHOkgm3": "RHO",
+    "MUPas": "MU",
+    "TK": "TEMP",
+}
+
 
 def _polar_table_rows(folder: Path, pol: str) -> list[dict[str, str]]:
     """Return the rows of the tables ``P<pol>-*.csv`` of simulation ``pol`` in ``folder``."""
@@ -368,9 +381,18 @@ def _polar_table_rows(folder: Path, pol: str) -> list[dict[str, str]]:
     return rows
 
 
-def _in_table(point: Mapping[str, float], rows: Sequence[Mapping[str, str]]) -> bool:
-    """Whether a table row states every axis of ``point`` the tables carry, to print precision."""
-    axes = [(_MATCH_COLUMNS[k], v) for k, v in point.items() if k in _MATCH_COLUMNS]
+def _in_table(
+    point: Mapping[str, float], rows: Sequence[Mapping[str, str]], swept: Sequence[str] = ()
+) -> bool:
+    """Whether a table row states every axis of ``point`` the tables carry, to print precision.
+
+    ``swept`` are the axes the point's row sweeps; each is matched on its column too.
+    """
+    axes = [
+        (_SWEPT_COLUMNS[k], v)
+        for k, v in point.items()
+        if k in _MATCH_COLUMNS or (k in swept and k in _SWEPT_COLUMNS)
+    ]
     for row in rows:
         if axes and all(
             (cell := _number(row.get(column))) is not None
@@ -470,9 +492,26 @@ def finished_points(
         return finished_by_sims(root, stem, rows)
     folder = Path(root) / "post" / stem / _POLARS_DIR
     flags: list[bool] = []
+    untold: set[str] = set()
     for row in rows:
         table = _polar_table_rows(folder, row.pol)
-        flags.extend(_in_table(point, table) for point, _ in row_points(row))
+        points = [point for point, _ in row_points(row)]
+        swept = sorted({k for p in points for k in p if len({q.get(k) for q in points}) > 1})
+        if any(k not in _SWEPT_COLUMNS for k in swept):
+            # NO COLUMN TELLS THE POINTS APART: matched on its other axes, every point of the
+            # row would read finished once one is posted (REL-R3-001); drawn not finished, warned.
+            untold.update(k for k in swept if k not in _SWEPT_COLUMNS)
+            flags.extend(False for _ in points)
+            continue
+        flags.extend(_in_table(point, table, swept) for point in points)
+    if untold:
+        warnings.warn(
+            f"visual-inspect: matrix {stem} sweeps {', '.join(sorted(untold))}, which no polar "
+            f"table states, so {FINISHED_BY_OPTION} products cannot tell those points apart and "
+            f"draws them not finished; {FINISHED_BY_OPTION} sims reads the run records.",
+            NotApplicableWarning,
+            stacklevel=2,
+        )
     return flags
 
 
