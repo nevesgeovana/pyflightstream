@@ -408,6 +408,15 @@
     "pyflightstream.cases.derived_body_sha256",
     "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
    ]
+  },
+  {
+   "id": "RX-40",
+   "capability": "Placing an FSI input's section contours on the blade's cut of the mesh, written as a new input",
+   "reason": "maintainer or developer API",
+   "decision": "registered by the 0.53.0 FSI lane (FR-3417) with no workspace route: whether a matrix verb routes it is the owner's naming decision, open; the post-run warning that names the offsets is reached from the workspace",
+   "names": [
+    "pyflightstream.fsi.sections.place_on_mesh_cut"
+   ]
   }
  ]
 }
