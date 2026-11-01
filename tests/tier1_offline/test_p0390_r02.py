@@ -39,6 +39,7 @@ from tests.tier1_offline.test_matrix_run import (
     CountingStub,
     converged,
 )
+from tests.workflow_payloads import before_plots_scene_0530
 
 BUILD = "26.124"
 #: The models of the study, as (POL, geometry, the boundaries its mesh block declares).
@@ -384,7 +385,8 @@ def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_p
             tmp_path / str(len(reference)), reference=reference, models=(WING_BODY_TAIL,)
         )
         records = ran(workspace, path)
-        assert digest(script_of(workspace, records, "2002")) == pinned
+        script = before_plots_scene_0530(script_of(workspace, records, "2002"))
+        assert digest(script) == pinned
         rows = _read_record_rows(workspace.root / "runs.json")
         rows = rows if isinstance(rows, list) else rows["runs"]
         assert all("skipped_names" not in row for row in rows)

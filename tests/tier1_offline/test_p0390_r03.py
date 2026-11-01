@@ -922,6 +922,15 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # The stand-in solver's .fsm is not a package output, and a mesh suffix may not be
     # committed (NFR-14): it is left out of both sides.
     outputs = {k: v for k, v in r10_outputs(tmp_path).items() if not k.endswith(".fsm")}
+    # 0.53.0 (FR-3442): every emitted script switches to the plots scene right before
+    # START_SOLVER; v0.38.0 wrote no such line, so it is taken out of the emitted scripts.
+    for name in outputs:
+        if "/scripts/" in name and name.endswith(".txt"):
+            outputs[name] = (
+                outputs[name]
+                .replace("CHANGE_SCENE_TO_PLOTS\r\nSTART_SOLVER\r\n", "START_SOLVER\r\n")
+                .replace("CHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n", "START_SOLVER\n")
+            )
     captured = {
         path.relative_to(V0380).as_posix(): path.read_bytes()
         for path in sorted(V0380.rglob("*"))
