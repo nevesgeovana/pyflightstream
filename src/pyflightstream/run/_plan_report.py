@@ -9,9 +9,12 @@ wheel, wake, streamlines, far field and default angles from its case; the
 from __future__ import annotations
 
 import argparse
+import csv
 import itertools
+import math
 import warnings
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -33,6 +36,7 @@ from pyflightstream.cases.workflows import plan_record as farfield_plan_record
 from pyflightstream.workspace import matrix_files
 from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path, matrix_stem
 from pyflightstream.workspace.cli import add_console_arguments
+from pyflightstream.workspace.naming import sweep_file_stem
 
 PointPlan = Any  # the PointPlan of run._plan, which imports this module
 
@@ -256,11 +260,12 @@ def point_facts(
 # _visual_inspect.py merged here
 __all__ = [
     "ALL_MATRICES",
-    "OUTPUT_PATTERN",
+    "OUTPUT_DIR",
     "add_visual_inspect_parser",
     "cmd_visual_inspect",
     "design_table",
-    "output_path",
+    "figure_name",
+    "figure_path",
     "row_points",
     "visual_inspect",
 ]
@@ -270,9 +275,9 @@ __all__ = [
 ALL_MATRICES = "all"
 
 
-#: Name and place of the figure under the workspace, defined once, here. ``{matrices}``
-#: is the matrix stems joined by an underscore, ``all`` for ``--matrices all``.
-OUTPUT_PATTERN = "post/visual-inspect/doe_{matrices}.pdf"
+#: The place of the figure under the workspace, defined once, here; its file name is the user's
+#: ``--name``.
+OUTPUT_DIR = "post/visual-inspect"
 
 
 #: Beyond this many levels a diagonal histogram uses ``_FREE_BINS`` bins, not one bar per level.
@@ -340,6 +345,137 @@ def row_points(row: MatrixRow) -> list[_Point]:
     return points
 
 
+#: The folder of a post's polar tables under ``post/<matrix stem>/``. It is
+#: ``pyflightstream.post._stage.POLARS_DIR``, restated: the run layer does not import the post.
+_POLARS_DIR = "polars"
+
+#: The point axes a polar table row is matched on, by the column the table writes them under
+#: (``ADVANCE_RATIO`` is the ``J`` column).
+_MATCH_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "MACH": "MACH", "ADVANCE_RATIO": "J"}
+
+
+def _polar_table_rows(folder: Path, pol: str) -> list[dict[str, str]]:
+    """Return the rows of the tables ``P<pol>-*.csv`` of simulation ``pol`` in ``folder``."""
+    rows: list[dict[str, str]] = []
+    if not folder.is_dir():
+        return rows
+    for path in sorted(folder.glob(f"{sweep_file_stem(pol, '')}*.csv")):
+        try:
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                rows.extend(csv.DictReader(handle))
+        except (OSError, UnicodeDecodeError, csv.Error):
+            continue
+    return rows
+
+
+def _in_table(point: Mapping[str, float], rows: Sequence[Mapping[str, str]]) -> bool:
+    """Whether a table row states every axis of ``point`` the tables carry, to print precision."""
+    axes = [(_MATCH_COLUMNS[k], v) for k, v in point.items() if k in _MATCH_COLUMNS]
+    for row in rows:
+        if axes and all(
+            (cell := _number(row.get(column))) is not None
+            and math.isclose(cell, value, rel_tol=1e-4, abs_tol=1e-6)
+            for column, value in axes
+        ):
+            return True
+    return False
+
+
+#: The command-line flag that picks the criterion of "finished"; its values are
+#: :data:`FINISHED_BY_CHOICES`. One constant so a rename is one line.
+FINISHED_BY_OPTION = "--finished-by"
+FINISHED_BY_CHOICES = ("products", "sims")
+
+#: Recorded statuses of a point that ran to an end with its numbers (not failed, not stopped by the
+#: clock, not submitted): the points the ``sims`` criterion counts as finished.
+_FINISHED_STATUSES = frozenset(
+    {"CONVERGED", "COMPLETED_MAX_ITER", "MAX_ITER_REACHED", "RAN_MISSING_LOG"}
+)
+
+
+@dataclass(frozen=True)
+class _RowAsCase:
+    """The attributes :func:`~pyflightstream.cases.naming.point_name` reads from a matrix row."""
+
+    row: MatrixRow
+
+    @property
+    def sim_id(self) -> str:
+        return self.row.pol
+
+    @property
+    def mach(self) -> float | None:
+        return self.row.flight_condition.get("MACH")
+
+    @property
+    def sweep(self) -> Any:
+        return self.row.sweep
+
+    @property
+    def flight_condition(self) -> Mapping[str, float]:
+        return self.row.flight_condition
+
+    @property
+    def condition_order(self) -> Sequence[str]:
+        return self.row.condition_order
+
+    @property
+    def variables(self) -> Mapping[str, Any]:
+        return self.row.variables
+
+
+def finished_by_sims(root: str | Path, stem: str, rows: Sequence[MatrixRow]) -> list[bool]:
+    """Return, per point of ``rows``, whether the run records hold it finished successfully.
+
+    The point is matched to its record by the identity the ledger uses, the simulation (POL) and
+    the point name (:func:`~pyflightstream.cases.naming.point_name`). A workspace without
+    ``runs.json``, a point without a record or one with another status is not finished.
+    """
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.cases.naming import point_name
+    from pyflightstream.workspace.ledger import read_ledger
+
+    try:
+        recorded = {
+            (str(r["sim"]), str(r["point"])): str(r["status"])
+            for r in read_ledger(root).points(matrix=stem)
+        }
+    except (PyflightstreamError, ValueError, OSError):
+        recorded = {}
+    flags: list[bool] = []
+    for row in rows:
+        names: list[str | None] = []
+        try:
+            names = [point_name(_RowAsCase(row), p) for p in row.sweep.points()]  # type: ignore[arg-type]
+        except PyflightstreamError:
+            names = []
+        expected = len(row_points(row))
+        if len(names) != expected:
+            names = [None] * expected
+        flags.extend(recorded.get((row.pol, n or ""), "") in _FINISHED_STATUSES for n in names)
+    return flags
+
+
+def finished_points(
+    root: str | Path, stem: str, rows: Sequence[MatrixRow], finished_by: str = "products"
+) -> list[bool]:
+    """Return, per point of ``rows`` in :func:`design_table` order, whether it is finished.
+
+    ``finished_by`` ``"sims"`` reads the run records (:func:`finished_by_sims`); ``"products"``
+    reads the polar tables of the post: finished when ``post/<stem>/polars/`` holds a table of its
+    simulation (``P<POL>-*.csv``) with a row at the point's swept values. No folder, no table or
+    no such row is not finished, never an error.
+    """
+    if finished_by == "sims":
+        return finished_by_sims(root, stem, rows)
+    folder = Path(root) / "post" / stem / _POLARS_DIR
+    flags: list[bool] = []
+    for row in rows:
+        table = _polar_table_rows(folder, row.pol)
+        flags.extend(_in_table(point, table) for point, _ in row_points(row))
+    return flags
+
+
 def design_table(
     rows_by_matrix: Mapping[str, Sequence[MatrixRow]],
 ) -> dict[str, list[dict[str, float]]]:
@@ -369,18 +505,79 @@ def design_table(
     return {name: [flat(b, r) for b, r in points] for name, points in expanded.items()}
 
 
-def output_path(root: str | Path, names: Sequence[str]) -> Path:
-    """Return where the figure of ``names`` is written (:data:`OUTPUT_PATTERN`)."""
-    label = ALL_MATRICES if ALL_MATRICES in names else "_".join(names)
-    return Path(root) / OUTPUT_PATTERN.format(matrices=label)
+def figure_name(name: str) -> str:
+    """Return the file stem of ``--name``: ``.pdf`` is accepted and not doubled.
+
+    Raises
+    ------
+    ValueError
+        When the name is empty or holds a path separator: the place is fixed, only the name is free.
+    """
+    stem = name[:-4] if name.lower().endswith(".pdf") else name
+    if not stem.strip() or any(c in stem for c in "/\\") or stem in (".", ".."):
+        raise ValueError(
+            f"--name {name!r} must be a file name without a folder: the figure is always "
+            f"written to {OUTPUT_DIR}/<name>.pdf under the workspace"
+        )
+    return stem
+
+
+def figure_path(root: str | Path, name: str) -> Path:
+    """Return where the figure called ``name`` is written: ``post/visual-inspect/<name>.pdf``."""
+    return Path(root) / OUTPUT_DIR / f"{figure_name(name)}.pdf"
+
+
+#: Marker areas: the open marker of a point not finished is 1.8 times the filled one.
+_DONE_SIZE = 14
+_OPEN_SIZE = 25
 
 
 def _levels(table: Mapping[str, list[dict[str, float]]], key: str) -> list[float]:
     return sorted({p[key] for points in table.values() for p in points if key in p})
 
 
-def _draw(table: Mapping[str, list[dict[str, float]]], params: Sequence[str], out: Path) -> None:
-    """Draw the pair plot of ``params`` to the PDF ``out``."""
+def _plot_matrix(
+    ax: Any,
+    kept: Sequence[tuple[dict[str, float], bool]],
+    axes: tuple[str, str],
+    style: tuple[str, str],
+    bins: Any,
+) -> None:
+    """Draw one matrix's points on ``ax``: a histogram when ``bins`` is given, else a scatter.
+
+    A finished point keeps the filled marker; one not finished is drawn larger, white-faced, with
+    the matrix's colour as its edge, and on top so it stays visible.
+    """
+    if not kept:
+        return
+    px, py = axes
+    color, marker = style
+    if bins is not None:
+        ax.hist([r[px] for r, _ in kept], bins=bins, alpha=0.5, color=color)
+        return
+    for done, size in ((True, _DONE_SIZE), (False, _OPEN_SIZE)):
+        chosen = [r for r, ok in kept if ok is done]
+        if not chosen:
+            continue
+        look: dict[str, Any] = (
+            {"alpha": 0.75, "color": color}
+            if done
+            else {"facecolors": "white", "edgecolors": color, "linewidths": 1.2, "zorder": 3}
+        )
+        ax.scatter([r[px] for r in chosen], [r[py] for r in chosen], s=size, marker=marker, **look)
+
+
+def _draw(
+    table: Mapping[str, list[dict[str, float]]],
+    params: Sequence[str],
+    out: Path,
+    finished: Mapping[str, Sequence[bool]] | None = None,
+) -> None:
+    """Draw the pair plot of ``params`` to the PDF ``out``.
+
+    ``finished`` flags each point of a matrix (its polar table holds it); a point not flagged is
+    drawn larger, white-faced and on top. None flags nothing.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -407,18 +604,13 @@ def _draw(table: Mapping[str, list[dict[str, float]]], params: Sequence[str], ou
         fig, grid = plt.subplots(n, n, figsize=(2.6 * n + 1, 2.6 * n + 1), squeeze=False)
         for (i, py), (j, px) in itertools.product(enumerate(params), enumerate(params)):
             ax = grid[i][j]
-            for k, points in enumerate(table.values()):
-                kept = [r for r in points if px in r and py in r]
-                if not kept:
-                    continue
-                color = colors[k % len(colors)]
-                if i == j:
-                    ax.hist([r[px] for r in kept], bins=bins[px], alpha=0.5, color=color)
-                else:
-                    ax.scatter(
-                        [r[px] for r in kept], [r[py] for r in kept], s=14, alpha=0.75,
-                        marker=_MARKERS[k % len(_MARKERS)], color=color,
-                    )  # fmt: skip
+            for k, (name, points) in enumerate(table.items()):
+                flags = (finished or {}).get(name) or [False] * len(points)
+                kept = [
+                    (r, ok) for r, ok in zip(points, flags, strict=False) if px in r and py in r
+                ]
+                color, marker = colors[k % len(colors)], _MARKERS[k % len(_MARKERS)]
+                _plot_matrix(ax, kept, (px, py), (color, marker), bins[px] if i == j else None)
             ax.set_xlim(*limits[px])
             if i != j:
                 ax.set_ylim(*limits[py])
@@ -434,7 +626,14 @@ def _draw(table: Mapping[str, list[dict[str, float]]], params: Sequence[str], ou
             )
             for k, (name, points) in enumerate(table.items())
         ]  # fmt: skip
-        fig.legend(handles=handles, loc="upper center", ncol=min(len(handles), 3), fontsize=9)
+        handles += [
+            plt.Line2D([], [], marker="o", ls="", color="0.4", label="finished"),
+            plt.Line2D(
+                [], [], marker="o", ls="", markerfacecolor="white", markeredgecolor="0.4",
+                markersize=9, label="not finished",
+            ),
+        ]  # fmt: skip
+        fig.legend(handles=handles, loc="upper center", ncol=min(len(handles), 4), fontsize=9)
         fig.tight_layout(rect=(0, 0, 1, 0.95))
         pdf.savefig(fig)
         plt.close(fig)
@@ -461,7 +660,13 @@ def _named_matrices(root: Path, names: Sequence[str]) -> dict[str, Path]:
 
 
 def visual_inspect(
-    root: str | Path, names: Sequence[str], params: Sequence[str] | None = None
+    root: str | Path,
+    names: Sequence[str],
+    params: Sequence[str] | None = None,
+    finished_by: str = "products",
+    *,
+    name: str,
+    overwrite: bool = False,
 ) -> Path | None:
     """Draw the design of experiments of the matrices ``names`` of the workspace ``root``.
 
@@ -473,6 +678,16 @@ def visual_inspect(
         Matrix file names or stems, with or without ``.fs``, or ``"all"``.
     params : sequence of str, optional
         The parameters to draw; None draws every parameter that varies.
+    name : str
+        The figure's file name, required; it is written to ``post/visual-inspect/<name>.pdf``
+        (a ``.pdf`` ending is not doubled).
+    overwrite : bool, optional
+        Replace ``post/visual-inspect/<name>.pdf`` when it exists; otherwise the file is kept,
+        warned and nothing is drawn.
+    finished_by : {"products", "sims"}, optional
+        What makes a point finished (drawn filled): a row in its simulation's polar table under
+        ``post/<matrix>/polars/`` (``"products"``), or a run record that finished successfully
+        (``"sims"``). The other points are drawn larger, white-faced and on top.
 
     Returns
     -------
@@ -486,8 +701,23 @@ def visual_inspect(
     EmptySelectionWarning
         Nothing is left to draw.
     """
+    if finished_by not in FINISHED_BY_CHOICES:
+        raise ValueError(
+            f"visual-inspect: finished_by {finished_by!r} is not one of "
+            f"{', '.join(FINISHED_BY_CHOICES)}"
+        )
+    out = figure_path(root, name)
+    if out.exists() and not overwrite:
+        warnings.warn(
+            f"visual-inspect: {out} exists and was kept, nothing was drawn; "
+            f"pass {OVERWRITE_OPTION} to replace it, or give another --name.",
+            NotApplicableWarning,
+            stacklevel=2,
+        )
+        return None
     paths = _named_matrices(Path(root), names)
-    table = design_table({stem: read_matrix(path) for stem, path in paths.items()})
+    read = {stem: read_matrix(path) for stem, path in paths.items()}
+    table = design_table(read)
     every = sorted({k for points in table.values() for p in points for k in p})
     varying = [k for k in every if len(set(_levels(table, k))) > 1]
     if params:
@@ -509,12 +739,29 @@ def visual_inspect(
             stacklevel=2,
         )
         return None
-    # The stems drawn name the file: a name typed with .fs or a path, or one skipped, is not.
-    out = output_path(root, [ALL_MATRICES] if ALL_MATRICES in names else list(paths))
-    _draw(table, chosen, out)
+    finished = {stem: finished_points(root, stem, rows, finished_by) for stem, rows in read.items()}
+    _draw(table, chosen, out, finished)
     print("points per matrix:", {m: len(p) for m, p in table.items()})
+    print(
+        "finished/total per matrix:",
+        {m: f"{sum(finished[m])}/{len(p)}" for m, p in table.items()},
+    )
     print("varying parameters:", ", ".join(varying))
     return out
+
+
+#: The flag that names the figure; one constant so a rename is one line.
+NAME_OPTION = "--name"
+OVERWRITE_OPTION = "--overwrite"
+
+
+def _figure_name_argument(text: str) -> str:
+    """Parse ``--name``: the name as typed, refused naming the flag when it holds a folder."""
+    try:
+        figure_name(text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
+    return text
 
 
 def add_visual_inspect_parser(subparsers: Any) -> None:
@@ -528,8 +775,23 @@ def add_visual_inspect_parser(subparsers: Any) -> None:
             "marker per matrix. A parameter is a FLIGHT_CONDITION key, a scalar VAR_NAMES_VALUES "
             "key or a ROTATE alias (alias:AXIS when the matrices turn it about several axes). "
             "Reads the matrices only; needs no executable. The figure is written to "
-            f"{OUTPUT_PATTERN} under the workspace."
+            f"{OUTPUT_DIR}/<name>.pdf under the workspace, <name> being the required --name."
         ),
+    )
+    inspect.add_argument(
+        NAME_OPTION,
+        required=True,
+        type=_figure_name_argument,
+        metavar="NAME",
+        help="the figure's file name, required; the figure is written to "
+        "post/visual-inspect/<name>.pdf under the workspace (a .pdf ending is not doubled; "
+        "a folder in the name is refused)",
+    )
+    inspect.add_argument(
+        OVERWRITE_OPTION,
+        action="store_true",
+        help="replace the figure when post/visual-inspect/<name>.pdf exists; without it the "
+        "file is kept, a warning names it and nothing is drawn",
     )
     inspect.add_argument(
         "--matrices",
@@ -548,6 +810,14 @@ def add_visual_inspect_parser(subparsers: Any) -> None:
         "warned and skipped, listing the parameters the matrices state",
     )
     inspect.add_argument(
+        FINISHED_BY_OPTION,
+        choices=FINISHED_BY_CHOICES,
+        default="products",
+        help="what makes a point finished, drawn filled: 'products' (default) a row in its "
+        "simulation's polar table under post/<matrix>/polars/, or 'sims' a run record that "
+        "finished successfully; every other point is drawn larger, white-faced and on top",
+    )
+    inspect.add_argument(
         "--workspace", default=".", help="workspace root (default: the current directory)"
     )
     add_console_arguments(inspect, "print more detail")
@@ -555,7 +825,14 @@ def add_visual_inspect_parser(subparsers: Any) -> None:
 
 def cmd_visual_inspect(args: argparse.Namespace) -> int:
     """Run ``pyfs-matrix visual-inspect``; prints the path of the figure and returns 0."""
-    out = visual_inspect(args.workspace, args.matrices, args.params)
+    out = visual_inspect(
+        args.workspace,
+        args.matrices,
+        args.params,
+        args.finished_by,
+        name=args.name,
+        overwrite=args.overwrite,
+    )
     if out is not None:
         print(out)
     return 0
