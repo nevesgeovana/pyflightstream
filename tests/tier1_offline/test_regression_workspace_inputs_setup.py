@@ -1651,15 +1651,19 @@ delete_sims(sys.argv[1], ["3001"], matrix_products="regenerate", apply=True)
         real = shutil.copy2
 
         def fails(source, *args, **kwargs):
-            if other.sim_dir("5103") in Path(source).parents:
+            # The copy is handed the extended-length spelling on Windows (FR-3418).
+            if other.sim_dir("5103") in Path(str(source).removeprefix("\\\\?\\")).parents:
                 raise OSError("copy failed")
             return real(source, *args, **kwargs)
 
         monkeypatch.setattr(shutil, "copy2", fails)
-        with pytest.raises(OSError, match="copy failed"):
+        # 0.53.0 (FR-3418): a file whose copy fails is warned, skipped and counted; the
+        # command carries on and records the runs it committed, as it did when it stopped.
+        with pytest.warns(PyflightstreamWarning, match="copy failed"):
             storage.sync_workspaces(main.root, "runs", apply=True)
         entry = storage.read_storage_calls(main.root)[-1]
-        assert "copy failed" in entry["interrupted"]
+        assert "interrupted" not in entry
+        assert entry["files"]["skipped"], "the failed copy was not counted under skipped"
         assert "runs" in entry
         assert entry["runs"]["added"] == ["camp/sim_5103/AL+000"]
         assert entry["runs"]["records_after"] == len(_workspace_3_review___rows(main))

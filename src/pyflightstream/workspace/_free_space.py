@@ -27,7 +27,7 @@ from typing import Any
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
-from pyflightstream._errors import warn
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import tracked
 from pyflightstream._textio import long_path
 from pyflightstream.workspace import (
@@ -103,7 +103,10 @@ def unlink_or_skip(path: Path, skipped: list[str], root: Path) -> bool:
         long_path(path).unlink()
     except OSError as error:
         relative = path.relative_to(root).as_posix()
-        warn(f"{relative}: not deleted, skipped ({type(error).__name__}: {error})")
+        warn(
+            f"{relative}: not deleted, skipped ({type(error).__name__}: {error})",
+            PyflightstreamWarning,
+        )
         skipped.append(relative)
         return False
     return True
@@ -131,7 +134,10 @@ def copy_planned(
         try:
             digest = copy(source, target, keep=keep, root=root)
         except OSError as error:
-            warn(f"{relative.as_posix()}: not copied, skipped ({type(error).__name__}: {error})")
+            warn(
+                f"{relative.as_posix()}: not copied, skipped ({type(error).__name__}: {error})",
+                PyflightstreamWarning,
+            )
             skipped.append(relative.as_posix())
             progress.advance(files=1, current=relative.as_posix())
             continue
