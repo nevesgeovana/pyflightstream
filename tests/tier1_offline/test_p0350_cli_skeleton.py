@@ -265,7 +265,9 @@ def test_p0540_the_command_writes_the_pdf_and_prints_its_path(workspace, capsys)
     )
     assert code == 0
     out = capsys.readouterr().out
-    expected = output_path(workspace, ["doe-rotor-a.fs", "doe-power-on"])
+    # REL-R2-016: the file is named from the matrix stems drawn, not from the names as typed.
+    expected = output_path(workspace, ["doe-rotor-a", "doe-power-on"])
+    assert expected.name == "doe_doe-rotor-a_doe-power-on.pdf"
     assert str(expected) in out
     assert "'doe-rotor-a': 56" in out
     assert expected.read_bytes().startswith(b"%PDF")

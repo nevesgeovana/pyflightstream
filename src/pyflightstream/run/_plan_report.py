@@ -509,7 +509,8 @@ def visual_inspect(
             stacklevel=2,
         )
         return None
-    out = output_path(root, list(names))
+    # The stems drawn name the file: a name typed with .fs or a path, or one skipped, is not.
+    out = output_path(root, [ALL_MATRICES] if ALL_MATRICES in names else list(paths))
     _draw(table, chosen, out)
     print("points per matrix:", {m: len(p) for m, p in table.items()})
     print("varying parameters:", ", ".join(varying))
