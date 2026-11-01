@@ -64,6 +64,7 @@ from numpy.typing import ArrayLike, NDArray
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._mesh import obj_group_surface
+from pyflightstream._textio import write_text
 from pyflightstream.fsi.config import (
     BladeProperties,
     BladePropertiesProvenance,
@@ -1368,7 +1369,7 @@ def place_on_mesh_cut(
     source: str | Path,
     target: str | Path,
 ) -> list[list[list[float]]]:
-    """Write the FSI input with its section contours moved onto the blade's cut of the mesh.
+    r"""Write the FSI input with its section contours moved onto the blade's cut of the mesh.
 
     Each contour of ``config`` is translated in its section frame by its
     :func:`contour_mesh_offsets`, so its perimeter centroid lies on the mesh cut's;
@@ -1402,6 +1403,43 @@ def place_on_mesh_cut(
     FsiInputError
         If the blade carries no section contours, or ``source`` holds no ``[sections]`` table
         of as many stations.
+
+    Examples
+    --------
+    A blade mesh whose sections sit 4 mm toward the suction side of the stated contours:
+
+    >>> import math, tempfile
+    >>> from pathlib import Path
+    >>> import numpy as np
+    >>> from pyflightstream.workspace.fsi_setup import load_fsi_setup
+    >>> text = "\n".join([
+    ...     'mode = "calculated"', 'material = "ti-6al-4v-grade5-annealed"',
+    ...     "[config]", "blade_count = 2", "omega_rad_per_s = 100.0", "[sections]",
+    ...     "station_radii_m = [0.3, 0.6, 0.9]", "chord_m = [0.2, 0.15, 0.1]",
+    ...     "geometric_pitch_deg = [30.0, 20.0, 10.0]", 'naca = "4412"',
+    ...     "pitch_axis_chord_fraction = 0.25", 'geometry_source = "NACA 4412"',
+    ...     "torsion_grid_cells = 16", ""])
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     source = Path(folder) / "f001.toml"
+    ...     _ = source.write_text(text, encoding="utf-8")
+    ...     config = load_fsi_setup(source)
+    ...     vertices, faces = [], []
+    ...     stations = zip([0.3, 0.6, 0.9], [30.0, 20.0, 10.0], config.blade.section_contours_m)
+    ...     for radius, pitch, contour in stations:
+    ...         beta, base, n = math.radians(pitch), len(vertices), len(contour)
+    ...         lead = np.array([-math.sin(beta), -math.cos(beta), 0.0])
+    ...         suction = np.array([-math.cos(beta), math.sin(beta), 0.0])
+    ...         for z in (radius - 0.02, radius + 0.02):
+    ...             vertices += [c * lead + (s + 0.004) * suction + (0, 0, z) for c, s in contour]
+    ...         for i in range(n):
+    ...             j = (i + 1) % n
+    ...             faces.append((base + i, base + j, base + n + j))
+    ...             faces.append((base + i, base + n + j, base + n + i))
+    ...     placed = place_on_mesh_cut(
+    ...         config, vertices, faces, source=source, target=Path(folder) / "f002.toml"
+    ...     )
+    >>> len(placed)
+    3
     """
     import tomllib
 
@@ -1456,5 +1494,5 @@ def place_on_mesh_cut(
             "the rest of the file, so nothing was written; move each contour by its "
             "contour_mesh_offsets and state them as sections_m by hand."
         )
-    Path(target).write_text(out, encoding="utf-8")
+    write_text(target, out)
     return placed
