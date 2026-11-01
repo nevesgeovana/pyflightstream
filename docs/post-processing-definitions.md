@@ -46,6 +46,10 @@ constant factor. Correct the recorded reference or solver inputs before using th
 
 [What every product states](definitions/what-every-product-states.md#what-every-product-states).
 
+<a id="the-placement-check-of-a-coupled-blade"></a>
+
+[The placement check of a coupled blade](definitions/what-every-product-states.md#the-placement-check-of-a-coupled-blade).
+
 <a id="the-axes-of-a-steady-polar"></a>
 
 [The axes of a steady polar](definitions/the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar).

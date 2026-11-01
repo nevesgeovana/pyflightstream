@@ -3366,3 +3366,101 @@ def test_rb8_a_refused_recorded_polar_leaves_none_of_its_tables(tmp_path):
         )
     assert sorted(path.name for path in out.iterdir()) == ["3207_M20_g05.csv"]
     assert (out / "3207_M20_g05.csv").read_text(encoding="utf-8") == "kept\n"
+
+
+# ------------------------------------------- P0530 the placement check (FR-3416) --
+
+#: A flat blade as imported, spanning Z from 0.3 to 1.0 m, chord along Y, in the plane X = 0.
+PLACEMENT_BLADE_OBJ = """o Hub
+v 0 0 0
+v 0 0.01 0
+v 0.01 0 0
+f 1 2 3
+o Blade1
+v 0 -0.05 0.3
+v 0 0.05 0.3
+v 0 0.05 1.0
+v 0 -0.05 1.0
+v 0 0 0.65
+f 4 5 8
+f 5 6 8
+f 6 7 8
+f 7 4 8
+"""
+
+
+def _cut_export(sections: list) -> str:
+    """A surface-section export holding ``sections`` (each a list of X, Y, Z points).
+
+    The frame is the committed 26.123 export's; only the section block is replaced.
+    """
+    lines = (
+        (Path(__file__).parent / "fixtures" / "all_surface_sections_26.123.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    header = next(i for i, line in enumerate(lines) if line.startswith("Edges="))
+    footer = next(i for i in range(len(lines) - 1, 0, -1) if set(lines[i].strip()) == {"-"})
+    block = []
+    for number, points in enumerate(sections, start=1):
+        block += [f"Edges={len(points)}", f"Surface cross-section {number}"]
+        for x, y, z in points:
+            cells = [z, x, y, z, *([0.0] * 16)]
+            block.append("      " + ",".join(f"{value: .7E}" for value in cells) + ",")
+    head = [
+        f"{line.rsplit(None, 1)[0]} {len(sections)}"
+        if "Number of Surface Sections" in line
+        else line
+        for line in lines[:header]
+    ]
+    return "\n".join([*head, *block, *lines[footer:]]) + "\n"
+
+
+def _blade_cuts(azimuth_deg: float) -> list:
+    """Two chordwise cuts of the blade 1 mm off its surface, turned by ``azimuth_deg`` about +X."""
+    import numpy as np
+
+    turn = np.radians(azimuth_deg)
+    c, s = np.cos(turn), np.sin(turn)
+    cuts = []
+    for z in (0.5, 0.8):
+        points = [(0.001, y, z) for y in np.linspace(-0.04, 0.04, 9)]
+        cuts.append([(x, c * y - s * z, s * y + c * z) for x, y, z in points])
+    return cuts
+
+
+@pytest.mark.requirement("FR-3416")
+def test_p0530_the_placement_check_names_the_misplaced_step_and_not_the_placed_one(tmp_path):
+    # P0530-PLACEMENT-CHECK: at 5 deg a step, step 18 exports its cuts on the blade at
+    # 90 deg (placed) and step 36 on the blade as imported, at 0 deg (misplaced).
+    import numpy as np
+
+    from pyflightstream._mesh import obj_group_surface
+    from pyflightstream.post._structure import (
+        PLACEMENT_CHECK_PRODUCT,
+        PLACEMENT_TOLERANCE_M,
+        placement_check,
+        section_cut_points,
+    )
+
+    geometry = tmp_path / "blade.obj"
+    geometry.write_text(PLACEMENT_BLADE_OBJ, encoding="utf-8")
+    vertices, faces = obj_group_surface(geometry, "Blade1")
+    assert len(vertices) == 5 and len(faces) == 4
+    exports = {18: _blade_cuts(90.0), 36: _blade_cuts(0.0)}
+    cuts = {}
+    for step, sections in exports.items():
+        path = tmp_path / f"P1-a_cp_iteration={step}.txt"
+        path.write_text(_cut_export(sections), encoding="utf-8")
+        cuts[step] = section_cut_points(path, [1, 2])
+        assert cuts[step].shape == (18, 3)
+    rows = placement_check(cuts, vertices, faces, step_azimuth_rad=np.radians(5.0))
+    placed, misplaced = rows
+    assert (placed["step"], placed["misplaced"]) == (18, False)
+    assert (misplaced["step"], misplaced["misplaced"]) == (36, True)
+    assert placed["prescribed_azimuth_deg"] == pytest.approx(90.0)
+    assert placed["prescribed_median_m"] == pytest.approx(0.001, abs=1e-9)
+    assert placed["import_median_m"] > 0.3
+    assert misplaced["import_median_m"] == pytest.approx(0.001, abs=1e-9)
+    assert misplaced["prescribed_median_m"] > PLACEMENT_TOLERANCE_M
+    assert PLACEMENT_CHECK_PRODUCT == "placement_check"

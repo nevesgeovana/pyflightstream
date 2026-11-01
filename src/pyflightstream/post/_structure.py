@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -12,7 +12,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputValueError
+from pyflightstream._errors import (
+    InputValueError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.fsi.config import (
     DIRECT_NODE_TYPES,
@@ -190,3 +195,241 @@ def _recorded_displacements(folder: Path, config: FsiConfig, layout: NodeOrderin
             "check the structural solve that wrote them"
         )
     return source, flat
+
+
+# ------------------------------------------------- the placement check (FR-3416) --
+
+#: The post product that checks where the solver placed a coupled blade, step by step (FR-3416).
+PLACEMENT_CHECK_PRODUCT = "placement_check"
+#: A step is misplaced when the median distance of its cut points to the blade at its
+#: prescribed azimuth exceeds this tolerance and their median distance to the blade at its
+#: import azimuth is smaller [m] (FR-3416). Above the beam's deflection, which moves the cuts
+#: millimetres off the undeformed blade; below the displacement of a blade left at its import
+#: azimuth, which is of the order of its radius.
+PLACEMENT_TOLERANCE_M = 0.02
+#: The columns of ``structure/<point>_placement_check.csv`` after ``POL`` and the condition.
+PLACEMENT_CHECK_COLUMNS = (
+    "blade",
+    "step",
+    "prescribed_azimuth_deg",
+    "cut_points",
+    "prescribed_median_m",
+    "prescribed_p95_m",
+    "import_median_m",
+    "import_p95_m",
+    "misplaced",
+)
+
+
+def _turned(points: np.ndarray, angle_rad: float) -> np.ndarray:
+    """Turn ``points`` by ``angle_rad`` about +X (+Z toward -Y), the rotor axis of a coupled row."""
+    c, s = math.cos(angle_rad), math.sin(angle_rad)
+    return np.asarray(points, dtype=float) @ np.array([[1.0, 0.0, 0.0], [0.0, c, s], [0.0, -s, c]])
+
+
+def placement_check(
+    cuts: Mapping[int, np.ndarray],
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    *,
+    step_azimuth_rad: float,
+    tolerance_m: float = PLACEMENT_TOLERANCE_M,
+) -> list[dict[str, object]]:
+    """Measure where the solver placed a turning blade at each step, from its exported cuts.
+
+    The definition of record is the placement check of
+    ``definitions/what-every-product-states.md``. At step ``k`` the blade's
+    prescribed azimuth is ``k step_azimuth_rad`` about +X; its import azimuth is
+    zero, the geometry as imported. Every exported cut point is measured to the
+    undeformed blade surface placed at each: ``prescribed`` is the distance of the
+    point turned back by the prescribed azimuth to the blade, ``import`` its
+    distance to the blade as imported. A step is misplaced when the median
+    prescribed distance exceeds ``tolerance_m`` and the median import distance is
+    smaller. A step with no cut point states ``NA`` distances and is not misplaced.
+
+    Parameters
+    ----------
+    cuts : mapping of int to numpy.ndarray
+        The cut points of each step, shape ``(n, 3)``, in the frame the blade was imported in [m].
+    vertices, faces : numpy.ndarray
+        The blade's surface as imported: vertices ``(v, 3)`` [m] and 0-based triangles ``(f, 3)``.
+    step_azimuth_rad : float
+        The blade's turn per time step about +X [rad], signed with the rotor's hand.
+    tolerance_m : float, optional
+        The misplacement tolerance [m], :data:`PLACEMENT_TOLERANCE_M` by default.
+
+    Returns
+    -------
+    list of dict
+        One row per step in step order, keyed by :data:`PLACEMENT_CHECK_COLUMNS` except ``blade``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pyflightstream.post._structure import placement_check
+    >>> plate = np.array([[0.0, -0.1, 0.5], [0.0, 0.1, 0.5], [0.0, 0.1, 1.5], [0.0, -0.1, 1.5]])
+    >>> faces = np.array([[0, 1, 2], [0, 2, 3]])
+    >>> rows = placement_check({1: plate[:2]}, plate, faces, step_azimuth_rad=np.pi / 2)
+    >>> rows[0]["misplaced"]
+    True
+    """
+    from pyflightstream._mesh import mesh_reader
+
+    surface = mesh_reader().Trimesh(
+        vertices=np.asarray(vertices, dtype=float), faces=np.asarray(faces), process=False
+    )
+    rows: list[dict[str, object]] = []
+    for step in sorted(cuts):
+        points = np.asarray(cuts[step], dtype=float).reshape(-1, 3)
+        azimuth = step * step_azimuth_rad
+        row: dict[str, object] = {
+            "step": step,
+            "prescribed_azimuth_deg": round(math.degrees(azimuth) % 360.0, 9),
+            "cut_points": len(points),
+        }
+        if not len(points):
+            rows.append(
+                {**row, **dict.fromkeys(PLACEMENT_CHECK_COLUMNS[4:8], "NA"), "misplaced": False}
+            )
+            continue
+        prescribed = surface.nearest.on_surface(_turned(points, -azimuth))[1]
+        imported = surface.nearest.on_surface(points)[1]
+        stats = {
+            "prescribed_median_m": float(np.median(prescribed)),
+            "prescribed_p95_m": float(np.percentile(prescribed, 95.0)),
+            "import_median_m": float(np.median(imported)),
+            "import_p95_m": float(np.percentile(imported, 95.0)),
+        }
+        misplaced = (
+            stats["prescribed_median_m"] > tolerance_m
+            and stats["import_median_m"] < stats["prescribed_median_m"]
+        )
+        rows.append({**row, **stats, "misplaced": misplaced})
+    return rows
+
+
+def section_cut_points(path: Path, sections: Sequence[int]) -> np.ndarray:
+    """Return the X, Y, Z of the cut points of the 1-based ``sections`` of one export."""
+    from pyflightstream.results.exports import parse_surface_sections
+
+    report = parse_surface_sections(path.read_text(encoding="utf-8", errors="replace"))
+    xyz = [report.columns.index(axis) for axis in ("X", "Y", "Z")]
+    chosen = [s.values[:, xyz] for s in report.sections if s.index in sections and s.count]
+    return np.vstack(chosen) if chosen else np.zeros((0, 3))
+
+
+def _blade_sections(record: Any, blade: str) -> list[int]:
+    """Return the 1-based section numbers of the record's layout that cut ``blade``."""
+    numbers: list[int] = []
+    start = 0
+    for block in record.sections_layout or ():
+        count = int(block.get("count", 0))
+        if list(block.get("families") or ()) == [blade]:
+            numbers.extend(range(start + 1, start + count + 1))
+        start += count
+    return numbers
+
+
+def _blade_geometry(ctx: SimContext, record: Any) -> Path:
+    """Return the OBJ the coupled run imported, its digest the recorded one."""
+    for name, digest in record.inputs_sha256.items():
+        if Path(name).name != name or not name.lower().endswith(".obj"):
+            continue
+        path = ctx.workspace.sim_dir(record.sim_id) / "inputs" / name
+        if path.is_file() and file_sha256(path) == digest:
+            return path
+    raise InputValueError(
+        "the run imported no OBJ whose recorded copy is in the simulation's inputs; the check "
+        "reads the blade as imported from it"
+    )
+
+
+def _rotor_hand(record: Any) -> float:
+    """Return -1 for a rotor the record turned at negative speed, else +1."""
+    reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
+    rotors = reductions.get("rotors")
+    speeds = [
+        float(block["rpm"])
+        for block in (rotors.values() if isinstance(rotors, Mapping) else ())
+        if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float)
+    ]
+    flat = reductions.get("rpm")
+    if isinstance(flat, int | float):
+        speeds.append(float(flat))
+    return -1.0 if speeds and speeds[0] < 0 else 1.0
+
+
+def _placement_rows(ctx: SimContext, record: Any) -> list[tuple[object, ...]] | None:
+    """Return the placement check rows of one coupled point, or None where it exported no cut."""
+    from pyflightstream._mesh import obj_group_surface
+    from pyflightstream.fsi.loads import SectionFamilyMap
+    from pyflightstream.post._condition import classify_record_outputs
+    from pyflightstream.post.series import stamped_exports
+
+    kinds = classify_record_outputs(record)
+    named = kinds.get("loads") or kinds.get("sectional_loads") or kinds.get("sections")
+    if named is None or not record.cwd:
+        return None
+    stem = named[: -len(".txt")] if "loads" in kinds else named.rsplit("_", 1)[0]
+    folder = Path(record.cwd)
+    exports = stamped_exports(ctx.workspace.sim_dir(record.sim_id), stem, folder).get(
+        ("_cp", "txt"), {}
+    )
+    if not exports:
+        return None
+    config = load_config(folder / "config.json")
+    if config.time_increment_s is None:
+        raise InputValueError("config.json states no time increment, so no step has an azimuth")
+    turn = _rotor_hand(record) * config.omega_rad_per_s * config.time_increment_s
+    families = SectionFamilyMap.model_validate_json(
+        (folder / "fsi_family_map.json").read_text(encoding="utf-8-sig")
+    )
+    geometry = _blade_geometry(ctx, record)
+    rows: list[tuple[object, ...]] = []
+    for number, family in enumerate((f for f in families.families if f.is_blade), start=1):
+        vertices, faces = obj_group_surface(geometry, family.name)
+        sections = _blade_sections(record, family.name)
+        cuts = {step: section_cut_points(path, sections) for step, path in exports.items()}
+        for row in placement_check(cuts, vertices, faces, step_azimuth_rad=turn):
+            rows.append((number, *(row[column] for column in PLACEMENT_CHECK_COLUMNS[1:])))
+    return rows
+
+
+def placement_check_products(ctx: SimContext) -> None:
+    """Write ``structure/<point>_placement_check.csv`` for each coupled unsteady rotor point.
+
+    Per blade and per step, the distances of the solver's exported cuts to the
+    blade at its prescribed and at its import azimuth (:func:`placement_check`).
+    A point with a misplaced step is warned, naming the steps. A point that
+    exported no cut writes nothing; one whose inputs cannot be read is skipped
+    with its reason.
+    """
+    for point in ctx.points:
+        record = ctx.record_of[point.name]
+        if "fsi-provenance.json" not in record.inputs_sha256 or record.recipe != "unsteady_rotor":
+            continue
+        relative = f"structure/{point.name}_{PLACEMENT_CHECK_PRODUCT}.csv"
+        try:
+            rows = _placement_rows(ctx, record)
+        except (OSError, ValueError, PyflightstreamError) as error:
+            ctx.skipped[relative] = f"{PLACEMENT_CHECK_PRODUCT}: {error}"
+            continue
+        if rows is None:
+            continue
+        target = ctx.target(ctx.out / relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        context = context_row(ctx.condition(point), ctx.reference.as_lengths())
+        with _textio.open_text(target, "w") as handle:
+            writer = _textio.csv_writer(handle)
+            writer.writerow((POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *PLACEMENT_CHECK_COLUMNS))
+            writer.writerows((ctx.sim_id, *context, *row) for row in rows)
+        ctx.add(target, {"runs": ctx.sources[point.name], "kind": PLACEMENT_CHECK_PRODUCT})
+        misplaced = sorted({int(str(row[1])) for row in rows if row[-1] is True})
+        if misplaced:
+            warn(
+                f"{point.name}: {PLACEMENT_CHECK_PRODUCT} finds the coupled blade's cuts off its "
+                f"prescribed azimuth and nearer its import azimuth in steps "
+                f"{', '.join(map(str, misplaced))} ({relative}).",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )

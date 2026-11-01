@@ -36,6 +36,12 @@ FlightStream versions.
   build, on the RBF route, on another workflow or on a rotor turning about -X, it is warned
   and skipped and the field is written uncompensated. `fsi-provenance.json` records the
   value, its origin (`matrix`, `file` or `default`) and whether the run applied it (FR-3415).
+- The post product `placement_check`: for every coupled `unsteady_rotor` point that exported
+  its section cuts each step, `structure/<point>_placement_check.csv` states per blade and
+  step the median and 95th-percentile distance of the cuts to the blade's undeformed
+  surface at its prescribed azimuth and at its import azimuth, and marks a step misplaced
+  where the cuts lie more than 0.02 m from the first and nearer the second; post warns,
+  naming the misplaced steps. Defined in the post-processing definitions (FR-3416).
 
 ### Fixed
 

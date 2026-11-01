@@ -110,4 +110,34 @@ has no row, and `post.log` names it in one INFO line; it is not a recorded skip.
 anywhere neither file is written. The table spans the whole matrix, so a post limited to some simulations
 does not rebuild it. Both files are listed with kind `settings_codebook`.
 
+<a id="the-placement-check-of-a-coupled-blade"></a>
+
+### The placement check of a coupled blade
+
+**`structure/<point>_placement_check.csv` says, step by step, where the solver
+placed a coupled blade.** It is written for every coupled `unsteady_rotor`
+point whose run exported its section cuts at each step
+(`<stem>_cp_iteration=<k>.txt`), and listed with kind `placement_check`. It
+opens with `POL` and the condition block, then one row per blade and step:
+
+| column | unit | what it is |
+|---|---|---|
+| `blade` | - | the coupled blade, counted from 1 in the order of the section-order map |
+| `step` | - | the time step `k` whose cuts the row measures |
+| `prescribed_azimuth_deg` | deg | `k` times the blade's turn per step about +X (the configuration's `omega_rad_per_s` times its `time_increment_s`, with the rotor's hand), modulo 360 |
+| `cut_points` | - | the cut points of the blade's own sections in that export |
+| `prescribed_median_m`, `prescribed_p95_m` | m | the median and the 95th percentile of the distance of each cut point to the blade's undeformed surface placed at the prescribed azimuth |
+| `import_median_m`, `import_p95_m` | m | the same to the undeformed surface at the import azimuth, the blade as the mesh imported it |
+| `misplaced` | - | `True` when `prescribed_median_m` exceeds 0.02 m and `import_median_m` is smaller |
+
+The undeformed surface is the blade's group of the OBJ the run imported,
+read from the simulation's recorded copy. A distance is to the nearest point
+of that surface. A blade in place shows a prescribed distance of the order of
+its deflection (millimetres) and an import distance of the order of its
+radius; a blade the solver left at its import azimuth shows the reverse. The
+tolerance of 0.02 m lies between the two. A step with no cut point states
+`NA` distances and is not misplaced. Where a step is misplaced, post warns,
+naming the point, the steps and the table. A point whose configuration,
+section-order map or recorded OBJ cannot be read is a named skip.
+
 ---

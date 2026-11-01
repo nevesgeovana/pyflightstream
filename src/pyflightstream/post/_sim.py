@@ -93,7 +93,11 @@ from pyflightstream.post._stage import (
     _refuse_aliases_a_file_name_cannot_tell_apart,
     failure_reason,
 )
-from pyflightstream.post._structure import append_tip_columns, structure_products
+from pyflightstream.post._structure import (
+    append_tip_columns,
+    placement_check_products,
+    structure_products,
+)
 from pyflightstream.post._tables import (
     ADVANCE_RATIO_COLUMN,
     ProductError,
@@ -1622,6 +1626,8 @@ def _superfile_drafts(ctx: SimContext) -> None:
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
     export_tables,
     structure_products,
+    # FR-3416: where the solver placed the coupled blade, step by step.
+    placement_check_products,
     _group_polars,
     _point_products,
     _rotor_table_products,

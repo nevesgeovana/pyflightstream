@@ -38,6 +38,13 @@ digest must match the run's recorded input. Direct morphing uses the applied
 must also match. It never decodes mesh-vertex rows as structural stations.
 An older direct state without these station rows produces a named skip.
 
+A coupled `unsteady_rotor` point that exported its section cuts every step
+also gets `structure/<point>_placement_check.csv`: per blade and step, how far
+the cuts lie from the blade at its prescribed azimuth and at its import
+azimuth, and whether the step is misplaced; post warns, naming the misplaced
+steps. Its definition of record is
+[the placement check of a coupled blade](definitions/what-every-product-states.md#the-placement-check-of-a-coupled-blade).
+
 When present, the recorded `fsi_convergence_log.csv` is retained as
 `structure/<point>_history.csv`. Products record source digests. Keep the
 coupled run's working folder available for post; no structural solve is
