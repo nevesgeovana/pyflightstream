@@ -25,3 +25,10 @@ MATERIAL_FACTORS = (
 )
 CALIBRATION_FACTORS = (*PROPERTY_FACTORS, *MATERIAL_FACTORS)
 MATRIX_FACTORS = {f"FSI_{key.upper()}_FACTOR": key for key in CALIBRATION_FACTORS}
+
+#: The matrix keys that replace the input file's wake development (structural start) for one row:
+#: revolutions of rigid wake before the structural solver starts, or the first time step whose
+#: coupling call may write a non-zero field.
+START_REV_KEY = "FSI_START_REV"
+START_ITER_KEY = "FSI_START_ITER"
+MATRIX_START_KEYS = (START_REV_KEY, START_ITER_KEY)

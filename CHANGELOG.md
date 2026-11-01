@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Matrix keys `FSI_START_REV` and `FSI_START_ITER` set, for one row, when the structural
+  solver starts, replacing the FSI input's `wake_development_revolutions` as the
+  `FSI_<PROPERTY>_FACTOR` keys replace a calibration factor. `FSI_START_REV` states
+  revolutions of rigid wake development; `FSI_START_ITER` states the first time step whose
+  coupling call may write a non-zero field and converts to revolutions through the row's
+  DELTA_THETA (72 steps a revolution at 5 deg), so `FSI_START_REV: 0.5` and
+  `FSI_START_ITER: 36` write the first non-zero field at the same call. A row stating both
+  warns and `FSI_START_ITER` is used. The effective provenance carries a `structural_start`
+  record when a row states one.
+
 ### Fixed
 
 - The DEFLECTED direct route on the unsteady rotor (`morphing = "direct_deflected"`

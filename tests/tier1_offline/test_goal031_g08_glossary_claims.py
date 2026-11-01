@@ -44,7 +44,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream._fsi_calibration import MATERIAL_FACTORS, MATRIX_FACTORS
+from pyflightstream._fsi_calibration import MATERIAL_FACTORS, MATRIX_FACTORS, MATRIX_START_KEYS
 from pyflightstream.cases import (
     ActuatorBlock,
     FluidState,
@@ -383,6 +383,30 @@ def _fsi_factor(key: str) -> Variation:
     )
 
 
+def _fsi_start(key: str, first: str, second: str) -> Variation:
+    """One structural-start key at two values; the iteration key converts through DELTA_THETA.
+
+    The case keeps the clock it already states (DELTA_TIME), so the step the conversion needs
+    is given to the resolver alone.
+    """
+
+    def row(tmp: Path, value: str) -> SimCase:
+        resolved = resolve_row_fsi(
+            _fsi_sources(tmp), {"FSI": _SUPPLIED, key: value, "DELTA_THETA": "5"}
+        )
+        assert resolved is not None
+        case = coupled_case(tmp)
+        return case.model_copy(
+            update={
+                "fsi": resolved.effective,
+                "fsi_provenance": resolved.provenance(),
+                "variables": {**case.variables, "FSI": _SUPPLIED, key: value},
+            }
+        )
+
+    return Variation(lambda tmp: row(tmp, first), lambda tmp: row(tmp, second))
+
+
 def _sixdof(tmp: Path, mass_kg: float) -> SimCase:
     """A body free in pitch (FR-461), as the plan resolves ``SIXDOF: d001``, at one mass."""
     spec = SixDofSpec.model_validate(
@@ -546,6 +570,8 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda tmp: _fsi_row(tmp, _SUPPLIED), lambda tmp: _fsi_row(tmp, _SUPPLIED_STIFFER)
     ),
     **{key: _fsi_factor(key) for key in MATRIX_FACTORS},
+    "FSI_START_REV": _fsi_start("FSI_START_REV", "0.5", "1.5"),
+    "FSI_START_ITER": _fsi_start("FSI_START_ITER", "36", "108"),
     # The 6DOF case field stands for the key, as for FSI; this checks glossary claims.
     "SIXDOF": Variation(lambda tmp: _sixdof(tmp, 4.2), lambda tmp: _sixdof(tmp, 5.0)),
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
@@ -1259,7 +1285,7 @@ def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meani
         )
 
 
-FSI_KEYS = ("FSI", *MATRIX_FACTORS)
+FSI_KEYS = ("FSI", *MATRIX_FACTORS, *MATRIX_START_KEYS)
 
 
 @pytest.mark.parametrize("key", FSI_KEYS)

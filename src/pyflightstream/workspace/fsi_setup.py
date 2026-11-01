@@ -16,12 +16,15 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import FsiInputError, PyflightstreamError
+from pyflightstream._errors import FsiInputError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.fsi.calibration import (
     CALIBRATION_FACTORS,
     MATERIAL_FACTORS,
     MATRIX_FACTORS,
+    MATRIX_START_KEYS,
     PROPERTY_FACTORS,
+    START_ITER_KEY,
+    START_REV_KEY,
 )
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
 from pyflightstream.fsi.external import ExternalStructure
@@ -125,10 +128,15 @@ class ResolvedFsiSetup:
     frozen_displacements_file: str | None = None
     frozen_displacements_sha256: str | None = None
     allow_configuration_change: bool = False
+    structural_start: dict[str, Any] | None = None
 
     def provenance(self) -> dict[str, Any]:
-        """Return the source, base/effective configurations and factor origins."""
-        return {
+        """Return the source, base/effective configurations and factor origins.
+
+        A row that states ``FSI_START_REV`` or ``FSI_START_ITER`` adds a ``structural_start``
+        record: the key, its value, the revolutions it became and the file's own value.
+        """
+        record: dict[str, Any] = {
             "source": str(self.source),
             "source_sha256": self.source_sha256,
             "mode": self.mode,
@@ -143,6 +151,9 @@ class ResolvedFsiSetup:
             "frozen_displacements_sha256": self.frozen_displacements_sha256,
             "allow_configuration_change": self.allow_configuration_change,
         }
+        if self.structural_start is not None:
+            record["structural_start"] = self.structural_start
+        return record
 
 
 def write_campbell_study(
@@ -587,15 +598,21 @@ def resolve_row_fsi(
         finite positive number, or factors are stated without an FSI input.
     """
     code = str(variables.get("FSI", "")).strip()
-    factor_cells = {key: value for key, value in variables.items() if key.startswith("FSI_")}
+    fsi_cells = {key: value for key, value in variables.items() if key.startswith("FSI_")}
+    start_cells = {key: fsi_cells.pop(key) for key in MATRIX_START_KEYS if key in fsi_cells}
+    factor_cells = fsi_cells
     unknown = set(factor_cells) - set(MATRIX_FACTORS)
     if unknown:
         raise FsiSetupError(
-            f"unknown FSI matrix keys {sorted(unknown)}; use {', '.join(MATRIX_FACTORS)}."
+            f"unknown FSI matrix keys {sorted(unknown)}; use "
+            f"{', '.join((*MATRIX_FACTORS, *MATRIX_START_KEYS))}."
         )
     if code in ("", "-"):
         # A placeholder factor cell is blank here as in the loop below.
-        if any(str(value).strip() not in ("", "-") for value in factor_cells.values()):
+        if any(
+            str(value).strip() not in ("", "-")
+            for value in (*factor_cells.values(), *start_cells.values())
+        ):
             raise FsiSetupError(
                 "matrix calibration states no FSI input; add FSI: f001 in VAR_NAMES_VALUES."
             )
@@ -614,10 +631,98 @@ def resolve_row_fsi(
             f"FSI {code}: there is no {path.name} in {root}; the FSI inputs there are "
             f"{', '.join(stated) if stated else 'none'}."
         )
-    external = _resolve_external_row(path, code, factor_cells, require_beam=require_beam)
+    external = _resolve_external_row(
+        path, code, {**factor_cells, **start_cells}, require_beam=require_beam
+    )
     if external is not None:
         return external
-    return resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
+    resolved = resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
+    return _with_structural_start(resolved, start_cells, variables)
+
+
+def _stated_start(start_cells: Mapping[str, Any]) -> dict[str, float]:
+    """Return the structural-start cells that state a value, as finite positive numbers."""
+    stated = {}
+    for key, value in start_cells.items():
+        if str(value).strip() in ("", "-"):
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            number = math.nan
+        if not math.isfinite(number) or number <= 0:
+            raise FsiSetupError(f"{key}={value!r}; use a finite positive number.")
+        stated[key] = number
+    return stated
+
+
+def _revolutions_per_step(effective: FsiConfig, variables: Mapping[str, Any]) -> float:
+    """Return the revolutions one time step turns, from the row's DELTA_THETA or DELTA_TIME."""
+    if str(variables.get("DELTA_THETA", "")).strip() not in ("", "-"):
+        try:
+            step_deg = float(variables["DELTA_THETA"])
+        except (TypeError, ValueError):
+            step_deg = math.nan
+        if math.isfinite(step_deg) and step_deg > 0:
+            return step_deg / 360.0
+        raise FsiSetupError(
+            f"DELTA_THETA={variables['DELTA_THETA']!r}; {START_ITER_KEY} converts a time step "
+            "to revolutions with it, so use a finite positive angle in degrees."
+        )
+    if str(variables.get("DELTA_TIME", "")).strip() not in ("", "-"):
+        try:
+            step_s = float(variables["DELTA_TIME"])
+        except (TypeError, ValueError):
+            step_s = math.nan
+        if math.isfinite(step_s) and step_s > 0 and effective.omega_rad_per_s > 0:
+            return effective.omega_rad_per_s * step_s / (2.0 * math.pi)
+    raise FsiSetupError(
+        f"{START_ITER_KEY} converts a time step to revolutions with the row's DELTA_THETA (or "
+        "DELTA_TIME and a rotor speed in the FSI input); state one."
+    )
+
+
+def _with_structural_start(
+    resolved: ResolvedFsiSetup, start_cells: Mapping[str, Any], variables: Mapping[str, Any]
+) -> ResolvedFsiSetup:
+    """Replace the file's wake development with the row's structural start, for this row only.
+
+    ``FSI_START_REV`` is the revolutions of rigid wake development. ``FSI_START_ITER`` is the
+    first time step whose coupling call may write a non-zero field; it becomes the revolutions
+    a half step short of that step, so the rounding of the solver's printed time increment
+    cannot move the first non-zero call to its neighbour. A row stating both warns, and
+    ``FSI_START_ITER`` is used.
+    """
+    stated = _stated_start(start_cells)
+    if not stated:
+        return resolved
+    if len(stated) == 2:
+        warn(
+            f"the row states {START_REV_KEY} and {START_ITER_KEY}: the structural start has one "
+            f"value, so {START_ITER_KEY} is used and {START_REV_KEY} is ignored.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if START_ITER_KEY in stated:
+        key = START_ITER_KEY
+        # The first call is time step 1, so a value below 1 starts at the first call.
+        steps_of_rigid_wake = max(stated[key] - 0.5, 0.5)
+        revolutions = steps_of_rigid_wake * _revolutions_per_step(resolved.effective, variables)
+    else:
+        key = START_REV_KEY
+        revolutions = stated[key]
+    phases = resolved.effective.phases.model_copy(
+        update={"wake_development_revolutions": revolutions}
+    )
+    effective = resolved.effective.model_copy(update={"phases": phases})
+    record = {
+        "key": key,
+        "value": stated[key],
+        "wake_development_revolutions": revolutions,
+        "file_wake_development_revolutions": resolved.base.phases.wake_development_revolutions,
+        "origin": "matrix",
+    }
+    return replace(resolved, effective=effective, structural_start=record)
 
 
 def _stated_factors(factor_cells: Mapping[str, Any]) -> dict[str, float]:

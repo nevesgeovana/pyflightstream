@@ -25,6 +25,9 @@ from types import (
 from pyflightstream._errors import InputValueError, RetiredKeyWarning, demote
 from pyflightstream._fsi_calibration import (
     MATRIX_FACTORS,
+    MATRIX_START_KEYS,
+    START_ITER_KEY,
+    START_REV_KEY,
 )
 from pyflightstream.cases import (
     CampaignConfigError,
@@ -846,6 +849,7 @@ RESERVED_CONTINUATION_VARIABLES = (
 _STEADY_KEYS: tuple[str, ...] = (
     "FSI",
     *MATRIX_FACTORS,
+    *MATRIX_START_KEYS,
     GEOMETRY_VARIABLE,
     SYMMETRY_VARIABLE,
     # FR-66: registered on every run type, because whether the solver
@@ -1016,6 +1020,28 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             )
             for key, property_name in MATRIX_FACTORS.items()
         },
+        START_REV_KEY: InputKey(
+            "Revolutions of rigid wake development before the structural solver starts; "
+            "replaces the input file's wake_development_revolutions for this row only.",
+            "finite positive number of revolutions; omitted means use the file value",
+            "",
+            unscripted=(
+                "The effective FSI driver config and its provenance carry the start; "
+                "the driver writes a zero field until then."
+            ),
+        ),
+        START_ITER_KEY: InputKey(
+            "The first time step whose coupling call may write a non-zero field; "
+            "replaces the input file's wake_development_revolutions for this row only, "
+            "through the row's DELTA_THETA (72 steps a revolution at 5 deg). "
+            "Stated with FSI_START_REV it wins, with a warning.",
+            "finite positive time step number; omitted means use FSI_START_REV or the file value",
+            "",
+            unscripted=(
+                "The effective FSI driver config and its provenance carry the start; "
+                "the driver writes a zero field until then."
+            ),
+        ),
         SIXDOF_VARIABLE: InputKey(
             "A body free to move under its loads, resolved from inputs/sixdof/ (FR-461): "
             "its families, body frame, mass, inertia, freedoms and forces.",
