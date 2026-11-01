@@ -856,6 +856,7 @@ def _script_solve_and_export(
     _raw_commands(case, script, "exec")
     if unsteady:
         _vorticity_list_before_the_solve(script)
+    script.emit("CHANGE_SCENE_TO_PLOTS")
     helpers.start_solver(script)
     _debug_fsm(case, script)
     if not unsteady:

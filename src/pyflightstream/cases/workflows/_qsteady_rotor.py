@@ -918,6 +918,7 @@ def _solve_one_clocking(
     line is a setting of the solve, and it reached the last solve alone.
     """
     _raw_commands(case, script, "exec")
+    script.emit("CHANGE_SCENE_TO_PLOTS")
     helpers.start_solver(script)
     _debug_fsm(case, script, clocking=index)
     _setup_link.loads_selections(case, script)

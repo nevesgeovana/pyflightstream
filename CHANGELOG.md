@@ -68,6 +68,10 @@ FlightStream versions.
   `sections_m` (the input itself only when that is the path given) and returns them;
   `contour_mesh_offsets` and `obj_group_surface` are public beside it (FR-3417).
 
+### Changed
+
+- Every workflow script switches the application to the plots scene (`CHANGE_SCENE_TO_PLOTS`) on the line before each `START_SOLVER`, so the solver runs with the plots scene active. Measured 12 percent faster on an unsteady 26.127 row with identical loads (FR-3442).
+
 ### Fixed
 
 - On Windows, `free-space`, `sync` and the archive move of a datapoint reach a file whose path

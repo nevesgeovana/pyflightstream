@@ -214,6 +214,8 @@ not take is refused when the preset is read, naming the five it does
 (`load_units = 'FOO' is not one of COEFFICIENTS, NEWTONS, KILO-NEWTONS,
 POUND-FORCE, KILOGRAM-FORCE`). What each means for the products:
 
+Every workflow script puts `CHANGE_SCENE_TO_PLOTS` on the line before each `START_SOLVER`, so the solver runs with the plots scene active.
+
 - **`load_units`**: load-table polars, superfiles and rotor coefficients need
  coefficients. Planning warns which products another unit omits; post names
  the unit and `load_units` while keeping independent plots, probes and sections.

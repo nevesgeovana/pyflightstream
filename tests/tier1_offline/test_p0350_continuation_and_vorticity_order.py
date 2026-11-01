@@ -249,16 +249,17 @@ def test_a_rotor_march_lands_its_drag_list_before_start_solver_fr_318(tmp_path, 
     )
     lines = _lines(case)
     start = lines.index("START_SOLVER")
-    assert lines[start - len(payload) - 2 : start + 1] == [
+    assert lines[start - len(payload) - 3 : start + 1] == [
         "SET_ANALYSIS_MOMENTS_MODEL VORTICITY",
         *payload,
         "",
+        "CHANGE_SCENE_TO_PLOTS",
         "START_SOLVER",
     ], lines[start - 5 : start + 2]
     assert sum(line.startswith("SET_VORTICITY_DRAG_BOUNDARIES") for line in lines) == 1
     bare = _built(_with_geometry(rotor_case(), tmp_path, moments_model="VORTICITY")).render()
-    listed = "\n".join(payload) + "\n\nSTART_SOLVER\n"
-    assert "\n".join(lines).replace(listed, "START_SOLVER\n") + "\n" == bare
+    listed = "\n".join(payload) + "\n\nCHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n"
+    assert "\n".join(lines).replace(listed, "CHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n") + "\n" == bare
 
 
 @pytest.mark.parametrize("run_type", ["steady", "unsteady"])
@@ -288,7 +289,9 @@ def test_the_parity_checker_names_the_moved_list_fr_318_and_nothing_wider(tmp_pa
     case = _with_geometry(
         rotor_case(), tmp_path, vorticity_drag_families=["Blade"], moments_model="VORTICITY"
     )
-    release = _built(case).render()
+    # The parity names the list's move alone, so both sides are read without the 0.53.0
+    # scene line (FR-3442), which no 0.34.0 render carried.
+    release = _built(case).render().replace("CHANGE_SCENE_TO_PLOTS\n", "")
     moved = "SET_VORTICITY_DRAG_BOUNDARIES 1\n1\n\n"
     base = release.replace(moved + "START_SOLVER\n", "START_SOLVER\n" + moved, 1)
     assert base != release
@@ -326,7 +329,9 @@ def test_the_parity_checker_names_the_continuation_fr_396_and_nothing_wider():
         "WAKE_TERMINATION_X DEFAULT\nSYMMETRY NONE\n\n"
     )
     base = release.replace(
-        "\nSTART_SOLVER\n", f"\n{registrations}{initialization}START_SOLVER\n", 1
+        "\nCHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n",
+        f"\n{registrations}{initialization}CHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n",
+        1,
     )
     assert base.count(ACTION) == 4 and "INITIALIZE_SOLVER" in base
     parity = _parity()

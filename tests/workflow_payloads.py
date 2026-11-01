@@ -17,7 +17,7 @@ def workflow_payload(path: Path) -> Path:
 
 def before_frame_labels_0451(text: str) -> str:
     """Undo only complete, digest-pinned PFS-2168 fixture edits for older guards."""
-    text = before_pressure_0460(before_hub_frames_0461(text))
+    text = before_pressure_0460(before_hub_frames_0461(before_plots_scene_0530(text)))
     records = json.loads(
         (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()
     )["frames_0451"]
@@ -31,6 +31,16 @@ def before_frame_labels_0451(text: str) -> str:
     previous_text = "\n".join(lines)
     assert hashlib.sha256(previous_text.encode()).hexdigest() == record["before"]
     return previous_text
+
+
+def before_plots_scene_0530(text: str) -> str:
+    """Undo the 0.53.0 plots-scene line before every START_SOLVER (FR-3442)."""
+    lines = text.split("\n")
+    starts = [i for i, line in enumerate(lines) if line == "START_SOLVER"]
+    if not starts or any(i == 0 or lines[i - 1] != "CHANGE_SCENE_TO_PLOTS" for i in starts):
+        return text
+    drop = {i - 1 for i in starts}
+    return "\n".join(line for i, line in enumerate(lines) if i not in drop)
 
 
 def before_hub_frames_0461(text: str) -> str:

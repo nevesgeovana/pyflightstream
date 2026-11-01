@@ -115,4 +115,10 @@ def test_the_package_emits_the_order_rpt_133_measured_as_arm_b_fr_318(tmp_path):
         i for i, line in enumerate(lines) if line.startswith("SET_VORTICITY_DRAG_BOUNDARIES")
     )
     assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < drag < start
-    assert lines[drag : start + 1] == ["SET_VORTICITY_DRAG_BOUNDARIES 1", "1", "", "START_SOLVER"]
+    assert lines[drag : start + 1] == [
+        "SET_VORTICITY_DRAG_BOUNDARIES 1",
+        "1",
+        "",
+        "CHANGE_SCENE_TO_PLOTS",
+        "START_SOLVER",
+    ]

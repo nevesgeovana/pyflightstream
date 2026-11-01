@@ -8164,3 +8164,13 @@ class TestVocabularyStatesTheCode:
         assert "absent is cold" in key.values, key
         source = Path(workflows_module.__file__).with_name("_vocabulary.py").read_text("utf-8")
         assert "WARM IS THE DEFAULT" not in source
+
+
+@pytest.mark.parametrize("workflow", ["steady", "unsteady", "unsteady_rotor"])
+def test_p0530_every_solver_start_follows_the_plots_scene(workflow):
+    """FR-3442: the plots scene is active when the solver starts, on every run type."""
+    lines = rendered(_case_for(workflow), "26.123").splitlines()
+    starts = [i for i, line in enumerate(lines) if line == "START_SOLVER"]
+    assert starts, workflow
+    for i in starts:
+        assert lines[i - 1] == "CHANGE_SCENE_TO_PLOTS", (workflow, lines[i - 3 : i + 1])

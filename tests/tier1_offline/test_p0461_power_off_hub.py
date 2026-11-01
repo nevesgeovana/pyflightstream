@@ -152,7 +152,7 @@ def test_p0461_steady_row_cuts_a_section_distribution_in_the_hub_frame(tmp_path)
 
 #: The power-on row's script for a PUSHER_SMRP probe and section, measured on v0.46.0,
 #: with the paths under the workspace spelled with forward slashes on every machine.
-_UNSTEADY_ROTOR_SHA256 = "38044d82fdda5cdb80f9d40bfe97dc966c52a6641737734a4dd093aa03e4d262"
+_UNSTEADY_ROTOR_SHA256 = "620bb88ab153bb2b21c3f1ec0551b58bab4a6f8abdf2f5fd0099e9f3962eb412"
 
 
 def test_p0461_unsteady_rotor_row_script_is_unchanged(tmp_path):

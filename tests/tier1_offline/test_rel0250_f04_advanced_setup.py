@@ -173,6 +173,7 @@ def test_unset_advanced_keys_preserve_existing_script(tmp_path):
         "SURFACES -1\n"
         "WAKE_TERMINATION_X DEFAULT\n"
         "SYMMETRY NONE\n\n"
+        "CHANGE_SCENE_TO_PLOTS\n"
         "START_SOLVER\n"
         "EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nloads.txt\n\n"
         "CLOSE_FLIGHTSTREAM\n"

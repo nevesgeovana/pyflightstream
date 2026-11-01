@@ -616,7 +616,9 @@ SURFACE_PROBE = {
 SCRIPT_ROUTES: dict[str, ScriptRoute] = {
     # A cold point clears the solution before it starts; a warm one does not.
     "CLEAR_SOLUTION": ScriptRoute(
-        _sweep(cold=True), _sweep(cold=False), ("CLEAR_SOLUTION", "START_SOLVER")
+        _sweep(cold=True),
+        _sweep(cold=False),
+        ("CLEAR_SOLUTION", "CHANGE_SCENE_TO_PLOTS", "START_SOLVER"),
     ),
     "SET_SOLVER_STEADY": ScriptRoute(
         _helper(lambda s: helpers.solver_settings(s, mode="STEADY")),
