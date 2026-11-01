@@ -18,6 +18,9 @@ after layout, or, where ``[[farfields]]`` states no geometry, when it is the one
 declaration that qualifies; what is not declared is appended after every
 declared probe. Every chosen shape is recorded on the script for the run
 record, and post matches the exported positions to it (PFS-2081.56, .58).
+
+Size exemption: the far-field emission, its window resolution and the export-window
+reasons are one family whose entries share the row's clock and plan state.
 """
 
 from __future__ import annotations
@@ -1384,7 +1387,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
         if entry.variant == "wake" and not _rotor(case):
             continue
         variables = (
-            _export_window_variables(case)
+            (_export_window_variables(case) or {})
             if entry.export_type == "export_window"
             else {"LAST_REVS_AVG": entry.last_revs}
             if entry.last_revs is not None
