@@ -123,6 +123,8 @@ FlightStream versions.
 
 ### Changed
 
+- A visible solver run (no `-hidden`) starts its window minimized and without the keyboard focus on Windows (FR-3440), so it no longer covers the terminal; a hidden run is unchanged.
+
 - A coupled `unsteady_rotor` row on a saved simulation (`.fsm`) is planned
   and built (FR-3408). The coupled blade's boundary ID is read from its record
   in the file's mesh block, and the surface sections the file carries, counted

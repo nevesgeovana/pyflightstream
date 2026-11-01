@@ -43,7 +43,8 @@ simulation of theirs is collected, and plans them as before
 . `HIDDEN` and
 `RUN` sit directly after `POL`; `RUN` is the switch that says
 whether the row takes part at all, and `HIDDEN` whether the solver shows a
-window.
+window. On Windows a visible solver window starts minimized and without taking
+the keyboard focus, so it does not cover your terminal.
 
 **SIX ADDITIONAL COLUMNS** are expressible in the row and setup artifacts:
 four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
