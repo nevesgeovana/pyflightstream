@@ -25,6 +25,10 @@ FlightStream versions.
 
 ### Fixed
 
+- The requirements table `tests/requirements_l3.csv` names the reachability audit
+  (FR-3411, PFS-2140.023, closed at 0.50.0 with no row) and the structural start keys,
+  the RBF warning and the refine path of this release (FR-3412 to FR-3414), each with its
+  code and its test.
 - The refinement writes a level inside a folder of its own that keeps only the first eight
   characters of the level's name (`wing_R2.partial-<random>` for `wing_R2`), where it kept
   the whole name: the name stood three times in the staged path (the run's folder, the

@@ -46,7 +46,7 @@ def _row(**cells: str) -> dict[str, str]:
     return {"FSI": "f001", "DELTA_THETA": "5", **cells}
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_start_rev_replaces_the_file_wake_development_for_the_row(tmp_path):
     inputs = _inputs(tmp_path)
     plain = resolve_row_fsi(inputs, _row())
@@ -61,7 +61,7 @@ def test_p0530_start_rev_replaces_the_file_wake_development_for_the_row(tmp_path
     assert record["file_wake_development_revolutions"] == 1.0
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_start_iter_becomes_revolutions_through_the_rows_delta_theta(tmp_path):
     inputs = _inputs(tmp_path)
     stated = resolve_row_fsi(inputs, _row(FSI_START_ITER="36"))
@@ -72,7 +72,7 @@ def test_p0530_start_iter_becomes_revolutions_through_the_rows_delta_theta(tmp_p
     assert wide.effective.phases.wake_development_revolutions == pytest.approx(35.5 * 10.0 / 360.0)
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_a_row_with_both_keys_warns_naming_both_and_uses_the_iteration(tmp_path):
     inputs = _inputs(tmp_path)
     with warnings.catch_warnings(record=True) as caught:
@@ -88,7 +88,7 @@ def test_p0530_a_row_with_both_keys_warns_naming_both_and_uses_the_iteration(tmp
     )
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 @pytest.mark.parametrize("key", ["FSI_START_REV", "FSI_START_ITER"])
 @pytest.mark.parametrize("bad", ["0", "-1", "nan", "inf", "abc"])
 def test_p0530_a_start_that_is_not_finite_positive_is_refused_as_a_factor_is(tmp_path, key, bad):
@@ -99,7 +99,7 @@ def test_p0530_a_start_that_is_not_finite_positive_is_refused_as_a_factor_is(tmp
         resolve_row_fsi(inputs, _row(FSI_BENDING_STIFFNESS_N_M2_FACTOR=bad))
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_a_blank_start_cell_states_nothing_and_the_keys_are_in_the_vocabulary(tmp_path):
     inputs = _inputs(tmp_path)
     blank = resolve_row_fsi(inputs, _row(FSI_START_REV="-", FSI_START_ITER=""))
@@ -110,7 +110,7 @@ def test_p0530_a_blank_start_cell_states_nothing_and_the_keys_are_in_the_vocabul
         resolve_row_fsi(inputs, {"FSI_START_REV": "0.5"})
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_start_iter_without_a_step_is_refused_and_delta_time_converts(tmp_path):
     inputs = _inputs(tmp_path)
     with pytest.raises(FsiSetupError, match="DELTA_THETA"):
@@ -161,7 +161,7 @@ def _first_nonzero_call(tmp_path: Path, phases) -> int:
     raise AssertionError("no call wrote a non-zero field")
 
 
-@pytest.mark.requirement("FR-155")
+@pytest.mark.requirement("FR-3412")
 def test_p0530_start_rev_half_and_start_iter_36_give_the_same_first_nonzero_call(tmp_path):
     # The study's f203 start of 0.5 revolution at 5 deg a step wrote its first non-zero field
     # at call 36; FSI_START_ITER 36 must give that call and the same one.
