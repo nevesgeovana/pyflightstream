@@ -558,9 +558,9 @@
       "order": 30,
       "phase": "Post",
       "module": "src/pyflightstream/run/_campaign.py",
-      "function": "_finish_campaign",
+      "function": "_post_the_simulation",
       "inputs": [
-        "recorded outcomes"
+        "a simulation whose last point is recorded"
       ],
       "outputs": [
         "post products; campaign_sweep.csv"
@@ -569,7 +569,7 @@
         "_leave_products",
         "_leave_sweep_table"
       ],
-      "note": "Local run posts automatically through registered stages. Any SUBMITTED record skips posting here.",
+      "note": "A local run posts each simulation as its last point is recorded, only the simulations it ran. A simulation with a SUBMITTED record is left to collect.",
       "line": 1271,
       "locator": "src/pyflightstream/run/_campaign.py:1271"
     },
