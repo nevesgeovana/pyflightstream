@@ -61,7 +61,7 @@ tip_width = 0.05
 # The far field: one named entry per analysis.
 [[farfields]]
 variant = "sections"
-export_type = "default"           # last_step or avg_window; steady products are identical
+export_type = "default"           # last_step, avg_window, export_window; steady is identical
 families = "lifting"
 stations = 80                     # per side, when the plan adds a distribution
 

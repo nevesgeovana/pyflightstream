@@ -58,6 +58,7 @@ from ._vocabulary import (
     DELTA_THETA_VARIABLE,
     DELTA_TIME_VARIABLE,
     EXPORT_THRESHOLD_VARIABLES,
+    EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
     EXPORT_UNSTEADY_LAST_REV_VARIABLE,
     LAST_REVS_AVG_VARIABLE,
     MOVING_BC_ALIAS_VARIABLE,
@@ -169,7 +170,19 @@ def march_strategy(
         )
     if case.pproc is not None and any(
         # P0470-FFR: a rotor row's wake entry exports per window step as well.
-        entry.export_type == "avg_window"
+        (
+            entry.export_type == "avg_window"
+            or (
+                entry.export_type == "export_window"
+                and any(
+                    _variable(case, key) is not None
+                    for key in (
+                        EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
+                        EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+                    )
+                )
+            )
+        )
         and (entry.variant != "wake" or select_workflow(case) == "unsteady_rotor")
         for entry in case.pproc.farfields
     ):

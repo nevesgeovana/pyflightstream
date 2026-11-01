@@ -78,7 +78,8 @@ Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
 An unstated `lateral_radius` uses `max(2.5, r_outer)`; a stated radius below
 `r_outer` is refused, so increase it or reduce `r_outer`.
 
-Every entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
+Every entry accepts `export_type = "default"`, `"last_step"`, `"avg_window"` or
+`"export_window"`.
 Unstated means `"default"`. Other values, including `"all_steps"`, are refused.
 On steady rows all three values produce the same single-step products.
 On unsteady rows `"default"` and `"last_step"` read only the last step,
@@ -95,6 +96,15 @@ retain the row's export threshold. The average is the mean of the per-step
 analysis results, and is skipped if any window snapshot is missing.
 B retains its steady-only applicability on rows without a rotor; on
 `unsteady_rotor` its window exports the surface VTK with the wake at every step.
+
+`"export_window"` takes the window from the row instead: `EXPORT_UNSTEADY_LAST_ITER`
+(steps) or `EXPORT_UNSTEADY_LAST_REV` (turns of the rotor clock), and exports the same
+files as `"avg_window"` over it, one `_iteration=<step>` file per step. Post writes the
+window average and, additionally, one `_instant` row per window step, so the far-field
+products exist at every step. `EXPORT_UNSTEADY_AFTER_ITER` and
+`EXPORT_UNSTEADY_AFTER_REV` are not read. A steady row, a row stating no
+`EXPORT_UNSTEADY_LAST_*` key, and `LAST_REV` without a rotor clock warn and skip the entry.
+`last_revs` and `last_steps` with it are a grammar error.
 
 `last_revs` and `last_steps` are refused on steady rows and with `export_type`
 other than `"avg_window"`. `last_revs` without a rotor clock is refused naming

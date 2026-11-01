@@ -11,6 +11,12 @@ FlightStream versions.
 
 ### Added
 
+- `[[farfields]]` entries accept `export_type = "export_window"`: on an unsteady row that states
+  `EXPORT_UNSTEADY_LAST_ITER` or `EXPORT_UNSTEADY_LAST_REV`, the far field is exported at every
+  step of that window, one `_iteration=<step>` file per step, and post writes the per-step
+  products beside the window average. A row without that window, or a steady row, warns and
+  skips the entry; `last_revs` and `last_steps` with it are a grammar error.
+  `EXPORT_UNSTEADY_AFTER_*` are not read.
 - `[volume_section]` takes `kind`, with the values and aliases of `[[probes]]`. On an unsteady
   or rotor row, `"default"` samples the plane once, by probe points at the last time step, and
   post writes one field; `"instantaneous"` (the value when unstated, so existing inputs are

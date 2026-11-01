@@ -1207,6 +1207,15 @@ def _farfield_window(ctx: SimContext, point: PolarPoint, last: int):
     """Resolve this entry's window on the recorded clock, else use the row window."""
     spec = ctx.pproc.farfield
     plan = ctx.record_of[point.name].reductions or {}
+    if spec is not None and spec.export_type == "export_window":
+        # The row EXPORT_UNSTEADY_LAST_* window, as its run recorded the first exported step.
+        stated = ctx.record_of[point.name].export_window or {}
+        if "first_step" in stated and "time_iterations" in stated:
+            return (
+                (int(stated["first_step"]), int(stated["time_iterations"])),
+                "the row export window",
+            )
+        raise PyflightstreamError("the run record holds no export window")
     if spec is None or (spec.last_revs is None and spec.last_steps is None):
         average = plan.get("time_average")
         source = average.get("window_from") if isinstance(average, Mapping) else None
