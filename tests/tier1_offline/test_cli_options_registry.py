@@ -286,6 +286,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.53.0 (FR-3440): visual-inspect names the matrices it draws and the parameters to draw.
     ("pyfs-matrix", "matrices"): SUBJECT,
     ("pyfs-matrix", "params"): CASE,
+    ("pyfs-matrix", "finished_by"): CASE,
     ("pyfs-matrix", "geometry"): SUBJECT,
     ("pyfs-matrix", "workspace"): SUBJECT,
     ("pyfs-matrix", "name"): CASE,
@@ -714,8 +715,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "noise", "refine", "sync"}),
+    ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run", "visual-inspect"}),
+    ("pyfs-matrix", "overwrite"): frozenset(
+        {"degenerate", "inventory", "noise", "refine", "sync", "visual-inspect"}
+    ),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
@@ -792,6 +795,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-matrix", "matrices"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "params"): frozenset({"visual-inspect"}),
+    ("pyfs-matrix", "finished_by"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "apply"): frozenset(
         {"delete-sims", "free-space", "mark-converged", "mark-failed", "rebuild", "restore", "sync"}
     ),

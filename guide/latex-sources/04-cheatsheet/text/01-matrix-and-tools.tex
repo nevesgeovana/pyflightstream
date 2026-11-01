@@ -60,8 +60,11 @@
 \end{flags}
 \sub{visual-inspect}{draw the design of experiments of run matrices as a pair plot of their parameters; reads the matrices only, no executable needed}
 \begin{flags}
+\item \fl{--name NAME} (required) the figure's file name; it is written to \texttt{post/visual-inspect/NAME.pdf} (a \texttt{.pdf} ending is not doubled, a folder in the name is refused)
+\item \fl{--overwrite} replace the figure when it exists; otherwise the file is kept, warned and nothing is drawn
 \item \fl{--matrices MATRIX [MATRIX ...]} matrix names of the workspace, with or without \texttt{.fs}, or \texttt{all}
 \item \fl{--params PARAM [PARAM ...]} the parameters to draw (default: every one that varies); an unknown one is warned and skipped
+\item \fl{--finished-by products|sims} what makes a point finished, drawn filled (default \texttt{products}: a row in its simulation's table under \texttt{post/<matrix>/polars/}; \texttt{sims}: a run record that finished successfully); every other point is drawn larger, white-faced and on top
 \item \fl{--workspace DIR} campaign root (default: the current directory)
 \item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}

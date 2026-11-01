@@ -544,5 +544,12 @@ way to see whether two studies overlap, leave a gap, or repeat a level.
 - The diagonal draws one bar per level when a parameter has at most 25 levels, else 16 bins; each
   axis spans the levels with a 6 percent margin.
 
-The figure is written to `post/visual-inspect/doe_<matrices>.pdf` under the workspace
-(`doe_all.pdf` for `all`), and its path is printed.
+`--name` is required: the figure is written to `post/visual-inspect/<name>.pdf` under the
+workspace (a `.pdf` ending is not doubled; a name with a folder is refused), and its path is printed.
+A figure of that name that exists is kept, with a warning, unless `--overwrite` is given. A point that has finished keeps the small filled
+marker; a point that has not is drawn larger, white-faced and on top, the legend names both, and
+the terminal prints finished/total per matrix. `--finished-by products` (the default) calls a
+point finished when the polar table of its simulation under `post/<matrix>/polars/` holds a row at
+its swept values; `--finished-by sims` calls it finished when its run record in `runs.json` ended
+CONVERGED, COMPLETED_MAX_ITER, MAX_ITER_REACHED or RAN_MISSING_LOG. With no such folder or file,
+every point is not finished.
