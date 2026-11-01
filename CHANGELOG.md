@@ -67,6 +67,9 @@ FlightStream versions.
   writes the FSI input to the path given with its contours moved onto the mesh cut as
   `sections_m` (the input itself only when that is the path given) and returns them;
   `contour_mesh_offsets` and `obj_group_surface` are public beside it (FR-3417).
+- A visible run (`HIDDEN 0`) starts its solver window minimized and without the keyboard
+  focus on Windows, and keeps every window the solver opens minimized while it runs, so the
+  run no longer covers the terminal. A hidden run is unchanged (FR-3441).
 
 ### Changed
 
@@ -127,8 +130,6 @@ FlightStream versions.
   migration: such a run is now a failed point; run it again.
 
 ### Changed
-
-- A visible solver run (no `-hidden`) starts its window minimized and without the keyboard focus on Windows (FR-3441), so it no longer covers the terminal; a hidden run is unchanged.
 
 - A coupled `unsteady_rotor` row on a saved simulation (`.fsm`) is planned
   and built (FR-3408). The coupled blade's boundary ID is read from its record
