@@ -251,6 +251,7 @@ from ._sixdof import (
 )
 from ._skeleton import (
     effective_fsi_config,
+    frame_compensation_skip_reason,
 )
 from ._solver_settings import (
     LOADS_SELECTION_KEYS,
@@ -622,4 +623,5 @@ __all__ = [
     "qsteady_inflow_fft",
     "qsteady_inflow_map_inputs",
     "effective_fsi_config",
+    "frame_compensation_skip_reason",
 ]

@@ -13,6 +13,7 @@ import json
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import (
@@ -35,6 +36,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_CLOCK_STATE,
     effective_fsi_config,
+    frame_compensation_skip_reason,
 )
 from pyflightstream.run._executors import (
     _LOG_OUTPUT_SUFFIX,
@@ -147,6 +149,26 @@ def _in_a_points_evidence(root: str, here: str, in_datapoints: bool) -> bool:
     )
 
 
+def _with_the_applied_compensation(
+    case: SimCase, script: Script, provenance: dict[str, Any]
+) -> dict[str, Any]:
+    """Add to the provenance whether the run's build applies a requested compensation (FR-3415).
+
+    The ``frame_compensation`` record of the resolved input (its value and origin)
+    gains ``effective``, and ``skipped`` with the reason where the build, route,
+    workflow or rotor does not apply it; a case that requests none is unchanged.
+    """
+    if case.fsi is None or not case.fsi.solver_frame_compensation:
+        return provenance
+    record = dict(provenance.get("frame_compensation") or {"value": True})
+    skipped = frame_compensation_skip_reason(case, script.version)
+    record["effective"] = skipped is None
+    if skipped is not None:
+        record["skipped"] = skipped
+    provenance["frame_compensation"] = record
+    return provenance
+
+
 def _write_pending_files(
     script: Script,
     work_dir: Path,
@@ -216,9 +238,9 @@ def _write_pending_files(
         # THE CONFIGURATION THE BUILDER WIRED: a quasi-steady sector's
         # structure turns at the speed its row turns the free stream, so its
         # omega is the row's and not the input's; the provenance says so.
-        effective = effective_fsi_config(case)
+        effective = effective_fsi_config(case, version=script.version)
         assert effective is not None  # case.fsi is not None
-        provenance = dict(case.fsi_provenance)
+        provenance = _with_the_applied_compensation(case, script, dict(case.fsi_provenance))
         if effective.omega_rad_per_s != case.fsi.omega_rad_per_s:
             provenance["omega_rad_per_s_from_row"] = {
                 "input": case.fsi.omega_rad_per_s,

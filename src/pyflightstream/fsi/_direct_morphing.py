@@ -36,8 +36,12 @@ from pyflightstream.fsi.errors import FsiInputError
 __all__ = [
     "AERO_NODES_FILE",
     "AERO_NODE_COLUMNS",
+    "listed_points",
     "read_aero_nodes",
+    "rows_in_solver_frames",
+    "solver_frame_rows",
     "translations_at_points",
+    "turned_about_x",
 ]
 
 #: The aerodynamic nodes file the solver writes in direct mode, in the
@@ -181,3 +185,101 @@ def translations_at_points(
         return normal[:, None] * triads[station, 1]
 
     return (1.0 - weight)[:, None] * motion(lower) + weight[:, None] * motion(upper)
+
+
+def turned_about_x(points: np.ndarray, angle_rad: float) -> np.ndarray:
+    """Return ``points`` turned by ``angle_rad`` about +X (right handed: +Z toward -Y).
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Shape ``(rows, 3)``: positions or translations [m].
+    angle_rad : float
+        The turn [rad].
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(rows, 3)``: the turned rows.
+    """
+    rows = np.asarray(points, dtype=float)
+    c, s = np.cos(angle_rad), np.sin(angle_rad)
+    return np.column_stack(
+        [rows[:, 0], c * rows[:, 1] - s * rows[:, 2], s * rows[:, 1] + c * rows[:, 2]]
+    )
+
+
+def solver_frame_rows(
+    field: np.ndarray,
+    *,
+    node_type: str,
+    azimuth_rad: float,
+    import_points: np.ndarray | None = None,
+) -> np.ndarray:
+    """Return the rows that make the solver morph a turning blade by ``field`` (26.127).
+
+    The solver frames of a Direct route on a blade turning about +X, measured
+    on 26.127 at azimuth ``psi`` of the call: RIGID places a listed vertex at
+    ``X0 + R(-psi) d`` from the import geometry ``X0``; DEFLECTED places it at
+    ``R(psi) X0 + R(-psi) d``. The blade's intended position is
+    ``R(psi) (X0 + u)``, ``u`` the field in the blade's rotating frame, so
+    RIGID is written ``d = R(psi) (R(psi) (X0 + u) - X0)`` and DEFLECTED
+    ``d = R(2 psi) u``.
+
+    Parameters
+    ----------
+    field : numpy.ndarray
+        Shape ``(rows, 3)``: ``u`` at every listed vertex, in the rotating frame [m].
+    node_type : str
+        ``"RIGID"`` or ``"DEFLECTED"``, the aerodynamic node type the script named.
+    azimuth_rad : float
+        The blade's azimuth ``psi`` at this call [rad].
+    import_points : numpy.ndarray, optional
+        Shape ``(rows, 3)``: ``X0``, the import geometry of the listed vertices;
+        required for RIGID [m].
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(rows, 3)``: the rows to write [m].
+
+    Raises
+    ------
+    FsiInputError
+        If the node type is neither, or RIGID is given no import geometry of the field's shape.
+    """
+    u = np.asarray(field, dtype=float)
+    if node_type == "DEFLECTED":
+        return turned_about_x(u, 2.0 * azimuth_rad)
+    if node_type != "RIGID":
+        raise FsiInputError(f"no solver frame is measured for {node_type!r} aerodynamic nodes")
+    if import_points is None or np.shape(import_points) != u.shape:
+        raise FsiInputError(
+            "the RIGID compensation writes the field from the import geometry, and the "
+            "import geometry given does not hold one row per field row"
+        )
+    x0 = np.asarray(import_points, dtype=float)
+    return turned_about_x(turned_about_x(x0 + u, azimuth_rad) - x0, azimuth_rad)
+
+
+def listed_points(run_dir: str | Path, turn_rad: float = 0.0) -> np.ndarray:
+    """Read the vertices listed in ``run_dir``, turned by ``turn_rad`` about +X.
+
+    A zero turn returns the listing as read. On 26.127 the RIGID listing of a
+    turning blade is its import geometry turned by ``-psi`` (FR-3415), so a
+    turn of ``+psi`` reads it back at the import geometry.
+    """
+    points = read_aero_nodes(Path(run_dir) / AERO_NODES_FILE)
+    return points if turn_rad == 0.0 else turned_about_x(points, turn_rad)
+
+
+def rows_in_solver_frames(
+    run_dir: str | Path, field: np.ndarray, node_type: str, azimuth_rad: float
+) -> np.ndarray:
+    """Return :func:`solver_frame_rows` of ``field`` for the vertices listed in ``run_dir``.
+
+    RIGID reads the import geometry from the listing turned back by
+    ``azimuth_rad`` (:func:`listed_points`); DEFLECTED needs none.
+    """
+    x0 = listed_points(run_dir, azimuth_rad) if node_type == "RIGID" else None
+    return solver_frame_rows(field, node_type=node_type, azimuth_rad=azimuth_rad, import_points=x0)

@@ -214,7 +214,7 @@ def test_p0430_pending_row_without_test_is_owed_until_the_tag(tmp_path):
     assert not result["checks"]["l3_resolved"] and status == 1
 
 
-NODES = ("PFS-2140.023", "PFS-2185.04", "PFS-2185.05", "PFS-2185.08")
+NODES = ("PFS-2140.023", "PFS-2185.01", "PFS-2185.04", "PFS-2185.05", "PFS-2185.08")
 
 
 def _rows(node: str) -> list[dict[str, str]]:

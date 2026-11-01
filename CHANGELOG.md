@@ -24,6 +24,16 @@ FlightStream versions.
   emitted as before and warned once: on 26.127 the solver places the morphed blade at its
   import azimuth once a non-zero field is written, and Direct DEFLECTED is the route that
   keeps the blade in place. No refusal.
+- The 26.127 solver-frame compensation of the Direct routes, off by default: the FSI
+  input's `solver_frame_compensation = true` in `[config]`, or a row's
+  `FSI_FRAME_COMPENSATION: ON` (`OFF` turns it off for that row), makes an `unsteady_rotor`
+  row write its field in the frames 26.127 applies it in, so the blade lands where its
+  motion puts it, deformed by the beam field. Direct RIGID turns the solver's listing back
+  to the import geometry and writes the field from it, absolute, in every phase; Direct
+  DEFLECTED writes the field turned by twice the blade's azimuth. Requested on another
+  build, on the RBF route, on another workflow or on a rotor turning about -X, it is warned
+  and skipped and the field is written uncompensated. `fsi-provenance.json` records the
+  value, its origin (`matrix`, `file` or `default`) and whether the run applied it (FR-3415).
 
 ### Fixed
 

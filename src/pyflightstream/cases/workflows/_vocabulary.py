@@ -24,6 +24,8 @@ from types import (
 
 from pyflightstream._errors import InputValueError, RetiredKeyWarning, demote
 from pyflightstream._fsi_calibration import (
+    FRAME_COMPENSATION_KEY,
+    FRAME_COMPENSATION_SETTING,
     MATRIX_FACTORS,
     MATRIX_START_KEYS,
     START_ITER_KEY,
@@ -850,6 +852,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     "FSI",
     *MATRIX_FACTORS,
     *MATRIX_START_KEYS,
+    FRAME_COMPENSATION_KEY,
     GEOMETRY_VARIABLE,
     SYMMETRY_VARIABLE,
     # FR-66: registered on every run type, because whether the solver
@@ -1040,6 +1043,17 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             unscripted=(
                 "The effective FSI driver config and its provenance carry the start; "
                 "the driver writes a zero field until then."
+            ),
+        ),
+        FRAME_COMPENSATION_KEY: InputKey(
+            "Turns the solver-frame compensation of the Direct routes on (ON) or off (OFF) "
+            f"for this row, replacing the FSI input's {FRAME_COMPENSATION_SETTING}; measured "
+            "on 26.127, warned and skipped where it does not apply.",
+            "ON or OFF; omitted means use the file value (off when the file states none)",
+            "",
+            unscripted=(
+                "The effective FSI driver config and its provenance carry the setting and "
+                "its origin; the driver writes the field in the solver's frames."
             ),
         ),
         SIXDOF_VARIABLE: InputKey(

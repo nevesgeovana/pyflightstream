@@ -2414,6 +2414,11 @@
     },
     {
       "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream.fsi.calibration",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
@@ -4245,6 +4250,11 @@
     {
       "source": "pyflightstream.cases.workflows._skeleton",
       "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._skeleton",
+      "target": "pyflightstream.versions",
       "kind": "module"
     },
     {

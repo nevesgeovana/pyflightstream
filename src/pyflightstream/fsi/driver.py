@@ -567,7 +567,12 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
 
 
 def _write_displacements(
-    run_dir: Path, state: FsiState, written: np.ndarray, *, increment: bool = False
+    run_dir: Path,
+    state: FsiState,
+    written: np.ndarray,
+    *,
+    increment: bool = False,
+    solver_rows: np.ndarray | None = None,
 ) -> None:
     """Write ``FSIDisp.txt`` and remember the rows as the next call's previous ones.
 
@@ -576,10 +581,12 @@ def _write_displacements(
     (RPT-155, arm Q3), so the file holds this call's total minus the total
     written before, and the state keeps the total, which relaxation and the
     next increment read. The unsteady rotor writes the total on every route
-    (:func:`_unsteady_rotor_step`).
+    (:func:`_unsteady_rotor_step`). ``solver_rows``, where given, is what the
+    file holds in place of the field: the field in the solver's frames
+    (FR-3415); the state keeps the field.
     """
     previous = state.previous_displacements
-    rows = written
+    rows = written if solver_rows is None else solver_rows
     if increment and previous is not None:
         rows = written - np.asarray(previous, dtype=float)
     nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, rows)
@@ -1041,20 +1048,26 @@ def _at_the_elastic_axis_nodes(
 
 
 def _computed_displacements(
-    run_dir: Path, cfg: FsiConfig, layout: nodes.NodeOrderingMap, solutions: Sequence[Any]
+    run_dir: Path,
+    cfg: FsiConfig,
+    layout: nodes.NodeOrderingMap,
+    solutions: Sequence[Any],
+    *,
+    listing_turn_rad: float = 0.0,
 ) -> np.ndarray:
     """Return the displacement rows a call computes, before relaxation.
 
     The mapped route writes one row per structural node of ``layout``. With
     direct morphing (FR-341) the solver lists the surface vertices it morphs
     and reads one row per vertex, so the beam solution is evaluated at each of
-    them (:func:`pyflightstream.fsi._direct_morphing.translations_at_points`).
-    Both measure from the elastic-axis nodes of the layout
-    (:func:`_at_the_elastic_axis_nodes`).
+    them (:func:`pyflightstream.fsi._direct_morphing.translations_at_points`),
+    turned first by ``listing_turn_rad`` about +X where the listing is not in
+    the blade frame (FR-3415). Both measure from the elastic-axis nodes of the
+    layout (:func:`_at_the_elastic_axis_nodes`).
     """
     at_nodes = _at_the_elastic_axis_nodes(layout, solutions)
     if cfg.morphing in DIRECT_NODE_TYPES:
-        points = _direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE)
+        points = _direct_morphing.listed_points(run_dir, listing_turn_rad)
         return _direct_morphing.translations_at_points(layout, at_nodes, points)
     return _mapped_displacements(layout, solutions)
 
@@ -1388,6 +1401,12 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     state.load_history = state.load_history[-window_steps:]
 
     relaxation, solved = _solve_the_phase(cfg, state, phase, flap_per_blade, torsion_per_blade)
+    # FR-3415: the solver-frame compensation of the Direct routes, at the blade's azimuth (call
+    # N runs at the start of step N). RIGID lists the import geometry turned by -psi, so the
+    # listing is turned back before the beam is read at it.
+    compensated = DIRECT_NODE_TYPES.get(cfg.morphing) if cfg.solver_frame_compensation else None
+    azimuth = 2.0 * math.pi * revolutions
+    rigid_turn = azimuth if compensated == "RIGID" else 0.0
     solutions: tuple[beam.StaticBeamSolution, ...] | None = None
     # Phase 1 runs no solve, so it has no residual: its cells are empty rather
     # than zero, which would read as a perfectly converged iteration.
@@ -1411,7 +1430,9 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         # tolerance cannot be applied as a converged solution.
         _refuse_an_unsettled_blade(solved)
         solutions = tuple(result.solution for result in solved)
-        computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
+        computed = _computed_displacements(
+            run_dir, cfg, call.layout, solutions, listing_turn_rad=rigid_turn
+        )
         written = _relaxed(state, computed, relaxation)
         # The station rows the twist check decodes: the written rows on the mapped
         # route, the relaxed station state under direct morphing (FR-3404), whose
@@ -1442,7 +1463,12 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     # rows halved, and from call 100 none, while the listed DEFLECTED nodes never moved from
     # the undeformed ones. The increment of the steady route (RPT-155, arm Q3) relaxed this
     # blade back to rigid.
-    _write_displacements(run_dir, state, written, increment=False)
+    solver_rows = (
+        None
+        if compensated is None
+        else _direct_morphing.rows_in_solver_frames(run_dir, written, compensated, azimuth)
+    )
+    _write_displacements(run_dir, state, written, increment=False, solver_rows=solver_rows)
 
     _record_the_revolution(
         cfg,

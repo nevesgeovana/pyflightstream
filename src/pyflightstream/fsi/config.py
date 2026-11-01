@@ -39,6 +39,7 @@ __all__ = [
     "DIRECT_MORPHING_DEFLECTED",
     "DIRECT_NODE_TYPES",
     "MAPPED_MORPHING",
+    "SOLVER_FRAME_COMPENSATION_BUILDS",
     "BladeProperties",
     "BladePropertiesProvenance",
     "FixedWing",
@@ -69,6 +70,10 @@ DIRECT_MORPHING: Final = "direct"
 DIRECT_MORPHING_DEFLECTED: Final = "direct_deflected"
 #: The direct routes, and the aerodynamic node type each names to the solver.
 DIRECT_NODE_TYPES: Final = {DIRECT_MORPHING: "RIGID", DIRECT_MORPHING_DEFLECTED: "DEFLECTED"}
+#: The solver builds whose frames of the Direct routes on a turning blade were measured, and
+#: so the builds :attr:`FsiConfig.solver_frame_compensation` applies on. Requested on another
+#: build, the compensation is warned and skipped.
+SOLVER_FRAME_COMPENSATION_BUILDS: Final = ("26.127",)
 
 _STATION_ARRAY_FIELDS = (
     "chord_m",
@@ -657,6 +662,24 @@ class FsiConfig(BaseModel):
         surface export shows the blade after the call. Another workflow
         warns and skips it. False is not serialised, so a configuration
         that leaves it off dumps and hashes exactly as before.
+    solver_frame_compensation : bool
+        Off by default. On an ``unsteady_rotor`` row with a Direct route on a
+        build of :data:`SOLVER_FRAME_COMPENSATION_BUILDS`, the structural
+        program writes its field in the frames the solver was measured to
+        apply it in, so the morphed blade lands where its motion puts it
+        deformed by the beam field ``u`` (in the blade's rotating frame, at
+        azimuth ``psi`` of call N about +X). Direct RIGID places a listed vertex at
+        ``X0 + R(-psi) d`` from the import geometry ``X0`` and lists ``X0``
+        turned by ``-psi``: the listing is turned back to ``X0`` and the field
+        is written absolute, ``d = R(psi) (R(psi) (X0 + u) - X0)``, in every
+        phase. Direct DEFLECTED places it at ``R(psi) X0 + R(-psi) d``: the field
+        is written turned by ``+2 psi``, ``d = R(2 psi) u``. The state, the log
+        and the station state keep ``u``. The row's
+        ``FSI_FRAME_COMPENSATION`` key overrides it; the plan warns and stages
+        it off where it does not apply (another build, the RBF route, another
+        workflow, a rotor turning the other way, which was not measured).
+        False is not serialised, so a configuration that leaves it off dumps
+        and hashes exactly as before.
 
     Examples
     --------
@@ -694,6 +717,7 @@ class FsiConfig(BaseModel):
     wing: FixedWing | None = None
     morphing: Literal["mapped", "direct", "direct_deflected"] = MAPPED_MORPHING
     export_surface_before_call: bool = False
+    solver_frame_compensation: bool = False
 
     @model_serializer(mode="wrap")
     def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -709,6 +733,8 @@ class FsiConfig(BaseModel):
             data.pop("morphing", None)
         if data.get("export_surface_before_call") is False:
             data.pop("export_surface_before_call", None)
+        if data.get("solver_frame_compensation") is False:
+            data.pop("solver_frame_compensation", None)
         return data
 
     @model_validator(mode="after")

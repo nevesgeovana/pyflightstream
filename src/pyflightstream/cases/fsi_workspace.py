@@ -40,7 +40,13 @@ from types import MappingProxyType
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_ids, saved_surface_section_count
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.fsi.config import DIRECT_NODE_TYPES, MAPPED_MORPHING, FsiConfig
+from pyflightstream.fsi.calibration import FRAME_COMPENSATION_KEY, FRAME_COMPENSATION_SETTING
+from pyflightstream.fsi.config import (
+    DIRECT_NODE_TYPES,
+    MAPPED_MORPHING,
+    SOLVER_FRAME_COMPENSATION_BUILDS,
+    FsiConfig,
+)
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
@@ -84,6 +90,7 @@ __all__ = [
     "direct_morphing_refusal",
     "emit_aeroelastic_rbf_type",
     "emit_steady_aeroelastic_analysis",
+    "frame_compensation_skip",
     "fsi_workflow_refusal",
     "is_steady_aeroelastic_script",
     "patch_structural_node_frame",
@@ -218,6 +225,76 @@ def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> 
         "places the morphed blade at its import azimuth once a non-zero field is written; "
         'Direct DEFLECTED (morphing = "direct_deflected") is the route that keeps the blade '
         "in place. The row is emitted as stated.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
+def frame_compensation_skip(
+    cfg: FsiConfig | None,
+    *,
+    workflow: str,
+    version: str | FsVersion,
+    rpm: float | None = None,
+) -> str | None:
+    """Return why a requested solver-frame compensation is skipped on a row, or None.
+
+    FR-3415: :attr:`FsiConfig.solver_frame_compensation` applies to an
+    ``unsteady_rotor`` row with a Direct route, on a build of
+    :data:`~pyflightstream.fsi.config.SOLVER_FRAME_COMPENSATION_BUILDS`, on a
+    rotor turning about +X (positive ``rpm``; ``None`` is not judged). Elsewhere
+    it does not apply: the plan warns with this reason and stages it off, so the
+    field is written uncompensated. Never a refusal.
+
+    Parameters
+    ----------
+    cfg : FsiConfig or None
+        The row's structure; None or the compensation off returns None.
+    workflow : str
+        The row's workflow.
+    version : str or FsVersion
+        The build the row's script is written for.
+    rpm : float, optional
+        The rotor's signed speed.
+
+    Returns
+    -------
+    str or None
+        The reason, worded to follow ``"<setting> is skipped: "``, or None.
+    """
+    if cfg is None or not cfg.solver_frame_compensation:
+        return None
+    if workflow != "unsteady_rotor":
+        return f"it applies to unsteady_rotor rows and this row runs {workflow}"
+    canonical = resolve_version(version).canonical
+    if canonical not in SOLVER_FRAME_COMPENSATION_BUILDS:
+        return (
+            f"the solver frames it compensates were measured on "
+            f"{', '.join(SOLVER_FRAME_COMPENSATION_BUILDS)} and this row runs {canonical}"
+        )
+    if cfg.morphing not in DIRECT_NODE_TYPES:
+        return (
+            "it does not apply to RBF morphing (the structural nodes), only to the Direct "
+            'routes (morphing = "direct" or "direct_deflected")'
+        )
+    if rpm is not None and rpm < 0:
+        return (
+            "the solver frames were measured on a rotor turning about +X and this one turns "
+            "about -X"
+        )
+    return None
+
+
+def _warn_of_a_skipped_frame_compensation(
+    case: SimCase, *, workflow: str, version: str | FsVersion, rpm: float | None = None
+) -> None:
+    """Warn once where the row's solver-frame compensation does not apply (FR-3415)."""
+    reason = frame_compensation_skip(case.fsi, workflow=workflow, version=version, rpm=rpm)
+    if reason is None:
+        return
+    warn(
+        f"case {case.sim_id!r}: {FRAME_COMPENSATION_SETTING} ({FRAME_COMPENSATION_KEY} in the "
+        f"matrix) is skipped: {reason}. The field is written uncompensated.",
         PyflightstreamWarning,
         stacklevel=3,
     )
@@ -1037,6 +1114,9 @@ def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion)
             PyflightstreamWarning,
             stacklevel=3,
         )
+    if workflow != "unsteady_rotor":
+        # FR-3415: on unsteady_rotor the rotor's speed is judged too, where it is wired.
+        _warn_of_a_skipped_frame_compensation(case, workflow=workflow, version=version)
     _warn_of_an_unverified_direct_morphing(case, version)
 
 
@@ -1112,6 +1192,9 @@ def wire_workspace_fsi(
         raise CampaignConfigError("FSI time increment differs from the resolved solver clock.")
     if not math.isfinite(delta_time_s) or delta_time_s <= 0:
         raise CampaignConfigError("FSI requires a positive resolved time increment.")
+    _warn_of_a_skipped_frame_compensation(
+        case, workflow="unsteady_rotor", version=script.version, rpm=rpm
+    )
     frame_indices: list[int] = []
     for number, blade in enumerate(blades, start=1):
         frame = frames.get(f"{rotor.alias}_RMRP{number}")

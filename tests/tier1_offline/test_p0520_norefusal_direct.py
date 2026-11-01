@@ -14,6 +14,7 @@ develops, the relaxed beam solution at each vertex once the structure is solved.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import warnings
@@ -26,8 +27,10 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import fsi_workspace as ws
 from pyflightstream.cases.workflows._vocabulary import ROW_KEY_MEANINGS
 from pyflightstream.fsi import driver, nodes
+from pyflightstream.fsi.calibration import FRAME_COMPENSATION_KEY, FRAME_COMPENSATION_SETTING
 from pyflightstream.fsi.config import FsiConfig, PhaseSchedule, dump_config
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
+from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_row_fsi
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
@@ -465,3 +468,179 @@ def test_p0530_a_start_key_off_unsteady_rotor_is_warned_and_skipped(tmp_path):
     said = _start_said(tmp_path / "q", "qsteady_rotor")
     assert len(said) == 1 and "FSI_START_REV" in said[0] and "skipped on qsteady_rotor" in said[0]
     assert _start_said(tmp_path / "u", "unsteady_rotor") == []
+
+
+# ------------------------------------- P0530 solver-frame compensation (FR-3415) --
+
+
+def _about_x(points: np.ndarray, angle: float) -> np.ndarray:
+    """``points`` turned by ``angle`` about +X, +Z toward -Y (written here from the map)."""
+    c, s = math.cos(angle), math.sin(angle)
+    rotation = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+    return np.asarray(points, dtype=float) @ rotation.T
+
+
+#: The fixture's turn a step: 50 rad/s at the loads' printed 0.004 s.
+FIXTURE_STEP_RAD = 50.0 * PRINTED_DT_S
+
+
+def _compensated_run(run_dir: Path, morphing: str, compensation: bool):
+    cfg = _stage_unsteady(run_dir, morphing)
+    cfg = cfg.model_copy(update={"solver_frame_compensation": compensation})
+    dump_config(cfg, run_dir / driver.CONFIG_FILE)
+    return cfg
+
+
+def _drive_through_the_solver_map(tmp_path: Path, morphing: str):
+    """Drive four calls; return per call (X0, psi, u, where the solver map puts each vertex).
+
+    The solver maps measured on 26.127 for a blade turning about +X at psi = N steps:
+    RIGID lists X0 turned by -psi and places a vertex at X0 + R(-psi) d; DEFLECTED lists
+    X0 and places it at R(psi) X0 + R(-psi) d (d the written row). A reference run, its
+    compensation off and its vertices listed at X0, gives the field u the beam computes.
+    """
+    rigid = DIRECT_NODE_TYPES_UNDER_TEST[morphing] == "RIGID"
+    run_dir, reference_dir = tmp_path / "compensated", tmp_path / "reference"
+    cfg = _compensated_run(run_dir, morphing, True)
+    _compensated_run(reference_dir, morphing, False)
+    structural = nodes.node_positions(nodes.generate_node_layout(cfg))
+    x0 = np.vstack([structural, structural[:5] + 0.002])
+    _write_aero_nodes(reference_dir, x0)
+    out = []
+    for number in range(1, 5):
+        psi = number * FIXTURE_STEP_RAD
+        _write_aero_nodes(run_dir, _about_x(x0, -psi) if rigid else x0)
+        _call(run_dir, 60 + 40 * number)
+        reference = _call(reference_dir, 60 + 40 * number)
+        d = nodes.read_fsidisp(run_dir / driver.DISPLACEMENT_FILE)
+        u = np.asarray(reference.displacements, dtype=float)
+        if rigid:
+            placed = x0 + _about_x(d, -psi)
+        else:
+            placed = _about_x(x0, psi) + _about_x(d, -psi)
+        out.append((x0, psi, u, placed))
+    return out
+
+
+DIRECT_NODE_TYPES_UNDER_TEST = {"direct": "RIGID", "direct_deflected": "DEFLECTED"}
+
+
+@pytest.mark.requirement("FR-3415")
+@pytest.mark.parametrize("morphing", ["direct", "direct_deflected"])
+def test_p0530_the_compensated_field_lands_the_blade_where_its_motion_puts_it(tmp_path, morphing):
+    # P0530-FRAME-COMPENSATION: through the measured solver map, every vertex lands at
+    # R(psi) (X0 + u), the blade at its prescribed azimuth deformed by the beam field.
+    deformed = 0
+    for x0, psi, u, placed in _drive_through_the_solver_map(tmp_path, morphing):
+        np.testing.assert_allclose(placed, _about_x(x0 + u, psi), rtol=0, atol=1e-12)
+        deformed += int(np.abs(u).max() > 1e-6)
+    assert deformed >= 2, "the beam field was zero in every call, so nothing was compensated"
+
+
+@pytest.mark.requirement("FR-3415")
+def test_p0530_the_compensation_is_off_by_default_and_not_serialised(tmp_path):
+    cfg = _rotating_config("direct")
+    assert cfg.solver_frame_compensation is False
+    assert "solver_frame_compensation" not in cfg.model_dump()
+    assert FRAME_COMPENSATION_SETTING in FsiConfig.model_fields
+    on = cfg.model_copy(update={"solver_frame_compensation": True})
+    assert on.model_dump()["solver_frame_compensation"] is True
+
+
+def _compensated_case(tmp_path, version: str, morphing: str):
+    case = _direct(tmp_path, version, morphing)
+    return case.model_copy(
+        update={"fsi": case.fsi.model_copy(update={"solver_frame_compensation": True})}
+    )
+
+
+def _staged(tmp_path, version: str, morphing: str) -> tuple[dict, dict, list[str]]:
+    """Build and stage the compensated row; return config.json, the provenance, the warnings."""
+    case = _compensated_case(tmp_path, version, morphing)
+    script, caught = build(case, version)
+    run_dir = tmp_path / "run"
+    _write_pending_files(script, run_dir, case=case, recorded={})
+    config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    provenance = json.loads((run_dir / "fsi-provenance.json").read_text(encoding="utf-8"))
+    said = [m for m in messages(caught) if FRAME_COMPENSATION_SETTING in m and "is skipped" in m]
+    return config, provenance, said
+
+
+@pytest.mark.requirement("FR-3415")
+@pytest.mark.parametrize("morphing", ["direct", "direct_deflected"])
+def test_p0530_a_direct_row_on_26_127_stages_the_compensation_unwarned(tmp_path, morphing):
+    config, provenance, said = _staged(tmp_path, "26.127", morphing)
+    assert said == []
+    assert config["solver_frame_compensation"] is True
+    assert provenance["frame_compensation"]["effective"] is True
+
+
+@pytest.mark.requirement("FR-3415")
+@pytest.mark.parametrize(
+    ("version", "morphing", "reason"),
+    [
+        ("26.125", "direct", "measured on 26.127"),
+        ("26.127", "mapped", "does not apply to RBF"),
+    ],
+)
+def test_p0530_a_compensation_that_does_not_apply_is_warned_and_staged_off(
+    tmp_path, version, morphing, reason
+):
+    # Warn and skip, never refuse: the row is built and the field written uncompensated.
+    config, provenance, said = _staged(tmp_path, version, morphing)
+    assert len(said) == 1 and reason in said[0] and "uncompensated" in said[0], said
+    assert FRAME_COMPENSATION_KEY in said[0]
+    assert "solver_frame_compensation" not in config
+    record = provenance["frame_compensation"]
+    assert record["effective"] is False and reason in record["skipped"]
+
+
+@pytest.mark.requirement("FR-3415")
+def test_p0530_a_compensation_is_skipped_off_unsteady_rotor_and_on_a_reversed_rotor():
+    cfg = _rotating_config("direct").model_copy(update={"solver_frame_compensation": True})
+    skip = ws.frame_compensation_skip
+    assert skip(cfg, workflow="unsteady_rotor", version="26.127", rpm=400.0) is None
+    assert "qsteady_rotor" in skip(cfg, workflow="qsteady_rotor", version="26.127")
+    assert "-X" in skip(cfg, workflow="unsteady_rotor", version="26.127", rpm=-400.0)
+    off = cfg.model_copy(update={"solver_frame_compensation": False})
+    assert skip(off, workflow="qsteady_rotor", version="26.125") is None
+
+
+@pytest.mark.requirement("FR-3415")
+def test_p0530_the_matrix_key_overrides_the_file_and_the_provenance_names_the_origin(tmp_path):
+    plain = _inputs(tmp_path / "plain")
+    on_file = _inputs(
+        tmp_path / "on",
+        SUPPLIED.replace(
+            "omega_rad_per_s = 0.0", "omega_rad_per_s = 0.0\nsolver_frame_compensation = true"
+        ),
+    )
+    nothing = resolve_row_fsi(plain, _row())
+    assert nothing.effective.solver_frame_compensation is False
+    assert "frame_compensation" not in nothing.provenance()
+    for inputs, cell, value, origin in (
+        (plain, "ON", True, "matrix"),
+        (plain, "off", False, "matrix"),
+        (on_file, "OFF", False, "matrix"),
+        (on_file, "-", True, "file"),
+        (on_file, "", True, "file"),
+    ):
+        resolved = resolve_row_fsi(inputs, _row(**{FRAME_COMPENSATION_KEY: cell}))
+        assert resolved.effective.solver_frame_compensation is value, (cell, origin)
+        record = resolved.provenance()["frame_compensation"]
+        assert (record["value"], record["origin"]) == (value, origin), record
+    assert FRAME_COMPENSATION_KEY in ROW_KEY_MEANINGS
+
+
+@pytest.mark.requirement("FR-3415")
+def test_p0530_an_unreadable_or_inapplicable_matrix_key_is_warned_and_skipped(tmp_path):
+    inputs = _inputs(tmp_path)
+    for row in (_row(**{FRAME_COMPENSATION_KEY: "maybe"}), {FRAME_COMPENSATION_KEY: "ON"}):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            resolved = resolve_row_fsi(inputs, row)
+        said = [str(m.message) for m in caught if issubclass(m.category, PyflightstreamWarning)]
+        assert len(said) == 1 and FRAME_COMPENSATION_KEY in said[0] and "skipped" in said[0]
+        if resolved is not None:
+            assert resolved.effective.solver_frame_compensation is False
+            assert resolved.provenance()["frame_compensation"]["origin"] == "default"

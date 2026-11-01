@@ -192,6 +192,54 @@ deflected surface (from the second coupling cycle on), so each call writes its
 increment over the total it wrote before. The route is not verified, and the
 plan warns.
 
+#### Solver-frame compensation (26.127)
+
+On 26.127 the two Direct routes of a coupled `unsteady_rotor` blade do not
+apply the written rows in the blade's rotating frame. With the blade at
+azimuth `psi` about +X at a call (call N runs at the start of time step N),
+the solver was measured to place a listed vertex at:
+
+| Route | The solver lists | It places a vertex at |
+| --- | --- | --- |
+| Direct RIGID (`"direct"`) | the import geometry `X0` turned by `-psi` | `X0 + R(-psi) d`, from the import geometry |
+| Direct DEFLECTED (`"direct_deflected"`) | `X0` | `R(psi) X0 + R(-psi) d` |
+
+`d` is the written row and `R(a)` a turn by `a` about +X. Written as the beam
+field `u`, RIGID shows the blade at its import azimuth whenever the field is
+not zero, and DEFLECTED turns the in-plane part of `u` by `-2 psi` relative to
+the blade, so the lag of the surface swings at twice the rotor frequency.
+
+The compensation writes the rows that put every vertex at `R(psi) (X0 + u)`,
+the blade where its motion puts it, deformed by `u`. It is off by default. The
+FSI input turns it on in its `[config]` table:
+
+```toml
+[config]
+morphing = "direct_deflected"
+solver_frame_compensation = true
+```
+
+and a row overrides the file with `FSI_FRAME_COMPENSATION: ON` or `OFF` (a
+blank cell or `-` states nothing; another value is warned and skipped, and the
+file value stands). With it on:
+
+- RIGID turns the listing back by `+psi` to `X0`, evaluates `u` there, and
+  writes the field from the import geometry in every phase,
+  `d = R(psi) (R(psi) (X0 + u) - X0)`; the rows are not zero while the wake
+  develops, since they carry the blade's turn.
+- DEFLECTED writes `u` turned by `+2 psi`, `d = R(2 psi) u`.
+
+The structural state, the convergence log and the twist check keep `u`.
+`fsi-provenance.json` records `frame_compensation`: the value, its origin
+(`matrix`, `file`, or `default` where a row's cell was skipped) and whether the
+run's build applies it (`effective`, with the reason where it is skipped).
+
+The compensation applies to an `unsteady_rotor` row on a Direct route on
+26.127, with the rotor turning about +X. Requested on another build, on the RBF
+route (the structural-node import), on another workflow or on a rotor turning
+about -X, which were not measured, the plan warns, naming the setting and the
+reason, and the run writes the field uncompensated. Nothing is refused.
+
 Refused by the plan, each naming the remedy: a direct route on `steady` and
 `unsteady` (a fixed wing couples through its structural nodes), on a wheel, in
 a frozen replay, and on a build that does not run the command. Leaving

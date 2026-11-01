@@ -19,6 +19,7 @@ import pyflightstream.cases._setup_link as _setup_link
 from pyflightstream.cases import (
     CampaignConfigError,
     FsiConfig,
+    RotorBlock,
     SimCase,
 )
 from pyflightstream.cases import (
@@ -34,6 +35,7 @@ from pyflightstream.script import (
     Script,
     helpers,
 )
+from pyflightstream.versions import FsVersion
 
 from ._clock import (
     _rotor_clock,
@@ -69,6 +71,7 @@ from ._probes import (
     _pproc_probes,
 )
 from ._rows import (
+    RotorSpeed,
     _from_metres,
     _qsteady_speed,
     _required_int,
@@ -454,18 +457,7 @@ def _script_init(
     elif case.fsi is not None:
         from ..fsi_workspace import wire_workspace_fsi
 
-        turning, lost = _the_rotors_the_row_turns(case)
-        if lost or len(turning) > 1:
-            raise CampaignConfigError("FSI requires one uniquely resolved moving rotor.")
-        if turning:
-            alias, _view, speed = turning[0]
-            rotor = case.rotors[alias]
-        else:
-            flat_rotor = _the_rotor_a_flat_row_turns(case)
-            if flat_rotor is None:
-                raise CampaignConfigError("FSI requires one uniquely resolved rotor.")
-            rotor = flat_rotor
-            speed = rotor_speed(case)
+        rotor, speed = _the_coupled_rotor(case)
         if frames is None:
             raise CampaignConfigError("FSI requires the initial blade/frame mapping.")
         wire_workspace_fsi(
@@ -600,7 +592,39 @@ def _wire_the_external_structure(
     )
 
 
-def effective_fsi_config(case: SimCase) -> FsiConfig | None:
+def _the_coupled_rotor(case: SimCase) -> tuple[RotorBlock, RotorSpeed]:
+    """Return the one rotor an ``unsteady_rotor`` FSI row couples, and its speed."""
+    turning, lost = _the_rotors_the_row_turns(case)
+    if lost or len(turning) > 1:
+        raise CampaignConfigError("FSI requires one uniquely resolved moving rotor.")
+    if turning:
+        alias, _view, speed = turning[0]
+        return case.rotors[alias], speed
+    flat_rotor = _the_rotor_a_flat_row_turns(case)
+    if flat_rotor is None:
+        raise CampaignConfigError("FSI requires one uniquely resolved rotor.")
+    return flat_rotor, rotor_speed(case)
+
+
+def frame_compensation_skip_reason(case: SimCase, version: str | FsVersion) -> str | None:
+    """Return why the row's requested solver-frame compensation is skipped, or None (FR-3415).
+
+    The facts :func:`pyflightstream.cases.fsi_workspace.frame_compensation_skip`
+    judges, read from the case: its workflow, and on ``unsteady_rotor`` the
+    coupled rotor's signed speed.
+    """
+    from ..fsi_workspace import frame_compensation_skip
+
+    if case.fsi is None or not case.fsi.solver_frame_compensation:
+        return None
+    workflow = select_workflow(case)
+    rpm = _the_coupled_rotor(case)[1].rpm if workflow == "unsteady_rotor" else None
+    return frame_compensation_skip(case.fsi, workflow=workflow, version=version, rpm=rpm)
+
+
+def effective_fsi_config(
+    case: SimCase, *, version: str | FsVersion | None = None
+) -> FsiConfig | None:
     """Return the structural configuration a point's run stages as its ``config.json``.
 
     The row's FSI input as resolved, except on a ``qsteady_rotor`` sector,
@@ -612,16 +636,35 @@ def effective_fsi_config(case: SimCase) -> FsiConfig | None:
     imports and the configuration the structural program loads describe one
     structure.
 
+    With ``version``, the build the run's script is written for, the
+    solver-frame compensation is staged off where it does not apply
+    (:func:`frame_compensation_skip_reason`, FR-3415), so the structural
+    program writes the field uncompensated; the plan warned of it.
+
     Parameters
     ----------
     case : SimCase
         The point's case; its FSI input and run type are read.
+    version : str or FsVersion, optional
+        The build the run stages for; None stages the compensation as the input states it.
 
     Returns
     -------
     FsiConfig or None
         None for a row with no FSI.
     """
+    config = _effective_fsi_config(case)
+    if (
+        config is not None
+        and version is not None
+        and frame_compensation_skip_reason(case, version) is not None
+    ):
+        return config.model_copy(update={"solver_frame_compensation": False})
+    return config
+
+
+def _effective_fsi_config(case: SimCase) -> FsiConfig | None:
+    """Return the configuration of :func:`effective_fsi_config` before the build is judged."""
     if case.fsi is None:
         return None
     workflow = select_workflow(case)
