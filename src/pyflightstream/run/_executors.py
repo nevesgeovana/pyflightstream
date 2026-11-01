@@ -50,6 +50,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.run._ids import (
     _say,
 )
+from pyflightstream.run._minimize import keep_minimized, launch_options
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
 from pyflightstream.run._solver_windows import spared_solver_windows as _spared_solver_windows
 from pyflightstream.run._wake_edge_verdict import (
@@ -1160,7 +1161,9 @@ def _run_until_the_analysis_ends(
             text=True,
             env=os.environ.copy(),
             creationflags=_NO_WINDOW,
+            **launch_options(argv),
         )
+        keep_minimized(process, argv)
         try:
             code, timed_out, note = wait_for_the_end(process)
         except BaseException:
@@ -1197,7 +1200,9 @@ def _run_with_progress(
         text=True,
         env=os.environ.copy(),
         creationflags=_NO_WINDOW,
+        **launch_options(argv),
     )
+    keep_minimized(process, argv)
     try:
         return _progress_loop(
             process,
