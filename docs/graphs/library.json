@@ -1888,6 +1888,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream._mesh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream._progress",
       "target": "pyflightstream._console",
       "kind": "module"
@@ -5250,6 +5255,11 @@
     {
       "source": "pyflightstream.fsi.sections",
       "target": "pyflightstream._mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.fsi.sections",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
