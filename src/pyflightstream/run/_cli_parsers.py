@@ -53,6 +53,7 @@ from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
+from pyflightstream.run._visual_inspect import add_visual_inspect_parser
 from pyflightstream.workspace.cli import add_console_arguments, take_settings, withhold_defaults
 
 # Re-exported through this public import path.
@@ -399,6 +400,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_query_parsers(subparsers)
     add_mark_converged_parser(subparsers)  # FR-414
     add_mesh_parsers(subparsers)  # FR-426
+    add_visual_inspect_parser(subparsers)  # FR-3440
     from pyflightstream._console import add_warning_option
 
     add_warning_option(parser)

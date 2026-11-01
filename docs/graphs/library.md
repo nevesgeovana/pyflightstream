@@ -1207,6 +1207,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.run._grouped">pyflightstream.run._grouped</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._mark_converged">pyflightstream.run._mark_converged</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._visual_inspect">pyflightstream.run._visual_inspect</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run.records">pyflightstream.run.records</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.cli">pyflightstream.workspace.cli</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.costs">pyflightstream.workspace.costs</a> (module)</li>
@@ -1566,6 +1567,14 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.run._visual_inspect"><summary><code>pyflightstream.run._visual_inspect</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._matrix_homes">pyflightstream.workspace._matrix_homes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.cli">pyflightstream.workspace.cli</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.run._wake_edge_verdict"><summary><code>pyflightstream.run._wake_edge_verdict</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
@@ -1594,6 +1603,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.run._continuation_frame">pyflightstream.run._continuation_frame</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._grouped">pyflightstream.run._grouped</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._visual_inspect">pyflightstream.run._visual_inspect</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run.collect">pyflightstream.run.collect</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run.matrix">pyflightstream.run.matrix</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run.matrix">pyflightstream.run.matrix</a> (module)</li>

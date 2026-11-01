@@ -108,6 +108,7 @@ from pyflightstream.run._cli_query import QUERY_COMMANDS, run_query
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
 from pyflightstream.run._grouped import planner_for, runner_for
 from pyflightstream.run._ids import _AlreadyRecordedError
+from pyflightstream.run._visual_inspect import cmd_visual_inspect
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -293,6 +294,8 @@ def _records_or_storage(args: argparse.Namespace) -> int | None:
     """Run the records or the storage command the arguments name, else return None."""
     if args.subcommand == "noise":
         return _cmd_noise(args)
+    if args.subcommand == "visual-inspect":
+        return cmd_visual_inspect(args)  # FR-3440
     if args.subcommand in _RECORDS_COMMANDS:
         return _cmd_records(args)
     if args.subcommand in _STORAGE_COMMANDS:
