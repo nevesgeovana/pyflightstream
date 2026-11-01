@@ -7,6 +7,48 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.53.0
+
+Every new setting is off unless a row or the FSI input states it, so a workspace
+upgraded from 0.52.x plans and runs as before, apart from the warnings below.
+
+The matrix keys `FSI_START_REV` and `FSI_START_ITER` set when the structural
+solver starts for one row, in place of the FSI input's
+`wake_development_revolutions`. `FSI_START_ITER` is a time step that converts to
+revolutions through the row's `DELTA_THETA`; a row stating both warns and uses
+`FSI_START_ITER`. The start applies to `unsteady_rotor` rows and is warned and
+skipped elsewhere. The effective provenance carries a `structural_start` record
+when a row states one (FR-3412).
+
+On 26.127, an `unsteady_rotor` row that morphs with RBF, the default route, is
+emitted as before and warned once: the solver places the morphed blade at its
+import azimuth once a non-zero field is written. Direct DEFLECTED with the
+solver-frame compensation keeps the blade in place (FR-3413).
+
+The solver-frame compensation of the Direct routes is requested with
+`solver_frame_compensation = true` under the FSI input's `[config]`, or per row
+with `FSI_FRAME_COMPENSATION: ON` or `OFF`. Requested on another build, on the
+RBF route, on another workflow or on a rotor turning about -X, it is warned and
+skipped. `fsi-provenance.json` records the value, its origin and whether the run
+applied it (FR-3415).
+
+`fsi-provenance.json` also carries a `blade_mesh` record (the mesh file's unit,
+the hub and whether the row moves the mesh). Run a point again to stage it: the
+new post product `placement_check`, written to
+`structure/<point>_placement_check.csv` for every coupled `unsteady_rotor` point
+that exported its section cuts each step, reads it, and a point staged without
+it states its steps not judged with the reason and is warned once (FR-3416).
+
+A coupled `unsteady_rotor` or `qsteady_rotor` row whose contours lie more than
+5 mm off blade one's cut of an OBJ mesh is warned, naming each station; nothing
+is refused. `pyflightstream.fsi.sections.place_on_mesh_cut` writes the input
+with the contours moved onto the cut (FR-3417).
+
+A refinement writes each level inside a staging folder named from the first
+eight characters of the level's name (`wing_R2.partial-<random>` for `wing_R2`).
+Level folders and files are named as before; a script that read the staging
+folder by the full level name reads the shortened one (FR-3414).
+
 ## 0.52.1
 
 A coupled `unsteady_rotor` row on a saved simulation, or with symmetry copies,
