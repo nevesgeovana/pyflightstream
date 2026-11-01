@@ -68,6 +68,22 @@ def test_p0420_sweeps_no_private_source_ids():
     assert not (failures := private_source_ids(tracked_texts())), failures
 
 
+#: The private study workspaces, whose names the shipped package never carries: a fact is
+#: stated without its provenance.
+STUDY_NAMES = re.compile(r"pyfs-debugging|fts-research")
+
+
+def study_names_in_the_package(sources):
+    return [path for path, text in sources if path.startswith("src/") and STUDY_NAMES.search(text)]
+
+
+def test_p0530_the_package_names_no_study():
+    # REL-007, with a planted control so the sweep can say yes.
+    assert not (failures := study_names_in_the_package(tracked_texts())), failures
+    planted = [("src/fixture.py", "# measured on the pyfs-debugging register"), ("docs/a.md", "")]
+    assert study_names_in_the_package(planted) == ["src/fixture.py"]
+
+
 def test_p0420_sweeps_private_source_id_planted_control(monkeypatch):
     planted = "SRC-" + "123"
     monkeypatch.setattr(sys.modules[__name__], "tracked_texts", lambda: [("fixture.txt", planted)])

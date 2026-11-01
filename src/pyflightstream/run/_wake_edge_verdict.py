@@ -341,7 +341,7 @@ def collected_log_texts(
 
 #: The line the solver logs when its unsteady march stops before the last step, measured on
 #: 26.127 (an action program that could not execute, after the steady initialization had
-#: converged: the pyfs-debugging register, row 7163 of 2026-10-30).
+#: converged).
 UNSTEADY_ABORT = "Unsteady solver run aborted!"
 
 

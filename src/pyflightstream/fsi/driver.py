@@ -1458,8 +1458,8 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
             applied_twist_settled &= lag < cfg.phases.tip_twist_tolerance_deg
     # The unsteady rotor writes the TOTAL field on the DEFLECTED direct route too. Each time
     # step the solver places the blade by its motion and morphs it by the file of that step
-    # alone: on 26.127 (pyfs-debugging row 9873, the section cuts exported after every step)
-    # the surface after call 36 carried that call's rows, after call 37 half of them, as the
+    # alone: on 26.127 (measured on the section cuts exported after every step) the
+    # surface after call 36 carried that call's rows, after call 37 half of them, as the
     # rows halved, and from call 100 none, while the listed DEFLECTED nodes never moved from
     # the undeformed ones. The increment of the steady route (RPT-155, arm Q3) relaxed this
     # blade back to rigid.
