@@ -312,10 +312,30 @@ def test_p0530_a_blank_start_cell_states_nothing_and_the_keys_are_in_the_vocabul
 
 
 @pytest.mark.requirement("FR-3412")
-def test_p0530_start_iter_without_a_step_is_refused_and_delta_time_converts(tmp_path):
+def test_p0530_start_iter_without_a_turning_clock_is_warned_and_skipped(tmp_path):
+    # LANE1-R1-001: a steady row (no step) and a fixed wing's unsteady row (DELTA_TIME, an
+    # FSI input that does not turn) have no revolutions to start; the key does not apply.
     inputs = _inputs(tmp_path)
-    with pytest.raises(FsiSetupError, match="DELTA_THETA"):
-        resolve_row_fsi(inputs, {"FSI": "f001", "FSI_START_ITER": "36"})
+    for row, rev in (
+        ({"FSI": "f001", "FSI_START_ITER": "36"}, None),
+        ({"FSI": "f001", "DELTA_TIME": "0.01", "FSI_START_ITER": "36"}, None),
+        ({"FSI": "f001", "FSI_START_ITER": "36", "FSI_START_REV": "0.5"}, 0.5),
+    ):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            resolved = resolve_row_fsi(inputs, row)
+        said = [str(m.message) for m in caught if issubclass(m.category, PyflightstreamWarning)]
+        assert len(said) == 1 and "FSI_START_ITER" in said[0] and "skipped" in said[0], said
+        if rev is None:
+            assert resolved.structural_start is None
+            assert resolved.effective.phases.wake_development_revolutions == 1.0
+        else:
+            assert resolved.structural_start["key"] == "FSI_START_REV"
+            assert resolved.effective.phases.wake_development_revolutions == rev
+
+
+@pytest.mark.requirement("FR-3412")
+def test_p0530_start_iter_converts_through_delta_time_and_a_turning_input(tmp_path):
     spinning = SUPPLIED.replace(
         "omega_rad_per_s = 0.0", f"omega_rad_per_s = {OMEGA_5_DEG_PER_STEP}"
     )

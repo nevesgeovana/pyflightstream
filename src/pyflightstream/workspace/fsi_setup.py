@@ -656,8 +656,12 @@ def _stated_start(start_cells: Mapping[str, Any]) -> dict[str, float]:
     return stated
 
 
-def _revolutions_per_step(effective: FsiConfig, variables: Mapping[str, Any]) -> float:
-    """Return the revolutions one time step turns, from the row's DELTA_THETA or DELTA_TIME."""
+def _revolutions_per_step(effective: FsiConfig, variables: Mapping[str, Any]) -> float | None:
+    """Return the revolutions one time step turns, from the row's DELTA_THETA or DELTA_TIME.
+
+    None where the row has no turning clock: no step (a steady row), or ``DELTA_TIME`` with an
+    FSI input that does not turn (a fixed wing). The start key does not apply to such a row.
+    """
     if str(variables.get("DELTA_THETA", "")).strip() not in ("", "-"):
         try:
             step_deg = float(variables["DELTA_THETA"])
@@ -676,10 +680,7 @@ def _revolutions_per_step(effective: FsiConfig, variables: Mapping[str, Any]) ->
             step_s = math.nan
         if math.isfinite(step_s) and step_s > 0 and effective.omega_rad_per_s > 0:
             return effective.omega_rad_per_s * step_s / (2.0 * math.pi)
-    raise FsiSetupError(
-        f"{START_ITER_KEY} converts a time step to revolutions with the row's DELTA_THETA (or "
-        "DELTA_TIME and a rotor speed in the FSI input); state one."
-    )
+    return None
 
 
 def _with_structural_start(
@@ -691,9 +692,22 @@ def _with_structural_start(
     first time step whose coupling call may write a non-zero field; it becomes the revolutions
     a half step short of that step, so the rounding of the solver's printed time increment
     cannot move the first non-zero call to its neighbour. A row stating both warns, and
-    ``FSI_START_ITER`` is used.
+    ``FSI_START_ITER`` is used. ``FSI_START_ITER`` on a row with no turning clock (no
+    ``DELTA_THETA``, and no ``DELTA_TIME`` with a turning FSI input) does not apply: it is
+    warned and skipped.
     """
     stated = _stated_start(start_cells)
+    per_step = (
+        _revolutions_per_step(resolved.effective, variables) if START_ITER_KEY in stated else None
+    )
+    if START_ITER_KEY in stated and per_step is None:
+        warn(
+            f"{START_ITER_KEY}={stated.pop(START_ITER_KEY):g} is skipped: it converts a time step "
+            "to revolutions with the row's DELTA_THETA (or DELTA_TIME and a rotor speed in the "
+            "FSI input), and the row states neither, so it has no turning clock to start.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     if not stated:
         return resolved
     if len(stated) == 2:
@@ -703,11 +717,11 @@ def _with_structural_start(
             PyflightstreamWarning,
             stacklevel=3,
         )
-    if START_ITER_KEY in stated:
+    if START_ITER_KEY in stated and per_step is not None:
         key = START_ITER_KEY
         # The first call is time step 1, so a value below 1 starts at the first call.
         steps_of_rigid_wake = max(stated[key] - 0.5, 0.5)
-        revolutions = steps_of_rigid_wake * _revolutions_per_step(resolved.effective, variables)
+        revolutions = steps_of_rigid_wake * per_step
     else:
         key = START_REV_KEY
         revolutions = stated[key]
