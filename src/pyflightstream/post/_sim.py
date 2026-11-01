@@ -1090,7 +1090,7 @@ def _plots_products(
     # FR-417: normal probes are not in the plots history; their table and
     # fields come from the probe-points export (`_probes_products`).
     fluid = unsteady and (
-        ctx.pproc.volume_section is not None
+        (ctx.pproc.volume_section is not None and ctx.pproc.volume_section.kind != "default")
         or any(entry.kind != "default" for entry in ctx.pproc.probes)
     )
     if fluid and _normal_probes(ctx, record, legacy_profiles):
@@ -1670,7 +1670,8 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
         for parameter in getattr(entry, "parameters", None) or []:
             if parameter not in out:
                 out.append(parameter)
-    if getattr(pproc, "volume_section", None) is not None:
+    section = getattr(pproc, "volume_section", None)
+    if section is not None and section.kind != "default":
         out.extend(name for name in ("VX", "VY", "VZ") if name not in out)
     return tuple(out)
 

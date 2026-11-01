@@ -744,10 +744,18 @@ class VolumeSectionSpec(_LocatedSpec):
         Rectangle endpoints are included; a circular center is sampled once.
     format : {'vtk', 'tecplot'}
         Post field format, with explicit point topology and SI provenance.
+    kind : {'default', 'instantaneous'}
+        How an unsteady or rotor row samples the plane: ``instantaneous``
+        (unstated) samples it by fluid plots at every step and writes each
+        step as a field; ``default`` samples it once by probe points at the
+        last step and writes one field. A steady row samples once whatever the
+        kind. Aliases ``normal`` and ``unsteady`` are deprecated.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    #: Unstated stays instantaneous on unsteady rows, as before ``kind`` existed.
+    kind: ProbeKind = "instantaneous"
     shape: Literal["rectangle", "circle"]
     frame: str = "MRP"
     plane: Plane
@@ -759,6 +767,29 @@ class VolumeSectionSpec(_LocatedSpec):
     format: Literal["vtk", "tecplot"] = "vtk"
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _a_known_section_kind(cls, value: object) -> object:
+        """Refuse a volume section kind other than the two, naming both."""
+        aliases = {"normal": "default", "unsteady": "instantaneous"}
+        if isinstance(value, str) and value in aliases:
+            canonical = aliases[value]
+            warn(
+                f"volume section kind {value!r} is deprecated; use kind = {canonical!r} instead.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return canonical
+        if value not in PROBE_KINDS:
+            raise InputValueError(
+                f"volume section kind {value!r} is not one of "
+                f"{' or '.join(map(repr, PROBE_KINDS))}: "
+                'write kind = "instantaneous" for fluid plots at every time step, '
+                'or kind = "default" for probe points sampled once, at the last time step. '
+                "Deprecated aliases: 'unsteady' and 'normal', respectively."
+            )
+        return value
 
     @model_validator(mode="after")
     def _each_shape_states_its_own_keys(self) -> VolumeSectionSpec:
@@ -2654,4 +2685,7 @@ class PprocSpec(_SuggestsKeys):
         bool
             Whether any entry needs the final probe-points export.
         """
-        return any(entry.kind == "default" for entry in self.probes)
+        section = self.volume_section
+        return any(entry.kind == "default" for entry in self.probes) or (
+            section is not None and section.kind == "default"
+        )

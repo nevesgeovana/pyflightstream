@@ -318,7 +318,7 @@ def _the_fields_ask_for_plots(pproc: PprocSpec) -> bool:
     """Whether the artifact's probes or sections need the plots cleared first."""
     return bool(
         pproc.surface_probes
-        or pproc.volume_section is not None
+        or (pproc.volume_section is not None and pproc.volume_section.kind != "default")
         or any(
             (entry.field_formats or entry.reusable_inflow) and entry.kind != "default"
             for entry in pproc.probes

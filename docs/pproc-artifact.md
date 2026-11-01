@@ -462,7 +462,13 @@ corners_m = [-1.0, -1.0, 1.0, 1.0] # u0, v0, u1, v1 in the selected plane
 points = [25, 25] # samples along each rectangular axis
 refinement_layers = 1 # each extra layer bisects grid intervals
 format = "vtk" # or "tecplot"
+kind = "default" # or "instantaneous"
 ```
+
+`kind` matters on unsteady and rotor rows, as it does for `[[probes]]`. `"instantaneous"`
+(the value when unstated) samples the plane by fluid plots at every time step and post writes
+one field per step. `"default"` samples the plane once, by probe points at the last time step,
+and post writes one field. A steady row samples once whatever the kind.
 
 A circle states `radii_m = [r1, r2]` with `0 <= r1 < r2` and
 `points = [radial, azimuthal]` instead of `corners_m`. Rectangle counts
