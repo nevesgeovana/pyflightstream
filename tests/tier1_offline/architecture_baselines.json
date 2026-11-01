@@ -733,9 +733,9 @@
    "positional": 2
   },
   "run/cli.py:_cmd_post": {
-   "complexity": 25,
+   "complexity": 24,
    "branches": 25,
-   "statements": 68,
+   "statements": 65,
    "positional": 1
   },
   "run/cli.py:main": {

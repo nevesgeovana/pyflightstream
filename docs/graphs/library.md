@@ -1602,7 +1602,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.results.tables">pyflightstream.results.tables</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run">pyflightstream.run</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._alias">pyflightstream.run._alias</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.run._campaign">pyflightstream.run._campaign</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_geometry">pyflightstream.run._cli_geometry</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_parsers">pyflightstream.run._cli_parsers</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_print">pyflightstream.run._cli_print</a> (module)</li>
@@ -1611,7 +1610,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.run._grouped">pyflightstream.run._grouped</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._plan_report">pyflightstream.run._plan_report</a> (deferred)</li>
-<li>&rarr; <a href="#pyflightstream.run._post_selection">pyflightstream.run._post_selection</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._post_selection">pyflightstream.run._post_selection</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run.collect">pyflightstream.run.collect</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run.matrix">pyflightstream.run.matrix</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run.matrix">pyflightstream.run.matrix</a> (module)</li>

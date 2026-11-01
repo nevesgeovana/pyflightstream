@@ -14,7 +14,7 @@ import os
 import shlex
 import subprocess
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -511,6 +511,49 @@ def post_stage_options(
     if keep and takes("keep_unrebuilt"):
         options["keep_unrebuilt"] = True
     return options
+
+
+@dataclass(frozen=True)
+class _PointsAskedToRedo:
+    """Which points of one case a forced re-run named, and by which names."""
+
+    #: The points themselves, in the case's own sweep order.
+    points: list[dict[str, float]]
+    #: The caller's spellings that matched, so the caller can tell what did not.
+    named: set[str]
+
+
+def _points_asked_to_redo(
+    campaign: Campaign, case: SimCase, asked: Sequence[str]
+) -> _PointsAskedToRedo:
+    """Resolve the names a forced re-run gave into points of this case.
+
+    A NAME IS A POINT NAME OR A FULL run_id, because those are the two spellings
+    a user has in front of them: the refusal prints a `run_id`, and the manifest
+    and the folder names carry the point name. Matching is EXACT -- a substring
+    match on an identity is how the wrong point gets redone, and a seat is the
+    one thing archiving cannot give back.
+    """
+    wanted = set(asked)
+    everything = list(case.sweep.points())
+    # A JOB IS INDIVISIBLE, and its id is what the refusal prints for a swept
+    # steady row: one job ran every point of the row in one process, so naming
+    # it names all of them. A user who reads `sim_2001/sweep` off the refusal
+    # and passes it back would otherwise match nothing and be told the name
+    # carries no recorded point, which is the opposite of true.
+    job = _job_run_id(campaign, case)
+    if job in wanted:
+        return _PointsAskedToRedo(points=everything, named={job})
+    points: list[dict[str, float]] = []
+    named: set[str] = set()
+    for point in everything:
+        name = point_name(case, point)
+        run_id = _run_id(campaign, case, point)
+        hit = {token for token in (name, run_id) if token in wanted}
+        if hit:
+            points.append(point)
+            named |= hit
+    return _PointsAskedToRedo(points=points, named=named)
 
 
 # FR-326 (P0340-RUN-ONE-POINT): a selection of the matrix, planned or run alone.

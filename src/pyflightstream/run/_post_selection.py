@@ -2,7 +2,8 @@
 
 Private to :mod:`pyflightstream.run`. :func:`post_selection` decides, from the
 rows' RUN flags and the provenance the last post wrote, what a post with no
-option rebuilds; :mod:`pyflightstream.run.cli` calls it from ``post``.
+option rebuilds, and :func:`named_selection` what ``--sims`` names (FR-307);
+:mod:`pyflightstream.run.cli` calls them from ``post``.
 """
 
 from __future__ import annotations
@@ -13,7 +14,36 @@ from pathlib import Path
 
 from pyflightstream._progress import say_summary
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from pyflightstream.workspace import (
+    CampaignWorkspace,
+    RunRecord,
+    RunStatus,
+    WorkspaceError,
+    selected_sims,
+)
+
+
+def named_selection(
+    args: argparse.Namespace,
+    records: list[RunRecord],
+    matrices: list[str | None],
+    listed: list[str],
+    sims_of: dict[str | None, list[str]],
+) -> list[str | None]:
+    """Return the matrices ``post --sims`` rebuilds, filling ``sims_of`` (FR-307).
+
+    REFUSED BY NAME BEFORE ANY WORK (:class:`WorkspaceError`). With a matrix,
+    every id must be a simulation of it; without one, each matrix holding a
+    named simulation is posted limited to the ones it holds.
+    """
+    scoped = [record for record in records if record.matrix_stem in matrices]
+    scope = f"of matrix {matrices[0]!r}" if args.matrix is not None else "in the manifest"
+    chosen = selected_sims(scoped, listed, scope=scope)
+    for matrix in matrices:
+        held = {record.sim_id for record in scoped if record.matrix_stem == matrix}
+        if chosen & held:
+            sims_of[matrix] = sorted(chosen & held)
+    return [matrix for matrix in matrices if matrix in sims_of]
 
 
 def post_selection(
@@ -31,8 +61,11 @@ def post_selection(
     the last post did not see (no provenance document, or one written
     before the point ran again or its status changed). A selection that is every recorded
     simulation of the matrix is the whole post; a matrix with no RUN = 1
-    row, or with nothing pending, is said and skipped.
+    row, or with nothing pending, is said and skipped. The additional post
+    and ``--diagnostics`` take every matrix as it is.
     """
+    if args.additional_pproc or getattr(args, "diagnostics", False):
+        return matrices
     rebuild = bool(args.archive or args.force_overwrite)
     kept: list[str | None] = []
     for matrix in matrices:

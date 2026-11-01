@@ -108,7 +108,6 @@ from pyflightstream.run._cli_query import QUERY_COMMANDS, run_query
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
 from pyflightstream.run._grouped import planner_for, runner_for
 from pyflightstream.run._ids import _AlreadyRecordedError, post_stage_options
-from pyflightstream.run._post_selection import post_selection
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -845,27 +844,18 @@ def _cmd_post(args: argparse.Namespace) -> int:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
             matrices = named
+        from pyflightstream.run._post_selection import named_selection, post_selection
+
         sims_of: dict[str | None, list[str]] = {}
         if args.sims is not None:
-            # FR-307: REFUSED BY NAME BEFORE ANY WORK. With a matrix, every id
-            # must be a simulation of it; without one, each matrix holding a
-            # named simulation is posted limited to the ones it holds.
-            listed = _listed_sims(args.sims)
-            scoped = [record for record in records if record.matrix_stem in matrices]
-            scope = f"of matrix {matrices[0]!r}" if args.matrix is not None else "in the manifest"
             try:
-                chosen = selected_sims(scoped, listed, scope=scope)
+                matrices = named_selection(
+                    args, records, matrices, _listed_sims(args.sims), sims_of
+                )
             except WorkspaceError as error:
                 print(str(error), file=sys.stderr)
                 return 2
-            for matrix in matrices:
-                held = {record.sim_id for record in scoped if record.matrix_stem == matrix}
-                if chosen & held:
-                    sims_of[matrix] = sorted(chosen & held)
-            matrices = [matrix for matrix in matrices if matrix in sims_of]
-        elif not args.additional_pproc and not getattr(args, "diagnostics", False):
-            # PFS-2185.18: the RUN = 1 simulations only, and without --archive or
-            # --force-overwrite only those not posted yet.
+        else:
             matrices = post_selection(args, workspace, records, matrices, sims_of)
             if not matrices:
                 return 0

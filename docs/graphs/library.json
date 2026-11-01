@@ -11589,11 +11589,6 @@
     },
     {
       "source": "pyflightstream.run.cli",
-      "target": "pyflightstream.run._campaign",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.cli",
       "target": "pyflightstream.run._cli_geometry",
       "kind": "deferred"
     },
@@ -11635,7 +11630,7 @@
     {
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.run._post_selection",
-      "kind": "module"
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run.cli",

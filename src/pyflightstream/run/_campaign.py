@@ -84,7 +84,9 @@ from pyflightstream.run._ids import (
     CampaignErrors,
     _is_one_job,
     _job_run_id,
+    _points_asked_to_redo,
     _points_the_recorded_job_ran,
+    _PointsAskedToRedo,
     _run_id,
     _say,
     already_recorded_error,
@@ -1495,49 +1497,6 @@ def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) 
     # FR-997: the table in one line is what a quiet console says of a run.
     ended = ", ".join(f"{status} {count}" for status, count in sorted(counts.items()))
     quiet_keeps(f"{len(outcomes)} point(s) in {_clock(elapsed_s)}: {ended}")
-
-
-@dataclass(frozen=True)
-class _PointsAskedToRedo:
-    """Which points of one case a forced re-run named, and by which names."""
-
-    #: The points themselves, in the case's own sweep order.
-    points: list[dict[str, float]]
-    #: The caller's spellings that matched, so the caller can tell what did not.
-    named: set[str]
-
-
-def _points_asked_to_redo(
-    campaign: Campaign, case: SimCase, asked: Sequence[str]
-) -> _PointsAskedToRedo:
-    """Resolve the names a forced re-run gave into points of this case.
-
-    A NAME IS A POINT NAME OR A FULL run_id, because those are the two spellings
-    a user has in front of them: the refusal prints a `run_id`, and the manifest
-    and the folder names carry the point name. Matching is EXACT -- a substring
-    match on an identity is how the wrong point gets redone, and a seat is the
-    one thing archiving cannot give back.
-    """
-    wanted = set(asked)
-    everything = list(case.sweep.points())
-    # A JOB IS INDIVISIBLE, and its id is what the refusal prints for a swept
-    # steady row: one job ran every point of the row in one process, so naming
-    # it names all of them. A user who reads `sim_2001/sweep` off the refusal
-    # and passes it back would otherwise match nothing and be told the name
-    # carries no recorded point, which is the opposite of true.
-    job = _job_run_id(campaign, case)
-    if job in wanted:
-        return _PointsAskedToRedo(points=everything, named={job})
-    points: list[dict[str, float]] = []
-    named: set[str] = set()
-    for point in everything:
-        name = point_name(case, point)
-        run_id = _run_id(campaign, case, point)
-        hit = {token for token in (name, run_id) if token in wanted}
-        if hit:
-            points.append(point)
-            named |= hit
-    return _PointsAskedToRedo(points=points, named=named)
 
 
 def _supersede_recorded_points(

@@ -394,6 +394,34 @@ def _retire_campaign_products(
     """Retire campaign products."""
     for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
         products_index.setdefault(name, entry)
+    _name_unsupplied_products(skipped, previous_products, products_index, by_sim)
+    _retire_optional_products(skipped, previous_products, products_index)
+    refused = products_to_retire(skipped, previous_products)
+    if keep_unrebuilt and not archive and not check_frozen:
+        _keep_unrebuilt_products(out, refused, skipped, previous_products, products_index)
+    # PFS-2185.18: a post that keeps what it cannot rebuild deletes nothing. What
+    # it still retires (a table its rebuild wrote under another name, a refusal
+    # of the frozen check) leaves the products and is moved under archive/.
+    move = archive or keep_unrebuilt
+    for name in refused - products_index.keys():
+        if name in previous_products:
+            skipped.setdefault(
+                name, "retired previous product; its inputs no longer supply this file"
+            )
+        path = out / name
+        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
+            refuse_an_existing_product(path, archive=move, stamp=archive_stamp)
+            if not move:
+                path.unlink()
+
+
+def _name_unsupplied_products(
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: Mapping[str, object],
+    by_sim: Mapping[str, list[RunRecord]],
+) -> None:
+    """Name under ``skipped`` each previous table and additional product nothing now supplies."""
     # Retire refused generated tables under both rebuild policies. Native exports
     # outside this folder remain evidence and are never removed here.
     for name, entry in previous_products.items():
@@ -415,24 +443,6 @@ def _retire_campaign_products(
                 name,
                 "retired previous additional product: no current extraction supplies this file",
             )
-    _retire_optional_products(skipped, previous_products, products_index)
-    refused = products_to_retire(skipped, previous_products)
-    if keep_unrebuilt and not archive and not check_frozen:
-        _keep_unrebuilt_products(out, refused, skipped, previous_products, products_index)
-    # PFS-2185.18: a post that keeps what it cannot rebuild deletes nothing. What
-    # it still retires (a table its rebuild wrote under another name, a refusal
-    # of the frozen check) leaves the products and is moved under archive/.
-    move = archive or keep_unrebuilt
-    for name in refused - products_index.keys():
-        if name in previous_products:
-            skipped.setdefault(
-                name, "retired previous product; its inputs no longer supply this file"
-            )
-        path = out / name
-        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
-            refuse_an_existing_product(path, archive=move, stamp=archive_stamp)
-            if not move:
-                path.unlink()
 
 
 def _keep_unrebuilt_products(
