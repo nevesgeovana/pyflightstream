@@ -674,6 +674,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
     # `audit-mesh` joined at 0.38.0 (FR-426): it reads one OBJ (and its source)
     # and takes no recipe, no version and no executable. `refine` joined with it
     # (FR-424) on the same terms: it reads one OBJ and needs no executable.
+    # `visual-inspect` joined at 0.53.0 (FR-3440): it reads matrices only.
     assert set(choices) == {
         "noise",
         "audit-mesh",
@@ -700,6 +701,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
         "log",
         "trace",
         "sync",
+        "visual-inspect",
     }
     assert choices["inspect-setups"] is choices["plan"], (
         "inspect-setups is registered as plan's alias; a separate parser could "

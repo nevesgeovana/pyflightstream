@@ -281,6 +281,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
         "stated per call and never a machine default"
     ),
     ("pyfs-matrix", "matrix"): SUBJECT,
+    # 0.53.0 (FR-3440): visual-inspect names the matrices it draws and the parameters to draw.
+    ("pyfs-matrix", "matrices"): SUBJECT,
+    ("pyfs-matrix", "params"): CASE,
     ("pyfs-matrix", "geometry"): SUBJECT,
     ("pyfs-matrix", "workspace"): SUBJECT,
     ("pyfs-matrix", "name"): CASE,
@@ -671,6 +674,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "post",
             "refine",
             "run",
+            "visual-inspect",
         }
     ),
     # 0.39.0 (FR-997): every command that takes --verbose takes --log-level.
@@ -686,6 +690,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "post",
             "refine",
             "run",
+            "visual-inspect",
         }
     ),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
@@ -780,8 +785,11 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "space-in-use",
             "status",
             "sync",
+            "visual-inspect",
         }
     ),
+    ("pyfs-matrix", "matrices"): frozenset({"visual-inspect"}),
+    ("pyfs-matrix", "params"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "apply"): frozenset(
         {"delete-sims", "free-space", "mark-converged", "mark-failed", "rebuild", "restore", "sync"}
     ),

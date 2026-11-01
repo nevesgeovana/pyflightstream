@@ -86,7 +86,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # 0.34.0 appends `degenerate` (FR-330), last, as every later command is;
     # 0.35.0 appends the read-only `status` (FR-379); 0.37.0 appends `mark-converged`
     # (FR-414, the owner's requirement); 0.38.0 appends `refine` (FR-424) and
-    # `audit-mesh` (FR-426).
+    # `audit-mesh` (FR-426); 0.53.0 appends `visual-inspect` (FR-3440).
     assert choices == [
         *V0330_SUBCOMMANDS,
         "noise",
@@ -101,6 +101,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
         "mark-converged",
         "refine",
         "audit-mesh",
+        "visual-inspect",
     ]
 
 

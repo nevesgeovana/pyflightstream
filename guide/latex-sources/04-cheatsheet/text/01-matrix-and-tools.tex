@@ -58,6 +58,13 @@
 \item \fl{--overwrite} replace an existing level folder
 \item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
+\sub{visual-inspect}{draw the design of experiments of run matrices as a pair plot of their parameters; reads the matrices only, no executable needed}
+\begin{flags}
+\item \fl{--matrices MATRIX [MATRIX ...]} matrix names of the workspace, with or without \texttt{.fs}, or \texttt{all}
+\item \fl{--params PARAM [PARAM ...]} the parameters to draw (default: every one that varies); an unknown one is warned and skipped
+\item \fl{--workspace DIR} campaign root (default: the current directory)
+\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
+\end{flags}
 \sub{support [BUILD]}{print registered build support and its evidence; no solver is launched}
 See the website's Upgrading page for supported workspace conversion.
 
