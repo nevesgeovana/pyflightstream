@@ -54,7 +54,7 @@ import json
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -63,7 +63,7 @@ from numpy.typing import ArrayLike, NDArray
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream._mesh import obj_group_surface
+from pyflightstream._mesh import obj_group_surface, plane_cut_pieces, weld
 from pyflightstream._textio import write_text
 from pyflightstream.fsi.config import (
     BladeProperties,
@@ -83,6 +83,7 @@ __all__ = [
     "MAX_TORSION_GRID_CELLS_LONG",
     "SECTION_MODEL",
     "TORSION_METHOD",
+    "MeshSections",
     "PolygonMoments",
     "SolidSectionProperties",
     "TorsionConstant",
@@ -92,6 +93,7 @@ __all__ = [
     "obj_group_surface",
     "place_on_mesh_cut",
     "polygon_area_moments",
+    "sections_from_mesh",
     "solid_section_properties",
     "thin_section_torsion_estimate",
     "torsion_constant",
@@ -1496,3 +1498,339 @@ def place_on_mesh_cut(
         )
     write_text(target, out)
     return placed
+
+
+# ------------------------------------------ sections cut from the mesh (PFS-2185.11) --
+
+#: Radii scanned over the blade's radial extent for its first and last closed cut; each end
+#: is then placed by bisection between the last open sample and the first closed one.
+_SCAN_SAMPLES = 64
+#: Bisection steps placing an end, or a moved station, on the edge of the closed cuts: the
+#: interval ends at 2**-20 of the spacing it started from, below the inside margin.
+_BISECTION_STEPS = 20
+#: Radii tried on each side of a station whose cut does not close, within its window.
+_WINDOW_SAMPLES = 16
+#: An open cut whose two ends lie at its thin end, closer than this fraction of its longest
+#: extent, is a trailing edge left open in the mesh and is closed by the segment joining them.
+_OPEN_TRAILING_EDGE_FRACTION = 0.05
+#: Fraction of the longest chord from each of its ends at which the thickness tells the
+#: trailing edge (the thinner end) from the leading edge.
+_END_THICKNESS_FRACTION = 0.1
+#: A face whose normal lies within 10 deg of the span closes an end of the blade (a flat or a
+#: nearly flat tip or root cap), not its side, and no section is cut through it: on a 26.127
+#: study blade the cap's vertices spread over 0.1 mm of span, and cuts through it gave loops
+#: of a fraction of a millimetre in place of the 0.1 m tip section.
+_END_FACE_COSINE = math.cos(math.radians(10.0))
+#: Fraction of the radial extent by which an end, or a station moved to the edge of the
+#: closed cuts, is kept inside them (1.5 micrometres on a 1.5 m blade).
+_INSIDE_FRACTION = 1.0e-6
+
+
+@dataclass(frozen=True)
+class MeshSections:
+    """A blade's sections cut from its mesh by :func:`sections_from_mesh`.
+
+    Attributes
+    ----------
+    requested_radii_m : list of float
+        The evenly spaced radii asked for, root to tip [m].
+    station_radii_m : list of float
+        The radius each kept section was cut at [m]: the requested one, or the nearest
+        radius whose cut closes when the requested one does not.
+    chord_m, geometric_pitch_deg : list of float
+        Chord [m] and geometric pitch [deg] of each kept section.
+    sections_m : list of list of list of float
+        Each kept section's contour, (toward the leading edge, toward the suction side) [m]
+        about the pitch axis, the frame of ``BladeProperties.section_contours_m``.
+    trailing_edge_closed : list of bool
+        Per kept section, whether its trailing edge was open in the mesh and closed by the
+        segment joining its two sides.
+    left_out_radii_m : list of float
+        The requested radii with no closed cut within half the distance to each neighbour.
+    """
+
+    requested_radii_m: list[float]
+    station_radii_m: list[float]
+    chord_m: list[float]
+    geometric_pitch_deg: list[float]
+    sections_m: list[list[list[float]]]
+    trailing_edge_closed: list[bool]
+    left_out_radii_m: list[float]
+
+
+@dataclass(frozen=True)
+class _Cut:
+    """One section of a cut: its loop [m], its contour in the section frame, chord and pitch."""
+
+    loop: _Floats
+    contour: _Floats
+    chord_m: float
+    pitch_deg: float
+    trailing_edge_closed: bool
+    others: int = 0
+
+
+def sections_from_mesh(
+    vertices_m: ArrayLike, faces: ArrayLike, stations: int, *, where: str = "the blade"
+) -> MeshSections:
+    """Cut a blade's sections from its mesh at evenly spaced radii (PFS-2185.11).
+
+    The blade lies along +z from the hub at the origin with the shaft along x, the rotor
+    frame :func:`pyflightstream.fsi.nodes.config_triads` places its sections in. The mesh
+    is cut by planes normal to the span; the stations are ``stations`` radii evenly spaced
+    from the first closed cut at the root to the last at the tip. A station whose cut does
+    not close moves to the nearest radius whose cut closes, within half the distance to
+    each neighbouring station; a station with no closed cut in that window is left out.
+    Both are warned, naming the radii.
+
+    Each cut is chained into loops through the mesh's own edges. The loop around the beam
+    axis (else the largest) is the section, and the other pieces of the cut are warned. A
+    cut left open at its thin end, by less than 5 percent of its extent, is a trailing
+    edge left open and is closed by the segment joining its two sides; the polygon checks
+    of :func:`solid_section_properties` refuse a degenerate loop, which does not close.
+    The trailing edge is the thinner end of the longest chord of the loop (its middle when
+    closed by a segment), the leading edge the vertex farthest from it, the chord the line
+    between them and the geometric pitch its angle, toward the leading edge
+    ``(-sin b, -cos b, 0)``. The contour is the loop's own points stated toward the
+    leading edge and toward the suction side, about the pitch axis, so
+    :func:`contour_mesh_offsets` of a config built from it is zero.
+
+    Parameters
+    ----------
+    vertices_m : array_like, shape (v, 3)
+        The blade's vertices [m] about the hub.
+    faces : array_like, shape (f, 3)
+        Its triangles, 0-based.
+    stations : int
+        How many evenly spaced radii to cut.
+    where : str, optional
+        What the warnings and the refusal name, such as ``"blade.obj family Blade1"``.
+
+    Returns
+    -------
+    MeshSections
+        The kept sections and the radii asked for, moved and left out.
+
+    Raises
+    ------
+    FsiInputError
+        If fewer than two stations are usable, naming the radii tried.
+
+    Examples
+    --------
+    A straight blade from r = 0.1 to 0.5 m, a 40 mm four-sided section turned 30 deg:
+
+    >>> import math
+    >>> import numpy as np
+    >>> beta = math.radians(30.0)
+    >>> lead = np.array([-math.sin(beta), -math.cos(beta)])
+    >>> suction = np.array([-math.cos(beta), math.sin(beta)])
+    >>> corners = [c * lead + n * suction for c, n in
+    ...            [(0.02, 0.0), (0.01, 0.003), (-0.02, 0.0), (0.01, -0.002)]]
+    >>> vertices = [(x, y, z) for z in (0.1, 0.5) for x, y in corners]
+    >>> faces = [f for i in range(4) for f in ((i, (i + 1) % 4, 4 + (i + 1) % 4),
+    ...                                         (i, 4 + (i + 1) % 4, 4 + i))]
+    >>> faces += [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7)]
+    >>> cut = sections_from_mesh(vertices, faces, 3)
+    >>> [round(r, 3) for r in cut.station_radii_m], round(cut.geometric_pitch_deg[1], 6)
+    ([0.1, 0.3, 0.5], 30.0)
+    """
+    points, triangles = weld(vertices_m, faces)
+    cut = _Cutter(points, triangles)
+    ends = cut.ends()
+    requested = [float(r) for r in np.linspace(*ends, stations)] if ends else []
+    kept: list[tuple[float, float, _Cut]] = []
+    left_out: list[float] = []
+    for i, radius in enumerate(requested):
+        lower = 0.5 * (requested[i - 1] + radius) if i else radius
+        upper = 0.5 * (radius + requested[i + 1]) if i + 1 < len(requested) else radius
+        found = cut.nearest(radius, lower, upper)
+        if found is None:
+            left_out.append(radius)
+        else:
+            kept.append((radius, *found))
+    _warn_of_the_cut(where, kept, left_out)
+    if len(kept) < 2:
+        tried = ", ".join(f"{r:.4g}" for r in requested) or "none: no cut of the mesh closes"
+        raise FsiInputError(
+            f"{where}: fewer than two usable stations, so there is no beam; the radii tried "
+            f"were {tried} m, and a section is kept where the cut of the mesh normal to the "
+            "span closes around the blade within half the distance to each neighbouring station"
+        )
+    return MeshSections(
+        requested_radii_m=requested,
+        station_radii_m=[used for _, used, _ in kept],
+        chord_m=[section.chord_m for _, _, section in kept],
+        geometric_pitch_deg=[section.pitch_deg for _, _, section in kept],
+        sections_m=[section.contour.tolist() for _, _, section in kept],
+        trailing_edge_closed=[section.trailing_edge_closed for _, _, section in kept],
+        left_out_radii_m=left_out,
+    )
+
+
+def _warn_of_the_cut(where: str, kept: list[tuple[float, float, _Cut]], left: list[float]) -> None:
+    """Warn once of the stations moved or left out and of the cuts holding other pieces."""
+    said = []
+    moved = [f"{asked:.4g} m to {used:.6g} m" for asked, used, _ in kept if used != asked]
+    if moved:
+        said.append("the cut does not close at " + "; ".join(moved) + ", the nearest that closes")
+    if left:
+        said.append(
+            "no cut closes within half the distance to each neighbouring station at "
+            + ", ".join(f"{r:.4g}" for r in left)
+            + " m, so those stations are left out"
+        )
+    crowded = [f"{used:.4g}" for _, used, section in kept if section.others]
+    if crowded:
+        said.append(
+            f"the cut at {', '.join(crowded)} m holds other pieces than the section around "
+            "the beam axis, which alone is kept"
+        )
+    if said:
+        warn(f"{where}: {'; '.join(said)}.", PyflightstreamWarning, stacklevel=3)
+
+
+class _Cutter:
+    """Cuts of one blade mesh normal to its span (+z), and the search for closed ones."""
+
+    def __init__(self, points: _Floats, triangles: NDArray[np.int_]) -> None:
+        a, b, c = (points[triangles[:, k]] for k in range(3))
+        normal = np.cross(b - a, c - a)
+        size = np.linalg.norm(normal, axis=1)
+        span = np.abs(normal[:, 2]) >= _END_FACE_COSINE * np.where(size > 0.0, size, np.inf)
+        self.points, self.triangles = points, triangles[~span]
+        #: How far inside the closed cuts an end or a moved station is placed, so a plane at
+        #: its radius, rounded to ten digits as the file writes it, still cuts only the sides.
+        self.margin = _INSIDE_FRACTION * float(np.ptp(points[:, 2]))
+        self.cuts: dict[float, _Cut | None] = {}
+
+    def __call__(self, radius: float) -> _Cut | None:
+        """Return the section the plane z = ``radius`` cuts, or None where it does not close."""
+        if radius not in self.cuts:
+            self.cuts[radius] = self._cut(radius)
+        return self.cuts[radius]
+
+    def _cut(self, radius: float) -> _Cut | None:
+        """Cut at ``radius``, the plane moved off any vertex it would pass through.
+
+        It moves by 1e-3 of :attr:`margin`: a plane through a vertex cuts each edge there
+        at one point, and the loop would pass through that point more than once.
+        """
+        plane = radius
+        while np.any(np.abs(self.points[:, 2] - plane) < 1e-4 * self.margin):
+            plane += 1e-3 * self.margin
+        pieces = plane_cut_pieces(self.points, self.triangles, plane) or []
+        sections = [s for s in (_section_of(xy, closed) for xy, closed in pieces) if s]
+        if not sections:
+            return None
+        around = [s for s in sections if _holds_the_origin(s.loop)] or sections
+        chosen = max(around, key=lambda s: abs(_twice_area(s.loop)))
+        return replace(chosen, others=len(pieces) - 1)
+
+    def ends(self) -> tuple[float, float] | None:
+        """Return the first and the last radius whose cut closes, or None where none does."""
+        low, high = float(self.points[:, 2].min()), float(self.points[:, 2].max())
+        samples = low + (np.arange(_SCAN_SAMPLES) + 0.5) * (high - low) / _SCAN_SAMPLES
+        closed = [i for i, radius in enumerate(samples) if self(float(radius)) is not None]
+        if not closed:
+            return None
+        first, last = closed[0], closed[-1]
+        below = float(samples[first - 1]) if first else low
+        above = float(samples[last + 1]) if last + 1 < _SCAN_SAMPLES else high
+        return self.edge(below, float(samples[first])), self.edge(above, float(samples[last]))
+
+    def edge(self, open_radius: float, closed_radius: float) -> float:
+        """Bisect from an open cut toward a closed one; return a closed radius just inside."""
+        start = closed_radius
+        for _ in range(_BISECTION_STEPS):
+            middle = 0.5 * (open_radius + closed_radius)
+            if self(middle) is None:
+                open_radius = middle
+            else:
+                closed_radius = middle
+        inside = start - closed_radius
+        return closed_radius + math.copysign(min(self.margin, abs(inside)), inside)
+
+    def nearest(self, radius: float, lower: float, upper: float) -> tuple[float, _Cut] | None:
+        """Return the radius nearest ``radius`` within [lower, upper] whose cut closes, and it."""
+        here = self(radius)
+        if here is not None:
+            return radius, here
+        tries = sorted(
+            (abs(step * k), radius + step * k, radius + step * (k - 1))
+            for step in ((lower - radius) / _WINDOW_SAMPLES, (upper - radius) / _WINDOW_SAMPLES)
+            if step
+            for k in range(1, _WINDOW_SAMPLES + 1)
+        )
+        for _, candidate, before in tries:
+            if self(candidate) is not None:
+                used = self.edge(before, candidate)
+                return used, self(used)  # type: ignore[return-value]
+        return None
+
+
+def _section_of(xy: _Floats, closed: bool) -> _Cut | None:
+    """Return the section a piece of a cut holds, or None where it does not close."""
+    gap = 0.0 if closed else float(np.hypot(*(xy[0] - xy[-1])))
+    if gap > _OPEN_TRAILING_EDGE_FRACTION * float(np.max(np.ptp(xy, axis=0))):
+        return None
+    try:
+        loop = _as_polygon(xy)
+    except FsiInputError:
+        return None
+    one, other = _longest_chord(loop)
+    if _thickness(loop, one, other) > _thickness(loop, other, one):
+        one, other = other, one
+    trailing = loop[one] if closed else 0.5 * (xy[0] + xy[-1])
+    if not closed and float(np.hypot(*(trailing - loop[one]))) > gap:
+        return None  # the opening is not at the trailing edge
+    leading = loop[int(np.argmax(np.hypot(*(loop - trailing).T)))]
+    chord = float(np.hypot(*(leading - trailing)))
+    d0, d1 = (leading - trailing) / chord
+    # The section frame is a reflection of the cut plane's (x, y), so the counter-clockwise
+    # loop comes out clockwise and is read backwards.
+    contour = (loop @ np.array([[d0, d1], [d1, -d0]]).T)[::-1]
+    pitch = math.degrees(math.atan2(-d0, -d1))
+    return _Cut(loop, contour, chord, pitch, not closed)
+
+
+def _twice_area(loop: _Floats) -> float:
+    """Return twice the signed area of a loop (the shoelace sum)."""
+    x, y = loop[:, 0], loop[:, 1]
+    return float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+
+
+def _longest_chord(loop: _Floats) -> tuple[int, int]:
+    """Return the indices of the loop's two mutually farthest vertices."""
+    one = int(np.argmax(np.hypot(*(loop - loop.mean(axis=0)).T)))
+    other = int(np.argmax(np.hypot(*(loop - loop[one]).T)))
+    for _ in range(len(loop)):
+        back = int(np.argmax(np.hypot(*(loop - loop[other]).T)))
+        if back == one:
+            break
+        one, other = other, back
+    return one, other
+
+
+def _thickness(loop: _Floats, end: int, toward: int) -> float:
+    """Return the loop's thickness across the chord ``end`` to ``toward``, near ``end``."""
+    axis = loop[toward] - loop[end]
+    length = float(np.hypot(*axis))
+    axis = axis / length
+    along = (loop - loop[end]) @ axis - _END_THICKNESS_FRACTION * length
+    across = (loop - loop[end]) @ np.array([-axis[1], axis[0]])
+    after_along, after_across = np.roll(along, -1), np.roll(across, -1)
+    hit = along * after_along < 0.0
+    share = along[hit] / (along[hit] - after_along[hit])
+    crossings = across[hit] + share * (after_across[hit] - across[hit])
+    return float(np.ptp(crossings)) if len(crossings) > 1 else 0.0
+
+
+def _holds_the_origin(loop: _Floats) -> bool:
+    """Whether the loop surrounds the beam axis, the origin of the cut plane."""
+    x, y = loop[:, 0], loop[:, 1]
+    after_x, after_y = np.roll(x, -1), np.roll(y, -1)
+    straddle = (y > 0.0) != (after_y > 0.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        at = x + (0.0 - y) * (after_x - x) / (after_y - y)
+    return bool(np.count_nonzero(straddle & (at > 0.0)) % 2)
