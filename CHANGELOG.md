@@ -18,6 +18,10 @@ FlightStream versions.
   `FSI_START_ITER: 36` write the first non-zero field at the same call. A row stating both
   warns and `FSI_START_ITER` is used. The effective provenance carries a `structural_start`
   record when a row states one.
+- An `unsteady_rotor` row whose FSI input morphs with RBF (the default route) on 26.127 is
+  emitted as before and warned once: on 26.127 the solver places the morphed blade at its
+  import azimuth once a non-zero field is written, and Direct DEFLECTED is the route that
+  keeps the blade in place. No refusal.
 
 ### Fixed
 

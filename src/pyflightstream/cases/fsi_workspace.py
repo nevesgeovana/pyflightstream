@@ -40,7 +40,7 @@ from types import MappingProxyType
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_ids, saved_surface_section_count
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.fsi.config import DIRECT_NODE_TYPES, FsiConfig
+from pyflightstream.fsi.config import DIRECT_NODE_TYPES, MAPPED_MORPHING, FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
@@ -199,6 +199,28 @@ DIRECT_MORPHING_NODES = "RIGID"
 #: The workflows a row may choose direct morphing on (FR-341, FR-3404): the
 #: rotor blade's, a quasi-steady sector or the unsteady march.
 DIRECT_MORPHING_WORKFLOWS: tuple[str, ...] = (QUASI_STEADY_WORKFLOW, "unsteady_rotor")
+
+
+def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> None:
+    """Warn that on 26.127 an RBF-morphed turning blade is placed at its import azimuth.
+
+    The default route (RBF mesh morphing of the mapped structural nodes) on an
+    ``unsteady_rotor`` row is emitted as always. On 26.127 the solver places the morphed
+    blade at its import azimuth once a non-zero field is written, and Direct DEFLECTED is
+    the route that keeps the blade in place. A warning, never a refusal.
+    """
+    if case.fsi is None or case.fsi.morphing != MAPPED_MORPHING:
+        return
+    if resolve_version(version).canonical != "26.127":
+        return
+    warn(
+        f"case {case.sim_id!r}: the aeroelastic RBF morphing of a turning blade on 26.127 "
+        "places the morphed blade at its import azimuth once a non-zero field is written; "
+        'Direct DEFLECTED (morphing = "direct_deflected") is the route that keeps the blade '
+        "in place. The row is emitted as stated.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
 
 
 def _warn_of_an_unverified_direct_morphing(case: SimCase, version: str | FsVersion) -> None:
@@ -997,6 +1019,7 @@ def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion)
             PyflightstreamWarning,
             stacklevel=3,
         )
+        _warn_of_an_rbf_blade_on_26_127(case, version)
     elif case.fsi is not None and case.fsi.export_surface_before_call:
         # FR-3408: the export before each call is the unsteady rotor's; skipped elsewhere.
         warn(
