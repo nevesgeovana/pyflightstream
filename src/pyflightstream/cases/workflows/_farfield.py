@@ -18,9 +18,6 @@ after layout, or, where ``[[farfields]]`` states no geometry, when it is the one
 declaration that qualifies; what is not declared is appended after every
 declared probe. Every chosen shape is recorded on the script for the run
 record, and post matches the exported positions to it (PFS-2081.56, .58).
-
-Size exemption: the far-field emission, its window resolution and the export-window
-reasons are one family whose entries share the row's clock and plan state.
 """
 
 from __future__ import annotations
@@ -178,41 +175,6 @@ def _export_window_variables(case: SimCase) -> dict[str, str] | None:
     return None
 
 
-def _export_window_reason(spec: FarfieldSpec, case: SimCase) -> str:
-    """Return why this row cannot take an ``export_window`` entry, or ``""``."""
-    if spec.last_revs is not None or spec.last_steps is not None:
-        key = "last_revs" if spec.last_revs is not None else "last_steps"
-        raise CampaignConfigError(
-            f'case {case.sim_id!r}: {key} requires export_type = "avg_window"; '
-            'export_type = "export_window" takes the row EXPORT_UNSTEADY_LAST_ITER '
-            "or EXPORT_UNSTEADY_LAST_REV window"
-        )
-    if _run_type(case) not in ("unsteady", "unsteady_rotor"):
-        return f"export_window needs an unsteady row, and this row is {_run_type(case)}"
-    variables = _export_window_variables(case)
-    if variables is None:
-        return (
-            "export_window needs the row to state EXPORT_UNSTEADY_LAST_ITER or "
-            "EXPORT_UNSTEADY_LAST_REV (AFTER_ITER and AFTER_REV are not read)"
-        )
-    per_revolution = None
-    if "LAST_REVS_AVG" in variables:
-        if _rotor(case):
-            per_revolution = rotor_row_stepping(case).steps_per_revolution
-        else:
-            try:
-                per_revolution = power_off_steps_per_revolution(case)
-            except CampaignConfigError:
-                per_revolution = None
-        if per_revolution is None:
-            return (
-                "its EXPORT_UNSTEADY_LAST_REV window counts rotor revolutions and this row "
-                "has no rotor clock; EXPORT_UNSTEADY_LAST_ITER serves every unsteady row"
-            )
-    averaging_steps(variables, per_revolution=per_revolution)
-    return ""
-
-
 def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
     """Return why this row cannot take the entry's averaging window, or ``""``.
 
@@ -220,22 +182,39 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
     a steady row has no march to average, and a row
     with no rotor clock counts no revolutions; the unsteady (rotor) rows of the
     same pproc take the entry. A window stated without ``export_type =
-    "avg_window"`` is a writing error no row can take, and is refused.
+    "avg_window"`` is a writing error no row can take, and is refused. An
+    ``export_window`` entry reads the row EXPORT_UNSTEADY_LAST_* window instead,
+    and its own ``last_revs`` or ``last_steps`` is the same writing error.
     """
-    if spec.export_type == "export_window":
-        return _export_window_reason(spec, case)
+    exported = spec.export_type == "export_window"
     key = "last_revs" if spec.last_revs is not None else "last_steps"
     value = getattr(spec, key)
-    if value is None:
+    if value is None and not exported:
         return ""
-    per_revolution = None
+    if exported and value is not None:
+        raise CampaignConfigError(
+            f'case {case.sim_id!r}: {key} requires export_type = "avg_window"; export_window '
+            "takes the row EXPORT_UNSTEADY_LAST_ITER or EXPORT_UNSTEADY_LAST_REV window"
+        )
+    label = "export_window" if exported else key
     if _run_type(case) not in ("unsteady", "unsteady_rotor"):
-        return f"its {key} window needs an unsteady row, and this row is {_run_type(case)}"
-    if spec.export_type != "avg_window":
+        return f"its {label} window needs an unsteady row, and this row is {_run_type(case)}"
+    if not exported and spec.export_type != "avg_window":
         raise CampaignConfigError(
             f'case {case.sim_id!r}: {key} requires export_type = "avg_window"'
         )
-    if key == "last_revs":
+    variables = (
+        _export_window_variables(case)
+        if exported
+        else {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value}
+    )
+    if variables is None:
+        return (
+            "export_window needs the row to state EXPORT_UNSTEADY_LAST_ITER or "
+            "EXPORT_UNSTEADY_LAST_REV (AFTER_ITER and AFTER_REV are not read)"
+        )
+    per_revolution = None
+    if "LAST_REVS_AVG" in variables:
         remedy = ""
         if _rotor(case):
             per_revolution = rotor_row_stepping(case).steps_per_revolution
@@ -248,14 +227,13 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
             except CampaignConfigError:
                 per_revolution = None
         if per_revolution is None:
+            other = "EXPORT_UNSTEADY_LAST_ITER" if exported else "last_steps"
             return (
-                "its last_revs window counts rotor revolutions and this row has no rotor "
-                f"clock; the rotor rows take it, and last_steps serves every unsteady row{remedy}"
+                f"its {'EXPORT_UNSTEADY_LAST_REV' if exported else key} window counts rotor "
+                "revolutions and this row has no rotor "
+                f"clock; the rotor rows take it, and {other} serves every unsteady row{remedy}"
             )
-    averaging_steps(
-        {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
-        per_revolution=per_revolution,
-    )
+    averaging_steps(variables, per_revolution=per_revolution)
     return ""
 
 
@@ -1369,7 +1347,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
         entry
         for entry in case.pproc.farfields
         if entry.export_type == "avg_window"
-        or (entry.export_type == "export_window" and not _export_window_reason(entry, case))
+        or (entry.export_type == "export_window" and not _entry_window(entry, case))
     ]
     if not entries:
         return ()
