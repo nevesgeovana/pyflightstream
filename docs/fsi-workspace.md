@@ -240,6 +240,13 @@ route (the structural-node import), on another workflow or on a rotor turning
 about -X, which were not measured, the plan warns, naming the setting and the
 reason, and the run writes the field uncompensated. Nothing is refused.
 
+The RBF route (the default, through the structural nodes) of an
+`unsteady_rotor` row on 26.127 is emitted with one warning: the solver places
+the morphed blade at its import azimuth once a non-zero field is written, and
+Direct DEFLECTED with this compensation (`solver_frame_compensation = true`, or
+`FSI_FRAME_COMPENSATION: ON` in the row) is the route that keeps the blade in
+place, deformed by the beam. The compensation itself does not apply to RBF.
+
 Refused by the plan, each naming the remedy: a direct route on `steady` and
 `unsteady` (a fixed wing couples through its structural nodes), on a wheel, in
 a frozen replay, and on a build that does not run the command. Leaving

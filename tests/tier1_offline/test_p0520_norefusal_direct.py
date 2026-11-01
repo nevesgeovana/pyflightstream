@@ -413,6 +413,9 @@ def test_p0530_an_rbf_unsteady_rotor_on_26_127_is_emitted_and_warned_once(tmp_pa
     said = _said(tmp_path, "26.127", "mapped")
     assert len(said) == 1, said
     assert "Direct DEFLECTED" in said[0] and "26.127" in said[0]
+    # PFS-2185.05: the route it points to is DEFLECTED WITH the compensation, by its names.
+    assert "solver-frame compensation" in said[0]
+    assert FRAME_COMPENSATION_SETTING in said[0] and FRAME_COMPENSATION_KEY in said[0]
 
 
 @pytest.mark.requirement("FR-3413")

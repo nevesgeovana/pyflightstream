@@ -213,8 +213,9 @@ def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> 
 
     The default route (RBF mesh morphing of the mapped structural nodes) on an
     ``unsteady_rotor`` row is emitted as always. On 26.127 the solver places the morphed
-    blade at its import azimuth once a non-zero field is written, and Direct DEFLECTED is
-    the route that keeps the blade in place. A warning, never a refusal.
+    blade at its import azimuth once a non-zero field is written, and Direct DEFLECTED with
+    the solver-frame compensation (FR-3415, named by its setting and its matrix key) is the
+    route that keeps the blade in place deformed by the beam. A warning, never a refusal.
     """
     if case.fsi is None or case.fsi.morphing != MAPPED_MORPHING:
         return
@@ -223,8 +224,10 @@ def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> 
     warn(
         f"case {case.sim_id!r}: the aeroelastic RBF morphing of a turning blade on 26.127 "
         "places the morphed blade at its import azimuth once a non-zero field is written; "
-        'Direct DEFLECTED (morphing = "direct_deflected") is the route that keeps the blade '
-        "in place. The row is emitted as stated.",
+        'Direct DEFLECTED (morphing = "direct_deflected") with the solver-frame compensation '
+        f"({FRAME_COMPENSATION_SETTING} = true in [config], or {FRAME_COMPENSATION_KEY}: ON "
+        "in the row) is the route that keeps the blade in place, deformed by the beam. The "
+        "row is emitted as stated.",
         PyflightstreamWarning,
         stacklevel=3,
     )

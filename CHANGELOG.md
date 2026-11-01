@@ -22,8 +22,10 @@ FlightStream versions.
   clock, the key is warned and skipped.
 - An `unsteady_rotor` row whose FSI input morphs with RBF (the default route) on 26.127 is
   emitted as before and warned once: on 26.127 the solver places the morphed blade at its
-  import azimuth once a non-zero field is written, and Direct DEFLECTED is the route that
-  keeps the blade in place. No refusal.
+  import azimuth once a non-zero field is written, and Direct DEFLECTED with the
+  solver-frame compensation (`solver_frame_compensation = true`, or
+  `FSI_FRAME_COMPENSATION: ON`) is the route that keeps the blade in place, deformed by
+  the beam; the warning names both. No refusal.
 - The 26.127 solver-frame compensation of the Direct routes, off by default: the FSI
   input's `solver_frame_compensation = true` in `[config]`, or a row's
   `FSI_FRAME_COMPENSATION: ON` (`OFF` turns it off for that row), makes an `unsteady_rotor`
