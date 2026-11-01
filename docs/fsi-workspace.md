@@ -233,7 +233,10 @@ file value stands). With it on:
 - RIGID turns the listing back by `+psi` to `X0`, evaluates `u` there, and
   writes the field from the import geometry in every phase,
   `d = R(psi) (R(psi) (X0 + u) - X0)`; the rows are not zero while the wake
-  develops, since they carry the blade's turn.
+  develops, since they carry the blade's turn. On 26.127 a zero RIGID field would leave the
+  blade at its import azimuth (`X0 + R(-psi) d` with `d = 0`), so the structural start
+  (`wake_development_revolutions`, `FSI_START_REV`, `FSI_START_ITER`) governs when the
+  deformation `u` starts, and the compensated RIGID field carries the rigid turn from call 1.
 - DEFLECTED writes `u` turned by `+2 psi`, `d = R(2 psi) u`.
 
 The structural state, the convergence log and the twist check keep `u`.

@@ -203,9 +203,10 @@ def _recorded_displacements(folder: Path, config: FsiConfig, layout: NodeOrderin
 PLACEMENT_CHECK_PRODUCT = "placement_check"
 #: A step is misplaced when the median distance of its cut points to the blade at its
 #: prescribed azimuth exceeds this tolerance and their median distance to the blade at its
-#: import azimuth is smaller [m] (FR-3416). Above the beam's deflection, which moves the cuts
-#: millimetres off the undeformed blade; below the displacement of a blade left at its import
-#: azimuth, which is of the order of its radius.
+#: import azimuth is smaller [m] (FR-3416). Basis: above the beam's deflection, which moves the
+#: cuts millimetres off the undeformed blade, and well below the arc a blade misplaced by one
+#: step travels at the stations checked (its radius times the step's turn), so a blade one step
+#: or more from its prescribed azimuth is named.
 PLACEMENT_TOLERANCE_M = 0.02
 #: The columns of ``structure/<point>_placement_check.csv`` after ``POL`` and the condition.
 PLACEMENT_CHECK_COLUMNS = (

@@ -1201,7 +1201,9 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
 
 #: How far a section contour, as the package places it, may lie from the blade's own cut
 #: of the imported mesh before the plan warns [m] (FR-3417): the distance between the
-#: perimeter centroids of the two curves in the section plane.
+#: perimeter centroids of the two curves in the section plane. Basis: well below the 26 to 50 mm
+#: offsets of a contour written about the quarter chord and placed with its origin on the pitch
+#: axis, and above the residual of a contour that is the mesh's own section.
 CONTOUR_PLACEMENT_TOLERANCE_M = 0.005
 
 
