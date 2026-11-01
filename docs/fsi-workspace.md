@@ -713,16 +713,19 @@ these inputs.
 
 ## Structural start
 
-An `unsteady_rotor` coupled row develops a rigid wake first: until the start, every
-coupling call writes a zero field, so the aerodynamics settles before the
-structure moves. The input file sets the start as
+An `unsteady_rotor` coupled row develops a rigid wake first: the start governs
+when the deformation starts, and until then the beam field is zero, so the
+aerodynamics settles before the structure moves. Every route writes that zero
+field, except Direct RIGID with the solver-frame compensation on, whose written
+field carries the blade's rigid turn from call 1 (see the solver-frame
+compensation above). The input file sets the start as
 `[config.phases] wake_development_revolutions`. A row can replace it, for that
 row only, with one of two matrix keys:
 
 | Key | Unit | Meaning |
 | --- | --- | --- |
 | `FSI_START_REV` | revolutions | Revolutions of rigid wake development, for example `FSI_START_REV: 2` |
-| `FSI_START_ITER` | time steps | The first time step whose coupling call may write a non-zero field, for example `FSI_START_ITER: 144` |
+| `FSI_START_ITER` | time steps | The first time step whose coupling call may deform the blade (a non-zero beam field), for example `FSI_START_ITER: 144` |
 
 `FSI_START_ITER` converts to revolutions with the row's clock: `DELTA_THETA`,
 or `DELTA_TIME` with the rotor speed of the FSI input. With `DELTA_THETA: 5`

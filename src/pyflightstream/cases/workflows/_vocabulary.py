@@ -1029,20 +1029,25 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "finite positive number of revolutions; omitted means use the file value",
             "",
             unscripted=(
-                "The effective FSI driver config and its provenance carry the start; "
-                "the driver writes a zero field until then."
+                "The effective FSI driver config and its provenance carry the start, which "
+                "governs when the deformation starts: the beam field is zero until then. "
+                "Direct RIGID with the solver-frame compensation still writes the blade's "
+                "rigid turn from call 1."
             ),
         ),
         START_ITER_KEY: InputKey(
-            "The first time step whose coupling call may write a non-zero field; "
+            "The first time step whose coupling call may deform the blade (a non-zero beam "
+            "field); "
             "replaces the input file's wake_development_revolutions for this row only, "
             "through the row's DELTA_THETA (72 steps a revolution at 5 deg). "
             "Stated with FSI_START_REV it wins, with a warning.",
             "finite positive time step number; omitted means use FSI_START_REV or the file value",
             "",
             unscripted=(
-                "The effective FSI driver config and its provenance carry the start; "
-                "the driver writes a zero field until then."
+                "The effective FSI driver config and its provenance carry the start, which "
+                "governs when the deformation starts: the beam field is zero until then. "
+                "Direct RIGID with the solver-frame compensation still writes the blade's "
+                "rigid turn from call 1."
             ),
         ),
         FRAME_COMPENSATION_KEY: InputKey(

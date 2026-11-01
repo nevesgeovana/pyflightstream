@@ -760,9 +760,10 @@ def _with_structural_start(
     """Replace the file's wake development with the row's structural start, for this row only.
 
     ``FSI_START_REV`` is the revolutions of rigid wake development. ``FSI_START_ITER`` is the
-    first time step whose coupling call may write a non-zero field; it becomes the revolutions
-    a half step short of that step, so the rounding of the solver's printed time increment
-    cannot move the first non-zero call to its neighbour. A row stating both warns, and
+    first time step whose coupling call may deform the blade (a non-zero beam field; the
+    compensated Direct RIGID route writes the blade's rigid turn before it); it becomes the
+    revolutions a half step short of that step, so the rounding of the solver's printed time
+    increment cannot move the first non-zero call to its neighbour. A row stating both warns, and
     ``FSI_START_ITER`` is used. ``FSI_START_ITER`` on a row with no turning clock (no
     ``DELTA_THETA``, and no ``DELTA_TIME`` with a turning FSI input) does not apply: it is
     warned and skipped.

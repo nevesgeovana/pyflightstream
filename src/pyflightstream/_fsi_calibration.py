@@ -28,7 +28,8 @@ MATRIX_FACTORS = {f"FSI_{key.upper()}_FACTOR": key for key in CALIBRATION_FACTOR
 
 #: The matrix keys that replace the input file's wake development (structural start) for one row:
 #: revolutions of rigid wake before the structural solver starts, or the first time step whose
-#: coupling call may write a non-zero field.
+#: coupling call may deform the blade (a non-zero beam field). The start governs the deformation;
+#: Direct RIGID with the solver-frame compensation writes the blade's rigid turn from call 1.
 START_REV_KEY = "FSI_START_REV"
 START_ITER_KEY = "FSI_START_ITER"
 MATRIX_START_KEYS = (START_REV_KEY, START_ITER_KEY)

@@ -668,3 +668,24 @@ def test_p0530_the_run_stages_how_the_mesh_file_holds_the_coupled_blades(tmp_pat
         "moves_mesh": False,
         "groups": {"Blade1": "Blade1"},
     }
+
+
+@pytest.mark.requirement("FR-3412")
+def test_p0530_the_start_governs_the_deformation_and_compensated_rigid_writes_the_turn(tmp_path):
+    # REL-004: before the start the beam field is zero; compensated Direct RIGID still writes
+    # the blade's rigid turn at call 1, and the key meanings and the docs say so.
+    run_dir = tmp_path / "rigid"
+    cfg = _compensated_run(run_dir, "direct", True)
+    structural = nodes.node_positions(nodes.generate_node_layout(cfg))
+    _write_aero_nodes(run_dir, _about_x(structural, -FIXTURE_STEP_RAD))
+    first = _call(run_dir, 100)
+    assert first.phase == 1 and not np.abs(np.asarray(first.displacements)).any()
+    assert np.abs(nodes.read_fsidisp(run_dir / driver.DISPLACEMENT_FILE)).max() > 1e-6
+    for key in ("FSI_START_REV", "FSI_START_ITER"):
+        said = " ".join(str(part) for part in ROW_KEY_MEANINGS[key])
+        assert "zero field until then" not in said
+        assert "deformation starts" in said and "rigid turn from call 1" in said
+    page = (Path(__file__).parents[2] / "docs" / "fsi-workspace.md").read_text(encoding="utf-8")
+    start = page[page.index("## Structural start") :]
+    assert "every\ncoupling call writes a zero field" not in start
+    assert "governs\nwhen the deformation starts" in start and "rigid turn from call 1" in start
