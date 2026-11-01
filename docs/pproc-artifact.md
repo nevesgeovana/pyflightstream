@@ -9,7 +9,8 @@ and an optional unique `name`. `families` belongs only to `sections`; `wake`,
 `plane` and `power` read the whole field. Geometry keys are checked against the
 selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
 
-Each entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
+Each entry accepts `export_type = "default"`, `"last_step"`, `"avg_window"` or
+`"export_window"`.
 Unstated is `"default"`, which equals `"last_step"` on unsteady rows, regardless
 of `EXPORT_UNSTEADY_*`. Choose `"avg_window"` for an average: it exports A's
 sectional loads and C/D's conventional probe points only over the final window.
@@ -20,9 +21,19 @@ rows and `last_revs` on a row without a rotor clock. A window with another
 export policy is a grammar error. Without an explicit window, steady products
 are identical for all three policies. Every entry's manifest states `export_type`.
 
+Choose `"export_window"` for the far field at every step of the row's own export
+window: on an unsteady row that states `EXPORT_UNSTEADY_LAST_ITER` (steps) or
+`EXPORT_UNSTEADY_LAST_REV` (turns of the rotor clock), the far field is exported at
+each step of that window, one `_iteration=<step>` file per step, and post writes the
+per-step products (one `_instant` row per step) beside the window average. It reuses
+the `"avg_window"` machinery with the row's window. `EXPORT_UNSTEADY_AFTER_ITER` and
+`EXPORT_UNSTEADY_AFTER_REV` are not read. A row that states no `EXPORT_UNSTEADY_LAST_*`
+key, a steady row, and `LAST_REV` on a row without a rotor clock warn and skip the entry;
+`last_revs` or `last_steps` with `"export_window"` is a grammar error.
+
 Far-field planes and lattices always use their own conventional probe export,
 `<point>_farfield_survey.txt`, plus
-`<point>_farfield_survey_iteration=<step>.txt` files for `"avg_window"`.
+`<point>_farfield_survey_iteration=<step>.txt` files for `"avg_window"` and `"export_window"`.
 Declared `[[probes]]` retain their kind and their existing products.
 
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact

@@ -319,7 +319,9 @@ class FarfieldSpec(BaseModel):
     name : str
         Unique entry label, defaulting to the variant word.
     export_type : str
-        last_step, avg_window, or default; default reads the last unsteady step.
+        last_step, avg_window, export_window, or default; default reads the last unsteady
+        step. export_window exports the far field at every step of the row window
+        EXPORT_UNSTEADY_LAST_ITER or EXPORT_UNSTEADY_LAST_REV.
     families : str or list of str
         Required selection for sections; the other variants read the whole field.
     stations : int or tuple of float
@@ -353,7 +355,7 @@ class FarfieldSpec(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     variant: Literal["sections", "wake", "plane", "power"]
     name: str = Field(default="", min_length=1)
-    export_type: Literal["last_step", "avg_window", "default"] = "default"
+    export_type: Literal["last_step", "avg_window", "export_window", "default"] = "default"
     families: Annotated[str | list[str] | None, BeforeValidator(_family_selection)] = None
     stations: int | tuple[float, ...] | None = None
     distance_bref: float = Field(default=0.25, gt=0)

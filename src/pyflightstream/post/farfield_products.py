@@ -102,6 +102,7 @@ __all__ = [
 
 #: The product folder of the far-field tables (FR-1053).
 FARFIELD_DIR = "farfield"
+_WINDOWED = ("avg_window", "export_window")
 
 #: The columns of ``farfield/<group>_trefftz.csv`` after ``POL``, ``STEP`` and the
 #: condition block (FR-1054).
@@ -984,7 +985,7 @@ def _wake_rotor_products(
     instant = [row[:2] + (last_step,) + row[3:] for row in rows]
     tables.extend("trefftz_instant", point.name, ff._named(ctx, [final]), instant, runs=runs)
     key = f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}"
-    if _spec(ctx).export_type != "avg_window":
+    if _spec(ctx).export_type not in _WINDOWED:
         reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
         _skip(ctx, key, point.name, reason + "; no average is written")
         return
@@ -1015,6 +1016,17 @@ def _wake_rotor_products(
     if not all(samples) or any(identity != identities[0] for identity in identities):
         _skip(ctx, key, point.name, "the per-step wake rows differ between window steps")
         return
+    if _spec(ctx).export_type == "export_window":
+        for step, sample in zip(steps, samples, strict=True):
+            if step == last_step:
+                continue  # the last step is the instant table already written
+            tables.extend(
+                "trefftz_instant",
+                point.name,
+                ff._named(ctx, [wakes[step]]),
+                [row[:2] + (step,) + row[3:] for row in sample],
+                runs=runs,
+            )
     tables.extend(
         "trefftz_average",
         point.name,
@@ -1065,9 +1077,7 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
             ff._last_step(ctx.record_of[point.name]) if unsteady else _NA,
         )
         files = (
-            _probe_exports(ctx, point)
-            if unsteady and _spec(ctx).export_type == "avg_window"
-            else {}
+            _probe_exports(ctx, point) if unsteady and _spec(ctx).export_type in _WINDOWED else {}
         )
         window, _ = _farfield_window(ctx, point, int(ff._step(final))) if files else (None, "")
         instants = []
@@ -1479,7 +1489,7 @@ def _probe_point(
     if rotor is None:
         rotor = run_type in ROTOR_RUN_TYPES or (run_type == "steady" and _spins(ctx, record))
     # Each entry chooses its window independently of declared probes.
-    normal = unsteady and spec.export_type != "avg_window"
+    normal = unsteady and spec.export_type not in _WINDOWED
     try:
         probe = _locate(ctx, point, spec, rotor)
         found = _disk_loading(ctx, point, probe)
@@ -1632,6 +1642,9 @@ def _suffixes(
     if not unsteady:
         return [("", sets)]
     out = [("_instant", sets)]
+    if averaged and _spec(ctx).export_type == "export_window":
+        # export_window: one row per exported step, the last step included.
+        out = [("_instant", sorted([*sets, *averaged], key=lambda item: ff._step(item[0])))]
     if averaged:
         out.append(("_average", averaged))
     else:
@@ -1725,7 +1738,7 @@ def _sections_products(
     record = ctx.record_of[point.name]
     instant = [row[:2] + (ff._last_step(record),) + row[3:] for row in rows]
     tables.extend("trefftz_instant", point.name, ff._named(ctx, [source]), instant, runs=runs)
-    if _spec(ctx).export_type != "avg_window":
+    if _spec(ctx).export_type not in _WINDOWED:
         reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
         _skip(ctx, key, point.name, reason + "; no average is written")
         return
@@ -1749,6 +1762,17 @@ def _sections_products(
         reason = "per-step sectional traces do not cover the same families at every step"
         _skip(ctx, key, point.name, reason)
         return
+    if _spec(ctx).export_type == "export_window":
+        for step, sample in zip(steps, samples, strict=True):
+            if step == last_step:
+                continue  # the last step is the instant table already written
+            tables.extend(
+                "trefftz_instant",
+                point.name,
+                ff._named(ctx, [files[step]]),
+                [row[:2] + (step,) + row[3:] for row in sample],
+                runs=runs,
+            )
     tables.extend(
         "trefftz_average",
         point.name,

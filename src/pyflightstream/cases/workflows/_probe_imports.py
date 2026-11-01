@@ -84,7 +84,7 @@ def _phased_farfield(
         if shape.component is not None:
             record["sample_offset"] = probe_set.parts.get(shape.component, 0)
         probe_set.records.append(record)
-        if shape.geometry["export_type"] == "avg_window":
+        if shape.geometry["export_type"] in ("avg_window", "export_window"):
             probe_set.exports.add("window")
         record["positions_frame"] = "REFERENCE"
     for probe_set in sets:
