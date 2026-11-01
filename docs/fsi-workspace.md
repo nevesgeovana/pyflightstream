@@ -611,7 +611,7 @@ these inputs.
 
 ## Structural start
 
-An unsteady coupled row develops a rigid wake first: until the start, every
+An `unsteady_rotor` coupled row develops a rigid wake first: until the start, every
 coupling call writes a zero field, so the aerodynamics settles before the
 structure moves. The input file sets the start as
 `[config.phases] wake_development_revolutions`. A row can replace it, for that
@@ -629,6 +629,10 @@ the same first non-zero call. A row with both keys is warned, naming both, and
 `FSI_START_ITER` is used. A value is finite and positive, as a factor is; a
 blank cell or `-` states nothing. `fsi-provenance.json` records the key, its
 value, the effective revolutions and the file value it replaced.
+
+The start is the phase schedule of the `unsteady_rotor` route. On another
+workflow, on an input of `mode = "external"`, and for `FSI_START_ITER` on a
+row with no turning clock, the key does not apply: it is warned and skipped.
 
 # Frozen displacement inputs
 

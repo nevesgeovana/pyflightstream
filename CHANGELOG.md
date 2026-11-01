@@ -17,7 +17,9 @@ FlightStream versions.
   DELTA_THETA (72 steps a revolution at 5 deg), so `FSI_START_REV: 0.5` and
   `FSI_START_ITER: 36` write the first non-zero field at the same call. A row stating both
   warns and `FSI_START_ITER` is used. The effective provenance carries a `structural_start`
-  record when a row states one.
+  record when a row states one. The start applies to `unsteady_rotor` rows: on another
+  workflow, on an external FSI input, and for `FSI_START_ITER` on a row with no turning
+  clock, the key is warned and skipped.
 - An `unsteady_rotor` row whose FSI input morphs with RBF (the default route) on 26.127 is
   emitted as before and warned once: on 26.127 the solver places the morphed blade at its
   import azimuth once a non-zero field is written, and Direct DEFLECTED is the route that

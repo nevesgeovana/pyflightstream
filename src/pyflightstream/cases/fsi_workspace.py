@@ -1028,6 +1028,15 @@ def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion)
             PyflightstreamWarning,
             stacklevel=3,
         )
+    start = case.fsi_provenance.get("structural_start")
+    if workflow != "unsteady_rotor" and isinstance(start, dict):
+        # FR-3412: the structural start is the unsteady rotor's phase schedule; skipped elsewhere.
+        warn(
+            f"case {case.sim_id!r}: {start.get('key')} sets the structural start of "
+            f"unsteady_rotor rows and is skipped on {workflow}.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     _warn_of_an_unverified_direct_morphing(case, version)
 
 

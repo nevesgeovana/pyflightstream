@@ -440,3 +440,28 @@ def test_p0530_a_start_key_on_an_external_input_is_warned_and_skipped(tmp_path, 
     assert len(said) == 1 and key in said[0] and "skipped" in said[0], said
     with pytest.raises(FsiSetupError, match="Remove the factor keys"):
         resolve_row_fsi(tmp_path / "inputs", {**row, "FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})
+
+
+def _start_said(tmp_path, workflow: str) -> list[str]:
+    record = {"key": "FSI_START_REV", "value": 0.5, "wake_development_revolutions": 0.5}
+    case = coupled_case(tmp_path)
+    case = case.model_copy(update={"fsi_provenance": {"structural_start": record}})
+    script = Script("26.125")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            ws.validate_workspace_fsi(case, script, workflow=workflow, continuation=False)
+        except ws.CampaignConfigError:
+            pass  # a later check of the row's workflow; the warning is said before it
+    return [m for m in messages(caught) if "structural start" in m]
+
+
+@pytest.mark.requirement("FR-3412")
+def test_p0530_a_start_key_off_unsteady_rotor_is_warned_and_skipped(tmp_path):
+    # LANE1-R1-003: only the unsteady rotor runs the phase schedule the start sets.
+    (tmp_path / "q").mkdir()
+    (tmp_path / "u").mkdir()
+    said = _start_said(tmp_path / "q", "qsteady_rotor")
+    assert len(said) == 1 and "FSI_START_REV" in said[0] and "skipped on qsteady_rotor" in said[0]
+    assert _start_said(tmp_path / "u", "unsteady_rotor") == []
