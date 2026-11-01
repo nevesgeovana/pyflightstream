@@ -1224,7 +1224,10 @@ def test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_sk
         assert said, "--strict named no count"
         return int(said.group(1))
 
-    control = strict_count(plain)
+    # PFS-2185.18 (FR-3443; the owner, 2026-11-01, rows 172 and 173): a plain post posts only
+    # the simulations not posted yet, and --archive rebuilds every RUN = 1 one, as the control
+    # must.
+    control = strict_count([*plain, "--archive"])
 
     class WritesNothing(CountingStub):
         def __init__(self, fs_exe, hidden=True, *, forced_local=False):
