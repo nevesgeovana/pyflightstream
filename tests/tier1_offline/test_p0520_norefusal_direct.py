@@ -421,3 +421,22 @@ def test_p0530_the_same_row_on_26_125_is_not_warned_of_the_rbf_placement(tmp_pat
 @pytest.mark.parametrize("morphing", ["direct", "direct_deflected"])
 def test_p0530_a_direct_route_on_26_127_is_not_warned_of_the_rbf_placement(tmp_path, morphing):
     assert _said(tmp_path, "26.127", morphing) == []
+
+
+@pytest.mark.requirement("FR-3412")
+@pytest.mark.parametrize("key", ["FSI_START_REV", "FSI_START_ITER"])
+def test_p0530_a_start_key_on_an_external_input_is_warned_and_skipped(tmp_path, key):
+    # LANE1-R1-002: an external structure runs no phase schedule, so the start does not apply.
+    from pyflightstream.fsi.external import ExternalStructure
+    from tests.tier1_offline.test_regression_fsi_integration import _gaps_rt_fsiext___inputs
+
+    _gaps_rt_fsiext___inputs(tmp_path)
+    row = {"FSI": "f010", "DELTA_THETA": "5", key: "36"}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        structure = resolve_row_fsi(tmp_path / "inputs", row)
+    assert isinstance(structure, ExternalStructure)
+    said = [str(m.message) for m in caught if issubclass(m.category, PyflightstreamWarning)]
+    assert len(said) == 1 and key in said[0] and "skipped" in said[0], said
+    with pytest.raises(FsiSetupError, match="Remove the factor keys"):
+        resolve_row_fsi(tmp_path / "inputs", {**row, "FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})

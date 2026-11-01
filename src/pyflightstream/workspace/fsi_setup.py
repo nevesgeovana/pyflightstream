@@ -631,10 +631,19 @@ def resolve_row_fsi(
             f"FSI {code}: there is no {path.name} in {root}; the FSI inputs there are "
             f"{', '.join(stated) if stated else 'none'}."
         )
-    external = _resolve_external_row(
-        path, code, {**factor_cells, **start_cells}, require_beam=require_beam
-    )
+    external = _resolve_external_row(path, code, factor_cells, require_beam=require_beam)
     if external is not None:
+        skipped = sorted(k for k, v in start_cells.items() if str(v).strip() not in ("", "-"))
+        if skipped:
+            # The structural start sets the package's phase schedule, which an external
+            # structure does not run: the entry does not apply, so it is warned and skipped.
+            warn(
+                f'FSI {code} is mode = "external" and the row states {", ".join(skipped)}: '
+                "the structural start sets the package's own phase schedule, which the "
+                "external program does not run, so it is skipped.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         return external
     resolved = resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
     return _with_structural_start(resolved, start_cells, variables)
