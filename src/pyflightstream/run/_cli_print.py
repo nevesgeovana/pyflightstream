@@ -119,6 +119,10 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
         # (PFS-2093.006: delete_extensions recorded its refusals and printed none).
         for sim, why in step.get("refused", {}).items():
             print(f"    refused sim {sim}: {why}")
+        left = list(step.get("skipped", ()))
+        left += [name for point in step.get("points", ()) for name in point.get("skipped", ())]
+        if left:
+            print(f"    {len(left)} file(s) not deleted, skipped (warned above)")
         if list_paths:
             _print_free_space_paths(step, entry["applied"])
     if entry["applied"]:

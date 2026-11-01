@@ -35,6 +35,10 @@ pyfs-matrix --workspace . --space-in-use
 pyfs-matrix free-space m001 --workspace . --apply
 ```
 
+On Windows a file whose path passes 260 characters (an archived attempt lengthens every path
+under it) is still deleted and zipped; a file whose operation fails is warned and skipped, listed
+under `skipped` in `storage_management.json`, and the other files are processed.
+
 Runs a recipe named `m<id>`, read from
 `inputs/management/m<id>.toml`. Without `--apply` it only reports what it
 would do. A recipe holds up to four tables, run in this order: pruning an
@@ -345,6 +349,9 @@ links undone are recorded. The same holds when `free-space` compacts a
 simulation.
 
 ## Sync
+
+On Windows `sync` copies to a destination past 260 characters; a file that cannot be copied is
+warned and skipped, listed under `files.skipped` of the entry, and the other files are copied.
 
 See [sync](#sync) for the definition.
 

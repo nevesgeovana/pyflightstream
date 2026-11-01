@@ -22,6 +22,8 @@ import zipfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from pyflightstream._textio import long_path
+
 
 def _copy_inputs_problem(inputs: Path, origins: Sequence[Path], reason: str | None) -> str | None:
     """Refuse copying through links before any source is written (PFS-2095.062)."""
@@ -70,7 +72,7 @@ def is_reparse(path: Path) -> bool:
     reparse point of another kind, such as a cloud-backed file, is a regular file.
     """
     try:
-        info = path.lstat()
+        info = long_path(path).lstat()
     except OSError:
         return False
     if stat.S_ISLNK(info.st_mode):

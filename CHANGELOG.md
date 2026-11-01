@@ -69,6 +69,12 @@ FlightStream versions.
 
 ### Fixed
 
+- On Windows, `free-space`, `sync` and the archive move of a datapoint reach a file whose path
+  passes the 260 characters of the system (an earlier attempt moved into `archive/<stamp>/`
+  lengthens every path under it) by handing the file operation the extended-length spelling,
+  and a file whose operation still fails is warned and skipped, counted in
+  `storage_management.json`, where the first one stopped the whole command part way
+  (`WinError 3`; FR-3418). File names, the archive layout and the recipes are unchanged.
 - In a refinement file a list variable written alone as an item of an array is spliced
   into it: `Wing = ["${members}", "U"]` with `members = ["G", "T"]` reads
   `["G", "T", "U"]`, where the list sat inside the array and the family check refused it

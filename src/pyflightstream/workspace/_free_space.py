@@ -27,7 +27,9 @@ from typing import Any
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
+from pyflightstream._errors import warn
 from pyflightstream._progress import tracked
+from pyflightstream._textio import long_path
 from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
@@ -50,7 +52,7 @@ _Select = Callable[[dict[str, Any], dict[str, list[dict[str, Any]]], Iterable[st
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
+    with long_path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
@@ -72,17 +74,17 @@ def _version() -> str:
 
 def _walk_files(root: Path) -> Iterator[Path]:
     """Every regular file below ``root``, without following a link or junction."""
-    if not root.is_dir() or is_reparse(root):
+    if not long_path(root).is_dir() or is_reparse(root):
         return
     stack = [root]
     while stack:
         folder = stack.pop()
         try:
-            entries = list(os.scandir(folder))
+            entries = list(os.scandir(long_path(folder)))
         except OSError:
             continue
         for entry in entries:
-            path = Path(entry.path)
+            path = folder / entry.name
             if is_reparse(path):
                 continue
             if entry.is_dir(follow_symlinks=False):
@@ -91,9 +93,57 @@ def _walk_files(root: Path) -> Iterator[Path]:
                 yield path
 
 
+def unlink_or_skip(path: Path, skipped: list[str], root: Path) -> bool:
+    """Delete ``path``; a failure is warned and listed in ``skipped``, never raised.
+
+    The file operation is handed the extended-length spelling, so a path past
+    the 260 characters of Windows is deleted. Returns whether the file went.
+    """
+    try:
+        long_path(path).unlink()
+    except OSError as error:
+        relative = path.relative_to(root).as_posix()
+        warn(f"{relative}: not deleted, skipped ({type(error).__name__}: {error})")
+        skipped.append(relative)
+        return False
+    return True
+
+
+def copy_planned(
+    copy: Callable[..., str],
+    plan: list[tuple[str, Path]],
+    places: tuple[Path, Path, str],
+    progress: Any,
+    outcome: tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]],
+) -> None:
+    """Copy each planned file with ``copy``; a file that fails is warned and skipped, not raised.
+
+    ``plan`` holds ``(kind, relative)`` with kind ``copy`` or ``overwrite``; ``places`` the
+    other workspace, main's root and the stamp; ``outcome`` the lists of copied, overwritten
+    and skipped files, which this fills. A refusal that is not an OS error (a copy that does
+    not match its source) is still raised.
+    """
+    other, root, stamp = places
+    copied, overwritten, skipped = outcome
+    for kind, relative in plan:
+        source, target = other / relative, root / relative
+        keep = root / ARCHIVE_DIR / f"sync-{stamp}" / relative if kind == "overwrite" else None
+        try:
+            digest = copy(source, target, keep=keep, root=root)
+        except OSError as error:
+            warn(f"{relative.as_posix()}: not copied, skipped ({type(error).__name__}: {error})")
+            skipped.append(relative.as_posix())
+            progress.advance(files=1, current=relative.as_posix())
+            continue
+        size = _size(target)
+        item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
+        (overwritten if kind == "overwrite" else copied).append(item)
+        progress.advance(files=1, bytes=size, current=relative.as_posix())
+
+
 def _size(path: Path) -> int:
     try:
-        return path.stat().st_size
+        return long_path(path).stat().st_size
     except OSError:
         return 0
 
@@ -243,6 +293,7 @@ def _prune_step_exports(
         files: list[dict[str, Any]] = []
         kept: list[dict[str, Any]] = []
         protected: list[str] = []
+        skipped: list[str] = []
         for _export, by_step in sorted(exports.items()):
             keeping, doomed = step_prune.split_steps(spec, by_step)
             kept += step_prune.kept_entries(by_step, keeping, workspace.root)
@@ -252,11 +303,13 @@ def _prune_step_exports(
                 if path.resolve() in keep:
                     protected.append(relative)
                     continue
-                files.append({"path": relative, "step": step, "bytes": _size(path)})
+                size = _size(path)
+                if apply and not unlink_or_skip(path, skipped, workspace.root):
+                    continue
+                files.append({"path": relative, "step": step, "bytes": size})
                 if apply:
                     deleted.add(path.resolve())
-                    path.unlink()
-        if not files and not protected:
+        if not files and not protected and not skipped:
             continue
         points.append(
             {
@@ -266,6 +319,7 @@ def _prune_step_exports(
                 "files": files,
                 "kept": kept,
                 "protected": protected,
+                **({"skipped": skipped} if skipped else {}),
             }
         )
     return points
@@ -354,6 +408,42 @@ def _check_selections(
         select(spec, records, left)
 
 
+def _delete_extension_files(
+    workspace: CampaignWorkspace,
+    sim: str,
+    *,
+    rows: list[dict[str, Any]],
+    extensions: list[str],
+    listed: set[Path],
+    step: dict[str, Any],
+    apply: bool,
+) -> int:
+    """List (and with ``apply`` delete) one simulation's files of the step's extensions.
+
+    A file a record protects is kept, one an earlier step listed is not listed again, and a
+    file that cannot be deleted is warned, listed under ``skipped`` and left. Returns bytes freed.
+    """
+    freed = 0
+    keep = _protected(workspace, sim, rows)
+    for file in _walk_files(workspace.sim_dir(sim)):
+        if file.suffix.lower() not in extensions:
+            continue
+        relative = file.relative_to(workspace.root).as_posix()
+        if file.resolve() in listed:
+            continue
+        if file.resolve() in keep:
+            step["kept"].append(relative)
+            continue
+        size = _size(file)
+        listed.add(file.resolve())
+        if apply and not unlink_or_skip(file, step.setdefault("skipped", []), workspace.root):
+            continue
+        step["files"].append({"path": relative, "bytes": size})
+        if apply:
+            freed += size
+    return freed
+
+
 def _run_recipe(
     workspace: CampaignWorkspace,
     document: dict[str, Any],
@@ -440,22 +530,15 @@ def _run_recipe(
                 # Recorded as the other two modes record it (PFS-2093.006).
                 step["refused"][sim] = "a run is still SUBMITTED; its files are kept"
                 continue
-            keep = _protected(workspace, sim, rows)
-            for file in _walk_files(workspace.sim_dir(sim)):
-                if file.suffix.lower() not in extensions:
-                    continue
-                relative = file.relative_to(workspace.root).as_posix()
-                if file.resolve() in listed:
-                    continue
-                if file.resolve() in keep:
-                    step["kept"].append(relative)
-                    continue
-                size = _size(file)
-                listed.add(file.resolve())
-                step["files"].append({"path": relative, "bytes": size})
-                if apply:
-                    file.unlink()
-                    freed += size
+            freed += _delete_extension_files(
+                workspace,
+                sim,
+                rows=rows,
+                extensions=extensions,
+                listed=listed,
+                step=step,
+                apply=apply,
+            )
     for spec in document.get("post_archives", []):
         action = spec.get("action", "delete")
         keep_latest = int(spec.get("keep_latest", 0))
@@ -492,29 +575,30 @@ def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[di
         f"Cannot compact {stamp}: {archive} already exists or is a link. "
         "Move the existing archive aside before compacting this folder."
     )
-    if action == "compact" and (archive.exists() or is_reparse(archive)):
+    if action == "compact" and (long_path(archive).exists() or is_reparse(archive)):
         raise WorkspaceError(refusal)
     if not apply:
         return entry, 0
     if action == "compact":
         try:
-            handle = archive.open("xb")
+            handle = long_path(archive).open("xb")
         except FileExistsError as error:
             raise WorkspaceError(refusal) from error
         try:
             with handle, zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-                for folder, dirs, files in os.walk(stamp, followlinks=False):
+                long_stamp = long_path(stamp)
+                for folder, dirs, files in os.walk(long_stamp, followlinks=False):
                     here = Path(folder)
                     for name in sorted([*dirs, *files]):
-                        _write_post_member(bundle, stamp, here / name)
+                        _write_post_member(bundle, long_stamp, here / name)
                     dirs[:] = [name for name in dirs if not is_reparse(here / name)]
             _verify_zip(stamp, archive)
         except BaseException:
-            archive.unlink(missing_ok=True)
+            long_path(archive).unlink(missing_ok=True)
             raise
         entry["archive"] = archive.relative_to(root).as_posix()
         size -= _size(archive)
-    shutil.rmtree(stamp)
+    shutil.rmtree(long_path(stamp))
     return entry, size
 
 
@@ -525,9 +609,11 @@ def _write_post_member(bundle: zipfile.ZipFile, stamp: Path, path: Path) -> None
         note = name + ".LINK.txt"
         if (stamp / note).exists() or is_reparse(stamp / note):
             raise WorkspaceError(f"Cannot compact {stamp}: link note {note} already exists.")
-        bundle.writestr(note, os.path.realpath(path) + "\n")
+        real = os.path.realpath(path)
+        real = real[4:] if real.startswith("\\\\?\\") and real[5:6] == ":" else real
+        bundle.writestr(note, real + "\n")
     elif path.is_dir() or path.is_file():
-        bundle.write(path, name)
+        bundle.write(long_path(path), name)
 
 
 def _verify_zip(stamp: Path, archive: Path) -> None:
@@ -764,7 +850,7 @@ def _plan_points_without_record(
 def _sync_existing(main: CampaignWorkspace, relative: Path, source: Path) -> tuple[bool, bool]:
     """Whether main has a file and the same bytes, including a compacted preview."""
     target = main.root / relative
-    if target.exists():
+    if long_path(target).exists():
         return True, _size(source) == _size(target) and _sha256(source) == _sha256(target)
     parts = relative.parts
     if len(parts) > 2 and parts[0] == "sims" and (sim := sim_id_of_folder(parts[1])) is not None:

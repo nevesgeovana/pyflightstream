@@ -12579,6 +12579,11 @@
     },
     {
       "source": "pyflightstream.workspace._batch_life",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._batch_life",
       "target": "pyflightstream.cases.workflows",
       "kind": "module"
     },
@@ -12695,6 +12700,11 @@
     {
       "source": "pyflightstream.workspace._effective",
       "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._free_space",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -13055,6 +13065,11 @@
     {
       "source": "pyflightstream.workspace._ledger_history",
       "target": "pyflightstream.workspace.record_document",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._links",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {

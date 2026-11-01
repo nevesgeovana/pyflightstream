@@ -30,6 +30,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import records as run_records
@@ -262,7 +263,7 @@ def test_p0320_sync_atomic_an_interrupted_copy_leaves_no_partial_target(tmp_path
     main, other = _sync_pair(tmp_path, "atomic")
     _write(other.sim_dir("4001") / "scripts" / "point.fs", "x" * 4000)
     _interrupt_copies_of(monkeypatch, "point.fs")
-    with pytest.raises(OSError, match="mid-copy"):
+    with pytest.warns(PyflightstreamWarning, match="mid-copy"):
         storage_module.sync_workspaces(main.root, "runs", apply=True)
     folder = main.sim_dir("4001") / "scripts"
     assert not (folder / "point.fs").exists()
@@ -278,7 +279,7 @@ def test_p0320_sync_atomic_an_interrupted_overwrite_keeps_mains_copy_in_place(
     _write(main.sim_dir("4002") / "scripts" / "point.fs", "main-version")
     _write(other.sim_dir("4002") / "scripts" / "point.fs", "other-version" * 100)
     _interrupt_copies_of(monkeypatch, "point.fs")
-    with pytest.raises(OSError):
+    with pytest.warns(PyflightstreamWarning, match="mid-copy"):
         storage_module.sync_workspaces(main.root, "runs", apply=True, overwrite=True)
     folder = main.sim_dir("4002") / "scripts"
     assert (folder / "point.fs").read_text("utf-8") == "main-version"

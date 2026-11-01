@@ -28,6 +28,7 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._textio import long_path
 from pyflightstream.cases.workflows import (
     BATCH_STEM_PREFIX,
     FULL_POLAR_STEM,
@@ -493,11 +494,15 @@ def _files(folder: Path) -> Iterable[Path]:
     """Every regular file below ``folder``, never through a link or a junction."""
     if is_reparse(folder):
         return
-    for here, children, names in os.walk(folder):
-        children[:] = [child for child in children if not is_reparse(Path(here) / child)]
+    walked = long_path(folder)
+    for here, children, names in os.walk(walked):
+        # The walk is handed the extended-length spelling (a path past the 260
+        # characters of Windows); the paths yielded keep the caller's spelling.
+        place = folder / Path(here).relative_to(walked)
+        children[:] = [child for child in children if not is_reparse(place / child)]
         for name in names:
-            path = Path(here) / name
-            if path.is_file() and not is_reparse(path):
+            path = place / name
+            if long_path(path).is_file() and not is_reparse(path):
                 yield path
 
 

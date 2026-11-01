@@ -541,6 +541,7 @@
       "tests/tier1_offline/test_goal034_setup_operational_commands.py",
       "tests/tier1_offline/test_goal035_qsteady_completion.py",
       "tests/tier1_offline/test_goal035_storage.py",
+      "tests/tier1_offline/test_p0530_longpath.py",
       "tests/tier1_offline/test_gui_to_pyfs_page.py",
       "tests/tier1_offline/test_guide_api_names.py",
       "tests/tier1_offline/test_guide_decks.py",
