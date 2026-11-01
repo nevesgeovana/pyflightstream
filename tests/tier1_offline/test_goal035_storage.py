@@ -1291,10 +1291,10 @@ def _present(path: Path) -> bool:
 
 @pytest.mark.requirement("FR-3418")
 def test_p0530_the_extended_spelling_is_read_for_windows_and_left_alone_elsewhere():
-    assert extended_length("C:/work/a", windows=True) == "\\\\?\\C:\\work\\a"
+    assert extended_length("D:/data/a", windows=True) == "\\\\?\\D:\\data\\a"
     assert extended_length("\\\\host\\share\\a", windows=True) == "\\\\?\\UNC\\host\\share\\a"
-    assert extended_length("\\\\?\\C:\\work\\a", windows=True) == "\\\\?\\C:\\work\\a"
-    assert extended_length("C:/work/a", windows=False) == "C:/work/a"
+    assert extended_length("\\\\?\\D:\\data\\a", windows=True) == "\\\\?\\D:\\data\\a"
+    assert extended_length("D:/data/a", windows=False) == "D:/data/a"
 
 
 @pytest.mark.requirement("FR-3418")

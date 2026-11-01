@@ -281,11 +281,11 @@ def extended_length(path: str | os.PathLike[str], *, windows: bool | None = None
 
     Examples
     --------
-    >>> from pyflightstream._longpath import extended_length
+    >>> from pyflightstream._textio import extended_length
     >>> extended_length("a/b", windows=False)
     'a/b'
-    >>> extended_length("C:/work/a", windows=True)
-    '\\\\?\\C:\\work\\a'
+    >>> extended_length("D:/data/a", windows=True)
+    '\\\\?\\D:\\data\\a'
     """
     text = os.fspath(path)
     if windows is None:
@@ -317,7 +317,7 @@ def long_path(path: str | os.PathLike[str]) -> Path:
 
     Examples
     --------
-    >>> from pyflightstream._longpath import long_path
+    >>> from pyflightstream._textio import long_path
     >>> long_path("a").name
     'a'
     """
