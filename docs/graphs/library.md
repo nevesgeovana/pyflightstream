@@ -3030,6 +3030,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.cases.workflows._skeleton"><summary><code>pyflightstream.cases.workflows._skeleton</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._fsi_external">pyflightstream.cases._fsi_external</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases._setup_link">pyflightstream.cases._setup_link</a> (module)</li>

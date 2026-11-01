@@ -890,7 +890,9 @@ def test_p0530_fewer_than_two_usable_stations_stop_the_input_naming_the_radii(tm
         beam_sections(open_blade, "Blade1", 5)
 
 
-def _rotor_workspace(tmp_path, stations=5, *, hub=(0.0, 0.0, 0.0), command_first=False):
+def _rotor_workspace(
+    tmp_path, stations=5, *, hub=(0.0, 0.0, 0.0), command_first=False, tail_extra=""
+):
     """A workspace whose reference r003 holds one rotor at ``hub``, blade one Blade1 on Z,
     a mesh blade.obj of that blade, and f001 cutting its sections from the mesh; with
     ``command_first``, ``geometry beam`` writes the file (about the mesh's origin) before
@@ -929,7 +931,7 @@ def _rotor_workspace(tmp_path, stations=5, *, hub=(0.0, 0.0, 0.0), command_first
     if command_first:
         argv = ["geometry", "beam", str(obj), "--families", "Blade1", "--stations", str(stations)]
         assert workspace_main(argv) == 0
-    tail = " / FSI: f001 / RPM: 955"
+    tail = " / FSI: f001 / RPM: 955" + tail_extra
     return workspace, bind_row(tmp_path, workspace, geometry="blade.obj", tail=tail)
 
 
@@ -985,6 +987,23 @@ def test_p0530_a_beam_file_cut_about_another_hub_is_cut_again_and_one_on_it_is_r
         atol=1e-5,
     )
     assert case.fsi.blade.station_radii_m == again["sections"]["station_radii_m"]
+
+
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_flat_rows_rotor_origin_is_the_hub_the_plan_cuts_about(tmp_path):
+    # REL-R2-005: a flat row's ROTOR_ORIGIN places the hub and every blade frame (the run's
+    # blade_mesh record reads it there, REL-2-001), so the plan cuts the sections about it.
+    import tomllib
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        moved, _ = _rotor_workspace(tmp_path / "row", tail_extra=" / ROTOR_ORIGIN: 0,0,0.05")
+        block, _ = _rotor_workspace(tmp_path / "block", hub=(0.0, 0.0, 0.05))
+    cut = tomllib.loads((moved.inputs_dir / "geometries" / "blade.Blade1.beam.toml").read_text())
+    same = tomllib.loads((block.inputs_dir / "geometries" / "blade.Blade1.beam.toml").read_text())
+    assert cut["hub_m"] == [0.0, 0.0, 0.05]
+    assert cut["sections"]["station_radii_m"] == same["sections"]["station_radii_m"]
 
 
 @pytest.mark.requirement("FR-3452")

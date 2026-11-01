@@ -14,9 +14,12 @@ from collections.abc import (
     Callable,
     Sequence,
 )
+from pathlib import PurePath
 from typing import Any
 
 import pyflightstream.cases._setup_link as _setup_link
+from pyflightstream._fsm import saved_length_unit
+from pyflightstream._lengths import scale
 from pyflightstream.cases import (
     CampaignConfigError,
     FsiConfig,
@@ -62,6 +65,7 @@ from ._geometry import (
     accepted_symmetry,
 )
 from ._motion import (
+    _origin,
     _the_rotors_the_row_turns,
 )
 from ._pproc import (
@@ -94,6 +98,8 @@ from ._streamlines import (
 from ._vocabulary import (
     PERIODIC_COPIES_VARIABLE,
     QSTEADY_ROTOR,
+    ROTOR_ORIGIN_VARIABLE,
+    SIMULATION_SUFFIX,
     SYMMETRY_VARIABLE,
     Frames,
 )
@@ -703,7 +709,20 @@ def coupled_blade_frame(case: SimCase) -> tuple[str, dict[str, Any]]:
             "be cut from the mesh."
         )
     blade = rotor.families_blades[0]
-    frame = blade_mesh_frame(case, [blade], origin=rotor.origin)
+    origin: Sequence[float] = rotor.origin
+    if (
+        _variable(case, ROTOR_ORIGIN_VARIABLE) is not None
+        and not _the_rotors_the_row_turns(case)[0]
+    ):
+        # A flat row's ROTOR_ORIGIN places the hub and the blade frames (_frames._rotor_frame),
+        # in the simulation's unit: metres after a raw import, the saved unit of a .fsm.
+        unit = (
+            saved_length_unit(case.geometry)
+            if PurePath(str(case.geometry)).suffix.lower() == SIMULATION_SUFFIX
+            else "METER"
+        )
+        origin = [value * (scale(unit, "METER") or 1.0) for value in _origin(case)]
+    frame = blade_mesh_frame(case, [blade], origin=origin)
     return frame["groups"][blade], frame
 
 

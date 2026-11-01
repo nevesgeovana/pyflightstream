@@ -658,7 +658,8 @@ saved simulation `.fsm`) and writes it:
 
 - The mesh is read in metres (an OBJ in the unit its sidecar's `[import] units`
   states, a saved simulation in the unit it stores) about the hub of the rotor the
-  row couples, the shaft along x and blade one along +z, the frame the contour check
+  row couples (a flat row's `ROTOR_ORIGIN` where it states one, as the run places the
+  blade frames), the shaft along x and blade one along +z, the frame the contour check
   below reads the mesh in.
 - The stations are `stations` radii evenly spaced from the first closed cut at the
   root to the last at the tip. A cut is the plane normal to the span; the triangles

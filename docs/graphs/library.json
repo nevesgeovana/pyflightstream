@@ -4179,6 +4179,16 @@
     },
     {
       "source": "pyflightstream.cases.workflows._skeleton",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._skeleton",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._skeleton",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
