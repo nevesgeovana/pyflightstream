@@ -608,6 +608,28 @@ inputs also retain base/effective material properties and the section algorithm
 provenance. Effective properties are validated again, including the ordering of
 major and minor principal inertia. No solver executes while loading or planning
 these inputs.
+
+## Structural start
+
+An unsteady coupled row develops a rigid wake first: until the start, every
+coupling call writes a zero field, so the aerodynamics settles before the
+structure moves. The input file sets the start as
+`[config.phases] wake_development_revolutions`. A row can replace it, for that
+row only, with one of two matrix keys:
+
+| Key | Unit | Meaning |
+| --- | --- | --- |
+| `FSI_START_REV` | revolutions | Revolutions of rigid wake development, for example `FSI_START_REV: 2` |
+| `FSI_START_ITER` | time steps | The first time step whose coupling call may write a non-zero field, for example `FSI_START_ITER: 144` |
+
+`FSI_START_ITER` converts to revolutions with the row's clock: `DELTA_THETA`,
+or `DELTA_TIME` with the rotor speed of the FSI input. With `DELTA_THETA: 5`
+(72 steps a revolution), `FSI_START_REV: 0.5` and `FSI_START_ITER: 36` give
+the same first non-zero call. A row with both keys is warned, naming both, and
+`FSI_START_ITER` is used. A value is finite and positive, as a factor is; a
+blank cell or `-` states nothing. `fsi-provenance.json` records the key, its
+value, the effective revolutions and the file value it replaced.
+
 # Frozen displacement inputs
 
 An FSI artifact can set `frozen_displacements_file = "frozen.txt"` at its
