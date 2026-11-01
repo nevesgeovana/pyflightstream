@@ -92,6 +92,7 @@ from pyflightstream.workspace._free_space import (
     _version,
     _walk_files,
     _zip_path,
+    copy_planned,
 )
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
@@ -492,23 +493,23 @@ def _remove_sim_folder(folder: Path) -> list[str]:
     stack = [folder]
     while stack:
         current = stack.pop()
-        for entry in list(os.scandir(current)):
-            path = Path(entry.path)
+        for entry in list(os.scandir(_textio.long_path(current))):
+            path = current / entry.name
             if is_reparse(path):
                 if _is_link(path) or path.is_dir():
                     _remove_link(path)
                 else:
-                    path.unlink()
+                    _textio.long_path(path).unlink()
                 undone.append(path.relative_to(folder).as_posix())
             elif entry.is_dir(follow_symlinks=False):
                 stack.append(path)
-    left = [p for p in folder.rglob("*") if is_reparse(p)]
+    left = [p for p in _textio.long_path(folder).rglob("*") if is_reparse(p)]
     if left:
         raise StorageError(
             f"{folder}: a link is still inside ({left[0]}); the folder was not removed, so "
             "nothing it points at can be deleted"
         )
-    shutil.rmtree(folder)
+    shutil.rmtree(_textio.long_path(folder))
     return undone
 
 
@@ -527,17 +528,17 @@ def _compact_sim(workspace: CampaignWorkspace, sim_id: str) -> dict[str, Any]:
     temporary = archive.with_name(archive.name + f".{os.getpid()}.tmp")
     try:
         with zipfile.ZipFile(
-            temporary, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
+            _textio.long_path(temporary), "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
         ) as zf:
             for path in sorted(_walk_files(folder)):
                 name = path.relative_to(folder).as_posix()
-                zf.write(path, name)
+                zf.write(_textio.long_path(path), name)
                 members[name] = _sha256(path)
             zf.writestr(
                 _COMPACT_META,
                 json.dumps({"sim_id": sim_id, "inputs_link": link_target, "members": members}),
             )
-        with zipfile.ZipFile(temporary) as zf:
+        with zipfile.ZipFile(_textio.long_path(temporary)) as zf:
             for name, digest in members.items():
                 # Streamed, as every other hash here: a member can be a large .fsm.
                 check = hashlib.sha256()
@@ -552,9 +553,9 @@ def _compact_sim(workspace: CampaignWorkspace, sim_id: str) -> dict[str, Any]:
     except BaseException:
         # A failed write (a file another process holds open) or a mismatch
         # leaves no partial zip, which space-in-use would count as a simulation.
-        temporary.unlink(missing_ok=True)
+        _textio.long_path(temporary).unlink(missing_ok=True)
         raise
-    temporary.replace(archive)
+    _textio.long_path(temporary).replace(_textio.long_path(archive))
     before = sum(_size(folder / name) for name in members)
     _remove_sim_folder(folder)
     return {
@@ -1422,22 +1423,22 @@ def _atomic_copy(
         _refuse_linked_folders(root, target)
         if keep is not None:
             _refuse_linked_folders(root, keep)
-    target.parent.mkdir(parents=True, exist_ok=True)
+    _textio.long_path(target.parent).mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{os.getpid()}{_SYNC_TEMPORARY}")
-    temporary.unlink(missing_ok=True)
+    _textio.long_path(temporary).unlink(missing_ok=True)
     try:
-        shutil.copy2(source, temporary)
+        shutil.copy2(_textio.long_path(source), _textio.long_path(temporary))
         digest = _sha256(temporary)
         if digest != _sha256(source):
             raise StorageError(
                 f"the copy of {source} does not match its source; stopped, {target} unchanged"
             )
-        if keep is not None and target.exists():
-            keep.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(target, keep)
-        os.replace(temporary, target)
+        if keep is not None and _textio.long_path(target).exists():
+            _textio.long_path(keep.parent).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_textio.long_path(target), _textio.long_path(keep))
+        os.replace(_textio.long_path(temporary), _textio.long_path(target))
     except BaseException:
-        temporary.unlink(missing_ok=True)
+        _textio.long_path(temporary).unlink(missing_ok=True)
         raise
     return digest
 
@@ -1747,6 +1748,7 @@ def _sync_one(
     }
     copied: list[dict[str, Any]] = []
     overwritten: list[dict[str, Any]] = []
+    skipped: list[str] = []
     with _recorded_if_interrupted(
         main.root, entry, apply, {"files": {"copied": copied, "overwritten": overwritten}}
     ):
@@ -1827,16 +1829,13 @@ def _sync_one(
                 total_files=len(plan),
                 total_bytes=sum(_size(other / relative) for _, relative in plan),
             ) as progress:
-                for kind, relative in plan if apply else []:
-                    source, target = other / relative, main.root / relative
-                    keep = None
-                    if kind == "overwrite":
-                        keep = main.root / ARCHIVE_DIR / f"sync-{stamp}" / relative
-                    digest = _atomic_copy(source, target, keep=keep, root=main.root)
-                    size = _size(target)
-                    item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
-                    (overwritten if kind == "overwrite" else copied).append(item)
-                    progress.advance(files=1, bytes=size, current=relative.as_posix())
+                copy_planned(
+                    _atomic_copy,
+                    plan if apply else [],
+                    (other, main.root, stamp),
+                    progress,
+                    (copied, overwritten, skipped),
+                )
             # THE MESH IS LINKED, NEVER COPIED: each
             # simulation folder sync brought gets its `inputs` link into main's own
             # geometry library, the way the other workspace's simulation had it.
@@ -1872,6 +1871,7 @@ def _sync_one(
                     "to_overwrite": sum(kind == "overwrite" for kind, _ in plan),
                     "copied": copied,
                     "overwritten": overwritten,
+                    **({"skipped": skipped} if skipped else {}),
                     "conflicts": file_conflicts,
                     "identical": identical,
                     "archived_in": f"{ARCHIVE_DIR}/sync-{stamp}" if overwritten else None,

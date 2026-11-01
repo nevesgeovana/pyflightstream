@@ -2185,17 +2185,11 @@ class CampaignWorkspace:
         if not movable:
             return None
         target = folder / ARCHIVE_DIR / (stamp or datetime.now()).strftime(ARCHIVE_STAMP)
-        if os.name == "nt" and any(len(str(target / child.name)) >= 250 for child in movable):
+        if any(len(str(target / child.name)) >= 250 for child in movable):
             # The archive suffix can push a valid source past MAX_PATH. Use
             # the native extended spelling, including UNC shares, and return
             # it so callers can also read the archived output at that length.
-            absolute = str(target.absolute())
-            extended = (
-                "\\\\?\\UNC\\" + absolute[2:]
-                if absolute.startswith("\\\\")
-                else "\\\\?\\" + absolute
-            )
-            target = Path(extended)
+            target = _textio.long_path(target)
         target.mkdir(parents=True, exist_ok=True)
         for child in movable:
             destination = target / child.name
@@ -2207,7 +2201,7 @@ class CampaignWorkspace:
                     index += 1
                 destination = target / f"{child.stem}.{index}{child.suffix}"
             try:
-                child.replace(destination)
+                _textio.long_path(child).replace(_textio.long_path(destination))
             except FileNotFoundError:
                 # A recorded output may have disappeared since enumeration.
                 # A missing destination (or an unreadable existing source) is

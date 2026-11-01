@@ -853,9 +853,9 @@
    "positional": 1
   },
   "workspace/_free_space.py:_run_recipe": {
-   "complexity": 24,
-   "branches": 24,
-   "statements": 76,
+   "complexity": 19,
+   "branches": 19,
+   "statements": 62,
    "positional": 4
   },
   "workspace/_geometry_build.py:_refuse_existing": {
@@ -943,9 +943,9 @@
    "positional": 3
   },
   "workspace/storage.py:_sync_one": {
-   "complexity": 17,
-   "branches": 17,
-   "statements": 71,
+   "complexity": 15,
+   "branches": 15,
+   "statements": 64,
    "positional": 4
   },
   "workspace/wake_edges.py:read_trailing_edge_points": {
@@ -1168,7 +1168,7 @@
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1494,
-  "workspace/__init__.py": 1906
+  "workspace/__init__.py": 1900
  },
  "facade_definitions": {
   "fsi/__init__.py": [

@@ -24,6 +24,14 @@ of what the solver printed. It does not cover binary writes (a workbook, a
 byte-exact copy, a digest input), which are not text files. The CSV
 functions fix the one thing the ``csv`` module decides on its own, its
 default record terminator, which is CRLF whatever the handle does.
+
+
+THE EXTENDED-LENGTH SPELLING. Windows refuses a file operation on a path of 260
+characters or more unless the path is spelled ``\\?\`` followed by the absolute path
+(``\\?\UNC\`` followed by the share for a network path). A workspace passes that
+length once a datapoint's earlier attempt is moved into ``archive/<stamp>/``. The
+:func:`long_path` spelling is handed to the file operation only; the names written do
+not change.
 """
 
 from __future__ import annotations
@@ -248,3 +256,69 @@ def append_lines(path: str | Path, lines: Iterable[str], *, encoding: str = "utf
             handle.write(line + LINE_END)
             count += 1
     return count
+
+
+_EXTENDED_PREFIX = "\\\\?\\"
+
+
+def extended_length(path: str | os.PathLike[str], *, windows: bool | None = None) -> str:
+    r"""Return ``path`` in the spelling a file operation accepts at any length.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The path to spell.
+    windows : bool, optional
+        Whether to spell for Windows. Defaults to whether this process runs
+        on Windows; a caller sets it to read the Windows spelling elsewhere.
+
+    Returns
+    -------
+    str
+        On Windows the absolute path behind ``\\?\`` (``\\?\UNC\`` for a
+        network path); an already extended path is returned unchanged.
+        Elsewhere the path as given.
+
+    Examples
+    --------
+    >>> from pyflightstream._longpath import extended_length
+    >>> extended_length("a/b", windows=False)
+    'a/b'
+    >>> extended_length("C:/work/a", windows=True)
+    '\\\\?\\C:\\work\\a'
+    """
+    text = os.fspath(path)
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows or not text or text.startswith(_EXTENDED_PREFIX):
+        return text
+    absolute = text.replace("/", "\\")
+    if not (absolute.startswith("\\\\") or (len(absolute) > 2 and absolute[1:3] == ":\\")):
+        absolute = os.path.abspath(absolute)
+    if absolute.startswith("\\\\"):
+        return _EXTENDED_PREFIX + "UNC\\" + absolute[2:]
+    return _EXTENDED_PREFIX + absolute
+
+
+def long_path(path: str | os.PathLike[str]) -> Path:
+    """Return ``path`` as a path any file operation accepts at any length.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The path.
+
+    Returns
+    -------
+    pathlib.Path
+        The path in its extended-length spelling on Windows, unchanged
+        elsewhere. Use it for the file operation only: names and relative
+        paths are derived from the original.
+
+    Examples
+    --------
+    >>> from pyflightstream._longpath import long_path
+    >>> long_path("a").name
+    'a'
+    """
+    return Path(extended_length(path))

@@ -964,14 +964,12 @@ def _preview_changes_nothing(module, tmp_path: Path) -> bool:
 
 
 _PREVIEW_OLD = (
-    "                if apply:\n"
-    "                    file.unlink()\n"
-    "                    freed += size\n"
+    "        if apply and not unlink_or_skip(file, step.setdefault("
+    '"skipped", []), workspace.root):\n'
 )
 _PREVIEW_NEW = (
-    "                if True:  # MUTANT: preview also deletes\n"
-    "                    file.unlink()\n"
-    "                    freed += size\n"
+    "        if True and not unlink_or_skip(file, step.setdefault("  # MUTANT: preview deletes\n"
+    '"skipped", []), workspace.root):\n'
 )
 
 
