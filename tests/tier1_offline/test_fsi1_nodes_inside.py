@@ -917,3 +917,24 @@ def test_p0530_the_run_names_the_beam_file_in_its_blade_mesh_record(tmp_path):
     case = coupled_case(tmp_path).model_copy(update={"fsi_provenance": {"beam_sections": beam}})
     record = blade_mesh_record(case)
     assert record["beam_toml"] == beam["file"] and record["beam_toml_sha256"] == beam["sha256"]
+
+
+@pytest.mark.requirement("FR-3444")
+def test_p0530_the_beam_command_writes_the_plans_file_and_its_drawing(tmp_path):
+    # P0530-MESH-SECTIONS A7: pyfs-workspace geometry beam writes, for the same mesh, the file
+    # the plan wrote, byte for byte; --visual-inspection draws blade.Blade1.beam.pdf.
+    import shutil
+
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    workspace, _ = _rotor_workspace(tmp_path / "plan")
+    planned = workspace.inputs_dir / "geometries" / "blade.Blade1.beam.toml"
+    alone = tmp_path / "alone"
+    alone.mkdir()
+    for name in ("blade.obj", "blade.obj.boundaries.toml"):
+        shutil.copy2(workspace.inputs_dir / "geometries" / name, alone / name)
+    argv = ["geometry", "beam", str(alone / "blade.obj"), "--families", "Blade1"]
+    assert workspace_main([*argv, "--stations", "5", "--visual-inspection"]) == 0
+    assert (alone / "blade.Blade1.beam.toml").read_bytes() == planned.read_bytes()
+    pdf = alone / "blade.Blade1.beam.pdf"
+    assert pdf.read_bytes().startswith(b"%PDF") and pdf.read_bytes().count(b"/Type /Page") >= 2

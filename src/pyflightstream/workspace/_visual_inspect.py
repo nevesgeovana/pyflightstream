@@ -1161,6 +1161,90 @@ def _convert_unitless(points: list[Points], points_unit: str | None, mesh_unit: 
             pts.xyz = pts.xyz * factor
 
 
+def beam_pdf(
+    out: Path, vertices_m, faces, table: Mapping[str, Any], *, title: str, dpi: int = 200
+) -> Path:
+    """Write the drawing of a blade's sections cut from its mesh (PFS-2185.11).
+
+    The first page draws the blade as ``geometry visual-inspect`` draws a mesh, with every
+    station's contour placed on it where the beam takes it (the span along +z, the section
+    turned by its pitch, toward the leading edge ``(-sin b, -cos b, 0)``); the next pages
+    draw each station's contour in its section frame, with its chord line and pitch axis.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    rows = list(
+        zip(
+            table["station_radii_m"],
+            table["chord_m"],
+            table["geometric_pitch_deg"],
+            table["sections_m"],
+            strict=True,
+        )
+    )
+    mesh = Mesh(out, np.asarray(vertices_m, dtype=float), {"blade": np.asarray(faces).tolist()})
+    placed = [_on_the_blade(radius, pitch, contour) for radius, _, pitch, contour in rows]
+    points = [Points(out.with_suffix(".toml"), "sections", np.vstack(placed))]
+    colors, _ = patch_colors(["blade"], None)
+    scene = Scene(mesh, ["blade"], colors, None)
+    styles = point_styles(points, scene)
+    with PdfPages(out) as pdf:
+        fig = plt.figure(figsize=PAGE)
+        views = standard_views((1.0, -1.0, 1.0))
+        axes = views_page(fig, scene, views, points, styles, labels=False, unit="METER")
+        marked = marked_points(scene, points)
+        side_column(fig, axes, scene, colors, marked, points=points, table=True)
+        fig.suptitle(title, fontsize=10, y=1 - 0.2 / PAGE[1], va="top")
+        pdf.savefig(fig, dpi=dpi)
+        plt.close(fig)
+        for first in range(0, len(rows), 12):
+            fig = plt.figure(figsize=PAGE)
+            for slot, number in enumerate(range(first, min(first + 12, len(rows)))):
+                _station_axes(fig.add_subplot(3, 4, slot + 1), number + 1, rows[number])
+            fig.suptitle(title, fontsize=10)
+            fig.tight_layout()
+            pdf.savefig(fig, dpi=dpi)
+            plt.close(fig)
+    return out
+
+
+def _on_the_blade(radius: float, pitch_deg: float, contour) -> np.ndarray:
+    """Return a section contour placed on the blade: x, y, z [m] of its points."""
+    beta = math.radians(pitch_deg)
+    lead = np.array([-math.sin(beta), -math.cos(beta), 0.0])
+    suction = np.array([-math.cos(beta), math.sin(beta), 0.0])
+    points = np.asarray(contour, dtype=float)
+    return points[:, :1] * lead + points[:, 1:2] * suction + np.array([0.0, 0.0, radius])
+
+
+def _station_axes(ax, number: int, row: tuple) -> None:
+    """Draw one station's contour in its section frame, its chord line and its pitch axis.
+
+    ``row`` is the station's (radius, chord, pitch, contour).
+    """
+    radius, chord, pitch, contour = row
+    points = np.asarray(contour, dtype=float)
+    closed = np.vstack([points, points[:1]])
+    ax.plot(closed[:, 0] * 1e3, closed[:, 1] * 1e3, color="#0072b2", linewidth=0.8)
+    trailing = points[int(np.argmin(points[:, 0]))]
+    leading = points[int(np.argmax(np.hypot(*(points - trailing).T)))]
+    line = np.array([trailing, leading]) * 1e3
+    ax.plot(line[:, 0], line[:, 1], color="#d55e00", linewidth=0.6, linestyle="--")
+    ax.plot([0.0], [0.0], marker="+", color="black", markersize=6)
+    ax.set_title(
+        f"station {number}: r = {radius:.4f} m\nchord {chord * 1e3:.1f} mm, pitch {pitch:.2f} deg",
+        fontsize=7,
+    )
+    ax.set_aspect("equal")
+    ax.tick_params(labelsize=6)
+    ax.set_xlabel("toward the leading edge [mm]", fontsize=6)
+    ax.set_ylabel("toward the suction side [mm]", fontsize=6)
+
+
 def _ordered_box(box: Sequence[float] | None) -> list[float] | None:
     """Return the box, each minimum before its maximum; a reversed pair is warned and swapped."""
     if box is None:
