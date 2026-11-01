@@ -657,19 +657,50 @@ the earlier `sections_m`); every other line is kept, and `source` is written
 only when `target` is the same path. It returns the contours it wrote.
 `config` is the configuration `source` resolves to. `contour_mesh_offsets`
 returns the offsets themselves. The mesh is read with
-`pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`:
+`pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`. The
+example writes, in a temporary folder, an FSI input and an OBJ whose `Blade1`
+sections sit 4 mm toward the suction side of the stated contours, then places
+the contours on the mesh cut:
 
 ```python
+import math
+import tempfile
 from pathlib import Path
 
 from pyflightstream.fsi.sections import obj_group_surface, place_on_mesh_cut
 from pyflightstream.workspace.fsi_setup import load_fsi_setup
 
-config = load_fsi_setup("inputs/fsi/f001.toml")
-vertices, faces = obj_group_surface(Path("geometry/rotor.obj"), "Blade1")
-place_on_mesh_cut(
-    config, vertices, faces, source="inputs/fsi/f001.toml", target="inputs/fsi/f002.toml"
-)
+radii, pitches = [0.3, 0.6, 0.9], [30.0, 20.0, 10.0]
+fsi_input = "\n".join([
+    'mode = "calculated"', 'material = "ti-6al-4v-grade5-annealed"',
+    "[config]", "blade_count = 2", "omega_rad_per_s = 100.0", "[sections]",
+    f"station_radii_m = {radii}", "chord_m = [0.2, 0.15, 0.1]",
+    f"geometric_pitch_deg = {pitches}", 'naca = "4412"',
+    "pitch_axis_chord_fraction = 0.25", 'geometry_source = "NACA 4412"',
+    "torsion_grid_cells = 16", "",
+])
+with tempfile.TemporaryDirectory() as folder:
+    source = Path(folder) / "f001.toml"
+    source.write_text(fsi_input, encoding="utf-8")
+    config = load_fsi_setup(source)
+    points, triangles = [], []
+    for radius, pitch, contour in zip(radii, pitches, config.blade.section_contours_m):
+        beta, first, n = math.radians(pitch), len(points) + 1, len(contour)
+        for z in (radius - 0.02, radius + 0.02):
+            for c, s in contour:
+                x = -c * math.sin(beta) - (s + 0.004) * math.cos(beta)
+                y = -c * math.cos(beta) + (s + 0.004) * math.sin(beta)
+                points.append(f"v {x} {y} {z}")
+        for i in range(n):
+            a, b = first + i, first + (i + 1) % n
+            triangles += [f"f {a} {b} {b + n}", f"f {a} {b + n} {a + n}"]
+    mesh = Path(folder) / "rotor.obj"
+    mesh.write_text("\n".join(["o Blade1", *points, *triangles]) + "\n", encoding="utf-8")
+    vertices, faces = obj_group_surface(mesh, "Blade1")
+    placed = place_on_mesh_cut(
+        config, vertices, faces, source=source, target=Path(folder) / "f002.toml"
+    )
+    assert len(placed) == len(radii)
 ```
 
 ## Calibration and provenance
