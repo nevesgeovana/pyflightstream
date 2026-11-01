@@ -687,7 +687,9 @@ With the same four it is used as it is, hand edits included. With another sha256
 another count, another hub (a file the command below wrote about the mesh's
 origin, read by a row whose rotor sits elsewhere) or another unit (a corrected
 `[import] units`), or when it does not read as sections, it is warned, kept as
-`<geometry>.<family>.beam.toml.bak`, and the sections are cut again.
+`<geometry>.<family>.beam.toml.bak`, and the sections are cut again. A `.bak`
+already there is first renamed `.bak-<its modification time, UTC>`, so no earlier
+file, hand edits included, is overwritten.
 
 The beam is built from the file exactly as from stated contours. The run's
 `fsi-provenance.json` records the file in `beam_sections` (its name and sha256) and

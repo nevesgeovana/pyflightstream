@@ -814,6 +814,26 @@ def test_p0530_a_kept_beam_file_cut_in_another_unit_is_cut_again(tmp_path):
     )
 
 
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_second_recut_keeps_the_earlier_backup(tmp_path):
+    # REL-R2-004: the hand-edited file the first re-cut kept as .bak survives the second.
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace.fsi_setup import beam_sections
+
+    obj = _write_obj(tmp_path / "blade.obj", *_naca_blade(21, 40))
+    first = beam_sections(obj, "Blade1", 4)
+    edited = "# HAND EDIT\n" + first.path.read_text(encoding="utf-8")
+    first.path.write_text(edited, encoding="utf-8")
+    obj.write_text(obj.read_text(encoding="utf-8") + "# moved\n", encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning):
+        beam_sections(obj, "Blade1", 4)
+    with pytest.warns(PyflightstreamWarning):
+        beam_sections(obj, "Blade1", 6)
+    kept = sorted(tmp_path.glob("blade.Blade1.beam.toml.bak*"))
+    assert "stations = 4" in (tmp_path / "blade.Blade1.beam.toml.bak").read_text(encoding="utf-8")
+    assert any(path.read_text(encoding="utf-8") == edited for path in kept), kept
+
+
 #: An FSI input whose sections come from the row's mesh.
 MESH_INPUT = """mode = "calculated"
 material = "ti-6al-4v-grade5-annealed"

@@ -1292,6 +1292,15 @@ def _kept_beam(
         PyflightstreamWarning,
         stacklevel=4,
     )
+    if backup.exists():
+        # The earlier .bak may hold a hand edit: it moves to .bak-<its time>, never overwritten.
+        from datetime import UTC, datetime
+
+        when = datetime.fromtimestamp(backup.stat().st_mtime, UTC).strftime("%Y%m%dT%H%M%SZ")
+        older, index = backup.with_name(f"{backup.name}-{when}"), 1
+        while older.exists():
+            older, index = backup.with_name(f"{backup.name}-{when}.{index}"), index + 1
+        backup.replace(older)
     target.replace(backup)
     return None
 
