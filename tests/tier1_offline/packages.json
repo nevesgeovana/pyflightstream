@@ -51,11 +51,7 @@
       "tests/tier1_offline/test_p0410_fx6_calibration.py",
       "tests/tier1_offline/test_p0410_fx6_torsion.py",
       "tests/tier1_offline/test_p0410_ph_b1_fsi_plan.py",
-      "tests/tier1_offline/test_p0520_norefusal_direct.py",
-      "tests/tier1_offline/test_p0530_fsi_structural_start.py",
-      "tests/tier1_offline/test_p0530_rbf_rotor_26127_warning.py",
-      "tests/tier1_offline/test_p0530_l3_rows.py",
-      "tests/tier1_offline/test_p0530_lows.py"
+      "tests/tier1_offline/test_p0520_norefusal_direct.py"
     ],
     "cases": [
       "tests/tier1_offline/test_base_region_setup.py",
@@ -595,7 +591,6 @@
       "tests/tier1_offline/test_p0380_cheatsheet_options.py",
       "tests/tier1_offline/test_p0380_guards.py",
       "tests/tier1_offline/test_p0380_independent_review.py",
-      "tests/tier1_offline/test_p0530_refine_path_length.py",
       "tests/tier1_offline/test_p0380_s1_refine.py",
       "tests/tier1_offline/test_p0380_s6_degapi.py",
       "tests/tier1_offline/test_p0380_s7_origin.py",

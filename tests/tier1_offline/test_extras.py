@@ -25,6 +25,7 @@ import pytest
 
 from pyflightstream.extras import EXTRAS, MissingExtraError, missing_extra
 from tests.tier1_offline._docs_site import requirements_text
+from tests.tier1_offline.test_import_isolation import _EXTRA_IMPORT_ROOTS
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -354,3 +355,43 @@ def test_f_1281_missing_extra_error_survives_pickling():
     assert isinstance(again, MissingExtraError)
     assert (again.extra, again.package, again.purpose) == ("excel", "XlsxWriter", "Drawing")
     assert str(again) == str(error)
+
+
+HERE = Path(__file__).resolve().parent
+
+
+def test_p0530_push003_the_pydantic_floor_comment_says_why_it_is_a_patch_release():
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    comments = "\n".join(line for line in text.splitlines() if line.lstrip().startswith("#"))
+    assert "2.10.4" in comments and "ModelWrapValidatorHandler" in comments
+    assert '"pydantic>=2.10.4,<3"' in text
+
+
+@pytest.mark.parametrize("name", ["test_p0340_lf_products.py", "test_excel_file.py"])
+def test_p0530_push004_an_importorskip_of_an_extra_names_the_extra(name):
+    tree = ast.parse((HERE / name).read_text(encoding="utf-8"))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "importorskip"
+    ]
+    assert calls, name
+    for call in calls:
+        reasons = [kw.value for kw in call.keywords if kw.arg == "reason"]
+        assert reasons and isinstance(reasons[0], ast.Constant), ast.unparse(call)
+        assert "optional extra" in str(reasons[0].value), ast.unparse(call)
+
+
+def test_p0530_push005_the_conftest_extra_modules_are_the_tolerated_extra_roots():
+    tree = ast.parse((HERE / "conftest.py").read_text(encoding="utf-8"))
+    pinned = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "_EXTRA_MODULES"
+            for target in node.targets
+        ):
+            pinned = ast.literal_eval(node.value)
+    assert pinned is not None, "conftest.py holds no _EXTRA_MODULES map"
+    assert set(pinned.values()) == set(_EXTRA_IMPORT_ROOTS.values())

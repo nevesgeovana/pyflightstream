@@ -34,7 +34,9 @@ import pyflightstream.workspace as workspace
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
+from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._refine._grid import recover_grid
+from pyflightstream.workspace._refine._staging import STAGING_STEM_CHARS, staging_prefix
 from pyflightstream.workspace.sidecars import ensure_inventory, obj_face_counts
 from tests.p0380_mesh_fixtures import (
     Composite,
@@ -2753,3 +2755,80 @@ def test_p0501_api002_an_empty_selection_is_said_on_stderr(tmp_path, capsys):
     assert "no family selected: no level written" in err, err
     assert "no family selected" not in out, out
     assert _left(tmp_path) == []
+
+
+WINDOWS_PATH_LIMIT = 260
+
+
+RANDOM_CHARS = 8  # tempfile.mkdtemp's random part
+
+
+LONG_STEM = "wing_with_a_long_descriptive_mesh_name"
+
+
+def _staged_file_length(out_dir: str, run_folder_name: str, level: str, longest: int) -> int:
+    """Length of the longest file path: the output folder, the run's folder, the level, a file."""
+    return len(out_dir) + 1 + len(run_folder_name) + 1 + len(level) + 1 + longest
+
+
+@pytest.mark.requirement("FR-3414")
+def test_p0530_the_run_folder_keeps_a_short_start_of_the_level_name():
+    name = f"{LONG_STEM}_R2"
+    prefix = staging_prefix(name)
+    assert prefix == f"{name[:STAGING_STEM_CHARS]}.partial-"
+    assert staging_prefix("wing_R2") == "wing_R2.partial-"
+
+
+@pytest.mark.requirement("FR-3414")
+def test_p0530_a_run_from_a_deep_folder_stages_inside_the_windows_limit(tmp_path):
+    source = write_source(tmp_path / "src", LONG_STEM, sheet_with_strips((), te=True))
+    probe = refine_mesh(source, 2.0, out_dir=tmp_path / "probe")
+    assert probe is not None
+    level = probe.folder.name
+    longest = max(len(path.name) for path in probe.files)
+    old_name = f"{level}.partial-" + "x" * RANDOM_CHARS
+    new_name = staging_prefix(level) + "x" * RANDOM_CHARS
+    # A folder deep enough that the layout with the name three times passes the limit and the
+    # run's folder with the name once does not: the new staged files end at 245 characters.
+    target = 245
+    pad = target - _staged_file_length("", new_name, level, longest)
+    segments, needed = [], pad - len(str(tmp_path))
+    while needed > 1:
+        width = min(21, needed)  # a segment and its separator
+        segments.append("d" * (width - 1))
+        needed -= width
+    deep = tmp_path.joinpath(*segments)
+    assert _staged_file_length(str(deep), old_name, level, longest) > WINDOWS_PATH_LIMIT
+    assert _staged_file_length(str(deep), new_name, level, longest) < WINDOWS_PATH_LIMIT
+    deep.mkdir(parents=True)
+    result = refine_mesh(source, 2.0, out_dir=deep)
+    assert result is not None and result.obj.is_file()
+    assert result.folder == deep / level
+    assert {path.name for path in result.files} == {path.name for path in probe.files}
+    assert [path.name for path in deep.iterdir()] == [level]
+
+
+def _read(tmp_path: Path, text: str, names=("G", "T", "U")) -> dict:
+    path = tmp_path / "w.refine.toml"
+    path.write_text(text, encoding="utf-8")
+    return _config.read_refine_file(path, list(names))
+
+
+@pytest.mark.requirement("FR-3396")
+def test_p0530_api_a_list_variable_alone_in_an_array_is_spliced_in(tmp_path):
+    text = (
+        "[vars]\nmembers = ['G', 'T']\n"
+        "[families.G]\nfactor = 1\n[families.T]\nfactor = 2\n[families.U]\nfactor = 3\n"
+        "[components]\nWing = ['${members}', 'U']\n"
+    )
+    assert _read(tmp_path, text)["components"] == {"Wing": ["G", "T", "U"]}
+
+
+@pytest.mark.requirement("FR-3396")
+def test_p0530_api_a_list_variable_inside_a_list_variable_is_spliced_in(tmp_path):
+    text = (
+        "[vars]\nhead = ['G']\nmembers = ['${head}', 'T']\n"
+        "[families.G]\nfactor = 1\n[families.T]\nfactor = 2\n"
+        "[components]\nWing = '${members}'\n"
+    )
+    assert _read(tmp_path, text)["components"] == {"Wing": ["G", "T"]}

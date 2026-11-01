@@ -7,6 +7,9 @@ unmutated control must stay ``ok``.
 
 from __future__ import annotations
 
+import ast
+import csv
+import importlib
 import json
 import os
 import subprocess
@@ -209,3 +212,40 @@ def test_p0430_pending_row_without_test_is_owed_until_the_tag(tmp_path):
     status, result = _run(root, "--release")
     assert result["l3"]["unresolved"] == ["FR-900"]
     assert not result["checks"]["l3_resolved"] and status == 1
+
+
+NODES = ("PFS-2140.023", "PFS-2185.04", "PFS-2185.05", "PFS-2185.08")
+
+
+def _rows(node: str) -> list[dict[str, str]]:
+    with (REPO / "tests" / "requirements_l3.csv").open(encoding="utf-8", newline="") as handle:
+        return [row for row in csv.DictReader(handle) if row["node"] == node]
+
+
+def _test_exists(spec: str) -> bool:
+    path, *names = spec.split("::")
+    tree = ast.parse((REPO / path).read_text(encoding="utf-8"))
+    scope: list[ast.AST] = [tree]
+    for name in names:
+        found = [
+            child
+            for parent in scope
+            for child in ast.iter_child_nodes(parent)
+            if isinstance(child, (ast.FunctionDef, ast.ClassDef)) and child.name == name
+        ]
+        if not found:
+            return False
+        scope = list(found)
+    return True
+
+
+@pytest.mark.requirement("FR-3411")
+@pytest.mark.parametrize("node", NODES)
+def test_p0530_a_node_has_an_implemented_l3_row_with_a_code_path_and_a_test(node):
+    rows = _rows(node)
+    assert rows, f"no requirements_l3.csv row names {node}"
+    for row in rows:
+        assert row["status"] == "implemented", row["uid"]
+        module, _, attribute = row["code"].partition(":")
+        assert hasattr(importlib.import_module(module), attribute), row["code"]
+        assert _test_exists(row["test"]), row["test"]
