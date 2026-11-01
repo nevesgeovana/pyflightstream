@@ -527,9 +527,11 @@ def write_campaign_products(
     ``sims`` (FR-307, ``pyfs-matrix post --sims``) limits the rebuild
     to those simulations of the matrix, IN PLACE: their files are archived and
     rewritten as a whole post does, every other simulation's files and
-    ``products.json`` entries stay as they were, and the super files, whose
-    columns are the union over every simulation, are left as the last whole
-    post wrote them and named under ``partial.not_rebuilt`` and in the log. A
+    ``products.json`` entries stay as they were, and the named simulations'
+    super files, whose columns are the union over every simulation, are
+    written under the column set the others carry (PFS-2185.18); without a
+    readable superfile measurement every super file is left as the last whole
+    post wrote it and named under ``partial.not_rebuilt`` and in the log. A
     simulation with no record of the matrix is refused by name before
     anything is written. None, the default, is the whole post.
 

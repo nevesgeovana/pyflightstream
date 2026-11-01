@@ -1519,7 +1519,10 @@ def collect_and_post(
     ``sims`` (FR-307) limits every sweep to the SUBMITTED records of
     those simulations (:func:`collect_once`) and the post to the same
     simulations: ``post`` is then called with the keyword ``sims`` too, and
-    ``post_matrix`` with ``sims`` naming the ones of that matrix.
+    ``post_matrix`` with ``sims`` naming the ones of that matrix. Without
+    ``sims``, ``post_matrix`` is called with ``sims`` naming the simulations
+    of that matrix the sweep collected or discarded, so every other
+    simulation keeps its products (PFS-2185.18).
 
     Parameters
     ----------

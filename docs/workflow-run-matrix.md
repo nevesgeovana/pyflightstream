@@ -196,6 +196,18 @@ and the products of one matrix are rebuilt from its own records alone. From
 Python the same identity is the `matrix_stem` keyword of `sweep_table` and
 `write_campaign_products`, and the `matrix_stem` field of a run record.
 
+`run` posts as it goes. Each simulation it ran is posted as soon as its last
+point of this run is recorded, before the next simulation's points run, and
+only that simulation is rebuilt, as `post --sims` rebuilds it: every other
+simulation's product files and `products.json` entries stay as they were.
+`campaign_sweep.csv`, the simulation's super files (written under the column
+set the other super files carry), the settings table and `products.json` are
+rewritten each time, so after every polar `post/<stem>/` holds every
+simulation finished so far. Nothing is posted again when the run ends. A
+simulation whose post fails is warned and the run goes on to the next. A
+point submitted to a scheduler is posted by `collect` once its outputs land,
+and `collect` posts only the simulations it collected.
+
 What no two rows of one workspace may share is a POL, in one matrix or in two.
 A POL names the simulation folder `sims/sim_<POL>` and the run ids of the
 manifest, so two rows stating one POL would write into one folder and a resume

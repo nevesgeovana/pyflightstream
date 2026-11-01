@@ -71,8 +71,26 @@ FlightStream versions.
 ### Changed
 
 - Every workflow script switches the application to the plots scene (`CHANGE_SCENE_TO_PLOTS`) on the line before each `START_SOLVER`, so the solver runs with the plots scene active. Measured 12 percent faster on an unsteady 26.127 row with identical loads (FR-3442).
+- `pyfs-matrix run` posts each simulation it ran as soon as its last point of the run is
+  recorded, before the next simulation's points run, and only that simulation: every other
+  simulation's product files and `products.json` entries stay as they were, and nothing is
+  posted again at the end. `campaign_sweep.csv`, the settings table and the simulation's
+  super files (under the column set the other super files carry) are rewritten each time, so
+  `post/<matrix>/` holds every simulation finished so far. A failed post of one simulation
+  is warned and the run goes on. `collect` posts only the simulations it collected or
+  discarded. `post --sims` now writes the named simulations' super files too (FR-3443).
+- `pyfs-matrix post <matrix>` posts only the simulations whose rows state RUN = 1 (a
+  RUN = 0 simulation keeps its products; a matrix with no RUN = 1 row is warned and
+  nothing is posted), and with no other option only those not posted yet. `--archive` and
+  `--force-overwrite` rebuild every RUN = 1 simulation; `--sims` rebuilds exactly the named
+  ones (FR-3443). migration: to rebuild everything, post with `--archive`.
 
 ### Fixed
+
+- A post without `--archive` removed every previous product it could not rebuild, so a post
+  on a machine holding products brought by `sync` without the exports deleted them. `post`,
+  `post --sims`, `collect` and the run's own post now keep such a product, file and entry,
+  and warn; `--archive` moves it and a confirmed `--force-overwrite` removes it (FR-3443).
 
 - On Windows, `free-space`, `sync` and the archive move of a datapoint reach a file whose path
   passes the 260 characters of the system (an earlier attempt moved into `archive/<stamp>/`
