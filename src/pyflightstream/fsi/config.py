@@ -674,9 +674,8 @@ class FsiConfig(BaseModel):
         is written absolute, ``d = R(psi) (R(psi) (X0 + u) - X0)``, in every
         phase. Direct DEFLECTED places it at ``R(psi) X0 + R(-psi) d``: the field
         is written turned by ``+2 psi``, ``d = R(2 psi) u``. The state, the log
-        and the station state keep ``u``. The row's
-        ``FSI_FRAME_COMPENSATION`` key overrides it; the plan warns and stages
-        it off where it does not apply (another build, the RBF route, another
+        and the station state keep ``u``. The plan
+        warns and stages it off where it does not apply (another build, the RBF route, another
         workflow, a rotor turning the other way, which was not measured).
         False is not serialised, so a configuration that leaves it off dumps
         and hashes exactly as before.

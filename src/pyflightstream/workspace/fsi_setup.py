@@ -19,7 +19,6 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import FsiInputError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.fsi.calibration import (
     CALIBRATION_FACTORS,
-    FRAME_COMPENSATION_KEY,
     FRAME_COMPENSATION_SETTING,
     MATERIAL_FACTORS,
     MATRIX_FACTORS,
@@ -626,16 +625,14 @@ def resolve_row_fsi(
     code = str(variables.get("FSI", "")).strip()
     fsi_cells = {key: value for key, value in variables.items() if key.startswith("FSI_")}
     start_cells = {key: fsi_cells.pop(key) for key in MATRIX_START_KEYS if key in fsi_cells}
-    compensation_cell = fsi_cells.pop(FRAME_COMPENSATION_KEY, None)
     factor_cells = fsi_cells
     unknown = set(factor_cells) - set(MATRIX_FACTORS)
     if unknown:
         raise FsiSetupError(
             f"unknown FSI matrix keys {sorted(unknown)}; use "
-            f"{', '.join((*MATRIX_FACTORS, *MATRIX_START_KEYS, FRAME_COMPENSATION_KEY))}."
+            f"{', '.join((*MATRIX_FACTORS, *MATRIX_START_KEYS))}."
         )
     if code in ("", "-"):
-        _skip_the_compensation(compensation_cell, "the row states no FSI input")
         # A placeholder factor cell is blank here as in the loop below.
         if any(
             str(value).strip() not in ("", "-")
@@ -672,56 +669,23 @@ def resolve_row_fsi(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
-        _skip_the_compensation(
-            compensation_cell, f'FSI {code} is mode = "external", whose program writes the field'
-        )
         return external
     resolved = resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
-    resolved = _with_frame_compensation(resolved, compensation_cell)
+    resolved = _with_frame_compensation(resolved)
     return _with_structural_start(resolved, start_cells, variables)
 
 
-def _skip_the_compensation(cell: Any, why: str) -> None:
-    """Warn that a stated compensation cell does not apply, saying why, and skip it (FR-3415)."""
-    if str(cell if cell is not None else "").strip() in ("", "-"):
-        return
-    warn(
-        f"{why}, so {FRAME_COMPENSATION_KEY} does not apply and is skipped.",
-        PyflightstreamWarning,
-        stacklevel=3,
-    )
+def _with_frame_compensation(resolved: ResolvedFsiSetup) -> ResolvedFsiSetup:
+    """Record the origin of the input's ``solver_frame_compensation`` (FR-3415).
 
-
-def _with_frame_compensation(resolved: ResolvedFsiSetup, cell: Any) -> ResolvedFsiSetup:
-    """Apply the row's ``FSI_FRAME_COMPENSATION`` and record the setting's origin (FR-3415).
-
-    ``ON`` or ``OFF`` (any case) replaces the input's ``solver_frame_compensation``
-    for this row, as a factor key replaces a calibration factor. A blank or ``-``
-    cell states nothing; any other value is warned and skipped, and the input's
-    value stands. The record names the value and where it came from: ``matrix``,
-    ``file`` (the input's ``[config]`` states it) or ``default`` (off). An input
-    and a row that both state nothing add no record, so their provenance is
-    unchanged.
+    The setting is stated only in the FSI input's ``[config]``. When the input
+    states it the record names the value and ``file`` as its origin; an input that
+    states nothing adds no record, so its provenance is unchanged.
     """
-    text = str(cell if cell is not None else "").strip()
-    stated = text not in ("", "-")
-    value = {"ON": True, "OFF": False}.get(text.upper()) if stated else None
-    if stated and value is None:
-        warn(
-            f"{FRAME_COMPENSATION_KEY}={text!r} is skipped: use ON or OFF; the FSI input's "
-            f"{FRAME_COMPENSATION_SETTING} stands.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-    in_file = FRAME_COMPENSATION_SETTING in resolved.base.model_fields_set
-    if value is not None:
-        origin = "matrix"
-        effective = resolved.effective.model_copy(update={FRAME_COMPENSATION_SETTING: value})
-    elif in_file or stated:
-        origin = "file" if in_file else "default"
-        effective = resolved.effective
-    else:
+    if FRAME_COMPENSATION_SETTING not in resolved.base.model_fields_set:
         return resolved
+    origin = "file"
+    effective = resolved.effective
     record = {
         "setting": FRAME_COMPENSATION_SETTING,
         "value": effective.solver_frame_compensation,

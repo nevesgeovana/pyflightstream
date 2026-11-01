@@ -226,9 +226,8 @@ morphing = "direct_deflected"
 solver_frame_compensation = true
 ```
 
-and a row overrides the file with `FSI_FRAME_COMPENSATION: ON` or `OFF` (a
-blank cell or `-` states nothing; another value is warned and skipped, and the
-file value stands). With it on:
+and the setting is stated only in the FSI input; the matrix carries no key for
+it. With it on:
 
 - RIGID turns the listing back by `+psi` to `X0`, evaluates `u` there, and
   writes the field from the import geometry in every phase,
@@ -253,9 +252,9 @@ reason, and the run writes the field uncompensated. Nothing is refused.
 The RBF route (the default, through the structural nodes) of an
 `unsteady_rotor` row on 26.127 is emitted with one warning: the solver places
 the morphed blade at its import azimuth once a non-zero field is written, and
-Direct DEFLECTED with this compensation (`solver_frame_compensation = true`, or
-`FSI_FRAME_COMPENSATION: ON` in the row) is the route that keeps the blade in
-place, deformed by the beam. The compensation itself does not apply to RBF.
+Direct DEFLECTED with this compensation (`solver_frame_compensation = true` in
+the FSI input's `[config]`) is the route that keeps the blade in place, deformed
+by the beam. The compensation itself does not apply to RBF.
 
 Refused by the plan, each naming the remedy: a direct route on `steady` and
 `unsteady` (a fixed wing couples through its structural nodes), on a wheel, in

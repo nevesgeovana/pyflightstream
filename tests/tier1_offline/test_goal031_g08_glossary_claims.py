@@ -45,7 +45,6 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsi_calibration import (
-    FRAME_COMPENSATION_KEY,
     MATERIAL_FACTORS,
     MATRIX_FACTORS,
     MATRIX_START_KEYS,
@@ -577,8 +576,6 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     **{key: _fsi_factor(key) for key in MATRIX_FACTORS},
     "FSI_START_REV": _fsi_start("FSI_START_REV", "0.5", "1.5"),
     "FSI_START_ITER": _fsi_start("FSI_START_ITER", "36", "108"),
-    # FR-3415: the row turns the solver-frame compensation on or off in the staged beam.
-    FRAME_COMPENSATION_KEY: _fsi_start(FRAME_COMPENSATION_KEY, "ON", "OFF"),
     # The 6DOF case field stands for the key, as for FSI; this checks glossary claims.
     "SIXDOF": Variation(lambda tmp: _sixdof(tmp, 4.2), lambda tmp: _sixdof(tmp, 5.0)),
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
@@ -1292,7 +1289,7 @@ def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meani
         )
 
 
-FSI_KEYS = ("FSI", *MATRIX_FACTORS, *MATRIX_START_KEYS, FRAME_COMPENSATION_KEY)
+FSI_KEYS = ("FSI", *MATRIX_FACTORS, *MATRIX_START_KEYS)
 
 
 @pytest.mark.parametrize("key", FSI_KEYS)

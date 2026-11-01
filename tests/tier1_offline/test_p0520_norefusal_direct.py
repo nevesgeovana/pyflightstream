@@ -27,7 +27,7 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import fsi_workspace as ws
 from pyflightstream.cases.workflows._vocabulary import ROW_KEY_MEANINGS
 from pyflightstream.fsi import driver, nodes
-from pyflightstream.fsi.calibration import FRAME_COMPENSATION_KEY, FRAME_COMPENSATION_SETTING
+from pyflightstream.fsi.calibration import FRAME_COMPENSATION_SETTING
 from pyflightstream.fsi.config import FsiConfig, PhaseSchedule, dump_config
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.run._pending import _write_pending_files
@@ -415,7 +415,7 @@ def test_p0530_an_rbf_unsteady_rotor_on_26_127_is_emitted_and_warned_once(tmp_pa
     assert "Direct DEFLECTED" in said[0] and "26.127" in said[0]
     # PFS-2185.05: the route it points to is DEFLECTED WITH the compensation, by its names.
     assert "solver-frame compensation" in said[0]
-    assert FRAME_COMPENSATION_SETTING in said[0] and FRAME_COMPENSATION_KEY in said[0]
+    assert FRAME_COMPENSATION_SETTING in said[0]
 
 
 @pytest.mark.requirement("FR-3413")
@@ -592,7 +592,7 @@ def test_p0530_a_compensation_that_does_not_apply_is_warned_and_staged_off(
     # Warn and skip, never refuse: the row is built and the field written uncompensated.
     config, provenance, said = _staged(tmp_path, version, morphing)
     assert len(said) == 1 and reason in said[0] and "uncompensated" in said[0], said
-    assert FRAME_COMPENSATION_KEY in said[0]
+    assert FRAME_COMPENSATION_SETTING in said[0]
     assert "solver_frame_compensation" not in config
     record = provenance["frame_compensation"]
     assert record["effective"] is False and reason in record["skipped"]
@@ -610,7 +610,7 @@ def test_p0530_a_compensation_is_skipped_off_unsteady_rotor_and_on_a_reversed_ro
 
 
 @pytest.mark.requirement("FR-3415")
-def test_p0530_the_matrix_key_overrides_the_file_and_the_provenance_names_the_origin(tmp_path):
+def test_p0530_the_file_setting_alone_decides_and_the_provenance_names_the_origin(tmp_path):
     plain = _inputs(tmp_path / "plain")
     on_file = _inputs(
         tmp_path / "on",
@@ -618,35 +618,20 @@ def test_p0530_the_matrix_key_overrides_the_file_and_the_provenance_names_the_or
             "omega_rad_per_s = 0.0", "omega_rad_per_s = 0.0\nsolver_frame_compensation = true"
         ),
     )
+    off_file = _inputs(
+        tmp_path / "off",
+        SUPPLIED.replace(
+            "omega_rad_per_s = 0.0", "omega_rad_per_s = 0.0\nsolver_frame_compensation = false"
+        ),
+    )
     nothing = resolve_row_fsi(plain, _row())
     assert nothing.effective.solver_frame_compensation is False
     assert "frame_compensation" not in nothing.provenance()
-    for inputs, cell, value, origin in (
-        (plain, "ON", True, "matrix"),
-        (plain, "off", False, "matrix"),
-        (on_file, "OFF", False, "matrix"),
-        (on_file, "-", True, "file"),
-        (on_file, "", True, "file"),
-    ):
-        resolved = resolve_row_fsi(inputs, _row(**{FRAME_COMPENSATION_KEY: cell}))
-        assert resolved.effective.solver_frame_compensation is value, (cell, origin)
+    for inputs, value in ((on_file, True), (off_file, False)):
+        resolved = resolve_row_fsi(inputs, _row())
+        assert resolved.effective.solver_frame_compensation is value
         record = resolved.provenance()["frame_compensation"]
-        assert (record["value"], record["origin"]) == (value, origin), record
-    assert FRAME_COMPENSATION_KEY in ROW_KEY_MEANINGS
-
-
-@pytest.mark.requirement("FR-3415")
-def test_p0530_an_unreadable_or_inapplicable_matrix_key_is_warned_and_skipped(tmp_path):
-    inputs = _inputs(tmp_path)
-    for row in (_row(**{FRAME_COMPENSATION_KEY: "maybe"}), {FRAME_COMPENSATION_KEY: "ON"}):
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            resolved = resolve_row_fsi(inputs, row)
-        said = [str(m.message) for m in caught if issubclass(m.category, PyflightstreamWarning)]
-        assert len(said) == 1 and FRAME_COMPENSATION_KEY in said[0] and "skipped" in said[0]
-        if resolved is not None:
-            assert resolved.effective.solver_frame_compensation is False
-            assert resolved.provenance()["frame_compensation"]["origin"] == "default"
+        assert (record["value"], record["origin"]) == (value, "file"), record
 
 
 @pytest.mark.requirement("FR-3416")

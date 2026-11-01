@@ -34,9 +34,5 @@ START_REV_KEY = "FSI_START_REV"
 START_ITER_KEY = "FSI_START_ITER"
 MATRIX_START_KEYS = (START_REV_KEY, START_ITER_KEY)
 
-#: The matrix key that turns the solver-frame compensation of the Direct routes on or off for
-#: one row (``ON`` or ``OFF``; blank or ``-`` states nothing). It overrides the FSI input's
-#: :data:`FRAME_COMPENSATION_SETTING` for that row, as a factor key overrides a calibration factor.
-FRAME_COMPENSATION_KEY = "FSI_FRAME_COMPENSATION"
 #: The FSI input's ``[config]`` setting of the same compensation, off when not stated.
 FRAME_COMPENSATION_SETTING = "solver_frame_compensation"

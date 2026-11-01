@@ -41,7 +41,7 @@ from typing import Any
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_ids, saved_surface_section_count
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.fsi.calibration import FRAME_COMPENSATION_KEY, FRAME_COMPENSATION_SETTING
+from pyflightstream.fsi.calibration import FRAME_COMPENSATION_SETTING
 from pyflightstream.fsi.config import (
     DIRECT_NODE_TYPES,
     MAPPED_MORPHING,
@@ -217,7 +217,7 @@ def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> 
     The default route (RBF mesh morphing of the mapped structural nodes) on an
     ``unsteady_rotor`` row is emitted as always. On 26.127 the solver places the morphed
     blade at its import azimuth once a non-zero field is written, and Direct DEFLECTED with
-    the solver-frame compensation (FR-3415, named by its setting and its matrix key) is the
+    the solver-frame compensation (FR-3415, named by its setting) is the
     route that keeps the blade in place deformed by the beam. A warning, never a refusal.
     """
     if case.fsi is None or case.fsi.morphing != MAPPED_MORPHING:
@@ -228,8 +228,8 @@ def _warn_of_an_rbf_blade_on_26_127(case: SimCase, version: str | FsVersion) -> 
         f"case {case.sim_id!r}: the aeroelastic RBF morphing of a turning blade on 26.127 "
         "places the morphed blade at its import azimuth once a non-zero field is written; "
         'Direct DEFLECTED (morphing = "direct_deflected") with the solver-frame compensation '
-        f"({FRAME_COMPENSATION_SETTING} = true in [config], or {FRAME_COMPENSATION_KEY}: ON "
-        "in the row) is the route that keeps the blade in place, deformed by the beam. The "
+        f"({FRAME_COMPENSATION_SETTING} = true in [config] of the FSI input) is "
+        "the route that keeps the blade in place, deformed by the beam. The "
         "row is emitted as stated.",
         PyflightstreamWarning,
         stacklevel=3,
@@ -299,8 +299,8 @@ def _warn_of_a_skipped_frame_compensation(
     if reason is None:
         return
     warn(
-        f"case {case.sim_id!r}: {FRAME_COMPENSATION_SETTING} ({FRAME_COMPENSATION_KEY} in the "
-        f"matrix) is skipped: {reason}. The field is written uncompensated.",
+        f"case {case.sim_id!r}: {FRAME_COMPENSATION_SETTING} = true in [config] of the FSI "
+        f"input is skipped: {reason}. The field is written uncompensated.",
         PyflightstreamWarning,
         stacklevel=3,
     )

@@ -26,8 +26,8 @@ import azimuth once a non-zero field is written. Direct DEFLECTED with the
 solver-frame compensation keeps the blade in place (FR-3413).
 
 The solver-frame compensation of the Direct routes is requested with
-`solver_frame_compensation = true` under the FSI input's `[config]`, or per row
-with `FSI_FRAME_COMPENSATION: ON` or `OFF`. Requested on another build, on the
+`solver_frame_compensation = true` under the FSI input's `[config]`, and only
+there. Requested on another build, on the
 RBF route, on another workflow or on a rotor turning about -X, it is warned and
 skipped. `fsi-provenance.json` records the value, its origin and whether the run
 applied it (FR-3415).

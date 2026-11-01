@@ -2,7 +2,6 @@
 
 from pyflightstream._fsi_calibration import (
     CALIBRATION_FACTORS,
-    FRAME_COMPENSATION_KEY,
     FRAME_COMPENSATION_SETTING,
     MATERIAL_FACTORS,
     MATRIX_FACTORS,
@@ -14,7 +13,6 @@ from pyflightstream._fsi_calibration import (
 
 __all__ = [
     "CALIBRATION_FACTORS",
-    "FRAME_COMPENSATION_KEY",
     "FRAME_COMPENSATION_SETTING",
     "MATERIAL_FACTORS",
     "MATRIX_FACTORS",
