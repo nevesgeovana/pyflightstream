@@ -294,6 +294,62 @@ def test_the_time_averaged_surface_is_refused_by_step_and_the_instants_leave_the
     assert manifest["products"]["surfaces/p_time_average.dat"]["kept_after_pruning"] == reason
 
 
+def test_the_prune_rewrites_products_json_under_the_posts_lock_rel_r3_003(tmp_path):
+    """REL-R3-003: free-space and a post of the matrix keep each other's change.
+
+    A post holds products.json open and locked while it rewrites it in place
+    (REL-R2-017). The prune rewrote it outside that lock by a replace: refused
+    on Windows while the post holds it (after the exports were deleted), and
+    elsewhere the post's write lands on the file the replace unlinked.
+    """
+    import threading
+    import time
+
+    from pyflightstream import _textio
+    from pyflightstream.results import translate_surface_exports
+    from tests.tier1_offline.test_g25_surface_time_average import _averaged_record, _exports
+    from tests.tier1_offline.test_g45_tecplot_from_vtk import MRP, _write_solver_vtk
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    record = _averaged_record()
+    sim = workspace.sim_dir(record.sim_id)
+    sim.mkdir(parents=True, exist_ok=True)
+    bodies = _exports(sim, range(3, 7))
+    (sim / "p.txt").write_text("native export", encoding="utf-8")
+    _write_solver_vtk(sim / "p.vtk", *bodies[6], MRP)
+    translate_surface_exports(sim, [{"vtk": "p.vtk", "dat": "p.dat", "frame": MRP}])
+    workspace.append_record(record)
+    write_campaign_products(workspace, overwrite=True)
+    manifest = workspace.products_dir(None) / "products.json"
+    held, failed = threading.Event(), []
+
+    def a_post_writes_meanwhile():
+        try:
+            with _textio.exclusive(manifest, wait=5.0) as handle:
+                assert handle is not None
+                held.set()
+                time.sleep(0.5)
+                handle.seek(0)
+                document = json.loads(handle.read().decode("utf-8"))
+                document["products"]["polars/P_by_the_other_post.csv"] = {"sim_id": "7003"}
+                _textio.replace_content(handle, json.dumps(document, indent=1) + "\n")
+        except BaseException as error:  # pragma: no cover - reported below
+            failed.append(error)
+
+    other = threading.Thread(target=a_post_writes_meanwhile)
+    other.start()
+    assert held.wait(5.0)
+    try:
+        entry = free_space(workspace.root, _recipe(workspace), apply=True)
+    finally:
+        other.join()
+    assert failed == []
+    after = json.loads(manifest.read_text(encoding="utf-8"))
+    assert entry["steps"][0]["products_json"] == {"post/products/products.json": 6}
+    assert "polars/P_by_the_other_post.csv" in after["products"]
+    assert not any("_iteration=3." in name for name in after["products"])
+
+
 @pytest.mark.parametrize("kind", ["sloads", "cp"])
 def test_the_section_distributions_are_refused_by_step(tmp_path, monkeypatch, kind):
     from tests.tier1_offline.test_f07_section_distributions import _post

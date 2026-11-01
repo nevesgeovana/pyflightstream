@@ -1020,8 +1020,31 @@ def _forget_products(
     The products manifest never claims a file that is not on disk
     (ARCHITECTURE invariant 3), so the deleted entries leave it; the shared
     products that still hold the deleted points are named under
-    ``deleted_by_storage`` until a post rebuilds the manifest.
+    ``deleted_by_storage`` until a post rebuilds the manifest. Rewritten under
+    the post's lock, in place, as the post writes it (REL-R3-003).
     """
+    with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
+        if handle is None:
+            warn(
+                f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so the "
+                "deleted simulations were not taken out of it; post the matrix again.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return
+        _forget_products_in(manifest, handle, item, run_ids, sims=sims, stamp=stamp, root=root)
+
+
+def _forget_products_in(
+    manifest: Path,
+    handle: Any,
+    item: dict[str, list[str]],
+    run_ids: set[str],
+    *,
+    sims: list[str],
+    stamp: str,
+    root: Path,
+) -> None:
     document = _load_json(manifest, "products manifest")
     products = dict(document.get("products", {}))
     for name in item["own"]:
@@ -1036,9 +1059,7 @@ def _forget_products(
     # Every writer of a restorable file archives the previous copy first, so `restore
     # products` can bring back what this rewrite removes.
     archive_previous(root, manifest, matrix=manifest.parent.name)
-    temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
-    _textio.write_text(temporary, json.dumps(document, indent=2) + "\n")
-    temporary.replace(manifest)
+    _textio.rewrite_locked(handle, manifest, json.dumps(document, indent=2) + "\n")
 
 
 def delete_sims(

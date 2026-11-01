@@ -456,6 +456,25 @@ def locked_document_text(path: str | os.PathLike[str], *, wait: float) -> str:
     return text
 
 
+def rewrite_locked(handle: IO[bytes], path: str | os.PathLike[str], text: str) -> None:
+    """Rewrite ``path``, locked through ``handle``, as :func:`locked_document_text` reads it.
+
+    Staged whole as ``<name>.tmp`` first (a write that fails there leaves the
+    document untouched), then rewritten in place through ``handle``, since
+    Windows refuses a replace onto a file a process holds open; the staged
+    copy is removed once the rewrite completed (REL-R3-003).
+    """
+    target = Path(path)
+    staged = target.with_name(f"{target.name}.tmp")
+    try:
+        write_text(staged, text)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+    replace_content(handle, text)
+    staged.unlink(missing_ok=True)
+
+
 def replace_content(handle: IO[bytes], text: str) -> None:
     """Replace the whole content of a locked ``handle`` with ``text`` in UTF-8, flushed to disk."""
     data = memoryview(text.encode("utf-8"))

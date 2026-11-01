@@ -345,31 +345,51 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
     for manifest in sorted(post.rglob("products.json")) if post.is_dir() and deleted else []:
         if ARCHIVE_DIR in manifest.relative_to(post).parts:
             continue
-        try:
-            document = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        # A manifest of the wrong shape is skipped like an unreadable one: it
-        # must not fail after the exports were already unlinked.
-        if not isinstance(document, dict) or not isinstance(document.get("products", {}), dict):
-            continue
-        products = dict(document.get("products", {}))
-        gone = [name for name in products if (manifest.parent / name).resolve() in deleted]
-        if not gone:
-            continue
-        for name in gone:
-            products.pop(name)
-        document["products"] = products
-        notes = list(document.get("pruned_by_storage", []))
-        notes.append({"at": _now().isoformat(), "mode": PRUNE_MODE, "listings_removed": gone})
-        document["pruned_by_storage"] = notes
-        # Every writer of a restorable file archives the previous copy first (FR-2318).
-        archive_previous(workspace.root, manifest, matrix=manifest.parent.name)
-        temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
-        _textio.write_text(temporary, json.dumps(document, indent=1) + "\n")
-        temporary.replace(manifest)
-        changed[manifest.relative_to(workspace.root).as_posix()] = len(gone)
+        # UNDER THE POST'S LOCK (REL-R3-003): a post of the matrix holds products.json
+        # open while it rewrites it in place, so a replace here was refused on Windows
+        # after the exports were unlinked, and elsewhere one of the two writes was lost.
+        with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
+            if handle is None:
+                warn(
+                    f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so the "
+                    "deleted step exports were not taken out of it; post the matrix again.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+                continue
+            gone = _forget_listings_in(workspace, manifest, handle, deleted)
+        if gone:
+            changed[manifest.relative_to(workspace.root).as_posix()] = gone
     return changed
+
+
+def _forget_listings_in(
+    workspace: CampaignWorkspace, manifest: Path, handle: Any, deleted: set[Path]
+) -> int:
+    """Take the deleted files out of one locked ``products.json``; return how many left it."""
+    try:
+        text = _textio.locked_document_text(manifest, wait=_textio.LOCK_WAIT)
+        document = json.loads(text)
+    except (OSError, ValueError):
+        return 0
+    # A manifest of the wrong shape is skipped like an unreadable one: it
+    # must not fail after the exports were already unlinked.
+    if not isinstance(document, dict) or not isinstance(document.get("products", {}), dict):
+        return 0
+    products = dict(document.get("products", {}))
+    gone = [name for name in products if (manifest.parent / name).resolve() in deleted]
+    if not gone:
+        return 0
+    for name in gone:
+        products.pop(name)
+    document["products"] = products
+    notes = list(document.get("pruned_by_storage", []))
+    notes.append({"at": _now().isoformat(), "mode": PRUNE_MODE, "listings_removed": gone})
+    document["pruned_by_storage"] = notes
+    # Every writer of a restorable file archives the previous copy first (FR-2318).
+    archive_previous(workspace.root, manifest, matrix=manifest.parent.name)
+    _textio.rewrite_locked(handle, manifest, json.dumps(document, indent=1) + "\n")
+    return len(gone)
 
 
 def _would_compact(
