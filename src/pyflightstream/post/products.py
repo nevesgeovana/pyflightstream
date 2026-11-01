@@ -163,6 +163,7 @@ from pyflightstream.post._stage import (
     PRODUCTS_MANIFEST,
     SECTIONS_DIR,
     _hand_back_warnings,
+    _is_a_super_file,
     _log_line,
     _log_record,
     _LogRecord,
@@ -499,6 +500,7 @@ def write_campaign_products(
     matrix_stem: str | None = None,
     check_frozen: bool = False,
     sims: Collection[str] | None = None,
+    keep_unrebuilt: bool = False,
 ) -> list[Path]:
     """Write campaign products, post.log and its JSON; refuse doubts only with check_frozen=True.
 
@@ -525,9 +527,11 @@ def write_campaign_products(
     ``sims`` (FR-307, ``pyfs-matrix post --sims``) limits the rebuild
     to those simulations of the matrix, IN PLACE: their files are archived and
     rewritten as a whole post does, every other simulation's files and
-    ``products.json`` entries stay as they were, and the super files, whose
-    columns are the union over every simulation, are left as the last whole
-    post wrote them and named under ``partial.not_rebuilt`` and in the log. A
+    ``products.json`` entries stay as they were, and the named simulations'
+    super files, whose columns are the union over every simulation, are
+    written under the column set the others carry (PFS-2185.18); without a
+    readable superfile measurement every super file is left as the last whole
+    post wrote it and named under ``partial.not_rebuilt`` and in the log. A
     simulation with no record of the matrix is refused by name before
     anything is written. None, the default, is the whole post.
 
@@ -555,6 +559,12 @@ def write_campaign_products(
     sims : collection of str, optional
         Limit the rebuild to these simulations of the matrix, in place; None
         is the whole post.
+    keep_unrebuilt : bool, default False
+        (PFS-2185.18) Without ``archive``, a previous product this post did not
+        rebuild is KEPT, file and ``products.json`` entry, and warned, rather
+        than removed: a post with no data for a product (exports not on this
+        machine) never deletes it. The command line and the run's own post
+        pass True unless ``--force-overwrite`` was confirmed.
 
     Returns
     -------
@@ -625,6 +635,7 @@ def write_campaign_products(
                     matrix_stem=matrix_stem,
                     check_frozen=check_frozen,
                     sims=selected,
+                    keep_unrebuilt=keep_unrebuilt,
                 )
             except BaseException as error:
                 primary = error
@@ -739,6 +750,7 @@ def _campaign_products(
     matrix_stem: str | None = None,
     check_frozen: bool = False,
     sims: frozenset[str] | None = None,
+    keep_unrebuilt: bool = False,
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
@@ -895,6 +907,7 @@ def _campaign_products(
             by_sim=by_sim,
             archive=archive,
             archive_stamp=archive_stamp,
+            keep_unrebuilt=keep_unrebuilt,
         )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
@@ -1093,42 +1106,46 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
     """Write the campaign's cross-simulation products: the settings table, the super files."""
     write_settings_product(ctx)
     write_refinement_studies(ctx)
-    if ctx.partial is not None:
-        # FR-307: A PARTIAL VERSION OF A CROSS-SIMULATION PRODUCT IS NEVER
-        # WRITTEN. The drafts of the named simulations alone would give a
-        # header that is not the matrix's union; each super file stays as the
-        # last whole post wrote it, and one it never wrote is said too.
+    partial = ctx.partial
+    if partial is not None and partial.super_columns is None:
+        # FR-307: WITHOUT THE OTHERS' COLUMN SET, A PARTIAL VERSION OF A
+        # CROSS-SIMULATION PRODUCT IS NEVER WRITTEN. The drafts of the named
+        # simulations alone would give a header that is not the matrix's
+        # union; each super file stays as the last whole post wrote it, and
+        # one it never wrote is said too.
         for draft in ctx.drafts:
             name = draft.path.relative_to(ctx.out).as_posix()
-            ctx.partial.not_rebuilt.setdefault(
+            partial.not_rebuilt.setdefault(
                 name,
                 "a super file's columns are the union over every simulation of the matrix, "
                 "so a post limited to some simulations does not write it; "
-                f"{ctx.partial.whole} writes it",
-            )
-        if ctx.partial.not_rebuilt:
-            warn(
-                f"post limited to simulation(s) {', '.join(sorted(ctx.partial.sims))}: "
-                f"{len(ctx.partial.not_rebuilt)} cross-simulation product(s) not rebuilt, each "
-                "named with its reason under partial.not_rebuilt in products.json: "
-                f"{', '.join(ctx.partial.not_rebuilt)}. {ctx.partial.whole} rebuilds them.",
-                PyflightstreamWarning,
-                stacklevel=3,
+                f"{partial.whole} writes it",
             )
     # FR-89: the superfiles LAST, and all of them together. Their header is
     # the union over every draft of this campaign, so a steady polar's file
     # and a rotor's carry the same columns and a reader cannot tell from the
-    # file which kind of run is behind a row.
-    if ctx.drafts and ctx.partial is None:
+    # file which kind of run is behind a row. A post limited to some
+    # simulations (PFS-2185.18) writes theirs under the column set the
+    # others' super files carry, so the header stays the matrix's.
+    rebuild = partial is None or partial.super_columns is not None
+    if rebuild and (ctx.drafts or (partial is not None and partial.super_report_files)):
+        leading = () if partial is None or partial.super_columns is None else partial.super_columns
         super_files, super_entries, super_columns = write_superfiles(
             ctx.drafts,
             target=lambda path: _refuse_an_existing_product(
                 path, archive=ctx.archive, stamp=ctx.archive_stamp
             ),
+            leading=leading,
         )
         ctx.written.extend(super_files)
         for path, entry in super_entries.items():
             ctx.products_index[path.relative_to(ctx.out).as_posix()] = entry
+        report_files: list[tuple[Path, Sequence[str], int]] = [
+            (path, super_columns, len(draft.rows))
+            for path, draft in zip(super_files, ctx.drafts, strict=True)
+        ]
+        if partial is not None:
+            report_files.extend(_kept_superfiles(partial, super_files, super_columns))
         # THE MEASUREMENT, and the union in it is built from the WORKSPACE
         # and not from the columns just written: a report whose `known` were
         # the file's own columns would pass a superset test by construction,
@@ -1146,13 +1163,49 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
         report = write_superfile_report(
             ctx.workspace.reports_root(ctx.matrix_stem),
             version=pyflightstream.__version__,
-            files=[
-                (path, super_columns, len(draft.rows))
-                for path, draft in zip(super_files, ctx.drafts, strict=True)
-            ],
+            files=report_files,
             known=known,
         )
         ctx.manifest["superfile_report"] = report.relative_to(ctx.workspace.root).as_posix()
+    if partial is not None and partial.not_rebuilt:
+        warn(
+            f"post limited to simulation(s) {', '.join(sorted(partial.sims))}: "
+            f"{len(partial.not_rebuilt)} cross-simulation product(s) not rebuilt, each "
+            "named with its reason under partial.not_rebuilt in products.json: "
+            f"{', '.join(partial.not_rebuilt)}. {partial.whole} rebuilds them.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _kept_superfiles(
+    partial: _PartialPost, written: Sequence[Path], columns: Sequence[str]
+) -> list[tuple[Path, Sequence[str], int]]:
+    """Return the other simulations' super files a partial post kept, for the measurement.
+
+    PFS-2185.18. Each as the last measurement named it. When the named
+    simulations brought a column the kept files lack, each kept file is said
+    under ``partial.not_rebuilt``: its header is the older set, and a whole
+    post writes every super file under the grown one.
+    """
+    written_names = {path.name for path in written}
+    grown = [column for column in columns if column not in (partial.super_columns or ())]
+    kept: list[tuple[Path, Sequence[str], int]] = []
+    for name, entry in partial.products.items():
+        if not _is_a_super_file(name) or Path(name).name in written_names:
+            continue
+        held, rows = partial.super_report_files.get(
+            Path(name).name, (partial.super_columns or (), int(str(entry.get("rows") or 0)))
+        )
+        kept.append((Path(name), held, rows))
+        if grown and partial.super_columns:
+            partial.not_rebuilt[name] = (
+                f"simulation(s) {', '.join(sorted(partial.sims))} brought column(s) "
+                f"{', '.join(grown)} this super file does not carry; it is the file the last "
+                f"post of its simulation wrote, and {partial.whole} rewrites every super file "
+                "under the grown union"
+            )
+    return kept
 
 
 def _finish_campaign_products(ctx: _CampaignProducts) -> None:

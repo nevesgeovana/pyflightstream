@@ -48,6 +48,42 @@ def _snapshot_of(point: RunRecord) -> SolverSetup | str:
         return f"its recorded solver-setup snapshot cannot be read: {error}"
 
 
+def _table_sources(
+    ctx: _CampaignProducts, sims: list[str], table: str
+) -> list[tuple[str, list[RunRecord]]]:
+    """Return each simulation of the table with its points, in post order.
+
+    A whole post takes every point of the asking simulations. A post limited
+    to some simulations (PFS-2185.18) takes theirs, and every other
+    simulation's points the last table held (its ``runs``), in the order the
+    records name the simulations, as a whole post orders them.
+    """
+    if ctx.partial is None:
+        return [
+            (sim_id, [point for record in ctx.by_sim[sim_id] for point in record.as_points()])
+            for sim_id in sims
+        ]
+    previous = ctx.partial.products.get(table) or {}
+    runs = previous.get("runs") if isinstance(previous, dict) else None
+    held = {str(run) for run in runs} if isinstance(runs, list) else set()
+    sources: list[tuple[str, list[RunRecord]]] = []
+    for sim_id in dict.fromkeys(record.sim_id for record in ctx.records):
+        if sim_id in ctx.partial.sims:
+            records = ctx.by_sim.get(sim_id, []) if sim_id in sims else []
+            points = [point for record in records for point in record.as_points()]
+        else:
+            points = [
+                point
+                for record in ctx.records
+                if record.sim_id == sim_id
+                for point in record.as_points()
+                if point.run_id in held
+            ]
+        if points:
+            sources.append((sim_id, points))
+    return sources
+
+
 def _asking_sims(ctx: _CampaignProducts) -> list[str]:
     """Return the simulations whose pproc asks for the table, in post order."""
     asking = []
@@ -66,29 +102,22 @@ def write_settings_product(ctx: _CampaignProducts) -> None:
     ctx : _CampaignProducts
         The campaign's context: its admitted records by simulation, the pproc
         each simulation followed, and the sinks the manifest is written from.
-        A post limited to some simulations does not rebuild the table, whose
-        rows span the whole matrix; it names the files in ``partial.not_rebuilt``
-        as it does for a super file.
+        A post limited to some simulations (PFS-2185.18) rewrites the table
+        with the named simulations' rows and every other simulation's rows the
+        last table held, so the table spans every simulation posted so far.
     """
     sims = _asking_sims(ctx)
-    if not sims:
-        return
     stem = ctx.out.name
     table = f"{SETTINGS_DIR}/{stem}_settings.csv"
     legend = f"{SETTINGS_DIR}/{stem}_settings.codebook.json"
-    if ctx.partial is not None:
-        for name in (table, legend):
-            ctx.partial.not_rebuilt.setdefault(
-                name,
-                "the settings table has one row per point of the whole matrix, so a post "
-                f"limited to some simulations does not write it; {ctx.partial.whole} writes it",
-            )
+    sources = _table_sources(ctx, sims, table)
+    if not sources:
         return
     setups: list[SolverSetup] = []
     keys: list[dict[str, str]] = []
-    for sim_id in sims:
-        for record in ctx.by_sim[sim_id]:
-            for point in record.as_points():
+    for sim_id, points in sources:
+        if points:
+            for point in points:
                 snapshot = _snapshot_of(point)
                 if isinstance(snapshot, str):
                     # AN INFO LINE AND NOT A SKIP: the table is on by default, and a record

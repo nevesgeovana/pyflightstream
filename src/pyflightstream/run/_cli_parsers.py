@@ -862,7 +862,13 @@ def _add_post_parsers(subparsers: Any) -> None:
             "recorded point whose row states ADDITIONAL_PPROC, one solver launch per point "
             "and no solve, extracts that pproc into datapoints/DP-<point>/additional/<pid>/ "
             "and records it in additional.json; runs.json is never written. "
-            "By default, rebuilds overwrite products in place without an archive."
+            "Only the simulations whose matrix rows state RUN = 1 are posted (a RUN = 0 "
+            "simulation keeps its products), and with no other option only those not "
+            "posted yet; --archive or --force-overwrite rebuilds every RUN = 1 simulation, "
+            "and --sims exactly the named ones. "
+            "By default, rebuilds overwrite products in place without an archive. A "
+            "product it cannot rebuild is kept and warned, unless --archive moves it "
+            "or a confirmed --force-overwrite removes it."
         ),
     )
     post.add_argument(
@@ -909,7 +915,8 @@ def _add_post_parsers(subparsers: Any) -> None:
         "matrix",
         nargs="?",
         help="the run matrix whose products to rebuild, matched by its file stem against "
-        "the records of runs.json (default: every matrix the manifest names)",
+        "the records of runs.json (default: every matrix the manifest names); only its "
+        "RUN = 1 simulations are posted",
     )
     post.add_argument(
         "--workspace",
@@ -928,14 +935,16 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--archive",
         action="store_true",
         help="keep the files a rebuild replaces: MOVE them into "
-        "post/<matrix>/archive/<day and hour>/ before writing",
+        "post/<matrix>/archive/<day and hour>/ before writing; rebuilds every RUN = 1 "
+        "simulation, not only those not posted yet",
     )
     keeping.add_argument(
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="Overwrite without an archive; this option adds a confirmation before rebuilding. "
-        "Pass --yes to confirm in a script.",
+        help="Rebuild every RUN = 1 simulation, not only those not posted yet, overwriting "
+        "without an archive and removing what it cannot rebuild; this option adds a "
+        "confirmation before rebuilding. Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",

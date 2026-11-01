@@ -13,19 +13,38 @@ matrix, each matrix holding a named simulation is posted, limited to the ones
 it holds. A named simulation with no record of the matrix is refused by name
 before anything is written.
 
-A product built from several simulations is never written from some of them:
+A product built from several simulations is written so that it stays true of
+every simulation:
 
 | product | under `--sims` |
 |---|---|
-| the super files (`polars/SUPER-*`), whose columns are the union over every simulation of the matrix | left as the last whole post wrote them, the named simulations' included |
-| `post/<matrix>/reports/superfile-<release>.json`, the measurement of the super files | left as it was |
+| the super files (`polars/SUPER-*`), whose columns are the union over every simulation of the matrix | the named simulations' are rewritten under the column set the others carry, read from the superfile measurement, and the others' are left as they were; when the named simulations bring a column the others lack, each other super file is named under `partial.not_rebuilt`. Without a readable measurement every super file is left as the last whole post wrote it |
+| `post/<matrix>/reports/superfile-<release>.json`, the measurement of the super files | rewritten with every super file, each kept one as the last measurement named it |
+| the settings table (`settings/<matrix>_settings.csv` and its codebook) | rewritten with the named simulations' rows and every other simulation's rows the last table held |
 | `post/<matrix>/reports/sections-<release>.json`, the sections measurement | rebuilt from every recorded simulation of the matrix, as a whole post rebuilds it, unless another simulation's folder is compacted or deleted; then left as it was |
 | the provenance documents | written for the named simulations only, under the name a whole post gives them |
 
 Each product left is named with its reason under `partial.not_rebuilt` in
 `products.json`, beside `partial.sims`, and in one WARNING line of `post.log`.
-`pyfs-matrix post <matrix>` without `--sims` is the whole post and rebuilds
-them. `campaign_sweep.csv` is written by the run, not by the post.
+`campaign_sweep.csv` is written by the run, not by the post.
+
+`pyfs-matrix post <matrix>` without `--sims` reads the RUN cell of the
+matrix's rows: a simulation whose rows state RUN = 0 keeps its product files
+and its `products.json` entries as they are, and a matrix with no RUN = 1 row
+is warned and nothing of it is posted. With no other option it posts only the
+RUN = 1 simulations not posted yet: those holding a recorded point for which
+the last post wrote no provenance document, or whose document states another
+solver end than the record (a point run again). Products brought by `sync`
+count as posted. When nothing is pending it says so and exits 0. `--archive`
+and `--force-overwrite` rebuild every RUN = 1 simulation; when that is every
+recorded simulation of the matrix, it is the whole post. `--sims` rebuilds
+exactly the named simulations, whatever RUN states.
+
+No post deletes a product it could not rebuild, such as a product whose
+exports are not on this machine. Without `--archive` the product is kept,
+file and `products.json` entry, its reason under `skipped` begins with "kept
+as the last post wrote it", and one warning counts them. `--archive` moves it
+into `archive/<stamp>/`, and a confirmed `--force-overwrite` removes it.
 
 `pyfs-matrix collect --sims 2006,2007` sweeps only the SUBMITTED records of
 those simulations, and of their additional extractions; every other record is
