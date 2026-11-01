@@ -1130,10 +1130,11 @@ def beam_sections(
     r"""Return a blade's sections cut from its mesh, kept in ``<geometry>.<family>.beam.toml``.
 
     The file sits beside the mesh and its ``<geometry>.boundaries.toml``, and records the
-    mesh's sha256 and the station count. A file of the same sha256 and count is used as it
-    is, hand edits included. One of another sha256 or count, or one that does not read as
-    sections, is warned and kept as ``<geometry>.<family>.beam.toml.bak``, and the sections
-    are cut again (:func:`pyflightstream.fsi.sections.sections_from_mesh`) from the blade's
+    mesh's sha256, the station count and the hub it was cut about. A file of the same
+    sha256, count and hub is used as it is, hand edits included. One of another sha256,
+    count or hub, or one that does not read as sections, is warned and kept as
+    ``<geometry>.<family>.beam.toml.bak``, and the sections are cut again
+    (:func:`pyflightstream.fsi.sections.sections_from_mesh`) from the blade's
     surface in metres about the hub. The plan of an FSI input with ``[sections] source =
     "mesh"`` and ``pyfs-workspace geometry beam`` both call it, so both write the same file.
 
@@ -1221,13 +1222,40 @@ def beam_sections(
     return BeamSections(target, file_sha256(target), table, pdf)
 
 
+def _changed_inputs(
+    stated: Mapping[str, Any], mesh_sha256: str, stations: int, hub_m: Sequence[float]
+) -> list[str]:
+    """Say which of the inputs a ``.beam.toml`` records differ from the ones asked for."""
+    changed = []
+    if stated.get("mesh_sha256") != mesh_sha256:
+        changed.append(
+            f"it was cut from a mesh of sha256 {str(stated.get('mesh_sha256'))[:16]}, "
+            f"and the mesh's is now {mesh_sha256[:16]}"
+        )
+    if stated.get("stations") != stations:
+        changed.append(f"it holds {stated.get('stations')} stations and {stations} are asked for")
+    hub = [float(value) for value in hub_m]
+    recorded = stated.get("hub_m")
+    try:
+        cut_about = [float(value) for value in recorded]  # type: ignore[union-attr]
+        same = len(cut_about) == 3 and all(
+            abs(a - b) <= 1e-9 for a, b in zip(cut_about, hub, strict=True)
+        )
+    except (TypeError, ValueError):
+        same = False
+    if not same:
+        changed.append(f"it was cut about the hub {recorded} m and the hub is now {hub} m")
+    return changed
+
+
 def _kept_beam(
     target: Path, mesh_sha256: str, stations: int, hub_m: Sequence[float]
 ) -> dict[str, Any] | None:
-    """Return the sections of a ``.beam.toml`` cut from this mesh at this count, else None.
+    """Return the sections of a ``.beam.toml`` cut from these inputs, else None.
 
-    A file cut from another mesh or at another count, or one that does not read as
-    sections, is warned and moved to ``.bak`` so the sections are cut again.
+    The inputs are the mesh's sha256, the station count and the hub the sections were
+    cut about. A file cut from other inputs, or one that does not read as sections, is
+    warned and moved to ``.bak`` so the sections are cut again.
     """
     if not target.is_file():
         return None
@@ -1237,23 +1265,10 @@ def _kept_beam(
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
         why = f"it does not read as sections ({str(error).splitlines()[0]})"
     else:
-        if stated.get("mesh_sha256") == mesh_sha256 and stated.get("stations") == stations:
-            cut_about = [float(value) for value in stated.get("hub_m", (0.0, 0.0, 0.0))]
-            if max(abs(a - float(b)) for a, b in zip(cut_about, hub_m, strict=True)) > 1e-9:
-                warn(
-                    f"{target.name} was cut about the hub {stated.get('hub_m')} m and the row's "
-                    f"blade frame sits on {list(hub_m)} m; its sections are used as they are. "
-                    "Delete the file to cut them again about this hub.",
-                    PyflightstreamWarning,
-                    stacklevel=4,
-                )
+        changed = _changed_inputs(stated, mesh_sha256, stations, hub_m)
+        if not changed:
             return table
-        why = (
-            f"it holds {stated.get('stations')} stations and {stations} are asked for"
-            if stated.get("mesh_sha256") == mesh_sha256
-            else f"it was cut from a mesh of sha256 {str(stated.get('mesh_sha256'))[:16]}, "
-            f"and the mesh's is now {mesh_sha256[:16]}"
-        )
+        why = "; ".join(changed)
     backup = target.with_name(target.name + ".bak")
     warn(
         f"{target.name}: {why}; the file is kept as {backup.name} and the sections are cut "

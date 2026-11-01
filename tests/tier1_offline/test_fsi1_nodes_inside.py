@@ -626,7 +626,7 @@ def _properties(table, sections_key="sections_m"):
     )
 
 
-@pytest.mark.requirement("FR-3440")
+@pytest.mark.requirement("FR-3450")
 @pytest.mark.parametrize(("units", "metres_per_unit"), [("METER", 1.0), ("MILLIMETER", 0.001)])
 def test_p0530_mesh_sections_recover_a_twisted_naca_blade(tmp_path, units, metres_per_unit):
     # P0530-MESH-SECTIONS A1: the blade written in metres and in millimetres; each section's
@@ -656,7 +656,7 @@ def test_p0530_mesh_sections_recover_a_twisted_naca_blade(tmp_path, units, metre
         np.testing.assert_allclose(getattr(derived, name), getattr(expected, name), rtol=0.01)
 
 
-@pytest.mark.requirement("FR-3440")
+@pytest.mark.requirement("FR-3450")
 def test_p0530_the_same_blade_saved_as_fsm_gives_the_sections_of_the_obj(tmp_path):
     # P0530-MESH-SECTIONS A2: the saved simulation of the same blade, read in the unit it
     # stores, gives the sections of the OBJ.
@@ -674,7 +674,7 @@ def test_p0530_the_same_blade_saved_as_fsm_gives_the_sections_of_the_obj(tmp_pat
         np.testing.assert_allclose(ours, theirs, atol=1e-9)
 
 
-@pytest.mark.requirement("FR-3441")
+@pytest.mark.requirement("FR-3451")
 def test_p0530_an_open_trailing_edge_is_closed_by_its_segment(tmp_path):
     # P0530-MESH-SECTIONS A3: the trailing edge left open (points aft of 99 % chord dropped,
     # no face across the gap) still gives every station, each closed by the gap's segment.
@@ -694,7 +694,7 @@ def test_p0530_an_open_trailing_edge_is_closed_by_its_segment(tmp_path):
         assert abs(area / closed - 1.0) < 0.01, radius
 
 
-@pytest.mark.requirement("FR-3441")
+@pytest.mark.requirement("FR-3451")
 def test_p0530_the_root_station_is_the_first_closed_cut_above_a_fillet(tmp_path):
     # P0530-MESH-SECTIONS A3: a flared root whose lower surface stops short of 0.26 m (the cut
     # crosses the fillet's open edge there): the first station is the first closed cut, at
@@ -711,7 +711,7 @@ def test_p0530_the_root_station_is_the_first_closed_cut_above_a_fillet(tmp_path)
     assert abs(stated["sections"]["station_radii_m"][-1] - TIP_M) < 1e-5
 
 
-@pytest.mark.requirement("FR-3441")
+@pytest.mark.requirement("FR-3451")
 def test_p0530_a_station_that_does_not_close_moves_to_the_nearest_closed_cut(tmp_path):
     # P0530-MESH-SECTIONS A3: stations at 0.2, 0.4, 0.6, 0.8, 1.0 m; the lower surface is open
     # from 0.76 to 0.86 m, so the 0.8 m station is cut at 0.76 m, the nearest closed radius
@@ -726,7 +726,7 @@ def test_p0530_a_station_that_does_not_close_moves_to_the_nearest_closed_cut(tmp
     assert len(cut.station_radii_m) == 5 and cut.left_out_radii_m == []
 
 
-@pytest.mark.requirement("FR-3441")
+@pytest.mark.requirement("FR-3451")
 def test_p0530_a_station_with_no_closed_cut_in_its_window_is_left_out(tmp_path):
     # P0530-MESH-SECTIONS A3: open from 0.66 to 0.94 m, no cut closes in the 0.8 m station's
     # window (0.7 to 0.9 m), next to the tip: that station is warned and left out.
@@ -739,7 +739,7 @@ def test_p0530_a_station_with_no_closed_cut_in_its_window_is_left_out(tmp_path):
     np.testing.assert_allclose(cut.station_radii_m, [0.2, 0.4, 0.6, 1.0], atol=1e-5)
 
 
-@pytest.mark.requirement("FR-3440")
+@pytest.mark.requirement("FR-3450")
 def test_p0530_the_derived_contours_lie_on_the_mesh_cut(tmp_path):
     # P0530-MESH-SECTIONS A4: the beam built from the derived sections places every contour
     # on the blade's cut of the mesh to below 0.01 mm (contour_mesh_offsets), and the plan's
@@ -759,7 +759,7 @@ def test_p0530_the_derived_contours_lie_on_the_mesh_cut(tmp_path):
         assert warn_of_contours_off_the_mesh_cut(cfg, vertices, faces, where="b") == []
 
 
-@pytest.mark.requirement("FR-3442")
+@pytest.mark.requirement("FR-3452")
 def test_p0530_a_kept_beam_file_is_used_as_it_is_and_recut_on_a_changed_mesh_or_count(
     tmp_path,
 ):
@@ -807,7 +807,7 @@ source = "mesh"
 """
 
 
-@pytest.mark.requirement("FR-3443")
+@pytest.mark.requirement("FR-3453")
 def test_p0530_an_input_from_the_mesh_without_stations_stops_the_plan(tmp_path):
     # P0530-MESH-SECTIONS A6: source = "mesh" and no stations states no usable sections; the
     # plan stops on the input, asking for stations = <n>.
@@ -828,7 +828,7 @@ def test_p0530_an_input_from_the_mesh_without_stations_stops_the_plan(tmp_path):
         bind_row(tmp_path, workspace, geometry="blade.obj", tail=" / FSI: f001")
 
 
-@pytest.mark.requirement("FR-3443")
+@pytest.mark.requirement("FR-3453")
 def test_p0530_fewer_than_two_usable_stations_stop_the_input_naming_the_radii(tmp_path):
     # P0530-MESH-SECTIONS A6: one station, or a blade whose cuts never close, is no beam; the
     # input is refused naming the radii tried.
@@ -851,13 +851,16 @@ def test_p0530_fewer_than_two_usable_stations_stop_the_input_naming_the_radii(tm
         beam_sections(open_blade, "Blade1", 5)
 
 
-def _rotor_workspace(tmp_path, stations=5):
-    """A workspace whose reference r003 holds one rotor on the origin, blade one Blade1 on
-    Z, a mesh blade.obj of that blade, and f001 cutting its sections from the mesh."""
+def _rotor_workspace(tmp_path, stations=5, *, hub=(0.0, 0.0, 0.0), command_first=False):
+    """A workspace whose reference r003 holds one rotor at ``hub``, blade one Blade1 on Z,
+    a mesh blade.obj of that blade, and f001 cutting its sections from the mesh; with
+    ``command_first``, ``geometry beam`` writes the file (about the mesh's origin) before
+    the row is bound."""
     import hashlib
     import sys
     from pathlib import Path
 
+    from pyflightstream.workspace.cli import main as workspace_main
     from tests.support_helpers import make_library
     from tests.tier1_offline.test_raw_mesh_conditions import _case as bind_row
 
@@ -875,7 +878,8 @@ def _rotor_workspace(tmp_path, stations=5):
     reference = workspace.inputs_dir / "references" / "r003.toml"
     reference.write_text(
         "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"
-        '[rotors.ROTOR]\nalias = "ROTOR"\nx_m = 0.0\ny_m = 0.0\nz_m = 0.0\naxis = "X"\n'
+        '[rotors.ROTOR]\nalias = "ROTOR"\n'
+        f'x_m = {hub[0]}\ny_m = {hub[1]}\nz_m = {hub[2]}\naxis = "X"\n'
         'rpm_sign = 1\ndiameter_m = 2.0\nfamilies_blades = ["Blade1"]\n'
         'blade1 = { azimuth_deg = 0.0, zero = "Z" }\n',
         encoding="utf-8",
@@ -883,11 +887,14 @@ def _rotor_workspace(tmp_path, stations=5):
     (workspace.inputs_dir / "fsi" / "f001.toml").write_text(
         MESH_INPUT.format(stations=f"stations = {stations}\n")
     )
+    if command_first:
+        argv = ["geometry", "beam", str(obj), "--families", "Blade1", "--stations", str(stations)]
+        assert workspace_main(argv) == 0
     tail = " / FSI: f001 / RPM: 955"
     return workspace, bind_row(tmp_path, workspace, geometry="blade.obj", tail=tail)
 
 
-@pytest.mark.requirement("FR-3442")
+@pytest.mark.requirement("FR-3452")
 def test_p0530_the_plan_cuts_the_rows_mesh_into_the_geometrys_beam_file(tmp_path):
     # P0530-MESH-SECTIONS: the plan of a row whose input states source = "mesh" writes
     # blade.Blade1.beam.toml beside the mesh and builds the beam from it, and the provenance
@@ -906,7 +913,42 @@ def test_p0530_the_plan_cuts_the_rows_mesh_into_the_geometrys_beam_file(tmp_path
     assert case.fsi.blade.provenance.geometry_file_name == written.name
 
 
-@pytest.mark.requirement("FR-3442")
+@pytest.mark.requirement("FR-3452")
+def test_p0530_a_beam_file_cut_about_another_hub_is_cut_again_and_one_on_it_is_reused(
+    tmp_path,
+):
+    # P0530-MESH-SECTIONS A5: the hub is an input like the sha256 and the count. The command
+    # writes the file about the mesh's origin; a row whose rotor sits on the origin reuses it
+    # byte for byte, and a row whose rotor sits 0.05 m off it warns, keeps the old file as
+    # .bak and cuts the sections again about its hub.
+    import tomllib
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    with warnings.catch_warnings(record=True) as said:
+        warnings.simplefilter("always")
+        on, _ = _rotor_workspace(tmp_path / "on", command_first=True)
+    assert not [w for w in said if "beam.toml" in str(w.message)], [str(w.message) for w in said]
+    geometries = on.inputs_dir / "geometries"
+    assert not (geometries / "blade.Blade1.beam.toml.bak").exists()
+    assert tomllib.loads((geometries / "blade.Blade1.beam.toml").read_text())["hub_m"] == [0.0] * 3
+
+    with pytest.warns(PyflightstreamWarning, match=r"cut about the hub \[0\.0, 0\.0, 0\.0\] m"):
+        off, case = _rotor_workspace(tmp_path / "off", hub=(0.0, 0.0, 0.05), command_first=True)
+    geometries = off.inputs_dir / "geometries"
+    backup = tomllib.loads((geometries / "blade.Blade1.beam.toml.bak").read_text())
+    again = tomllib.loads((geometries / "blade.Blade1.beam.toml").read_text())
+    assert backup["hub_m"] == [0.0] * 3 and again["hub_m"] == [0.0, 0.0, 0.05]
+    np.testing.assert_allclose(
+        again["sections"]["station_radii_m"],
+        np.asarray(backup["sections"]["station_radii_m"]) - 0.05,
+        atol=1e-5,
+    )
+    assert case.fsi.blade.station_radii_m == again["sections"]["station_radii_m"]
+
+
+@pytest.mark.requirement("FR-3452")
 def test_p0530_the_run_names_the_beam_file_in_its_blade_mesh_record(tmp_path):
     # P0530-MESH-SECTIONS: blade_mesh, the run's record of how the mesh holds the blade,
     # names the .beam.toml the sections were read from and its sha256.
@@ -919,7 +961,7 @@ def test_p0530_the_run_names_the_beam_file_in_its_blade_mesh_record(tmp_path):
     assert record["beam_toml"] == beam["file"] and record["beam_toml_sha256"] == beam["sha256"]
 
 
-@pytest.mark.requirement("FR-3444")
+@pytest.mark.requirement("FR-3454")
 def test_p0530_the_beam_command_writes_the_plans_file_and_its_drawing(tmp_path):
     # P0530-MESH-SECTIONS A7: pyfs-workspace geometry beam writes, for the same mesh, the file
     # the plan wrote, byte for byte; --visual-inspection draws blade.Blade1.beam.pdf.

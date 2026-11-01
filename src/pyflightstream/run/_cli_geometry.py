@@ -245,8 +245,9 @@ def _add_beam(verbs: Any) -> None:
             "Writes <geometry>.<family>.beam.toml beside the mesh for each family: the "
             "family's sections cut at --stations radii evenly spaced from its first closed "
             "cut at the root to its last at the tip, the file an FSI input with [sections] "
-            'source = "mesh" reads. A file of the same mesh sha256 and station count is kept '
-            "as it is; another is kept as .bak and cut again (docs/fsi-workspace.md)."
+            'source = "mesh" reads, cut about the origin of the mesh. A file of the same '
+            "mesh sha256, station count and hub is kept as it is; another is kept as .bak and "
+            "cut again (docs/fsi-workspace.md)."
         ),
     )
     beam.add_argument("geometry", metavar="GEOMETRY", help="the OBJ or saved simulation (.fsm)")

@@ -681,11 +681,12 @@ saved simulation `.fsm`) and writes it:
   the suction side in metres about the pitch axis, so the contour check of the next
   section finds every contour on the cut.
 
-The file records the mesh's sha256 and the station count. With the same sha256 and
-count it is used as it is, hand edits included. With another sha256 or another
-count, or when it does not read as sections, it is warned, kept as
-`<geometry>.<family>.beam.toml.bak`, and the sections are cut again. A file cut
-about another hub than the row's is warned and used as it is.
+The file records the mesh's sha256, the station count and the hub it was cut
+about (`hub_m`). With the same three it is used as it is, hand edits included.
+With another sha256, another count or another hub (a file the command below wrote
+about the mesh's origin, read by a row whose rotor sits elsewhere), or when it does
+not read as sections, it is warned, kept as `<geometry>.<family>.beam.toml.bak`,
+and the sections are cut again.
 
 The beam is built from the file exactly as from stated contours. The run's
 `fsi-provenance.json` records the file in `beam_sections` (its name and sha256) and
@@ -693,7 +694,8 @@ names it in its `blade_mesh` record as `beam_toml` and `beam_toml_sha256`; the
 blade's provenance names it as the geometry file its contours were read from.
 
 `pyfs-workspace geometry beam` writes the same file on demand, for each family
-named, cutting about the mesh's origin:
+named, cutting about the mesh's origin (a row whose rotor sits on the origin reuses
+it as it is):
 
 ```bash
 pyfs-workspace geometry beam inputs/geometries/rotor/rotor.obj --families Blade1 --stations 16 --visual-inspection
