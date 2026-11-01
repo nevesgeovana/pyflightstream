@@ -33,6 +33,8 @@ from typing import Any
 
 import numpy as np
 
+from pyflightstream._errors import InputValueError
+
 __all__ = ["mesh_reader", "obj_group_surface", "read_mesh"]
 
 
@@ -93,7 +95,7 @@ def read_mesh(path: str | Path) -> Any:
 
 
 def obj_group_surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
-    """Read the faces of one object or group of an OBJ, as vertices and 0-based triangles.
+    r"""Read the faces of one object or group of an OBJ, as vertices and 0-based triangles.
 
     Polygons are split into a fan of triangles. The vertices are those the group's
     faces use. A coupled blade is its group of the imported OBJ (FR-3416, FR-3417).
@@ -112,8 +114,19 @@ def obj_group_surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
 
     Raises
     ------
-    ValueError
+    InputValueError
         If the file holds no face of ``name``.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     obj = Path(folder) / "blade.obj"
+    ...     _ = obj.write_text("g blade\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    ...     vertices, triangles = obj_group_surface(obj, "blade")
+    >>> vertices.shape, triangles.tolist()
+    ((3, 3), [[0, 1, 2]])
     """
     vertices: list[list[float]] = []
     triangles: list[list[int]] = []
@@ -131,7 +144,7 @@ def obj_group_surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
             index = [i - 1 if i > 0 else len(vertices) + i for i in index]
             triangles.extend([index[0], index[k], index[k + 1]] for k in range(1, len(index) - 1))
     if not triangles:
-        raise ValueError(f"{path.name} holds no face of {name!r}; the blade cannot be placed")
+        raise InputValueError(f"{path.name} holds no face of {name!r}; the blade cannot be placed")
     faces = np.asarray(triangles, dtype=np.int64)
     used, inverse = np.unique(faces, return_inverse=True)
     return np.asarray(vertices, dtype=float)[used], inverse.reshape(-1, 3)
