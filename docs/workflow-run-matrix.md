@@ -525,8 +525,9 @@ way to see whether two studies overlap, leave a gap, or repeat a level.
 - Each active row is expanded into its points: the FLIGHT_CONDITION key marked `sweep` takes each
   SWEEP_VALUES value. A ROTATE alias a row does not state is not turned, so its angle is 0; any
   other parameter a row does not state leaves that point out of the panels that need it.
-- The ADVANCE_RATIO of a row whose rotor turns no blades (a power-off row) is the clock of the run
-  and the spinner's speed, not a design variable, so it is left out of the ADVANCE_RATIO panels.
+- ADVANCE_RATIO is read from FLIGHT_CONDITION like any other key. A row that declares none (a
+  power-off row states the spinner speed as RPM in its MOTIONS record) has no ADVANCE_RATIO
+  point, and an RPM inside a MOTIONS record is not a parameter.
 - The diagonal draws one bar per level when a parameter has at most 25 levels, else 16 bins; each
   axis spans the levels with a 6 percent margin.
 

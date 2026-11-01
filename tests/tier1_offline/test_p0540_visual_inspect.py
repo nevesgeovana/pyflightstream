@@ -64,7 +64,7 @@ def test_p0540_a_parameter_a_row_does_not_state_leaves_the_point_out(workspace):
     assert all("NCPUS" not in p for points in table.values() for p in points)
 
 
-def test_p0540_a_power_off_row_advance_ratio_is_a_clock_and_is_left_out(workspace):
+def test_p0540_a_row_that_declares_no_advance_ratio_has_no_advance_ratio_point(workspace):
     table = _table(workspace)
     assert all("ADVANCE_RATIO" not in p for p in table["doe-power-off"])
     assert all("ADVANCE_RATIO" in p for p in table["doe-power-on"])
@@ -139,3 +139,9 @@ def test_p0540_a_matrix_the_workspace_does_not_hold_is_warned_and_skipped(worksp
         issubclass(w.category, NotApplicableWarning) and "nothing-here" in str(w.message)
         for w in caught
     )
+
+
+def test_p0540_an_rpm_inside_a_motions_record_is_no_parameter(workspace):
+    table = _table(workspace)
+    names = {key for points in table.values() for p in points for key in p}
+    assert "RPM" not in names and not any("1989" in key for key in names)

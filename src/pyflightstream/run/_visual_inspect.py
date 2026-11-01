@@ -35,7 +35,6 @@ __all__ = [
     "add_visual_inspect_parser",
     "cmd_visual_inspect",
     "design_table",
-    "is_power_off",
     "output_path",
     "row_points",
     "visual_inspect",
@@ -44,7 +43,7 @@ __all__ = [
 #: The word of ``--matrices`` that names every matrix the workspace holds.
 ALL_MATRICES = "all"
 
-#: PROVISIONAL name and place of the figure, pending the owner: defined once, here. ``{matrices}``
+#: Name and place of the figure under the workspace, defined once, here. ``{matrices}``
 #: is the matrix stems joined by an underscore, ``all`` for ``--matrices all``.
 OUTPUT_PATTERN = "post/visual-inspect/doe_{matrices}.pdf"
 
@@ -63,18 +62,6 @@ _COLUMN_KEYS = frozenset(
 _Point = tuple[dict[str, float], dict[tuple[str, str], float]]
 
 
-def is_power_off(row: MatrixRow) -> bool:
-    """Whether a row's rotor turns no blades (PROVISIONAL rule, pending the owner's answer).
-
-    Today: the CONFIGURATION says POWEROFF, or no MOTIONS record of the row states a
-    MOVING_BC_ALIAS. Such a row's ADVANCE_RATIO only sets the time step and the spinner's speed,
-    so it is no design variable. The rule lives here alone, so it changes in one place.
-    """
-    configuration = str(row.variables.get("CONFIGURATION", "")).upper().replace("-", "")
-    moves = any("MOVING_BC_ALIAS" in record for record in row.motions)
-    return "POWEROFF" in configuration or not moves
-
-
 def _number(value: Any) -> float | None:
     """Return ``value`` as a float, or None when it is not a number."""
     try:
@@ -86,8 +73,9 @@ def _number(value: Any) -> float | None:
 def row_points(row: MatrixRow) -> list[_Point]:
     """Expand one row into its points: (scalar parameters, ROTATE angles by (alias, axis)).
 
-    The swept FLIGHT_CONDITION key takes each SWEEP_VALUES value. A power-off row (see
-    :func:`is_power_off`) states no ADVANCE_RATIO design value unless it is the swept key.
+    The swept FLIGHT_CONDITION key takes each SWEEP_VALUES value. Every parameter is read as the
+    row states it: a row that declares no ADVANCE_RATIO has none, and an RPM inside a MOTIONS
+     record is no parameter.
     """
     base: dict[str, float] = {k: float(v) for k, v in row.flight_condition.items()}
     for key, value in row.variables.items():
@@ -105,8 +93,6 @@ def row_points(row: MatrixRow) -> list[_Point]:
         if key not in row.flight_condition and key not in row.variables
     ]
     values = row.sweep.values
-    if "ADVANCE_RATIO" not in swept and is_power_off(row):
-        base.pop("ADVANCE_RATIO", None)
     if not values:
         return [(base, rotation)]
     points: list[_Point] = []
