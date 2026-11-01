@@ -50,6 +50,7 @@ beam that consumes its output needs the ``[fsi]`` extra.
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -1319,45 +1320,95 @@ def warn_of_contours_off_the_mesh_cut(
             f"{where}: the section contour as placed (origin on the pitch axis) lies off the "
             f"blade's cut of the imported mesh by more than {1e3 * tolerance_m:g} mm at {listed}. "
             "The beam's sections, and so its elastic and mass axes, sit where the contours are; "
-            "pyflightstream.fsi.sections.place_on_mesh_cut writes the contours placed on the "
-            "mesh cut.",
+            "pyflightstream.fsi.sections.place_on_mesh_cut writes the input with its contours "
+            "placed on the mesh cut.",
             PyflightstreamWarning,
             stacklevel=2,
         )
     return [station for station, _, _ in off]
 
 
-def place_on_mesh_cut(
-    config: FsiConfig, vertices: ArrayLike, faces: ArrayLike
-) -> list[list[list[float]]]:
-    """Return the blade's section contours moved onto the blade's cut of the imported mesh.
+def _toml_value(value: object) -> str:
+    """Write one value of a ``[sections]`` table: a string, a bool, a number or a nested list."""
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return repr(value)
+    if isinstance(value, list | tuple):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    raise FsiInputError(f"the [sections] table holds a value this writer does not write: {value!r}")
 
-    Each contour is translated in its section frame by its
+
+def place_on_mesh_cut(
+    config: FsiConfig,
+    vertices: ArrayLike,
+    faces: ArrayLike,
+    *,
+    source: str | Path,
+    target: str | Path,
+) -> list[list[list[float]]]:
+    """Write the FSI input with its section contours moved onto the blade's cut of the mesh.
+
+    Each contour of ``config`` is translated in its section frame by its
     :func:`contour_mesh_offsets`, so its perimeter centroid lies on the mesh cut's;
-    a station whose plane does not cut the mesh keeps its contour. The result is
-    written as the input's ``sections_m``; nothing else of the configuration moves.
+    a station whose plane does not cut the mesh keeps its contour. ``target`` is
+    written as a copy of the FSI input ``source`` (``mode = "calculated"``) whose
+    ``[sections]`` table states the moved contours as ``sections_m`` in place of
+    ``sections_m``, ``airfoil`` or ``naca``, and whose ``geometry_source`` says the
+    contours were placed on the mesh cut; every other line of ``source`` is kept.
+    ``source`` is written only when ``target`` is the same path.
 
     Parameters
     ----------
     config : FsiConfig
-        A configuration whose blade carries ``section_contours_m``.
+        The configuration ``source`` resolves to, whose blade carries ``section_contours_m``.
     vertices, faces : array_like
         The blade's surface as imported: vertices ``(v, 3)`` [m] and 0-based triangles ``(f, 3)``.
+    source : str or Path
+        The FSI input the contours come from.
+    target : str or Path
+        Where the placed input is written.
 
     Returns
     -------
     list of list of list of float
-        Per station, the contour's ``(chordwise, normal)`` points [m], placed.
+        Per station, the ``(chordwise, normal)`` points [m] written as ``sections_m``.
 
     Raises
     ------
     FsiInputError
-        If the blade carries no section contours.
+        If the blade carries no section contours, or ``source`` holds no ``[sections]`` table
+        of as many stations.
     """
+    import tomllib
+
     contours = config.blade.section_contours_m
     offsets = contour_mesh_offsets(config, vertices, faces)
     assert contours is not None  # contour_mesh_offsets refused a blade without them
-    return [
+    placed = [
         (np.asarray(contour, dtype=float) + (offset or (0.0, 0.0))).tolist()
         for contour, offset in zip(contours, offsets, strict=True)
     ]
+    text = Path(source).read_text(encoding="utf-8-sig")
+    table = tomllib.loads(text).get("sections")
+    lines = text.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.strip() == "[sections]"]
+    if not isinstance(table, dict) or len(starts) != 1:
+        raise FsiInputError(f"{Path(source).name} holds no [sections] table to place")
+    if len(table.get("station_radii_m", ())) != len(placed):
+        raise FsiInputError(
+            f"{Path(source).name} states {len(table.get('station_radii_m', ()))} stations and "
+            f"the configuration {len(placed)}; pass the configuration the input resolves to"
+        )
+    end = next(
+        (i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith("[")), len(lines)
+    )
+    rows = {k: v for k, v in table.items() if k not in ("sections_m", "airfoil", "naca")}
+    rows["geometry_source"] = f"{table.get('geometry_source', '')}; contours placed on the mesh cut"
+    rows["sections_m"] = placed
+    written = ["[sections]", *(f"{key} = {_toml_value(value)}" for key, value in rows.items()), ""]
+    out = [*lines[: starts[0]], *written, *lines[end:]]
+    Path(target).write_text("\n".join(out).rstrip("\n") + "\n", encoding="utf-8")
+    return placed

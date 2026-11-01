@@ -47,7 +47,8 @@ FlightStream versions.
   (origin on the pitch axis), lies more than 5 mm off blade one's cut of the mesh: the
   warning names each station, its radius and its offset toward the leading edge and toward
   the suction side. Nothing is refused. `pyflightstream.fsi.sections.place_on_mesh_cut`
-  returns the contours moved onto the mesh cut, to write as `sections_m`;
+  writes the FSI input to the path given with its contours moved onto the mesh cut as
+  `sections_m` (the input itself only when that is the path given) and returns them;
   `contour_mesh_offsets` and `obj_group_surface` are public beside it (FR-3417).
 
 ### Fixed

@@ -647,10 +647,28 @@ of the two curves in the section plane), one warning names each such station,
 its radius and its offset toward the leading edge and toward the suction side.
 Nothing is refused; the beam is built from the contours as stated.
 
-`pyflightstream.fsi.sections.place_on_mesh_cut(config, vertices, faces)`
-returns the contours moved by those offsets, ready to write as `sections_m`;
-`contour_mesh_offsets` returns the offsets themselves. The mesh is read with
-`pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`.
+`pyflightstream.fsi.sections.place_on_mesh_cut(config, vertices, faces,
+source=..., target=...)` writes the FSI input `source` to `target` with its
+`[sections]` table stating the contours moved by those offsets as `sections_m`
+(in place of `sections_m`, `airfoil` or `naca`) and `geometry_source` saying
+they were placed on the mesh cut; every other line is kept, and `source` is
+written only when `target` is the same path. It returns the contours it wrote.
+`config` is the configuration `source` resolves to. `contour_mesh_offsets`
+returns the offsets themselves. The mesh is read with
+`pyflightstream.fsi.sections.obj_group_surface(path, "<blade group>")`:
+
+```python
+from pathlib import Path
+
+from pyflightstream.fsi.sections import obj_group_surface, place_on_mesh_cut
+from pyflightstream.workspace.fsi_setup import load_fsi_setup
+
+config = load_fsi_setup("inputs/fsi/f001.toml")
+vertices, faces = obj_group_surface(Path("geometry/rotor.obj"), "Blade1")
+place_on_mesh_cut(
+    config, vertices, faces, source="inputs/fsi/f001.toml", target="inputs/fsi/f002.toml"
+)
+```
 
 ## Calibration and provenance
 

@@ -344,18 +344,46 @@ def test_p0530_a_contour_off_the_mesh_cut_warns_and_a_placed_one_is_silent():
     assert CONTOUR_PLACEMENT_TOLERANCE_M < 0.026
 
 
-@pytest.mark.requirement("FR-3417")
-def test_p0530_the_helper_writes_the_contours_placed_on_the_mesh_cut():
-    from pyflightstream.fsi.sections import contour_mesh_offsets, place_on_mesh_cut
+#: A calculated FSI input over the module's stations: NACA 4412 about the quarter chord.
+CALCULATED_INPUT = f"""mode = "calculated"
+material = "ti-6al-4v-grade5-annealed"
 
-    sections = _quarter_chord_sections()
-    cfg = _config(_blade(sections))
-    aft = _prism_mesh(sections, AFT_OFFSETS)
-    moved = place_on_mesh_cut(cfg, *aft)
-    for contour, before, offset in zip(
-        moved, cfg.blade.section_contours_m, AFT_OFFSETS, strict=True
-    ):
+[config]
+blade_count = 2
+omega_rad_per_s = 100.0
+
+[sections]
+station_radii_m = {RADII}
+chord_m = {CHORDS}
+geometric_pitch_deg = {PITCH}
+naca = "4412"
+chord_panels = 80
+pitch_axis_chord_fraction = {PITCH_AXIS}
+geometry_source = "NACA 4412 about the quarter chord"
+torsion_grid_cells = 16
+"""
+
+
+@pytest.mark.requirement("FR-3417")
+def test_p0530_the_helper_writes_the_contours_placed_on_the_mesh_cut(tmp_path):
+    # P0530-CONTOUR-PLACEMENT: the helper WRITES the input with the contours moved, to the
+    # path given, and the written input loads back through the FSI input reader with them.
+    from pyflightstream.fsi.sections import contour_mesh_offsets, place_on_mesh_cut
+    from pyflightstream.workspace.fsi_setup import resolve_fsi_setup
+
+    source, target = tmp_path / "f001.toml", tmp_path / "f002.toml"
+    source.write_text(CALCULATED_INPUT, encoding="utf-8")
+    cfg = resolve_fsi_setup(source).effective
+    stated = cfg.blade.section_contours_m
+    aft = _prism_mesh(stated, AFT_OFFSETS)
+    written = place_on_mesh_cut(cfg, *aft, source=source, target=target)
+    assert source.read_text(encoding="utf-8") == CALCULATED_INPUT, "the input is never rewritten"
+    for contour, before, offset in zip(written, stated, AFT_OFFSETS, strict=True):
         np.testing.assert_allclose(np.asarray(contour), np.asarray(before) + offset, atol=1e-9)
-    replaced = _config(_blade([np.asarray(contour) for contour in moved]))
-    for offset in contour_mesh_offsets(replaced, *aft):
+    loaded = resolve_fsi_setup(target).effective
+    np.testing.assert_allclose(
+        np.asarray(loaded.blade.section_contours_m), np.asarray(written), atol=1e-12
+    )
+    assert "placed on the mesh cut" in loaded.blade.provenance.geometry_source
+    for offset in contour_mesh_offsets(loaded, *aft):
         assert offset is not None and math.hypot(*offset) < 1e-9
