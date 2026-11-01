@@ -74,6 +74,10 @@ a list of x/R positions on `power`. `distance_bref` belongs to `wake` and `plane
 the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame`,
 `tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
+A family a `sections` entry names and a row's geometry does not carry is warned and
+skipped on that row, never refused: the entry is traced over the families the row
+carries, and an entry the row carries none of is skipped there, with the row's other
+entries and products written.
 Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
 An unstated `lateral_radius` uses `max(2.5, r_outer)`; a stated radius below
 `r_outer` is refused, so increase it or reduce `r_outer`.
@@ -841,8 +845,8 @@ frame's lattice by their shape.
 Every addition is stated in `plan.json` (the row's `farfield` object) and on the
 console. An `[exports]` entry set to false that the far field needs is turned on
 for that row, with a WARNING. The plan refuses only what cannot be produced: an
-export the selected build does not have, probes on a row type that takes none, a
-family the geometry does not have, on a coupled row a far-field section
+export the selected build does not have, probes on a row type that takes none, on a
+coupled row a far-field section
 distribution beyond the one the coupling uses, and a probe point the plan adds
 inside the body. A probe point the user declared inside the body is kept, with a
 WARNING.
