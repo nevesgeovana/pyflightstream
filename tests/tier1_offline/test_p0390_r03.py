@@ -1150,6 +1150,14 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     captured[products_name] = captured[products_name].replace(
         old_report, b'"superfile_report": "post/polars/reports/superfile-<V>.json"'
     )
+    # REL-R2-017: post.log is appended, one block per post, so the run's own post of its
+    # simulation (PFS-2185.18) keeps its block, named by its sims, before the later post's.
+    log_name = "tree/post/polars/post.log"
+    head = b"(refuse instead of warn)\n"
+    assert captured[log_name].count(head) == 1
+    captured[log_name] = (
+        captured[log_name].replace(head, head + b"sims=7002\n") + captured[log_name]
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":

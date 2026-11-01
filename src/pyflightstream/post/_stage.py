@@ -33,12 +33,13 @@ import math
 import re
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
 
+from pyflightstream import _textio
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import text_sha256
 from pyflightstream._errors import (
@@ -568,7 +569,7 @@ def _manifest_skip_records(manifest_path: Path) -> list[_LogRecord]:
     """Return one log record per skip the written ``products.json`` names."""
     if not manifest_path.is_file():
         return []
-    document = json.loads(manifest_path.read_text(encoding="utf-8"))
+    document = json.loads(manifest_text(manifest_path.parent))
     return [
         _log_record(
             name,
@@ -578,6 +579,227 @@ def _manifest_skip_records(manifest_path: Path) -> list[_LogRecord]:
         )
         for name, reason in document.get("skipped", {}).items()
     ]
+
+
+# --- REL-R2-017: two posts of one matrix in two processes ------------------------
+#
+# Two `pyfs-matrix run <matrix> --sims ...` in parallel each post per polar, and
+# each rewrote products.json from the copy it read when its post began, so the
+# later write lost the other's entries. `products.json` itself is the one
+# campaign lock: a post takes it to read the manifest, to write it (re-reading it
+# and merging), to append its log block, and the run to rewrite the sweep table.
+# The lock is held for those moments only, never for a whole post.
+
+
+def campaign_lock(out: Path) -> AbstractContextManager[IO[bytes] | None]:
+    """Hold the products folder's ``products.json`` locked; None after the wait (warn, skip)."""
+    return _textio.exclusive(out / PRODUCTS_MANIFEST, wait=_textio.LOCK_WAIT)
+
+
+def _parsed(text: str) -> dict[str, Any] | None:
+    try:
+        document = json.loads(text)
+    except ValueError:
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def manifest_text(out: Path) -> str:
+    """Read ``products.json`` under the campaign lock, ``{}`` for an empty file.
+
+    A manifest cut off while it was rewritten in place is read from the staged
+    copy the write leaves beside it until the rewrite completes.
+    """
+    target = out / PRODUCTS_MANIFEST
+    with campaign_lock(out) as handle:
+        if handle is None:
+            text = target.read_text(encoding="utf-8")
+        else:
+            handle.seek(0)
+            text = handle.read().decode("utf-8")
+    staged = target.with_name(f"{target.name}.tmp")
+    if text.strip() and _parsed(text) is None and staged.is_file():
+        if _parsed(backup := staged.read_text(encoding="utf-8")) is not None:
+            return backup
+    return text if text.strip() else "{}"
+
+
+@dataclass
+class ManifestMerge:
+    """What a post's ``products.json`` write merges with the file it finds on disk.
+
+    ``base`` is the manifest as this post last read or wrote it, ``sims`` every
+    simulation it handled and ``ids`` their run, point and extraction ids. An
+    entry of those simulations is this post's; an entry of another that the file
+    on disk changed since ``base`` is the other post's and is kept as found;
+    ``others`` holds those changes, per section, for every later write.
+    """
+
+    base: dict[str, Any]
+    sims: frozenset[str]
+    ids: frozenset[str]
+    others: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def note_debug_artifacts(
+    manifest: dict[str, object],
+    workspace: CampaignWorkspace,
+    points: Sequence[RunRecord],
+    sims: frozenset[str] | None,
+) -> None:
+    """Name each debug ``.fsm`` of the posted points under ``debug_artifacts``, when any."""
+    debug_artifacts = [
+        {
+            "kind": "debug_fsm",
+            "run_id": point.run_id,
+            "path": (workspace.sim_dir(point.sim_id) / name).relative_to(workspace.root).as_posix(),
+        }
+        for point in points
+        if sims is None or point.sim_id in sims
+        for name in point.outputs
+        if name.endswith("_debug.fsm")
+    ]
+    if debug_artifacts:
+        manifest["debug_artifacts"] = debug_artifacts
+
+
+def manifest_merge(
+    workspace: CampaignWorkspace,
+    records: Sequence[RunRecord],
+    sims: frozenset[str] | None,
+    base: Mapping[str, Any],
+) -> ManifestMerge:
+    """Return the merge of a post of ``sims`` (None: every simulation of ``records``)."""
+    handled = frozenset(record.sim_id for record in records) if sims is None else sims
+    own = [record for record in records if record.sim_id in handled]
+    ids = {record.run_id for record in own} | {
+        point.run_id for record in own for point in record.as_points()
+    }
+    ids |= {
+        extraction.extraction_id
+        for extraction in workspace.read_additional()
+        if extraction.sim_id in handled
+    }
+    # A copy, as JSON: the post goes on mutating the entries it read.
+    return ManifestMerge(json.loads(json.dumps(base)), handled, frozenset(ids))
+
+
+_ABSENT = object()
+
+
+#: The sections of ``products.json`` keyed by entry, each entry one simulation's or none.
+_MERGED_SECTIONS = ("products", "provenance", "skipped", "debug_artifacts")
+
+
+def _keyed(doc: Mapping[str, Any], name: str) -> dict[str, Any]:
+    if name == "debug_artifacts":
+        return {str(item.get("path")): item for item in doc.get(name) or ()}
+    return dict(doc.get(name) or {})
+
+
+def _is_mine(merge: ManifestMerge, name: str, key: str, every: Mapping[str, Any]) -> bool:
+    """Whether ``key`` of section ``name`` is an entry of a simulation this post handled."""
+    entry = every.get(name, {}).get(key)
+    entry = entry if isinstance(entry, Mapping) else {}
+    if name == "products":
+        return entry.get("sim_id") in merge.sims
+    if name == "debug_artifacts":
+        return entry.get("run_id") in merge.ids
+    if name == "provenance":
+        return key in merge.ids
+    return _a_key_of_the_simulations(key, merge.sims, set(merge.ids), every.get("products", {}))
+
+
+def merged_manifest(
+    ours: Mapping[str, Any], theirs: Mapping[str, Any] | None, merge: ManifestMerge | None
+) -> dict[str, Any]:
+    """Return the manifest to write: ``ours``, with what other posts changed on disk.
+
+    A change is an entry of another simulation that the file on disk holds
+    otherwise than ``merge.base``, the file as this post last read or wrote it.
+    It is kept in ``merge.others`` and laid over every later write of the post,
+    so a post that writes the manifest twice keeps it the second time too. A
+    post alone finds no change and writes ``ours`` unchanged.
+    """
+    if merge is None:
+        return dict(ours)
+    docs = [merge.base, ours] if theirs is None else [merge.base, ours, theirs]
+    every = {
+        name: {k: v for d in docs for k, v in _keyed(d, name).items()} for name in _MERGED_SECTIONS
+    }
+    document = dict(ours)
+    for name in _MERGED_SECTIONS:
+        found = merge.others.setdefault(name, {})
+        if theirs is not None:
+            seen, now = _keyed(merge.base, name), _keyed(theirs, name)
+            for key in dict.fromkeys([*seen, *now]):
+                if now.get(key, _ABSENT) != seen.get(key, _ABSENT):
+                    if not _is_mine(merge, name, key, every):
+                        found[key] = now.get(key, _ABSENT)
+        if not found:
+            continue
+        section = _keyed(ours, name)
+        for key, value in found.items():
+            if value is _ABSENT:
+                section.pop(key, None)
+            else:
+                section[key] = value
+        document[name] = list(section.values()) if name == "debug_artifacts" else section
+    return document
+
+
+def write_manifest(out: Path, manifest: Mapping[str, Any], merge: ManifestMerge | None) -> None:
+    """Write ``products.json`` under the campaign lock, merged with the file found there.
+
+    Staged whole as ``products.json.tmp`` first (a write that fails there leaves
+    the manifest untouched), then rewritten in place through the locked handle,
+    since Windows refuses a replace onto a file a process holds open; the staged
+    copy is removed once the rewrite completed. A lock still held by another post
+    after ``_textio.LOCK_WAIT`` seconds is warned and the write skipped: every
+    product stays on disk and the next post of the matrix names it again.
+    """
+    target = out / PRODUCTS_MANIFEST
+    staged = target.with_name(f"{target.name}.tmp")
+    with campaign_lock(out) as handle:
+        if handle is None:
+            warn(
+                f"{target} stayed locked by another post of this matrix for "
+                f"{_textio.LOCK_WAIT:.0f} s, so this post did not rewrite it; every product "
+                "stays on disk. Post the matrix again once the other post has finished.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return
+        document = merged_manifest(manifest, _parsed(manifest_text(out)) or None, merge)
+        text = json.dumps(document, indent=1) + "\n"
+        try:
+            _textio.write_text(staged, text)
+        except BaseException:
+            staged.unlink(missing_ok=True)
+            raise
+        _textio.replace_content(handle, text)
+        staged.unlink(missing_ok=True)
+    if merge is not None:
+        merge.base = json.loads(text)  # the file as written, not the post's live dicts
+
+
+def append_log_block(
+    stream: IO[str], out: Path, header: Mapping[str, Any], records: Sequence[_LogRecord]
+) -> None:
+    """Append one post's block to ``post.log``, its header and its records, in one write.
+
+    Under the campaign lock, so two posts of the matrix keep two whole blocks.
+    """
+    sims = f"sims={','.join(header['sims'])}\n" if "sims" in header else ""
+    block = (
+        f"pyflightstream {header['version']} post\n"
+        f"workspace={header['workspace']}\nmatrix={header['matrix']}\n"
+        f"time={header['time']}\n"
+        f"check_frozen={header['check_frozen']} (refuse instead of warn)\n{sims}"
+    )
+    with campaign_lock(out):
+        stream.write(block + "".join(_log_line(record) for record in records))
+        stream.flush()
 
 
 def _replay_held_warnings(held: Sequence[warnings.WarningMessage]) -> None:
@@ -683,15 +905,7 @@ def _partial_post(
 ) -> _PartialPost:
     """Return what a post limited to ``sims`` keeps of the ``previous`` manifest (FR-307)."""
     previous_products: Mapping[str, Mapping[str, object]] = previous.get("products") or {}
-    own = [record for record in records if record.sim_id in sims]
-    ids = {record.run_id for record in own} | {
-        point.run_id for record in own for point in record.as_points()
-    }
-    ids |= {
-        extraction.extraction_id
-        for extraction in workspace.read_additional()
-        if extraction.sim_id in sims
-    }
+    ids = set(manifest_merge(workspace, records, sims, previous).ids)
     label = ", ".join(sorted(sims))
     whole = f"pyfs-matrix post {matrix_stem}" if matrix_stem else "pyfs-matrix post"
     others_super = any(

@@ -26,6 +26,7 @@ import pyflightstream
 # The cold-start question is asked through its module, so a caller that
 # replaces the answer replaces it for the run loop too.
 import pyflightstream.run._ids as _ids
+from pyflightstream import _textio
 from pyflightstream._digest import (
     file_sha256,
 )
@@ -296,11 +297,18 @@ def _leave_sweep_table(
     )
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        write_table(
-            sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem),
-            target,
-            overwrite=True,
-        )
+        lock = workspace.products_dir(matrix_stem)
+        lock.mkdir(parents=True, exist_ok=True)
+        # REL-R2-017: derived and written under the matrix's campaign lock, so the last
+        # of two runs of one matrix writes the table of every record then recorded.
+        with _textio.exclusive(lock / "products.json", wait=_textio.LOCK_WAIT) as held:
+            if held is None:
+                raise TimeoutError(f"{lock / 'products.json'} stayed locked by another post")
+            write_table(
+                sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem),
+                target,
+                overwrite=True,
+            )
     except Exception as error:
         return (
             f"the campaign ran and its sweep table was NOT written to {target}: "

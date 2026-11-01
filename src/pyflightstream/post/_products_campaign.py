@@ -80,6 +80,8 @@ class _CampaignProducts:
     #: The pproc each simulation followed (None where it could not be resolved),
     #: filled as the simulations are written, for the products that span them.
     pprocs: dict[str, PprocSpec | None] = field(default_factory=dict)
+    #: What the manifest write merges with the file on disk (REL-R2-017).
+    merge: _stage.ManifestMerge | None = None
 
 
 def _index_record_surfaces(

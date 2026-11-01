@@ -82,6 +82,13 @@ FlightStream versions.
   `post/<matrix>/` holds every simulation finished so far. A failed post of one simulation
   is warned and the run goes on. `collect` posts only the simulations it collected or
   discarded. `post --sims` now writes the named simulations' super files too (FR-3443).
+- Two runs or posts of one matrix at once, such as `pyfs-matrix run <matrix> --sims ...` in
+  two terminals, keep each other's `products.json` entries: a post writes `products.json`
+  under an operating-system lock on that file, re-reads it there and keeps every entry of a
+  simulation it did not post as it finds it, and `campaign_sweep.csv` is derived and
+  written under the same lock. A lock another post still holds after 10 minutes is warned
+  and that write skipped, every file kept. `post.log` is appended, one block per post with
+  its time and simulations, instead of rewritten; `--archive` still moves it under `archive/`.
 - `pyfs-matrix post <matrix>` posts only the simulations whose rows state RUN = 1 (a
   RUN = 0 simulation keeps its products; a matrix with no RUN = 1 row is warned and
   nothing is posted), and with no other option only those not posted yet (a point with no

@@ -366,12 +366,6 @@
    "statements": 6,
    "positional": 9
   },
-  "post/products.py:write_campaign_products": {
-   "complexity": 9,
-   "branches": 11,
-   "statements": 52,
-   "positional": 1
-  },
   "post/provenance.py:prov_document": {
    "complexity": 11,
    "branches": 11,

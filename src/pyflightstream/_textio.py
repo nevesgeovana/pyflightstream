@@ -40,6 +40,9 @@ import csv
 import json
 import os
 import stat
+import sys
+import threading
+import time
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -322,3 +325,111 @@ def long_path(path: str | os.PathLike[str]) -> Path:
     'a'
     """
     return Path(extended_length(path))
+
+
+#: The byte the Windows lock holds: past the end of any file the package
+#: writes, so a reader of the content is never blocked by a held lock.
+_LOCK_BYTE = 0x7FFFFFF0
+#: How long a writer waits for another process's lock before it warns and skips (REL-R2-017).
+LOCK_WAIT = 600.0
+#: The locks this process holds, per file and thread, so a nested take is a no-op.
+_HELD: dict[tuple[str, int], IO[bytes]] = {}
+
+
+if sys.platform == "win32":
+    import msvcrt
+
+    def _lock(fd: int) -> bool:
+        os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+        try:
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        except OSError:
+            return False
+        return True
+
+    def _unlock(fd: int) -> None:
+        os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
+else:
+    import fcntl
+
+    def _lock(fd: int) -> bool:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return False
+        return True
+
+    def _unlock(fd: int) -> None:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def _locked_handle(target: str, wait: float) -> IO[bytes] | None:
+    """Open ``target`` (created when absent) and lock it, retrying until ``wait`` seconds pass."""
+    deadline = time.monotonic() + wait
+    while True:
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0)
+        handle = open(os.open(target, flags, 0o666), "r+b", buffering=0)  # noqa: SIM115
+        if _lock(handle.fileno()):
+            try:
+                mine, now = os.fstat(handle.fileno()), os.stat(target)
+                if (mine.st_dev, mine.st_ino) == (now.st_dev, now.st_ino):
+                    return handle
+            except OSError:
+                pass
+            # REPLACED WHILE THIS PROCESS WAITED: the lock is on a file no longer at the name.
+            _unlock(handle.fileno())
+        handle.close()
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.05)
+
+
+@contextmanager
+def exclusive(path: str | os.PathLike[str], *, wait: float) -> Iterator[IO[bytes] | None]:
+    """Hold an exclusive lock between processes on ``path``, yielding its open binary handle.
+
+    The lock is the operating system's (``msvcrt.locking`` on one byte past the
+    content on Windows, ``fcntl.flock`` elsewhere), so it is released when the
+    process ends, however it ends. The file is created when absent and removed
+    again on release if it is still empty. A thread that already holds it gets
+    the same handle. After ``wait`` seconds of another holder it yields None:
+    the caller warns and skips its write. Write through :func:`replace_content`;
+    a replace onto a file a process holds open is refused on Windows.
+    """
+    target = extended_length(path)
+    key = (os.path.normcase(os.path.abspath(target)), threading.get_ident())
+    if key in _HELD:
+        yield _HELD[key]
+        return
+    created = not os.path.exists(target)
+    handle = _locked_handle(target, wait)
+    if handle is None:
+        yield None
+        return
+    _HELD[key] = handle
+    try:
+        yield handle
+    finally:
+        del _HELD[key]
+        try:
+            _unlock(handle.fileno())
+        finally:
+            handle.close()
+        if created:
+            try:
+                if os.path.getsize(target) == 0:
+                    os.unlink(target)
+            except OSError:
+                pass
+
+
+def replace_content(handle: IO[bytes], text: str) -> None:
+    """Replace the whole content of a locked ``handle`` with ``text`` in UTF-8, flushed to disk."""
+    data = memoryview(text.encode("utf-8"))
+    handle.seek(0)
+    while data:
+        data = data[handle.write(data) or 0 :]
+    handle.truncate()
+    os.fsync(handle.fileno())

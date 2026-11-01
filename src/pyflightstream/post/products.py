@@ -162,9 +162,9 @@ from pyflightstream.post._stage import (
     PROBES_DIR,
     PRODUCTS_MANIFEST,
     SECTIONS_DIR,
+    ManifestMerge,
     _hand_back_warnings,
     _is_a_super_file,
-    _log_line,
     _log_record,
     _LogRecord,
     _manifest_skip_records,
@@ -174,9 +174,14 @@ from pyflightstream.post._stage import (
     _run_log_records,
     _surface_export_skip,
     _warning_record,
+    append_log_block,
+    manifest_merge,
+    manifest_text,
+    note_debug_artifacts,
     post_notes,
 )
 from pyflightstream.post._stage import freeze_of_log as freeze_of_log
+from pyflightstream.post._stage import write_manifest as _write_manifest
 from pyflightstream.post._tables import (
     _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN,  # noqa: F401  # the 0.32 import path
 )
@@ -507,7 +512,10 @@ def write_campaign_products(
     A simulation selection rewrites only its products; archiving is opt-in
     through archive=True (CLI: --archive), as for a whole post (FR-397).
 
-    The log is beside products.json, even on a clean or interrupted post. It
+    The log is beside products.json, even on a clean or interrupted post, and
+    is appended: one block per post, its header and records written at its
+    end under the campaign lock, so two posts of one matrix in two processes
+    keep both, and ``products.json`` is merged there (REL-R2-017). It
     records every named skip and every warning the package raises during the
     post, collected in a sink of this thread's own, so two posts in two
     threads each log only their own (RPT-058). ``post.log.json`` beside it
@@ -616,19 +624,11 @@ def write_campaign_products(
     caught: list[warnings.WarningMessage] = []
     try:
         with (
-            _textio.open_text(out / _POST_LOG, "w") as stream,
+            _textio.open_text(out / _POST_LOG, "a") as stream,
             collecting_warnings() as caught,
             post_notes() as notes,
         ):
             caught.extend(early)
-            stream.write(
-                f"pyflightstream {header['version']} post\n"
-                f"workspace={header['workspace']}\nmatrix={header['matrix']}\n"
-                f"time={header['time']}\n"
-                f"check_frozen={header['check_frozen']} (refuse instead of warn)\n"
-                + (f"sims={','.join(sorted(selected))}\n" if selected is not None else "")
-            )
-            stream.flush()
             try:
                 return _campaign_products(
                     workspace,
@@ -667,7 +667,7 @@ def write_campaign_products(
                     # STOPPED THE POST: a caller catching that error by its type
                     # received an OSError instead. It rides on the error as a note.
                     try:
-                        stream.writelines(_log_line(record) for record in records)
+                        append_log_block(stream, out, header, records)
                         _textio.write_text(
                             out / _POST_LOG_JSON,
                             json.dumps({**header, "records": records}, indent=1) + "\n",
@@ -833,19 +833,7 @@ def _campaign_products(
         "log": _POST_LOG,
         "log_json": _POST_LOG_JSON,
     }
-    debug_artifacts = [
-        {
-            "kind": "debug_fsm",
-            "run_id": point.run_id,
-            "path": (workspace.sim_dir(point.sim_id) / name).relative_to(workspace.root).as_posix(),
-        }
-        for point in points
-        if sims is None or point.sim_id in sims
-        for name in point.outputs
-        if name.endswith("_debug.fsm")
-    ]
-    if debug_artifacts:
-        manifest["debug_artifacts"] = debug_artifacts
+    note_debug_artifacts(manifest, workspace, points, sims)
     # PFS-2031.16: record a simulation product's refusal as a skip with its
     # reason and continue other products. An existing destination without
     # overwrite refuses the whole stage because it concerns the caller's flag.
@@ -872,8 +860,9 @@ def _campaign_products(
     # fails. This keeps the manifest aligned with files already archived
     # or written even when an unexpected exception interrupts the rebuild.
     partial: _PartialPost | None = None
+    merge: ManifestMerge | None = None
     try:
-        previous_products, partial = _prepare_campaign_rebuild(
+        previous_products, partial, merge = _prepare_campaign_rebuild(
             workspace,
             out,
             records=records,
@@ -901,6 +890,7 @@ def _campaign_products(
             archive_stamp=archive_stamp,
             check_frozen=check_frozen,
             partial=partial,
+            merge=merge,
         )
         _retire_campaign_products(
             out,
@@ -916,7 +906,7 @@ def _campaign_products(
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
         carry_marks(products_index, points)  # FR-870
-        _write_manifest(out, manifest)
+        _write_manifest(out, manifest, merge)
         if manifest.get("noise_requested") or any(
             name.startswith("noise/") for name in (*products_index, *skipped)
         ):
@@ -935,7 +925,7 @@ def _campaign_products(
         # a note on the error that stopped the rebuild, never its replacement.
         try:
             out.mkdir(parents=True, exist_ok=True)
-            _write_manifest(out, manifest)
+            _write_manifest(out, manifest, merge)
         except OSError as manifest_error:
             error.add_note(
                 f"the interrupted manifest {out / PRODUCTS_MANIFEST} could not be written: "
@@ -964,21 +954,6 @@ def _refuse_an_unknown_matrix(
     )
 
 
-def _write_manifest(out: Path, manifest: Mapping[str, object]) -> None:
-    """Write ``products.json`` whole or not at all: a temporary file, then a replace.
-
-    Written in place, a kill during the write (the memory watchdog) left a
-    truncated manifest that every later post then failed to read.
-    """
-    target = out / PRODUCTS_MANIFEST
-    staged = target.with_name(f"{target.name}.tmp")
-    try:
-        _textio.write_text(staged, json.dumps(manifest, indent=1) + "\n")
-        staged.replace(target)
-    finally:
-        staged.unlink(missing_ok=True)
-
-
 def _sim_label(item: tuple[str, object]) -> str:
     """Return a simulation as the post progress line names it."""
     return f"sim_{item[0]}"
@@ -1003,6 +978,7 @@ def _write_the_products(
     archive_stamp: datetime | None,
     check_frozen: bool = False,
     partial: _PartialPost | None = None,
+    merge: ManifestMerge | None = None,
 ) -> None:
     """Write every product of the campaign, filling the caller's manifest as it goes.
 
@@ -1030,6 +1006,7 @@ def _write_the_products(
         archive_stamp=archive_stamp,
         check_frozen=check_frozen,
         partial=partial,
+        merge=merge,
     )
     _write_simulation_products(ctx)
     # G12: THE PRODUCTS OF THE ADDITIONAL POST, from the current extractions of
@@ -1252,7 +1229,7 @@ def _finish_campaign_products(ctx: _CampaignProducts) -> None:
     )
     ctx.manifest["complete"] = True
     ctx.out.mkdir(parents=True, exist_ok=True)
-    _write_manifest(ctx.out, ctx.manifest)
+    _write_manifest(ctx.out, ctx.manifest, ctx.merge)
 
 
 def _validate_simulation_references(
@@ -1358,13 +1335,13 @@ def _prepare_campaign_rebuild(
     archive: bool,
     products_index: dict[str, dict[str, object]],
     manifest: dict[str, object],
-) -> tuple[Mapping[str, dict[str, Any]], _PartialPost | None]:
-    """Prepare campaign rebuild."""
+) -> tuple[Mapping[str, dict[str, Any]], _PartialPost | None, ManifestMerge]:
+    """Prepare campaign rebuild; the merge holds the manifest as read (REL-R2-017)."""
     previous = out / PRODUCTS_MANIFEST
     previous_document: dict[str, Any] = {}
     if previous.is_file():
         try:
-            previous_document = json.loads(previous.read_text(encoding="utf-8"))
+            previous_document = json.loads(manifest_text(out))
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             # A MANIFEST CUT OFF MID-WRITE, named with its remedy rather than a
             # bare JSONDecodeError; the manifest this post writes in its place
@@ -1402,4 +1379,4 @@ def _prepare_campaign_rebuild(
         for kept in ("superfile_report", "sections_report"):
             if kept in previous_document and kept in partial.not_rebuilt:
                 manifest[kept] = previous_document[kept]
-    return previous_products, partial
+    return previous_products, partial, manifest_merge(workspace, records, sims, previous_document)

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -326,6 +327,71 @@ def test_mutant_ignoring_post_sims_turns_the_check_red_fr_307(tmp_path, monkeypa
     monkeypatch.setattr(products_module, "_campaign_products", ignoring)
     _, _, before_hashes, before, after_hashes, after = _partial_post(tmp_path)
     assert _violations(before_hashes, after_hashes, before, after, "6001") != []
+
+
+def _two_posts_interleaved(tmp_path: Path, monkeypatch) -> tuple[Path, dict, dict, dict]:
+    """REL-R2-017: run B's post of 6009 between A's read of products.json and A's write.
+
+    The two `pyfs-matrix run <matrix> --sims ...` of one matrix in two terminals,
+    each posting per polar, made deterministic: B's whole partial post runs
+    after A read the manifest and before A writes it.
+    """
+    workspace = _three_sims(tmp_path)
+    out = _post_whole(workspace)
+    _rerun_every_export(workspace)
+    # 6009 not posted yet, as when each run posts the polar it has just finished.
+    before = _document(out)
+    before["products"] = {
+        n: e for n, e in before["products"].items() if str(e.get("sim_id")) != "6009"
+    }
+    before["provenance"] = {r: p for r, p in before["provenance"].items() if "sim_6009" not in r}
+    (out / "products.json").write_text(json.dumps(before, indent=1) + "\n", encoding="utf-8")
+    real = products_module._write_the_products
+    other: dict = {}
+
+    def b_posts_meanwhile(*args, **kwargs):
+        if not other:
+            other["started"] = True
+            write_campaign_products(
+                workspace, matrix_stem="matriz", overwrite=True, sims=["6009"], keep_unrebuilt=True
+            )
+            other["document"] = _document(out)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(products_module, "_write_the_products", b_posts_meanwhile)
+    write_campaign_products(
+        workspace, matrix_stem="matriz", overwrite=True, sims=["6001"], keep_unrebuilt=True
+    )
+    return out, before, other["document"], _document(out)
+
+
+def test_two_posts_of_one_matrix_lose_no_entry_of_the_other_rel_r2_017(tmp_path, monkeypatch):
+    out, before, b, after = _two_posts_interleaved(tmp_path, monkeypatch)
+    b_entries = {n: e for n, e in b["products"].items() if e.get("sim_id") == "6009"}
+    # The control: B changed entries of 6009 that A's earlier read did not hold.
+    assert [n for n, e in b_entries.items() if before["products"].get(n) != e]
+    lost = [n for n, e in b_entries.items() if after["products"].get(n) != e]
+    lost += [
+        run_id
+        for run_id, relative in b["provenance"].items()
+        if "sim_6009" in run_id and after["provenance"].get(run_id) != relative
+    ]
+    assert lost == []
+    assert any(e.get("sim_id") == "6001" for e in after["products"].values())
+    assert not (out / "products.json.tmp").exists()
+
+
+def test_two_posts_of_one_matrix_keep_both_log_blocks_rel_r2_017(tmp_path, monkeypatch):
+    out, _, _, _ = _two_posts_interleaved(tmp_path, monkeypatch)
+    lines = (out / "post.log").read_text(encoding="utf-8").splitlines()
+    heads = [i for i, line in enumerate(lines) if re.fullmatch(r"pyflightstream \S+ post", line)]
+    # The whole post, then B (finished first), then A: each block whole, its header first.
+    assert [lines[i + 1].startswith("workspace=") for i in heads] == [True, True, True]
+    assert [lines[i + 5] if lines[i + 5].startswith("sims=") else None for i in heads] == [
+        None,
+        "sims=6009",
+        "sims=6001",
+    ]
 
 
 # --------------------------------------------------------------- collect --sims
