@@ -603,6 +603,9 @@ _PRIVATE_IMPORT_RATCHET___FROZEN: tuple[tuple[str, str], ...] = (
     ("run._plan", "cases.workflows._freestream"),
     ("run._plan", "workspace._batches"),
     ("run._plan", "workspace._settings_file"),
+    # 0.53.0 (FR-3440): visual-inspect resolves its matrix names through the one lookup, as
+    # run._rebuild and run._rebuild_evidence do; that lookup has no public home yet.
+    ("run._plan_report", "workspace._matrix_homes"),
     ("run._points", "cases._skipped_families"),
     ("run._rebuild", "workspace._matrix_homes"),
     ("run._rebuild_evidence", "workspace._batches"),
