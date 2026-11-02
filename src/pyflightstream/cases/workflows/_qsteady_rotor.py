@@ -54,8 +54,8 @@ from pyflightstream.script import (
     FramePlacement,
     Script,
     helpers,
+    turned_about,
 )
-from pyflightstream.script._ledger_tables import turned_about
 
 from ._clock import (
     unsteady_export_threshold,
