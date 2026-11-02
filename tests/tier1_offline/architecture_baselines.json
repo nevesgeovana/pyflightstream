@@ -1087,13 +1087,13 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 148,
+ "monkeypatch_targets": 149,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
   "pyflightstream._progress": 3,
   "pyflightstream._signature": 1,
-  "pyflightstream._textio": 2,
+  "pyflightstream._textio": 3,
   "pyflightstream.cases.freestream": 1,
   "pyflightstream.cases.fsi_workspace": 1,
   "pyflightstream.cases.qsteady": 1,
