@@ -339,10 +339,11 @@ def _placed_by_turn(
     # THE TURN IS FOLLOWED, RIGHT-HANDED (GOAL-034 Q4 requirement for a
     # rotor's frames: the rotate turns the spinner,
     # blades or none, and the local frames go with it). The manual does not
-    # state the sense; it is to be confirmed by one recorded solver export, the
-    # turn-check case (+30 deg about Y, a kind = "default" probe line in a frame
-    # offset from its pivot), until which the right-hand rule is the package's
-    # assumption, the one the quasi-steady wheel already makes.
+    # state the sense; a recorded 26.127 export confirms the right-hand rule,
+    # the one the quasi-steady wheel already makes: a +30 deg turn about Y of a
+    # frame offset from its pivot, read on the surface VTK in the turned loads
+    # frame, matches it to 1e-12 m on the static nodes and the opposite sense
+    # by none.
     held = placements.get(frame)
     angle = float(bound["angle"])  # type: ignore[arg-type]
     if angle == 0.0:
