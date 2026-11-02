@@ -135,7 +135,7 @@ def _not_posted_yet(
     """
     import json
 
-    from pyflightstream import _textio
+    import pyflightstream._textio as _textio
 
     out = workspace.products_dir(matrix)
     manifest = out / "products.json"

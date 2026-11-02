@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import text_sha256
 from pyflightstream._errors import (

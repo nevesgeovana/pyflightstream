@@ -22,11 +22,11 @@ from pathlib import Path
 from typing import cast
 
 import pyflightstream
+import pyflightstream._textio as _textio
 
 # The cold-start question is asked through its module, so a caller that
 # replaces the answer replaces it for the run loop too.
 import pyflightstream.run._ids as _ids
-from pyflightstream import _textio
 from pyflightstream._digest import (
     file_sha256,
 )
