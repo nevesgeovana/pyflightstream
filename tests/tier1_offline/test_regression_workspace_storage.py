@@ -919,14 +919,14 @@ class TestWorkspace3Storage:
     def test_p0400_an_interrupted_delete_is_recorded_and_a_rerun_finishes_it(tmp_path, monkeypatch):
         """P0400-DELETE-INTENT (PFS-2086.005): the stop is recorded; the same delete finishes it."""
         workspace = _workspace_3_storage___shared_product_workspace(tmp_path, "interrupted")
-        real = Path.replace
+        import pyflightstream._textio as textio
 
-        def killed(self, target):
-            if Path(target).name == "products.json":
-                raise RuntimeError("killed while rewriting products.json")
-            return real(self, target)
+        real = textio.replace_content
 
-        monkeypatch.setattr(Path, "replace", killed)
+        def killed(handle, text):
+            raise RuntimeError("killed while rewriting products.json")
+
+        monkeypatch.setattr(textio, "replace_content", killed)
         with pytest.raises(RuntimeError):
             storage_module.delete_sims(
                 workspace.root, ["3001"], matrix_products="points-only", apply=True
@@ -940,7 +940,7 @@ class TestWorkspace3Storage:
         ]
         assert any("intent" in call for call in calls), calls
         assert "killed while rewriting" in calls[-1]["interrupted"]
-        monkeypatch.setattr(Path, "replace", real)
+        monkeypatch.setattr(textio, "replace_content", real)
         storage_module.delete_sims(
             workspace.root, ["3001"], matrix_products="points-only", apply=True
         )
