@@ -6294,6 +6294,11 @@
     },
     {
       "source": "pyflightstream.post._stage",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._stage",
       "target": "pyflightstream.cases.corrections",
       "kind": "module"
     },
@@ -9814,6 +9819,11 @@
     },
     {
       "source": "pyflightstream.run._campaign",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -11010,6 +11020,11 @@
     {
       "source": "pyflightstream.run._plan_report",
       "target": "pyflightstream._errors",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -11021,6 +11036,11 @@
       "source": "pyflightstream.run._plan_report",
       "target": "pyflightstream.cases.matrix",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.cases.naming",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._plan_report",
@@ -11045,6 +11065,16 @@
     {
       "source": "pyflightstream.run._plan_report",
       "target": "pyflightstream.workspace.cli",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.workspace.ledger",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._plan_report",
+      "target": "pyflightstream.workspace.naming",
       "kind": "module"
     },
     {
@@ -11161,6 +11191,11 @@
       "source": "pyflightstream.run._post_selection",
       "target": "pyflightstream._progress",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._post_selection",
+      "target": "pyflightstream._textio",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._post_selection",

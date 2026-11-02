@@ -765,7 +765,7 @@ def workspace_data(root):
         "products-json",
         "post/<matrix>/products.json",
         "Product inventory, provenance links, skips, warnings and completion state.",
-        "pyflightstream.post.products:_write_manifest",
+        "pyflightstream.post._stage:write_manifest",
         ws + ".ledger:_read_products",
         step="steps-36",
         token="products.json",
