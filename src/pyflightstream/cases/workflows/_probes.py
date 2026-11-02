@@ -838,7 +838,7 @@ def _leave_out_the_entry(case: SimCase, declared: ProbesSpec, frame: str) -> Non
 def _an_unplaced_frame_the_row_leaves_out(
     case: SimCase, script: Script, frame: int, name: str, entry: str | ProbesSpec
 ) -> bool:
-    """Leave out an entry laid in reference coordinates from a frame of unknown pose (PFS-2185.20).
+    """Leave out an entry laid in reference coordinates from a frame of unknown pose.
 
     A steady probe, and a probe or volume section an unsteady row samples once
     after the march (``kind = "default"``), is placed in REFERENCE coordinates
@@ -849,7 +849,7 @@ def _an_unplaced_frame_the_row_leaves_out(
     an entry is PLACED in the turned frame. Only a frame whose pose this script
     does not know (an opened project carries it, or a command the ledger does
     not follow moved it) leaves the entry out, WARNED AND SKIPPED once per
-    campaign and never refused (the owner's rule of 2026-10-27): the row plans
+    campaign and never refused: the row plans
     and every other entry is emitted. Returns True when the entry is left out.
     ``entry`` is the message's name for it, or the declared `[[probes]]` entry,
     named by its position only when it is left out.

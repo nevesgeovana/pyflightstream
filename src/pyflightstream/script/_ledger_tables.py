@@ -336,8 +336,8 @@ def _placed_by_turn(
     needs the frame's origin and the pivot's origin and axes, the axes need the
     frame's axes and the pivot's axes.
     """
-    # THE TURN IS FOLLOWED, RIGHT-HANDED (owner's answer to GOAL-034 Q4 for a
-    # rotor's frames, inbox row 182, 2026-11-01: the rotate turns the spinner,
+    # THE TURN IS FOLLOWED, RIGHT-HANDED (GOAL-034 Q4 requirement for a
+    # rotor's frames: the rotate turns the spinner,
     # blades or none, and the local frames go with it). The manual does not
     # state the sense; it is to be confirmed by one recorded solver export, the
     # turn-check case (+30 deg about Y, a kind = "default" probe line in a frame
