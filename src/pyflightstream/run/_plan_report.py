@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from pyflightstream._errors import EmptySelectionWarning, NotApplicableWarning
+from pyflightstream._errors import EmptySelectionWarning, InputValueError, NotApplicableWarning
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.matrix import MatrixRow, read_matrix
 from pyflightstream.cases.qsteady import summarise as summarise_validity
@@ -554,9 +554,9 @@ def figure_name(name: str) -> str:
     """
     stem = name[:-4] if name.lower().endswith(".pdf") else name
     if not stem.strip() or any(c in stem for c in "/\\") or stem in (".", ".."):
-        raise ValueError(
-            f"--name {name!r} must be a file name without a folder: the figure is always "
-            f"written to {OUTPUT_DIR}/<name>.pdf under the workspace"
+        raise InputValueError(
+            f"name (CLI: --name) {name!r} must be a file name without a folder: "
+            f"the figure is always written to {OUTPUT_DIR}/<name>.pdf under the workspace"
         )
     return stem
 
@@ -741,7 +741,7 @@ def visual_inspect(
         Nothing is left to draw.
     """
     if finished_by not in FINISHED_BY_CHOICES:
-        raise ValueError(
+        raise InputValueError(
             f"visual-inspect: finished_by {finished_by!r} is not one of "
             f"{', '.join(FINISHED_BY_CHOICES)}"
         )
