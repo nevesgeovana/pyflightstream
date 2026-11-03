@@ -21,6 +21,7 @@ FlightStream versions.
 - `pyfs-workspace geometry mark-boundaries --apply` warns, by name, of each output it replaces with its FSM absent and no `--overwrite`, such as a `.mark.json` of a deleted FSM; they were replaced with no word (FR-3542).
 - `pyfs-workspace geometry merge` warns of an `--out` not named `.obj` and writes its `.obj` form, as `sector-to-wheel` and the remesh verbs do; it refused (FR-3543).
 - `pyfs-workspace geometry merge` warns, naming both, when `--adapt` gives a folder and that path is not the part of that file name, which is the part adapted; the folder was ignored with no word (FR-3544).
+- `docs/geometry.md` lists the warnings of the sector angle, of a stated tip radius and of merge's interface nodes moved past the threshold, in the words the verbs print.
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
 - `pyfs-workspace geometry sector-remesh` refuses, with nothing written and exit 2, a `--span-cell` that asks for more than 10000 span rows (`MAX_SPAN_ROWS`); `--span-cell 1e-05` went on to build millions of quads (FR-3522).

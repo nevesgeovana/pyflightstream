@@ -531,6 +531,14 @@ The merge uses a grid search, not a pairwise comparison: a sector of 100
 thousand faces (a wheel of 600 thousand) takes about twenty seconds on a
 laptop, one of 48 thousand about eight.
 
+That turn cannot see a wrong axis, since copies of anything about any axis map
+onto each other, so the surfaces that are not blades are measured too. When their
+span about the axis through the hub differs from `360 / copies` by more than 0.05
+degrees, the wheel is still written and the verb warns: `the sector's surfaces that
+are not blades: the sector spans <angle> deg about the axis through the hub, and
+one of <copies> copies is <360/copies> deg, so the copies do not close. Check
+--axis, --hub and --copies.`
+
 From Python, `pyflightstream.workspace.sector_to_wheel(sector, copies=6,
 blades=["Blade1"], axis="x")` does the same and returns a `WheelResult`: its
 `written` flag, the files and the report that `wheel.wheel.json` holds.
@@ -609,6 +617,11 @@ From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and ret
 - A threshold smaller than part of the gap merges what it found and leaves the rest open.
   The open edges still facing the other part are warned with their count; an open boundary
   that runs away from the interface, such as a symmetry plane, is not.
+- An interface node that travels past the threshold to reach a kept node is warned, since the
+  threshold measures a node against the kept edges and the kept nodes lie further apart:
+  `<part>: <far> of <n> interface node(s) moved further than the threshold <threshold> to reach
+  a kept node, the furthest by <distance>: the threshold measures a node against the kept edges
+  and the kept nodes lie further apart`.
 - A degenerate face left in the output, and an adapted face turned against the source face
   nearest it, are warned with their count.
 - A family whose faces sit in more than one place in a source file is warned: its faces are
@@ -680,7 +693,11 @@ the new rows are placed by
   a `--span-cell` that asks for more than 10000 rows is refused with nothing written;
 - cuts: every row at one radius from mid blade outward, blended from the root row
   inboard. The tip radius is the blade's largest radius about the axis unless
-  `--tip-radius` states it, and the default is warned with the value used;
+  `--tip-radius` states it, and the default is warned with the value used. A stated
+  radius more than 1 percent off the blade's is warned too: `tip-radius (CLI:
+  --tip-radius) is <stated> m, and the blade's largest radius about the axis is <tip> m:
+  the rows of a remesh stop short of the blade's surface or run past it on an
+  extrapolation. Check the value.`;
 - the root row follows the chord law and is never moved: the spinner adapts to it
   with an O-grid around the root loop (`--spinner-layers` layers, smoothed by
   Winslow's equations), rings forward (`--spinner-rings`) and a kite of quads at
@@ -700,7 +717,9 @@ direction is the one from the spinner to the nacelle's base.
 **The body** is `--copies` sectors of a closed spinner (`--spinner-theta`,
 `--spinner-rings`, no hole) and that nacelle, merged across the seams, full quad,
 with the nacelle's base region and rim group as its only physics entries. Its quads
-are counted in the record; the method asks for fewer than 2000.
+are counted in the record; the method asks for fewer than 2000. A `--tip-radius` more
+than 1 percent off the blade's is warned here with the end `the lengths given as
+fractions of it are taken from the stated value, not from the blade. Check the value.`
 
 Faces keep the order in which the quads were added, because the solver's results
 depend on face order. Each file is written through a `.part` file that must read
