@@ -609,6 +609,83 @@ regions in that file before marking it.
 - An edge shared by two faces is no open boundary, so a third part meeting the same curve
   finds nothing to join there and stays open.
 
+## Remeshing a sector and its power-off body
+
+A sector from a mesher often carries a distribution the solver does not need: a
+blade refined at the trailing edge, an irregular spinner. Two verbs rebuild the
+sector from its surface alone, with no solver and no preprocessor, and write
+the matching power-off body:
+
+```text
+pyfs-workspace geometry sector-remesh sector.fsm --blades Blade1 --axis x \
+    --chord-cells 26 --le 0.007 --span-cell 0.06 --out sector_new.fsm [--overwrite]
+pyfs-workspace geometry power-off-body sector.fsm --blades Blade1 --axis x --copies 6 \
+    --out body.fsm [--overwrite]
+```
+
+**The topology of this release.** The sector is a saved simulation of one sector
+with three boundaries: one blade (`--blades` names it), a spinner and a nacelle.
+The blade's quads end in two trailing-edge rim lines that start on the root loop,
+with a base strip between them (a blunt trailing edge), and the nacelle has a flat
+base (faces of kind 3). No boundary name is fixed in the code: the spinner is the
+boundary the blade's root loop lies on, and the nacelle is the other one, the one
+with a base and a rim. A sector without this topology (a sharp trailing edge, more
+than one blade, a nacelle without a base, a blade that is not a quad grid between
+two rims) is warned, naming what was not found; nothing is written and the exit
+code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
+inferred from saved files**, as for `sector-to-wheel`; the rows written are stated
+in the writer's docstring.
+
+**The blade** is rebuilt from the source surface, not from its distribution. Each
+chord ring is a monotonic spline of arc length on each side from the leading edge;
+the new rows are placed by
+
+- chord: `--chord-cells` cells on one side and one more on the other (so a ring has
+  an even number of edges and the tip closes with quads alone), the first cell
+  `--le` of the side's arc, growing geometrically to mid-chord and then one fixed
+  width to the trailing edge, which is not refined; the widths never fall along the
+  chord in any row, the root row included;
+- span: constant cells of `--span-cell` metres, then a region of `--tip-length`
+  metres whose cells shrink to `--tip-ratio` of the constant one at the tip;
+- cuts: every row at one radius from mid blade outward, blended from the root row
+  inboard. The tip radius is the blade's largest radius about the axis unless
+  `--tip-radius` states it, and the default is warned with the value used;
+- the root row follows the chord law and is never moved: the spinner adapts to it
+  with an O-grid around the root loop (`--spinner-layers` layers, smoothed by
+  Winslow's equations), rings forward (`--spinner-rings`) and a kite of quads at
+  the nose. A grid that folds is warned, names `--spinner-layers` to raise and
+  writes nothing;
+- the base between the two trailing edges is one row of quads flagged from root to
+  tip, and the tip is closed by quads.
+
+`--root-margin-r` and `--nose-radius-r` are fractions of the tip radius (0.038),
+not metres, so no length of one rotor is in the code. The sector's angle is read
+from the seams and warned when it is not 360/N for a whole number N. The nacelle
+(`--nacelle-theta` cells around the sector, `--nacelle-cells` rings) is built by
+one function with the same arguments by both verbs, so the nacelle of the remeshed
+wheel and of the body have the same nodes. `--axis` is `x`, `y` or `z`; the flow
+direction is the one from the spinner to the nacelle's base.
+
+**The body** is `--copies` sectors of a closed spinner (`--spinner-theta`,
+`--spinner-rings`, no hole) and that nacelle, merged across the seams, full quad,
+with the nacelle's base region and rim group as its only physics entries. Its quads
+are counted in the record; the method asks for fewer than 2000.
+
+Faces keep the order in which the quads were added, because the solver's results
+depend on face order. Each file is written through a `.part` file that must read
+back with the package's own saved-file readers. The checks are printed and written
+to `<out stem>.remesh.json` and `<out stem>.body.json`: triangles per boundary (none
+for a quad pair), the radius spread within a row at the root, mid blade and tip,
+the chord widths, the root loop nodes the spinner shares with the blade, the turn by
+`360 / N` degrees against a turn by one degree more, the trailing edges and groups
+of the wheel, the blade's area against the source's, non-manifold and open edges.
+`sector-to-wheel` on the remeshed sector then gives a wheel that a turn of 360/N
+maps node on node and face on face.
+
+From Python, `pyflightstream.workspace.sector_remesh` and `power_off_body` do the
+same and return a `RemeshResult`. Exit codes: 0 written, 2 a refusal, an existing
+output without `--overwrite`, or a topology not found.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take
