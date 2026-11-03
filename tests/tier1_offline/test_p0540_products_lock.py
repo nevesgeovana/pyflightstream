@@ -129,6 +129,17 @@ def test_p0540_sync_copy_of_products_waits_for_the_posts_lock(tmp_path):
 
 
 @pytest.mark.requirement("FR-3500")
+def test_p0540_sync_copy_of_products_keeps_the_bytes_it_checked(tmp_path):
+    """REL-K-006: the copy is byte for byte, so the digest it checked is the target's."""
+    main, manifest = _synced_pair(tmp_path)
+    (brought,) = [path for path in tmp_path.rglob("products.json") if path != manifest]
+    payload = b'{\r\n "products": {"x": {}}\r\n}\r\n'
+    brought.write_bytes(payload)
+    sync_workspaces(main.root, "post", apply=True, overwrite=True)
+    assert manifest.read_bytes() == payload
+
+
+@pytest.mark.requirement("FR-3500")
 def test_p0540_sync_copy_of_products_is_warned_and_skipped_when_the_lock_stays_held(
     tmp_path, monkeypatch
 ):

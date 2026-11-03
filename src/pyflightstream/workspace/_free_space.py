@@ -393,7 +393,10 @@ def replace_products_manifest(temporary: Path, target: Path, keep: Path | None) 
         if keep is not None and _textio.long_path(target).stat().st_size:
             _textio.long_path(keep.parent).mkdir(parents=True, exist_ok=True)
             shutil.copy2(_textio.long_path(target), _textio.long_path(keep))
-        _textio.rewrite_locked(handle, target, temporary.read_text(encoding="utf-8"))
+        # Decoded, not read as text: text mode turns CRLF into LF, and the bytes checked
+        # against the source would not be the bytes the target holds.
+        payload = _textio.long_path(temporary).read_bytes().decode("utf-8")
+        _textio.rewrite_locked(handle, target, payload)
     _textio.long_path(temporary).unlink(missing_ok=True)
 
 
