@@ -175,7 +175,8 @@
       "tests/tier1_offline/test_wake_edges.py",
       "tests/tier1_offline/test_p0540_wheel.py",
       "tests/tier1_offline/test_p0540_wheel_obj.py",
-      "tests/tier1_offline/test_p0540_wheel_fsm.py"
+      "tests/tier1_offline/test_p0540_wheel_fsm.py",
+      "tests/tier1_offline/test_p0540_sector_remesh.py"
     ],
     "run": [
       "tests/tier1_offline/test_activity_failure_reporting.py",
