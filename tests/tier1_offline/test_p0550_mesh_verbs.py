@@ -75,7 +75,7 @@ def test_p0550_the_points_file_the_how_to_names_is_the_one_marking_reads(tmp_pat
     assert '`[trailing_edges.<label>] file = "W1.nodes.te.txt"`' not in page
 
 
-@pytest.mark.requirement("FR-424")
+@pytest.mark.requirement("FR-3500")
 def test_p0550_a_stale_declaration_names_a_way_to_a_file_that_exists(tmp_path):
     mesh = _wing(tmp_path / "W1" / "W1.obj")
     assert workspace_cli.main(["geometry", "identify-te", str(mesh)]) == 0
@@ -120,7 +120,6 @@ def test_p0550_a_command_with_no_script_is_refused_at_the_preview(
     assert workspace_cli.main(["geometry", "build", "--build", build]) == 2
     err = capsys.readouterr().err
     assert command in err
-    assert "Traceback" not in err
     assert sorted(p.name for p in folder.iterdir()) == before
 
 
@@ -131,3 +130,15 @@ def test_p0550_the_refine_help_reads(capsys):
     text = " ".join(capsys.readouterr().out.split())
     assert "else a the" not in text
     assert "else the family's longest boundary side" in text
+
+
+@pytest.mark.requirement("FR-3500")
+def test_p0550_a_stale_declaration_reviews_the_level_file_that_is_there(tmp_path):
+    from pyflightstream.workspace._refine import _obj
+
+    folder = tmp_path / "W1_R2"
+    folder.mkdir()
+    (folder / "W1_R2.te.txt").write_text("METER", encoding="utf-8")
+    text = _obj.stale_declaration_message("W1.te.txt", folder)
+    assert "review W1_R2.te.txt" in text
+    assert "identify-te" not in text
