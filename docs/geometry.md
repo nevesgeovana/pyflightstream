@@ -559,9 +559,13 @@ either part whose nodes lie within it of the other part's open boundary. Everyth
 stays as it was, so a part's far open boundary is no part of the interface, and neither is
 an adapted node that touches a stretch of the kept boundary whose own nodes are out of reach.
 
-The kept part does not change: its vertex lines and their order and its faces and their
-order lead the output, to the byte. Along the interface the adapted part takes the kept
-nodes, in one of two ways, per chain:
+The kept part does not change: the three coordinates of each vertex as the file wrote them
+and their order, and its faces and their order, lead the output. An OBJ of `v`, `f` and `g`
+lines written as `v x y z` with single spaces comes through to the byte. What a mesh of this
+package does not hold is not carried from either part: `vt`, `vn`, `usemtl`, `s` and
+comments after the first vertex, a vertex's words past the third, a face's texture and normal
+indices, and every family takes the keyword the kept part's last `g` or `o` used. Along the
+interface the adapted part takes the kept nodes, in one of two ways, per chain:
 
 - **Node for node.** Both chains carry one node per node within the threshold. The adapted
   nodes are replaced by the kept nodes and no face changes kind: quads stay quads.

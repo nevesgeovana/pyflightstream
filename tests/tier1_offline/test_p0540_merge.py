@@ -953,3 +953,24 @@ def test_p0540_merge_an_output_not_named_obj_leaves_nothing_behind(tmp_path, nam
     with pytest.raises(InputArtifactError, match=r"\.obj"):
         merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / name)
     assert not (tmp_path / name).exists()
+
+
+@pytest.mark.requirement("FR-3483")
+def test_p0540_merge_the_docs_say_what_a_part_does_not_carry(tmp_path):
+    """A kept part with texture and normal indices: the geometry holds, the rest is stated gone."""
+    nodes, faces, family = _kept(24)
+    lines = [f"v  {x:.9f}  {y:.9f} {z:.9f} 0.5 0.5 0.5" for x, y, z in nodes]
+    lines += ["vt 0 0", "vn 0 0 1", f"g {family}", "usemtl paint"]
+    lines += ["f " + " ".join(f"{v + 1}/1/1" for v in f) for f in faces]
+    first = tmp_path / "kept.obj"
+    first.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    second = _write(tmp_path / "adapted.obj", _adapted(24))
+    merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    out = _Obj(tmp_path / "out.obj")
+    assert out.groups[family] == faces
+    assert out.nodes[: len(nodes)] == [f"{x:.9f} {y:.9f} {z:.9f}" for x, y, z in nodes]
+    page = Path(__file__).parents[2] / "docs" / "geometry.md"
+    section = page.read_text(encoding="utf-8").split("## Merging two OBJ")[1].split("\n## ")[0]
+    assert "to the byte" not in section.split("single spaces")[0]
+    for words in ("`vt`", "`vn`", "texture and normal", "not carried"):
+        assert words in section
