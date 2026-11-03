@@ -49,6 +49,7 @@ from typing import Any, Literal, NamedTuple
 from pydantic import BaseModel, ValidationError
 
 from pyflightstream._decimal import plain_decimal
+from pyflightstream._errors import NotApplicableWarning, warn
 from pyflightstream.commands import CommandEntry, CommandNotInVersionError
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script._arg_checks import _is_all
@@ -1051,6 +1052,36 @@ def _carry_earlier_records(
     return setup.model_copy(update={"flags": flags})
 
 
+#: The build whose solver has no airfoil separation model: CREATE_AIRFOIL_SEPARATION
+#: first appears in FSM-26.101 and the 26.100 edition does not print it.
+NO_AIRFOIL_SEPARATION_BUILD = "26.100"
+
+
+def _skip_airfoil_separation_the_build_lacks(script: Script, values: dict[str, Any]) -> None:
+    """Warn and drop ``airfoil_separation`` on 26.100, so the row runs with no such model.
+
+    The command is not emitted (FR-3476). The warning is the behaviour, a typed
+    :class:`~pyflightstream._errors.NotApplicableWarning`, and it names the list of
+    axial separation families as the build's own separation setting; nothing here
+    claims that the two models agree.
+    """
+    if script.version.canonical != NO_AIRFOIL_SEPARATION_BUILD:
+        return
+    if not values.get("airfoil_separation"):
+        return
+    warn(
+        "solver_settings: airfoil_separation is not applicable on FlightStream "
+        f"{NO_AIRFOIL_SEPARATION_BUILD}, whose solver has no CREATE_AIRFOIL_SEPARATION "
+        "(the command first appears in 26.101). The command is not emitted and this row "
+        "runs with no separation model. The separation setting of this build is "
+        "axial_separation_families (User Guide, Flow separation); the two models are "
+        "different and are not claimed to give the same result",
+        NotApplicableWarning,
+        stacklevel=2,
+    )
+    values["airfoil_separation"] = None
+
+
 def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
     """Run argument refusals in their declared order before the first emission.
 
@@ -1059,6 +1090,7 @@ def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
     assignment and bulk models, the toggles as booleans, the time regime
     upper-cased.
     """
+    _skip_airfoil_separation_the_build_lacks(script, values)
     _read_boundary_lists(values)
     values["delete_separations"] = _read_delete_separations(values["delete_separations"])
     for argument, model_type in SEPARATION_MODELS.items():
