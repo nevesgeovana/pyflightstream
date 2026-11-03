@@ -791,3 +791,14 @@ def test_p0540_every_verb_makes_the_output_folder_and_keeps_the_input_kind(tmp_p
             result = verb(source, blades=["Blade1"], out=tmp_path / asked, **extra)
         assert result.output == tmp_path / got and (tmp_path / got).is_file()
         assert not (tmp_path / asked).exists()
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize("tip", [3.0, 0.9])
+def test_p0540_a_stated_tip_radius_far_from_the_blade_is_warned(tmp_path, tip):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match=r"--tip-radius.*largest radius"):
+        sector_remesh(source, blades=["Blade1"], tip_radius=tip, out=tmp_path / "o.fsm", **ARGS)

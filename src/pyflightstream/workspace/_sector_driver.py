@@ -83,6 +83,7 @@ __all__ = ["RemeshResult", "power_off_body", "sector_remesh"]
 Array = NDArray[numpy.float64]
 _AXES = ("x", "y", "z")
 _UNIT_VECTOR = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+_TIP_SLACK = 0.01  # a stated tip radius this close to the blade's is a rounding of the same radius
 
 
 @dataclass
@@ -171,9 +172,18 @@ def _unit_m(path: Path) -> float:
 
 def _tip_radius(sector: Sector, ask: Ask, metres: float) -> float:
     """Return the tip radius in the mesh's unit; the blade's largest radius is warned as used."""
-    if ask.tip_radius is not None:
-        return ask.tip_radius / metres
     tip = float(radius_of(sector.q[sector.nodes_of(sector.blade)]).max())
+    if ask.tip_radius is not None:
+        stated = ask.tip_radius / metres
+        if abs(stated - tip) > _TIP_SLACK * tip:
+            warn(
+                f"tip-radius (CLI: --tip-radius) is {ask.tip_radius:g} m, and the blade's largest "
+                f"radius about the axis is {tip * metres:.6g} m: the rows of a remesh stop short "
+                "of the blade's surface or run past it on an extrapolation. Check the value.",
+                PyflightstreamWarning,
+                stacklevel=4,
+            )
+        return stated
     warn(
         f"tip-radius (CLI: --tip-radius) is not stated; the blade's largest radius about the axis, "
         f"{tip * metres:.6g} m, is used for the span rows and for the lengths given as fractions "
