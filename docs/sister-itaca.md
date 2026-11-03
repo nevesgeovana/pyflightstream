@@ -35,8 +35,8 @@ because [AD-06](srs/architecture-srs.md) drops pandas and xarray and
 puts the result structures on ITACA over NumPy instead. Two practical
 notes for anyone reading this page against the code:
 
-* ITACA is not yet a runtime dependency. `pyproject.toml` still declares
-  pandas; the planned ITACA migration remains described in
+* ITACA is not yet a runtime dependency, and pandas is only the optional
+  extra `pyflightstream[pandas]`; the planned ITACA migration remains described in
   [the architecture decision](srs/architecture-srs.md).
 * The far-field API already uses NumPy containers, and xarray is no longer
   required. [Upgrading](upgrading.md#far-field-signatures) lists the changed
