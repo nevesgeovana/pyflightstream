@@ -10069,6 +10069,11 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_merge",
       "kind": "module"
     },
