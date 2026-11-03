@@ -336,6 +336,8 @@ plots = true
 custom_polar_format = false
 trimmed_polar = false  # beside each polar table, its row at zero pitching moment
 rotor_cn_slope = false  # beside each rotor table, the CN slope against ALPHA per J
+merged_polar = false  # beside the unsteady polar, its rows with the rotor tables' columns
+rotate_columns = {}  # column name = "<alias>:<AXIS>": a ROTATE angle as a merged polar column
 trim_moment = "CMB25"  # numeric column whose zero defines trim
 trim_axis = "ALPHA"  # numeric column ordering the trim search
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
@@ -1484,16 +1486,14 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
 
 _TEMPLATE_INTRO = (
     "One section per kind of input file you write, each with what the file is "
-    "for, where it lives, and a complete example to copy. Copy an example to the "
-    "path its block's title names, relative to the workspace root, and edit the "
-    "values: every example is a file the package reads as it stands, and the "
-    "test suite writes each one where its title says and reads it with the "
-    "function the run reads it with. The examples cite each other, so the matrix "
-    "runs against the setup, the pproc, the reference, the geometry, the profile "
-    "and the free stream shown here. What every key of the matrix row, the "
-    f"setup, the pproc, the reference and the geometry sidecar sets, with its "
-    f"unit and its values, is in the input glossary, {_GLOSSARY_LINK}; a key an "
-    "example leaves out is named under it, with the reason."
+    "for, where it lives, and a complete example to copy. Copy an example to the path its block's "
+    "title names, relative to the workspace root, and edit the values: every example is a file the "
+    "package reads as it stands, and the test suite writes each one where its title says and reads "
+    "it with the function the run reads it with. The examples cite each other, so the matrix runs "
+    "against the setup, the pproc, the reference, the geometry, the profile and the free stream "
+    "shown here. What every key of the matrix row, the setup, the pproc, the reference and the "
+    "geometry sidecar sets, with its unit and its values, is in the input glossary, "
+    f"{_GLOSSARY_LINK}; a key an example leaves out is named under it, with the reason."
 )
 
 

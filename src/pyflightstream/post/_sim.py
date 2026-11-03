@@ -1627,6 +1627,13 @@ def _superfile_drafts(ctx: SimContext) -> None:
 
 
 #: The steps of one simulation's post, in the order the manifest has always had.
+def _merged_polar_products(ctx: SimContext) -> None:
+    """Write the merged polar, when the pproc asks for it (FR-3511)."""
+    from pyflightstream.post._merged_polar import merged_polar_products
+
+    merged_polar_products(ctx)
+
+
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
     export_tables,
     structure_products,
@@ -1641,6 +1648,8 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     # FR-456: the far-field family, before the superfile reads the rows.
     farfield_products,
     _superfile_drafts,
+    # FR-3511: last, so it reads the tables as every step above left them.
+    _merged_polar_products,
 )
 
 

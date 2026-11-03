@@ -112,6 +112,7 @@ plots = true # one table per unsteady point from its plots export
 custom_polar_format = false # beside each polar table, the text file the reference tooling opens
 trimmed_polar = false # beside each polar table, its row at zero pitching moment
 rotor_cn_slope = false # beside each rotor table, the CN slope against ALPHA per J
+merged_polar = false # beside the unsteady polar, its rows with the rotor tables' columns
 trim_moment = "CMB25" # numeric column whose zero defines trim
 trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
@@ -776,6 +777,25 @@ secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest dist
 it). It reads the rotor table the post wrote and runs nothing. A `J` with one incidence
 only reads `NA` and is named under `skipped` in `products.json`. Off by default. The
 definition is in [the rotor coefficients](definitions/rotor-coefficients.md#the-normal-force-slope-against-incidence).
+
+### Merged polar
+
+`[products] merged_polar = true` writes, beside the unsteady polar,
+`polars/P<sim>_<name>_merge.csv`: one row per row of the polar, with the columns of the
+simulation's rotor tables after its own. `[products.rotate_columns]` adds an angle of the
+row's `ROTATE` as a column of the name you choose, written `"<alias>:<AXIS>"`:
+
+```toml
+[products]
+merged_polar = true
+
+[products.rotate_columns]
+TILT_STARBOARD = "STARBOARD:NACELLE-Y"
+```
+
+It reads the tables the post wrote and runs nothing, so `pyfs-matrix post` adds, changes or
+removes it with no new run. Off by default. The definition is in
+[the unsteady polar](definitions/the-unsteady-polar.md#the-merged-polar).
 
 ### Interpolated and re-parameterized polars
 

@@ -621,6 +621,11 @@
       "path": "post/_matrix_template.py"
     },
     {
+      "id": "pyflightstream.post._merged_polar",
+      "layer": 0,
+      "path": "post/_merged_polar.py"
+    },
+    {
       "id": "pyflightstream.post._noise_products",
       "layer": 0,
       "path": "post/_noise_products.py"
@@ -5733,6 +5738,31 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._merged_polar",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._merged_polar",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._merged_polar",
+      "target": "pyflightstream.post._sim",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._merged_polar",
+      "target": "pyflightstream.post._stage",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._merged_polar",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._noise_products",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6256,6 +6286,11 @@
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._installed_copies",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._sim",
+      "target": "pyflightstream.post._merged_polar",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",

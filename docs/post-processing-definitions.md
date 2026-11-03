@@ -219,6 +219,10 @@ centers. The linked definition states the rule for every block.
 
 [The unsteady POLAR](definitions/the-unsteady-polar.md#the-unsteady-polar).
 
+<a id="the-merged-polar"></a>
+
+[The merged polar](definitions/the-unsteady-polar.md#the-merged-polar).
+
 <a id="the-mesh-face-count-since-0340"></a>
 
 [The mesh face count](definitions/the-mesh-face-count.md#the-mesh-face-count-since-0340).

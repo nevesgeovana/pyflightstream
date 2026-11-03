@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `[products] merged_polar` writes `polars/P<sim>_<name>_merge.csv`: the unsteady polar with the
+  columns of the simulation's rotor tables on each row, joined by run (FR-3511), and
+  `[products.rotate_columns]` adds an angle of the row's `ROTATE` as a named column (FR-3512).
+
 ### Fixed
 
 - `pyfs-workspace geometry build` refuses with exit 2, naming the command and pointing to `--build`,

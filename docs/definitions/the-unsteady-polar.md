@@ -47,6 +47,26 @@
   A pproc that already plots them is left as it is, to the byte. A recorded run without such plots has no axes block, and `products.json` says
   so under `polars/<file>#axes`; the block is never a column of `NA`.
 
+<a id="the-merged-polar"></a>
+
+### The merged polar
+
+`[products] merged_polar = true` writes `polars/P<sim>_<name>_merge.csv` beside the polar, for
+a reader that wants one flat table.
+
+- **Its rows are the polar's rows, in the polar's order,** and the polar's columns come first
+  with their values unchanged.
+- **A rotor row joins a polar row by the run both came from,** never by a flight condition: a
+  simulation that sweeps `ALPHA` at one `J` holds several rows of that `J`.
+- **Each rotor table adds the columns the polar does not hold,** including `J_<alias>`, after
+  `ROTOR`, which names the rotors that have a row on that row, joined by `+`. A row with no
+  row of a rotor reads `NA` in that rotor's columns and is named under `skipped`.
+- **`[products.rotate_columns]` adds an angle of the row's `ROTATE`,** last, in degrees: each
+  column name takes `"<alias>:<AXIS>"`, matched on the record's `ALIAS` and `AXIS` exactly. A rotation the row does not state is not turned, so
+  its angle is 0, and the column is named under `skipped`. A column the table already holds is
+  left as it is and named there too.
+- **A simulation with no unsteady polar writes no merged polar,** and says so under `skipped`.
+
 **Why the native export is not the source.** It states the **last time step
 only**, which on an oscillating rotor is one instant of a cycle. It still ships,
 as a health check.

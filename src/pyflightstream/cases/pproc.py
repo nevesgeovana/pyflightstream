@@ -1504,6 +1504,13 @@ class ProductsSpec(_SuggestsKeys):
         Writes, beside every rotor table, ``P<sim>-<ALIAS>_cn_slope.csv``: the
         secant slope of ``CN_<ALIAS>`` against ``ALPHA`` at each advance ratio
         of the table. Off by default.
+    merged_polar : bool
+        Writes, beside the unsteady polar, ``P<sim>_<name>_merge.csv``: its rows with
+        the columns of the simulation's rotor tables and the angles
+        ``rotate_columns`` declares. Off by default.
+    rotate_columns : dict of str to str
+        The ROTATE angles the merged polar writes as columns, each column's name to
+        ``"<alias>:<AXIS>"``, as the matrix row's record states them. Empty by default.
     superfile_format : str
         The format the super file is written in.
     settings_codebook : bool
@@ -1524,6 +1531,11 @@ class ProductsSpec(_SuggestsKeys):
     trimmed_polar: bool = False
     #: FR-3502: beside every rotor table, the normal-force slope against incidence per J.
     rotor_cn_slope: bool = False
+    #: FR-3511: beside the unsteady polar, its rows with the rotor tables' columns.
+    merged_polar: bool = False
+    #: FR-3512: the ROTATE angles the merged polar writes as columns, each column's name
+    #: to ``"<alias>:<AXIS>"``, the record's ALIAS and AXIS as the matrix row states them.
+    rotate_columns: dict[str, str] = Field(default_factory=dict)
     #: Numeric moment column whose zero defines the trimmed polar (FR-3340).
     trim_moment: str = Field(default="CMB25", min_length=1)
     #: Numeric column ordering the trim search; unknown columns warn and skip (FR-3341).
@@ -1545,6 +1557,19 @@ class ProductsSpec(_SuggestsKeys):
     #: The accepted names are :data:`INSTALLED_FRAME_FAMILIES`, refused where the
     #: pproc is read.
     installed_frame: list[str] = Field(default_factory=list)
+
+    @field_validator("rotate_columns")
+    @classmethod
+    def _a_rotation_each_column_can_name(cls, value: dict[str, str]) -> dict[str, str]:
+        """Refuse a value that names no alias or axis, or a name no CSV header can hold."""
+        for column, rotation in value.items():
+            alias, _, axis = rotation.rpartition(":")
+            if not (alias.strip() and axis.strip()) or set(column) & set(',"\n\r'):
+                raise InputValueError(
+                    f"rotate_columns {column} = {rotation!r}: write a column name with no comma or "
+                    'double quote, and the rotation as "<alias>:<AXIS>"'
+                )
+        return value
 
     @field_validator("installed_frame")
     @classmethod
