@@ -24,6 +24,7 @@ from pyflightstream.workspace._wheel import sector_to_wheel
 from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
 from tests.tier1_offline.test_p0540_wheel import build_sector
 from tests.tier1_offline.test_p0540_wheel_fsm import build_saved_sector
+from tests.tier1_offline.test_raw_mesh_conditions import _p0460_runner, _p0460_saved_plan
 
 COPIES = 6
 BLOCKS = {
@@ -217,3 +218,40 @@ def test_p0550_a_cross_edge_is_placed_by_the_nearest_rim_edge_across_the_parts_o
     assert entry["cross_m"]
     assert {point[2] for point in entry["cross_m"]} == {5.0}
     assert {round(point[2], 2) for point in entry["points_m"]} == {0.0, 4.95, 5.05}
+
+
+@pytest.mark.requirement("FR-3542")
+def test_p0550_a_marking_names_each_file_it_replaces_with_its_fsm_absent(tmp_path: Path) -> None:
+    from pyflightstream.workspace import apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    fsm, inventory, script, log, record = plan.outputs
+    record.write_text("an earlier record")
+    log.write_text("an earlier log")
+    with pytest.warns(PyflightstreamWarning, match="replaced") as caught:
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved))
+    said = " ".join(str(item.message) for item in caught if "replaced" in str(item.message))
+    assert record.name in said and log.name in said
+    assert script.name not in said and inventory.name not in said
+    # The behaviour stands: the marking wrote its five outputs.
+    assert fsm.is_file() and "an earlier" not in record.read_text()
+
+
+@pytest.mark.requirement("FR-3542")
+def test_p0550_a_marking_with_nothing_beside_it_or_with_overwrite_has_no_such_word(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace import apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    plan.outputs[4].write_text("an earlier record")
+    with warnings.catch_warnings(record=True) as asked:
+        warnings.simplefilter("always")
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved), overwrite=True)
+    assert not [item for item in asked if "mark-boundaries replaced" in str(item.message)]
+    (tmp_path / "fresh").mkdir()
+    plan, saved = _p0460_saved_plan(tmp_path / "fresh")
+    with warnings.catch_warnings(record=True) as clean:
+        warnings.simplefilter("always")
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved))
+    assert not [item for item in clean if "mark-boundaries replaced" in str(item.message)]

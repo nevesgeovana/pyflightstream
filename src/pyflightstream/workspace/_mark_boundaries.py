@@ -804,12 +804,32 @@ def apply_mark_boundaries(
         raise BoundaryMarkingError(
             f"read-back failed: {error}; nothing promoted; inspect {plan.work}"
         ) from error
+    beside = _existing_beside(plan, overwrite=overwrite)
     try:
-        return _publish_record(plan, outcome, summary, package_version)
+        record = _publish_record(plan, outcome, summary, package_version)
     except OSError as error:
         raise BoundaryMarkingError(
             f"publication failed: {error}; nothing promoted; inspect {plan.work}"
         ) from error
+    _warn_replaced(plan, beside)
+    return record
+
+
+def _existing_beside(plan: BoundaryMarkingPlan, *, overwrite: bool) -> list[Path]:
+    """Return the outputs other than the FSM that exist with no ``overwrite`` to replace them."""
+    return [] if overwrite else [path for path in plan.outputs[1:] if path.exists()]
+
+
+def _warn_replaced(plan: BoundaryMarkingPlan, replaced: list[Path]) -> None:
+    """Warn of each file a marking replaced with its FSM absent, which needs no ``overwrite``."""
+    if replaced:
+        warn(
+            f"mark-boundaries replaced {', '.join(path.name for path in replaced)} beside "
+            f"{plan.outputs[0].name}: only an existing FSM requires overwrite (CLI: --overwrite), "
+            "and these files were left by an earlier marking or named alike.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _publish_record(plan, outcome, summary, package_version):

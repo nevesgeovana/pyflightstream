@@ -416,7 +416,8 @@ In particular,
 an unverified `AUTO_DETECT_WAKE_TERMINATION_NODES` blocks an `"auto"` entry.
 Rendering a script does not establish solver support. Apply first checks the
 executable's build banner with a small log-only pass, then runs one marking
-pass in a fresh work folder. An existing FSM requires `--overwrite`.
+pass in a fresh work folder. An existing FSM requires `--overwrite`. With the FSM
+absent, the other outputs are replaced without it, and each one replaced is warned by name.
 
 The saved surface names, trailing-edge points and group count, termination
 count and base-region records must agree before publication. The five outputs
