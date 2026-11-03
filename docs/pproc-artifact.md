@@ -113,6 +113,7 @@ custom_polar_format = false # beside each polar table, the text file the referen
 trimmed_polar = false # beside each polar table, its row at zero pitching moment
 rotor_cn_slope = false # beside each rotor table, the CN slope against ALPHA per J
 merged_polar = false # beside the unsteady polar, its rows with the rotor tables' columns
+rotate_columns = {} # column = "<alias>:<AXIS>": a ROTATE angle in degrees, merged polar only
 trim_moment = "CMB25" # numeric column whose zero defines trim
 trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
@@ -793,8 +794,11 @@ merged_polar = true
 TILT_STARBOARD = "STARBOARD:NACELLE-Y"
 ```
 
-It reads the tables the post wrote and runs nothing, so `pyfs-matrix post` adds, changes or
-removes it with no new run. Off by default. The definition is in
+It reads the tables the post wrote and runs nothing, so it needs no new run. A plain
+`pyfs-matrix post` leaves a simulation already posted as it is: name it with `--sims <sim>`, or
+rebuild every RUN = 1 simulation with `--force-overwrite --yes`. Turned off, a merged polar
+already written is kept and warned until `--archive` moves it or `--force-overwrite` removes
+it. Off by default. The definition is in
 [the unsteady polar](definitions/the-unsteady-polar.md#the-merged-polar).
 
 ### Interpolated and re-parameterized polars

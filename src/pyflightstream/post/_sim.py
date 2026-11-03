@@ -1626,7 +1626,6 @@ def _superfile_drafts(ctx: SimContext) -> None:
         )
 
 
-#: The steps of one simulation's post, in the order the manifest has always had.
 def _merged_polar_products(ctx: SimContext) -> None:
     """Write the merged polar, when the pproc asks for it (FR-3511)."""
     from pyflightstream.post._merged_polar import merged_polar_products
@@ -1634,6 +1633,7 @@ def _merged_polar_products(ctx: SimContext) -> None:
     merged_polar_products(ctx)
 
 
+#: The steps of one simulation's post, in the order the manifest has always had.
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
     export_tables,
     structure_products,

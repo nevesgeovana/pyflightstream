@@ -1509,8 +1509,9 @@ class ProductsSpec(_SuggestsKeys):
         the columns of the simulation's rotor tables and the angles
         ``rotate_columns`` declares. Off by default.
     rotate_columns : dict of str to str
-        The ROTATE angles the merged polar writes as columns, each column's name to
-        ``"<alias>:<AXIS>"``, as the matrix row's record states them. Empty by default.
+        The ROTATE angles the merged polar writes as columns, in degrees: each column's
+        name to ``"<alias>:<AXIS>"``, as the matrix row's record states them, the axis
+        being ``<frame>-<X|Y|Z>``. Read only with ``merged_polar``. Empty by default.
     superfile_format : str
         The format the super file is written in.
     settings_codebook : bool
@@ -1564,7 +1565,9 @@ class ProductsSpec(_SuggestsKeys):
         """Refuse a value that names no alias or axis, or a name no CSV header can hold."""
         for column, rotation in value.items():
             alias, _, axis = rotation.rpartition(":")
-            if not (alias.strip() and axis.strip()) or set(column) & set(',"\n\r'):
+            if not (column.strip() and alias.strip() and axis.strip()) or set(column) & set(
+                ',"\n\r'
+            ):
                 raise InputValueError(
                     f"rotate_columns {column} = {rotation!r}: write a column name with no comma or "
                     'double quote, and the rotation as "<alias>:<AXIS>"'

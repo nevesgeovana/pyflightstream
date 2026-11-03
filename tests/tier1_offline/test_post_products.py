@@ -2317,6 +2317,20 @@ def test_goal019_post_the_command_line_rebuilds_only_on_the_word_rebuild(
     assert "deprecated" not in asked[0].lower()
 
 
+def test_p0550_an_end_of_input_at_the_question_confirms_nothing(monkeypatch):
+    """A terminal that gives no answer is no answer, not a traceback."""
+    import builtins
+
+    from pyflightstream.run.cli import _confirmed_destruction
+
+    def closed(prompt: str = "") -> str:
+        raise EOFError
+
+    monkeypatch.setattr(sys, "stdin", _Stdin(True))
+    monkeypatch.setattr(builtins, "input", closed)
+    assert _confirmed_destruction(False) is False
+
+
 # --- GOAL-019 item 9: the Band D fixes of the GEO-039 triage ------------------
 
 

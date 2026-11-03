@@ -194,10 +194,13 @@ def _confirmed_destruction(yes: bool) -> bool:
         return True
     if not sys.stdin or not sys.stdin.isatty():
         return False
-    answer = input(
-        "--force-overwrite confirms a rebuild. The default "
-        "writes no archive; --archive keeps a copy. Type 'rebuild' to go on: "
-    )
+    try:
+        answer = input(
+            "--force-overwrite confirms a rebuild. The default "
+            "writes no archive; --archive keeps a copy. Type 'rebuild' to go on: "
+        )
+    except EOFError:
+        return False
     return answer.strip().lower() == "rebuild"
 
 

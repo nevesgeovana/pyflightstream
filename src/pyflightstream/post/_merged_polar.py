@@ -58,11 +58,12 @@ def _angle_columns(
             continue
         alias, _, axis = rotation.rpartition(":")
         stated = [
-            record["ANGLE"]
+            float(record["ANGLE"])
             for record in rotations
             if record.get("AXIS") == axis.strip() and record.get("ALIAS") == alias.strip()
         ]
-        angles[column] = float(stated[-1]) if stated else 0.0
+        # The builder applies every record in order, so two records of one axis add up.
+        angles[column] = sum(stated, 0.0)
         if not stated:
             notes.append(f"{column} reads 0: the row states no ROTATE of {rotation}")
     if rotations is None and angles:
@@ -89,11 +90,16 @@ def merged_polar_rows(
     states_rotor = bool(rotor_tables) and ROTOR_ID_COLUMN not in header
     header.extend([ROTOR_ID_COLUMN] if states_rotor else [])
     header.extend(added)
-    angles, angle_notes = _angle_columns(rules or {}, rotations)
+    declared = rules or {}
+    angles, angle_notes = _angle_columns(
+        {name: rule for name, rule in declared.items() if name not in header}, rotations
+    )
     notes.extend(angle_notes)
-    for column in [name for name in angles if name in header]:
-        del angles[column]
-        notes.append(f"{column} is not added: the table already holds that column")
+    notes.extend(
+        f"{column} is not added: the table already holds that column"
+        for column in declared
+        if column in header
+    )
     header.extend(angles)
     by_run = [
         (table, dict(zip(table.runs, table.rows, strict=True)))

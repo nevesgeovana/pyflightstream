@@ -130,11 +130,39 @@ def test_p0550_a_column_the_table_holds_is_left_as_it_is_and_named():
 
 @pytest.mark.parametrize(
     "columns",
-    [{"TILT": "STAR"}, {"TILT": ":NAC-Y"}, {"TILT": "STAR:"}, {"A,B": "STAR:NAC-Y"}],
+    [
+        {"TILT": "STAR"},
+        {"TILT": ":NAC-Y"},
+        {"TILT": "STAR:"},
+        {"A,B": "STAR:NAC-Y"},
+        {'A"B': "STAR:NAC-Y"},
+        {"": "STAR:NAC-Y"},
+        {" ": "STAR:NAC-Y"},
+    ],
 )
 def test_p0550_a_rotate_column_that_names_no_rotation_is_refused(columns):
-    with pytest.raises(ValidationError, match="rotate_columns"):
+    with pytest.raises(ValidationError, match="write a column name"):
         ProductsSpec(merged_polar=True, rotate_columns=columns)
+
+
+@pytest.mark.parametrize("rotations", [[], None])
+def test_p0550_a_column_the_table_holds_is_named_once_for_what_happened(rotations):
+    _, _, notes = merged_polar_rows(
+        COLUMNS, [_polar_row("-2", "a")], [], {"ALPHA": "STAR:NAC-Y"}, rotations
+    )
+    assert notes == ["ALPHA is not added: the table already holds that column"]
+
+
+def test_p0550_two_rotations_of_one_alias_and_axis_add_up():
+    rotations = [
+        {"ANGLE": "2", "AXIS": "NAC-Y", "ALIAS": "STAR"},
+        {"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "STAR"},
+    ]
+    header, body, notes = merged_polar_rows(
+        COLUMNS, [_polar_row("-2", "a")], [], {"TILT": "STAR:NAC-Y"}, rotations
+    )
+    assert _as_dicts(header, body)[0]["TILT"] == 5.0
+    assert notes == []
 
 
 def _read(path: Path) -> list[dict[str, str]]:
@@ -167,7 +195,7 @@ def test_p0550_the_post_writes_the_merged_polar_when_asked(tmp_path):
         write_campaign_products(workspace, matrix_stem="products", overwrite=True)
     polar, rotor, out = _read(polar_file), _read(rotor_file), _read(merged)
     assert len(out) == len(polar) == len(rotor) == 1
-    assert out[0]["ALPHA"] == polar[0]["ALPHA"]
+    assert {column: out[0][column] for column in polar[0]} == polar[0], "the polar is unchanged"
     assert out[0]["CT_PUSHER"] == rotor[0]["CT_PUSHER"]
     assert out[0]["J_PUSHER"] == rotor[0]["J_PUSHER"]
     assert out[0]["ROTOR"] == "PUSHER"
@@ -208,3 +236,72 @@ def test_p0550_the_product_is_off_and_silent_by_default(tmp_path):
     ctx = _context(tmp_path)
     merged_polar_products(ctx)
     assert ctx.skipped == {}
+
+
+def _written_tables(tmp_path: Path, matrix_row: object, **products: object) -> SimpleNamespace:
+    folder = tmp_path / "polars"
+    folder.mkdir()
+    (folder / "P7_a_uns_avg.csv").write_text("POL,ALPHA,run_id\n7,-2,a\n7,0,b\n", encoding="utf-8")
+    (folder / "P7-PROP_rotor.csv").write_text(
+        "POL,ROTOR,CT_PROP\n7,PROP,0.22\n7,PROP,0.11\n", encoding="utf-8"
+    )
+    ctx = SimpleNamespace(
+        pproc=SimpleNamespace(products=ProductsSpec(merged_polar=True, **products)),
+        written_names={
+            "polars/P7_a_uns_avg.csv": {"runs": ["a", "b"]},
+            "polars/P7-PROP_rotor.csv": {"rotor": "PROP", "runs": ["b", "a"]},
+        },
+        skipped={},
+        sim_id="7",
+        out=tmp_path,
+        matrix_row=matrix_row,
+        target=lambda path: path,
+    )
+    ctx.add = lambda path, entry: ctx.written_names.__setitem__(
+        path.relative_to(tmp_path).as_posix(), entry
+    )
+    return ctx
+
+
+def test_p0550_the_written_tables_join_by_the_runs_the_manifest_states(tmp_path):
+    ctx = _written_tables(tmp_path, SimpleNamespace(rotations=[]))
+    merged_polar_products(ctx)
+    out = _read(tmp_path / "polars" / "P7_a_merge.csv")
+    assert [(row["run_id"], row["CT_PROP"]) for row in out] == [("a", "0.11"), ("b", "0.22")]
+
+
+def test_p0550_the_written_table_takes_the_matrix_rows_rotation(tmp_path):
+    row = SimpleNamespace(rotations=[{"ANGLE": "3.5", "AXIS": "NAC-Y", "ALIAS": "STAR"}])
+    ctx = _written_tables(tmp_path, row, rotate_columns={"TILT": "STAR:NAC-Y"})
+    merged_polar_products(ctx)
+    out = _read(tmp_path / "polars" / "P7_a_merge.csv")
+    assert [float(row["TILT"]) for row in out] == [3.5, 3.5]
+    assert "polars/P7_a_merge.csv" not in ctx.skipped
+
+
+def test_p0550_a_simulation_with_no_matrix_row_writes_na_not_zero(tmp_path):
+    ctx = _written_tables(tmp_path, None, rotate_columns={"TILT": "STAR:NAC-Y"})
+    with pytest.warns(Warning, match="no matrix row"):
+        merged_polar_products(ctx)
+    out = _read(tmp_path / "polars" / "P7_a_merge.csv")
+    assert [row["TILT"] for row in out] == ["NA", "NA"]
+
+
+def test_p0550_turning_the_product_off_retires_the_file_on_a_rebuild(tmp_path):
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
+
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    pprocs = sorted((workspace.inputs_dir / "pproc").glob("*.toml"))
+    original = {path: path.read_text(encoding="utf-8") for path in pprocs}
+    for path, text in original.items():
+        path.write_text(text + "\n[products]\nmerged_polar = true\n", encoding="utf-8")
+    write_campaign_products(workspace, matrix_stem="products")
+    folder = workspace.root / "post" / "products" / "polars"
+    (merged,) = folder.glob("*_merge.csv")
+    for path, text in original.items():
+        path.write_text(text, encoding="utf-8")
+    write_campaign_products(workspace, matrix_stem="products", overwrite=True)
+    assert not merged.exists()
+    manifest = json.loads((folder.parent / "products.json").read_text(encoding="utf-8"))
+    assert f"polars/{merged.name}" not in manifest["products"]

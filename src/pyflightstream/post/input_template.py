@@ -337,7 +337,7 @@ custom_polar_format = false
 trimmed_polar = false  # beside each polar table, its row at zero pitching moment
 rotor_cn_slope = false  # beside each rotor table, the CN slope against ALPHA per J
 merged_polar = false  # beside the unsteady polar, its rows with the rotor tables' columns
-rotate_columns = {}  # column name = "<alias>:<AXIS>": a ROTATE angle as a merged polar column
+rotate_columns = {}  # column = "<alias>:<AXIS>": a ROTATE angle in degrees, merged polar only
 trim_moment = "CMB25"  # numeric column whose zero defines trim
 trim_axis = "ALPHA"  # numeric column ordering the trim search
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.

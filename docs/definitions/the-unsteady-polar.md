@@ -62,9 +62,14 @@ a reader that wants one flat table.
   `ROTOR`, which names the rotors that have a row on that row, joined by `+`. A row with no
   row of a rotor reads `NA` in that rotor's columns and is named under `skipped`.
 - **`[products.rotate_columns]` adds an angle of the row's `ROTATE`,** last, in degrees: each
-  column name takes `"<alias>:<AXIS>"`, matched on the record's `ALIAS` and `AXIS` exactly. A rotation the row does not state is not turned, so
+  column name takes `"<alias>:<AXIS>"`, matched on the record's `ALIAS` and `AXIS` exactly, and
+  two records of one alias and axis add up, as the rotations do. A simulation with no matrix row
+  states nothing either way, so the column reads `NA` and is named under `skipped`. Without
+  `merged_polar = true` the table writes nothing and is named there. A rotation the row does not state is not turned, so
   its angle is 0, and the column is named under `skipped`. A column the table already holds is
   left as it is and named there too.
+- **A rotor table whose rows do not each name one run is not joined:** its columns read `NA`
+  and the table is named under `skipped`.
 - **A simulation with no unsteady polar writes no merged polar,** and says so under `skipped`.
 
 **Why the native export is not the source.** It states the **last time step

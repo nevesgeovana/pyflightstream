@@ -7,6 +7,13 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.55.0
+
+`[products] merged_polar = true` (default false) writes
+`polars/P<sim>_<name>_merge.csv` beside the unsteady polar: its rows with the columns of the
+simulation's rotor tables, joined by run, and each `[products.rotate_columns]` entry,
+`COLUMN = "<alias>:<AXIS>"`, as a column holding that `ROTATE` angle in degrees (FR-3511, FR-3512).
+
 ## 0.54.0
 
 Every new verb and setting is off unless it is called or stated, so a workspace
@@ -38,11 +45,6 @@ other line. The marking errors for a missing or stale field name it (FR-3479).
 New public names, importable from `pyflightstream.workspace`: `sector_to_wheel`
 and `WheelResult`, `merge_objs` and `MergedMesh`, `sector_remesh`,
 `power_off_body` and `RemeshResult`.
-
-`[products] merged_polar = true` (default false) writes
-`polars/P<sim>_<name>_merge.csv` beside the unsteady polar: its rows with the columns of the
-simulation's rotor tables, joined by run, and each `[products.rotate_columns]` entry,
-`COLUMN = "<alias>:<AXIS>"`, as a column holding that `ROTATE` angle (FR-3511, FR-3512).
 
 `[products] rotor_cn_slope = true` (default false) writes
 `polars/P<sim>-<ALIAS>_cn_slope.csv` beside each rotor table: per advance ratio,
