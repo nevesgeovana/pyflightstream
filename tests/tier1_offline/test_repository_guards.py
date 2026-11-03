@@ -45,12 +45,18 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 0.53.0 (PFS-2185.18) budgets run/_post_selection.py, the post selection moved out of
 #: run/cli.py to hold its AD-18 size bound (+1 tracked file), measured.
 #: The p0410 manual-help test folded into test_p0410_fx3_contributing.py (-1 tracked file).
+#: 0.54.0 (PFS-2186) budgets the sector-to-wheel, merge, remesh, marking and slope modules of the
+#: five lanes (src/pyflightstream: post/_cn_slope.py, qa/_spec_0540_marking.py, run/_cli_merge.py,
+#: run/_cli_wheel.py, workspace/_mark_rims.py, _merge.py, _sector_body.py, _sector_driver.py,
+#: _sector_read.py, _sector_remesh.py, _sector_save.py, _wheel.py, _wheel_fsm.py), their tests
+#: and the four 26.100 marking probe reports (reports/compat/CMP-26100_2026-11-02_mark-26100-base
+#: and -vertex, yaml and md: +4 report files, +9698 report lines): +30 tracked files, measured.
 LEAN_CAPS = {
-    "tracked_files": 2048,
-    "reports_files": 101,
-    "reports_lines": 161906,
-    "tests_files": 1147,
-    "tests_lines": 392000,
+    "tracked_files": 2078,
+    "reports_files": 105,
+    "reports_lines": 171604,
+    "tests_files": 1167,
+    "tests_lines": 406996,
 }
 
 #: Measured and reported, not enforced, in 0.46.0: the tests review before 1.0.0 (PFS-2177)
