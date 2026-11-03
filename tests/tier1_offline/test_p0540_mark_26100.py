@@ -418,7 +418,7 @@ def test_p0540_26100_a_rim_edge_within_tolerance_of_a_cross_edge_is_no_cross_edg
     monkeypatch.setattr(fsm, "trailing_edge_midpoints", lambda _: tuple(marked))
     assert _cross_edges(plan, tmp_path / "x.fsm") == {"wing": 0}
     # A cross edge really marked is still found, and only that one counts.
-    marked.append(plan.sets[0]["cross_m"][0])
+    marked += [plan.sets[0]["cross_m"][0]] * 2  # one edge read twice is one cross edge
     with pytest.raises(BoundaryMarkingError, match="wing: 1"):
         _cross_edges(plan, tmp_path / "x.fsm")
 
