@@ -8394,6 +8394,11 @@
     },
     {
       "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
       "target": "pyflightstream.qa._spec_kit",
       "kind": "module"
     },
@@ -14214,6 +14219,11 @@
     },
     {
       "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
       "target": "pyflightstream.workspace._sector_body",
       "kind": "module"
     },
@@ -14260,6 +14270,11 @@
     {
       "source": "pyflightstream.workspace._sector_remesh",
       "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_save",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -14385,6 +14400,11 @@
     {
       "source": "pyflightstream.workspace._wheel_fsm",
       "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {

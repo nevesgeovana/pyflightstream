@@ -798,6 +798,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.qa._spec_0460_marking"><summary><code>pyflightstream.qa._spec_0460_marking</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_kit">pyflightstream.qa._spec_kit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa.probes">pyflightstream.qa.probes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
@@ -2181,6 +2182,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._sector_body">pyflightstream.workspace._sector_body</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._sector_read">pyflightstream.workspace._sector_read</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._sector_remesh">pyflightstream.workspace._sector_remesh</a> (module)</li>
@@ -2200,6 +2202,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._sector_save"><summary><code>pyflightstream.workspace._sector_save</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel_fsm">pyflightstream.workspace._wheel_fsm</a> (module)</li>
@@ -2243,6 +2246,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
 </ul></details>
 
