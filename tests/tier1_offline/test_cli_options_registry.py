@@ -201,6 +201,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "visual_inspect"): SWITCH,
     # 0.53.0 (PFS-2185.11): `geometry beam --visual-inspection` draws one more file.
     ("pyfs-workspace", "visual_inspection"): SWITCH,
+    # 0.54.0 (PFS-2186.09): `geometry merge` names its two parts, the one adapted and the
+    # distance across their interface, facts of this one call.
+    ("pyfs-workspace", "parts"): SUBJECT,
+    ("pyfs-workspace", "adapt"): SUBJECT,
+    ("pyfs-workspace", "threshold"): CASE,
     ("pyfs-workspace", "keep_within_component"): SWITCH,
     ("pyfs-matrix", "keep_within_component"): SWITCH,
     ("pyfs-workspace", "audit_off"): SWITCH,
@@ -897,6 +902,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "convert2midnodes",
                 "create",
                 "identify-te",
+                "merge",
                 "prepare-to-refine",
                 "visual-inspect",
                 "degenerate",
@@ -949,7 +955,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        "audit fill-interior mirror move profile refine subtract time-mean trailing-edge "
+        "audit fill-interior merge mirror move profile refine subtract time-mean trailing-edge "
         "visual-inspect".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
@@ -976,6 +982,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "trailing-edge",
             "convert2midnodes",
             "identify-te",
+            "merge",
             "prepare-to-refine",
             "visual-inspect",
             "build",
@@ -1022,6 +1029,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine", "refine"}),
     ("pyfs-matrix", "visual_inspect"): frozenset({"refine"}),
     ("pyfs-workspace", "visual_inspection"): frozenset({"beam"}),
+    # 0.54.0 (PFS-2186.09): `geometry merge`.
+    ("pyfs-workspace", "parts"): frozenset({"merge"}),
+    ("pyfs-workspace", "threshold"): frozenset({"merge"}),
+    ("pyfs-workspace", "adapt"): frozenset({"merge"}),
     ("pyfs-workspace", "keep_within_component"): frozenset({"prepare-to-refine", "refine"}),
     ("pyfs-matrix", "keep_within_component"): frozenset({"refine"}),
     ("pyfs-workspace", "audit_off"): frozenset({"refine"}),

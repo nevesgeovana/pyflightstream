@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-workspace geometry merge a.obj b.obj --threshold T --adapt b.obj --out out.obj` joins two trimmed OBJ along the open boundaries within the threshold. The part `--adapt` names takes the other's nodes along the interface, node for node where both chains match, otherwise by a band of two face layers remeshed on the kept nodes; the kept part's nodes and faces are unchanged to the byte (FR-3480 to FR-3487). It writes `<out stem>.merge.json`, the audit and the output's inventory; the boundary declarations of the two sources are not merged (FR-3488). A threshold that finds no interface warns, writes nothing and exits non-zero (FR-3487).
+
 ## [0.53.0] - 2026-11-01
 
 ### Added

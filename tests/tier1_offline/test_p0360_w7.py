@@ -82,6 +82,9 @@ PUBLIC_HOMES = {
     "derive_thin_blade": "pyflightstream.workspace._degenerate",
     "thin_blade_path": "pyflightstream.workspace._degenerate",
     "missing_log_warning": "pyflightstream.workspace._missing_log",
+    # 0.54.0 (PFS-2186.09): the merge of two trimmed OBJ.
+    "MergedMesh": "pyflightstream.workspace._merge",
+    "merge_objs": "pyflightstream.workspace._merge",
 }
 
 

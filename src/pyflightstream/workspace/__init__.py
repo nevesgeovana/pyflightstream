@@ -218,6 +218,8 @@ from pyflightstream.workspace._mark_boundaries import (
     plan_mark_boundaries,
     refuse_mark_boundaries,
 )
+from pyflightstream.workspace._merge import MergedMesh as MergedMesh
+from pyflightstream.workspace._merge import merge_objs as merge_objs
 from pyflightstream.workspace._missing_log import missing_log_warning as missing_log_warning
 from pyflightstream.workspace._refine import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine import PreparedMesh as PreparedMesh
@@ -383,6 +385,7 @@ __all__ = [
 # FR-429: public thin-blade derivation.
 __all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
 __all__ += ["missing_log_warning"]
+__all__ += ["MergedMesh", "merge_objs"]
 
 
 def collection_name(declared: str | Path) -> str:
