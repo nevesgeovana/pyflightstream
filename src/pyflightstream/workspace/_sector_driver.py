@@ -30,6 +30,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
+    NotApplicableWarning,
     PyflightstreamWarning,
     warn,
 )
@@ -143,6 +144,14 @@ def _paths(
             f"{path}: a sector to remesh is an existing saved simulation (.fsm). {_NOTHING}"
         )
     target = Path(out) if out is not None else path.with_name(f"{path.stem}_{tag}.fsm")
+    if target.suffix.lower() != ".fsm":
+        warn(
+            f"out (CLI: --out) {target.name} is not the sector's kind (.fsm); the output takes "
+            "the sector's kind, as the output of a route does.",
+            NotApplicableWarning,
+            stacklevel=3,
+        )
+        target = target.with_suffix(".fsm")
     rec = target.with_name(f"{target.stem}.{record}.json")
     refuse_the_source(target, path)
     refuse_existing([target, rec], over)

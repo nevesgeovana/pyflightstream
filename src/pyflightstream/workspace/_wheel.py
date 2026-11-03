@@ -1122,6 +1122,7 @@ def _write_obj(
     sidecar = inventory_sidecar(out, "obj")
     record = out.with_name(f"{out.stem}.wheel.json")
     refuse_existing([out, sidecar, record, *written.points], opts.overwrite)
+    out.parent.mkdir(parents=True, exist_ok=True)
     header = [
         f"# Full wheel of {path.name}: {opts.copies} copies about axis "
         f"{opts.axis.round(12).tolist()} through {opts.hub.tolist()}, nodes merged within "

@@ -762,3 +762,32 @@ def test_p0540_a_rim_line_that_does_not_run_root_to_tip_ends_the_read(tmp_path, 
         [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=15
     )
     assert done.returncode != 0 and "TopologyNotFoundError" in done.stderr
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_every_verb_makes_the_output_folder_and_keeps_the_input_kind(tmp_path):
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.workspace import power_off_body, sector_remesh, sector_to_wheel
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    source = build_blunt_sector(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wheel = sector_to_wheel(
+            source, copies=COPIES, blades=["Blade1"], out=tmp_path / "a" / "b" / "w.fsm"
+        )
+        assert wheel.written and (tmp_path / "a" / "b" / "w.fsm").is_file()
+        sector = build_sector(tmp_path)
+        obj = sector_to_wheel(
+            sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "c" / "d" / "w.obj"
+        )
+        assert obj.written and (tmp_path / "c" / "d" / "w.obj").is_file()
+    cases = (
+        (sector_remesh, ARGS, "x.obj", "x.fsm"),
+        (power_off_body, {"copies": COPIES}, "y", "y.fsm"),
+    )
+    for verb, extra, asked, got in cases:
+        with pytest.warns(NotApplicableWarning, match="sector's kind"):
+            result = verb(source, blades=["Blade1"], out=tmp_path / asked, **extra)
+        assert result.output == tmp_path / got and (tmp_path / got).is_file()
+        assert not (tmp_path / asked).exists()

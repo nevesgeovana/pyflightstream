@@ -512,6 +512,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         + lines[parsed.phys["p_end"] :]
     )
     part = opts.out.with_name(opts.out.name + ".part")
+    opts.out.parent.mkdir(parents=True, exist_ok=True)
     part.write_bytes(parsed.newline.join(text).encode("latin-1"))
     try:
         expected: dict[str, Any] = {
