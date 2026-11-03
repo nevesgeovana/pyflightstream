@@ -598,3 +598,21 @@ def test_p0540_an_output_that_is_the_sector_itself_is_refused_by_every_verb(tmp_
     with pytest.raises(InputArtifactError, match="the sector itself"):
         sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=sector.obj, overwrite=True)
     assert sector.obj.read_bytes() == obj_before
+
+
+@pytest.mark.requirement("FR-3498")
+def test_p0540_the_angle_of_a_two_blade_sector_survives_the_rounding_of_its_seams():
+    from pyflightstream.workspace._sector_read import _seams
+
+    rng = np.random.default_rng(1)
+    wrong = []
+    for _ in range(400):
+        centre = rng.uniform(-math.pi, math.pi)
+        theta = centre + np.linspace(-math.pi / 2, math.pi / 2, 9)
+        radius = 0.3 + 0.2 * rng.random()
+        q = np.c_[np.zeros(9), radius * np.cos(theta), radius * np.sin(theta)]
+        found_centre, span = _seams(q, np.arange(9))
+        gap = abs(math.remainder(found_centre - centre, 2.0 * math.pi))
+        if abs(span - math.pi) > 1e-6 or gap > 1e-6:
+            wrong.append((centre, span))
+    assert not wrong

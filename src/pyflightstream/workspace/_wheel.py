@@ -175,6 +175,22 @@ def rotate(
     return turned + hub
 
 
+def azimuth_range(psi: NDArray[numpy.float64]) -> tuple[float, float]:
+    """Return the middle azimuth and the angle of a set of azimuths, in radians.
+
+    The angle is the turn less the largest gap between neighbouring azimuths, so it does not
+    depend on which azimuth comes first: a difference measured from one node of a seam reads
+    half a turn as plus or minus half a turn according to the rounding of its last digit.
+    """
+    turn = 2.0 * math.pi
+    ordered = numpy.sort(numpy.mod(psi, turn))
+    gaps = numpy.diff(numpy.r_[ordered, ordered[0] + turn])
+    widest = int(numpy.argmax(gaps))
+    span = turn - float(gaps[widest])
+    start = float(ordered[(widest + 1) % len(ordered)])
+    return math.remainder(start + 0.5 * span, turn), span
+
+
 def _keys(cells: NDArray[numpy.int64]) -> NDArray[numpy.int64]:
     """Hash grid cells to one integer each (a collision only adds a candidate pair)."""
     scaled = cells * _PRIME
