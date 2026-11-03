@@ -144,10 +144,11 @@ quasi-steady mean over clockings); no solver run is added.
   unchanged. Two rows with the same `|ALPHA|` (for example `+2` and `-2`)
   count as one value of `|ALPHA|`, the positive one being taken. A row whose
   `ALPHA` or `CN_<ALIAS>` is `NA` is not a candidate.
-- **A `J` with one usable `ALPHA` only is not an error.** Its row is written
-  with `NA` in the two `ALPHA`/`CN` pairs and in the slope, and the products
-  manifest names it under `skipped` for the table, with the `J` and the
-  reason. A table with no usable group still writes its file, every slope `NA`.
+- **A `J` with one usable `|ALPHA|` only is not an error**, and that includes a
+  `J` sampled at `+2` and `-2` alone. Its row is written with `NA` in the two
+  `ALPHA`/`CN` pairs and in the slope, and the products manifest names it under
+  `skipped` for the table, with the `J` and the reason. A table with no usable
+  group still writes its file, every slope `NA`.
 - The manifest entry states `kind: cn_slope`, `rotor` and the `runs` the
   table was read from. The slope is a secant of two sampled rows, not a fit and
   not the derivative at zero incidence: its value depends on which two

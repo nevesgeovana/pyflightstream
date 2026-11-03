@@ -88,7 +88,7 @@ def cn_slope_rows(
         secant = _secant(group, alias)
         if secant is None:
             skipped.append(
-                f"J={j:g}: fewer than two incidences with a CN, so CN_SLOPE_PER_DEG is NA"
+                f"J={j:g}: fewer than two distinct |ALPHA| with a CN, so CN_SLOPE_PER_DEG is NA"
             )
             numbers: list[object] = [_NA] * 5
         else:
