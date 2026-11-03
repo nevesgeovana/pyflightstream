@@ -17,6 +17,7 @@ FlightStream versions.
 
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
+- The notes of `CAD_CREATE_IMPORT_CURVE_TXT` and `CAD_CREATE_AUTO_CROSS_SECTIONS` that a refusal prints no longer end in a dangling `[...]`: the second is completed from its probe record, the first ends at its last complete clause.
 - `sector-to-wheel --overwrite` to a wheel of fewer copies removes the `<label>_<k>.te.txt` files of the copies the old wheel declared and the new one does not (FR-3521).
 - The tip-radius warnings of `power-off-body` no longer speak of the rows of a remesh or of span rows, which that verb does not build.
 - The warning of `sector-remesh` and `power-off-body` about a sector whose angle is not 360/N states the angle the asked copies need, and no longer says a whole N does not exist (a 60 degree sector with 2 copies) or points to a rotation check that reports nothing (FR-3520).

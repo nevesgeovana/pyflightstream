@@ -88,3 +88,16 @@ def test_p0550_an_overwritten_wheel_of_fewer_copies_leaves_no_points_file_of_the
     assert stranger.is_file()
     written = {p.name for p in again.files if p.name.endswith(".te.txt")}
     assert written == set(names) - {stranger.name}
+
+
+def test_p0550_the_cad_create_notes_end_in_a_complete_clause() -> None:
+    from pyflightstream.commands import CommandRegistry
+
+    commands = CommandRegistry.load().commands
+    for name in ("CAD_CREATE_IMPORT_CURVE_TXT", "CAD_CREATE_AUTO_CROSS_SECTIONS"):
+        for build, row in commands[name].versions.items():
+            assert "[...]" not in (row.note or ""), (name, build)
+    note = commands["CAD_CREATE_AUTO_CROSS_SECTIONS"].versions["26.126"].note
+    assert note.endswith("not their geometric accuracy")
+    sentinel = commands["CAD_CREATE_IMPORT_CURVE_TXT"].versions["26.125"].note
+    assert sentinel.endswith("(END sentinel missing)")
