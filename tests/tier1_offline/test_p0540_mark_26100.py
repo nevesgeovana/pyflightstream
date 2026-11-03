@@ -345,6 +345,37 @@ def test_p0540_26100_an_axisymmetric_base_is_stated_once_by_its_create(tmp_path)
 
 
 @pytest.mark.requirement("FR-3470")
+@pytest.mark.parametrize("build", ["26.124", "26.127"])
+@pytest.mark.parametrize("model", ["USER", "CUSTOM", "EMPIRICAL", "AXISYMMETRIC"])
+def test_p0540_other_builds_keep_each_base_with_its_setter_and_its_rim(tmp_path, build, model):
+    """Only 26.100 takes the vertex order: the others render every base as v0.53.0 did."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _capped_strip(
+        tmp_path,
+        f'[base_regions.wing]\nmodel = "{model}"\ncp = -0.2\n'
+        'trailing_edges = {file = "top.te.txt", type = "STANDARD"}\n'
+        f'[base_regions.cap]\nmodel = "{model}"\ncp = -0.3\ntrailing_edges = "auto"\n',
+    )
+    sidecar = mesh.with_name(mesh.name + ".boundaries.toml")
+    sidecar.write_text(sidecar.read_text().replace("26.100", build))
+    setter = "CUSTOM" if model == "USER" else model
+    lines = [
+        line.split()[0] if line.startswith("IMPORT_WAKE") else line
+        for line in plan_mark_boundaries(mesh).script.splitlines()
+        if line.startswith(("CREATE_NEW_BASE", "SET_BASE", "IMPORT_WAKE", "TRAILING_EDGES"))
+    ]
+    assert lines == [
+        f"CREATE_NEW_BASE_REGION 1 {model} -0.2",
+        f"SET_BASE_REGION_CP 1 {setter} -0.2",
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        f"CREATE_NEW_BASE_REGION 2 {model} -0.3",
+        f"SET_BASE_REGION_CP 2 {setter} -0.3",
+        "SET_BASE_REGION_TRAILING_EDGES 2",
+    ]
+
+
+@pytest.mark.requirement("FR-3470")
 def test_p0540_26100_every_rim_is_imported_before_the_first_base(tmp_path):
     """A rim import between two bases leaves only the last base saved, measured on 26.100."""
     from pyflightstream.workspace import plan_mark_boundaries
