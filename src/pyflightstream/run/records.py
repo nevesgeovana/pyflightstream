@@ -147,7 +147,6 @@ from pyflightstream.workspace import RunRecord as RunRecord
 from pyflightstream.workspace import RunStatus as RunStatus
 from pyflightstream.workspace import WorkspaceError as WorkspaceError
 from pyflightstream.workspace import find_matrix as find_matrix
-from pyflightstream.workspace._free_space import products_lock
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults as canonical_condition_defaults,
 )
@@ -170,7 +169,7 @@ from pyflightstream.workspace.naming import PointName as PointName
 from pyflightstream.workspace.naming import RunsManifestError as RunsManifestError
 from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_of
 from pyflightstream.workspace.naming import resolve_manifest as resolve_manifest
-from pyflightstream.workspace.storage import register_records_rebuild
+from pyflightstream.workspace.storage import products_lock, register_records_rebuild
 
 # ---------------------------------------------------------------------------
 # mark-failed

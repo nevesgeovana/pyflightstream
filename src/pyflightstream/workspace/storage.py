@@ -99,6 +99,7 @@ from pyflightstream.workspace._free_space import (
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
 from pyflightstream.workspace._free_space import human_bytes as human_bytes
+from pyflightstream.workspace._free_space import products_lock as products_lock
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
