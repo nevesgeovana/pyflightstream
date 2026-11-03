@@ -139,7 +139,8 @@ def _paths(
     path = Path(sector)
     if path.suffix.lower() != ".fsm" or not path.is_file():
         raise InputArtifactError(
-            f"{path}: a sector to remesh is an existing saved simulation (.fsm). {_NOTHING}"
+            f"{path}: the sector is read from an existing saved simulation (.fsm); name one. "
+            f"{_NOTHING}"
         )
     target = Path(out) if out is not None else path.with_name(f"{path.stem}_{tag}.fsm")
     rec = target.with_name(f"{target.stem}.{record}.json")
@@ -502,7 +503,7 @@ def sector_remesh(
         around-the-sector counts are even.
     root_margin_r, nose_radius_r : float
         The spinner's margin ahead of the root loop and the radius of its nose kite, as
-        fractions of the tip radius (0.038 is 0.07 m on a 1.8288 m tip).
+        fractions of the tip radius.
     out : str or Path, optional
         The remeshed sector; default ``<sector stem>_remesh.fsm`` beside it.
     overwrite : bool
