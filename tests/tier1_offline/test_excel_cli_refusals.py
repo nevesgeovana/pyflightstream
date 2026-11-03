@@ -34,7 +34,7 @@ def test_existing_workbook_is_a_cli_refusal_not_a_traceback(tmp_path, capsys, mo
         for phrase in _signature.PHRASES[name]
     ]
     assert any(box in captured.err for box in failed_boxes), captured.err
-    assert "Traceback" not in captured.err
+    assert "(most recent call last)" not in captured.err
     assert output.read_bytes() == original
     with pytest.raises(ExcelSyncError, match="never overwritten"):
         excel.create_workbook(output, workspace=tmp_path)

@@ -532,7 +532,7 @@ def test_apply_compat_refuses_a_superseded_report_without_a_traceback(
     captured = capsys.readouterr()
     assert code == 2
     assert "superseded evidence" in captured.err
-    assert "Traceback" not in captured.err
+    assert "(most recent call last)" not in captured.err
 
 
 def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsys):
