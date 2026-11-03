@@ -510,6 +510,25 @@ def test_p0540_merge_the_adapted_part_outside_the_band_is_unchanged_and_in_order
     assert positions == sorted(positions)
 
 
+@pytest.mark.requirement("FR-3486")
+def test_p0540_merge_the_bands_faces_sit_where_the_band_sits_in_the_family(tmp_path):
+    """A band listed mid-family stays mid-family: far faces before it, it, far faces after it."""
+    nodes, faces, family = _adapted(29)
+    source = _write(tmp_path / "probe.obj", (nodes, faces, family))
+    band = set(_band_of(_Obj(source), _cut_nodes(_Obj(source))))
+    far = [f for i, f in enumerate(faces) if i not in band]
+    near = [f for i, f in enumerate(faces) if i in band]
+    middle = len(far) // 2
+    ordered = far[:middle] + near + far[middle:]
+    (_, out, _, adapted), _ = _quiet_merge(tmp_path, _kept(24), (nodes, ordered, family), 0.05)
+    written = out.face_text(out.groups["Adapted"])
+    before = adapted.face_text(adapted.faces[:middle])
+    after = adapted.face_text(adapted.faces[middle + len(near) :])
+    assert written[:middle] == before
+    assert written[-len(after) :] == after
+    assert not set(written[middle : -len(after)]) & set(before + after)
+
+
 @pytest.mark.parametrize(("kept_count", "adapted_count"), [(16, 32), (32, 16), (24, 29)], ids=str)
 @pytest.mark.requirement("FR-3486")
 def test_p0540_merge_the_band_stays_on_the_adapted_surface(tmp_path, kept_count, adapted_count):
