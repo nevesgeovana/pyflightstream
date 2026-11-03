@@ -20,6 +20,7 @@ from pathlib import Path
 
 from pyflightstream._fsm import MeshReadError, _mesh_block, boundary_names
 from pyflightstream._textio import write_text
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa._spec_kit import _spec
 from pyflightstream.qa.probes import ProbeArtifacts, emit_solver_setup
 from pyflightstream.script import CommandArgumentError, Script
@@ -509,8 +510,11 @@ def _invoke(script: Script, workdir: Path, name: str, build: Callable[[Script], 
         "SELECT_MESH_NODE",
         "TRANSFORM_SELECTED_NODES",
     ):
-        if command in inner._view:  # 26.100 has neither the wake-edge import nor node marking
-            inner.allow_broken(command, reason="boundary-marking probe: measure the saved effect")
+        try:
+            inner.entry(command)
+        except CommandNotInVersionError:  # 26.100 has neither the wake-edge import nor node marking
+            continue
+        inner.allow_broken(command, reason="boundary-marking probe: measure the saved effect")
     build(inner)
     path = workdir / f"{name}.txt"
     write_text(path, inner.render(), encoding="utf-8")
