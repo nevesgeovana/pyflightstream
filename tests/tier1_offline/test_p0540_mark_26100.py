@@ -52,10 +52,50 @@ def _blunt_strip(tmp_path, tables=BLUNT):
     return mesh
 
 
+def _capped_strip(tmp_path, tables):
+    """The same panel with its one-cell base as a family of its own: groups wing and cap."""
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    mesh = _blunt_strip(tmp_path, "")
+    lines = mesh.read_text().splitlines()
+    faces = [line for line in lines if line.startswith("f ")]
+    head = [line for line in lines if line.startswith("v ")]
+    mesh.write_text(
+        "\n".join([*head, "g wing", *faces[: 2 * NY], "g cap", *faces[2 * NY :]]) + "\n"
+    )
+    sidecar = mesh.with_name(mesh.name + ".boundaries.toml")
+    sidecar.unlink()
+    sidecar = write_inventory(mesh)
+    with sidecar.open("a") as stream:
+        stream.write('\nfs_build = "26.100"\n[import]\nunits = "METER"\n' + tables)
+    return mesh
+
+
 def _vertex_rows(text):
     count, unit, *rows = text.split()
     assert unit == "METER" and int(count) == len(rows)
     return [tuple(float(v) for v in row.split(",")[1:]) for row in rows]
+
+
+AUTO_AND_FILE = (
+    '[base_regions.wing]\ntrailing_edges = {file = "top.te.txt", type = "STANDARD"}\n'
+    '[base_regions.cap]\ntrailing_edges = "auto"\n'
+)
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_an_auto_rim_follows_the_base_it_names(tmp_path):
+    """REL-K-001: SET_BASE_REGION_TRAILING_EDGES <n> names base n, so base n exists first."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    lines = plan_mark_boundaries(_capped_strip(tmp_path, AUTO_AND_FILE)).script.splitlines()
+    creates = [i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_BASE_REGION")]
+    autos = [i for i, line in enumerate(lines) if line.startswith("SET_BASE_REGION_TRAILING_EDGES")]
+    imports = [i for i, line in enumerate(lines) if line == "TRAILING_EDGES_IMPORT"]
+    assert lines[autos[0]] == "SET_BASE_REGION_TRAILING_EDGES 2"
+    assert len(creates) == 2 and len(autos) == 1 and imports
+    # Nothing that marks an edge stands between two creates, the order measured on this build.
+    assert max(imports) < min(creates) and max(creates) < min(autos)
 
 
 @pytest.mark.requirement("FR-3470")

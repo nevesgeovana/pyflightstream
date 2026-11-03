@@ -442,6 +442,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
     # leaves only the last base saved, and all seven survive with every rim imported first.
     # The solver also stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and accepts
     # <n> CUSTOM <cp>; CREATE_NEW_BASE_REGION has already stated the model and Cp.
+    # An "auto" rim names its base by number, so it follows every create rather than the rims.
     vertex_files = build == VERTEX_FILE_BUILD
 
     def rim(region):
@@ -452,7 +453,8 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
 
     if vertex_files:
         for region in declarations.base_regions:
-            rim(region)
+            if region.trailing_edges != "auto":
+                rim(region)
     for index, region in enumerate(declarations.base_regions, 1):
         emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
         if not vertex_files or region.model != "EMPIRICAL":
@@ -467,6 +469,10 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
         steps.append(
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
+    if vertex_files:
+        for region in declarations.base_regions:
+            if region.trailing_edges == "auto":
+                rim(region)
 
 
 def _emit_nodes(script, termination, explicit, *, source, spec, inputs, nodes, steps):
