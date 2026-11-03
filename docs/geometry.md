@@ -434,6 +434,92 @@ inventory a triangular OBJ, add `fs_build = "26.125"`, `[import] units = "METER"
 and `[trailing_edges] none = true`, then run the first command above. It emits
 `SAVEAS`, never `INITIALIZE_SOLVER`, and leaves every input byte unchanged.
 
+## A full wheel from a sector
+
+A rotor, propeller or fan is meshed once, as one sector between two seams, and
+`sector-to-wheel` copies it about the axis into the whole wheel. The sector
+holds one blade, the hub surfaces between the seams and the declarations of its
+boundaries.
+
+```text
+inputs/geometries/sector/
+  sector.obj                    groups Blade1, S, N (or Blade1, Base1, S, N, NBase)
+  sector.obj.boundaries.toml    fs_build, [trailing_edges.<label>] with files, [base_regions.<family>]
+  sector.TE_a.te.txt            mid-points of the rim edges, one file per rim
+  sector.TE_b.te.txt
+  sector.N.te.txt
+
+pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
+    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite]
+```
+
+The OBJ gives an OBJ and a saved simulation (`.fsm`) gives a `.fsm`; an `--out`
+of the other kind is warned and takes the input's kind. Copy `k` is the sector
+turned right-handed about `--axis` (`x`, `y`, `z`, a signed one, or three
+numbers) through `--hub` (default the origin, in the mesh's unit) by
+`360 k / copies` degrees. Nodes of the copies within `--tolerance`, in metres,
+are one node. The default is `1e-4`: a seam that sits `1e-5` m apart is merged
+by it and so is one that sits `1e-4` m apart. The mesh unit is the `[import]
+units` of the boundaries file; a unit that is not stated or that the package
+does not know is warned and read as metres.
+
+`--blades` names the surfaces that are blades, with no name fixed in the
+code. Each is numbered one per copy, `<stem><k>` with the stem the name without
+its trailing digits, and every other surface is one group shared by the
+copies. A base is `Base<k>` for one blade family, `<stem>Base<k>` for several,
+and `<family>Base` for a surface that is not a blade. In the OBJ every copy of
+a blade surface comes first, then the other surfaces, and inside each copy the
+faces keep the sector's order, because the solver's results depend on face
+order.
+
+Trailing edges and bases follow the declarations. The points of each
+`[trailing_edges.<label>]` are matched to mesh edges within the entry's
+tolerance. A surface with two or more rim entries that stays one piece when its
+faces are joined only across edges that are not rim edges has a blunt trailing
+edge, and its base is the faces whose every node lies on a rim line. A surface
+that the rim edges cut into two pieces (the aft base of a body) has the
+smaller piece as its base. One rim and one piece is a sharp trailing edge:
+no base. The wheel is written beside the OBJ as:
+
+```text
+wheel.obj                     one group per surface
+wheel.obj.boundaries.toml     the named form: [trailing_edges.<label>_<k>] and [base_regions.Base<k>] per copy
+wheel.<label>_<k>.te.txt      one points file per rim per blade
+wheel.wheel.json              source sha256, copies, axis, hub, tolerance and the checks
+```
+
+`mark-boundaries` reads that boundaries file as it is. The checks are printed
+and written to `wheel.wheel.json`: nodes merged, degenerate faces removed,
+open and non-manifold edges of the sector, of the copies unmerged and of the
+wheel, the area of the wheel over the copies times the sector, and the turn by
+`360 / copies` degrees against a turn by one degree more (every node and face
+of the wheel maps onto the wheel for the first, and the second must not).
+The merge uses a grid search, not a pairwise comparison: a sector of 100
+thousand faces (a wheel of 600 thousand) takes about twenty seconds on a
+laptop, one of 48 thousand about eight.
+
+From Python, `pyflightstream.workspace.sector_to_wheel(sector, copies=6,
+blades=["Blade1"], axis="x")` does the same and returns a `WheelResult`: its
+`written` flag, the files and the report that `wheel.wheel.json` holds.
+
+A saved sector is copied without a solver:
+
+```text
+pyfs-workspace geometry sector-to-wheel sector.fsm --copies 6 --axis x --blades Blade1 --out wheel.fsm
+```
+
+The mesh block is repeated with the seam nodes merged, and the base regions,
+trailing-edge groups and wake terminations of the physics block are repeated
+for the blade boundaries. The boundaries of the wheel are the sector's, then
+the copies of each blade boundary. **The saved layout is inferred from saved
+files; the vendor does not document it.** A file whose layout the reader does
+not recognize (a name in the physics block that is no boundary, a row of
+another length, a termination count that differs) is warned with the reason,
+nothing is written and the exit code is 2. The wheel is read back with the
+package's own saved-file readers before it replaces the output. Exit codes: 0
+written, 2 a refusal, an existing output without `--overwrite`, or an
+unrecognized layout.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take
