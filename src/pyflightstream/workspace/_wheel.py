@@ -91,7 +91,7 @@ _AXES = {
 }
 _PRIME = numpy.array([73856093, 19349663, 83492791], dtype=numpy.int64)
 _CELLS = numpy.array(list(itertools.product((-1, 0, 1), repeat=3)), dtype=numpy.int64)
-_NOTHING = "Nothing was written."
+_NOTHING = "No file was written."
 
 
 @dataclass
@@ -367,6 +367,7 @@ def _invariance(
     faces: Faces,
     axis: NDArray[numpy.float64],
     hub: NDArray[numpy.float64],
+    *,
     degrees: float,
     tol: float,
 ) -> dict[str, Any]:
@@ -394,14 +395,15 @@ def check_wheel(
     faces: Faces,
     axis: NDArray[numpy.float64],
     hub: NDArray[numpy.float64],
+    *,
     copies: int,
     tol: float,
 ) -> dict[str, dict[str, Any]]:
     """Return the N-fold invariance of the wheel and the control turn that must fail it."""
     step = 360.0 / copies
     return {
-        "invariance": _invariance(nodes, faces, axis, hub, step, tol),
-        "control": _invariance(nodes, faces, axis, hub, step + 1.0, tol),
+        "invariance": _invariance(nodes, faces, axis, hub, degrees=step, tol=tol),
+        "control": _invariance(nodes, faces, axis, hub, degrees=step + 1.0, tol=tol),
     }
 
 
@@ -573,6 +575,7 @@ def _surfaces(
     families: dict[str, Faces],
     rims: list[_Rim],
     declared: dict[str, Any],
+    *,
     blades: Sequence[str],
     copies: int,
     count: int,
@@ -690,7 +693,7 @@ def report_of(
             "merged": wheel_open[1],
         },
         "area_ratio": joined.area(nodes) / (opts.copies * faces.area(verts)),
-        **check_wheel(nodes, joined, opts.axis, opts.hub, opts.copies, tol),
+        **check_wheel(nodes, joined, opts.axis, opts.hub, copies=opts.copies, tol=tol),
     }
 
 
@@ -731,7 +734,13 @@ class _Written:
 
 
 def _rim_tables(
-    rims: list[_Rim], surfaces: list[_Surface], opts: Options, obj: Path, tol: float, out: _Written
+    rims: list[_Rim],
+    surfaces: list[_Surface],
+    opts: Options,
+    *,
+    obj: Path,
+    tol: float,
+    out: _Written,
 ) -> None:
     """Write each trailing-edge entry once per copy of a blade surface, once for any other."""
     copied = {s.family for s in surfaces if s.replicated and not s.generated}
@@ -777,6 +786,7 @@ def _base_tables(
     surfaces: list[_Surface],
     declared: dict[str, Any],
     opts: Options,
+    *,
     obj: Path,
     tol: float,
     out: _Written,
@@ -795,7 +805,7 @@ def _base_tables(
             continue
         for k in range(len(s.names)):
             parent = None if parents is None else parents[k if len(parents) > 1 else 0]
-            _one_base(s, k, parent, region, (opts, obj, tol), out)
+            _one_base(s, k, parent, region, where=(opts, obj, tol), out=out)
 
 
 def _one_base(
@@ -803,6 +813,7 @@ def _one_base(
     k: int,
     parent: str | None,
     region: Any,
+    *,
     where: tuple[Options, Path, float],
     out: _Written,
 ) -> None:
@@ -993,7 +1004,9 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
     rims = _rims(path, declarations) if declarations else []
     bases = {f for f, r in declared.items() if r.merge_into}
     _match_rims(rims, verts, families, bases, metres)
-    surfaces = _surfaces(families, rims, declared, opts.blades, opts.copies, len(verts))
+    surfaces = _surfaces(
+        families, rims, declared, blades=opts.blades, copies=opts.copies, count=len(verts)
+    )
     nodes, groups, facts = _assemble(verts, surfaces, opts, tol)
     names = [n for n, _ in groups]
     if len(set(names)) != len(names):
@@ -1007,8 +1020,8 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
     report.update(provenance(path, "obj", unit, [(n, len(f)) for n, f in groups]))
     written = _Written()
     if declarations is not None:
-        _rim_tables(rims, surfaces, opts, path, tol, written)
-        _base_tables(surfaces, declared, opts, path, tol, written)
+        _rim_tables(rims, surfaces, opts, obj=path, tol=tol, out=written)
+        _base_tables(surfaces, declared, opts, obj=path, tol=tol, out=written)
     return _write_obj(path, opts, (nodes, groups), report, (written, declarations, unit))
 
 
