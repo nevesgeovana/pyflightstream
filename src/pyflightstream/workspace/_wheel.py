@@ -93,6 +93,9 @@ _PRIME = numpy.array([73856093, 19349663, 83492791], dtype=numpy.int64)
 _CELLS = numpy.array(list(itertools.product((-1, 0, 1), repeat=3)), dtype=numpy.int64)
 _NOTHING = "No file was written."
 _ANGLE_SLACK_DEG = 0.05  # a sector this close to 360/N closes within the rounding of saved nodes
+#: Pairs a neighbour search may compare: a node of a seam has one partner per copy and a cell a
+#: few nodes, so a real merge stays far under this, and the floor keeps a small mesh out of it.
+_PAIRS_FLOOR, _PAIRS_PER_POINT = 1_000_000, 64
 
 
 @dataclass
@@ -205,6 +208,11 @@ def neighbour_pairs(
 
     The cost is linear in the points and the pairs: a point is compared only with the
     points of its own cell and the 26 around it.
+
+    Raises
+    ------
+    InputValueError
+        The distance puts so many pairs in reach that the search would not fit in memory.
     """
     empty = numpy.zeros(0, dtype=numpy.int64)
     if not len(a) or not len(b) or not tol > 0.0:
@@ -214,6 +222,7 @@ def neighbour_pairs(
     order = numpy.argsort(key_b, kind="stable")
     sorted_b = key_b[order]
     found: list[NDArray[numpy.int64]] = []
+    reach, limit = 0, _PAIRS_FLOOR + _PAIRS_PER_POINT * (len(a) + len(b))
     for offset in _CELLS:
         key = _keys(cell_a + offset)
         low = numpy.searchsorted(sorted_b, key, "left")
@@ -221,6 +230,14 @@ def neighbour_pairs(
         total = int(count.sum())
         if not total:
             continue
+        reach += total
+        if reach > limit:
+            raise InputValueError(
+                f"a distance of {tol:g}, in the mesh's unit, puts over {limit} pairs of its "
+                f"{len(a)} points in reach of each other, so the mesh would collapse and the "
+                "search does not fit in memory. Lower the distance; for the merge of a wheel "
+                f"it is tolerance (CLI: --tolerance), in metres. {_NOTHING}"
+            )
         i = numpy.repeat(numpy.arange(len(a)), count)
         start = numpy.repeat(low - (numpy.cumsum(count) - count), count)
         j = order[start + numpy.arange(total)]

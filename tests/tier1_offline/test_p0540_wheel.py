@@ -394,3 +394,14 @@ def test_p0540_merging_a_hundred_thousand_faces_of_copies_takes_seconds():
     roots = merge_nodes(points, 1e-6)
     assert time.perf_counter() - started < 30.0
     assert len(set(roots.tolist())) == n // 2
+
+
+@pytest.mark.requirement("FR-3465")
+def test_p0540_a_tolerance_that_reaches_too_many_pairs_is_refused_before_it_allocates():
+    from pyflightstream._errors import InputValueError
+
+    points = np.random.default_rng(3).random((3000, 3)) * 1e-3
+    with pytest.raises(InputValueError, match="--tolerance"):
+        neighbour_pairs(points, points, 1.0)
+    with pytest.raises(InputValueError, match="--tolerance"):
+        merge_nodes(points, 1.0)
