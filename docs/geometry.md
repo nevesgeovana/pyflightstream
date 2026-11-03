@@ -476,8 +476,8 @@ pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades 
 
 The OBJ gives an OBJ and a saved simulation (`.fsm`) gives a `.fsm`; an `--out`
 of the other kind is warned and takes the input's kind. Copy `k` is the sector
-turned right-handed about `--axis` (`x`, `y`, `z`, a signed one, or three
-numbers) through `--hub` (default the origin, in the mesh's unit) by
+turned right-handed about `--axis` (`x`, `y`, `z`, a signed one written
+`--axis=-x`, or three numbers) through `--hub` (default the origin, in the mesh's unit) by
 `360 k / copies` degrees. Nodes of the copies within `--tolerance`, in metres,
 are one node. The default is `1e-4`: a seam that sits `1e-5` m apart is merged
 by it and so is one that sits `1e-4` m apart. The mesh unit is the `[import]

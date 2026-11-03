@@ -802,3 +802,19 @@ def test_p0540_a_stated_tip_radius_far_from_the_blade_is_warned(tmp_path, tip):
     source = build_blunt_sector(tmp_path)
     with pytest.warns(PyflightstreamWarning, match=r"--tip-radius.*largest radius"):
         sector_remesh(source, blades=["Blade1"], tip_radius=tip, out=tmp_path / "o.fsm", **ARGS)
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_the_help_states_every_default_and_how_to_write_a_signed_axis(capsys):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    def helped(verb: str) -> str:
+        with pytest.raises(SystemExit) as stop:
+            workspace_main(["geometry", verb, "--help"])
+        assert stop.value.code == 0
+        return " ".join(capsys.readouterr().out.split())
+
+    remesh = helped("sector-remesh")
+    assert "O-grid layers at the root (4)" in remesh and "rings forward to the nose (7)" in remesh
+    assert "spinner rings to the nose (12)" in helped("power-off-body")
+    assert "--axis=-x" in helped("sector-to-wheel")
