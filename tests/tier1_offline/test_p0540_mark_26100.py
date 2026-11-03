@@ -357,6 +357,27 @@ def test_p0540_26100_readback_records_and_refuses_cross_edges(tmp_path, monkeypa
 
 
 @pytest.mark.requirement("FR-3470")
+def test_p0540_26100_a_rim_edge_within_tolerance_of_a_cross_edge_is_no_cross_edge(
+    tmp_path, monkeypatch
+):
+    """REL-K-007: a tolerance wider than half a cell must not read a rim edge as a cross edge."""
+    import pyflightstream._fsm as fsm
+    from pyflightstream.workspace import plan_mark_boundaries
+    from pyflightstream.workspace._mark_boundaries import BoundaryMarkingError, _cross_edges
+
+    plan = plan_mark_boundaries(_blunt_strip(tmp_path))
+    plan.sets[0]["tolerance"] = 0.2  # the mid-point of a rung is 0.174 from a rim edge's
+    marked = list(plan.sets[0]["points_m"])
+    monkeypatch.setattr(fsm, "saved_mesh_coordinate_unit", lambda _: "METER")
+    monkeypatch.setattr(fsm, "trailing_edge_midpoints", lambda _: tuple(marked))
+    assert _cross_edges(plan, tmp_path / "x.fsm") == {"wing": 0}
+    # A cross edge really marked is still found, and only that one counts.
+    marked.append(plan.sets[0]["cross_m"][0])
+    with pytest.raises(BoundaryMarkingError, match="wing: 1"):
+        _cross_edges(plan, tmp_path / "x.fsm")
+
+
+@pytest.mark.requirement("FR-3470")
 def test_p0540_26100_skips_a_file_of_another_edge_type_with_a_warning(tmp_path):
     from pyflightstream.workspace import plan_mark_boundaries
 

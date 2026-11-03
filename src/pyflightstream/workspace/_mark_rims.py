@@ -218,10 +218,14 @@ def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, 
     """Count, per entry label, the saved trailing edges that join two rims of that entry.
 
     The cross edges were found on the OBJ at plan time (``cross_m`` of the first rim of an
-    entry). An edge of the saved simulation within the set's tolerance of one of them is a
-    cross edge that the solver marked, which the vertex files were written never to name.
-    The saved mesh is compared in metres, as the wake-edge verdict does.
+    entry). An edge of the saved simulation within the set's tolerance of one of them, and
+    nearer to it than to any rim edge the entry declares, is a cross edge that the solver
+    marked, which the vertex files were written never to name. The tolerance alone would read
+    a rim edge as a cross edge where a cell is narrower than twice the tolerance. The saved mesh
+    is compared in metres, as the wake-edge verdict does.
     """
+    from scipy.spatial import cKDTree
+
     from pyflightstream._fsm import saved_mesh_coordinate_unit, trailing_edge_midpoints
     from pyflightstream._lengths import scale
 
@@ -235,8 +239,13 @@ def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, 
     marked = np.asarray(trailing_edge_midpoints(saved), dtype=float).reshape(-1, 3) * factor
     counts: dict[str, int] = {}
     for entry in expected:
-        crossing = np.asarray(entry["cross_m"], dtype=float).reshape(-1, 3)
-        gaps = np.linalg.norm(crossing[:, None, :] - marked[None, :, :], axis=2)
-        hit = int((gaps <= entry["tolerance"]).any(axis=1).sum()) if len(marked) else 0
+        hit = 0
+        if len(marked):
+            crossing = np.asarray(entry["cross_m"], dtype=float).reshape(-1, 3)
+            declared = np.asarray(entry["points_m"], dtype=float).reshape(-1, 3)
+            to_cross, nearest = cKDTree(crossing).query(marked)
+            to_rim, _ = cKDTree(declared).query(marked)
+            found = (to_cross <= entry["tolerance"]) & (to_cross < to_rim)
+            hit = len(np.unique(nearest[found]))
         counts[entry["label"]] = counts.get(entry["label"], 0) + hit
     return counts
