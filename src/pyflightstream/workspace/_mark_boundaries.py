@@ -437,19 +437,33 @@ def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_
         )
 
 
-def _emit_bases(emit, mark, declarations, names, steps):
-    for index, region in enumerate(declarations.base_regions, 1):
-        emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
-        emit(
-            "SET_BASE_REGION_CP",
-            index,
-            "CUSTOM" if region.model == "USER" else region.model,
-            region.cp,
-        )
+def _emit_bases(emit, mark, declarations, names, steps, *, build):
+    # Measured on 26.100, a six-blade wheel: a rim import between two CREATE_NEW_BASE_REGION lines
+    # leaves only the last base saved, and all seven survive with every rim imported first.
+    # The solver also stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and accepts
+    # <n> CUSTOM <cp>; CREATE_NEW_BASE_REGION has already stated the model and Cp.
+    vertex_files = build == VERTEX_FILE_BUILD
+
+    def rim(region):
         if region.trailing_edges == "auto":
-            emit("SET_BASE_REGION_TRAILING_EDGES", index)
+            emit("SET_BASE_REGION_TRAILING_EDGES", declarations.base_regions.index(region) + 1)
         else:
             mark(region.family, region.trailing_edges)
+
+    if vertex_files:
+        for region in declarations.base_regions:
+            rim(region)
+    for index, region in enumerate(declarations.base_regions, 1):
+        emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
+        if not vertex_files or region.model != "EMPIRICAL":
+            emit(
+                "SET_BASE_REGION_CP",
+                index,
+                "CUSTOM" if region.model == "USER" else region.model,
+                region.cp,
+            )
+        if not vertex_files:
+            rim(region)
         steps.append(
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
@@ -887,7 +901,7 @@ def _emit_marking(
     for entry in declarations.trailing_edges:
         mark(entry.label, entry.marking)
     say("base regions")
-    _emit_bases(emit, mark, declarations, names, steps)
+    _emit_bases(emit, mark, declarations, names, steps, build=script.version.canonical)
     say("wake-termination nodes and merges")
     _emit_nodes(
         script,

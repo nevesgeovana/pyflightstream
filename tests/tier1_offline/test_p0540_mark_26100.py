@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream._errors import InputArtifactError, NotApplicableWarning
+from pyflightstream._errors import NotApplicableWarning
 
 NY = 3
 THICK = 0.05
@@ -77,17 +77,44 @@ def test_p0540_26100_marks_each_rim_from_its_own_vertex_file(tmp_path):
     assert len(entry["cross_m"]) >= NY + 1
     assert all(point[0] == 1.0 and abs(point[2]) < THICK for point in entry["cross_m"])
     assert entry["rim_vertices"] == (NY + 1, NY + 1)
-    assert "TRAILING_EDGES_IMPORT" in plan.awaiting_evidence
+    assert plan.awaiting_evidence == ()
 
 
 @pytest.mark.requirement("FR-3470")
-def test_p0540_26100_apply_is_refused_by_the_evidence_gate_until_probed(tmp_path):
-    from pyflightstream.workspace import apply_mark_boundaries, plan_mark_boundaries
+def test_p0540_26100_the_vertex_import_is_gated_on_evidence_and_the_probes_opened_it(tmp_path):
+    from pyflightstream.commands import CommandRegistry, Status
+    from pyflightstream.versions import resolve
+    from pyflightstream.workspace._mark_boundaries import EVIDENCE_GATED
 
-    plan = plan_mark_boundaries(_blunt_strip(tmp_path))
-    with pytest.raises(InputArtifactError, match="awaiting_evidence: .*TRAILING_EDGES_IMPORT"):
-        apply_mark_boundaries(plan, runner=lambda *_: pytest.fail("the gate ran the solver"))
-    assert not plan.work.exists()
+    assert "TRAILING_EDGES_IMPORT" in EVIDENCE_GATED
+    command = CommandRegistry.load().commands["TRAILING_EDGES_IMPORT"]
+    assert command.status_in(resolve("26.100")).status is Status.VERIFIED
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_an_empirical_base_is_stated_once_by_its_create(tmp_path):
+    """26.100 stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp>, measured on a wheel."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    empirical = BLUNT.replace("USER", "EMPIRICAL")
+    script = plan_mark_boundaries(_blunt_strip(tmp_path, tables=empirical)).script
+    assert "CREATE_NEW_BASE_REGION" in script
+    assert "SET_BASE_REGION_CP" not in script
+    # A custom model still takes the form the probe verified on 26.100.
+    (tmp_path / "user").mkdir()
+    custom = plan_mark_boundaries(_blunt_strip(tmp_path / "user")).script
+    assert "SET_BASE_REGION_CP 1 CUSTOM -0.2" in custom
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_every_rim_is_imported_before_the_first_base(tmp_path):
+    """A rim import between two bases leaves only the last base saved, measured on 26.100."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    lines = plan_mark_boundaries(_blunt_strip(tmp_path)).script.splitlines()
+    imports = [i for i, line in enumerate(lines) if line == "TRAILING_EDGES_IMPORT"]
+    bases = [i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_BASE_REGION")]
+    assert imports and bases and max(imports) < min(bases)
 
 
 @pytest.mark.requirement("FR-3470")

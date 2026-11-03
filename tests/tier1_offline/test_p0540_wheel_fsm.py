@@ -229,6 +229,22 @@ def _termination(path: Path) -> list[list[int]]:
     return [[int(x) for x in lines[end - 3 + k].split(",") if x.strip()] for k in range(3)]
 
 
+@pytest.mark.requirement("FR-3467")
+def test_p0540_a_second_header_value_above_the_last_boundary_id_is_a_known_layout(tmp_path):
+    """A saved sector may count past its last boundary id, as one that lost a boundary does."""
+    built, sector = _saved(tmp_path)
+    lines = sector.read_text().split("\n")
+    start = lines.index("$MESH_START$")
+    assert lines[start + 2] == "4"
+    lines[start + 2] = "5"
+    above = tmp_path / "above.fsm"
+    above.write_text("\n".join(lines))
+    result = sector_to_wheel(
+        above, copies=COPIES, blades=["Blade1"], out=tmp_path / "above_wheel.fsm"
+    )
+    assert result.written
+
+
 @pytest.mark.requirement("FR-3468")
 def test_p0540_a_layout_the_reader_does_not_recognize_is_warned_and_nothing_is_written(tmp_path):
     from pyflightstream.workspace.cli import main as workspace_main

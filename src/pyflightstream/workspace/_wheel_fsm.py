@@ -256,7 +256,7 @@ def _parse(text: str) -> _Parsed:
     ids = [h[0] for h in mesh["heads"]]
     _need(
         ids == list(range(ids[0], ids[0] + len(ids))) and int(lines[mesh["start"] + 2]) >= ids[-1],
-        "the boundary ids are not consecutive, or the second header value is below the last id",
+        "the boundary ids are not consecutive, up to the second header value",
     )
     count = len(mesh["term"][0]) if mesh["term"] else 0
     _need(len(phys["term_names"]) == count, "the termination entries differ in number")

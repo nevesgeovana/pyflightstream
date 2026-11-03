@@ -42,7 +42,7 @@ CREATE_NEW_BASE_REGION:
     "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-base.yaml", note: "FSM-26.100 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
@@ -95,7 +95,7 @@ SET_BASE_REGION_CP:
     "25.000": {status: documented, note: "FSM-25.000 p.275, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 pp.312-313, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-base.yaml", note: "FSM-26.100 pp.312-313, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 pp.316-317, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 pp.320-321, same grammar as 26.120"}
@@ -236,7 +236,7 @@ SET_BASE_REGION_TRAILING_EDGES:
     "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-base.yaml", note: "FSM-26.100 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}

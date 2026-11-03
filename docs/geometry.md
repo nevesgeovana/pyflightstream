@@ -540,6 +540,74 @@ nothing is written and the exit code is 2. The wheel is read back with the
 package's own saved-file readers before it replaces the output. Exit codes: 0
 written, 2 a refusal, an existing output without `--overwrite`, or an
 unrecognized layout.
+## Merging two OBJ
+
+`pyfs-workspace geometry merge` joins two trimmed OBJ along the open boundaries that lie
+within a distance of each other. You name which part is adapted; the other is kept unchanged.
+
+```
+pyfs-workspace geometry merge wing.obj nacelle.obj --threshold 0.001 --adapt nacelle.obj --out wing_nacelle.obj [--overwrite]
+
+wrote wing_nacelle.obj                 kept part first, in its node and face order; adapted part after it; groups kept
+      wing_nacelle.merge.json          threshold, kept, adapted, interface edges, band faces, triangles created, open edges left
+      wing_nacelle.audit.json          the audit of the output (see `geometry audit`)
+      wing_nacelle.obj.boundaries.toml the inventory of the output
+```
+
+`--threshold` is in the OBJ's own length unit. The interface is every open-boundary chain of
+either part whose nodes lie within it of the other part's open boundary. Everything else
+stays as it was, so a part's far open boundary is no part of the interface.
+
+The kept part does not change: its vertex lines and their order and its faces and their
+order lead the output, to the byte. Along the interface the adapted part takes the kept
+nodes, in one of two ways, per chain:
+
+- **Node for node.** Both chains carry one node per node within the threshold. The adapted
+  nodes are replaced by the kept nodes and no face changes kind: quads stay quads.
+- **A band.** Otherwise two face layers of the adapted part beside the interface are
+  remeshed at the source's sizes, held on the kept nodes along the interface, with every
+  other node of the band on the adapted surface. A band family that held a quadrilateral is
+  paired back to quads where it can; the triangles left are reported as `triangles_created`.
+  A band that would hold a whole family rebuilds that family, warned.
+
+The adapted faces and nodes outside the band do not change. In the output they keep their
+relative order, with the band's faces inside their own family where they fall on the source,
+because FlightStream results depend on face order. A family name found in both parts is
+warned and the adapted one takes a `_2` suffix.
+
+From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and returns a
+`MergedMesh` with the paths written and the counts of the record.
+
+**What is warned.**
+
+- A threshold that finds no interface warns, writes nothing and exits non-zero.
+- A threshold smaller than part of the gap merges what it found and leaves the rest open.
+  The open edges still facing the other part are warned with their count; an open boundary
+  that runs away from the interface, such as a symmetry plane, is not.
+- A degenerate face left in the output, and an adapted face turned against the source face
+  nearest it, are warned with their count.
+- When the band cannot be held on the kept nodes (`faces_split` in the record), the faces on
+  the interface are split onto the kept nodes instead, and the band is not remeshed.
+
+**The boundary declarations of the two sources are not merged.** The output's
+`.boundaries.toml` holds its inventory only, and a declared trailing-edge file is not
+rewritten; the command says so on the console. State the output's trailing edges and base
+regions in that file before marking it.
+
+**Limits of the method.**
+
+- It joins and adapts; it does not trim. The parts must already be cut along the interface:
+  an overlap past one face layer of the adapted part folds the faces there, and a warning
+  gives their count, so trim the part back and merge again.
+- A gap is bridged by the first layer of faces of the adapted part, off its surface only by
+  the distance to the kept nodes. The two surfaces are not blended and no intersection is
+  computed.
+- A threshold wider than the cell size can pair nodes that are not neighbours across the cut;
+  choose it just above the largest gap.
+- Normals are not reoriented: two parts whose faces run opposite ways stay so, and the audit
+  of the output reports it.
+- An edge shared by two faces is no open boundary, so a third part meeting the same curve
+  finds nothing to join there and stays open.
 
 ## Remeshing a sector and its power-off body
 

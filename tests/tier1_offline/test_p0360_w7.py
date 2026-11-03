@@ -87,6 +87,9 @@ PUBLIC_HOMES = {
     "RemeshResult": "pyflightstream.workspace._sector_driver",
     "power_off_body": "pyflightstream.workspace._sector_driver",
     "sector_remesh": "pyflightstream.workspace._sector_driver",
+    # 0.54.0 (PFS-2186.09): the merge of two trimmed OBJ.
+    "MergedMesh": "pyflightstream.workspace._merge",
+    "merge_objs": "pyflightstream.workspace._merge",
 }
 
 

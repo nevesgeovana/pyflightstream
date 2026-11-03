@@ -218,6 +218,8 @@ from pyflightstream.workspace._mark_boundaries import (
     plan_mark_boundaries,
     refuse_mark_boundaries,
 )
+from pyflightstream.workspace._merge import MergedMesh as MergedMesh
+from pyflightstream.workspace._merge import merge_objs as merge_objs
 from pyflightstream.workspace._missing_log import missing_log_warning as missing_log_warning
 from pyflightstream.workspace._refine import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine import PreparedMesh as PreparedMesh
@@ -392,6 +394,7 @@ __all__ += ["missing_log_warning"]
 __all__ += ["WheelResult", "sector_to_wheel"]
 # PFS-2186.06: a sector remeshed and its power-off body.
 __all__ += ["RemeshResult", "power_off_body", "sector_remesh"]
+__all__ += ["MergedMesh", "merge_objs"]
 
 
 def collection_name(declared: str | Path) -> str:
