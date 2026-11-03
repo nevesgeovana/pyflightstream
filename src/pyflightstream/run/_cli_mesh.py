@@ -404,8 +404,8 @@ def _add_refine_parser(subparsers: Any) -> None:
     )
 
 
-def _progress_printer() -> Callable[[str], None]:
-    """Return a printer of refinement progress, with clock time and elapsed seconds.
+def _progress_printer(stage: str = "refine") -> Callable[[str], None]:
+    """Return a printer of a long step's progress, with clock time and elapsed seconds.
 
     Each line goes through :func:`pyflightstream._progress.say_line`: to stderr as the
     console's own chatter, held by a quiet console, and dropped when stderr is closed.
@@ -414,7 +414,7 @@ def _progress_printer() -> Callable[[str], None]:
 
     def say(line: str) -> None:
         stamp = time.strftime("%H:%M:%S")
-        say_line(f"[refine {stamp} +{time.monotonic() - start:.1f} s] {line}")
+        say_line(f"[{stage} {stamp} +{time.monotonic() - start:.1f} s] {line}")
 
     return say
 
