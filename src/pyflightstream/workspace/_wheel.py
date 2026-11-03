@@ -489,6 +489,15 @@ def refuse_the_source(target: Path, source: Path) -> None:
         )
 
 
+def refuse_a_collapsed_wheel(faces_left: int, tolerance_m: float) -> None:
+    """Refuse a wheel whose every face the tolerance collapsed: that result is no wheel."""
+    if not faces_left:
+        raise InputValueError(
+            f"tolerance (CLI: --tolerance) {tolerance_m:g} m joins the nodes of every face of "
+            f"the wheel, so no face is left. Lower it. {_NOTHING}"
+        )
+
+
 def unit_of(declared: str | None, where: str) -> float:
     """Return the metres per mesh unit, warning when the unit is not stated or is unknown."""
     if declared is not None and declared in METRES_PER_UNIT:
@@ -1143,6 +1152,14 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
             f"sector. {_NOTHING}"
         )
     joined = concat([f for _, f in groups])
+    refuse_a_collapsed_wheel(len(joined), opts.tolerance_m)
+    if facts["degenerate"]:
+        warn(
+            f"{facts['degenerate']} faces of the wheel name one node twice: the tolerance joins "
+            "nodes of one face. They are removed, and each leaves a hole. Lower --tolerance.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     report = report_of((verts, concat(list(families.values()))), (nodes, joined), facts, opts, tol)
     report.update(provenance(path, "obj", unit, [(n, len(f)) for n, f in groups]))
     written = _Written()

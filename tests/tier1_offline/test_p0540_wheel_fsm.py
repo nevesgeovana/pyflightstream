@@ -450,3 +450,31 @@ def test_p0540_the_saved_route_says_it_keeps_a_degenerate_face_and_warns(tmp_pat
         built.obj, copies=COPIES, blades=["Blade1"], out=tmp_path / "o.obj", tolerance=0.06
     )
     assert any(line.startswith("degenerate faces removed:") for line in obj.lines())
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_the_obj_route_warns_of_the_faces_a_tolerance_removes(tmp_path):
+    """A face the tolerance collapses leaves a hole; a count in the summary says too little."""
+    from pyflightstream._errors import PyflightstreamWarning
+
+    built = build_sector(tmp_path, copies=COPIES)
+    with pytest.warns(PyflightstreamWarning, match="Lower --tolerance") as caught:
+        wheel = sector_to_wheel(
+            built.obj, copies=COPIES, blades=["Blade1"], out=tmp_path / "o.obj", tolerance=0.06
+        )
+    assert wheel.report["degenerate_faces"]
+    assert f"{wheel.report['degenerate_faces']} faces" in str(caught[0].message)
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize("kind", ["obj", "fsm"])
+def test_p0540_a_tolerance_that_collapses_every_face_writes_no_wheel(tmp_path, kind):
+    """Under the pair budget the OBJ route wrote a wheel of no face with exit 0 and no word."""
+    from pyflightstream._errors import InputValueError
+
+    built, saved = _saved(tmp_path)
+    sector = saved if kind == "fsm" else built.obj
+    out = tmp_path / f"w.{kind}"
+    with pytest.raises(InputValueError, match="--tolerance"):
+        sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], out=out, tolerance=10.0)
+    assert not [p for p in tmp_path.iterdir() if p.name.startswith("w.")]
