@@ -115,6 +115,101 @@ def _read_back_of(plan, monkeypatch, groups):
     return marking._read_back(plan, plan.work / "x.fsm")
 
 
+def _wedge(tmp_path):
+    """A blunt base strip closing to a point: its two rims share the vertex at the tip."""
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    top = [(1.0, j / NY, THICK) for j in range(NY)]
+    bottom = [(1.0, j / NY, -THICK) for j in range(NY)]
+    tip = (1.0, 1.0, 0.0)
+    vertices = [*top, *bottom, tip]
+    faces = [[j + 1, NY + j + 1, NY + j + 2, j + 2] for j in range(NY - 1)]
+    faces.append([NY, 2 * NY, 2 * NY + 1])
+    mesh = tmp_path / "wedge.obj"
+    mesh.write_text(
+        "".join(f"v {x} {y} {z}\n" for x, y, z in vertices)
+        + "g wing\n"
+        + "".join("f " + " ".join(map(str, face)) + "\n" for face in faces)
+    )
+    rows = []
+    for side in (top, bottom):
+        for a, b in zip([*side, tip], [*side, tip][1:], strict=False):
+            rows.append(",".join(repr((p + q) / 2) for p, q in zip(a, b, strict=True)))
+    (tmp_path / "rim.te.txt").write_text("METER\n" + "\n".join(rows) + "\n")
+    with write_inventory(mesh).open("a") as stream:
+        stream.write('\nfs_build = "26.100"\n[import]\nunits = "METER"\n')
+        stream.write('[trailing_edges.te]\nfile = "rim.te.txt"\ntype = "STANDARD"\n')
+    return mesh, top, bottom, tip
+
+
+def _loop(tmp_path):
+    """One rim closed in a loop round a square cap of two triangles, with its diagonal inside."""
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    corners = [(1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0, 1.0)]
+    mesh = tmp_path / "cap.obj"
+    mesh.write_text(
+        "".join(f"v {x} {y} {z}\n" for x, y, z in corners) + "g cap\nf 1 2 3\nf 1 3 4\n"
+    )
+    rows = [
+        ",".join(repr((p + q) / 2) for p, q in zip(a, b, strict=True))
+        for a, b in zip(corners, [*corners[1:], corners[0]], strict=True)
+    ]
+    (tmp_path / "rim.te.txt").write_text("METER\n" + "\n".join(rows) + "\n")
+    with write_inventory(mesh).open("a") as stream:
+        stream.write('\nfs_build = "26.100"\n[import]\nunits = "METER"\n')
+        stream.write('[trailing_edges.te]\nfile = "rim.te.txt"\ntype = "STANDARD"\n')
+    return mesh, corners
+
+
+def _vertex_sets(plan):
+    return [set(_vertex_rows(body.decode())) for body in plan.pending.values()]
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_rims_that_touch_at_a_vertex_do_not_share_a_file_across_a_rung(tmp_path):
+    """REL-K-003: the solver marks every mesh edge a file names both ends of (the joint trial)."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh, top, bottom, tip = _wedge(tmp_path)
+    plan = plan_mark_boundaries(mesh)
+    files = _vertex_sets(plan)
+    for upper, lower in zip(top, bottom, strict=True):
+        assert not [names for names in files if {upper, lower} <= names], (upper, lower)
+    for side in (top, bottom):
+        for a, b in zip([*side, tip], [*side, tip][1:], strict=False):
+            assert [names for names in files if {a, b} <= names], (a, b)
+    # The rungs stay known to the read-back, which proves that none was marked.
+    (entry,) = plan.sets
+    assert entry["rim_vertices"] == tuple(len(names) for names in files)
+    rungs = {(1.0, j / NY, 0.0) for j in range(NY)}
+    assert rungs <= {tuple(point) for point in entry["cross_m"]}
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_a_rim_closed_in_a_loop_names_no_chord_in_one_file(tmp_path):
+    """REL-K-003: a closed rim's file would mark the diagonal between two of its own vertices."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh, corners = _loop(tmp_path)
+    plan = plan_mark_boundaries(mesh)
+    files = _vertex_sets(plan)
+    assert not [names for names in files if {corners[0], corners[2]} <= names]
+    for a, b in zip(corners, [*corners[1:], corners[0]], strict=True):
+        assert [names for names in files if {a, b} <= names], (a, b)
+    assert plan.sets[0]["cross_m"] == ((1.0, 0.5, 0.5),)
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_an_open_rim_stays_one_file(tmp_path):
+    """REL-K-003 control: a rim with no edge between its own vertices is not split."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _blunt_strip(tmp_path, '[trailing_edges.te]\nfile = "top.te.txt"\ntype = "STANDARD"\n')
+    plan = plan_mark_boundaries(mesh)
+    assert plan.sets[0]["rim_vertices"] == (NY + 1,) and len(plan.pending) == 1
+
+
 TWO_ENTRIES = (
     '[trailing_edges.blunt]\nfile = "rim.te.txt"\ntype = "STANDARD"\n'
     '[trailing_edges.sharp]\nfile = "top.te.txt"\ntype = "STANDARD"\n'

@@ -135,15 +135,43 @@ def _placed_rim(rim, cross, index: _ObjEdges, spec: MeshImport, tolerance: float
     return tuple(dict.fromkeys(vertices)), tuple(dict.fromkeys(crossed))
 
 
+def _files_of_a_run(ends: np.ndarray, foreign: np.ndarray) -> list[np.ndarray]:
+    """Part a run of rim edges so that no part holds both ends of a ``foreign`` edge.
+
+    Measured on 26.100 (the joint trial of CMP-26100_2026-11-02_mark-26100-vertex), the solver
+    marks every edge between the vertices of one file, not only the edges meant. A run with no
+    foreign edge is one part, in its own order; otherwise each edge joins the first part
+    it can, which keeps the number of files, and so of trailing-edge groups, small.
+    """
+    if not len(foreign):
+        return [ends]
+    across: dict[int, set[int]] = {}
+    for a, b in foreign.tolist():
+        across.setdefault(a, set()).add(b)
+        across.setdefault(b, set()).add(a)
+    parts: list[tuple[set[int], list[list[int]]]] = []
+    for a, b in ends.tolist():
+        for held, kept in parts:
+            grown = held | {a, b}
+            if not (across.get(a, set()) & grown or across.get(b, set()) & grown):
+                held.update((a, b))
+                kept.append([a, b])
+                break
+        else:
+            parts.append(({a, b}, [[a, b]]))
+    return [np.asarray(kept) for _, kept in parts]
+
+
 def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray], np.ndarray]:
     """Split the matched edges of one set into rims and find the edges joining the rims.
 
     Each point is the mid-point of a rim edge, in metres, and names the nearest edge of the
-    triangulated mesh. A RIM is a run of those edges that share vertices, so the two sides
-    of a blunt trailing edge are two rims. A CROSS EDGE is a mesh edge that is no rim edge
-    and has one end on one rim and the other end on another, which is how a one-cell base
-    strip joins its two sides (FR-3470). Rims that touch at a vertex are one rim: a vertex
-    file cannot tell them apart.
+    triangulated mesh. A RIM is what one vertex file names: a run of those edges that share
+    vertices, so the two sides of a blunt trailing edge are two rims. A CROSS EDGE is a mesh
+    edge that is no rim edge and has both ends on rim vertices, which is how a one-cell base
+    strip joins its two sides (FR-3470). A run that holds a cross edge of its own, as two sides
+    that touch at a vertex or a rim closed in a loop do, is parted into several rims, so that
+    no file names both ends of a cross edge.
 
     Parameters
     ----------
@@ -172,17 +200,17 @@ def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray]
     graph = coo_matrix((np.ones(len(ends)), (ends[:, 0], ends[:, 1])), shape=(size, size))
     _, label = connected_components(graph, directed=False)
     rim_of_edge = label[ends[:, 0]]
-    rims = [vertices[ends[rim_of_edge == rim]] for rim in np.unique(rim_of_edge)]
     on_rim = np.zeros(size, dtype=bool)
     on_rim[ends.ravel()] = True
     own = np.zeros(len(edges), dtype=bool)
     own[chosen] = True
-    cross = (
-        on_rim[edges[:, 0]]
-        & on_rim[edges[:, 1]]
-        & (label[edges[:, 0]] != label[edges[:, 1]])
-        & ~own
-    )
+    cross = on_rim[edges[:, 0]] & on_rim[edges[:, 1]] & ~own
+    rims: list[np.ndarray] = []
+    for run in np.unique(rim_of_edge):
+        inside = cross & (label[edges[:, 0]] == run) & (label[edges[:, 1]] == run)
+        rims += [
+            vertices[part] for part in _files_of_a_run(ends[rim_of_edge == run], edges[inside])
+        ]
     return rims, midpoints[cross]
 
 
