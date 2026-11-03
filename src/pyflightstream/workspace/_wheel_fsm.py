@@ -60,6 +60,7 @@ from pyflightstream.workspace._wheel import (
     concat,
     merge_nodes,
     provenance,
+    refuse_a_collapsed_wheel,
     refuse_existing,
     report_of,
     rotate,
@@ -478,7 +479,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     nb = len(names)
     ints = parsed.mesh["ints"]
     shared = ~numpy.isin(ints[11], blade_ids)
-    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts)
+    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts, tol)
     maps = _Maps(
         index[root],
         _expand(parsed.phys["base_names"], blades, n),
@@ -491,6 +492,9 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         },
         blade_ids,
     )
+    corners = numpy.stack([ints[k] - 1 for k in (2, 3, 4)], axis=1).ravel()
+    copy = Faces(maps.node[corners], numpy.full(nf, 3))
+    refuse_a_collapsed_wheel(int((~copy.repeated()).sum()), opts.tolerance_m)
     lines, mesh = parsed.lines, parsed.mesh
     records, last = _boundary_records(parsed, maps, opts)
     wanted = records[1::3]

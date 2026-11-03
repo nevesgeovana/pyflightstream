@@ -881,6 +881,20 @@ def test_p0540_merge_a_short_parts_far_boundary_faces_nothing(tmp_path, scale):
     )
     assert merged.facing_edges_left > 0
 
+    def pushed(i: int, t: float) -> float:
+        return -0.03 if i == 0 and math.cos(t) > 0.1 else 0.0
+
+    overlap = tmp_path / "overlap"
+    overlap.mkdir()
+    (merged, _, _, _), _ = _quiet_merge(
+        overlap,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted", shift=pushed),
+        0.01 * scale,
+    )
+    # A cut overlapped by less than a face's depth is a gap like another, past the threshold.
+    assert merged.facing_edges_left > 0
+
 
 @pytest.mark.requirement("FR-3485")
 def test_p0540_merge_a_family_opened_twice_is_warned_since_its_order_changes(tmp_path):
@@ -921,6 +935,22 @@ def test_p0540_merge_a_file_beside_the_output_is_replaced_only_with_overwrite(tm
     )
     assert merged.interface_edges == 24
     assert beside.read_text(encoding="utf-8") != "# declared by hand\n"
+
+
+@pytest.mark.requirement("FR-3488")
+def test_p0540_merge_an_output_in_a_new_folder_is_written_as_on_the_other_verbs(tmp_path):
+    """The wheel and the remesh verbs make the folder; this one reported a temporary file."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    out = tmp_path / "new" / "folder" / "out.obj"
+    merged = merge_objs(first, second, threshold=0.01, adapt=second, out=out)
+    assert merged.interface_edges == 24
+    assert sorted(p.name for p in out.parent.iterdir()) == [
+        "out.audit.json",
+        "out.merge.json",
+        "out.obj",
+        "out.obj.boundaries.toml",
+    ]
 
 
 @pytest.mark.requirement("FR-3488")

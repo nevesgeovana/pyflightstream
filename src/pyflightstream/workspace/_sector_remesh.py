@@ -269,7 +269,8 @@ def geometric(count: int, first: float, total: float) -> Array:
     def total_error(g: float) -> float:
         return first * (g**count - 1) / (g - 1) - total
 
-    ratio = brentq(total_error, 1.0 + 1e-7, 100.0)
+    # The bracket stops where the power stays a float: 100 ** count overflows past 154 cells.
+    ratio = brentq(total_error, 1.0 + 1e-7, min(100.0, 10.0 ** (300.0 / max(count, 1))))
     return numpy.r_[0.0, numpy.cumsum(first * ratio ** numpy.arange(count))]
 
 
@@ -327,10 +328,16 @@ def span_rows(root: float, plan: Plan) -> Array:
     d_u = (tip - length - root) / n_u
     try:
         fine = length - geometric(n_t, plan.tip_ratio * cell, length)[::-1]
-    except ValueError as error:  # brentq: the tip cells already fill the region, with no growth
+    except ValueError as error:  # brentq: the tip cells already fill it, or cannot in their count
+        cause = (
+            "its cells are not finer than the constant one. Use a --tip-ratio below 1"
+            if plan.tip_ratio >= 1.0
+            else f"its {n_t} cells cannot grow to fill it from so small a first cell. Use a "
+            "larger --tip-ratio"
+        )
         raise InputValueError(
-            f"--tip-ratio {plan.tip_ratio:g} leaves no growth in the tip region: its cells are "
-            f"not finer than the constant one. Use a --tip-ratio below 1. {_NOTHING}"
+            f"--tip-ratio {plan.tip_ratio:g} leaves no growth in the tip region: {cause}. "
+            f"{_NOTHING}"
         ) from error
     return numpy.r_[root + d_u * numpy.arange(n_u), tip - length + fine]
 

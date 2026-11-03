@@ -23,12 +23,13 @@ FlightStream versions.
   regions, trailing-edge groups and wake terminations of the physics block for the boundaries
   `--blades` names (FR-3467). The saved layout is inferred from saved files; a layout the reader
   does not recognize is warned, nothing is written and the exit code is 2 (FR-3468).
-- `pyfs-workspace geometry mark-boundaries` plans the marking pass on FlightStream 26.100
+- `pyfs-workspace geometry mark-boundaries` runs the marking pass on FlightStream 26.100
   (FR-3470): a file entry is matched to mesh edges, split into rims and marked by
-  `TRAILING_EDGES_IMPORT`, one vertex file and one import per rim, so no file names the edges
-  between the two sides of a blunt trailing edge. The read-back counts the saved trailing
-  edges that join two rims and records it in `<mesh>.mark.json`. `--apply` stays refused until
-  the commands are verified on that build. A module constant, `MARKING_ROUTE_26100`, set to
+  `TRAILING_EDGES_IMPORT`, one vertex file and one import per rim, all before the first base
+  region, so no file names both ends of an edge between the two sides of a blunt trailing edge.
+  The read-back counts the saved trailing edges that join rim vertices without being rim edges
+  and records it in `<mesh>.mark.json`. Detection entries and `auto` wake-termination nodes stay
+  refused at `--apply` until their commands are verified there. A module constant, `MARKING_ROUTE_26100`, set to
   `"direct"` makes the pass warn, name `geometry sector-to-wheel` and write nothing (FR-3471).
 - A row that states `airfoil_separation` on FlightStream 26.100 is warned (`NotApplicableWarning`,
   naming `axial_separation_families` and the User Guide, Flow separation) and the command is

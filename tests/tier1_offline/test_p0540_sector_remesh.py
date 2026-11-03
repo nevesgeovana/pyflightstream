@@ -684,6 +684,38 @@ def test_p0540_a_row_that_names_a_face_or_node_outside_the_block_is_not_read(tmp
 
 
 @pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize("count", [2, 154, 155, 2000, 200000])
+def test_p0540_a_distribution_of_many_cells_finds_its_growth(count):
+    """A span cell or a chord count that fine has a growth; its search raised OverflowError."""
+    from pyflightstream.workspace._sector_remesh import chord_fractions, geometric
+
+    first = 0.5 / count
+    rows = geometric(count, first, 1.0)
+    assert rows[-1] == pytest.approx(1.0)
+    widths = np.diff(rows)
+    assert len(widths) == count and (widths > 0).all()
+    assert widths[0] == pytest.approx(first)
+    if count == 2000:
+        assert chord_fractions(count, 1e-4)[-1] == pytest.approx(1.0)
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_a_tip_ratio_far_below_one_is_not_told_it_is_not_finer(tmp_path):
+    """The words of a ratio at 1 or above are false for one that cannot grow in its cells."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputValueError, match="larger --tip-ratio") as refused:
+            sector_remesh(
+                source, blades=["Blade1"], out=tmp_path / "s.fsm", **{**ARGS, "tip_ratio": 1e-6}
+            )
+    assert "not finer" not in str(refused.value)
+
+
+@pytest.mark.requirement("FR-3499")
 @pytest.mark.parametrize(
     ("change", "text"),
     [

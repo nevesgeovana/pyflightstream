@@ -1120,6 +1120,7 @@ def _publish(
     note = (
         f"merged: kept {call.kept.name}, adapted {call.adapted.name}, threshold {call.threshold:g}"
     )
+    call.out.parent.mkdir(parents=True, exist_ok=True)
     write_obj(merged, call.out, note)
     side = _inventory(call.out)
     audit = audit_mesh(call.out)

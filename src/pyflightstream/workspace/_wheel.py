@@ -489,6 +489,15 @@ def refuse_the_source(target: Path, source: Path) -> None:
         )
 
 
+def refuse_a_collapsed_wheel(faces_left: int, tolerance_m: float) -> None:
+    """Refuse a wheel whose every face the tolerance collapsed: that result is no wheel."""
+    if not faces_left:
+        raise InputValueError(
+            f"tolerance (CLI: --tolerance) {tolerance_m:g} m joins the nodes of every face of "
+            f"the wheel, so no face is left. Lower it. {_NOTHING}"
+        )
+
+
 def unit_of(declared: str | None, where: str) -> float:
     """Return the metres per mesh unit, warning when the unit is not stated or is unknown."""
     if declared is not None and declared in METRES_PER_UNIT:
@@ -732,16 +741,22 @@ def _assemble(
     return stack[used][live], [(nm, f.mapped(compact)) for nm, f in kept], facts
 
 
-def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options) -> None:
+def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options, tol: float) -> None:
     """Warn when the surfaces that are not blades do not span one copy's turn about the axis.
 
     The turn check cannot say this, since copies of anything about any axis map onto each other.
-    A sector with no such surface, or with all of it on the axis, is not measured.
+    A sector with no such surface, or with all of it on the axis, is not measured. A seam the
+    tolerance ``tol`` (in the mesh's unit) closes can read off the angle by ``tol / radius``, so
+    a node nearer the axis than that allows says nothing of the angle; a surface small against
+    the tolerance is read over its outer half.
     """
     q = bodies - opts.hub
     radial = q - numpy.outer(q @ opts.axis, opts.axis)
     radius = numpy.linalg.norm(radial, axis=1)
-    keep = radius > 1e-6 * float(radius.max()) if len(radius) else numpy.zeros(0, dtype=bool)
+    if not len(radius):
+        return
+    largest = float(radius.max())
+    keep = radius > max(1e-6 * largest, min(tol / math.radians(_ANGLE_SLACK_DEG), 0.5 * largest))
     if not keep.any():
         return
     first = radial[keep][0] / radius[keep][0]
@@ -1127,7 +1142,7 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
         families, rims, declared, blades=opts.blades, copies=opts.copies, count=len(verts)
     )
     shared = concat([s.faces for s in surfaces if not s.replicated])
-    warn_sector_angle(verts[numpy.unique(shared.flat)], opts)
+    warn_sector_angle(verts[numpy.unique(shared.flat)], opts, tol)
     nodes, groups, facts = _assemble(verts, surfaces, opts, tol)
     names = [n for n, _ in groups]
     if len(set(names)) != len(names):
@@ -1137,6 +1152,14 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
             f"sector. {_NOTHING}"
         )
     joined = concat([f for _, f in groups])
+    refuse_a_collapsed_wheel(len(joined), opts.tolerance_m)
+    if facts["degenerate"]:
+        warn(
+            f"{facts['degenerate']} faces of the wheel name one node twice: the tolerance joins "
+            "nodes of one face. They are removed, and each leaves a hole. Lower --tolerance.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     report = report_of((verts, concat(list(families.values()))), (nodes, joined), facts, opts, tol)
     report.update(provenance(path, "obj", unit, [(n, len(f)) for n, f in groups]))
     written = _Written()
