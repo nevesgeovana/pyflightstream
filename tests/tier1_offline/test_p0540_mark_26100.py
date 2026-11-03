@@ -413,6 +413,29 @@ def test_p0540_26100_direct_route_warns_names_the_saved_route_and_writes_nothing
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_the_texts_state_the_verified_route(tmp_path):
+    """REL-K-012: the probes ran, so no text still says --apply awaits them for a file entry."""
+    from pathlib import Path
+
+    from pyflightstream.script import Script, ScriptOrderError
+    from pyflightstream.script._marking import require_marking_build
+    from pyflightstream.workspace.sidecars import inventory_sidecar
+
+    docs = Path(__file__).parents[2] / "docs"
+    guide = " ".join((docs / "geometry.md").read_text(encoding="utf-8").split())
+    assert "stays refused, naming the commands, until a probe on 26.100" not in guide
+    assert "Every file import stands before the first `CREATE_NEW_BASE_REGION`" in guide
+    upgrade = " ".join((docs / "upgrading.md").read_text(encoding="utf-8").split())
+    assert "`--apply` stays refused until the commands are verified on that build" not in upgrade
+    with pytest.raises(ScriptOrderError) as refused:
+        require_marking_build(Script("26.120"))
+    assert "awaiting a probe" not in str(refused.value)
+    written = inventory_sidecar(_blunt_strip(tmp_path, ""), "obj").read_text()
+    assert "never rewrites" not in " ".join(written.split())
+    assert "--refresh" in written
+
+
 @pytest.mark.requirement("FR-3471")
 def test_p0540_26100_solver_route_is_the_default_constant():
     from pyflightstream.script import _marking

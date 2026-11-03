@@ -435,17 +435,22 @@ and `[trailing_edges] none = true`, then run the first command above. It emits
 `SAVEAS`, never `INITIALIZE_SOLVER`, and leaves every input byte unchanged.
 
 **FlightStream 26.100.** That build has no `IMPORT_WAKE_EDGES_FROM_FILE`, so a file entry is
-marked by `TRAILING_EDGES_IMPORT`, which reads a file of vertices. The pass matches the
-entry's mid-point file to mesh edges, splits those edges into rims and writes one vertex file
-per rim beside the work script, with one import each, so no file names the edges that join
-the two sides of a blunt trailing edge. The read-back counts the saved trailing edges that
-join two rims of one entry, records the count in `wing.mark.json` and refuses a count above
-zero. Detection entries use the detection commands the 26.100 manual documents; an entry
-with an edge type other than `STANDARD`, and explicit wake-termination nodes, have no form on
-that build and are warned and skipped. The preview renders the script; `--apply` stays
-refused, naming the commands, until a probe on 26.100 has verified them. If a probe shows the
-solver route cannot mark the rims, the pass on 26.100 warns, names
-`pyfs-workspace geometry sector-to-wheel` on a saved sector and writes nothing.
+marked by `TRAILING_EDGES_IMPORT`, which reads a file of vertices and marks the mesh edges
+between them. The pass matches the entry's mid-point file to mesh edges, splits those edges
+into rims and writes one vertex file per rim beside the work script, with one import each, so
+no file names both ends of an edge that joins the two sides of a blunt trailing edge. Sides
+that touch at a vertex, and a rim closed in a loop, take as many files as that needs. Every
+file import stands before the first `CREATE_NEW_BASE_REGION`, because an import between two of
+them leaves only the last base saved, and an `auto` rim follows the creates. The create states
+a base's model and Cp, and `SET_BASE_REGION_CP` follows it for a `USER` or `CUSTOM` model only,
+because the form with `EMPIRICAL` and a Cp stops the script on that build. The read-back counts
+the saved trailing edges that join rim vertices without being rim edges, records the count in
+`wing.mark.json` and refuses a count above zero. An entry with an edge type other than
+`STANDARD`, and explicit wake-termination nodes, have no form on that build and are warned and
+skipped. Detection entries and `auto` wake-termination nodes use commands the 26.100 manual
+documents, and `--apply` stays refused, naming them, until a probe on 26.100 has verified them.
+Setting `MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
+`pyfs-workspace geometry sector-to-wheel` on a saved sector and write nothing.
 
 A long preview reports each stage on standard error (reading, matching and placing each entry,
 rendering), so a fine mesh is not silent.

@@ -34,10 +34,10 @@ class _MarkingPolicy(Protocol):
 
 
 #: The route the marking pass takes on 26.100 (FR-3470): ``"solver"`` marks the rims with
-#: ``TRAILING_EDGES_IMPORT`` (FSM-26.100 p.314), one vertex file per rim. If a probe on
-#: that build shows the solver cannot mark rims without the edges between them, or that a
-#: second import replaces the first, the one-line switch is ``"direct"``: the pass then
-#: warns, names the saved route and writes nothing (FR-3471).
+#: ``TRAILING_EDGES_IMPORT`` (FSM-26.100 p.314), one vertex file per rim, which the probe of
+#: CMP-26100_2026-11-02_mark-26100-vertex verified: a second import adds, and no edge between
+#: the rims is marked. Should a later probe refute that, the one-line switch is ``"direct"``:
+#: the pass then warns, names the saved route and writes nothing (FR-3471).
 MARKING_ROUTE_26100 = "solver"
 
 #: The build that has no ``IMPORT_WAKE_EDGES_FROM_FILE`` and marks by vertex file.
@@ -68,9 +68,9 @@ def require_marking_build(script: Script) -> None:
         return
     if build not in {"26.124", "26.125", "26.126", "26.127"}:
         raise ScriptOrderError(
-            "the FSI marking order is supported on 26.100 (documented, awaiting a probe), "
-            "26.124, 26.125, 26.126 and 26.127 (measured on the first two, carried to 26.126 "
-            f"and 26.127); this script targets {build}"
+            "the FSI marking order is supported on 26.100 (by vertex file), 26.124, 26.125, "
+            "26.126 and 26.127 (measured on 26.124 and 26.125, carried to 26.126 and 26.127); "
+            f"this script targets {build}"
         )
 
 
@@ -79,8 +79,8 @@ def render_trailing_edge_vertex_file(vertices: Sequence[Sequence[float]]) -> str
 
     The layout paraphrases FSM-26.100 p.314: the number of vertices, a unit token, then one
     line per vertex with an id and its three coordinates. The package states the unit as
-    METER because the marking pass sets the simulation to metres. Nothing validates the
-    layout until a probe on 26.100 reads the saved result back.
+    METER because the marking pass sets the simulation to metres. The probe of
+    CMP-26100_2026-11-02_mark-26100-vertex read this layout back from the saved simulation.
     """
     rows = [
         f"{number},{float(x)!r},{float(y)!r},{float(z)!r}"
