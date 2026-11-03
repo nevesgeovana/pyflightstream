@@ -219,3 +219,14 @@ def test_p0540_a_sidecar_table_the_wheel_does_not_carry_is_warned_and_skipped(tm
     assert result.written
     written = (tmp_path / "w.obj.boundaries.toml").read_text(encoding="utf-8")
     assert "ports" not in written and "operations" not in written
+
+
+@pytest.mark.requirement("FR-3466")
+def test_p0540_a_group_name_outside_ascii_makes_a_table_toml_can_read():
+    import tomllib
+
+    from pyflightstream.workspace._wheel import _table
+
+    name = "Pá1"
+    assert tomllib.loads(_table("base_regions", name))["base_regions"] == {name: {}}
+    assert _table("base_regions", "Blade_1-a") == "[base_regions.Blade_1-a]"

@@ -806,7 +806,7 @@ def _copy_points(
 
 def _table(prefix: str, name: str) -> str:
     """Return a TOML table header ``[prefix.name]``, the name quoted when it is not bare."""
-    bare = name.replace("_", "").replace("-", "").isalnum()
+    bare = name.isascii() and name.replace("_", "").replace("-", "").isalnum()
     return f"[{prefix}.{name if bare else toml_value(name)}]"
 
 
