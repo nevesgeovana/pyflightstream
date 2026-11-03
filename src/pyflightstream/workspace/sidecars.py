@@ -762,21 +762,49 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
     text = sidecar.read_bytes().decode("utf-8")
     newline = "\r\n" if "\r\n" in text else "\n"
     kept = _with_counted_keys(text.splitlines(), fresh)
-    sidecar.write_bytes((newline.join(kept) + newline).encode("utf-8"))
+    rewritten = newline.join(kept) + newline
+    counted = {MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY}
+    try:
+        declared = tomllib.loads(text.removeprefix("﻿"))
+        same = _without_keys(tomllib.loads(rewritten.removeprefix("﻿")), counted) == (
+            _without_keys(declared, counted)
+        )
+    except tomllib.TOMLDecodeError as error:
+        raise InputArtifactError(
+            f"{sidecar}: refreshing it would not leave a readable sidecar ({error}); "
+            "nothing was changed"
+        ) from error
+    if not same:
+        raise InputArtifactError(
+            f"{sidecar}: refreshing it would change more than the three counted keys; "
+            "nothing was changed"
+        )
+    sidecar.write_bytes(rewritten.encode("utf-8"))
     return sidecar
+
+
+def _without_keys(table: dict[str, Any], keys: set[str]) -> dict[str, Any]:
+    """Return the top-level keys of a parsed sidecar other than ``keys``."""
+    return {key: value for key, value in table.items() if key not in keys}
 
 
 def _with_counted_keys(lines: list[str], fresh: dict[str, str]) -> list[str]:
     """Replace the counted keys among a sidecar's top-level lines, keeping every other line."""
     kept: list[str] = []
     header = None
+    depth = 0  # the brackets a replaced array left open: its value runs on over the next lines
     for line in lines:
+        code = line.split("#", 1)[0]
+        if depth:
+            depth += code.count("[") - code.count("]")
+            continue
         key = line.split("=", 1)[0].strip()
         if header is None and line.startswith("["):
             header = len(kept)
         if header is None and key in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY):
             if key in fresh:
                 kept.append(fresh.pop(key))
+            depth = code.count("[") - code.count("]")
             continue
         kept.append(line)
     if fresh:

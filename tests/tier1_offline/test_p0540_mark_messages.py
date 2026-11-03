@@ -102,6 +102,55 @@ def test_p0540_refresh_rewrites_the_legacy_sidecar_the_marking_reads(tmp_path):
 
 
 @pytest.mark.requirement("FR-3479")
+def test_p0540_refresh_replaces_a_counted_key_written_over_several_lines(tmp_path):
+    """REL-K-010: the continuation lines of a replaced array go with it; the TOML stays valid."""
+    import tomllib
+
+    mesh, sidecar = _generated(tmp_path)
+    text = sidecar.read_text()
+    wrapped = re.sub(r"boundary_faces = \[(\d+)\]", r"boundary_faces = [\n  \1,\n]", text)
+    assert wrapped != text
+    sidecar.write_text(wrapped)
+    mesh.write_text(OBJ + "f 2 4 3\n")
+    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    stated = tomllib.loads(sidecar.read_text())
+    assert stated["boundary_faces"] == [2] and stated["mesh_faces"] == 2
+    assert stated["fs_build"] == "26.125" and stated["trailing_edges"] == {"none": True}
+
+
+@pytest.mark.requirement("FR-3479")
+def test_p0540_refresh_counts_no_bracket_of_a_comment_and_keeps_other_comments(tmp_path):
+    """REL-K-010: a bracket in a comment on a continuation line does not end or extend the key."""
+    import tomllib
+
+    mesh, sidecar = _generated(tmp_path)
+    text = sidecar.read_text()
+    wrapped = re.sub(r"boundary_faces = \[(\d+)\]", r"boundary_faces = [\n  \1, # ] [ [\n]", text)
+    assert wrapped != text
+    sidecar.write_text(wrapped.replace('fs_build = "26.125"', 'fs_build = "26.125" # kept'))
+    mesh.write_text(OBJ + "f 2 4 3\n")
+    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert tomllib.loads(sidecar.read_text())["boundary_faces"] == [2]
+    assert 'fs_build = "26.125" # kept' in sidecar.read_text()
+
+
+@pytest.mark.requirement("FR-3479")
+def test_p0540_refresh_writes_nothing_when_the_result_would_not_read_back(
+    tmp_path, monkeypatch, capsys
+):
+    """REL-K-010: the sidecar holds the declarations, so a rewrite is proved before writing."""
+    from pyflightstream.workspace import sidecars
+
+    mesh, sidecar = _generated(tmp_path)
+    before = sidecar.read_bytes()
+    mesh.write_text(OBJ + "f 2 4 3\n")
+    monkeypatch.setattr(sidecars, "_with_counted_keys", lambda lines, fresh: ["not toml ["])
+    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 2
+    assert "nothing was changed" in capsys.readouterr().err
+    assert sidecar.read_bytes() == before
+
+
+@pytest.mark.requirement("FR-3479")
 def test_p0540_plain_inventory_still_leaves_an_existing_obj_sidecar_alone(tmp_path):
     mesh, sidecar = _generated(tmp_path)
     before = sidecar.read_bytes()
