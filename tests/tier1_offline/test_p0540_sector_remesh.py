@@ -19,7 +19,6 @@ import numpy as np
 import pytest
 from scipy.spatial import cKDTree
 
-from pyflightstream.workspace._wheel_fsm import _parse
 from tests.tier1_offline.test_p0540_wheel import Built
 from tests.tier1_offline.test_p0540_wheel_fsm import build_saved_sector
 
@@ -131,21 +130,38 @@ CHORD = 12
 ARGS = {"chord_cells": CHORD, "le": 0.03, "span_cell": 0.1, "spinner_theta": 4}
 
 
+def _cells(line: str) -> list[str]:
+    return [x.strip() for x in line.split(",") if x.strip()]
+
+
 def _read(path: Path) -> dict[str, Any]:
-    """The written file's rows, read with the layout parser and no code under test."""
-    parsed = _parse(path.read_bytes().decode("latin-1"))
-    ints = parsed.mesh["ints"]
+    """The written file's rows, read here by position with no code under test.
+
+    The mesh block is: a head, the count, the last id, the number of boundaries and three lines
+    each, the count again, 25 rows of one value per face, ``0``, the node count, three rows of
+    coordinates and the wake termination (a count and three rows).
+    """
+    lines = path.read_bytes().decode("latin-1").split("\n")
+    lines = [x.rstrip("\r") for x in lines]
+    start = lines.index("$MESH_START$")
+    nb = int(lines[start + 3])
+    first = start + 4 + 3 * nb + 1
+    rows = [_cells(lines[first + k]) for k in range(25)]
+    ints = {k: np.array([int(x) for x in rows[k]]) for k in range(20)}
+    at = first + 25
+    xyz = np.array([[float(x) for x in _cells(lines[at + 2 + k])] for k in range(3)]).T
+    n_term = int(lines[at + 5])
+    term = [[int(x) for x in _cells(lines[at + 6 + k])] for k in range(3 if n_term else 0)]
     return {
-        "xyz": parsed.mesh["xyz"],
+        "xyz": xyz,
         "tri": np.stack([ints[2], ints[3], ints[4]], axis=1) - 1,
         "owner": ints[11],
         "kind": ints[12],
         "group": ints[5],
         "partner": ints[10] - 1,
-        "names": [h[4] for h in parsed.mesh["heads"]],
-        "flags": [np.array(parsed.mesh["rows"][r]) == "T" for r in (21, 22, 23)],
-        "term": parsed.mesh["term"],
-        "parsed": parsed,
+        "names": [lines[start + 5 + 3 * k].strip() for k in range(nb)],
+        "flags": [np.array(rows[r]) == "T" for r in (21, 22, 23)],
+        "term": term,
     }
 
 
