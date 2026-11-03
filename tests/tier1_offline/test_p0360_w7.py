@@ -84,6 +84,9 @@ PUBLIC_HOMES = {
     "missing_log_warning": "pyflightstream.workspace._missing_log",
     "WheelResult": "pyflightstream.workspace._wheel",
     "sector_to_wheel": "pyflightstream.workspace._wheel",
+    "RemeshResult": "pyflightstream.workspace._sector_driver",
+    "power_off_body": "pyflightstream.workspace._sector_driver",
+    "sector_remesh": "pyflightstream.workspace._sector_driver",
 }
 
 

@@ -9,6 +9,17 @@ FlightStream versions.
 
 ### Added
 
+- `pyfs-workspace geometry sector-remesh` rebuilds the blade, spinner and nacelle of a saved
+  sector as full-quad surfaces (chord clustered at the leading edge only, constant span cells,
+  every row at one radius from mid blade outward, the spinner adapting to the root row), and
+  `geometry power-off-body` writes the matching body: a closed spinner and the same nacelle,
+  merged across `--copies` sectors. No solver. The topology is a blunt trailing edge, one blade
+  per sector and a nacelle with a flat base; any other is warned by name and writes nothing
+  (exit 2). The tip radius is the blade's largest radius about the axis unless stated, and the
+  default is warned; the sector angle is read from the seams. The checks are printed and written
+  to `<out stem>.remesh.json` and `<out stem>.body.json`. The saved layout is inferred from
+  saved files. Python: `workspace.sector_remesh`, `power_off_body`, `RemeshResult`
+  (FR-3490 to FR-3499).
 - `[products] rotor_cn_slope = true` (default false) writes, beside each rotor table,
   `polars/P<sim>-<ALIAS>_cn_slope.csv`: per advance ratio J, the secant slope of `CN_<ALIAS>`
   against `ALPHA` between the two rows of lowest distinct `|ALPHA|`, with both incidences and
@@ -18,6 +29,8 @@ FlightStream versions.
 
 ### Fixed
 
+- `sector-to-wheel` reads a saved sector whose second header value is above its last boundary id
+  (as saved files carry it); it was refused as a layout not recognized (FR-3499).
 - `pyfs-matrix restore products` and the copy of `post/` by `pyfs-matrix sync` replace
   `post/<matrix>/products.json` under the lock a post holds, so neither is refused on Windows nor
   loses a concurrent post's write; a lock held past the post's wait warns and skips that file
