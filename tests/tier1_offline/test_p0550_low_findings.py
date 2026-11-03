@@ -251,3 +251,16 @@ def test_p0550_the_sector_angle_warning_of_a_sector_with_no_copies_asked(
 
     sector = SimpleNamespace(span=math.radians(span), copies=copies)
     assert words in " ".join(_messages(lambda: span_check(sector, None)))
+
+
+@pytest.mark.requirement("FR-3530")
+def test_p0550_no_command_note_ends_in_a_placeholder() -> None:
+    from pyflightstream.commands import CommandRegistry
+
+    bad = [
+        f"{name} {build}"
+        for name, command in CommandRegistry.load().commands.items()
+        for build, row in command.versions.items()
+        if "[...]" in (row.note or "")
+    ]
+    assert bad == []

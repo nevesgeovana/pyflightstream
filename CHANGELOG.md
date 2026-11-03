@@ -15,6 +15,7 @@ FlightStream versions.
 
 ### Fixed
 
+- The 27 notes of the command database that ended in a literal `[...]` now end on the cited report's own last complete clause, with its measurement where it states one; a probe is named for the build whose report ran it.
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
 - `pyfs-workspace geometry sector-remesh` refuses, with nothing written and exit 2, a `--span-cell` that asks for more than 10000 span rows (`MAX_SPAN_ROWS`); `--span-cell 1e-05` went on to build millions of quads (FR-3522).

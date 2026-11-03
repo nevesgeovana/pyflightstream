@@ -526,7 +526,7 @@ EXPORT_WING_CCS_FILE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.303, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.304, unchanged from FSM-26.122 p.304"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the CCS file the command names [...]"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the CCS file the command names exists and is not empty, written from the six arguments of the signature heading. The instrument read: wing_export.csv was not written"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
