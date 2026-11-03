@@ -168,7 +168,10 @@
       "tests/tier1_offline/test_setup_standard_completeness.py",
       "tests/tier1_offline/test_solver_setup.py",
       "tests/tier1_offline/test_stage_activity.py",
-      "tests/tier1_offline/test_wake_edges.py"
+      "tests/tier1_offline/test_wake_edges.py",
+      "tests/tier1_offline/test_p0540_wheel.py",
+      "tests/tier1_offline/test_p0540_wheel_obj.py",
+      "tests/tier1_offline/test_p0540_wheel_fsm.py"
     ],
     "run": [
       "tests/tier1_offline/test_activity_failure_reporting.py",
