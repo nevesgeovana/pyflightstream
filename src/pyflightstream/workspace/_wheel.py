@@ -470,6 +470,11 @@ def check_wheel(
     }
 
 
+def drop_stale_inventory(saved: Path) -> None:
+    """Remove the inventory of an earlier mesh beside a saved output just replaced."""
+    inventory_sidecar(saved, "fsm").unlink(missing_ok=True)
+
+
 def refuse_existing(paths: Iterable[Path], overwrite: bool) -> None:
     """Refuse, before any file is written, an output that exists and is not to be replaced."""
     clash = [p for p in paths if p.exists()]

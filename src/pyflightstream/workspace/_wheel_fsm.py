@@ -58,6 +58,7 @@ from pyflightstream.workspace._wheel import (
     Options,
     WheelResult,
     concat,
+    drop_stale_inventory,
     merge_nodes,
     provenance,
     refuse_a_collapsed_wheel,
@@ -531,6 +532,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         part.unlink(missing_ok=True)
         raise
     part.replace(opts.out)
+    drop_stale_inventory(opts.out)
     return _result(
         path,
         parsed,

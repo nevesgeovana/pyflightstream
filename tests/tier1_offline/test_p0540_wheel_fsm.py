@@ -245,6 +245,18 @@ def test_p0540_a_second_header_value_above_the_last_boundary_id_is_a_known_layou
     assert result.written
 
 
+@pytest.mark.requirement("FR-3467")
+def test_p0540_an_overwritten_saved_wheel_keeps_no_inventory_of_the_earlier_mesh(tmp_path):
+    """REL-R2-012: the sidecar beside the output described the mesh it replaced."""
+    built, sector = _saved(tmp_path)
+    out = tmp_path / "wheel.fsm"
+    sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], out=out)
+    stale = out.with_name("wheel.fsm.boundaries.toml")
+    stale.write_text('boundaries = ["Old"]\n')
+    sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], out=out, overwrite=True)
+    assert out.is_file() and not stale.exists()
+
+
 @pytest.mark.requirement("FR-3468")
 def test_p0540_a_layout_the_reader_does_not_recognize_is_warned_and_nothing_is_written(tmp_path):
     from pyflightstream.workspace.cli import main as workspace_main

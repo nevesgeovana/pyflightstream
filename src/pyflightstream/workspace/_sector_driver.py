@@ -71,6 +71,7 @@ from pyflightstream.workspace._wheel import (
     _NOTHING,
     Faces,
     check_wheel,
+    drop_stale_inventory,
     merge_nodes,
     refuse_existing,
     refuse_the_source,
@@ -464,6 +465,7 @@ def _write(
         part.unlink(missing_ok=True)
         raise
     part.replace(target)
+    drop_stale_inventory(target)
     return back.triangles
 
 
@@ -840,3 +842,4 @@ def _write_body(sector: Sector, sink: QuadSink, nodes: Array, target: Path) -> N
         part.unlink(missing_ok=True)
         raise
     part.replace(target)
+    drop_stale_inventory(target)
