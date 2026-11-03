@@ -465,8 +465,8 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     """Compose, read back and write the wheel of a parsed sector."""
     n, nf = opts.copies, parsed.mesh["faces"]
     xyz = parsed.mesh["xyz"]
-    unit = saved_mesh_coordinate_unit(path)
-    tol = opts.tolerance_m / unit_of(unit, path.name)
+    unit, metres = _saved_unit(path)
+    tol = opts.tolerance_m / metres
     stack = numpy.vstack([rotate(xyz, opts.axis, opts.hub, 360.0 * k / n) for k in range(n)])
     root = merge_nodes(stack, tol)
     used = numpy.unique(root)
@@ -534,7 +534,30 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         built=(stack, used, maps),
         boundaries=records[1::3],
         unit=unit,
+        tol=tol,
     )
+
+
+def _saved_unit(path: Path) -> tuple[str | None, float]:
+    """Return a saved sector's mesh unit and its metres; one not known is warned and read as metres.
+
+    The geometry of a wheel does not depend on it: only the tolerance does.
+    """
+    try:
+        unit = saved_mesh_coordinate_unit(path)
+    except MeshReadError as error:
+        unit, cause = None, str(error)
+    else:
+        cause = f"{path.name} has no global block that states its length unit"
+    if unit is not None:
+        return unit, unit_of(unit, path.name)
+    warn(
+        f"{cause}. The tolerance is read as metres; if the nodes are stored in another length, "
+        "state --tolerance in that length.",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+    return None, 1.0
 
 
 def _result(
@@ -546,6 +569,7 @@ def _result(
     built: tuple[NDArray[numpy.float64], NDArray[numpy.int64], _Maps],
     boundaries: list[str],
     unit: str | None,
+    tol: float,
 ) -> WheelResult:
     """Check the written wheel as the OBJ route does and write its record."""
     stack, used, maps = built
@@ -563,7 +587,6 @@ def _result(
         "degenerate": int(wheel.repeated().sum()),
         "merged": len(stack) - len(used),
     }
-    tol = opts.tolerance_m / unit_of(unit, path.name)
     report = report_of((xyz, sector), (nodes, wheel), facts, opts, tol)
     report["faces"] = {"sector": nf, "wheel": nf * n}
     counts = numpy.bincount(

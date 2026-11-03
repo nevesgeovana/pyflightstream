@@ -351,3 +351,36 @@ def test_p0540_a_true_sector_gets_no_warning_about_its_angle(tmp_path, shape, ki
             out=tmp_path / f"w.{kind}",
         )
     assert not [w for w in caught if "about the axis" in str(w.message)]
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_a_saved_unit_the_reader_has_not_measured_is_warned_and_read_as_metres(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$GLOBAL_START$")
+    lines[at + 1], lines[at + 2] = "0.001", "2"
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="read as metres") as caught:
+        result = sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm")
+    assert result.written and result.report["tolerance_m"] == pytest.approx(1e-4)
+    assert len([w for w in caught if "read as metres" in str(w.message)]) == 1
+    assert "[import]" not in str(caught[0].message)
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_a_saved_sector_with_no_unit_is_warned_once_and_not_about_its_sidecar(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$GLOBAL_START$")
+    del lines[at : at + 4]
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="read as metres") as caught:
+        assert sector_to_wheel(
+            saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm"
+        ).written
+    said = [str(w.message) for w in caught if "read as metres" in str(w.message)]
+    assert len(said) == 1 and "[import]" not in said[0]

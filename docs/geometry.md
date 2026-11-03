@@ -481,8 +481,8 @@ numbers) through `--hub` (default the origin, in the mesh's unit) by
 `360 k / copies` degrees. Nodes of the copies within `--tolerance`, in metres,
 are one node. The default is `1e-4`: a seam that sits `1e-5` m apart is merged
 by it and so is one that sits `1e-4` m apart. The mesh unit is the `[import]
-units` of the boundaries file; a unit that is not stated or that the package
-does not know is warned and read as metres.
+units` of the boundaries file, or the head of a saved sector; a unit that is not
+stated or that the package does not know is warned and read as metres.
 
 `--blades` names the surfaces that are blades, with no name fixed in the
 code. Each is numbered one per copy, `<stem><k>` with the stem the name without
