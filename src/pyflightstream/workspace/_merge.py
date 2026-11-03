@@ -448,8 +448,16 @@ def _adapt(
                 moved.pop(a, None)
     if not conformed:
         return _unremeshed(mesh, moved)
-    done = _conformed(mesh, kept, conformed, bands, moved=moved, source=source)
+    done = _conformed(mesh, kept, conformed, bands, moved=moved)
     if _holds(done, conformed, mesh):
+        for family in done.rebuilt:
+            warn(
+                f"{source} family {family}: the band of {_geometry.BAND_LAYERS} face layers beside "
+                f"the interface covers all {len(mesh.families[family])} faces of the family, so "
+                "it was rebuilt whole",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
         return done
     warn(
         f"{source}: the remesh of the band could not take the kept nodes along the interface "
@@ -494,7 +502,6 @@ def _conformed(
     bands: Mapping[str, set[int]],
     *,
     moved: Mapping[int, int],
-    source: Path,
 ) -> _Adapted:
     """Return the adapted part with its bands remeshed on the kept nodes of ``pairs``."""
     from pyflightstream.workspace._refine._remesh import refine_group
@@ -505,14 +512,6 @@ def _conformed(
         for label, family in names.items()
         if len(work.families[label]) == len(mesh.families[family])
     ]
-    for family in rebuilt:
-        warn(
-            f"{source} family {family}: the band of {_geometry.BAND_LAYERS} face layers beside "
-            f"the interface covers all {len(mesh.families[family])} faces of the family, so it "
-            "was rebuilt whole",
-            PyflightstreamWarning,
-            stacklevel=4,
-        )
     conform = [(list(p.adapted.nodes), kept[list(p.kept.nodes)]) for p in pairs]
     done = refine_group(
         work,

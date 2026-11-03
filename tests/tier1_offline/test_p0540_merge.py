@@ -990,3 +990,18 @@ def test_p0540_merge_a_split_says_how_far_past_the_threshold_it_moved_a_node(tmp
     assert "of 29 interface node(s)" in said[0]
     assert merged.interface_edges == 8
     assert out.nodes[: len(kept.nodes)] == kept.nodes
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_a_family_is_said_rebuilt_only_when_it_was(tmp_path):
+    """A band covering the family that then fell back on the split rebuilt nothing."""
+    triangle = [
+        [0.0, 1.0, 0.0],
+        [0.0, math.cos(TAU / 24.0), math.sin(TAU / 24.0)],
+        [0.5, 1.0, 0.0],
+    ]
+    _, messages = _quiet_merge(tmp_path, _kept(24), (triangle, [[0, 1, 2]], "Lone"), 1.0)
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    assert record["rebuilt_families"] == []
+    assert not [m for m in messages if "rebuilt whole" in m]
