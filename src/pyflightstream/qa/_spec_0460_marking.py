@@ -225,8 +225,11 @@ def _import(script: Script, workdir: Path, second: bool = False) -> None:
 
 
 def _prepare(script: Script, workdir: Path, command: str, initialized: bool, prefix: str) -> None:
-    if script.version.canonical not in {"26.124", "26.125"}:
-        raise CommandArgumentError("marking instruments are bounded to 26.124 and 26.125")
+    if script.version.canonical not in {"26.100", "26.124", "26.125"}:
+        raise CommandArgumentError(
+            "marking instruments are bounded to 26.100 (base region, combine and rename "
+            "only), 26.124 and 26.125"
+        )
     _geometry(script, workdir, wing_body=command == _AUTO)
     if command == _AUTO:
         script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=1, surface_indices=[1])
@@ -376,7 +379,8 @@ def _register(command: str) -> None:
                 lambda inner: _target(inner, workdir, command, "noinit_"),
             )
             script.emit("SAVEAS", workdir / "noinit_after.fsm")
-        if command == _COMBINE:
+        if command == _COMBINE and script.version.canonical != "26.100":
+            # M3 marks a termination node first, which 26.100 cannot do.
             if script.version.canonical == "26.124":
                 _m3(script, workdir, True, "m3_init_")
             _m3(script, workdir, False, "m3_noinit_")
@@ -395,7 +399,12 @@ def _register(command: str) -> None:
         epilogue=epilogue,
         assert_effect=effect,
         observe=observe,
-        preconditions=("SELECT_MESH_NODE", "INITIALIZE_SOLVER", _CREATE, _IMPORT),
+        # The wake-edge import is a precondition of its own probe only: 26.100 has no such command.
+        preconditions=tuple(
+            name
+            for name in ("SELECT_MESH_NODE", "INITIALIZE_SOLVER", _CREATE, _IMPORT)
+            if name != _IMPORT or command == _IMPORT
+        ),
         effect_note="saved marking state against an unchanged control; 26.124 primary initialized, "
         "with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER",
     )
@@ -500,7 +509,8 @@ def _invoke(script: Script, workdir: Path, name: str, build: Callable[[Script], 
         "SELECT_MESH_NODE",
         "TRANSFORM_SELECTED_NODES",
     ):
-        inner.allow_broken(command, reason="boundary-marking probe: measure the saved effect")
+        if command in inner._view:  # 26.100 has neither the wake-edge import nor node marking
+            inner.allow_broken(command, reason="boundary-marking probe: measure the saved effect")
     build(inner)
     path = workdir / f"{name}.txt"
     write_text(path, inner.render(), encoding="utf-8")

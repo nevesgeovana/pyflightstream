@@ -31,6 +31,32 @@ FlightStream versions.
 - Two `pyfs-matrix run <matrix> --sims A` and `--sims B` processes may run at once on one
   workspace and one plan; measured with a stand-in solver, both simulations are recorded and
   tabled, and the route is documented in the run matrix guide (FR-3501).
+- `pyfs-workspace geometry mark-boundaries` plans the marking pass on FlightStream 26.100
+  (FR-3470): a file entry is matched to mesh edges, split into rims and marked by
+  `TRAILING_EDGES_IMPORT`, one vertex file and one import per rim, so no file names the edges
+  between the two sides of a blunt trailing edge. The read-back counts the saved trailing
+  edges that join two rims and records it in `<mesh>.mark.json`. `--apply` stays refused until
+  the commands are verified on that build. A module constant, `MARKING_ROUTE_26100`, set to
+  `"direct"` makes the pass warn, name `geometry sector-to-wheel` and write nothing (FR-3471).
+- `pyfs-workspace geometry inventory <mesh> --refresh` rewrites only `mesh_faces`,
+  `boundary_faces` and `mesh_sha256` of an existing OBJ sidecar, keeping every other line, and the
+  marking errors for those fields name it (FR-3479).
+- The marking preview reports each stage on standard error (FR-3478).
+- A probe of `TRAILING_EDGES_IMPORT` for 26.100: one rim per file, a second import, and both
+  rims in one file, each against an unchanged control; the base-region, combine and rename
+  probes accept 26.100.
+
+### Changed
+
+- A row that states `airfoil_separation` on FlightStream 26.100 is warned (`NotApplicableWarning`,
+  naming `axial_separation_families` and the User Guide, Flow separation) and the command is
+  not emitted; the row runs with no separation model. 26.101 and later are unchanged (FR-3476).
+
+### Fixed
+
+- The marking preview compared every file point with every polygon edge in a Python loop and took
+  558 seconds on a mesh of 91 thousand faces (12 seconds now); the points are now looked up in an index, with the
+  same result (FR-3478).
 
 ## [0.53.0] - 2026-11-01
 

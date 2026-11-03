@@ -28,6 +28,7 @@ from typing import Any
 from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream.run._cli_mesh import (
+    _progress_printer,
     add_degenerate_parser,
     add_inventory_parser,
     add_mesh_parsers,
@@ -995,7 +996,7 @@ def _print_marking_readback(plan, readback: dict[str, Any]) -> None:
 
 def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
     try:
-        plan = plan_mark_boundaries(args.mesh)
+        plan = plan_mark_boundaries(args.mesh, progress=_progress_printer("mark-boundaries"))
         print(f"mark boundaries of {plan.mesh} on {plan.declarations.fs_build}")
         for step in plan.steps:
             print(f"  {step}")

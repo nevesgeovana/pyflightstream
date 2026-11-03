@@ -277,6 +277,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "csv_file"): OUTPUT,
     ("pyfs-workspace", "out_dir"): OUTPUT,
     ("pyfs-workspace", "clean"): SWITCH,
+    ("pyfs-workspace", "refresh"): SWITCH,
     ("pyfs-workspace", "root_offset"): (
         "a parameter of one derivation, written into the output's sidecar, as on "
         "pyfs-matrix degenerate (FR-477); it defines the geometry written, so it is "
@@ -310,6 +311,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.33.0 (FR-308): `inventory --clean` rewrites THIS geometry once; a
     # default would rewrite every geometry a machine ever inventories.
     ("pyfs-matrix", "clean"): SWITCH,
+    # 0.54.0 (FR-3479): `inventory --refresh` rewrites the counted keys of THIS OBJ's sidecar.
+    ("pyfs-matrix", "refresh"): SWITCH,
     # 0.33.0 (FR-309): why THIS call marks these runs failed, recorded in
     # each record as given; a default would put one sentence on every mark.
     ("pyfs-matrix", "reason"): RECORD,
@@ -720,6 +723,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         {"degenerate", "inventory", "noise", "refine", "sync", "visual-inspect"}
     ),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
+    ("pyfs-matrix", "refresh"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
@@ -1075,6 +1079,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "against"): frozenset({"audit"}),
     ("pyfs-workspace", "csv_file"): frozenset({"audit"}),
     ("pyfs-workspace", "clean"): frozenset({"inventory"}),
+    ("pyfs-workspace", "refresh"): frozenset({"inventory"}),
     ("pyfs-workspace", "kind"): frozenset({"degenerate"}),
     ("pyfs-workspace", "root_offset"): frozenset({"degenerate"}),
     ("pyfs-workspace", "boundary"): frozenset({"degenerate"}),

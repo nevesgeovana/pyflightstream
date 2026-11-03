@@ -1,0 +1,214 @@
+"""Where the marked edges are on the imported mesh: placement, rims and the edges between.
+
+The mid-points of a trailing-edge file are carried through the import operations like the
+OBJ is; on 26.100 the matched edges are also split into rims for the vertex import.
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from pyflightstream._errors import InputArtifactError
+from pyflightstream._lengths import METRES_PER_UNIT
+from pyflightstream.cases.mesh import MeshImport
+from pyflightstream.workspace.wake_edges import _nearest, length_scale, mesh_edge_table
+
+
+def _obj_edges(mesh: Path, unit: str) -> list[tuple[str, tuple[float, ...]]]:
+    """Read polygon perimeter midpoints, retaining their surface ownership."""
+    # Plain floats, not a numpy array per vertex and per edge: the same IEEE operations in the
+    # same order, so the mid-points are the bits the array form gave, at a fraction of the cost.
+    scale = METRES_PER_UNIT[unit]
+    vertices: list[tuple[float, float, float]] = []
+    edges: list[tuple[str, tuple[float, ...]]] = []
+    family = "Boundary-1"
+    for line in mesh.read_text(encoding="utf-8").splitlines():
+        words = line.split("#", 1)[0].split()
+        if not words:
+            continue
+        if words[0] == "v":
+            vertices.append(
+                (float(words[1]) * scale, float(words[2]) * scale, float(words[3]) * scale)
+            )
+        elif words[0] in {"g", "o"}:
+            family = words[1]
+        elif words[0] == "f":
+            ids = [int(word.split("/")[0]) for word in words[1:]]
+            ids = [i - 1 if i > 0 else len(vertices) + i for i in ids]
+            for a, b in zip(ids, ids[1:] + ids[:1], strict=True):
+                p, q = vertices[a], vertices[b]
+                edges.append((family, ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2)))
+    return edges
+
+
+def _move_copies(copies, operation: Any, unit: str):
+    """Apply one affine operation to all copies of a point, in metres."""
+    if operation.op == "mirror":
+        axis = {"YZ": 0, "XZ": 1, "XY": 2}[operation.plane]
+        reflected = [xyz.copy() for xyz in copies]
+        for xyz in reflected:
+            xyz[axis] *= -1
+        return copies + reflected
+    if operation.op == "scale":
+        return [xyz * operation.factors for xyz in copies]
+    if operation.op == "translate":
+        shift = np.asarray(operation.vector) * METRES_PER_UNIT[unit]
+        return [xyz + shift for xyz in copies]
+    axis = np.eye(3)[{"X": 0, "Y": 1, "Z": 2}[operation.axis]]
+    angle = math.radians(operation.angle_deg)
+    return [
+        xyz * math.cos(angle)
+        + np.cross(axis, xyz) * math.sin(angle)
+        + axis * np.dot(axis, xyz) * (1 - math.cos(angle))
+        for xyz in copies
+    ]
+
+
+class _ObjEdges:
+    """The mid-points of an OBJ's polygon edges with their families, indexed for lookup."""
+
+    def __init__(self, mesh: Path, unit: str) -> None:
+        from scipy.spatial import cKDTree
+
+        edges = _obj_edges(mesh, unit)
+        self.mesh = mesh
+        self.names = sorted({name for name, _ in edges})
+        code = {name: number for number, name in enumerate(self.names)}
+        self.codes = np.fromiter((code[name] for name, _ in edges), dtype=np.intp, count=len(edges))
+        self.tree = cKDTree(np.asarray([xyz for _, xyz in edges], dtype=float).reshape(-1, 3))
+
+    def families(self, points, tolerance: float) -> list[list[str]]:
+        """Return, per point, the sorted families with an edge mid-point within ``tolerance``."""
+        found = self.tree.query_ball_point(
+            np.asarray(points, dtype=float).reshape(-1, 3), tolerance
+        )
+        return [sorted({self.names[self.codes[i]] for i in hits}) for hits in found]
+
+
+def _placed_points(points, mesh: Path, spec: MeshImport, tolerance: float):
+    """Carry source midpoints through the same ordered family transforms as the OBJ."""
+    index = _ObjEdges(mesh, spec.units)
+    placed: list[tuple[float, ...]] = []
+    for point, families in zip(points, index.families(points, tolerance), strict=True):
+        if not families:
+            raise InputArtifactError(f"{mesh}: point {point} is not on an OBJ polygon edge")
+        for family in families:
+            placed.extend(_carry(point, family, spec))
+    return tuple(dict.fromkeys(placed))
+
+
+def _carry(point, family: str, spec: MeshImport) -> list[tuple[float, ...]]:
+    """Carry one point of ``family`` through the ordered import operations, copies included."""
+    copies = [np.asarray(point, dtype=float)]
+    for operation in spec.operations:
+        if operation.surface not in ("all", family):
+            continue
+        if operation.op == "rename":
+            assert operation.to is not None
+            family = operation.to
+        else:
+            copies = _move_copies(copies, operation, spec.units)
+    return [tuple(float(v) for v in xyz) for xyz in copies]
+
+
+def _placed_rim(rim, cross, index: _ObjEdges, spec: MeshImport, tolerance: float):
+    """Place a rim's edge end vertices and the cross edges' mid-points like the OBJ is placed."""
+    edge_mids = rim.mean(axis=1)
+    families = index.families(edge_mids, tolerance)
+    vertices: list[tuple[float, ...]] = []
+    for edge, found in zip(rim, families, strict=True):
+        if not found:
+            raise InputArtifactError(f"{index.mesh}: a rim edge is not on an OBJ polygon edge")
+        for family in found:
+            for end in edge:
+                vertices.extend(_carry(end, family, spec))
+    crossed: list[tuple[float, ...]] = []
+    for mid in cross:
+        nearest = int(np.linalg.norm(edge_mids - mid, axis=1).argmin())
+        for family in families[nearest]:
+            crossed.extend(_carry(mid, family, spec))
+    return tuple(dict.fromkeys(vertices)), tuple(dict.fromkeys(crossed))
+
+
+def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray], np.ndarray]:
+    """Split the matched edges of one set into rims and find the edges joining the rims.
+
+    Each point is the mid-point of a rim edge, in metres, and names the nearest edge of the
+    triangulated mesh. A RIM is a run of those edges that share vertices, so the two sides
+    of a blunt trailing edge are two rims. A CROSS EDGE is a mesh edge that is no rim edge
+    and has one end on one rim and the other end on another, which is how a one-cell base
+    strip joins its two sides (FR-3470). Rims that touch at a vertex are one rim: a vertex
+    file cannot tell them apart.
+
+    Parameters
+    ----------
+    points : array_like
+        The (n, 3) mid-points in metres.
+    mesh : Path
+        The OBJ the mid-points name edges of.
+    mesh_unit : str
+        The unit of the OBJ's coordinates.
+
+    Returns
+    -------
+    tuple
+        Per rim an (n, 2, 3) array of edge end coordinates in metres, and the (c, 3)
+        mid-points in metres of the cross edges between the rims.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    vertices, edges = mesh_edge_table(mesh)
+    vertices = vertices * length_scale(mesh_unit, "METER")
+    midpoints = (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
+    chosen = np.unique(_nearest(np.asarray(points, dtype=float).reshape(-1, 3), midpoints)[0])
+    ends = edges[chosen]
+    size = len(vertices)
+    graph = coo_matrix((np.ones(len(ends)), (ends[:, 0], ends[:, 1])), shape=(size, size))
+    _, label = connected_components(graph, directed=False)
+    rim_of_edge = label[ends[:, 0]]
+    rims = [vertices[ends[rim_of_edge == rim]] for rim in np.unique(rim_of_edge)]
+    on_rim = np.zeros(size, dtype=bool)
+    on_rim[ends.ravel()] = True
+    own = np.zeros(len(edges), dtype=bool)
+    own[chosen] = True
+    cross = (
+        on_rim[edges[:, 0]]
+        & on_rim[edges[:, 1]]
+        & (label[edges[:, 0]] != label[edges[:, 1]])
+        & ~own
+    )
+    return rims, midpoints[cross]
+
+
+def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, int]:
+    """Count, per entry label, the saved trailing edges that join two rims of that entry.
+
+    The cross edges were found on the OBJ at plan time (``cross_m`` of the first rim of an
+    entry). An edge of the saved simulation within the set's tolerance of one of them is a
+    cross edge that the solver marked, which the vertex files were written never to name.
+    The saved mesh is compared in metres, as the wake-edge verdict does.
+    """
+    from pyflightstream._fsm import saved_mesh_coordinate_unit, trailing_edge_midpoints
+    from pyflightstream._lengths import scale
+
+    expected = [entry for entry in sets if entry.get("cross_m")]
+    if not expected:
+        return {}
+    unit = saved_mesh_coordinate_unit(saved)
+    factor = None if unit is None else scale(unit, "METER")
+    if factor is None:
+        raise InputArtifactError(f"{saved}: the saved mesh coordinate unit is unknown")
+    marked = np.asarray(trailing_edge_midpoints(saved), dtype=float).reshape(-1, 3) * factor
+    counts: dict[str, int] = {}
+    for entry in expected:
+        crossing = np.asarray(entry["cross_m"], dtype=float).reshape(-1, 3)
+        gaps = np.linalg.norm(crossing[:, None, :] - marked[None, :, :], axis=2)
+        hit = int((gaps <= entry["tolerance"]).any(axis=1).sum()) if len(marked) else 0
+        counts[entry["label"]] = counts.get(entry["label"], 0) + hit
+    return counts
