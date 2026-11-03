@@ -349,6 +349,17 @@ with workspace.cli, preserving the dependency direction. Grid refinement and
 audit and remeshing run on the base installation, as does inspection.
 Native geometry commands remain gated by their build evidence.
 
+Full wheels, merged meshes and remeshed sectors are built in workspace without a
+solver. A wheel is the sector copied about an axis with the seam nodes merged; a
+merge joins two trimmed meshes along their open boundaries and leaves the kept
+part byte for byte; a remesh rebuilds a saved sector's surfaces and the
+power-off body from the same nodes. Each writes its checks beside its output and
+warns by name, without writing, when the topology or the saved layout is not one
+it handles. The command modules in run only parse arguments and report. On
+FlightStream 26.100 the marking pass splits a file entry into rims and imports
+one vertex file per rim, and a separation model the build lacks is warned and
+skipped.
+
 FSI owns structural solves and the coupling-program interface. Workspace binds
 structural inputs, and cases chooses the supported coupling route. A staged
 program or a rendered coupling script is not evidence of coupled accuracy.

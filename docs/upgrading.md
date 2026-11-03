@@ -7,6 +7,58 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.54.0
+
+Every new verb and setting is off unless it is called or stated, so a workspace
+upgraded from 0.53.x plans and runs as before, apart from the 26.100 warning
+below.
+
+New verbs of `pyfs-workspace geometry`, none of which starts a solver:
+
+- `sector-to-wheel <sector.obj|sector.fsm> --copies N --blades FAMILY ...` copies
+  one sector about an axis (`--axis`, `--hub`) into a full wheel, merging the seam
+  nodes within `--tolerance`. An OBJ gives an OBJ, a boundaries file, one rim
+  points file per rim per blade and `<out stem>.wheel.json`; a saved simulation
+  gives a saved wheel. A layout the reader does not recognize is warned, nothing
+  is written and the exit code is 2 (FR-3460 to FR-3469).
+- `merge a.obj b.obj --threshold T --adapt OBJ --out OBJ` joins two trimmed OBJ
+  along their open boundaries and writes `<out stem>.merge.json`; a threshold
+  that finds no interface warns, writes nothing and exits non-zero
+  (FR-3480 to FR-3488).
+- `sector-remesh <sector.fsm>` rebuilds a saved sector's blade, spinner and
+  nacelle as full-quad surfaces and writes `<out stem>.remesh.json`;
+  `power-off-body <sector.fsm>` writes the matching body, merged across
+  `--copies` sectors, and `<out stem>.body.json`. Another topology is warned by
+  name and writes nothing (FR-3490 to FR-3499).
+
+`pyfs-workspace geometry inventory <mesh> --refresh` rewrites only `mesh_faces`,
+`boundary_faces` and `mesh_sha256` of an existing OBJ sidecar and keeps every
+other line. The marking errors for a missing or stale field name it (FR-3479).
+
+New public names, importable from `pyflightstream.workspace`: `sector_to_wheel`
+and `WheelResult`, `merge_objs` and `MergedMesh`, `sector_remesh`,
+`power_off_body` and `RemeshResult`.
+
+`[products] rotor_cn_slope = true` (default false) writes
+`polars/P<sim>-<ALIAS>_cn_slope.csv` beside each rotor table: per advance ratio,
+the secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest
+distinct `|ALPHA|`. A J with one incidence reads `NA` and is named under
+`skipped` (FR-3502 to FR-3504).
+
+FlightStream 26.100: `geometry mark-boundaries` plans a file entry as one
+vertex file and one `TRAILING_EDGES_IMPORT` per rim, and `--apply` stays refused
+until the commands are verified on that build (FR-3470); setting
+`MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
+`geometry sector-to-wheel` and write nothing (FR-3471). A row that states
+`airfoil_separation` on 26.100 is warned with `NotApplicableWarning`, the command
+is not emitted and the row runs with no separation model; 26.101 and later are
+unchanged (FR-3476).
+
+`pyfs-matrix restore products` and the copy of `post/` by `pyfs-matrix sync` now
+replace `post/<matrix>/products.json` under the lock a post holds, and
+`visual-inspect --finished-by` accepts only `products` or `sims` (FR-3500,
+FR-3509).
+
 ## 0.53.0
 
 Every new setting is off unless a row or the FSI input states it, so a workspace

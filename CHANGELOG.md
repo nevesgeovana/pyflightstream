@@ -7,8 +7,33 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-03
+
 ### Added
 
+- `pyfs-workspace geometry sector-to-wheel <sector.obj|sector.fsm> --copies <n> --blades <family ...>`
+  copies one sector about any axis (`--axis`, `--hub`) into a full wheel, merging the nodes of the
+  seams within `--tolerance` (metres, default 1e-4) and keeping the sector's face order inside each
+  copy (FR-3460 to FR-3466). An OBJ gives an OBJ, its boundaries file in the named form, one rim
+  points file per rim per blade and `<out stem>.wheel.json`, which holds the area ratio, the open
+  edges before and after the merge and the turn by 360/n degrees against a turn by one degree more
+  (FR-3461 to FR-3464, FR-3469). A blunt trailing edge gets two rims and a base per blade, a sharp
+  one a single rim and no base (FR-3465).
+- The same verb on a saved sector writes a saved wheel with no solver, multiplying the base
+  regions, trailing-edge groups and wake terminations of the physics block for the boundaries
+  `--blades` names (FR-3467). The saved layout is inferred from saved files; a layout the reader
+  does not recognize is warned, nothing is written and the exit code is 2 (FR-3468).
+- `pyfs-workspace geometry mark-boundaries` plans the marking pass on FlightStream 26.100
+  (FR-3470): a file entry is matched to mesh edges, split into rims and marked by
+  `TRAILING_EDGES_IMPORT`, one vertex file and one import per rim, so no file names the edges
+  between the two sides of a blunt trailing edge. The read-back counts the saved trailing
+  edges that join two rims and records it in `<mesh>.mark.json`. `--apply` stays refused until
+  the commands are verified on that build. A module constant, `MARKING_ROUTE_26100`, set to
+  `"direct"` makes the pass warn, name `geometry sector-to-wheel` and write nothing (FR-3471).
+- A row that states `airfoil_separation` on FlightStream 26.100 is warned (`NotApplicableWarning`,
+  naming `axial_separation_families` and the User Guide, Flow separation) and the command is
+  not emitted; the row runs with no separation model. 26.101 and later are unchanged (FR-3476).
+- `pyfs-workspace geometry merge a.obj b.obj --threshold T --adapt b.obj --out out.obj` joins two trimmed OBJ along the open boundaries within the threshold. The part `--adapt` names takes the other's nodes along the interface, node for node where both chains match, otherwise by a band of two face layers remeshed on the kept nodes; the kept part's nodes and faces are unchanged to the byte (FR-3480 to FR-3487). It writes `<out stem>.merge.json`, the audit and the output's inventory; the boundary declarations of the two sources are not merged (FR-3488). A threshold that finds no interface warns, writes nothing and exits non-zero (FR-3487).
 - `pyfs-workspace geometry sector-remesh` rebuilds the blade, spinner and nacelle of a saved
   sector as full-quad surfaces (chord clustered at the leading edge only, constant span cells,
   every row at one radius from mid blade outward, the spinner adapting to the root row), and
@@ -26,6 +51,19 @@ FlightStream versions.
   both `CN` values. It reads the rotor table, so no solver run is added; a J with one incidence
   reads `NA` and is named under `skipped`. The manifest entry carries `kind: cn_slope`
   (FR-3502 to FR-3504). Defined in the rotor coefficients definitions.
+- `pyfs-workspace geometry inventory <mesh> --refresh` rewrites only `mesh_faces`,
+  `boundary_faces` and `mesh_sha256` of an existing OBJ sidecar, keeping every other line, and the
+  marking errors for those fields name it (FR-3479).
+
+### Changed
+
+- Two `pyfs-matrix run <matrix> --sims A` and `--sims B` processes may run at once on one
+  workspace and one plan; measured with a stand-in solver, both simulations are recorded and
+  tabled, and the route is documented in the run matrix guide (FR-3501).
+- The marking preview reports each stage on standard error (FR-3478).
+- A probe of `TRAILING_EDGES_IMPORT` for 26.100: one rim per file, a second import, and both
+  rims in one file, each against an unchanged control; the base-region, combine and rename
+  probes accept 26.100.
 
 ### Fixed
 
@@ -38,51 +76,9 @@ FlightStream versions.
 - `visual-inspect --finished-by` with a value other than `products` or `sims` is refused with a
   sentence that names both values; `turned_about` is listed in `pyflightstream.script.__all__`
   (FR-3509).
-
-### Changed
-
-- Two `pyfs-matrix run <matrix> --sims A` and `--sims B` processes may run at once on one
-  workspace and one plan; measured with a stand-in solver, both simulations are recorded and
-  tabled, and the route is documented in the run matrix guide (FR-3501).
-- `pyfs-workspace geometry mark-boundaries` plans the marking pass on FlightStream 26.100
-  (FR-3470): a file entry is matched to mesh edges, split into rims and marked by
-  `TRAILING_EDGES_IMPORT`, one vertex file and one import per rim, so no file names the edges
-  between the two sides of a blunt trailing edge. The read-back counts the saved trailing
-  edges that join two rims and records it in `<mesh>.mark.json`. `--apply` stays refused until
-  the commands are verified on that build. A module constant, `MARKING_ROUTE_26100`, set to
-  `"direct"` makes the pass warn, name `geometry sector-to-wheel` and write nothing (FR-3471).
-- `pyfs-workspace geometry inventory <mesh> --refresh` rewrites only `mesh_faces`,
-  `boundary_faces` and `mesh_sha256` of an existing OBJ sidecar, keeping every other line, and the
-  marking errors for those fields name it (FR-3479).
-- The marking preview reports each stage on standard error (FR-3478).
-- A probe of `TRAILING_EDGES_IMPORT` for 26.100: one rim per file, a second import, and both
-  rims in one file, each against an unchanged control; the base-region, combine and rename
-  probes accept 26.100.
-
-### Changed
-
-- A row that states `airfoil_separation` on FlightStream 26.100 is warned (`NotApplicableWarning`,
-  naming `axial_separation_families` and the User Guide, Flow separation) and the command is
-  not emitted; the row runs with no separation model. 26.101 and later are unchanged (FR-3476).
-
-### Fixed
-
 - The marking preview compared every file point with every polygon edge in a Python loop and took
   558 seconds on a mesh of 91 thousand faces (12 seconds now); the points are now looked up in an index, with the
   same result (FR-3478).
-- `pyfs-workspace geometry sector-to-wheel <sector.obj|sector.fsm> --copies <n> --blades <family ...>`
-  copies one sector about any axis (`--axis`, `--hub`) into a full wheel, merging the nodes of the
-  seams within `--tolerance` (metres, default 1e-4) and keeping the sector's face order inside each
-  copy (FR-3460 to FR-3466). An OBJ gives an OBJ, its boundaries file in the named form, one rim
-  points file per rim per blade and `<out stem>.wheel.json`, which holds the area ratio, the open
-  edges before and after the merge and the turn by 360/n degrees against a turn by one degree more
-  (FR-3461 to FR-3464, FR-3469). A blunt trailing edge gets two rims and a base per blade, a sharp
-  one a single rim and no base (FR-3465).
-- The same verb on a saved sector writes a saved wheel with no solver, multiplying the base
-  regions, trailing-edge groups and wake terminations of the physics block for the boundaries
-  `--blades` names (FR-3467). The saved layout is inferred from saved files; a layout the reader
-  does not recognize is warned, nothing is written and the exit code is 2 (FR-3468).
-- `pyfs-workspace geometry merge a.obj b.obj --threshold T --adapt b.obj --out out.obj` joins two trimmed OBJ along the open boundaries within the threshold. The part `--adapt` names takes the other's nodes along the interface, node for node where both chains match, otherwise by a band of two face layers remeshed on the kept nodes; the kept part's nodes and faces are unchanged to the byte (FR-3480 to FR-3487). It writes `<out stem>.merge.json`, the audit and the output's inventory; the boundary declarations of the two sources are not merged (FR-3488). A threshold that finds no interface warns, writes nothing and exits non-zero (FR-3487).
 
 ## [0.53.0] - 2026-11-01
 
