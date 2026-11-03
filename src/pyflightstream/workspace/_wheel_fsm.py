@@ -66,6 +66,7 @@ from pyflightstream.workspace._wheel import (
     stem_of,
     unit_of,
     validate_blades,
+    warn_sector_angle,
     write_json,
 )
 
@@ -458,6 +459,9 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     names = [h[4] for h in parsed.mesh["heads"]]
     blade_ids = sorted(names.index(b) + 1 for b in opts.blades)
     nb = len(names)
+    ints = parsed.mesh["ints"]
+    shared = ~numpy.isin(ints[11], blade_ids)
+    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts)
     maps = _Maps(
         index[root],
         _expand(parsed.phys["base_names"], blades, n),

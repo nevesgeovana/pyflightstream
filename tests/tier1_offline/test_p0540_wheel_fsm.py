@@ -302,3 +302,52 @@ def test_p0540_a_boundary_named_as_a_copy_is_refused_on_the_saved_route(tmp_path
     with pytest.raises(InputValueError, match="Blade3"):
         sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], out=out)
     assert not out.exists() and not out.with_name("w.wheel.json").exists()
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize(
+    "ask",
+    [{"axis": "y"}, {"copies": 4}, {"copies": 12}, {"hub": (0.0, 0.2, 0.0)}],
+)
+@pytest.mark.parametrize("kind", ["fsm", "obj"])
+def test_p0540_a_sector_that_is_not_one_nth_of_a_turn_about_the_axis_is_warned(tmp_path, ask, kind):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    built, saved = _saved(tmp_path)
+    sector = saved if kind == "fsm" else built.obj
+    with pytest.warns(PyflightstreamWarning, match=r"spans .* deg about the axis.*--axis"):
+        result = sector_to_wheel(
+            sector,
+            **{"copies": COPIES, **ask},
+            blades=["Blade1"],
+            out=tmp_path / f"w.{kind}",
+        )
+    assert result.written
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize(
+    "shape",
+    [
+        {"copies": 6},
+        {"copies": 2},
+        {"copies": 8, "permuted": True, "hub": (1.0, -2.0, 3.0)},
+    ],
+)
+@pytest.mark.parametrize("kind", ["fsm", "obj"])
+def test_p0540_a_true_sector_gets_no_warning_about_its_angle(tmp_path, shape, kind):
+    import warnings
+
+    built, saved = _saved(tmp_path, **shape)
+    sector = saved if kind == "fsm" else built.obj
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sector_to_wheel(
+            sector,
+            copies=built.copies,
+            blades=["Blade1"],
+            axis=built.axis,
+            hub=built.hub,
+            out=tmp_path / f"w.{kind}",
+        )
+    assert not [w for w in caught if "about the axis" in str(w.message)]
