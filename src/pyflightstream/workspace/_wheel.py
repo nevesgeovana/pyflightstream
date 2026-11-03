@@ -93,6 +93,20 @@ _PRIME = numpy.array([73856093, 19349663, 83492791], dtype=numpy.int64)
 _CELLS = numpy.array(list(itertools.product((-1, 0, 1), repeat=3)), dtype=numpy.int64)
 _NOTHING = "No file was written."
 _ANGLE_SLACK_DEG = 0.05  # a sector this close to 360/N closes within the rounding of saved nodes
+#: The keys of a sector's boundaries file the wheel's states again, from the wheel or the sector.
+_CARRIED = frozenset(
+    {
+        "base_regions",
+        "boundaries",
+        "boundary_faces",
+        "file",
+        "fs_build",
+        "import",
+        "mesh_faces",
+        "mesh_sha256",
+        "trailing_edges",
+    }
+)
 #: Pairs a neighbour search may compare: a node of a seam has one partner per copy and a cell a
 #: few nodes, so a real merge stays far under this, and the floor keeps a small mesh out of it.
 _PAIRS_FLOOR, _PAIRS_PER_POINT = 1_000_000, 64
@@ -1058,6 +1072,16 @@ def _load(path: Path) -> tuple[ObjMesh, Any, str | None]:
     declarations = read_boundary_declarations(found[0])
     table = found[1].get("import")
     unit = table.get("units") if isinstance(table, dict) else None
+    skipped = sorted(set(found[1]) - _CARRIED)
+    if isinstance(table, dict) and table.get("operations"):
+        skipped.insert(0, "import.operations")
+    if skipped:
+        warn(
+            f"{found[0].name} states {', '.join(skipped)}, which a wheel's boundaries file does "
+            "not carry; they are skipped. State them again in the wheel's boundaries file.",
+            NotApplicableWarning,
+            stacklevel=3,
+        )
     return mesh, declarations, unit.strip().upper() if isinstance(unit, str) else None
 
 
