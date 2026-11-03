@@ -269,7 +269,8 @@ def geometric(count: int, first: float, total: float) -> Array:
     def total_error(g: float) -> float:
         return first * (g**count - 1) / (g - 1) - total
 
-    ratio = brentq(total_error, 1.0 + 1e-7, 100.0)
+    # The bracket stops where the power stays a float: 100 ** count overflows past 154 cells.
+    ratio = brentq(total_error, 1.0 + 1e-7, min(100.0, 10.0 ** (300.0 / max(count, 1))))
     return numpy.r_[0.0, numpy.cumsum(first * ratio ** numpy.arange(count))]
 
 
