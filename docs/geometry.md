@@ -629,10 +629,11 @@ The blade's quads end in two trailing-edge rim lines that start on the root loop
 with a base strip between them (a blunt trailing edge), and the nacelle has a flat
 base (faces of kind 3). No boundary name is fixed in the code: the spinner is the
 boundary the blade's root loop lies on, and the nacelle is the other one, the one
-with a base and a rim. A sector without this topology (a sharp trailing edge, more
-than one blade, a nacelle without a base, a blade that is not a quad grid between
-two rims) is warned, naming what was not found; nothing is written and the exit
-code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
+with a base and a rim. The axis passes through the origin of the file's coordinates:
+these two verbs take no `--hub`. A sector without this topology (a sharp trailing
+edge, more than one blade, a nacelle without a base, a blade that is not a quad grid
+between two rims, an axis off the origin) is warned, naming what was not found;
+nothing is written and the exit code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
 inferred from saved files**, as for `sector-to-wheel`; the rows written are stated
 in the writer's docstring.
 

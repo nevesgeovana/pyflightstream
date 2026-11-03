@@ -24,7 +24,12 @@ import numpy
 from numpy.typing import NDArray
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.workspace._sector_read import Sector, radius_of, wrap
+from pyflightstream.workspace._sector_read import (
+    Sector,
+    TopologyNotFoundError,
+    radius_of,
+    wrap,
+)
 from pyflightstream.workspace._sector_save import QuadSink
 
 __all__ = [
@@ -108,6 +113,11 @@ def seam_meridian(sector: Sector, nodes: Any, *, pole: bool) -> Meridian:
     on = numpy.abs(wrap(numpy.arctan2(q[:, 2], q[:, 1]) - low)) < 0.2 / 60.0 * sector.span
     r = radius_of(q)
     keep = on & (r > 1e-6 * float(r.max()))
+    if int(keep.sum()) < 2:
+        raise TopologyNotFoundError(
+            "the nodes of a surface on the sector's seam, about an axis through the origin of "
+            "the file's coordinates (--axis names x, y or z; these verbs take no hub)"
+        )
     order = numpy.argsort(q[keep, 0])
     a, rad = q[keep, 0][order], r[keep][order]
     good = numpy.r_[True, numpy.diff(a) > 1e-7 * float(numpy.ptp(q[:, 0]))]

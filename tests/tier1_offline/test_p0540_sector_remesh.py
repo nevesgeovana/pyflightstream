@@ -616,3 +616,47 @@ def test_p0540_the_angle_of_a_two_blade_sector_survives_the_rounding_of_its_seam
         if abs(span - math.pi) > 1e-6 or gap > 1e-6:
             wrong.append((centre, span))
     assert not wrong
+
+
+def _axis_off_the_origin(source: Path, shift: float) -> None:
+    """Move the sector's nodes off the x axis, as a sector about another line sits."""
+    lines = source.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 4 + 9 + 1 + 25
+    values = [float(v) + shift for v in lines[at + 3].split(",") if v.strip()]
+    lines[at + 3] = "".join(f"{v: .17E}," for v in values)
+    source.write_bytes("\n".join(lines).encode("latin-1"))
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize("verb", ["sector-remesh", "power-off-body"])
+@pytest.mark.parametrize("shift", [0.1, 3.0])
+def test_p0540_a_sector_off_the_origin_is_warned_by_name_at_the_command_line(
+    tmp_path, capsys, verb, shift
+):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    source = build_blunt_sector(tmp_path)
+    _axis_off_the_origin(source, shift)
+    extra = (
+        ["--chord-cells", "12", "--le", "0.03", "--span-cell", "0.1", "--spinner-theta", "4"]
+        if verb == "sector-remesh"
+        else ["--copies", "6"]
+    )
+    out = tmp_path / "o.fsm"
+    argv = ["geometry", verb, str(source), "--blades", "Blade1", *extra, "--out", str(out)]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert workspace_main(argv) == 2
+    assert not out.exists() and not list(tmp_path.glob("*.part"))
+
+
+@pytest.mark.requirement("FR-3498")
+def test_p0540_a_sector_off_the_origin_names_the_origin_in_its_warning(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    _axis_off_the_origin(source, 0.1)
+    with pytest.warns(PyflightstreamWarning, match="through the origin"):
+        result = power_off_body(source, blades=["Blade1"], copies=6, out=tmp_path / "o.fsm")
+    assert not result.written
