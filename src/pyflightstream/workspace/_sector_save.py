@@ -43,7 +43,22 @@ __all__ = ["QuadSink", "RemeshResult", "compose_sector", "mesh_checks", "wheel_c
 
 @dataclass
 class RemeshResult:
-    """What a remesh or power-off-body run did: whether it wrote, the files and the checks."""
+    """What a remesh or power-off-body run did: whether it wrote, the files and the checks.
+
+    Attributes
+    ----------
+    written : bool
+        False, with nothing written, when the topology or the saved layout is not handled.
+    output : Path or None
+        The saved simulation written; None when nothing was written.
+    files : list of Path
+        Every file written, the ``<out stem>.remesh.json`` or ``<out stem>.body.json`` record
+        included.
+    report : dict
+        What that record holds: the source sha256 and the checks.
+    summary : list of str
+        The printed lines of the checks.
+    """
 
     written: bool
     output: Path | None = None

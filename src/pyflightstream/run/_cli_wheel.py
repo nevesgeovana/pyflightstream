@@ -158,8 +158,12 @@ def _add_sector_remesh(verbs: Any) -> None:
     remesh.add_argument(
         "--spinner-theta", type=int, default=12, help="spinner cells per sector, even (12)"
     )
-    remesh.add_argument("--spinner-layers", type=int, default=4, help="O-grid layers at the root")
-    remesh.add_argument("--spinner-rings", type=int, default=7, help="rings forward to the nose")
+    remesh.add_argument(
+        "--spinner-layers", type=int, default=4, help="O-grid layers at the root (4)"
+    )
+    remesh.add_argument(
+        "--spinner-rings", type=int, default=7, help="rings forward to the nose (7)"
+    )
     remesh.add_argument(
         "--root-margin-r",
         type=float,
@@ -190,7 +194,9 @@ def _add_power_off_body(verbs: Any) -> None:
     _add_remesh_common(body)
     body.add_argument("--copies", type=int, required=True, help="sectors in a turn, 2 or more")
     body.add_argument("--spinner-theta", type=int, default=6, help="spinner cells per sector (6)")
-    body.add_argument("--spinner-rings", type=int, default=12, help="spinner rings to the nose")
+    body.add_argument(
+        "--spinner-rings", type=int, default=12, help="spinner rings to the nose (12)"
+    )
     body.add_argument(
         "--nose-radius-r",
         type=float,

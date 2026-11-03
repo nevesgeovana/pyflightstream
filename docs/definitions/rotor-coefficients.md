@@ -144,6 +144,8 @@ quasi-steady mean over clockings); no solver run is added.
   unchanged. Two rows with the same `|ALPHA|` (for example `+2` and `-2`)
   count as one value of `|ALPHA|`, the positive one being taken. A row whose
   `ALPHA` or `CN_<ALIAS>` is `NA` is not a candidate.
+- **A row of the table that states no `J` belongs to no group.** It gives no slope row and
+  the products manifest names it under `skipped` for the table.
 - **A `J` with one usable `ALPHA` only is not an error.** Its row is written
   with `NA` in the two `ALPHA`/`CN` pairs and in the slope, and the products
   manifest names it under `skipped` for the table, with the `J` and the
