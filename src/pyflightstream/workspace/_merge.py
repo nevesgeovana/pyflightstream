@@ -458,7 +458,7 @@ def _adapt(
         PyflightstreamWarning,
         stacklevel=3,
     )
-    return _split_faces(mesh, kept, conformed, moved)
+    return _split_faces(mesh, kept, conformed, moved, threshold, source)
 
 
 def _unremeshed(mesh: ObjMesh, moved: Mapping[int, int]) -> _Adapted:
@@ -726,8 +726,29 @@ def _split_face(f: list[int], onto: Mapping[int, int], held: Mapping[Edge, list[
     return out
 
 
+def _warn_far_moves(
+    mesh: ObjMesh, points: Points, onto: Mapping[int, int], threshold: float, source: Path
+) -> None:
+    """Warn the chain nodes the split moved past the threshold, each to its kept node."""
+    moves = numpy.linalg.norm(mesh.verts[list(onto)] - points[list(onto.values())], axis=1)
+    far = int((moves > threshold).sum())
+    if far:
+        warn(
+            f"{source}: {far} of {len(moves)} interface node(s) moved further than the threshold "
+            f"{threshold:g} to reach a kept node, the furthest by {float(moves.max()):g}: the "
+            "threshold measures a node against the kept edges and the kept nodes lie further apart",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+
+
 def _split_faces(
-    mesh: ObjMesh, kept: Points, pairs: Sequence[_Pair], moved: Mapping[int, int]
+    mesh: ObjMesh,
+    kept: Points,
+    pairs: Sequence[_Pair],
+    moved: Mapping[int, int],
+    threshold: float,
+    source: Path,
 ) -> _Adapted:
     """Return the adapted part with only the faces on the interface split onto the kept nodes.
 
@@ -742,6 +763,7 @@ def _split_faces(
     rows = {k: len(mesh.verts) + n for n, k in enumerate(nodes)}
     points = numpy.vstack([mesh.verts, kept[nodes].reshape(-1, 3)])
     onto, held = _split_edges(pairs, kept, mesh.verts, rows)
+    _warn_far_moves(mesh, points, onto, threshold, source)
     families: dict[str, Faces] = {}
     band_faces = created = 0
     for name, faces in mesh.families.items():

@@ -974,3 +974,19 @@ def test_p0540_merge_the_docs_say_what_a_part_does_not_carry(tmp_path):
     assert "to the byte" not in section.split("single spaces")[0]
     for words in ("`vt`", "`vn`", "texture and normal", "not carried"):
         assert words in section
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_a_split_says_how_far_past_the_threshold_it_moved_a_node(tmp_path):
+    """The threshold measures a node against a kept EDGE; a sparse kept chain moves it further."""
+    stations = tuple(x - 0.2 for x in ADAPTED_STATIONS)
+    (merged, out, kept, _), messages = _quiet_merge(
+        tmp_path, _kept(8), _adapted(29, stations=stations), 0.3
+    )
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    said = [m for m in messages if "further than the threshold" in m]
+    assert len(said) == 1
+    assert "of 29 interface node(s)" in said[0]
+    assert merged.interface_edges == 8
+    assert out.nodes[: len(kept.nodes)] == kept.nodes
