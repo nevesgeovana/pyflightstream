@@ -438,7 +438,7 @@ TRAILING_EDGES_IMPORT:
     "25.000": {status: documented, note: "FSM-25.000 p.276, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.293, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.292, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.314, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-vertex.yaml", note: "FSM-26.100 p.314, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.322, same grammar as 26.120"}

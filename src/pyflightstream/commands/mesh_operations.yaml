@@ -633,7 +633,7 @@ SURFACE_COMBINE:
     "25.000": {status: documented, note: "FSM-25.000 p.267, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.286, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.285, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.307, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-base.yaml", note: "FSM-26.100 p.307, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
@@ -726,7 +726,7 @@ SURFACE_RENAME:
     "25.000": {status: documented, note: "FSM-25.000 p.264, same grammar as 26.120"}
     "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.305, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-02_mark-26100-base.yaml", note: "FSM-26.100 p.305, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
