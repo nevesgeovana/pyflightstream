@@ -924,6 +924,22 @@ def test_p0540_merge_a_file_beside_the_output_is_replaced_only_with_overwrite(tm
 
 
 @pytest.mark.requirement("FR-3488")
+def test_p0540_merge_an_output_in_a_new_folder_is_written_as_on_the_other_verbs(tmp_path):
+    """The wheel and the remesh verbs make the folder; this one reported a temporary file."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    out = tmp_path / "new" / "folder" / "out.obj"
+    merged = merge_objs(first, second, threshold=0.01, adapt=second, out=out)
+    assert merged.interface_edges == 24
+    assert sorted(p.name for p in out.parent.iterdir()) == [
+        "out.audit.json",
+        "out.merge.json",
+        "out.obj",
+        "out.obj.boundaries.toml",
+    ]
+
+
+@pytest.mark.requirement("FR-3488")
 def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
     """Nothing is scaled, and the output's inventory states no unit: the words must say so."""
     first = _write(tmp_path / "one.obj", _kept(24))
