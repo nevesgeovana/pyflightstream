@@ -1046,7 +1046,6 @@ def test_a_bare_label_where_a_separation_sequence_belongs_says_so():
 @pytest.mark.parametrize(
     ("version", "keyword", "value", "command"),
     [
-        ("26.100", "airfoil_separation", [{"name": "WING"}], "CREATE_AIRFOIL_SEPARATION"),
         ("26.100", "delete_separations", "all", "DELETE_SEPARATION"),
         # 26.101 is the row the first version of this test omitted, and
         # it is the only one that was failing: the May build sits at a
@@ -1081,6 +1080,24 @@ def test_each_generation_is_refused_on_the_build_that_does_not_carry_it(
     script = Script(version=version)
     with pytest.raises(CommandNotInVersionError, match=command):
         helpers.solver_settings(script, **{keyword: value})
+
+
+def test_airfoil_separation_on_26100_is_warned_and_skipped_not_refused():
+    """FR-3476: where this case once refused, 26.100 now warns and writes no command.
+
+    The warning names ``axial_separation_families`` and the User Guide section, and the
+    script carries no ``CREATE_AIRFOIL_SEPARATION``; the other cases above still refuse.
+    """
+    from pyflightstream._errors import NotApplicableWarning
+
+    script = Script(version="26.100")
+    script.declare_existing(boundaries=2)
+    with pytest.warns(NotApplicableWarning) as caught:
+        helpers.solver_settings(script, airfoil_separation=[{"name": "WING"}])
+    text = str(caught[0].message)
+    assert "axial_separation_families" in text
+    assert "User Guide, Flow separation" in text
+    assert "CREATE_AIRFOIL_SEPARATION" not in script.render()
 
 
 # --- round 2: the round-1 fixes, each with the guard it shipped without ------
