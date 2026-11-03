@@ -601,6 +601,8 @@ From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and ret
 
 **What is warned.**
 
+- An `--out` not named `.obj` is warned and the output takes that name's `.obj` form, as the
+  wheel verbs take the sector's kind.
 - A threshold that finds no interface warns, writes nothing and exits non-zero.
 - A threshold smaller than part of the gap merges what it found and leaves the rest open.
   The open edges still facing the other part are warned with their count; an open boundary

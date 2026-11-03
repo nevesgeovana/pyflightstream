@@ -43,6 +43,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
+    NotApplicableWarning,
     PyflightstreamWarning,
     warn,
 )
@@ -993,10 +994,6 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
             f"geometry merge: threshold (CLI: --threshold) {threshold} is not a length of zero "
             "or more; state the largest distance across the interface. Nothing was written."
         )
-    if out.suffix.lower() != ".obj":
-        # The inventory reads the output's groups only from an OBJ: refused after the writing,
-        # this would leave an OBJ behind with no record, audit or inventory.
-        raise _refuse(f"out (CLI: --out) {out} is not named .obj; name an OBJ file")
     if first.resolve() == second.resolve():
         raise _refuse(f"{first} is named as both parts; name two OBJ files")
     if out.resolve() in (first.resolve(), second.resolve()):
@@ -1013,6 +1010,19 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
             f"{', '.join(clash)} exist(s) beside {out}; pass overwrite (CLI: --overwrite) to "
             "replace"
         )
+
+
+def _of_the_parts_kind(out: Path) -> Path:
+    """Return the output named as an OBJ; another kind is warned, as the wheel verbs do."""
+    if out.suffix.lower() == ".obj":
+        return out
+    warn(
+        f"out (CLI: --out) {out.name} is not the parts' kind (.obj); the output takes "
+        "the parts' kind, as the output of a route does.",
+        NotApplicableWarning,
+        stacklevel=3,
+    )
+    return out.with_suffix(".obj")
 
 
 @dataclass(frozen=True)
@@ -1051,7 +1061,8 @@ def merge_objs(
         The part that is adapted, one of the two; the other is kept unchanged.
     out : str or Path
         The merged OBJ; ``<out stem>.merge.json``, ``<out stem>.audit.json`` and its
-        inventory ``<out>.boundaries.toml`` are written beside it.
+        inventory ``<out>.boundaries.toml`` are written beside it. A name of another kind is
+        warned and takes ``.obj``.
     overwrite : bool
         Replace an existing output.
     say : callable, optional
@@ -1072,7 +1083,7 @@ def merge_objs(
         A threshold that is not a length of zero or more.
     """
     tell = say or (lambda _line: None)
-    one, two, target = Path(first), Path(second), Path(out)
+    one, two, target = Path(first), Path(second), _of_the_parts_kind(Path(out))
     _check_call(one, two, threshold, target, overwrite=overwrite)
     kept_path, adapted_path = _which_adapted(one, two, Path(adapt))
     kept, adapted = read_obj(kept_path), read_obj(adapted_path)

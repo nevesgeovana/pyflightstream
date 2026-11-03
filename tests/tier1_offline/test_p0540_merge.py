@@ -18,7 +18,12 @@ from pathlib import Path
 import numpy
 import pytest
 
-from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamWarning,
+)
 from pyflightstream.workspace import cli as workspace_cli
 from pyflightstream.workspace import merge_objs
 
@@ -976,13 +981,15 @@ def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
 
 @pytest.mark.parametrize("name", ["merged", "merged.txt"])
 @pytest.mark.requirement("FR-3482")
-def test_p0540_merge_an_output_not_named_obj_leaves_nothing_behind(tmp_path, name):
-    """The call fails either way; it must fail before an OBJ with no record is written."""
+def test_p0540_merge_an_output_not_named_obj_is_warned_and_takes_the_obj_form(tmp_path, name):
+    """The output takes the parts' kind with its record beside it; the name asked is not made."""
     first = _write(tmp_path / "one.obj", _kept(24))
     second = _write(tmp_path / "two.obj", _adapted(24))
-    with pytest.raises(InputArtifactError, match=r"\.obj"):
-        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / name)
-    assert not (tmp_path / name).exists()
+    with pytest.warns(NotApplicableWarning, match=r"not the parts' kind \(\.obj\)"):
+        merged = merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / name)
+    assert merged.obj == tmp_path / "merged.obj"
+    assert (tmp_path / "merged.obj").is_file() and (tmp_path / "merged.merge.json").is_file()
+    assert not (tmp_path / "merged.txt").exists()
 
 
 @pytest.mark.requirement("FR-3483")

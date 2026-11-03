@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, NotApplicableWarning, PyflightstreamWarning
 from pyflightstream._fsm import (
     boundary_names,
     saved_base_regions,
@@ -21,6 +21,7 @@ from pyflightstream._fsm import (
     saved_trailing_edge_groups,
 )
 from pyflightstream.workspace._wheel import sector_to_wheel
+from tests.tier1_offline.test_p0540_merge import _adapted, _kept, _write
 from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
 from tests.tier1_offline.test_p0540_wheel import build_sector
 from tests.tier1_offline.test_p0540_wheel_fsm import build_saved_sector
@@ -255,3 +256,43 @@ def test_p0550_a_marking_with_nothing_beside_it_or_with_overwrite_has_no_such_wo
         warnings.simplefilter("always")
         apply_mark_boundaries(plan, runner=_p0460_runner(saved))
     assert not [item for item in clean if "mark-boundaries replaced" in str(item.message)]
+
+
+def _parts(folder: Path) -> tuple[Path, Path]:
+    return _write(folder / "one.obj", _kept(24)), _write(folder / "two.obj", _adapted(24))
+
+
+@pytest.mark.requirement("FR-3543")
+def test_p0550_merge_takes_the_obj_form_of_an_output_of_another_kind(tmp_path: Path) -> None:
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    with pytest.warns(NotApplicableWarning, match=r"out \(CLI: --out\) merged\.stl is not"):
+        merged = merge_objs(
+            first, second, threshold=0.01, adapt=second, out=tmp_path / "merged.stl"
+        )
+    assert merged.obj == tmp_path / "merged.obj" and merged.obj.is_file()
+    assert (tmp_path / "merged.obj.boundaries.toml").is_file()
+    assert not (tmp_path / "merged.stl").exists()
+
+
+@pytest.mark.requirement("FR-3543")
+def test_p0550_merge_checks_the_obj_form_it_writes_not_the_name_asked(tmp_path: Path) -> None:
+    """The refusals of a source as output and of an existing output answer the file written."""
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    before = first.read_bytes()
+    with (
+        pytest.warns(NotApplicableWarning),
+        pytest.raises(InputArtifactError, match="one of the two parts"),
+    ):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "one.txt")
+    assert first.read_bytes() == before
+    (tmp_path / "merged.obj").write_text("not this verb's")
+    with (
+        pytest.warns(NotApplicableWarning),
+        pytest.raises(InputArtifactError, match="merged.obj exist"),
+    ):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "merged.txt")
+    assert (tmp_path / "merged.obj").read_text() == "not this verb's"
