@@ -171,14 +171,22 @@ _REFRESH_COMMAND = "pyfs-workspace geometry inventory {mesh} --refresh"
 def _marking_inputs(mesh):
     source = Path(mesh).resolve()
     if source.suffix.lower() != ".obj" or not source.is_file():
-        raise InputArtifactError(f"{source}: mark-boundaries requires an existing .obj")
+        raise InputArtifactError(
+            f"{source}: mark-boundaries requires an existing .obj; name the OBJ file to mark"
+        )
     sidecar = boundaries_for_marking(source)
     declarations = read_boundary_declarations(sidecar)
     if declarations.fs_build is None:
-        raise InputArtifactError(f"{sidecar}: mark-boundaries requires fs_build")
+        raise InputArtifactError(
+            f"{sidecar}: mark-boundaries requires fs_build; "
+            "state the FlightStream build in that file"
+        )
     spec = read_mesh_import(sidecar)
     if spec is None:
-        raise InputArtifactError(f"{sidecar}: mark-boundaries requires [import] units")
+        raise InputArtifactError(
+            f"{sidecar}: mark-boundaries requires [import] units; "
+            "state the mesh length unit in that file"
+        )
     names = list(read_inventory(sidecar))
     if tuple(names) != obj_boundary_names(source) or len(set(names)) != len(names):
         raise InputArtifactError(f"{sidecar}: boundaries must equal the OBJ's unique family order")
