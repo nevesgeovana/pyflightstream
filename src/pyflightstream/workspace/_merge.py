@@ -47,11 +47,18 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream.workspace._refine import _geometry
-from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
+from pyflightstream.workspace._refine._audit import AUDIT_SUFFIX, MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import Faces, Points
 from pyflightstream.workspace._refine._level import _band
-from pyflightstream.workspace._refine._obj import KIND, ObjMesh, read_obj, write_obj
+from pyflightstream.workspace._refine._obj import (
+    DEFAULT_FAMILY,
+    KIND,
+    ObjMesh,
+    mesh_unit,
+    read_obj,
+    write_obj,
+)
 from pyflightstream.workspace.sidecars import inventory_sidecar, write_inventory
 
 __all__ = ["MergedMesh", "merge_objs"]
@@ -75,6 +82,9 @@ FACING_REACH = 0.25
 #: The passes that drop an edge whose ends lie nearest two chains at most; a pass only removes
 #: edges, and a chain settles in one or two.
 NARROW_PASSES = 8
+#: An edge whose middle lies this fraction of its length from the other's boundary lies on it:
+#: the direction of a line that short is rounding, so it says nothing of running on.
+ON_EDGE_FRACTION = 1e-6
 
 Edge = tuple[int, int]
 
@@ -256,12 +266,68 @@ def _interface(
 
     An edge is on the interface when both its ends lie within the threshold of the
     other part's open boundary, and nearest one chain of it: a kept edge bridging a
-    stretch of the adapted boundary that is out of reach joins nothing.
+    stretch of the adapted boundary that is out of reach joins nothing. An adapted edge
+    must then reach the kept CHAIN, not only the kept boundary: an adapted node that
+    touches a stretch of it that joined no chain is not an interface node.
     """
-    near_k = _within(_nodes_of(kept_open), kept, adapted_open, adapted, threshold)
-    near_a = _within(_nodes_of(adapted_open), adapted, kept_open, kept, threshold)
-    k_edges = [e for e in kept_open if e[0] in near_k and e[1] in near_k]
-    a_edges = [e for e in adapted_open if e[0] in near_a and e[1] in near_a]
+    k_edges = _reaching(kept_open, kept, adapted_open, adapted, threshold)
+    k_edges = _without_run_on(k_edges, kept, adapted_open, adapted)
+    a_edges = _reaching(adapted_open, adapted, kept_open, kept, threshold)
+    a_edges = _without_run_on(a_edges, adapted, kept_open, kept)
+    k_edges, a_edges = _narrowed(k_edges, kept, a_edges, adapted)
+    # An adapted node can touch the kept boundary where no kept edge joined a chain, and it
+    # then has no kept node to take within reach: it stays out, so a chain's end moves by
+    # one adapted edge at most. One round: the kept edges stay, as their words say.
+    a_edges = _reaching(a_edges, adapted, k_edges, kept, threshold)
+    k_edges, a_edges = _narrowed(k_edges, kept, a_edges, adapted)
+    k_chains, a_chains = _walk(k_edges), _walk(a_edges)
+    return [_Pair(k_chains[i], a_chains[j]) for i, j in _mutual(k_chains, kept, a_chains, adapted)]
+
+
+def _reaching(
+    edges: Sequence[Edge], verts: Points, others: Sequence[Edge], other: Points, threshold: float
+) -> list[Edge]:
+    """Return the edges whose two ends lie within the threshold of the edges ``others``."""
+    near = _within(_nodes_of(edges), verts, others, other, threshold)
+    return [e for e in edges if e[0] in near and e[1] in near]
+
+
+def _without_run_on(
+    edges: Sequence[Edge], verts: Points, others: Sequence[Edge], other: Points
+) -> list[Edge]:
+    """Return the edges left when each open chain loses the end edges that only run on from it.
+
+    A boundary leaving the interface at a chain's end (a symmetry plane, a part's far side)
+    is within a threshold wider than its cells, and meets the other part along itself:
+    the line from its middle to the other's nearest open edge is near parallel to it
+    (:data:`FACING_COSINE`), where an edge across the interface sees the other part abeam.
+    An edge inside a chain is never one of them, so only the ends are read.
+    """
+    if not edges or not others:
+        return []
+    a, b = _segments(verts, edges)
+    c, d = _segments(other, others)
+    middle = 0.5 * (a + b)
+    distance, _, line = _to_nearest(middle, c, d)
+    on_it = distance <= ON_EDGE_FRACTION * numpy.linalg.norm(b - a, axis=1)
+    across = on_it | (_cosine(line, b - a) < FACING_COSINE)
+    is_across = {e: bool(flag) for e, flag in zip(edges, across, strict=True)}
+    left: list[Edge] = []
+    for chain in _walk(edges):
+        run = chain.edges
+        if not chain.closed:
+            while run and not is_across[run[0]]:
+                run = run[1:]
+            while run and not is_across[run[-1]]:
+                run = run[:-1]
+        left += run
+    return sorted(left)
+
+
+def _narrowed(
+    k_edges: list[Edge], kept: Points, a_edges: list[Edge], adapted: Points
+) -> tuple[list[Edge], list[Edge]]:
+    """Return the edges of each part left when each edge's ends lie nearest one chain."""
     for _ in range(NARROW_PASSES):
         k_next = _same_chain(k_edges, kept, _walk(a_edges), adapted)
         a_next = _same_chain(a_edges, adapted, _walk(k_next), kept)
@@ -269,8 +335,7 @@ def _interface(
         k_edges, a_edges = k_next, a_next
         if settled:
             break
-    k_chains, a_chains = _walk(k_edges), _walk(a_edges)
-    return [_Pair(k_chains[i], a_chains[j]) for i, j in _mutual(k_chains, kept, a_chains, adapted)]
+    return k_edges, a_edges
 
 
 def _mutual(
@@ -383,17 +448,25 @@ def _adapt(
                 moved.pop(a, None)
     if not conformed:
         return _unremeshed(mesh, moved)
-    done = _conformed(mesh, kept, conformed, bands, moved=moved, source=source)
+    done = _conformed(mesh, kept, conformed, bands, moved=moved)
     if _holds(done, conformed, mesh):
+        for family in done.rebuilt:
+            warn(
+                f"{source} family {family}: the band of {_geometry.BAND_LAYERS} face layers beside "
+                f"the interface covers all {len(mesh.families[family])} faces of the family, so "
+                "it was rebuilt whole",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
         return done
     warn(
         f"{source}: the remesh of the band could not take the kept nodes along the interface "
-        f"({done.conformed}), so the faces beside it were split onto them instead; the "
-        "parts may overlap by more than a face layer",
+        f"({done.conformed}), so the faces beside it were split onto them instead: the parts "
+        "may overlap by more than a face layer, or a chain's end has no kept node beside it",
         PyflightstreamWarning,
         stacklevel=3,
     )
-    return _split_faces(mesh, kept, conformed, moved)
+    return _split_faces(mesh, kept, conformed, moved, threshold, source)
 
 
 def _unremeshed(mesh: ObjMesh, moved: Mapping[int, int]) -> _Adapted:
@@ -429,7 +502,6 @@ def _conformed(
     bands: Mapping[str, set[int]],
     *,
     moved: Mapping[int, int],
-    source: Path,
 ) -> _Adapted:
     """Return the adapted part with its bands remeshed on the kept nodes of ``pairs``."""
     from pyflightstream.workspace._refine._remesh import refine_group
@@ -440,14 +512,6 @@ def _conformed(
         for label, family in names.items()
         if len(work.families[label]) == len(mesh.families[family])
     ]
-    for family in rebuilt:
-        warn(
-            f"{source} family {family}: the band of {_geometry.BAND_LAYERS} face layers beside "
-            f"the interface covers all {len(mesh.families[family])} faces of the family, so it "
-            "was rebuilt whole",
-            PyflightstreamWarning,
-            stacklevel=4,
-        )
     conform = [(list(p.adapted.nodes), kept[list(p.kept.nodes)]) for p in pairs]
     done = refine_group(
         work,
@@ -661,8 +725,29 @@ def _split_face(f: list[int], onto: Mapping[int, int], held: Mapping[Edge, list[
     return out
 
 
+def _warn_far_moves(
+    mesh: ObjMesh, points: Points, onto: Mapping[int, int], threshold: float, source: Path
+) -> None:
+    """Warn the chain nodes the split moved past the threshold, each to its kept node."""
+    moves = numpy.linalg.norm(mesh.verts[list(onto)] - points[list(onto.values())], axis=1)
+    far = int((moves > threshold).sum())
+    if far:
+        warn(
+            f"{source}: {far} of {len(moves)} interface node(s) moved further than the threshold "
+            f"{threshold:g} to reach a kept node, the furthest by {float(moves.max()):g}: the "
+            "threshold measures a node against the kept edges and the kept nodes lie further apart",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+
+
 def _split_faces(
-    mesh: ObjMesh, kept: Points, pairs: Sequence[_Pair], moved: Mapping[int, int]
+    mesh: ObjMesh,
+    kept: Points,
+    pairs: Sequence[_Pair],
+    moved: Mapping[int, int],
+    threshold: float,
+    source: Path,
 ) -> _Adapted:
     """Return the adapted part with only the faces on the interface split onto the kept nodes.
 
@@ -677,6 +762,7 @@ def _split_faces(
     rows = {k: len(mesh.verts) + n for n, k in enumerate(nodes)}
     points = numpy.vstack([mesh.verts, kept[nodes].reshape(-1, 3)])
     onto, held = _split_edges(pairs, kept, mesh.verts, rows)
+    _warn_far_moves(mesh, points, onto, threshold, source)
     families: dict[str, Faces] = {}
     band_faces = created = 0
     for name, faces in mesh.families.items():
@@ -754,6 +840,49 @@ def _renames(kept: ObjMesh, adapted: ObjMesh, source: Path) -> dict[str, str]:
     return renamed
 
 
+def _warn_units(kept: Path, adapted: Path) -> None:
+    """Warn two parts whose boundaries files state different length units."""
+    try:
+        units = mesh_unit(kept), mesh_unit(adapted)
+    except InputArtifactError:
+        return
+    if all(units) and units[0] != units[1]:
+        warn(
+            f"geometry merge: {kept} states units {units[0]} and {adapted} states units "
+            f"{units[1]}. The coordinates and the threshold are merged as they stand, so the "
+            "output mixes the two; scale one part to the other's unit and merge again",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _warn_scattered(path: Path) -> None:
+    """Warn each family whose faces sit in more than one place in the file (FR-3485).
+
+    A mesh holds a family's faces together, so such a family is written together and the
+    part's face order is not the file's, which is what the solver's results depend on.
+    """
+    current, last = DEFAULT_FAMILY, None
+    seen: set[str] = set()
+    scattered: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        tag, *rest = line.split(None, 1) or [""]
+        if tag in ("g", "o"):
+            current = rest[0].strip() if rest and rest[0].strip() else DEFAULT_FAMILY
+        elif tag == "f" and current != last:
+            if current in seen and current not in scattered:
+                scattered.append(current)
+            seen.add(current)
+            last = current
+    for name in scattered:
+        warn(
+            f"{path} family {name}: its faces sit in more than one place in the file. They are "
+            "written together, so this part's face order in the output is not the file's",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _facing_edges(mesh: ObjMesh, kept_nodes: int, reach: float) -> int:
     """Return the open edges of either part facing an open edge of the other (FR-3487).
 
@@ -761,18 +890,27 @@ def _facing_edges(mesh: ObjMesh, kept_nodes: int, reach: float) -> int:
     open edge of the other part is no longer than ``reach`` and stays near normal to
     both edges (:data:`FACING_COSINE`). The boundaries that run on from an interface's
     end and leave it (a symmetry plane, a part's far side) meet that line along
-    themselves, so they do not count.
+    themselves, so they do not count. Neither does an edge whose own face lies between
+    it and the other part, further than that face's depth: a part's far boundary can be
+    near the other's, and it is no gap.
     """
-    open_edges = _geometry.boundary_edges(_all_faces(mesh))
+    faces = _all_faces(mesh)
+    around = _geometry.edge_faces(faces)
+    owner = {e: faces[fs[0]] for e, fs in around.items() if len(fs) == 1}
+    open_edges = sorted(owner)
     kept = [e for e in open_edges if e[1] < kept_nodes]
     other = [e for e in open_edges if e[1] >= kept_nodes]
-    return _facing_one_way(mesh.verts, kept, other, reach) + _facing_one_way(
-        mesh.verts, other, kept, reach
+    return _facing_one_way(mesh.verts, kept, other, reach, owner) + _facing_one_way(
+        mesh.verts, other, kept, reach, owner
     )
 
 
 def _facing_one_way(
-    verts: Points, edges: Sequence[Edge], others: Sequence[Edge], reach: float
+    verts: Points,
+    edges: Sequence[Edge],
+    others: Sequence[Edge],
+    reach: float,
+    owner: Mapping[Edge, list[int]],
 ) -> int:
     """Return how many edges see an edge of ``others`` across a line near normal to both."""
     if not edges or not others:
@@ -780,24 +918,37 @@ def _facing_one_way(
     a, b = _segments(verts, edges)
     c, d = _segments(verts, others)
     middle = 0.5 * (a + b)
+    distance, along, line = _to_nearest(middle, c, d)
+    # In the surface and out of the part: from the middle of the edge's face to the edge.
+    outward = middle - numpy.array([verts[owner[e]].mean(axis=0) for e in edges])
+    depth = numpy.linalg.norm(outward, axis=1)
+    toward = (line * outward).sum(axis=1) / numpy.maximum(distance * depth, 1e-300)
+    # A line shorter than that is a small overlap across the cut, which is a gap like another.
+    outside = (toward > -FACING_COSINE) | (distance <= depth)
+    facing = (
+        (distance > 0.0)
+        & (distance <= reach)
+        & (_cosine(line, b - a) < FACING_COSINE)
+        & (_cosine(line, along) < FACING_COSINE)
+        & outside
+    )
+    return int(facing.sum())
+
+
+def _to_nearest(middle: Points, c: Points, d: Points) -> tuple[Points, Points, Points]:
+    """Return per point the distance to the nearest segment c-d, that segment and the line to it."""
     distance, nearest = _geometry.segment_distances(middle, c, d)
     along = d[nearest] - c[nearest]
     t = ((middle - c[nearest]) * along).sum(axis=1) / numpy.maximum(
         (along * along).sum(axis=1), 1e-300
     )
-    line = c[nearest] + numpy.clip(t, 0.0, 1.0)[:, None] * along - middle
+    return distance, along, c[nearest] + numpy.clip(t, 0.0, 1.0)[:, None] * along - middle
 
-    def cosine(edge: Points) -> NDArray[numpy.float64]:
-        lengths = numpy.linalg.norm(line, axis=1) * numpy.linalg.norm(edge, axis=1)
-        return numpy.abs((line * edge).sum(axis=1)) / numpy.maximum(lengths, 1e-300)
 
-    facing = (
-        (distance > 0.0)
-        & (distance <= reach)
-        & (cosine(b - a) < FACING_COSINE)
-        & (cosine(along) < FACING_COSINE)
-    )
-    return int(facing.sum())
+def _cosine(line: Points, edge: Points) -> NDArray[numpy.float64]:
+    """Return the absolute cosine between each line and edge, zero for a line of no length."""
+    lengths = numpy.linalg.norm(line, axis=1) * numpy.linalg.norm(edge, axis=1)
+    return numpy.abs((line * edge).sum(axis=1)) / numpy.maximum(lengths, 1e-300)
 
 
 def _turned_faces(source: ObjMesh, adapted: _Adapted, kept: Points) -> int:
@@ -838,12 +989,23 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
             f"geometry merge: --threshold {threshold} is not a length of zero or more; state "
             "the largest distance across the interface. Nothing was written."
         )
+    if out.suffix.lower() != ".obj":
+        # The inventory reads the output's groups only from an OBJ: refused after the writing,
+        # this would leave an OBJ behind with no record, audit or inventory.
+        raise _refuse(f"--out {out} is not named .obj; name an OBJ file")
     if first.resolve() == second.resolve():
         raise _refuse(f"{first} is named as both parts; name two OBJ files")
     if out.resolve() in (first.resolve(), second.resolve()):
         raise _refuse(f"--out {out} is one of the two parts; name another file")
-    if out.exists() and not overwrite:
-        raise _refuse(f"{out} exists; pass --overwrite to replace it")
+    written = (
+        out,
+        out.with_name(out.stem + RECORD_SUFFIX),
+        out.with_name(out.stem + AUDIT_SUFFIX),
+        inventory_sidecar(out, "obj"),
+    )
+    clash = [path.name for path in written if path.exists()]
+    if clash and not overwrite:
+        raise _refuse(f"{', '.join(clash)} exist(s) beside {out}; pass --overwrite to replace")
 
 
 @dataclass(frozen=True)
@@ -908,6 +1070,9 @@ def merge_objs(
     kept_path, adapted_path = _which_adapted(one, two, Path(adapt))
     kept, adapted = read_obj(kept_path), read_obj(adapted_path)
     tell(f"kept {kept_path}, adapted {adapted_path}")
+    _warn_units(kept_path, adapted_path)
+    _warn_scattered(kept_path)
+    _warn_scattered(adapted_path)
     pairs = _interface(
         kept.verts,
         _geometry.boundary_edges(_all_faces(kept)),

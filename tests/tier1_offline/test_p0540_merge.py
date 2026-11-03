@@ -782,3 +782,241 @@ def test_p0540_merge_the_docs_state_the_methods_limits(tmp_path):
     section = page.read_text(encoding="utf-8").split("## Merging two OBJ")[1].split("\n## ")[0]
     for words in ("--adapt", "--threshold", ".merge.json", "not merged", "overlap", "Limits"):
         assert words in section
+
+
+def _strip(boundary, *, up: bool, family: str, rows: int = 3):
+    """Return a flat strip of quads: the boundary at the cut, rows of it offset away from it."""
+    count = len(boundary)
+    sign = 1.0 if up else -1.0
+    nodes = [[x, y + sign * r / rows, 0.0] for r in range(rows + 1) for x, y in boundary]
+    faces = []
+    for r in range(rows):
+        for i in range(count - 1):
+            a, b = r * count + i, r * count + i + 1
+            faces.append([a, b, b + count, a + count] if up else [a, a + count, b + count, b])
+    return nodes, faces, family
+
+
+def _bend(x: float) -> float:
+    """Return a cut straight up to x = 4 that bends away after it."""
+    return 0.15 * (x - 4.0) ** 2 if x > 4.0 else 0.0
+
+
+@pytest.mark.requirement("FR-3481")
+def test_p0540_merge_an_adapted_node_past_the_kept_chain_is_not_dragged_onto_it(tmp_path):
+    """A coarse boundary touching the dense one past the part that merges stays where it is.
+
+    On the bend every adapted node lies on the kept boundary but no kept node lies on an
+    adapted chord, so the kept chain stops at x = 4. Those adapted nodes are no part of it.
+    """
+    kept = _strip([(0.1 * i, _bend(0.1 * i)) for i in range(81)], up=False, family="Kept")
+    adapted = _strip([(0.8 * i, _bend(0.8 * i)) for i in range(11)], up=True, family="Adapted")
+    (merged, out, source_kept, source), _ = _quiet_merge(tmp_path, kept, adapted, 0.001)
+    assert merged.interface_edges == 40
+    written = set(out.nodes[len(source_kept.nodes) :])
+    past = [v for v in range(11) if source.points[v, 0] > 5.0]
+    assert [source.nodes[v] for v in past if source.nodes[v] not in written] == []
+    assert merged.turned_faces == 0
+    assert out.nodes[: len(source_kept.nodes)] == source_kept.nodes
+
+
+@pytest.mark.requirement("FR-3481")
+def test_p0540_merge_a_boundary_running_on_from_the_cut_is_no_part_of_the_interface(tmp_path):
+    """A threshold past the cells beside a half body's plane closes the cut node for node.
+
+    The plane's boundaries of the two parts meet at the cut's two ends, within the
+    threshold of the other part. They run on from the cut, and joining them folds the faces.
+    """
+    kept = _tube(24, tuple(numpy.linspace(-1.0, 0.0, 41).tolist()), sweep=math.pi, family="Kept")
+    adapted = _tube(
+        24, tuple(numpy.linspace(0.0, 1.0, 41).tolist()), sweep=math.pi, family="Adapted"
+    )
+    (merged, out, source_kept, _), _ = _quiet_merge(tmp_path, kept, adapted, 0.2)
+    assert merged.interface_edges == 24
+    assert merged.moved_nodes == 25
+    assert len(merged.audit.degenerate_faces) == 0
+    plane = [
+        e
+        for e in _open_edges(out)
+        if abs(out.points[e[0], 2]) < 1e-9 and abs(out.points[e[1], 2]) < 1e-9
+    ]
+    assert len(plane) == 4 * 40
+    assert out.groups["Kept"] == source_kept.faces
+
+
+@pytest.mark.parametrize("scale", [1.0, 1000.0, 0.001], ids=["unit", "thousand", "thousandth"])
+@pytest.mark.requirement("FR-3487")
+def test_p0540_merge_a_short_parts_far_boundary_faces_nothing(tmp_path, scale):
+    """Two short collars closed along the cut: their far rings are near and no gap, at any unit.
+
+    The warning tells the caller to raise the threshold, which would join those two rings.
+    A real gap on the same parts is counted, at any unit.
+    """
+
+    def part(stations, family, **options):
+        nodes, faces, name = _tube(24, stations, family=family, **options)
+        return [[scale * c for c in n] for n in nodes], faces, name
+
+    (merged, _, _, _), messages = _quiet_merge(
+        tmp_path,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted"),
+        0.01 * scale,
+    )
+    assert merged.interface_edges == 24
+    assert merged.open_edges_left == 48
+    assert merged.facing_edges_left == 0
+    assert not [m for m in messages if "still face" in m]
+
+    def lifted(i: int, t: float) -> float:
+        return 0.06 if i == 0 and math.cos(t) > 0.1 else 0.0
+
+    gap = tmp_path / "gap"
+    gap.mkdir()
+    (merged, _, _, _), _ = _quiet_merge(
+        gap,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted", shift=lifted),
+        0.01 * scale,
+    )
+    assert merged.facing_edges_left > 0
+
+
+@pytest.mark.requirement("FR-3485")
+def test_p0540_merge_a_family_opened_twice_is_warned_since_its_order_changes(tmp_path):
+    """A group that comes back later in the file: the output's face order is not the file's."""
+    nodes, faces, _ = _kept(24)
+    third = len(faces) // 3
+    lines = [f"v {x:.9f} {y:.9f} {z:.9f}" for x, y, z in nodes]
+    for name, part in (("A", faces[:third]), ("B", faces[third:-third]), ("A", faces[-third:])):
+        lines.append(f"g {name}")
+        lines += ["f " + " ".join(str(v + 1) for v in f) for f in part]
+    first = tmp_path / "kept.obj"
+    first.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    second = _write(tmp_path / "adapted.obj", _adapted(24))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    said = [str(w.message) for w in caught if "more than one place" in str(w.message)]
+    assert len(said) == 1
+    assert "family A" in said[0]
+    written = [line for line in (tmp_path / "out.obj").read_text().splitlines() if line[:2] == "f "]
+    assert written[: len(faces)] != [line for line in lines if line[:2] == "f "]
+
+
+@pytest.mark.parametrize("name", ["out.merge.json", "out.audit.json", "out.obj.boundaries.toml"])
+@pytest.mark.requirement("FR-3482")
+def test_p0540_merge_a_file_beside_the_output_is_replaced_only_with_overwrite(tmp_path, name):
+    """A boundaries file declared by hand before the merge is not lost without the word."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    beside = tmp_path / name
+    beside.write_text("# declared by hand\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="--overwrite"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    assert beside.read_text(encoding="utf-8") == "# declared by hand\n"
+    assert not (tmp_path / "out.obj").exists()
+    merged = merge_objs(
+        first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj", overwrite=True
+    )
+    assert merged.interface_edges == 24
+    assert beside.read_text(encoding="utf-8") != "# declared by hand\n"
+
+
+@pytest.mark.requirement("FR-3488")
+def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
+    """Nothing is scaled, and the output's inventory states no unit: the words must say so."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    (tmp_path / "one.obj.boundaries.toml").write_text('[import]\nunits = "m"\n', encoding="utf-8")
+    (tmp_path / "two.obj.boundaries.toml").write_text('[import]\nunits = "mm"\n', encoding="utf-8")
+
+    def said(out: str) -> list[str]:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / out)
+        return [str(w.message) for w in caught if "states units" in str(w.message)]
+
+    assert len(said("mixed.obj")) == 1
+    (tmp_path / "two.obj.boundaries.toml").write_text('[import]\nunits = "M"\n', encoding="utf-8")
+    assert said("same.obj") == []
+    (tmp_path / "two.obj.boundaries.toml").write_text("not toml [", encoding="utf-8")
+    assert said("broken.obj") == []
+
+
+@pytest.mark.parametrize("name", ["merged", "merged.txt"])
+@pytest.mark.requirement("FR-3482")
+def test_p0540_merge_an_output_not_named_obj_leaves_nothing_behind(tmp_path, name):
+    """The call fails either way; it must fail before an OBJ with no record is written."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    with pytest.raises(InputArtifactError, match=r"\.obj"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / name)
+    assert not (tmp_path / name).exists()
+
+
+@pytest.mark.requirement("FR-3483")
+def test_p0540_merge_the_docs_say_what_a_part_does_not_carry(tmp_path):
+    """A kept part with texture and normal indices: the geometry holds, the rest is stated gone."""
+    nodes, faces, family = _kept(24)
+    lines = [f"v  {x:.9f}  {y:.9f} {z:.9f} 0.5 0.5 0.5" for x, y, z in nodes]
+    lines += ["vt 0 0", "vn 0 0 1", f"g {family}", "usemtl paint"]
+    lines += ["f " + " ".join(f"{v + 1}/1/1" for v in f) for f in faces]
+    first = tmp_path / "kept.obj"
+    first.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    second = _write(tmp_path / "adapted.obj", _adapted(24))
+    merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    out = _Obj(tmp_path / "out.obj")
+    assert out.groups[family] == faces
+    assert out.nodes[: len(nodes)] == [f"{x:.9f} {y:.9f} {z:.9f}" for x, y, z in nodes]
+    page = Path(__file__).parents[2] / "docs" / "geometry.md"
+    section = page.read_text(encoding="utf-8").split("## Merging two OBJ")[1].split("\n## ")[0]
+    assert "to the byte" not in section.split("single spaces")[0]
+    for words in ("`vt`", "`vn`", "texture and normal", "not carried"):
+        assert words in section
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_a_split_says_how_far_past_the_threshold_it_moved_a_node(tmp_path):
+    """The threshold measures a node against a kept EDGE; a sparse kept chain moves it further."""
+    stations = tuple(x - 0.2 for x in ADAPTED_STATIONS)
+    (merged, out, kept, _), messages = _quiet_merge(
+        tmp_path, _kept(8), _adapted(29, stations=stations), 0.3
+    )
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    said = [m for m in messages if "further than the threshold" in m]
+    assert len(said) == 1
+    assert "of 29 interface node(s)" in said[0]
+    assert merged.interface_edges == 8
+    assert out.nodes[: len(kept.nodes)] == kept.nodes
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_a_family_is_said_rebuilt_only_when_it_was(tmp_path):
+    """A band covering the family that then fell back on the split rebuilt nothing."""
+    triangle = [
+        [0.0, 1.0, 0.0],
+        [0.0, math.cos(TAU / 24.0), math.sin(TAU / 24.0)],
+        [0.5, 1.0, 0.0],
+    ]
+    _, messages = _quiet_merge(tmp_path, _kept(24), (triangle, [[0, 1, 2]], "Lone"), 1.0)
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    assert record["rebuilt_families"] == []
+    assert not [m for m in messages if "rebuilt whole" in m]
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_the_split_warning_names_both_causes(tmp_path):
+    """A chain ending away from a kept node also splits, with no overlap anywhere in the pair."""
+    kept = _strip([(0.1 * i, _bend(0.1 * i)) for i in range(81)], up=False, family="Kept")
+    adapted = _strip(
+        [(0.8 * i + 0.05, _bend(0.8 * i + 0.05)) for i in range(10)], up=True, family="A"
+    )
+    _, messages = _quiet_merge(tmp_path, kept, adapted, 0.02)
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    said = [m for m in messages if "were split onto them" in m]
+    assert len(said) == 1
+    assert "a chain's end has no kept node beside it" in said[0]

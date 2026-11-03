@@ -556,11 +556,16 @@ wrote wing_nacelle.obj                 kept part first, in its node and face ord
 
 `--threshold` is in the OBJ's own length unit. The interface is every open-boundary chain of
 either part whose nodes lie within it of the other part's open boundary. Everything else
-stays as it was, so a part's far open boundary is no part of the interface.
+stays as it was, so a part's far open boundary is no part of the interface, and neither is
+an adapted node that touches a stretch of the kept boundary whose own nodes are out of reach.
 
-The kept part does not change: its vertex lines and their order and its faces and their
-order lead the output, to the byte. Along the interface the adapted part takes the kept
-nodes, in one of two ways, per chain:
+The kept part does not change: the three coordinates of each vertex as the file wrote them
+and their order, and its faces and their order, lead the output. An OBJ of `v`, `f` and `g`
+lines written as `v x y z` with single spaces comes through to the byte. What a mesh of this
+package does not hold is not carried from either part: `vt`, `vn`, `usemtl`, `s` and
+comments after the first vertex, a vertex's words past the third, a face's texture and normal
+indices, and every family takes the keyword the kept part's last `g` or `o` used. Along the
+interface the adapted part takes the kept nodes, in one of two ways, per chain:
 
 - **Node for node.** Both chains carry one node per node within the threshold. The adapted
   nodes are replaced by the kept nodes and no face changes kind: quads stay quads.
@@ -586,6 +591,10 @@ From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and ret
   that runs away from the interface, such as a symmetry plane, is not.
 - A degenerate face left in the output, and an adapted face turned against the source face
   nearest it, are warned with their count.
+- A family whose faces sit in more than one place in a source file is warned: its faces are
+  written together, so that part's face order is not the file's.
+- Two parts whose boundaries files state different `[import] units` are warned: nothing is
+  scaled, so scale one part to the other's unit and merge again.
 - When the band cannot be held on the kept nodes (`faces_split` in the record), the faces on
   the interface are split onto the kept nodes instead, and the band is not remeshed.
 
