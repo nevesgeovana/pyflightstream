@@ -128,12 +128,26 @@ def add_geometry_commands(subparsers: Any) -> None:
     )
     verbs = geometry.add_subparsers(dest="geometry_command", required=True)
     marking = verbs.add_parser(
-        "mark-boundaries", help="mark an OBJ's declared boundaries into an FSM"
+        "mark-boundaries",
+        help="mark an OBJ's declared boundaries into an FSM",
+        description=(
+            "Plans the marking of the trailing edges, base regions and wake terminations that "
+            "the OBJ's .obj.boundaries.toml declares, and prints the steps and the script. "
+            "Without --apply nothing is run and nothing is written. --apply needs the "
+            "commands verified on the sidecar's FlightStream build and a licensed solver "
+            "(docs/geometry.md)."
+        ),
     )
-    marking.add_argument("mesh", metavar="OBJ")
-    marking.add_argument("--apply", action="store_true")
-    marking.add_argument("--overwrite", action="store_true")
-    marking.add_argument("--fs-exe", metavar="PATH")
+    marking.add_argument("mesh", metavar="OBJ", help="the OBJ, with its .obj.boundaries.toml")
+    marking.add_argument(
+        "--apply", action="store_true", help="run the marking and write the FSM (default: preview)"
+    )
+    marking.add_argument(
+        "--overwrite", action="store_true", help="replace an existing marked FSM (with --apply)"
+    )
+    marking.add_argument(
+        "--fs-exe", metavar="PATH", help="the executable, over the one the sidecar's build names"
+    )
     export = verbs.add_parser(
         "export-surface-mesh",
         help="preview a saved body's surface export for probes, or run it with --apply",
