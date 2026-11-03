@@ -116,9 +116,8 @@ class BoundaryMarkingPlan:
         """Return (first group, number of groups) per entry, then per base region's rim.
 
         Saved groups stand in the order the script marked them. A declared unit is one group,
-        except on 26.100, where each rim file is a group of its own (measured: 13 groups from
-        six bases of two rims and one of one), a file warned and skipped is none, and an
-        ``auto`` rim follows the file rims.
+        except on 26.100, where each rim file is a group of its own (measured), a file warned
+        and skipped is none, and an ``auto`` rim follows the file rims.
         """
         declared = self.declarations
         units = [*(entry.marking for entry in declared.trailing_edges)]
