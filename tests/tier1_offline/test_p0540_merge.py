@@ -880,3 +880,25 @@ def test_p0540_merge_a_short_parts_far_boundary_faces_nothing(tmp_path, scale):
         0.01 * scale,
     )
     assert merged.facing_edges_left > 0
+
+
+@pytest.mark.requirement("FR-3485")
+def test_p0540_merge_a_family_opened_twice_is_warned_since_its_order_changes(tmp_path):
+    """A group that comes back later in the file: the output's face order is not the file's."""
+    nodes, faces, _ = _kept(24)
+    third = len(faces) // 3
+    lines = [f"v {x:.9f} {y:.9f} {z:.9f}" for x, y, z in nodes]
+    for name, part in (("A", faces[:third]), ("B", faces[third:-third]), ("A", faces[-third:])):
+        lines.append(f"g {name}")
+        lines += ["f " + " ".join(str(v + 1) for v in f) for f in part]
+    first = tmp_path / "kept.obj"
+    first.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    second = _write(tmp_path / "adapted.obj", _adapted(24))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    said = [str(w.message) for w in caught if "more than one place" in str(w.message)]
+    assert len(said) == 1
+    assert "family A" in said[0]
+    written = [line for line in (tmp_path / "out.obj").read_text().splitlines() if line[:2] == "f "]
+    assert written[: len(faces)] != [line for line in lines if line[:2] == "f "]

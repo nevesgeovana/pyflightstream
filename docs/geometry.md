@@ -587,6 +587,8 @@ From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and ret
   that runs away from the interface, such as a symmetry plane, is not.
 - A degenerate face left in the output, and an adapted face turned against the source face
   nearest it, are warned with their count.
+- A family whose faces sit in more than one place in a source file is warned: its faces are
+  written together, so that part's face order is not the file's.
 - When the band cannot be held on the kept nodes (`faces_split` in the record), the faces on
   the interface are split onto the kept nodes instead, and the band is not remeshed.
 

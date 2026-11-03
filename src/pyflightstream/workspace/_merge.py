@@ -51,7 +51,13 @@ from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import Faces, Points
 from pyflightstream.workspace._refine._level import _band
-from pyflightstream.workspace._refine._obj import KIND, ObjMesh, read_obj, write_obj
+from pyflightstream.workspace._refine._obj import (
+    DEFAULT_FAMILY,
+    KIND,
+    ObjMesh,
+    read_obj,
+    write_obj,
+)
 from pyflightstream.workspace.sidecars import inventory_sidecar, write_inventory
 
 __all__ = ["MergedMesh", "merge_objs"]
@@ -812,6 +818,33 @@ def _renames(kept: ObjMesh, adapted: ObjMesh, source: Path) -> dict[str, str]:
     return renamed
 
 
+def _warn_scattered(path: Path) -> None:
+    """Warn each family whose faces sit in more than one place in the file (FR-3485).
+
+    A mesh holds a family's faces together, so such a family is written together and the
+    part's face order is not the file's, which is what the solver's results depend on.
+    """
+    current, last = DEFAULT_FAMILY, None
+    seen: set[str] = set()
+    scattered: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        tag, *rest = line.split(None, 1) or [""]
+        if tag in ("g", "o"):
+            current = rest[0].strip() if rest and rest[0].strip() else DEFAULT_FAMILY
+        elif tag == "f" and current != last:
+            if current in seen and current not in scattered:
+                scattered.append(current)
+            seen.add(current)
+            last = current
+    for name in scattered:
+        warn(
+            f"{path} family {name}: its faces sit in more than one place in the file. They are "
+            "written together, so this part's face order in the output is not the file's",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _facing_edges(mesh: ObjMesh, kept_nodes: int, reach: float) -> int:
     """Return the open edges of either part facing an open edge of the other (FR-3487).
 
@@ -988,6 +1021,8 @@ def merge_objs(
     kept_path, adapted_path = _which_adapted(one, two, Path(adapt))
     kept, adapted = read_obj(kept_path), read_obj(adapted_path)
     tell(f"kept {kept_path}, adapted {adapted_path}")
+    _warn_scattered(kept_path)
+    _warn_scattered(adapted_path)
     pairs = _interface(
         kept.verts,
         _geometry.boundary_edges(_all_faces(kept)),
