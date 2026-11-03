@@ -968,6 +968,10 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
             f"geometry merge: --threshold {threshold} is not a length of zero or more; state "
             "the largest distance across the interface. Nothing was written."
         )
+    if out.suffix.lower() != ".obj":
+        # The inventory reads the output's groups only from an OBJ: refused after the writing,
+        # this would leave an OBJ behind with no record, audit or inventory.
+        raise _refuse(f"--out {out} is not named .obj; name an OBJ file")
     if first.resolve() == second.resolve():
         raise _refuse(f"{first} is named as both parts; name two OBJ files")
     if out.resolve() in (first.resolve(), second.resolve()):

@@ -942,3 +942,14 @@ def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
     assert said("same.obj") == []
     (tmp_path / "two.obj.boundaries.toml").write_text("not toml [", encoding="utf-8")
     assert said("broken.obj") == []
+
+
+@pytest.mark.parametrize("name", ["merged", "merged.txt"])
+@pytest.mark.requirement("FR-3482")
+def test_p0540_merge_an_output_not_named_obj_leaves_nothing_behind(tmp_path, name):
+    """The call fails either way; it must fail before an OBJ with no record is written."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    with pytest.raises(InputArtifactError, match=r"\.obj"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / name)
+    assert not (tmp_path / name).exists()
