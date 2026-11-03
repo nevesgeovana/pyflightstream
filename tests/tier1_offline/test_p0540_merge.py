@@ -881,6 +881,20 @@ def test_p0540_merge_a_short_parts_far_boundary_faces_nothing(tmp_path, scale):
     )
     assert merged.facing_edges_left > 0
 
+    def pushed(i: int, t: float) -> float:
+        return -0.03 if i == 0 and math.cos(t) > 0.1 else 0.0
+
+    overlap = tmp_path / "overlap"
+    overlap.mkdir()
+    (merged, _, _, _), _ = _quiet_merge(
+        overlap,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted", shift=pushed),
+        0.01 * scale,
+    )
+    # A cut overlapped by less than a face's depth is a gap like another, past the threshold.
+    assert merged.facing_edges_left > 0
+
 
 @pytest.mark.requirement("FR-3485")
 def test_p0540_merge_a_family_opened_twice_is_warned_since_its_order_changes(tmp_path):
