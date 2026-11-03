@@ -47,7 +47,7 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream.workspace._refine import _geometry
-from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
+from pyflightstream.workspace._refine._audit import AUDIT_SUFFIX, MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import Faces, Points
 from pyflightstream.workspace._refine._level import _band
@@ -955,8 +955,15 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
         raise _refuse(f"{first} is named as both parts; name two OBJ files")
     if out.resolve() in (first.resolve(), second.resolve()):
         raise _refuse(f"--out {out} is one of the two parts; name another file")
-    if out.exists() and not overwrite:
-        raise _refuse(f"{out} exists; pass --overwrite to replace it")
+    written = (
+        out,
+        out.with_name(out.stem + RECORD_SUFFIX),
+        out.with_name(out.stem + AUDIT_SUFFIX),
+        inventory_sidecar(out, "obj"),
+    )
+    clash = [path.name for path in written if path.exists()]
+    if clash and not overwrite:
+        raise _refuse(f"{', '.join(clash)} exist(s) beside {out}; pass --overwrite to replace")
 
 
 @dataclass(frozen=True)

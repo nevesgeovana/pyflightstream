@@ -902,3 +902,22 @@ def test_p0540_merge_a_family_opened_twice_is_warned_since_its_order_changes(tmp
     assert "family A" in said[0]
     written = [line for line in (tmp_path / "out.obj").read_text().splitlines() if line[:2] == "f "]
     assert written[: len(faces)] != [line for line in lines if line[:2] == "f "]
+
+
+@pytest.mark.parametrize("name", ["out.merge.json", "out.audit.json", "out.obj.boundaries.toml"])
+@pytest.mark.requirement("FR-3482")
+def test_p0540_merge_a_file_beside_the_output_is_replaced_only_with_overwrite(tmp_path, name):
+    """A boundaries file declared by hand before the merge is not lost without the word."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    beside = tmp_path / name
+    beside.write_text("# declared by hand\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="--overwrite"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj")
+    assert beside.read_text(encoding="utf-8") == "# declared by hand\n"
+    assert not (tmp_path / "out.obj").exists()
+    merged = merge_objs(
+        first, second, threshold=0.01, adapt=second, out=tmp_path / "out.obj", overwrite=True
+    )
+    assert merged.interface_edges == 24
+    assert beside.read_text(encoding="utf-8") != "# declared by hand\n"
