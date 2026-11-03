@@ -733,3 +733,32 @@ def test_p0540_the_body_checks_the_counts_it_is_given(tmp_path, change):
     with pytest.raises(InputValueError, match="must be 1 or more"):
         power_off_body(source, blades=["Blade1"], copies=COPIES, out=out, **change)
     assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize(
+    "code",
+    [
+        "from pyflightstream.workspace._sector_remesh import _chain;"
+        "import numpy as n;"
+        "_chain([(5, 6), (5, 7), (5, 8), (5, 9), (6, 7)], n.arange(10.0)[::-1])",
+        "from pyflightstream.workspace._sector_remesh import _Quads, _walk;"
+        "lo, hi = [0, 1, 2, 3], [4, 5, 6, 7];"
+        "e = lambda a, b: (min(a, b), max(a, b));"
+        "edges = [[e(lo[k], lo[(k + 1) % 4]), e(hi[k], hi[(k + 1) % 4]), e(lo[k], hi[k]),"
+        " e(lo[(k + 1) % 4], hi[(k + 1) % 4])] for k in range(4)];"
+        "by = {};"
+        "[by.setdefault(x, []).append(k) for k, q in enumerate(edges) for x in q];"
+        "_walk(0, [0, 4], _Quads(edges, by, set()))",
+    ],
+)
+def test_p0540_a_rim_line_that_does_not_run_root_to_tip_ends_the_read(tmp_path, code):
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)}
+    done = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=15
+    )
+    assert done.returncode != 0 and "TopologyNotFoundError" in done.stderr

@@ -133,7 +133,10 @@ def _chain(edges: list[Edge], radius: Array) -> list[int]:
         nb[a].append(b)
         nb[b].append(a)
     ends = [n for n, v in nb.items() if len(v) == 1]
-    _need(len(ends) == 2, "each trailing-edge rim line one open chain from the root")
+    _need(
+        len(ends) == 2 and all(len(v) <= 2 for v in nb.values()),
+        "each trailing-edge rim line one open chain from the root",
+    )
     out: list[int] = [min(ends, key=lambda n: float(radius[n]))]
     prev = None
     while True:
@@ -162,7 +165,7 @@ def _walk(s: int, rim_a: list[int], quads: _Quads) -> tuple[list[int], list[int]
     here, there = rim_a[s], rim_a[s + 1]
     q = next(q for q in quads.by_edge[e] if not any(x in quads.rim_b for x in quads.edges[q]))
     lo, hi = [here], [there]
-    while True:
+    for _ in quads.edges:  # a strip that closes on itself never meets the far rim line
         opp = next(x for x in quads.edges[q] if not set(x) & set(e))
         rail = next(x for x in quads.edges[q] if here in x and x != e)
         here = rail[0] if rail[1] == here else rail[1]
@@ -173,6 +176,7 @@ def _walk(s: int, rim_a: list[int], quads: _Quads) -> tuple[list[int], list[int]
             return lo, hi
         q = next(x for x in quads.by_edge[opp] if x != q)
         e = opp
+    raise TopologyNotFoundError("a chord strip that runs from one rim line to the other")
 
 
 def _chord_rings(rim_a: list[int], rim_b: list[int], quads: _Quads) -> NDArray[numpy.int64]:
