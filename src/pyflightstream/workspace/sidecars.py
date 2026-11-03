@@ -736,13 +736,15 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         sidecar's boundary list, or its faces cannot be counted.
     """
     path = Path(geometry)
-    sidecar = inventory_sidecar(path, "obj")
+    # The sidecar the marking reads, whose errors name this refresh: the legacy name included.
+    sidecar = boundaries_for_marking(path)
     if path.suffix.lower() != OBJ_SUFFIX or not path.is_file():
         raise InputArtifactError(f"{path} is not an existing .obj, so no sidecar can be refreshed.")
     if not sidecar.is_file():
         raise InputArtifactError(
-            f"{sidecar} does not exist, and refresh (CLI: --refresh) rewrites an "
-            f"existing sidecar only; write it with `pyfs-workspace geometry inventory {path}`."
+            f"{inventory_sidecar(path, 'obj')} does not exist, and refresh (CLI: --refresh) "
+            "rewrites an existing sidecar only; write it with "
+            f"`pyfs-workspace geometry inventory {path}`."
         )
     if read_inventory(sidecar) != obj_boundary_names(path):
         raise InputArtifactError(

@@ -86,6 +86,22 @@ def test_p0540_refresh_refuses_a_boundary_list_that_changed_and_writes_nothing(t
 
 
 @pytest.mark.requirement("FR-3479")
+def test_p0540_refresh_rewrites_the_legacy_sidecar_the_marking_reads(tmp_path):
+    """REL-K-009: the marking reads a legacy sidecar and names the refresh, which must take it."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh, sidecar = _generated(tmp_path)
+    legacy = mesh.with_name("wing.boundaries.toml")
+    sidecar.rename(legacy)
+    mesh.write_text(OBJ + "f 2 4 3\n")
+    with pytest.raises(InputArtifactError, match="--refresh"):
+        plan_mark_boundaries(mesh)
+    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert not sidecar.exists()
+    assert plan_mark_boundaries(mesh).faces == (2,)
+
+
+@pytest.mark.requirement("FR-3479")
 def test_p0540_plain_inventory_still_leaves_an_existing_obj_sidecar_alone(tmp_path):
     mesh, sidecar = _generated(tmp_path)
     before = sidecar.read_bytes()
