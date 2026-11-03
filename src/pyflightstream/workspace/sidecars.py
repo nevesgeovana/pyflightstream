@@ -782,7 +782,7 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
             f"{sidecar}: refreshing it would change more than the three counted keys; "
             "nothing was changed"
         )
-    sidecar.write_bytes(rewritten.encode("utf-8"))
+    _textio.write_text(sidecar, rewritten)
     return sidecar
 
 

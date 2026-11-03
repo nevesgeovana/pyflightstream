@@ -26,6 +26,7 @@ from typing import Any
 import numpy
 from numpy.typing import NDArray
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
@@ -458,7 +459,7 @@ def _write(
     text = compose_sector(sector.parsed, built.sink, world, term)
     part = target.with_name(target.name + ".part")
     target.parent.mkdir(parents=True, exist_ok=True)
-    part.write_bytes(text.encode("latin-1"))
+    _textio.write_text(part, text, encoding="latin-1")
     try:
         back = read_back(part, tuple(sector.names))
     except ValueError:
@@ -834,7 +835,7 @@ def _write_body(sector: Sector, sink: QuadSink, nodes: Array, target: Path) -> N
     world = sector.frame.world(nodes)
     part = target.with_name(target.name + ".part")
     target.parent.mkdir(parents=True, exist_ok=True)
-    part.write_bytes(_body_text(sector, sink, world).encode("latin-1"))
+    _textio.write_text(part, _body_text(sector, sink, world), encoding="latin-1")
     names = (sector.names[sector.spinner - 1], sector.names[sector.nacelle - 1])
     try:
         read_back(part, names)

@@ -42,6 +42,7 @@ from typing import Any
 import numpy
 from numpy.typing import NDArray
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import (
@@ -95,7 +96,7 @@ def _flag_row(values: Any) -> str:
 
 
 def _real_row(values: Any) -> str:
-    return "".join(f"{v: .17E}," for v in values)
+    return "".join(format(v, " .17E") + "," for v in values)
 
 
 def _at(lines: list[str], tag: str) -> int:
@@ -518,7 +519,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     )
     part = opts.out.with_name(opts.out.name + ".part")
     opts.out.parent.mkdir(parents=True, exist_ok=True)
-    part.write_bytes(parsed.newline.join(text).encode("latin-1"))
+    _textio.write_text(part, parsed.newline.join(text), encoding="latin-1")
     try:
         expected: dict[str, Any] = {
             "boundaries": tuple(records[1::3]),

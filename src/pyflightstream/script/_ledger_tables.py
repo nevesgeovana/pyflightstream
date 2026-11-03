@@ -300,6 +300,20 @@ def turned_about(
     frames: the placement ledger turns a frame with it (``ROTATE_COORDINATE_SYSTEM``)
     and a quasi-steady wheel turns its blade and clocking frames with it.
 
+    Parameters
+    ----------
+    vector : sequence of float
+        The three components to turn.
+    axis : sequence of float
+        The direction to turn about; it is normalised here and must not be zero.
+    angle_deg : float
+        The right-handed angle, in degrees.
+
+    Returns
+    -------
+    tuple of float
+        The three components of the turned vector, rounded to twelve decimals.
+
     Examples
     --------
     >>> turned_about((0.0, 1.0, 0.0), (1.0, 0.0, 0.0), 90.0)
