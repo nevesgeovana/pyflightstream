@@ -589,6 +589,8 @@ From Python, `pyflightstream.workspace.merge_objs` takes the same inputs and ret
   nearest it, are warned with their count.
 - A family whose faces sit in more than one place in a source file is warned: its faces are
   written together, so that part's face order is not the file's.
+- Two parts whose boundaries files state different `[import] units` are warned: nothing is
+  scaled, so scale one part to the other's unit and merge again.
 - When the band cannot be held on the kept nodes (`faces_split` in the record), the faces on
   the interface are split onto the kept nodes instead, and the band is not remeshed.
 

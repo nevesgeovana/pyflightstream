@@ -921,3 +921,24 @@ def test_p0540_merge_a_file_beside_the_output_is_replaced_only_with_overwrite(tm
     )
     assert merged.interface_edges == 24
     assert beside.read_text(encoding="utf-8") != "# declared by hand\n"
+
+
+@pytest.mark.requirement("FR-3488")
+def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
+    """Nothing is scaled, and the output's inventory states no unit: the words must say so."""
+    first = _write(tmp_path / "one.obj", _kept(24))
+    second = _write(tmp_path / "two.obj", _adapted(24))
+    (tmp_path / "one.obj.boundaries.toml").write_text('[import]\nunits = "m"\n', encoding="utf-8")
+    (tmp_path / "two.obj.boundaries.toml").write_text('[import]\nunits = "mm"\n', encoding="utf-8")
+
+    def said(out: str) -> list[str]:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / out)
+        return [str(w.message) for w in caught if "states units" in str(w.message)]
+
+    assert len(said("mixed.obj")) == 1
+    (tmp_path / "two.obj.boundaries.toml").write_text('[import]\nunits = "M"\n', encoding="utf-8")
+    assert said("same.obj") == []
+    (tmp_path / "two.obj.boundaries.toml").write_text("not toml [", encoding="utf-8")
+    assert said("broken.obj") == []

@@ -55,6 +55,7 @@ from pyflightstream.workspace._refine._obj import (
     DEFAULT_FAMILY,
     KIND,
     ObjMesh,
+    mesh_unit,
     read_obj,
     write_obj,
 )
@@ -818,6 +819,22 @@ def _renames(kept: ObjMesh, adapted: ObjMesh, source: Path) -> dict[str, str]:
     return renamed
 
 
+def _warn_units(kept: Path, adapted: Path) -> None:
+    """Warn two parts whose boundaries files state different length units."""
+    try:
+        units = mesh_unit(kept), mesh_unit(adapted)
+    except InputArtifactError:
+        return
+    if all(units) and units[0] != units[1]:
+        warn(
+            f"geometry merge: {kept} states units {units[0]} and {adapted} states units "
+            f"{units[1]}. The coordinates and the threshold are merged as they stand, so the "
+            "output mixes the two; scale one part to the other's unit and merge again",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _warn_scattered(path: Path) -> None:
     """Warn each family whose faces sit in more than one place in the file (FR-3485).
 
@@ -1028,6 +1045,7 @@ def merge_objs(
     kept_path, adapted_path = _which_adapted(one, two, Path(adapt))
     kept, adapted = read_obj(kept_path), read_obj(adapted_path)
     tell(f"kept {kept_path}, adapted {adapted_path}")
+    _warn_units(kept_path, adapted_path)
     _warn_scattered(kept_path)
     _warn_scattered(adapted_path)
     pairs = _interface(
