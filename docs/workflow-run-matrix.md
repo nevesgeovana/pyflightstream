@@ -509,6 +509,15 @@ already recorded follows the rules above (refused, `--resume`,
 `--force-rerun`). Without `--force-rerun-all`, `--sims` alone runs those
 simulations;
 
+**Two simulations of one matrix on two machines or two terminals** are two lanes
+of one workspace: plan once, then run `pyfs-matrix run <matrix> --workspace . --sims 2031`
+in one terminal and `--sims 2032` in the other, at the same time. Each lane writes
+its own simulation folder, so the two solvers run side by side; `runs.json`, the
+sweep table `campaign_sweep.csv` and `products.json` end holding both
+simulations, the plan is not rewritten, and the geometry of a row is linked into
+each simulation, never copied. No option is needed. Use `--sims` with distinct
+ids in each lane: the same id in two lanes is the same simulation.
+
 **A second run of the same matrix without `--resume`** is refused, as before,
 with exit status 2 and nothing run; the message says how many
 points are recorded and how many would run, and prints the command you typed

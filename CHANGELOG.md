@@ -17,6 +17,12 @@ FlightStream versions.
   sentence that names both values; `turned_about` is listed in `pyflightstream.script.__all__`
   (FR-3509).
 
+### Changed
+
+- Two `pyfs-matrix run <matrix> --sims A` and `--sims B` processes may run at once on one
+  workspace and one plan; measured with a stand-in solver, both simulations are recorded and
+  tabled, and the route is documented in the run matrix guide (FR-3501).
+
 ## [0.53.0] - 2026-11-01
 
 ### Added
