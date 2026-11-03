@@ -504,6 +504,15 @@ def add_inventory_parser(subparsers: Any) -> None:
             "existing sidecar is then kept unless --overwrite (FR-308)"
         ),
     )
+    inventory.add_argument(
+        "--refresh",
+        action="store_true",
+        help=(
+            "for an OBJ whose sidecar exists, rewrite only mesh_faces, boundary_faces and "
+            "mesh_sha256 from the file as it is now and keep every other line; for a "
+            "generated OBJ that was built again (FR-3479)"
+        ),
+    )
 
     add_console_arguments(inventory, _VERBOSE_HELP)
     inventory.set_defaults(mesh_command=run_inventory)
@@ -585,6 +594,15 @@ def run_inventory(args: argparse.Namespace) -> int:
     )
 
     geometry = Path(args.geometry)
+    if args.refresh:
+        from pyflightstream.workspace.sidecars import refresh_obj_inventory
+
+        try:
+            print(refresh_obj_inventory(geometry))
+        except (OSError, PyflightstreamError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        return 0
     # A RAW MESH IS EVERY FORMAT RAW_MESH_FORMATS NAMES, the STL as well as
     # the OBJ (PFS-2094.036): an STL read as a saved simulation was warned
     # about, or cleaned, before write_inventory refused it. Its refusal now

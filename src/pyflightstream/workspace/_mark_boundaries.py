@@ -221,6 +221,10 @@ def _import_operations(
             )
 
 
+#: The command that refreshes the counted fields of a generated OBJ's sidecar (FR-3479).
+_REFRESH_COMMAND = "pyfs-workspace geometry inventory {mesh} --refresh"
+
+
 def _marking_inputs(mesh):
     source = Path(mesh).resolve()
     if source.suffix.lower() != ".obj" or not source.is_file():
@@ -244,9 +248,17 @@ def _marking_inputs(mesh):
         or data.get("mesh_faces") != sum(faces)
         or tuple(faces) != obj_face_counts(source)
     ):
-        raise InputArtifactError(f"{sidecar}: supply boundary_faces and their total mesh_faces")
+        raise InputArtifactError(
+            f"{sidecar}: supply boundary_faces and their total mesh_faces; for a generated "
+            f"OBJ run `{_REFRESH_COMMAND.format(mesh=source)}`, which rewrites "
+            "mesh_faces, boundary_faces and mesh_sha256 and keeps every other line"
+        )
     if data.get("mesh_sha256") != file_sha256(source):
-        raise InputArtifactError(f"{sidecar}: mesh_sha256 is stale; refresh the OBJ inventory")
+        raise InputArtifactError(
+            f"{sidecar}: mesh_sha256 is stale; the OBJ changed after its inventory. For a "
+            f"generated OBJ run `{_REFRESH_COMMAND.format(mesh=source)}`, which refreshes "
+            "mesh_faces, boundary_faces and mesh_sha256 and keeps every other line"
+        )
     if (
         not declarations.trailing_edges
         and not declarations.base_regions

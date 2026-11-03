@@ -710,6 +710,75 @@ def _obj_counted(path: Path) -> tuple[int, tuple[int, ...]]:
     return sum(counts), counts
 
 
+def refresh_obj_inventory(geometry: str | Path) -> Path:
+    """Rewrite ``mesh_faces``, ``boundary_faces`` and ``mesh_sha256`` of an OBJ's sidecar.
+
+    A generated OBJ that is built again keeps its sidecar, whose three counted fields then
+    describe the earlier file. This rewrites only those three keys, from the OBJ as it is
+    now, and keeps every other line, the ``[import]`` table and the declared trailing edges
+    included (PFS-2186.13). The sidecar's boundary list must still equal the OBJ's groups;
+    a list that changed is the user's to correct, so it is refused.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        The OBJ whose existing ``.obj.boundaries.toml`` is refreshed.
+
+    Returns
+    -------
+    Path
+        The sidecar rewritten.
+
+    Raises
+    ------
+    InputArtifactError
+        The geometry is not an existing OBJ, it has no sidecar, its groups differ from the
+        sidecar's boundary list, or its faces cannot be counted.
+    """
+    path = Path(geometry)
+    sidecar = inventory_sidecar(path, "obj")
+    if path.suffix.lower() != OBJ_SUFFIX or not path.is_file():
+        raise InputArtifactError(f"{path} is not an existing .obj, so no sidecar can be refreshed.")
+    if not sidecar.is_file():
+        raise InputArtifactError(
+            f"{sidecar} does not exist; write it with `pyfs-workspace geometry inventory {path}` "
+            "(without --refresh)."
+        )
+    if read_inventory(sidecar) != obj_boundary_names(path):
+        raise InputArtifactError(
+            f"{sidecar}: its boundaries differ from the groups of {path.name}, and --refresh "
+            "rewrites only mesh_faces, boundary_faces and mesh_sha256; correct the boundary "
+            "list by hand first (docs/mesh-inputs.md)."
+        )
+    fresh = {
+        line.split(" = ", 1)[0]: line
+        for line in face_count_lines(path, len(read_inventory(sidecar)), obj=True)
+        if not line.startswith("#")
+    }
+    if MESH_SHA256_KEY not in fresh:
+        raise InputArtifactError(f"{path}: its faces could not be counted, so nothing was changed")
+    text = sidecar.read_bytes().decode("utf-8")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    kept: list[str] = []
+    header = None
+    for line in text.splitlines():
+        key = line.split("=", 1)[0].strip()
+        if header is None and line.startswith("["):
+            header = len(kept)
+        if header is None and key in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY):
+            if key in fresh:
+                kept.append(fresh.pop(key))
+            continue
+        kept.append(line)
+    if fresh:
+        at = len(kept) if header is None else header
+        while at > 0 and header is not None and not kept[at - 1].strip():
+            at -= 1
+        kept[at:at] = list(fresh.values())
+    sidecar.write_bytes((newline.join(kept) + newline).encode("utf-8"))
+    return sidecar
+
+
 def stated_mesh_faces(sidecar: Path) -> tuple[int, str] | None:
     """Return the face count an inventory states and the sha256 it was counted in, or None.
 
