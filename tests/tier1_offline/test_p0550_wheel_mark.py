@@ -296,3 +296,35 @@ def test_p0550_merge_checks_the_obj_form_it_writes_not_the_name_asked(tmp_path: 
     ):
         merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "merged.txt")
     assert (tmp_path / "merged.obj").read_text() == "not this verb's"
+
+
+@pytest.mark.requirement("FR-3544")
+def test_p0550_an_adapt_path_that_is_not_the_part_of_that_name_is_warned_naming_both(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    elsewhere = tmp_path / "x" / second.name
+    with pytest.warns(PyflightstreamWarning, match="is not the path of the part") as caught:
+        merged = merge_objs(first, second, threshold=0.01, adapt=elsewhere, out=tmp_path / "a.obj")
+    said = " ".join(str(item.message) for item in caught)
+    assert str(elsewhere) in said and str(second) in said
+    # The part of that name is the one adapted, as the output's first line states.
+    assert merged.obj is not None
+    assert "kept one.obj, adapted two.obj" in merged.obj.read_text().splitlines()[0]
+
+
+@pytest.mark.requirement("FR-3544")
+@pytest.mark.parametrize("form", ["path", "bare"])
+def test_p0550_an_adapt_that_names_the_part_itself_has_no_such_word(
+    tmp_path: Path, form: str
+) -> None:
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    adapt = second if form == "path" else Path(second.name)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        merge_objs(first, second, threshold=0.01, adapt=adapt, out=tmp_path / "a.obj")
+    assert not [item for item in caught if "is not the path" in str(item.message)]

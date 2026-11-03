@@ -984,6 +984,13 @@ def _which_adapted(first: Path, second: Path, adapt: Path) -> tuple[Path, Path]:
         raise _refuse(
             f"adapt (CLI: --adapt) {adapt} names neither {first} nor {second}; name one of the two"
         )
+    if adapt.parent != Path(".") and hits[0].resolve() != resolved:
+        warn(
+            f"adapt (CLI: --adapt) {adapt} is not the path of the part of that name, {hits[0]}; "
+            "that part is the one adapted",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     return (second, first) if hits[0] == first else (first, second)
 
 
