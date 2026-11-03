@@ -23,7 +23,7 @@
 \begin{multicols}{4}
 
 \stage{1. PREPARE THE WORKSPACE AND THE MATRIX}
-\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
+\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
 \begin{flags}
 \item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
 \item \fl{--clean} remove the saved solver actions; copy kept as \texttt{<file>.bak-<stamp>}
@@ -319,9 +319,9 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{geometry beam <geometry>}{cut each blade family's sections from the mesh into \texttt{<geometry>.<family>.beam.toml}; \fl{--families A,B}, \fl{--stations N}; \fl{--visual-inspection} also draws \texttt{.beam.pdf}; \fl{--verbose}, \fl{--log-level LEVEL}}
 \sub{geometry sector-to-wheel <sector>}{copy one sector (an OBJ with its boundaries file, or a saved simulation, no solver) about an axis into a full wheel of the same kind: seam nodes merged, one blade surface per copy, a boundaries file and rim points files for an OBJ, \texttt{<out stem>.wheel.json} with the checks; exit 2 for a refusal or a saved layout not recognized}
 \fl{--copies N} required; \fl{--blades FAMILY...} required, the surfaces that are blades; \fl{--axis x|y|z|X,Y,Z} (x); \fl{--hub X Y Z} (origin); \fl{--tolerance METRES} (1e-4); \fl{--out PATH}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}
-\sub{geometry sector-remesh <sector.fsm>}{rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces (blunt trailing edge, one blade per sector, a nacelle with a flat base; no solver): chord clustered at the leading edge only, constant span cells, every row at one radius from mid blade out, the spinner adapting to the root row; \texttt{<out stem>.remesh.json} with the checks; a sector of another topology is warned, nothing is written and the exit is 2}
+\sub{geometry sector-remesh <sector.fsm>}{rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces (blunt trailing edge, one blade per sector, a nacelle with a flat base; no solver): chord clustered at the leading edge only, constant span cells, every row at one radius from mid blade out, the spinner adapting to the root row; \texttt{<out stem>.remesh.json} with the checks; a sector of another topology is warned, nothing is written and the exit is 2; \fl{--verbose}, \fl{--log-level LEVEL}}
 \fl{--blades FAMILY} required, the one blade; \fl{--chord-cells N}, \fl{--le F}, \fl{--span-cell METRES} required; \fl{--axis x|y|z} (x); \fl{--tip-ratio} (0.6); \fl{--tip-length METRES} (0.2); \fl{--tip-radius METRES} (the blade's largest radius, warned); \fl{--spinner-theta N} (12), \fl{--spinner-layers N} (4), \fl{--spinner-rings N} (7); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--root-margin-r F} and \fl{--nose-radius-r F} fractions of the tip radius (0.038); \fl{--out PATH}; \fl{--overwrite}
-\sub{geometry power-off-body <sector.fsm>}{write the power-off body of a saved sector as a saved simulation: a closed spinner and the nacelle of \texttt{sector-remesh} (the same nodes), \fl{--copies} sectors merged across the seams, full quad, no blade; \texttt{<out stem>.body.json}}
+\sub{geometry power-off-body <sector.fsm>}{write the power-off body of a saved sector as a saved simulation: a closed spinner and the nacelle of \texttt{sector-remesh} (the same nodes), \fl{--copies} sectors merged across the seams, full quad, no blade; \texttt{<out stem>.body.json}; \fl{--verbose}, \fl{--log-level LEVEL}}
 \fl{--blades FAMILY} and \fl{--copies N} required; \fl{--axis x|y|z} (x); \fl{--spinner-theta N} (6), \fl{--spinner-rings N} (12); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--nose-radius-r F} (0.038); \fl{--tip-radius METRES}; \fl{--out PATH}; \fl{--overwrite}
 \sub{geometry merge <a.obj> <b.obj>}{join two trimmed OBJ along their open boundaries within a distance; \fl{--threshold LENGTH}, \fl{--adapt OBJ} (the part adapted, the other kept unchanged), \fl{--out OBJ}, \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}}
 \sub{geometry identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
@@ -365,7 +365,7 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
-\sub{geometry inventory <geometry>}{as \cmd{inventory} of \texttt{pyfs-matrix}, whose home this group is}
+\sub{geometry inventory <geometry>}{as \cmd{inventory} of \texttt{pyfs-matrix}, whose home this group is; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
 \begin{flags}
 \item \fl{--overwrite} \quad \fl{--clean} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}

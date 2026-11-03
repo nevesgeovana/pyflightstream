@@ -596,6 +596,11 @@
       "path": "post/_admit.py"
     },
     {
+      "id": "pyflightstream.post._cn_slope",
+      "layer": 0,
+      "path": "post/_cn_slope.py"
+    },
+    {
       "id": "pyflightstream.post._condition",
       "layer": 0,
       "path": "post/_condition.py"
@@ -911,6 +916,11 @@
       "path": "qa/_spec_0460_marking.py"
     },
     {
+      "id": "pyflightstream.qa._spec_0540_marking",
+      "layer": 0,
+      "path": "qa/_spec_0540_marking.py"
+    },
+    {
       "id": "pyflightstream.qa._spec_26125",
       "layer": 0,
       "path": "qa/_spec_26125.py"
@@ -1121,6 +1131,11 @@
       "path": "run/_cli_geometry.py"
     },
     {
+      "id": "pyflightstream.run._cli_merge",
+      "layer": 1,
+      "path": "run/_cli_merge.py"
+    },
+    {
       "id": "pyflightstream.run._cli_mesh",
       "layer": 1,
       "path": "run/_cli_mesh.py"
@@ -1154,6 +1169,11 @@
       "id": "pyflightstream.run._cli_query_point",
       "layer": 1,
       "path": "run/_cli_query_point.py"
+    },
+    {
+      "id": "pyflightstream.run._cli_wheel",
+      "layer": 1,
+      "path": "run/_cli_wheel.py"
     },
     {
       "id": "pyflightstream.run._collect_logs",
@@ -1521,6 +1541,11 @@
       "path": "workspace/_mark_boundaries.py"
     },
     {
+      "id": "pyflightstream.workspace._mark_rims",
+      "layer": 2,
+      "path": "workspace/_mark_rims.py"
+    },
+    {
       "id": "pyflightstream.workspace._matrix_binding",
       "layer": 2,
       "path": "workspace/_matrix_binding.py"
@@ -1534,6 +1559,11 @@
       "id": "pyflightstream.workspace._matrix_phases",
       "layer": 2,
       "path": "workspace/_matrix_phases.py"
+    },
+    {
+      "id": "pyflightstream.workspace._merge",
+      "layer": 2,
+      "path": "workspace/_merge.py"
     },
     {
       "id": "pyflightstream.workspace._missing_log",
@@ -1646,6 +1676,31 @@
       "path": "workspace/_script_comparison.py"
     },
     {
+      "id": "pyflightstream.workspace._sector_body",
+      "layer": 2,
+      "path": "workspace/_sector_body.py"
+    },
+    {
+      "id": "pyflightstream.workspace._sector_driver",
+      "layer": 2,
+      "path": "workspace/_sector_driver.py"
+    },
+    {
+      "id": "pyflightstream.workspace._sector_read",
+      "layer": 2,
+      "path": "workspace/_sector_read.py"
+    },
+    {
+      "id": "pyflightstream.workspace._sector_remesh",
+      "layer": 2,
+      "path": "workspace/_sector_remesh.py"
+    },
+    {
+      "id": "pyflightstream.workspace._sector_save",
+      "layer": 2,
+      "path": "workspace/_sector_save.py"
+    },
+    {
       "id": "pyflightstream.workspace._settings_file",
       "layer": 2,
       "path": "workspace/_settings_file.py"
@@ -1664,6 +1719,16 @@
       "id": "pyflightstream.workspace._visual_inspect",
       "layer": 2,
       "path": "workspace/_visual_inspect.py"
+    },
+    {
+      "id": "pyflightstream.workspace._wheel",
+      "layer": 2,
+      "path": "workspace/_wheel.py"
+    },
+    {
+      "id": "pyflightstream.workspace._wheel_fsm",
+      "layer": 2,
+      "path": "workspace/_wheel_fsm.py"
     },
     {
       "id": "pyflightstream.workspace.actuator_profiles",
@@ -5523,6 +5588,26 @@
       "kind": "typing"
     },
     {
+      "source": "pyflightstream.post._cn_slope",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._cn_slope",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._cn_slope",
+      "target": "pyflightstream.post._sim",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._cn_slope",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._condition",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6156,6 +6241,11 @@
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._admit",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._sim",
+      "target": "pyflightstream.post._cn_slope",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -8323,6 +8413,41 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream.qa._spec_0460_marking",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream.qa._spec_kit",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream.qa.probes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0540_marking",
+      "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.qa._spec_26125",
       "target": "pyflightstream.qa._spec_catalog_b",
       "kind": "module"
@@ -8915,6 +9040,11 @@
     {
       "source": "pyflightstream.qa.specs",
       "target": "pyflightstream.qa._spec_0460_marking",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa.specs",
+      "target": "pyflightstream.qa._spec_0540_marking",
       "kind": "module"
     },
     {
@@ -9934,7 +10064,17 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.run._cli_merge",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.run._cli_wheel",
       "kind": "module"
     },
     {
@@ -10003,6 +10143,16 @@
       "kind": "deferred"
     },
     {
+      "source": "pyflightstream.run._cli_merge",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_merge",
+      "target": "pyflightstream.workspace",
+      "kind": "deferred"
+    },
+    {
       "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -10040,6 +10190,11 @@
     {
       "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream.workspace.inputs",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_mesh",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "deferred"
     },
     {
@@ -10296,6 +10451,16 @@
       "source": "pyflightstream.run._cli_query_point",
       "target": "pyflightstream.workspace.ledger",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_wheel",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_wheel",
+      "target": "pyflightstream.workspace",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._collect_logs",
@@ -11969,6 +12134,11 @@
     },
     {
       "source": "pyflightstream.run.records",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.records",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -12025,6 +12195,11 @@
     {
       "source": "pyflightstream.run.records",
       "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.records",
+      "target": "pyflightstream.workspace._free_space",
       "kind": "module"
     },
     {
@@ -12209,6 +12384,11 @@
     },
     {
       "source": "pyflightstream.script._marking",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._marking",
       "target": "pyflightstream._lengths",
       "kind": "deferred"
     },
@@ -12255,6 +12435,11 @@
     {
       "source": "pyflightstream.script._settings",
       "target": "pyflightstream._decimal",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._settings",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -12639,6 +12824,11 @@
     },
     {
       "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace._merge",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace._missing_log",
       "kind": "module"
     },
@@ -12649,7 +12839,17 @@
     },
     {
       "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace._sector_driver",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace._visual_inspect",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace._wheel",
       "kind": "module"
     },
     {
@@ -13209,11 +13409,6 @@
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
-      "target": "pyflightstream._lengths",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -13244,11 +13439,46 @@
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace._mark_rims",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace.wake_edges",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
+      "target": "pyflightstream._fsm",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
+      "target": "pyflightstream._lengths",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
+      "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_rims",
       "target": "pyflightstream.workspace.wake_edges",
       "kind": "module"
     },
@@ -13400,6 +13630,61 @@
     {
       "source": "pyflightstream.workspace._matrix_phases",
       "target": "pyflightstream.workspace.sixdof_setup",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._audit",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._geometry",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._level",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._remesh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace._refine._remesh_group",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._merge",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
@@ -13903,6 +14188,91 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._sector_body",
+      "target": "pyflightstream.workspace._sector_read",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_body",
+      "target": "pyflightstream.workspace._sector_save",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream.workspace._sector_body",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream.workspace._sector_read",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream.workspace._sector_remesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream.workspace._sector_save",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_driver",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_read",
+      "target": "pyflightstream.workspace._wheel_fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_remesh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_remesh",
+      "target": "pyflightstream.workspace._sector_read",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_remesh",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_save",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_save",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._sector_save",
+      "target": "pyflightstream.workspace._wheel_fsm",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._settings_file",
       "target": "pyflightstream._cli",
       "kind": "module"
@@ -13951,6 +14321,71 @@
       "source": "pyflightstream.workspace._visual_inspect",
       "target": "pyflightstream.workspace._refine._nastran",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream.workspace._geometry_sidecar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream.workspace._wheel_fsm",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream._errors",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel_fsm",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.workspace.actuator_profiles",
