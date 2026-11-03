@@ -120,7 +120,7 @@ class BoundaryMarkingPlan:
         and skipped is none, and an ``auto`` rim follows the file rims.
         """
         declared = self.declarations
-        units = [*(entry.marking for entry in declared.trailing_edges)]
+        units: list[Any] = [*(entry.marking for entry in declared.trailing_edges)]
         units += [region.trailing_edges for region in declared.base_regions]
         vertex_files = declared.fs_build == VERTEX_FILE_BUILD
         rim_sets = iter(self.sets)

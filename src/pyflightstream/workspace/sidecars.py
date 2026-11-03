@@ -768,8 +768,8 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
     rewritten = newline.join(kept) + newline
     counted = {MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY}
     try:
-        declared = tomllib.loads(text.removeprefix("﻿"))
-        same = _without_keys(tomllib.loads(rewritten.removeprefix("﻿")), counted) == (
+        declared = tomllib.loads(text.removeprefix("\ufeff"))
+        same = _without_keys(tomllib.loads(rewritten.removeprefix("\ufeff")), counted) == (
             _without_keys(declared, counted)
         )
     except tomllib.TOMLDecodeError as error:

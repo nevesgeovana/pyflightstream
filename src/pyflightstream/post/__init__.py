@@ -172,7 +172,9 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._settings_product` (the settings table and its
   codebook as a campaign product, FR-419) and
   :mod:`pyflightstream.post._installed_copies` (the installed-frame copies of
-  the probes table and the reusable inflow profile, FR-420).
+  the probes table and the reusable inflow profile, FR-420) and
+  :mod:`pyflightstream.post._cn_slope` (the normal-force slope of a rotor table
+  against incidence, FR-3502).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
