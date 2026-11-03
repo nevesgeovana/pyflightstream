@@ -819,30 +819,47 @@ def _facing_edges(mesh: ObjMesh, kept_nodes: int, reach: float) -> int:
     open edge of the other part is no longer than ``reach`` and stays near normal to
     both edges (:data:`FACING_COSINE`). The boundaries that run on from an interface's
     end and leave it (a symmetry plane, a part's far side) meet that line along
-    themselves, so they do not count.
+    themselves, so they do not count. Neither does an edge whose own face lies between
+    it and the other part, further than that face's depth: a part's far boundary can be
+    near the other's, and it is no gap.
     """
-    open_edges = _geometry.boundary_edges(_all_faces(mesh))
+    faces = _all_faces(mesh)
+    around = _geometry.edge_faces(faces)
+    owner = {e: faces[fs[0]] for e, fs in around.items() if len(fs) == 1}
+    open_edges = sorted(owner)
     kept = [e for e in open_edges if e[1] < kept_nodes]
     other = [e for e in open_edges if e[1] >= kept_nodes]
-    return _facing_one_way(mesh.verts, kept, other, reach) + _facing_one_way(
-        mesh.verts, other, kept, reach
+    return _facing_one_way(mesh.verts, kept, other, reach, owner) + _facing_one_way(
+        mesh.verts, other, kept, reach, owner
     )
 
 
 def _facing_one_way(
-    verts: Points, edges: Sequence[Edge], others: Sequence[Edge], reach: float
+    verts: Points,
+    edges: Sequence[Edge],
+    others: Sequence[Edge],
+    reach: float,
+    owner: Mapping[Edge, list[int]],
 ) -> int:
     """Return how many edges see an edge of ``others`` across a line near normal to both."""
     if not edges or not others:
         return 0
     a, b = _segments(verts, edges)
     c, d = _segments(verts, others)
-    distance, along, line = _to_nearest(0.5 * (a + b), c, d)
+    middle = 0.5 * (a + b)
+    distance, along, line = _to_nearest(middle, c, d)
+    # In the surface and out of the part: from the middle of the edge's face to the edge.
+    outward = middle - numpy.array([verts[owner[e]].mean(axis=0) for e in edges])
+    depth = numpy.linalg.norm(outward, axis=1)
+    toward = (line * outward).sum(axis=1) / numpy.maximum(distance * depth, 1e-300)
+    # A line shorter than that is a small overlap across the cut, which is a gap like another.
+    outside = (toward > -FACING_COSINE) | (distance <= depth)
     facing = (
         (distance > 0.0)
         & (distance <= reach)
         & (_cosine(line, b - a) < FACING_COSINE)
         & (_cosine(line, along) < FACING_COSINE)
+        & outside
     )
     return int(facing.sum())
 

@@ -842,3 +842,41 @@ def test_p0540_merge_a_boundary_running_on_from_the_cut_is_no_part_of_the_interf
     ]
     assert len(plane) == 4 * 40
     assert out.groups["Kept"] == source_kept.faces
+
+
+@pytest.mark.parametrize("scale", [1.0, 1000.0, 0.001], ids=["unit", "thousand", "thousandth"])
+@pytest.mark.requirement("FR-3487")
+def test_p0540_merge_a_short_parts_far_boundary_faces_nothing(tmp_path, scale):
+    """Two short collars closed along the cut: their far rings are near and no gap, at any unit.
+
+    The warning tells the caller to raise the threshold, which would join those two rings.
+    A real gap on the same parts is counted, at any unit.
+    """
+
+    def part(stations, family, **options):
+        nodes, faces, name = _tube(24, stations, family=family, **options)
+        return [[scale * c for c in n] for n in nodes], faces, name
+
+    (merged, _, _, _), messages = _quiet_merge(
+        tmp_path,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted"),
+        0.01 * scale,
+    )
+    assert merged.interface_edges == 24
+    assert merged.open_edges_left == 48
+    assert merged.facing_edges_left == 0
+    assert not [m for m in messages if "still face" in m]
+
+    def lifted(i: int, t: float) -> float:
+        return 0.06 if i == 0 and math.cos(t) > 0.1 else 0.0
+
+    gap = tmp_path / "gap"
+    gap.mkdir()
+    (merged, _, _, _), _ = _quiet_merge(
+        gap,
+        part((-0.2, -0.1, 0.0), "Kept"),
+        part((0.0, 0.1, 0.2), "Adapted", shift=lifted),
+        0.01 * scale,
+    )
+    assert merged.facing_edges_left > 0
