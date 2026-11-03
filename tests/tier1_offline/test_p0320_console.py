@@ -94,6 +94,8 @@ def _value(action: argparse.Action, workspace: Path) -> list[str]:
         return [str(workspace)]
     if action.choices:
         return [str(next(iter(action.choices)))]
+    if action.nargs == 2:
+        return ["missing-input.txt", "missing-input.txt"]
     if action.nargs == 3:
         return ["0", "0", "0"]
     if action.type in (int, float):
