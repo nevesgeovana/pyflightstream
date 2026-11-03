@@ -516,7 +516,11 @@ class TestG67CommandCoverage:
     def test_p0400_g67_lost_emitter_table_row_fails(tmp_path: Path):
         """P0400-G67 control: a live key/register without its actual emitter row fails."""
         copied_root = tmp_path / "repo"
-        shutil.copytree(ROOT / "src/pyflightstream", copied_root / "src/pyflightstream")
+        shutil.copytree(
+            ROOT / "src/pyflightstream",
+            copied_root / "src/pyflightstream",
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
         path = copied_root / "src/pyflightstream/script/_settings.py"
         text = path.read_text("utf-8")
         old = 'Row("convergence", "SOLVER_SET_CONVERGENCE")'
