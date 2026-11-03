@@ -818,3 +818,27 @@ def test_p0540_merge_an_adapted_node_past_the_kept_chain_is_not_dragged_onto_it(
     assert [source.nodes[v] for v in past if source.nodes[v] not in written] == []
     assert merged.turned_faces == 0
     assert out.nodes[: len(source_kept.nodes)] == source_kept.nodes
+
+
+@pytest.mark.requirement("FR-3481")
+def test_p0540_merge_a_boundary_running_on_from_the_cut_is_no_part_of_the_interface(tmp_path):
+    """A threshold past the cells beside a half body's plane closes the cut node for node.
+
+    The plane's boundaries of the two parts meet at the cut's two ends, within the
+    threshold of the other part. They run on from the cut, and joining them folds the faces.
+    """
+    kept = _tube(24, tuple(numpy.linspace(-1.0, 0.0, 41).tolist()), sweep=math.pi, family="Kept")
+    adapted = _tube(
+        24, tuple(numpy.linspace(0.0, 1.0, 41).tolist()), sweep=math.pi, family="Adapted"
+    )
+    (merged, out, source_kept, _), _ = _quiet_merge(tmp_path, kept, adapted, 0.2)
+    assert merged.interface_edges == 24
+    assert merged.moved_nodes == 25
+    assert len(merged.audit.degenerate_faces) == 0
+    plane = [
+        e
+        for e in _open_edges(out)
+        if abs(out.points[e[0], 2]) < 1e-9 and abs(out.points[e[1], 2]) < 1e-9
+    ]
+    assert len(plane) == 4 * 40
+    assert out.groups["Kept"] == source_kept.faces

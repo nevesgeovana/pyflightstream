@@ -75,6 +75,9 @@ FACING_REACH = 0.25
 #: The passes that drop an edge whose ends lie nearest two chains at most; a pass only removes
 #: edges, and a chain settles in one or two.
 NARROW_PASSES = 8
+#: An edge whose middle lies this fraction of its length from the other's boundary lies on it:
+#: the direction of a line that short is rounding, so it says nothing of running on.
+ON_EDGE_FRACTION = 1e-6
 
 Edge = tuple[int, int]
 
@@ -261,7 +264,9 @@ def _interface(
     touches a stretch of it that joined no chain is not an interface node.
     """
     k_edges = _reaching(kept_open, kept, adapted_open, adapted, threshold)
+    k_edges = _without_run_on(k_edges, kept, adapted_open, adapted)
     a_edges = _reaching(adapted_open, adapted, kept_open, kept, threshold)
+    a_edges = _without_run_on(a_edges, adapted, kept_open, kept)
     k_edges, a_edges = _narrowed(k_edges, kept, a_edges, adapted)
     # An adapted node can touch the kept boundary where no kept edge joined a chain, and it
     # then has no kept node to take within reach: it stays out, so a chain's end moves by
@@ -278,6 +283,38 @@ def _reaching(
     """Return the edges whose two ends lie within the threshold of the edges ``others``."""
     near = _within(_nodes_of(edges), verts, others, other, threshold)
     return [e for e in edges if e[0] in near and e[1] in near]
+
+
+def _without_run_on(
+    edges: Sequence[Edge], verts: Points, others: Sequence[Edge], other: Points
+) -> list[Edge]:
+    """Return the edges left when each open chain loses the end edges that only run on from it.
+
+    A boundary leaving the interface at a chain's end (a symmetry plane, a part's far side)
+    is within a threshold wider than its cells, and meets the other part along itself:
+    the line from its middle to the other's nearest open edge is near parallel to it
+    (:data:`FACING_COSINE`), where an edge across the interface sees the other part abeam.
+    An edge inside a chain is never one of them, so only the ends are read.
+    """
+    if not edges or not others:
+        return []
+    a, b = _segments(verts, edges)
+    c, d = _segments(other, others)
+    middle = 0.5 * (a + b)
+    distance, _, line = _to_nearest(middle, c, d)
+    on_it = distance <= ON_EDGE_FRACTION * numpy.linalg.norm(b - a, axis=1)
+    across = on_it | (_cosine(line, b - a) < FACING_COSINE)
+    is_across = {e: bool(flag) for e, flag in zip(edges, across, strict=True)}
+    left: list[Edge] = []
+    for chain in _walk(edges):
+        run = chain.edges
+        if not chain.closed:
+            while run and not is_across[run[0]]:
+                run = run[1:]
+            while run and not is_across[run[-1]]:
+                run = run[:-1]
+        left += run
+    return sorted(left)
 
 
 def _narrowed(
@@ -800,25 +837,30 @@ def _facing_one_way(
         return 0
     a, b = _segments(verts, edges)
     c, d = _segments(verts, others)
-    middle = 0.5 * (a + b)
+    distance, along, line = _to_nearest(0.5 * (a + b), c, d)
+    facing = (
+        (distance > 0.0)
+        & (distance <= reach)
+        & (_cosine(line, b - a) < FACING_COSINE)
+        & (_cosine(line, along) < FACING_COSINE)
+    )
+    return int(facing.sum())
+
+
+def _to_nearest(middle: Points, c: Points, d: Points) -> tuple[Points, Points, Points]:
+    """Return per point the distance to the nearest segment c-d, that segment and the line to it."""
     distance, nearest = _geometry.segment_distances(middle, c, d)
     along = d[nearest] - c[nearest]
     t = ((middle - c[nearest]) * along).sum(axis=1) / numpy.maximum(
         (along * along).sum(axis=1), 1e-300
     )
-    line = c[nearest] + numpy.clip(t, 0.0, 1.0)[:, None] * along - middle
+    return distance, along, c[nearest] + numpy.clip(t, 0.0, 1.0)[:, None] * along - middle
 
-    def cosine(edge: Points) -> NDArray[numpy.float64]:
-        lengths = numpy.linalg.norm(line, axis=1) * numpy.linalg.norm(edge, axis=1)
-        return numpy.abs((line * edge).sum(axis=1)) / numpy.maximum(lengths, 1e-300)
 
-    facing = (
-        (distance > 0.0)
-        & (distance <= reach)
-        & (cosine(b - a) < FACING_COSINE)
-        & (cosine(along) < FACING_COSINE)
-    )
-    return int(facing.sum())
+def _cosine(line: Points, edge: Points) -> NDArray[numpy.float64]:
+    """Return the absolute cosine between each line and edge, zero for a line of no length."""
+    lengths = numpy.linalg.norm(line, axis=1) * numpy.linalg.norm(edge, axis=1)
+    return numpy.abs((line * edge).sum(axis=1)) / numpy.maximum(lengths, 1e-300)
 
 
 def _turned_faces(source: ObjMesh, adapted: _Adapted, kept: Points) -> int:
