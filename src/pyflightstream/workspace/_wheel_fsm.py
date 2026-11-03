@@ -255,8 +255,8 @@ def _parse(text: str) -> _Parsed:
         _need(label in names, f"the physics block names {label!r}, which is no boundary")
     ids = [h[0] for h in mesh["heads"]]
     _need(
-        ids == list(range(ids[0], ids[0] + len(ids))) and int(lines[mesh["start"] + 2]) == ids[-1],
-        "the boundary ids are not consecutive, ending at the second header value",
+        ids == list(range(ids[0], ids[0] + len(ids))) and int(lines[mesh["start"] + 2]) >= ids[-1],
+        "the boundary ids are not consecutive, or the second header value is below the last id",
     )
     count = len(mesh["term"][0]) if mesh["term"] else 0
     _need(len(phys["term_names"]) == count, "the termination entries differ in number")
