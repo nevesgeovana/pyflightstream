@@ -41,6 +41,7 @@ from __future__ import annotations
 import itertools
 import json
 import math
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1188,6 +1189,7 @@ def _write_obj(
     sidecar = inventory_sidecar(out, "obj")
     record = out.with_name(f"{out.stem}.wheel.json")
     refuse_existing([out, sidecar, record, *written.points], opts.overwrite)
+    earlier = _earlier_points(sidecar, out) if opts.overwrite else []
     out.parent.mkdir(parents=True, exist_ok=True)
     header = [
         f"# Full wheel of {path.name}: {opts.copies} copies about axis "
@@ -1214,5 +1216,20 @@ def _write_obj(
     for file, (file_unit, points) in written.points.items():
         write_te(file, file_unit, points)
         files.append(file)
+    for stale in earlier:
+        if stale not in written.points:
+            stale.unlink(missing_ok=True)
     files.append(write_json(record, report))
     return WheelResult(True, out, files, report)
+
+
+def _earlier_points(sidecar: Path, out: Path) -> list[Path]:
+    """Return the points files an earlier wheel of this name declared in its boundaries file.
+
+    Those files are the ones this verb wrote; a wheel of fewer copies no longer owns the others.
+    """
+    if not sidecar.is_file():
+        return []
+    text = sidecar.read_text(encoding="utf-8", errors="replace")
+    pattern = r'"(' + re.escape(out.stem) + r'\.[^"/\\]+\.te\.txt)"'
+    return [out.with_name(name) for name in dict.fromkeys(re.findall(pattern, text))]

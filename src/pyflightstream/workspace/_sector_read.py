@@ -34,7 +34,6 @@ from pyflightstream.workspace._wheel_fsm import _parse, _UnrecognizedError
 __all__ = ["Frame", "Sector", "TopologyNotFoundError", "read_sector"]
 
 _PERMUTATION = {"x": (0, 1, 2), "y": (1, 2, 0), "z": (2, 0, 1)}
-_SEAM_FRACTION = 0.2 / 60.0  # a node is on a seam within this fraction of the sector angle
 _SNAP_DEG = 0.05  # a sector angle this close to 360/N is 360/N; further, the caller warns
 _ON_AXIS = 1e-6  # a node closer to the axis than this fraction of the largest radius is a pole
 

@@ -65,3 +65,26 @@ def test_p0550_the_body_verb_does_not_speak_of_the_rows_of_a_remesh(tmp_path: Pa
         )
     )
     assert "the rows of a remesh stop short" in remesh
+
+
+@pytest.mark.requirement("FR-3521")
+def test_p0550_an_overwritten_wheel_of_fewer_copies_leaves_no_points_file_of_the_old_one(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace._wheel import sector_to_wheel
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    sector = build_sector(tmp_path)
+    out = tmp_path / "out" / "wheel.obj"
+    out.parent.mkdir()
+    sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=out)
+    assert out.with_name("wheel.TE_a_6.te.txt").is_file()
+    stranger = out.with_name("wheel.mine.te.txt")
+    stranger.write_text("METER\n", encoding="utf-8")
+    again = sector_to_wheel(sector.obj, copies=3, blades=["Blade1"], out=out, overwrite=True)
+    names = sorted(p.name for p in out.parent.glob("*.te.txt"))
+    assert not any(f"_{k}.te.txt" in n for n in names for k in (4, 5, 6)), names
+    assert {"wheel.TE_a_3.te.txt", "wheel.TE_b_1.te.txt", "wheel.N.te.txt"} <= set(names)
+    assert stranger.is_file()
+    written = {p.name for p in again.files if p.name.endswith(".te.txt")}
+    assert written == set(names) - {stranger.name}

@@ -43,7 +43,6 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
-from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import (
     MeshReadError,
@@ -606,19 +605,16 @@ def _result(
     report = report_of((xyz, sector), (nodes, wheel), facts, opts, tol)
     report["faces"] = {"sector": nf, "wheel": nf * n}
     counts = numpy.bincount(
-        numpy.concatenate(
-            [_boundary_of_copy(ints[11], c, maps, parsed.mesh["heads"]) for c in range(n)]
-        ),
+        numpy.concatenate([_boundary_of_copy(ints[11], c, maps) for c in range(n)]),
         minlength=len(boundaries) + 1,
     )
     report.update(
         provenance(path, "fsm", unit, [(b, int(counts[i + 1])) for i, b in enumerate(boundaries)])
     )
-    report["source_sha256"] = file_sha256(path)
     return WheelResult(True, opts.out, [opts.out, write_json(record, report)], report)
 
 
-def _boundary_of_copy(owner: Any, copy: int, maps: _Maps, heads: list[Any]) -> Any:
+def _boundary_of_copy(owner: Any, copy: int, maps: _Maps) -> Any:
     """Return the new boundary position of each face of one copy."""
     out = owner.copy()
     if copy:
