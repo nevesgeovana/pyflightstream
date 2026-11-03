@@ -82,6 +82,8 @@ PUBLIC_HOMES = {
     "derive_thin_blade": "pyflightstream.workspace._degenerate",
     "thin_blade_path": "pyflightstream.workspace._degenerate",
     "missing_log_warning": "pyflightstream.workspace._missing_log",
+    "WheelResult": "pyflightstream.workspace._wheel",
+    "sector_to_wheel": "pyflightstream.workspace._wheel",
 }
 
 

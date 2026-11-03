@@ -226,6 +226,8 @@ from pyflightstream.workspace._refine import audit_mesh as audit_mesh
 from pyflightstream.workspace._refine import prepare_to_refine as prepare_to_refine
 from pyflightstream.workspace._refine import refine_mesh as refine_mesh
 from pyflightstream.workspace._visual_inspect import visual_inspect as visual_inspect
+from pyflightstream.workspace._wheel import WheelResult as WheelResult
+from pyflightstream.workspace._wheel import sector_to_wheel as sector_to_wheel
 from pyflightstream.workspace.fsi_external_setup import FsiExternalSetupError  # noqa: F401
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
@@ -383,6 +385,8 @@ __all__ = [
 # FR-429: public thin-blade derivation.
 __all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
 __all__ += ["missing_log_warning"]
+# PFS-2186.01: a full wheel from a sector.
+__all__ += ["WheelResult", "sector_to_wheel"]
 
 
 def collection_name(declared: str | Path) -> str:

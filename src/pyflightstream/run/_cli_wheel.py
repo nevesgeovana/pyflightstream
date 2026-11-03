@@ -71,7 +71,7 @@ def _add_sector_to_wheel(verbs: Any) -> None:
 
 def _cmd_sector_to_wheel(args: argparse.Namespace) -> int:
     """Run ``geometry sector-to-wheel``: print the files and the checks, return the exit code."""
-    from pyflightstream.workspace._wheel import sector_to_wheel
+    from pyflightstream.workspace import sector_to_wheel
 
     try:
         result = sector_to_wheel(

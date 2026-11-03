@@ -413,7 +413,7 @@ def refuse_existing(paths: Iterable[Path], overwrite: bool) -> None:
     if clash and not overwrite:
         raise InputArtifactError(
             f"{', '.join(p.name for p in clash)} already exist(s); pass --overwrite (overwrite="
-            f"True) to replace them, or name another --out. {_NOTHING}"
+            f"True) to replace them, or name another out (CLI: --out). {_NOTHING}"
         )
 
 
@@ -851,22 +851,27 @@ def validate_blades(
     names = list(known)
     chosen = list(dict.fromkeys(blades))
     if copies < 2:
-        raise InputValueError(f"--copies is {copies}; a wheel needs 2 or more. {_NOTHING}")
+        raise InputValueError(
+            f"copies (CLI: --copies) is {copies}; a wheel needs 2 or more. {_NOTHING}"
+        )
     if not chosen:
         raise InputValueError(
-            f"--blades names no {what}; name the {what}(s) that are the blade, one of "
+            f"blades (CLI: --blades) names no {what}; name the {what}(s) that are the blade, "
+            "one of "
             f"{', '.join(names)}. {_NOTHING}"
         )
     missing = [b for b in chosen if b not in names]
     if missing:
         raise InputValueError(
-            f"--blades names {', '.join(missing)}, which {'is' if len(missing) == 1 else 'are'} "
+            f"blades (CLI: --blades) names {', '.join(missing)}, which "
+            f"{'is' if len(missing) == 1 else 'are'} "
             f"not a {what} of the sector; the sector has {', '.join(names)}. {_NOTHING}"
         )
     stems = [stem_of(b) for b in chosen]
     if "" in stems or len(set(stems)) != len(stems):
         raise InputValueError(
-            f"--blades {', '.join(chosen)} would give copies the same name or none: the stem of "
+            f"blades (CLI: --blades) {', '.join(chosen)} would give copies the same name or none: "
+            "the stem of "
             "a name is the name without its trailing digits, and stems must be non-empty and "
             f"differ. Rename the {what}s. {_NOTHING}"
         )
@@ -941,7 +946,8 @@ def sector_to_wheel(
     target = Path(out) if out is not None else path.with_name(f"{path.stem}_wheel{suffix}")
     if target.suffix.lower() != suffix:
         warn(
-            f"--out {target.name} is not the sector's kind ({suffix}); the wheel takes the "
+            f"out (CLI: --out) {target.name} is not the sector's kind ({suffix}); "
+            "the wheel takes the "
             "sector's kind, as the output of a route does.",
             NotApplicableWarning,
             stacklevel=2,
@@ -949,11 +955,14 @@ def sector_to_wheel(
         target = target.with_suffix(suffix)
     if not (math.isfinite(tolerance) and tolerance > 0.0):
         raise InputValueError(
-            f"--tolerance {tolerance!r} must be a positive length in metres. {_NOTHING}"
+            f"tolerance (CLI: --tolerance) {tolerance!r} must be a positive length in "
+            f"metres. {_NOTHING}"
         )
     point = numpy.asarray([float(c) for c in hub], dtype=float)
     if point.shape != (3,) or not numpy.isfinite(point).all():
-        raise InputValueError(f"--hub {tuple(hub)!r} must be three finite numbers. {_NOTHING}")
+        raise InputValueError(
+            f"hub (CLI: --hub) {tuple(hub)!r} must be three finite numbers. {_NOTHING}"
+        )
     opts = Options(copies, list(blades), parse_axis(axis), point, tolerance, target, overwrite)
     if suffix == ".fsm":
         from pyflightstream.workspace._wheel_fsm import sector_fsm_to_wheel
