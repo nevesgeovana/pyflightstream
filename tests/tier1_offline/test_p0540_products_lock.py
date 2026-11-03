@@ -84,6 +84,24 @@ def test_p0540_restore_products_warns_and_skips_when_the_lock_stays_held(tmp_pat
     assert b"P_by_the_post" in manifest.read_bytes() or manifest.read_bytes() == current
 
 
+@pytest.mark.requirement("FR-3500")
+def test_p0540_restore_of_a_missing_products_archives_nothing(tmp_path):
+    """REL-K-005: the lock creates the absent file, and that empty file is no archived copy."""
+    workspace = _post_workspace(tmp_path)
+    write_campaign_products(workspace, overwrite=True)
+    manifest = workspace.products_dir(None) / "products.json"
+    write_campaign_products(workspace, overwrite=True, archive=True)
+    before = sorted(path for path in workspace.root.rglob("products.json") if path != manifest)
+    manifest.unlink()
+    done = restore(workspace.root, "products", matrix="products", apply=True)
+    assert done["applied"] is True and done["archived_as"] is None
+    assert json.loads(manifest.read_text(encoding="utf-8"))
+    after = sorted(path for path in workspace.root.rglob("products.json") if path != manifest)
+    assert after == before, "an empty products.json entered the archive"
+    # The newest archive is still a document, so a second restore has something to read.
+    assert restore(workspace.root, "products", matrix="products")["same"] is True
+
+
 def _synced_pair(tmp_path):
     main, other = _sync_pair(tmp_path, "locks")
     manifest = main.root / "post" / "m" / "products.json"
