@@ -97,8 +97,16 @@ from pyflightstream.script._build_forms import (  # noqa: F401  (this module is 
     takes_every_boundary,
     wake_edge_import_token,
 )
+from pyflightstream.script._marking import VERTEX_FILE_BUILD as VERTEX_FILE_BUILD
+from pyflightstream.script._marking import VERTEX_IMPORT_ROUTE as VERTEX_IMPORT_ROUTE
+from pyflightstream.script._marking import (
+    mark_trailing_edge_vertices as mark_trailing_edge_vertices,
+)
 from pyflightstream.script._marking import mark_wake_edges as mark_wake_edges
 from pyflightstream.script._marking import marking_import as marking_import
+from pyflightstream.script._marking import (
+    render_trailing_edge_vertex_file as render_trailing_edge_vertex_file,
+)
 from pyflightstream.script._phase_order import (
     selection_before_the_solve as selection_before_the_solve,
 )

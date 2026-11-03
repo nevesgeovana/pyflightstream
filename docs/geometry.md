@@ -434,6 +434,28 @@ inventory a triangular OBJ, add `fs_build = "26.125"`, `[import] units = "METER"
 and `[trailing_edges] none = true`, then run the first command above. It emits
 `SAVEAS`, never `INITIALIZE_SOLVER`, and leaves every input byte unchanged.
 
+**FlightStream 26.100.** That build has no `IMPORT_WAKE_EDGES_FROM_FILE`, so a file entry is
+marked by `TRAILING_EDGES_IMPORT`, which reads a file of vertices. The pass matches the
+entry's mid-point file to mesh edges, splits those edges into rims and writes one vertex file
+per rim beside the work script, with one import each, so no file names the edges that join
+the two sides of a blunt trailing edge. The read-back counts the saved trailing edges that
+join two rims of one entry, records the count in `wing.mark.json` and refuses a count above
+zero. Detection entries use the detection commands the 26.100 manual documents; an entry
+with an edge type other than `STANDARD`, and explicit wake-termination nodes, have no form on
+that build and are warned and skipped. The preview renders the script; `--apply` stays
+refused, naming the commands, until a probe on 26.100 has verified them. If a probe shows the
+solver route cannot mark the rims, the pass on 26.100 warns, names
+`pyfs-workspace geometry sector-to-wheel` on a saved sector and writes nothing.
+
+A long preview reports each stage on standard error (reading, matching and placing each entry,
+rendering), so a fine mesh is not silent.
+
+When the sidecar's `mesh_faces`, `boundary_faces` or `mesh_sha256` is missing or stale, as it
+is after a generated OBJ is built again, run
+`pyfs-workspace geometry inventory <mesh> --refresh`: it rewrites only those three keys from
+the file as it is now and keeps every other line, the `[import]` table and the declared
+trailing edges included. A changed boundary list is refused, since it is yours to correct.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take

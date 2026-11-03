@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from os import PathLike, fspath
 from typing import Protocol, cast
 
+from pyflightstream._errors import NotApplicableWarning, warn
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
     LENGTH_UNIT_COMMAND,
@@ -32,14 +33,83 @@ class _MarkingPolicy(Protocol):
     _marking_only: bool
 
 
+#: The route the marking pass takes on 26.100 (FR-3470): ``"solver"`` marks the rims with
+#: ``TRAILING_EDGES_IMPORT`` (FSM-26.100 p.314), one vertex file per rim. If a probe on
+#: that build shows the solver cannot mark rims without the edges between them, or that a
+#: second import replaces the first, the one-line switch is ``"direct"``: the pass then
+#: warns, names the saved route and writes nothing (FR-3471).
+MARKING_ROUTE_26100 = "solver"
+
+#: The build that has no ``IMPORT_WAKE_EDGES_FROM_FILE`` and marks by vertex file.
+VERTEX_FILE_BUILD = "26.100"
+
+#: The command of the vertex-file import, documented on 26.100 and removed on 26.123 and later.
+VERTEX_IMPORT_ROUTE = "TRAILING_EDGES_IMPORT"
+
+
 def require_marking_build(script: Script) -> None:
-    """Refuse a build whose FSI marking order is neither measured nor carried (FR-3402)."""
-    if script.version.canonical not in {"26.124", "26.125", "26.126", "26.127"}:
+    """Refuse a build whose marking order is neither measured, carried nor documented (FR-3402).
+
+    26.100 marks by vertex file (FR-3470) while ``MARKING_ROUTE_26100`` is ``"solver"``;
+    with ``"direct"`` it warns, names ``pyfs-workspace geometry sector-to-wheel`` on a
+    saved sector and refuses, so nothing is written (FR-3471).
+    """
+    build = script.version.canonical
+    if build == VERTEX_FILE_BUILD:
+        if MARKING_ROUTE_26100 == "direct":
+            message = (
+                "marking boundaries on FlightStream 26.100 is not applicable: the solver route "
+                "cannot mark the rims of a blunt trailing edge without the edges between them. "
+                "Mark the boundaries on a saved sector and build the wheel from it with "
+                "`pyfs-workspace geometry sector-to-wheel`; nothing was written"
+            )
+            warn(message, NotApplicableWarning, stacklevel=3)
+            raise ScriptOrderError(message)
+        return
+    if build not in {"26.124", "26.125", "26.126", "26.127"}:
         raise ScriptOrderError(
-            "the FSI marking order is supported on 26.124, 26.125, 26.126 and 26.127 (measured "
-            "on the first two, carried to 26.126 and 26.127); this script targets "
-            f"{script.version.canonical}"
+            "the FSI marking order is supported on 26.100 (documented, awaiting a probe), "
+            "26.124, 26.125, 26.126 and 26.127 (measured on the first two, carried to 26.126 "
+            f"and 26.127); this script targets {build}"
         )
+
+
+def render_trailing_edge_vertex_file(vertices: Sequence[Sequence[float]]) -> str:
+    """Return the text of the vertex file ``TRAILING_EDGES_IMPORT`` reads on 26.100.
+
+    The layout paraphrases FSM-26.100 p.314: the number of vertices, a unit token, then one
+    line per vertex with an id and its three coordinates. The package states the unit as
+    METER because the marking pass sets the simulation to metres. Nothing validates the
+    layout until a probe on 26.100 reads the saved result back.
+    """
+    rows = [
+        f"{number},{float(x)!r},{float(y)!r},{float(z)!r}"
+        for number, (x, y, z) in enumerate(vertices, start=1)
+    ]
+    if not rows:
+        raise CommandArgumentError("mark_trailing_edge_vertices: the rim names no vertex")
+    return "\n".join([str(len(rows)), "METER", *rows]) + "\n"
+
+
+def mark_trailing_edge_vertices(
+    script: Script, *, node_file: str | PathLike[str], vertices: Sequence[Sequence[float]]
+) -> str:
+    """Mark one rim on 26.100 by a file of its vertices, one rim per file.
+
+    A file that named the vertices of two rims of a blunt trailing edge could also mark
+    the edges between them, so each rim has its own file and its own import (FR-3470).
+    The text is parked on the script like a wake-edge node file and written by the run.
+    """
+    if script.version.canonical != VERTEX_FILE_BUILD:
+        raise CommandArgumentError(
+            f"mark_trailing_edge_vertices: {VERTEX_IMPORT_ROUTE} is the vertex-file import of "
+            f"{VERTEX_FILE_BUILD} only; this script targets {script.version.canonical}"
+        )
+    text = render_trailing_edge_vertex_file(vertices)
+    path = fspath(node_file)
+    script.emit(VERTEX_IMPORT_ROUTE, path)
+    script._pending_input_files[path] = text
+    return VERTEX_IMPORT_ROUTE
 
 
 def marking_only(script: Script) -> Script:

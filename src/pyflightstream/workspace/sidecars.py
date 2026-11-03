@@ -741,14 +741,14 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         raise InputArtifactError(f"{path} is not an existing .obj, so no sidecar can be refreshed.")
     if not sidecar.is_file():
         raise InputArtifactError(
-            f"{sidecar} does not exist; write it with `pyfs-workspace geometry inventory {path}` "
-            "(without --refresh)."
+            f"{sidecar} does not exist, and refresh (CLI: --refresh) rewrites an "
+            f"existing sidecar only; write it with `pyfs-workspace geometry inventory {path}`."
         )
     if read_inventory(sidecar) != obj_boundary_names(path):
         raise InputArtifactError(
-            f"{sidecar}: its boundaries differ from the groups of {path.name}, and --refresh "
-            "rewrites only mesh_faces, boundary_faces and mesh_sha256; correct the boundary "
-            "list by hand first (docs/mesh-inputs.md)."
+            f"{sidecar}: its boundaries differ from the groups of {path.name}, and "
+            "refresh (CLI: --refresh) rewrites only mesh_faces, boundary_faces "
+            "and mesh_sha256; correct the boundary list by hand first (docs/mesh-inputs.md)."
         )
     fresh = {
         line.split(" = ", 1)[0]: line
@@ -759,9 +759,16 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         raise InputArtifactError(f"{path}: its faces could not be counted, so nothing was changed")
     text = sidecar.read_bytes().decode("utf-8")
     newline = "\r\n" if "\r\n" in text else "\n"
+    kept = _with_counted_keys(text.splitlines(), fresh)
+    sidecar.write_bytes((newline.join(kept) + newline).encode("utf-8"))
+    return sidecar
+
+
+def _with_counted_keys(lines: list[str], fresh: dict[str, str]) -> list[str]:
+    """Replace the counted keys among a sidecar's top-level lines, keeping every other line."""
     kept: list[str] = []
     header = None
-    for line in text.splitlines():
+    for line in lines:
         key = line.split("=", 1)[0].strip()
         if header is None and line.startswith("["):
             header = len(kept)
@@ -775,8 +782,7 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         while at > 0 and header is not None and not kept[at - 1].strip():
             at -= 1
         kept[at:at] = list(fresh.values())
-    sidecar.write_bytes((newline.join(kept) + newline).encode("utf-8"))
-    return sidecar
+    return kept
 
 
 def stated_mesh_faces(sidecar: Path) -> tuple[int, str] | None:

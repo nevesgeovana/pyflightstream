@@ -12,12 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
+    NotApplicableWarning,
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
@@ -28,11 +27,22 @@ from pyflightstream._fsm import (
     saved_termination_count,
     saved_trailing_edge_groups,
 )
-from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.cases.mesh import BoundaryDeclarations, MeshImport, WakeTerminationMarking
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import Script, helpers
+from pyflightstream.script.helpers import (
+    VERTEX_FILE_BUILD,
+    VERTEX_IMPORT_ROUTE,
+    mark_trailing_edge_vertices,
+)
 from pyflightstream.versions import resolve
+from pyflightstream.workspace._mark_rims import (
+    _ObjEdges,
+    _placed_points,
+    _placed_rim,
+    rim_edges,
+    saved_cross_edges,
+)
 from pyflightstream.workspace.sidecars import (
     boundaries_for_marking,
     inventory_sidecar,
@@ -52,6 +62,7 @@ from pyflightstream.workspace.wake_edges import (
 EVIDENCE_GATED: frozenset[str] = frozenset(
     {
         "IMPORT_WAKE_EDGES_FROM_FILE",
+        "TRAILING_EDGES_IMPORT",
         "DETECT_TRAILING_EDGES_BY_SURFACE",
         "AUTO_DETECT_TRAILING_EDGES",
         "SET_TRAILING_EDGE_SWEEP_ANGLE",
@@ -100,74 +111,6 @@ class BoundaryMarkingPlan:
             self.mesh.with_suffix(".mark.log"),
             self.mesh.with_suffix(".mark.json"),
         )
-
-
-def _obj_edges(mesh: Path, unit: str) -> list[tuple[str, tuple[float, ...]]]:
-    """Read polygon perimeter midpoints, retaining their surface ownership."""
-    vertices: list[np.ndarray] = []
-    edges: list[tuple[str, tuple[float, ...]]] = []
-    family = "Boundary-1"
-    for line in mesh.read_text(encoding="utf-8").splitlines():
-        words = line.split("#", 1)[0].split()
-        if not words:
-            continue
-        if words[0] == "v":
-            vertices.append(np.asarray(words[1:4], dtype=float) * METRES_PER_UNIT[unit])
-        elif words[0] in {"g", "o"}:
-            family = words[1]
-        elif words[0] == "f":
-            ids = [int(word.split("/")[0]) for word in words[1:]]
-            ids = [i - 1 if i > 0 else len(vertices) + i for i in ids]
-            for a, b in zip(ids, ids[1:] + ids[:1], strict=True):
-                edges.append((family, tuple((vertices[a] + vertices[b]) / 2)))
-    return edges
-
-
-def _move_copies(copies, operation: Any, unit: str):
-    """Apply one affine operation to all copies of a point, in metres."""
-    if operation.op == "mirror":
-        axis = {"YZ": 0, "XZ": 1, "XY": 2}[operation.plane]
-        reflected = [xyz.copy() for xyz in copies]
-        for xyz in reflected:
-            xyz[axis] *= -1
-        return copies + reflected
-    if operation.op == "scale":
-        return [xyz * operation.factors for xyz in copies]
-    if operation.op == "translate":
-        shift = np.asarray(operation.vector) * METRES_PER_UNIT[unit]
-        return [xyz + shift for xyz in copies]
-    axis = np.eye(3)[{"X": 0, "Y": 1, "Z": 2}[operation.axis]]
-    angle = math.radians(operation.angle_deg)
-    return [
-        xyz * math.cos(angle)
-        + np.cross(axis, xyz) * math.sin(angle)
-        + axis * np.dot(axis, xyz) * (1 - math.cos(angle))
-        for xyz in copies
-    ]
-
-
-def _placed_points(points, mesh: Path, spec: MeshImport, tolerance: float):
-    """Carry source midpoints through the same ordered family transforms as the OBJ."""
-    edges = _obj_edges(mesh, spec.units)
-    placed: list[tuple[float, ...]] = []
-    for point in points:
-        families = {
-            name for name, xyz in edges if np.linalg.norm(np.asarray(xyz) - point) <= tolerance
-        }
-        if not families:
-            raise InputArtifactError(f"{mesh}: point {point} is not on an OBJ polygon edge")
-        for family in sorted(families):
-            copies = [np.asarray(point, dtype=float)]
-            for operation in spec.operations:
-                if operation.surface not in ("all", family):
-                    continue
-                if operation.op == "rename":
-                    assert operation.to is not None
-                    family = operation.to
-                else:
-                    copies = _move_copies(copies, operation, spec.units)
-            placed.extend(tuple(float(v) for v in xyz) for xyz in copies)
-    return tuple(dict.fromkeys(placed))
 
 
 def _import_operations(
@@ -341,7 +284,10 @@ def _awaiting(script: Script) -> tuple[str, ...]:
 
 
 def plan_mark_boundaries(
-    mesh: str | Path, *, registry: CommandRegistry | None = None
+    mesh: str | Path,
+    *,
+    registry: CommandRegistry | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> BoundaryMarkingPlan:
     r"""Validate declarations and render a marking pass without writing any file.
 
@@ -351,6 +297,10 @@ def plan_mark_boundaries(
         OBJ with a kind-qualified or legacy boundary sidecar.
     registry : CommandRegistry, optional
         Command evidence and grammar, injectable for offline tests.
+    progress : callable, optional
+        Receives one line at each stage of the preview (reading, matching and placing each
+        entry, rendering), so a long preview on a fine mesh is not silent (FR-3478). The
+        command line prints them through the console's own progress route.
 
     Returns
     -------
@@ -373,13 +323,19 @@ def plan_mark_boundaries(
     ...     print(plan.outputs[0].name, plan.work.exists())
     wing.fsm False
     """
+    say = progress or _no_progress
+    say(f"reading {Path(mesh).name} and its sidecar")
     inputs = _marking_inputs(mesh)
     _, sidecar, declarations, spec, _, _ = inputs
     routes = _node_routes(sidecar, declarations, spec)
-    return _plan_mark_boundaries(inputs, routes, registry)
+    return _plan_mark_boundaries(inputs, routes, registry, say)
 
 
-def _plan_mark_boundaries(inputs, routes, registry) -> BoundaryMarkingPlan:
+def _no_progress(line: str) -> None:
+    """Take a progress line and say nothing."""
+
+
+def _plan_mark_boundaries(inputs, routes, registry, say=_no_progress) -> BoundaryMarkingPlan:
     """Render a preview from one validated input snapshot and node-route resolution."""
     source, sidecar, declarations, spec, names, faces = inputs
     names, faces = list(names), list(faces)
@@ -397,7 +353,9 @@ def _plan_mark_boundaries(inputs, routes, registry) -> BoundaryMarkingPlan:
         faces=faces,
         work=work,
         routes=routes,
+        say=say,
     )
+    say("rendering the marking script")
     emit = script.emit
     emit("SAVEAS", str(work / source.with_suffix(".fsm").name))
     emit("EXPORT_LOG", str(work / source.with_suffix(".mark.log").name))
@@ -419,6 +377,64 @@ def _plan_mark_boundaries(inputs, routes, registry) -> BoundaryMarkingPlan:
     )
     _input_output_collisions(plan)
     return plan
+
+
+def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_progress):
+    """Mark an entry on 26.100, one vertex file and one import per rim (FR-3470).
+
+    The matched mid-points name mesh edges, which are split into rims and written as the
+    vertices of each rim. A file that named two sides of a blunt trailing edge could mark the
+    edges between them, so no file does, and those edges are kept (``cross_m``) for the
+    read-back to prove that none was marked. An edge type other than STANDARD has no argument
+    on this import, so that file is warned as not applicable and skipped.
+    """
+    inputs, pending, sets, steps = book
+    index = _ObjEdges(source, spec.units)
+    for entry in bound.sets:
+        if entry.edge_type != "STANDARD":
+            warn(
+                f"{label}: {Path(str(entry.points_file)).name} states the edge type "
+                f"{entry.edge_type}, and {VERTEX_IMPORT_ROUTE} on FlightStream "
+                f"{script.version.canonical} takes no edge type, so the file is not applicable "
+                "and its edges are not marked",
+                NotApplicableWarning,
+                stacklevel=2,
+            )
+            continue
+        assert entry.points_file is not None
+        path = Path(entry.points_file)
+        inputs[str(path)] = file_sha256(path)
+        say(f"{label}: splitting {len(entry.points_m)} edges into rims")
+        rims, between = rim_edges(entry.points_m, source, spec.units)
+        counts, crossed = [], ()
+        for number, rim in enumerate(rims):
+            # The edges between the rims belong to the entry; the first rim carries them.
+            vertices, crossed_here = _placed_rim(
+                rim, between if number == 0 else between[:0], index, spec, bound.tolerance
+            )
+            token = work / f"edges-{len(pending) + 1}.txt"
+            mark_trailing_edge_vertices(script, node_file=str(token), vertices=vertices)
+            body = script.pending_input_files[str(token)]
+            pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
+            counts.append(len(vertices))
+            crossed += crossed_here
+        say(f"{label}: placing {len(entry.points_m)} points through the import operations")
+        points = _placed_points(entry.points_m, source, spec, bound.tolerance)
+        sets.append(
+            {
+                "label": label,
+                "type": entry.edge_type,
+                "file": str(path),
+                "points_m": points,
+                "tolerance": bound.tolerance,
+                "rim_vertices": tuple(counts),
+                "cross_m": crossed,
+            }
+        )
+        steps.append(
+            f"{label}: {entry.edge_type}, {len(rims)} rim file(s) of {counts} vertices, "
+            f"{len(points)} trailing-edge points"
+        )
 
 
 def _emit_bases(emit, mark, declarations, names, steps):
@@ -443,6 +459,15 @@ def _emit_nodes(script, termination, explicit, *, source, spec, inputs, nodes, s
     if any(entry.wake_termination_nodes == "auto" for entry in termination):
         script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
         steps.append("autodetect wake-termination nodes once")
+    if explicit and script.version.canonical == VERTEX_FILE_BUILD:
+        warn(
+            "explicit wake-termination nodes are not applicable on FlightStream "
+            f"{script.version.canonical}, whose solver has no MARK_WAKE_TERMINATION_NODES; "
+            f"the nodes of {', '.join(entry.label for entry in explicit)} are not marked",
+            NotApplicableWarning,
+            stacklevel=2,
+        )
+        explicit = []
     for entry in explicit:
         assert entry.wake_termination_nodes is not None
         path = Path(entry.wake_termination_nodes)
@@ -544,6 +569,12 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
         raise BoundaryMarkingError(verdict[1])
     groups = saved_trailing_edge_groups(saved)
     expected = len(plan.declarations.trailing_edges) + len(plan.declarations.base_regions)
+    cross: dict[str, int] | None = None
+    if plan.declarations.fs_build == VERTEX_FILE_BUILD:
+        # One import per rim, so a unit marked from several files adds a group per extra file
+        # (provisional until a probe on this build reads two imports back).
+        expected += sum(len(entry["rim_vertices"]) - 1 for entry in plan.sets)
+        cross = _cross_edges(plan, saved)
     if len(groups) != expected:
         raise BoundaryMarkingError(
             f"{saved}: {len(groups)} trailing-edge groups, expected {expected}"
@@ -573,7 +604,7 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
         for actual, expected in zip(bases, expected_bases, strict=False)
     ):
         raise BoundaryMarkingError(f"{saved}: saved base regions differ from {expected_bases}")
-    return {
+    record = {
         "boundaries": plan.names,
         "boundary_faces": plan.faces,
         "groups": groups,
@@ -591,6 +622,22 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
         ],
         "steps": plan.steps,
     }
+    if cross is not None:
+        record["cross_edges"] = cross
+    return record
+
+
+def _cross_edges(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, int]:
+    """Prove that no saved trailing edge joins two rims of one blunt entry (FR-3470)."""
+    counts = saved_cross_edges(plan.sets, saved)
+    found = {label: number for label, number in counts.items() if number}
+    if found:
+        raise BoundaryMarkingError(
+            f"{saved}: the saved simulation marks trailing edges that join two rims of one "
+            f"entry ({', '.join(f'{label}: {number}' for label, number in found.items())}); "
+            "the vertex files name one rim each, so the solver marked edges no file names"
+        )
+    return {entry["label"]: counts.get(entry["label"], 0) for entry in plan.sets}
 
 
 def apply_mark_boundaries(
@@ -765,7 +812,9 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             ) from error
 
 
-def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, work, routes):
+def _emit_marking(
+    script, source, sidecar, *, declarations, spec, names, faces, work, routes, say=_no_progress
+):
     """Emit the shared D3 import and marking pass, also used at each FSI import."""
     termination, explicit = routes
     pending: dict[str, bytes] = {}
@@ -793,12 +842,26 @@ def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, 
                 helpers.detect_every_boundary(script, "trailing_edges")
             steps.append(f"{label}: STANDARD detected trailing edges")
             return
+        say(f"{label}: matching the points file to mesh edges")
         bound = matched_trailing_edge_sets(marking, source, spec.units)
+        if script.version.canonical == VERTEX_FILE_BUILD:
+            _mark_rims_26100(
+                script,
+                label,
+                bound,
+                source=source,
+                spec=spec,
+                work=work,
+                book=(inputs, pending, sets, steps),
+                say=say,
+            )
+            return
         entry = bound.sets[0]
         assert entry.points_file is not None
         path = Path(entry.points_file)
         inputs[str(path)] = file_sha256(path)
         token = work / f"edges-{len(sets) + 1}.txt"
+        say(f"{label}: placing {len(entry.points_m)} points through the import operations")
         points = _placed_points(entry.points_m, source, spec, bound.tolerance)
         helpers.mark_wake_edges(
             script,
@@ -823,7 +886,9 @@ def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, 
 
     for entry in declarations.trailing_edges:
         mark(entry.label, entry.marking)
+    say("base regions")
     _emit_bases(emit, mark, declarations, names, steps)
+    say("wake-termination nodes and merges")
     _emit_nodes(
         script,
         termination,

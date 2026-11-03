@@ -1452,6 +1452,16 @@ def _mesh_edge_midpoints(mesh: Any) -> numpy.ndarray:
     A file holding several bodies loads as a scene, and its bodies are
     joined, since a points file may name edges on more than one of them.
     """
+    vertices, edges = mesh_edge_table(mesh)
+    return (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
+
+
+def mesh_edge_table(mesh: Any) -> tuple[numpy.ndarray, numpy.ndarray]:
+    """Return the vertices (n, 3) and the unique edges (k, 2) of a surface mesh.
+
+    The edges are those of its triangles, each as a sorted pair of vertex indices,
+    and a file holding several bodies is joined as in :func:`_mesh_edge_midpoints`.
+    """
     loaded = mesh
     if isinstance(mesh, (str, Path)):
         try:
@@ -1486,7 +1496,7 @@ def _mesh_edge_midpoints(mesh: Any) -> numpy.ndarray:
             kind="wake_edges",
         )
     edges = numpy.unique(numpy.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1), axis=0)
-    return (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
+    return vertices, edges
 
 
 def _nearest(
