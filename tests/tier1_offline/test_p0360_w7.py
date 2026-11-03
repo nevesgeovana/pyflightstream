@@ -84,6 +84,9 @@ PUBLIC_HOMES = {
     "missing_log_warning": "pyflightstream.workspace._missing_log",
     "WheelResult": "pyflightstream.workspace._wheel",
     "sector_to_wheel": "pyflightstream.workspace._wheel",
+    # 0.54.0 (PFS-2186.09): the merge of two trimmed OBJ.
+    "MergedMesh": "pyflightstream.workspace._merge",
+    "merge_objs": "pyflightstream.workspace._merge",
 }
 
 

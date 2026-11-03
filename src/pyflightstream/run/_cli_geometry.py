@@ -27,6 +27,7 @@ from typing import Any
 
 from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
+from pyflightstream.run._cli_merge import add_merge_parser, run_merge
 from pyflightstream.run._cli_mesh import (
     _progress_printer,
     add_degenerate_parser,
@@ -93,6 +94,7 @@ GEOMETRY_VERBS = (
     "from-sidecar",
     "trailing-edge",
     "export-surface-mesh",
+    "merge",
     *PYFS_MATRIX_ALIASES,
 )
 
@@ -437,6 +439,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
     )
     _add_visual_inspect(verbs)
     _add_beam(verbs)
+    add_merge_parser(verbs)
     prepare.add_argument(
         "--keep-within-component",
         action="store_true",
@@ -1046,6 +1049,7 @@ def run_geometry(args: argparse.Namespace) -> int:
         "prepare-to-refine": _cmd_prepare_to_refine,
         "visual-inspect": _cmd_visual_inspect,
         "beam": _cmd_beam,
+        "merge": run_merge,
         "build": _cmd_build,
         "accept": _cmd_accept,
         "from-sidecar": _cmd_from_sidecar,
