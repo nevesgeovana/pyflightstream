@@ -111,6 +111,7 @@ sections = true # one table per point from its sectional loads export
 plots = true # one table per unsteady point from its plots export
 custom_polar_format = false # beside each polar table, the text file the reference tooling opens
 trimmed_polar = false # beside each polar table, its row at zero pitching moment
+rotor_cn_slope = false # beside each rotor table, the CN slope against ALPHA per J
 trim_moment = "CMB25" # numeric column whose zero defines trim
 trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
@@ -765,6 +766,16 @@ table.
 `products.trim_moment` and `products.trim_axis` select the numeric columns for
 the trim; the description above uses their defaults, `"CMB25"` and `"ALPHA"`.
 An unavailable column warns and skips that trim while leaving its polar written.
+
+### Rotor normal-force slope
+
+`[products] rotor_cn_slope = true` writes, beside each rotor table,
+`polars/P<sim>-<ALIAS>_cn_slope.csv`: one row per advance ratio `J` of the table, with the
+secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest distinct
+`|ALPHA|` at that `J` (`CN_SLOPE_PER_DEG`, with both incidences and both `CN` values beside
+it). It reads the rotor table the post wrote and runs nothing. A `J` with one incidence
+only reads `NA` and is named under `skipped` in `products.json`. Off by default. The
+definition is in [the rotor coefficients](definitions/rotor-coefficients.md#the-normal-force-slope-against-incidence).
 
 ### Interpolated and re-parameterized polars
 

@@ -335,6 +335,7 @@ sections = true
 plots = true
 custom_polar_format = false
 trimmed_polar = false  # beside each polar table, its row at zero pitching moment
+rotor_cn_slope = false  # beside each rotor table, the CN slope against ALPHA per J
 trim_moment = "CMB25"  # numeric column whose zero defines trim
 trim_axis = "ALPHA"  # numeric column ordering the trim search
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.

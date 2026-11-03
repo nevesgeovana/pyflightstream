@@ -375,6 +375,28 @@ def products_lock(manifest: Path, what: str) -> Iterator[IO[bytes] | None]:
         yield handle
 
 
+def replace_products_manifest(temporary: Path, target: Path, keep: Path | None) -> None:
+    """Put the copied ``products.json`` in place under the lock a post holds (REL-R3-004).
+
+    A post holds the manifest open and locked while it rewrites it in place, so
+    the replace of the other copies is refused on Windows and elsewhere loses
+    one of the two writes. The copy is rewritten in place under that lock. A
+    lock held past the wait raises ``TimeoutError``, which the copy loop warns
+    and skips as any file that cannot be copied.
+    """
+    with _textio.exclusive(target, wait=_textio.LOCK_WAIT) as handle:
+        if handle is None:
+            raise TimeoutError(
+                f"{target} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s; post the matrix "
+                "again after the sync"
+            )
+        if keep is not None and _textio.long_path(target).stat().st_size:
+            _textio.long_path(keep.parent).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_textio.long_path(target), _textio.long_path(keep))
+        _textio.rewrite_locked(handle, target, temporary.read_text(encoding="utf-8"))
+    _textio.long_path(temporary).unlink(missing_ok=True)
+
+
 def _forget_products(
     manifest: Path,
     item: dict[str, list[str]],

@@ -239,6 +239,10 @@ centers. The linked definition states the rule for every block.
 
 [The in-plane coefficients](definitions/rotor-coefficients.md#the-in-plane-coefficients).
 
+<a id="the-normal-force-slope-against-incidence"></a>
+
+[The normal-force slope against incidence](definitions/rotor-coefficients.md#the-normal-force-slope-against-incidence).
+
 <a id="a-static-point"></a>
 
 [A static point](definitions/rotor-coefficients.md#a-static-point).

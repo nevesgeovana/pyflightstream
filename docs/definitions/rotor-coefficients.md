@@ -121,6 +121,38 @@ CMS = MS / (rho n^2 D^5)
   sector solved without symmetry loads they are the modelled sector's, not
   the whole rotor's.
 
+### The normal-force slope against incidence
+
+`[products] rotor_cn_slope = true` (off by default) writes, beside each rotor
+table, `polars/P<sim>-<ALIAS>_cn_slope.csv`: the slope of the rotor's normal
+force coefficient `CN_<ALIAS>` against the incidence `ALPHA`, at each advance
+ratio the table holds. It is computed from the rotor table the post has just
+written, whatever the table states (steady, unsteady window average, or
+quasi-steady mean over clockings); no solver run is added.
+
+- **One row per distinct `J_<ALIAS>` of the table**, in ascending `J`. Rows of
+  the table with the same `J` (to the six figures the table writes) form one
+  group. The columns are `POL`, the context columns of the rotor table
+  (`ALPHA` and `J` excluded: both are columns of the row), `ROTOR`, `J`, `ALPHA_LOW`, `ALPHA_HIGH`, `CN_LOW`,
+  `CN_HIGH` and `CN_SLOPE_PER_DEG`. A context column holds its value when every
+  row of the group states the same one and `NA` otherwise.
+- **The slope is the secant between the two rows of lowest distinct `|ALPHA|`
+  at that `J`.** `ALPHA_LOW` and `CN_LOW` are the row of smaller `|ALPHA|`,
+  `ALPHA_HIGH` and `CN_HIGH` the other, and
+  `CN_SLOPE_PER_DEG = (CN_HIGH - CN_LOW) / (ALPHA_HIGH - ALPHA_LOW)` with
+  `ALPHA` in degrees as the table states it and `CN` as the table states it,
+  unchanged. Two rows with the same `|ALPHA|` (for example `+2` and `-2`)
+  count as one value of `|ALPHA|`, the positive one being taken. A row whose
+  `ALPHA` or `CN_<ALIAS>` is `NA` is not a candidate.
+- **A `J` with one usable `ALPHA` only is not an error.** Its row is written
+  with `NA` in the two `ALPHA`/`CN` pairs and in the slope, and the products
+  manifest names it under `skipped` for the table, with the `J` and the
+  reason. A table with no usable group still writes its file, every slope `NA`.
+- The manifest entry states `kind: cn_slope`, `rotor` and the `runs` the
+  table was read from. The slope is a secant of two sampled rows, not a fit and
+  not the derivative at zero incidence: its value depends on which two
+  incidences the sweep sampled, which is why both are in the row.
+
 ### A static point
 
 **A zero free stream and a zero reference speed are two different things.** A

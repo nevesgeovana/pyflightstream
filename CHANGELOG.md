@@ -7,6 +7,31 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `[products] rotor_cn_slope = true` (default false) writes, beside each rotor table,
+  `polars/P<sim>-<ALIAS>_cn_slope.csv`: per advance ratio J, the secant slope of `CN_<ALIAS>`
+  against `ALPHA` between the two rows of lowest distinct `|ALPHA|`, with both incidences and
+  both `CN` values. It reads the rotor table, so no solver run is added; a J with one incidence
+  reads `NA` and is named under `skipped`. The manifest entry carries `kind: cn_slope`
+  (FR-3502 to FR-3504). Defined in the rotor coefficients definitions.
+
+### Fixed
+
+- `pyfs-matrix restore products` and the copy of `post/` by `pyfs-matrix sync` replace
+  `post/<matrix>/products.json` under the lock a post holds, so neither is refused on Windows nor
+  loses a concurrent post's write; a lock held past the post's wait warns and skips that file
+  (FR-3500).
+- `visual-inspect --finished-by` with a value other than `products` or `sims` is refused with a
+  sentence that names both values; `turned_about` is listed in `pyflightstream.script.__all__`
+  (FR-3509).
+
+### Changed
+
+- Two `pyfs-matrix run <matrix> --sims A` and `--sims B` processes may run at once on one
+  workspace and one plan; measured with a stand-in solver, both simulations are recorded and
+  tabled, and the route is documented in the run matrix guide (FR-3501).
+
 ## [0.53.0] - 2026-11-01
 
 ### Added

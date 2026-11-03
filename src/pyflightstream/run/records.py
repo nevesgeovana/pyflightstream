@@ -70,6 +70,7 @@ the stage is changed.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import shutil
@@ -79,6 +80,7 @@ from typing import Any
 
 # Re-export these names to preserve their public import paths, as checked
 # by scripts/check_parity.py.
+from pyflightstream import _textio
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
@@ -145,6 +147,7 @@ from pyflightstream.workspace import RunRecord as RunRecord
 from pyflightstream.workspace import RunStatus as RunStatus
 from pyflightstream.workspace import WorkspaceError as WorkspaceError
 from pyflightstream.workspace import find_matrix as find_matrix
+from pyflightstream.workspace._free_space import products_lock
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults as canonical_condition_defaults,
 )
@@ -518,17 +521,38 @@ def restore(
                 "writing in the workspace; try again when it ends. Nothing was changed."
             )
     with _leases(base, target):
+        entry["applied"] = _install_restored(base, target, stem, payload, entry)
+    return entry
+
+
+def _install_restored(
+    base: Path, target: Path, stem: str | None, payload: bytes, entry: dict[str, Any]
+) -> bool:
+    """Archive ``target``, then put ``payload`` in its place; False when it was left as it was.
+
+    REL-R3-004: a post rewrites ``products.json`` in place under its lock, so the restore
+    of it holds that lock for the archive and the rewrite, waits as the post does, and
+    warns and leaves the file when a post holds it past the wait.
+    """
+    with contextlib.ExitStack() as held:
+        handle = None
+        if target.name == "products.json":
+            handle = held.enter_context(products_lock(target, "the restored products"))
+            if handle is None:
+                return False
         if target.is_file():
             if stem is None:
-                kept = free_root_archive(base, name, _now_stamp())
+                kept = free_root_archive(base, target.name, _now_stamp())
             else:
-                kept = free_matrix_archive(base, stem, name, _now_stamp())
+                kept = free_matrix_archive(base, stem, target.name, _now_stamp())
             kept.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(target, kept)
             entry["archived_as"] = _relative(base, kept)
-        _replace_bytes(target, payload)
-    entry["applied"] = True
-    return entry
+        if handle is None:
+            _replace_bytes(target, payload)
+        else:
+            _textio.rewrite_locked(handle, target, payload.decode("utf-8"))
+    return True
 
 
 def _rebuild_for_sync(root: Path, sims: list[str]) -> dict[str, Any]:

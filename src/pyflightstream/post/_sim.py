@@ -1293,6 +1293,10 @@ def _rotor_table(ctx: SimContext, target_path: Path, alias: str, plan: dict[str,
             "rotor": alias,
             **_rotor_table_source(ctx, plan, rotor_runs),
         }
+        if ctx.pproc.products.rotor_cn_slope:
+            from pyflightstream.post._cn_slope import rotor_cn_slope_product
+
+            rotor_cn_slope_product(ctx, destination, alias, dict(ctx.written_names[relative]))
     if rotor_left_out:
         ctx.skipped[relative] = (
             f"these points of the sweep are not rows of the {alias} rotor table: "
