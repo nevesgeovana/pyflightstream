@@ -57,6 +57,18 @@ FlightStream versions.
 - The marking preview compared every file point with every polygon edge in a Python loop and took
   558 seconds on a mesh of 91 thousand faces (12 seconds now); the points are now looked up in an index, with the
   same result (FR-3478).
+- `pyfs-workspace geometry sector-to-wheel <sector.obj|sector.fsm> --copies <n> --blades <family ...>`
+  copies one sector about any axis (`--axis`, `--hub`) into a full wheel, merging the nodes of the
+  seams within `--tolerance` (metres, default 1e-4) and keeping the sector's face order inside each
+  copy (FR-3460 to FR-3466). An OBJ gives an OBJ, its boundaries file in the named form, one rim
+  points file per rim per blade and `<out stem>.wheel.json`, which holds the area ratio, the open
+  edges before and after the merge and the turn by 360/n degrees against a turn by one degree more
+  (FR-3461 to FR-3464, FR-3469). A blunt trailing edge gets two rims and a base per blade, a sharp
+  one a single rim and no base (FR-3465).
+- The same verb on a saved sector writes a saved wheel with no solver, multiplying the base
+  regions, trailing-edge groups and wake terminations of the physics block for the boundaries
+  `--blades` names (FR-3467). The saved layout is inferred from saved files; a layout the reader
+  does not recognize is warned, nothing is written and the exit code is 2 (FR-3468).
 
 ## [0.53.0] - 2026-11-01
 

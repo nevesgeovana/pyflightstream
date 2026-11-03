@@ -33,6 +33,7 @@ from pyflightstream.run._cli_mesh import (
     add_inventory_parser,
     add_mesh_parsers,
 )
+from pyflightstream.run._cli_wheel import WHEEL_HANDLERS, add_wheel_verbs
 from pyflightstream.run._executors import (
     ExecutorConfigurationError,
     LocalExecutor,
@@ -147,6 +148,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     export.add_argument("--apply", action="store_true", help="run the solver and export the mesh")
     export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
     _add_mesh_verbs(verbs)
+    add_wheel_verbs(verbs)
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -1047,6 +1049,7 @@ def run_geometry(args: argparse.Namespace) -> int:
         "build": _cmd_build,
         "accept": _cmd_accept,
         "from-sidecar": _cmd_from_sidecar,
+        **WHEEL_HANDLERS,
     }
     if verb in handlers:
         return handlers[verb](args)
