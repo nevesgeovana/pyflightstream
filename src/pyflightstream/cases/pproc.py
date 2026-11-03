@@ -1500,6 +1500,10 @@ class ProductsSpec(_SuggestsKeys):
         (:func:`pyflightstream.post.polar.write_trimmed_polar`). A polar
         whose sampled moments do not bracket zero is named under the post's
         skipped products. Off by default.
+    rotor_cn_slope : bool
+        Writes, beside every rotor table, ``P<sim>-<ALIAS>_cn_slope.csv``: the
+        secant slope of ``CN_<ALIAS>`` against ``ALPHA`` at each advance ratio
+        of the table. Off by default.
     superfile_format : str
         The format the super file is written in.
     settings_codebook : bool
@@ -1518,6 +1522,8 @@ class ProductsSpec(_SuggestsKeys):
     custom_polar_format: bool = False
     #: FR-2302: beside every polar table, its row at zero pitching moment.
     trimmed_polar: bool = False
+    #: FR-3502: beside every rotor table, the normal-force slope against incidence per J.
+    rotor_cn_slope: bool = False
     #: Numeric moment column whose zero defines the trimmed polar (FR-3340).
     trim_moment: str = Field(default="CMB25", min_length=1)
     #: Numeric column ordering the trim search; unknown columns warn and skip (FR-3341).

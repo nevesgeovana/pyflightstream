@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream.run import LoadsAssessor, SubmittingExecutor, records
 
 # The rebuild and what it reads are private modules of run since 0.33.0 (AD-11).
@@ -751,7 +752,7 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
     _write(tmp_path / archived, '[{"run_id": "then"}]\n')
     held: dict[str, bool] = {}
     real = records._replace_bytes
-    rewrite = records._textio.rewrite_locked
+    rewrite = _textio.rewrite_locked
 
     def note(target: Path) -> None:
         held["runs"] = (tmp_path / "runs.json.lock").exists()
@@ -770,7 +771,7 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
     # the rebuild writes through run._rebuild's, so a spy that must see every
     # writer patches run._record_files and both importers instead.
     monkeypatch.setattr(records, "_replace_bytes", spy)
-    monkeypatch.setattr(records._textio, "rewrite_locked", spy_locked)
+    monkeypatch.setattr(_textio, "rewrite_locked", spy_locked)
     records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
     assert held["runs"], "the restore wrote without the runs.json lease a sync holds"
     if kind in ("storage", "additional"):

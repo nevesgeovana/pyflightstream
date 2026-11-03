@@ -380,6 +380,7 @@
       "tests/tier1_offline/test_goal035_prune_step_exports.py",
       "tests/tier1_offline/test_p0540_products_lock.py",
       "tests/tier1_offline/test_p0540_lanes.py",
+      "tests/tier1_offline/test_p0540_products.py",
       "tests/tier1_offline/test_goal035_qsteady_rotor.py",
       "tests/tier1_offline/test_goal035_rotor_mach.py",
       "tests/tier1_offline/test_goal036_blade_azimuth.py",

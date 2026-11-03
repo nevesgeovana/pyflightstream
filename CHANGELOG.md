@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `[products] rotor_cn_slope = true` (default false) writes, beside each rotor table,
+  `polars/P<sim>-<ALIAS>_cn_slope.csv`: per advance ratio J, the secant slope of `CN_<ALIAS>`
+  against `ALPHA` between the two rows of lowest distinct `|ALPHA|`, with both incidences and
+  both `CN` values. It reads the rotor table, so no solver run is added; a J with one incidence
+  reads `NA` and is named under `skipped`. The manifest entry carries `kind: cn_slope`
+  (FR-3502 to FR-3504). Defined in the rotor coefficients definitions.
+
 ### Fixed
 
 - `pyfs-matrix restore products` and the copy of `post/` by `pyfs-matrix sync` replace
