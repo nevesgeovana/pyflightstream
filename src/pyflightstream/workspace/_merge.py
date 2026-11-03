@@ -461,8 +461,8 @@ def _adapt(
         return done
     warn(
         f"{source}: the remesh of the band could not take the kept nodes along the interface "
-        f"({done.conformed}), so the faces beside it were split onto them instead; the "
-        "parts may overlap by more than a face layer",
+        f"({done.conformed}), so the faces beside it were split onto them instead: the parts "
+        "may overlap by more than a face layer, or a chain's end has no kept node beside it",
         PyflightstreamWarning,
         stacklevel=3,
     )

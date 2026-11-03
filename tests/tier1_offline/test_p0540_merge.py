@@ -1005,3 +1005,18 @@ def test_p0540_merge_a_family_is_said_rebuilt_only_when_it_was(tmp_path):
     assert record["faces_split"] is True
     assert record["rebuilt_families"] == []
     assert not [m for m in messages if "rebuilt whole" in m]
+
+
+@pytest.mark.requirement("FR-3489")
+def test_p0540_merge_the_split_warning_names_both_causes(tmp_path):
+    """A chain ending away from a kept node also splits, with no overlap anywhere in the pair."""
+    kept = _strip([(0.1 * i, _bend(0.1 * i)) for i in range(81)], up=False, family="Kept")
+    adapted = _strip(
+        [(0.8 * i + 0.05, _bend(0.8 * i + 0.05)) for i in range(10)], up=True, family="A"
+    )
+    _, messages = _quiet_merge(tmp_path, kept, adapted, 0.02)
+    record = json.loads((tmp_path / "out.merge.json").read_text(encoding="utf-8"))
+    assert record["faces_split"] is True
+    said = [m for m in messages if "were split onto them" in m]
+    assert len(said) == 1
+    assert "a chain's end has no kept node beside it" in said[0]
