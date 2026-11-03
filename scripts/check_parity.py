@@ -1039,6 +1039,10 @@ def collect_scripts(tree: Path) -> dict[str, str]:
             name, label, build
         )
     for matrix in offline.matrices():
+        # Its marked saved simulations are prepared on the licensed machine and never committed,
+        # so an exported tree cannot plan it; tier 1 leaves it out the same way.
+        if matrix.name == "matriz_mesh.fs":
+            continue
         _, rendered = offline.render(matrix)
         for stem, text in rendered.items():
             renders[f"tier3/{matrix.stem}/{stem}"] = text
