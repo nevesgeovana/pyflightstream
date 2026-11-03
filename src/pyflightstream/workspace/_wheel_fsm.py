@@ -478,7 +478,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     nb = len(names)
     ints = parsed.mesh["ints"]
     shared = ~numpy.isin(ints[11], blade_ids)
-    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts)
+    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts, tol)
     maps = _Maps(
         index[root],
         _expand(parsed.phys["base_names"], blades, n),

@@ -732,16 +732,22 @@ def _assemble(
     return stack[used][live], [(nm, f.mapped(compact)) for nm, f in kept], facts
 
 
-def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options) -> None:
+def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options, tol: float) -> None:
     """Warn when the surfaces that are not blades do not span one copy's turn about the axis.
 
     The turn check cannot say this, since copies of anything about any axis map onto each other.
-    A sector with no such surface, or with all of it on the axis, is not measured.
+    A sector with no such surface, or with all of it on the axis, is not measured. A seam the
+    tolerance ``tol`` (in the mesh's unit) closes can read off the angle by ``tol / radius``, so
+    a node nearer the axis than that allows says nothing of the angle; a surface small against
+    the tolerance is read over its outer half.
     """
     q = bodies - opts.hub
     radial = q - numpy.outer(q @ opts.axis, opts.axis)
     radius = numpy.linalg.norm(radial, axis=1)
-    keep = radius > 1e-6 * float(radius.max()) if len(radius) else numpy.zeros(0, dtype=bool)
+    if not len(radius):
+        return
+    largest = float(radius.max())
+    keep = radius > max(1e-6 * largest, min(tol / math.radians(_ANGLE_SLACK_DEG), 0.5 * largest))
     if not keep.any():
         return
     first = radial[keep][0] / radius[keep][0]
@@ -1127,7 +1133,7 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
         families, rims, declared, blades=opts.blades, copies=opts.copies, count=len(verts)
     )
     shared = concat([s.faces for s in surfaces if not s.replicated])
-    warn_sector_angle(verts[numpy.unique(shared.flat)], opts)
+    warn_sector_angle(verts[numpy.unique(shared.flat)], opts, tol)
     nodes, groups, facts = _assemble(verts, surfaces, opts, tol)
     names = [n for n, _ in groups]
     if len(set(names)) != len(names):

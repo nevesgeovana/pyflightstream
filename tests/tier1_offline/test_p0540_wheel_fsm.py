@@ -353,6 +353,54 @@ def test_p0540_a_true_sector_gets_no_warning_about_its_angle(tmp_path, shape, ki
     assert not [w for w in caught if "about the axis" in str(w.message)]
 
 
+def _seam_moved_along_the_turn(built: Built, distance: float) -> None:
+    """Move the nodes of the sector's high seam along the circle by ``distance``, in the OBJ."""
+    verts = built.verts
+    radius = np.hypot(verts[:, 1], verts[:, 2])
+    high = (radius > 1e-9) & (np.arctan2(verts[:, 2], verts[:, 1]) > math.pi / built.copies - 1e-6)
+    along = np.stack([-verts[high, 2], verts[high, 1]], axis=1) / radius[high][:, None]
+    verts[high, 1:] += distance * along
+    rows = iter(verts)
+    built.obj.write_text(
+        "".join(
+            "v " + " ".join(repr(float(c)) for c in next(rows)) + "\n"
+            if line.startswith("v ")
+            else line
+            for line in built.obj.read_text().splitlines(keepends=True)
+        )
+    )
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize("kind", ["fsm", "obj"])
+def test_p0540_a_seam_the_tolerance_closes_is_not_warned_as_not_closing(tmp_path, kind):
+    """A seam within --tolerance merges, so the copies close; near the axis it reads as an angle."""
+    import warnings
+
+    built = build_sector(tmp_path, copies=COPIES)
+    _seam_moved_along_the_turn(built, 9e-5)
+    saved = build_saved_sector(tmp_path, built)
+    sector = saved if kind == "fsm" else built.obj
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = sector_to_wheel(
+            sector, copies=COPIES, blades=["Blade1"], axis="x", out=tmp_path / f"w.{kind}"
+        )
+    assert result.report["nodes"]["merged"] > 0
+    assert not [w for w in caught if "about the axis" in str(w.message)]
+    # Control: the same seam past the tolerance is no closed sector, and the check says so.
+    far = tmp_path / "far"
+    far.mkdir()
+    built = build_sector(far, copies=COPIES)
+    _seam_moved_along_the_turn(built, 2e-3)
+    saved = build_saved_sector(far, built)
+    sector = saved if kind == "fsm" else built.obj
+    from pyflightstream._errors import PyflightstreamWarning
+
+    with pytest.warns(PyflightstreamWarning, match="about the axis"):
+        sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], axis="x", out=far / f"w.{kind}")
+
+
 @pytest.mark.requirement("FR-3469")
 def test_p0540_a_saved_unit_the_reader_has_not_measured_is_warned_and_read_as_metres(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
