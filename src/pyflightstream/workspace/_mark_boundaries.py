@@ -478,41 +478,52 @@ def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_
 
 
 def _emit_bases(emit, mark, declarations, names, steps, *, build):
-    # Measured on 26.100, a six-blade wheel: a rim import between two CREATE_NEW_BASE_REGION lines
-    # leaves only the last base saved, and all seven survive with every rim imported first.
-    # The solver also stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and accepts
-    # <n> CUSTOM <cp>; CREATE_NEW_BASE_REGION has already stated the model and Cp.
-    # An "auto" rim names its base by number, so it follows every create rather than the rims.
-    vertex_files = build == VERTEX_FILE_BUILD
+    regions = declarations.base_regions
 
     def rim(region):
         if region.trailing_edges == "auto":
-            emit("SET_BASE_REGION_TRAILING_EDGES", declarations.base_regions.index(region) + 1)
+            emit("SET_BASE_REGION_TRAILING_EDGES", regions.index(region) + 1)
         else:
             mark(region.family, region.trailing_edges)
 
-    if vertex_files:
-        for region in declarations.base_regions:
-            if region.trailing_edges != "auto":
-                rim(region)
-    for index, region in enumerate(declarations.base_regions, 1):
+    def create(index, region, *, set_cp):
         emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
-        if not vertex_files or region.model in ("USER", "CUSTOM"):
-            emit(
-                "SET_BASE_REGION_CP",
-                index,
-                "CUSTOM" if region.model == "USER" else region.model,
-                region.cp,
-            )
-        if not vertex_files:
-            rim(region)
+        if set_cp:
+            cp_model = "CUSTOM" if region.model == "USER" else region.model
+            emit("SET_BASE_REGION_CP", index, cp_model, region.cp)
+
+    def step(region):
         steps.append(
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
-    if vertex_files:
-        for region in declarations.base_regions:
-            if region.trailing_edges == "auto":
-                rim(region)
+
+    if build == VERTEX_FILE_BUILD:
+        _bases_on_the_vertex_build(regions, rim, create, step)
+        return
+    for index, region in enumerate(regions, 1):
+        create(index, region, set_cp=True)
+        rim(region)
+        step(region)
+
+
+def _bases_on_the_vertex_build(regions, rim, create, step):
+    """Every file rim, then every base, then every ``auto`` rim: the order measured on 26.100.
+
+    A rim import between two CREATE_NEW_BASE_REGION lines leaves only the last base saved, and
+    all seven of a six-blade wheel survive with every rim imported first. An ``auto`` rim names
+    its base by number, so it follows the creates (two bases, two groups, measured). The solver
+    stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and at <n> AXISYMMETRIC <cp>, and
+    their create has stated both; a USER or CUSTOM base saves its model only through <n> CUSTOM.
+    """
+    for region in regions:
+        if region.trailing_edges != "auto":
+            rim(region)
+    for index, region in enumerate(regions, 1):
+        create(index, region, set_cp=region.model in ("USER", "CUSTOM"))
+        step(region)
+    for region in regions:
+        if region.trailing_edges == "auto":
+            rim(region)
 
 
 def _emit_nodes(script, termination, explicit, *, source, spec, inputs, nodes, steps):
@@ -651,7 +662,8 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
         )
     bases = saved_base_regions(saved)
     expected_bases = tuple(
-        (r.family, r.cp, {"USER": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[r.model])
+        # Measured on 26.100: a USER and a CUSTOM base both save as model 0 once the Cp setter ran.
+        (r.family, r.cp, {"USER": 0, "CUSTOM": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[r.model])
         for r in plan.declarations.base_regions
     )
     if len(bases) != len(expected_bases) or any(

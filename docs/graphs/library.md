@@ -1732,7 +1732,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.run._record_files">pyflightstream.run._record_files</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace._free_space">pyflightstream.workspace._free_space</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.flight_condition">pyflightstream.workspace.flight_condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.matrix">pyflightstream.workspace.matrix</a> (module)</li>
@@ -2173,6 +2172,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._sector_body"><summary><code>pyflightstream.workspace._sector_body</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._sector_read">pyflightstream.workspace._sector_read</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._sector_save">pyflightstream.workspace._sector_save</a> (module)</li>
 </ul></details>
@@ -2189,6 +2189,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._sector_read"><summary><code>pyflightstream.workspace._sector_read</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel_fsm">pyflightstream.workspace._wheel_fsm</a> (module)</li>
 </ul></details>
 

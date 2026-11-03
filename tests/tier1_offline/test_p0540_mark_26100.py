@@ -103,7 +103,11 @@ def _read_back_of(plan, monkeypatch, groups):
     from pyflightstream.workspace import _mark_boundaries as marking
 
     bases = tuple(
-        (region.family, region.cp, {"USER": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[region.model])
+        (
+            region.family,
+            region.cp,
+            {"USER": 0, "CUSTOM": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[region.model],
+        )
         for region in plan.declarations.base_regions
     )
     monkeypatch.setattr(marking, "boundary_names", lambda _: plan.names)
@@ -113,6 +117,17 @@ def _read_back_of(plan, monkeypatch, groups):
     monkeypatch.setattr(marking, "saved_base_regions", lambda _: bases)
     monkeypatch.setattr(marking, "saved_cross_edges", lambda *_: {})
     return marking._read_back(plan, plan.work / "x.fsm")
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_a_custom_base_reads_back_as_the_saved_model_it_is(tmp_path, monkeypatch):
+    """REL-K-014: a CUSTOM base raised KeyError in the read-back, after the solver had run."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    plan = plan_mark_boundaries(_blunt_strip(tmp_path, tables=BLUNT.replace("USER", "CUSTOM")))
+    assert "SET_BASE_REGION_CP 1 CUSTOM -0.2" in plan.script
+    back = _read_back_of(plan, monkeypatch, ("Imported_trailing_edges",) * 2)
+    assert back["base_regions"] == (("wing", -0.2, 0),)
 
 
 def _wedge(tmp_path):

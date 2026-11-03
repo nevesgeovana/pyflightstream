@@ -466,7 +466,7 @@ def _adapt(
         PyflightstreamWarning,
         stacklevel=3,
     )
-    return _split_faces(mesh, kept, conformed, moved, threshold, source)
+    return _split_faces(mesh, kept, conformed, moved, threshold, source=source)
 
 
 def _unremeshed(mesh: ObjMesh, moved: Mapping[int, int]) -> _Adapted:
@@ -747,6 +747,7 @@ def _split_faces(
     pairs: Sequence[_Pair],
     moved: Mapping[int, int],
     threshold: float,
+    *,
     source: Path,
 ) -> _Adapted:
     """Return the adapted part with only the faces on the interface split onto the kept nodes.

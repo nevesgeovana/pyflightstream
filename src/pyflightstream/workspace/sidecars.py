@@ -17,6 +17,8 @@ the artifact resolvers and the HPC profile reader share.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
 its path (AD-11).
+
+Size exemption: one schema of a boundary sidecar, with its reader, writer and refresh beside it.
 """
 
 from __future__ import annotations
