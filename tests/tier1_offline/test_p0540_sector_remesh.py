@@ -430,7 +430,7 @@ def test_p0540_the_tip_radius_is_read_and_warned_unless_stated_and_the_angle_is_
             source, blades=["Blade1"], tip_radius=1.218, out=tmp_path / "b.fsm", **ARGS
         )
     assert result.report["tip_radius_m"] == pytest.approx(1.218)
-    with pytest.warns(PyflightstreamWarning, match=r"not 360/N.*N = 5 was asked"):
+    with pytest.warns(PyflightstreamWarning, match=r"N = 5 was asked.*need 360/5 = 72.0000 deg"):
         power_off_body(source, blades=["Blade1"], copies=5, out=tmp_path / "c.fsm")
 
 

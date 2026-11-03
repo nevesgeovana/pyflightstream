@@ -158,6 +158,7 @@
       "tests/tier1_offline/test_p0540_wheel.py",
       "tests/tier1_offline/test_p0540_wheel_fsm.py",
       "tests/tier1_offline/test_p0540_wheel_obj.py",
+      "tests/tier1_offline/test_p0550_low_findings.py",
       "tests/tier1_offline/test_p0550_mesh_verbs.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",

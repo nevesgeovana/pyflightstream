@@ -202,10 +202,15 @@ def _span_check(sector: Sector, expected: int | None) -> None:
     n = expected or sector.copies
     angle = math.degrees(sector.span)
     if n < 2 or abs(angle - 360.0 / n) > 0.05:
+        if n < 2:
+            need = "which is not 360/N for any N of 2 or more"
+        elif expected:
+            need = f"but {n} copies (N = {expected} was asked) need 360/{n} = {360.0 / n:.4f} deg"
+        else:
+            need = f"but the {n} copies it is read as need 360/{n} = {360.0 / n:.4f} deg"
         warn(
-            f"the sector spans {angle:.4f} deg about the axis, which is not 360/N for a whole "
-            f"number N{f' (N = {expected} was asked)' if expected else ''}; the copies will not "
-            "close, and the rotation check below says so.",
+            f"the sector spans {angle:.4f} deg about the axis, {need} each; the copies will "
+            "overlap or leave a gap.",
             PyflightstreamWarning,
             stacklevel=4,
         )

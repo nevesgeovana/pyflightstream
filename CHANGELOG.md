@@ -17,6 +17,7 @@ FlightStream versions.
 
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
+- The warning of `sector-remesh` and `power-off-body` about a sector whose angle is not 360/N states the angle the asked copies need, and no longer says a whole N does not exist (a 60 degree sector with 2 copies) or points to a rotation check that reports nothing (FR-3520).
 - `pyfs-workspace geometry build` refuses with exit 2, naming the command and pointing to `--build`,
   when a build lacks a command an operation needs or records it broken, and refuses with exit 2 an
   argument the build cannot render; the preview stopped there with a traceback and exit 1 (FR-1110).

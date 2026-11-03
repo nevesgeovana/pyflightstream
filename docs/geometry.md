@@ -678,7 +678,7 @@ the new rows are placed by
 
 `--root-margin-r` and `--nose-radius-r` are fractions of the tip radius (0.038),
 not metres, so no length of one rotor is in the code. The sector's angle is read
-from the seams and warned when it is not 360/N for a whole number N. The nacelle
+from the seams and warned, with the angle the copies need, when it is not 360/N for the copies asked. The nacelle
 (`--nacelle-theta` cells around the sector, `--nacelle-cells` rings) is built by
 one function with the same arguments by both verbs, so the nacelle of the remeshed
 wheel and of the body have the same nodes. `--axis` is `x`, `y` or `z`; the flow
