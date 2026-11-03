@@ -194,11 +194,12 @@ def _physics(lines: list[str]) -> dict[str, Any]:
     }
 
 
-def _runs(names: list[str]) -> list[tuple[int, int]]:
-    """Return the [start, stop) of each run of equal consecutive names."""
+def _runs(names: list[str], follows: dict[str, str]) -> list[tuple[int, int]]:
+    """Return the [start, stop) of each run of consecutive names on one boundary."""
+    keys = [follows.get(name, name) for name in names]
     out: list[tuple[int, int]] = []
-    for i, name in enumerate(names):
-        if out and names[out[-1][0]] == name:
+    for i, key in enumerate(keys):
+        if out and keys[out[-1][0]] == key:
             out[-1] = (out[-1][0], i + 1)
         else:
             out.append((i, i + 1))
@@ -223,12 +224,12 @@ class _Entries:
     new: NDArray[numpy.int64]
 
 
-def _expand(names: list[str], blades: set[str], copies: int) -> _Entries:
+def _expand(names: list[str], blades: set[str], copies: int, follows: dict[str, str]) -> _Entries:
     """Multiply the entries of the blade boundaries once per copy, a run of entries together."""
     order: list[int] = []
     labels: list[str] = []
     new = numpy.zeros((len(names) + 1, copies), dtype=numpy.int64)
-    for start, stop in _runs(names):
+    for start, stop in _runs(names, follows):
         blade = names[start] in blades
         for copy in range(copies if blade else 1):
             for old in range(start, stop):
@@ -323,6 +324,16 @@ def _repeated_names(parsed: _Parsed, blade_ids: list[int], blades: list[str]) ->
     return repeated
 
 
+def _follows(parsed: _Parsed, blade_ids: list[int]) -> dict[str, str]:
+    """Return the blade each physics name held by one blade alone lies on, by that name."""
+    names = [h[4] for h in parsed.mesh["heads"]]
+    return {
+        label: names[next(iter(boundaries)) - 1]
+        for label, boundaries in parsed.held_by.items()
+        if len(boundaries) == 1 and boundaries <= set(blade_ids)
+    }
+
+
 def _names_stay_apart(parsed: _Parsed, maps: _Maps) -> None:
     """Refuse (as unrecognized) two physics names whose copies would carry one name."""
     phys = parsed.phys
@@ -368,6 +379,7 @@ class _Maps:
     position: dict[tuple[int, int], int]
     blade_ids: list[int]
     repeated: set[str]
+    follows: dict[str, str]
 
 
 def _face_rows(parsed: _Parsed, maps: _Maps, opts: Options) -> list[str]:
@@ -429,7 +441,7 @@ def _termination(parsed: _Parsed, maps: _Maps, opts: Options) -> list[str]:
     faces: list[int] = []
     slots: list[int] = []
     groups: list[int] = []
-    for start, stop in _runs(names):
+    for start, stop in _runs(names, maps.follows):
         blade = names[start] in blades
         for c in range(opts.copies if blade else 1):
             for old in range(start, stop):
@@ -466,7 +478,8 @@ def _unrecognized(path: Path, why: str) -> WheelResult:
     warn(
         f"{path.name}: the saved layout is not recognized ({why}). The saved route repeats only "
         "a layout inferred from saved files (docs/geometry.md), so it is not guessed at: nothing "
-        "was written. Use the OBJ route on the sector's OBJ, or send the layout to be learned.",
+        "was written. Use the OBJ route (this verb on the sector's .obj), or send the layout to be "
+        "learned.",
         PyflightstreamWarning,
         stacklevel=3,
     )
@@ -542,15 +555,16 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     names = [h[4] for h in parsed.mesh["heads"]]
     blade_ids = sorted(names.index(b) + 1 for b in opts.blades)
     repeated = _repeated_names(parsed, blade_ids, opts.blades)
+    follows = _follows(parsed, blade_ids)
     nb = len(names)
     ints = parsed.mesh["ints"]
     shared = ~numpy.isin(ints[11], blade_ids)
     warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts, tol)
     maps = _Maps(
         index[root],
-        _expand(parsed.phys["base_names"], repeated, n),
-        _expand(parsed.phys["te_names"], repeated, n),
-        _expand(parsed.phys["term_names"], repeated, n),
+        _expand(parsed.phys["base_names"], repeated, n, follows),
+        _expand(parsed.phys["te_names"], repeated, n, follows),
+        _expand(parsed.phys["term_names"], repeated, n, follows),
         {
             (b, c): nb + (c - 1) * len(blade_ids) + j + 1
             for j, b in enumerate(blade_ids)
@@ -558,6 +572,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         },
         blade_ids,
         repeated,
+        follows,
     )
     corners = numpy.stack([ints[k] - 1 for k in (2, 3, 4)], axis=1).ravel()
     copy = Faces(maps.node[corners], numpy.full(nf, 3))

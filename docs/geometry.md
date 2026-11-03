@@ -676,7 +676,9 @@ these two verbs take no `--hub`. A sector without this topology (a sharp trailin
 edge, more than one blade, a nacelle without a base, a blade that is not a quad grid
 between two rims, an axis off the origin) is warned, naming what was not found;
 nothing is written and the exit code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
-inferred from saved files**, as for `sector-to-wheel`; the rows written are stated
+inferred from saved files**, as for `sector-to-wheel`, and a sector marked with `merge_into` is
+read as it is there, except that `power-off-body` needs the nacelle's base region and rim group
+under the nacelle's name, and says so; the rows written are stated
 in the writer's docstring.
 
 **The blade** is rebuilt from the source surface, not from its distribution. Each

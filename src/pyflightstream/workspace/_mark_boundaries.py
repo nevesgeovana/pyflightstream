@@ -724,7 +724,8 @@ def apply_mark_boundaries(
     runner : callable
         Higher-layer execution callback taking script and working directory.
     overwrite : bool
-        Whether to replace an existing saved simulation.
+        Whether to replace an existing saved simulation. With the FSM absent the other
+        outputs are replaced regardless, each warned by name.
     package_version : str
         Package version recorded with the solver outcome.
 
@@ -826,7 +827,8 @@ def _warn_replaced(plan: BoundaryMarkingPlan, replaced: list[Path]) -> None:
         warn(
             f"mark-boundaries replaced {', '.join(path.name for path in replaced)} beside "
             f"{plan.outputs[0].name}: only an existing FSM requires overwrite (CLI: --overwrite), "
-            "and these files were left by an earlier marking or named alike.",
+            "and these files were left by an earlier marking or named alike. To keep one, move "
+            "it before marking; pass overwrite to replace them with no warning.",
             PyflightstreamWarning,
             stacklevel=3,
         )

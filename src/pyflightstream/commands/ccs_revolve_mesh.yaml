@@ -304,7 +304,7 @@ EXPORT_REVOLVE_CCS_FILE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.308, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.309, unchanged from FSM-26.122 p.309"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) The written file did not separate the two readings on this build (RPT-126 states the five forms run and their files); no count of arguments is claimed."}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing). The written file did not separate the two readings on this build (RPT-126 states the five forms run and their files); no count of arguments is claimed."}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"

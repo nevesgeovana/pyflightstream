@@ -39,9 +39,15 @@ def add_merge_parser(verbs: Any) -> None:
         "--adapt",
         required=True,
         metavar="OBJ",
-        help="which of the two parts is adapted; the other keeps its nodes and faces",
+        help="which of the two parts is adapted, by its path or its file name; the other keeps "
+        "its nodes and faces",
     )
-    merge.add_argument("--out", required=True, metavar="OBJ", help="the merged OBJ to write")
+    merge.add_argument(
+        "--out",
+        required=True,
+        metavar="OBJ",
+        help="the merged OBJ to write; a name of another kind is warned and takes .obj",
+    )
     merge.add_argument("--overwrite", action="store_true", help="replace an existing output")
 
 

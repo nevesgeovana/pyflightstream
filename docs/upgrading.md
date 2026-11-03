@@ -14,6 +14,9 @@ describe the older releases that supplied them.
 simulation's rotor tables, joined by run, and each `[products.rotate_columns]` entry,
 `COLUMN = "<alias>:<AXIS>"`, as a column holding that `ROTATE` angle in degrees (FR-3511, FR-3512).
 
+`pyfs-workspace geometry merge` no longer refuses an `--out` not named `.obj`: it warns and writes
+that name's `.obj` form, so a script should read the `.obj` (FR-3543).
+
 ## 0.54.0
 
 Every new verb and setting is off unless it is called or stated, so a workspace

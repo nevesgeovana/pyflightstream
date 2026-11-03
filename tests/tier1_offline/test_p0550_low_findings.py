@@ -264,3 +264,41 @@ def test_p0550_no_command_note_ends_in_a_placeholder() -> None:
         if "[...]" in (row.note or "")
     ]
     assert bad == []
+
+
+@pytest.mark.requirement("FR-3530")
+@pytest.mark.parametrize(
+    ("command", "build", "needle"),
+    [
+        ("NEW_OFF_BODY_STREAMLINE", "26.126", "line 24, NEW_OFF_BODY_STREAMLINE"),
+        ("NEW_OFF_BODY_STREAMLINE", "26.127", "Probe on 26.127"),
+        ("NEW_STREAMLINE_DISTRIBUTION", "26.126", "line 24, NEW_STREAMLINE_DISTRIBUTION"),
+        ("NEW_OFF_BODY_STREAMTUBE", "26.124", "line 33, PRINT PYFS_PROBE_END"),
+        ("NEW_OFF_BODY_STREAMTUBE", "26.125", "line 36, PRINT PYFS_PROBE_END"),
+        ("CREATE_NEW_6DOF_EXTERNAL_FORCE", "26.124", "line 48, CREATE_NEW_6DOF_EXTERNAL_FORCE"),
+        ("CREATE_NEW_6DOF_EXTERNAL_FORCE", "26.126", "The 26.126 record (CMP-26126"),
+        ("CREATE_NEW_6DOF_EXTERNAL_FORCE", "26.127", "The 26.127 record (CMP-26127"),
+        ("CREATE_FREE_SURFACE_TFI_MESH", "26.126", "line 12, CREATE_FREE_SURFACE_TFI_MESH"),
+        ("CREATE_FREE_SURFACE_TFI_MESH", "26.127", "Probe on 26.127"),
+        ("CREATE_BULK_SEPARATION", "26.120", "line 12, CREATE_BULK_SEPARATION PYFS_BULK"),
+    ],
+)
+def test_p0550_a_note_carries_the_measurement_its_report_recorded(
+    command: str, build: str, needle: str
+) -> None:
+    from pyflightstream.commands import CommandRegistry
+
+    assert needle in (CommandRegistry.load().commands[command].versions[build].note or "")
+
+
+@pytest.mark.requirement("FR-3530")
+def test_p0550_no_command_note_carries_an_empty_instrument_head() -> None:
+    from pyflightstream.commands import CommandRegistry
+
+    bad = [
+        f"{name} {build}"
+        for name, command in CommandRegistry.load().commands.items()
+        for build, row in command.versions.items()
+        if "head:  |" in (row.note or "")
+    ]
+    assert bad == []

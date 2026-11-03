@@ -15,8 +15,8 @@ FlightStream versions.
 
 ### Fixed
 
-- The 27 notes of the command database that ended in a literal `[...]` now end on the cited report's own last complete clause, with its measurement where it states one; a probe is named for the build whose report ran it.
-- `pyfs-workspace geometry sector-to-wheel` reads a saved sector marked with `merge_into`, whose base regions and rim groups are named for no boundary: each follows the boundary its faces lie on. It warned the layout as not recognized and wrote nothing (FR-3540).
+- The 27 notes of the command database that ended in a literal `[...]` now end on the cited report's own last complete clause, with its measurement where it states one; a probe is named for the build whose report ran it (FR-3530).
+- `pyfs-workspace geometry sector-to-wheel` and `sector-remesh` read a saved sector marked with `merge_into`, whose base regions and rim groups are named for no boundary: each follows the boundary its faces lie on. They warned the layout as not recognized and wrote nothing (FR-3540); `power-off-body` keeps needing a nacelle's own name and says so.
 - `pyfs-workspace geometry mark-boundaries` on 26.100 places each edge between the rims by the nearest edge of all the entry's rims, so a rim across two families with an import operation on one of them keeps the read-back's check of those edges where the mesh is; the first rim's family could leave them unmoved (FR-3541).
 - `pyfs-workspace geometry mark-boundaries --apply` warns, by name, of each output it replaces with its FSM absent and no `--overwrite`, such as a `.mark.json` of a deleted FSM; they were replaced with no word (FR-3542).
 - `pyfs-workspace geometry merge` warns of an `--out` not named `.obj` and writes its `.obj` form, as `sector-to-wheel` and the remesh verbs do; it refused (FR-3543).

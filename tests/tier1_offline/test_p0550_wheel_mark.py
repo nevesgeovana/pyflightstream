@@ -328,3 +328,75 @@ def test_p0550_an_adapt_that_names_the_part_itself_has_no_such_word(
         warnings.simplefilter("always")
         merge_objs(first, second, threshold=0.01, adapt=adapt, out=tmp_path / "a.obj")
     assert not [item for item in caught if "is not the path" in str(item.message)]
+
+
+@pytest.mark.requirement("FR-3540")
+def test_p0550_two_names_merged_into_one_blade_keep_the_mesh_block_of_the_plain_sector(
+    tmp_path: Path, sector: Path
+) -> None:
+    """Row 5 and the termination rows answer the boundary, not how many names it holds."""
+    two = _relabelled(
+        sector,
+        tmp_path / "two.fsm",
+        te="3\nRimA\nRimB\nN\n1,1,1,",
+        term="2\nRimA\nRimB\n1,1,\n",
+    )
+    plain = _quiet_wheel(sector, tmp_path / "plain_wheel.fsm")
+    wheel = _quiet_wheel(two, tmp_path / "two_wheel.fsm")
+    assert plain.written and wheel.written
+    assert _block(tmp_path / "two_wheel.fsm", "$MESH_START$", "$MESH_END$") == _block(
+        tmp_path / "plain_wheel.fsm", "$MESH_START$", "$MESH_END$"
+    )
+    assert saved_trailing_edge_groups(tmp_path / "two_wheel.fsm") == (
+        *[name for k in range(1, COPIES + 1) for name in (f"RimA{k}", f"RimB{k}")],
+        "N",
+    )
+
+
+@pytest.mark.requirement("FR-3540")
+def test_p0550_a_name_only_a_termination_holds_follows_the_blade_of_its_face(
+    tmp_path: Path, sector: Path
+) -> None:
+    only = _relabelled(sector, tmp_path / "only.fsm", term="2\nTermOnly\nTermOnly\n1,1,\n")
+    plain = _quiet_wheel(sector, tmp_path / "plain_wheel.fsm")
+    wheel = _quiet_wheel(only, tmp_path / "only_wheel.fsm")
+    assert plain.written and wheel.written
+    assert saved_termination_count(tmp_path / "only_wheel.fsm") == 2 * COPIES
+    assert _block(tmp_path / "only_wheel.fsm", "$MESH_START$", "$MESH_END$") == _block(
+        tmp_path / "plain_wheel.fsm", "$MESH_START$", "$MESH_END$"
+    )
+
+
+@pytest.mark.requirement("FR-3543")
+@pytest.mark.parametrize("name", [".", ".."])
+def test_p0550_merge_refuses_an_output_with_no_file_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(InputArtifactError, match="names no file"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=name)
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["one.obj", "two.obj"]
+
+
+@pytest.mark.requirement("FR-3543")
+def test_p0550_merge_names_the_file_it_writes_for_an_output_of_another_kind(tmp_path: Path) -> None:
+    from pyflightstream.workspace import merge_objs
+
+    first, second = _parts(tmp_path)
+    with pytest.warns(NotApplicableWarning, match="the output is a.obj"):
+        merge_objs(first, second, threshold=0.01, adapt=second, out=tmp_path / "a.v2")
+
+
+@pytest.mark.requirement("FR-3540")
+def test_p0550_the_body_verb_on_a_marked_nacelle_says_what_it_holds(tmp_path: Path) -> None:
+    from pyflightstream.workspace import power_off_body
+
+    marked = _marked(build_blunt_sector(tmp_path), tmp_path / "marked.fsm")
+    with pytest.warns(PyflightstreamWarning) as caught:
+        result = power_off_body(marked, blades=["Blade1"], copies=COPIES, out=tmp_path / "b.fsm")
+    words = " ".join(str(item.message) for item in caught)
+    assert not result.written
+    assert "NBase" in words and "cannot be remeshed" not in words

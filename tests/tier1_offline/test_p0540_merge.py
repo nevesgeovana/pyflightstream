@@ -980,7 +980,7 @@ def test_p0540_merge_two_parts_stating_different_units_are_warned(tmp_path):
 
 
 @pytest.mark.parametrize("name", ["merged", "merged.txt"])
-@pytest.mark.requirement("FR-3482")
+@pytest.mark.requirement("FR-3543")
 def test_p0540_merge_an_output_not_named_obj_is_warned_and_takes_the_obj_form(tmp_path, name):
     """The output takes the parts' kind with its record beside it; the name asked is not made."""
     first = _write(tmp_path / "one.obj", _kept(24))

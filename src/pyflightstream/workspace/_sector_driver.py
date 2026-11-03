@@ -229,14 +229,14 @@ def span_check(sector: Sector, expected: int | None) -> None:
         )
 
 
-def _not_written(path: Path, error: Exception) -> RemeshResult:
+def _not_written(path: Path, error: Exception, doing: str = "remeshed") -> RemeshResult:
     """Warn what was not found or what folded, and return the result of a run that wrote nothing."""
     if isinstance(error, FoldedGridError):
         message = str(error)
     else:
         message = f"it lacks {error}"
     warn(
-        f"{path.name} cannot be remeshed: {message}. The topology this release covers is a blunt "
+        f"{path.name} cannot be {doing}: {message}. The topology this release covers is a blunt "
         "trailing edge, rim lines from the root loop, one blade per sector and a nacelle with a "
         f"flat base (docs/geometry.md). {_NOTHING}",
         PyflightstreamWarning,
@@ -670,7 +670,11 @@ def _body_physics(sector: Sector) -> list[str]:
     phys, lines = sector.parsed.phys, sector.parsed.lines
     name = sector.names[sector.nacelle - 1]
     if name not in phys["base_names"] or name not in phys["te_names"]:
-        raise TopologyNotFoundError(f"a base region and a trailing-edge group named {name!r}")
+        raise TopologyNotFoundError(
+            f"a base region and a trailing-edge group named {name!r} (base regions "
+            f"{phys['base_names']}, trailing-edge groups {phys['te_names']}: a family merged into "
+            "its parent keeps its own name there, which this verb does not follow for a nacelle)"
+        )
     ib, it = phys["base_names"].index(name), phys["te_names"].index(name)
     out = lines[phys["p0"] : phys["p0"] + 4] + ["1", name, f" {phys['base_rows'][0][ib]},"]
     out += [f"{row[ib]}," for row in phys["base_rows"][1:]]
@@ -834,7 +838,7 @@ def power_off_body(
         report = _body_report(sec, ask, full, nodes, world)
         _write_body(sec, full, nodes, target)
     except (TopologyNotFoundError, FoldedGridError) as error:
-        return _not_written(path, error)
+        return _not_written(path, error, doing="built into a body")
     if report["faces"]["quads"] >= 2000:
         warn(
             f"the power-off body has {report['faces']['quads']} quads; the method's bound is "

@@ -227,8 +227,9 @@ def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray]
 def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, int]:
     """Count, per entry label, the saved trailing edges that join two rims of that entry.
 
-    The cross edges were found on the OBJ at plan time (``cross_m`` of the first rim of an
-    entry). An edge of the saved simulation within the set's tolerance of one of them, and
+    The cross edges were found on the OBJ at plan time (``cross_m`` of an entry, each placed
+    by the nearest edge of all its rims). An edge of the saved simulation within the set's
+    tolerance of one of them, and
     nearer to it than to any rim edge the entry declares, is a cross edge that the solver
     marked, which the vertex files were written never to name. The tolerance alone would read
     a rim edge as a cross edge where a cell is narrower than twice the tolerance. The saved mesh

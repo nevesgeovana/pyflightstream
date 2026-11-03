@@ -987,7 +987,8 @@ def _which_adapted(first: Path, second: Path, adapt: Path) -> tuple[Path, Path]:
     if adapt.parent != Path(".") and hits[0].resolve() != resolved:
         warn(
             f"adapt (CLI: --adapt) {adapt} is not the path of the part of that name, {hits[0]}; "
-            "that part is the one adapted",
+            "that part is the one adapted. Name that part's own path or its bare file name to "
+            "select it with no warning",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -1023,13 +1024,16 @@ def _of_the_parts_kind(out: Path) -> Path:
     """Return the output named as an OBJ; another kind is warned, as the wheel verbs do."""
     if out.suffix.lower() == ".obj":
         return out
+    if out.name in ("", ".."):
+        raise _refuse(f"out (CLI: --out) {out} names no file; name an OBJ file")
+    target = out.with_suffix(".obj")
     warn(
-        f"out (CLI: --out) {out.name} is not the parts' kind (.obj); the output takes "
-        "the parts' kind, as the output of a route does.",
+        f"out (CLI: --out) {out.name} is not the parts' kind (.obj); the output is {target.name}. "
+        "Name an .obj file to choose its name.",
         NotApplicableWarning,
         stacklevel=3,
     )
-    return out.with_suffix(".obj")
+    return target
 
 
 @dataclass(frozen=True)
@@ -1065,7 +1069,9 @@ def merge_objs(
         The largest distance, in the OBJ's own length unit, between an interface node and
         the other part's open boundary.
     adapt : str or Path
-        The part that is adapted, one of the two; the other is kept unchanged.
+        The part that is adapted, one of the two, by its path or its file name; a path
+        elsewhere with a part's file name selects that part and is warned. The other is
+        kept unchanged.
     out : str or Path
         The merged OBJ; ``<out stem>.merge.json``, ``<out stem>.audit.json`` and its
         inventory ``<out>.boundaries.toml`` are written beside it. A name of another kind is
