@@ -443,6 +443,8 @@ def test_p0540_26100_the_texts_state_the_verified_route(tmp_path):
     assert "Every file import stands before the first `CREATE_NEW_BASE_REGION`" in guide
     upgrade = " ".join((docs / "upgrading.md").read_text(encoding="utf-8").split())
     assert "`--apply` stays refused until the commands are verified on that build" not in upgrade
+    log = " ".join((docs.parent / "CHANGELOG.md").read_text(encoding="utf-8").split())
+    assert "`--apply` stays refused until the commands are verified on that build" not in log
     with pytest.raises(ScriptOrderError) as refused:
         require_marking_build(Script("26.120"))
     assert "awaiting a probe" not in str(refused.value)
