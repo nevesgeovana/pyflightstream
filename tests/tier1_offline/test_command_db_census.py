@@ -161,7 +161,9 @@ VERIFIED = {
     "25.000": 0,
     "25.100": 0,
     "26.000": 0,
-    "26.100": 13,
+    # 13 until 2026-11-02; the two 26.100 marking probes (CMP-26100_2026-11-02_mark-26100-base,
+    # CMP-26100_2026-11-02_mark-26100-vertex) then verified six more rows: 19.
+    "26.100": 19,
     "26.101": 35,
     # 66 until 2026-09-08; the rotor path's thirteen solver-setting
     # emitters were then measured through the workflow on this build
