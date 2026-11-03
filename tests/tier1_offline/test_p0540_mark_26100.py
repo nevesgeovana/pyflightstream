@@ -437,6 +437,23 @@ def test_p0540_26100_explicit_termination_nodes_are_warned_and_skipped(tmp_path)
 
 
 @pytest.mark.requirement("FR-3470")
+def test_p0540_26100_explicit_nodes_across_a_merge_are_warned_not_refused(tmp_path):
+    """REL-K-008: nodes that have no form on this build are skipped, whatever they would cross."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    (tmp_path / "nodes.txt").write_text("METER\n1.0,0.0,0.05\n")
+    mesh = _capped_strip(
+        tmp_path,
+        '[trailing_edges.te]\nfile = "top.te.txt"\ntype = "STANDARD"\n'
+        'wake_termination_nodes = "nodes.txt"\n'
+        '[base_regions.cap]\nmerge_into = "wing"\ntrailing_edges = "auto"\n',
+    )
+    with pytest.warns(NotApplicableWarning, match="MARK_WAKE_TERMINATION_NODES"):
+        plan = plan_mark_boundaries(mesh)
+    assert "SELECT_MESH_NODE" not in plan.script and "SURFACE_COMBINE" in plan.script
+
+
+@pytest.mark.requirement("FR-3470")
 def test_p0540_26100_probe_specification_imports_one_rim_per_file_and_has_its_controls(tmp_path):
     from pyflightstream.qa.specs import PROBE_SPECS
     from pyflightstream.script import Script

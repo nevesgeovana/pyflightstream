@@ -246,6 +246,9 @@ def _marking_inputs(mesh):
 def _node_routes(sidecar, declarations, spec):
     termination = [entry for entry in declarations.trailing_edges if entry.wake_termination_nodes]
     explicit = [entry for entry in termination if entry.wake_termination_nodes != "auto"]
+    if declarations.fs_build == VERTEX_FILE_BUILD:
+        # No such command on this build: _emit_nodes warns and skips them, so nothing is numbered.
+        return termination, explicit
     if explicit and any(
         operation.op == "mirror" or (operation.op == "translate" and operation.surface != "all")
         for operation in spec.operations
