@@ -1067,7 +1067,7 @@ def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
         return 3
     except BrokenCommandError as error:
         # The Python way through (Script.allow_broken) is no advice for a command line.
-        print(f"{error.finding or error} {_OTHER_ROUTE}", file=sys.stderr)
+        print(error.finding or error, "Declare another fs_build in its sidecar.", file=sys.stderr)
         return 2
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

@@ -208,7 +208,7 @@ def _tip_radius(sector: Sector, ask: Ask, metres: float, *, rows: bool = True) -
     return tip
 
 
-def _span_check(sector: Sector, expected: int | None) -> None:
+def span_check(sector: Sector, expected: int | None) -> None:
     """Warn when the sector's angle is not 360/N about the axis (N the copies it is read as)."""
     n = expected or sector.copies
     angle = math.degrees(sector.span)
@@ -216,11 +216,13 @@ def _span_check(sector: Sector, expected: int | None) -> None:
         if n < 2:
             need = "which is not 360/N for any N of 2 or more"
         elif expected:
-            need = f"but {n} copies (N = {expected} was asked) need 360/{n} = {360.0 / n:.4f} deg"
+            need = (
+                f"but {n} copies (N = {expected} was asked) need 360/{n} = {360.0 / n:.4f} deg each"
+            )
         else:
-            need = f"but the {n} copies it is read as need 360/{n} = {360.0 / n:.4f} deg"
+            need = f"but the {n} copies it is read as need 360/{n} = {360.0 / n:.4f} deg each"
         warn(
-            f"the sector spans {angle:.4f} deg about the axis, {need} each; the copies will "
+            f"the sector spans {angle:.4f} deg about the axis, {need}; the copies will "
             "overlap or leave a gap.",
             PyflightstreamWarning,
             stacklevel=4,
@@ -572,7 +574,7 @@ def sector_remesh(
     try:
         sec = read_sector(path, blades, axis)
         metres = _unit_m(path)
-        _span_check(sec, None)
+        span_check(sec, None)
         plan = _plan(sec, ask, metres)
         built, grid, rows, source = _build_remesh(sec, ask, plan)
         term = _termination(sec, source, rows, built.sink)
@@ -825,7 +827,7 @@ def power_off_body(
     try:
         sec = read_sector(path, blades, axis)
         metres = _unit_m(path)
-        _span_check(sec, copies)
+        span_check(sec, copies)
         built = _build_body(sec, ask, _tip_radius(sec, ask, metres, rows=False))
         full, nodes = _copies_of(built.sink, built.nodes, copies, 1e-6 / metres)
         world = sec.frame.world(nodes)

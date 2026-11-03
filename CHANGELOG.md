@@ -17,10 +17,11 @@ FlightStream versions.
 
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
-- `pyfs-workspace geometry sector-remesh` refuses, with nothing written and exit 2, a `--span-cell` that asks for more than 10000 span rows (`MAX_SPAN_ROWS`); `--span-cell 1e-05` went on to build about two and a half million quads (FR-3522).
-- `pyfs-workspace geometry mark-boundaries` refuses a command recorded broken with the finding alone and exit 2; it printed the Python advice about `Script.allow_broken`.
+- `pyfs-workspace geometry sector-remesh` refuses, with nothing written and exit 2, a `--span-cell` that asks for more than 10000 span rows (`MAX_SPAN_ROWS`); `--span-cell 1e-05` went on to build millions of quads (FR-3522).
+- `pyfs-workspace geometry mark-boundaries` refuses a command recorded broken with the finding, a pointer to the sidecar's `fs_build`, and exit 2; it printed the Python advice about `Script.allow_broken`.
 - The notes of `CAD_CREATE_IMPORT_CURVE_TXT` and `CAD_CREATE_AUTO_CROSS_SECTIONS` that a refusal prints no longer end in a dangling `[...]`: the second is completed from its probe record, the first ends at its last complete clause.
-- `sector-to-wheel --overwrite` to a wheel of fewer copies removes the `<label>_<k>.te.txt` files of the copies the old wheel declared and the new one does not (FR-3521).
+- `sector-to-wheel --overwrite` to a wheel of fewer copies removes the `<stem>.*.te.txt` files the old
+  wheel's record lists and the new one does not write, and no other file (FR-3521).
 - The tip-radius warnings of `power-off-body` no longer speak of the rows of a remesh or of span rows, which that verb does not build.
 - The warning of `sector-remesh` and `power-off-body` about a sector whose angle is not 360/N states the angle the asked copies need, and no longer says a whole N does not exist (a 60 degree sector with 2 copies) or points to a rotation check that reports nothing (FR-3520).
 - `pyfs-workspace geometry build` refuses with exit 2, naming the command and pointing to `--build`,

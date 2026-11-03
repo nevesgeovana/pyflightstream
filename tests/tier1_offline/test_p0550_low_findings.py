@@ -97,8 +97,10 @@ def test_p0550_the_cad_create_notes_end_in_a_complete_clause() -> None:
     for name in ("CAD_CREATE_IMPORT_CURVE_TXT", "CAD_CREATE_AUTO_CROSS_SECTIONS"):
         for build, row in commands[name].versions.items():
             assert "[...]" not in (row.note or ""), (name, build)
-    note = commands["CAD_CREATE_AUTO_CROSS_SECTIONS"].versions["26.126"].note
-    assert note.endswith("not their geometric accuracy")
+    for build in ("26.126", "26.127"):
+        note = commands["CAD_CREATE_AUTO_CROSS_SECTIONS"].versions[build].note
+        assert note.endswith("before=0, after=15, control=0; expected 0,9,0"), build
+        assert "The 26.125 note: FSM-26.125 p.301" not in note, build
     sentinel = commands["CAD_CREATE_IMPORT_CURVE_TXT"].versions["26.125"].note
     assert sentinel.endswith("(END sentinel missing)")
 
@@ -156,3 +158,96 @@ def test_p0550_the_row_bound_is_checked_where_the_rows_are_made() -> None:
     assert len(span_rows(0.4, plan(0.1))) < 100
     with pytest.raises(InputValueError, match="span rows"):
         span_rows(0.4, plan(1e-5))
+
+
+def test_p0550_an_overwritten_wheel_removes_only_the_points_files_a_wheel_wrote(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace._wheel import sector_to_wheel
+    from pyflightstream.workspace.sidecars import inventory_sidecar
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    sector = build_sector(tmp_path)
+    folder = tmp_path / "out"
+    folder.mkdir()
+    mesh = folder / "hers.obj"
+    mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng W\nf 1 2 3\n", encoding="utf-8")
+    hers = folder / "hers.W.te.txt"
+    hers.write_text("METER\n1 0 0\n", encoding="utf-8")
+    inventory_sidecar(mesh, "obj").write_text(
+        'boundaries = ["W"]\n[trailing_edges.W]\nfile = "hers.W.te.txt"\n', encoding="utf-8"
+    )
+    sector_to_wheel(sector.obj, copies=3, blades=["Blade1"], out=mesh, overwrite=True)
+    assert hers.is_file()
+    out = folder / "wheel.obj"
+    sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=out)
+    mine = folder / "wheel.nodes.te.txt"
+    mine.write_text("METER\n1 0 0\n", encoding="utf-8")
+    side = inventory_sidecar(out, "obj")
+    side.write_text(
+        side.read_text(encoding="utf-8") + '\n[extra]\nfile = "wheel.nodes.te.txt"\n',
+        encoding="utf-8",
+    )
+    sector_to_wheel(sector.obj, copies=3, blades=["Blade1"], out=out, overwrite=True)
+    assert mine.is_file()
+    assert not (folder / "wheel.TE_a_6.te.txt").exists()
+
+
+def test_p0550_mark_boundaries_names_no_flag_it_does_not_have(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import argparse
+
+    from pyflightstream.run._cli_geometry import run_geometry
+    from pyflightstream.script import BrokenCommandError
+
+    error = BrokenCommandError("FOO is broken on 26.126. Script.allow_broken waives it.")
+    error.finding = "FOO is broken on 26.126."
+
+    class Poisoned:
+        def __fspath__(self) -> str:
+            raise error
+
+    run_geometry(
+        argparse.Namespace(geometry_command="mark-boundaries", mesh=Poisoned(), apply=False)
+    )
+    err = capsys.readouterr().err
+    assert "--build" not in err
+    assert "fs_build" in err
+
+
+def test_p0550_a_span_cell_too_small_for_a_number_is_refused_not_a_traceback() -> None:
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._sector_remesh import Plan, span_rows
+
+    with pytest.raises(InputValueError, match="most this verb builds is 10000"):
+        span_rows(0.4, Plan(12, 0.03, 1e-320, 0.5, 0.3, 1.2))
+
+
+def test_p0550_the_row_bound_is_ten_thousand_rows_exactly() -> None:
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._sector_remesh import Plan, span_rows
+
+    assert len(span_rows(0.0, Plan(12, 0.03, 1e-3, 0.5, 5.0, 8.332))) == 10000
+    with pytest.raises(InputValueError, match="10001 span rows.*in the mesh's unit"):
+        span_rows(0.0, Plan(12, 0.03, 1e-3, 0.5, 5.0, 8.333))
+
+
+@pytest.mark.requirement("FR-3520")
+@pytest.mark.parametrize(
+    ("span", "copies", "words"),
+    [
+        (47.0, 8, "but the 8 copies it is read as need 360/8 = 45.0000 deg each"),
+        (300.0, 1, "which is not 360/N for any N of 2 or more;"),
+    ],
+)
+def test_p0550_the_sector_angle_warning_of_a_sector_with_no_copies_asked(
+    span: float, copies: int, words: str
+) -> None:
+    import math
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._sector_driver import span_check
+
+    sector = SimpleNamespace(span=math.radians(span), copies=copies)
+    assert words in " ".join(_messages(lambda: span_check(sector, None)))

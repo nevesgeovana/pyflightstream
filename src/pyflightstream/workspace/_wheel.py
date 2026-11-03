@@ -41,7 +41,6 @@ from __future__ import annotations
 import itertools
 import json
 import math
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1189,7 +1188,7 @@ def _write_obj(
     sidecar = inventory_sidecar(out, "obj")
     record = out.with_name(f"{out.stem}.wheel.json")
     refuse_existing([out, sidecar, record, *written.points], opts.overwrite)
-    earlier = _earlier_points(sidecar, out) if opts.overwrite else []
+    earlier = _earlier_points(record, out) if opts.overwrite else []
     out.parent.mkdir(parents=True, exist_ok=True)
     header = [
         f"# Full wheel of {path.name}: {opts.copies} copies about axis "
@@ -1219,17 +1218,19 @@ def _write_obj(
     for stale in earlier:
         if stale not in written.points:
             stale.unlink(missing_ok=True)
+    report["points_files"] = sorted(file.name for file in written.points)
     files.append(write_json(record, report))
     return WheelResult(True, out, files, report)
 
 
-def _earlier_points(sidecar: Path, out: Path) -> list[Path]:
-    """Return the points files an earlier wheel of this name declared in its boundaries file.
+def _earlier_points(record: Path, out: Path) -> list[Path]:
+    """Return the points files the earlier wheel of this name wrote, as its record lists them.
 
-    Those files are the ones this verb wrote; a wheel of fewer copies no longer owns the others.
+    The record, not the boundaries file, says what the verb wrote: a boundaries file also
+    declares files the user made. A target with no such list has nothing of a wheel's to remove.
     """
-    if not sidecar.is_file():
+    try:
+        names = json.loads(record.read_text(encoding="utf-8")).get("points_files", [])
+    except (OSError, ValueError, AttributeError):
         return []
-    text = sidecar.read_text(encoding="utf-8", errors="replace")
-    pattern = r'"(' + re.escape(out.stem) + r'\.[^"/\\]+\.te\.txt)"'
-    return [out.with_name(name) for name in dict.fromkeys(re.findall(pattern, text))]
+    return [out.with_name(Path(name).name) for name in names if isinstance(name, str)]

@@ -323,18 +323,26 @@ def span_rows(root: float, plan: Plan) -> Array:
     ):
         if not (math.isfinite(value) and value > 0.0):
             raise InputValueError(f"--{name} reads {value:g}; write a positive number. {_NOTHING}")
-    n_t = int(round(length / (0.5 * (1 + plan.tip_ratio) * cell)))
-    n_u = int(round((tip - length - root) / cell))
+    t_cells = length / (0.5 * (1 + plan.tip_ratio) * cell)
+    u_cells = (tip - length - root) / cell
+    if not math.isfinite(t_cells + u_cells):
+        raise InputValueError(
+            f"span-cell {cell:g} asks for more span rows than a number holds; the most this "
+            f"verb builds is {MAX_SPAN_ROWS}. Write a larger span-cell. {_NOTHING}"
+        )
+    n_t = int(round(t_cells))
+    n_u = int(round(u_cells))
     if n_t < 1 or n_u < 1:
         raise InputValueError(
             "span-cell and tip-length leave no constant cells between the root and the tip "
             f"region of a blade from radius {root:g} to {tip:g}. {_NOTHING}"
         )
-    if n_t + n_u > MAX_SPAN_ROWS:
+    # The rows are the edges of the cells, one more than the cells.
+    if n_t + n_u + 1 > MAX_SPAN_ROWS:
         raise InputValueError(
-            f"span-cell {cell:g} and tip-length {length:g} ask for {n_t + n_u} span rows between "
-            f"radius {root:g} and {tip:g}; the most this verb builds is {MAX_SPAN_ROWS}. Write a "
-            f"larger span-cell. {_NOTHING}"
+            f"span-cell {cell:g} and tip-length {length:g} ask for {n_t + n_u + 1} span rows "
+            f"between radius {root:g} and {tip:g}, all in the mesh's unit; the most this verb "
+            f"builds is {MAX_SPAN_ROWS}. Write a larger span-cell. {_NOTHING}"
         )
     d_u = (tip - length - root) / n_u
     try:

@@ -516,6 +516,9 @@ wheel.<label>_<k>.te.txt      one points file per rim per blade
 wheel.wheel.json              source sha256, copies, axis, hub, tolerance and the checks
 ```
 
+With `--overwrite`, a points file the earlier wheel's record lists and the new wheel does not
+write is removed. No other file in the folder is touched.
+
 `mark-boundaries` reads that boundaries file as it is. The checks are printed
 and written to `wheel.wheel.json`: nodes merged, degenerate faces removed and
 warned (a saved sector keeps them and warns; a tolerance that collapses every
@@ -665,6 +668,7 @@ the new rows are placed by
   chord in any row, the root row included;
 - span: constant cells of `--span-cell` metres, then a region of `--tip-length`
   metres whose cells shrink to `--tip-ratio` of the constant one at the tip;
+  a `--span-cell` that asks for more than 10000 rows is refused with nothing written;
 - cuts: every row at one radius from mid blade outward, blended from the root row
   inboard. The tip radius is the blade's largest radius about the axis unless
   `--tip-radius` states it, and the default is warned with the value used;
