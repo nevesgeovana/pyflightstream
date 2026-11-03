@@ -384,3 +384,21 @@ def test_p0540_a_saved_sector_with_no_unit_is_warned_once_and_not_about_its_side
         ).written
     said = [str(w.message) for w in caught if "read as metres" in str(w.message)]
     assert len(said) == 1 and "[import]" not in said[0]
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_the_saved_route_says_it_keeps_a_degenerate_face_and_warns(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    built, saved = _saved(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match="Lower --tolerance"):
+        wheel = sector_to_wheel(
+            saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm", tolerance=0.06
+        )
+    kept = wheel.report["degenerate_faces"]
+    assert kept and f"degenerate faces kept: {kept}" in wheel.lines()
+    assert wheel.report["faces"]["wheel"] == wheel.report["faces"]["sector"] * COPIES
+    obj = sector_to_wheel(
+        built.obj, copies=COPIES, blades=["Blade1"], out=tmp_path / "o.obj", tolerance=0.06
+    )
+    assert any(line.startswith("degenerate faces removed:") for line in obj.lines())

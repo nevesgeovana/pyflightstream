@@ -510,8 +510,8 @@ wheel.wheel.json              source sha256, copies, axis, hub, tolerance and th
 ```
 
 `mark-boundaries` reads that boundaries file as it is. The checks are printed
-and written to `wheel.wheel.json`: nodes merged, degenerate faces removed,
-open and non-manifold edges of the sector, of the copies unmerged and of the
+and written to `wheel.wheel.json`: nodes merged, degenerate faces removed (a
+saved sector keeps them and warns), open and non-manifold edges of the sector, of the copies unmerged and of the
 wheel, the area of the wheel over the copies times the sector, and the turn by
 `360 / copies` degrees against a turn by one degree more (every node and face
 of the wheel maps onto the wheel for the first, and the second must not).

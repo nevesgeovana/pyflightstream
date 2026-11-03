@@ -587,6 +587,14 @@ def _result(
         "degenerate": int(wheel.repeated().sum()),
         "merged": len(stack) - len(used),
     }
+    if facts["degenerate"]:
+        warn(
+            f"{facts['degenerate']} faces of the wheel name one node twice: the tolerance joins "
+            "nodes of one face. The saved route keeps every face, so the solver will meet them. "
+            "Lower --tolerance.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
     report = report_of((xyz, sector), (nodes, wheel), facts, opts, tol)
     report["faces"] = {"sector": nf, "wheel": nf * n}
     counts = numpy.bincount(

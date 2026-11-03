@@ -118,7 +118,8 @@ class WheelResult:
             f"nodes: {merged['unmerged']} unmerged, {merged['wheel']} in the wheel, "
             f"{merged['merged']} merged at {report['tolerance_m']:g} m"
         )
-        out.append(f"degenerate faces removed: {report['degenerate_faces']}")
+        done = "kept" if report.get("kind") == "fsm" else "removed"
+        out.append(f"degenerate faces {done}: {report['degenerate_faces']}")
         for key in ("open_edges", "non_manifold_edges"):
             e = report[key]
             out.append(
