@@ -98,6 +98,78 @@ def test_p0540_26100_an_auto_rim_follows_the_base_it_names(tmp_path):
     assert max(imports) < min(creates) and max(creates) < min(autos)
 
 
+def _read_back_of(plan, monkeypatch, groups):
+    """The read-back of ``plan`` on a save that states ``groups`` and the declared bases."""
+    from pyflightstream.workspace import _mark_boundaries as marking
+
+    bases = tuple(
+        (region.family, region.cp, {"USER": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[region.model])
+        for region in plan.declarations.base_regions
+    )
+    monkeypatch.setattr(marking, "boundary_names", lambda _: plan.names)
+    monkeypatch.setattr(marking, "saved_wake_edge_verdict", lambda *_: None)
+    monkeypatch.setattr(marking, "saved_trailing_edge_groups", lambda _: groups)
+    monkeypatch.setattr(marking, "saved_termination_count", lambda _: 0)
+    monkeypatch.setattr(marking, "saved_base_regions", lambda _: bases)
+    monkeypatch.setattr(marking, "saved_cross_edges", lambda *_: {})
+    return marking._read_back(plan, plan.work / "x.fsm")
+
+
+TWO_ENTRIES = (
+    '[trailing_edges.blunt]\nfile = "rim.te.txt"\ntype = "STANDARD"\n'
+    '[trailing_edges.sharp]\nfile = "top.te.txt"\ntype = "STANDARD"\n'
+)
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_a_skipped_file_is_no_group_of_the_read_back(tmp_path, monkeypatch):
+    """REL-K-002: an entry warned and skipped marks nothing, so its pass still reads back."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _blunt_strip(
+        tmp_path, '[trailing_edges.te]\nfile = "top.te.txt"\ntype = "VORTEX_SHEDDING"\n'
+    )
+    with pytest.warns(NotApplicableWarning):
+        plan = plan_mark_boundaries(mesh)
+    record = _read_back_of(plan, monkeypatch, ())
+    assert [entry["group"] for entry in record["entries"]] == [None]
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_each_entry_reads_its_own_group_after_a_two_rim_entry(tmp_path, monkeypatch):
+    """REL-K-002: an entry of two rims leaves two groups, so the next entry is the third."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    plan = plan_mark_boundaries(_blunt_strip(tmp_path, TWO_ENTRIES))
+    record = _read_back_of(plan, monkeypatch, ("blunt_a", "blunt_b", "sharp"))
+    assert {entry["label"]: entry["group"] for entry in record["entries"]} == {
+        "blunt": "blunt_a",
+        "sharp": "sharp",
+    }
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_the_console_names_each_base_rim_group(tmp_path, monkeypatch, capsys):
+    """REL-K-002: the groups follow the script's order, so the console names the right one."""
+    from pyflightstream.run._cli_geometry import _print_marking_readback
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    tables = (
+        '[trailing_edges.te]\nfile = "top.te.txt"\ntype = "VORTEX_SHEDDING"\n'
+        '[base_regions.cap]\ntrailing_edges = "auto"\n'
+        '[base_regions.wing]\ntrailing_edges = {file = "rim.te.txt", type = "STANDARD"}\n'
+    )
+    with pytest.warns(NotApplicableWarning):
+        plan = plan_mark_boundaries(_capped_strip(tmp_path, tables))
+    # The script imports the two rims of wing, then marks the auto rim of cap.
+    record = _read_back_of(plan, monkeypatch, ("wing", "wing", "cap"))
+    _print_marking_readback(plan, record)
+    printed = capsys.readouterr().out
+    assert "base region cap: model EMPIRICAL, Cp -0.2, rim group cap" in printed
+    assert "base region wing: model EMPIRICAL, Cp -0.2, rim group wing" in printed
+    assert "entry te: type VORTEX_SHEDDING, group none" in printed
+
+
 @pytest.mark.requirement("FR-3470")
 def test_p0540_26100_marks_each_rim_from_its_own_vertex_file(tmp_path):
     from pyflightstream.workspace import plan_mark_boundaries

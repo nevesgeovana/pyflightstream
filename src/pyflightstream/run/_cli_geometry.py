@@ -976,7 +976,7 @@ def _print_marking_readback(plan, readback: dict[str, Any]) -> None:
         termination = entry["termination"] or "none"
         explicit = len(entry["explicit_nodes"])
         print(
-            f"  entry {entry['label']}: type {entry['type']}, group {entry['group']}; "
+            f"  entry {entry['label']}: type {entry['type']}, group {entry['group'] or 'none'}; "
             f"termination {termination}, {explicit} explicit nodes"
         )
     print(f"  termination nodes: {readback['termination_nodes']} (saved total)")
@@ -984,7 +984,7 @@ def _print_marking_readback(plan, readback: dict[str, Any]) -> None:
         print("  base regions: none")
     models = {0: "USER", 1: "EMPIRICAL", 2: "AXISYMMETRIC"}
     for index, (family, cp, model) in enumerate(readback["base_regions"]):
-        group = readback["groups"][len(readback["entries"]) + index]
+        group = plan.group_of(len(readback["entries"]) + index, readback["groups"]) or "none"
         print(f"  base region {family}: model {models[model]}, Cp {cp:g}, rim group {group}")
     merges = [r for r in plan.declarations.base_regions if r.merge_into is not None]
     if not merges:
