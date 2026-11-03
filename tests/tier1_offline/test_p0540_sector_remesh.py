@@ -700,6 +700,22 @@ def test_p0540_a_distribution_of_many_cells_finds_its_growth(count):
 
 
 @pytest.mark.requirement("FR-3499")
+def test_p0540_a_tip_ratio_far_below_one_is_not_told_it_is_not_finer(tmp_path):
+    """The words of a ratio at 1 or above are false for one that cannot grow in its cells."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputValueError, match="larger --tip-ratio") as refused:
+            sector_remesh(
+                source, blades=["Blade1"], out=tmp_path / "s.fsm", **{**ARGS, "tip_ratio": 1e-6}
+            )
+    assert "not finer" not in str(refused.value)
+
+
+@pytest.mark.requirement("FR-3499")
 @pytest.mark.parametrize(
     ("change", "text"),
     [
