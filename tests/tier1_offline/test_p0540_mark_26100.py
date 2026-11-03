@@ -311,6 +311,22 @@ def test_p0540_26100_an_empirical_base_is_stated_once_by_its_create(tmp_path):
     (tmp_path / "user").mkdir()
     custom = plan_mark_boundaries(_blunt_strip(tmp_path / "user")).script
     assert "SET_BASE_REGION_CP 1 CUSTOM -0.2" in custom
+    (tmp_path / "custom").mkdir()
+    stated = plan_mark_boundaries(
+        _blunt_strip(tmp_path / "custom", tables=BLUNT.replace("USER", "CUSTOM"))
+    ).script
+    assert "SET_BASE_REGION_CP 1 CUSTOM -0.2" in stated
+
+
+@pytest.mark.requirement("FR-3470")
+def test_p0540_26100_an_axisymmetric_base_is_stated_once_by_its_create(tmp_path):
+    """REL-K-004: only <n> CUSTOM <cp> ran on 26.100; <n> <model> <cp> of EMPIRICAL stopped it."""
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    tables = BLUNT.replace("USER", "AXISYMMETRIC")
+    script = plan_mark_boundaries(_blunt_strip(tmp_path, tables=tables)).script
+    assert "CREATE_NEW_BASE_REGION 1 AXISYMMETRIC -0.2" in script
+    assert "SET_BASE_REGION_CP" not in script
 
 
 @pytest.mark.requirement("FR-3470")

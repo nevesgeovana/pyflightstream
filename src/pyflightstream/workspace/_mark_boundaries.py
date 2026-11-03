@@ -487,7 +487,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
                 rim(region)
     for index, region in enumerate(declarations.base_regions, 1):
         emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
-        if not vertex_files or region.model != "EMPIRICAL":
+        if not vertex_files or region.model in ("USER", "CUSTOM"):
             emit(
                 "SET_BASE_REGION_CP",
                 index,
