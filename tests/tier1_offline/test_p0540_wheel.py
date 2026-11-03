@@ -41,6 +41,7 @@ class Built:
     seam: set[int] = field(default_factory=set)
     base_faces: int = 3
     notes: dict[str, int] = field(default_factory=dict)
+    rims: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
 
 
 def _fan_area(verts: np.ndarray, polys: list[list[int]]) -> float:
@@ -163,6 +164,7 @@ def build_sector(
         seam,
         spans,
         {"disc": len(disc), "spans": spans},
+        rims,
     )
 
 
