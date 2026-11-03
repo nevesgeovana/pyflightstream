@@ -173,24 +173,35 @@ def _unit_m(path: Path) -> float:
     return unit_of(unit, path.name)
 
 
-def _tip_radius(sector: Sector, ask: Ask, metres: float) -> float:
-    """Return the tip radius in the mesh's unit; the blade's largest radius is warned as used."""
+def _tip_radius(sector: Sector, ask: Ask, metres: float, *, rows: bool = True) -> float:
+    """Return the tip radius in the mesh's unit; the blade's largest radius is warned as used.
+
+    ``rows`` is true for the remesh, which builds span rows, false for the body, which has none.
+    """
     tip = float(radius_of(sector.q[sector.nodes_of(sector.blade)]).max())
     if ask.tip_radius is not None:
         stated = ask.tip_radius / metres
         if abs(stated - tip) > _TIP_SLACK * tip:
             warn(
                 f"tip-radius (CLI: --tip-radius) is {ask.tip_radius:g} m, and the blade's largest "
-                f"radius about the axis is {tip * metres:.6g} m: the rows of a remesh stop short "
-                "of the blade's surface or run past it on an extrapolation. Check the value.",
+                f"radius about the axis is {tip * metres:.6g} m: "
+                + (
+                    "the rows of a remesh stop short of the blade's surface or run past it on an "
+                    "extrapolation."
+                    if rows
+                    else "the lengths given as fractions of it are taken from the stated value, "
+                    "not from the blade."
+                )
+                + " Check the value.",
                 PyflightstreamWarning,
                 stacklevel=4,
             )
         return stated
     warn(
         f"tip-radius (CLI: --tip-radius) is not stated; the blade's largest radius about the axis, "
-        f"{tip * metres:.6g} m, is used for the span rows and for the lengths given as fractions "
-        "of it.",
+        f"{tip * metres:.6g} m, is used for "
+        + ("the span rows and for " if rows else "")
+        + "the lengths given as fractions of it.",
         PyflightstreamWarning,
         stacklevel=4,
     )
@@ -815,7 +826,7 @@ def power_off_body(
         sec = read_sector(path, blades, axis)
         metres = _unit_m(path)
         _span_check(sec, copies)
-        built = _build_body(sec, ask, _tip_radius(sec, ask, metres))
+        built = _build_body(sec, ask, _tip_radius(sec, ask, metres, rows=False))
         full, nodes = _copies_of(built.sink, built.nodes, copies, 1e-6 / metres)
         world = sec.frame.world(nodes)
         report = _body_report(sec, ask, full, nodes, world)

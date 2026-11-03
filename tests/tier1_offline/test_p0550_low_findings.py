@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
-from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
 
 
 def _messages(call: Callable[[], object]) -> list[str]:
@@ -37,3 +37,31 @@ def test_p0550_the_sector_angle_warning_states_the_angle_the_copies_need(tmp_pat
     assert "2 copies (N = 2 was asked) need 360/2 = 180.0000 deg each" in text
     assert "rotation check below" not in text
     assert "for a whole number N" not in text
+
+
+def test_p0550_the_body_verb_does_not_speak_of_the_rows_of_a_remesh(tmp_path: Path) -> None:
+    from pyflightstream.workspace import power_off_body, sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    body = " ".join(
+        _messages(
+            lambda: power_off_body(
+                source, blades=["Blade1"], copies=5, tip_radius=5.0, out=tmp_path / "b.fsm"
+            )
+        )
+    )
+    assert "tip-radius" in body and "largest radius about the axis" in body
+    assert "rows of a remesh" not in body
+    assert "span rows" not in " ".join(
+        _messages(
+            lambda: power_off_body(source, blades=["Blade1"], copies=5, out=tmp_path / "c.fsm")
+        )
+    )
+    remesh = " ".join(
+        _messages(
+            lambda: sector_remesh(
+                source, blades=["Blade1"], tip_radius=5.0, out=tmp_path / "r.fsm", **ARGS
+            )
+        )
+    )
+    assert "the rows of a remesh stop short" in remesh
