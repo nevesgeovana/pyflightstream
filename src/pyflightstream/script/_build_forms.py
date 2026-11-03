@@ -876,3 +876,19 @@ def _rotation_emission(
         script.emit_after_initialization(command, **arguments)
     else:
         script.emit(command, **arguments)
+
+
+def _broken_command_texts(entry: Any, where: str, observed: str, record: Any) -> tuple[str, str]:
+    """Return what a broken record says, and the Python way through it, as two sentences."""
+    finding = (
+        f"{entry.name} is recorded broken in {where}: {observed}. The evidence is "
+        f"{record.report} ({entry.citation})."
+    )
+    advice = (
+        "Emitting it would put a command in the script that a probe measured not to work, and "
+        "the solver accepts the line, so the run would return numbers that nothing marks as "
+        "wrong. If this run needs the command anyway, and re-probing it is the case that does, "
+        f"call Script.allow_broken({entry.name!r}, reason=...) first: the command then emits and "
+        "the script and the run manifest record it, its report and your justification."
+    )
+    return finding, advice

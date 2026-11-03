@@ -68,14 +68,14 @@ def test_p0550_the_points_file_the_how_to_names_is_the_one_marking_reads(tmp_pat
     side.write_text(
         side.read_text(encoding="utf-8").replace("W1.te.txt", "W1.nodes.te.txt"), encoding="utf-8"
     )
-    with pytest.raises(InputArtifactError, match="unit line"):
+    with pytest.raises(InputArtifactError, match=r"unit line.*te\.txt beside it"):
         plan_mark_boundaries(mesh)
     page = (ROOT / "docs" / "mesh" / "how-to.md").read_text(encoding="utf-8")
     assert '`[trailing_edges.<label>] file = "W1.te.txt"`' in page
     assert '`[trailing_edges.<label>] file = "W1.nodes.te.txt"`' not in page
 
 
-@pytest.mark.requirement("FR-3500")
+@pytest.mark.requirement("FR-3510")
 def test_p0550_a_stale_declaration_names_a_way_to_a_file_that_exists(tmp_path):
     mesh = _wing(tmp_path / "W1" / "W1.obj")
     assert workspace_cli.main(["geometry", "identify-te", str(mesh)]) == 0
@@ -88,7 +88,10 @@ def test_p0550_a_stale_declaration_names_a_way_to_a_file_that_exists(tmp_path):
     stale = [text for text in texts if "preserved trailing-edge declaration" in text]
     assert stale, texts
     assert not (level / "W1_R2.te.txt").exists()
-    assert "geometry identify-te W1_R2.obj" in stale[0]
+    # the folder is a staging one when the warning is written, so no path of it may be printed
+    assert "geometry identify-te W1_R2.obj in the level's folder" in stale[0]
+    assert ".partial" not in stale[0]
+    assert "point the declaration's file at it in W1_R2.obj.boundaries.toml" in stale[0]
     assert "review W1_R2.te.txt" not in stale[0]
 
 
@@ -120,6 +123,8 @@ def test_p0550_a_command_with_no_script_is_refused_at_the_preview(
     assert workspace_cli.main(["geometry", "build", "--build", build]) == 2
     err = capsys.readouterr().err
     assert command in err
+    assert "--build" in err
+    assert "allow_broken" not in err
     assert sorted(p.name for p in folder.iterdir()) == before
 
 
@@ -132,7 +137,7 @@ def test_p0550_the_refine_help_reads(capsys):
     assert "else the family's longest boundary side" in text
 
 
-@pytest.mark.requirement("FR-3500")
+@pytest.mark.requirement("FR-3510")
 def test_p0550_a_stale_declaration_reviews_the_level_file_that_is_there(tmp_path):
     from pyflightstream.workspace._refine import _obj
 
@@ -142,3 +147,32 @@ def test_p0550_a_stale_declaration_reviews_the_level_file_that_is_there(tmp_path
     text = _obj.stale_declaration_message("W1.te.txt", folder)
     assert "review W1_R2.te.txt" in text
     assert "identify-te" not in text
+
+
+@pytest.mark.requirement("FR-1110")
+def test_p0550_the_cutter_paragraph_says_a_broken_cutter_refuses_at_the_preview():
+    page = " ".join((ROOT / "docs" / "geometry.md").read_text(encoding="utf-8").split())
+    assert "records the cutter broken, the preview refuses too" in page
+
+
+@pytest.mark.requirement("FR-3288")
+def test_p0550_the_identify_te_help_names_both_files(capsys):
+    with pytest.raises(SystemExit):
+        workspace_cli.main(["geometry", "identify-te", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "one file each" not in text
+    assert "a points file and a solver node file each" in text
+
+
+@pytest.mark.requirement("FR-1110")
+def test_p0550_an_argument_the_build_refuses_is_a_refusal(tmp_path, monkeypatch, capsys):
+    from pyflightstream.run import _cli_geometry
+    from pyflightstream.script import CommandArgumentError
+
+    def refuse(*_args, **_kwargs):
+        raise CommandArgumentError("SOME_COMMAND: bad argument")
+
+    monkeypatch.setattr(_cli_geometry, "plan_geometry_build", refuse)
+    monkeypatch.chdir(tmp_path)
+    assert workspace_cli.main(["geometry", "build"]) == 2
+    assert "SOME_COMMAND: bad argument" in capsys.readouterr().err

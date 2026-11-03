@@ -215,6 +215,9 @@ class BrokenCommandError(PyflightstreamError, RuntimeError):
     records what it waived (see :class:`BrokenCommandUse`).
     """
 
+    #: What the record says, without the Python way through it, for a caller with no Script.
+    finding: str = ""
+
 
 class Script(_ScriptRendering):
     """One FlightStream script under construction, bound to one version.
@@ -1435,18 +1438,12 @@ class Script(_ScriptRendering):
         )
         reason = self._broken_waivers.get(entry.name)
         if reason is None:
-            raise BrokenCommandError(
-                f"{entry.name} is recorded broken in "
-                f"{where}: {observed}. The evidence is "
-                f"{record.report} ({entry.citation}). Emitting it would put a "
-                "command in the script that a probe measured not to work, and the "
-                "solver accepts the line, so the run would return numbers that "
-                "nothing marks as wrong. If this run needs the command anyway, and "
-                "re-probing it is the case that does, call "
-                f"Script.allow_broken({entry.name!r}, reason=...) first: the command "
-                "then emits and the script and the run manifest record it, its "
-                "report and your justification."
-            )
+            from pyflightstream.script._build_forms import _broken_command_texts
+
+            finding, advice = _broken_command_texts(entry, where, observed, record)
+            error = BrokenCommandError(f"{finding} {advice}")
+            error.finding = finding
+            raise error
         return BrokenCommandUse(
             command=entry.name,
             version=self.version.canonical,

@@ -179,7 +179,8 @@ The loft reads every selected curve, so an instruction states one
 `[create]` source, whose own curves would join the sections, it is refused. The
 cutter waits for a licensed probe on each build (see **Evidence on the build**
 below): until one verifies it, `--apply` refuses and the preview shows the
-script.
+script. On a build whose command database records the cutter broken, the preview
+refuses too and exits 2.
 
 The QA catalog now includes `CAD_CREATE_AUTO_CROSS_SECTIONS`, dry-rendered on
 26.124 and 26.125. It imports the synthetic QA wing into CAD Create, asks for

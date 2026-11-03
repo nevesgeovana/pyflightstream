@@ -964,7 +964,7 @@ def write_trailing_edges_identified(
     accept_empty: bool = False,
     all_families: bool = False,
 ) -> list[Path]:
-    """Find the trailing edges of an OBJ and write them in the solver's node-file format.
+    """Find the trailing edges of an OBJ; write their points and solver node files.
 
     The trailing edge of a family is its rearmost line: the edges its surface
     lies forward of (:func:`pyflightstream.workspace._refine._obj.rearmost_edges`,
@@ -980,12 +980,13 @@ def write_trailing_edges_identified(
       plane across ``aft``, the yz plane for +x
       (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
 
-    Beside the mesh, ``families`` given, each family's file is
-    ``<mesh stem>.<family>.fs.te.txt``; else the trailing edges of the quad
-    families (every family with ``all_families``) are
-    one file, ``<mesh stem>.nodes.te.txt``. Without ``source``, the nodes found
-    are also written as ``<mesh stem>.nodes.txt`` in the ANSA format, the node
-    list a refine file's ``[[perimeter]]`` reads. The node files are written by
+    Beside the mesh, ``families`` given, each family's files are
+    ``<mesh stem>.<family>.te.txt``, the points file a boundaries file names, and
+    ``<mesh stem>.<family>.fs.te.txt``, the solver's format; else the trailing edges
+    of the quad families (every family with ``all_families``) are one pair,
+    ``<mesh stem>.te.txt`` and ``<mesh stem>.nodes.te.txt``. Without ``source``, the
+    nodes found are also written as ``<mesh stem>.nodes.txt`` in the ANSA format, the
+    node list a refine file's ``[[perimeter]]`` reads. The node files are written by
     :func:`write_node_file`.
 
     Parameters
@@ -995,9 +996,9 @@ def write_trailing_edges_identified(
     source : str or pathlib.Path, optional
         The node list saved from the SET (Id, Name, X, Y, Z), in the mesh's unit.
     families : sequence of str, optional
-        The families, one file each; a name the OBJ does not hold, or one on
+        The families, one pair of files each; a name the OBJ does not hold, or one on
         which no trailing edge is found, is warned and skipped. Default: every
-        quad family (:func:`quad_families`), in one file; the others are
+        quad family (:func:`quad_families`), in one pair of files; the others are
         warned and skipped.
     aft : sequence of float
         The aft direction, from the nose to the tail (default +x).
@@ -1411,7 +1412,9 @@ def read_trailing_edge_points(path: str | Path) -> TrailingEdgePoints:
                     f"{source}: line {number} reads {line!r}, and a trailing-edge points "
                     "file opens with a unit line naming the length unit its points are "
                     f"in, one of: {scaled}. A line of numbers there is a file with no unit "
-                    "line, and its points would have no scale to convert by",
+                    "line, and its points would have no scale to convert by. A "
+                    "<stem>.nodes.te.txt from identify-te is the solver's format: name the "
+                    "<stem>.te.txt beside it",
                     kind="wake_edges",
                 )
             unit = line

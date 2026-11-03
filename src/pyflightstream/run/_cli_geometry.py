@@ -103,6 +103,7 @@ GEOMETRY_VERBS = (
 _TIMEOUT_S = 1800.0
 
 _NOTHING = "Nothing was written."
+_OTHER_ROUTE = "Choose another build with --build, or another route in the instruction."
 
 
 def matrix_parsers() -> dict[str, argparse.ArgumentParser]:
@@ -349,7 +350,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
     )
     identify = verbs.add_parser(
         "identify-te",
-        help="find the trailing edges of an OBJ and write them in the solver's node-file format",
+        help="find the trailing edges of an OBJ and write their points and solver node files",
         description=(
             "A trailing edge is a family's rearmost line: the edges its surface lies forward of. "
             "Without NODES they are found from the mesh alone (each family cut at its sharp "
@@ -379,7 +380,8 @@ def _add_mesh_verbs(verbs: Any) -> None:
     identify.add_argument(
         "--families",
         metavar="A,B",
-        help="the families, one file each (default: every quad family, in one file)",
+        help="the families, a points file and a solver node file each (default: every quad family, "
+        "one pair)",
     )
     identify.add_argument(
         "--all-families",
@@ -626,6 +628,20 @@ def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
         print(f"  {row}")
 
 
+def _plan_build(args: argparse.Namespace, only: tuple[str, ...]) -> GeometryBuildPlan:
+    """Plan a build; what the build cannot render is a refusal, at the preview too."""
+    try:
+        return plan_geometry_build(args.target, build=args.build, only=only)
+    except BrokenCommandError as error:
+        raise InputArtifactError(f"{error.finding} {_OTHER_ROUTE}") from error
+    except CommandNotInVersionError as error:
+        raise InputArtifactError(f"{error} {_OTHER_ROUTE}") from error
+    except (InputArtifactError, ExecutorConfigurationError, GeometryBuildError):
+        raise
+    except (PyflightstreamError, ValueError) as error:
+        raise InputArtifactError(str(error)) from error
+
+
 def _cmd_build(args: argparse.Namespace) -> int:
     only = tuple(tag.strip() for tag in (args.only or "").split(",") if tag.strip())
     try:
@@ -635,7 +651,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
                 "--only names no variant; give TAG[,TAG...] such as AIL+100, or leave --only out "
                 "to build every variant."
             )
-        plan = plan_geometry_build(args.target, build=args.build, only=only)
+        plan = _plan_build(args, only)
         _print_plan(plan)
         _print_rows(plan, args)
         if not args.apply:
@@ -655,14 +671,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
             package_version=_package_version(),
             parallel=args.parallel,
         )
-    except (
-        InputArtifactError,
-        ExecutorConfigurationError,
-        CommandNotInVersionError,
-        BrokenCommandError,
-    ) as error:
-        # A command the build lacks or records broken cannot be rendered, so the plan stops
-        # there, at the preview too: a refusal naming the command, not a traceback.
+    except (InputArtifactError, ExecutorConfigurationError) as error:
         print(f"{error} {_NOTHING}", file=sys.stderr)
         return 2
     except GeometryBuildError as error:

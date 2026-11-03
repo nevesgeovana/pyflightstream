@@ -9,11 +9,11 @@ FlightStream versions.
 
 ### Fixed
 
-- `pyfs-workspace geometry build` refuses with exit 2, naming the command, when a build lacks a
-  command an operation needs or records it broken; the preview stopped there with a traceback and
-  exit 1 (FR-1110).
+- `pyfs-workspace geometry build` refuses with exit 2, naming the command and pointing to `--build`,
+  when a build lacks a command an operation needs or records it broken, and refuses with exit 2 an
+  argument the build cannot render; the preview stopped there with a traceback and exit 1 (FR-1110).
 - `pyfs-workspace geometry refine` names `identify-te` when a stale trailing-edge declaration meets a
-  level that holds no points file; it named a file that was not written (FR-3500).
+  level that holds no points file; it named a file that was not written (FR-3510).
 - The mesh how-to names `W1.te.txt`, the file `identify-te` writes for `[trailing_edges]`; the file it
   named, `W1.nodes.te.txt`, is refused by `mark-boundaries` (FR-3288).
 

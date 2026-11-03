@@ -1046,12 +1046,13 @@ def stale_declaration_message(declared: str, folder: Path) -> str:
     """
     level_file = f"{folder.name}{TE_SUFFIX}"
     action = (
-        f"review {level_file} and explicitly add the desired file"
+        f"review {level_file} and point the declaration's file at the desired one"
         if (folder / level_file).is_file()
         else f"this level holds no {level_file}, so write it with "
-        f"pyfs-workspace geometry identify-te {folder.name}.obj and add it"
+        f"pyfs-workspace geometry identify-te {folder.name}.obj in the level's folder and point "
+        "the declaration's file at it"
     )
     return (
         f"{declared}: the preserved trailing-edge declaration does not match the refined mesh; "
-        f"{action} to the level's boundaries declarations."
+        f"{action} in {folder.name}.obj.boundaries.toml."
     )
