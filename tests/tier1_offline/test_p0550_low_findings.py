@@ -104,21 +104,55 @@ def test_p0550_the_cad_create_notes_end_in_a_complete_clause() -> None:
 
 
 def test_p0550_mark_boundaries_refuses_a_broken_command_without_python_advice(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from pyflightstream.run import _cli_geometry
+    import argparse
+
+    from pyflightstream.run._cli_geometry import run_geometry
     from pyflightstream.script import BrokenCommandError
-    from pyflightstream.workspace.cli import main
 
     error = BrokenCommandError("FOO is broken on 26.126. Script.allow_broken waives it.")
     error.finding = "FOO is broken on 26.126."
 
-    def refuse(*args: object, **kwargs: object) -> None:
-        raise error
+    class Poisoned:
+        """A mesh argument whose reading raises what a script with a broken command raises."""
 
-    monkeypatch.setattr(_cli_geometry, "plan_mark_boundaries", refuse)
-    code = main(["geometry", "mark-boundaries", str(tmp_path / "wing.obj")])
+        def __fspath__(self) -> str:
+            raise error
+
+    args = argparse.Namespace(geometry_command="mark-boundaries", mesh=Poisoned(), apply=False)
+    code = run_geometry(args)
     err = capsys.readouterr().err
     assert code == 2
     assert "FOO is broken on 26.126." in err
     assert "allow_broken" not in err
+
+
+@pytest.mark.requirement("FR-3522")
+def test_p0550_a_span_cell_that_asks_for_millions_of_quads_is_refused_before_building(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+    from pyflightstream.workspace._sector_remesh import MAX_SPAN_ROWS
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "huge.fsm"
+    args = {**ARGS, "span_cell": 1e-5}
+    with pytest.raises(
+        InputValueError, match=rf"span rows.*most this verb builds is {MAX_SPAN_ROWS}"
+    ):
+        sector_remesh(source, blades=["Blade1"], tip_radius=1.218, out=out, **args)
+    assert not out.exists()
+
+
+def test_p0550_the_row_bound_is_checked_where_the_rows_are_made() -> None:
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._sector_remesh import Plan, span_rows
+
+    def plan(cell: float) -> Plan:
+        return Plan(12, 0.03, cell, 0.5, 0.3, 1.2)
+
+    assert len(span_rows(0.4, plan(0.1))) < 100
+    with pytest.raises(InputValueError, match="span rows"):
+        span_rows(0.4, plan(1e-5))

@@ -17,6 +17,7 @@ FlightStream versions.
 
 - `pyfs-matrix post --force-overwrite` reads an end of input at its question as no confirmation;
   it ended in a traceback.
+- `pyfs-workspace geometry sector-remesh` refuses, with nothing written and exit 2, a `--span-cell` that asks for more than 10000 span rows (`MAX_SPAN_ROWS`); `--span-cell 1e-05` went on to build about two and a half million quads (FR-3522).
 - `pyfs-workspace geometry mark-boundaries` refuses a command recorded broken with the finding alone and exit 2; it printed the Python advice about `Script.allow_broken`.
 - The notes of `CAD_CREATE_IMPORT_CURVE_TXT` and `CAD_CREATE_AUTO_CROSS_SECTIONS` that a refusal prints no longer end in a dangling `[...]`: the second is completed from its probe record, the first ends at its last complete clause.
 - `sector-to-wheel --overwrite` to a wheel of fewer copies removes the `<label>_<k>.te.txt` files of the copies the old wheel declared and the new one does not (FR-3521).

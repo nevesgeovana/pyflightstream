@@ -46,6 +46,11 @@ __all__ = ["BladeSource", "Grid", "Plan", "blade_grid", "chord_fractions", "read
 Array = NDArray[numpy.float64]
 Edge = tuple[int, int]
 
+#: The most span rows the remesh builds. A real blade carries a few hundred, so ten thousand is
+#: more than an order above any plausible mesh and far below what a span-cell mistyped by a few
+#: powers of ten asks for (millions of quads built in Python lists).
+MAX_SPAN_ROWS = 10_000
+
 
 @dataclass
 class Plan:
@@ -324,6 +329,12 @@ def span_rows(root: float, plan: Plan) -> Array:
         raise InputValueError(
             "span-cell and tip-length leave no constant cells between the root and the tip "
             f"region of a blade from radius {root:g} to {tip:g}. {_NOTHING}"
+        )
+    if n_t + n_u > MAX_SPAN_ROWS:
+        raise InputValueError(
+            f"span-cell {cell:g} and tip-length {length:g} ask for {n_t + n_u} span rows between "
+            f"radius {root:g} and {tip:g}; the most this verb builds is {MAX_SPAN_ROWS}. Write a "
+            f"larger span-cell. {_NOTHING}"
         )
     d_u = (tip - length - root) / n_u
     try:
