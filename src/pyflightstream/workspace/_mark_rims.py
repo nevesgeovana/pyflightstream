@@ -16,7 +16,7 @@ import numpy as np
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.cases.mesh import MeshImport
-from pyflightstream.workspace.wake_edges import _nearest, length_scale, mesh_edge_table
+from pyflightstream.workspace.wake_edges import length_scale, mesh_edge_table, nearest_candidates
 
 
 def _obj_edges(mesh: Path, unit: str) -> list[tuple[str, tuple[float, ...]]]:
@@ -194,7 +194,9 @@ def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray]
     vertices, edges = mesh_edge_table(mesh)
     vertices = vertices * length_scale(mesh_unit, "METER")
     midpoints = (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
-    chosen = np.unique(_nearest(np.asarray(points, dtype=float).reshape(-1, 3), midpoints)[0])
+    chosen = np.unique(
+        nearest_candidates(np.asarray(points, dtype=float).reshape(-1, 3), midpoints)[0]
+    )
     ends = edges[chosen]
     size = len(vertices)
     graph = coo_matrix((np.ones(len(ends)), (ends[:, 0], ends[:, 1])), shape=(size, size))

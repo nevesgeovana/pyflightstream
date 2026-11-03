@@ -1499,7 +1499,7 @@ def mesh_edge_table(mesh: Any) -> tuple[numpy.ndarray, numpy.ndarray]:
     return vertices, edges
 
 
-def _nearest(
+def nearest_candidates(
     points: numpy.ndarray, candidates: numpy.ndarray
 ) -> tuple[numpy.ndarray, numpy.ndarray]:
     """For each point, the index of and the distance to its nearest candidate.
@@ -1622,7 +1622,7 @@ def matched_trailing_edge_points(
         )
     scaled = array * length_scale(points_unit, simulation_unit)
     midpoints = _mesh_edge_midpoints(mesh) * length_scale(mesh_unit, simulation_unit)
-    nearest, distance = _nearest(scaled, midpoints)
+    nearest, distance = nearest_candidates(scaled, midpoints)
     count = len(scaled)
     for position in range(count):
         if distance[position] <= tolerance:
@@ -1771,7 +1771,7 @@ def matched_trailing_edge_sets(
             source=source.name,
             lines=read.lines,
         )
-        nearest, _ = _nearest(points, midpoints)
+        nearest, _ = nearest_candidates(points, midpoints)
         for index in nearest.tolist():
             if index in owners:
                 raise InputArtifactError(

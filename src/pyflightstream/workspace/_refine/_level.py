@@ -602,7 +602,7 @@ def _bands(work: _Work) -> None:
     for name in [n for n in work.names if n in work.conform and n not in work.specs]:
         seed = set().union(*(old for old, _ in work.conform[name]))
         faces = work.mesh.families[name]
-        band = _band(faces, seed, _geometry.BAND_LAYERS)
+        band = band_of_faces(faces, seed, _geometry.BAND_LAYERS)
         if len(band) == len(faces):
             _rebuild_whole(work, name, len(band))
             continue
@@ -656,7 +656,7 @@ def _rebuild_whole(work: _Work, name: str, band: int) -> None:
     )
 
 
-def _band(faces: Faces, seed: set[int], layers: int) -> set[int]:
+def band_of_faces(faces: Faces, seed: set[int], layers: int) -> set[int]:
     """Return the faces within ``layers`` face layers of the seed vertices."""
     vertices, selected = set(seed), set()
     for _ in range(layers):

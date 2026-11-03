@@ -50,7 +50,7 @@ from pyflightstream.workspace._refine import _geometry
 from pyflightstream.workspace._refine._audit import AUDIT_SUFFIX, MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import Faces, Points
-from pyflightstream.workspace._refine._level import _band
+from pyflightstream.workspace._refine._level import band_of_faces
 from pyflightstream.workspace._refine._obj import (
     DEFAULT_FAMILY,
     KIND,
@@ -391,7 +391,8 @@ def _all_faces(mesh: ObjMesh) -> Faces:
 def _bands_of(mesh: ObjMesh, seed: set[int]) -> dict[str, set[int]]:
     """Return per family the indices of its faces in the band beside the seed nodes."""
     bands = {
-        name: _band(faces, seed, _geometry.BAND_LAYERS) for name, faces in mesh.families.items()
+        name: band_of_faces(faces, seed, _geometry.BAND_LAYERS)
+        for name, faces in mesh.families.items()
     }
     return {name: band for name, band in bands.items() if band}
 

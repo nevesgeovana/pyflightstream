@@ -80,7 +80,7 @@ from typing import Any
 
 # Re-export these names to preserve their public import paths, as checked
 # by scripts/check_parity.py.
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
