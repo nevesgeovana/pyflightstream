@@ -391,6 +391,13 @@ def _o_grid(b: Builder, mer: Meridian, root: list[int], spec: SpinnerSpec) -> _O
     """Build and smooth the O-grid between the root loop and the rectangle; refuse a folded one."""
     n_loop = len(root)
     n_s = n_loop // 2 - spec.theta
+    if n_s < 1:
+        raise InputValueError(
+            f"spinner_theta (CLI: --spinner-theta) is {spec.theta}, and a root loop of {n_loop} "
+            f"nodes needs fewer than {n_loop // 2} cells around the sector to leave any along "
+            "the meridian; lower it, or raise chord_cells (CLI: --chord-cells). No file was "
+            "written."
+        )
     xyz = numpy.array([b.position(n) for n in root])
     s_loop = mer.s_of_x(xyz[:, 0])
     s_front = float(s_loop.min() - spec.margin)

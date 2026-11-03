@@ -681,3 +681,55 @@ def test_p0540_a_row_that_names_a_face_or_node_outside_the_block_is_not_read(tmp
     with pytest.warns(PyflightstreamWarning, match="outside"):
         assert not sector_to_wheel(source, copies=COPIES, blades=["Blade1"], out=out).written
     assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    ("change", "text"),
+    [
+        ({"span_cell": 0.0}, "--span-cell"),
+        ({"span_cell": math.nan}, "--span-cell"),
+        ({"tip_length": math.inf}, "--tip-length"),
+        ({"tip_radius": math.nan}, "--tip-radius"),
+        ({"tip_ratio": 0.0}, "--tip-ratio"),
+        ({"tip_ratio": 1.0}, "--tip-ratio"),
+        ({"le": 0.0}, "larger le"),
+        ({"le": -0.1}, "larger le"),
+        ({"le": math.nan}, "larger le"),
+        ({"spinner_theta": 14}, "--spinner-theta"),
+    ],
+)
+def test_p0540_an_option_no_mesh_can_follow_is_refused_in_words_on_the_sector(
+    tmp_path, change, text
+):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "s.fsm"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputValueError, match=text):
+            sector_remesh(source, blades=["Blade1"], out=out, **{**ARGS, **change})
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"spinner_rings": 0},
+        {"spinner_rings": -1},
+        {"nacelle_cells": 0},
+        {"nacelle_cells": -1},
+    ],
+)
+def test_p0540_the_body_checks_the_counts_it_is_given(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "b.fsm"
+    with pytest.raises(InputValueError, match="must be 1 or more"):
+        power_off_body(source, blades=["Blade1"], copies=COPIES, out=out, **change)
+    assert not out.exists()

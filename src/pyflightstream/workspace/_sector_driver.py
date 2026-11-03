@@ -781,7 +781,7 @@ def power_off_body(
         raise InputValueError(
             f"copies (CLI: --copies) is {copies}; a body needs 2 or more. {_NOTHING}"
         )
-    _validate(Ask(blades, axis, spinner_theta=spinner_theta, nacelle_theta=nacelle_theta))
+    _validate(ask)
     path, target, record = _paths(sector, out, "body", "body", overwrite)
     try:
         sec = read_sector(path, blades, axis)

@@ -25,6 +25,7 @@ Scipy is imported inside the functions that use it.
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -284,7 +285,10 @@ def chord_fractions(cells: int, le: float) -> Array:
         grow_n = cells - fixed
         if le * grow_n >= 0.5:
             continue
-        grow = geometric(grow_n, le, 0.5)
+        try:
+            grow = geometric(grow_n, le, 0.5)
+        except ValueError:  # brentq: no growth reaches mid-chord from this first cell
+            continue
         size = 0.5 / fixed
         last = grow[-1] - grow[-2]
         if last <= size and (best is None or size - last < best[0]):
@@ -301,6 +305,14 @@ def chord_fractions(cells: int, le: float) -> Array:
 def span_rows(root: float, plan: Plan) -> Array:
     """Return the rows' radii: constant cells, then a short region growing finer to the tip."""
     cell, length, tip = plan.span_cell, plan.tip_length, plan.tip_radius
+    for name, value in (
+        ("span-cell", cell),
+        ("tip-length", length),
+        ("tip-radius", tip),
+        ("tip-ratio", plan.tip_ratio),
+    ):
+        if not (math.isfinite(value) and value > 0.0):
+            raise InputValueError(f"--{name} reads {value:g}; write a positive number. {_NOTHING}")
     n_t = int(round(length / (0.5 * (1 + plan.tip_ratio) * cell)))
     n_u = int(round((tip - length - root) / cell))
     if n_t < 1 or n_u < 1:
@@ -309,7 +321,13 @@ def span_rows(root: float, plan: Plan) -> Array:
             f"region of a blade from radius {root:g} to {tip:g}. {_NOTHING}"
         )
     d_u = (tip - length - root) / n_u
-    fine = length - geometric(n_t, plan.tip_ratio * cell, length)[::-1]
+    try:
+        fine = length - geometric(n_t, plan.tip_ratio * cell, length)[::-1]
+    except ValueError as error:  # brentq: the tip cells already fill the region, with no growth
+        raise InputValueError(
+            f"--tip-ratio {plan.tip_ratio:g} leaves no growth in the tip region: its cells are "
+            f"not finer than the constant one. Use a --tip-ratio below 1. {_NOTHING}"
+        ) from error
     return numpy.r_[root + d_u * numpy.arange(n_u), tip - length + fine]
 
 
