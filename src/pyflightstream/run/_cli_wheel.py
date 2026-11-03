@@ -63,7 +63,7 @@ def _add_sector_to_wheel(verbs: Any) -> None:
         type=float,
         default=1e-4,
         metavar="METRES",
-        help="nodes closer than this, in metres, are one node (default 1e-4)",
+        help="nodes within this distance, in metres, are one node (default 1e-4)",
     )
     wheel.add_argument(
         "--out", metavar="PATH", help="the wheel (default <sector stem>_wheel beside the sector)"

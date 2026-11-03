@@ -131,7 +131,7 @@ written, whatever the table states (steady, unsteady window average, or
 quasi-steady mean over clockings); no solver run is added.
 
 - **One row per distinct `J_<ALIAS>` of the table**, in ascending `J`. Rows of
-  the table with the same `J` (to the six figures the table writes) form one
+  the table with the same `J` (rounded to six decimals) form one
   group. The columns are `POL`, the context columns of the rotor table
   (`ALPHA` and `J` excluded: both are columns of the row), `ROTOR`, `J`, `ALPHA_LOW`, `ALPHA_HIGH`, `CN_LOW`,
   `CN_HIGH` and `CN_SLOPE_PER_DEG`. A context column holds its value when every

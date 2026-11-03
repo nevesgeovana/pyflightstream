@@ -201,6 +201,21 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "visual_inspect"): SWITCH,
     # 0.53.0 (PFS-2185.11): `geometry beam --visual-inspection` draws one more file.
     ("pyfs-workspace", "visual_inspection"): SWITCH,
+    # 0.54.0 (PFS-2186.01, .06): the sector verbs name a sector and the numbers of one mesh.
+    ("pyfs-workspace", "sector"): SUBJECT,
+    ("pyfs-workspace", "copies"): CASE,
+    ("pyfs-workspace", "chord_cells"): CASE,
+    ("pyfs-workspace", "le"): CASE,
+    ("pyfs-workspace", "span_cell"): CASE,
+    ("pyfs-workspace", "tip_ratio"): CASE,
+    ("pyfs-workspace", "tip_length"): CASE,
+    ("pyfs-workspace", "spinner_theta"): CASE,
+    ("pyfs-workspace", "spinner_layers"): CASE,
+    ("pyfs-workspace", "spinner_rings"): CASE,
+    ("pyfs-workspace", "nacelle_theta"): CASE,
+    ("pyfs-workspace", "nacelle_cells"): CASE,
+    ("pyfs-workspace", "root_margin_r"): CASE,
+    ("pyfs-workspace", "nose_radius_r"): CASE,
     # 0.54.0 (PFS-2186.09): `geometry merge` names its two parts, the one adapted and the
     # distance across their interface, facts of this one call.
     ("pyfs-workspace", "parts"): SUBJECT,
@@ -630,8 +645,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "batch"): frozenset({"apply", "cancel", "preview"}),
     ("pyfs-workspace", "matrices"): frozenset({"preview"}),
     ("pyfs-workspace", "direction"): frozenset({"preview"}),
-    ("pyfs-workspace", "axis"): frozenset({"trailing-edge"}),
-    ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "axis"): frozenset(
+        {"sector-to-wheel", "sector-remesh", "power-off-body", "trailing-edge"}
+    ),
+    ("pyfs-workspace", "hub"): frozenset({"sector-to-wheel", "trailing-edge"}),
     ("pyfs-workspace", "unit"): frozenset(
         {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine", "visual-inspect"}
     ),
@@ -907,6 +924,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "create",
                 "identify-te",
                 "merge",
+                "sector-to-wheel",
+                "sector-remesh",
+                "power-off-body",
                 "prepare-to-refine",
                 "visual-inspect",
                 "degenerate",
@@ -957,9 +977,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "target_point"): frozenset({"move"}),
     ("pyfs-workspace", "reference"): frozenset({"subtract"}),
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
-    ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
+    ("pyfs-workspace", "tolerance"): frozenset({"sector-to-wheel", "subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        "audit fill-interior merge mirror move profile refine subtract time-mean trailing-edge "
+        "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
+        "profile refine subtract time-mean trailing-edge "
         "visual-inspect".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
@@ -987,6 +1008,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "convert2midnodes",
             "identify-te",
             "merge",
+            "sector-to-wheel",
+            "sector-remesh",
+            "power-off-body",
             "prepare-to-refine",
             "visual-inspect",
             "build",
@@ -1016,9 +1040,11 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
     ("pyfs-workspace", "ref"): frozenset({"profile"}),
     ("pyfs-workspace", "disc"): frozenset({"profile"}),
-    ("pyfs-workspace", "tip_radius"): frozenset({"profile"}),
+    ("pyfs-workspace", "tip_radius"): frozenset({"sector-remesh", "power-off-body", "profile"}),
     ("pyfs-workspace", "hub_radius"): frozenset({"profile"}),
-    ("pyfs-workspace", "blades"): frozenset({"profile"}),
+    ("pyfs-workspace", "blades"): frozenset(
+        {"sector-to-wheel", "sector-remesh", "power-off-body", "profile"}
+    ),
     ("pyfs-workspace", "thrust"): frozenset({"profile"}),
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
@@ -1033,6 +1059,21 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine", "refine"}),
     ("pyfs-matrix", "visual_inspect"): frozenset({"refine"}),
     ("pyfs-workspace", "visual_inspection"): frozenset({"beam"}),
+    # 0.54.0 (PFS-2186.01, .06): the sector verbs.
+    ("pyfs-workspace", "sector"): frozenset({"sector-to-wheel", "sector-remesh", "power-off-body"}),
+    ("pyfs-workspace", "copies"): frozenset({"sector-to-wheel", "power-off-body"}),
+    ("pyfs-workspace", "chord_cells"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "le"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "span_cell"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "tip_ratio"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "tip_length"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "spinner_theta"): frozenset({"sector-remesh", "power-off-body"}),
+    ("pyfs-workspace", "spinner_layers"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "spinner_rings"): frozenset({"sector-remesh", "power-off-body"}),
+    ("pyfs-workspace", "nacelle_theta"): frozenset({"sector-remesh", "power-off-body"}),
+    ("pyfs-workspace", "nacelle_cells"): frozenset({"sector-remesh", "power-off-body"}),
+    ("pyfs-workspace", "root_margin_r"): frozenset({"sector-remesh"}),
+    ("pyfs-workspace", "nose_radius_r"): frozenset({"sector-remesh", "power-off-body"}),
     # 0.54.0 (PFS-2186.09): `geometry merge`.
     ("pyfs-workspace", "parts"): frozenset({"merge"}),
     ("pyfs-workspace", "threshold"): frozenset({"merge"}),
