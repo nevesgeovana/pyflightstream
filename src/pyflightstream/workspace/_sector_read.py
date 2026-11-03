@@ -28,6 +28,7 @@ from typing import Any
 import numpy
 from numpy.typing import NDArray
 
+from pyflightstream.workspace._wheel import azimuth_range
 from pyflightstream.workspace._wheel_fsm import _parse, _UnrecognizedError
 
 __all__ = ["Frame", "Sector", "TopologyNotFoundError", "read_sector"]
@@ -189,10 +190,7 @@ def _seams(q: NDArray[numpy.float64], bodies: NDArray[numpy.int64]) -> tuple[flo
     """Return the azimuth of the sector's middle and its angle, from the body nodes' azimuths."""
     r = radius_of(q[bodies])
     keep = r > _ON_AXIS * float(r.max())
-    psi = azimuth_of(q[bodies][keep])
-    rel = wrap(psi - psi[0])
-    low, high = float(rel.min()), float(rel.max())
-    return float(psi[0] + 0.5 * (low + high)), high - low
+    return azimuth_range(azimuth_of(q[bodies][keep]))
 
 
 def _snapped(span: float) -> float:

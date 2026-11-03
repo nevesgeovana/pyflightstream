@@ -204,3 +204,29 @@ def test_p0540_the_command_runs_end_to_end_through_pyfs_workspace(tmp_path, caps
     assert "--overwrite" in capsys.readouterr().err
     assert workspace_main([*argv, "--overwrite", "--tolerance", "1e-5"]) == 0
     assert workspace_main([*argv[:-2], "--out", str(tmp_path / "z.obj"), "--blades", "X"]) == 2
+
+
+@pytest.mark.requirement("FR-3466")
+def test_p0540_a_sidecar_table_the_wheel_does_not_carry_is_warned_and_skipped(tmp_path):
+    sector = build_sector(tmp_path)
+    sidecar = sector.obj.with_name(f"{sector.obj.name}.boundaries.toml")
+    text = sidecar.read_text(encoding="utf-8").rstrip() + "\n"
+    text += '\n[ports]\nfeed = "S"\n'
+    text += '\n[[import.operations]]\nop = "rename"\nsurface = "S"\nto = "Spin"\n'
+    sidecar.write_text(text, encoding="utf-8")
+    with pytest.warns(NotApplicableWarning, match=r"import\.operations.*ports"):
+        result = sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "w.obj")
+    assert result.written
+    written = (tmp_path / "w.obj.boundaries.toml").read_text(encoding="utf-8")
+    assert "ports" not in written and "operations" not in written
+
+
+@pytest.mark.requirement("FR-3466")
+def test_p0540_a_group_name_outside_ascii_makes_a_table_toml_can_read():
+    import tomllib
+
+    from pyflightstream.workspace._wheel import _table
+
+    name = "Pá1"
+    assert tomllib.loads(_table("base_regions", name))["base_regions"] == {name: {}}
+    assert _table("base_regions", "Blade_1-a") == "[base_regions.Blade_1-a]"

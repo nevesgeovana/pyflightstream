@@ -49,7 +49,8 @@ def _add_sector_to_wheel(verbs: Any) -> None:
     wheel.add_argument(
         "--axis",
         default="x",
-        help="x, y, z, a signed one of them, or three comma-separated numbers (default x)",
+        help="x, y, z, a signed one of them written --axis=-x, or three comma-separated numbers "
+        "(default x)",
     )
     wheel.add_argument(
         "--hub",

@@ -286,3 +286,119 @@ def test_p0540_the_saved_route_needs_a_blade_that_is_a_boundary_and_no_solver(tm
     assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 2
     assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out), "--overwrite"]) == 0
     assert math.isclose(1.0, 1.0)
+
+
+@pytest.mark.requirement("FR-3468")
+def test_p0540_a_boundary_named_as_a_copy_is_refused_on_the_saved_route(tmp_path):
+    from pyflightstream._errors import InputValueError
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 8
+    assert lines[at] == "S"
+    lines[at] = "Blade3"
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    out = tmp_path / "w.fsm"
+    with pytest.raises(InputValueError, match="Blade3"):
+        sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], out=out)
+    assert not out.exists() and not out.with_name("w.wheel.json").exists()
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize(
+    "ask",
+    [{"axis": "y"}, {"copies": 4}, {"copies": 12}, {"hub": (0.0, 0.2, 0.0)}],
+)
+@pytest.mark.parametrize("kind", ["fsm", "obj"])
+def test_p0540_a_sector_that_is_not_one_nth_of_a_turn_about_the_axis_is_warned(tmp_path, ask, kind):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    built, saved = _saved(tmp_path)
+    sector = saved if kind == "fsm" else built.obj
+    with pytest.warns(PyflightstreamWarning, match=r"spans .* deg about the axis.*--axis"):
+        result = sector_to_wheel(
+            sector,
+            **{"copies": COPIES, **ask},
+            blades=["Blade1"],
+            out=tmp_path / f"w.{kind}",
+        )
+    assert result.written
+
+
+@pytest.mark.requirement("FR-3469")
+@pytest.mark.parametrize(
+    "shape",
+    [
+        {"copies": 6},
+        {"copies": 2},
+        {"copies": 8, "permuted": True, "hub": (1.0, -2.0, 3.0)},
+    ],
+)
+@pytest.mark.parametrize("kind", ["fsm", "obj"])
+def test_p0540_a_true_sector_gets_no_warning_about_its_angle(tmp_path, shape, kind):
+    import warnings
+
+    built, saved = _saved(tmp_path, **shape)
+    sector = saved if kind == "fsm" else built.obj
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sector_to_wheel(
+            sector,
+            copies=built.copies,
+            blades=["Blade1"],
+            axis=built.axis,
+            hub=built.hub,
+            out=tmp_path / f"w.{kind}",
+        )
+    assert not [w for w in caught if "about the axis" in str(w.message)]
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_a_saved_unit_the_reader_has_not_measured_is_warned_and_read_as_metres(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$GLOBAL_START$")
+    lines[at + 1], lines[at + 2] = "0.001", "2"
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="read as metres") as caught:
+        result = sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm")
+    assert result.written and result.report["tolerance_m"] == pytest.approx(1e-4)
+    assert len([w for w in caught if "read as metres" in str(w.message)]) == 1
+    assert "[import]" not in str(caught[0].message)
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_a_saved_sector_with_no_unit_is_warned_once_and_not_about_its_sidecar(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$GLOBAL_START$")
+    del lines[at : at + 4]
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="read as metres") as caught:
+        assert sector_to_wheel(
+            saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm"
+        ).written
+    said = [str(w.message) for w in caught if "read as metres" in str(w.message)]
+    assert len(said) == 1 and "[import]" not in said[0]
+
+
+@pytest.mark.requirement("FR-3469")
+def test_p0540_the_saved_route_says_it_keeps_a_degenerate_face_and_warns(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+
+    built, saved = _saved(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match="Lower --tolerance"):
+        wheel = sector_to_wheel(
+            saved, copies=COPIES, blades=["Blade1"], out=tmp_path / "w.fsm", tolerance=0.06
+        )
+    kept = wheel.report["degenerate_faces"]
+    assert kept and f"degenerate faces kept: {kept}" in wheel.lines()
+    assert wheel.report["faces"]["wheel"] == wheel.report["faces"]["sector"] * COPIES
+    obj = sector_to_wheel(
+        built.obj, copies=COPIES, blades=["Blade1"], out=tmp_path / "o.obj", tolerance=0.06
+    )
+    assert any(line.startswith("degenerate faces removed:") for line in obj.lines())

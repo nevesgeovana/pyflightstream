@@ -529,3 +529,299 @@ def test_p0540_a_second_header_value_above_the_last_id_is_a_layout_the_reader_kn
         assert not sector_to_wheel(
             odd, copies=COPIES, blades=["Blade1"], out=tmp_path / "v.fsm"
         ).written
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"nose_radius_r": 10.0},
+        {"nose_radius_r": 0.0},
+        {"tip_radius": 0.0},
+        {"tip_radius": -1.0},
+    ],
+)
+def test_p0540_a_nose_kite_off_the_spinner_is_refused_on_the_body(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "b.fsm"
+    with pytest.raises(InputValueError, match="nose-radius-r"):
+        power_off_body(source, blades=["Blade1"], copies=COPIES, out=out, **change)
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"nose_radius_r": 10.0},
+        {"nose_radius_r": 0.0},
+        {"root_margin_r": 0.3, "nose_radius_r": 0.32},
+    ],
+)
+def test_p0540_rings_that_would_run_past_the_nose_kite_are_refused_on_the_sector(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "s.fsm"
+    with pytest.raises(InputValueError, match="nose-radius-r"):
+        sector_remesh(source, blades=["Blade1"], tip_radius=1.218, out=out, **ARGS, **change)
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_an_output_that_is_the_sector_itself_is_refused_by_every_verb(tmp_path):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import power_off_body, sector_remesh, sector_to_wheel
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    source = build_blunt_sector(tmp_path)
+    before = source.read_bytes()
+    calls = [
+        lambda: sector_to_wheel(
+            source, copies=COPIES, blades=["Blade1"], out=source, overwrite=True
+        ),
+        lambda: sector_remesh(source, blades=["Blade1"], out=source, overwrite=True, **ARGS),
+        lambda: power_off_body(
+            source, blades=["Blade1"], copies=COPIES, out=source, overwrite=True
+        ),
+    ]
+    for call in calls:
+        with pytest.raises(InputArtifactError, match="the sector itself"):
+            call()
+        assert source.read_bytes() == before
+    sector = build_sector(tmp_path)
+    obj_before = sector.obj.read_bytes()
+    with pytest.raises(InputArtifactError, match="the sector itself"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=sector.obj, overwrite=True)
+    assert sector.obj.read_bytes() == obj_before
+
+
+@pytest.mark.requirement("FR-3498")
+def test_p0540_the_angle_of_a_two_blade_sector_survives_the_rounding_of_its_seams():
+    from pyflightstream.workspace._sector_read import _seams
+
+    rng = np.random.default_rng(1)
+    wrong = []
+    for _ in range(400):
+        centre = rng.uniform(-math.pi, math.pi)
+        theta = centre + np.linspace(-math.pi / 2, math.pi / 2, 9)
+        radius = 0.3 + 0.2 * rng.random()
+        q = np.c_[np.zeros(9), radius * np.cos(theta), radius * np.sin(theta)]
+        found_centre, span = _seams(q, np.arange(9))
+        gap = abs(math.remainder(found_centre - centre, 2.0 * math.pi))
+        if abs(span - math.pi) > 1e-6 or gap > 1e-6:
+            wrong.append((centre, span))
+    assert not wrong
+
+
+def _axis_off_the_origin(source: Path, shift: float) -> None:
+    """Move the sector's nodes off the x axis, as a sector about another line sits."""
+    lines = source.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 4 + 9 + 1 + 25
+    values = [float(v) + shift for v in lines[at + 3].split(",") if v.strip()]
+    lines[at + 3] = "".join(f"{v: .17E}," for v in values)
+    source.write_bytes("\n".join(lines).encode("latin-1"))
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize("verb", ["sector-remesh", "power-off-body"])
+@pytest.mark.parametrize("shift", [0.1, 3.0])
+def test_p0540_a_sector_off_the_origin_is_warned_by_name_at_the_command_line(
+    tmp_path, capsys, verb, shift
+):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    source = build_blunt_sector(tmp_path)
+    _axis_off_the_origin(source, shift)
+    extra = (
+        ["--chord-cells", "12", "--le", "0.03", "--span-cell", "0.1", "--spinner-theta", "4"]
+        if verb == "sector-remesh"
+        else ["--copies", "6"]
+    )
+    out = tmp_path / "o.fsm"
+    argv = ["geometry", verb, str(source), "--blades", "Blade1", *extra, "--out", str(out)]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert workspace_main(argv) == 2
+    assert not out.exists() and not list(tmp_path.glob("*.part"))
+
+
+@pytest.mark.requirement("FR-3498")
+def test_p0540_a_sector_off_the_origin_names_the_origin_in_its_warning(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    _axis_off_the_origin(source, 0.1)
+    with pytest.warns(PyflightstreamWarning, match="through the origin"):
+        result = power_off_body(source, blades=["Blade1"], copies=6, out=tmp_path / "o.fsm")
+    assert not result.written
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(("row", "value"), [(10, "999999"), (2, "999999"), (2, "0")])
+def test_p0540_a_row_that_names_a_face_or_node_outside_the_block_is_not_read(tmp_path, row, value):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import sector_remesh, sector_to_wheel
+
+    source = build_blunt_sector(tmp_path)
+    lines = source.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 4 + 9 + 1 + row
+    cells = [c for c in lines[at].split(",") if c.strip()]
+    cells[0] = value
+    lines[at] = "".join(f"{c}," for c in cells)
+    source.write_bytes("\n".join(lines).encode("latin-1"))
+    out = tmp_path / "o.fsm"
+    with pytest.warns(PyflightstreamWarning, match="outside"):
+        assert not sector_remesh(source, blades=["Blade1"], out=out, **ARGS).written
+    with pytest.warns(PyflightstreamWarning, match="outside"):
+        assert not sector_to_wheel(source, copies=COPIES, blades=["Blade1"], out=out).written
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    ("change", "text"),
+    [
+        ({"span_cell": 0.0}, "--span-cell"),
+        ({"span_cell": math.nan}, "--span-cell"),
+        ({"tip_length": math.inf}, "--tip-length"),
+        ({"tip_radius": math.nan}, "--tip-radius"),
+        ({"tip_ratio": 0.0}, "--tip-ratio"),
+        ({"tip_ratio": 1.0}, "--tip-ratio"),
+        ({"le": 0.0}, "larger le"),
+        ({"le": -0.1}, "larger le"),
+        ({"le": math.nan}, "larger le"),
+        ({"spinner_theta": 14}, "--spinner-theta"),
+    ],
+)
+def test_p0540_an_option_no_mesh_can_follow_is_refused_in_words_on_the_sector(
+    tmp_path, change, text
+):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "s.fsm"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputValueError, match=text):
+            sector_remesh(source, blades=["Blade1"], out=out, **{**ARGS, **change})
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"spinner_rings": 0},
+        {"spinner_rings": -1},
+        {"nacelle_cells": 0},
+        {"nacelle_cells": -1},
+    ],
+)
+def test_p0540_the_body_checks_the_counts_it_is_given(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "b.fsm"
+    with pytest.raises(InputValueError, match="must be 1 or more"):
+        power_off_body(source, blades=["Blade1"], copies=COPIES, out=out, **change)
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize(
+    "code",
+    [
+        "from pyflightstream.workspace._sector_remesh import _chain;"
+        "import numpy as n;"
+        "_chain([(5, 6), (5, 7), (5, 8), (5, 9), (6, 7)], n.arange(10.0)[::-1])",
+        "from pyflightstream.workspace._sector_remesh import _Quads, _walk;"
+        "lo, hi = [0, 1, 2, 3], [4, 5, 6, 7];"
+        "e = lambda a, b: (min(a, b), max(a, b));"
+        "edges = [[e(lo[k], lo[(k + 1) % 4]), e(hi[k], hi[(k + 1) % 4]), e(lo[k], hi[k]),"
+        " e(lo[(k + 1) % 4], hi[(k + 1) % 4])] for k in range(4)];"
+        "by = {};"
+        "[by.setdefault(x, []).append(k) for k, q in enumerate(edges) for x in q];"
+        "_walk(0, [0, 4], _Quads(edges, by, set()))",
+    ],
+)
+def test_p0540_a_rim_line_that_does_not_run_root_to_tip_ends_the_read(tmp_path, code):
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)}
+    done = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=15
+    )
+    assert done.returncode != 0 and "TopologyNotFoundError" in done.stderr
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_every_verb_makes_the_output_folder_and_keeps_the_input_kind(tmp_path):
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.workspace import power_off_body, sector_remesh, sector_to_wheel
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    source = build_blunt_sector(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wheel = sector_to_wheel(
+            source, copies=COPIES, blades=["Blade1"], out=tmp_path / "a" / "b" / "w.fsm"
+        )
+        assert wheel.written and (tmp_path / "a" / "b" / "w.fsm").is_file()
+        sector = build_sector(tmp_path)
+        obj = sector_to_wheel(
+            sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "c" / "d" / "w.obj"
+        )
+        assert obj.written and (tmp_path / "c" / "d" / "w.obj").is_file()
+    cases = (
+        (sector_remesh, ARGS, "x.obj", "x.fsm"),
+        (power_off_body, {"copies": COPIES}, "y", "y.fsm"),
+    )
+    for verb, extra, asked, got in cases:
+        with pytest.warns(NotApplicableWarning, match="sector's kind"):
+            result = verb(source, blades=["Blade1"], out=tmp_path / asked, **extra)
+        assert result.output == tmp_path / got and (tmp_path / got).is_file()
+        assert not (tmp_path / asked).exists()
+
+
+@pytest.mark.requirement("FR-3498")
+@pytest.mark.parametrize("tip", [3.0, 0.9])
+def test_p0540_a_stated_tip_radius_far_from_the_blade_is_warned(tmp_path, tip):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match=r"--tip-radius.*largest radius"):
+        sector_remesh(source, blades=["Blade1"], tip_radius=tip, out=tmp_path / "o.fsm", **ARGS)
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_the_help_states_every_default_and_how_to_write_a_signed_axis(capsys):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    def helped(verb: str) -> str:
+        with pytest.raises(SystemExit) as stop:
+            workspace_main(["geometry", verb, "--help"])
+        assert stop.value.code == 0
+        return " ".join(capsys.readouterr().out.split())
+
+    remesh = helped("sector-remesh")
+    assert "O-grid layers at the root (4)" in remesh and "rings forward to the nose (7)" in remesh
+    assert "spinner rings to the nose (12)" in helped("power-off-body")
+    assert "--axis=-x" in helped("sector-to-wheel")
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_the_public_docstring_names_no_length_of_one_rotor():
+    from pyflightstream.workspace import sector_remesh
+
+    assert " m tip" not in sector_remesh.__doc__

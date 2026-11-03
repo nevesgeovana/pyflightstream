@@ -66,6 +66,7 @@ from pyflightstream.workspace._wheel import (
     stem_of,
     unit_of,
     validate_blades,
+    warn_sector_angle,
     write_json,
 )
 
@@ -270,7 +271,24 @@ def _parse(text: str) -> _Parsed:
     ):
         picked = group[kind == value]
         _need(bool(((picked >= 1) & (picked <= size)).all()), f"a {what} face names no group")
+    _in_block(mesh, ints, len(phys["te_names"]))
     return _Parsed(lines, newline, mesh, phys)
+
+
+def _in_block(mesh: dict[str, Any], ints: dict[int, Any], groups: int) -> None:
+    """Refuse a row that names a node, partner or termination target outside the block."""
+    faces, nodes = mesh["faces"], len(mesh["xyz"])
+    for k in (2, 3, 4):
+        _need(bool(((ints[k] >= 1) & (ints[k] <= nodes)).all()), "a face names a node outside it")
+    partner = ints[10]
+    _need(bool(((partner >= 0) & (partner <= faces)).all()), "a partner is a face outside it")
+    if mesh["term"]:
+        for row, top, what in zip(mesh["term"], (faces, 3, groups), "fsg", strict=True):
+            values = numpy.array(row, dtype=numpy.int64)
+            _need(
+                bool(((values >= 1) & (values <= top)).all()),
+                f"a termination row ({what}) names a value outside it",
+            )
 
 
 @dataclass
@@ -447,8 +465,8 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     """Compose, read back and write the wheel of a parsed sector."""
     n, nf = opts.copies, parsed.mesh["faces"]
     xyz = parsed.mesh["xyz"]
-    unit = saved_mesh_coordinate_unit(path)
-    tol = opts.tolerance_m / unit_of(unit, path.name)
+    unit, metres = _saved_unit(path)
+    tol = opts.tolerance_m / metres
     stack = numpy.vstack([rotate(xyz, opts.axis, opts.hub, 360.0 * k / n) for k in range(n)])
     root = merge_nodes(stack, tol)
     used = numpy.unique(root)
@@ -458,6 +476,9 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     names = [h[4] for h in parsed.mesh["heads"]]
     blade_ids = sorted(names.index(b) + 1 for b in opts.blades)
     nb = len(names)
+    ints = parsed.mesh["ints"]
+    shared = ~numpy.isin(ints[11], blade_ids)
+    warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts)
     maps = _Maps(
         index[root],
         _expand(parsed.phys["base_names"], blades, n),
@@ -472,6 +493,13 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     )
     lines, mesh = parsed.lines, parsed.mesh
     records, last = _boundary_records(parsed, maps, opts)
+    wanted = records[1::3]
+    if len(set(wanted)) != len(wanted):
+        raise InputValueError(
+            "the wheel would hold two boundaries named alike "
+            f"({sorted({b for b in wanted if wanted.count(b) > 1})}); rename a boundary of the "
+            "sector. Nothing was written."
+        )
     text = (
         lines[: mesh["start"] + 1]
         + [str(nf * n), str(last), str(len(records) // 3), *records, str(nf * n)]
@@ -484,6 +512,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         + lines[parsed.phys["p_end"] :]
     )
     part = opts.out.with_name(opts.out.name + ".part")
+    opts.out.parent.mkdir(parents=True, exist_ok=True)
     part.write_bytes(parsed.newline.join(text).encode("latin-1"))
     try:
         expected: dict[str, Any] = {
@@ -506,7 +535,30 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         built=(stack, used, maps),
         boundaries=records[1::3],
         unit=unit,
+        tol=tol,
     )
+
+
+def _saved_unit(path: Path) -> tuple[str | None, float]:
+    """Return a saved sector's mesh unit and its metres; one not known is warned and read as metres.
+
+    The geometry of a wheel does not depend on it: only the tolerance does.
+    """
+    try:
+        unit = saved_mesh_coordinate_unit(path)
+    except MeshReadError as error:
+        unit, cause = None, str(error)
+    else:
+        cause = f"{path.name} has no global block that states its length unit"
+    if unit is not None:
+        return unit, unit_of(unit, path.name)
+    warn(
+        f"{cause}. The tolerance is read as metres; if the nodes are stored in another length, "
+        "state --tolerance in that length.",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+    return None, 1.0
 
 
 def _result(
@@ -518,6 +570,7 @@ def _result(
     built: tuple[NDArray[numpy.float64], NDArray[numpy.int64], _Maps],
     boundaries: list[str],
     unit: str | None,
+    tol: float,
 ) -> WheelResult:
     """Check the written wheel as the OBJ route does and write its record."""
     stack, used, maps = built
@@ -535,7 +588,14 @@ def _result(
         "degenerate": int(wheel.repeated().sum()),
         "merged": len(stack) - len(used),
     }
-    tol = opts.tolerance_m / unit_of(unit, path.name)
+    if facts["degenerate"]:
+        warn(
+            f"{facts['degenerate']} faces of the wheel name one node twice: the tolerance joins "
+            "nodes of one face. The saved route keeps every face, so the solver will meet them. "
+            "Lower --tolerance.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
     report = report_of((xyz, sector), (nodes, wheel), facts, opts, tol)
     report["faces"] = {"sector": nf, "wheel": nf * n}
     counts = numpy.bincount(

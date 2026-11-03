@@ -92,6 +92,24 @@ _AXES = {
 _PRIME = numpy.array([73856093, 19349663, 83492791], dtype=numpy.int64)
 _CELLS = numpy.array(list(itertools.product((-1, 0, 1), repeat=3)), dtype=numpy.int64)
 _NOTHING = "No file was written."
+_ANGLE_SLACK_DEG = 0.05  # a sector this close to 360/N closes within the rounding of saved nodes
+#: The keys of a sector's boundaries file the wheel's states again, from the wheel or the sector.
+_CARRIED = frozenset(
+    {
+        "base_regions",
+        "boundaries",
+        "boundary_faces",
+        "file",
+        "fs_build",
+        "import",
+        "mesh_faces",
+        "mesh_sha256",
+        "trailing_edges",
+    }
+)
+#: Pairs a neighbour search may compare: a node of a seam has one partner per copy and a cell a
+#: few nodes, so a real merge stays far under this, and the floor keeps a small mesh out of it.
+_PAIRS_FLOOR, _PAIRS_PER_POINT = 1_000_000, 64
 
 
 @dataclass
@@ -128,7 +146,8 @@ class WheelResult:
             f"nodes: {merged['unmerged']} unmerged, {merged['wheel']} in the wheel, "
             f"{merged['merged']} merged at {report['tolerance_m']:g} m"
         )
-        out.append(f"degenerate faces removed: {report['degenerate_faces']}")
+        done = "kept" if report.get("kind") == "fsm" else "removed"
+        out.append(f"degenerate faces {done}: {report['degenerate_faces']}")
         for key in ("open_edges", "non_manifold_edges"):
             e = report[key]
             out.append(
@@ -189,6 +208,22 @@ def rotate(
     return turned + hub
 
 
+def azimuth_range(psi: NDArray[numpy.float64]) -> tuple[float, float]:
+    """Return the middle azimuth and the angle of a set of azimuths, in radians.
+
+    The angle is the turn less the largest gap between neighbouring azimuths, so it does not
+    depend on which azimuth comes first: a difference measured from one node of a seam reads
+    half a turn as plus or minus half a turn according to the rounding of its last digit.
+    """
+    turn = 2.0 * math.pi
+    ordered = numpy.sort(numpy.mod(psi, turn))
+    gaps = numpy.diff(numpy.r_[ordered, ordered[0] + turn])
+    widest = int(numpy.argmax(gaps))
+    span = turn - float(gaps[widest])
+    start = float(ordered[(widest + 1) % len(ordered)])
+    return math.remainder(start + 0.5 * span, turn), span
+
+
 def _keys(cells: NDArray[numpy.int64]) -> NDArray[numpy.int64]:
     """Hash grid cells to one integer each (a collision only adds a candidate pair)."""
     scaled = cells * _PRIME
@@ -202,6 +237,11 @@ def neighbour_pairs(
 
     The cost is linear in the points and the pairs: a point is compared only with the
     points of its own cell and the 26 around it.
+
+    Raises
+    ------
+    InputValueError
+        The distance puts so many pairs in reach that the search would not fit in memory.
     """
     empty = numpy.zeros(0, dtype=numpy.int64)
     if not len(a) or not len(b) or not tol > 0.0:
@@ -211,6 +251,7 @@ def neighbour_pairs(
     order = numpy.argsort(key_b, kind="stable")
     sorted_b = key_b[order]
     found: list[NDArray[numpy.int64]] = []
+    reach, limit = 0, _PAIRS_FLOOR + _PAIRS_PER_POINT * (len(a) + len(b))
     for offset in _CELLS:
         key = _keys(cell_a + offset)
         low = numpy.searchsorted(sorted_b, key, "left")
@@ -218,6 +259,14 @@ def neighbour_pairs(
         total = int(count.sum())
         if not total:
             continue
+        reach += total
+        if reach > limit:
+            raise InputValueError(
+                f"a distance of {tol:g}, in the mesh's unit, puts over {limit} pairs of its "
+                f"{len(a)} points in reach of each other, so the mesh would collapse and the "
+                "search does not fit in memory. Lower the distance; for the merge of a wheel "
+                f"it is tolerance (CLI: --tolerance), in metres. {_NOTHING}"
+            )
         i = numpy.repeat(numpy.arange(len(a)), count)
         start = numpy.repeat(low - (numpy.cumsum(count) - count), count)
         j = order[start + numpy.arange(total)]
@@ -428,6 +477,15 @@ def refuse_existing(paths: Iterable[Path], overwrite: bool) -> None:
         raise InputArtifactError(
             f"{', '.join(p.name for p in clash)} already exist(s); pass --overwrite (overwrite="
             f"True) to replace them, or name another out (CLI: --out). {_NOTHING}"
+        )
+
+
+def refuse_the_source(target: Path, source: Path) -> None:
+    """Refuse an output that is the sector read: it would be lost and its record would be wrong."""
+    if target.exists() and target.samefile(source):
+        raise InputArtifactError(
+            f"{target.name} is the sector itself: it would be replaced, and the record would "
+            f"state the output's digest as the source's. Name another out (CLI: --out). {_NOTHING}"
         )
 
 
@@ -674,6 +732,33 @@ def _assemble(
     return stack[used][live], [(nm, f.mapped(compact)) for nm, f in kept], facts
 
 
+def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options) -> None:
+    """Warn when the surfaces that are not blades do not span one copy's turn about the axis.
+
+    The turn check cannot say this, since copies of anything about any axis map onto each other.
+    A sector with no such surface, or with all of it on the axis, is not measured.
+    """
+    q = bodies - opts.hub
+    radial = q - numpy.outer(q @ opts.axis, opts.axis)
+    radius = numpy.linalg.norm(radial, axis=1)
+    keep = radius > 1e-6 * float(radius.max()) if len(radius) else numpy.zeros(0, dtype=bool)
+    if not keep.any():
+        return
+    first = radial[keep][0] / radius[keep][0]
+    second = numpy.cross(opts.axis, first)
+    psi = numpy.arctan2(radial[keep] @ second, radial[keep] @ first)
+    angle = math.degrees(azimuth_range(psi)[1])
+    expected = 360.0 / opts.copies
+    if abs(angle - expected) > _ANGLE_SLACK_DEG:
+        warn(
+            f"the sector's surfaces that are not blades: the sector spans {angle:.4f} deg about "
+            f"the axis through the hub, and one of {opts.copies} copies is {expected:g} deg, so "
+            "the copies do not close. Check --axis, --hub and --copies.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+
+
 def report_of(
     sector: tuple[NDArray[numpy.float64], Faces],
     wheel: tuple[NDArray[numpy.float64], Faces],
@@ -735,7 +820,7 @@ def _copy_points(
 
 def _table(prefix: str, name: str) -> str:
     """Return a TOML table header ``[prefix.name]``, the name quoted when it is not bare."""
-    bare = name.replace("_", "").replace("-", "").isalnum()
+    bare = name.isascii() and name.replace("_", "").replace("-", "").isalnum()
     return f"[{prefix}.{name if bare else toml_value(name)}]"
 
 
@@ -967,6 +1052,7 @@ def sector_to_wheel(
             stacklevel=2,
         )
         target = target.with_suffix(suffix)
+    refuse_the_source(target, path)
     if not (math.isfinite(tolerance) and tolerance > 0.0):
         raise InputValueError(
             f"tolerance (CLI: --tolerance) {tolerance!r} must be a positive length in "
@@ -1000,6 +1086,16 @@ def _load(path: Path) -> tuple[ObjMesh, Any, str | None]:
     declarations = read_boundary_declarations(found[0])
     table = found[1].get("import")
     unit = table.get("units") if isinstance(table, dict) else None
+    skipped = sorted(set(found[1]) - _CARRIED)
+    if isinstance(table, dict) and table.get("operations"):
+        skipped.insert(0, "import.operations")
+    if skipped:
+        warn(
+            f"{found[0].name} states {', '.join(skipped)}, which a wheel's boundaries file does "
+            "not carry; they are skipped. State them again in the wheel's boundaries file.",
+            NotApplicableWarning,
+            stacklevel=3,
+        )
     return mesh, declarations, unit.strip().upper() if isinstance(unit, str) else None
 
 
@@ -1030,6 +1126,8 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
     surfaces = _surfaces(
         families, rims, declared, blades=opts.blades, copies=opts.copies, count=len(verts)
     )
+    shared = concat([s.faces for s in surfaces if not s.replicated])
+    warn_sector_angle(verts[numpy.unique(shared.flat)], opts)
     nodes, groups, facts = _assemble(verts, surfaces, opts, tol)
     names = [n for n, _ in groups]
     if len(set(names)) != len(names):
@@ -1062,6 +1160,7 @@ def _write_obj(
     sidecar = inventory_sidecar(out, "obj")
     record = out.with_name(f"{out.stem}.wheel.json")
     refuse_existing([out, sidecar, record, *written.points], opts.overwrite)
+    out.parent.mkdir(parents=True, exist_ok=True)
     header = [
         f"# Full wheel of {path.name}: {opts.copies} copies about axis "
         f"{opts.axis.round(12).tolist()} through {opts.hub.tolist()}, nodes merged within "
