@@ -286,3 +286,19 @@ def test_p0540_the_saved_route_needs_a_blade_that_is_a_boundary_and_no_solver(tm
     assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 2
     assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out), "--overwrite"]) == 0
     assert math.isclose(1.0, 1.0)
+
+
+@pytest.mark.requirement("FR-3468")
+def test_p0540_a_boundary_named_as_a_copy_is_refused_on_the_saved_route(tmp_path):
+    from pyflightstream._errors import InputValueError
+
+    _, saved = _saved(tmp_path)
+    lines = saved.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 8
+    assert lines[at] == "S"
+    lines[at] = "Blade3"
+    saved.write_bytes("\n".join(lines).encode("latin-1"))
+    out = tmp_path / "w.fsm"
+    with pytest.raises(InputValueError, match="Blade3"):
+        sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], out=out)
+    assert not out.exists() and not out.with_name("w.wheel.json").exists()

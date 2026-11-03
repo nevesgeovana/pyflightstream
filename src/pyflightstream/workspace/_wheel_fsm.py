@@ -472,6 +472,13 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     )
     lines, mesh = parsed.lines, parsed.mesh
     records, last = _boundary_records(parsed, maps, opts)
+    wanted = records[1::3]
+    if len(set(wanted)) != len(wanted):
+        raise InputValueError(
+            "the wheel would hold two boundaries named alike "
+            f"({sorted({b for b in wanted if wanted.count(b) > 1})}); rename a boundary of the "
+            "sector. Nothing was written."
+        )
     text = (
         lines[: mesh["start"] + 1]
         + [str(nf * n), str(last), str(len(records) // 3), *records, str(nf * n)]
