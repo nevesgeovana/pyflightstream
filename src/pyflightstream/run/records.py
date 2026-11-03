@@ -537,7 +537,13 @@ def _install_restored(
     with contextlib.ExitStack() as held:
         handle = None
         if target.name == "products.json":
-            handle = held.enter_context(products_lock(target, "the restored products"))
+            handle = held.enter_context(
+                products_lock(
+                    target,
+                    "the archived products",
+                    left="were not put back; run the restore again when the post ends.",
+                )
+            )
             if handle is None:
                 return False
         if target.is_file() and (handle is None or target.stat().st_size):

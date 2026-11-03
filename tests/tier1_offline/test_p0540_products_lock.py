@@ -74,7 +74,7 @@ def test_p0540_restore_products_warns_and_skips_when_the_lock_stays_held(tmp_pat
     held, release, failed = threading.Event(), threading.Event(), []
     post = _a_post_holding(manifest, held, release, failed)
     try:
-        with pytest.warns(PyflightstreamWarning, match="stayed locked"):
+        with pytest.warns(PyflightstreamWarning, match="stayed locked") as caught:
             done = restore(workspace.root, "products", matrix="products", apply=True)
     finally:
         release.set()
@@ -82,6 +82,9 @@ def test_p0540_restore_products_warns_and_skips_when_the_lock_stays_held(tmp_pat
     assert done["applied"] is False
     assert not failed, failed
     assert b"P_by_the_post" in manifest.read_bytes() or manifest.read_bytes() == current
+    # REL-K-013: the remedy is the restore again; a post would not bring the archive back.
+    said = " ".join(str(item.message) for item in caught)
+    assert "run the restore again" in said and "post the matrix again" not in said
 
 
 @pytest.mark.requirement("FR-3500")
