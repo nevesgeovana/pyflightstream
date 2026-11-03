@@ -443,7 +443,7 @@ that touch at a vertex, and a rim closed in a loop, take as many files as that n
 file import stands before the first `CREATE_NEW_BASE_REGION`, because an import between two of
 them leaves only the last base saved, and an `auto` rim follows the creates. The create states
 a base's model and Cp, and `SET_BASE_REGION_CP` follows it for a `USER` or `CUSTOM` model only,
-because the form with `EMPIRICAL` and a Cp stops the script on that build. The read-back counts
+because the form with `EMPIRICAL` or `AXISYMMETRIC` and a Cp stops the script on that build. The read-back counts
 the saved trailing edges that join rim vertices without being rim edges, records the count in
 `wing.mark.json` and refuses a count above zero. An entry with an edge type other than
 `STANDARD`, and explicit wake-termination nodes, have no form on that build and are warned and

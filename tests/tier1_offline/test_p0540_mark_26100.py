@@ -472,6 +472,7 @@ def test_p0540_26100_the_texts_state_the_verified_route(tmp_path):
     guide = " ".join((docs / "geometry.md").read_text(encoding="utf-8").split())
     assert "stays refused, naming the commands, until a probe on 26.100" not in guide
     assert "Every file import stands before the first `CREATE_NEW_BASE_REGION`" in guide
+    assert "the form with `EMPIRICAL` or `AXISYMMETRIC` and a Cp stops the script" in guide
     upgrade = " ".join((docs / "upgrading.md").read_text(encoding="utf-8").split())
     assert "`--apply` stays refused until the commands are verified on that build" not in upgrade
     log = " ".join((docs.parent / "CHANGELOG.md").read_text(encoding="utf-8").split())
