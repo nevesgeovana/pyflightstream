@@ -256,12 +256,34 @@ def _interface(
 
     An edge is on the interface when both its ends lie within the threshold of the
     other part's open boundary, and nearest one chain of it: a kept edge bridging a
-    stretch of the adapted boundary that is out of reach joins nothing.
+    stretch of the adapted boundary that is out of reach joins nothing. An adapted edge
+    must then reach the kept CHAIN, not only the kept boundary: an adapted node that
+    touches a stretch of it that joined no chain is not an interface node.
     """
-    near_k = _within(_nodes_of(kept_open), kept, adapted_open, adapted, threshold)
-    near_a = _within(_nodes_of(adapted_open), adapted, kept_open, kept, threshold)
-    k_edges = [e for e in kept_open if e[0] in near_k and e[1] in near_k]
-    a_edges = [e for e in adapted_open if e[0] in near_a and e[1] in near_a]
+    k_edges = _reaching(kept_open, kept, adapted_open, adapted, threshold)
+    a_edges = _reaching(adapted_open, adapted, kept_open, kept, threshold)
+    k_edges, a_edges = _narrowed(k_edges, kept, a_edges, adapted)
+    # An adapted node can touch the kept boundary where no kept edge joined a chain, and it
+    # then has no kept node to take within reach: it stays out, so a chain's end moves by
+    # one adapted edge at most. One round: the kept edges stay, as their words say.
+    a_edges = _reaching(a_edges, adapted, k_edges, kept, threshold)
+    k_edges, a_edges = _narrowed(k_edges, kept, a_edges, adapted)
+    k_chains, a_chains = _walk(k_edges), _walk(a_edges)
+    return [_Pair(k_chains[i], a_chains[j]) for i, j in _mutual(k_chains, kept, a_chains, adapted)]
+
+
+def _reaching(
+    edges: Sequence[Edge], verts: Points, others: Sequence[Edge], other: Points, threshold: float
+) -> list[Edge]:
+    """Return the edges whose two ends lie within the threshold of the edges ``others``."""
+    near = _within(_nodes_of(edges), verts, others, other, threshold)
+    return [e for e in edges if e[0] in near and e[1] in near]
+
+
+def _narrowed(
+    k_edges: list[Edge], kept: Points, a_edges: list[Edge], adapted: Points
+) -> tuple[list[Edge], list[Edge]]:
+    """Return the edges of each part left when each edge's ends lie nearest one chain."""
     for _ in range(NARROW_PASSES):
         k_next = _same_chain(k_edges, kept, _walk(a_edges), adapted)
         a_next = _same_chain(a_edges, adapted, _walk(k_next), kept)
@@ -269,8 +291,7 @@ def _interface(
         k_edges, a_edges = k_next, a_next
         if settled:
             break
-    k_chains, a_chains = _walk(k_edges), _walk(a_edges)
-    return [_Pair(k_chains[i], a_chains[j]) for i, j in _mutual(k_chains, kept, a_chains, adapted)]
+    return k_edges, a_edges
 
 
 def _mutual(

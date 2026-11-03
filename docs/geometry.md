@@ -556,7 +556,8 @@ wrote wing_nacelle.obj                 kept part first, in its node and face ord
 
 `--threshold` is in the OBJ's own length unit. The interface is every open-boundary chain of
 either part whose nodes lie within it of the other part's open boundary. Everything else
-stays as it was, so a part's far open boundary is no part of the interface.
+stays as it was, so a part's far open boundary is no part of the interface, and neither is
+an adapted node that touches a stretch of the kept boundary whose own nodes are out of reach.
 
 The kept part does not change: its vertex lines and their order and its faces and their
 order lead the output, to the byte. Along the interface the adapted part takes the kept

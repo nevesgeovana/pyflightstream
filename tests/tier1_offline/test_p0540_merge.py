@@ -782,3 +782,39 @@ def test_p0540_merge_the_docs_state_the_methods_limits(tmp_path):
     section = page.read_text(encoding="utf-8").split("## Merging two OBJ")[1].split("\n## ")[0]
     for words in ("--adapt", "--threshold", ".merge.json", "not merged", "overlap", "Limits"):
         assert words in section
+
+
+def _strip(boundary, *, up: bool, family: str, rows: int = 3):
+    """Return a flat strip of quads: the boundary at the cut, rows of it offset away from it."""
+    count = len(boundary)
+    sign = 1.0 if up else -1.0
+    nodes = [[x, y + sign * r / rows, 0.0] for r in range(rows + 1) for x, y in boundary]
+    faces = []
+    for r in range(rows):
+        for i in range(count - 1):
+            a, b = r * count + i, r * count + i + 1
+            faces.append([a, b, b + count, a + count] if up else [a, a + count, b + count, b])
+    return nodes, faces, family
+
+
+def _bend(x: float) -> float:
+    """Return a cut straight up to x = 4 that bends away after it."""
+    return 0.15 * (x - 4.0) ** 2 if x > 4.0 else 0.0
+
+
+@pytest.mark.requirement("FR-3481")
+def test_p0540_merge_an_adapted_node_past_the_kept_chain_is_not_dragged_onto_it(tmp_path):
+    """A coarse boundary touching the dense one past the part that merges stays where it is.
+
+    On the bend every adapted node lies on the kept boundary but no kept node lies on an
+    adapted chord, so the kept chain stops at x = 4. Those adapted nodes are no part of it.
+    """
+    kept = _strip([(0.1 * i, _bend(0.1 * i)) for i in range(81)], up=False, family="Kept")
+    adapted = _strip([(0.8 * i, _bend(0.8 * i)) for i in range(11)], up=True, family="Adapted")
+    (merged, out, source_kept, source), _ = _quiet_merge(tmp_path, kept, adapted, 0.001)
+    assert merged.interface_edges == 40
+    written = set(out.nodes[len(source_kept.nodes) :])
+    past = [v for v in range(11) if source.points[v, 0] > 5.0]
+    assert [source.nodes[v] for v in past if source.nodes[v] not in written] == []
+    assert merged.turned_faces == 0
+    assert out.nodes[: len(source_kept.nodes)] == source_kept.nodes
