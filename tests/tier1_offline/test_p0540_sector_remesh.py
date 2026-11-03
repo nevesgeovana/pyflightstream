@@ -660,3 +660,24 @@ def test_p0540_a_sector_off_the_origin_names_the_origin_in_its_warning(tmp_path)
     with pytest.warns(PyflightstreamWarning, match="through the origin"):
         result = power_off_body(source, blades=["Blade1"], copies=6, out=tmp_path / "o.fsm")
     assert not result.written
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(("row", "value"), [(10, "999999"), (2, "999999"), (2, "0")])
+def test_p0540_a_row_that_names_a_face_or_node_outside_the_block_is_not_read(tmp_path, row, value):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import sector_remesh, sector_to_wheel
+
+    source = build_blunt_sector(tmp_path)
+    lines = source.read_bytes().decode("latin-1").replace("\r\n", "\n").split("\n")
+    at = lines.index("$MESH_START$") + 4 + 9 + 1 + row
+    cells = [c for c in lines[at].split(",") if c.strip()]
+    cells[0] = value
+    lines[at] = "".join(f"{c}," for c in cells)
+    source.write_bytes("\n".join(lines).encode("latin-1"))
+    out = tmp_path / "o.fsm"
+    with pytest.warns(PyflightstreamWarning, match="outside"):
+        assert not sector_remesh(source, blades=["Blade1"], out=out, **ARGS).written
+    with pytest.warns(PyflightstreamWarning, match="outside"):
+        assert not sector_to_wheel(source, copies=COPIES, blades=["Blade1"], out=out).written
+    assert not out.exists()

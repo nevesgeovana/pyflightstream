@@ -271,7 +271,24 @@ def _parse(text: str) -> _Parsed:
     ):
         picked = group[kind == value]
         _need(bool(((picked >= 1) & (picked <= size)).all()), f"a {what} face names no group")
+    _in_block(mesh, ints, len(phys["te_names"]))
     return _Parsed(lines, newline, mesh, phys)
+
+
+def _in_block(mesh: dict[str, Any], ints: dict[int, Any], groups: int) -> None:
+    """Refuse a row that names a node, partner or termination target outside the block."""
+    faces, nodes = mesh["faces"], len(mesh["xyz"])
+    for k in (2, 3, 4):
+        _need(bool(((ints[k] >= 1) & (ints[k] <= nodes)).all()), "a face names a node outside it")
+    partner = ints[10]
+    _need(bool(((partner >= 0) & (partner <= faces)).all()), "a partner is a face outside it")
+    if mesh["term"]:
+        for row, top, what in zip(mesh["term"], (faces, 3, groups), "fsg", strict=True):
+            values = numpy.array(row, dtype=numpy.int64)
+            _need(
+                bool(((values >= 1) & (values <= top)).all()),
+                f"a termination row ({what}) names a value outside it",
+            )
 
 
 @dataclass
