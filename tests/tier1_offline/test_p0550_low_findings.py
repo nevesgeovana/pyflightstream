@@ -101,3 +101,24 @@ def test_p0550_the_cad_create_notes_end_in_a_complete_clause() -> None:
     assert note.endswith("not their geometric accuracy")
     sentinel = commands["CAD_CREATE_IMPORT_CURVE_TXT"].versions["26.125"].note
     assert sentinel.endswith("(END sentinel missing)")
+
+
+def test_p0550_mark_boundaries_refuses_a_broken_command_without_python_advice(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    from pyflightstream.run import _cli_geometry
+    from pyflightstream.script import BrokenCommandError
+    from pyflightstream.workspace.cli import main
+
+    error = BrokenCommandError("FOO is broken on 26.126. Script.allow_broken waives it.")
+    error.finding = "FOO is broken on 26.126."
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr(_cli_geometry, "plan_mark_boundaries", refuse)
+    code = main(["geometry", "mark-boundaries", str(tmp_path / "wing.obj")])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "FOO is broken on 26.126." in err
+    assert "allow_broken" not in err
