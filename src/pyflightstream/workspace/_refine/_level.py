@@ -1068,9 +1068,7 @@ def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
             stale = True
         if stale:
             warn(
-                f"{entry['file']}: the preserved trailing-edge declaration does not match "
-                f"the refined mesh; review {folder.name}{TE_SUFFIX} and explicitly add "
-                "the desired file to the level's boundaries declarations.",
+                _obj.stale_declaration_message(entry["file"], folder),
                 PyflightstreamWarning,
                 stacklevel=3,
             )

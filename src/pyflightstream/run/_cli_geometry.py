@@ -27,6 +27,7 @@ from typing import Any
 
 from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
 from pyflightstream.run._cli_mesh import (
     _progress_printer,
@@ -42,7 +43,7 @@ from pyflightstream.run._executors import (
     _surface_mesh_script,
     export_surface_mesh,
 )
-from pyflightstream.script import Script
+from pyflightstream.script import BrokenCommandError, Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
     BoundaryMarkingError,
@@ -360,8 +361,10 @@ def _add_mesh_verbs(verbs: Any) -> None:
             "reads. With "
             "NODES (an ANSA SET node list, every perimeter in one file, any order) they are "
             "taken among its lines, on the OBJ or a refined level of it. Written beside the "
-            "mesh in the format the solver imports: <mesh stem>.nodes.te.txt for every mapped "
-            "family, or <mesh stem>.<family>.fs.te.txt per family with --families. Without "
+            "mesh: <mesh stem>.te.txt, the points file a boundaries file names, and "
+            "<mesh stem>.nodes.te.txt, in the format the solver imports, for every mapped "
+            "family; or <mesh stem>.<family>.te.txt and <mesh stem>.<family>.fs.te.txt per "
+            "family with --families. Without "
             "--families only quad families are mapped (quadrilaterals at least 80 percent of "
             "the faces); --all-families maps the others too."
         ),
@@ -652,7 +655,14 @@ def _cmd_build(args: argparse.Namespace) -> int:
             package_version=_package_version(),
             parallel=args.parallel,
         )
-    except (InputArtifactError, ExecutorConfigurationError) as error:
+    except (
+        InputArtifactError,
+        ExecutorConfigurationError,
+        CommandNotInVersionError,
+        BrokenCommandError,
+    ) as error:
+        # A command the build lacks or records broken cannot be rendered, so the plan stops
+        # there, at the preview too: a refusal naming the command, not a traceback.
         print(f"{error} {_NOTHING}", file=sys.stderr)
         return 2
     except GeometryBuildError as error:

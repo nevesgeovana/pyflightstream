@@ -1036,3 +1036,22 @@ def base_component_names(side: Path, text: str, data: dict[str, Any], owner: dic
         text = rename_table_key(side, text, name, renamed, changed)
         data = changed
     return text
+
+
+def stale_declaration_message(declared: str, folder: Path) -> str:
+    """Return the warning of a preserved points file that cannot mark the refined level.
+
+    The level folder holds a points file under its own name only when the level has a listed
+    or found trailing edge, so the warning names that file only when it is there.
+    """
+    level_file = f"{folder.name}{TE_SUFFIX}"
+    action = (
+        f"review {level_file} and explicitly add the desired file"
+        if (folder / level_file).is_file()
+        else f"this level holds no {level_file}, so write it with "
+        f"pyfs-workspace geometry identify-te {folder.name}.obj and add it"
+    )
+    return (
+        f"{declared}: the preserved trailing-edge declaration does not match the refined mesh; "
+        f"{action} to the level's boundaries declarations."
+    )

@@ -268,7 +268,8 @@ records as verified on the chosen build, for the commands the run did not
 already emit: the mesh operations, the CAD body and CAD Create commands, the
 CCS lofts and the surface-mesh export. Until a licensed probe verifies one,
 `--apply` refuses on that build, naming the command; the preview still shows
-the script.
+the script. A command the build does not have, or records broken, has no script
+to show: the preview refuses too, naming it, writes nothing and exits 2.
 
 ## A control-surface deflection sweep
 

@@ -570,14 +570,17 @@ trailing edge reaches its junction with a hub where it bends out of the rearmost
 tests; raise `--max-angle` for a sharper bend. Without `--families` only quad families
 are mapped (quadrilaterals at least 80 percent of the faces), so a tip cap or a
 fairing meshed in triangles is warned and left out; `--all-families` maps every
-family. The command writes `W1.nodes.te.txt` for the mapped families (or
-`W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,
-`W1.nodes.txt`, the ANSA node list a refine file reads. With a node list
+family. The command writes `W1.te.txt`, a unit line and the mid-points, and
+`W1.nodes.te.txt`, the same edges in the format the solver imports, for the mapped
+families (or `W1.<family>.te.txt` and `W1.<family>.fs.te.txt` for each family named
+by `--families`) and, beside them, `W1.nodes.txt`, the ANSA node list a refine file
+reads. With a node list
 saved from a SET, `identify-te W1.obj nodes.txt` takes the trailing edges among
 its lines, on a refined level with merged families too. `--unit` states the
 coordinates' unit and `--simulation-unit` the unit the solver reads the file
-in. Name the written file in the boundaries file,
-`[trailing_edges.<label>] file = "W1.nodes.te.txt"`, and mark the OBJ.
+in. Name the file with the unit line in the boundaries file,
+`[trailing_edges.<label>] file = "W1.te.txt"`, and mark the OBJ; the marking pass
+refuses `W1.nodes.te.txt`, which opens with a count in place of a unit.
 
 A node list saved from the pre-processor in any node order becomes a points file
 with `convert2midnodes`:
