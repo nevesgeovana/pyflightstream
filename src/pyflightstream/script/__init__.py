@@ -162,6 +162,7 @@ __all__ = [
     "SurfaceAverageWindow",
     "SurfaceAveragingWindow",
     "UnsteadyActionUse",
+    "turned_about",
 ]
 
 #: How an unsteady script is marched on its build (GOAL-023). A closed set,

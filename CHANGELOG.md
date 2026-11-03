@@ -13,6 +13,9 @@ FlightStream versions.
   `post/<matrix>/products.json` under the lock a post holds, so neither is refused on Windows nor
   loses a concurrent post's write; a lock held past the post's wait warns and skips that file
   (FR-3500).
+- `visual-inspect --finished-by` with a value other than `products` or `sims` is refused with a
+  sentence that names both values; `turned_about` is listed in `pyflightstream.script.__all__`
+  (FR-3509).
 
 ## [0.53.0] - 2026-11-01
 

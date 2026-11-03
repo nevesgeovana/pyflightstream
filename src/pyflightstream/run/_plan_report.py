@@ -742,8 +742,8 @@ def visual_inspect(
     """
     if finished_by not in FINISHED_BY_CHOICES:
         raise InputValueError(
-            f"visual-inspect: finished_by {finished_by!r} is not one of "
-            f"{', '.join(FINISHED_BY_CHOICES)}"
+            f"visual-inspect: finished_by {finished_by!r} is not valid; give 'products' (the polar "
+            f"tables of the post) or 'sims' (the run records), as {FINISHED_BY_OPTION} takes them"
         )
     out = figure_path(root, name)
     if out.exists() and not overwrite:
