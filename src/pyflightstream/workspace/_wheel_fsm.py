@@ -23,9 +23,12 @@ blade, and each row is stated where it is used:
 
 A boundary is a blade when ``--blades`` names it; its faces, base regions, trailing-edge groups
 and terminations are repeated once per copy, the copies named ``<stem><k>``. A name in the
-physics block that is no boundary of the mesh, a row of another length, or any other deviation
-from the layout above is not guessed at: the layout is warned as not recognized and nothing is
-written.
+physics block that is no boundary is what a family merged into its parent leaves (measured on a
+saved file: the boundary takes the parent's name, the base region and its rim group keep the
+family's, and their faces are the parent's): such an entry follows the boundary its faces lie
+on. A name with no face in the mesh, a name with faces both on a blade and off it, a row of
+another length, or any other deviation from the layout above is not guessed at: the layout is
+warned as not recognized and nothing is written.
 
 Faces keep the sector's order inside each copy, because the solver's results depend on it. The
 boundaries of the wheel are the sector's in their order, then the copies of each blade
@@ -246,6 +249,7 @@ class _Parsed:
     newline: str
     mesh: dict[str, Any]
     phys: dict[str, Any]
+    held_by: dict[str, set[int]]
 
 
 def _parse(text: str) -> _Parsed:
@@ -254,8 +258,6 @@ def _parse(text: str) -> _Parsed:
     lines = text.split(newline)
     mesh, phys = _mesh(lines), _physics(lines)
     names = [h[4] for h in mesh["heads"]]
-    for label in phys["base_names"] + phys["te_names"] + phys["term_names"]:
-        _need(label in names, f"the physics block names {label!r}, which is no boundary")
     ids = [h[0] for h in mesh["heads"]]
     _need(
         ids == list(range(ids[0], ids[0] + len(ids))) and int(lines[mesh["start"] + 2]) >= ids[-1],
@@ -274,7 +276,69 @@ def _parse(text: str) -> _Parsed:
         picked = group[kind == value]
         _need(bool(((picked >= 1) & (picked <= size)).all()), f"a {what} face names no group")
     _in_block(mesh, ints, len(phys["te_names"]))
-    return _Parsed(lines, newline, mesh, phys)
+    return _Parsed(lines, newline, mesh, phys, _held_by(mesh, phys, names))
+
+
+def _held_by(mesh: dict[str, Any], phys: dict[str, Any], names: list[str]) -> dict[str, set[int]]:
+    """Return the boundaries that hold the faces of each physics name that is no boundary.
+
+    The rows answer it: a base face and a rim face name their entry by number (row 5) and their
+    boundary (row 11), and a termination names its face. A name with no face is not guessed at.
+    """
+    ints = mesh["ints"]
+    owner, kind, group = ints[11], ints[12], ints[5]
+    held: dict[str, set[int]] = {}
+    for value, labels in ((3, phys["base_names"]), (1, phys["te_names"])):
+        for number, label in enumerate(labels, 1):
+            if label not in names:
+                faces = owner[(kind == value) & (group == number)]
+                held.setdefault(label, set()).update(faces.tolist())
+    term_faces = mesh["term"][0] if mesh["term"] else []
+    for face, label in zip(term_faces, phys["term_names"], strict=True):
+        if label not in names:
+            held.setdefault(label, set()).add(int(owner[face - 1]))
+    for label, boundaries in held.items():
+        _need(
+            bool(boundaries),
+            f"the physics block names {label!r}, which is no boundary and holds no face of the "
+            "mesh, so no boundary it follows can be read",
+        )
+    return held
+
+
+def _repeated_names(parsed: _Parsed, blade_ids: list[int], blades: list[str]) -> set[str]:
+    """Return the physics names repeated per copy: the blades and the names held by a blade only."""
+    repeated = set(blades)
+    names = [h[4] for h in parsed.mesh["heads"]]
+    for label, boundaries in parsed.held_by.items():
+        on_a_blade = boundaries & set(blade_ids)
+        apart = sorted(names[b - 1] for b in boundaries - on_a_blade)
+        _need(
+            not (on_a_blade and apart),
+            f"the physics block names {label!r}, which is no boundary and has faces on a blade "
+            f"and on {apart}, so it can be neither repeated nor kept single",
+        )
+        if on_a_blade:
+            repeated.add(label)
+    return repeated
+
+
+def _names_stay_apart(parsed: _Parsed, maps: _Maps) -> None:
+    """Refuse (as unrecognized) two physics names whose copies would carry one name."""
+    phys = parsed.phys
+    for entries, old in (
+        (maps.base, phys["base_names"]),
+        (maps.te, phys["te_names"]),
+        (maps.term, phys["term_names"]),
+    ):
+        seen: dict[str, str] = {}
+        for index, label in zip(entries.order, entries.labels, strict=True):
+            first = seen.setdefault(label, old[index])
+            _need(
+                first == old[index],
+                f"the copies of {first!r} and {old[index]!r} would both be named {label!r}; "
+                "rename one in the sector",
+            )
 
 
 def _in_block(mesh: dict[str, Any], ints: dict[int, Any], groups: int) -> None:
@@ -303,6 +367,7 @@ class _Maps:
     term: _Entries
     position: dict[tuple[int, int], int]
     blade_ids: list[int]
+    repeated: set[str]
 
 
 def _face_rows(parsed: _Parsed, maps: _Maps, opts: Options) -> list[str]:
@@ -359,7 +424,7 @@ def _termination(parsed: _Parsed, maps: _Maps, opts: Options) -> list[str]:
     if not term:
         return ["0"]
     nf = parsed.mesh["faces"]
-    blades = set(opts.blades)
+    blades = maps.repeated
     names = parsed.phys["term_names"]
     faces: list[int] = []
     slots: list[int] = []
@@ -474,24 +539,25 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
     used = numpy.unique(root)
     index = numpy.full(len(stack), -1, dtype=numpy.int64)
     index[used] = numpy.arange(len(used))
-    blades = set(opts.blades)
     names = [h[4] for h in parsed.mesh["heads"]]
     blade_ids = sorted(names.index(b) + 1 for b in opts.blades)
+    repeated = _repeated_names(parsed, blade_ids, opts.blades)
     nb = len(names)
     ints = parsed.mesh["ints"]
     shared = ~numpy.isin(ints[11], blade_ids)
     warn_sector_angle(xyz[numpy.unique([ints[k][shared] - 1 for k in (2, 3, 4)])], opts, tol)
     maps = _Maps(
         index[root],
-        _expand(parsed.phys["base_names"], blades, n),
-        _expand(parsed.phys["te_names"], blades, n),
-        _expand(parsed.phys["term_names"], blades, n),
+        _expand(parsed.phys["base_names"], repeated, n),
+        _expand(parsed.phys["te_names"], repeated, n),
+        _expand(parsed.phys["term_names"], repeated, n),
         {
             (b, c): nb + (c - 1) * len(blade_ids) + j + 1
             for j, b in enumerate(blade_ids)
             for c in range(1, n)
         },
         blade_ids,
+        repeated,
     )
     corners = numpy.stack([ints[k] - 1 for k in (2, 3, 4)], axis=1).ravel()
     copy = Faces(maps.node[corners], numpy.full(nf, 3))
@@ -505,6 +571,7 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
             f"({sorted({b for b in wanted if wanted.count(b) > 1})}); rename a boundary of the "
             "sector. Nothing was written."
         )
+    _names_stay_apart(parsed, maps)
     text = (
         lines[: mesh["start"] + 1]
         + [str(nf * n), str(last), str(len(records) // 3), *records, str(nf * n)]

@@ -544,10 +544,14 @@ The mesh block is repeated with the seam nodes merged, and the base regions,
 trailing-edge groups and wake terminations of the physics block are repeated
 for the blade boundaries. The boundaries of the wheel are the sector's, then
 the copies of each blade boundary. **The saved layout is inferred from saved
-files; the vendor does not document it.** A file whose layout the reader does
-not recognize (a name in the physics block that is no boundary, a row of
-another length, a termination count that differs) is warned with the reason,
-nothing is written and the exit code is 2. The wheel is read back with the
+files; the vendor does not document it.** A base region or trailing-edge group
+named for no boundary, as a sector marked with `merge_into` holds, follows the
+boundary its faces lie on: on a blade it is repeated, its copies named
+`<stem><k>`, and elsewhere it stays single. A file whose layout the reader does
+not recognize (a name in the physics block with no face in the mesh, or with
+faces both on a blade and off it, two names whose copies would be named alike,
+a row of another length, a termination count that differs) is warned with the
+reason, nothing is written and the exit code is 2. The wheel is read back with the
 package's own saved-file readers before it replaces the output. Exit codes: 0
 written, 2 a refusal, an existing output without `--overwrite`, or an
 unrecognized layout.

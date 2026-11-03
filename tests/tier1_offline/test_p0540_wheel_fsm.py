@@ -263,9 +263,11 @@ def test_p0540_a_layout_the_reader_does_not_recognize_is_warned_and_nothing_is_w
 
     built, sector = _saved(tmp_path)
     text = sector.read_text()
-    # a trailing-edge group named for no boundary of the mesh
+    # a trailing-edge group named for no boundary of the mesh, with no face that places it
     bad = tmp_path / "bad_name.fsm"
-    bad.write_text(text.replace("3\nBlade1\nBlade1\nN\n", "3\nBlade1\nWing\nN\n"))
+    bad.write_text(
+        text.replace("3\nBlade1\nBlade1\nN\n1,1,1,", "4\nBlade1\nBlade1\nN\nWing\n1,1,1,1,")
+    )
     # a per-face row of the wrong length
     short = tmp_path / "short_row.fsm"
     lines = text.split("\n")
