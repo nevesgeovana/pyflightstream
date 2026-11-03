@@ -980,7 +980,9 @@ def _which_adapted(first: Path, second: Path, adapt: Path) -> tuple[Path, Path]:
         p for p in (first, second) if p.name == adapt.name
     ]
     if len(hits) != 1:
-        raise _refuse(f"--adapt {adapt} names neither {first} nor {second}; name one of the two")
+        raise _refuse(
+            f"adapt (CLI: --adapt) {adapt} names neither {first} nor {second}; name one of the two"
+        )
     return (second, first) if hits[0] == first else (first, second)
 
 
@@ -988,17 +990,17 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
     """Refuse what no merge can answer: no threshold, one part twice, a source as output."""
     if not math.isfinite(threshold) or threshold < 0.0:
         raise InputValueError(
-            f"geometry merge: --threshold {threshold} is not a length of zero or more; state "
-            "the largest distance across the interface. Nothing was written."
+            f"geometry merge: threshold (CLI: --threshold) {threshold} is not a length of zero "
+            "or more; state the largest distance across the interface. Nothing was written."
         )
     if out.suffix.lower() != ".obj":
         # The inventory reads the output's groups only from an OBJ: refused after the writing,
         # this would leave an OBJ behind with no record, audit or inventory.
-        raise _refuse(f"--out {out} is not named .obj; name an OBJ file")
+        raise _refuse(f"out (CLI: --out) {out} is not named .obj; name an OBJ file")
     if first.resolve() == second.resolve():
         raise _refuse(f"{first} is named as both parts; name two OBJ files")
     if out.resolve() in (first.resolve(), second.resolve()):
-        raise _refuse(f"--out {out} is one of the two parts; name another file")
+        raise _refuse(f"out (CLI: --out) {out} is one of the two parts; name another file")
     written = (
         out,
         out.with_name(out.stem + RECORD_SUFFIX),
@@ -1007,7 +1009,10 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
     )
     clash = [path.name for path in written if path.exists()]
     if clash and not overwrite:
-        raise _refuse(f"{', '.join(clash)} exist(s) beside {out}; pass --overwrite to replace")
+        raise _refuse(
+            f"{', '.join(clash)} exist(s) beside {out}; pass overwrite (CLI: --overwrite) to "
+            "replace"
+        )
 
 
 @dataclass(frozen=True)

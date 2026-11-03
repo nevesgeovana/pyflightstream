@@ -708,7 +708,7 @@ def test_p0540_a_tip_ratio_far_below_one_is_not_told_it_is_not_finer(tmp_path):
     source = build_blunt_sector(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        with pytest.raises(InputValueError, match="larger --tip-ratio") as refused:
+        with pytest.raises(InputValueError, match="larger tip_ratio") as refused:
             sector_remesh(
                 source, blades=["Blade1"], out=tmp_path / "s.fsm", **{**ARGS, "tip_ratio": 1e-6}
             )

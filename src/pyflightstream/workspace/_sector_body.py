@@ -116,7 +116,7 @@ def seam_meridian(sector: Sector, nodes: Any, *, pole: bool) -> Meridian:
     if int(keep.sum()) < 2:
         raise TopologyNotFoundError(
             "the nodes of a surface on the sector's seam, about an axis through the origin of "
-            "the file's coordinates (--axis names x, y or z; these verbs take no hub)"
+            "the file's coordinates (axis (CLI: --axis) names x, y or z; these verbs take no hub)"
         )
     order = numpy.argsort(q[keep, 0])
     a, rad = q[keep, 0][order], r[keep][order]
@@ -313,9 +313,9 @@ def _kite_station(mer: Meridian, radius: float, rings_from: float) -> float:
     if not 0.0 < station < rings_from:
         raise InputValueError(
             f"the nose kite's radius {radius:g}, in the mesh's unit, is not on the spinner ahead "
-            "of its rings; lower nose_radius_r (CLI: --nose-radius-r, a fraction of the tip "
-            "radius) to a small positive one, lower root_margin_r (CLI: --root-margin-r), or "
-            "state the tip radius (CLI: --tip-radius). No file was written."
+            "of its rings; lower nose_radius_r (CLI: --nose-radius-r), a fraction of the tip "
+            "radius, to a small positive one, lower root_margin_r (CLI: --root-margin-r), or "
+            "state tip_radius (CLI: --tip-radius). No file was written."
         )
     return station
 
@@ -419,7 +419,7 @@ def _o_grid(b: Builder, mer: Meridian, root: list[int], spec: SpinnerSpec) -> _O
     if folded:
         raise FoldedGridError(
             f"the spinner O-grid folded in {folded} cells with {spec.layers} layers; raise "
-            "--spinner-layers (spinner_layers)"
+            "spinner_layers (CLI: --spinner-layers)"
         )
     return _OGrid(grid, ids, s_front, r_ref)
 

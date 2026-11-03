@@ -330,13 +330,14 @@ def span_rows(root: float, plan: Plan) -> Array:
         fine = length - geometric(n_t, plan.tip_ratio * cell, length)[::-1]
     except ValueError as error:  # brentq: the tip cells already fill it, or cannot in their count
         cause = (
-            "its cells are not finer than the constant one. Use a --tip-ratio below 1"
+            "its cells are not finer than the constant one. Use a tip_ratio below 1"
             if plan.tip_ratio >= 1.0
             else f"its {n_t} cells cannot grow to fill it from so small a first cell. Use a "
-            "larger --tip-ratio"
+            "larger tip_ratio"
         )
         raise InputValueError(
-            f"--tip-ratio {plan.tip_ratio:g} leaves no growth in the tip region: {cause}. "
+            f"tip_ratio (CLI: --tip-ratio) {plan.tip_ratio:g} leaves no growth in the tip region: "
+            f"{cause}. "
             f"{_NOTHING}"
         ) from error
     return numpy.r_[root + d_u * numpy.arange(n_u), tip - length + fine]

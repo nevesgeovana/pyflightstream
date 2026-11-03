@@ -28,6 +28,7 @@ from typing import Any
 import numpy
 from numpy.typing import NDArray
 
+from pyflightstream._errors import InputValueError
 from pyflightstream._fsm import MeshReadError, boundary_names, surface_mesh
 from pyflightstream.workspace._wheel import Faces, check_wheel, merge_nodes, rotate
 from pyflightstream.workspace._wheel_fsm import (
@@ -220,9 +221,9 @@ def read_back(path: Path, expected_names: tuple[str, ...]) -> ReadBack:
         names = boundary_names(path)
         surface_mesh(path)
     except (_UnrecognizedError, MeshReadError, IndexError, KeyError) as error:
-        raise ValueError(f"the composed file does not read back ({error})") from error
+        raise InputValueError(f"the composed file does not read back ({error})") from error
     if tuple(names or ()) != expected_names:
-        raise ValueError(f"the composed file reads back boundaries {names!r}")
+        raise InputValueError(f"the composed file reads back boundaries {names!r}")
     return ReadBack(parsed, triangles_by_boundary(parsed))
 
 
