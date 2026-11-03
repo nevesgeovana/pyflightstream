@@ -417,6 +417,15 @@ def refuse_existing(paths: Iterable[Path], overwrite: bool) -> None:
         )
 
 
+def refuse_the_source(target: Path, source: Path) -> None:
+    """Refuse an output that is the sector read: it would be lost and its record would be wrong."""
+    if target.exists() and target.samefile(source):
+        raise InputArtifactError(
+            f"{target.name} is the sector itself: it would be replaced, and the record would "
+            f"state the output's digest as the source's. Name another out (CLI: --out). {_NOTHING}"
+        )
+
+
 def unit_of(declared: str | None, where: str) -> float:
     """Return the metres per mesh unit, warning when the unit is not stated or is unknown."""
     if declared is not None and declared in METRES_PER_UNIT:
@@ -953,6 +962,7 @@ def sector_to_wheel(
             stacklevel=2,
         )
         target = target.with_suffix(suffix)
+    refuse_the_source(target, path)
     if not (math.isfinite(tolerance) and tolerance > 0.0):
         raise InputValueError(
             f"tolerance (CLI: --tolerance) {tolerance!r} must be a positive length in "

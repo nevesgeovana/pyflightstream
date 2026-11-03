@@ -570,3 +570,31 @@ def test_p0540_rings_that_would_run_past_the_nose_kite_are_refused_on_the_sector
     with pytest.raises(InputValueError, match="nose-radius-r"):
         sector_remesh(source, blades=["Blade1"], tip_radius=1.218, out=out, **ARGS, **change)
     assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_an_output_that_is_the_sector_itself_is_refused_by_every_verb(tmp_path):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import power_off_body, sector_remesh, sector_to_wheel
+    from tests.tier1_offline.test_p0540_wheel import build_sector
+
+    source = build_blunt_sector(tmp_path)
+    before = source.read_bytes()
+    calls = [
+        lambda: sector_to_wheel(
+            source, copies=COPIES, blades=["Blade1"], out=source, overwrite=True
+        ),
+        lambda: sector_remesh(source, blades=["Blade1"], out=source, overwrite=True, **ARGS),
+        lambda: power_off_body(
+            source, blades=["Blade1"], copies=COPIES, out=source, overwrite=True
+        ),
+    ]
+    for call in calls:
+        with pytest.raises(InputArtifactError, match="the sector itself"):
+            call()
+        assert source.read_bytes() == before
+    sector = build_sector(tmp_path)
+    obj_before = sector.obj.read_bytes()
+    with pytest.raises(InputArtifactError, match="the sector itself"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], out=sector.obj, overwrite=True)
+    assert sector.obj.read_bytes() == obj_before

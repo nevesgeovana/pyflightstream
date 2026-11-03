@@ -72,6 +72,7 @@ from pyflightstream.workspace._wheel import (
     check_wheel,
     merge_nodes,
     refuse_existing,
+    refuse_the_source,
     unit_of,
     write_json,
 )
@@ -143,6 +144,7 @@ def _paths(
         )
     target = Path(out) if out is not None else path.with_name(f"{path.stem}_{tag}.fsm")
     rec = target.with_name(f"{target.stem}.{record}.json")
+    refuse_the_source(target, path)
     refuse_existing([target, rec], over)
     return path, target, rec
 
