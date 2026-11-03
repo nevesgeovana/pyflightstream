@@ -23,6 +23,7 @@ from typing import Any
 import numpy
 from numpy.typing import NDArray
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.workspace._sector_read import Sector, radius_of, wrap
 from pyflightstream.workspace._sector_save import QuadSink
 
@@ -287,6 +288,28 @@ def nose(b: Builder, owner: int, mer: Meridian, s_ring: float, ring: list[int]) 
     kite(b, owner, ring, (numpy.array([float(mer.point(0.0)[0]), 0.0, 0.0]), *lines), inner)
 
 
+def _kite_station(mer: Meridian, radius: float, rings_from: float) -> float:
+    """Return the arc length of the nose kite's ring, which lies ahead of the first ring.
+
+    A radius the spinner never reaches, or none at all, puts the ring on the pole and every
+    face of the kite on one point; a ring behind ``rings_from`` folds the rings back over it.
+
+    Raises
+    ------
+    InputValueError
+        The ring is not on the spinner between the pole and the rings.
+    """
+    station = mer.s_at_radius(radius)
+    if not 0.0 < station < rings_from:
+        raise InputValueError(
+            f"the nose kite's radius {radius:g}, in the mesh's unit, is not on the spinner ahead "
+            "of its rings; lower nose_radius_r (CLI: --nose-radius-r, a fraction of the tip "
+            "radius) to a small positive one, lower root_margin_r (CLI: --root-margin-r), or "
+            "state the tip radius (CLI: --tip-radius). No file was written."
+        )
+    return station
+
+
 def winslow(grid: Array, sweeps: int = 3000, relax: float = 0.4) -> Array:
     """Winslow smoothing of an O-grid (layers, loop, 2), periodic along the loop.
 
@@ -361,6 +384,7 @@ def _o_grid(b: Builder, mer: Meridian, root: list[int], spec: SpinnerSpec) -> _O
     xyz = numpy.array([b.position(n) for n in root])
     s_loop = mer.s_of_x(xyz[:, 0])
     s_front = float(s_loop.min() - spec.margin)
+    _kite_station(mer, spec.nose, s_front)
     r_ref = float(mer.point(0.5 * (s_front + mer.length))[1])
     phi = wrap(numpy.arctan2(xyz[:, 2], xyz[:, 1]) - b.centre)
     loop_uv = numpy.c_[s_loop, r_ref * phi]
@@ -407,7 +431,7 @@ def spinner_with_root(
             b.add((int(ids[k, j]), int(ids[k + 1, j]), int(ids[k + 1, j1]), int(ids[k, j1])), owner)
     by_rect = {int(og.rect_ids[j]): int(ids[layers, j]) for j in range(n_loop)}
     front = [by_rect[0]] + [by_rect[(n_loop - i) % n_loop] for i in range(1, spec.theta + 1)]
-    s_kite = mer.s_at_radius(spec.nose)
+    s_kite = _kite_station(mer, spec.nose, og.s_front)
     stations = s_kite + (og.s_front - s_kite) * numpy.linspace(1, 0, spec.rings + 1) ** 1.25
     last = sector_rings(b, owner, mer, stations, spec.theta, first=front)
     nose(b, owner, mer, float(stations[-1]), last)
@@ -416,7 +440,7 @@ def spinner_with_root(
 
 def spinner_closed(b: Builder, owner: int, mer: Meridian, spec: SpinnerSpec) -> None:
     """Blades off: rings from the aft edge to the nose kite, no hole, even cells."""
-    s_kite = mer.s_at_radius(spec.nose)
+    s_kite = _kite_station(mer, spec.nose, mer.length)
     stations = s_kite + (mer.length - s_kite) * numpy.linspace(1, 0, spec.rings + 1) ** 1.25
     last = sector_rings(b, owner, mer, stations, spec.theta)
     nose(b, owner, mer, float(stations[-1]), last)

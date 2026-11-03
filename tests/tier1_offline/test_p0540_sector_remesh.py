@@ -529,3 +529,44 @@ def test_p0540_a_second_header_value_above_the_last_id_is_a_layout_the_reader_kn
         assert not sector_to_wheel(
             odd, copies=COPIES, blades=["Blade1"], out=tmp_path / "v.fsm"
         ).written
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"nose_radius_r": 10.0},
+        {"nose_radius_r": 0.0},
+        {"tip_radius": 0.0},
+        {"tip_radius": -1.0},
+    ],
+)
+def test_p0540_a_nose_kite_off_the_spinner_is_refused_on_the_body(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import power_off_body
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "b.fsm"
+    with pytest.raises(InputValueError, match="nose-radius-r"):
+        power_off_body(source, blades=["Blade1"], copies=COPIES, out=out, **change)
+    assert not out.exists()
+
+
+@pytest.mark.requirement("FR-3499")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"nose_radius_r": 10.0},
+        {"nose_radius_r": 0.0},
+        {"root_margin_r": 0.3, "nose_radius_r": 0.32},
+    ],
+)
+def test_p0540_rings_that_would_run_past_the_nose_kite_are_refused_on_the_sector(tmp_path, change):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace import sector_remesh
+
+    source = build_blunt_sector(tmp_path)
+    out = tmp_path / "s.fsm"
+    with pytest.raises(InputValueError, match="nose-radius-r"):
+        sector_remesh(source, blades=["Blade1"], tip_radius=1.218, out=out, **ARGS, **change)
+    assert not out.exists()
