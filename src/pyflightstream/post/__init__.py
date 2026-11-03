@@ -174,7 +174,9 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._installed_copies` (the installed-frame copies of
   the probes table and the reusable inflow profile, FR-420) and
   :mod:`pyflightstream.post._cn_slope` (the normal-force slope of a rotor table
-  against incidence, FR-3502).
+  against incidence, FR-3502) and
+  :mod:`pyflightstream.post._merged_polar` (the unsteady polar with its rotor tables
+  and ROTATE angles on one row, FR-3511).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find

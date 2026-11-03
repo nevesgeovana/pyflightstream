@@ -52,6 +52,9 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
                 # 0.54.0 adds one optional product default, rotor_cn_slope=False (FR-3502);
                 # nothing else moved.
                 value["rotor_cn_slope"] = False
+                # 0.55.0 adds two more optional product defaults, FR-3511 and FR-3512.
+                value["merged_polar"] = False
+                value["rotate_columns"] = {}
             for child in value.values():
                 migrate_default(child)
         elif isinstance(value, list):
