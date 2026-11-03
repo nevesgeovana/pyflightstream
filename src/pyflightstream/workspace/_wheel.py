@@ -96,7 +96,21 @@ _NOTHING = "No file was written."
 
 @dataclass
 class WheelResult:
-    """What a sector-to-wheel run did: whether it wrote, the files and the checks."""
+    """What a sector-to-wheel run did: whether it wrote, the files and the checks.
+
+    Attributes
+    ----------
+    written : bool
+        False, with nothing written, when a saved layout was not recognized.
+    output : Path or None
+        The wheel (an OBJ or a saved simulation); None when nothing was written.
+    files : list of Path
+        Every file written: the wheel, its boundaries file and rim points files for an OBJ,
+        and ``<out stem>.wheel.json``.
+    report : dict
+        What ``<out stem>.wheel.json`` holds: the source sha256, the copies, axis, hub and
+        tolerance, the nodes merged, the open edges, the area ratio and the turn check.
+    """
 
     written: bool
     output: Path | None = None
