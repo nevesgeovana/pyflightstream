@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- `pyfs-matrix restore products` and the copy of `post/` by `pyfs-matrix sync` replace
+  `post/<matrix>/products.json` under the lock a post holds, so neither is refused on Windows nor
+  loses a concurrent post's write; a lock held past the post's wait warns and skips that file
+  (FR-3500).
+
 ## [0.53.0] - 2026-11-01
 
 ### Added

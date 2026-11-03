@@ -94,6 +94,7 @@ from pyflightstream.workspace._free_space import (
     _walk_files,
     _zip_path,
     copy_planned,
+    replace_products_manifest,
 )
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
@@ -1399,6 +1400,9 @@ def _atomic_copy(
             raise StorageError(
                 f"the copy of {source} does not match its source; stopped, {target} unchanged"
             )
+        if target.name == "products.json" and "post" in target.parts:
+            replace_products_manifest(temporary, target, keep)
+            return digest
         if keep is not None and _textio.long_path(target).exists():
             _textio.long_path(keep.parent).mkdir(parents=True, exist_ok=True)
             shutil.copy2(_textio.long_path(target), _textio.long_path(keep))

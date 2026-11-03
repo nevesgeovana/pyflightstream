@@ -751,16 +751,26 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
     _write(tmp_path / archived, '[{"run_id": "then"}]\n')
     held: dict[str, bool] = {}
     real = records._replace_bytes
+    rewrite = records._textio.rewrite_locked
 
-    def spy(target: Path, payload: bytes) -> None:
+    def note(target: Path) -> None:
         held["runs"] = (tmp_path / "runs.json.lock").exists()
         held["own"] = target.with_name(target.name + ".lock").exists()
+
+    def spy(target: Path, payload: bytes) -> None:
+        note(target)
         real(target, payload)
+
+    def spy_locked(handle, target, text) -> None:
+        # PFS-2186.14: products.json is rewritten in place under the post's lock.
+        note(Path(target))
+        rewrite(handle, target, text)
 
     # The restore writes through this module's binding; since 0.33.0 (AD-11)
     # the rebuild writes through run._rebuild's, so a spy that must see every
     # writer patches run._record_files and both importers instead.
     monkeypatch.setattr(records, "_replace_bytes", spy)
+    monkeypatch.setattr(records._textio, "rewrite_locked", spy_locked)
     records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
     assert held["runs"], "the restore wrote without the runs.json lease a sync holds"
     if kind in ("storage", "additional"):

@@ -378,6 +378,7 @@
       "tests/tier1_offline/test_goal031_g08_glossary_claims.py",
       "tests/tier1_offline/test_goal031_sections_layout_recorded.py",
       "tests/tier1_offline/test_goal035_prune_step_exports.py",
+      "tests/tier1_offline/test_p0540_products_lock.py",
       "tests/tier1_offline/test_goal035_qsteady_rotor.py",
       "tests/tier1_offline/test_goal035_rotor_mach.py",
       "tests/tier1_offline/test_goal036_blade_azimuth.py",
