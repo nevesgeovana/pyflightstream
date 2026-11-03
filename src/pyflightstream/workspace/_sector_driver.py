@@ -523,7 +523,7 @@ def sector_remesh(
         around-the-sector counts are even.
     root_margin_r, nose_radius_r : float
         The spinner's margin ahead of the root loop and the radius of its nose kite, as
-        fractions of the tip radius (0.038 is 0.07 m on a 1.8288 m tip).
+        fractions of the tip radius.
     out : str or Path, optional
         The remeshed sector; default ``<sector stem>_remesh.fsm`` beside it.
     overwrite : bool

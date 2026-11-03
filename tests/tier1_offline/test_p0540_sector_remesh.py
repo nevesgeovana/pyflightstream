@@ -818,3 +818,10 @@ def test_p0540_the_help_states_every_default_and_how_to_write_a_signed_axis(caps
     assert "O-grid layers at the root (4)" in remesh and "rings forward to the nose (7)" in remesh
     assert "spinner rings to the nose (12)" in helped("power-off-body")
     assert "--axis=-x" in helped("sector-to-wheel")
+
+
+@pytest.mark.requirement("FR-3499")
+def test_p0540_the_public_docstring_names_no_length_of_one_rotor():
+    from pyflightstream.workspace import sector_remesh
+
+    assert " m tip" not in sector_remesh.__doc__
