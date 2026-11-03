@@ -161,3 +161,59 @@ def test_p0550_a_name_the_rows_cannot_place_is_warned_with_its_cause_and_nothing
     said = " ".join(str(item.message) for item in caught)
     assert cause in said
     assert "Use the OBJ route" in said
+
+
+def _two_family_rim(folder: Path) -> Path:
+    """A far one-edge rim on family ``a`` first, then a blunt panel on family ``b``, moved alone.
+
+    The rungs of the panel's base are the cross edges of the entry. They lie on ``b``, far from
+    the short rim on ``a`` that comes first.
+    """
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    cells, thick = 3, 0.05
+    vertices = [(0.0, 10.0, 0.0), (1.0, 10.0, 0.0), (1.0, 11.0, 0.0), (0.0, 11.0, 0.0)]
+    number = {}
+    for z in (thick, -thick):
+        for x in (0.0, 1.0):
+            for j in range(cells + 1):
+                vertices.append((x, j / cells, z))
+                number[(x, j, z)] = len(vertices)
+    panel = [
+        [(0.0, j, z), (1.0, j, z), (1.0, j + 1, z), (0.0, j + 1, z)]
+        for z in (thick, -thick)
+        for j in range(cells)
+    ]
+    panel += [
+        [(1.0, j, thick), (1.0, j, -thick), (1.0, j + 1, -thick), (1.0, j + 1, thick)]
+        for j in range(cells)
+    ]
+    text = "".join(f"v {x} {y} {z}\n" for x, y, z in vertices) + "g a\nf 1 2 3 4\ng b\n"
+    text += "".join("f " + " ".join(str(number[key]) for key in quad) + "\n" for quad in panel)
+    mesh = folder / "two.obj"
+    mesh.write_text(text)
+    points = ["METER", "1.0,10.5,0.0"]
+    points += [f"1.0,{(j + 0.5) / cells},{z}" for z in (thick, -thick) for j in range(cells)]
+    (folder / "rim.te.txt").write_text("\n".join(points) + "\n")
+    with write_inventory(mesh).open("a") as stream:
+        stream.write(
+            '\nfs_build = "26.100"\n[import]\nunits = "METER"\n'
+            '[[import.operations]]\nop = "translate"\nvector = [0, 0, 5]\nsurface = "b"\n'
+            '[trailing_edges.te]\nfile = "rim.te.txt"\ntype = "STANDARD"\n'
+        )
+    return mesh
+
+
+@pytest.mark.requirement("FR-3541")
+def test_p0550_a_cross_edge_is_placed_by_the_nearest_rim_edge_across_the_parts_of_the_rim(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    plan = plan_mark_boundaries(_two_family_rim(tmp_path))
+    (entry,) = plan.sets
+    assert entry["rim_vertices"] == (2, 4, 4)
+    # Every rung is on family b, which the operation moved up by 5, as the panel's rim points are.
+    assert entry["cross_m"]
+    assert {point[2] for point in entry["cross_m"]} == {5.0}
+    assert {round(point[2], 2) for point in entry["points_m"]} == {0.0, 4.95, 5.05}

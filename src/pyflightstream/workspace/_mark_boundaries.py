@@ -38,6 +38,7 @@ from pyflightstream.script.helpers import (
 from pyflightstream.versions import resolve
 from pyflightstream.workspace._mark_rims import (
     _ObjEdges,
+    _placed_cross,
     _placed_points,
     _placed_rim,
     rim_edges,
@@ -446,18 +447,16 @@ def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_
         inputs[str(path)] = file_sha256(path)
         say(f"{label}: splitting {len(entry.points_m)} edges into rims")
         rims, between = rim_edges(entry.points_m, source, spec.units)
-        counts, crossed = [], ()
-        for number, rim in enumerate(rims):
-            # The edges between the rims belong to the entry; the first rim carries them.
-            vertices, crossed_here = _placed_rim(
-                rim, between if number == 0 else between[:0], index, spec, bound.tolerance
-            )
+        counts = []
+        for rim in rims:
+            vertices = _placed_rim(rim, index, spec, bound.tolerance)
             token = work / f"edges-{len(pending) + 1}.txt"
             mark_trailing_edge_vertices(script, node_file=str(token), vertices=vertices)
             body = script.pending_input_files[str(token)]
             pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
             counts.append(len(vertices))
-            crossed += crossed_here
+        # The edges between the rims belong to the entry, each on the family of its nearest edge.
+        crossed = _placed_cross(rims, between, index, spec, bound.tolerance)
         say(f"{label}: placing {len(entry.points_m)} points through the import operations")
         points = _placed_points(entry.points_m, source, spec, bound.tolerance)
         sets.append(

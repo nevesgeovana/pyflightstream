@@ -116,10 +116,9 @@ def _carry(point, family: str, spec: MeshImport) -> list[tuple[float, ...]]:
     return [tuple(float(v) for v in xyz) for xyz in copies]
 
 
-def _placed_rim(rim, cross, index: _ObjEdges, spec: MeshImport, tolerance: float):
-    """Place a rim's edge end vertices and the cross edges' mid-points like the OBJ is placed."""
-    edge_mids = rim.mean(axis=1)
-    families = index.families(edge_mids, tolerance)
+def _placed_rim(rim, index: _ObjEdges, spec: MeshImport, tolerance: float):
+    """Place a rim's edge end vertices like the OBJ is placed."""
+    families = index.families(rim.mean(axis=1), tolerance)
     vertices: list[tuple[float, ...]] = []
     for edge, found in zip(rim, families, strict=True):
         if not found:
@@ -127,12 +126,21 @@ def _placed_rim(rim, cross, index: _ObjEdges, spec: MeshImport, tolerance: float
         for family in found:
             for end in edge:
                 vertices.extend(_carry(end, family, spec))
+    return tuple(dict.fromkeys(vertices))
+
+
+def _placed_cross(rims, cross, index: _ObjEdges, spec: MeshImport, tolerance: float):
+    """Place the cross edges' mid-points by the family of the nearest edge of any of the rims."""
+    if not len(cross):
+        return ()
+    edge_mids = np.vstack([rim.mean(axis=1) for rim in rims])
+    families = index.families(edge_mids, tolerance)
     crossed: list[tuple[float, ...]] = []
     for mid in cross:
         nearest = int(np.linalg.norm(edge_mids - mid, axis=1).argmin())
         for family in families[nearest]:
             crossed.extend(_carry(mid, family, spec))
-    return tuple(dict.fromkeys(vertices)), tuple(dict.fromkeys(crossed))
+    return tuple(dict.fromkeys(crossed))
 
 
 def _files_of_a_run(ends: np.ndarray, foreign: np.ndarray) -> list[np.ndarray]:
