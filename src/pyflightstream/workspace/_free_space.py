@@ -356,19 +356,25 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
 
 
 @contextmanager
-def products_lock(manifest: Path, what: str) -> Iterator[IO[bytes] | None]:
+def products_lock(
+    manifest: Path,
+    what: str,
+    *,
+    left: str = "were not taken out of it; post the matrix again.",
+) -> Iterator[IO[bytes] | None]:
     """Hold a post's lock on ``manifest``; None, warned, when a post held it past the wait.
 
     REL-R3-003: a post of the matrix holds ``products.json`` open while it
     rewrites it in place, so a storage command's replace was refused on Windows
     after its files were deleted, and elsewhere one of the two writes was lost.
-    ``what`` names what the caller takes out of the manifest, for the warning.
+    ``what`` names what the caller changes in the manifest and ``left`` what became of it and
+    the remedy, for the warning.
     """
     with _textio.exclusive(manifest, wait=_textio.LOCK_WAIT) as handle:
         if handle is None:
             warn(
                 f"{manifest} stayed locked by a post for {_textio.LOCK_WAIT:.0f} s, so {what} "
-                "were not taken out of it; post the matrix again.",
+                f"{left}",
                 PyflightstreamWarning,
                 stacklevel=3,
             )
@@ -393,7 +399,10 @@ def replace_products_manifest(temporary: Path, target: Path, keep: Path | None) 
         if keep is not None and _textio.long_path(target).stat().st_size:
             _textio.long_path(keep.parent).mkdir(parents=True, exist_ok=True)
             shutil.copy2(_textio.long_path(target), _textio.long_path(keep))
-        _textio.rewrite_locked(handle, target, temporary.read_text(encoding="utf-8"))
+        # Decoded, not read as text: text mode turns CRLF into LF, and the bytes checked
+        # against the source would not be the bytes the target holds.
+        payload = _textio.long_path(temporary).read_bytes().decode("utf-8")
+        _textio.rewrite_locked(handle, target, payload)
     _textio.long_path(temporary).unlink(missing_ok=True)
 
 

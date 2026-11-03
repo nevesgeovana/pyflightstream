@@ -45,9 +45,11 @@ the secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest
 distinct `|ALPHA|`. A J with one incidence reads `NA` and is named under
 `skipped` (FR-3502 to FR-3504).
 
-FlightStream 26.100: `geometry mark-boundaries` plans a file entry as one
-vertex file and one `TRAILING_EDGES_IMPORT` per rim, and `--apply` stays refused
-until the commands are verified on that build (FR-3470); setting
+FlightStream 26.100: `geometry mark-boundaries` marks a file entry by one
+vertex file and one `TRAILING_EDGES_IMPORT` per rim, all before the first base
+region, and the probes of that build open `--apply` for it; detection entries and
+`auto` wake-termination nodes stay refused at `--apply` until their commands are
+verified there (FR-3470). Setting
 `MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
 `geometry sector-to-wheel` and write nothing (FR-3471). A row that states
 `airfoil_separation` on 26.100 is warned with `NotApplicableWarning`, the command

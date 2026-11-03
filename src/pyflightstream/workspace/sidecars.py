@@ -517,8 +517,9 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
         f"# the OBJ's sha256 was {sealed or file_sha256(path)}.",
         "# One boundary per `o` or `g` group holding a face, named by the group, in the",
         "# order of the file: how the solver numbers an OBJ's surfaces on import",
-        "# (RPT-078). The package never rewrites this file. Add fs_build at the top",
-        "# level and [import] units. Add named [trailing_edges.<label>] entries, each",
+        "# (RPT-078). The package rewrites this file only for inventory --refresh, and then",
+        "# only its counted keys. Add fs_build at the top level and [import] units.",
+        "# Add named [trailing_edges.<label>] entries, each",
         "# with type and file or detect; optionally add [base_regions.<family>] entries.",
         "# For no trailing edges, declare [trailing_edges] none = true.",
         "# See docs/mesh-inputs.md for the declaration syntax.",
@@ -736,13 +737,15 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         sidecar's boundary list, or its faces cannot be counted.
     """
     path = Path(geometry)
-    sidecar = inventory_sidecar(path, "obj")
+    # The sidecar the marking reads, whose errors name this refresh: the legacy name included.
+    sidecar = boundaries_for_marking(path)
     if path.suffix.lower() != OBJ_SUFFIX or not path.is_file():
         raise InputArtifactError(f"{path} is not an existing .obj, so no sidecar can be refreshed.")
     if not sidecar.is_file():
         raise InputArtifactError(
-            f"{sidecar} does not exist, and refresh (CLI: --refresh) rewrites an "
-            f"existing sidecar only; write it with `pyfs-workspace geometry inventory {path}`."
+            f"{inventory_sidecar(path, 'obj')} does not exist, and refresh (CLI: --refresh) "
+            "rewrites an existing sidecar only; write it with "
+            f"`pyfs-workspace geometry inventory {path}`."
         )
     if read_inventory(sidecar) != obj_boundary_names(path):
         raise InputArtifactError(
@@ -760,21 +763,49 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
     text = sidecar.read_bytes().decode("utf-8")
     newline = "\r\n" if "\r\n" in text else "\n"
     kept = _with_counted_keys(text.splitlines(), fresh)
-    sidecar.write_bytes((newline.join(kept) + newline).encode("utf-8"))
+    rewritten = newline.join(kept) + newline
+    counted = {MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY}
+    try:
+        declared = tomllib.loads(text.removeprefix("﻿"))
+        same = _without_keys(tomllib.loads(rewritten.removeprefix("﻿")), counted) == (
+            _without_keys(declared, counted)
+        )
+    except tomllib.TOMLDecodeError as error:
+        raise InputArtifactError(
+            f"{sidecar}: refreshing it would not leave a readable sidecar ({error}); "
+            "nothing was changed"
+        ) from error
+    if not same:
+        raise InputArtifactError(
+            f"{sidecar}: refreshing it would change more than the three counted keys; "
+            "nothing was changed"
+        )
+    sidecar.write_bytes(rewritten.encode("utf-8"))
     return sidecar
+
+
+def _without_keys(table: dict[str, Any], keys: set[str]) -> dict[str, Any]:
+    """Return the top-level keys of a parsed sidecar other than ``keys``."""
+    return {key: value for key, value in table.items() if key not in keys}
 
 
 def _with_counted_keys(lines: list[str], fresh: dict[str, str]) -> list[str]:
     """Replace the counted keys among a sidecar's top-level lines, keeping every other line."""
     kept: list[str] = []
     header = None
+    depth = 0  # the brackets a replaced array left open: its value runs on over the next lines
     for line in lines:
+        code = line.split("#", 1)[0]
+        if depth:
+            depth += code.count("[") - code.count("]")
+            continue
         key = line.split("=", 1)[0].strip()
         if header is None and line.startswith("["):
             header = len(kept)
         if header is None and key in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY):
             if key in fresh:
                 kept.append(fresh.pop(key))
+            depth = code.count("[") - code.count("]")
             continue
         kept.append(line)
     if fresh:

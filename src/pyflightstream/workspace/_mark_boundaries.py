@@ -112,6 +112,35 @@ class BoundaryMarkingPlan:
             self.mesh.with_suffix(".mark.json"),
         )
 
+    def group_spans(self) -> list[tuple[int, int]]:
+        """Return (first group, number of groups) per entry, then per base region's rim.
+
+        Saved groups stand in the order the script marked them. A declared unit is one group,
+        except on 26.100, where each rim file is a group of its own (measured), a file warned
+        and skipped is none, and an ``auto`` rim follows the file rims.
+        """
+        declared = self.declarations
+        units = [*(entry.marking for entry in declared.trailing_edges)]
+        units += [region.trailing_edges for region in declared.base_regions]
+        vertex_files = declared.fs_build == VERTEX_FILE_BUILD
+        rim_sets = iter(self.sets)
+        spans: dict[int, tuple[int, int]] = {}
+        first = 0
+        for unit in sorted(range(len(units)), key=lambda i: vertex_files and units[i] == "auto"):
+            marking = units[unit]
+            count = 1
+            if vertex_files and marking != "auto" and marking.route == "file":
+                standard = [s for s in marking.sets if s.edge_type == "STANDARD"]
+                count = sum(len(next(rim_sets)["rim_vertices"]) for _ in standard)
+            spans[unit] = (first, count)
+            first += count
+        return [spans[unit] for unit in range(len(units))]
+
+    def group_of(self, unit: int, groups) -> str | None:
+        """Return the saved group of one unit of :meth:`group_spans`, its first; None if none."""
+        first, count = self.group_spans()[unit]
+        return groups[first] if count else None
+
 
 def _import_operations(
     script: Script, spec: MeshImport, names: list[str], faces: list[int]
@@ -224,6 +253,9 @@ def _marking_inputs(mesh):
 def _node_routes(sidecar, declarations, spec):
     termination = [entry for entry in declarations.trailing_edges if entry.wake_termination_nodes]
     explicit = [entry for entry in termination if entry.wake_termination_nodes != "auto"]
+    if declarations.fs_build == VERTEX_FILE_BUILD:
+        # No such command on this build: _emit_nodes warns and skips them, so nothing is numbered.
+        return termination, explicit
     if explicit and any(
         operation.op == "mirror" or (operation.op == "translate" and operation.surface != "all")
         for operation in spec.operations
@@ -450,6 +482,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
     # leaves only the last base saved, and all seven survive with every rim imported first.
     # The solver also stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and accepts
     # <n> CUSTOM <cp>; CREATE_NEW_BASE_REGION has already stated the model and Cp.
+    # An "auto" rim names its base by number, so it follows every create rather than the rims.
     vertex_files = build == VERTEX_FILE_BUILD
 
     def rim(region):
@@ -460,10 +493,11 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
 
     if vertex_files:
         for region in declarations.base_regions:
-            rim(region)
+            if region.trailing_edges != "auto":
+                rim(region)
     for index, region in enumerate(declarations.base_regions, 1):
         emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
-        if not vertex_files or region.model != "EMPIRICAL":
+        if not vertex_files or region.model in ("USER", "CUSTOM"):
             emit(
                 "SET_BASE_REGION_CP",
                 index,
@@ -475,6 +509,10 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
         steps.append(
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
+    if vertex_files:
+        for region in declarations.base_regions:
+            if region.trailing_edges == "auto":
+                rim(region)
 
 
 def _emit_nodes(script, termination, explicit, *, source, spec, inputs, nodes, steps):
@@ -590,12 +628,9 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
     if verdict is not None:
         raise BoundaryMarkingError(verdict[1])
     groups = saved_trailing_edge_groups(saved)
-    expected = len(plan.declarations.trailing_edges) + len(plan.declarations.base_regions)
+    expected = sum(count for _, count in plan.group_spans())
     cross: dict[str, int] | None = None
     if plan.declarations.fs_build == VERTEX_FILE_BUILD:
-        # One import per rim, so a unit marked from several files adds a group per extra file
-        # (provisional until a probe on this build reads two imports back).
-        expected += sum(len(entry["rim_vertices"]) - 1 for entry in plan.sets)
         cross = _cross_edges(plan, saved)
     if len(groups) != expected:
         raise BoundaryMarkingError(
@@ -636,7 +671,7 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
             dict(
                 label=entry.label,
                 type=entry.marking.edge_type,
-                group=groups[index],
+                group=plan.group_of(index, groups),
                 termination=entry.wake_termination_nodes,
                 explicit_nodes=plan.nodes.get(entry.label, ()),
             )

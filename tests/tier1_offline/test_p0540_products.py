@@ -75,6 +75,16 @@ def test_p0540_cn_slope_with_one_incidence_reads_na_and_names_the_skip():
     assert len(skipped) == 2 and "J=0.5" in skipped[0] and "J=0.9" in skipped[1]
 
 
+@pytest.mark.requirement("FR-3503")
+def test_p0540_cn_slope_of_a_plus_and_minus_pair_says_why_it_is_na():
+    """REL-K-011: +2 and -2 are two incidences and one |ALPHA|; the skip line says the second."""
+    rows = [_row("0.5", "2", "0.10"), _row("0.5", "-2", "-0.06")]
+    header, body, skipped = cn_slope_rows(COLUMNS, rows, ALIAS)
+    assert body[0][header.index("CN_SLOPE_PER_DEG")] == "NA"
+    assert len(skipped) == 1 and "two distinct |ALPHA|" in skipped[0]
+    assert "two incidences" not in skipped[0]
+
+
 _REFERENCE = "\n".join(
     [
         "area_m2 = 50.0",

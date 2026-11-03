@@ -531,15 +531,22 @@ def _install_restored(
 
     REL-R3-004: a post rewrites ``products.json`` in place under its lock, so the restore
     of it holds that lock for the archive and the rewrite, waits as the post does, and
-    warns and leaves the file when a post holds it past the wait.
+    warns and leaves the file when a post holds it past the wait. The lock creates an absent
+    file, and an empty one holds nothing to keep, so it is not archived.
     """
     with contextlib.ExitStack() as held:
         handle = None
         if target.name == "products.json":
-            handle = held.enter_context(products_lock(target, "the restored products"))
+            handle = held.enter_context(
+                products_lock(
+                    target,
+                    "the archived products",
+                    left="were not put back; run the restore again when the post ends.",
+                )
+            )
             if handle is None:
                 return False
-        if target.is_file():
+        if target.is_file() and (handle is None or target.stat().st_size):
             if stem is None:
                 kept = free_root_archive(base, target.name, _now_stamp())
             else:

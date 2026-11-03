@@ -74,7 +74,7 @@ def test_p0540_restore_products_warns_and_skips_when_the_lock_stays_held(tmp_pat
     held, release, failed = threading.Event(), threading.Event(), []
     post = _a_post_holding(manifest, held, release, failed)
     try:
-        with pytest.warns(PyflightstreamWarning, match="stayed locked"):
+        with pytest.warns(PyflightstreamWarning, match="stayed locked") as caught:
             done = restore(workspace.root, "products", matrix="products", apply=True)
     finally:
         release.set()
@@ -82,6 +82,27 @@ def test_p0540_restore_products_warns_and_skips_when_the_lock_stays_held(tmp_pat
     assert done["applied"] is False
     assert not failed, failed
     assert b"P_by_the_post" in manifest.read_bytes() or manifest.read_bytes() == current
+    # REL-K-013: the remedy is the restore again; a post would not bring the archive back.
+    said = " ".join(str(item.message) for item in caught)
+    assert "run the restore again" in said and "post the matrix again" not in said
+
+
+@pytest.mark.requirement("FR-3500")
+def test_p0540_restore_of_a_missing_products_archives_nothing(tmp_path):
+    """REL-K-005: the lock creates the absent file, and that empty file is no archived copy."""
+    workspace = _post_workspace(tmp_path)
+    write_campaign_products(workspace, overwrite=True)
+    manifest = workspace.products_dir(None) / "products.json"
+    write_campaign_products(workspace, overwrite=True, archive=True)
+    before = sorted(path for path in workspace.root.rglob("products.json") if path != manifest)
+    manifest.unlink()
+    done = restore(workspace.root, "products", matrix="products", apply=True)
+    assert done["applied"] is True and done["archived_as"] is None
+    assert json.loads(manifest.read_text(encoding="utf-8"))
+    after = sorted(path for path in workspace.root.rglob("products.json") if path != manifest)
+    assert after == before, "an empty products.json entered the archive"
+    # The newest archive is still a document, so a second restore has something to read.
+    assert restore(workspace.root, "products", matrix="products")["same"] is True
 
 
 def _synced_pair(tmp_path):
@@ -108,6 +129,17 @@ def test_p0540_sync_copy_of_products_waits_for_the_posts_lock(tmp_path):
     assert not failed, failed
     assert time.monotonic() - started >= 0.4, "the copy did not wait for the lock"
     assert json.loads(manifest.read_text(encoding="utf-8")) == {"products": {"x": {}}}
+
+
+@pytest.mark.requirement("FR-3500")
+def test_p0540_sync_copy_of_products_keeps_the_bytes_it_checked(tmp_path):
+    """REL-K-006: the copy is byte for byte, so the digest it checked is the target's."""
+    main, manifest = _synced_pair(tmp_path)
+    (brought,) = [path for path in tmp_path.rglob("products.json") if path != manifest]
+    payload = b'{\r\n "products": {"x": {}}\r\n}\r\n'
+    brought.write_bytes(payload)
+    sync_workspaces(main.root, "post", apply=True, overwrite=True)
+    assert manifest.read_bytes() == payload
 
 
 @pytest.mark.requirement("FR-3500")
