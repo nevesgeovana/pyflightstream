@@ -496,6 +496,11 @@
       "path": "farfield/trefftz.py"
     },
     {
+      "id": "pyflightstream.farfield.wake_sheets",
+      "layer": 3.25,
+      "path": "farfield/wake_sheets.py"
+    },
+    {
       "id": "pyflightstream.fsi",
       "layer": 3.5,
       "path": "fsi/__init__.py"
@@ -5053,6 +5058,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.farfield",
+      "target": "pyflightstream.farfield.wake_sheets",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.farfield.balances",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -5095,6 +5105,16 @@
     {
       "source": "pyflightstream.farfield.trefftz",
       "target": "pyflightstream.farfield.quadrature",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.wake_sheets",
+      "target": "pyflightstream.farfield.fields",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.wake_sheets",
+      "target": "pyflightstream.farfield.trefftz",
       "kind": "module"
     },
     {

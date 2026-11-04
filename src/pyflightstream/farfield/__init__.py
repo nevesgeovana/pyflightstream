@@ -85,6 +85,13 @@ from pyflightstream.farfield.trefftz import (
     wake_crossings,
     wake_rotor_loads,
 )
+from pyflightstream.farfield.wake_sheets import (
+    SheetCrossings,
+    WakeSheet,
+    sheet_crossings,
+    sheet_forces,
+    split_wake_sheets,
+)
 
 __all__ = [
     "CrossflowEnergy",
@@ -96,9 +103,11 @@ __all__ = [
     "PlaneFields",
     "RUN_GAP_FACTOR",
     "RotorChannels",
+    "SheetCrossings",
     "TraceResult",
     "TransverseForce",
     "WakeLoads",
+    "WakeSheet",
     "WakeTrace",
     "axial_flux",
     "axial_force",
@@ -128,6 +137,9 @@ __all__ = [
     "sample_area_coverage",
     "sample_coverage",
     "shaft_torque",
+    "sheet_crossings",
+    "sheet_forces",
+    "split_wake_sheets",
     "spurious_diagnostic",
     "strip_edges",
     "symmetry_floor",

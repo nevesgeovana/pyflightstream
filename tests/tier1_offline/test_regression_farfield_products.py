@@ -3999,6 +3999,8 @@ def _p0470_post_rotor_wake(
                 outputs=["point.vtk", "point.fsm"],
                 package_version="0.47.0",
                 recipe=recipe,
+                export_window=None,
+                stopped_at=None,
                 reductions=(
                     {}
                     if recipe == "qsteady_rotor"
@@ -4429,3 +4431,169 @@ def test_p0470_r2_public_guidance_matches_merged_behavior(relative, stale, curre
     folded = " ".join(text.split())
     assert stale not in folded, relative
     assert current in folded, relative
+
+
+# --------------------------------------------------------------------- PFS-2187.21
+def _pfs2187_sheet_lines(sign=1.0, tail_end=30.0, tail_z=1.2, gamma_tail=0.4):
+    """A unit elliptic wing at z = 0 and a smaller elliptic sheet above it, lines to x = 30."""
+    wing, wing_shed = _p0470_wing_lines()
+    nodes = np.linspace(-0.8, 0.8, 9)
+    centres = 0.5 * (nodes[:-1] + nodes[1:])
+    gamma = gamma_tail * np.sqrt(1.0 - (centres / 0.8) ** 2)
+    shed = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    tail = [
+        np.array([(3.0, y, tail_z), (0.5 * (3.0 + tail_end), y, tail_z), (tail_end, y, tail_z)])
+        for y in nodes
+    ]
+    wing_nodes = np.linspace(-2.0, 2.0, 17)
+    wing_centres = 0.5 * (wing_nodes[:-1] + wing_nodes[1:])
+    edges = [
+        (wing_nodes, np.zeros(17), np.sqrt(1.0 - (wing_centres / 2.0) ** 2)),
+        (nodes, np.full(9, tail_z), gamma),
+    ]
+    return [*wing, *tail], sign * np.concatenate([wing_shed, shed]), edges
+
+
+def _pfs2187_direct(edges, rho, speed):
+    """Lift and induced drag of sheets by the page's equations, written out strip by strip."""
+    filaments = []
+    for ey, ez, gamma in edges:
+        shed = np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+        filaments += [(y, z, s) for y, z, s in zip(ey, ez, shed, strict=True)]
+    lift = drag = 0.0
+    shares = []
+    for ey, ez, gamma in edges:
+        own = 0.0
+        for j, g in enumerate(gamma):
+            ym, zm = 0.5 * (ey[j] + ey[j + 1]), 0.5 * (ez[j] + ez[j + 1])
+            dy, dz = ey[j + 1] - ey[j], ez[j + 1] - ez[j]
+            v = w = 0.0
+            for y, z, s in filaments:
+                r2 = (ym - y) ** 2 + (zm - z) ** 2
+                f = -s / (2.0 * math.pi * r2)
+                v += f * -(zm - z)
+                w += f * (ym - y)
+            vn = (-dz * v + dy * w) / math.hypot(dy, dz)
+            own += -0.5 * rho * g * vn * math.hypot(dy, dz)
+            lift += rho * speed * g * dy
+        shares.append(own)
+        drag += own
+    return lift, drag, shares
+
+
+def _pfs2187_b_rows(tmp_path, lines, values, **kwargs):
+    _cols, rows, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=False, **kwargs)
+    return [row for row in rows if row["VARIANT"] == "B"], ctx
+
+
+@pytest.mark.requirement("FR-3571")
+def test_pfs2187_21_two_sheets_are_traced_on_one_plane(tmp_path):
+    """Two sheets of one export: a row each beside the net row, the mutual wash counted, one k."""
+    lines, values, edges = _pfs2187_sheet_lines()
+    rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["N_TRACE"] for row in rows] == ["16", "8", "24"]
+    assert len({row["GAMMA_SCALE"] for row in rows}) == 1
+    rho, speed = 1.225, 30.0
+    lift, drag, shares = _pfs2187_direct(edges, rho, speed)
+    q_s = 0.5 * rho * speed * speed * 4.0
+    k = float(rows[2]["GAMMA_SCALE"])
+    assert float(rows[2]["CL_T"]) == pytest.approx(k * lift / q_s, rel=2e-5)
+    assert float(rows[2]["CDI_T"]) == pytest.approx(k * k * drag / q_s, rel=2e-5)
+    expected_e = (lift / q_s) ** 2 / (math.pi * 4.0 * drag / q_s)
+    assert float(rows[2]["E_T"]) == pytest.approx(expected_e, rel=2e-5)
+    assert float(rows[0]["CDI_T"]) == pytest.approx(k * k * shares[0] / q_s, rel=2e-5)
+    assert float(rows[1]["CDI_T"]) == pytest.approx(k * k * shares[1] / q_s, rel=2e-5)
+    # the sheets add up to the net row, and the net lift is the near field's by construction
+    assert float(rows[0]["CL_T"]) + float(rows[1]["CL_T"]) == pytest.approx(
+        float(rows[2]["CL_T"]), rel=2e-5
+    )
+    loads = ctx.points[0].loads
+    v_ref = float(loads.reference_velocity_m_s or speed)
+    near = float(loads.total["CL"]) * (v_ref / speed) ** 2
+    assert float(rows[2]["CL_T"]) == pytest.approx(near, rel=2e-5)
+
+
+@pytest.mark.requirement("FR-3572")
+def test_pfs2187_21_a_distant_sheet_leaves_the_wing_at_its_closed_form(tmp_path):
+    """The isolated drag of an elliptic sheet is rho Gamma0^2 pi / 8 with a sheet far above."""
+    lines, values, _edges = _pfs2187_sheet_lines(tail_z=400.0, gamma_tail=0.01)
+    rows, _ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    first = rows[0]
+    k = float(first["GAMMA_SCALE"])
+    q_s = 0.5 * 1.225 * 30.0 * 30.0 * 4.0
+    closed = 1.225 * math.pi / 8.0
+    assert float(first["CDI_T_ISOLATED"]) == pytest.approx(k * k * closed / q_s, rel=0.06)
+    assert float(first["CDI_T"]) == pytest.approx(float(first["CDI_T_ISOLATED"]), rel=0.02)
+
+
+@pytest.mark.requirement("FR-3573")
+def test_pfs2187_21_march_values_of_the_other_sign_give_the_same_trace(tmp_path):
+    """Values exported with the opposite sign give a negative k and the same coefficients."""
+    lines, values, _edges = _pfs2187_sheet_lines()
+    plus, _ = _pfs2187_b_rows(tmp_path / "plus", lines, values)
+    minus, _ = _pfs2187_b_rows(tmp_path / "minus", lines, -values)
+    assert float(plus[2]["GAMMA_SCALE"]) > 0.0 > float(minus[2]["GAMMA_SCALE"])
+    for column in ("CL_T", "CDI_T", "E_T"):
+        assert float(minus[2][column]) == pytest.approx(float(plus[2][column]), rel=1e-5)
+
+
+@pytest.mark.requirement("FR-3574")
+def test_pfs2187_21_a_group_that_bounds_no_strip_is_warned_and_the_rest_is_traced(tmp_path):
+    """One line alone is left out, named by its line count and value sum; the sheets are traced."""
+    lines, values, _edges = _pfs2187_sheet_lines()
+    lines = [*lines, np.array([(2.0, 0.3, 40.0), (15.0, 0.3, 40.0), (30.0, 0.3, 40.0)])]
+    values = np.concatenate([values, [0.125]])
+    rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    said = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
+    assert len(said) == 1
+    assert "1 wake lines, with values summing to 0.125, are left out of the trace" in said[0]
+    assert "their circulation is not in the result" in said[0]
+
+
+@pytest.mark.requirement("FR-3575")
+def test_pfs2187_21_a_sheet_short_of_the_plane_writes_the_row_na_with_the_reach(tmp_path):
+    """A sheet whose lines end before the plane: NA, and the skip says what would reach."""
+    lines, values, _edges = _pfs2187_sheet_lines(tail_end=3.5)
+    rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    assert [row["FAMILY"] for row in rows] == ["net"]
+    assert {rows[0][c] for c in ("CL_T", "CDI_T", "E_T", "GAMMA_SCALE")} == {"NA"}
+    (said,) = [reason for key, reason in ctx.skipped.items() if "variant=wake" in key]
+    assert "9 of 26 wake lines end before the plane" in said
+    assert "distance_bref of at most" in said
+
+
+@pytest.mark.requirement("FR-3576")
+def test_pfs2187_21_one_sheet_keeps_its_row_and_its_numbers(tmp_path):
+    """A single sheet writes the one net row it always wrote, from the single-sheet trace."""
+    lines, values = _p0470_wing_lines()
+    rows, _ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    assert [row["FAMILY"] for row in rows] == ["net"]
+    from pyflightstream.farfield import wake_crossings
+
+    trace = wake_crossings(lines, values=values, x_t=1.0 + 0.25 * 4.0)
+    raw = trace.forces(rho=1.225, v_inf=30.0)
+    q_s = 0.5 * 1.225 * 30.0 * 30.0 * 4.0
+    k = float(rows[0]["GAMMA_SCALE"])
+    assert float(rows[0]["CL_T"]) == pytest.approx(k * raw.lift / q_s, rel=1e-5)
+    assert float(rows[0]["CDI_T"]) == pytest.approx(k * k * raw.induced_drag / q_s, rel=1e-5)
+
+
+@pytest.mark.requirement("FR-3577")
+def test_pfs2187_21_an_unsteady_rotor_row_traces_its_sheets_beside_the_rotor_wake(tmp_path):
+    """On unsteady_rotor the non-rotor sheets are traced and the rotor's own lines stay out of B."""
+    lines, values, _edges = _pfs2187_sheet_lines()
+    nets = []
+    for index, rotor_cl in enumerate((0.0, 0.6)):
+        root = tmp_path / str(index)
+        _p0470_post_rotor_wake(
+            root, lines, values, rotor=True, recipe="unsteady_rotor", rotor_cl=rotor_cl
+        )
+        (path,) = (root / "post" / "farfield").glob("*_trefftz_instant.csv")
+        with path.open(encoding="utf-8", newline="") as handle:
+            b = [row for row in csv.DictReader(handle) if row["VARIANT"] == "B"]
+        assert [row["FAMILY"] for row in b] == ["sheet1", "sheet2", "net"]
+        nets.append((float(b[2]["CL_T"]), float(b[2]["GAMMA_SCALE"])))
+    # the rotor's blade lift is excluded from the calibration, as for one sheet
+    assert nets[0] == pytest.approx(nets[1])

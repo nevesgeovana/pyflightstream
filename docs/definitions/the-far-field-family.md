@@ -323,8 +323,28 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   as converged as the wake the solver relaxed.
 - The plane must lie inside the wake: a line that ends before it makes the
   point's B value `NA`.
-- One `net` row per point: the export does not say which family a line
-  belongs to.
+- The export does not say which family a line belongs to, so the lines are separated
+  into sheets by where their first nodes lie, and a sheet is named by its order, not by a
+  family. Two first nodes belong to one sheet when they are closer than 4 times the smaller
+  of their nearest-neighbour distances, so a dense rim is never taken into a sparse trailing
+  edge. The open sheets are cut at the one plane and traced together: the strips of each
+  sheet are bounded by its own crossings, and the normalwash at every strip comes from the
+  filaments of every sheet. The rows are `FAMILY = sheet1`, `sheet2`, and so on, numbered
+  from the sheet whose first nodes have the smallest mean `x` (the one upstream), and the
+  `net` row, which holds all traced sheets together. The sheet rows give `CL_T`, `CDI_T`
+  (under the wash of every sheet) and `CDI_T_ISOLATED` (under its own filaments only); they
+  share the one `GAMMA_SCALE` of the `net` row, and their `CL_T` and `CDI_T` add up to it.
+  A point with a single sheet writes the `net` row alone.
+- A group of lines that cannot be traced (a single line, a run whose first nodes branch) is
+  warned and skipped, naming its line count and the sum of its values, and the other sheets
+  are traced. The circulation of the skipped group is left out of the result.
+- A sheet whose lines end before the plane makes the `net` row `NA`, with a skip that states
+  the length of the shortest line, the distance of the plane, and the `distance_bref` at
+  which every line would reach it. The plane is not moved.
+- On `unsteady_rotor` the exported values of the march are positive where the steady rows'
+  are negative. This is an observed convention of the export, and its source is not known.
+  The scale `k` takes the sign that gives the near-field lift, so `GAMMA_SCALE` is negative
+  on such a row, `CL_T` is the near field's, and `CDI_T` and `E_T` do not depend on the sign.
 - On a rotor row (a steady row with a rotor speed, `unsteady_rotor`) B traces
   only the lines that leave another family than the rotors'. A `qsteady_rotor`
   row holds an isolated rotor and no other family, so its wake entry, B and W

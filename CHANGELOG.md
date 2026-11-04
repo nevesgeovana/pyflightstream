@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Trefftz B traces every open wake sheet of an export on one plane, on a steady row and on an
+  `unsteady_rotor` row, in the last step and in each averaged step. The rows are `sheet1`,
+  `sheet2`, and so on beside the `net` row, which holds them together with the normalwash of
+  every sheet's filaments. A row whose lines were one sheet is unchanged. A group of lines that
+  cannot be traced is warned and skipped, naming its line count and value sum, and a wake that
+  ends before the plane writes the row `NA` and states the `distance_bref` that would reach
+  (FR-3571 to FR-3577).
+
 ## [0.55.0] - 2026-11-04
 
 ### Added
