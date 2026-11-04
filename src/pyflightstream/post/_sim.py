@@ -162,8 +162,7 @@ class SimContext:
     Frozen: a step reads what was resolved and cannot rebind it. The SINKS
     (``written``, ``written_names``, ``skipped``, and ``super_rows``,
     ``plots_tables`` and ``qsteady_validity_of``, which a later step reads
-    back) are containers the steps fill in the order the manifest has always
-    had.
+    back) are containers the steps fill in manifest order.
 
     Attributes
     ----------
@@ -244,6 +243,7 @@ class SimContext:
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
     #: FR-1062: per point, the far-field cells of its super-file row.
     farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
+    farfield_off_window: list[str] = field(default_factory=list)
     #: The columns of an installed-frame copy already named as unplaced (FR-898), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
@@ -1510,6 +1510,12 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
             "these points of the sweep are not rows of the unsteady polar: " + "; ".join(left_out)
         )
     if done is not None:
+        if ctx.farfield_off_window:
+            said = "; ".join(ctx.farfield_off_window)
+            ctx.skipped[f"{POLARS_DIR}/{unsteady_name}#farfield"] = (
+                "the far-field columns of these rows are not the row's window average: " + said
+            )
+            warn(f"{POLARS_DIR}/{unsteady_name}: {said}", PyflightstreamWarning, stacklevel=2)
         append_tip_columns(ctx, done, contributing_runs)
         selected_axes(done, ctx.pproc.products.polar_axes)
         ctx.add(
@@ -1648,7 +1654,7 @@ def _merged_polar_products(ctx: SimContext) -> None:
     merged_polar_products(ctx)
 
 
-#: The steps of one simulation's post, in the order the manifest has always had.
+#: The steps of one simulation's post, in manifest order.
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
     export_tables,
     structure_products,

@@ -30,7 +30,9 @@ default entry name; entries `near` and `far` retain separate spanwise files.
 The super file, and on an unsteady row the unsteady polar that holds its content
 (`polars/P<sim>_<name>_uns_avg.csv`), reads A's `TOTAL` and B/C/D's `net` rows into
 `CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
-`E_T_<VARIANT>_<ENTRY>` columns, one set per entry. For example, A entries
+`E_T_<VARIANT>_<ENTRY>` columns, one set per entry. A row of the unsteady polar is a window
+average: a cell that is not that average, an entry whose window differs or one with no average
+to give, which holds the last step's instant, is warned and named in `products.json`. For example, A entries
 named `wing` and `tail` write `CL_T_A_wing` and `CDI_T_A_tail`; C named `net`
 writes `CDI_T_C_net`. An unnamed C entry uses `CDI_T_C_plane`.
 

@@ -1609,6 +1609,7 @@ def _litb_post__post_wake(root, fixture, *, cl=0.3400367, vref=None):
             }
         ),
         farfield_super={},
+        farfield_off_window=[],
     )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -2565,6 +2566,39 @@ def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
     for column in ("CL_T", "CDI_T", "E_T"):
         assert polar[f"{column}_C_plane"] == average[column]
     assert list(polar).index("E_T_C_plane") < list(polar).index("MESH_FACES")
+
+
+@pytest.mark.requirement("FR-1062")
+def test_p0550_a_last_step_cell_is_said_on_the_polar(tmp_path):
+    """No entry average to give: the row is a window average, so the instant in it is named."""
+    files = _p0450_probe_series(_RFIXF_LAYOUT___LAID.points)
+    files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+        _FFPROOF_POST__PLOTS_HEADER
+        + "Time-step,FX_MRP_TOTAL,CDO_MRP_TOTAL\n5,-10,0,\n6,-10,0,\n7,-10,0,\n8,-30,0,\n"
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_LAYOUT___TABLE_1M
+        + '[plots]\nparameters = ["FX", "CDO"]\n[[plots.groups]]\nname = "MRP_TOTAL"\n'
+        + 'frame = "MRP"\nfamilies = "all"\n',
+        files=files,
+        recipe="unsteady_rotor",
+        reductions=_FFPROOF_POST___WINDOW,
+    )
+    positions = [
+        (i, *map(float, point), "REFERENCE")
+        for i, point in enumerate(_RFIXF_LAYOUT___LAID.points, 1)
+    ]
+    path = _write_probe_points(workspace.sim_dir("3207"), "3207", positions)
+    _ffproof_post___set_record(
+        workspace, probe_points_file=path, farfield_layout=_RFIXF_LAYOUT___PLANE_RECORD
+    )
+    _ffproof_post___post(workspace)
+    skipped = _ffproof_post___manifest(Path(workspace.root))["skipped"]
+    said = next(text for key, text in skipped.items() if key.endswith("_uns_avg.csv#farfield"))
+    assert "the instant of step 8" in said
 
 
 @pytest.mark.parametrize(
@@ -3993,6 +4027,7 @@ def _p0470_post_rotor_wake(
         target=target,
         add=lambda path, entry: products.update({str(path): entry}),
         farfield_super={},
+        farfield_off_window=[],
     )
     farfield_products(cast("Any", ctx))
     paths = list((root / "post" / "farfield").glob("*_trefftz.csv"))

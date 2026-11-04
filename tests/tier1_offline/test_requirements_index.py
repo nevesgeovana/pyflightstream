@@ -1147,6 +1147,7 @@ def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
         ),
         skipped={},
         farfield_super={},
+        farfield_off_window=[],
         sources={"P7": ["run7"]},
         exports={},
         record_of={"P7": SimpleNamespace(recipe="steady", point={})},

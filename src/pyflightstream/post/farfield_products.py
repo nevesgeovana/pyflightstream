@@ -1682,6 +1682,23 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
     return [a for a in selected if not reasons[a]], {a: r for a, r in reasons.items() if r}
 
 
+def _cells_off_the_row_window(ctx: SimContext, tables: ff._Tables) -> list[str]:
+    """Name each super cell that is not the average over its point's row window (FR-1062)."""
+    reduced = tables.reduced.get("trefftz_average", {})
+    said = set()
+    for row, point in tables.super_rows():
+        if row[2] != "AVERAGE":
+            said.add(f"{point} entry {row[1]}: the instant of step {row[2]}")
+            continue
+        entries = reduced.get(point, {}).get("entries")
+        entry = entries.get(row[1], {}) if isinstance(entries, dict) else {}
+        window = entry.get("window")
+        span = getattr(ctx, "point_windows", {}).get(point)
+        if window and span and [float(v) for v in span] != list(window):
+            said.add(f"{point} entry {row[1]}: the average over steps {window}")
+    return sorted(said)
+
+
 def farfield_products(ctx: SimContext) -> None:
     """Write far-field tables of one simulation (FR-456), or nothing without ``[[farfields]]``.
 
@@ -1702,6 +1719,7 @@ def farfield_products(ctx: SimContext) -> None:
         _entry_products(selected, tables)
     _write(ctx, tables)
     ctx.farfield_super.update(ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS))
+    ctx.farfield_off_window.extend(_cells_off_the_row_window(ctx, tables))
 
 
 def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
