@@ -680,8 +680,8 @@ def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
     except OSError as error:
         # Not a skipped product: a name listed there is retired, which would delete this table.
         warn(
-            f"{path} not updated: {error}. Its IDENTIFIERS columns arrive at the next post with "
-            "the file closed.",
+            f"{path} not updated: {error}. Its IDENTIFIERS columns arrive with the file closed, "
+            f"at a post that writes a simulation: pyfs-matrix post {ctx.matrix_stem} --sims <sim>.",
             PyflightstreamWarning,
             stacklevel=2,
         )

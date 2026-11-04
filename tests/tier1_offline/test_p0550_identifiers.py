@@ -698,9 +698,15 @@ def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path)
     write_table(
         sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
     )
-    with sweep.open("rb"), pytest.warns(PyflightstreamWarning, match="not updated"):
+    with sweep.open("rb"), pytest.warns(PyflightstreamWarning, match="not updated.*--sims"):
         write_campaign_products(workspace, matrix_stem="matriz")
     assert sweep.is_file(), "a table held open is warned, never retired"
+    # REL55-3: what the warning promises. With every simulation posted, a plain post writes none.
+    root = str(workspace.root)
+    assert main(["post", "matriz", "--workspace", root]) == 0
+    assert "FLAP" not in _table(sweep)[0]
+    assert main(["post", "matriz", "--workspace", root, "--sims", "6001"]) == 0
+    assert "FLAP" in _table(sweep)[0]
 
 
 def _sweep_of(workspace: CampaignWorkspace) -> Path:
