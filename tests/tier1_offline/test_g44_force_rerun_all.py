@@ -249,17 +249,24 @@ def test_force_rerun_all_redoes_a_point_of_a_batch_still_in_the_queue(tmp_path):
     grouped, workspace, profile, matrix, records = _submitted_batch(tmp_path)
     ids = sorted(r.run_id for r in records)
     label = f"{grouped.MATRIX}_b1"
+    batch_folder = workspace.root / "sims" / "batch" / label
+    in_batch_before = sorted(
+        p.relative_to(batch_folder).as_posix() for p in batch_folder.rglob("*")
+    )
+    # THE REDONE POINT RUNS IN ITS SIMULATION'S OWN FOLDER: its descriptor appears there only
+    # with the redo, and the batch folder the old job writes is left as it was.
+    home = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000" / "submit.yaml"
+    assert not home.exists()
     with pytest.warns(PyflightstreamWarning) as caught:
         redone = _rerun(grouped, workspace, profile, matrix, force_rerun_all=True)
     said = " ".join(str(w.message) for w in caught)
     assert "not cancelled" in said and "writes the batch folder" in said, said
     assert label in said and all(run_id in said for run_id in ids), said
     assert sorted(r.run_id for r in redone) == ids
-    # THE REDONE POINTS WRITE THE MANAGED SIMULATION FOLDER, not the batch folder the old
-    # job still writes, so the old job cannot write over the folder the new run collects.
-    assert (workspace.root / "sims" / "sim_7001").is_dir()
-    batch_folder = workspace.root / "sims" / "batch" / label
-    assert batch_folder not in workspace.sim_dir("7001").parents
+    assert home.is_file()
+    assert all("job" not in (r.submission or {}) for r in redone)
+    in_batch_after = sorted(p.relative_to(batch_folder).as_posix() for p in batch_folder.rglob("*"))
+    assert in_batch_after == in_batch_before
 
 
 def test_a_plain_force_rerun_of_a_point_of_a_batch_still_in_the_queue_is_refused(tmp_path):
