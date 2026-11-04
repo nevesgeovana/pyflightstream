@@ -15,7 +15,12 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
+from pyflightstream.post.products import write_campaign_products
+from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
+from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
+from tests.tier1_offline.test_p0320_noise_post import _unsteady_rotor_workspace
+from tests.tier1_offline.test_sims_selection import _three_sims
 
 STATED = "IDENTIFIERS: {FLAP:0,TESTE:10}"
 
@@ -127,3 +132,339 @@ def test_p0550_identifiers_differing_between_the_two_homes_refuse_nothing(tmp_pa
     _state(other, {"9001": STATED})
     with pytest.warns(PyflightstreamWarning, match="differ in their IDENTIFIERS alone"):
         assert find_matrix(workspace.root, "one") is not None
+
+
+# ------------------------------------------------------------------ the post
+
+
+@pytest.fixture
+def posted(tmp_path):
+    """The rotor fixture campaign, its matrix stating identifiers on the row that ran."""
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    _state(workspace.root / "products.fs", {"7001": STATED})
+    return workspace
+
+
+def test_p0550_every_table_of_a_post_carries_the_row_s_identifiers(posted):
+    write_campaign_products(posted, matrix_stem="products")
+    tables = _tables(posted.root / "post")
+    assert len(tables) >= 7
+    for table in tables:
+        header, rows = _table(table)
+        assert header[0] == "POL", table
+        at = 2 if header[1] == "ROTOR" else 1
+        assert header[at : at + 2] == ["FLAP", "TESTE"], table
+        assert {(row["FLAP"], row["TESTE"]) for row in rows} == {("0", "10")}, table
+
+
+def test_p0550_identifiers_follow_rotor_on_the_rotor_table_and_mesh_faces_stays_last(posted):
+    write_campaign_products(posted, matrix_stem="products")
+    polars = posted.root / "post" / "products" / "polars"
+    assert _table(next(polars.glob("*_rotor.csv")))[0][:4] == ["POL", "ROTOR", "FLAP", "TESTE"]
+    assert _table(next(polars.glob("*_uns_avg.csv")))[0][-1] == "MESH_FACES"
+
+
+def test_p0550_a_row_stating_none_writes_tables_with_no_such_column(tmp_path):
+    """The post has a matrix with identifiers, on another row."""
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    _state(workspace.root / "products.fs", {"6001": STATED})
+    write_campaign_products(workspace, matrix_stem="products")
+    for table in _tables(workspace.root / "post"):
+        assert "FLAP" not in _table(table)[0], table
+
+
+def test_p0550_a_post_with_no_matrix_row_states_none(tmp_path):
+    workspace = _post_workspace(tmp_path, 2411, (60, 61))
+    write_campaign_products(workspace)
+    for table in _tables(workspace.root / "post"):
+        assert "FLAP" not in _table(table)[0], table
+
+
+def test_p0550_post_sims_writes_them_on_a_posted_simulation_and_nothing_else_moves(tmp_path):
+    """Her use: the campaign has run and been posted; the columns arrive with one command."""
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = workspace.manifest_path.read_bytes()
+    sim = workspace.sim_dir("7001")
+    solver_files = {path: path.read_bytes() for path in sim.rglob("*") if path.is_file()}
+    _state(workspace.root / "products.fs", {"7001": STATED})
+    assert main(["post", "--workspace", str(workspace.root), "--sims", "7001"]) == 0
+    polar = next((workspace.root / "post").rglob("*_uns_avg.csv"))
+    header, rows = _table(polar)
+    assert header[1:3] == ["FLAP", "TESTE"]
+    assert rows[0]["TESTE"] == "10"
+    assert workspace.manifest_path.read_bytes() == manifest, "no record moved"
+    assert {path: path.read_bytes() for path in solver_files} == solver_files
+
+
+def test_p0550_empty_identifiers_write_every_table_byte_for_byte(tmp_path):
+    """A matrix whose key states nothing writes what a matrix with no key writes."""
+    plain = _post_workspace(tmp_path / "plain", 2411, (60, 61), rotor=True)
+    write_campaign_products(plain, matrix_stem="products")
+    empty = _post_workspace(tmp_path / "empty", 2411, (60, 61), rotor=True)
+    _state(empty.root / "products.fs", {"7001": "IDENTIFIERS: {}"})
+    write_campaign_products(empty, matrix_stem="products")
+    tables = _tables(plain.root / "post")
+    assert tables
+    for table in tables:
+        other = empty.root / table.relative_to(plain.root)
+        assert other.read_bytes() == table.read_bytes(), table
+
+
+def test_p0550_a_changed_or_removed_identifier_follows_the_matrix_at_the_next_post(posted):
+    write_campaign_products(posted, matrix_stem="products")
+    matrix = posted.root / "products.fs"
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("TESTE:10", "TESTE:11"), encoding="utf-8"
+    )
+    assert main(["post", "--workspace", str(posted.root), "--sims", "7001"]) == 0
+    polar = next((posted.root / "post").rglob("*_uns_avg.csv"))
+    assert _table(polar)[1][0]["TESTE"] == "11"
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace(" / IDENTIFIERS: {FLAP:0,TESTE:11}", ""),
+        encoding="utf-8",
+    )
+    assert main(["post", "--workspace", str(posted.root), "--sims", "7001"]) == 0
+    assert "TESTE" not in _table(polar)[0]
+
+
+def test_p0550_a_name_a_table_holds_keeps_the_table_s_value_and_warns_once(tmp_path):
+    plain = _post_workspace(tmp_path / "plain", 2411, (60, 61), rotor=True)
+    write_campaign_products(plain, matrix_stem="products")
+    stated = _post_workspace(tmp_path / "stated", 2411, (60, 61), rotor=True)
+    _state(stated.root / "products.fs", {"7001": "IDENTIFIERS: {ALPHA:99,POL:5}"})
+    with pytest.warns(PyflightstreamWarning) as caught:
+        write_campaign_products(stated, matrix_stem="products")
+    said = [str(w.message) for w in caught if "already holds" in str(w.message)]
+    assert len([text for text in said if "identifier ALPHA" in text]) == 1, said
+    assert len([text for text in said if "identifier POL" in text]) == 1, said
+    name = next((plain.root / "post").rglob("*_uns_avg.csv")).name
+    before = _table(next((plain.root / "post").rglob(name)))
+    after = _table(next((stated.root / "post").rglob(name)))
+    assert after[0].count("ALPHA") == 1
+    assert after[0].count("POL") == 1
+    assert after[1][0]["ALPHA"] == before[1][0]["ALPHA"]
+    assert after[1][0]["POL"] == before[1][0]["POL"]
+    plots = _table(next((stated.root / "post").rglob("*_plots.csv")))
+    assert plots[0][:2] == ["POL", "ALPHA"], "a table without the name has the column"
+    assert plots[1][0]["ALPHA"] == "99"
+
+
+def test_p0550_a_quote_or_a_slash_in_an_identifier_reaches_the_file_under_the_cell_rule(tmp_path):
+    """G16: no cell or name of a table holds a double quote; a slash stays."""
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    _state(workspace.root / "products.fs", {"7001": 'IDENTIFIERS: {A"B:x"y,C/D:1/2}'})
+    write_campaign_products(workspace, matrix_stem="products")
+    polar = next((workspace.root / "post").rglob("*_uns_avg.csv"))
+    header, rows = _table(polar)
+    assert header[1:3] == ["A'B", "C/D"]
+    assert rows[0]["A'B"] == "x'y"
+    assert rows[0]["C/D"] == "1/2"
+    assert '"' not in polar.read_text(encoding="utf-8")
+
+
+def test_p0550_the_merged_polar_holds_each_identifier_once_with_the_current_value(posted):
+    for pproc in (posted.inputs_dir / "pproc").glob("*.toml"):
+        pproc.write_text(
+            pproc.read_text(encoding="utf-8") + "\n[products]\nmerged_polar = true\n",
+            encoding="utf-8",
+        )
+    write_campaign_products(posted, matrix_stem="products")
+    merged = next((posted.root / "post").rglob("*_merge.csv"))
+    header, rows = _table(merged)
+    assert header[:3] == ["POL", "FLAP", "TESTE"]
+    assert header.count("FLAP") == header.count("TESTE") == 1
+    matrix = posted.root / "products.fs"
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("FLAP:0", "FLAP:7"), encoding="utf-8"
+    )
+    write_campaign_products(posted, matrix_stem="products", overwrite=True)
+    header, rows = _table(merged)
+    assert header.count("FLAP") == 1
+    assert rows[0]["FLAP"] == "7"
+    assert rows[0]["ROTOR"] == "PUSHER", "the rotor's columns still join"
+
+
+def test_p0550_a_derived_polar_built_from_a_stamped_table_holds_each_name_once(posted):
+    """The trimmed and the interpolated polars read the polar back and write it again."""
+    for pproc in (posted.inputs_dir / "pproc").glob("*.toml"):
+        pproc.write_text(
+            pproc.read_text(encoding="utf-8") + "\n[products]\ntrimmed_polar = true\n",
+            encoding="utf-8",
+        )
+    with pytest.warns(Warning):
+        write_campaign_products(posted, matrix_stem="products")
+    for table in _tables(posted.root / "post"):
+        header = _table(table)[0]
+        assert len(header) == len(set(header)), table
+
+
+def _superfile_campaign(tmp_path: Path) -> tuple[CampaignWorkspace, Path]:
+    workspace = _three_sims(tmp_path)
+    _state(
+        workspace.root / "matriz.fs",
+        {"6001": "IDENTIFIERS: {FLAP:1}", "6002": "IDENTIFIERS: {TESTE:2}"},
+    )
+    return workspace, workspace.root / "matriz.fs"
+
+
+def _supers(workspace: CampaignWorkspace) -> dict[str, Path]:
+    out = workspace.products_dir("matriz") / "polars"
+    return {path.name.split("-")[1]: path for path in out.glob("SUPER-*.csv")}
+
+
+def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(tmp_path):
+    workspace, _ = _superfile_campaign(tmp_path)
+    for pproc in (workspace.inputs_dir / "pproc").glob("*.toml"):
+        pproc.write_text(
+            pproc.read_text(encoding="utf-8") + "\n[products]\ncustom_polar_format = true\n",
+            encoding="utf-8",
+        )
+    write_campaign_products(workspace, matrix_stem="matriz")
+    out = workspace.products_dir("matriz")
+    dats = list(out.rglob("*.dat"))
+    assert dats
+    for path in dats:
+        assert "FLAP" not in path.read_text(encoding="utf-8"), path
+    assert any("FLAP" in _table(path)[0] for path in (out / "polars").glob("P6001-*.csv"))
+
+
+def test_p0550_a_table_opening_without_pol_carries_them_as_its_last_columns(tmp_path):
+    """The acoustic tables of one point open with their own columns."""
+    workspace = _unsteady_rotor_workspace(tmp_path, listed=True)
+    record = workspace.read_manifest()[0]
+    workspace.manifest_path.unlink()
+    workspace.append_record(record.model_copy(update={"matrix_stem": "noisy"}))
+    _one_row(workspace.root, STATED, POL=record.sim_id).rename(workspace.root / "noisy.fs")
+    write_campaign_products(workspace, matrix_stem="noisy", overwrite=True)
+    tables = list(workspace.products_dir("noisy").glob("acoustics/*.csv"))
+    assert tables
+    for table in tables:
+        header, rows = _table(table)
+        assert header[0] != "POL", table
+        assert header[-2:] == ["FLAP", "TESTE"], table
+        assert {(row["FLAP"], row["TESTE"]) for row in rows} == {("0", "10")}, table
+
+
+def _fingerprint(root: Path) -> dict[str, bytes]:
+    """Every file of a workspace but the tables and what records the moment it ran."""
+    volatile = (".csv", ".log", ".json", ".jsonl")
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix not in volatile and path.name != "products.fs"
+    }
+
+
+def test_p0550_every_file_that_is_not_a_table_keeps_its_bytes(tmp_path):
+    plain = _post_workspace(tmp_path / "plain", 2411, (60, 61), rotor=True)
+    write_campaign_products(plain, matrix_stem="products")
+    stated = _post_workspace(tmp_path / "stated", 2411, (60, 61), rotor=True)
+    _state(stated.root / "products.fs", {"7001": STATED})
+    write_campaign_products(stated, matrix_stem="products")
+    assert _fingerprint(stated.root) == _fingerprint(plain.root)
+    for path in (stated.root / "sims").rglob("*"):
+        if path.is_file():
+            assert path.read_bytes() == (plain.root / path.relative_to(stated.root)).read_bytes()
+
+
+def test_p0550_the_additional_post_s_tables_carry_them_too(tmp_path):
+    """Under additional/<pid>/, products like the others (G12)."""
+    from tests.tier1_offline.test_additional_post import (
+        POST_ADDITIONAL_TOML,
+        a_recorded_campaign,
+        a_stub,
+        extract,
+        products_of,
+    )
+
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records
+    _state(matrix, {"3207": STATED})
+    products = products_of(workspace, matrix)["products"]
+    out = workspace.products_dir(matrix.stem)
+    tables = [name for name in products if name.startswith("additional/") and name.endswith(".csv")]
+    assert any(name.startswith("additional/p002/polars/") for name in tables), sorted(products)
+    assert any(name.startswith("additional/p002/sections/") for name in tables), sorted(products)
+    for name in tables:
+        header, rows = _table(out / name)
+        at = 2 if header[1] == "ROTOR" else 1
+        assert header[at : at + 2] == ["FLAP", "TESTE"], name
+        assert {row["TESTE"] for row in rows} == {"10"}, name
+
+
+def test_p0550_the_structure_s_table_carries_them_and_its_log_copy_does_not(tmp_path):
+    """`_deflection.csv` writes its own rows, past the funnel; its condition stays in place."""
+    import numpy as np
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi import kinematics, nodes
+    from tests.tier1_offline.test_fsig_fixed_wing import wing_config
+    from tests.tier1_offline.test_post_products import ROTOR_PLAN, _unsteady_workspace
+
+    seed = _unsteady_workspace(tmp_path / "seed", reductions=ROTOR_PLAN, recipe="unsteady")
+    record = seed.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "target")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1" = "all"\n')
+    for relative in record.outputs:
+        target = workspace.sim_dir(record.sim_id) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(seed.sim_dir(record.sim_id) / relative, target)
+    folder = workspace.sim_dir(record.sim_id) / "structural"
+    folder.mkdir()
+    config = wing_config(self_weight=False)
+    (folder / "config.json").write_text(config.model_dump_json())
+    layout = nodes.generate_node_layout(config)
+    size = len(config.blade.station_radii_m)
+    local = kinematics.encode_station_translations(
+        np.linspace(0, 0.008, size),
+        np.zeros(size),
+        np.asarray(layout.le_offset_m),
+        np.asarray(layout.te_offset_m),
+    )
+    nodes.write_fsidisp(folder / "FSIDisp.txt", nodes.flatten_blade_translations(layout, [local]))
+    workspace.append_record(
+        record.model_copy(
+            update={
+                "cwd": str(folder),
+                "matrix_stem": "coupled",
+                "inputs_sha256": {
+                    "config.json": file_sha256(folder / "config.json"),
+                    "fsi-provenance.json": "0" * 64,
+                },
+            }
+        )
+    )
+    _one_row(workspace.root, STATED, POL=record.sim_id).rename(workspace.root / "coupled.fs")
+    write_campaign_products(workspace, matrix_stem="coupled")
+    (table,) = workspace.root.glob("post/**/structure/*_deflection.csv")
+    header, rows = _table(table)
+    assert header[:3] == ["POL", "FLAP", "TESTE"]
+    assert header[3:5] == ["ALPHA", "BETA"]
+    assert {row["TESTE"] for row in rows} == {"10"}
+    polar = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
+    tips = _table(polar)
+    assert "tip_deflection_m_blade_1" in tips[0], "a table rewritten in place keeps its columns"
+    assert tips[0].count("FLAP") == 1
+    assert tips[1][0]["TESTE"] == "10"
+
+
+def test_p0550_the_installed_copy_carries_them_turning_none_and_naming_none(tmp_path):
+    """An identifier named as a mirrored column is still a label, and no unplaced column."""
+    from tests.tier1_offline.test_p0370_s8_installed import BOTH, MATRIX, SIM, _name
+    from tests.tier1_offline.test_p0370_s8_installed import _workspace as installed_workspace
+
+    workspace = installed_workspace(tmp_path, key=BOTH)
+    _one_row(workspace.root, "IDENTIFIERS: {CYAW:3,RUNLABEL:abc}", POL=SIM, PPROC="p001").rename(
+        workspace.root / f"{MATRIX}.fs"
+    )
+    write_campaign_products(workspace, matrix_stem=MATRIX)
+    out = workspace.products_dir(MATRIX)
+    point = f"POLAR-{SIM}_{_name(0)}"
+    source = _table(out / "probes" / f"{point}_probes.csv")
+    copy = _table(out / "probes" / f"{point}_probes_installed.csv")
+    assert source[0][:3] == copy[0][:3] == ["POL", "CYAW", "RUNLABEL"]
+    assert {row["CYAW"] for row in copy[1]} == {"3"}, "the mirror turned a label"
+    log = (out / "post.log").read_text(encoding="utf-8")
+    assert not [line for line in log.splitlines() if "RUNLABEL" in line and "installed" in line]

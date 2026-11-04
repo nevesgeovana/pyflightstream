@@ -54,6 +54,18 @@ from pyflightstream.cases.windows import march_end
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
+from pyflightstream.results._identifier_columns import (
+    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
+)
+from pyflightstream.results._identifier_columns import stamped_table, without_stamped
+from pyflightstream.results._identifier_columns import (
+    state_in_sweep_table as state_in_sweep_table,
+)
+from pyflightstream.results._identifier_columns import stated_identifiers as stated_identifiers
+from pyflightstream.results._identifier_columns import (
+    sweep_identifiers_held as sweep_identifiers_held,
+)
+from pyflightstream.results._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
@@ -489,6 +501,9 @@ def write_csv_table(
     the same six-significant-digit rule; their drift percentages retain five
     decimals. Settings passed as exact text retain their stated form.
 
+    During a post, a table also takes the columns of what its matrix rows state as ``IDENTIFIERS``
+    (FR-3564), as :func:`pyflightstream.results._identifier_columns.stamped_table` says where.
+
     Parameters
     ----------
     path : str or Path
@@ -514,6 +529,7 @@ def write_csv_table(
     target = Path(path)
     _refuse_existing_product(target, overwrite)
     target.parent.mkdir(parents=True, exist_ok=True)
+    columns, rows = stamped_table(target, columns, rows)
     with _textio.atomic_text(target) as handle:
         writer = _textio.csv_writer(handle)
         writer.writerow([plain_cell(str(name)) for name in columns])
@@ -913,6 +929,9 @@ def read_csv_table(
     with the header and column `POL` (G16). A legacy rotor table with its
     alias alone on the first line is read with ``skip=1``.
 
+    During a post, a table that post wrote comes back without the columns its ``IDENTIFIERS`` put
+    there, so what a product builds from it never holds them twice (FR-3565).
+
     Parameters
     ----------
     path : str or Path
@@ -947,7 +966,7 @@ def read_csv_table(
                     f"{target} line {number} carries {len(cells)} values for {len(columns)} columns"
                 )
             rows.append(dict(zip(columns, cells, strict=True)))
-    return columns, rows
+    return without_stamped(target, columns, rows)
 
 
 # --- the plots-table readers (AD-10: moved from post.products) ---

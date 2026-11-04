@@ -32,6 +32,32 @@ row reads `-2.0;0.0` under `SWEEP_VALUES` and `MACH:0.2; REmi:2.3; ALPHA:sweep`
 under `FLIGHT_CONDITION`. A double quote is written as a single one, and a line
 break as a space
 
+**The columns a row states as `IDENTIFIERS` follow `POL`.** A row of the run
+matrix writes `IDENTIFIERS: {FLAP:0,TESTE:10}` in its `VAR_NAMES_VALUES` cell, and
+every table the post writes for that row's polar holds a column of each name with
+the value as text, read from the current matrix at each post. They stand right after
+`POL`, and after `ROTOR` on a table that has it right after `POL`, so every other
+column keeps its order and `MESH_FACES` stays last. A table whose rows mix polars
+takes the union of their names, and a row stating none reads `NA`: all the super files
+of a matrix hold one header, and the campaign sweep table carries each row's own. A
+table that opens without `POL`, the acoustic tables, holds its simulation's as its last
+columns. A name a table already holds as its own column (`ALPHA`, `POL`) keeps the table's
+value in that table and is warned once; another table takes the column. A post limited to some
+simulations leaves the others' files as they are, so they keep what they state, and writes
+its own under their header, reading `NA` for what its row does not state.
+
+These files carry no identifier, for the reason given:
+
+| file | why |
+|---|---|
+| the solver's files under `datapoints/` | the solver's own, never rewritten |
+| `structure/<point>_history.csv` | a copy, byte for byte, of the coupled run's convergence log |
+| the custom polar (`.dat`) | fixed-width, with the title lines and the columns its format specifies |
+| a super file in the `legacy_polar` format | fixed-width; a reader splits it by position |
+| `<point>.inflow.dat` and its `_installed` copy | six columns and no header, read back by the solver |
+| `products.json`, `post.log`, `post.log.json`, `provenance/*.prov.json`, the settings legend and the reports | records of the post, not tables |
+| `plan.json` and the scripts | what the run reads, which reads no identifier |
+
 Every table the post stage composes states the condition it is a table OF, in
 one block, in this order:
 

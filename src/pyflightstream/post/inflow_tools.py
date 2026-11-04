@@ -58,6 +58,7 @@ from pyflightstream.cases.qsteady import (
     suggested_passage_positions,
 )
 from pyflightstream.cases.workflows import qsteady_inflow_map_inputs
+from pyflightstream.results._identifier_columns import stamped_names
 from pyflightstream.workspace import register_plan_product_writer
 
 __all__ = [
@@ -291,8 +292,10 @@ def to_installed_frame(
         )
     if target.exists():
         raise ProductExistsError(f"refused to overwrite {target}; nothing is overwritten.")
-    negate = {i for i, c in enumerate(header) if c in classes.flipped}
-    mirror = {i for i, c in enumerate(header) if c in classes.mapped}
+    # FR-3564: an identifier is a label whatever its name says, and no mirror turns it.
+    labels = stamped_names(source)
+    negate = {i for i, c in enumerate(header) if c in classes.flipped and c not in labels}
+    mirror = {i for i, c in enumerate(header) if c in classes.mapped and c not in labels}
     buffer = io.StringIO()
     writer = _textio.csv_writer(buffer)
     writer.writerow(header)

@@ -31,6 +31,7 @@ from pyflightstream.post._condition import _resolve_post_pproc
 from pyflightstream.post._sim import _sim_products
 from pyflightstream.post._tables import ProductError, ProductExistsError
 from pyflightstream.post.series import translated_surface
+from pyflightstream.results._identifier_columns import tables_of_polar
 from pyflightstream.workspace import ExtractionStatus
 from pyflightstream.workspace.naming import ADDITIONAL_DIR
 
@@ -246,20 +247,21 @@ def _additional_products(
                     **(translated_surface(extraction, path) if kind == "tecplot" else {}),
                 }
         try:
-            files_written, names, reductions_skipped = _sim_products(
-                workspace,
-                sim_id,
-                synthetic,
-                out / ADDITIONAL_DIR / pid,
-                overwrite=overwrite,
-                archive=archive,
-                archive_stamp=archive_stamp,
-                matrix_row=rows_of_the_matrix.get(sim_id),
-                sweep_rows=None,
-                drafts=None,
-                check_frozen=check_frozen,
-                effective_pproc=_resolve_post_pproc(workspace, pid),
-            )
+            with tables_of_polar(sim_id):
+                files_written, names, reductions_skipped = _sim_products(
+                    workspace,
+                    sim_id,
+                    synthetic,
+                    out / ADDITIONAL_DIR / pid,
+                    overwrite=overwrite,
+                    archive=archive,
+                    archive_stamp=archive_stamp,
+                    matrix_row=rows_of_the_matrix.get(sim_id),
+                    sweep_rows=None,
+                    drafts=None,
+                    check_frozen=check_frozen,
+                    effective_pproc=_resolve_post_pproc(workspace, pid),
+                )
         except ProductExistsError:
             raise
         except ProductError as error:

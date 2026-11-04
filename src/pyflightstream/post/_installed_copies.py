@@ -29,6 +29,7 @@ from pyflightstream._tokens import CONTEXT_COLUMNS
 from pyflightstream.cases import FLUID_PLOT_PARAMETERS
 from pyflightstream.post.inflow_tools import installed_frame_columns, to_installed_frame
 from pyflightstream.post.point_tables import PROBE_SPINE
+from pyflightstream.results._identifier_columns import stamped_names
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
@@ -116,7 +117,8 @@ def write_installed_probes(ctx: SimContext, table: Path, point_name: str) -> Non
     except (ProductError, OSError) as error:
         ctx.skipped[target.relative_to(ctx.out).as_posix()] = str(error)
         return
-    _name_once(ctx, _unplaced(header), table)
+    labels = stamped_names(table)
+    _name_once(ctx, [name for name in _unplaced(header) if name not in labels], table)
     _entry(ctx, written, table, point_name)
 
 

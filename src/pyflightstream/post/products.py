@@ -209,6 +209,8 @@ from pyflightstream.post._tables import (
     renamed_columns,
     rotor_advance_ratio,
     section_identity,
+    stated_identifiers,
+    tables_of_polar,
     write_csv_table,
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
@@ -872,26 +874,28 @@ def _campaign_products(
             products_index=products_index,
             manifest=manifest,
         )
-        _write_the_products(
-            workspace,
-            records,
-            by_sim,
-            out,
-            written,
-            products_index,
-            manifest,
-            skipped,
-            drafts,
-            rows_of_the_matrix=rows_of_the_matrix,
-            sweep_rows=sweep_rows,
-            matrix_stem=matrix_stem,
-            overwrite=overwrite,
-            archive=archive,
-            archive_stamp=archive_stamp,
-            check_frozen=check_frozen,
-            partial=partial,
-            merge=merge,
-        )
+        # FR-3564: what the matrix's rows state as IDENTIFIERS, for every table written below.
+        with stated_identifiers(_identifiers_of(rows_of_the_matrix)):
+            _write_the_products(
+                workspace,
+                records,
+                by_sim,
+                out,
+                written,
+                products_index,
+                manifest,
+                skipped,
+                drafts,
+                rows_of_the_matrix=rows_of_the_matrix,
+                sweep_rows=sweep_rows,
+                matrix_stem=matrix_stem,
+                overwrite=overwrite,
+                archive=archive,
+                archive_stamp=archive_stamp,
+                check_frozen=check_frozen,
+                partial=partial,
+                merge=merge,
+            )
         _retire_campaign_products(
             out,
             skipped=skipped,
@@ -1033,54 +1037,67 @@ def _write_the_products(
 def _write_simulation_products(ctx: _CampaignProducts) -> None:
     """Write simulation products."""
     for sim_id, sim_records in tracked("post: simulations", ctx.by_sim.items(), label=_sim_label):
-        simulation_metadata = _simulation_metadata(sim_records)
-        effective_pproc = _effective_pproc(
-            ctx.workspace, sim_id, simulation_metadata, ctx.rows_of_the_matrix.get(sim_id)
+        with tables_of_polar(sim_id):
+            _write_one_simulation(ctx, sim_id, sim_records)
+
+
+def _write_one_simulation(
+    ctx: _CampaignProducts, sim_id: str, sim_records: Sequence[RunRecord]
+) -> None:
+    """Write one simulation's products."""
+    simulation_metadata = _simulation_metadata(sim_records)
+    effective_pproc = _effective_pproc(
+        ctx.workspace, sim_id, simulation_metadata, ctx.rows_of_the_matrix.get(sim_id)
+    )
+    ctx.pprocs[sim_id] = effective_pproc[1]
+    if effective_pproc[1] is not None and effective_pproc[1].noise is not None:
+        ctx.manifest["noise_requested"] = True
+    try:
+        _validate_simulation_references(ctx, sim_id, sim_records, simulation_metadata)
+    except ProductError as error:
+        ctx.skipped[sim_id] = str(error)
+        return
+    _write_simulation_series(ctx, sim_id, sim_records, effective_pproc)
+    try:
+        files, names, reductions_skipped = _sim_products(
+            ctx.workspace,
+            sim_id,
+            _march_records(ctx.workspace, sim_records),
+            ctx.out,
+            overwrite=ctx.overwrite,
+            archive=ctx.archive,
+            archive_stamp=ctx.archive_stamp,
+            matrix_row=ctx.rows_of_the_matrix.get(sim_id),
+            sweep_rows=ctx.sweep_rows,
+            drafts=ctx.drafts,
+            check_frozen=ctx.check_frozen,
+            effective_pproc=effective_pproc,
         )
-        ctx.pprocs[sim_id] = effective_pproc[1]
-        if effective_pproc[1] is not None and effective_pproc[1].noise is not None:
-            ctx.manifest["noise_requested"] = True
-        try:
-            _validate_simulation_references(ctx, sim_id, sim_records, simulation_metadata)
-        except ProductError as error:
-            ctx.skipped[sim_id] = str(error)
-            continue
-        _write_simulation_series(ctx, sim_id, sim_records, effective_pproc)
-        try:
-            files, names, reductions_skipped = _sim_products(
-                ctx.workspace,
-                sim_id,
-                _march_records(ctx.workspace, sim_records),
-                ctx.out,
-                overwrite=ctx.overwrite,
-                archive=ctx.archive,
-                archive_stamp=ctx.archive_stamp,
-                matrix_row=ctx.rows_of_the_matrix.get(sim_id),
-                sweep_rows=ctx.sweep_rows,
-                drafts=ctx.drafts,
-                check_frozen=ctx.check_frozen,
-                effective_pproc=effective_pproc,
-            )
-        except ProductExistsError:
-            raise
-        except ProductError as error:
-            ctx.skipped[sim_id] = str(error)
-            warn(
-                f"products of simulation {sim_id} not written: {error}",
-                PyflightstreamWarning,
-                stacklevel=3,
-            )
-            continue
-        ctx.written.extend(files)
-        for name, entry in names.items():
-            ctx.products_index[name] = {
-                "sim_id": sim_id,
-                "pproc": effective_pproc[0],
-                **entry,
-            }
-        # A reduction the row could not window is a skip under the file it
-        # would have been (PFS-2015.04), beside the simulations refused whole.
-        ctx.skipped.update(reductions_skipped)
+    except ProductExistsError:
+        raise
+    except ProductError as error:
+        ctx.skipped[sim_id] = str(error)
+        warn(
+            f"products of simulation {sim_id} not written: {error}",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+        return
+    ctx.written.extend(files)
+    for name, entry in names.items():
+        ctx.products_index[name] = {
+            "sim_id": sim_id,
+            "pproc": effective_pproc[0],
+            **entry,
+        }
+    # A reduction the row could not window is a skip under the file it
+    # would have been (PFS-2015.04), beside the simulations refused whole.
+    ctx.skipped.update(reductions_skipped)
+
+
+def _identifiers_of(rows_of_the_matrix: Mapping[str, MatrixRow]) -> dict[str, dict[str, str]]:
+    """Return what each polar of the current matrix states as ``IDENTIFIERS``."""
+    return {polar: row.identifiers for polar, row in rows_of_the_matrix.items()}
 
 
 def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:

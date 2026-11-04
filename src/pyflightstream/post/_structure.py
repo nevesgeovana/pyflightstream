@@ -34,6 +34,7 @@ from pyflightstream.fsi.nodes import (
 )
 from pyflightstream.fsi.state import load_state
 from pyflightstream.post._tables import context_row
+from pyflightstream.results._identifier_columns import stamped_table
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
@@ -86,19 +87,22 @@ def structure_products(ctx: SimContext) -> None:
         # POL AND THE CONDITION LEAD EVERY TABLE THE POST WRITES (definitions page): a
         # station row says which polar and which flight condition it deflects under.
         context = context_row(ctx.condition(point), ctx.reference.as_lengths())
+        columns, cells = stamped_table(
+            target,
+            (
+                POLAR_ID_COLUMN,
+                *CONTEXT_COLUMNS,
+                "blade",
+                "station_radius_m",
+                "deflection_m",
+                "twist_deg",
+            ),
+            [(ctx.sim_id, *context, *row) for row in rows],
+        )
         with _textio.open_text(target, "w") as handle:
             writer = _textio.csv_writer(handle)
-            writer.writerow(
-                (
-                    POLAR_ID_COLUMN,
-                    *CONTEXT_COLUMNS,
-                    "blade",
-                    "station_radius_m",
-                    "deflection_m",
-                    "twist_deg",
-                )
-            )
-            writer.writerows((ctx.sim_id, *context, *row) for row in rows)
+            writer.writerow(columns)
+            writer.writerows(cells)
         ctx.add(
             target,
             {
@@ -563,10 +567,15 @@ def placement_check_products(ctx: SimContext) -> None:
         target = ctx.target(ctx.out / relative)
         target.parent.mkdir(parents=True, exist_ok=True)
         context = context_row(ctx.condition(point), ctx.reference.as_lengths())
+        columns, cells = stamped_table(
+            target,
+            (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *PLACEMENT_CHECK_COLUMNS),
+            [(ctx.sim_id, *context, *row) for row in rows],
+        )
         with _textio.open_text(target, "w") as handle:
             writer = _textio.csv_writer(handle)
-            writer.writerow((POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *PLACEMENT_CHECK_COLUMNS))
-            writer.writerows((ctx.sim_id, *context, *row) for row in rows)
+            writer.writerow(columns)
+            writer.writerows(cells)
         ctx.add(target, {"runs": ctx.sources[point.name], "kind": PLACEMENT_CHECK_PRODUCT})
         flag = PLACEMENT_CHECK_COLUMNS.index("misplaced")
         misplaced = sorted({int(str(row[1])) for row in rows if row[flag] is True})
