@@ -881,6 +881,19 @@ def test_rebuild_takes_no_name_that_lost_a_character(tmp_path, monkeypatch):
     assert "\ufffd" not in rebuilt["run_id"]
 
 
+def test_rebuild_keeps_the_version_refusal_when_a_name_lost_a_character(tmp_path, monkeypatch):
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    sweep = workspace.root / "post" / matrix.stem / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    point = original["run_id"].split("/", 1)[1]
+    for run_id in (f"{original['run_id']}_p\u00e7", f"caf\u00e9/{point}"):
+        text = f"run_id,package_version\n{run_id},0.29.0\n"
+        sweep.write_bytes(text.encode("cp1252"))
+        reason = records.rebuild(workspace.root)["refused"]["5001"]
+        assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
+
+
 def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path):
     """PFS-2126.032: collect_once gets the refusals as ``writes``; the module is left as it is."""
     import types

@@ -1080,8 +1080,10 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     # Identifier columns stand between POL and the export's own, which opens on its clock; none
     # of them is a plotted quantity, and one may be text.
     # The step decides where it stands: a label may be named as a time column.
-    clocks = (_PLOTS_STEP_COLUMN,) if _PLOTS_STEP_COLUMN in header else _TIME_COLUMNS
-    first = min((header.index(name) for name in clocks if name in header), default=0)
+    times = [header.index(name) for name in _TIME_COLUMNS if name in header]
+    first = (
+        header.index(_PLOTS_STEP_COLUMN) if _PLOTS_STEP_COLUMN in header else max(times, default=0)
+    )
     columns = tuple(name for name in header[first:] if name != POLAR_ID_COLUMN)
     if not rows:
         raise ProductError(f"{path} holds a header and no rows; a plots table has a time step")

@@ -675,8 +675,9 @@ def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
         return
     path = ctx.workspace.sweep_dir(ctx.matrix_stem) / SWEEP_TABLE_NAME
     try:
-        held = sweep_identifiers_held(path)
-        state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)})
+        stated = _identifiers_of(ctx.rows_of_the_matrix)
+        held = sweep_identifiers_held(path, warned=not any(stated.values()))
+        state_in_sweep_table(path, {**held, **stated})
     except OSError as error:
         # Not a skipped product: a name listed there is retired, which would delete this table.
         warn(

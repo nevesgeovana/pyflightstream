@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -21,9 +22,10 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._identifier_columns import (
     stamped_table,
     stated_identifiers,
+    sweep_identifiers_held,
     tables_of_polar,
 )
-from pyflightstream._matrix_identifiers import matrix_run_digests
+from pyflightstream._matrix_identifiers import matrix_form_digest, matrix_run_digests
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, MatrixRow, read_matrix
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.results.tables import sweep_table, write_sweep_table, write_table
@@ -932,3 +934,58 @@ def test_p0550_a_saved_table_adds_no_replaced_name_to_the_report(tmp_path):
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
     report = json.loads((workspace.root / manifest["superfile_report"]).read_text(encoding="utf-8"))
     assert not [name for name in report["known"] if "\ufffd" in name]
+
+
+def test_p0550_a_label_named_time_beside_time_sec_is_no_clock(tmp_path):
+    from pyflightstream.post.products import plots_table_series
+
+    table = tmp_path / "AL-020_plots.csv"
+    table.write_text("POL,Time,Time (sec),CL\n7001,up,0.1,1.0\n", encoding="utf-8")
+    assert plots_table_series(table)[0] == ("Time (sec)", "CL")
+
+
+def test_p0550_a_table_of_pol_alone_is_not_called_semicolons(tmp_path):
+    table = tmp_path / "campaign_sweep.csv"
+    table.write_text("POL\n7001\n", encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert sweep_identifiers_held(table) == {"7001": {}}
+
+
+def test_p0550_a_saved_table_s_warning_names_no_folder_as_a_matrix(tmp_path):
+    table = tmp_path / "sweep.csv"
+    table.write_text("POL;run_id\n", encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="<matrix> --sims") as caught:
+        sweep_identifiers_held(table)
+    assert all(f"post {tmp_path.name}" not in str(w.message) for w in caught)
+
+
+def test_p0550_a_semicolon_table_adds_no_name_to_the_report(tmp_path):
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
+    sweep = _sweep_of(workspace)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    report = json.loads((workspace.root / manifest["superfile_report"]).read_text(encoding="utf-8"))
+    assert not [name for name in report["known"] if ";" in name]
+
+
+def test_p0550_an_empty_pair_is_not_a_space(tmp_path):
+    first, second = tmp_path / "a.fs", tmp_path / "b.fs"
+    head = "POL|X|VAR_NAMES_VALUES\n"
+    first.write_text(head + "1|x| A:1 / B:2\n", encoding="utf-8")
+    second.write_text(head + "1|x| A:1 // B:2\n", encoding="utf-8")
+    assert matrix_form_digest(first) != matrix_form_digest(second)
+
+
+def test_p0550_a_matrix_stating_none_is_told_nothing_of_a_saved_table(tmp_path):
+    workspace = _three_sims(tmp_path)
+    sweep = _sweep_of(workspace)
+    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, matrix_stem="matriz")
+    assert not [w for w in caught if "semicolons" in str(w.message)]

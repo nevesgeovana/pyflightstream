@@ -867,8 +867,9 @@ def _header(path: Path) -> set[str]:
         first = next(reader, None)
         if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):
             first = next(reader, None)
-    # A name that lost a character names no column: the union would demand what nothing holds.
-    names = {name for name in first or () if chr(0xFFFD) not in name}
+    # A name that lost a character, or a line a spreadsheet joined, names no column: the union
+    # would demand what nothing holds.
+    names = {name for name in first or () if chr(0xFFFD) not in name and ";" not in name}
     if _POLAR_COLUMN_BEFORE_0270 in names:
         names.discard(_POLAR_COLUMN_BEFORE_0270)
         names.add(POLAR_ID_COLUMN)

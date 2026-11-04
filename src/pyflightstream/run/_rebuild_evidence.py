@@ -248,7 +248,13 @@ class _Known:
     source: str = ""
 
 
-_IDENTITY_COLUMNS = ("run_id", "campaign_name_from", "point_name_template")
+def _unless_lost(value: Any) -> Any:
+    """Return a name read from a saved table, or None where it lost a character there.
+
+    A name that lost one is no evidence of a name, and the record would be rebuilt under it. The
+    row's other evidence, its version above all, stands.
+    """
+    return None if isinstance(value, str) and chr(0xFFFD) in value else value
 
 
 def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
@@ -267,11 +273,11 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
         if sim is None or sim in known or "/" not in run_id or "deleted_sim" in row:
             return
         known[sim] = _Known(
-            campaign=run_id.split("/", 1)[0],
-            name_from=row.get("campaign_name_from"),
+            campaign=_unless_lost(run_id.split("/", 1)[0]),
+            name_from=_unless_lost(row.get("campaign_name_from")),
             name_from_known="campaign_name_from" in row,
             package_version=(str(row["package_version"]) if row.get("package_version") else None),
-            point_name_template=row.get("point_name_template"),
+            point_name_template=_unless_lost(row.get("point_name_template")),
             matrix_stem=row.get("matrix_stem"),
             source=source,
         )
@@ -286,12 +292,10 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
     for folder in sorted(post.iterdir()) if post.is_dir() else []:
         table = folder / "campaign_sweep.csv"
         if table.is_file():
-            # A spreadsheet may have saved it in another encoding. A name that lost a character
-            # there is no evidence of a name: the record would be rebuilt under it.
+            # A spreadsheet may have saved it in another encoding; ``take`` drops what that cost.
             with table.open(encoding="utf-8-sig", errors="replace", newline="") as handle:
                 for row in csv.DictReader(handle):
-                    if not any(chr(0xFFFD) in str(row.get(name)) for name in _IDENTITY_COLUMNS):
-                        take({**row, "matrix_stem": folder.name}, _relative(base, table))
+                    take({**row, "matrix_stem": folder.name}, _relative(base, table))
     return known
 
 

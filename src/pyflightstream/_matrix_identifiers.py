@@ -240,7 +240,7 @@ def _respaced(cell: str) -> str:
         end = _pair_end(cell, at)
         pairs.append(cell[at:end].strip())
         at = end + 1
-    return " " + " / ".join(pair for pair in pairs if pair) + cell[len(cell.rstrip()) :]
+    return " " + " / ".join(pairs) + cell[len(cell.rstrip()) :]
 
 
 def _matrix_line(line: str, column: int | None) -> _Line:
@@ -345,7 +345,7 @@ def _formed_line(line: str, column: int | None) -> str:
         end = _pair_end(cell, at)
         pairs.append(cell[at:end].strip())
         at = end + 1
-    cells[column] = " " + " / ".join(pair for pair in pairs if pair)
+    cells[column] = " " + " / ".join(pairs)
     return "|".join(cells).rstrip() + line[len(content) :]
 
 

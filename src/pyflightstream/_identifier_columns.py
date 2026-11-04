@@ -342,8 +342,8 @@ def _say_a_saved_table(path: Path, cause: str) -> None:
     warn(
         f"{path} {cause}, as a spreadsheet may have saved it, so its IDENTIFIERS columns were not "
         "read. A post leaves the file as it is: save it as UTF-8 with commas, then pyfs-matrix "
-        f"post {path.parent.name} --sims <sim> writes them. A run replaces the file from its "
-        "records, without those columns, and the same post writes them back.",
+        "post <matrix> --sims <sim> writes them. A run replaces the file from its records, "
+        "without those columns, and the same post writes them back.",
         PyflightstreamWarning,
         stacklevel=4,
     )
@@ -363,7 +363,7 @@ def _read_sweep(path: Path, *, warned: bool = False) -> tuple[list[str], list[li
         if not warned:
             _say_a_saved_table(path, f"cannot be read as UTF-8 text ({error})")
         return None
-    if table and len(table[0]) == 1 and table[0][0].split(";")[0] == POLAR_ID_COLUMN:
+    if table and len(table[0]) == 1 and table[0][0].startswith(f"{POLAR_ID_COLUMN};"):
         if not warned:
             _say_a_saved_table(path, "is separated by semicolons")
         return None
@@ -384,20 +384,22 @@ def _identifier_positions(header: Sequence[str]) -> range:
     return range(1, header.index(_SWEEP_FIRST_OWN)) if _SWEEP_FIRST_OWN in header else range(0)
 
 
-def sweep_identifiers_held(path: str | Path) -> dict[str, dict[str, str]]:
+def sweep_identifiers_held(path: str | Path, *, warned: bool = False) -> dict[str, dict[str, str]]:
     """Return what the sweep table at ``path`` says in its identifier columns, by polar.
 
     Parameters
     ----------
     path : str or Path
         The sweep table.
+    warned : bool, optional
+        Say nothing of a table that cannot be read, for a caller with no identifier to lose.
 
     Returns
     -------
     dict of str to dict of str to str
         Each polar's identifier cells that say something; empty when the table holds none.
     """
-    table = _read_sweep(Path(path))
+    table = _read_sweep(Path(path), warned=warned)
     if table is None:
         return {}
     header, rows = table

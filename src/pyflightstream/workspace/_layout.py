@@ -98,15 +98,15 @@ def matrix_files(root: str | Path) -> list[Path]:
 def _one_of_both_homes(stem: str, first: Path, second: Path) -> None:
     """Refuse one stem held in both homes with different bytes, naming both paths.
 
-    Bytes that differ in ``IDENTIFIERS`` alone are one study (FR-3561): the first home's are read,
-    and the workspace is not refused over a column the run does not read.
+    Bytes that differ in ``IDENTIFIERS`` or spaces alone are one study (FR-3561): the first
+    home's are read, and the workspace is not refused over a column the run does not read.
     """
     if first.read_bytes() != second.read_bytes():
         if matrix_form_digest(first) == matrix_form_digest(second):
             warn(
                 f"the matrix {stem} is in both homes of the workspace and they differ in their "
                 f"IDENTIFIERS or spaces alone: {first} and {second}. The post reads {first}. "
-                "Keep one, or give both the same IDENTIFIERS.",
+                "Keep one, or make the two identical.",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
