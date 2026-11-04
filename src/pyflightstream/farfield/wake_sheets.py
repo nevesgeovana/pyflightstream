@@ -95,10 +95,11 @@ def _link_components(starts: np.ndarray) -> list[np.ndarray]:
     nearest-neighbour distances.
     """
     n = len(starts)
-    dist = np.linalg.norm(starts[:, None, :] - starts[None, :, :], axis=2)
-    np.fill_diagonal(dist, np.inf)
-    nearest = dist.min(axis=1)
-    linked = dist <= RUN_GAP_FACTOR * np.minimum(nearest[:, None], nearest[None, :])
+    nearest = np.empty(n)
+    for first in range(0, n, 64):
+        block = np.linalg.norm(starts[first : first + 64, None, :] - starts[None, :, :], axis=2)
+        block[np.arange(len(block)), np.arange(first, first + len(block))] = np.inf
+        nearest[first : first + 64] = block.min(axis=1)
     seen = np.zeros(n, dtype=bool)
     groups = []
     for first in range(n):
@@ -109,7 +110,9 @@ def _link_components(starts: np.ndarray) -> list[np.ndarray]:
         while stack:
             k = stack.pop()
             members.append(k)
-            for j in np.flatnonzero(linked[k] & ~seen):
+            reach = RUN_GAP_FACTOR * np.minimum(nearest[k], nearest)
+            close = np.linalg.norm(starts - starts[k], axis=1) <= reach
+            for j in np.flatnonzero(close & ~seen):
                 seen[j] = True
                 stack.append(int(j))
         groups.append(np.array(sorted(members)))
@@ -122,10 +125,9 @@ def _path_of(starts: np.ndarray) -> tuple[list[int], float] | None:
     Also returns the largest gap of the tree.
     """
     n = len(starts)
-    dist = np.linalg.norm(starts[:, None, :] - starts[None, :, :], axis=2)
     in_tree = np.zeros(n, dtype=bool)
     in_tree[0] = True
-    best = dist[0].copy()
+    best = np.linalg.norm(starts - starts[0], axis=1)
     parent = np.zeros(n, dtype=int)
     neighbours: list[list[int]] = [[] for _ in range(n)]
     largest = 0.0
@@ -136,9 +138,10 @@ def _path_of(starts: np.ndarray) -> tuple[list[int], float] | None:
         neighbours[int(parent[k])].append(k)
         largest = max(largest, float(best_masked[k]))
         in_tree[k] = True
-        closer = dist[k] < best
+        row = np.linalg.norm(starts - starts[k], axis=1)
+        closer = row < best
         parent[closer] = k
-        best = np.where(closer, dist[k], best)
+        best = np.where(closer, row, best)
     if any(len(item) > 2 for item in neighbours):
         return None
     end = next(k for k in range(n) if len(neighbours[k]) == 1)

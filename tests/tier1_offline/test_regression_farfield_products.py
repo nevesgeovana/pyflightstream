@@ -4753,3 +4753,23 @@ def test_pfs2187_21_an_unsteady_row_without_a_rotor_averages_b_over_its_window(t
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert [row["FAMILY"] for row in rows if row["VARIANT"] == "B"] == ["sheet1", "sheet2", "net"]
+
+
+@pytest.mark.requirement("FR-3585")
+def test_pfs2187_21_a_dense_export_is_separated_without_a_pairwise_matrix():
+    """Three thousand lines are separated into their two sheets within a few megabytes."""
+    import tracemalloc
+
+    from pyflightstream.farfield import split_wake_sheets
+
+    y = np.linspace(-10.0, 10.0, 2000)
+    wing = [np.array([(1.0, v, 0.0), (9.0, v, 0.0)]) for v in y]
+    z = np.linspace(-1.0, 1.0, 1000)
+    tail = [np.array([(3.0, 0.5 * v, 6.0 + 0.1 * v), (9.0, 0.5 * v, 6.0 + 0.1 * v)]) for v in z]
+    tracemalloc.start()
+    sheets, left_out = split_wake_sheets([*wing, *tail], np.zeros(3000), mirror=False)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert sorted(len(sheet.index) for sheet in sheets) == [1000, 2000]
+    assert not left_out
+    assert peak < 40e6
