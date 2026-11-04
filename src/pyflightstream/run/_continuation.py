@@ -492,8 +492,11 @@ def queued_points(
         warnings.warn(
             f"force_rerun_all redoes {', '.join(queued)}, recorded as SUBMITTED: a point "
             "recorded as submitted may still be in the scheduler's queue, and it is not "
-            "cancelled by this run. A job still queued or running writes into the same "
-            "point folder as the new one, so cancel it in the scheduler.",
+            "cancelled by this run. A job still queued or running holds its licence and "
+            "writes into the same point folder as the new one, and collect cannot tell "
+            "the two apart: what it writes there is recorded as the new run's. "
+            "pyflightstream does not know the scheduler's job id: look for the job in the "
+            "scheduler and cancel it if it is there.",
             PyflightstreamWarning,
             stacklevel=2,
         )

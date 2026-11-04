@@ -268,3 +268,33 @@ def test_a_plain_force_rerun_of_a_point_of_a_batch_still_in_the_queue_is_refused
     grouped, workspace, profile, matrix, records = _submitted_batch(tmp_path)
     with pytest.raises(WorkspaceError, match=r"whose job has not ended"):
         _rerun(grouped, workspace, profile, matrix, force_rerun=[records[0].run_id])
+
+
+def _redo_said(call):
+    """Run ``call`` and return its result and the force_rerun_all warnings it raised."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = call()
+    said = " ".join(
+        str(w.message) for w in caught if str(w.message).startswith("force_rerun_all redoes")
+    )
+    return result, said
+
+
+def test_the_warning_says_the_old_jobs_outputs_are_recorded_as_the_new_runs(tmp_path):
+    from tests.tier1_offline.test_matrix_run import StubSolver
+
+    workspace, row, _ = _submitted_rotor(tmp_path)
+    _, said = _redo_said(
+        lambda: run_matrix(
+            row,
+            workspace,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=StubSolver(WRITES_EVERY_EXPORT),
+            force_rerun_all=True,
+        )
+    )
+    assert "recorded as the new run's" in said and "job id" in said, said
