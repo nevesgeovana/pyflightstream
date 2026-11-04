@@ -120,6 +120,7 @@ API_EXEMPT = {
     "pyflightstream.farfield.lattice_dataset": "FR-457 R3 retires it for farfield.lattice_fields",
     "pyflightstream.post.dataset_to_points": "FR-457 R3 retires it for LatticeFields.points",
     "pyflightstream.post.writers.dataset_to_points": "FR-457 R3: use LatticeFields.points",
+    "pyflightstream.run.cli.write_table": "FR-3564 (0.55.0): the CLI calls write_sweep_table",
 }
 
 #: The message of a per-revolution drift warning, old or new wording: the column
@@ -205,6 +206,17 @@ _S11_WHY = (
     "point's speed and clock from its quasi-steady record where its plan states none; the "
     "owner's decision of 2026-10-05 on her report that the diameter did not reach the "
     "super file"
+)
+
+#: FR-1062 (0.55.0): the two post.log warnings of an unsteady polar whose far-field columns
+#: are the instant of a step, not the row's window average.
+_FF_STAGE_LOG = (
+    r"WARNING point=campaign product=stage: polars/\S+_uns_avg\.csv: .*the instant of step \d+.*"
+)
+_FF_POLAR_LOG = (
+    r"WARNING point=polars/\S+_uns_avg\.csv#farfield product=polars/\S+_uns_avg\.csv#farfield: "
+    r"the far-field columns of these rows are not the row's window average: "
+    r".*the instant of step \d+.*"
 )
 
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
@@ -701,6 +713,86 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             "is taken from the speed its quasi-steady record states where its plan states "
             "none, the speed its rotor table already used; it read NA (the owner's decision "
             "of 2026-10-05)"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*_uns_avg.csv",
+        # PFS-2187: six far-field columns INSERTED (before MESH_FACES), each cell NA or a
+        # number; no column is filled (the never-matching filled regex) and every other
+        # column keeps its name, its order and every cell (:func:`inserts_and_fills`).
+        "inserted_columns": r"(?:CL_T|CDI_T|E_T)_[A-Z]_\w+",
+        "filled_columns": r"(?!)",
+        "cells": _S11_NUMBER,
+        "requirement": "FR-1062",
+        "since": "0.55.0",
+        "why": (
+            "the unsteady polar appends CL_T_<VARIANT>_<ENTRY>, CDI_T_<VARIANT>_<ENTRY> and "
+            "E_T_<VARIANT>_<ENTRY> after its existing columns; nothing else in the file changes"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log",
+        # Only the two warnings of an unsteady polar whose far-field columns are the
+        # instant of a step, whole: the stage one and the #farfield one, either or both.
+        "lines": rf"^(?:{_FF_STAGE_LOG}|{_FF_POLAR_LOG})$",
+        "block": rf"{_FF_STAGE_LOG}|{_FF_POLAR_LOG}|{_FF_STAGE_LOG}\n{_FF_POLAR_LOG}",
+        "base_lacks": r"#farfield",
+        "release_has": r"the far-field columns of these rows are not the row's window average",
+        "requirement": "FR-1062",
+        "since": "0.55.0",
+        "why": (
+            "the post warns, naming the polar, that the far-field columns of an unsteady row "
+            "are the instant of a step and not the row's window average"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log.json",
+        # The same records as the log writes them (indent 1 and 3).
+        "lines": (
+            r"^(  \{|  \},?"
+            r'|   "point": "(?:campaign|polars/[^"]+_uns_avg\.csv#farfield)",'
+            r'|   "product": "(?:stage|polars/[^"]+_uns_avg\.csv#farfield)",'
+            r'|   "message": "(?:polars/[^"]+_uns_avg\.csv: [^"]*the instant of step \d+[^"]*'
+            r"|the far-field columns of these rows are not the row's window average: "
+            r'[^"]*the instant of step \d+[^"]*)",'
+            r'|   "remedy": (?:null|"restore the required data or correct the stated inputs '
+            r'and post again\."),'
+            r'|   "category": "postprocessing",|   "severity": "warning")$'
+        ),
+        "base_lacks": r"#farfield",
+        "release_has": r"the far-field columns of these rows are not the row's window average",
+        "requirement": "FR-1062",
+        "since": "0.55.0",
+        "why": "the machine-readable form of the same far-field window-average warnings",
+    },
+    {
+        "kind": "post",
+        "pattern": "*/products.json",
+        # The polar's entry moved (farfield_products now runs before
+        # _unsteady_polar_products), so its removed and added lines are the same text, and
+        # one `skipped` key ending _uns_avg.csv#farfield is new. The mechanism compares
+        # lines, not entries, so this is a pattern over the entry's indented lines.
+        "lines": (
+            r'^(?:  "polars/[^"]+_uns_avg\.csv": \{|  \},?'
+            r'| {3}"(?:sim_id|pproc|runs|source|window|windows)": .*'
+            r"| {3}[\]}],?| {4,5}[^ ].*"
+            r'|  "polars/[^"]+_uns_avg\.csv#farfield": "the far-field columns of these rows '
+            r"are not the row's window average: .*\"\,?"
+            r'|  "farfield/average#point=[^"]+": ".*",?)$'
+        ),
+        "release_has": r'"polars/[^"]+_uns_avg\.csv#farfield": "',
+        "base_lacks": r"#farfield",
+        "requirement": "FR-1062",
+        "since": "0.55.0",
+        "why": (
+            "the manifest's key order moved (farfield_products runs before "
+            "_unsteady_polar_products, so the unsteady polar's entry follows the far-field "
+            "ones) and a `skipped` key naming the polar's #farfield joins it; the pattern is "
+            "broad (indented manifest lines of that entry and the two keys), because a "
+            "reordered JSON entry cannot be named narrower"
         ),
     },
 ]
