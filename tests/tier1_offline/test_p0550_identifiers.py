@@ -336,9 +336,10 @@ def test_p0550_the_key_is_no_field_the_super_file_measurement_misses(tmp_path):
     name = json.loads(manifest.read_text(encoding="utf-8"))["superfile_report"]
     report = json.loads((workspace.root / name).read_text(encoding="utf-8"))
     assert report["files"]
-    assert all("IDENTIFIERS" not in str(entry) for entry in report["files"])
+    assert "IDENTIFIERS" not in report["known"], "the key is a field no super file can hold"
+    assert {"FLAP", "TESTE"} <= set(report["known"]), "its columns are, read from the tables"
     for entry in report["files"]:
-        assert not entry.get("missing"), entry
+        assert set(report["known"]) <= set(entry["columns"]), entry["name"]
 
 
 def test_p0550_post_sims_on_one_super_file_keeps_the_others_rows_and_one_of_each_name(tmp_path):
@@ -557,6 +558,8 @@ def test_p0550_the_structure_s_table_carries_them_and_its_log_copy_does_not(tmp_
         np.asarray(layout.te_offset_m),
     )
     nodes.write_fsidisp(folder / "FSIDisp.txt", nodes.flatten_blade_translations(layout, [local]))
+    log = "iteration,residual\n1,0.5\n"
+    (folder / "fsi_convergence_log.csv").write_text(log, encoding="utf-8", newline="")
     workspace.append_record(
         record.model_copy(
             update={
@@ -576,6 +579,8 @@ def test_p0550_the_structure_s_table_carries_them_and_its_log_copy_does_not(tmp_
     assert header[:3] == ["POL", "FLAP", "TESTE"]
     assert header[3:5] == ["ALPHA", "BETA"]
     assert {row["TESTE"] for row in rows} == {"10"}
+    (history,) = workspace.root.glob("post/**/structure/*_history.csv")
+    assert history.read_text(encoding="utf-8") == log, "a copy of the log, byte for byte"
     polar = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
     tips = _table(polar)
     assert "tip_deflection_m_blade_1" in tips[0], "a table rewritten in place keeps its columns"

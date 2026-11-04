@@ -1125,19 +1125,26 @@ def test_p0550_changing_identifiers_in_any_form_is_never_stale(tmp_path, stated)
 
 
 @pytest.mark.requirement("FR-3561")
-def test_p0550_a_row_whose_cell_was_empty_is_the_same_matrix_whatever_follows_its_pipe(tmp_path):
+@pytest.mark.parametrize("behind", ["", " "], ids=["nothing", "one-space"])
+def test_p0550_a_row_whose_cell_was_empty_is_the_same_matrix_whatever_follows_its_pipe(
+    tmp_path, behind
+):
     """The key taken out of a cell it filled cannot tell what stood behind the pipe."""
     workspace = make_workspace(tmp_path)
     matrix = _matrix_of(workspace)
     plain = matrix.read_text(encoding="utf-8")
     assert "steady         |\n" in plain, "the fixture holds a row with an empty cell"
+    plain = plain.replace("steady         |\n", f"steady         |{behind}\n")
+    matrix.write_text(plain, encoding="utf-8")
     assert main(plan_args(workspace, matrix)) == 0
     matrix.write_text(
-        plain.replace("steady         |\n", f"steady         |{IDENTIFIERS}\n"), encoding="utf-8"
+        plain.replace(f"steady         |{behind}\n", f"steady         |{IDENTIFIERS}\n"),
+        encoding="utf-8",
     )
     assert plan_receipt_error(workspace, matrix, matrix.stem) is None
     matrix.write_text(
-        plain.replace("steady         |\n", f"steady         | {IDENTIFIERS}\n"), encoding="utf-8"
+        plain.replace(f"steady         |{behind}\n", f"steady         | {IDENTIFIERS}\n"),
+        encoding="utf-8",
     )
     assert plan_receipt_error(workspace, matrix, matrix.stem) is None
 
