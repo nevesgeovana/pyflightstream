@@ -42,6 +42,7 @@ from pyflightstream.cases._ccs import (
     MORPHING_ANGLE_VARIABLE,
     MORPHING_VARIABLE,
 )
+from pyflightstream.cases._matrix_identifiers import IDENTIFIERS_VARIABLE
 from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 
@@ -1425,6 +1426,13 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "Solver command lines the row states verbatim, one record each or a file of "
             "them, each emitted before the phase it names.",
             "records {COMMAND: <line> / BEFORE: <phase>}, or FILE: <path> in place of COMMAND",
+            accepted="every run type, and a LEGACY row",
+        ),
+        IDENTIFIERS_VARIABLE: InputKey(
+            "Columns of every table the post writes for this row's polar, holding each value as "
+            "text. Nothing of the run reads them: stating, changing or removing one launches "
+            "nothing and leaves the plan current, and the columns follow at the next post.",
+            "{NAME:value,NAME:value}; a comma ends a pair, so neither holds one",
             accepted="every run type, and a LEGACY row",
         ),
         **_acoustics.ACOUSTIC_KEY_MEANINGS,

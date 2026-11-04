@@ -76,7 +76,12 @@ from pyflightstream.cases._farfield_spec import (
     LatticeShape,
 )
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
-from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
+from pyflightstream.cases.matrix import (
+    _COLUMNS,
+    ATTITUDE_KEYS,
+    FLIGHT_CONDITION_KEYS,
+    IDENTIFIERS_VARIABLE,
+)
 from pyflightstream.cases.pproc import (
     TABLE_DECLARED_KINDS,
     RefinementStudySpec,
@@ -137,7 +142,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         # --- the run matrix -------------------------------------------------
         ("matrix", "The columns"): set(_COLUMNS),
         ("matrix", "The `FLIGHT_CONDITION` cell"): set(FLIGHT_CONDITION_KEYS) | set(ATTITUDE_KEYS),
-        ("matrix", "The row keys, by run type"): row_keys | {RAW_VARIABLE},
+        ("matrix", "The row keys, by run type"): row_keys | {RAW_VARIABLE, IDENTIFIERS_VARIABLE},
         # --- the setup artifact ---------------------------------------------
         ("setup", "Solver settings"): _fields(SolverSettings),
         ("setup", "`[[ports]]`"): _fields(PortBoundary),
@@ -347,7 +352,7 @@ def test_no_meaning_is_kept_for_a_key_no_registry_holds():
     from pyflightstream.cases.workflows import ROW_KEY_MEANINGS
 
     row_keys = {key for workflow in WORKFLOWS.values() for key in workflow.keys}
-    assert set(ROW_KEY_MEANINGS) == row_keys | {RAW_VARIABLE}
+    assert set(ROW_KEY_MEANINGS) == row_keys | {RAW_VARIABLE, IDENTIFIERS_VARIABLE}
     assert set(COLUMN_MEANINGS) == set(_COLUMNS)
     assert (
         set(EXPORT_KIND_MEANINGS)

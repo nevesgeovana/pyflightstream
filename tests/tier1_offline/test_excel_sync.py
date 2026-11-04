@@ -115,6 +115,20 @@ def test_read_and_write_preserve_text_identity_sweeps_comments_and_custom_cells(
     assert snap.rows[0][-1] == Cell("=1+1", True)
 
 
+@pytest.mark.requirement("FR-3560")
+def test_p0550_a_sheet_writes_the_identifiers_cell_as_its_text(tmp_path: Path) -> None:
+    """The comma inside the braces is no separator to the sheet, in either direction."""
+    path = matrix(tmp_path)
+    snap = imported(tmp_path)
+    at = snap.headers.index("VAR_NAMES_VALUES")
+    cell = "RECIPE: 003 / IDENTIFIERS: {FLAP:0,TESTE:10}"
+    snap.rows[0][at] = Cell(cell)
+    result = apply_preview(preview_sync(tmp_path, snap, direction="write"), snap)
+    assert not result.error
+    assert path.read_bytes().endswith(f" | {cell}\r\n".encode())
+    assert imported(tmp_path).rows[0][at].value == cell
+
+
 def test_column_reordering_and_exact_renaming(tmp_path: Path) -> None:
     # GOAL033:excel:checks:dictionary_by_name
     path = matrix(tmp_path)

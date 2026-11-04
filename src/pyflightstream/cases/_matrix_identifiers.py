@@ -1,0 +1,242 @@
+"""The ``IDENTIFIERS`` key of a matrix row: read it, and read the matrix without it.
+
+Private to :mod:`pyflightstream.cases`. A row states in its ``VAR_NAMES_VALUES`` cell
+``IDENTIFIERS: {FLAP:0,TESTE:10}``: columns for the tables the post writes and nothing for the
+process. So this module answers two questions, and nothing else reads the key.
+
+:func:`take_identifiers` takes the pair out of the cell before the variables are parsed. It does so
+apart from the cell's grammar because a brace left open would otherwise swallow the keys after it,
+which would change the run over a column that does nothing in it.
+
+:func:`matrix_run_digests` is what a matrix digests to for the run: the file with its identifiers
+removed, so editing one never makes a plan stale, and every other edit still does. A matrix with no
+identifiers digests to the plain digest of its file, which is what every earlier plan recorded.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._tokens import plain_cell
+
+#: The key a row states its identifiers under.
+IDENTIFIERS_VARIABLE = "IDENTIFIERS"
+
+_VARIABLES_COLUMN = "VAR_NAMES_VALUES"
+_KEY = re.compile(rf"\s*{IDENTIFIERS_VARIABLE}\s*:")
+_PAIR_SEPARATOR = "/"
+
+#: What a row's last cell may end in, past what it states: as found first, since that is what a
+#: plan records, then none and one space. The two forms a person or an editor leaves behind a
+#: pipe, when the key was the whole cell or the last pair of it.
+_TAILS = (None, "", " ")
+
+
+def _pair_end(cell: str, start: int) -> int:
+    """Return where the ``/``-separated pair starting at ``start`` ends, at brace depth zero."""
+    depth = 0
+    for index in range(start, len(cell)):
+        character = cell[index]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth = max(depth - 1, 0)
+        elif character == _PAIR_SEPARATOR and depth == 0:
+            return index
+    return len(cell)
+
+
+def _value_end(cell: str, start: int) -> int:
+    """Return where the identifiers' value ends; a brace left open ends at the next slash."""
+    end = _pair_end(cell, start)
+    if cell[start:end].count("{") > cell[start:end].count("}"):
+        slash = cell.find(_PAIR_SEPARATOR, start)
+        return len(cell) if slash < 0 else slash
+    return end
+
+
+def take_identifiers(cell: str) -> tuple[str, list[str]]:
+    """Return ``cell`` without its ``IDENTIFIERS`` pairs, and the value of each, as written.
+
+    A cell with no such pair comes back unchanged and with an empty list.
+
+    Parameters
+    ----------
+    cell : str
+        The text of a ``VAR_NAMES_VALUES`` cell, with the spaces around it.
+
+    Returns
+    -------
+    tuple of (str, list of str)
+        The cell with the same spaces around what is left, and the values.
+    """
+    if IDENTIFIERS_VARIABLE not in cell:
+        return cell, []
+    kept: list[str] = []
+    values: list[str] = []
+    at = 0
+    while at <= len(cell):
+        key = _KEY.match(cell, at)
+        if key is None:
+            end = _pair_end(cell, at)
+            kept.append(cell[at:end])
+        else:
+            end = _value_end(cell, key.end())
+            values.append(cell[key.end() : end].strip())
+        at = end + 1
+    if not values:
+        return cell, []
+    lead = cell[: len(cell) - len(cell.lstrip())]
+    trail = cell[len(cell.rstrip()) :]
+    return lead + _PAIR_SEPARATOR.join(kept).strip() + trail, values
+
+
+def _malformed(value: str, pol: str, reason: str) -> dict[str, str]:
+    """Warn that a row's identifiers cannot be read; the row then states none."""
+    warn(
+        f"POL {pol}: {IDENTIFIERS_VARIABLE} is {value!r}, and {reason}; write "
+        f"{IDENTIFIERS_VARIABLE}: {{NAME:value,NAME:value}}. This row states no identifiers, and "
+        "nothing else of it changes.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+    return {}
+
+
+def parse_identifiers(value: str, pol: str) -> dict[str, str]:
+    """Return the ``NAME: value`` pairs of one ``IDENTIFIERS`` value, as written.
+
+    The pairs are separated by commas, so neither a name nor a value holds one; a slash stays in
+    them, as the matrix reader does not split inside braces. A value is kept as its text. Nothing
+    here stops a run: what cannot be read warns and states none (:class:`PyflightstreamWarning`).
+
+    Parameters
+    ----------
+    value : str
+        The value of the key, its braces included.
+    pol : str
+        The row's POL, for the warning.
+
+    Returns
+    -------
+    dict of str to str
+        The identifiers by name, in the order written; empty where the value cannot be read.
+    """
+    if (
+        not (value.startswith("{") and value.endswith("}"))
+        or value.count("{") != 1
+        or (value.count("}") != 1)
+    ):
+        return _malformed(value, pol, "it is not one pair of braces")
+    stated: dict[str, str] = {}
+    held: set[str] = set()
+    for pair in value[1:-1].split(","):
+        if not pair.strip():
+            continue
+        name, separator, cell = pair.partition(":")
+        name = name.strip()
+        if not separator or not name:
+            return _malformed(value, pol, f"{pair.strip()!r} is not a NAME:value pair")
+        if plain_cell(name) in held:
+            return _malformed(value, pol, f"it states {name} twice")
+        held.add(plain_cell(name))
+        stated[name] = cell.strip()
+    return stated
+
+
+@dataclass(frozen=True)
+class _Line:
+    """One line of a matrix file, its last cell without the identifiers."""
+
+    body: str
+    tail: str
+    ending: str
+    #: The row's last cell held identifiers or is empty, so what follows it is not the row's.
+    loose: bool
+
+    def text(self, tail: str | None) -> str:
+        return self.body + (self.tail if tail is None or not self.loose else tail) + self.ending
+
+
+def _matrix_line(line: str, column: int | None) -> _Line:
+    """Return one line of the file with the identifiers of its variables cell removed."""
+    content = line.rstrip("\r\n")
+    ending = line[len(content) :]
+    cells = content.split("|")
+    if column is None or content.lstrip().startswith("#") or column >= len(cells):
+        return _Line(content, "", ending, False)
+    cell, values = take_identifiers(cells[column])
+    cells[column] = cell
+    joined = "|".join(cells)
+    body = joined.rstrip()
+    empty = not cell.strip()
+    tail = "" if values and empty else joined[len(body) :]
+    return _Line(body, tail, ending, bool(values) or empty)
+
+
+def _variables_column(lines: list[str]) -> int | None:
+    """Return the index of the variables cell, or None where no line is the matrix header."""
+    for line in lines:
+        names = [name.strip() for name in line.split("|")]
+        if _VARIABLES_COLUMN in names:
+            return names.index(_VARIABLES_COLUMN)
+    return None
+
+
+def matrix_run_digests(path: str | Path) -> tuple[str, ...]:
+    """Return what the matrix at ``path`` digests to for the run, the recorded form first.
+
+    Every digest is of the file with its identifiers removed. The first is what a plan records: a
+    matrix with no identifiers gives the plain SHA-256 of its file there, as every plan has
+    recorded. The others differ only in what follows the last cell of a row that held identifiers
+    or holds nothing, because taking the key away cannot tell what stood behind the pipe before it
+    was written. A plan is about this matrix when its digest is any of them; the file's other
+    bytes all count, so any other edit is seen.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix file.
+
+    Returns
+    -------
+    tuple of str
+        The digests, one or more; empty when the file cannot be read.
+    """
+    try:
+        raw = Path(path).read_bytes()
+    except OSError:
+        return ()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return (hashlib.sha256(raw).hexdigest(),)
+    pieces = text.splitlines(keepends=True)
+    column = _variables_column(pieces)
+    lines = [_matrix_line(piece, column) for piece in pieces]
+    digests = (
+        hashlib.sha256("".join(line.text(tail) for line in lines).encode("utf-8")).hexdigest()
+        for tail in _TAILS
+    )
+    return tuple(dict.fromkeys(digests))
+
+
+def matrix_run_digest(path: str | Path) -> str | None:
+    """Return the digest a plan records for the matrix at ``path``; None when it cannot be read.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix file.
+
+    Returns
+    -------
+    str or None
+        The first of :func:`matrix_run_digests`.
+    """
+    digests = matrix_run_digests(path)
+    return digests[0] if digests else None

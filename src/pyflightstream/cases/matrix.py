@@ -72,6 +72,10 @@ from pyflightstream.cases import (
     multiplied_sweep,
 )
 from pyflightstream.cases import InputKey as InputKey
+from pyflightstream.cases._matrix_identifiers import (
+    IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
+)
+from pyflightstream.cases._matrix_identifiers import parse_identifiers, take_identifiers
 from pyflightstream.cases._matrix_layouts import _COLUMNS as _COLUMNS
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_9_0 as _LAYOUT_0_9_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_11_0 as _LAYOUT_0_11_0
@@ -258,6 +262,10 @@ class MatrixRow:
     #: each, in cell order (FR-67); empty for a row stating none. A record
     #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
     raw: list[dict[str, str]] = field(default_factory=list)
+    #: What the cell's ``IDENTIFIERS`` states, name to value, both as written; empty for a row
+    #: stating none. Only the post reads it: nothing here reaches a variable, a case, a script or
+    #: anything a plan measures.
+    identifiers: dict[str, str] = field(default_factory=dict)
     #:  the canonical keys of the FLIGHT_CONDITION cell in the order the
     #: row wrote them, the swept key included; the point name follows it.
     condition_order: list[str] = field(default_factory=list)
@@ -1135,6 +1143,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         A row whose ``ROTATE`` or ``TRANSLATE`` AXIS is not of the form frame-axis is
         skipped, naming the file, the row and the POL; the other rows are read. Under
         ``warning_refusals`` it is refused as before (FR-3391).
+    PyflightstreamWarning
+        An ``IDENTIFIERS`` value that cannot be read: the row states none and is read as it is.
 
     Examples
     --------
@@ -1158,7 +1168,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     rows: list[MatrixRow] = []
     for row_number, cells in _matrix_data_rows(path):
         record = dict(zip(_COLUMNS, cells, strict=True))
-        variables = _parse_variables(record["VAR_NAMES_VALUES"])
+        variables, identifiers = _variables_and_identifiers(
+            record["VAR_NAMES_VALUES"], record["POL"]
+        )
         variables = _fold_columns_into_variables(record, variables, record["POL"])
         _refuse_the_packages_continuation_keys(variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
@@ -1229,6 +1241,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             rotations=rotations,
             translations=translations,
             raw=raw,
+            identifiers=identifiers,
             condition_order=list(condition),
         )
         # Every row is checked, active or not: the sweep codes and the
@@ -1239,6 +1252,22 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         if row.run == 1 or not active_only:
             rows.append(row)
     return rows
+
+
+def _variables_and_identifiers(cell: str, pol: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Read a ``VAR_NAMES_VALUES`` cell: its variables, and apart from them its identifiers.
+
+    The key stated twice follows the rule of every key of the cell, so it is refused, in the same
+    words; what one value holds is :func:`parse_identifiers`'s, which warns.
+    """
+    rest, stated = take_identifiers(cell)
+    if len(stated) > 1:
+        raise MatrixError(
+            f"variable {IDENTIFIERS_VARIABLE!r} is stated twice in one VAR_NAMES_VALUES cell, as "
+            f"{stated[0]!r} and as {stated[1]!r}. A cell states each key once; keep the value the "
+            "row means and remove the other."
+        )
+    return _parse_variables(rest), parse_identifiers(stated[0], pol) if stated else {}
 
 
 def _skip_a_row_with_a_malformed_axis(

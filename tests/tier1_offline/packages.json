@@ -431,6 +431,7 @@
       "tests/tier1_offline/test_p0540_lanes.py",
       "tests/tier1_offline/test_p0540_products.py",
       "tests/tier1_offline/test_p0540_products_lock.py",
+      "tests/tier1_offline/test_p0550_identifiers.py",
       "tests/tier1_offline/test_p0550_merged_polar.py",
       "tests/tier1_offline/test_post_diagnostics.py",
       "tests/tier1_offline/test_post_log.py",
