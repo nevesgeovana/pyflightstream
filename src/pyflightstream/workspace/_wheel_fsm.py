@@ -19,7 +19,10 @@ blade, and each row is stated where it is used:
   as a count and three rows (face, vertex slot of that face, trailing-edge group);
 * the physics block holds, after three header values, the base regions (count, names, a flag
   row and four value rows), the trailing-edge groups (count, names, one value each), the
-  termination entries (count, names, one value each), and ends with one ``1`` per base region.
+  termination entries (count, names, one value each), and holds one model code per base region
+  right after its seven fluid values, a row the block's own counts find. It is the last row of
+  the saved sector the layout was learned from; ten saves of head ``2612,0`` (build 10052026)
+  close the block with six more rows after it, copied unchanged.
 
 A boundary is a blade when ``--blades`` names it; its faces, base regions, trailing-edge groups
 and terminations are repeated once per copy, the copies named ``<stem><k>``. A name in the
@@ -49,6 +52,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import (
     MeshReadError,
+    base_codes_row,
     boundary_names,
     saved_base_regions,
     saved_mesh_coordinate_unit,
@@ -159,6 +163,14 @@ def _mesh(lines: list[str]) -> dict[str, Any]:
     }
 
 
+def _base_codes_at(lines: list[str], p0: int, p_end: int) -> int:
+    """Return the line of the base-region model codes; a block out of layout is unrecognized."""
+    try:
+        return p0 + 1 + base_codes_row(lines[p0 + 1 : p_end])
+    except MeshReadError as error:
+        raise _UnrecognizedError(str(error)) from error
+
+
 def _physics(lines: list[str]) -> dict[str, Any]:
     """Read the physics block's base regions, trailing-edge groups and terminations."""
     p0, p_end = _at(lines, "$PHYSICS_START$"), _at(lines, "$PHYSICS_END$")
@@ -178,14 +190,14 @@ def _physics(lines: list[str]) -> dict[str, Any]:
     term_names = [lines[q2 + 1 + k].strip() for k in range(n_tn)]
     term_values = _cells(lines[q2 + 1 + n_tn]) if n_tn else []
     _need(len(te_values) == n_te and len(term_values) == n_tn, "a value row is not one per entry")
-    codes = _cells(lines[p_end - 1]) if n_base else []
-    _need(len(codes) == n_base, "the last physics row is not one model code per base region")
+    codes_at = _base_codes_at(lines, p0, p_end) if n_base else p_end
     return {
         "p0": p0,
         "p_end": p_end,
         "base_names": base_names,
         "base_rows": base_rows,
-        "base_codes": codes,
+        "base_codes": _cells(lines[codes_at]) if n_base else [],
+        "codes_at": codes_at,
         "te_names": te_names,
         "te_values": te_values,
         "term_names": term_names,
@@ -466,10 +478,10 @@ def _physics_lines(parsed: _Parsed, maps: _Maps) -> list[str]:
     out += [str(len(maps.term.labels)), *maps.term.labels]
     if maps.term.labels:
         out.append("".join(f"{t}," for t in pick(phys["term_values"], maps.term)))
-    keep = phys["p_end"] - (1 if phys["base_rows"] else 0)
-    out += lines[phys["after"] : keep]
+    out += lines[phys["after"] : phys["codes_at"]]
     if phys["base_rows"]:
         out.append("".join(f"{t}," for t in pick(phys["base_codes"], maps.base)))
+        out += lines[phys["codes_at"] + 1 : phys["p_end"]]
     return out
 
 

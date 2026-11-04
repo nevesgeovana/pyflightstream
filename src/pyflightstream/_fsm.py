@@ -58,6 +58,7 @@ __all__ = [
     "MESH_MARKER",
     "element_count",
     "MeshReadError",
+    "base_codes_row",
     "boundary_ids",
     "boundary_labels",
     "boundary_names",
@@ -416,7 +417,12 @@ def _boundary_physics(path: str | Path):
     lines = _block(path, "PHYSICS")
     if lines is None:
         raise MeshReadError(f"{path}: no physics block for boundary read-back")
-    reader = _PhysicsReader(lines, str(path))
+    return _boundary_lists(lines, str(path))
+
+
+def _boundary_lists(lines: Sequence[str], name: str):
+    """Read the base and trailing-edge lists of a physics block's lines, retaining the cursor."""
+    reader = _PhysicsReader(lines, name)
     for position in range(3):
         reader.values(f"header {position}", 1, "number")
     size = reader.count("base-region count")
@@ -466,6 +472,50 @@ def saved_base_regions(path: str | Path) -> tuple[tuple[str, float, int], ...]:
         Name, stored Cp and model code for each region in order.
     """
     reader, names, cp, _ = _boundary_physics(path)
+    _step_to_base_codes(reader)
+    if not names:
+        return ()
+    at = reader.at
+    reader.values("base-region model codes", len(names), "integer")
+    models = tuple(int(value) for value in _tokens(reader.lines[at]))
+    return tuple(zip(names, cp, models, strict=True))
+
+
+def base_codes_row(lines: Sequence[str]) -> int:
+    """Return the position of the base-region model codes among a physics block's lines.
+
+    The row is found by the block's own counts, because it is not the block's last row on every
+    head: it stands right after the seven fluid values, where a save of head ``26,1`` holding
+    base regions may end, and where a save of head ``2612,0`` (build 10052026) has six more rows
+    before the block closes, measured on ten saves of that build.
+
+    Parameters
+    ----------
+    lines : sequence of str
+        The lines between the block's start and end markers.
+
+    Returns
+    -------
+    int
+        The index in ``lines`` of the row, which holds one integer per base region.
+
+    Raises
+    ------
+    MeshReadError
+        The block holds no base region, departs from the measured layout before the row, or the
+        row is not one integer per base region.
+    """
+    reader, names, _, _ = _boundary_lists(lines, "the physics block")
+    _step_to_base_codes(reader)
+    if not names:
+        raise reader.refuse("it holds no base region, so it has no row of model codes")
+    at = reader.at
+    reader.values("base-region model codes", len(names), "integer")
+    return at
+
+
+def _step_to_base_codes(reader: _PhysicsReader) -> None:
+    """Move a reader past the trailing-edge groups to the row after the seven fluid values."""
     count = reader.count("third surface-list count")
     for _ in range(count):
         reader.row("third surface-list name")
@@ -482,12 +532,6 @@ def saved_base_regions(path: str | Path) -> tuple[tuple[str, float, int], ...]:
     reader.row("fluid name")
     for _ in range(7):
         reader.values("fluid value", 1, "number")
-    if not names:
-        return ()
-    at = reader.at
-    reader.values("base-region model codes", len(names), "integer")
-    models = tuple(int(value) for value in _tokens(reader.lines[at]))
-    return tuple(zip(names, cp, models, strict=True))
 
 
 def _skip_boundary_actuators(reader: _PhysicsReader) -> None:

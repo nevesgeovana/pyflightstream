@@ -8,6 +8,7 @@ keep the family's name in the physics block and their faces stay on the parent b
 
 from __future__ import annotations
 
+import json
 import warnings
 from pathlib import Path
 
@@ -400,3 +401,131 @@ def test_p0550_the_body_verb_on_a_marked_nacelle_says_what_it_holds(tmp_path: Pa
     words = " ".join(str(item.message) for item in caught)
     assert not result.written
     assert "NBase" in words and "cannot be remeshed" not in words
+
+
+# A save of head 2612: what the file holds after the base-region model codes.
+#
+# The rows come from a recorded save, the section the marking probe kept of CREATE_NEW_BASE_REGION
+# on 26.125, so the fixture is not a reading of the code under test: the codes stand right after
+# the seven fluid values, and six more rows close the block.
+_SECTIONS = Path(__file__).parent / "fixtures" / "p0460_marking_sections.json"
+
+
+def _rows_after_the_codes() -> list[str]:
+    block = json.loads(_SECTIONS.read_text())["CREATE_NEW_BASE_REGION"]["after"].split("\n")
+    fluid = block.index("Air")
+    assert block[fluid + 8] == "1,"
+    return block[fluid + 9 : block.index("$PHYSICS_END$")]
+
+
+def _head_2612(source: Path, out: Path) -> Path:
+    """Give a saved sector the head, the closing rows and the line ends of a save of head 2612."""
+    text = source.read_text()
+    assert text.startswith("26,1\n7012026\n") and text.count("$PHYSICS_END$") == 1
+    text = "2612,0\n10052026\n" + text.removeprefix("26,1\n7012026\n")
+    rows = "\n".join([*_rows_after_the_codes(), "$PHYSICS_END$"])
+    out.write_bytes(text.replace("$PHYSICS_END$", rows).replace("\n", "\r\n").encode("latin-1"))
+    return out
+
+
+def _one_base_off_the_blade(source: Path, out: Path) -> Path:
+    """Keep only the blade's base region, and read the nacelle's base faces as plain faces."""
+    lines = source.read_text().split("\n")
+    start = lines.index("$MESH_START$")
+    first = start + 4 + 3 * int(lines[start + 3]) + 1
+    group = lines[first + 5].split(",")[:-1]
+    kind = lines[first + 12].split(",")[:-1]
+    for face, value in enumerate(group):
+        if value == "2" and kind[face] == "3":
+            group[face], kind[face] = "0", "0"
+    lines[first + 5] = ",".join(group) + ","
+    lines[first + 12] = ",".join(kind) + ","
+    text = "\n".join(lines)
+    old = "2\nBlade1\nN\n F, F,\n-0.2,-0.2,\n0,0,\n0,0,\n0,0,\n"
+    assert text.count(old) == 1 and text.count("\n1,1,\n$PHYSICS_END$") == 1
+    text = text.replace(old, "1\nBlade1\n F,\n-0.2,\n0,\n0,\n0,\n")
+    out.write_text(text.replace("\n1,1,\n$PHYSICS_END$", "\n1,\n$PHYSICS_END$"))
+    return out
+
+
+@pytest.mark.requirement("FR-3550")
+@pytest.mark.parametrize("form", ["plain", "marked"])
+def test_p0550_a_save_of_head_2612_gives_the_wheel_of_the_same_rows(
+    tmp_path: Path, sector: Path, form: str
+) -> None:
+    named = sector if form == "plain" else _marked(sector, tmp_path / "marked.fsm")
+    save = _head_2612(named, tmp_path / "save.fsm")
+    reference = _quiet_wheel(named, tmp_path / "reference_wheel.fsm")
+    wheel = _quiet_wheel(save, tmp_path / "wheel.fsm")
+    assert reference.written and wheel.written
+    assert _block(tmp_path / "wheel.fsm", "$MESH_START$", "$MESH_END$") == _block(
+        tmp_path / "reference_wheel.fsm", "$MESH_START$", "$MESH_END$"
+    )
+    # The physics block is the reference's, its closing rows standing where the save holds them.
+    expected = _block(tmp_path / "reference_wheel.fsm", "$PHYSICS_START$", "$PHYSICS_END$")
+    assert expected[-2] == "1," * (COPIES + 1)
+    assert _block(tmp_path / "wheel.fsm", "$PHYSICS_START$", "$PHYSICS_END$") == [
+        *expected[:-1],
+        *_rows_after_the_codes(),
+        "$PHYSICS_END$",
+    ]
+    assert [code for _, _, code in saved_base_regions(tmp_path / "wheel.fsm")] == [1] * (COPIES + 1)
+    raw = (tmp_path / "wheel.fsm").read_bytes()
+    assert raw.startswith(b"2612,0\r\n10052026\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_a_head_2612_wheel_with_a_single_base_keeps_the_rows_after_the_codes(
+    tmp_path: Path, sector: Path
+) -> None:
+    # A base region off the blades stays single, so the read-back counts what it counted before:
+    # only the rows themselves show the last physics row taken for the model codes.
+    one = _one_base_off_the_blade(sector, tmp_path / "one.fsm")
+    save = _head_2612(one, tmp_path / "save.fsm")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wheel = sector_to_wheel(save, copies=COPIES, blades=["S"], axis="x", out=tmp_path / "w.fsm")
+    assert wheel.written
+    physics = _block(tmp_path / "w.fsm", "$PHYSICS_START$", "$PHYSICS_END$")
+    assert physics[-len(_rows_after_the_codes()) - 2 :] == [
+        "1,",
+        *_rows_after_the_codes(),
+        "$PHYSICS_END$",
+    ]
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_a_head_2612_row_of_codes_of_another_length_is_named_and_nothing_is_written(
+    tmp_path: Path, sector: Path
+) -> None:
+    save = _head_2612(sector, tmp_path / "save.fsm")
+    text = save.read_bytes().decode("latin-1")
+    assert text.count("\r\n1,1,\r\n0,0\r\n") == 1
+    save.write_bytes(text.replace("\r\n1,1,\r\n0,0\r\n", "\r\n1,\r\n0,0\r\n").encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="base-region model codes") as caught:
+        result = sector_to_wheel(
+            save, copies=COPIES, blades=["Blade1"], axis="x", out=tmp_path / "w.fsm"
+        )
+    assert not result.written and not (tmp_path / "w.fsm").exists()
+    assert "last physics row" not in " ".join(str(item.message) for item in caught)
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_the_remesh_and_body_verbs_keep_the_rows_after_the_codes_of_head_2612(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace import power_off_body, sector_remesh
+
+    save = _head_2612(build_blunt_sector(tmp_path), tmp_path / "save.fsm")
+    closing = [*_rows_after_the_codes(), "$PHYSICS_END$"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        remeshed = sector_remesh(save, blades=["Blade1"], out=tmp_path / "r.fsm", **ARGS)
+        body = power_off_body(save, blades=["Blade1"], copies=COPIES, out=tmp_path / "b.fsm")
+    assert remeshed.written and body.written
+    remeshed_physics = _block(tmp_path / "r.fsm", "$PHYSICS_START$", "$PHYSICS_END$")
+    assert remeshed_physics == _block(save, "$PHYSICS_START$", "$PHYSICS_END$")
+    assert remeshed_physics[-len(closing) - 1 :] == ["1,1,", *closing]
+    body_physics = _block(tmp_path / "b.fsm", "$PHYSICS_START$", "$PHYSICS_END$")
+    assert body_physics[-len(closing) - 1 :] == ["1,", *closing]
+    assert [code for _, _, code in saved_base_regions(tmp_path / "b.fsm")] == [1]

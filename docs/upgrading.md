@@ -17,6 +17,12 @@ simulation's rotor tables, joined by run, and each `[products.rotate_columns]` e
 `pyfs-workspace geometry merge` no longer refuses an `--out` not named `.obj`: it warns and writes
 that name's `.obj` form, so a script should read the `.obj` (FR-3543).
 
+The saved route of `pyfs-workspace geometry sector-to-wheel`, `sector-remesh` and `power-off-body`
+now reads a save of head `2612,0` that holds base regions, which it warned as not recognized
+(FR-3550). A wheel written earlier from such a save, with its base regions off the blades, holds
+`0,` in place of the last physics row `0`; write it again. Wheels of the other heads are unchanged,
+byte for byte.
+
 ## 0.54.0
 
 Every new verb and setting is off unless it is called or stated, so a workspace

@@ -679,7 +679,8 @@ def _body_physics(sector: Sector) -> list[str]:
     out = lines[phys["p0"] : phys["p0"] + 4] + ["1", name, f" {phys['base_rows'][0][ib]},"]
     out += [f"{row[ib]}," for row in phys["base_rows"][1:]]
     out += ["1", name, f"{phys['te_values'][it]},", "0"]
-    return out + lines[phys["after"] : phys["p_end"] - 1] + [f"{phys['base_codes'][ib]},"]
+    out += [*lines[phys["after"] : phys["codes_at"]], f"{phys['base_codes'][ib]},"]
+    return out + lines[phys["codes_at"] + 1 : phys["p_end"]]
 
 
 def _body_text(sector: Sector, sink: QuadSink, nodes: Array) -> str:
