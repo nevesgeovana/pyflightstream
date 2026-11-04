@@ -19,7 +19,6 @@ from pyflightstream.qa import (
     write_compat_report,
 )
 from pyflightstream.qa.compat import (
-    _NOTE_CUT_MARKER,
     _NOTE_LIMIT,
     EXECUTABLE_BASELINE_REPORT,
     ExecutableVerdict,
@@ -691,46 +690,42 @@ def test_apply_compat_orders_by_the_tree_it_edits_not_the_installed_registry(tmp
 # --- a capped note that hides its own cap ----------------------------------
 
 
-def test_a_note_too_long_for_one_line_says_that_it_was_cut():
-    """The cap is fine; a cap that hides itself is not.
+def test_a_note_too_long_for_one_line_ends_complete_and_names_its_report():
+    """A long detail is kept short on a clause, never cut inside one.
 
-    A `note` lives on one flow-mapping line, so it is capped at 140
-    characters. The cap used to cut mid-word and say nothing: the
-    AIR_ALTITUDE entry read "reports the 5000 m standa", dropping the
-    sentence that carried the measured diagnosis (1.056 kg/m^3 observed
-    against 0.736 expected, which is the 5000 ft standard state). That
-    note is not decoration any more, because FR-48's refusal shows it to
-    whoever tried to emit the command, and a refusal that looks like a
-    corrupt database is one that gets worked around.
+    The note used to be cut mid-word and say nothing: the AIR_ALTITUDE
+    entry read "reports the 5000 m standa", dropping the sentence that
+    carried the measured diagnosis (1.056 kg/m^3 observed against 0.736
+    expected, which is the 5000 ft standard state). That note is not
+    decoration any more, because FR-48's refusal shows it to whoever tried
+    to emit the command, and a refusal that looks like a corrupt database
+    is one that gets worked around.
     """
     detail = (
         "the command ran (script processing continued past it) but its effect was "
         "not observed; expected: the settings dump reports the 5000 m standard "
         "atmosphere density"
     )
-    note = _one_line_note(detail)
-    assert len(note) <= 140
-    assert note.endswith(" [...]"), note
-    # Cut at a word boundary, so the last word of the extract is a word.
-    assert not note.removesuffix(" [...]").endswith(("stand", "standa", "standar")), note
-    assert detail.startswith(note.removesuffix(" [...]"))
+    assert _one_line_note(detail, "r.yaml") == (
+        "the command ran (script processing continued past it) but its effect was "
+        "not observed. The full text is in r.yaml."
+    )
 
 
 def test_a_note_that_fits_is_left_exactly_as_it_is():
     """The control.
 
-    Without it, a mutation that marks every note as cut would leave the
-    test above green while every short note in the database grew a
-    trailing marker claiming text that does not exist.
+    Without it, a mutation that names the report on every note would leave
+    the test above green while every short note in the database grew a
+    pointer to a text it already holds whole.
     """
     detail = "script processing aborted at the command: the END sentinel never appeared"
-    assert _one_line_note(detail) == detail
-    assert "[...]" not in _one_line_note(detail)
+    assert _one_line_note(detail, "r.yaml") == detail
 
 
 def test_a_note_is_safe_to_embed_in_a_double_quoted_scalar():
     """Quotes and newlines would end the scalar or break the line."""
-    note = _one_line_note('the dump said "5000" and\nthen  stopped')
+    note = _one_line_note('the dump said "5000" and\nthen  stopped', "r.yaml")
     assert '"' not in note
     assert note == "the dump said '5000' and then stopped"
 
@@ -758,13 +753,11 @@ def test_the_live_database_carries_no_note_cut_mid_word():
         (name, canonical, record.note)
         for name, entry in registry.commands.items()
         for canonical, record in entry.versions.items()
-        if record.note is not None
-        and len(record.note) == _NOTE_LIMIT
-        and not record.note.endswith(_NOTE_CUT_MARKER)
+        if record.note is not None and len(record.note) == _NOTE_LIMIT
     ]
     assert not cut_short, (
-        f"these notes sit exactly on the one-line cap with no {_NOTE_CUT_MARKER} "
-        f"marker, so they were cut and say nothing about it: {cut_short}"
+        "these notes sit exactly on the one-line limit, so they were cut and say "
+        f"nothing about it: {cut_short}"
     )
     # The control: without it, a database whose notes were all short (or
     # all absent) would report green over nothing at all.
@@ -1442,10 +1435,10 @@ def test_a_note_carrying_a_backslash_survives_a_yaml_round_trip():
     from pyflightstream.qa.compat import _one_line_note
 
     detail = "the solver logged errors: cannot open " + chr(92).join(["C:", "runs", "s.txt"])
-    note = flow_scalar(_one_line_note(detail))
+    note = flow_scalar(_one_line_note(detail, "r.yaml"))
     line = f'"26.122": {{status: broken, report: "r.yaml", note: {note}}}'
     parsed = yaml.safe_load("{" + line + "}")
-    assert parsed["26.122"]["note"] == _one_line_note(detail)
+    assert parsed["26.122"]["note"] == _one_line_note(detail, "r.yaml")
 
 
 def test_a_rewrite_that_fails_the_schema_refuses_in_this_modules_type(tmp_path):
@@ -1593,7 +1586,8 @@ def test_a_promotion_survives_a_hostile_detail_through_the_whole_write_path(tmp_
 
     text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
     parsed = yaml.safe_load(text)
-    assert parsed["PRINT"]["versions"]["26.120"]["note"] == _one_line_note(detail), (
+    citation = f"reports/compat/{report_path.name}"
+    assert parsed["PRINT"]["versions"]["26.120"]["note"] == _one_line_note(detail, citation), (
         "the note came back changed, so the promotion wrote something other than what "
         "the report says; an escape that YAML happens to understand corrupts silently"
     )

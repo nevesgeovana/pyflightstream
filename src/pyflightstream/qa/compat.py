@@ -950,48 +950,59 @@ CORROBORATED = "corroborated"
 
 _VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
 
-# A note lives on one flow-mapping line of a chapter file, so it is
-# capped. The cap is not the problem; a cap that hides itself is. The
-# marker below is what makes the cut visible.
+# A note lives on one flow-mapping line of a chapter file, so a long detail
+# is kept short. The limit says where the last clause kept may end; a first
+# clause that ends past it is kept whole rather than cut.
 _NOTE_LIMIT = 140
-_NOTE_CUT_MARKER = " [...]"
+
+# A clause ends at a full stop or a semicolon before a space. A colon leads
+# into what follows it, and the dots of an ellipsis or of a common
+# abbreviation end nothing.
+_CLAUSE_END = re.compile(r"(?<!\.)(?<!e\.g)(?<!i\.e)(?<!\bvs)[.;](?=\s)")
+
+# A quoted span of two or more words, which the database does not carry
+# (tests/tier1_offline/test_command_db.py::test_no_database_note_quotes_the_manual).
+_QUOTED_WORDS = re.compile(r"(?<!\w)'([^']*\s[^']*)'(?!\w)")
 
 
-def _one_line_note(detail: str) -> str:
+def _one_line_note(detail: str, report: str) -> str:
     """Render a probe detail as the one-line ``note:`` of a version entry.
 
-    Collapses whitespace, replaces the double quotes that would end the
-    YAML scalar, and caps the length. A capped note ENDS WITH
-    ``[...]``, cut at a word boundary, because the note reaches human
-    readers in two places where a silent cut misleads: the compatibility
-    reference, and the refusal that
-    :class:`~pyflightstream.script.BrokenCommandError` raises when a
-    recipe emits the command. Before the marker existed, that refusal
-    ended mid-word ("reports the 5000 m standa"), which reads as a
-    corrupted database rather than as an extract. The full text is in
-    the committed report the same entry cites, and the marker is what
-    tells the reader to go there.
+    Collapses whitespace and replaces the double quotes that would end the
+    YAML scalar. A detail longer than :data:`_NOTE_LIMIT` keeps its last
+    complete clause inside the limit, or its first clause when none ends
+    there, and names the report that holds the full text. The note reaches
+    human readers in the compatibility reference and in the refusal that
+    :class:`~pyflightstream.script.BrokenCommandError` raises when a recipe
+    emits the command, where a note cut mid-clause or ending in a placeholder
+    reads as a corrupted database. A long detail that is one clause is
+    written whole. A long note holds the words of a multi-word quote without
+    the quotes, because a run's words in quotes cannot be told from the
+    manual's.
 
     Parameters
     ----------
     detail : str
         The probe report's ``detail`` field, any length, any whitespace.
+    report : str
+        The path of the report the version entry cites.
 
     Returns
     -------
     str
-        A single line safe to embed in a double-quoted YAML scalar, at
-        most :data:`_NOTE_LIMIT` characters.
+        A single line safe to embed in a double-quoted YAML scalar, ending
+        on a complete clause.
     """
     text = " ".join(detail.replace('"', "'").split())
     if len(text) <= _NOTE_LIMIT:
         return text
-    head = text[: _NOTE_LIMIT - len(_NOTE_CUT_MARKER)]
-    # Cut at a word boundary when there is one to cut at; a single word
-    # longer than the limit has none, and a hard cut with the marker
-    # still beats a hard cut without it.
-    trimmed = head.rsplit(" ", 1)[0].rstrip(" ,;:") if " " in head else head
-    return f"{trimmed}{_NOTE_CUT_MARKER}"
+    text = _QUOTED_WORDS.sub(r"\1", text)
+    ends = [match.start() for match in _CLAUSE_END.finditer(text)]
+    if not ends:
+        return text
+    inside = [end for end in ends if end <= _NOTE_LIMIT]
+    clause = text[: inside[-1] if inside else ends[0]]
+    return f"{clause}. The full text is in {report}."
 
 
 def _require_registered(canonical: str, order: dict[str, int], commands_dir: Path) -> None:
@@ -1179,7 +1190,9 @@ def _rewritten_flow_entry(
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
-        pairs["note"] = _promoted_note(existing.get("note"), body.get("detail", ""), status)
+        pairs["note"] = _promoted_note(
+            existing.get("note"), body.get("detail", ""), status, citation
+        )
         owned.add("note")
     # NL-INST-5: a verdict a newer report moves keeps the reference to the
     # report it replaced, so the observation behind the superseded verdict
@@ -1194,9 +1207,9 @@ def _rewritten_flow_entry(
     return f'{indent}"{canonical}": {_flow_mapping(pairs)}'
 
 
-def _promoted_note(previous: object, detail: object, status: str) -> str:
+def _promoted_note(previous: object, detail: object, status: str, report: str) -> str:
     """Preserve edition evidence and keep repeated broken promotions idempotent."""
-    note = _one_line_note(str(detail))
+    note = _one_line_note(str(detail), report)
     previous = str(previous or "").strip()
     if previous == note or previous.endswith(f"Probe: {note}"):
         return previous
@@ -1259,7 +1272,7 @@ def _rewrite_version_line(
     status = body["outcome"]
     pairs: dict[str, object] = {"status": status, "report": citation}
     if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value, "documented"):
-        pairs["note"] = _one_line_note(str(body.get("detail", "")))
+        pairs["note"] = _one_line_note(str(body.get("detail", "")), citation)
 
     recorded = [
         (index, match.group(1), match.group(2))

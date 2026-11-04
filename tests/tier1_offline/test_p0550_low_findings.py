@@ -11,9 +11,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+import yaml
 
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream.qa import apply_compat
+from tests.tier1_offline.test_command_db import QUOTED_PHRASE
 from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
+from tests.tier1_offline.test_qa_compat import write_chapter_fixture, write_dated_report
 
 
 def _messages(call: Callable[[], object]) -> list[str]:
@@ -264,6 +268,67 @@ def test_p0550_no_command_note_ends_in_a_placeholder() -> None:
         if "[...]" in (row.note or "")
     ]
     assert bad == []
+
+
+_DIAGNOSIS = "the command ran (script processing continued past it) but its effect was not observed"
+_LONG_CLAUSE = (
+    "the line was refused at the position the package emits it with no output and a kill at "
+    "240.5 seconds on the first run and no end sentinel in the log of the second"
+)
+_SOLVER_WORDS = (
+    "the line just before the solver start was refused as Unrecognized command in script ... at "
+    "line 379, and the script stopped there with return code 0 and no export written"
+)
+
+
+@pytest.mark.requirement("FR-3551")
+@pytest.mark.parametrize("build", ["26.120", "26.121"], ids=["row_rewritten", "row_added"])
+@pytest.mark.parametrize(
+    ("detail", "kept", "named"),
+    [
+        pytest.param(
+            f"{_DIAGNOSIS}; expected: the settings dump reports the 5000 m standard atmosphere "
+            "density at every point of the sweep, which the run did not print",
+            _DIAGNOSIS,
+            True,
+            id="last_clause_inside_the_cap",
+        ),
+        pytest.param(
+            f"{_LONG_CLAUSE}. An earlier run with the line moved hung.",
+            _LONG_CLAUSE,
+            True,
+            id="first_clause_past_the_cap",
+        ),
+        pytest.param(_LONG_CLAUSE, _LONG_CLAUSE, False, id="one_clause_written_whole"),
+        pytest.param(
+            _SOLVER_WORDS.replace("Unrecognized", "'Unrecognized").replace("379,", "379',")
+            + ". A later run hung.",
+            _SOLVER_WORDS,
+            True,
+            id="solver_words_lose_their_quotes",
+        ),
+    ],
+)
+def test_p0550_a_promoted_long_detail_keeps_a_complete_note_naming_its_report(
+    tmp_path: Path, build: str, detail: str, kept: str, named: bool
+) -> None:
+    commands = tmp_path / "commands"
+    write_chapter_fixture(commands)
+    report = write_dated_report(
+        tmp_path,
+        {"PRINT": {"outcome": "broken", "detail": detail}},
+        date="2026-08-11",
+        version=build,
+    )
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands)
+    chapter = yaml.safe_load((commands / "script_controls.yaml").read_text(encoding="utf-8"))
+    row = chapter["PRINT"]["versions"][build]
+    assert row["report"] == f"reports/compat/{report.name}"
+    pointer = f". The full text is in {row['report']}."
+    assert row["note"] == (f"{kept}{pointer}" if named else kept)
+    # What the database's own guards refuse, on the row this promotion wrote.
+    assert "[...]" not in row["note"]
+    assert QUOTED_PHRASE.search(row["note"]) is None
 
 
 @pytest.mark.requirement("FR-3530")
