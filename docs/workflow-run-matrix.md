@@ -528,15 +528,30 @@ matrix does not carry, and when nothing of the selection is recorded.
 
 `--force-rerun-all` redoes a point whatever its status, one recorded as
 SUBMITTED included, which `--force-rerun` and a plain run still refuse while the
-point may be in a queue. The run warns, naming those points, that a point
-recorded as submitted may still be in the scheduler's queue and is not cancelled
-by the run: a job still queued or running writes into the same point folder as
-the new one, and collect cannot tell the two apart: what it writes there is
-recorded as the new run's, so cancel it in the scheduler. The old records are archived as any
-other redone point's are. A point of a batch whose job has not ended is redone
-too, and the warning names the point and the job: the job is not cancelled and
-keeps writing the batch folder, while the redone point runs in its simulation's
-own folder.
+point may be in a queue. **It does not cancel the old job, and it does not pause
+for you to do so, so deal with the old job before you run the command.**
+pyflightstream never learns the scheduler's job id: find the job in your
+scheduler's list by the name its descriptor gave it (`submit.yaml`, or your
+profile's descriptor name, in the point's folder or the batch folder), and cancel
+it if it is still there. A job that no longer appears needs nothing.
+
+A job left alive keeps its licence. A point's own job also writes into the same
+point folder as the new run, and collect cannot tell the two apart: what it
+writes there is recorded as the new run's. If it is still queued it opens
+whatever `inputs/` holds when it starts. The run warns, naming the points. The
+old records are archived as any other redone point's are.
+
+A point of a batch whose job shows no sign of having ended is redone too, one by
+one in its simulation's own folder, since a grouped run does not take this flag.
+The warning names the point and the job's label, the `<matrix>_b<ID>` of the
+batch folder. The job keeps writing the batch folder until it ends. Cancelling
+it ends every point it holds, so when `--sims` selects only some of them, add the
+others to `--sims`, or wait for the batch and run `pyfs-matrix collect` instead;
+the warning names the points that would be lost. For a batch whose job has
+ended without being collected, what it wrote stays in the batch folder and is
+neither collected nor archived. After a redone batch point's job ends, its
+simulation's copy stays in the batch folder (disk space only); `delete-sims`
+removes it.
 
 **To plan and run ONE simulation, or some of its points, without editing the
 matrix**, select them on both commands:
