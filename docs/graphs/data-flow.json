@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=(), redo_submitted: bool=False",
       "returns": "list[RunRecord]",
-      "source_sha256": "0bfad213d48f62ddfa64c6fc4824682b1ce1e62cac5f8b56653a039d2a64627e"
+      "source_sha256": "68d14f6ca8cc2c3bcc1538f1d400b73e17bd474af39ce63486d561187703d420"
     },
     {
       "id": "collect",
