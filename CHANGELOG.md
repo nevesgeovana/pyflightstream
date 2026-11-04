@@ -20,7 +20,8 @@ FlightStream versions.
   refusing it as still in a scheduler's queue. It warns, naming the points, that a point recorded
   as submitted may still be queued and is not cancelled by the run. A plain run and `--force-rerun`
   keep the refusal. This includes a point of a batch whose job has not ended: the warning names the
-  point and the job, which is not cancelled and keeps writing the batch folder (FR-3572).
+  point and the job's label. The run does not cancel that job, so check the scheduler and cancel it
+  yourself. `run_campaign` takes this behaviour as `redo_submitted=True` (FR-3572).
 
 ## [0.55.0] - 2026-11-04
 
