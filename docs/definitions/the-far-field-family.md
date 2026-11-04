@@ -17,18 +17,18 @@ The analyses and where they are written:
 | analysis | `[[farfields]]` selection | reads | writes |
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
-| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net_<entry>.csv` |
+| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_TOTAL_<entry>.csv` |
 | Rotor wake loads (W) | `variant = "wake"` on a rotor row | the rotor's wake lines | `farfield/<group>_trefftz.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
-B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
+A and B identify the whole flow with `TOTAL` in `FAMILY`; C and D use lowercase `net`.
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
-and its product-manifest key use `_trefftz_net_<entry>.csv`, with `wake` as the
+and its product-manifest key use `_trefftz_TOTAL_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.
 The super file, and on an unsteady row the unsteady polar that holds its content
-(`polars/P<sim>_<name>_uns_avg.csv`), reads A's `TOTAL` and B/C/D's `net` rows into
+(`polars/P<sim>_<name>_uns_avg.csv`), reads A/B's `TOTAL` and C/D's `net` rows into
 `CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
 `E_T_<VARIANT>_<ENTRY>` columns, one set per entry. A row of the unsteady polar is a window
 average: a cell that is not that average, an entry whose window differs or one with no average
@@ -300,9 +300,18 @@ these midpoints, using the actual wake crossings as filament positions,
 with `Gamma = k Gamma_raw`. Signed edge projections preserve folded topology;
 crossings are never re-sorted after roll-up.
 
+Blade lines are assigned through their lattice and the reference's blade azimuth
+rule, in `families_blades` order, and ordered from root to tip. A blade uses the
+root anchor: the strip after line `j` carries the negative sum of exported values
+from the root through `j`. Sectional-load comparison has not settled the anchor;
+root is the fallback, consistent with W. Blade values need not sum to zero.
+Every exported blade filament contributes its signed strength to the normalwash,
+including the tip filament. A mirrored blade is reflected once without a strip
+joining the two hubs.
+
 **The scale, calibrated from the near field.** The scale of the exported value
 is not documented by the solver. `k` is the factor that makes the trace's lift
-equal the solver's own lift of the point:
+equal the solver's whole near-field lift of the point, including every rotor:
 
     k = CL_near q SREF / (rho V sum_i Gamma_raw_i dy_i)
 
@@ -314,58 +323,46 @@ point without a near-field `CL`, or with a zero one, writes `E_T` only.
 **Agreement with A.** On a flat wake whose lines bound A's strips and whose
 shed values reconstruct A's circulation, B returns A's numbers. Reading the
 line value itself as strip circulation is incorrect: it changes the lift scale
-and span efficiency with refinement. The recorded fine-mesh comparison gives
-raw lift within 3 percent of the near field and efficiency within 0.03 of A.
+and span efficiency with refinement.
 
 **Assumptions and validity.**
 
 - The trace is the solver's relaxed wake at the plane, roll-up included; it is
   as converged as the wake the solver relaxed.
-- The plane must lie inside the wake: a line that ends before it makes the
-  point's B value `NA`.
-- The export does not say which family a line belongs to, so the lines are separated
-  into sheets by where their first nodes lie, and a sheet is named by its order, not by a
-  family. Two first nodes belong to one sheet when they are closer than 4 times the smaller
-  of their nearest-neighbour distances, so a dense rim is never taken into a sparse trailing
-  edge. The open sheets are cut at the one plane and traced together: the strips of each
-  sheet are bounded by its own crossings, and the normalwash at every strip comes from the
-  filaments of every sheet. A run of first nodes that closes on itself (its two ends as close as
-  its consecutive nodes, at least four lines) is a ring, the rim of a base or of a nacelle. A
-  ring is walked once around, its strips lie between consecutive crossings and the last
-  crossing closes to the first, and its values must sum to zero as a full sheet's do. The
-  circulation accumulated around the ring has its mean removed, so the result does not depend
-  on where the walk starts. On a mirror half the ring is reflected once, as a sheet is. The
-  induced drag of a ring is the drag of the trailing vorticity of that rim in the Trefftz
-  plane; the pressure drag of the base is not this drag and is not in it. A ring whose values
-  do not sum to zero is warned and skipped. The rows are `FAMILY = sheet1`, `sheet2`, and so on, numbered
-  from the sheet whose first nodes have the smallest mean `x` (the one upstream), and the
-  `net` row, which holds all traced sheets together. The sheet rows give `CL_T`, `CDI_T`
-  (under the wash of every sheet) and `CDI_T_ISOLATED` (under its own filaments only); they
-  share the one `GAMMA_SCALE` of the `net` row, and their `CL_T` and `CDI_T` add up to it.
-  A point with a single sheet writes the `net` row alone.
-- A group of lines that cannot be traced (a single line, a run whose first nodes branch) is
-  warned and skipped, naming its line count and the sum of its values, and the other sheets
-  are traced. The circulation of the skipped group is left out of the result.
-- A sheet whose lines end before the plane makes the `net` row `NA`, with a skip that states
-  the length of the shortest line, the distance of the plane, and the `distance_bref` at
-  which every line would reach it. The plane is not moved.
-- On `unsteady_rotor` the exported values of the march are positive where the steady rows'
-  are negative. This is an observed convention of the export, and its source is not known.
-  The scale `k` takes the sign that gives the near-field lift, so `GAMMA_SCALE` is negative
-  on such a row, `CL_T` is the near field's, and `CDI_T` and `E_T` do not depend on the sign.
-- On a rotor row (a steady row with a rotor speed, `unsteady_rotor`) B traces
-  only the lines that leave another family than the rotors'. A `qsteady_rotor`
-  row holds an isolated rotor and no other family, so its wake entry, B and W
-  alike, is not applicable: warned at plan and a named skip in post. A line leaves a rotor when its first node lies within 1.02 tip radii
-  of that rotor's axis and within 0.25 tip radii of its hub plane; every other
-  line is assigned to the wing. This geometric selection cannot establish
-  unique ownership where rotor selection regions overlap. A row whose every line
-  leaves a rotor writes no B row, with a named skip. On a row without a rotor B
-  reads every line, as before. On an unsteady row, with or without a rotor, B is
-  written for the last step and, under `"avg_window"`, averaged over the window steps.
-  Its lift calibration uses only the non-rotor families' near-field lift,
-  excluding the rotor families through the reference's family and alias resolver.
-  Missing non-rotor lift leaves the calibrated coefficients unavailable.
+- Non-rotor lines are separated into sheets by their starting nodes. Two nodes
+  belong to one sheet when they are closer than four times the smaller of their
+  nearest-neighbour distances. The nearest saved surface boundary supplies the
+  family name, checked against surface VTK vertices when present. Ambiguous or
+  unavailable geometry keeps `sheet<n>`, numbered from upstream, with a warning.
+  Multiple sheets of one family contribute to one family row.
+- A closed run is traced around its ring, including the closing strip. Its
+  strengths must sum to zero; its accumulated circulation has its mean removed.
+  A mirrored ring is reflected once. This measures its trailing vorticity, not
+  the pressure drag of a base.
+- `FAMILY = TOTAL` holds all established surface and blade contributions. Every
+  strip receives the normalwash of every included filament, rotor lines included.
+  Family and blade `CL_T` and `CDI_T` add to TOTAL under one `GAMMA_SCALE`.
+  `CDI_T_ISOLATED` uses only that family's filaments and is `NA` for TOTAL.
+  Each rotor alias has a row summing its blades; these subtotal rows are not
+  added to TOTAL again. Blade rows follow `families_blades` order.
+- A group that cannot bound strips or whose lines end before the plane writes
+  `NA`, with a warning naming the group and reason. TOTAL warns by name about
+  every omitted group, also recorded in `products.json`; the remaining groups
+  are traced. A short wake's warning states its length and the plane distance
+  it could reach. The plane is not moved. If no group can be established, TOTAL
+  is `NA`.
+- A blade's or rotor's `CL_T` is its lift contribution projected in this plane,
+  not its axial thrust. Its `CDI_T` includes crossflow energy from swirl and is
+  not the induced drag of a wing. TOTAL on a powered row includes that energy
+  and must not be interpreted as wing induced drag.
+- On `unsteady_rotor` the march can require negative `k`. This is an observed
+  export convention whose source is unknown. The sign matches the whole
+  near-field lift; drag scales with `k^2`.
+- A line is selected for a rotor when its start lies within 1.02 tip radii of
+  its axis and within 0.25 tip radii of its hub plane. Distinct rotor regions
+  are required for unique geometric attribution. On an unsteady row B is
+  written for the last step and, under `"avg_window"`, averaged over its window.
+  The existing `qsteady_rotor` wake-entry applicability exclusion remains.
 
 <a id="trefftz-w"></a>
 

@@ -7024,6 +7024,11 @@
     },
     {
       "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.farfield.wake_sheets",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.post._condition",
       "kind": "module"
     },
@@ -9449,8 +9454,23 @@
     },
     {
       "source": "pyflightstream.results.wake",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results.wake",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results.wake",
       "target": "pyflightstream.results.core",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results.wake",
+      "target": "pyflightstream.results.surface",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run",

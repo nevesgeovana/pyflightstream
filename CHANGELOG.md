@@ -13,17 +13,15 @@ FlightStream versions.
   application name its scheduler uses for that build: `{application_id}` writes it, and every build
   with no line keeps the top-level `application_id`. A profile without the table writes the same
   bytes as before, and the recorded `application_id` is the one written (FR-3571).
-- Trefftz B traces every open wake sheet of an export on one plane, on a steady row and on an
-  `unsteady_rotor` row, in the last step and in each averaged step. The rows are `sheet1`,
-  `sheet2`, and so on beside the `net` row, which holds them together with the normalwash of
-  every sheet's filaments. A row whose lines were one sheet is unchanged. A group of lines that
-  cannot be traced is warned and skipped, naming its line count and value sum, and a wake that
-  ends before the plane writes the row `NA` and states the `distance_bref` that would reach
-  (FR-3586 to FR-3592). A run of first nodes that closes into a ring (the rim of a base or a
-  nacelle) is traced as a closed sheet, its circulation accumulated around the ring with its mean
-  removed (FR-3593 to FR-3596). Trefftz B applies to an unsteady row without a rotor: the plan
-  exports the wake with the surface VTK, and the post writes B for the last step and its window
-  average (FR-3597 to FR-3599).
+- Trefftz B writes `TOTAL`, surface-family rows, each declared blade, and each
+  rotor alias. All included filaments contribute normalwash to every strip;
+  calibration uses the whole near-field lift, with signed `GAMMA_SCALE`.
+  Untraceable groups write `NA` and are named in TOTAL's warnings and manifest.
+  Blade circulation accumulates from the root; powered crossflow includes swirl.
+  Migration: B's `net` row and spanwise filename become `TOTAL`; polar and super
+  columns read TOTAL while retaining their existing column names (FR-3601 to FR-3605).
+  Surface families combine disconnected sheets; unresolved names retain warned
+  `sheet<n>` labels. Closed rims and unsteady window products remain supported.
 
 ### Fixed
 

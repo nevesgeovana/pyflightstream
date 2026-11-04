@@ -111,6 +111,9 @@ centers. The linked definition states the rule for every block.
 
 [Trefftz B, from the solver's wake](definitions/the-far-field-family.md#trefftz-b).
 
+B writes surface and blade contributions, rotor subtotals, and `TOTAL`; its
+polar and super columns read TOTAL. Powered crossflow includes rotor swirl.
+
 <a id="trefftz-c"></a>
 
 [Trefftz C, from a plane of probes](definitions/the-far-field-family.md#trefftz-c).

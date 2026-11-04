@@ -262,7 +262,7 @@ def _super_cells(
     family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
     out: dict[str, dict[str, str]] = {}
     for row, point in rows:
-        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
+        if row[family] != ("TOTAL" if row[variant] in ("A", "B") else "net"):
             continue
         cells = out.setdefault(point, {})
         for column in ("CL_T", "CDI_T", "E_T"):

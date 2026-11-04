@@ -441,6 +441,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.selection">pyflightstream.cases.selection</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.farfield">pyflightstream.farfield</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.balances">pyflightstream.farfield.balances</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.wake_sheets">pyflightstream.farfield.wake_sheets</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._reduction_stage">pyflightstream.post._reduction_stage</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (typing)</li>
@@ -3587,7 +3588,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.results.wake"><summary><code>pyflightstream.results.wake</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results.core">pyflightstream.results.core</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.surface">pyflightstream.results.surface</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.script"><summary><code>pyflightstream.script</code></summary><ul>

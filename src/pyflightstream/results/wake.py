@@ -30,9 +30,12 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import islice
+from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._fsm import boundary_vertices, family_of, saved_mesh_coordinate_unit
+from pyflightstream._lengths import scale
 from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 
 __all__ = ["WAKE_VALUE", "WakeExport", "parse_wake_export"]
@@ -67,6 +70,60 @@ class WakeExport:
     lines: tuple[np.ndarray, ...]
     values: np.ndarray
     blades: np.ndarray | None = None
+
+
+def wake_surface_families(
+    path: Path, starts_m: np.ndarray, surface: Path | None = None, *, per_m: float = 1.0
+) -> list[str | None]:
+    """Match wake start nodes to saved surface families in geometry axes.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The saved simulation carrying boundary geometry and labels.
+    starts_m : numpy.ndarray
+        Wake start positions, shape (n, 3), in metres.
+    surface : pathlib.Path or None
+        Exported surface used to confirm the wake starts lie on the current mesh.
+    per_m : float
+        Native export units per metre.
+
+    Returns
+    -------
+    list of str or None
+        Nearest family per start. Ties between families or starts more than
+        one percent of the mesh extent from a vertex remain unassigned.
+    """
+    from scipy.spatial import cKDTree
+
+    from pyflightstream.results.surface import read_vtk_surface
+
+    vertices = boundary_vertices(path) or {}
+    unit = saved_mesh_coordinate_unit(path)
+    factor = scale(unit, "METER") if unit else None
+    if not vertices or factor is None:
+        return [None] * len(starts_m)
+    families: dict[str, list] = {}
+    for label, points in vertices.items():
+        families.setdefault(family_of(label), []).extend(points)
+    names = [name for name, points in families.items() if points]
+    if not names:
+        return [None] * len(starts_m)
+    arrays = [np.asarray(families[name]) * factor for name in names]
+    distances = np.array([cKDTree(points).query(starts_m)[0] for points in arrays])
+    extent = float(np.ptp(np.concatenate(arrays), axis=0).max())
+    on_surface = np.ones(len(starts_m), dtype=bool)
+    if surface is not None and surface.is_file():
+        exported = read_vtk_surface(surface)
+        on_surface = cKDTree(exported.points / per_m).query(starts_m)[0] <= 0.01 * extent
+    answer = []
+    for column, supported in zip(distances.T, on_surface, strict=True):
+        best = int(np.argmin(column))
+        tied = np.count_nonzero(np.isclose(column, column[best], rtol=1e-5, atol=1e-8)) > 1
+        answer.append(
+            None if not supported or tied or column[best] > 0.01 * extent else names[best]
+        )
+    return answer
 
 
 def _tokens(rows: Iterator[str], count: int, what: str) -> list[str]:

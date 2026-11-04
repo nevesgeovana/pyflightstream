@@ -78,6 +78,9 @@ class SheetCrossings:
         Positions of the lines in the input.
     short : int
         How many of the sheet's lines end before the plane.
+    root_anchor : bool
+        A blade ordered root to tip: accumulate from its root, without a
+        closure constraint or a central strip connecting its mirror image.
     """
 
     y: np.ndarray
@@ -86,6 +89,7 @@ class SheetCrossings:
     closed: bool
     index: np.ndarray
     short: int
+    root_anchor: bool = False
 
 
 def _link_components(starts: np.ndarray) -> list[np.ndarray]:
@@ -249,6 +253,12 @@ def _sheet_edges(
 ) -> list[tuple[np.ndarray, np.ndarray, np.ndarray, bool, np.ndarray]]:
     """Return edges, strip circulation, closed and original flags, and the image if mirrored."""
     y, z, v = sheet.y, sheet.z, sheet.values
+    if sheet.root_anchor:
+        gamma = -np.cumsum(v)[:-1]
+        out = [(y, z, gamma, False, np.ones(len(gamma), dtype=bool))]
+        if mirror:
+            out.append((-y, z, -gamma, False, np.zeros(len(gamma), dtype=bool)))
+        return out
     if sheet.closed:
         gamma = -np.cumsum(v)
         gamma = gamma - gamma.mean()
@@ -349,7 +359,11 @@ def sheet_forces(
                     "ey": ey,
                     "ez": ez,
                     "gamma": gamma,
-                    "shed": _filaments(gamma, closed),
+                    "shed": (
+                        (-sheet.values if np.any(original) else sheet.values)
+                        if sheet.root_anchor
+                        else _filaments(gamma, closed)
+                    ),
                     "y": 0.5 * (ey[cur] + ey[nxt]),
                     "z": 0.5 * (ez[cur] + ez[nxt]),
                     "dy": ey[nxt] - ey[cur],
