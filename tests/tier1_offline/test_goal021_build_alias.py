@@ -404,3 +404,13 @@ def test_application_ids_a_grouped_job_writes_and_records_its_builds_name(tmp_pa
         'ApplicationId: "Flightstream"'
     ]
     assert {r.submission["application_id"] for r in records} == {"Flightstream"}
+
+
+def test_application_ids_a_points_record_carries_the_name_it_wrote(tmp_path):
+    profile = _profile(tmp_path, _with_application_ids('"26.127" = "Flightstream"'))
+    for build, name in (("26.127", "Flightstream"), ("26.124", "flightstream")):
+        executor = SubmittingExecutor(profile, values={"fs_build": build}, submit=False)
+        script = tmp_path / "point.txt"
+        script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+        executor.run_script(script, working_dir=tmp_path / f"work_{build}")
+        assert executor.submission_record()["application_id"] == name
