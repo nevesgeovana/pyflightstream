@@ -312,6 +312,8 @@ class _CampaignState:
     accept_unregistered_build: bool
     sweep_csv: str | Path | None
     accepted_builds: Collection[str] = ()
+    #: ``force_rerun_all`` was asked: a point recorded as SUBMITTED is redone and warned of.
+    redo_submitted: bool = False
     #: The simulations this call posted, each once, as its last point of the
     #: call was recorded (PFS-2185.18).
     posted: list[str] = field(default_factory=list)
@@ -378,6 +380,7 @@ def run_campaign(
     accept_unregistered_build: bool = False,
     sweep_csv: str | Path | None = None,
     accepted_builds: Collection[str] = (),
+    redo_submitted: bool = False,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -510,6 +513,10 @@ def run_campaign(
         accepts their installed build (FR-998), a build id or ``""`` for
         the campaign's own; each accepts that build only, warns as the flag
         does, and its records say so and name the file. Default empty.
+    redo_submitted : bool
+        Redo a point recorded as SUBMITTED named by ``force_rerun``, warning
+        that its job may still be queued and is not cancelled, instead of
+        refusing it. ``run_matrix`` sets it for ``force_rerun_all``.
 
     Returns
     -------
@@ -557,6 +564,7 @@ def run_campaign(
         accept_unregistered_build=accept_unregistered_build,
         sweep_csv=sweep_csv,
         accepted_builds=accepted_builds,
+        redo_submitted=redo_submitted,
     )
     _resolve_campaign_schedule(state)
     superseded = [run_id for _, _, ids in state.to_supersede for run_id in ids]
@@ -842,7 +850,9 @@ def _resolve_campaign_redo(state: _CampaignState) -> None:
             # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
             # writing its folder, and archiving the record it will be collected
             # into would leave the job writing where the new run writes.
-            queued = queued_points(state.workspace, state.manifest, superseding)
+            queued = queued_points(
+                state.workspace, state.manifest, superseding, redo=state.redo_submitted
+            )
             if queued:
                 raise WorkspaceError(
                     f"force_rerun names {', '.join(queued)}, which is still in a "

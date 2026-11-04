@@ -1039,10 +1039,9 @@ def run_matrix(
         require_plan=require_plan,
     )
     if plan.blocked:
-        summary = plan.summary()
         raise MatrixError(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
-            f"executed:\n{summary}"
+            f"executed:\n{plan.summary()}"
         )
     executor, executor_for = _campaign_executor(
         workspace,
@@ -1080,6 +1079,7 @@ def run_matrix(
         sweep_csv=sweep_csv,
         # FR-998: a build entry of this machine's overlay accepting its own build.
         accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
+        redo_submitted=force_rerun_all,
     )
 
 

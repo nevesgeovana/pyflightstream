@@ -526,6 +526,14 @@ the whole run to them, so the other simulations are not touched, their new
 points included. Refused beside `--resume` or `--force-rerun`, for an id the
 matrix does not carry, and when nothing of the selection is recorded.
 
+`--force-rerun-all` redoes a point whatever its status, one recorded as
+SUBMITTED included, which `--force-rerun` and a plain run still refuse while the
+point may be in a queue. The run warns, naming those points, that a point
+recorded as submitted may still be in the scheduler's queue and is not cancelled
+by the run: a job still queued or running writes into the same point folder as
+the new one, so cancel it in the scheduler. The old records are archived as any
+other redone point's are.
+
 **To plan and run ONE simulation, or some of its points, without editing the
 matrix**, select them on both commands:
 

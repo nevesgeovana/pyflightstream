@@ -164,3 +164,58 @@ def test_g44_points_beside_the_redo_and_an_empty_manifest_are_refused(tmp_path):
     with pytest.raises(MatrixError, match=r"found no recorded point"):
         _run(workspace, matrix, stub, force_rerun_all=True)
     assert stub.invocations == []
+
+
+# --- a point recorded as SUBMITTED is redone by --force-rerun-all ---------------------
+
+
+def _submitted_rotor(tmp_path):
+    from tests.tier1_offline.test_goal021_swept_row import _rotor_row, _submitted_row
+
+    workspace, records = _submitted_row(tmp_path)
+    assert {r.status.name for r in records} == {"SUBMITTED"}, records
+    return workspace, _rotor_row(tmp_path, extra=" / EXPORT_UNSTEADY_AFTER_REV: 1"), records
+
+
+@pytest.mark.parametrize("sims", [None, ["7001"]], ids=["whole-matrix", "with-sims"])
+def test_force_rerun_all_redoes_a_point_recorded_as_submitted(tmp_path, sims, capsys):
+    from tests.tier1_offline.test_matrix_run import StubSolver
+
+    workspace, row, submitted = _submitted_rotor(tmp_path)
+    ids = sorted(r.run_id for r in submitted)
+    extra = {} if sims is None else {"sims": sims}
+    with pytest.warns(PyflightstreamWarning) as caught:
+        records = run_matrix(
+            row,
+            workspace,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=StubSolver(WRITES_EVERY_EXPORT),
+            force_rerun_all=True,
+            **extra,
+        )
+    assert sorted(r.run_id for r in records) == ids
+    assert all(r.status.name != "SUBMITTED" for r in records), [r.status for r in records]
+    said = " ".join(str(w.message) for w in caught)
+    assert "may still be in the scheduler's queue" in said and "not cancelled" in said, said
+    assert all(run_id in said for run_id in ids), said
+    archives = list((workspace.root / "archive").glob("runs-*.json"))
+    assert len(archives) == 1, "the old records were not archived"
+    assert all(r.status.name != "SUBMITTED" for r in workspace.read_manifest())
+
+
+def test_force_rerun_all_leaves_a_plain_run_of_a_submitted_point_as_it_was(tmp_path):
+    from pyflightstream.exceptions import WorkspaceError
+    from tests.tier1_offline.test_goal021_swept_row import _run as run_rotor
+    from tests.tier1_offline.test_matrix_run import StubSolver
+
+    workspace, row, submitted = _submitted_rotor(tmp_path)
+    with pytest.raises(WorkspaceError, match=r"still in a scheduler's queue"):
+        run_rotor(
+            workspace,
+            row,
+            StubSolver(WRITES_EVERY_EXPORT),
+            force_rerun=[submitted[0].run_id],
+        )

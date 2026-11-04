@@ -8,6 +8,7 @@ the recorded loads frames and refuse an import count no log can confirm.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import cast
 from pyflightstream._digest import (
     file_sha256,
 )
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import (
     workspace_activity,
 )
@@ -425,7 +427,11 @@ def _refuse_an_import_count_nothing_logs(
 
 
 def queued_points(
-    workspace: CampaignWorkspace, manifest: Mapping[str, RunRecord], run_ids: Sequence[str]
+    workspace: CampaignWorkspace,
+    manifest: Mapping[str, RunRecord],
+    run_ids: Sequence[str],
+    *,
+    redo: bool = False,
 ) -> list[str]:
     """Return the run ids a forced re-run may not supersede, or refuse by batch.
 
@@ -437,11 +443,14 @@ def queued_points(
         The records by run id.
     run_ids : sequence of str
         The recorded points the forced re-run would supersede.
+    redo : bool
+        ``force_rerun_all``: a SUBMITTED point is redone, so it is warned of
+        (it may still be queued and is not cancelled) and not returned.
 
     Returns
     -------
     list of str
-        The ids still SUBMITTED, which the caller refuses as queued.
+        The ids still SUBMITTED, which the caller refuses as queued; none under ``redo``.
 
     Raises
     ------
@@ -461,7 +470,18 @@ def queued_points(
                     "beside the job. Wait for the batch to end and collect it "
                     "(pyfs-matrix collect); nothing was archived or run."
                 )
-    return [record.run_id for record in records if record.status is RunStatus.SUBMITTED]
+    queued = [record.run_id for record in records if record.status is RunStatus.SUBMITTED]
+    if queued and redo:
+        warnings.warn(
+            f"force_rerun_all redoes {', '.join(queued)}, recorded as SUBMITTED: a point "
+            "recorded as submitted may still be in the scheduler's queue, and it is not "
+            "cancelled by this run. A job still queued or running writes into the same "
+            "point folder as the new one, so cancel it in the scheduler.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return []
+    return queued
 
 
 def _in_batch(record: RunRecord, label: str) -> bool:

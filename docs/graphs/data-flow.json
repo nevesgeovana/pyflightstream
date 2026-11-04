@@ -60,9 +60,9 @@
       "outputs": [
         "run records and solver exports"
       ],
-      "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=()",
+      "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=(), redo_submitted: bool=False",
       "returns": "list[RunRecord]",
-      "source_sha256": "530a7b9d81e73397e4d63d4cdafd38f17c65c082c2ef4cc9088ce32b1b908aa6"
+      "source_sha256": "0bfad213d48f62ddfa64c6fc4824682b1ce1e62cac5f8b56653a039d2a64627e"
     },
     {
       "id": "collect",

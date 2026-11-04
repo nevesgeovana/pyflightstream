@@ -14,6 +14,13 @@ FlightStream versions.
   with no line keeps the top-level `application_id`. A profile without the table writes the same
   bytes as before, and the recorded `application_id` is the one written (FR-3571).
 
+### Fixed
+
+- `--force-rerun-all` redoes a point recorded as SUBMITTED, with or without `--sims`, instead of
+  refusing it as still in a scheduler's queue. It warns, naming the points, that a point recorded
+  as submitted may still be queued and is not cancelled by the run. A plain run and `--force-rerun`
+  keep the refusal (FR-3572).
+
 ## [0.55.0] - 2026-11-04
 
 ### Added
