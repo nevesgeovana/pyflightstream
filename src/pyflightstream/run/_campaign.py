@@ -57,7 +57,10 @@ from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
 )
-from pyflightstream.results.tables import sweep_table, write_table
+from pyflightstream.results._identifier_columns import (
+    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
+)
+from pyflightstream.results.tables import sweep_table, write_sweep_table
 from pyflightstream.run._assessment import (
     OutcomeAssessor,
 )
@@ -166,7 +169,6 @@ FS_VERSION_FROM_DEFAULT = "campaign_default"
 #: so a collision would corrupt nothing; what it would cost is a reader
 #: who cannot tell which file the tool maintains and which one a
 #: colleague put there.
-SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 
 def _runs_as_one_job(campaign: Campaign, case: SimCase, executor: Executor) -> bool:
@@ -304,10 +306,8 @@ def _leave_sweep_table(
         with _textio.exclusive(lock / "products.json", wait=_textio.LOCK_WAIT) as held:
             if held is None:
                 raise TimeoutError(f"{lock / 'products.json'} stayed locked by another post")
-            write_table(
-                sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem),
-                target,
-                overwrite=True,
+            write_sweep_table(
+                sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target
             )
     except Exception as error:
         return (

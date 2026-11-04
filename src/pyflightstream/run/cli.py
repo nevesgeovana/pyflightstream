@@ -72,7 +72,7 @@ from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
 from pyflightstream.cases.workflows import workflow_names as workflow_names
 from pyflightstream.options import option_context
 from pyflightstream.results import MalformedOutputError
-from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
+from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_sweep_table
 from pyflightstream.run import (
     SWEEP_TABLE_NAME,
     CampaignErrors,
@@ -1327,7 +1327,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PyflightstreamWarning)
             table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
-        write_table(table, target, overwrite=True)
+        write_sweep_table(table, target)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

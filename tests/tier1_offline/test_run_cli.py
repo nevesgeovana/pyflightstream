@@ -1168,3 +1168,24 @@ def test_p0550_identifiers_added_to_a_campaign_that_ran_launch_nothing_and_refus
     assert "changed since it was planned" not in err
     assert "IDENTIFIERS" not in err.replace(control_err, "")
     assert workspace.manifest_path.read_bytes() == recorded, "a point ran"
+
+
+@pytest.mark.requirement("FR-3564")
+def test_p0550_the_run_keeps_what_the_post_put_in_the_sweep_table(tmp_path, capsys):
+    """The run rewrites the sweep table from its records, and reads no identifier to do so."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    assert main(plan_args(workspace, matrix)) == 0
+    assert main(run_args(workspace, matrix)) == 0
+    sweep = workspace.sweep_dir(matrix.stem) / SWEEP_TABLE_NAME
+    assert "FLAP" not in sweep.read_text(encoding="utf-8").splitlines()[0]
+    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    # Stated and not posted: the run does not put it there.
+    assert main(run_args(workspace, matrix, "--resume")) == 0
+    assert "FLAP" not in sweep.read_text(encoding="utf-8").splitlines()[0]
+    assert main(["post", str(matrix), "--sims", "7001", "--workspace", str(workspace.root)]) == 0
+    assert sweep.read_text(encoding="utf-8").splitlines()[0].startswith("POL,FLAP,TESTE,")
+    # The run again: it writes its table from its records and the columns stay.
+    assert main(run_args(workspace, matrix, "--resume")) == 0
+    assert sweep.read_text(encoding="utf-8").splitlines()[0].startswith("POL,FLAP,TESTE,")
+    capsys.readouterr()

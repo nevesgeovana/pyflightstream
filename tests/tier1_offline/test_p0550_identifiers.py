@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
 from pyflightstream.post.products import write_campaign_products
+from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -420,6 +422,44 @@ def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(
     for path in dats:
         assert "FLAP" not in path.read_text(encoding="utf-8"), path
     assert any("FLAP" in _table(path)[0] for path in (out / "polars").glob("P6001-*.csv"))
+
+
+def test_p0550_the_sweep_table_carries_each_row_s_own_and_follows_the_matrix(tmp_path):
+    workspace, matrix = _superfile_campaign(tmp_path)
+    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    header, rows = _table(sweep)
+    assert header[:3] == ["POL", "FLAP", "TESTE"]
+    assert {row["FLAP"] for row in rows if row["POL"] == "6001"} == {"1"}
+    assert {row["FLAP"] for row in rows if row["POL"] != "6001"} == {"NA"}
+    assert {row["TESTE"] for row in rows if row["POL"] == "6002"} == {"2"}
+
+    # Removed from the matrix: the next post takes the columns back out.
+    matrix.write_text(
+        re.sub(r"\s*/?\s*IDENTIFIERS: \{[^}]*\}", "", matrix.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    assert "FLAP" not in _table(sweep)[0]
+    assert "TESTE" not in _table(sweep)[0]
+
+
+def test_p0550_the_sweep_table_keeps_the_identifiers_of_a_polar_the_matrix_left(tmp_path):
+    workspace, matrix = _superfile_campaign(tmp_path)
+    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    matrix.write_text(
+        "\n".join(line for line in lines if not line.startswith("6002")) + "\n", encoding="utf-8"
+    )
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, sims=["6001"])
+    _, rows = _table(sweep)
+    assert {row["TESTE"] for row in rows if row["POL"] == "6002"} == {"2"}
+    assert {row["TESTE"] for row in rows if row["POL"] == "6001"} == {"NA"}
 
 
 def test_p0550_a_table_opening_without_pol_carries_them_as_its_last_columns(tmp_path):
