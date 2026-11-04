@@ -5934,6 +5934,11 @@
     },
     {
       "source": "pyflightstream.post._products_campaign",
+      "target": "pyflightstream.results._identifier_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._products_campaign",
       "target": "pyflightstream.workspace",
       "kind": "module"
     },

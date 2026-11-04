@@ -55,17 +55,9 @@ from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
 from pyflightstream.results._identifier_columns import (
-    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
+    stamped_table,
+    without_stamped,
 )
-from pyflightstream.results._identifier_columns import stamped_table, without_stamped
-from pyflightstream.results._identifier_columns import (
-    state_in_sweep_table as state_in_sweep_table,
-)
-from pyflightstream.results._identifier_columns import stated_identifiers as stated_identifiers
-from pyflightstream.results._identifier_columns import (
-    sweep_identifiers_held as sweep_identifiers_held,
-)
-from pyflightstream.results._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 

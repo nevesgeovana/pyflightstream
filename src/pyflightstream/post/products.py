@@ -131,10 +131,14 @@ from pyflightstream.post._condition import point_state as point_state
 from pyflightstream.post._products_campaign import (
     _admit_campaign_records,
     _CampaignProducts,
+    _identifiers_of,
     _index_record_surfaces,
     _retire_campaign_products,
+    _state_in_the_sweep_table,
     _warn_unreadable_matrix,
     carry_marks,
+    stated_identifiers,
+    tables_of_polar,
     write_refinement_studies,
     write_settings_product,
 )
@@ -200,7 +204,6 @@ from pyflightstream.post._tables import (
     ROTOR_TABLE_LEAD_LINES,
     ROTOR_TABLE_SUFFIX,
     SECTION_COLUMNS,
-    SWEEP_TABLE_NAME,
     ProductError,
     ProductExistsError,
     _march_records,
@@ -210,10 +213,6 @@ from pyflightstream.post._tables import (
     renamed_columns,
     rotor_advance_ratio,
     section_identity,
-    state_in_sweep_table,
-    stated_identifiers,
-    sweep_identifiers_held,
-    tables_of_polar,
     write_csv_table,
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
@@ -1097,25 +1096,6 @@ def _write_one_simulation(
     # A reduction the row could not window is a skip under the file it
     # would have been (PFS-2015.04), beside the simulations refused whole.
     ctx.skipped.update(reductions_skipped)
-
-
-def _identifiers_of(rows_of_the_matrix: Mapping[str, MatrixRow]) -> dict[str, dict[str, str]]:
-    """Return what each polar of the current matrix states as ``IDENTIFIERS``."""
-    return {polar: row.identifiers for polar, row in rows_of_the_matrix.items()}
-
-
-def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
-    """Give the sweep table beside the products what the current matrix states (FR-3564).
-
-    A point whose POL the matrix no longer holds keeps what the table says of it. With no matrix,
-    or a table that cannot be derived, the file stays as it is.
-    """
-    if not ctx.rows_of_the_matrix or not ctx.sweep_rows:
-        return
-    path = ctx.workspace.sweep_dir(ctx.matrix_stem) / SWEEP_TABLE_NAME
-    own = next(iter(ctx.sweep_rows.values()))
-    held = sweep_identifiers_held(path, own)
-    state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)}, own)
 
 
 def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:

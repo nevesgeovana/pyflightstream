@@ -34,6 +34,13 @@ from pyflightstream.post.polar import grid_convergence
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
+from pyflightstream.results._identifier_columns import (
+    SWEEP_TABLE_NAME,
+    state_in_sweep_table,
+    sweep_identifiers_held,
+)
+from pyflightstream.results._identifier_columns import stated_identifiers as stated_identifiers
+from pyflightstream.results._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
 from pyflightstream.workspace.naming import ADDITIONAL_DIR
 from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED
@@ -650,3 +657,22 @@ def _refinement_row(
         return [*head, *cells, *spacings, None, None, None, None, str(error)]
     found = [estimate.order, estimate.extrapolated, estimate.gci_fine, estimate.uncertainty]
     return [*head, *values, *spacings, *found, ""]
+
+
+def _identifiers_of(rows_of_the_matrix: Mapping[str, MatrixRow]) -> dict[str, dict[str, str]]:
+    """Return what each polar of the current matrix states as ``IDENTIFIERS``."""
+    return {polar: row.identifiers for polar, row in rows_of_the_matrix.items()}
+
+
+def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
+    """Give the sweep table beside the products what the current matrix states (FR-3564).
+
+    A point whose POL the matrix no longer holds keeps what the table says of it. With no matrix,
+    or a table that cannot be derived, the file stays as it is.
+    """
+    if not ctx.rows_of_the_matrix or not ctx.sweep_rows:
+        return
+    path = ctx.workspace.sweep_dir(ctx.matrix_stem) / SWEEP_TABLE_NAME
+    own = next(iter(ctx.sweep_rows.values()))
+    held = sweep_identifiers_held(path, own)
+    state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)}, own)

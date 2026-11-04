@@ -173,6 +173,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.post.series">pyflightstream.post.series</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.superfile">pyflightstream.post.superfile</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results._identifier_columns">pyflightstream.results._identifier_columns</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
