@@ -341,7 +341,18 @@ def _read_sweep(path: Path) -> tuple[list[str], list[list[str]]] | None:
     """Return the header and rows of a sweep table, or None for one that is not there to read."""
     if not path.is_file():
         return None
-    table = list(csv.reader(io.StringIO(path.read_text(encoding="utf-8"), newline="")))
+    try:
+        # A signature is how a spreadsheet saves this table as UTF-8; it is no part of ``POL``.
+        table = list(csv.reader(io.StringIO(path.read_text(encoding="utf-8-sig"), newline="")))
+    except (UnicodeDecodeError, csv.Error) as error:
+        warn(
+            f"{path} cannot be read as UTF-8 text ({error}), as a spreadsheet may have saved it: "
+            "its IDENTIFIERS columns are not read or updated. Save it as UTF-8 or delete it; "
+            "the run writes it again.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return None
     if not table or not table[0] or table[0][0] != POLAR_ID_COLUMN:
         return None
     if any(len(row) != len(table[0]) for row in table[1:]):

@@ -858,7 +858,8 @@ def _header(path: Path) -> set[str]:
     carries `POLAR` any more, so that name, read as written, would be a field
     the union demands and no super file could hold. It is read as `POL`.
     """
-    with path.open("r", encoding="utf-8", newline="") as handle:
+    # Names only, and of what the post wrote: a table a spreadsheet saved since costs no post.
+    with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as handle:
         reader = csv.reader(handle)
         first = next(reader, None)
         if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):

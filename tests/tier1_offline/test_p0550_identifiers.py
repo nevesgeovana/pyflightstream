@@ -703,6 +703,50 @@ def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path)
     assert sweep.is_file(), "a table held open is warned, never retired"
 
 
+def _sweep_of(workspace: CampaignWorkspace) -> Path:
+    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    write_table(
+        sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
+    )
+    return sweep
+
+
+def test_p0550_a_sweep_table_saved_in_another_encoding_costs_its_columns_and_not_the_post(tmp_path):
+    """REL55-2: read as UTF-8 it raised out of the post, past the handler of a locked file."""
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
+    sweep = _sweep_of(workspace)
+    saved = sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1)
+    sweep.write_bytes(saved)
+    with pytest.warns(PyflightstreamWarning, match="cannot be read as UTF-8"):
+        write_campaign_products(workspace, matrix_stem="matriz")
+    manifest = workspace.products_dir("matriz") / "products.json"
+    assert json.loads(manifest.read_text(encoding="utf-8"))["complete"] is True
+    assert sweep.read_bytes() == saved, "what cannot be read is left as it is"
+
+
+def test_p0550_the_run_replaces_a_sweep_table_saved_in_another_encoding(tmp_path):
+    """REL55-2: a table it could not read stopped the rewrite; 0.54.0 replaced it."""
+    workspace = _three_sims(tmp_path)
+    sweep = _sweep_of(workspace)
+    sweep.write_bytes(sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1))
+    frame = sweep_table(workspace, require_loads=False, matrix_stem="matriz")
+    with pytest.warns(PyflightstreamWarning, match="cannot be read as UTF-8"):
+        write_sweep_table(frame, sweep)
+    assert sweep.read_text(encoding="utf-8").startswith("POL,run_id,")
+
+
+def test_p0550_a_sweep_table_saved_with_a_signature_takes_the_columns(tmp_path):
+    """REL55-2: the signature hid POL, so the post said nothing and wrote nothing."""
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
+    sweep = _sweep_of(workspace)
+    sweep.write_bytes(b"\xef\xbb\xbf" + sweep.read_bytes())
+    write_campaign_products(workspace, matrix_stem="matriz")
+    assert sweep.read_text(encoding="utf-8").startswith("POL,FLAP,TESTE,run_id,")
+
+
 @pytest.mark.parametrize(
     "edited",
     [
