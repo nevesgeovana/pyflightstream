@@ -12,6 +12,8 @@ FlightStream versions.
 - `[products] merged_polar` writes `polars/P<sim>_<name>_merge.csv`: the unsteady polar with the
   columns of the simulation's rotor tables on each row, joined by run (FR-3511), and
   `[products.rotate_columns]` adds an angle of the row's `ROTATE` as a named column (FR-3512).
+- Two files of one matrix in both homes that differ in their `IDENTIFIERS` alone are warned and read
+  as one study, no longer refused.
 - A row may state `IDENTIFIERS: {FLAP:0,TESTE:10}` in `VAR_NAMES_VALUES`: columns of every table the
   post writes for its polar, the value as text. Nothing of the run reads them, so stating, changing
   or removing one launches nothing and leaves the plan current; `pyfs-matrix post --sims <sim>` writes

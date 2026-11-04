@@ -1431,7 +1431,8 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         IDENTIFIERS_VARIABLE: InputKey(
             "Columns of every table the post writes for this row's polar, holding each value as "
             "text. Nothing of the run reads them: stating, changing or removing one launches "
-            "nothing and leaves the plan current, and the columns follow at the next post.",
+            "nothing and leaves the plan current. On a simulation already posted they are "
+            "written by pyfs-matrix post --sims <sim>.",
             "{NAME:value,NAME:value}; a comma ends a pair, so neither holds one",
             accepted="every run type, and a LEGACY row",
         ),

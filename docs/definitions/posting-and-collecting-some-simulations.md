@@ -26,7 +26,9 @@ every simulation:
 
 Each product left is named with its reason under `partial.not_rebuilt` in
 `products.json`, beside `partial.sims`, and in one WARNING line of `post.log`.
-`campaign_sweep.csv` is written by the run, not by the post.
+`campaign_sweep.csv` is written by the run. A post changes only its `IDENTIFIERS` columns, for
+every POL the current matrix holds, the simulations not named included; a POL the matrix no
+longer holds keeps what the table says of it, and a run keeps those columns as it found them.
 
 `pyfs-matrix post <matrix>` without `--sims` reads the RUN cell of the
 matrix's rows: a simulation whose rows state RUN = 0 keeps its product files

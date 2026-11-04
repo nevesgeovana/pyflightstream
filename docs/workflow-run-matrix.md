@@ -345,16 +345,19 @@ plan current and the scripts as they were, and launches nothing, whatever else
 the row states: the matrix is compared with its plan with the key taken out, so
 every other edit is still seen. A plan written by an earlier release keeps
 working on the same matrix with the key added. The columns reach an already
-posted simulation with `pyfs-matrix post --sims <sim>`, or with `--archive` or
-`--force-overwrite` for all of them, with no solver; a post with no option finds
-nothing to rebuild, writes nothing and names `--sims` in its line.
+posted simulation with `pyfs-matrix post <matrix> --sims <sim>`, whatever its RUN states, or with
+`--archive` or `--force-overwrite --yes` for every RUN = 1 simulation, with no solver. A post with
+no option rebuilds no simulation already posted, and its line names `--sims`: when nothing is
+pending it writes nothing.
 
 A comma ends a pair, so neither a name nor a value holds one. A slash and a colon
 stay in a value, since the reader does not split inside the braces. A pipe ends
 the cell, so a row holding one in a value has the wrong number of cells and is
 refused as any such row is. A value that cannot be read warns and that row states
-none, and nothing else of it changes. The key written twice in one cell is refused
-as any key is.
+none, and nothing else of it changes; so does the key written twice in one cell. Text after
+the closing brace with no slash is not read and is warned by name. A value holding another
+`NAME:value` after a slash is written as that text and warned, and a variable spelled nearly as
+`IDENTIFIERS` is warned, since it writes no column and the run reads it. An empty value reads `NA`.
 
 ## From a filled-in matrix to results, in one call
 

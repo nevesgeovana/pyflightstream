@@ -12,6 +12,7 @@ import dataclasses
 import json
 import re
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -487,6 +488,7 @@ def test_p0550_the_sweep_table_carries_each_row_s_own_and_follows_the_matrix(tmp
     workspace, matrix = _superfile_campaign(tmp_path)
     sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
     sweep.parent.mkdir(parents=True, exist_ok=True)
+    sweep.parent.mkdir(parents=True, exist_ok=True)
     write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
     write_campaign_products(workspace, matrix_stem="matriz")
     header, rows = _table(sweep)
@@ -508,6 +510,7 @@ def test_p0550_the_sweep_table_carries_each_row_s_own_and_follows_the_matrix(tmp
 def test_p0550_the_sweep_table_keeps_the_identifiers_of_a_polar_the_matrix_left(tmp_path):
     workspace, matrix = _superfile_campaign(tmp_path)
     sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
     sweep.parent.mkdir(parents=True, exist_ok=True)
     write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
     write_campaign_products(workspace, matrix_stem="matriz")
@@ -685,30 +688,19 @@ def test_p0550_a_column_the_frame_lost_is_no_identifier(tmp_path):
     assert target.read_bytes() == plain
 
 
-def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path, monkeypatch):
-    from pyflightstream import _textio
-
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows locks a file held open")
+def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path):
     workspace = _three_sims(tmp_path)
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     matrix = find_matrix(workspace.root, "matriz")
     _state(matrix, {"6001": STATED})
     sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
     write_table(
         sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
     )
-    real = _textio.atomic_text
-
-    def locked(path, *args, **kwargs):
-        if Path(path).name == "campaign_sweep.csv":
-            raise PermissionError(13, "locked", str(path))
-        return real(path, *args, **kwargs)
-
-    monkeypatch.setattr(_textio, "atomic_text", locked)
-    with pytest.warns(PyflightstreamWarning, match="not updated"):
-        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    monkeypatch.undo()
-    document = json.loads((workspace.products_dir("matriz") / "products.json").read_text("utf-8"))
-    assert "campaign_sweep.csv" in document["skipped"]
+    with sweep.open("rb"), pytest.warns(PyflightstreamWarning, match="not updated"):
+        write_campaign_products(workspace, matrix_stem="matriz")
+    assert sweep.is_file(), "a table held open is warned, never retired"
 
 
 @pytest.mark.parametrize(
@@ -822,3 +814,12 @@ def test_p0550_post_sims_with_a_new_name_leaves_the_others_lacking_it(tmp_path):
     assert "NEW" not in _table(supers["6002"])[0]
     document = json.loads((workspace.products_dir("matriz") / "products.json").read_text("utf-8"))
     assert supers["6002"].name in json.dumps(document["partial"]["not_rebuilt"])
+
+
+def test_p0550_the_guide_says_how_the_columns_reach_a_posted_simulation():
+    from pyflightstream.cases.workflows import _vocabulary
+
+    text = repr(vars(_vocabulary))
+    at = text.index("Columns of every table the post writes for this row")
+    assert "--sims" in text[at : at + 320]
+    assert "next post" not in text[at : at + 320]

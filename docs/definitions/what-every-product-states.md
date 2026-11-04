@@ -43,8 +43,11 @@ of a matrix hold one header, and the campaign sweep table carries each row's own
 table that opens without `POL`, the acoustic tables, holds its simulation's as its last
 columns. A name a table already holds as its own column (`ALPHA`, `POL`) keeps the table's
 value in that table and is warned once; another table takes the column. A post limited to some
-simulations leaves the others' files as they are, so they keep what they state, and writes
-its own under their header, reading `NA` for what its row does not state.
+simulations leaves the others' super files as they are, so they keep what they state until they
+are posted. Its own hold the others' columns too, reading `NA` for what its row does not state, and
+any name its rows newly state, which the others lack until a whole post; `partial.not_rebuilt`
+names them. An empty value reads `NA`. The sweep table keeps what it held for a POL the matrix no
+longer has.
 
 These files carry no identifier, for the reason given:
 
@@ -121,21 +124,22 @@ table does not establish agreement. See the single
 
 The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
-`probes/<point>_plots.csv` states NO condition, on purpose: after `POL` it is the
-export's own header, and the reductions read every column after `POL` back as a
-plotted quantity.
+`probes/<point>_plots.csv` states NO condition, on purpose: after `POL` and any `IDENTIFIERS`
+columns it is the export's own header, and the reductions read every one of those columns back
+as a plotted quantity.
 
-**The settings table opens with `POL` and the run id, and its other columns are codes.**
+**The settings table opens with `POL`, what the row states as `IDENTIFIERS`, and the run id, and its other columns are codes.**
 `settings/<matrix>_settings.csv` is the solver settings of every recorded point as one
 numeric table, written by default and switched off by `[products] settings_codebook = false`. It
-opens with `POL` and `RUN_ID`, the key of its row, and then holds the WIDE form of the
+opens with `POL` and `RUN_ID`, the key of its row, with any `IDENTIFIERS` columns between them, and then holds the WIDE form of the
 [settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value`,
 `f<id>_prov` and `f<id>_kind` for every flag, each a number or `NA`, the kind being the value kind
 code that tells a list's length from an enumeration code where both read 1; the legend of the codes is the codebook beside
 it, `settings/<matrix>_settings.codebook.json`. A point whose record holds no solver-setup snapshot
 has no row, and `post.log` names it in one INFO line; it is not a recorded skip. With no snapshot
 anywhere neither file is written. The table spans the whole matrix, so a post limited to some simulations
-does not rebuild it. Both files are listed with kind `settings_codebook`.
+rewrites it with the named simulations' rows and every other simulation's rows the last table held, each
+row's `IDENTIFIERS` read from the current matrix. Both files are listed with kind `settings_codebook`.
 
 <a id="the-placement-check-of-a-coupled-blade"></a>
 

@@ -678,5 +678,10 @@ def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
         held = sweep_identifiers_held(path)
         state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)})
     except OSError as error:
-        ctx.skipped[SWEEP_TABLE_NAME] = f"the identifiers did not reach it: {error}"
-        warn(f"{path} not updated: {error}", PyflightstreamWarning, stacklevel=2)
+        # Not a skipped product: a name listed there is retired, which would delete this table.
+        warn(
+            f"{path} not updated: {error}. Its IDENTIFIERS columns arrive at the next post with "
+            "the file closed.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )

@@ -199,12 +199,12 @@ form; the library writer `write_settings_table` still offers both forms (`wide=T
 and the long form, one row per setting per point).
 
 The campaign table opens with two text columns, `POL` and `RUN_ID`, the polar and the run id
-that key its row, as every table of the post opens with its polar; every other cell is a code, a number
-or `NA`. The codebook is the library's own, unchanged. The library writer takes the same two columns
+that key its row, as every table of the post opens with its polar; any `IDENTIFIERS` columns stand
+between those two and hold text; every other cell is a code, a number or `NA`. The codebook is the library's own, unchanged. The library writer takes the same two columns
 as its `keys=` argument (wide form only), and `read_settings_table` returns them as text.
 A point whose record holds no snapshot has no row, never a blank one: `post.log` carries
 one INFO line naming it. It is not a recorded skip, so a workspace whose records predate the
 snapshot is not made to fail `--strict`. With no snapshot in the matrix neither file is
 written, and `post.log` says so once.
-A post limited to some simulations (`--sims`) does not rebuild the pair, whose rows
-span the whole matrix, and names it under `partial.not_rebuilt`.
+A post limited to some simulations (`--sims`) rewrites the pair with the named simulations' rows and
+every other simulation's rows the last table held, and names it under `partial.not_rebuilt`.
