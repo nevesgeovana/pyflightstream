@@ -15,7 +15,9 @@ FlightStream versions.
   every sheet's filaments. A row whose lines were one sheet is unchanged. A group of lines that
   cannot be traced is warned and skipped, naming its line count and value sum, and a wake that
   ends before the plane writes the row `NA` and states the `distance_bref` that would reach
-  (FR-3571 to FR-3577).
+  (FR-3571 to FR-3577). A run of first nodes that closes into a ring (the rim of a base or a
+  nacelle) is traced as a closed sheet, its circulation accumulated around the ring with its mean
+  removed (FR-3578 to FR-3581).
 
 ## [0.55.0] - 2026-11-04
 

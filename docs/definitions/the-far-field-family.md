@@ -329,7 +329,15 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   of their nearest-neighbour distances, so a dense rim is never taken into a sparse trailing
   edge. The open sheets are cut at the one plane and traced together: the strips of each
   sheet are bounded by its own crossings, and the normalwash at every strip comes from the
-  filaments of every sheet. The rows are `FAMILY = sheet1`, `sheet2`, and so on, numbered
+  filaments of every sheet. A run of first nodes that closes on itself (its two ends as close as
+  its consecutive nodes, at least four lines) is a ring, the rim of a base or of a nacelle. A
+  ring is walked once around, its strips lie between consecutive crossings and the last
+  crossing closes to the first, and its values must sum to zero as a full sheet's do. The
+  circulation accumulated around the ring has its mean removed, so the result does not depend
+  on where the walk starts. On a mirror half the ring is reflected once, as a sheet is. The
+  induced drag of a ring is the drag of the trailing vorticity of that rim in the Trefftz
+  plane; the pressure drag of the base is not this drag and is not in it. A ring whose values
+  do not sum to zero is warned and skipped. The rows are `FAMILY = sheet1`, `sheet2`, and so on, numbered
   from the sheet whose first nodes have the smallest mean `x` (the one upstream), and the
   `net` row, which holds all traced sheets together. The sheet rows give `CL_T`, `CDI_T`
   (under the wash of every sheet) and `CDI_T_ISOLATED` (under its own filaments only); they

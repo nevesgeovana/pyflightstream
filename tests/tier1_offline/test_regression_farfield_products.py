@@ -4597,3 +4597,123 @@ def test_pfs2187_21_an_unsteady_rotor_row_traces_its_sheets_beside_the_rotor_wak
         nets.append((float(b[2]["CL_T"]), float(b[2]["GAMMA_SCALE"])))
     # the rotor's blade lift is excluded from the calibration, as for one sheet
     assert nets[0] == pytest.approx(nets[1])
+
+
+def _pfs2187_ring(n=12, centre=(1.0, 0.0), radius=0.15, x0=2.0, end=30.0, offset=0.0):
+    """A ring of wake lines on a circle: the lines, the shed values, and the strips' circulation."""
+    theta = 2.0 * math.pi * np.arange(n) / n
+    ey = centre[0] + radius * np.cos(theta)
+    ez = centre[1] + radius * np.sin(theta)
+    gamma = offset + 0.3 * np.sin(theta + math.pi / n) + 0.1 * np.cos(2.0 * theta + 0.4)
+    shed = -(gamma - np.roll(gamma, 1))
+    lines = [
+        np.array([(x0, y, z), (0.5 * (x0 + end), y, z), (end, y, z)])
+        for y, z in zip(ey, ez, strict=True)
+    ]
+    return lines, shed, (ey, ez, gamma)
+
+
+def _pfs2187_direct_ring(edges, rho, speed):
+    """Lift and drag of open and closed sheets by the page's equations, strip by strip."""
+    filaments = []
+    for ey, ez, gamma, closed in edges:
+        shed = (
+            gamma - np.roll(gamma, 1) if closed else np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+        )
+        filaments += [(y, z, s) for y, z, s in zip(ey, ez, shed, strict=True)]
+    lift = drag = 0.0
+    for ey, ez, gamma, _closed in edges:
+        n = len(gamma)
+        for j in range(n):
+            a, b = j, (j + 1) % len(ey)
+            ym, zm = 0.5 * (ey[a] + ey[b]), 0.5 * (ez[a] + ez[b])
+            dy, dz = ey[b] - ey[a], ez[b] - ez[a]
+            v = w = 0.0
+            for y, z, s in filaments:
+                r2 = (ym - y) ** 2 + (zm - z) ** 2
+                f = -s / (2.0 * math.pi * r2)
+                v += f * -(zm - z)
+                w += f * (ym - y)
+            drag += -0.5 * rho * gamma[j] * (-dz * v + dy * w)
+            lift += rho * speed * gamma[j] * dy
+    return lift, drag
+
+
+@pytest.mark.requirement("FR-3578")
+def test_pfs2187_21_a_base_rim_is_traced_as_a_ring_beside_the_wing(tmp_path):
+    """Lines starting on a rim close a ring: traced with the wing, whatever order the file lists."""
+    wing, wing_shed, _ = _pfs2187_sheet_lines()
+    ring, ring_shed, (ey, ez, ring_gamma) = _pfs2187_ring(offset=5.0)
+    order = np.random.default_rng(3).permutation(len(ring))
+    lines = [*wing[:17], *[ring[k] for k in order]]
+    values = np.concatenate([wing_shed[:17], ring_shed[order]])
+    rows, _ctx = _pfs2187_b_rows(tmp_path, lines, values)
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["N_TRACE"] for row in rows] == ["16", "12", "28"]
+    wing_nodes = np.linspace(-2.0, 2.0, 17)
+    wing_gamma = np.sqrt(1.0 - ((wing_nodes[:-1] + 0.125) / 2.0) ** 2)
+    lift, drag = _pfs2187_direct_ring(
+        [
+            (wing_nodes, np.zeros(17), wing_gamma, False),
+            (ey, ez, ring_gamma - ring_gamma.mean(), True),
+        ],
+        1.225,
+        30.0,
+    )
+    q_s = 0.5 * 1.225 * 30.0 * 30.0 * 4.0
+    k = float(rows[2]["GAMMA_SCALE"])
+    assert float(rows[2]["CL_T"]) == pytest.approx(k * lift / q_s, rel=2e-5)
+    assert float(rows[2]["CDI_T"]) == pytest.approx(k * k * drag / q_s, rel=2e-5)
+
+
+@pytest.mark.requirement("FR-3579")
+def test_pfs2187_21_a_ring_does_not_depend_on_where_its_walk_starts():
+    """The circulation of a ring has its mean removed: a constant added to it changes nothing."""
+    from pyflightstream.farfield import SheetCrossings, sheet_forces
+
+    results = []
+    for offset in (0.0, 7.0):
+        lines, shed, (ey, ez, _gamma) = _pfs2187_ring(offset=offset)
+        for start in (0, 5):
+            roll = np.roll(np.arange(len(ey)), -start)
+            crossing = SheetCrossings(
+                y=ey[roll], z=ez[roll], values=shed[roll], closed=True, index=roll, short=0
+            )
+            out = sheet_forces([crossing], rho=1.225, v_inf=30.0)
+            results.append((out.lift, out.side_force, out.induced_drag))
+            assert abs(float(out.gamma.mean())) < 1e-12
+    for other in results[1:]:
+        assert other == pytest.approx(results[0], rel=1e-9, abs=1e-12)
+
+
+@pytest.mark.requirement("FR-3580")
+def test_pfs2187_21_a_ring_of_a_mirror_model_is_reflected_once():
+    """A ring of the exported half has its image across y = 0: lift doubled, side force gone."""
+    from pyflightstream.farfield import SheetCrossings, sheet_forces
+
+    _lines, shed, (ey, ez, _gamma) = _pfs2187_ring(centre=(-1.5, 0.0))
+    crossing = SheetCrossings(
+        y=ey, z=ez, values=shed, closed=True, index=np.arange(len(ey)), short=0
+    )
+    alone = sheet_forces([crossing], rho=1.225, v_inf=30.0)
+    both = sheet_forces([crossing], rho=1.225, v_inf=30.0, mirror=True)
+    assert both.lift == pytest.approx(2.0 * alone.lift, rel=1e-9)
+    assert both.side_force == pytest.approx(0.0, abs=1e-9 * abs(alone.lift))
+    gamma_ring = alone.gamma
+    assert sorted(both.gamma[: len(gamma_ring)]) == pytest.approx(sorted(gamma_ring))
+    assert sorted(both.gamma[len(gamma_ring) :]) == pytest.approx(sorted(gamma_ring))
+
+
+@pytest.mark.requirement("FR-3581")
+def test_pfs2187_21_a_rim_whose_values_do_not_close_is_warned_and_left_out(tmp_path):
+    """A ring whose values sum to something other than zero names that sum and is skipped."""
+    wing, wing_shed, _ = _pfs2187_sheet_lines()
+    ring, ring_shed, _ = _pfs2187_ring()
+    ring_shed = ring_shed + 0.05
+    rows, ctx = _pfs2187_b_rows(
+        tmp_path, [*wing[:17], *ring], np.concatenate([wing_shed[:17], ring_shed])
+    )
+    assert [row["FAMILY"] for row in rows] == ["net"]
+    (said,) = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
+    assert "12 wake lines, with values summing to 0.6, are left out" in said
+    assert "close into a ring but its values sum to 0.6 rather than zero" in said

@@ -845,11 +845,7 @@ def _sheet_crossings(
 ) -> tuple[list[SheetCrossings] | None, str | None, int]:
     """Split the lines into sheets and cut each at the plane: crossings, a problem, short lines."""
     sheets, left_out = split_wake_sheets(lines, values, mirror=mirror)
-    # Rings (the rims of bases) are traced by a later behaviour; until then they are left out.
-    traced = [sheet for sheet in sheets if not sheet.closed]
-    for sheet in sheets:
-        if sheet.closed:
-            left_out.append((sheet.index, "its first nodes close into a ring, which is not traced"))
+    traced = sheets
     for members, why in left_out:
         _skip(
             ctx,
