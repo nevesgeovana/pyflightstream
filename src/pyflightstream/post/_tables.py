@@ -1079,7 +1079,8 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     header, rows = read_csv_table(path)
     # Identifier columns stand between POL and the export's own, which opens on its clock; none
     # of them is a plotted quantity, and one may be text.
-    first = header.index(_PLOTS_STEP_COLUMN) if _PLOTS_STEP_COLUMN in header else 0
+    clocks = (_PLOTS_STEP_COLUMN, *_TIME_COLUMNS)
+    first = min((header.index(name) for name in clocks if name in header), default=0)
     columns = tuple(name for name in header[first:] if name != POLAR_ID_COLUMN)
     if not rows:
         raise ProductError(f"{path} holds a header and no rows; a plots table has a time step")

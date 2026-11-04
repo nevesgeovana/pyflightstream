@@ -813,6 +813,16 @@ def test_p0550_a_plots_table_read_outside_the_post_holds_no_label(tmp_path):
         assert "FLAP" not in columns
 
 
+def test_p0550_a_plots_table_clocked_by_its_time_alone_holds_no_label(tmp_path):
+    """REL55-4: an export with no Time-step opens on Time (sec), and a text label raised."""
+    from pyflightstream.post.products import plots_table_series
+
+    table = tmp_path / "AL-020_plots.csv"
+    table.write_text("POL,FLAP,Time (sec),CL\n7001,up,0.0,1.0\n7001,up,0.1,2.0\n", encoding="utf-8")
+    columns, _series = plots_table_series(table)
+    assert columns == ("Time (sec)", "CL")
+
+
 def test_p0550_a_table_with_no_rows_still_carries_the_columns(tmp_path):
     with stated_identifiers({"7001": {"A": "1"}}), tables_of_polar("7001"):
         columns, rows = stamped_table(tmp_path / "t.csv", ["POL", "X"], [])
