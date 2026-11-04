@@ -183,7 +183,6 @@ def march_strategy(
                 )
             )
         )
-        and (entry.variant != "wake" or select_workflow(case) == "unsteady_rotor")
         for entry in case.pproc.farfields
     ):
         wanted.append(("the far-field averaging window", 'use export_type = "last_step"'))

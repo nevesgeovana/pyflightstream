@@ -4717,3 +4717,39 @@ def test_pfs2187_21_a_rim_whose_values_do_not_close_is_warned_and_left_out(tmp_p
     (said,) = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
     assert "12 wake lines, with values summing to 0.6, are left out" in said
     assert "close into a ring but its values sum to 0.6 rather than zero" in said
+
+
+@pytest.mark.requirement("FR-3583")
+def test_pfs2187_21_an_unsteady_row_without_a_rotor_writes_b_for_its_last_step(tmp_path):
+    """The unsteady row writes the sheets of its last step in the instant table, no W."""
+    lines, values, _edges = _pfs2187_sheet_lines()
+    _p0470_post_rotor_wake(tmp_path, lines, values, rotor=False, recipe="unsteady")
+    (path,) = (tmp_path / "post" / "farfield").glob("*_trefftz_instant.csv")
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["VARIANT"] for row in rows] == ["B", "B", "B"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+
+
+@pytest.mark.requirement("FR-3584")
+def test_pfs2187_21_an_unsteady_row_without_a_rotor_averages_b_over_its_window(tmp_path):
+    """avg_window on an unsteady row: B at each window step and the average, sheet by sheet."""
+    lines, values, _edges = _pfs2187_sheet_lines()
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=False)
+    ctx.pproc = PprocSpec.model_validate(
+        {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 2}]}
+    )
+    record = ctx.record_of["point"]
+    record.recipe = "unsteady"
+    record.stopped_at = {"step": 2}
+    record.export_window = None
+    for step in (1, 2):
+        (tmp_path / f"point_iteration={step}.vtk").write_text("surface", encoding="utf-8")
+        (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
+            _p0470_wake_vtk(lines, values), encoding="utf-8"
+        )
+    farfield_products(cast("Any", ctx))
+    (path,) = (tmp_path / "post" / "farfield").glob("*_trefftz_average.csv")
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["FAMILY"] for row in rows if row["VARIANT"] == "B"] == ["sheet1", "sheet2", "net"]

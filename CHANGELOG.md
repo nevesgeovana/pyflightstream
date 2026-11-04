@@ -17,7 +17,9 @@ FlightStream versions.
   ends before the plane writes the row `NA` and states the `distance_bref` that would reach
   (FR-3571 to FR-3577). A run of first nodes that closes into a ring (the rim of a base or a
   nacelle) is traced as a closed sheet, its circulation accumulated around the ring with its mean
-  removed (FR-3578 to FR-3581).
+  removed (FR-3578 to FR-3581). Trefftz B applies to an unsteady row without a rotor: the plan
+  exports the wake with the surface VTK, and the post writes B for the last step and its window
+  average (FR-3582 to FR-3584).
 
 ## [0.55.0] - 2026-11-04
 

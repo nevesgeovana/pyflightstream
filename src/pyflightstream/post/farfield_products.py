@@ -1078,9 +1078,12 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
 
 
 def _wake_rotor_products(
-    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str
+    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str, *, rotor: bool = True
 ) -> None:
-    """B on the non-rotor lines and the rotors' wake loads: final, and the window average."""
+    """B on the non-rotor lines and the rotors' wake loads: final, and the window average.
+
+    On an unsteady row without a rotor the same stage writes B alone.
+    """
     final = _final_wakes(ctx, point)
     runs = ctx.sources[point.name]
     if run_type == "qsteady_rotor":
@@ -1094,7 +1097,9 @@ def _wake_rotor_products(
         _note_one_clocking(ctx, point, variant="wake_loads", label="W wake")
         rows = _variant_w(ctx, point, final)
     else:
-        rows = _variant_b(ctx, point, final, rotor=True) + _variant_w(ctx, point, final)
+        rows = _variant_b(ctx, point, final, rotor=rotor) + (
+            _variant_w(ctx, point, final) if rotor else []
+        )
     if run_type not in UNSTEADY_RUN_TYPES:
         tables.extend("trefftz", point.name, ff._named(ctx, [final]), rows, runs=runs)
         return
@@ -1128,7 +1133,9 @@ def _wake_rotor_products(
     if not steps or any(step not in wakes or not wakes[step].is_file() for step in steps):
         _skip(ctx, key, point.name, "the wake average needs a wake export at every window step")
         return
-    samples = [_wake_step_rows(ctx, point, wakes[step], loads.get(step)) for step in steps]
+    samples = [
+        _wake_step_rows(ctx, point, wakes[step], loads.get(step), rotor=rotor) for step in steps
+    ]
     first = 3 + len(CONTEXT_COLUMNS)
     identities = [[row[first : first + 2] for row in sample] for sample in samples]
     if not all(samples) or any(identity != identities[0] for identity in identities):
@@ -1157,7 +1164,9 @@ def _wake_rotor_products(
     )
 
 
-def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None) -> list:
+def _wake_step_rows(
+    ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None, *, rotor: bool = True
+) -> list:
     """Use a wake snapshot's own loads for calibration and near-field comparisons."""
     try:
         if loads is None:
@@ -1172,8 +1181,8 @@ def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path 
             f"near-field comparisons and B calibration are NA for this step: {error}",
         )
     sampled = replace(point, loads=report)
-    return _variant_b(ctx, sampled, wake, rotor=True, spanwise=False) + _variant_w(
-        ctx, sampled, wake
+    return _variant_b(ctx, sampled, wake, rotor=rotor, spanwise=False) + (
+        _variant_w(ctx, sampled, wake) if rotor else []
     )
 
 
@@ -1849,8 +1858,8 @@ def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
         read: list[Path | None] = []
         if "trefftz:sections" in analyses:
             _sections_products(ctx, point, tables, run_type)
-        if "trefftz:wake" in analyses and rotor:
-            _wake_rotor_products(ctx, point, tables, run_type)
+        if "trefftz:wake" in analyses and (rotor or run_type in UNSTEADY_RUN_TYPES):
+            _wake_rotor_products(ctx, point, tables, run_type, rotor=rotor)
         elif "trefftz:wake" in analyses:
             steady_rows += _variant_b(ctx, point, _final_wakes(ctx, point))
             vtk = _output(ctx, point, "vtk")

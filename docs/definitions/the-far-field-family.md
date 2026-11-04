@@ -101,8 +101,8 @@ The window ends at the last recorded step and clips to the run if longer.
 Multiple entries export the union of their windows. Other per-step products
 retain the row's export threshold. The average is the mean of the per-step
 analysis results, and is skipped if any window snapshot is missing.
-B retains its steady-only applicability on rows without a rotor; on
-`unsteady_rotor` its window exports the surface VTK with the wake at every step.
+B applies to steady rows and to unsteady rows, with or without a rotor; under a window it
+exports the surface VTK with the wake at every step.
 
 `"export_window"` takes the window from the row instead: `EXPORT_UNSTEADY_LAST_ITER`
 (steps) or `EXPORT_UNSTEADY_LAST_REV` (turns of the rotor clock), and exports the same
@@ -361,8 +361,8 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   line is assigned to the wing. This geometric selection cannot establish
   unique ownership where rotor selection regions overlap. A row whose every line
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
-  reads every line, as before. On `unsteady_rotor`, B is written for the last
-  step and, under `"avg_window"`, averaged over the window steps.
+  reads every line, as before. On an unsteady row, with or without a rotor, B is
+  written for the last step and, under `"avg_window"`, averaged over the window steps.
   Its lift calibration uses only the non-rotor families' near-field lift,
   excluding the rotor families through the reference's family and alias resolver.
   Missing non-rotor lift leaves the calibrated coefficients unavailable.
@@ -899,7 +899,7 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | steady rotor | nonrotor families | nonrotor lines; W per rotor | configuration plane | yes |
 | `unsteady_rotor` | nonrotor families | nonrotor lines; W per rotor; instant and average | configuration plane, instant and average | instant and average |
 | `qsteady_rotor` | no, warned and skipped | B skipped; W at the final solve | configuration plane, in the hub frame | yes, in the hub frame |
-| unsteady, fixed wing | yes | no | instant and average | instant and average |
+| unsteady, fixed wing | yes | yes; instant and average | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
 A refuses any selection, including selector words, that resolves to a rotor
