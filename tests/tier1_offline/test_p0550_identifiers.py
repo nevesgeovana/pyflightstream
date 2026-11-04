@@ -16,9 +16,10 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream.cases._matrix_identifiers import matrix_run_digests
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.results.tables import sweep_table, write_table
+from pyflightstream.results.tables import sweep_table, write_sweep_table, write_table
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -627,3 +628,94 @@ def test_p0550_the_installed_copy_carries_them_turning_none_and_naming_none(tmp_
     assert {row["CYAW"] for row in copy[1]} == {"3"}, "the mirror turned a label"
     log = (out / "post.log").read_text(encoding="utf-8")
     assert not [line for line in log.splitlines() if "RUNLABEL" in line and "installed" in line]
+
+
+# ------------------------------------------------------------------ the review's cases
+
+
+def test_p0550_a_column_the_frame_lost_is_no_identifier(tmp_path):
+    workspace = _three_sims(tmp_path)
+    frame = sweep_table(workspace, require_loads=False, matrix_stem="matriz")
+    target = tmp_path / "sweep.csv"
+    write_table(frame, target, overwrite=True)
+    plain = target.read_bytes()
+    rows = list(csv.reader(target.read_text(encoding="utf-8").splitlines()))
+    rows[0].append("CL_GONE")
+    for row in rows[1:]:
+        row.append("0.5")
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        csv.writer(handle, lineterminator="\n").writerows(rows)
+    write_sweep_table(frame, target)
+    assert target.read_bytes() == plain
+
+
+def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path, monkeypatch):
+    from pyflightstream import _textio
+
+    workspace = _three_sims(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    matrix = find_matrix(workspace.root, "matriz")
+    _state(matrix, {"6001": STATED})
+    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
+    write_table(
+        sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
+    )
+    real = _textio.atomic_text
+
+    def locked(path, *args, **kwargs):
+        if Path(path).name == "campaign_sweep.csv":
+            raise PermissionError(13, "locked", str(path))
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(_textio, "atomic_text", locked)
+    with pytest.warns(PyflightstreamWarning, match="not updated"):
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    monkeypatch.undo()
+    document = json.loads((workspace.products_dir("matriz") / "products.json").read_text("utf-8"))
+    assert "campaign_sweep.csv" in document["skipped"]
+
+
+@pytest.mark.parametrize(
+    "edited",
+    [
+        " OUTPUTS: a/IDENTIFIERS:{X:1} / RECIPE: 003",
+        " OUTPUTS: a / IDENTIFIERS:{X:1}/RECIPE: 003",
+        "IDENTIFIERS:{X:1} / OUTPUTS: a / RECIPE: 003",
+        " OUTPUTS: a / IDENTIFIERS: {X:1} / RECIPE: 003",
+    ],
+)
+def test_p0550_an_identifier_in_any_spacing_keeps_the_plan_s_digest(tmp_path, edited):
+    plain = _one_row(tmp_path, "OUTPUTS: a / RECIPE: 003")
+    recorded = matrix_run_digests(plain)[0]
+    text = plain.read_text(encoding="utf-8")
+    assert (
+        text.count(" OUTPUTS: a / RECIPE: 003") == 1 or text.count("OUTPUTS: a / RECIPE: 003") == 1
+    )
+    plain.write_text(
+        text.replace("| OUTPUTS: a / RECIPE: 003", "|" + edited)
+        if "| OUTPUTS: a / RECIPE: 003" in text
+        else text.replace("OUTPUTS: a / RECIPE: 003", edited),
+        encoding="utf-8",
+    )
+    assert recorded in matrix_run_digests(plain)
+
+
+def test_p0550_a_spaced_edit_of_the_row_s_values_is_still_seen(tmp_path):
+    plain = _one_row(tmp_path, "OUTPUTS: a / RECIPE: 003")
+    recorded = matrix_run_digests(plain)[0]
+    text = plain.read_text(encoding="utf-8")
+    plain.write_text(
+        text.replace("RECIPE: 003", "IDENTIFIERS:{X:1} / RECIPE: 004"), encoding="utf-8"
+    )
+    assert recorded not in matrix_run_digests(plain)
+
+
+def test_p0550_a_comment_naming_the_column_does_not_move_the_digest(tmp_path):
+    plain = _one_row(tmp_path, "OUTPUTS: a / RECIPE: 003")
+    text = "# old | VAR_NAMES_VALUES | x\n" + plain.read_text(encoding="utf-8")
+    plain.write_text(text, encoding="utf-8")
+    recorded = matrix_run_digests(plain)[0]
+    plain.write_text(
+        text.replace("RECIPE: 003", "RECIPE: 003 / IDENTIFIERS: {X:1}"), encoding="utf-8"
+    )
+    assert recorded in matrix_run_digests(plain)

@@ -1084,7 +1084,7 @@ def write_sweep_table(frame: Table, path: str | Path) -> Path:
     Path
         The written file.
     """
-    held = sweep_identifiers_held(path, list(frame.columns))
+    held = sweep_identifiers_held(path)
     written = write_table(frame, path, overwrite=True)
     state_in_sweep_table(written, held)
     return written

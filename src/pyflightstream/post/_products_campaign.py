@@ -668,11 +668,15 @@ def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
     """Give the sweep table beside the products what the current matrix states (FR-3564).
 
     A point whose POL the matrix no longer holds keeps what the table says of it. With no matrix,
-    or a table that cannot be derived, the file stays as it is.
+    or a table that cannot be derived, the file stays as it is. A file that cannot be written, one
+    open in a spreadsheet, costs this table its columns and not the post.
     """
     if not ctx.rows_of_the_matrix or not ctx.sweep_rows:
         return
     path = ctx.workspace.sweep_dir(ctx.matrix_stem) / SWEEP_TABLE_NAME
-    own = next(iter(ctx.sweep_rows.values()))
-    held = sweep_identifiers_held(path, own)
-    state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)}, own)
+    try:
+        held = sweep_identifiers_held(path)
+        state_in_sweep_table(path, {**held, **_identifiers_of(ctx.rows_of_the_matrix)})
+    except OSError as error:
+        ctx.skipped[SWEEP_TABLE_NAME] = f"the identifiers did not reach it: {error}"
+        warn(f"{path} not updated: {error}", PyflightstreamWarning, stacklevel=2)

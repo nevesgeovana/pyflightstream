@@ -39,6 +39,9 @@ from pyflightstream._tokens import (
 #: The name of the table a matrix's records make, beside its products.
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
+#: The first column of that table past ``POL``, in every run it is written from.
+_SWEEP_FIRST_OWN = "run_id"
+
 
 @dataclass
 class _Scope:
@@ -318,15 +321,23 @@ def _read_sweep(path: Path) -> tuple[list[str], list[list[str]]] | None:
     return table[0], table[1:]
 
 
-def sweep_identifiers_held(path: str | Path, own: Collection[str]) -> dict[str, dict[str, str]]:
-    """Return what the sweep table at ``path`` says past its ``own`` columns, by polar.
+def _identifier_positions(header: Sequence[str]) -> range:
+    """Return where a post put identifiers in a sweep table: after ``POL``, before ``run_id``.
+
+    The position decides, not the name: the table's own columns vary from run to run (a
+    coefficient where the loads parse, an axis where a point states it), so a column one frame
+    lacks is not an identifier for that.
+    """
+    return range(1, header.index(_SWEEP_FIRST_OWN)) if _SWEEP_FIRST_OWN in header else range(0)
+
+
+def sweep_identifiers_held(path: str | Path) -> dict[str, dict[str, str]]:
+    """Return what the sweep table at ``path`` says in its identifier columns, by polar.
 
     Parameters
     ----------
     path : str or Path
         The sweep table.
-    own : collection of str
-        The columns the table has of its own, the rest being identifiers a post put there.
 
     Returns
     -------
@@ -337,17 +348,13 @@ def sweep_identifiers_held(path: str | Path, own: Collection[str]) -> dict[str, 
     if table is None:
         return {}
     header, rows = table
-    earlier = [at for at, name in enumerate(header) if name not in own]
+    earlier = list(_identifier_positions(header))
     return {
         row[0]: {header[at]: row[at] for at in earlier if row[at] != NOT_APPLICABLE} for row in rows
     }
 
 
-def state_in_sweep_table(
-    path: str | Path,
-    stated: Mapping[str, Mapping[str, str]],
-    own: Collection[str] | None = None,
-) -> None:
+def state_in_sweep_table(path: str | Path, stated: Mapping[str, Mapping[str, str]]) -> None:
     """Give the sweep table at ``path`` the columns of the identifiers ``stated``, by polar.
 
     The funnel's own rule, on a table the funnel does not write. A file already as it should be is
@@ -358,17 +365,15 @@ def state_in_sweep_table(
     path : str or Path
         The sweep table; one that does not exist or does not open with ``POL`` is left alone.
     stated : mapping of str to mapping of str to str
-        Each polar's identifiers, name to value.
-    own : collection of str, optional
-        The table's own columns; any other is taken out first. None for a file just written, which
-        holds no other.
+        Each polar's identifiers, name to value; what the file held there is replaced.
     """
     target = Path(path)
     table = _read_sweep(target)
     if table is None:
         return
     header, rows = table
-    kept = [at for at, name in enumerate(header) if own is None or name in own]
+    earlier = _identifier_positions(header)
+    kept = [at for at in range(len(header)) if at not in earlier]
     with stated_identifiers(stated):
         columns, written = stamped_table(
             target, [header[at] for at in kept], [[row[at] for at in kept] for row in rows]

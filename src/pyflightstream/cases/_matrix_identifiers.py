@@ -157,9 +157,23 @@ class _Line:
     ending: str
     #: The row's last cell held identifiers or is empty, so what follows it is not the row's.
     loose: bool
+    #: The line with the pairs around the removed key spaced as the matrix writes them.
+    spaced: str | None = None
 
-    def text(self, tail: str | None) -> str:
-        return self.body + (self.tail if tail is None or not self.loose else tail) + self.ending
+    def text(self, tail: str | None, spaced: bool = False) -> str:
+        body = self.spaced if spaced and self.spaced is not None else self.body
+        return body + (self.tail if tail is None or not self.loose else tail) + self.ending
+
+
+def _respaced(cell: str) -> str:
+    """Return a cell with its pairs spaced as the matrix writes them, for a key written tight."""
+    pairs: list[str] = []
+    at = 0
+    while at <= len(cell):
+        end = _pair_end(cell, at)
+        pairs.append(cell[at:end].strip())
+        at = end + 1
+    return " " + " / ".join(pair for pair in pairs if pair) + cell[len(cell.rstrip()) :]
 
 
 def _matrix_line(line: str, column: int | None) -> _Line:
@@ -175,12 +189,18 @@ def _matrix_line(line: str, column: int | None) -> _Line:
     body = joined.rstrip()
     empty = not cell.strip()
     tail = "" if values and empty else joined[len(body) :]
-    return _Line(body, tail, ending, bool(values) or empty)
+    spaced = None
+    if values and not empty:
+        cells[column] = _respaced(cell)
+        spaced = "|".join(cells).rstrip()
+    return _Line(body, tail, ending, bool(values) or empty, spaced)
 
 
 def _variables_column(lines: list[str]) -> int | None:
     """Return the index of the variables cell, or None where no line is the matrix header."""
     for line in lines:
+        if line.lstrip().startswith("#"):
+            continue
         names = [name.strip() for name in line.split("|")]
         if _VARIABLES_COLUMN in names:
             return names.index(_VARIABLES_COLUMN)
@@ -193,9 +213,9 @@ def matrix_run_digests(path: str | Path) -> tuple[str, ...]:
     Every digest is of the file with its identifiers removed. The first is what a plan records: a
     matrix with no identifiers gives the plain SHA-256 of its file there, as every plan has
     recorded. The others differ only in what follows the last cell of a row that held identifiers
-    or holds nothing, because taking the key away cannot tell what stood behind the pipe before it
-    was written. A plan is about this matrix when its digest is any of them; the file's other
-    bytes all count, so any other edit is seen.
+    or holds nothing, and in the spaces around the pairs beside a removed key, because taking the
+    key away cannot tell how the cell stood before it was written. A plan is about this matrix
+    when its digest is any of them; the file's other bytes all count, so any other edit is seen.
 
     Parameters
     ----------
@@ -219,7 +239,10 @@ def matrix_run_digests(path: str | Path) -> tuple[str, ...]:
     column = _variables_column(pieces)
     lines = [_matrix_line(piece, column) for piece in pieces]
     digests = (
-        hashlib.sha256("".join(line.text(tail) for line in lines).encode("utf-8")).hexdigest()
+        hashlib.sha256(
+            "".join(line.text(tail, spaced) for line in lines).encode("utf-8")
+        ).hexdigest()
+        for spaced in (False, True)
         for tail in _TAILS
     )
     return tuple(dict.fromkeys(digests))
