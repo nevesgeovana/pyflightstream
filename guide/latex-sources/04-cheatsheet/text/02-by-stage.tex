@@ -432,7 +432,7 @@ pyfs-matrix collect --workspace . --watch\par}
 On Linux with a profile the run submits every point and returns; collect then sweeps until nothing is outstanding. On Windows the same run executes the points here and needs no collect.
 
 \hd{The submission profile}
-One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need \fl{--hpc NAME} (else refused rather than guessed): the descriptor and its fields, the submit command, \texttt{[builds]} (the scheduler's name of each build, e.g. \texttt{"26.123" = "26.1"}), \texttt{[log]} (\texttt{export\_log}, \texttt{native\_log}, \texttt{job\_end\_files}) and \texttt{max\_walltime}.
+One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need \fl{--hpc NAME} (else refused rather than guessed): the descriptor and its fields, the submit command, \texttt{[builds]} (the scheduler's name of each build, e.g. \texttt{"26.123" = "26.1"}), \texttt{[application\_ids]} (the application name of a build where it differs from \texttt{application\_id}), \texttt{[log]} (\texttt{export\_log}, \texttt{native\_log}, \texttt{job\_end\_files}) and \texttt{max\_walltime}.
 
 \hd{A grouped run: one solver, many points}
 \fl{--batch N} or \fl{--polar-sweep} runs the jobs of the plan's receipt, refusing one made for another mode, N or selection, one with no job, or one whose job folders hold files: plan again. A polar's job is \file{sims/sim_<POL>/FULL-POLAR.txt}; a batch's is \file{BATCH-<first>-<last>.txt} in \file{sims/batch/<matrix>_b<ID>/}, the ID the package's. The job's clock replaces each point's WALLTIME. Every point is recorded \texttt{SUBMITTED}, also when the job runs here (one instance, one license, one job at a time): collect, then post. Not with \fl{--force-rerun}, \fl{--force-rerun-all} or \fl{--sweep-csv}.
@@ -442,7 +442,7 @@ One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need
 \begin{cmdblock}{pyfs-matrix run}{<matrix>}{Run every active point and write the sweep table.}
 \opt{--resume}{skip points already recorded, so a grown matrix runs only its new points; without it a recorded point refuses.}
 \opt{--force-rerun POINT}{REDO a recorded point, by point name, full run id or a steady row's job id (repeatable): the records and outputs are archived first, nothing is deleted.}
-\opt{--force-rerun-all}{REDO every recorded point; the count of points and jobs, the licenses it spends, prints first.}
+\opt{--force-rerun-all}{REDO every recorded point, SUBMITTED ones included; the count of points and jobs, the licenses it spends, prints first. It does not cancel an old job: cancel it in the scheduler first.}
 \opt{--sims SIM [SIM ...]}{run only these simulations, space separated (\texttt{2031 2032}); with \fl{--force-rerun-all}, redo only these.}
 \opt{--points POINT [POINT ...]}{with \fl{--sims}: run only these points, by the point name the plan prints; refused beside \fl{--force-rerun-all}.}
 \opt{--local}{run on THIS machine instead of submitting: a Linux workstation, or a smoke test.}

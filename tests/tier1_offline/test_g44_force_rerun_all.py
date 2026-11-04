@@ -342,3 +342,12 @@ def test_the_changelog_names_the_public_keyword_that_turns_the_refusal_off():
     text = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(encoding="utf-8")
     unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
     assert "redo_submitted=True" in unreleased
+
+
+def test_the_run_help_says_the_old_job_is_not_cancelled(capsys):
+    from pyflightstream.run._cli_parsers import _build_parser
+
+    with pytest.raises(SystemExit):
+        _build_parser().parse_args(["run", "--help"])
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "NOT cancelled" in help_text, help_text

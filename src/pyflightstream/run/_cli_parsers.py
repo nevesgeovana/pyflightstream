@@ -711,7 +711,9 @@ def _add_run_parsers(subparsers: Any) -> None:
         help="REDO every recorded point of the matrix, or of the simulations --sims names: "
         "each is archived as --force-rerun archives it and runs again, a recorded steady "
         "job as one job. The count of points and jobs, which is the licences it spends, is "
-        "printed before anything runs. Refused with --resume and with --force-rerun",
+        "printed before anything runs. A point recorded as SUBMITTED, or of a batch still "
+        "running, is redone too and its old job is NOT cancelled: cancel it in the "
+        "scheduler first. Refused with --resume and with --force-rerun",
     )
 
 

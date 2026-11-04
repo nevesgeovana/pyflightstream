@@ -105,7 +105,7 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{flags}
 \item \fl{--resume} skip points already recorded (a grown matrix runs only new points); without it a recorded point refuses
 \item \fl{--force-rerun POINT} REDO a recorded point (by point name, run\_id or steady JOB id; repeatable). Old records and outputs are archived, nothing deleted. Not with \fl{--resume}
-\item \fl{--force-rerun-all} REDO every recorded point (prints the license count first)
+\item \fl{--force-rerun-all} REDO every recorded point, SUBMITTED ones included (prints the license count first); it does not cancel an old job: cancel it in the scheduler first
 \item \fl{--sims SIM [SIM ...]} run only these simulations, space separated, e.g. \texttt{--sims 2031 2032}; with \fl{--force-rerun-all}, redo only these
 \item \fl{--points POINT [POINT ...]} with \fl{--sims}: run only these points, by the point name the plan prints (not with \fl{--force-rerun-all})
 \item \fl{--local} run on THIS machine instead of submitting (Linux workstation or smoke test)

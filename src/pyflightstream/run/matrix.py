@@ -892,7 +892,9 @@ def run_matrix(
         REDO every recorded point of the matrix (G44): each
         recorded point, and each recorded steady job as a whole, is archived
         and runs again, with the count of points and jobs said before
-        anything runs. Refused together with ``resume`` and with
+        anything runs. A point recorded as SUBMITTED, or of a batch whose job
+        has not ended, is redone with a warning; its old job is not cancelled.
+        Refused together with ``resume`` and with
         ``force_rerun``, and when nothing of the selection is recorded.
     progress_every : int
         How often a local unsteady point says its progress, in completed
