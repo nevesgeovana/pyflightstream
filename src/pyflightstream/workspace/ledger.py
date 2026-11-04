@@ -42,7 +42,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from pyflightstream.cases._matrix_identifiers import matrix_run_digests
+from pyflightstream.cases._matrix_identifiers import plan_measured
 from pyflightstream.cases.naming import (
     POINT_AXIS_KEYS,
     POINT_NAME_FIELDS,
@@ -291,6 +291,7 @@ class _Plan:
     run_ids: tuple[str, ...]
     matrix_sha256: str | None
     error: str | None
+    matrix_form_sha256: object = None
 
 
 @dataclass(frozen=True)
@@ -608,7 +609,8 @@ class Ledger:
             path = None
         if path is None:
             return "no matrix"
-        return "current" if plan.matrix_sha256 in matrix_run_digests(path) else "stale"
+        measured = plan_measured(plan.matrix_sha256, plan.matrix_form_sha256, path)
+        return "current" if measured else "stale"
 
 
 def check_status_words(statuses: Sequence[str], *, context: str = "statuses") -> None:
@@ -784,7 +786,14 @@ def _read_plan(path: Path) -> _Plan:
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         return _Plan(stem, {}, (), None, f"{type(error).__name__}: {error}")
     sha = payload.get("matrix_sha256")
-    return _Plan(stem, points, tuple(run_ids), sha if isinstance(sha, str) else None, None)
+    return _Plan(
+        stem,
+        points,
+        tuple(run_ids),
+        sha if isinstance(sha, str) else None,
+        None,
+        payload.get("matrix_form_sha256"),
+    )
 
 
 def _read_products(path: Path) -> dict[str, Any]:

@@ -206,6 +206,8 @@ def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
     text = re.sub(
         r'"((?:pyfs:)?(?:fs_exe|executable)_sha256)": "[0-9a-f]{64}"', r'"\1": "<EXE-SHA>"', text
     )
+    # The digest of a matrix, which names the workspace's own path, of no file on disk.
+    text = re.sub(r'"matrix_form_sha256": "[0-9a-f]{64}"', '"matrix_form_sha256": "<S>"', text)
     for digest, name in (digests or {}).items():
         text = text.replace(digest, f"<SHA:{name}>")
     text = text.replace(pyflightstream.__version__, "<V>")

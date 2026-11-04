@@ -34,6 +34,7 @@ KEYS_OF_034 = {
     "setup_inspections",
     "points",
     "matrix_sha256",
+    "matrix_form_sha256",
     "accept_unregistered_build",
 }
 JOB_KEYS = {

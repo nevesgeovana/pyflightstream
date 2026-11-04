@@ -1125,6 +1125,44 @@ def test_p0550_changing_identifiers_in_any_form_is_never_stale(tmp_path, stated)
 
 
 @pytest.mark.requirement("FR-3561")
+def test_p0550_rows_that_end_differently_keep_the_plan_when_the_key_is_added(tmp_path):
+    """REL55-1: of 59 real matrices, 18 went stale here: their rows do not all end alike."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    first = next(at for at, line in enumerate(lines) if line[:4].isdigit())
+    assert lines[first].split("|")[-1].strip(), "the fixture's first row states a variable"
+    lines[first] += " "
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+
+    keyed = _with_identifiers(matrix.read_text(encoding="utf-8"))
+    matrix.write_text(keyed, encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    assert read_ledger(workspace.root).freshness(matrix=matrix.stem)[0]["plan"] == "current"
+
+    matrix.write_text(keyed.replace("RPM: 1200", "RPM: 1300", 1), encoding="utf-8")
+    assert "changed since it was planned" in plan_receipt_error(workspace, matrix, matrix.stem)
+    assert read_ledger(workspace.root).freshness(matrix=matrix.stem)[0]["plan"] == "stale"
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_a_plan_of_an_earlier_release_holds_no_form_and_is_read_as_it_was(tmp_path):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    assert main(plan_args(workspace, matrix)) == 0
+    plan_file = workspace.plan_dir(matrix.stem) / "plan.json"
+    payload = json.loads(plan_file.read_text(encoding="utf-8"))
+    del payload["matrix_form_sha256"]
+    plan_file.write_text(json.dumps(payload), encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    matrix.unlink()
+    assert "changed since it was planned" in plan_receipt_error(workspace, matrix, matrix.stem)
+
+
+@pytest.mark.requirement("FR-3561")
 @pytest.mark.parametrize("behind", ["", " "], ids=["nothing", "one-space"])
 def test_p0550_a_row_whose_cell_was_empty_is_the_same_matrix_whatever_follows_its_pipe(
     tmp_path, behind

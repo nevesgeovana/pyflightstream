@@ -1131,6 +1131,8 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     captured[plan_name] = captured[plan_name].replace(
         pinned,
         pinned
+        # FR-3561: REL55-1's digest of the matrix whatever spaces end its rows.
+        + b'  "matrix_form_sha256": "<S>",\n'
         + b'  "instrument": {\n    "": {\n      "fs_exe": "<PYTHON>",\n'
         + b'      "fs_exe_sha256": "<EXE-SHA>"\n    }\n  },\n  "inputs_sha256": {},\n',
     )

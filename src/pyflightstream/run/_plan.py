@@ -81,8 +81,10 @@ from pyflightstream.run._identity import (
     _effective_build_contract,
     _instrument_or_inputs_changed,
     _plan_bindings,
+    matrix_form_digest,
     matrix_run_digest,
     matrix_run_digests,
+    plan_measured,
 )
 from pyflightstream.run._ids import (
     _point_names,
@@ -908,7 +910,7 @@ def plan_receipt_error(
             f"the plan at {plan_file} does not say which matrix it measured, so it "
             f"cannot be shown to be about this one. {PLAN_REQUIRED_MESSAGE}"
         )
-    if planned not in current:
+    if not plan_measured(planned, payload.get("matrix_form_sha256"), matrix_path):
         now = current[0] if current else None
         return (
             f"the matrix changed since it was planned: the plan at {plan_file} measured "
@@ -1141,6 +1143,7 @@ def plan_campaign(
     # F-603: the matrix the plan is built from is pinned BEFORE the dry builds,
     # so an edit made while they run is caught by the next run's comparison.
     matrix_digest = matrix_run_digest(matrix_path) if matrix_path else None
+    matrix_form = matrix_form_digest(matrix_path) if matrix_path else None
     # Before the first folder is allocated, for the reason run_campaign
     # states: a missing build is knowable up front, and discovering it
     # halfway leaves a plan that describes part of a campaign.
@@ -1221,6 +1224,8 @@ def plan_campaign(
             # Python and has no matrix to pin to; `run` asks for a plan
             # only where a matrix exists.
             "matrix_sha256": matrix_digest,
+            # FR-3561: the same matrix whatever spaces end its rows, which IDENTIFIERS move.
+            "matrix_form_sha256": matrix_form,
             # NL-EXEC-1, FR-1556: the instrument and the inputs a matrix plan measured.
             **_plan_bindings(campaign, workspace, matrix_path),
             # Plan launches no solver, so the flag changes no check here;

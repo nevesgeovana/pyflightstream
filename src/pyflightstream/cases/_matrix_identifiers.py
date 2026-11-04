@@ -11,6 +11,7 @@ which would change the run over a column that does nothing in it.
 :func:`matrix_run_digests` is what a matrix digests to for the run: the file with its identifiers
 removed, so editing one never makes a plan stale, and every other edit still does. A matrix with no
 identifiers digests to the plain digest of its file, which is what every earlier plan recorded.
+:func:`matrix_form_digest` is what a plan records beside it, for rows that end differently.
 """
 
 from __future__ import annotations
@@ -326,3 +327,74 @@ def matrix_run_digest(path: str | Path) -> str | None:
     """
     digests = matrix_run_digests(path)
     return digests[0] if digests else None
+
+
+def _formed_line(line: str, column: int | None) -> str:
+    """Return one line with its identifiers out, its pairs spaced one way and no end spaces."""
+    content = line.rstrip("\r\n")
+    cells = content.split("|")
+    if column is None or content.lstrip().startswith("#") or column >= len(cells):
+        return line
+    cell = take_identifiers(cells[column])[0]
+    pairs = []
+    at = 0
+    while at <= len(cell):
+        end = _pair_end(cell, at)
+        pairs.append(cell[at:end].strip())
+        at = end + 1
+    cells[column] = " " + " / ".join(pair for pair in pairs if pair)
+    return "|".join(cells).rstrip() + line[len(content) :]
+
+
+def matrix_form_digest(path: str | Path) -> str | None:
+    """Return the digest of what the matrix states for the run, whatever spaces surround it.
+
+    The file with its identifiers removed, the pairs of each row's cell spaced one way and no
+    space ending a row. Those spaces mean nothing to the reader, and taking a key away cannot tell
+    how they stood, row by row, where a person's editor left them: a digest of the file as found
+    answers only when every row ended alike. A plan records this beside ``matrix_sha256``.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix file.
+
+    Returns
+    -------
+    str or None
+        The digest; None when the file cannot be read.
+    """
+    try:
+        raw = Path(path).read_bytes()
+    except OSError:
+        return None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return hashlib.sha256(raw).hexdigest()
+    pieces = text.splitlines(keepends=True)
+    column = _variables_column(pieces)
+    formed = "".join(_formed_line(piece, column) for piece in pieces)
+    return hashlib.sha256(formed.encode("utf-8")).hexdigest()
+
+
+def plan_measured(planned: str, planned_form: object, path: str | Path) -> bool:
+    """Return whether a plan's digests are of the matrix at ``path`` as the run reads it.
+
+    Parameters
+    ----------
+    planned : str
+        The plan's ``matrix_sha256``.
+    planned_form : object
+        The plan's ``matrix_form_sha256``; a plan of an earlier release holds none.
+    path : str or Path
+        The matrix file.
+
+    Returns
+    -------
+    bool
+        True when either digest answers.
+    """
+    if planned in matrix_run_digests(path):
+        return True
+    return isinstance(planned_form, str) and planned_form == matrix_form_digest(path)
