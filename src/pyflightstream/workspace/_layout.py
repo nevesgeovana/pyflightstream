@@ -8,7 +8,9 @@ from pathlib import Path, PureWindowsPath
 
 from pydantic import BaseModel, ConfigDict
 
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import SimCase
+from pyflightstream.cases._matrix_identifiers import matrix_run_digests
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz, PprocArtifact
 from pyflightstream.workspace.manifest import WorkspaceError
@@ -94,8 +96,20 @@ def matrix_files(root: str | Path) -> list[Path]:
 
 
 def _one_of_both_homes(stem: str, first: Path, second: Path) -> None:
-    """Refuse one stem held in both homes with different bytes, naming both paths."""
+    """Refuse one stem held in both homes with different bytes, naming both paths.
+
+    Bytes that differ in ``IDENTIFIERS`` alone are one study (FR-3561): the first home's are read,
+    and the workspace is not refused over a column the run does not read.
+    """
     if first.read_bytes() != second.read_bytes():
+        if set(matrix_run_digests(first)) & set(matrix_run_digests(second)):
+            warn(
+                f"the matrix {stem} is in both homes of the workspace and they differ in their "
+                f"IDENTIFIERS alone: {first} and {second}. The post reads those of {first}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return
         raise WorkspaceError(
             f"the matrix {stem} is in both homes of the workspace with different content: "
             f"{first} and {second}. Which one is meant cannot be told; keep one, or make the "

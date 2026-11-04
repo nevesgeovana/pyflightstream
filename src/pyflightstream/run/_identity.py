@@ -37,6 +37,8 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
 )
+from pyflightstream.cases._matrix_identifiers import matrix_run_digest as matrix_run_digest
+from pyflightstream.cases._matrix_identifiers import matrix_run_digests as matrix_run_digests
 from pyflightstream.cases.matrix import MatrixRow, read_matrix, refuse_silent_rows_without_default
 from pyflightstream.results import (
     VersionMismatchWarning,

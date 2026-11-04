@@ -8,12 +8,14 @@ plan and run through the command line, is in ``test_run_cli.py``, beside its stu
 from __future__ import annotations
 
 import csv
+import shutil
 from pathlib import Path
 
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
+from pyflightstream.workspace import CampaignWorkspace, find_matrix
 
 STATED = "IDENTIFIERS: {FLAP:0,TESTE:10}"
 
@@ -113,3 +115,15 @@ def test_p0550_a_key_that_only_holds_the_word_is_a_variable(tmp_path):
     assert row.identifiers == {}
     assert row.variables["MY_IDENTIFIERS"] == "1"
     assert row.variables["IDENTIFIERS_X"] == "2"
+
+
+def test_p0550_identifiers_differing_between_the_two_homes_refuse_nothing(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    home = workspace.inputs_dir / "matrices"
+    home.mkdir(parents=True, exist_ok=True)
+    root = _one_row(workspace.root, "RECIPE: 003")
+    other = home / "one.fs"
+    shutil.copyfile(root, other)
+    _state(other, {"9001": STATED})
+    with pytest.warns(PyflightstreamWarning, match="differ in their IDENTIFIERS alone"):
+        assert find_matrix(workspace.root, "one") is not None

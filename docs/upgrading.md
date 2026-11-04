@@ -9,6 +9,12 @@ describe the older releases that supplied them.
 
 ## 0.55.0
 
+A row may state `IDENTIFIERS: {FLAP:0,TESTE:10}` in `VAR_NAMES_VALUES`: columns of every table the
+post writes for its polar, right after `POL` (and `ROTOR`), which nothing of the run reads. A matrix
+that states none writes every product as before, and a plan keeps recording the plain SHA-256 of
+that matrix. A script that reads a table by position needs no change until a row states one, and
+after that reads by name (FR-3560 to FR-3570).
+
 `[products] merged_polar = true` (default false) writes
 `polars/P<sim>_<name>_merge.csv` beside the unsteady polar: its rows with the columns of the
 simulation's rotor tables, joined by run, and each `[products.rotate_columns]` entry,

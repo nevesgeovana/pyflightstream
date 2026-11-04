@@ -331,6 +331,31 @@ through the same emitter checks every curated line passes.
 8005 |... | RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}
 ```
 
+**Labels for the tables, which the run never reads.** `IDENTIFIERS` names
+columns for every table the post writes for the row's polar, as
+[what every product states](definitions/what-every-product-states.md#what-every-product-states)
+lists them. A name and a value are the text written.
+
+```
+8006 |... | IDENTIFIERS: {FLAP:0,TESTE:10}
+```
+
+Nothing of the run reads the key. Stating, changing or removing one leaves the
+plan current and the scripts as they were, and launches nothing, whatever else
+the row states: the matrix is compared with its plan with the key taken out, so
+every other edit is still seen. A plan written by an earlier release keeps
+working on the same matrix with the key added. The columns reach an already
+posted simulation with `pyfs-matrix post --sims <sim>`, or with `--archive` or
+`--force-overwrite` for all of them, with no solver; a post with no option finds
+nothing to rebuild and writes nothing.
+
+A comma ends a pair, so neither a name nor a value holds one. A slash and a colon
+stay in a value, since the reader does not split inside the braces. A pipe ends
+the cell, so a row holding one in a value has the wrong number of cells and is
+refused as any such row is. A value that cannot be read warns and that row states
+none, and nothing else of it changes. The key written twice in one cell is refused
+as any key is.
+
 ## From a filled-in matrix to results, in one call
 
 <!-- skip: next -->

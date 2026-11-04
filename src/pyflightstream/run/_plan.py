@@ -79,9 +79,10 @@ from pyflightstream.run._identity import (
     _build_label,
     _case_build,
     _effective_build_contract,
-    _file_digest,
     _instrument_or_inputs_changed,
     _plan_bindings,
+    matrix_run_digest,
+    matrix_run_digests,
 )
 from pyflightstream.run._ids import (
     _point_names,
@@ -851,7 +852,8 @@ def plan_receipt_error(
     * a plan whose ``matrix_sha256`` is not the matrix on disk: refused,
       because the plan measured a different study. A plan that predates
       the pin carries None and is refused the same way, which is right:
-      it cannot say what it read.
+      it cannot say what it read. The matrix is read without its
+      ``IDENTIFIERS`` (FR-3561), which do nothing in a run.
     * an instrument or an input that changed after planning (NL-EXEC-1,
       FR-1556): refused when ``fs_exe`` is not the executable the plan
       measured, when an executable the plan read now has another
@@ -894,7 +896,7 @@ def plan_receipt_error(
             f"{type(payload).__name__}, not an object). {PLAN_REQUIRED_MESSAGE}"
         )
     planned = payload.get("matrix_sha256")
-    current = _file_digest(matrix_path)
+    current = matrix_run_digests(matrix_path)
     if planned is not None and not isinstance(planned, str):
         return (
             f"the plan at {plan_file} records its matrix digest as "
@@ -906,10 +908,11 @@ def plan_receipt_error(
             f"the plan at {plan_file} does not say which matrix it measured, so it "
             f"cannot be shown to be about this one. {PLAN_REQUIRED_MESSAGE}"
         )
-    if planned != current:
+    if planned not in current:
+        now = current[0] if current else None
         return (
             f"the matrix changed since it was planned: the plan at {plan_file} measured "
-            f"{planned[:12]} and {Path(matrix_path).name} is {str(current)[:12]} now. "
+            f"{planned[:12]} and {Path(matrix_path).name} is {str(now)[:12]} now. "
             "Plan it again; a plan that measured another study is not a plan for this "
             "one."
         )
@@ -1137,7 +1140,7 @@ def plan_campaign(
     canonical = resolve(campaign.fs_version).canonical
     # F-603: the matrix the plan is built from is pinned BEFORE the dry builds,
     # so an edit made while they run is caught by the next run's comparison.
-    matrix_digest = _file_digest(matrix_path) if matrix_path else None
+    matrix_digest = matrix_run_digest(matrix_path) if matrix_path else None
     # Before the first folder is allocated, for the reason run_campaign
     # states: a missing build is knowable up front, and discovering it
     # halfway leaves a plan that describes part of a campaign.

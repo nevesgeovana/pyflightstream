@@ -42,7 +42,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from pyflightstream._digest import optional_file_sha256
+from pyflightstream.cases._matrix_identifiers import matrix_run_digests
 from pyflightstream.cases.naming import (
     POINT_AXIS_KEYS,
     POINT_NAME_FIELDS,
@@ -608,7 +608,7 @@ class Ledger:
             path = None
         if path is None:
             return "no matrix"
-        return "current" if optional_file_sha256(path) == plan.matrix_sha256 else "stale"
+        return "current" if plan.matrix_sha256 in matrix_run_digests(path) else "stale"
 
 
 def check_status_words(statuses: Sequence[str], *, context: str = "statuses") -> None:

@@ -35,17 +35,25 @@ an export.
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 from pathlib import Path
 
 import pytest
 
+from pyflightstream._digest import file_sha256
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.workflows import workflow_names
-from pyflightstream.run import SWEEP_TABLE_NAME, CampaignErrors, LocalExecutor
+from pyflightstream.run import (
+    SWEEP_TABLE_NAME,
+    CampaignErrors,
+    LocalExecutor,
+    plan_receipt_error,
+)
 from pyflightstream.run import cli as cli_module
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace.ledger import read_ledger
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "workflow_rotor_matrix.fs"
@@ -1000,3 +1008,163 @@ def test_p0430_a_run_whose_input_or_named_executable_differs_from_the_plan_is_re
     geometry.write_bytes(b"two")
     changed = plan_receipt_error(workspace, matrix, "m")
     assert changed is not None and f"the input {geometry} changed" in changed
+
+
+# --- P0550-IDENTIFIERS, FR-3561: what a row states as IDENTIFIERS is not the run's --------------
+
+
+IDENTIFIERS = "IDENTIFIERS: {FLAP:0,TESTE:10}"
+
+
+def _with_identifiers(text: str) -> str:
+    """Return the matrix ``text`` with the key at the end of every row, as a person writes it."""
+    lines = []
+    for line in text.splitlines():
+        if line[:4].isdigit():
+            last = line.split("|")[-1]
+            line = line.rstrip() + (" / " if last.strip() else " ") + IDENTIFIERS
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
+def _matrix_of(workspace: CampaignWorkspace) -> Path:
+    matrix = workspace.root / "edited.fs"
+    matrix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    return matrix
+
+
+def _plan_files(workspace: CampaignWorkspace, stem: str) -> dict[str, bytes]:
+    folder = workspace.plan_dir(stem)
+    return {
+        path.relative_to(folder).as_posix(): path.read_bytes()
+        for path in sorted(folder.glob("*"))
+        if path.is_file()
+    }
+
+
+@pytest.mark.requirement("FR-3560")
+def test_p0550_a_plan_and_its_scripts_are_byte_identical_with_identifiers(tmp_path):
+    """Nothing in the process reads it: plan the same matrix twice, in the same workspace."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    plain = matrix.read_text(encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+    before = _plan_files(workspace, matrix.stem)
+    assert before, "the plan wrote nothing to compare"
+    scripts = {
+        path: path.read_bytes() for path in workspace.root.glob("sims/**/*.txt") if path.is_file()
+    }
+    matrix.write_text(_with_identifiers(plain), encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+    after = _plan_files(workspace, matrix.stem)
+    assert set(after) == set(before)
+    payload = json.loads(after["plan.json"])
+    assert IDENTIFIERS not in json.dumps(payload), "a plan parameter holds the key"
+    for name, content in before.items():
+        assert after[name] == content, name
+    for path, content in scripts.items():
+        assert path.read_bytes() == content, path
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_a_plan_holds_the_plain_digest_of_the_matrix_without_identifiers(tmp_path):
+    """Both ways: the digest an earlier version recorded is what this one records and accepts."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    plain = matrix.read_text(encoding="utf-8").replace("steady         |\n", "steady | digits: 6\n")
+    matrix.write_text(plain, encoding="utf-8")
+    plan_file = workspace.plan_dir(matrix.stem) / "plan.json"
+    assert main(plan_args(workspace, matrix)) == 0
+    digest = file_sha256(matrix)
+    assert json.loads(plan_file.read_text(encoding="utf-8"))["matrix_sha256"] == digest
+
+    matrix.write_text(_with_identifiers(plain), encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None, "planned before; stated now"
+    assert main(plan_args(workspace, matrix)) == 0
+    assert json.loads(plan_file.read_text(encoding="utf-8"))["matrix_sha256"] == digest
+
+    matrix.write_text(plain, encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None, "planned stated; gone now"
+
+
+@pytest.mark.requirement("FR-3561")
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda text: text.replace("RPM: 1200", "RPM: 1300", 1),
+        lambda text: text.replace("# ", "#  ", 1) if "# " in text else "# a comment\n" + text,
+        lambda text: text.replace("7002", "7004", 1),
+        lambda text: text + "\n# one more line\n",
+    ],
+    ids=["a-variable", "a-comment", "a-pol", "a-new-line"],
+)
+def test_p0550_every_other_edit_of_a_matrix_with_identifiers_is_still_seen(tmp_path, edit):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    matrix.write_text(edit(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    refusal = plan_receipt_error(workspace, matrix, matrix.stem)
+    assert refusal is not None and "changed since it was planned" in refusal
+
+
+@pytest.mark.requirement("FR-3561")
+@pytest.mark.parametrize(
+    "stated",
+    ["{FLAP:1}", "{FLAP:0,TESTE:99}", "{OTHER:a/b}", "{FLAP", "not braces", "{}"],
+)
+def test_p0550_changing_identifiers_in_any_form_is_never_stale(tmp_path, stated):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    text = _with_identifiers(matrix.read_text(encoding="utf-8"))
+    matrix.write_text(text, encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+    matrix.write_text(text.replace("{FLAP:0,TESTE:10}", stated), encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_a_row_whose_cell_was_empty_is_the_same_matrix_whatever_follows_its_pipe(tmp_path):
+    """The key taken out of a cell it filled cannot tell what stood behind the pipe."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    plain = matrix.read_text(encoding="utf-8")
+    assert "steady         |\n" in plain, "the fixture holds a row with an empty cell"
+    assert main(plan_args(workspace, matrix)) == 0
+    matrix.write_text(
+        plain.replace("steady         |\n", f"steady         |{IDENTIFIERS}\n"), encoding="utf-8"
+    )
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    matrix.write_text(
+        plain.replace("steady         |\n", f"steady         | {IDENTIFIERS}\n"), encoding="utf-8"
+    )
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_identifiers_added_to_a_campaign_that_ran_launch_nothing_and_refuse_nothing(
+    tmp_path, capsys
+):
+    """End to end: the run, then the key, then the run command again, on a real manifest."""
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    assert main(plan_args(workspace, matrix)) == 0
+    assert main(run_args(workspace, matrix)) == 0
+    recorded = workspace.manifest_path.read_bytes()
+    assert workspace.read_manifest(), "the campaign ran"
+    assert read_ledger(workspace.root).freshness(matrix=matrix.stem)[0]["plan"] == "current"
+    capsys.readouterr()
+
+    # The control: the same command with no edit is what it is compared with.
+    control = main(run_args(workspace, matrix, "--resume"))
+    control_err = capsys.readouterr().err
+    assert workspace.manifest_path.read_bytes() == recorded
+
+    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    assert read_ledger(workspace.root).freshness(matrix=matrix.stem)[0]["plan"] == "current"
+    assert main(run_args(workspace, matrix, "--resume")) == control == 0
+    err = capsys.readouterr().err
+    assert "changed since it was planned" not in err
+    assert "IDENTIFIERS" not in err.replace(control_err, "")
+    assert workspace.manifest_path.read_bytes() == recorded, "a point ran"
