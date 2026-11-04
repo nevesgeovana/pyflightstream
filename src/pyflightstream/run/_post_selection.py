@@ -84,7 +84,8 @@ def post_selection(
         if not chosen:
             say_summary(
                 f"matrix {matrix}: every RUN = 1 simulation is already posted; nothing to "
-                "post (--archive or --force-overwrite rebuilds them)"
+                "post. --sims <sim> posts one again, which is how changed IDENTIFIERS or a "
+                "product just turned on reach it; --archive or --force-overwrite rebuilds them."
             )
             continue
         if chosen != recorded:

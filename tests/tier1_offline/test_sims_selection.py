@@ -711,7 +711,9 @@ def test_pfs_2185_18_plain_post_posts_only_what_is_not_posted_yet(tmp_path, caps
     manifest = (out / "products.json").read_bytes()
     capsys.readouterr()
     assert matrix_cli.main(["post", "matriz", "--workspace", root]) == 0
-    assert "already posted" in capsys.readouterr().out
+    said = capsys.readouterr().out
+    assert "already posted" in said
+    assert "--sims <sim>" in said and "IDENTIFIERS" in said and "--force-overwrite" in said
     assert (out / "products.json").read_bytes() == manifest
     assert _stamps(out) == after
     # --archive rebuilds every RUN = 1 simulation, here every recorded one: the whole post.

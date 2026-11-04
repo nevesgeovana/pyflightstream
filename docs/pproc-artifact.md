@@ -795,7 +795,7 @@ TILT_STARBOARD = "STARBOARD:NACELLE-Y"
 ```
 
 It reads the tables the post wrote and runs nothing, so it needs no new run. A plain
-`pyfs-matrix post` leaves a simulation already posted as it is: name it with `--sims <sim>`, or
+`pyfs-matrix post` leaves a simulation already posted as it is, and its line says so: name it with `--sims <sim>`, or
 rebuild every RUN = 1 simulation with `--force-overwrite --yes`. Turned off, a merged polar
 already written is kept and warned until `--archive` moves it or `--force-overwrite` removes
 it. Off by default. The definition is in

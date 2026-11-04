@@ -347,7 +347,7 @@ every other edit is still seen. A plan written by an earlier release keeps
 working on the same matrix with the key added. The columns reach an already
 posted simulation with `pyfs-matrix post --sims <sim>`, or with `--archive` or
 `--force-overwrite` for all of them, with no solver; a post with no option finds
-nothing to rebuild and writes nothing.
+nothing to rebuild, writes nothing and names `--sims` in its line.
 
 A comma ends a pair, so neither a name nor a value holds one. A slash and a colon
 stay in a value, since the reader does not split inside the braces. A pipe ends
