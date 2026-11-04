@@ -466,6 +466,13 @@ def test_p0550_the_fixed_width_super_file_is_not_widened(tmp_path):
     for path in files:
         text = path.read_text(encoding="utf-8")
         assert "FLAP" not in text and "TESTE" not in text, path
+    # REL55-5: the measurement a release arm reads says what those files hold.
+    manifest = workspace.products_dir("matriz") / "products.json"
+    name = json.loads(manifest.read_text(encoding="utf-8"))["superfile_report"]
+    report = json.loads((workspace.root / name).read_text(encoding="utf-8"))
+    assert report["files"]
+    for entry in report["files"]:
+        assert "FLAP" not in entry["columns"] and "TESTE" not in entry["columns"], entry["name"]
 
 
 def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(tmp_path):

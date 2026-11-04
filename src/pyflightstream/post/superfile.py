@@ -794,6 +794,8 @@ def write_superfiles(
     columns = [column for column in columns if column in own or column not in identifiers]
     written: list[Path] = []
     entries: dict[Path, dict[str, object]] = {}
+    # The fixed-width format is not widened, so a file of it holds none of these columns.
+    carried: tuple[str, ...] = ()
     for draft in drafts:
         path = target(draft.path)
         rows = [[row.get(column, "") for column in columns] for row in draft.rows]
@@ -815,11 +817,12 @@ def write_superfiles(
         if chosen == "legacy_polar":
             _write_legacy_polar(path, columns, rows)
         else:
+            carried = identifiers
             with columns_held(identifiers):
                 write_csv_table(path, columns, rows)
         written.append(path)
         entries[path] = {**draft.entry, "rows": len(draft.rows)}
-    return written, entries, header_with(columns, identifiers)
+    return written, entries, header_with(columns, carried)
 
 
 # --- the measurement --------------------------------------------------------
