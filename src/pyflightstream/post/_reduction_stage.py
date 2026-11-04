@@ -51,7 +51,7 @@ from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     ProductError,
     ReferenceValues,
-    _cell,
+    _significant_cell,
     context_row,
     plots_table_series,
     renamed_columns,
@@ -259,15 +259,15 @@ def _super_cells(
 ) -> dict[str, dict[str, str]]:
     """Return super-file cells from A's TOTAL and whole-flow net rows (FR-1062)."""
     first = 3 + len(CONTEXT_COLUMNS)
-    family = first + columns.index("FAMILY")
-    variant = first + columns.index("VARIANT")
+    family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
     out: dict[str, dict[str, str]] = {}
     for row, point in rows:
         if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
             continue
         cells = out.setdefault(point, {})
         for column in ("CL_T", "CDI_T", "E_T"):
-            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(row[first + columns.index(column)])
+            at = first + columns.index(column)
+            cells[f"{column}_{row[variant]}_{row[1]}"] = _significant_cell(row[at])
     return out
 
 

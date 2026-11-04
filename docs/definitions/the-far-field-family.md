@@ -27,7 +27,8 @@ B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_net_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.
-The super file reads A's `TOTAL` and B/C/D's `net` rows into
+The super file, and on an unsteady row the unsteady polar that holds its content
+(`polars/P<sim>_<name>_uns_avg.csv`), reads A's `TOTAL` and B/C/D's `net` rows into
 `CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
 `E_T_<VARIANT>_<ENTRY>` columns, one set per entry. For example, A entries
 named `wing` and `tail` write `CL_T_A_wing` and `CDI_T_A_tail`; C named `net`

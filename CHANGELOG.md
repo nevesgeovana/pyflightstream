@@ -26,6 +26,9 @@ FlightStream versions.
 
 ### Fixed
 
+- An unsteady row's `polars/P<sim>_<name>_uns_avg.csv` now holds `CL_T_<VARIANT>_<ENTRY>`,
+  `CDI_T_<VARIANT>_<ENTRY>` and `E_T_<VARIANT>_<ENTRY>`, as the super file does; they were computed
+  and left out (FR-1062).
 - A `campaign_sweep.csv` a spreadsheet saved, in another encoding or with a UTF-8 signature, no longer
   stops a rebuild.
 - `pyfs-workspace geometry sector-to-wheel`, `sector-remesh` and `power-off-body` read a save of head `2612,0` holding base regions: the model codes are found by the physics block's own counts, not taken from its last row, which on that head is a closing row. It was warned as not recognized, and with a single base region, off the blades the wheel was written with that last row altered; wheels of the other heads are unchanged, byte for byte (FR-3550).

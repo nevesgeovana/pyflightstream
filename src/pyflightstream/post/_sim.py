@@ -1401,6 +1401,18 @@ def _qsteady_rotor_products(ctx: SimContext) -> None:
 # ------------------------------------------------------------------ step 5: the unsteady polar
 
 
+def _with_the_farfield_cells(
+    setup: Mapping[str, Mapping[str, object]], cells: Mapping[str, Mapping[str, str]]
+) -> dict[str, dict[str, object]]:
+    """Return each point's super content, its far-field cells after every other key (FR-1062)."""
+    merged: dict[str, dict[str, object]] = {name: dict(content) for name, content in setup.items()}
+    for name, point_cells in cells.items():
+        content = merged.setdefault(name, {})
+        for column, cell in point_cells.items():
+            content.setdefault(column, cell)
+    return merged
+
+
 def _unsteady_polar_products(ctx: SimContext) -> None:
     """Write the POLAR of an unsteady simulation: its plots history averaged over the window.
 
@@ -1444,14 +1456,17 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
         window=ctx.window,
         windows=ctx.point_windows,
         frozen=ctx.frozen_points,
-        setup=_setup_content(
-            ctx.points,
-            ctx.sources,
-            ctx.records,
-            ctx.matrix_row,
-            ctx.sweep_rows,
-            workspace=ctx.workspace,
-            live=ctx.live,
+        setup=_with_the_farfield_cells(
+            _setup_content(
+                ctx.points,
+                ctx.sources,
+                ctx.records,
+                ctx.matrix_row,
+                ctx.sweep_rows,
+                workspace=ctx.workspace,
+                live=ctx.live,
+            ),
+            ctx.farfield_super,
         ),
         conditions=ctx.conditions,
         reference=ctx.reference,
@@ -1644,9 +1659,10 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _rotor_table_products,
     _qsteady_rotor_products,
     noise_products,
-    _unsteady_polar_products,
-    # FR-456: the far-field family, before the superfile reads the rows.
+    # FR-456: the far-field family, before the two tables that read its rows: the unsteady polar,
+    # which holds an unsteady point's super file content, and the superfile (FR-1062).
     farfield_products,
+    _unsteady_polar_products,
     _superfile_drafts,
     # FR-3511: last, so it reads the tables as every step above left them.
     _merged_polar_products,

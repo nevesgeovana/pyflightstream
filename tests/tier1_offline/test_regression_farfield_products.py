@@ -2529,6 +2529,44 @@ def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
         assert "per-step sectional" in next(root.rglob("post.log")).read_text()
 
 
+@pytest.mark.requirement("FR-1062")
+def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
+    """An unsteady point has no super file: its content, these columns too, is in this table."""
+    files = _p0450_probe_series(_RFIXF_LAYOUT___LAID.points)
+    files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+        _FFPROOF_POST__PLOTS_HEADER
+        + "Time-step,FX_MRP_TOTAL,CDO_MRP_TOTAL\n5,-10,0,\n6,-10,0,\n7,-10,0,\n8,-30,0,\n"
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=(
+            _RFIXF_LAYOUT___TABLE_1M
+            + '[plots]\nparameters = ["FX", "CDO"]\n[[plots.groups]]\nname = "MRP_TOTAL"\n'
+            + 'frame = "MRP"\nfamilies = "all"\n'
+        ).replace("[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'),
+        files=files,
+        recipe="unsteady_rotor",
+        reductions=_FFPROOF_POST___WINDOW,
+    )
+    positions = [
+        (i, *map(float, point), "REFERENCE")
+        for i, point in enumerate(_RFIXF_LAYOUT___LAID.points, 1)
+    ]
+    path = _write_probe_points(workspace.sim_dir("3207"), "3207", positions)
+    _ffproof_post___set_record(
+        workspace, probe_points_file=path, farfield_layout=_RFIXF_LAYOUT___PLANE_RECORD
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    (average,) = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    (polar,) = _rfixf_layout___rows(root, "polars/*_uns_avg.csv")
+    for column in ("CL_T", "CDI_T", "E_T"):
+        assert polar[f"{column}_C_plane"] == average[column]
+    assert list(polar).index("E_T_C_plane") < list(polar).index("MESH_FACES")
+
+
 @pytest.mark.parametrize(
     "key,value,first", [("last_steps", 2, 7), ("last_revs", 0.5, 7), ("last_steps", 20, 1)]
 )
