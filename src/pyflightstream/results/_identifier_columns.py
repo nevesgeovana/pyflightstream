@@ -36,7 +36,31 @@ from pyflightstream._tokens import (
     plain_cell,
 )
 
-#: The name of the table a matrix's records make, beside its products.
+#: Name of the sweep csv :func:`run_campaign` leaves under the
+#: workspace's ``post/`` folder at the end of every campaign, spelled
+#: once here rather than at the write and again at every assertion
+#: about it (PFS-2014.03).
+#:
+#: WHY THIS NAME, since the item asks the choice to be justified rather
+#: than merely made. Three things had to be true of it.
+#:
+#: It says WHOSE table it is. The file covers the whole CAMPAIGN, one
+#: line per recorded point, because :func:`~pyflightstream.results.
+#: tables.sweep_table` reads the manifest and not the records of the
+#: call that happened to write it. So a resumed campaign rewrites one
+#: file that describes everything recorded so far, rather than leaving a
+#: per-call fragment nobody can join. A timestamped or per-call name
+#: would accumulate files of which none is "the" table.
+#:
+#: It says what is INSIDE: a sweep table, the tabular layer's own word
+#: for one row per point, which is what a reader opens it expecting.
+#:
+#: And it does not collide with ``sweep.csv``, the default target of
+#: ``pyfs-matrix run --sweep-csv``, which the operator names and which
+#: lands in the campaign ROOT. The two files would hold the same table,
+#: so a collision would corrupt nothing; what it would cost is a reader
+#: who cannot tell which file the tool maintains and which one a
+#: colleague put there.
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 #: The first column of that table past ``POL``, in every run it is written from.
@@ -201,8 +225,10 @@ def _say_a_name_the_table_holds(scope: _Scope, name: str, path: Path) -> None:
     """Warn, once per post and name, of an identifier a table already holds as a column."""
     if name not in scope.warned:
         scope.warned.add(name)
+        polars = sorted(polar for polar, names in scope.by_polar.items() if name in names)
         warn(
-            f"the identifier {name} is the name of a column {path.name} already holds; that "
+            f"POL {', '.join(polars)}: the identifier {name} is the name of a column {path.name} "
+            "already holds; that "
             "table keeps its own value, here and in any other table holding the name. Rename "
             "the identifier to have it written.",
             PyflightstreamWarning,
@@ -244,7 +270,9 @@ def stamped_table(
     stated = [
         (scope.of_polar(row[0]) if row[0] is not None else own) if opens else own for row in rows
     ]
-    named = dict.fromkeys(name for one in ([own] if not opens else stated) for name in one)
+    named = dict.fromkeys(
+        name for one in ([own] if not opens or not rows else stated) for name in one
+    )
     held = {str(name) for name in columns}
     for name in named:
         if name in held:

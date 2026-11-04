@@ -105,7 +105,8 @@ def _one_of_both_homes(stem: str, first: Path, second: Path) -> None:
         if set(matrix_run_digests(first)) & set(matrix_run_digests(second)):
             warn(
                 f"the matrix {stem} is in both homes of the workspace and they differ in their "
-                f"IDENTIFIERS alone: {first} and {second}. The post reads those of {first}.",
+                f"IDENTIFIERS alone: {first} and {second}. The post reads those of {first}. "
+                "Keep one, or give both the same IDENTIFIERS.",
                 PyflightstreamWarning,
                 stacklevel=2,
             )

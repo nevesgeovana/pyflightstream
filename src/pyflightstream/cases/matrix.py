@@ -75,7 +75,12 @@ from pyflightstream.cases import InputKey as InputKey
 from pyflightstream.cases._matrix_identifiers import (
     IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
 )
-from pyflightstream.cases._matrix_identifiers import parse_identifiers, take_identifiers
+from pyflightstream.cases._matrix_identifiers import (
+    identifiers_stated_twice,
+    parse_identifiers,
+    take_identifiers,
+    warn_of_a_near_key,
+)
 from pyflightstream.cases._matrix_layouts import _COLUMNS as _COLUMNS
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_9_0 as _LAYOUT_0_9_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_11_0 as _LAYOUT_0_11_0
@@ -262,13 +267,13 @@ class MatrixRow:
     #: each, in cell order (FR-67); empty for a row stating none. A record
     #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
     raw: list[dict[str, str]] = field(default_factory=list)
+    #:  the canonical keys of the FLIGHT_CONDITION cell in the order the
+    #: row wrote them, the swept key included; the point name follows it.
+    condition_order: list[str] = field(default_factory=list)
     #: What the cell's ``IDENTIFIERS`` states, name to value, both as written; empty for a row
     #: stating none. Only the post reads it: nothing here reaches a variable, a case, a script or
     #: anything a plan measures.
     identifiers: dict[str, str] = field(default_factory=dict)
-    #:  the canonical keys of the FLIGHT_CONDITION cell in the order the
-    #: row wrote them, the swept key included; the point name follows it.
-    condition_order: list[str] = field(default_factory=list)
 
 
 #: The three keys that turn the free stream, in the order a name writes them.
@@ -1078,6 +1083,11 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
             raise MatrixError(
                 f"data row {row_number} of {path} holds {len(cells)} cells against "
                 f"the {len(_COLUMNS)} verified columns: {line.strip()[:60]}..."
+                + (
+                    " A pipe ends a cell, so an IDENTIFIERS value cannot hold one."
+                    if IDENTIFIERS_VARIABLE in line
+                    else ""
+                )
             )
         data.append((row_number, cells))
     return data
@@ -1257,17 +1267,15 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
 def _variables_and_identifiers(cell: str, pol: str) -> tuple[dict[str, str], dict[str, str]]:
     """Read a ``VAR_NAMES_VALUES`` cell: its variables, and apart from them its identifiers.
 
-    The key stated twice follows the rule of every key of the cell, so it is refused, in the same
-    words; what one value holds is :func:`parse_identifiers`'s, which warns.
+    Nothing about the key stops a run: stated twice or unreadable, it warns and the row states
+    none, while the rest of the cell is read as every cell is.
     """
     rest, stated = take_identifiers(cell)
+    variables = _parse_variables(rest)
+    warn_of_a_near_key(variables, pol)
     if len(stated) > 1:
-        raise MatrixError(
-            f"variable {IDENTIFIERS_VARIABLE!r} is stated twice in one VAR_NAMES_VALUES cell, as "
-            f"{stated[0]!r} and as {stated[1]!r}. A cell states each key once; keep the value the "
-            "row means and remove the other."
-        )
-    return _parse_variables(rest), parse_identifiers(stated[0], pol) if stated else {}
+        return variables, identifiers_stated_twice(stated, pol)
+    return variables, parse_identifiers(stated[0], pol) if stated else {}
 
 
 def _skip_a_row_with_a_malformed_axis(

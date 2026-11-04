@@ -15,8 +15,10 @@ identifiers digests to the plain digest of its file, which is what every earlier
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +31,8 @@ IDENTIFIERS_VARIABLE = "IDENTIFIERS"
 _VARIABLES_COLUMN = "VAR_NAMES_VALUES"
 _KEY = re.compile(rf"\s*{IDENTIFIERS_VARIABLE}\s*:")
 _PAIR_SEPARATOR = "/"
+#: Another ``NAME:value`` in a value, after a slash: the separator of the cell's other records.
+_PAIR_INSIDE_A_VALUE = re.compile(r"/\s*[^/:]+:")
 
 #: What a row's last cell may end in, past what it states: as found first, since that is what a
 #: plan records, then none and one space. The two forms a person or an editor leaves behind a
@@ -107,6 +111,47 @@ def _malformed(value: str, pol: str, reason: str) -> dict[str, str]:
     return {}
 
 
+def identifiers_stated_twice(stated: Sequence[str], pol: str) -> dict[str, str]:
+    """Warn that a cell states the key more than once; the row then states none.
+
+    Parameters
+    ----------
+    stated : sequence of str
+        The values the cell gives the key, as written.
+    pol : str
+        The row's POL, for the warning.
+
+    Returns
+    -------
+    dict of str to str
+        Empty, as for any value that cannot be read.
+    """
+    return _malformed(stated[0], pol, f"the cell states it again as {stated[1]!r}")
+
+
+def warn_of_a_near_key(names: Iterable[str], pol: str) -> None:
+    """Warn of a variable spelled nearly as the key, since it is no column and the run reads it.
+
+    Parameters
+    ----------
+    names : iterable of str
+        The row's variables, the key already taken out.
+    pol : str
+        The row's POL, for the warning.
+    """
+    for name in names:
+        if "_" not in name and difflib.get_close_matches(
+            name.upper(), [IDENTIFIERS_VARIABLE], n=1, cutoff=0.85
+        ):
+            warn(
+                f"POL {pol}: {name} is not {IDENTIFIERS_VARIABLE}, so it writes no column and "
+                f"the run reads it as any variable. If it is meant as labels, write "
+                f"{IDENTIFIERS_VARIABLE}: {{NAME:value,NAME:value}}.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+
+
 def parse_identifiers(value: str, pol: str) -> dict[str, str]:
     """Return the ``NAME: value`` pairs of one ``IDENTIFIERS`` value, as written.
 
@@ -126,6 +171,16 @@ def parse_identifiers(value: str, pol: str) -> dict[str, str]:
     dict of str to str
         The identifiers by name, in the order written; empty where the value cannot be read.
     """
+    closes = value.find("}")
+    if value.startswith("{") and value.count("}") == 1 and closes != len(value) - 1:
+        warn(
+            f"POL {pol}: {IDENTIFIERS_VARIABLE} is followed by {value[closes + 1 :].strip()!r} "
+            "with no slash, and the run does not read that text. Put a / before the next key. "
+            "This row states no identifiers.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return {}
     if (
         not (value.startswith("{") and value.endswith("}"))
         or value.count("{") != 1
@@ -145,6 +200,14 @@ def parse_identifiers(value: str, pol: str) -> dict[str, str]:
             return _malformed(value, pol, f"it states {name} twice")
         held.add(plain_cell(name))
         stated[name] = cell.strip()
+        if _PAIR_INSIDE_A_VALUE.search(cell):
+            warn(
+                f"POL {pol}: {IDENTIFIERS_VARIABLE} gives {name} the value {cell.strip()!r}, which "
+                "holds another NAME:value after a slash. It is written as that text. Pairs are "
+                "separated by commas: {NAME:value,NAME:value}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
     return stated
 
 

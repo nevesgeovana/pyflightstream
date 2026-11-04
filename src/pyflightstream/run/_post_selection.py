@@ -78,9 +78,10 @@ def post_selection(
                 file=sys.stderr,
             )
             continue
-        chosen = recorded if active is None else recorded & active
+        eligible = recorded if active is None else recorded & active
+        chosen = eligible
         if not rebuild:
-            chosen = _not_posted_yet(workspace, matrix, records, chosen)
+            chosen = _not_posted_yet(workspace, matrix, records, eligible)
         if not chosen:
             say_summary(
                 f"matrix {matrix}: every RUN = 1 simulation is already posted; nothing to "
@@ -88,6 +89,12 @@ def post_selection(
                 "product just turned on reach it; --archive or --force-overwrite rebuilds them."
             )
             continue
+        if chosen != eligible:
+            say_summary(
+                f"matrix {matrix}: {len(eligible - chosen)} simulation(s) already posted stay as "
+                "they are. --sims <sim> posts one again, which is how changed IDENTIFIERS or a "
+                "product just turned on reach it."
+            )
         if chosen != recorded:
             sims_of[matrix] = sorted(chosen)
         kept.append(matrix)

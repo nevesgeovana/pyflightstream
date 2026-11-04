@@ -8,6 +8,7 @@ plan and run through the command line, is in ``test_run_cli.py``, beside its stu
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import re
 import shutil
@@ -17,8 +18,13 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases._matrix_identifiers import matrix_run_digests
-from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
+from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, MatrixRow, read_matrix
 from pyflightstream.post.products import write_campaign_products
+from pyflightstream.results._identifier_columns import (
+    stamped_table,
+    stated_identifiers,
+    tables_of_polar,
+)
 from pyflightstream.results.tables import sweep_table, write_sweep_table, write_table
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
@@ -113,16 +119,45 @@ def test_p0550_a_malformed_identifiers_value_warns_and_states_none(tmp_path, val
     assert "IDENTIFIERS" not in row.variables
 
 
-def test_p0550_the_key_stated_twice_follows_the_rule_of_every_key(tmp_path):
-    path = _one_row(tmp_path, "IDENTIFIERS: {A:1} / RECIPE: 003 / IDENTIFIERS: {A:1}")
-    with pytest.raises(MatrixError, match="'IDENTIFIERS' is stated twice"):
-        read_matrix(path)
+def test_p0550_the_key_stated_twice_warns_with_its_row_and_states_none(tmp_path):
+    path = _one_row(tmp_path, "IDENTIFIERS: {A:1} / RECIPE: 003 / IDENTIFIERS: {A:2}")
+    with pytest.warns(PyflightstreamWarning, match="POL 9001: IDENTIFIERS .*states it again"):
+        (row,) = read_matrix(path)
+    assert row.identifiers == {}
+    assert row.variables["RECIPE"] == "003"
+    assert "IDENTIFIERS" not in row.variables
+
+
+def test_p0550_a_slash_before_a_pair_warns_and_keeps_the_text(tmp_path):
+    path = _one_row(tmp_path, "IDENTIFIERS: {FLAP:0 / TESTE:10} / RECIPE: 003")
+    with pytest.warns(PyflightstreamWarning, match="POL 9001: IDENTIFIERS gives FLAP"):
+        (row,) = read_matrix(path)
+    assert row.identifiers == {"FLAP": "0 / TESTE:10"}
+
+
+def test_p0550_a_missing_slash_names_the_text_the_run_does_not_read(tmp_path):
+    path = _one_row(tmp_path, "IDENTIFIERS: {X:1} RECIPE: 003")
+    with pytest.warns(PyflightstreamWarning, match="followed by 'RECIPE: 003' with no slash"):
+        (row,) = read_matrix(path)
+    assert row.identifiers == {}
+
+
+@pytest.mark.parametrize("name", ["identifiers", "IDENTIFIER", "Identifers"])
+def test_p0550_a_key_spelled_nearly_is_pointed_at_the_key(tmp_path, name):
+    path = _one_row(tmp_path, f"{name}: 1 / RECIPE: 003")
+    with pytest.warns(PyflightstreamWarning, match=f"POL 9001: {name} is not IDENTIFIERS"):
+        (row,) = read_matrix(path)
+    assert row.identifiers == {}
+
+
+def test_p0550_a_new_field_of_the_row_stands_last():
+    assert dataclasses.fields(MatrixRow)[-1].name == "identifiers"
 
 
 def test_p0550_a_pipe_in_a_value_is_the_matrix_s_own_refusal(tmp_path):
     """A pipe ends the cell before the key is read, so the row has the wrong number of cells."""
     path = _one_row(tmp_path, "IDENTIFIERS: {A:1|2}")
-    with pytest.raises(MatrixError, match="cells against"):
+    with pytest.raises(MatrixError, match="cannot hold one"):
         read_matrix(path)
 
 
@@ -248,6 +283,7 @@ def test_p0550_a_name_a_table_holds_keeps_the_table_s_value_and_warns_once(tmp_p
         write_campaign_products(stated, matrix_stem="products")
     said = [str(w.message) for w in caught if "already holds" in str(w.message)]
     assert len([text for text in said if "identifier ALPHA" in text]) == 1, said
+    assert any("POL 7001: the identifier ALPHA" in text for text in said), said
     assert len([text for text in said if "identifier POL" in text]) == 1, said
     name = next((plain.root / "post").rglob("*_uns_avg.csv")).name
     before = _table(next((plain.root / "post").rglob(name)))
@@ -719,3 +755,70 @@ def test_p0550_a_comment_naming_the_column_does_not_move_the_digest(tmp_path):
         text.replace("RECIPE: 003", "RECIPE: 003 / IDENTIFIERS: {X:1}"), encoding="utf-8"
     )
     assert recorded in matrix_run_digests(plain)
+
+
+def test_p0550_a_plots_table_read_outside_the_post_holds_no_label(tmp_path):
+    from pyflightstream.post.products import plots_table_series
+
+    workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    _state(workspace.root / "products.fs", {"7001": "IDENTIFIERS: {FLAP:up}"})
+    write_campaign_products(workspace, matrix_stem="products")
+    tables = sorted((workspace.root / "post").rglob("*_plots.csv"))
+    assert tables
+    for table in tables:
+        assert "FLAP" in _table(table)[0]
+        columns, _series = plots_table_series(table)
+        assert "FLAP" not in columns
+
+
+def test_p0550_a_table_with_no_rows_still_carries_the_columns(tmp_path):
+    with stated_identifiers({"7001": {"A": "1"}}), tables_of_polar("7001"):
+        columns, rows = stamped_table(tmp_path / "t.csv", ["POL", "X"], [])
+    assert list(columns) == ["POL", "A", "X"] and list(rows) == []
+
+
+def test_p0550_the_settings_table_carries_them_for_every_simulation_it_holds(tmp_path):
+    workspace = _three_sims(tmp_path)
+    matrix = find_matrix(workspace.root, "matriz")
+    _state(matrix, {"6001": "IDENTIFIERS: {FLAP:1}", "6002": "IDENTIFIERS: {FLAP:2}"})
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    table = out / "settings" / "matriz_settings.csv"
+    header, rows = _table(table)
+    assert header[:3] == ["POL", "FLAP", "RUN_ID"]
+    assert {row["POL"]: row["FLAP"] for row in rows if row["POL"] in {"6001", "6002"}} == {
+        "6001": "1",
+        "6002": "2",
+    }
+    # A post limited to one simulation rewrites this table: the others' rows take the matrix too.
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("FLAP:1", "FLAP:5").replace("FLAP:2", "FLAP:6"),
+        encoding="utf-8",
+    )
+    assert main(["post", "matriz", "--workspace", str(workspace.root), "--sims", "6001"]) == 0
+    _header, rows = _table(table)
+    assert {row["POL"]: row["FLAP"] for row in rows if row["POL"] in {"6001", "6002"}} == {
+        "6001": "5",
+        "6002": "6",
+    }
+
+
+def test_p0550_post_sims_with_a_new_name_leaves_the_others_lacking_it(tmp_path):
+    workspace, matrix = _superfile_campaign(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("FLAP:1", "FLAP:1,NEW:9"), encoding="utf-8"
+    )
+    write_campaign_products(
+        workspace,
+        matrix_stem="matriz",
+        overwrite=True,
+        archive=True,
+        archive_stamp=_SECOND,
+        sims=["6001"],
+    )
+    supers = _supers(workspace)
+    assert "NEW" in _table(supers["6001"])[0]
+    assert "NEW" not in _table(supers["6002"])[0]
+    document = json.loads((workspace.products_dir("matriz") / "products.json").read_text("utf-8"))
+    assert supers["6002"].name in json.dumps(document["partial"]["not_rebuilt"])

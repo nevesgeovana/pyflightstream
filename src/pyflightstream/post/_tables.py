@@ -494,7 +494,8 @@ def write_csv_table(
     decimals. Settings passed as exact text retain their stated form.
 
     During a post, a table also takes the columns of what its matrix rows state as ``IDENTIFIERS``
-    (FR-3564), as :func:`pyflightstream.results._identifier_columns.stamped_table` says where.
+    (FR-3564), right after ``POL`` (and ``ROTOR``), as
+    ``docs/definitions/what-every-product-states.md`` lists them.
 
     Parameters
     ----------
@@ -1076,7 +1077,10 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
         If the table holds a header and no rows.
     """
     header, rows = read_csv_table(path)
-    columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
+    # Identifier columns stand between POL and the export's own, which opens on its clock; none
+    # of them is a plotted quantity, and one may be text.
+    first = header.index(_PLOTS_STEP_COLUMN) if _PLOTS_STEP_COLUMN in header else 0
+    columns = tuple(name for name in header[first:] if name != POLAR_ID_COLUMN)
     if not rows:
         raise ProductError(f"{path} holds a header and no rows; a plots table has a time step")
     # `NA` (or blank) READS BACK AS NaN. The table writes a NaN the export

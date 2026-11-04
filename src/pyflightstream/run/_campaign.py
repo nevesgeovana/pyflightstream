@@ -144,33 +144,6 @@ FS_VERSION_FROM_ROW = "row"
 FS_VERSION_FROM_DEFAULT = "campaign_default"
 
 
-#: Name of the sweep csv :func:`run_campaign` leaves under the
-#: workspace's ``post/`` folder at the end of every campaign, spelled
-#: once here rather than at the write and again at every assertion
-#: about it (PFS-2014.03).
-#:
-#: WHY THIS NAME, since the item asks the choice to be justified rather
-#: than merely made. Three things had to be true of it.
-#:
-#: It says WHOSE table it is. The file covers the whole CAMPAIGN, one
-#: line per recorded point, because :func:`~pyflightstream.results.
-#: tables.sweep_table` reads the manifest and not the records of the
-#: call that happened to write it. So a resumed campaign rewrites one
-#: file that describes everything recorded so far, rather than leaving a
-#: per-call fragment nobody can join. A timestamped or per-call name
-#: would accumulate files of which none is "the" table.
-#:
-#: It says what is INSIDE: a sweep table, the tabular layer's own word
-#: for one row per point, which is what a reader opens it expecting.
-#:
-#: And it does not collide with ``sweep.csv``, the default target of
-#: ``pyfs-matrix run --sweep-csv``, which the operator names and which
-#: lands in the campaign ROOT. The two files would hold the same table,
-#: so a collision would corrupt nothing; what it would cost is a reader
-#: who cannot tell which file the tool maintains and which one a
-#: colleague put there.
-
-
 def _runs_as_one_job(campaign: Campaign, case: SimCase, executor: Executor) -> bool:
     """Whether a row's pending points run as FR-95's one job on this executor.
 

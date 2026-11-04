@@ -700,7 +700,10 @@ def test_pfs_2185_18_plain_post_posts_only_what_is_not_posted_yet(tmp_path, caps
     first = _document(out)
     stamps = _stamps(out)
     root = str(workspace.root)
+    capsys.readouterr()
     assert matrix_cli.main(["post", "matriz", "--workspace", root]) == 0
+    said = capsys.readouterr().out
+    assert "already posted stay as they are" in said and "--sims <sim>" in said
     document = _document(out)
     assert document["partial"]["sims"] == ["6001"]
     after = _stamps(out)
