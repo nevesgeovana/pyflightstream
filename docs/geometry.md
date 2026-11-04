@@ -553,9 +553,10 @@ The mesh block is repeated with the seam nodes merged, and the base regions,
 trailing-edge groups and wake terminations of the physics block are repeated
 for the blade boundaries. The boundaries of the wheel are the sector's, then
 the copies of each blade boundary. **The saved layout is inferred from saved
-files; the vendor does not document it.** A save of head `2612,0` closes its
-physics block with six rows after the base-region model codes, and the wheel keeps
-them unchanged. A base region or trailing-edge group
+files; the vendor does not document it.** A save whose first line, its head, reads
+`2612,0` (measured on build 10052026, 26.125) closes its physics block with six rows
+after the base-region model codes, and the wheel keeps them unchanged, comparing each
+row it copies with the sector's and writing nothing if one differs. A base region or trailing-edge group
 named for no boundary, as a sector marked with `merge_into` holds, follows the
 boundary its faces lie on: on a blade it is repeated, its copies named
 `<stem><k>`, and elsewhere it stays single. A file whose layout the reader does

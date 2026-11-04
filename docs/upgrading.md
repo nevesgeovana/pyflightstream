@@ -18,10 +18,11 @@ simulation's rotor tables, joined by run, and each `[products.rotate_columns]` e
 that name's `.obj` form, so a script should read the `.obj` (FR-3543).
 
 The saved route of `pyfs-workspace geometry sector-to-wheel`, `sector-remesh` and `power-off-body`
-now reads a save of head `2612,0` that holds base regions, which it warned as not recognized
-(FR-3550). A wheel written earlier from such a save, with its base regions off the blades, holds
-`0,` in place of the last physics row `0`; write it again. Wheels of the other heads are unchanged,
-byte for byte.
+now reads a save whose first line is `2612,0` (build 10052026, 26.125) that holds base regions, which it warned as not recognized
+(FR-3550). A wheel written earlier from such a save, with a single base region, off the blades, holds
+`0,` in place of the last physics row `0`; write it again. The wheel now compares each row it copies
+with the sector's and writes nothing if one differs, and rows after the codes outside the measured
+layout are warned as not recognized. Wheels of the other heads are unchanged, byte for byte.
 
 ## 0.54.0
 

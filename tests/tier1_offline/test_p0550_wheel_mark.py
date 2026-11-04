@@ -508,6 +508,7 @@ def test_p0550_a_head_2612_row_of_codes_of_another_length_is_named_and_nothing_i
         )
     assert not result.written and not (tmp_path / "w.fsm").exists()
     assert "last physics row" not in " ".join(str(item.message) for item in caught)
+    assert "actuator" not in " ".join(str(item.message) for item in caught)
 
 
 @pytest.mark.requirement("FR-3550")
@@ -529,3 +530,80 @@ def test_p0550_the_remesh_and_body_verbs_keep_the_rows_after_the_codes_of_head_2
     body_physics = _block(tmp_path / "b.fsm", "$PHYSICS_START$", "$PHYSICS_END$")
     assert body_physics[-len(closing) - 1 :] == ["1,", *closing]
     assert [code for _, _, code in saved_base_regions(tmp_path / "b.fsm")] == [1]
+
+
+NL = chr(10)
+CR = chr(13) + NL
+
+
+@pytest.mark.requirement("FR-3550")
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        (
+            "0" + CR + "0" + CR + "$PHYSICS_END$",
+            "0" + CR + "2" + CR + "Blade1" + CR + "N" + CR + "1,1," + CR + "$PHYSICS_END$",
+        ),
+        ("0" + CR + "0" + CR + "$PHYSICS_END$", "$PHYSICS_END$"),
+    ],
+    ids=["nonempty_closing_list", "truncated_closing_rows"],
+)
+def test_p0550_rows_after_the_codes_out_of_the_measured_layout_write_nothing(
+    tmp_path, sector, old, new
+):
+    save = _head_2612(sector, tmp_path / "save.fsm")
+    text = save.read_bytes().decode("latin-1")
+    assert text.count(old) == 1
+    save.write_bytes(text.replace(old, new).encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="rows after the model codes"):
+        result = sector_to_wheel(
+            save, copies=COPIES, blades=["Blade1"], axis="x", out=tmp_path / "w.fsm"
+        )
+    assert not result.written and not (tmp_path / "w.fsm").exists()
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_a_stray_row_after_the_codes_of_another_head_still_writes_nothing(tmp_path, sector):
+    end = "1,1," + NL + "$PHYSICS_END$"
+    text = sector.read_text()
+    assert text.count(end) == 1
+    p = tmp_path / "s.fsm"
+    p.write_text(text.replace(end, "1,1," + NL + "0,0" + NL + "$PHYSICS_END$"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = sector_to_wheel(
+            p, copies=COPIES, blades=["Blade1"], axis="x", out=tmp_path / "w.fsm"
+        )
+    assert not result.written
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_a_copied_row_the_wheel_changed_is_named(tmp_path: Path, sector: Path) -> None:
+    from pyflightstream.workspace._wheel_fsm import copied_row_that_differs
+
+    save = _head_2612(sector, tmp_path / "save.fsm")
+    out = tmp_path / "w.fsm"
+    assert sector_to_wheel(save, copies=COPIES, blades=["Blade1"], axis="x", out=out).written
+    source = save.read_bytes().decode("latin-1")
+    wheel = out.read_bytes().decode("latin-1")
+    assert copied_row_that_differs(source, wheel) is None
+    row = "1,10,10,0\r\n"
+    at = wheel.rindex(row)
+    changed = wheel[:at] + "1,10,10,1\r\n" + wheel[at + len(row) :]
+    assert "'1,10,10,0' written as '1,10,10,1'" in (copied_row_that_differs(source, changed) or "")
+
+
+@pytest.mark.requirement("FR-3550")
+def test_p0550_a_save_closing_on_a_row_of_codes_writes_nothing(
+    tmp_path: Path, sector: Path
+) -> None:
+    save = _head_2612(sector, tmp_path / "save.fsm")
+    text = save.read_bytes().decode("latin-1")
+    end = "0\r\n0\r\n$PHYSICS_END$"
+    assert text.count(end) == 1
+    save.write_bytes(text.replace(end, "0\r\n0,\r\n$PHYSICS_END$").encode("latin-1"))
+    with pytest.warns(PyflightstreamWarning, match="rows after the model codes"):
+        result = sector_to_wheel(
+            save, copies=COPIES, blades=["Blade1"], axis="x", out=tmp_path / "w.fsm"
+        )
+    assert not result.written and not (tmp_path / "w.fsm").exists()

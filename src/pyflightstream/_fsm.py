@@ -307,8 +307,8 @@ class _PhysicsReader:
     def refuse(self, detail: str) -> MeshReadError:
         return MeshReadError(
             f"{self.name}: {detail} (physics block line {self.at}). The physics block is not "
-            "the shape this reader was measured on, so no actuator is read from it rather "
-            "than a wrong one being guessed at"
+            "the shape this reader was measured on, so nothing is read from it rather "
+            "than a wrong value being guessed at"
         )
 
     def row(self, what: str) -> str:
@@ -505,7 +505,7 @@ def base_codes_row(lines: Sequence[str]) -> int:
         The block holds no base region, departs from the measured layout before the row, or the
         row is not one integer per base region.
     """
-    reader, names, _, _ = _boundary_lists(lines, "the physics block")
+    reader, names, _, _ = _boundary_lists(lines, "the saved file")
     _step_to_base_codes(reader)
     if not names:
         raise reader.refuse("it holds no base region, so it has no row of model codes")

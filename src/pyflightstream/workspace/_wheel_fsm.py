@@ -191,6 +191,12 @@ def _physics(lines: list[str]) -> dict[str, Any]:
     term_values = _cells(lines[q2 + 1 + n_tn]) if n_tn else []
     _need(len(te_values) == n_te and len(term_values) == n_tn, "a value row is not one per entry")
     codes_at = _base_codes_at(lines, p0, p_end) if n_base else p_end
+    closing = [row.strip() for row in lines[codes_at + 1 : p_end]]
+    _need(
+        not closing or (len(closing) == 6 and closing[-2:] == ["0", "0"]),
+        f"the {len(closing)} rows after the model codes are not the six measured rows closing "
+        "with two empty lists",
+    )
     return {
         "p0": p0,
         "p_end": p_end,
@@ -204,6 +210,33 @@ def _physics(lines: list[str]) -> dict[str, Any]:
         "term_values": term_values,
         "after": q2 + 2 + n_tn if n_tn else q2 + 1,
     }
+
+
+def copied_row_that_differs(sector: str, wheel: str) -> str | None:
+    """Return the first physics row a wheel should copy from its sector and does not, or None.
+
+    The rows are those after the trailing-edge and termination lists, except the model codes,
+    which the wheel writes once per copy, and everything after the physics block. The wheel's
+    own counts find them, so a reader that mistook a row for another is seen here, whatever
+    it counted.
+    """
+
+    def copied(text: str) -> list[str]:
+        lines = text.split("\r\n" if "\r\n" in text else "\n")
+        phys = _physics(lines)
+        return [
+            *lines[phys["after"] : phys["codes_at"]],
+            *lines[phys["codes_at"] + 1 : phys["p_end"]],
+            *lines[phys["p_end"] :],
+        ]
+
+    source, written = copied(sector), copied(wheel)
+    if source == written:
+        return None
+    for ours, theirs in zip(source, written, strict=False):
+        if ours != theirs:
+            return f"{ours!r} written as {theirs!r}"
+    return f"{len(source)} rows written as {len(written)}"
 
 
 def _runs(names: list[str], follows: dict[str, str]) -> list[tuple[int, int]]:
@@ -622,6 +655,8 @@ def _write(path: Path, parsed: _Parsed, opts: Options, record: Path) -> WheelRes
         if maps.base.labels:
             expected["bases"] = tuple(maps.base.labels)
         _readback(part, expected)
+        changed = copied_row_that_differs(parsed.newline.join(lines), parsed.newline.join(text))
+        _need(changed is None, f"the wheel composed from it changes a row it copies: {changed}")
     except _UnrecognizedError:
         part.unlink(missing_ok=True)
         raise
