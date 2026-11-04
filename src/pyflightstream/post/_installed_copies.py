@@ -25,11 +25,11 @@ from typing import TYPE_CHECKING
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import negated_text
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
+from pyflightstream._identifier_columns import stamped_names
 from pyflightstream._tokens import CONTEXT_COLUMNS
 from pyflightstream.cases import FLUID_PLOT_PARAMETERS
 from pyflightstream.post.inflow_tools import installed_frame_columns, to_installed_frame
 from pyflightstream.post.point_tables import PROBE_SPINE
-from pyflightstream.results._identifier_columns import stamped_names
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext

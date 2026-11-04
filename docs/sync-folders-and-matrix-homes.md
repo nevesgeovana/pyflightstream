@@ -100,7 +100,8 @@ reads it through the post. All of them ask one lookup:
 - with different bytes it is refused before any work, naming both paths:
   every command stops, except `post`, which warns naming both and falls
   back to the run records;
-- two files that differ in their `IDENTIFIERS` alone are one study: it is warned naming both
+- two files that differ in their `IDENTIFIERS` or the spaces around their pairs and ending their
+  rows alone are one study: it is warned naming both
   paths, nothing is refused, and the first path the warning names is the one read;
 - a bare name found in a home is the workspace's matrix for every command,
   `rebuild` included, whatever the working directory holds (FR-411):

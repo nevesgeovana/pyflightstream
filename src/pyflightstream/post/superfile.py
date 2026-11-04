@@ -75,9 +75,14 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
+from pyflightstream._identifier_columns import (
+    columns_held,
+    header_with,
+    names_for_superfiles,
+)
+from pyflightstream._matrix_identifiers import take_identifiers
 from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
-from pyflightstream.cases._matrix_identifiers import take_identifiers
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
     MatrixError,
@@ -93,11 +98,6 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
-from pyflightstream.results._identifier_columns import (
-    columns_held,
-    header_with,
-    names_for_superfiles,
-)
 from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 from pyflightstream.workspace.record_document import read_rows as _read_run_rows
@@ -867,7 +867,8 @@ def _header(path: Path) -> set[str]:
         first = next(reader, None)
         if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):
             first = next(reader, None)
-    names = set(first) if first is not None else set()
+    # A name that lost a character names no column: the union would demand what nothing holds.
+    names = {name for name in first or () if chr(0xFFFD) not in name}
     if _POLAR_COLUMN_BEFORE_0270 in names:
         names.discard(_POLAR_COLUMN_BEFORE_0270)
         names.add(POLAR_ID_COLUMN)

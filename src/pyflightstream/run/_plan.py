@@ -851,11 +851,13 @@ def plan_receipt_error(
     * no matrix: a campaign authored in Python is not planned through a
       file and this gate does not apply to it.
     * no plan file: refused, naming the command that writes one.
-    * a plan whose ``matrix_sha256`` is not the matrix on disk: refused,
+    * a plan neither of whose matrix digests answers for the matrix on disk
+      (``matrix_sha256``, or ``matrix_form_sha256`` where it holds one): refused,
       because the plan measured a different study. A plan that predates
       the pin carries None and is refused the same way, which is right:
       it cannot say what it read. The matrix is read without its
-      ``IDENTIFIERS`` (FR-3561), which do nothing in a run.
+      ``IDENTIFIERS`` (FR-3561), which do nothing in a run, and the second
+      digest also ignores the spaces around its pairs and ending a row.
     * an instrument or an input that changed after planning (NL-EXEC-1,
       FR-1556): refused when ``fs_exe`` is not the executable the plan
       measured, when an executable the plan read now has another

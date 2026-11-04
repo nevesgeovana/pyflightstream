@@ -29,6 +29,7 @@ from pyflightstream._fsi_calibration import (
     START_ITER_KEY,
     START_REV_KEY,
 )
+from pyflightstream._matrix_identifiers import IDENTIFIERS_VARIABLE
 from pyflightstream.cases import (
     CampaignConfigError,
     InputKey,
@@ -42,7 +43,6 @@ from pyflightstream.cases._ccs import (
     MORPHING_ANGLE_VARIABLE,
     MORPHING_VARIABLE,
 )
-from pyflightstream.cases._matrix_identifiers import IDENTIFIERS_VARIABLE
 from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 

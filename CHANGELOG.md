@@ -12,15 +12,22 @@ FlightStream versions.
 - `[products] merged_polar` writes `polars/P<sim>_<name>_merge.csv`: the unsteady polar with the
   columns of the simulation's rotor tables on each row, joined by run (FR-3511), and
   `[products.rotate_columns]` adds an angle of the row's `ROTATE` as a named column (FR-3512).
-- Two files of one matrix in both homes that differ in their `IDENTIFIERS` alone are warned and read
-  as one study, no longer refused.
+- Two files of one matrix in both homes that differ in their `IDENTIFIERS` or spaces alone are warned
+  and read as one study, no longer refused.
 - A row may state `IDENTIFIERS: {FLAP:0,TESTE:10}` in `VAR_NAMES_VALUES`: columns of every table the
   post writes for its polar, the value as text. Nothing of the run reads them, so stating, changing
-  or removing one launches nothing and leaves the plan current; `pyfs-matrix post --sims <sim>` writes
-  them on a posted simulation with no solver (FR-3560 to FR-3570).
+  or removing one launches nothing and leaves a plan written by this release current, whatever spaces
+  end the matrix's rows; a plan of an earlier release stays current unless the rows end differently,
+  and then needs one `pyfs-matrix plan`. `pyfs-matrix post --sims <sim>` writes them on a posted
+  simulation with no solver (FR-3560 to FR-3570).
+- `plan.json` records `matrix_form_sha256` beside `matrix_sha256`: the digest of the matrix with
+  `IDENTIFIERS` out, the pairs of each row's variables cell spaced one way and no space ending a row.
+  A plan is current when either digest answers (FR-3561).
 
 ### Fixed
 
+- A `campaign_sweep.csv` a spreadsheet saved, in another encoding or with a UTF-8 signature, no longer
+  stops a rebuild.
 - `pyfs-workspace geometry sector-to-wheel`, `sector-remesh` and `power-off-body` read a save of head `2612,0` holding base regions: the model codes are found by the physics block's own counts, not taken from its last row, which on that head is a closing row. It was warned as not recognized, and with a single base region, off the blades the wheel was written with that last row altered; wheels of the other heads are unchanged, byte for byte (FR-3550).
 - `pyfs-qa apply-compat` keeps a long probe detail as a complete note: its last complete clause inside the note limit, or its first clause when none ends there, naming the report that holds the full text, with no literal `[...]`; a note of any length holds no quoted phrase of two or more words, and promoting one detail again keeps one note naming the latest report (FR-3551).
 - The 27 notes of the command database that ended in a literal `[...]` now end on the cited report's own last complete clause, with its measurement where it states one; a probe is named for the build whose report ran it (FR-3530).

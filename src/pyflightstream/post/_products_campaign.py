@@ -16,6 +16,13 @@ from typing import TYPE_CHECKING, Any
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._identifier_columns import (
+    SWEEP_TABLE_NAME,
+    state_in_sweep_table,
+    sweep_identifiers_held,
+)
+from pyflightstream._identifier_columns import stated_identifiers as stated_identifiers
+from pyflightstream._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._condition import warn_pinned_states
@@ -34,13 +41,6 @@ from pyflightstream.post.polar import grid_convergence
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
-from pyflightstream.results._identifier_columns import (
-    SWEEP_TABLE_NAME,
-    state_in_sweep_table,
-    sweep_identifiers_held,
-)
-from pyflightstream.results._identifier_columns import stated_identifiers as stated_identifiers
-from pyflightstream.results._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
 from pyflightstream.workspace.naming import ADDITIONAL_DIR
 from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED

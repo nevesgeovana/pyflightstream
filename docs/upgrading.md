@@ -12,10 +12,11 @@ describe the older releases that supplied them.
 A row may state `IDENTIFIERS: {FLAP:0,TESTE:10}` in `VAR_NAMES_VALUES`: columns of every table the
 post writes for its polar, right after `POL` (and `ROTOR`), which nothing of the run reads. A matrix
 that states none writes every product as before, and a plan keeps recording the plain SHA-256 of
-that matrix, now with `matrix_form_sha256` beside it, so the key never makes a plan stale whatever
-spaces end the matrix's rows. A plan written by an earlier release holds no such digest, so a matrix
-whose rows end differently may need one `pyfs-matrix plan` after the key is added; nothing runs
-again for it. A script that reads a table by position needs no change until a row states one, and
+that matrix as `matrix_sha256`, now with `matrix_form_sha256` beside it, so with a plan of this
+release the key does not make the plan stale whatever spaces end the matrix's rows. A plan written by
+an earlier release holds only the first. If some rows of the matrix end in spaces and others do not,
+adding the key makes `pyfs-matrix run` refuse with "the matrix changed since it was planned"; one
+`pyfs-matrix plan` settles it, and nothing runs again for it. A script that reads a table by position needs no change until a row states one, and
 after that reads by name (FR-3560 to FR-3570).
 
 `[products] merged_polar = true` (default false) writes

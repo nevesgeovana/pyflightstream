@@ -337,21 +337,35 @@ def without_stamped(
     )
 
 
-def _read_sweep(path: Path) -> tuple[list[str], list[list[str]]] | None:
-    """Return the header and rows of a sweep table, or None for one that is not there to read."""
+def _say_a_saved_table(path: Path, cause: str) -> None:
+    """Warn of a sweep table a spreadsheet saved, whose identifier columns nothing can read."""
+    warn(
+        f"{path} {cause}, as a spreadsheet may have saved it, so its IDENTIFIERS columns were not "
+        "read. A post leaves the file as it is: save it as UTF-8 with commas, then pyfs-matrix "
+        f"post {path.parent.name} --sims <sim> writes them. A run replaces the file from its "
+        "records, without those columns, and the same post writes them back.",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+
+
+def _read_sweep(path: Path, *, warned: bool = False) -> tuple[list[str], list[list[str]]] | None:
+    """Return the header and rows of a sweep table, or None for one that is not there to read.
+
+    ``warned`` is for the second read of one command, whose first has said so already.
+    """
     if not path.is_file():
         return None
     try:
         # A signature is how a spreadsheet saves this table as UTF-8; it is no part of ``POL``.
         table = list(csv.reader(io.StringIO(path.read_text(encoding="utf-8-sig"), newline="")))
     except (UnicodeDecodeError, csv.Error) as error:
-        warn(
-            f"{path} cannot be read as UTF-8 text ({error}), as a spreadsheet may have saved it: "
-            "its IDENTIFIERS columns are not read or updated. Save it as UTF-8 or delete it; "
-            "the run writes it again.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
+        if not warned:
+            _say_a_saved_table(path, f"cannot be read as UTF-8 text ({error})")
+        return None
+    if table and len(table[0]) == 1 and table[0][0].split(";")[0] == POLAR_ID_COLUMN:
+        if not warned:
+            _say_a_saved_table(path, "is separated by semicolons")
         return None
     if not table or not table[0] or table[0][0] != POLAR_ID_COLUMN:
         return None
@@ -407,7 +421,7 @@ def state_in_sweep_table(path: str | Path, stated: Mapping[str, Mapping[str, str
         Each polar's identifiers, name to value; what the file held there is replaced.
     """
     target = Path(path)
-    table = _read_sweep(target)
+    table = _read_sweep(target, warned=True)
     if table is None:
         return
     header, rows = table

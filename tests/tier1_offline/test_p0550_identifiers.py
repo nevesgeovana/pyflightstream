@@ -18,14 +18,14 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.cases._matrix_identifiers import matrix_run_digests
-from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, MatrixRow, read_matrix
-from pyflightstream.post.products import write_campaign_products
-from pyflightstream.results._identifier_columns import (
+from pyflightstream._identifier_columns import (
     stamped_table,
     stated_identifiers,
     tables_of_polar,
 )
+from pyflightstream._matrix_identifiers import matrix_run_digests
+from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, MatrixRow, read_matrix
+from pyflightstream.post.products import write_campaign_products
 from pyflightstream.results.tables import sweep_table, write_sweep_table, write_table
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
@@ -890,3 +890,45 @@ def test_p0550_the_guide_says_how_the_columns_reach_a_posted_simulation():
     at = text.index("Columns of every table the post writes for this row")
     assert "--sims" in text[at : at + 320]
     assert "next post" not in text[at : at + 320]
+
+
+def test_p0550_a_sweep_table_saved_with_semicolons_is_warned(tmp_path):
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
+    sweep = _sweep_of(workspace)
+    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="semicolons.*--sims"):
+        write_campaign_products(workspace, matrix_stem="matriz")
+
+
+def test_p0550_an_unreadable_sweep_table_warns_once_and_names_the_route(tmp_path):
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
+    sweep = _sweep_of(workspace)
+    sweep.write_bytes(sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1))
+    with pytest.warns(PyflightstreamWarning, match="cannot be read") as caught:
+        write_campaign_products(workspace, matrix_stem="matriz")
+    said = [str(w.message) for w in caught if "cannot be read" in str(w.message)]
+    assert len(said) == 1 and "--sims" in said[0]
+
+
+@pytest.mark.parametrize("label", ["up", "5"])
+def test_p0550_a_label_named_as_a_time_column_is_no_clock(tmp_path, label):
+    from pyflightstream.post.products import plots_table_series
+
+    table = tmp_path / "AL-020_plots.csv"
+    table.write_text(f"POL,Time,Time-step,CL\n7001,{label},1,1.0\n", encoding="utf-8")
+    assert plots_table_series(table)[0] == ("Time-step", "CL")
+
+
+def test_p0550_a_saved_table_adds_no_replaced_name_to_the_report(tmp_path):
+    workspace = _three_sims(tmp_path)
+    _state(find_matrix(workspace.root, "matriz"), {"6001": "IDENTIFIERS: {AN\u00c7A:0}"})
+    sweep = _sweep_of(workspace)
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    sweep.write_bytes(sweep.read_text(encoding="utf-8").encode("cp1252"))
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    report = json.loads((workspace.root / manifest["superfile_report"]).read_text(encoding="utf-8"))
+    assert not [name for name in report["known"] if "\ufffd" in name]

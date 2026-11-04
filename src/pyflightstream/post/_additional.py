@@ -26,12 +26,12 @@ from typing import TYPE_CHECKING
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._identifier_columns import tables_of_polar
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._condition import _resolve_post_pproc
 from pyflightstream.post._sim import _sim_products
 from pyflightstream.post._tables import ProductError, ProductExistsError
 from pyflightstream.post.series import translated_surface
-from pyflightstream.results._identifier_columns import tables_of_polar
 from pyflightstream.workspace import ExtractionStatus
 from pyflightstream.workspace.naming import ADDITIONAL_DIR
 

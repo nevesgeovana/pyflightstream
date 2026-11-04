@@ -1153,9 +1153,11 @@ def meanings() -> dict[tuple[tuple[str, str], str], str]:
 
 def test_every_row_key_and_every_setting_has_two_values_here():
     """A key the package gains arrives with the two values this module builds it at."""
-    assert set(ROW_KEY_VARIATIONS) == set(ROW_KEY_MEANINGS), (
-        f"row keys with no variation: {sorted(set(ROW_KEY_MEANINGS) - set(ROW_KEY_VARIATIONS))}; "
-        f"variations of no row key: {sorted(set(ROW_KEY_VARIATIONS) - set(ROW_KEY_MEANINGS))}"
+    # IDENTIFIERS reaches no case and no script, by what it is, so no two values measure it here.
+    meant = set(ROW_KEY_MEANINGS) - {"IDENTIFIERS"}
+    assert set(ROW_KEY_VARIATIONS) == meant, (
+        f"row keys with no variation: {sorted(meant - set(ROW_KEY_VARIATIONS))}; "
+        f"variations of no row key: {sorted(set(ROW_KEY_VARIATIONS) - meant)}"
     )
     assert set(SETTING_VARIATIONS) == set(SolverSettings.model_fields), (
         "settings with no variation: "

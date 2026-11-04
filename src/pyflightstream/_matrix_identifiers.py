@@ -1,6 +1,7 @@
 """The ``IDENTIFIERS`` key of a matrix row: read it, and read the matrix without it.
 
-Private to :mod:`pyflightstream.cases`. A row states in its ``VAR_NAMES_VALUES`` cell
+Below :mod:`pyflightstream.cases`, :mod:`pyflightstream.run`, :mod:`pyflightstream.post` and
+:mod:`pyflightstream.workspace`, which share it. A row states in its ``VAR_NAMES_VALUES`` cell
 ``IDENTIFIERS: {FLAP:0,TESTE:10}``: columns for the tables the post writes and nothing for the
 process. So this module answers two questions, and nothing else reads the key.
 
@@ -9,9 +10,11 @@ apart from the cell's grammar because a brace left open would otherwise swallow 
 which would change the run over a column that does nothing in it.
 
 :func:`matrix_run_digests` is what a matrix digests to for the run: the file with its identifiers
-removed, so editing one never makes a plan stale, and every other edit still does. A matrix with no
-identifiers digests to the plain digest of its file, which is what every earlier plan recorded.
-:func:`matrix_form_digest` is what a plan records beside it, for rows that end differently.
+removed, so editing one never makes a plan stale. A matrix with no identifiers digests to the plain
+digest of its file, which is what every earlier plan recorded. :func:`matrix_form_digest` is what a
+plan records beside it, for rows that end differently: the same file with its spaces normalized, so
+an edit of those spaces alone is not seen either. :func:`plan_measured` accepts either; every other
+edit is seen.
 """
 
 from __future__ import annotations
@@ -278,8 +281,8 @@ def matrix_run_digests(path: str | Path) -> tuple[str, ...]:
     matrix with no identifiers gives the plain SHA-256 of its file there, as every plan has
     recorded. The others differ only in what follows the last cell of a row that held identifiers
     or holds nothing, and in the spaces around the pairs beside a removed key, because taking the
-    key away cannot tell how the cell stood before it was written. A plan is about this matrix
-    when its digest is any of them; the file's other bytes all count, so any other edit is seen.
+    key away cannot tell how the cell stood before it was written. These are one of the two
+    answers :func:`plan_measured` accepts; by these digests alone, the file's other bytes all count.
 
     Parameters
     ----------

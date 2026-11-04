@@ -114,6 +114,14 @@ EXCLUDED_EXTERNAL_METADATA = (
 #: package for every ``hashlib`` call and fails on a module absent here,
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {
+    "_matrix_identifiers.py": (
+        "the UTF-8 encoding of a matrix file with the IDENTIFIERS pairs taken out of its "
+        "VAR_NAMES_VALUES cells, so a matrix stating none hashes to the plain SHA-256 of its file. "
+        "matrix_run_digests also hashes the forms that differ in what follows a row's last cell "
+        "and in the spaces around the pairs beside a removed key; matrix_form_digest spaces those "
+        "pairs one way and takes the spaces ending each row. A file that is not UTF-8 hashes as "
+        "raw bytes."
+    ),
     "workspace/record_document.py": (
         "the UTF-8 encoding of JSON with sorted keys, compact comma/colon separators "
         "and ensure_ascii=True for each shared solver, frame or geometry definition. "

@@ -431,7 +431,14 @@ def test_the_import_scan_sees_the_spelling_this_package_actually_uses():
 _SRC = Path(pyflightstream.__file__).parent
 
 
-_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_textio", "_tokens")
+_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = (
+    "_identifier_columns",
+    "_matrix_identifiers",
+    "_expressions",
+    "_lengths",
+    "_textio",
+    "_tokens",
+)
 
 
 _ROOT_UNIT_ROWS: dict[str, float] = {

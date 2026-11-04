@@ -474,7 +474,7 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 
 \hd{Common errors}
 \err{\textit{no plan for this matrix, and a run needs one}.}{run \cmd{pyfs-matrix plan} with the same matrix first.}
-\err{The matrix was edited after the plan.}{refused until planned again: the receipt is pinned to the matrix digest.}
+\err{The matrix was edited after the plan.}{refused until planned again: the receipt is pinned to the matrix's digests; only its identifiers and the spaces around its pairs may change.}
 \err{A point is already recorded and refuses.}{the refusal counts the points recorded and those \fl{--resume} would run, and prints the command that continues; \fl{--force-rerun} redoes a point. \fl{--resume} and \fl{--force-rerun} together are refused.}
 \err{\fl{--sims} names an id, or \fl{--points} a point, the matrix does not carry; or \fl{--points} comes without \fl{--sims}.}{refused before anything runs, naming the ids or points that exist.}
 \err{\fl{--force-rerun} names a point no record carries.}{refused: copy the name or run id the refusal printed.}

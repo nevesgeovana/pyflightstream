@@ -40,6 +40,10 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._identifier_columns import (
+    stamped_table,
+    without_stamped,
+)
 from pyflightstream._tokens import ADVANCE_RATIO_COLUMN as ADVANCE_RATIO_COLUMN
 from pyflightstream._tokens import CONTEXT_COLUMNS as CONTEXT_COLUMNS
 from pyflightstream._tokens import FLIGHT_CONDITION_COLUMNS as FLIGHT_CONDITION_COLUMNS
@@ -54,10 +58,6 @@ from pyflightstream.cases.windows import march_end
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
-from pyflightstream.results._identifier_columns import (
-    stamped_table,
-    without_stamped,
-)
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
@@ -1079,7 +1079,8 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     header, rows = read_csv_table(path)
     # Identifier columns stand between POL and the export's own, which opens on its clock; none
     # of them is a plotted quantity, and one may be text.
-    clocks = (_PLOTS_STEP_COLUMN, *_TIME_COLUMNS)
+    # The step decides where it stands: a label may be named as a time column.
+    clocks = (_PLOTS_STEP_COLUMN,) if _PLOTS_STEP_COLUMN in header else _TIME_COLUMNS
     first = min((header.index(name) for name in clocks if name in header), default=0)
     columns = tuple(name for name in header[first:] if name != POLAR_ID_COLUMN)
     if not rows:

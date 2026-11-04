@@ -342,9 +342,14 @@ lists them. A name and a value are the text written.
 
 Nothing of the run reads the key. Stating, changing or removing one leaves the
 plan current and the scripts as they were, and launches nothing, whatever else
-the row states: the matrix is compared with its plan with the key taken out, so
-every other edit is still seen. A plan written by an earlier release keeps
-working on the same matrix with the key added. The columns reach an already
+the row states. A plan records two digests of the matrix: `matrix_sha256`, of the
+file with the key taken out, and `matrix_form_sha256`, of the file with the key
+taken out, the pairs of each row's variables cell spaced one way and no space
+ending a row. The plan is current when either one answers, so an edit of those
+spaces alone is not seen, and every other edit is. A plan written before 0.55.0
+holds only the first: if some rows of the matrix end in spaces and others do not,
+adding the key makes `pyfs-matrix run` refuse it once, and one `pyfs-matrix plan`
+settles it with nothing run again. The columns reach an already
 posted simulation with `pyfs-matrix post <matrix> --sims <sim>`, whatever its RUN states, or with
 `--archive` or `--force-overwrite --yes` for every RUN = 1 simulation, with no solver. A post with
 no option rebuilds no simulation already posted, and its line names `--sims`: when nothing is
@@ -492,8 +497,9 @@ pyfs-matrix run  <matrix> --workspace . \
     --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
 ```
 
-Re-plan first: the plan carries the digest of the matrix it read, and an edited
-matrix is refused until it is planned again.
+Re-plan first: the plan carries the digests of the matrix it read, and a matrix
+edited other than in its identifiers or the spaces around its pairs is refused until
+it is planned again.
 
 It names points, by point name, by full `run_id`, or by the job id of a swept
 row, and the flag repeats. Nothing is deleted: the manifest is copied to

@@ -868,6 +868,19 @@ def test_rebuild_reads_a_sweep_table_a_spreadsheet_saved(
     assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
 
 
+def test_rebuild_takes_no_name_that_lost_a_character(tmp_path, monkeypatch):
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    sweep = workspace.root / "post" / matrix.stem / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    run_id = "caf\u00e9/" + original["run_id"].split("/", 1)[1]
+    sweep.write_bytes(
+        f"run_id,package_version\n{run_id},{pyflightstream.__version__}\n".encode("cp1252")
+    )
+    (rebuilt,) = records.rebuild(workspace.root, apply=True)["rebuilt"]
+    assert "\ufffd" not in rebuilt["run_id"]
+
+
 def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path):
     """PFS-2126.032: collect_once gets the refusals as ``writes``; the module is left as it is."""
     import types

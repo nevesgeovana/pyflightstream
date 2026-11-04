@@ -29,6 +29,11 @@ Each product left is named with its reason under `partial.not_rebuilt` in
 `campaign_sweep.csv` is written by the run. A post changes only its `IDENTIFIERS` columns, for
 every POL the current matrix holds, the simulations not named included; a POL the matrix no
 longer holds keeps what the table says of it, and a run keeps those columns as it found them.
+A table held open, or saved by a spreadsheet in another encoding, stops no post and no rebuild. The
+post warns and leaves the file as it is; the columns arrive once the file is closed or saved as
+UTF-8, at a post that writes a simulation: `pyfs-matrix post <matrix> --sims <sim>`. A table saved in
+another encoding is replaced by the next run from its records, without those columns, until that
+post. A UTF-8 signature, as a spreadsheet writes, changes nothing.
 
 `pyfs-matrix post <matrix>` without `--sims` reads the RUN cell of the
 matrix's rows: a simulation whose rows state RUN = 0 keeps its product files

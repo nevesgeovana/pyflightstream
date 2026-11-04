@@ -81,12 +81,12 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
-from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
-from pyflightstream.extras import missing_extra
-from pyflightstream.results._identifier_columns import (
+from pyflightstream._identifier_columns import (
     state_in_sweep_table,
     sweep_identifiers_held,
 )
+from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
+from pyflightstream.extras import missing_extra
 from pyflightstream.results.conditions import bind_conditions
 from pyflightstream.results.core import (
     DATA_ORIGIN_CODES,

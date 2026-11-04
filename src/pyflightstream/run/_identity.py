@@ -32,15 +32,15 @@ from pyflightstream._digest import (
     text_sha256,
 )
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._matrix_identifiers import matrix_form_digest as matrix_form_digest
+from pyflightstream._matrix_identifiers import matrix_run_digest as matrix_run_digest
+from pyflightstream._matrix_identifiers import matrix_run_digests as matrix_run_digests
+from pyflightstream._matrix_identifiers import plan_measured as plan_measured
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
     SimCase,
 )
-from pyflightstream.cases._matrix_identifiers import matrix_form_digest as matrix_form_digest
-from pyflightstream.cases._matrix_identifiers import matrix_run_digest as matrix_run_digest
-from pyflightstream.cases._matrix_identifiers import matrix_run_digests as matrix_run_digests
-from pyflightstream.cases._matrix_identifiers import plan_measured as plan_measured
 from pyflightstream.cases.matrix import MatrixRow, read_matrix, refuse_silent_rows_without_default
 from pyflightstream.results import (
     VersionMismatchWarning,

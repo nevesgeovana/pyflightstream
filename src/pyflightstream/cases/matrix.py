@@ -60,6 +60,15 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import NotApplicableWarning as NotApplicableWarning
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._errors import demote as demote
+from pyflightstream._matrix_identifiers import (
+    IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
+)
+from pyflightstream._matrix_identifiers import (
+    identifiers_stated_twice,
+    parse_identifiers,
+    take_identifiers,
+    warn_of_a_near_key,
+)
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream.cases import ROTATION_OFFSET_KEY as ROTATION_OFFSET_KEY
 from pyflightstream.cases import (
@@ -72,15 +81,6 @@ from pyflightstream.cases import (
     multiplied_sweep,
 )
 from pyflightstream.cases import InputKey as InputKey
-from pyflightstream.cases._matrix_identifiers import (
-    IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
-)
-from pyflightstream.cases._matrix_identifiers import (
-    identifiers_stated_twice,
-    parse_identifiers,
-    take_identifiers,
-    warn_of_a_near_key,
-)
 from pyflightstream.cases._matrix_layouts import _COLUMNS as _COLUMNS
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_9_0 as _LAYOUT_0_9_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_11_0 as _LAYOUT_0_11_0

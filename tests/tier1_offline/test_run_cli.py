@@ -42,6 +42,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.workflows import workflow_names
 from pyflightstream.run import (
@@ -52,7 +53,7 @@ from pyflightstream.run import (
 )
 from pyflightstream.run import cli as cli_module
 from pyflightstream.run.cli import main
-from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunStatus, find_matrix
 from pyflightstream.workspace.ledger import read_ledger
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -1144,6 +1145,56 @@ def test_p0550_rows_that_end_differently_keep_the_plan_when_the_key_is_added(tmp
     matrix.write_text(keyed.replace("RPM: 1200", "RPM: 1300", 1), encoding="utf-8")
     assert "changed since it was planned" in plan_receipt_error(workspace, matrix, matrix.stem)
     assert read_ledger(workspace.root).freshness(matrix=matrix.stem)[0]["plan"] == "stale"
+
+
+@pytest.mark.requirement("FR-3562")
+def test_p0550_a_space_ending_a_row_alone_keeps_the_plan(tmp_path):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    assert main(plan_args(workspace, matrix)) == 0
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    first = next(at for at, line in enumerate(lines) if line[:4].isdigit())
+    lines[first] += "  "
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_both_homes_differing_in_the_key_and_row_ends_are_one_study(tmp_path):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    first = next(at for at, line in enumerate(lines) if line[:4].isdigit())
+    lines[first] += " "
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    other = workspace.inputs_dir / "matrices" / matrix.name
+    other.parent.mkdir(exist_ok=True)
+    other.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="both homes"):
+        assert find_matrix(workspace.root, matrix.stem) == matrix
+
+
+@pytest.mark.requirement("FR-3561")
+def test_p0550_an_earlier_plan_on_mixed_rows_needs_one_plan_and_launches_nothing(tmp_path):
+    workspace = make_workspace(tmp_path)
+    matrix = _matrix_of(workspace)
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    first = next(at for at, line in enumerate(lines) if line[:4].isdigit())
+    lines[first] += " "
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+    assert main(run_args(workspace, matrix)) == 0
+    recorded = workspace.manifest_path.read_bytes()
+    plan_file = workspace.plan_dir(matrix.stem) / "plan.json"
+    payload = json.loads(plan_file.read_text(encoding="utf-8"))
+    del payload["matrix_form_sha256"]
+    plan_file.write_text(json.dumps(payload), encoding="utf-8")
+    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
+    assert "changed since it was planned" in plan_receipt_error(workspace, matrix, matrix.stem)
+    assert main(plan_args(workspace, matrix)) == 0
+    assert plan_receipt_error(workspace, matrix, matrix.stem) is None
+    assert main(run_args(workspace, matrix, "--resume")) == 0
+    assert workspace.manifest_path.read_bytes() == recorded, "a point ran"
 
 
 @pytest.mark.requirement("FR-3561")

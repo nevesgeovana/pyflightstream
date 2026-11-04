@@ -35,6 +35,9 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     demote,
 )
+from pyflightstream._identifier_columns import (
+    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
+)
 from pyflightstream._progress import (
     quiet_keeps,
     record_activity,
@@ -56,9 +59,6 @@ from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
-)
-from pyflightstream.results._identifier_columns import (
-    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
 )
 from pyflightstream.results.tables import sweep_table, write_sweep_table
 from pyflightstream.run._assessment import (

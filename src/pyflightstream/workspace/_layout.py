@@ -9,8 +9,8 @@ from pathlib import Path, PureWindowsPath
 from pydantic import BaseModel, ConfigDict
 
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._matrix_identifiers import matrix_form_digest
 from pyflightstream.cases import SimCase
-from pyflightstream.cases._matrix_identifiers import matrix_run_digests
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz, PprocArtifact
 from pyflightstream.workspace.manifest import WorkspaceError
@@ -102,10 +102,10 @@ def _one_of_both_homes(stem: str, first: Path, second: Path) -> None:
     and the workspace is not refused over a column the run does not read.
     """
     if first.read_bytes() != second.read_bytes():
-        if set(matrix_run_digests(first)) & set(matrix_run_digests(second)):
+        if matrix_form_digest(first) == matrix_form_digest(second):
             warn(
                 f"the matrix {stem} is in both homes of the workspace and they differ in their "
-                f"IDENTIFIERS alone: {first} and {second}. The post reads those of {first}. "
+                f"IDENTIFIERS or spaces alone: {first} and {second}. The post reads {first}. "
                 "Keep one, or give both the same IDENTIFIERS.",
                 PyflightstreamWarning,
                 stacklevel=2,

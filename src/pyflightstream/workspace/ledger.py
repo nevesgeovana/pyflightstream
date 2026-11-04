@@ -42,7 +42,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from pyflightstream.cases._matrix_identifiers import plan_measured
+from pyflightstream._matrix_identifiers import plan_measured
 from pyflightstream.cases.naming import (
     POINT_AXIS_KEYS,
     POINT_NAME_FIELDS,

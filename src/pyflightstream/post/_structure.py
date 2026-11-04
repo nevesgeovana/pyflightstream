@@ -18,6 +18,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._identifier_columns import stamped_table
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.fsi.config import (
     DIRECT_NODE_TYPES,
@@ -34,7 +35,6 @@ from pyflightstream.fsi.nodes import (
 )
 from pyflightstream.fsi.state import load_state
 from pyflightstream.post._tables import context_row
-from pyflightstream.results._identifier_columns import stamped_table
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext

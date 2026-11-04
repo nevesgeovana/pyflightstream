@@ -47,6 +47,7 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     warn,
 )
+from pyflightstream._identifier_columns import stamped_names
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.qsteady import (
@@ -58,7 +59,6 @@ from pyflightstream.cases.qsteady import (
     suggested_passage_positions,
 )
 from pyflightstream.cases.workflows import qsteady_inflow_map_inputs
-from pyflightstream.results._identifier_columns import stamped_names
 from pyflightstream.workspace import register_plan_product_writer
 
 __all__ = [

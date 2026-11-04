@@ -22,6 +22,8 @@ def test_read_matrix_matches_pre_cut_rows(fixture: str, active_only: bool) -> No
     actual = []
     for row in read_matrix(path, active_only=active_only):
         data = dataclasses.asdict(row)
+        # The goldens predate the field, and no fixture states any.
+        assert data.pop("identifiers") == {}
         data["sweep"] = row.sweep.model_dump(mode="json")
         actual.append(data)
     assert actual == golden["active_rows" if active_only else "all_rows"]
