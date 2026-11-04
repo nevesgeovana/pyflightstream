@@ -118,6 +118,13 @@ def test_p0550_the_key_stated_twice_follows_the_rule_of_every_key(tmp_path):
         read_matrix(path)
 
 
+def test_p0550_a_pipe_in_a_value_is_the_matrix_s_own_refusal(tmp_path):
+    """A pipe ends the cell before the key is read, so the row has the wrong number of cells."""
+    path = _one_row(tmp_path, "IDENTIFIERS: {A:1|2}")
+    with pytest.raises(MatrixError, match="cells against"):
+        read_matrix(path)
+
+
 def test_p0550_a_key_that_only_holds_the_word_is_a_variable(tmp_path):
     (row,) = read_matrix(_one_row(tmp_path, "MY_IDENTIFIERS: 1 / IDENTIFIERS_X: 2 / RECIPE: 003"))
     assert row.identifiers == {}
@@ -251,6 +258,20 @@ def test_p0550_a_name_a_table_holds_keeps_the_table_s_value_and_warns_once(tmp_p
     plots = _table(next((stated.root / "post").rglob("*_plots.csv")))
     assert plots[0][:2] == ["POL", "ALPHA"], "a table without the name has the column"
     assert plots[1][0]["ALPHA"] == "99"
+
+
+def test_p0550_a_name_differing_in_case_from_a_column_is_another_column(tmp_path):
+    """Names are as written: `alpha` stands beside `ALPHA`, whose values stay the table's."""
+    plain = _post_workspace(tmp_path / "plain", 2411, (60, 61), rotor=True)
+    write_campaign_products(plain, matrix_stem="products")
+    stated = _post_workspace(tmp_path / "stated", 2411, (60, 61), rotor=True)
+    _state(stated.root / "products.fs", {"7001": "IDENTIFIERS: {alpha:99}"})
+    write_campaign_products(stated, matrix_stem="products")
+    name = next((plain.root / "post").rglob("*_rotor.csv")).name
+    header, rows = _table(next((stated.root / "post").rglob(name)))
+    assert header[:3] == ["POL", "ROTOR", "alpha"]
+    assert rows[0]["alpha"] == "99"
+    assert rows[0]["ALPHA"] == _table(next((plain.root / "post").rglob(name)))[1][0]["ALPHA"]
 
 
 def test_p0550_a_quote_or_a_slash_in_an_identifier_reaches_the_file_under_the_cell_rule(tmp_path):

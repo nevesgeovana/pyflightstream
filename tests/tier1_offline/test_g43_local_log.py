@@ -220,7 +220,7 @@ def test_g43_a_submitting_run_with_a_failed_point_writes_no_table(tmp_path, monk
     # The table the command would derive, stood in, so the only thing between the
     # error and the writer is the submission check this test is about.
     monkeypatch.setattr(cli_mod, "sweep_table", lambda *args, **kwargs: "a table")
-    monkeypatch.setattr(cli_mod, "write_table", lambda *args, **kwargs: tables.append(args))
+    monkeypatch.setattr(cli_mod, "write_sweep_table", lambda *args, **kwargs: tables.append(args))
     matrix = tmp_path / "m.fs"
     matrix.write_text("", encoding="utf-8")
     status = cli_mod.main(["run", str(matrix), "--workspace", str(tmp_path / "ws"), "--name", "m"])

@@ -3183,7 +3183,7 @@ def test_an_unforeseen_write_error_does_not_swallow_the_campaign_failures(tmp_pa
     def explodes(frame, path, **kwargs):
         raise RuntimeError("the writer broke in a way nobody predicted")
 
-    monkeypatch.setattr(campaign_module, "write_table", explodes)
+    monkeypatch.setattr(campaign_module, "write_sweep_table", explodes)
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     with pytest.warns(PyflightstreamWarning, match="RuntimeError"):
