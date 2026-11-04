@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-04
+
 ### Added
 
 - `[products] merged_polar` writes `polars/P<sim>_<name>_merge.csv`: the unsteady polar with the

@@ -349,6 +349,11 @@ with workspace.cli, preserving the dependency direction. Grid refinement and
 audit and remeshing run on the base installation, as does inspection.
 Native geometry commands remain gated by their build evidence.
 
+A matrix row's labels sit below the packages that read them: two modules at the root hold the
+key's reader and the digests a plan records, and the columns every table of a post takes. The run
+reads neither the labels nor the columns. An unsteady row's far-field cells reach its unsteady polar,
+which holds the super file's content, so the far-field step runs before that table.
+
 Full wheels, merged meshes and remeshed sectors are built in workspace without a
 solver. A wheel is the sector copied about an axis with the seam nodes merged; a
 merge joins two trimmed meshes along their open boundaries and leaves the kept
