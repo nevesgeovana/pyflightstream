@@ -759,7 +759,11 @@ def workspace_data(root):
         "pyflightstream.post.products:_sweep_rows",
         token="campaign_sweep.csv",
         step="steps-30",
-        delete=product_delete,
+        delete=(
+            "Yes, if reproducible from retained records and exports. The next pyfs-matrix run "
+            "writes it again, and a post does not; a rebuild loses the versions it reads there, "
+            "and the inventory may otherwise name missing files."
+        ),
     )
     add(
         "products-json",

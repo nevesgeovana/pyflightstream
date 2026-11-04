@@ -346,7 +346,7 @@ the row states. A plan records two digests of the matrix: `matrix_sha256`, of th
 file with the key taken out, and `matrix_form_sha256`, of the file with the key
 taken out, the pairs of each row's variables cell spaced one way and no space
 ending a row. The plan is current when either one answers, so an edit of those
-spaces alone is not seen, and every other edit is. A plan written before 0.55.0
+spaces alone is not seen, and every other edit is. A plan of an earlier release
 holds only the first: if some rows of the matrix end in spaces and others do not,
 adding the key makes `pyfs-matrix run` refuse it once, and one `pyfs-matrix plan`
 settles it with nothing run again. The columns reach an already
