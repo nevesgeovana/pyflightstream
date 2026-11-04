@@ -283,7 +283,9 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
     for folder in sorted(post.iterdir()) if post.is_dir() else []:
         table = folder / "campaign_sweep.csv"
         if table.is_file():
-            with table.open(encoding="utf-8", newline="") as handle:
+            # A spreadsheet may have saved it, with labels in another encoding; the columns read
+            # here are ASCII whichever it chose.
+            with table.open(encoding="utf-8-sig", errors="replace", newline="") as handle:
                 for row in csv.DictReader(handle):
                     take({**row, "matrix_stem": folder.name}, _relative(base, table))
     return known

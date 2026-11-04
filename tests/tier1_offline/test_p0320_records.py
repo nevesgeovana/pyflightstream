@@ -852,6 +852,22 @@ def test_rebuild_refuses_another_version_even_when_its_script_matches(tmp_path, 
     assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
 
 
+@pytest.mark.parametrize(
+    ("encoding", "signature"), [("cp1252", b""), ("utf-8", b"\xef\xbb\xbf")], ids=["ansi", "bom"]
+)
+def test_rebuild_reads_a_sweep_table_a_spreadsheet_saved(
+    tmp_path, monkeypatch, encoding, signature
+):
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    sweep = workspace.root / "post" / matrix.stem / "campaign_sweep.csv"
+    sweep.parent.mkdir(parents=True, exist_ok=True)
+    text = f"run_id,package_version,LABEL\n{original['run_id']},0.29.0,caf\u00e9\n"
+    sweep.write_bytes(signature + text.encode(encoding))
+    reason = records.rebuild(workspace.root)["refused"]["5001"]
+    assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
+
+
 def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path):
     """PFS-2126.032: collect_once gets the refusals as ``writes``; the module is left as it is."""
     import types
