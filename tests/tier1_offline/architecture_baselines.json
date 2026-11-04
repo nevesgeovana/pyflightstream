@@ -1034,7 +1034,7 @@
   "pyflightstream.qa._spec_0400_gapkit": 11,
   "pyflightstream.qa._spec_ccs_noise": 1,
   "pyflightstream.qa.cli": 1,
-  "pyflightstream.qa.compat": 5,
+  "pyflightstream.qa.compat": 4,
   "pyflightstream.qa.cost": 1,
   "pyflightstream.qa.matrix": 4,
   "pyflightstream.qa.probes": 5,
