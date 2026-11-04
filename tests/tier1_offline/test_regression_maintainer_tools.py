@@ -163,6 +163,7 @@ class TestCoreSmallParity:
             "pyflightstream.farfield.lattice_dataset",
             "pyflightstream.post.dataset_to_points",
             "pyflightstream.post.writers.dataset_to_points",
+            "pyflightstream.run.cli.write_table",
         }
 
     @staticmethod
