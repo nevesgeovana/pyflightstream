@@ -305,6 +305,11 @@ command = ["esub", "{descriptor_path}"]
 # collected log.
 [builds]
 "26.123" = "26.1"
+
+# What this scheduler calls the APPLICATION for a build, where it differs from
+# application_id above, which every build with no line here keeps.
+[application_ids]
+"26.124" = "Flightstream"
 ```
 
 The matrix cell stays the same on every machine, so one study opens on a
@@ -313,6 +318,15 @@ workstation or on the cluster with no cell changed. A profile that writes
 any point is submitted, naming the build and the table. A key that is not one
 registered build, `26.1` for instance, is refused when the profile is read. A
 profile that does not write the substitution is unaffected by the table.
+
+Some clusters spell the application differently from one build to the next.
+`{application_id}` writes the line of `[application_ids]` for the row's build
+when the profile has one, and the top-level `application_id` otherwise, which
+stays required. The keys are read as the keys of `[builds]` are: one canonical
+build each, so `26.1` is refused when the profile is read. A profile with no
+`[application_ids]` table writes what it always wrote. A grouped job holds one
+build, so its descriptor and its recorded `application_id` follow that build.
+The `application_id` recorded for a run is the one written.
 
 In every grouped job template (`job_root`, `native_log`, `job_end_files` and
 the descriptor), {sim} is the first simulation of the job and {batch} is

@@ -259,7 +259,11 @@ class GroupingExecutor:
         record: dict[str, object] = {
             "descriptor": descriptor,
             "profile": profile.path.as_posix() if profile is not None else None,
-            "application_id": profile.application_id if profile is not None else None,
+            # THE JOB'S BUILD: a job holds one (the split groups by build), and it is
+            # the build the inner executor renders the descriptor with.
+            "application_id": (
+                profile.application_id_for(job.fs_build) if profile is not None else None
+            ),
             "submitted": bool(getattr(self.inner, "submit", False)) if self.submits else False,
             "job": dict(self.collector.entry(job, executor=kind)),
         }

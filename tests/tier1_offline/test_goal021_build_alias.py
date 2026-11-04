@@ -301,3 +301,106 @@ def test_f6_0102_a_relative_steady_coupled_script_is_read_from_the_working_direc
     (work / "point.txt").write_text("EXECUTE_AEROELASTIC_ANALYSIS\n", encoding="utf-8")
     with pytest.raises(CampaignConfigError, match="steady coupled run"):
         executor._prepared(Path("point.txt"), work)
+
+
+def _with_application_ids(lines: str) -> str:
+    """The documented profile, three builds mapped, its [application_ids] replaced by ``lines``."""
+    text = documented_profile().replace(
+        '"26.123" = "26.1"', '"26.123" = "26.1"\n"26.124" = "26.1"\n"26.127" = "26.1"'
+    )
+    head, _ = text.split("[application_ids]", 1)
+    return head + "[application_ids]\n" + lines + "\n"
+
+
+def _application_ids_written(descriptor: str) -> list[str]:
+    return [line for line in descriptor.splitlines() if line.startswith("ApplicationId:")]
+
+
+def test_application_ids_a_build_with_a_line_writes_it_and_the_others_the_top_level(tmp_path):
+    profile = _profile(tmp_path, _with_application_ids('"26.127" = "Flightstream"'))
+    assert _application_ids_written(_render(tmp_path, profile, "26.127")) == [
+        'ApplicationId: "Flightstream"'
+    ]
+    assert _application_ids_written(_render(tmp_path, profile, "26.124")) == [
+        'ApplicationId: "flightstream"'
+    ]
+
+
+def test_application_ids_no_table_keeps_the_old_bytes(tmp_path):
+    with_table = _profile(tmp_path, _with_application_ids('"26.127" = "Flightstream"'))
+    without = _profile(tmp_path, _with_application_ids("").split("[application_ids]")[0])
+    assert without.application_ids == {}
+    assert _render(tmp_path, without, "26.127") == _render(tmp_path, with_table, "26.124")
+
+
+@pytest.mark.parametrize(
+    ("lines", "clause"),
+    [
+        ('"26.1" = "Flightstream"', "must name ONE registered build"),
+        ('"26.127" = ""', "cannot be empty"),
+        ('"99.999" = "x"', "must name ONE registered build"),
+    ],
+)
+def test_application_ids_a_bad_key_or_value_is_refused_when_read(tmp_path, lines, clause):
+    with pytest.raises(InputArtifactError) as raised:
+        _profile(tmp_path, _with_application_ids(lines))
+    message = str(raised.value)
+    assert message.count(clause) == 1 and "[application_ids]" in message, message
+
+
+def test_application_ids_a_non_table_is_refused_when_read(tmp_path):
+    text = documented_profile().replace(
+        'application_id = "flightstream"', 'application_id = "flightstream"\napplication_ids = "x"'
+    )
+    text = text.split("[application_ids]")[0]
+    with pytest.raises(InputArtifactError, match=r"application_ids entry that is not a table"):
+        _profile(tmp_path, text)
+
+
+def test_application_ids_the_matrix_path_writes_each_rows_own_name(tmp_path, monkeypatch):
+    import pyflightstream.run._executors as executors_module
+    from pyflightstream.run import CampaignErrors
+
+    profile = documented_profile().replace(
+        '"26.123" = "26.1"', '"26.123" = "26.1"\n"26.120" = "26.1"'
+    )
+    head = profile.split("[application_ids]")[0]
+    profile = head + '[application_ids]\n"26.123" = "Flightstream"\n'
+    workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, profile)
+    real_run = executors_module.subprocess.run
+
+    def no_scheduler(argv, **kwargs):
+        if not (isinstance(argv, list) and argv and argv[0] == "esub"):
+            return real_run(argv, **kwargs)
+        raise OSError("no scheduler in a tier-1 test")
+
+    monkeypatch.setattr(executors_module.subprocess, "run", no_scheduler)
+    with pytest.raises(CampaignErrors):
+        _run_on_the_cluster(workspace, matrix)
+    written = sorted(
+        tuple(_application_ids_written(d.read_text(encoding="utf-8")))
+        for d in _descriptors(workspace)
+    )
+    assert written == [
+        ('ApplicationId: "Flightstream"',),
+        ('ApplicationId: "flightstream"',),
+    ], written
+
+
+def test_application_ids_a_grouped_job_writes_and_records_its_builds_name(tmp_path):
+    from tests.tier1_offline import test_p0350_batch_run as grouped
+
+    workspace, profile, _ = grouped._workspace(tmp_path)
+    profile.write_text(
+        profile.read_text(encoding="utf-8")
+        + f'\n[application_ids]\n"{grouped.BUILD}" = "Flightstream"\n',
+        encoding="utf-8",
+    )
+    matrix = grouped._matrix(tmp_path)
+    grouped._plan(workspace, matrix, mode="batch", batch=1)
+    records = grouped._run(workspace, matrix, executor=grouped._submitting(profile))
+    descriptor = workspace.root / "sims" / "batch" / f"{grouped.MATRIX}_b1" / "submit.yaml"
+    assert _application_ids_written(descriptor.read_text(encoding="utf-8")) == [
+        'ApplicationId: "Flightstream"'
+    ]
+    assert {r.submission["application_id"] for r in records} == {"Flightstream"}

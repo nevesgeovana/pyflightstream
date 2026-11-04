@@ -619,9 +619,8 @@ PHASE_1P_DEG = 0.0
 """
 
 _HPC_EXAMPLE = """\
-# The profile of the cluster this workspace may be opened on. No row cites it:
-# a run on Linux with one profile here submits each point to the scheduler
-# instead of running it. One profile per workspace; several are refused.
+# The profile of the cluster this workspace may be opened on. No row cites it: a run on Linux
+# with one profile here submits each point to the scheduler. One profile per workspace.
 
 application_id = "flightstream"   # the scheduler's own name for the application; required
 
@@ -630,11 +629,10 @@ walltime_arithmetic = "wall"
 max_walltime = "48:00:00"      # the longest wall clock the cluster grants a job
 job_root = "{work_dir}"           # where a grouped job's script paths start
 
-# The descriptor file written in each point's folder, and its fields: the keys
-# this scheduler expects, each a text in which {name} is replaced by the
-# point's value of that name: sim, point, fs_build, fs_build_alias, ncpus,
-# walltime, walltime_s, walltime_written, application_id, script_path or
-# work_dir. A name the point cannot supply is refused, never written empty.
+# The descriptor file written in each point's folder, and its fields: the keys this
+# scheduler expects, each a text in which {name} is replaced by the point's value of that
+# name: sim, point, fs_build, fs_build_alias, ncpus, walltime, walltime_s, walltime_written,
+# application_id, script_path or work_dir. A name it cannot supply is refused, never empty.
 [descriptor]
 format = "yaml"                   # @HPC_FORMATS@
 name = "submit.yaml"              # a plain file name
@@ -652,15 +650,17 @@ version = "{fs_build_alias}"
 [submit]
 command = ["esub", "{descriptor_path}"]
 
-# Values the profile keeps beside its fields. A descriptor carries only what
-# [descriptor.fields] writes.
+# Values kept beside the fields; a descriptor carries only what [descriptor.fields] writes.
 [defaults]
 walltime = 28800
 
-# What this scheduler calls each build a row names, keyed by the canonical
-# build: several builds may share one scheduler name. {fs_build_alias} writes it.
+# What this scheduler calls each build a row names, by canonical build. {fs_build_alias} writes it.
 [builds]
 "26.124" = "26.1"
+
+# The application name per canonical build where it differs from application_id above.
+[application_ids]
+"26.124" = "Flightstream"
 
 # The solver's log: export_log = false on a machine that aborts at EXPORT_LOG,
 # the log it writes itself, and the files its scheduler writes when a job ends.

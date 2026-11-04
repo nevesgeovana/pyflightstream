@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- An HPC profile may state `[application_ids]`, keyed by canonical build like `[builds]`, for the
+  application name its scheduler uses for that build: `{application_id}` writes it, and every build
+  with no line keeps the top-level `application_id`. A profile without the table writes the same
+  bytes as before, and the recorded `application_id` is the one written (FR-3571).
+
 ## [0.55.0] - 2026-11-04
 
 ### Added

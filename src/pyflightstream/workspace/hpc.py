@@ -119,6 +119,11 @@ class HpcProfile:
     submit: tuple
     path: Path
     builds: dict = field(default_factory=dict)
+    #: WHAT THIS SCHEDULER CALLS THE APPLICATION for a build where that differs
+    #: from ``application_id``, read from ``[application_ids]`` and keyed by
+    #: canonical build exactly as ``builds`` is. Read it through
+    #: :meth:`application_id_for`.
+    application_ids: dict = field(default_factory=dict)
     #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES. ``wall`` is the row's
     #: cell as written, which is what a scheduler taking ``4h`` wants; ``seconds``
     #: is the whole clock in integer seconds, which is what this package wrote in legacy
@@ -165,6 +170,21 @@ class HpcProfile:
         refusal = descriptor_name_refusal(str(self.descriptor_name), self.path)
         if refusal is not None:
             raise InputArtifactError(refusal)
+
+    def application_id_for(self, build: object) -> str:
+        """Return the application name the descriptor writes for ``build``.
+
+        The line of ``[application_ids]`` for that canonical build when the
+        profile has one, otherwise the top-level ``application_id``.
+        """
+        if build and self.application_ids:
+            try:
+                canonical = resolve(str(build)).canonical
+            except (AmbiguousVersionAliasError, UnknownVersionError):
+                canonical = str(build)
+            if canonical in self.application_ids:
+                return str(self.application_ids[canonical])
+        return self.application_id
 
 
 def descriptor_name_refusal(name: str, source: object) -> str | None:
@@ -309,6 +329,7 @@ HPC_PROFILE_KEYS: frozenset[str] = frozenset(
         "submit",
         "defaults",
         "builds",
+        "application_ids",
         "walltime_arithmetic",
         "log",
         "max_walltime",
@@ -497,6 +518,9 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             "through a shell splits a path that has a space in it."
         )
     builds = _read_build_aliases(target, table.get("builds"))
+    application_ids = _read_build_aliases(
+        target, table.get("application_ids"), "application_ids", "the application name"
+    )
     arithmetic = str(table.get("walltime_arithmetic") or "wall").strip().lower()
     if arithmetic not in WALLTIME_ARITHMETIC:
         raise InputArtifactError(
@@ -519,6 +543,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         max_walltime_s=_max_walltime_s(target, table.get("max_walltime")),
         job_root=_job_root(target, table.get("job_root")),
         builds=builds,
+        application_ids=application_ids,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
         # Derive the default filename from the declared format so JSON receives
@@ -654,8 +679,13 @@ def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
     return tuple(str(pattern).strip() for pattern in ends)
 
 
-def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
-    """Read a profile's ``[builds]`` table, refusing a key that is not one build.
+def _read_build_aliases(
+    target: Path,
+    table: object,
+    name: str = "builds",
+    what: str = "the name this scheduler gives that build",
+) -> dict[str, str]:
+    """Read a build-keyed table (``[builds]``, ``[application_ids]``), refusing a bad key.
 
     A KEY MUST BE A CANONICAL BUILD, and that is the whole reason the table
     is keyed this way round. ``26.1`` is a family: it resolves to more than
@@ -667,8 +697,8 @@ def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
         return {}
     if not isinstance(table, Mapping):
         raise InputArtifactError(
-            f"the HPC profile {target} has a builds entry that is not a table. Write it as "
-            '[builds] with one line per canonical build, for example "26.123" = "26.1".'
+            f"the HPC profile {target} has a {name} entry that is not a table. Write it as "
+            f'[{name}] with one line per canonical build, for example "26.123" = "26.1".'
         )
     aliases: dict[str, str] = {}
     for key, value in table.items():
@@ -677,20 +707,20 @@ def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
             canonical = resolve(build).canonical
         except (AmbiguousVersionAliasError, UnknownVersionError) as error:
             raise InputArtifactError(
-                f"the HPC profile {target} maps {build!r} in its [builds] table, and a key "
+                f"the HPC profile {target} maps {build!r} in its [{name}] table, and a key "
                 "there must name ONE registered build, because several builds can share one "
                 f"scheduler name and only the build says which: {error}"
             ) from None
         if canonical != build:
             raise InputArtifactError(
-                f"the HPC profile {target} maps {build!r} in its [builds] table; write the "
+                f"the HPC profile {target} maps {build!r} in its [{name}] table; write the "
                 f"canonical build {canonical!r}, which is how a matrix row names it."
             )
         alias = str(value).strip() if isinstance(value, str) else ""
         if not alias:
             raise InputArtifactError(
-                f"the HPC profile {target} maps build {build!r} to {value!r}; the value is "
-                "the name this scheduler gives that build, as text, and it cannot be empty."
+                f"the HPC profile {target} maps build {build!r} to {value!r} in its [{name}] "
+                f"table; the value is {what}, as text, and it cannot be empty."
             )
         aliases[canonical] = alias
     return aliases

@@ -791,6 +791,8 @@ class SubmittingExecutor:
         #: how a submitted point is found again when the scheduler returns
         #: no handle of its own.
         self.descriptor_path: Path | None = None
+        #: The application name that descriptor carries, which is the record's.
+        self._application_id_written: str = profile.application_id
 
     def bind_point(self, values: Mapping[str, object], *, replace: bool = False) -> None:
         """Give THIS point's values to the executor.
@@ -840,7 +842,7 @@ class SubmittingExecutor:
         return {
             "descriptor": self.descriptor_path.as_posix(),
             "profile": self.profile.path.as_posix(),
-            "application_id": self.profile.application_id,
+            "application_id": self._application_id_written,
             # WHETHER SUBMISSION WAS REQUESTED, which is what this can
             # honestly say from here; the scheduler's own verdict is in
             # the ExecutionResult beside this record, and FR-99 is worded
@@ -962,7 +964,7 @@ class SubmittingExecutor:
         """
         values = {
             **self.values,
-            "application_id": self.profile.application_id,
+            "application_id": self.profile.application_id_for(self.values.get("fs_build")),
             "script_path": Path(script_path).as_posix(),
             "work_dir": Path(working_dir).as_posix(),
         }
@@ -1007,6 +1009,7 @@ class SubmittingExecutor:
         descriptor.parent.mkdir(parents=True, exist_ok=True)
         _textio.write_text(descriptor, rendered)
         self.descriptor_path = descriptor
+        self._application_id_written = str(values["application_id"])
         return descriptor, argv
 
 
