@@ -1367,8 +1367,6 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
     last_step = resumed[1] if resumed is not None else clock.time_iterations
     windows: dict[str, tuple[int, int]] = {}
     for entry in entries:
-        if entry.variant == "wake" and not _rotor(case):
-            continue
         variables = (
             (export_window_variables(case, clock.steps_per_revolution) or {})
             if entry.export_type == "export_window"

@@ -2454,3 +2454,17 @@ def test_p0530_fw_post_writes_the_far_field_products_of_every_step(tmp_path):
             rows = list(csv.DictReader(handle))
         steps |= {row["STEP"] for row in rows}
     assert steps == {"1", "2"}
+
+
+@pytest.mark.requirement("FR-3597")
+def test_pfs2187_21_an_unsteady_row_without_a_rotor_plans_the_wake_export(tmp_path):
+    """B applies to an unsteady row: the plan switches the wake on in the VTK export."""
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+
+    case = _farfield_plan___case(tmp_path, [{"variant": "wake", "export_type": "avg_window"}])
+    variables = dict(_ffproof_plan___case_for("unsteady").variables)
+    case = case.model_copy(update={"recipe": "unsteady", "variables": variables})
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady")})
+    assert applies("trefftz:wake", "unsteady") == ""
+    assert "SET_VTK_EXPORT_VARIABLES -1 ENABLE" in _farfield_plan___script(case).render()
+    assert [kind for _first, _last, kind in farfield_export_windows(case)] == ["vtk"]

@@ -148,8 +148,8 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     --------
     >>> applies('trefftz:sections', 'steady')
     ''
-    >>> bool(applies('trefftz:wake', 'unsteady'))
-    True
+    >>> applies('trefftz:wake', 'unsteady')
+    ''
     """
     if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
         return (
@@ -160,10 +160,9 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     if analysis == "trefftz:wake":
         # P0470-FFR: on a rotor row the wake gives the rotor's wake loads (VARIANT W)
         # and B traces the lines of the other families, so the export is wanted.
-        if rotor or run_type in ROTOR_RUN_TYPES:
-            return ""
-        if run_type in UNSTEADY_RUN_TYPES:
-            return "variant B serves steady rows"
+        # FR-452: B traces the wake of a steady row and of an unsteady one, rotor or not; on a
+        # rotor row the rotors' lines give the wake loads (VARIANT W) and B traces the others.
+        return ""
     return ""
 
 

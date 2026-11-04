@@ -40,9 +40,13 @@ from pyflightstream.cases.farfield_inputs import (
 )
 from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.farfield import (
+    SheetCrossings,
     TraceResult,
     calibration_scale,
     rotor_wake_lines,
+    sheet_crossings,
+    sheet_forces,
+    split_wake_sheets,
     trace_coefficients,
     trace_forces,
     wake_crossings,
@@ -718,25 +722,12 @@ def _variant_b(
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
     lines, shed_values = _wake_sheet(ctx, point, lines, values, mirror=mirror)
-    trace = wake_crossings(lines, values=shed_values, x_t=x_t)
-    if trace.problem is not None:
-        # FR-1025, FR-1026: the point's B row is written NA, never dropped, and
-        # the WARNING says why; a short wake states the length the run had.
-        reach = min(float(line[-1, 0] - line[0, 0]) for line in lines) if lines else _NA
-        length = (
-            f"; the recorded wake is {reach:.4g} m long on its shortest line, and the plane "
-            f"stands {spec.distance_bref * ctx.reference.bref_m:.4g} m behind the trailing edge"
-            if trace.short
-            else ""
-        )
-        _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
-        unavailable = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
-        return [_row(ctx, point, _NA, unavailable)]
-    try:
-        raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
-    except PyflightstreamError as error:
-        _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
-        return []
+    traced = _wake_trace(
+        ctx, point, key, lines, shed_values, x_t=x_t, mirror=mirror, flow=(rho, speed)
+    )
+    if isinstance(traced, list):
+        return traced
+    raw, names = traced
     factor = 0.5 if half else 1.0
     k = calibration_scale(
         raw.lift * factor,
@@ -761,11 +752,128 @@ def _variant_b(
         point,
         result,
         variant="wake",
-        names=["net"],
+        names=names,
         factor=factor,
         extra={"X_T_M": x_t, "GAMMA_SCALE": k},
         blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
     )
+
+
+def _wake_trace(
+    ctx: SimContext,
+    point: PolarPoint,
+    key: str,
+    lines: list[np.ndarray],
+    values: np.ndarray,
+    *,
+    x_t: float,
+    mirror: bool,
+    flow: tuple[float, float],
+) -> tuple[TraceResult, list[str]] | list:
+    """Trace the lines at the plane: the forces and the row names, or the rows to write instead.
+
+    One sheet that orders by its first nodes is the single-sheet trace of FR-452; lines of more
+    than one sheet are traced sheet by sheet on the one plane. A wake short of the plane writes the
+    row NA (FR-1025), and a trace that cannot be formed writes none.
+    """
+    rho, speed = flow
+    trace = wake_crossings(lines, values=values, x_t=x_t)
+    crossings: list[SheetCrossings] | None = None
+    problem, short = trace.problem, trace.short
+    if problem is not None and not short:
+        crossings, problem, short = _sheet_crossings(
+            ctx, point, key, lines, values, x_t=x_t, mirror=mirror
+        )
+    if problem is not None:
+        return _no_trace(ctx, point, key, lines, x_t=x_t, problem=problem, short=short)
+    try:
+        if crossings is None:
+            return trace.forces(rho=rho, v_inf=speed, mirror=mirror), ["net"]
+        raw = sheet_forces(crossings, rho=rho, v_inf=speed, mirror=mirror)
+    except PyflightstreamError as error:
+        _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
+        return []
+    return raw, ["net"] if len(crossings) < 2 else _sheet_names(crossings)
+
+
+def _no_trace(
+    ctx: SimContext,
+    point: PolarPoint,
+    key: str,
+    lines: list[np.ndarray],
+    *,
+    x_t: float,
+    problem: str,
+    short: int,
+) -> list:
+    """Write the point's B row NA and say why (FR-1025, FR-1026); a short wake states its length."""
+    _skip(
+        ctx,
+        key,
+        point.name,
+        f"no trace at x = {x_t:.4g} m: {problem}{_reach_text(ctx, lines) if short else ''}",
+    )
+    unavailable = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
+    return [_row(ctx, point, _NA, unavailable)]
+
+
+def _reach_text(ctx: SimContext, lines: list[np.ndarray]) -> str:
+    """Say how long the recorded wake is and what plane distance it would reach (FR-1026)."""
+    bref = ctx.reference.bref_m
+    if not lines:
+        return ""
+    reach = min(float(line[-1, 0] - line[0, 0]) for line in lines)
+    last = min(float(line[-1, 0]) for line in lines)
+    first = max(float(line[0, 0]) for line in lines)
+    return (
+        f"; the recorded wake is {reach:.4g} m long on its shortest line, and the plane "
+        f"stands {_trefftz(ctx).distance_bref * bref:.4g} m behind the trailing edge; every line "
+        f"reaches a plane at a distance_bref of at most {(last - first) / bref:.3g}, "
+        "or the run must record a longer wake"
+    )
+
+
+def _sheet_crossings(
+    ctx: SimContext,
+    point: PolarPoint,
+    key: str,
+    lines: list[np.ndarray],
+    values: np.ndarray,
+    *,
+    x_t: float,
+    mirror: bool,
+) -> tuple[list[SheetCrossings] | None, str | None, int]:
+    """Split the lines into sheets and cut each at the plane: crossings, a problem, short lines."""
+    sheets, left_out = split_wake_sheets(lines, values, mirror=mirror)
+    traced = sheets
+    for members, why in left_out:
+        _skip(
+            ctx,
+            f"{key}#left-out",
+            point.name,
+            f"{len(members)} wake lines, with values summing to "
+            f"{float(values[members].sum()):.4g}, are left out of the trace: {why}; "
+            "their circulation is not in the result",
+        )
+    if not traced:
+        return None, "no wake sheet can be traced", 0
+    order = sorted(
+        traced,
+        key=lambda sheet: (
+            float(np.mean([lines[k][0, 0] for k in sheet.index])),
+            int(sheet.index[0]),
+        ),
+    )
+    crossings = [sheet_crossings(lines, values, sheet, x_t) for sheet in order]
+    short = sum(item.short for item in crossings)
+    if short:
+        return None, f"{short} of {len(lines)} wake lines end before the plane", short
+    return crossings, None, 0
+
+
+def _sheet_names(crossings: Sequence[SheetCrossings]) -> list[str]:
+    """Name the traced sheets sheet1, sheet2, ... from the upstream one (smallest mean x)."""
+    return [f"sheet{index + 1}" for index in range(len(crossings))]
 
 
 def _wake_sheet(
@@ -970,9 +1078,12 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
 
 
 def _wake_rotor_products(
-    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str
+    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str, *, rotor: bool = True
 ) -> None:
-    """B on the non-rotor lines and the rotors' wake loads: final, and the window average."""
+    """B on the non-rotor lines and the rotors' wake loads: final, and the window average.
+
+    On an unsteady row without a rotor the same stage writes B alone.
+    """
     final = _final_wakes(ctx, point)
     runs = ctx.sources[point.name]
     if run_type == "qsteady_rotor":
@@ -986,7 +1097,9 @@ def _wake_rotor_products(
         _note_one_clocking(ctx, point, variant="wake_loads", label="W wake")
         rows = _variant_w(ctx, point, final)
     else:
-        rows = _variant_b(ctx, point, final, rotor=True) + _variant_w(ctx, point, final)
+        rows = _variant_b(ctx, point, final, rotor=rotor) + (
+            _variant_w(ctx, point, final) if rotor else []
+        )
     if run_type not in UNSTEADY_RUN_TYPES:
         tables.extend("trefftz", point.name, ff._named(ctx, [final]), rows, runs=runs)
         return
@@ -1020,7 +1133,9 @@ def _wake_rotor_products(
     if not steps or any(step not in wakes or not wakes[step].is_file() for step in steps):
         _skip(ctx, key, point.name, "the wake average needs a wake export at every window step")
         return
-    samples = [_wake_step_rows(ctx, point, wakes[step], loads.get(step)) for step in steps]
+    samples = [
+        _wake_step_rows(ctx, point, wakes[step], loads.get(step), rotor=rotor) for step in steps
+    ]
     first = 3 + len(CONTEXT_COLUMNS)
     identities = [[row[first : first + 2] for row in sample] for sample in samples]
     if not all(samples) or any(identity != identities[0] for identity in identities):
@@ -1049,7 +1164,9 @@ def _wake_rotor_products(
     )
 
 
-def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None) -> list:
+def _wake_step_rows(
+    ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None, *, rotor: bool = True
+) -> list:
     """Use a wake snapshot's own loads for calibration and near-field comparisons."""
     try:
         if loads is None:
@@ -1064,8 +1181,8 @@ def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path 
             f"near-field comparisons and B calibration are NA for this step: {error}",
         )
     sampled = replace(point, loads=report)
-    return _variant_b(ctx, sampled, wake, rotor=True, spanwise=False) + _variant_w(
-        ctx, sampled, wake
+    return _variant_b(ctx, sampled, wake, rotor=rotor, spanwise=False) + (
+        _variant_w(ctx, sampled, wake) if rotor else []
     )
 
 
@@ -1741,8 +1858,8 @@ def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
         read: list[Path | None] = []
         if "trefftz:sections" in analyses:
             _sections_products(ctx, point, tables, run_type)
-        if "trefftz:wake" in analyses and rotor:
-            _wake_rotor_products(ctx, point, tables, run_type)
+        if "trefftz:wake" in analyses and (rotor or run_type in UNSTEADY_RUN_TYPES):
+            _wake_rotor_products(ctx, point, tables, run_type, rotor=rotor)
         elif "trefftz:wake" in analyses:
             steady_rows += _variant_b(ctx, point, _final_wakes(ctx, point))
             vtk = _output(ctx, point, "vtk")

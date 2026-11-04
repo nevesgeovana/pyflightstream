@@ -101,8 +101,8 @@ The window ends at the last recorded step and clips to the run if longer.
 Multiple entries export the union of their windows. Other per-step products
 retain the row's export threshold. The average is the mean of the per-step
 analysis results, and is skipped if any window snapshot is missing.
-B retains its steady-only applicability on rows without a rotor; on
-`unsteady_rotor` its window exports the surface VTK with the wake at every step.
+B applies to steady rows and to unsteady rows, with or without a rotor; under a window it
+exports the surface VTK with the wake at every step.
 
 `"export_window"` takes the window from the row instead: `EXPORT_UNSTEADY_LAST_ITER`
 (steps) or `EXPORT_UNSTEADY_LAST_REV` (turns of the rotor clock), and exports the same
@@ -323,8 +323,36 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   as converged as the wake the solver relaxed.
 - The plane must lie inside the wake: a line that ends before it makes the
   point's B value `NA`.
-- One `net` row per point: the export does not say which family a line
-  belongs to.
+- The export does not say which family a line belongs to, so the lines are separated
+  into sheets by where their first nodes lie, and a sheet is named by its order, not by a
+  family. Two first nodes belong to one sheet when they are closer than 4 times the smaller
+  of their nearest-neighbour distances, so a dense rim is never taken into a sparse trailing
+  edge. The open sheets are cut at the one plane and traced together: the strips of each
+  sheet are bounded by its own crossings, and the normalwash at every strip comes from the
+  filaments of every sheet. A run of first nodes that closes on itself (its two ends as close as
+  its consecutive nodes, at least four lines) is a ring, the rim of a base or of a nacelle. A
+  ring is walked once around, its strips lie between consecutive crossings and the last
+  crossing closes to the first, and its values must sum to zero as a full sheet's do. The
+  circulation accumulated around the ring has its mean removed, so the result does not depend
+  on where the walk starts. On a mirror half the ring is reflected once, as a sheet is. The
+  induced drag of a ring is the drag of the trailing vorticity of that rim in the Trefftz
+  plane; the pressure drag of the base is not this drag and is not in it. A ring whose values
+  do not sum to zero is warned and skipped. The rows are `FAMILY = sheet1`, `sheet2`, and so on, numbered
+  from the sheet whose first nodes have the smallest mean `x` (the one upstream), and the
+  `net` row, which holds all traced sheets together. The sheet rows give `CL_T`, `CDI_T`
+  (under the wash of every sheet) and `CDI_T_ISOLATED` (under its own filaments only); they
+  share the one `GAMMA_SCALE` of the `net` row, and their `CL_T` and `CDI_T` add up to it.
+  A point with a single sheet writes the `net` row alone.
+- A group of lines that cannot be traced (a single line, a run whose first nodes branch) is
+  warned and skipped, naming its line count and the sum of its values, and the other sheets
+  are traced. The circulation of the skipped group is left out of the result.
+- A sheet whose lines end before the plane makes the `net` row `NA`, with a skip that states
+  the length of the shortest line, the distance of the plane, and the `distance_bref` at
+  which every line would reach it. The plane is not moved.
+- On `unsteady_rotor` the exported values of the march are positive where the steady rows'
+  are negative. This is an observed convention of the export, and its source is not known.
+  The scale `k` takes the sign that gives the near-field lift, so `GAMMA_SCALE` is negative
+  on such a row, `CL_T` is the near field's, and `CDI_T` and `E_T` do not depend on the sign.
 - On a rotor row (a steady row with a rotor speed, `unsteady_rotor`) B traces
   only the lines that leave another family than the rotors'. A `qsteady_rotor`
   row holds an isolated rotor and no other family, so its wake entry, B and W
@@ -333,8 +361,8 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   line is assigned to the wing. This geometric selection cannot establish
   unique ownership where rotor selection regions overlap. A row whose every line
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
-  reads every line, as before. On `unsteady_rotor`, B is written for the last
-  step and, under `"avg_window"`, averaged over the window steps.
+  reads every line, as before. On an unsteady row, with or without a rotor, B is
+  written for the last step and, under `"avg_window"`, averaged over the window steps.
   Its lift calibration uses only the non-rotor families' near-field lift,
   excluding the rotor families through the reference's family and alias resolver.
   Missing non-rotor lift leaves the calibrated coefficients unavailable.
@@ -871,7 +899,7 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | steady rotor | nonrotor families | nonrotor lines; W per rotor | configuration plane | yes |
 | `unsteady_rotor` | nonrotor families | nonrotor lines; W per rotor; instant and average | configuration plane, instant and average | instant and average |
 | `qsteady_rotor` | no, warned and skipped | B skipped; W at the final solve | configuration plane, in the hub frame | yes, in the hub frame |
-| unsteady, fixed wing | yes | no | instant and average | instant and average |
+| unsteady, fixed wing | yes | yes; instant and average | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
 A refuses any selection, including selector words, that resolves to a rotor

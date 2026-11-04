@@ -3313,6 +3313,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.quadrature">pyflightstream.farfield.quadrature</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.trefftz">pyflightstream.farfield.trefftz</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.wake_sheets">pyflightstream.farfield.wake_sheets</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.farfield.balances"><summary><code>pyflightstream.farfield.balances</code></summary><ul>
@@ -3334,6 +3335,11 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.farfield.balances">pyflightstream.farfield.balances</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.quadrature">pyflightstream.farfield.quadrature</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.farfield.wake_sheets"><summary><code>pyflightstream.farfield.wake_sheets</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.trefftz">pyflightstream.farfield.trefftz</a> (module)</li>
 </ul></details>
 
 ## Layer 3.5
