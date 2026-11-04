@@ -514,9 +514,10 @@ def run_campaign(
         the campaign's own; each accepts that build only, warns as the flag
         does, and its records say so and name the file. Default empty.
     redo_submitted : bool
-        Redo a point recorded as SUBMITTED named by ``force_rerun``, warning
-        that its job may still be queued and is not cancelled, instead of
-        refusing it. ``run_matrix`` sets it for ``force_rerun_all``.
+        Redo a point named by ``force_rerun`` that is recorded as SUBMITTED or
+        belongs to a batch whose job has not ended, instead of refusing it,
+        warning that its job is not cancelled. ``run_matrix`` sets it for
+        ``force_rerun_all``.
 
     Returns
     -------
@@ -903,7 +904,8 @@ def _check_campaign_staged_inputs(state: _CampaignState) -> None:
     # not this request names it: a job still in a queue opens the copy in
     # inputs/ when it starts, so staging other bytes over it now would give
     # it a file its record does not hash.
-    # (A point force_rerun_all redoes is no longer a queued reader: its record is archived.)
+    # (A point force_rerun_all redoes no longer guards inputs/: its record is archived. Its old
+    # job may still open them, which is why the warning says to cancel it.)
     redone = {i for _, _, ids in state.to_supersede for i in ids} if state.redo_submitted else ()
     # AND STAGING CHANGES NOTHING THE QUEUED JOB OPENS: the junction to the
     # library is retargeted when this row's geometry sits in another folder,

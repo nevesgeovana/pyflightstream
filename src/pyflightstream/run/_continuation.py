@@ -445,8 +445,8 @@ def queued_points(
     run_ids : sequence of str
         The recorded points the forced re-run would supersede.
     redo : bool
-        ``force_rerun_all``: a SUBMITTED point is redone, so it is warned of
-        (it may still be queued and is not cancelled) and not returned.
+        ``force_rerun_all``: a SUBMITTED point or a point of a running batch is
+        redone, so it is warned of (its job is not cancelled) and not returned.
     selected_sims : collection of str
         The simulations this run redoes, across all its cases. A batch's other
         points are named in the warning as staying in the job, because this is
@@ -461,8 +461,8 @@ def queued_points(
     Raises
     ------
     WorkspaceError
-        If one of the points belongs to a batch whose job has not ended; the
-        message names the batch.
+        Without ``redo``, if one of the points belongs to a batch whose job has
+        not ended; the message names the batch.
     """
     records = [manifest[run_id] for run_id in run_ids if run_id in manifest]
     running = running_batches(workspace.root, manifest.values())

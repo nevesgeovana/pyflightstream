@@ -83,7 +83,8 @@ class HpcProfile:
     Attributes
     ----------
     application_id : str
-        The scheduler's own name for the application.
+        The scheduler's own name for the application, for every build
+        ``application_ids`` has no line for.
     descriptor_format : str
         One of :data:`HPC_FORMATS`. What the descriptor file IS, so the
         package writes it rather than the study pasting a template.
@@ -110,6 +111,10 @@ class HpcProfile:
         cluster. It is a DECLARATION and verifies nothing: which build the
         scheduler actually starts is known only from the build number in a
         collected log.
+    application_ids : dict of str to str
+        The application name per canonical build where it differs from
+        ``application_id``, from ``[application_ids]``. Read it through
+        :meth:`application_id_for`.
     """
 
     application_id: str
