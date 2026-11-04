@@ -326,7 +326,9 @@ stays required. The keys are read as the keys of `[builds]` are: one canonical
 build each, so `26.1` is refused when the profile is read. A profile with no
 `[application_ids]` table writes what it always wrote. A grouped job holds one
 build, so its descriptor and its recorded `application_id` follow that build.
-The `application_id` recorded for a run is the one written.
+The `application_id` recorded for a run is the one written. The two tables are
+independent: this example profile writes `{fs_build_alias}`, so a 26.124 row
+also needs its own line under `[builds]`, or it is refused as above.
 
 In every grouped job template (`job_root`, `native_log`, `job_end_files` and
 the descriptor), {sim} is the first simulation of the job and {batch} is

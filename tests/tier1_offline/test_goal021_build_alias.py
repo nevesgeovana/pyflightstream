@@ -414,3 +414,16 @@ def test_application_ids_a_points_record_carries_the_name_it_wrote(tmp_path):
         script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
         executor.run_script(script, working_dir=tmp_path / f"work_{build}")
         assert executor.submission_record()["application_id"] == name
+
+
+def test_application_ids_the_example_says_its_build_also_needs_a_builds_line(tmp_path):
+    """The example maps 26.124 for the application but 26.123 for the build alias."""
+    text = DOC.read_text(encoding="utf-8")
+    assert "also needs its own line under `[builds]`" in text
+    profile = _profile(tmp_path)
+    assert "26.124" in profile.application_ids and "26.124" not in profile.builds
+    executor = SubmittingExecutor(profile, values={"fs_build": "26.124"}, submit=False)
+    script = tmp_path / "point.txt"
+    script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+    result = executor.run_script(script, working_dir=tmp_path / "work")
+    assert result.return_code == 2 and "maps no alias for build(s) 26.124" in result.stderr
