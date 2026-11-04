@@ -851,7 +851,11 @@ def _resolve_campaign_redo(state: _CampaignState) -> None:
             # writing its folder, and archiving the record it will be collected
             # into would leave the job writing where the new run writes.
             queued = queued_points(
-                state.workspace, state.manifest, superseding, redo=state.redo_submitted
+                state.workspace,
+                state.manifest,
+                superseding,
+                redo=state.redo_submitted,
+                selected_sims={case.sim_id for case in state.campaign.sims},
             )
             if queued:
                 raise WorkspaceError(

@@ -298,3 +298,19 @@ def test_the_warning_says_the_old_jobs_outputs_are_recorded_as_the_new_runs(tmp_
         )
     )
     assert "recorded as the new run's" in said and "job id" in said, said
+
+
+def test_a_partly_selected_batch_names_what_stays_in_the_job(tmp_path):
+    grouped, workspace, profile, matrix, _ = _submitted_batch(tmp_path)
+    _, said = _redo_said(
+        lambda: _rerun(grouped, workspace, profile, matrix, force_rerun_all=True, sims=["7001"])
+    )
+    assert "rotor/sim_7003/V0300RE120AL+000 stay in that job" in said, said
+    assert "Cancel it in the scheduler" not in said, said
+    assert "every point of that job" in said and "job id" in said, said
+
+
+def test_a_whole_batch_names_nothing_as_staying(tmp_path):
+    grouped, workspace, profile, matrix, _ = _submitted_batch(tmp_path)
+    _, said = _redo_said(lambda: _rerun(grouped, workspace, profile, matrix, force_rerun_all=True))
+    assert "stay in that job" not in said and "Cancel it in the scheduler" in said, said

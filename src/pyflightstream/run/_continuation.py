@@ -432,6 +432,7 @@ def queued_points(
     run_ids: Sequence[str],
     *,
     redo: bool = False,
+    selected_sims: Collection[str] = (),
 ) -> list[str]:
     """Return the run ids a forced re-run may not supersede, or refuse by batch.
 
@@ -446,6 +447,11 @@ def queued_points(
     redo : bool
         ``force_rerun_all``: a SUBMITTED point is redone, so it is warned of
         (it may still be queued and is not cancelled) and not returned.
+    selected_sims : collection of str
+        The simulations this run redoes, across all its cases. A batch's other
+        points are named in the warning as staying in the job, because this is
+        called once per case and ``run_ids`` cannot tell a sibling that stays
+        from one the next case redoes.
 
     Returns
     -------
@@ -467,9 +473,12 @@ def queued_points(
         warnings.warn(
             "force_rerun_all redoes "
             + ", ".join(f"{run_id} (job {label})" for run_id, label in in_jobs.items())
-            + ", points of a batch whose job has not ended. That job is not cancelled by "
-            "this run and writes the batch folder, while the redone points run in the "
-            "simulation's own folder, so it must be cancelled in the scheduler.",
+            + ", points of a batch with no sign that its job has ended. That job is not "
+            "cancelled by this run and writes the batch folder until it ends, holding its "
+            "licence, while the redone points run in the simulation's own folder. "
+            "pyflightstream does not know the scheduler's job id, so look for the job in "
+            "the scheduler: cancelling it ends every point of that job."
+            + _left_in_the_job(manifest, in_jobs, selected_sims),
             PyflightstreamWarning,
             stacklevel=2,
         )
@@ -502,6 +511,35 @@ def queued_points(
         )
         return []
     return queued
+
+
+def _batch_label(record: RunRecord) -> str | None:
+    job = (record.submission or {}).get("job")
+    if isinstance(job, Mapping) and job.get("kind") == "batch":
+        return str(job.get("label"))
+    return None
+
+
+def _left_in_the_job(
+    manifest: Mapping[str, RunRecord],
+    in_jobs: Mapping[str, str],
+    selected_sims: Collection[str],
+) -> str:
+    """End the batch warning: what stays in the job this run does not redo."""
+    labels = set(in_jobs.values())
+    left = [
+        record.run_id
+        for record in manifest.values()
+        if record.status is RunStatus.SUBMITTED
+        and record.sim_id not in selected_sims
+        and _batch_label(record) in labels
+    ]
+    if not left:
+        return " Cancel it in the scheduler."
+    return (
+        f" {', '.join(left)} stay in that job and are collected from it, so cancelling it "
+        "loses them: let it end, or redo them too."
+    )
 
 
 def _in_batch(record: RunRecord, label: str) -> bool:
