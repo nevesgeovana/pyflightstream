@@ -177,7 +177,7 @@ def test_p0550_identifiers_differing_between_the_two_homes_refuse_nothing(tmp_pa
     other = home / "one.fs"
     shutil.copyfile(root, other)
     _state(other, {"9001": STATED})
-    with pytest.warns(PyflightstreamWarning, match="differ in their IDENTIFIERS alone"):
+    with pytest.warns(PyflightstreamWarning, match="differ in their IDENTIFIERS or spaces alone"):
         assert find_matrix(workspace.root, "one") is not None
 
 
