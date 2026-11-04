@@ -55,8 +55,9 @@ These files carry no identifier, for the reason given:
 | the custom polar (`.dat`) | fixed-width, with the title lines and the columns its format specifies |
 | a super file in the `legacy_polar` format | fixed-width; a reader splits it by position |
 | `<point>.inflow.dat` and its `_installed` copy | six columns and no header, read back by the solver |
+| the VTK and Tecplot files under `fields/` and `streamlines/` | geometry and fields a viewer reads, in their own formats |
 | `products.json`, `post.log`, `post.log.json`, `provenance/*.prov.json`, the settings legend and the reports | records of the post, not tables |
-| `plan.json` and the scripts | what the run reads, which reads no identifier |
+| `plan.json`, the scripts, `inflow_harmonics.csv` and `inflow_harmonics_J.csv` | written by the plan, which reads no identifier |
 
 Every table the post stage composes states the condition it is a table OF, in
 one block, in this order:

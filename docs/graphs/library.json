@@ -136,6 +136,11 @@
       "path": "cases/_geometry_instruction.py"
     },
     {
+      "id": "pyflightstream.cases._matrix_identifiers",
+      "layer": 3,
+      "path": "cases/_matrix_identifiers.py"
+    },
+    {
       "id": "pyflightstream.cases._matrix_layouts",
       "layer": 3,
       "path": "cases/_matrix_layouts.py"
@@ -1019,6 +1024,11 @@
       "id": "pyflightstream.results",
       "layer": 4,
       "path": "results/__init__.py"
+    },
+    {
+      "id": "pyflightstream.results._identifier_columns",
+      "layer": 4,
+      "path": "results/_identifier_columns.py"
     },
     {
       "id": "pyflightstream.results.conditions",
@@ -2188,6 +2198,16 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.cases._matrix_identifiers",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._matrix_identifiers",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.cases._matrix_layouts",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -2565,6 +2585,11 @@
     {
       "source": "pyflightstream.cases.matrix",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.matrix",
+      "target": "pyflightstream.cases._matrix_identifiers",
       "kind": "module"
     },
     {
@@ -4749,6 +4774,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._vocabulary",
+      "target": "pyflightstream.cases._matrix_identifiers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._vocabulary",
       "target": "pyflightstream.cases.acoustics",
       "kind": "module"
     },
@@ -5524,6 +5554,11 @@
     },
     {
       "source": "pyflightstream.post._additional",
+      "target": "pyflightstream.results._identifier_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._additional",
       "target": "pyflightstream.workspace",
       "kind": "module"
     },
@@ -5730,6 +5765,11 @@
     {
       "source": "pyflightstream.post._installed_copies",
       "target": "pyflightstream.post.point_tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._installed_copies",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -6554,6 +6594,11 @@
     },
     {
       "source": "pyflightstream.post._structure",
+      "target": "pyflightstream.results._identifier_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._structure",
       "target": "pyflightstream.results.exports",
       "kind": "deferred"
     },
@@ -6595,6 +6640,11 @@
     {
       "source": "pyflightstream.post._tables",
       "target": "pyflightstream.results",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._tables",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -7180,6 +7230,11 @@
     {
       "source": "pyflightstream.post.inflow_tools",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.inflow_tools",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -7904,6 +7959,11 @@
     },
     {
       "source": "pyflightstream.post.superfile",
+      "target": "pyflightstream.cases._matrix_identifiers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.superfile",
       "target": "pyflightstream.cases.matrix",
       "kind": "module"
     },
@@ -7915,6 +7975,11 @@
     {
       "source": "pyflightstream.post.superfile",
       "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.superfile",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -9193,6 +9258,21 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.results._identifier_columns",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results._identifier_columns",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results._identifier_columns",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.results.core",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -9305,6 +9385,11 @@
     {
       "source": "pyflightstream.results.tables",
       "target": "pyflightstream.extras",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results.tables",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -10005,6 +10090,11 @@
     {
       "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign",
+      "target": "pyflightstream.results._identifier_columns",
       "kind": "module"
     },
     {
@@ -10790,6 +10880,11 @@
     {
       "source": "pyflightstream.run._identity",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._identity",
+      "target": "pyflightstream.cases._matrix_identifiers",
       "kind": "module"
     },
     {
@@ -13349,7 +13444,17 @@
     },
     {
       "source": "pyflightstream.workspace._layout",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._layout",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._layout",
+      "target": "pyflightstream.cases._matrix_identifiers",
       "kind": "module"
     },
     {
@@ -14914,7 +15019,7 @@
     },
     {
       "source": "pyflightstream.workspace.ledger",
-      "target": "pyflightstream._digest",
+      "target": "pyflightstream.cases._matrix_identifiers",
       "kind": "module"
     },
     {
