@@ -19,7 +19,8 @@ FlightStream versions.
 - `--force-rerun-all` redoes a point recorded as SUBMITTED, with or without `--sims`, instead of
   refusing it as still in a scheduler's queue. It warns, naming the points, that a point recorded
   as submitted may still be queued and is not cancelled by the run. A plain run and `--force-rerun`
-  keep the refusal (FR-3572).
+  keep the refusal. This includes a point of a batch whose job has not ended: the warning names the
+  point and the job, which is not cancelled and keeps writing the batch folder (FR-3572).
 
 ## [0.55.0] - 2026-11-04
 

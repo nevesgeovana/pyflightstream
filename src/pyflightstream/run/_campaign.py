@@ -899,21 +899,19 @@ def _check_campaign_staged_inputs(state: _CampaignState) -> None:
     # not this request names it: a job still in a queue opens the copy in
     # inputs/ when it starts, so staging other bytes over it now would give
     # it a file its record does not hash.
-    queued_here = [
-        record.run_id
-        for record in state.manifest.values()
-        if record.sim_id == state.case.sim_id
-        and record.status is RunStatus.SUBMITTED
-        and record.run_id not in state.already
-    ]
+    # (A point force_rerun_all redoes is no longer a queued reader: its record is archived.)
+    redone = {i for _, _, ids in state.to_supersede for i in ids} if state.redo_submitted else ()
     # AND STAGING CHANGES NOTHING THE QUEUED JOB OPENS: the junction to the
     # library is retargeted when this row's geometry sits in another folder,
     # which swaps every file of inputs/ at once, whatever its name (9r).
     queued_in_sim = [
         record.run_id
         for record in state.manifest.values()
-        if record.sim_id == state.case.sim_id and record.status is RunStatus.SUBMITTED
+        if record.sim_id == state.case.sim_id
+        and record.status is RunStatus.SUBMITTED
+        and record.run_id not in redone
     ]
+    queued_here = [run_id for run_id in queued_in_sim if run_id not in state.already]
     if queued_in_sim and state.case.geometry is not None:
         change = state.workspace.staging_would_change(state.case.sim_id, [state.case.geometry])
         if change is not None:

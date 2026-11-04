@@ -532,7 +532,10 @@ point may be in a queue. The run warns, naming those points, that a point
 recorded as submitted may still be in the scheduler's queue and is not cancelled
 by the run: a job still queued or running writes into the same point folder as
 the new one, so cancel it in the scheduler. The old records are archived as any
-other redone point's are.
+other redone point's are. A point of a batch whose job has not ended is redone
+too, and the warning names the point and the job: the job is not cancelled and
+keeps writing the batch folder, while the redone point runs in its simulation's
+own folder.
 
 **To plan and run ONE simulation, or some of its points, without editing the
 matrix**, select them on both commands:

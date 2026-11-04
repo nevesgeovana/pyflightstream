@@ -460,9 +460,22 @@ def queued_points(
     """
     records = [manifest[run_id] for run_id in run_ids if run_id in manifest]
     running = running_batches(workspace.root, manifest.values())
+    in_jobs = {
+        record.run_id: label for record in records for label in running if _in_batch(record, label)
+    }
+    if in_jobs and redo:
+        warnings.warn(
+            "force_rerun_all redoes "
+            + ", ".join(f"{run_id} (job {label})" for run_id, label in in_jobs.items())
+            + ", points of a batch whose job has not ended. That job is not cancelled by "
+            "this run and writes the batch folder, while the redone points run in the "
+            "simulation's own folder, so it must be cancelled in the scheduler.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     for record in records:
         for label in running:
-            if _in_batch(record, label):
+            if _in_batch(record, label) and not redo:
                 raise WorkspaceError(
                     f"force_rerun (CLI: --force-rerun) names {record.run_id}, a point of "
                     f"batch {label}, whose job has not ended: it is still writing the batch "
@@ -470,7 +483,11 @@ def queued_points(
                     "beside the job. Wait for the batch to end and collect it "
                     "(pyfs-matrix collect); nothing was archived or run."
                 )
-    queued = [record.run_id for record in records if record.status is RunStatus.SUBMITTED]
+    queued = [
+        record.run_id
+        for record in records
+        if record.status is RunStatus.SUBMITTED and not (redo and record.run_id in in_jobs)
+    ]
     if queued and redo:
         warnings.warn(
             f"force_rerun_all redoes {', '.join(queued)}, recorded as SUBMITTED: a point "

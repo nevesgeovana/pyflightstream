@@ -219,3 +219,52 @@ def test_force_rerun_all_leaves_a_plain_run_of_a_submitted_point_as_it_was(tmp_p
             StubSolver(WRITES_EVERY_EXPORT),
             force_rerun=[submitted[0].run_id],
         )
+
+
+def _submitted_batch(tmp_path):
+    from tests.tier1_offline import test_p0350_batch_run as grouped
+
+    workspace, profile, _ = grouped._workspace(tmp_path)
+    matrix = grouped._matrix(tmp_path)
+    grouped._plan(workspace, matrix, mode="batch", batch=1)
+    records = grouped._run(workspace, matrix, executor=grouped._submitting(profile))
+    assert {r.status.name for r in records} == {"SUBMITTED"}, records
+    return grouped, workspace, profile, matrix, records
+
+
+def _rerun(grouped, workspace, profile, matrix, **extra):
+    return run_matrix(
+        matrix,
+        workspace,
+        name=grouped.MATRIX,
+        recipes={},
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=grouped._submitting(profile, submit=False),
+        **extra,
+    )
+
+
+def test_force_rerun_all_redoes_a_point_of_a_batch_still_in_the_queue(tmp_path):
+    grouped, workspace, profile, matrix, records = _submitted_batch(tmp_path)
+    ids = sorted(r.run_id for r in records)
+    label = f"{grouped.MATRIX}_b1"
+    with pytest.warns(PyflightstreamWarning) as caught:
+        redone = _rerun(grouped, workspace, profile, matrix, force_rerun_all=True)
+    said = " ".join(str(w.message) for w in caught)
+    assert "not cancelled" in said and "writes the batch folder" in said, said
+    assert label in said and all(run_id in said for run_id in ids), said
+    assert sorted(r.run_id for r in redone) == ids
+    # THE REDONE POINTS WRITE THE MANAGED SIMULATION FOLDER, not the batch folder the old
+    # job still writes, so the old job cannot write over the folder the new run collects.
+    assert (workspace.root / "sims" / "sim_7001").is_dir()
+    batch_folder = workspace.root / "sims" / "batch" / label
+    assert batch_folder not in workspace.sim_dir("7001").parents
+
+
+def test_a_plain_force_rerun_of_a_point_of_a_batch_still_in_the_queue_is_refused(tmp_path):
+    from pyflightstream.exceptions import WorkspaceError
+
+    grouped, workspace, profile, matrix, records = _submitted_batch(tmp_path)
+    with pytest.raises(WorkspaceError, match=r"whose job has not ended"):
+        _rerun(grouped, workspace, profile, matrix, force_rerun=[records[0].run_id])
