@@ -353,8 +353,9 @@ def test_application_ids_a_non_table_is_refused_when_read(tmp_path):
         'application_id = "flightstream"', 'application_id = "flightstream"\napplication_ids = "x"'
     )
     text = text.split("[application_ids]")[0]
-    with pytest.raises(InputArtifactError, match=r"application_ids entry that is not a table"):
+    with pytest.raises(InputArtifactError, match=r"application_ids entry that is not a table") as r:
         _profile(tmp_path, text)
+    assert '"26.123" = "Flightstream"' in str(r.value), str(r.value)
 
 
 def test_application_ids_the_matrix_path_writes_each_rows_own_name(tmp_path, monkeypatch):

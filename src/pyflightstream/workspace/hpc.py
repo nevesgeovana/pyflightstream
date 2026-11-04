@@ -703,7 +703,8 @@ def _read_build_aliases(
     if not isinstance(table, Mapping):
         raise InputArtifactError(
             f"the HPC profile {target} has a {name} entry that is not a table. Write it as "
-            f'[{name}] with one line per canonical build, for example "26.123" = "26.1".'
+            f"[{name}] with one line per canonical build, for example "
+            + ('"26.123" = "26.1".' if name == "builds" else '"26.123" = "Flightstream".')
         )
     aliases: dict[str, str] = {}
     for key, value in table.items():
