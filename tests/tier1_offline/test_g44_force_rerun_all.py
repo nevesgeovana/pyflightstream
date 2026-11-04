@@ -314,3 +314,16 @@ def test_a_whole_batch_names_nothing_as_staying(tmp_path):
     grouped, workspace, profile, matrix, _ = _submitted_batch(tmp_path)
     _, said = _redo_said(lambda: _rerun(grouped, workspace, profile, matrix, force_rerun_all=True))
     assert "stay in that job" not in said and "Cancel it in the scheduler" in said, said
+
+
+def test_a_batch_that_ended_uncollected_is_not_told_it_shares_a_folder(tmp_path):
+    from pyflightstream.workspace import _batch_life
+
+    grouped, workspace, profile, matrix, _ = _submitted_batch(tmp_path)
+    folder = workspace.root / "sims" / "batch" / f"{grouped.MATRIX}_b1"
+    script = next(folder.glob("BATCH-*.txt"))
+    ended = folder / (script.stem + _batch_life.JOB_END_SUFFIX)
+    ended.write_text('{"returncode":0}', encoding="utf-8")
+    _, said = _redo_said(lambda: _rerun(grouped, workspace, profile, matrix, force_rerun_all=True))
+    assert "ended and was not collected" in said, said
+    assert "neither collected nor archived" in said and "same point folder" not in said, said

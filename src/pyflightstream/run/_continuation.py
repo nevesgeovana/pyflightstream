@@ -497,6 +497,16 @@ def queued_points(
         for record in records
         if record.status is RunStatus.SUBMITTED and not (redo and record.run_id in in_jobs)
     ]
+    ended = [run_id for run_id in queued if redo and _batch_label(manifest[run_id]) is not None]
+    if ended:
+        warnings.warn(
+            f"force_rerun_all redoes {', '.join(ended)}, of a batch whose job ended and was "
+            "not collected: what that job wrote stays in the batch folder, and is neither "
+            "collected nor archived.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        queued = [run_id for run_id in queued if run_id not in ended]
     if queued and redo:
         warnings.warn(
             f"force_rerun_all redoes {', '.join(queued)}, recorded as SUBMITTED: a point "
