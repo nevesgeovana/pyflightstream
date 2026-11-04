@@ -11,6 +11,8 @@ promoted entry; statuses are never hand-edited (CONTRIBUTING.md invariant 3),
 and the schema rejects any of those three without its report citation.
 A promotion writes every chapter it touches or none of them, and an
 older report cannot revert a status established by a later run.
+
+Size exemption: the database's one writer, with the rule of the notes it promotes beside it.
 """
 
 from __future__ import annotations
@@ -950,6 +952,7 @@ CORROBORATED = "corroborated"
 
 _VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
 
+
 # A note lives on one flow-mapping line of a chapter file, so a long detail
 # is kept short. The limit says where the last clause kept may end; a first
 # clause that ends past it is kept whole rather than cut.
@@ -958,11 +961,30 @@ _NOTE_LIMIT = 140
 # A clause ends at a full stop or a semicolon before a space. A colon leads
 # into what follows it, and the dots of an ellipsis or of a common
 # abbreviation end nothing.
-_CLAUSE_END = re.compile(r"(?<!\.)(?<!e\.g)(?<!i\.e)(?<!\bvs)[.;](?=\s)")
+_CLAUSE_END = re.compile(r"(?<!\.)(?<!e\.g)(?<!i\.e)(?<!\bvs)(?:;(?=\s)|\.(?=\s+[A-Z]))")
 
 # A quoted span of two or more words, which the database does not carry
 # (tests/tier1_offline/test_command_db.py::test_no_database_note_quotes_the_manual).
+_NAMES_REPORT = re.compile(r"\. The full text is in \S+\.$")
 _QUOTED_WORDS = re.compile(r"(?<!\w)'([^']*\s[^']*)'(?!\w)")
+
+
+def _clause_ends(text: str) -> list[int]:
+    """Return where a clause of ``text`` ends, never inside a bracket or a quoted span."""
+    quoted = [match.span() for match in _QUOTED_WORDS.finditer(text)]
+    ends = []
+    for match in _CLAUSE_END.finditer(text):
+        at = match.start()
+        head = text[:at]
+        if head.strip(" .;") and head.count("(") == head.count(")"):
+            if not any(start < at < stop for start, stop in quoted):
+                ends.append(at)
+    return ends
+
+
+def _without_report(note: str) -> str:
+    """Return a note without the sentence naming its report, which each promotion restates."""
+    return _NAMES_REPORT.sub("", note)
 
 
 def _one_line_note(detail: str, report: str) -> str:
@@ -976,7 +998,7 @@ def _one_line_note(detail: str, report: str) -> str:
     :class:`~pyflightstream.script.BrokenCommandError` raises when a recipe
     emits the command, where a note cut mid-clause or ending in a placeholder
     reads as a corrupted database. A long detail that is one clause is
-    written whole. A long note holds the words of a multi-word quote without
+    written whole. A note holds the words of a multi-word quote without
     the quotes, because a run's words in quotes cannot be told from the
     manual's.
 
@@ -995,13 +1017,12 @@ def _one_line_note(detail: str, report: str) -> str:
     """
     text = " ".join(detail.replace('"', "'").split())
     if len(text) <= _NOTE_LIMIT:
-        return text
-    text = _QUOTED_WORDS.sub(r"\1", text)
-    ends = [match.start() for match in _CLAUSE_END.finditer(text)]
+        return _QUOTED_WORDS.sub(r"\1", text)
+    ends = _clause_ends(text)
     if not ends:
-        return text
+        return _QUOTED_WORDS.sub(r"\1", text)
     inside = [end for end in ends if end <= _NOTE_LIMIT]
-    clause = text[: inside[-1] if inside else ends[0]]
+    clause = _QUOTED_WORDS.sub(r"\1", text[: inside[-1] if inside else ends[0]])
     return f"{clause}. The full text is in {report}."
 
 
@@ -1211,10 +1232,11 @@ def _promoted_note(previous: object, detail: object, status: str, report: str) -
     """Preserve edition evidence and keep repeated broken promotions idempotent."""
     note = _one_line_note(str(detail), report)
     previous = str(previous or "").strip()
-    if previous == note or previous.endswith(f"Probe: {note}"):
-        return previous
+    stem, prior = _without_report(note), _without_report(previous)
+    if prior == stem or prior.endswith(f"Probe: {stem}"):
+        return f"{prior}{note[len(stem) :]}"
     if status == "documented" and _EDITION_PAGE.search(previous):
-        return note if previous.startswith(note) else f"{note} Prior edition evidence: {previous}"
+        return note if previous.startswith(stem) else f"{note} Prior edition evidence: {previous}"
     if status == ProbeOutcome.BROKEN.value and previous:
         return f"{previous} Probe: {note}"
     return note

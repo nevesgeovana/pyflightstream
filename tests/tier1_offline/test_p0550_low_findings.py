@@ -367,3 +367,86 @@ def test_p0550_no_command_note_carries_an_empty_instrument_head() -> None:
         if "head:  |" in (row.note or "")
     ]
     assert bad == []
+
+
+# The QA and tech-writer lenses on the promoted note.
+_LONG_NOTE_NL = chr(10)
+LONG = "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m standard atmosphere density at every point of the sweep"  # noqa: E501
+NL = chr(10)
+CR = chr(13) + NL
+Q = chr(39)
+TAIL = " with no export written to the folder and the log held nothing about the command at all in any line of it and the run went on past it"  # noqa: E501
+
+
+@pytest.mark.requirement("FR-3551")
+def test_p0550_a_repeated_promotion_of_one_long_detail_keeps_one_note_naming_the_latest_report(
+    tmp_path,
+):
+    import yaml
+
+    from pyflightstream.qa import apply_compat
+    from tests.tier1_offline.test_qa_compat import write_chapter_fixture, write_dated_report
+
+    commands = tmp_path / "commands"
+    write_chapter_fixture(commands)
+    for date in ("2026-08-11", "2026-08-12"):
+        report = write_dated_report(
+            tmp_path, {"PRINT": {"outcome": "broken", "detail": LONG}}, date=date, version="26.120"
+        )
+        apply_compat(report, repo_root=tmp_path, commands_dir=commands)
+    row = yaml.safe_load((commands / "script_controls.yaml").read_text(encoding="utf-8"))["PRINT"][
+        "versions"
+    ]["26.120"]
+    assert row["note"] == (
+        "the command ran (script processing continued past it) but its effect was not observed. "
+        "The full text is in " + row["report"] + "."
+    )
+
+
+@pytest.mark.requirement("FR-3551")
+@pytest.mark.parametrize(
+    ("detail", "kept"),
+    [
+        (
+            "the run stopped at approx. 240 seconds" + TAIL + ". More.",
+            "the run stopped at approx. 240 seconds" + TAIL,
+        ),
+        ("Fig. 3 shows the row" + TAIL + ". More.", "Fig. 3 shows the row" + TAIL),
+        (
+            "the run (stopped; the log held nothing) went on" + TAIL + ". More.",
+            "the run (stopped; the log held nothing) went on" + TAIL,
+        ),
+        (
+            "the log said " + Q + "alpha; beta gamma" + Q + " and went on" + TAIL + ". More.",
+            "the log said alpha; beta gamma and went on" + TAIL,
+        ),
+    ],
+)
+def test_p0550_a_clause_never_ends_on_an_abbreviation_or_inside_a_bracket_or_a_quote(detail, kept):
+    from pyflightstream.qa.compat import _one_line_note
+
+    assert _one_line_note(detail, "r.yaml") == f"{kept}. The full text is in r.yaml."
+
+
+@pytest.mark.requirement("FR-3551")
+def test_p0550_a_short_detail_loses_a_multi_word_quote() -> None:
+    from pyflightstream.qa.compat import _one_line_note
+
+    assert _one_line_note("refused as 'Unrecognized command' at line 3", "r.yaml") == (
+        "refused as Unrecognized command at line 3"
+    )
+
+
+@pytest.mark.requirement("FR-3551")
+def test_p0550_the_note_keeps_the_last_clause_inside_the_limit_and_no_abbreviation_ends_one() -> (
+    None
+):
+    from pyflightstream.qa.compat import _one_line_note
+
+    first, second = "a" * 60, "b" * 60
+    rest = "c" * 100
+    assert _one_line_note(f"{first}; {second}; {rest}", "r.yaml") == (
+        f"{first}; {second}. The full text is in r.yaml."
+    )
+    lead = "see e.g. The manual on this " + "d" * 130
+    assert _one_line_note(f"{lead}. More.", "r.yaml") == f"{lead}. The full text is in r.yaml."

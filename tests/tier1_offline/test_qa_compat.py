@@ -687,7 +687,7 @@ def test_apply_compat_orders_by_the_tree_it_edits_not_the_installed_registry(tmp
     assert recorded[1].startswith('"26.120"'), recorded
 
 
-# --- a capped note that hides its own cap ----------------------------------
+# --- a long detail kept short on a complete clause -------------------------
 
 
 def test_a_note_too_long_for_one_line_ends_complete_and_names_its_report():
