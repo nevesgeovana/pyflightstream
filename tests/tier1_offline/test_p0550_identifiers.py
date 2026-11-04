@@ -8,6 +8,7 @@ plan and run through the command line, is in ``test_run_cli.py``, beside its stu
 from __future__ import annotations
 
 import csv
+import json
 import shutil
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 from tests.tier1_offline.test_p0320_noise_post import _unsteady_rotor_workspace
-from tests.tier1_offline.test_sims_selection import _three_sims
+from tests.tier1_offline.test_sims_selection import _SECOND, _three_sims
 
 STATED = "IDENTIFIERS: {FLAP:0,TESTE:10}"
 
@@ -311,6 +312,98 @@ def _superfile_campaign(tmp_path: Path) -> tuple[CampaignWorkspace, Path]:
 def _supers(workspace: CampaignWorkspace) -> dict[str, Path]:
     out = workspace.products_dir("matriz") / "polars"
     return {path.name.split("-")[1]: path for path in out.glob("SUPER-*.csv")}
+
+
+def test_p0550_super_files_share_one_header_and_each_row_reads_its_own_polar(tmp_path):
+    workspace, _ = _superfile_campaign(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    supers = _supers(workspace)
+    headers = {tuple(_table(path)[0]) for path in supers.values()}
+    assert len(headers) == 1, "FR-89: one union"
+    assert next(iter(headers))[:3] == ("POL", "FLAP", "TESTE")
+    assert {row["FLAP"] for row in _table(supers["6001"])[1]} == {"1"}
+    assert {row["TESTE"] for row in _table(supers["6001"])[1]} == {"NA"}
+    assert {row["FLAP"] for row in _table(supers["6002"])[1]} == {"NA"}
+    assert {row["TESTE"] for row in _table(supers["6002"])[1]} == {"2"}
+
+
+def test_p0550_the_key_is_no_field_the_super_file_measurement_misses(tmp_path):
+    workspace, _ = _superfile_campaign(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    manifest = workspace.products_dir("matriz") / "products.json"
+    name = json.loads(manifest.read_text(encoding="utf-8"))["superfile_report"]
+    report = json.loads((workspace.root / name).read_text(encoding="utf-8"))
+    assert report["files"]
+    assert all("IDENTIFIERS" not in str(entry) for entry in report["files"])
+    for entry in report["files"]:
+        assert not entry.get("missing"), entry
+
+
+def test_p0550_post_sims_on_one_super_file_keeps_the_others_rows_and_one_of_each_name(tmp_path):
+    """The named simulation takes the matrix's value; the other's file is not rewritten."""
+    workspace, matrix = _superfile_campaign(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    before = _supers(workspace)
+    kept = before["6002"].read_bytes()
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("FLAP:1", "FLAP:3"), encoding="utf-8"
+    )
+    write_campaign_products(
+        workspace,
+        matrix_stem="matriz",
+        overwrite=True,
+        archive=True,
+        archive_stamp=_SECOND,
+        sims=["6001"],
+    )
+    supers = _supers(workspace)
+    assert supers["6002"].read_bytes() == kept, "a simulation not reposted is not blanked"
+    header, rows = _table(supers["6001"])
+    assert header == _table(supers["6002"])[0], "one header"
+    assert len(header) == len(set(header))
+    assert {row["FLAP"] for row in rows} == {"3"}
+    assert {row["TESTE"] for row in rows} == {"NA"}
+
+
+def test_p0550_a_name_of_the_others_no_row_states_any_more_stays_na_in_a_super_file(tmp_path):
+    """The kept files hold the column, so the file reposted holds it too, read as NA."""
+    workspace, matrix = _superfile_campaign(tmp_path)
+    write_campaign_products(workspace, matrix_stem="matriz")
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace(" / IDENTIFIERS: {FLAP:1}", ""),
+        encoding="utf-8",
+    )
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace(" IDENTIFIERS: {FLAP:1}", ""),
+        encoding="utf-8",
+    )
+    write_campaign_products(
+        workspace,
+        matrix_stem="matriz",
+        overwrite=True,
+        archive=True,
+        archive_stamp=_SECOND,
+        sims=["6001"],
+    )
+    header, rows = _table(_supers(workspace)["6001"])
+    assert header.count("FLAP") == 1
+    assert {row["FLAP"] for row in rows} == {"NA"}
+    assert {row["TESTE"] for row in rows} == {"NA"}
+
+
+def test_p0550_the_fixed_width_super_file_is_not_widened(tmp_path):
+    workspace, _ = _superfile_campaign(tmp_path)
+    for pproc in (workspace.inputs_dir / "pproc").glob("*.toml"):
+        pproc.write_text(
+            pproc.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
+            encoding="utf-8",
+        )
+    write_campaign_products(workspace, matrix_stem="matriz")
+    files = list(workspace.products_dir("matriz").rglob("SUPER-*"))
+    assert files
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        assert "FLAP" not in text and "TESTE" not in text, path
 
 
 def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(tmp_path):

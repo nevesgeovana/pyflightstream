@@ -77,6 +77,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
+from pyflightstream.cases._matrix_identifiers import take_identifiers
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
     MatrixError,
@@ -92,6 +93,11 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
+from pyflightstream.results._identifier_columns import (
+    columns_held,
+    header_with,
+    names_for_superfiles,
+)
 from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 from pyflightstream.workspace.record_document import read_rows as _read_run_rows
@@ -779,6 +785,13 @@ def write_superfiles(
         # FR-348: LAST, whichever row brought it in, so a reader by position keeps every column.
         columns.remove(MESH_FACES_COLUMN)
         columns.append(MESH_FACES_COLUMN)
+    # FR-3565: the identifiers are the funnel's, under ONE header too. A column of `leading` that
+    # is one goes back to where the funnel puts it, so the others' files keep the same set.
+    own = {key for draft in drafts for row in draft.rows for key in row}
+    identifiers = names_for_superfiles(
+        (row.get(POLAR_ID_COLUMN) for draft in drafts for row in draft.rows), leading
+    )
+    columns = [column for column in columns if column in own or column not in identifiers]
     written: list[Path] = []
     entries: dict[Path, dict[str, object]] = {}
     for draft in drafts:
@@ -802,10 +815,11 @@ def write_superfiles(
         if chosen == "legacy_polar":
             _write_legacy_polar(path, columns, rows)
         else:
-            write_csv_table(path, columns, rows)
+            with columns_held(identifiers):
+                write_csv_table(path, columns, rows)
         written.append(path)
         entries[path] = {**draft.entry, "rows": len(draft.rows)}
-    return written, entries, tuple(columns)
+    return written, entries, header_with(columns, identifiers)
 
 
 # --- the measurement --------------------------------------------------------
@@ -895,6 +909,9 @@ def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:
         cells = dict(zip(header, [cell.strip() for cell in line.split("|")], strict=False))
         if cells.get("POL", "") not in wanted:
             continue
+        # FR-3560: an identifier is a column of what the post writes, read from those tables'
+        # headers above, and its key is no field of the workspace.
+        cells["VAR_NAMES_VALUES"] = take_identifiers(cells.get("VAR_NAMES_VALUES", ""))[0]
         for cell, separator in _KEYED_CELLS.items():
             for pair in cells.get(cell, "").split(separator):
                 if ":" in pair:
