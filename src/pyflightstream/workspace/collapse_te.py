@@ -29,6 +29,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._refine._obj import (
+    DEFAULT_FAMILY,
     ObjMesh,
     mesh_unit,
     obj_text,
@@ -329,6 +330,25 @@ def _base_plan(blade: str, group: str, mesh: ObjMesh, index: _Index) -> _Plan:
     a, b = best[0]
     _cells(blade, mesh, strip, a, b)
     return _Plan(blade, "base", strip, a, b)
+
+
+def _one_block_per_family(path: Path) -> None:
+    """Refuse an OBJ that returns to a family: the output holds each in one block, reordered."""
+    current, last = DEFAULT_FAMILY, None
+    closed: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        words = line.split(None, 1)
+        if words and words[0] in ("g", "o"):
+            current = (words[1].strip() if len(words) > 1 else "") or DEFAULT_FAMILY
+        elif words and words[0] == "f" and current != last:
+            _need(
+                current not in closed,
+                f"family {current!r} returns after another family in the OBJ, and the output "
+                "writes each family as one block, which would change the face order; join its "
+                "blocks in the source first",
+            )
+            closed.add(last or current)
+            last = current
 
 
 def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
@@ -826,6 +846,7 @@ def collapse_trailing_edge(
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
     cfg = _config(control)
     source = read_obj(path)
+    _one_block_per_family(path)
     index = _Index(source)
     plans, side, skipped, unit = _select(cfg, path, source, index)
     _need(

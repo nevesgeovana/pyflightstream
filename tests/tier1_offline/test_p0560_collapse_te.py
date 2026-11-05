@@ -806,6 +806,26 @@ def test_p0560_a_family_the_merge_empties_loses_its_base_region(tmp_path):
     ]
 
 
+@pytest.mark.requirement("FR-3664")
+def test_p0560_a_family_in_two_blocks_is_refused_for_the_face_order(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    lines = source.read_text().splitlines()
+    # One blade face moves between two hub faces: the same faces, in an order of two hub blocks.
+    moved = lines.pop(lines.index("g Blade1Base") - 1)
+    hub = lines.index("g Hub1")
+    lines[hub + 2 : hub + 2] = ["g Blade1", moved, "g Hub1"]
+    source.write_text("\n".join(lines) + "\n")
+    refused(tmp_path, capsys, source, control(tmp_path), "returns after another family")
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_a_repeated_group_line_with_no_face_between_is_one_block(tmp_path):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    text = source.read_text().replace("g Hub1\n", "g Hub1\ng Hub1\n")
+    source.write_text(text)
+    assert invoke(source, control(tmp_path), tmp_path / "sharp.obj") == 0
+
+
 @pytest.mark.requirement("FR-3666")
 @pytest.mark.parametrize(
     "text",

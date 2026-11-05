@@ -14,7 +14,9 @@ Unknown keys are warned and skipped. The `[repitch]` table of the same file is n
 Each merged node takes the place in the node list of the first declared rim's node; when one
 points set names both rims, of the rim holding the lowest node.
 Without `base` the boundaries file beside the OBJ declares the rims; an OBJ with neither is
-refused, saying what to provide. A reference with several blades in the `[repitch]` table of
+refused, saying what to provide. An OBJ that returns to a family after another is refused,
+because the output writes each family as one block and that would change the face order.
+A reference with several blades in the `[repitch]` table of
 the same file makes the wheel periodicity a check; without one it is warned as not applying.
 
 Every check runs in memory before any file is written, and a failed check refuses:
