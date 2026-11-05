@@ -364,7 +364,10 @@ def _all_blades(
                 "base",
                 NotApplicableWarning,
             )
-    declared = {r.family for r in decl.base_regions}
+    # A family held wholly by the rims is a strip, whether or not a base region declares it.
+    rim_nodes = {n for m in entries for e in m[2] for n in e}
+    strips = {f for f, faces in mesh.families.items() if all(set(x) <= rim_nodes for x in faces)}
+    declared = {r.family for r in decl.base_regions} | strips
     blades: list[str] = []
     for m in entries:
         score = {f: _owner(m[2], index, f) for f in mesh.families}

@@ -871,6 +871,25 @@ def test_p0560_a_blade_split_across_families_collapses_by_its_strip_group(tmp_pa
     assert "Base" not in read_obj(out).families
 
 
+@pytest.mark.requirement("FR-3665")
+def test_p0560_all_names_the_blade_not_a_strip_group_written_first(tmp_path):
+    verts, families, info = blade_parts("Blade1", 0, strip="own")
+    groups = {"Blade1Base": families["Blade1Base"], **families}
+    source = tmp_path / "sector.obj"
+    source.write_text(obj_text(ObjMesh(verts, groups)))
+    pts(tmp_path / "U.te.txt", info["upper"])
+    pts(tmp_path / "L.te.txt", info["lower"])
+    Path(str(source) + ".boundaries.toml").write_text(
+        f'fs_build = "26.125"\nboundaries = {json.dumps(list(groups))}\n'
+        '[import]\nunits = "METER"\n'
+        '[trailing_edges.U]\nfile = "U.te.txt"\ntype = "STANDARD"\n'
+        '[trailing_edges.L]\nfile = "L.te.txt"\ntype = "STANDARD"\n'
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, '"all"'), out) == 0
+    assert list(json.loads(Path(str(out) + ".collapse.json").read_text())["blades"]) == ["Blade1"]
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")
