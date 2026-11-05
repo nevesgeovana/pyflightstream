@@ -35,7 +35,12 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream._fsm import boundary_vertices, family_of, saved_mesh_coordinate_unit
+from pyflightstream._fsm import (
+    boundary_surface,
+    boundary_vertices,
+    family_of,
+    saved_mesh_coordinate_unit,
+)
 from pyflightstream._lengths import scale
 from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 
@@ -166,6 +171,48 @@ def _saved_vertices_m(saved: Path | None) -> np.ndarray:
     factor = scale(unit, "METER") if unit else None
     arrays = [np.asarray(points) for points in vertices.values() if len(points)]
     return np.concatenate(arrays) * factor if arrays and factor else np.empty((0, 3))
+
+
+def plane_body_candidates(saved: Path, points_m: np.ndarray, axes: np.ndarray) -> list[str]:
+    """Name saved bodies whose triangle bounds overlap a finite probe plane.
+
+    This is a conservative intersection diagnostic, not a containment test.
+    Coordinates come from the saved mesh's own unit and geometry origin.
+
+    Parameters
+    ----------
+    saved : pathlib.Path
+        Saved simulation carrying named boundary triangles.
+    points_m : numpy.ndarray
+        Actual sampled plane positions in geometry metres, shape (n, 3).
+    axes : numpy.ndarray
+        Orthonormal plane axes, with its normal first.
+
+    Returns
+    -------
+    list of str
+        Boundary names whose triangle bounds may cut the sampled plane.
+    """
+    labels = boundary_vertices(saved) or {}
+    unit = saved_mesh_coordinate_unit(saved)
+    if not labels or unit is None:
+        return []
+    factor = scale(unit, "METER")
+    plane = points_m @ axes.T
+    lo, hi = plane.min(axis=0), plane.max(axis=0)
+    tolerance = 1e-5 * max(1.0, float(np.abs(plane).max()))
+    found = []
+    for name in labels:
+        vertices, faces = boundary_surface(saved, name)
+        if not faces:
+            continue
+        local = (np.asarray(vertices) * factor) @ axes.T
+        triangles = local[np.asarray(faces)]
+        overlap = np.all(triangles.max(axis=1) >= lo - tolerance, axis=1)
+        overlap &= np.all(triangles.min(axis=1) <= hi + tolerance, axis=1)
+        if np.any(overlap):
+            found.append(name)
+    return found
 
 
 def _frame_offset(points: np.ndarray, vertices: np.ndarray, moment: np.ndarray, *, median=False):

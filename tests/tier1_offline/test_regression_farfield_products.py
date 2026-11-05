@@ -5043,3 +5043,211 @@ def test_pfs2187_21_a_dense_export_is_separated_without_a_pairwise_matrix():
     assert sorted(len(sheet.index) for sheet in sheets) == [1000, 2000]
     assert not left_out
     assert peak < 40e6
+
+
+@pytest.mark.requirement("FR-3612")
+@pytest.mark.parametrize("side", [-1, 1], ids=["P0551-negative", "P0551-positive"])
+def test_p0551_near_sections_touch_mirror_plane(tmp_path, side):
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, [], [], rotor=False)
+    ctx.pproc = PprocSpec.model_validate(
+        {"farfields": [{"variant": "sections", "families": "Wing"}]}
+    )
+    ctx.matrix_row.variables = {"SYMMETRY": "MIRROR", "SYMMETRY_LOADS": "true"}
+    ctx.aliases = {}
+    record = ctx.record_of["point"]
+    record.inventory = ["Wing"]
+    record.sections_layout = [
+        {
+            "distribution": 1,
+            "distribution_families": ["Wing"],
+            "families": ["Wing"],
+            "plane": "XZ",
+            "frame": "MRP",
+            "count": 3,
+        }
+    ]
+    source = tmp_path / "point_sloads.txt"
+    head = _farfield_products___sloads().split("     Offset,")[0]
+    head = head.replace("160", "3")
+    rows = "".join(
+        f"{side * y}, {chord}, 0, 0, 0, {lift}, 0\n"
+        for y, chord, lift in [(0, 0, 0), (1, 1, 20), (2, 1, 10)]
+    )
+    source.write_text(
+        head
+        + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+        + rows
+        + " "
+        + "-" * 100
+        + "\n     Force Units: Newtons\n"
+        "     Moment Units: Newton-Meter\n     Software : Flightstream\n",
+        encoding="utf-8",
+    )
+    ctx.exports = {"point": (source, None, None)}
+    farfield_products(cast("Any", ctx))
+    path = next((tmp_path / "post/farfield").glob("*_trefftz.csv"))
+    _, table = _ffproof_post___table(path)
+    traced = [row for row in table if row["VARIANT"] == "A"]
+    assert len(traced) == 1, ctx.skipped
+    assert np.isfinite(float(traced[0]["CDI_T"]))
+    assert not any("straddle" in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.requirement("FR-3613")
+@pytest.mark.parametrize(
+    "sections, window",
+    [(True, False), (False, False), (True, True)],
+    ids=["P0551-hub", "P0551-no-hub", "P0551-window"],
+)
+def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections, window):
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+
+    def prepare(ctx):
+        ctx.matrix_row.variables.update(SYMMETRY="MIRROR", SYMMETRY_LOADS="true")
+        surfaces = {
+            name: dict(Cx=-0.1, Cy=0, Cz=0.03, CMx=0, CMy=0, CMz=0) for name in ("Blade1", "Blade2")
+        }
+        ctx.points[0] = replace(
+            ctx.points[0], loads=replace(ctx.points[0].loads, surfaces=surfaces)
+        )
+        ctx.exports = {}
+        if not sections:
+            return
+        record = ctx.record_of["point"]
+        record.inventory = list(surfaces)
+        record.sections_layout = [
+            dict(
+                distribution=i,
+                distribution_families=[name],
+                families=[name],
+                plane="XY",
+                frame=f"ROTOR_RMRP{i}",
+                count=3,
+            )
+            for i, name in enumerate(surfaces, 1)
+        ]
+        head = _farfield_products___sloads().split("     Offset,")[0].replace("160", "6")
+        source = tmp_path / "point_sloads.txt"
+        source.write_text(
+            head
+            + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+            + "".join(f"{r}, .1, 0, 0, -10, -4, 0\n" for r in [0.5, 1, 1.5] * 2)
+            + " "
+            + "-" * 100
+            + "\n     Force Units: Newtons\n"
+            "     Moment Units: Newton-Meter\n     Software : Flightstream\n",
+            encoding="utf-8",
+        )
+        ctx.exports = {"point": (source, None, None)}
+        if window:
+            ctx.pproc = PprocSpec.model_validate(
+                {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 1}]}
+            )
+            record.recipe = "unsteady_rotor"
+            record.stopped_at = {"step": 1}
+            record.export_window = None
+            (tmp_path / "point_iteration=1.vtk").write_text("surface", encoding="utf-8")
+            (tmp_path / "point_iteration=1_wakes.vtk").write_text(
+                _p0470_wake_vtk(lines, values), encoding="utf-8"
+            )
+            (tmp_path / "point_iteration=1.txt").write_text(_LITB_POST__LOADS, encoding="utf-8")
+            (tmp_path / "point_sloads_iteration=1.txt").write_text(
+                source.read_text(encoding="utf-8").replace("-10, -4", "-20, -8"),
+                encoding="utf-8",
+            )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        _, rows, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True, prepare=prepare)
+    if window:
+        _, rows = _ffproof_post___table(next((tmp_path / "post/farfield").glob("*_average.csv")))
+    row = next(row for row in rows if row["VARIANT"] == "W")
+    if sections:
+        assert float(row["T_NEAR_N"]) == pytest.approx(-60 if window else -30)
+        assert float(row["Q_NEAR_NM"]) == pytest.approx(24 if window else 12)
+    else:
+        point = ctx.points[0]
+        qs = 0.5 * point.state.density_kg_m3 * point.loads.reference_velocity_m_s**2 * 4
+        assert float(row["T_NEAR_N"]) == pytest.approx(-0.1 * qs, rel=1e-5)
+        assert row["Q_NEAR_NM"] == "NA"
+        assert any("torque about the hub" in str(w.message) for w in caught)
+    assert sum("Cx = CDi + CDo" in str(w.message) for w in caught) == 1
+
+
+@pytest.mark.requirement("FR-3614")
+def test_p0551_near_c_uses_half_model_load_convention(tmp_path):
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(1.0)
+            )
+        },
+    )
+    _ffproof_post___set_record(workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT)
+    _farfield_products___post(workspace)
+    baseline = next(
+        r
+        for r in _farfield_products___table(
+            _farfield_products___one(workspace.root, "farfield/*_trefftz.csv")
+        )
+        if r["VARIANT"] == "C"
+    )
+    (Path(workspace.root) / "mirror.fs").write_text(
+        "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+        "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+        "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+        "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+        "r001 | s001 | p001 | MIRROR | false | 1 | - | 26.120 | steady | \n",
+        encoding="utf-8",
+    )
+    _ffproof_post___set_record(workspace, matrix_stem="mirror")
+    write_campaign_products(workspace, matrix_stem="mirror")
+    after = next(
+        r
+        for r in _farfield_products___table(
+            _farfield_products___one(workspace.products_dir("mirror"), "farfield/*_trefftz.csv")
+        )
+        if r["VARIANT"] == "C"
+    )
+    for column in ("CL_T", "CDI_T", "CDI_T_QERR", "CDI_T_VORT", "BERNOULLI_RESIDUAL"):
+        assert float(after[column]) == pytest.approx(
+            0.5 * float(baseline[column]), rel=1e-5, abs=1e-8
+        )
+    assert float(after["E_T"]) == pytest.approx(2 * float(baseline["E_T"]), rel=2e-5)
+    assert after["X_T_M"] == baseline["X_T_M"]
+
+
+@pytest.mark.requirement("FR-3615")
+@pytest.mark.parametrize("offset", [0.0, 10.0], ids=["P0551-cut", "P0551-clear"])
+def test_p0551_near_plane_names_intersected_body_once(tmp_path, offset):
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(1.0)
+            )
+        },
+    )
+    _ffproof_post___set_record(workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT)
+    mesh = tmp_path / "mesh"
+    mesh.mkdir()
+    center = _RFIXF_PLANE_LIFT___PLANE.points.mean(axis=0)
+    _p0551_surface(mesh, [np.array([center + [offset + 0.05, 0, 0]])])
+    saved = workspace.sim_dir("3207") / "outputs" / f"{_FFPROOF_POST___STEM}.fsm"
+    saved.write_bytes((mesh / "point.fsm").read_bytes())
+    messages = _farfield_products___post(workspace)
+    cuts = [
+        message
+        for message in messages
+        if "plane" in message and "cut" in message and "Wing" in message
+    ]
+    assert len(cuts) == (1 if offset == 0 else 0), messages
+    assert _farfield_products___one(workspace.root, "farfield/*_trefftz.csv").is_file()
