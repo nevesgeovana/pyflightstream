@@ -14629,6 +14629,16 @@
     },
     {
       "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
       "target": "pyflightstream.workspace._geometry_sidecar",
       "kind": "module"
     },
@@ -14640,6 +14650,11 @@
     {
       "source": "pyflightstream.workspace._repitch_io",
       "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream.workspace._wheel",
       "kind": "module"
     },
     {
@@ -15051,11 +15066,6 @@
       "source": "pyflightstream.workspace.collapse_te",
       "target": "pyflightstream.workspace._wheel",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.collapse_te",
-      "target": "pyflightstream.workspace.repitch",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.collapse_te",
