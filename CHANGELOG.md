@@ -60,6 +60,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Blade-order checks resolve family selectors and case-insensitive surface
+  names with the same rule as workflow selection (FR-3616).
+
 - Combining `rotor_sections` with another far-field entry preserves both sets
   of polar and super-file columns (FR-3624).
 
