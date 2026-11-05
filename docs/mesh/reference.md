@@ -10,7 +10,8 @@ OBJ. A saved `.fsm` is refused with a message that the operation works on the OB
 | `blades` | Nonempty list of blade families, or `"all"` for every family with a declared blunt edge; under `"all"` a family whose declared edge is not a one-cell strip between two rims, such as a nacelle's base, is warned and skipped |
 | `base` | Optional list of the groups holding the strips, one for each blade in the order of `blades` |
 
-Unknown keys are warned and skipped. The `[repitch]` table of the same file is not read.
+Unknown keys are warned and skipped. Of the `[repitch]` table of the same file only `reference`
+and `rotor` are read, for the periodicity check below.
 Each merged node takes the place in the node list of the first declared rim's node; when one
 points set names both rims, of the rim holding the lowest node.
 Without `base` the boundaries file beside the OBJ declares the rims; an OBJ with neither is

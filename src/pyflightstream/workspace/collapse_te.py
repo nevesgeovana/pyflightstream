@@ -757,8 +757,13 @@ def _rotor(cfg_path: Path, mesh_path: Path) -> Any:
     table = data.get("repitch")
     if not isinstance(table, dict) or "reference" not in table:
         return None
-
-    return read_rotor(dict(table), cfg_path, mesh_path)
+    try:
+        return read_rotor(dict(table), cfg_path, mesh_path)
+    except KeyError as error:
+        raise InputValueError(
+            f"collapse_te: the rotor of the [repitch] reference states no {error}. "
+            "No file was written."
+        ) from error
 
 
 def _undeclarable(data: dict[str, Any]) -> str | None:

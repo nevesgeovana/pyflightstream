@@ -890,6 +890,15 @@ def test_p0560_all_names_the_blade_not_a_strip_group_written_first(tmp_path):
     assert list(json.loads(Path(str(out) + ".collapse.json").read_text())["blades"]) == ["Blade1"]
 
 
+@pytest.mark.requirement("FR-3665")
+def test_p0560_a_rotor_reference_with_no_axis_is_refused_in_words(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own")
+    (tmp_path / "rotor.toml").write_text('[R]\nkind = "rotor"\nfamilies_blades = ["A", "B"]\n')
+    cfg = tmp_path / "morphing.toml"
+    cfg.write_text('[collapse_te]\nblades = ["Blade1"]\n[repitch]\nreference = "rotor.toml"\n')
+    refused(tmp_path, capsys, source, cfg, "states no 'axis'")
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")
