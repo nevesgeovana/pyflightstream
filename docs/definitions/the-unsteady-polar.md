@@ -31,6 +31,11 @@
 - **The last column is `MESH_FACES`**, after the super file's
   content: the face count of the point's geometry as its inventory states it,
   or `NA` ([the mesh face count](the-mesh-face-count.md#the-mesh-face-count-since-0340)).
+- **Far-field cells use `<QUANTITY>_FF_<METHOD>_<TARGET>`**, including total,
+  family, blade and rotor targets. Colliding entries append their name, as in
+  `CDI_FF_C_TOTAL_c05`; a single entry writes `CDI_FF_C_TOTAL`. The merged polar
+  retains these cells. An entry outside the row's averaging window remains
+  warned and named in the manifest; see [the far-field family](the-far-field-family.md).
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
   polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
   `CDB .. CNB25`, each suffixed with its plot group's WHOLE name

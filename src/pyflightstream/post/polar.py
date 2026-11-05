@@ -52,6 +52,7 @@ from pyflightstream.post._tables import (
     _REFERENCE_COLUMNS,
     ADVANCE_RATIO_COLUMN,
     COEFFICIENT_COLUMNS,
+    CONTEXT_COLUMNS,
     FLIGHT_CONDITION_COLUMNS,
     ProductError,
     ProductExistsError,
@@ -79,6 +80,7 @@ __all__ = [
     "drag_columns_of",
     "group_coefficients",
     "group_polar_rows",
+    "farfield_column_names",
     "polar_row",
     "polar_table_columns",
     "polar_table_rows",
@@ -1493,3 +1495,45 @@ def grid_convergence(
         gci_fine=band / abs(f[0]) if f[0] != 0.0 else None,
         uncertainty=band,
     )
+
+
+def farfield_column_names(
+    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
+) -> list[dict[int, str]]:
+    """Name each far-field cell by quantity, method and target (FR-1062).
+
+    Parameters
+    ----------
+    rows : sequence
+        Long-table rows paired with point names, after window selection.
+    columns : sequence of str
+        Columns following POL, ENTRY, step and the condition block.
+
+    Returns
+    -------
+    list of dict
+        One mapping from cell index to projected name per input row.
+    """
+    first = 3 + len(CONTEXT_COLUMNS)
+    family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
+    targets = ["TOTAL" if row[family] == "net" else str(row[family]) for row, _ in rows]
+    entries: dict[tuple[str, object, str], set[object]] = {}
+    for (row, point), target in zip(rows, targets, strict=True):
+        entries.setdefault((point, row[variant], target), set()).add(row[1])
+    quantities = {
+        first + index: column.replace("_T", "", 1)
+        if column.startswith(("CL_T", "CDI_T", "CY_T", "E_T"))
+        else column.replace("ETA_FF", "ETA")
+        for index, column in enumerate(columns)
+        if column not in ("FAMILY", "VARIANT", "STATUS")
+    }
+    out = []
+    for (row, point), target in zip(rows, targets, strict=True):
+        suffix = f"_{row[1]}" if len(entries[point, row[variant], target]) > 1 else ""
+        out.append(
+            {
+                index: f"{quantity}_FF_{row[variant]}_{target}{suffix}"
+                for index, quantity in quantities.items()
+            }
+        )
+    return out

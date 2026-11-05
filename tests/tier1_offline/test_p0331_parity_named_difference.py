@@ -40,6 +40,26 @@ def _name(old: str, new: str, defined: set[str]) -> dict:
     return _load().name_difference("scripts", "row.txt", old, new, defined)
 
 
+def test_p0551_ffname2_parity_preserves_non_farfield_cells():
+    """P0551-FFNAME2: naming the rename cannot excuse other coefficients changing."""
+    checker = _load()
+    old = "POL,CL,CDI_T_B_wake\n1,0.5,0.02\n"
+    new = "POL,CL,CDI_FF_B_TOTAL,CDI_FF_B_W\n1,0.5,0.02,0.01\n"
+    args = ("post", "matrix/polars/SUPER-test.csv")
+    assert (
+        checker.name_difference(*args, old, new, {"FR-1062"}, "0.55.0")["requirement"] == "FR-1062"
+    )
+    for wrong in (
+        new.replace("0.5", "0.6"),
+        new.replace("0.02", "0.03"),
+        new.replace("CDI_FF_B_W", "UNRELATED"),
+    ):
+        assert "requirement" not in checker.name_difference(
+            *args, old, wrong, {"FR-1062"}, "0.55.0"
+        )
+    assert "requirement" not in checker.name_difference(*args, old, new, {"FR-1062"}, "0.55.1")
+
+
 def test_section_plot_drop_is_named_fr_51_only_where_the_release_cuts_no_section() -> None:
     """P0331-SECTIONS-ABSENT-FAMILY, FR-51: named only in its stated direction and state."""
     module = _load()

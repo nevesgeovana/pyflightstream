@@ -3664,6 +3664,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream._mesh",
       "kind": "deferred"
     },
@@ -6130,6 +6135,11 @@
     {
       "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.post.point_tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post.polar",
       "kind": "module"
     },
     {
