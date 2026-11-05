@@ -78,6 +78,9 @@ class SheetCrossings:
         Positions of the lines in the input.
     short : int
         How many of the sheet's lines end before the plane.
+    blade : bool
+        A blade ordered root to tip: accumulate inward from its free tip, without a
+        closure constraint or a central strip connecting its mirror image.
     """
 
     y: np.ndarray
@@ -86,6 +89,7 @@ class SheetCrossings:
     closed: bool
     index: np.ndarray
     short: int
+    blade: bool = False
 
 
 def _link_components(starts: np.ndarray) -> list[np.ndarray]:
@@ -249,6 +253,12 @@ def _sheet_edges(
 ) -> list[tuple[np.ndarray, np.ndarray, np.ndarray, bool, np.ndarray]]:
     """Return edges, strip circulation, closed and original flags, and the image if mirrored."""
     y, z, v = sheet.y, sheet.z, sheet.values
+    if sheet.blade:
+        gamma = np.cumsum(v[::-1])[::-1][1:]
+        out = [(y, z, gamma, False, np.ones(len(gamma), dtype=bool))]
+        if mirror:
+            out.append((-y, z, -gamma, False, np.zeros(len(gamma), dtype=bool)))
+        return out
     if sheet.closed:
         gamma = -np.cumsum(v)
         gamma = gamma - gamma.mean()
@@ -302,8 +312,8 @@ def sheet_forces(
     Each sheet's strips lie between its consecutive crossings (around the ring
     for a closed sheet); the circulation of a strip is minus the running sum of
     the exported values from the sheet's first crossing, and a ring's has its
-    mean removed so that it does not depend on where the walk starts. A mirror
-    model's sheets are reflected once. The normalwash at each strip comes from
+    mean removed to make the walk's start irrelevant. Blades sum inward from their
+    free tip. Mirror sheets reflect once. The normalwash at each strip comes from
     the filaments of every sheet, and
 
     ``L = rho V sum Gamma dy``, ``Y = -rho V sum Gamma dz``,
@@ -349,7 +359,11 @@ def sheet_forces(
                     "ey": ey,
                     "ez": ez,
                     "gamma": gamma,
-                    "shed": _filaments(gamma, closed),
+                    "shed": (
+                        (-sheet.values if np.any(original) else sheet.values)
+                        if sheet.blade
+                        else _filaments(gamma, closed)
+                    ),
                     "y": 0.5 * (ey[cur] + ey[nxt]),
                     "z": 0.5 * (ez[cur] + ez[nxt]),
                     "dy": ey[nxt] - ey[cur],

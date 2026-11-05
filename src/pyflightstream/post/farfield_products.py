@@ -3,7 +3,7 @@
 Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.csv``,
 ``farfield/<group>_ledgers.csv`` (``_instant`` and ``_average`` on an unsteady
 row) and spanwise files ``sections/<point>_trefftz_<family>.csv`` for A or
-``sections/<point>_trefftz_net_<entry>.csv`` for B from the
+``sections/<point>_trefftz_TOTAL_<entry>.csv`` for B from the
 exports a run recorded, through the numpy core of :mod:`pyflightstream.farfield`.
 It reads the exports with the ``results`` readers, turns every vector to the
 far-field axes (FR-1005), and states every point an analysis cannot serve as
@@ -30,7 +30,7 @@ import numpy as np
 
 import pyflightstream.post._reduction_stage as ff
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import classify_outputs, select_group_members
+from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
     UNSTEADY_RUN_TYPES,
@@ -40,7 +40,6 @@ from pyflightstream.cases.farfield_inputs import (
 )
 from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.farfield import (
-    SheetCrossings,
     TraceResult,
     calibration_scale,
     rotor_wake_lines,
@@ -49,10 +48,10 @@ from pyflightstream.farfield import (
     split_wake_sheets,
     trace_coefficients,
     trace_forces,
-    wake_crossings,
     wake_rotor_loads,
 )
 from pyflightstream.farfield.balances import DiskLoading
+from pyflightstream.farfield.wake_sheets import WakeSheet
 from pyflightstream.post._condition import (
     _recorded_speeds,
     recorded_blade_count,
@@ -68,7 +67,13 @@ from pyflightstream.post._reduction_stage import (
     _Probe,
 )
 from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
-from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
+from pyflightstream.post.axes import (
+    EXPORT_TO_BODY,
+    blade_azimuth_deg,
+    body_to_wind,
+    placed_blade_azimuth_deg,
+    wind_force_coefficients,
+)
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
     ROTOR_LEDGER_COLUMNS,
@@ -88,7 +93,11 @@ from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.results.loads import drag_pair, parse_loads
 from pyflightstream.results.sectional_loads import parse_sectional_loads
-from pyflightstream.results.wake import parse_wake_export
+from pyflightstream.results.wake import (
+    parse_wake_export,
+    wake_geometry_frame,
+    wake_surface_families,
+)
 from pyflightstream.workspace.naming import sweep_file_stem
 
 if TYPE_CHECKING:
@@ -358,25 +367,26 @@ def _trace_rows(
     extra: Mapping[str, float],
     blank: Sequence[str] = (),
 ) -> list[tuple[object, ...]]:
-    """Return A's family rows and TOTAL, or B's whole-flow net row."""
+    """Return family contributions and the whole-flow TOTAL."""
     rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     sref, bref = float(ctx.reference.sref_m2), float(ctx.reference.bref_m)
     entries = []
-    if len(names) > 1:
-        for index, name in enumerate(names):
-            count = int(np.count_nonzero(result.sheet == result.sheets[index]))
+    if len(names) > 1 or variant == "wake":
+        for name in dict.fromkeys(names):
+            indices = [i for i, n in enumerate(names) if n == name]
+            count = int(np.count_nonzero(np.isin(result.sheet, indices)))
             entries.append(
                 (
                     name,
-                    result.sheet_lift[index],
-                    result.sheet_side_force[index],
-                    result.sheet_drag_share[index],
-                    result.sheet_drag_isolated[index],
+                    float(result.sheet_lift[indices].sum()),
+                    float(result.sheet_side_force[indices].sum()),
+                    float(result.sheet_drag_share[indices].sum()),
+                    float(result.sheet_drag_isolated[indices].sum()),
                     count,
                 )
             )
-    total = "TOTAL" if variant == "sections" else "net"
+    total = "TOTAL"
     entries.append((total, result.lift, result.side_force, result.induced_drag, _NA, len(result.y)))
     rows = []
     for name, lift, side, drag, alone, count in entries:
@@ -669,6 +679,23 @@ def _per_m(ctx: SimContext, point: PolarPoint) -> float | None:
     )
 
 
+def _moment_point(ctx: SimContext) -> np.ndarray:
+    return np.array([ctx.reference.xmom_m, ctx.reference.ymom_m, ctx.reference.zmom_m])
+
+
+def _read_geometry_wake(ctx, point, path, per_m, *, diagnose=True):
+    wake = parse_wake_export(path.read_text(encoding="utf-8"))
+    return wake_geometry_frame(
+        wake,
+        _output(ctx, point, "simulation"),
+        _moment_point(ctx),
+        per_m=per_m,
+        diagnose=diagnose,
+        mirror=_symmetry(ctx)[0],
+        surface=path.with_name(path.stem.removesuffix("_wakes") + ".vtk"),
+    )
+
+
 def _variant_b(
     ctx: SimContext,
     point: PolarPoint,
@@ -680,8 +707,8 @@ def _variant_b(
     """Trefftz B of one point (FR-452): rows, or a named skip.
 
     ``wakes`` is the wake export to read (the final one: :func:`_final_wakes`). On a
-    rotor row (``rotor``) B traces only the lines that leave another family
-    than the rotors' (P0470-FFR); the rotors' lines feed the wake loads.
+    rotor row (``rotor``) B includes its blade lines in the joint trace;
+    W also reports their separate wake loads.
     """
     spec = _trefftz(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake"
@@ -705,7 +732,7 @@ def _variant_b(
         )
         return []
     try:
-        wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
+        wake, _ = _read_geometry_wake(ctx, point, wakes, per_m)
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
@@ -714,24 +741,40 @@ def _variant_b(
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
     turn = farfield_axes(alpha, beta)
-    picked = _wing_lines(ctx, point, key, wake, per_m=per_m, turn=turn) if rotor else None
-    if rotor and picked is None:
-        return []
-    lines, values = picked or ([(line / per_m) @ turn.T for line in wake.lines], wake.values)
+    lines, values = [line @ turn.T for line in wake.lines], wake.values
     x_t = max((float(line[0, 0]) for line in lines), default=0.0)
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
+    lookup = {id(line): i for i, line in enumerate(lines)}
     lines, shed_values = _wake_sheet(ctx, point, lines, values, mirror=mirror)
-    traced = _wake_trace(
-        ctx, point, key, lines, shed_values, x_t=x_t, mirror=mirror, flow=(rho, speed)
+    lattices = None if wake.blades is None else wake.blades[[lookup[id(line)] for line in lines]]
+    stamped = re.search(r"iteration=(\d+)", wakes.stem)
+    step: object = int(stamped[1]) if stamped else 0
+    if rotor and not stamped:
+        step = ff._last_step(ctx.record_of[point.name])
+    traced, unavailable = _total_trace(
+        ctx,
+        point,
+        key,
+        lines,
+        shed_values,
+        x_t=x_t,
+        mirror=mirror,
+        turn=turn,
+        lattices=lattices,
+        step=step,
     )
-    if isinstance(traced, list):
-        return traced
+    if traced is None:
+        return (
+            unavailable
+            + _b_rotor_rows(ctx, point, [], _NA, x_t)
+            + [_row(ctx, point, _NA, {"FAMILY": "TOTAL", "VARIANT": "B", "X_T_M": x_t})]
+        )
     raw, names = traced
     factor = 0.5 if half else 1.0
     k = calibration_scale(
         raw.lift * factor,
-        cl_near=_wing_near_cl(ctx, point) if rotor else _near_field(point)[0],
+        cl_near=_near_field(point)[0],
         q=ff._q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
@@ -746,8 +789,8 @@ def _variant_b(
             "the wake values from, so E_T alone is written",
         )
     if spanwise:
-        _spanwise(ctx, point, variant="wake", name="net", result=result, chords=None)
-    return _trace_rows(
+        _spanwise(ctx, point, variant="wake", name="TOTAL", result=result, chords=None)
+    rows = _trace_rows(
         ctx,
         point,
         result,
@@ -757,64 +800,223 @@ def _variant_b(
         extra={"X_T_M": x_t, "GAMMA_SCALE": k},
         blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
     )
+    leaves = _b_order_rows(ctx, rows[:-1] + unavailable)
+    return leaves + _b_rotor_rows(ctx, point, rows, k, x_t) + rows[-1:]
 
 
-def _wake_trace(
-    ctx: SimContext,
-    point: PolarPoint,
-    key: str,
-    lines: list[np.ndarray],
-    values: np.ndarray,
-    *,
-    x_t: float,
-    mirror: bool,
-    flow: tuple[float, float],
-) -> tuple[TraceResult, list[str]] | list:
-    """Trace the lines at the plane: the forces and the row names, or the rows to write instead.
+def _b_order_rows(ctx, rows):
+    """Keep unavailable blades in the same declared order as established blades."""
+    rotors = getattr(getattr(ctx, "live", None), "rotors", None) or {}
+    blades = [name for rotor in rotors.values() for name in rotor.families_blades]
+    order = {name: i for i, name in enumerate(blades)}
+    family = 3 + len(CONTEXT_COLUMNS) + _TREFFTZ_CELLS.index("FAMILY")
+    return sorted(rows, key=lambda row: (row[family] in order, order.get(row[family], 0)))
 
-    One sheet that orders by its first nodes is the single-sheet trace of FR-452; lines of more
-    than one sheet are traced sheet by sheet on the one plane. A wake short of the plane writes the
-    row NA (FR-1025), and a trace that cannot be formed writes none.
-    """
-    rho, speed = flow
-    trace = wake_crossings(lines, values=values, x_t=x_t)
-    crossings: list[SheetCrossings] | None = None
-    problem, short = trace.problem, trace.short
-    if problem is not None and not short:
-        crossings, problem, short = _sheet_crossings(
-            ctx, point, key, lines, values, x_t=x_t, mirror=mirror
+
+def _b_blades(ctx: SimContext, point: PolarPoint, starts: np.ndarray, lattices, step):
+    """Assign radial runs to the declared blades by the package's azimuth rule."""
+    groups: dict[str, np.ndarray] = {}
+    claimed = np.zeros(len(starts), dtype=bool)
+    record = ctx.record_of[point.name]
+    reductions = getattr(record, "reductions", None) or {}
+    for alias, rotor in (getattr(getattr(ctx, "live", None), "rotors", None) or {}).items():
+        mask = _rotor_line_mask({alias: rotor}, [p[None, :] for p in starts]) & ~claimed
+        claimed |= mask
+        axis = np.asarray(rotor.axis_vector, dtype=float)
+        radial = starts - np.asarray(rotor.origin)
+        radial -= (radial @ axis)[:, None] * axis
+        radius = np.linalg.norm(radial, axis=1)
+        zero = np.eye(3)["XYZ".index(rotor.blade1.zero[-1])]
+        zero *= -1 if rotor.blade1.zero.startswith("-") else 1
+        zero -= (zero @ axis) * axis
+        zero /= np.linalg.norm(zero)
+        angles = np.degrees(np.arctan2(radial @ np.cross(axis, zero), radial @ zero))
+        clock = {**reductions, **(reductions.get("rotors") or {}).get(alias, {})}
+        datum = (
+            blade_azimuth_deg(
+                rotor.blade1.azimuth_deg,
+                step=step if isinstance(step, (int, float)) and math.isfinite(step) else 0,
+                steps_per_revolution=clock.get("steps_per_revolution"),
+                rpm=clock.get("rpm", 0.0),
+            )
+            if clock.get("steps_per_revolution") and clock.get("rpm")
+            else rotor.blade1.azimuth_deg
         )
-    if problem is not None:
-        return _no_trace(ctx, point, key, lines, x_t=x_t, problem=problem, short=short)
-    try:
-        if crossings is None:
-            return trace.forces(rho=rho, v_inf=speed, mirror=mirror), ["net"]
-        raw = sheet_forces(crossings, rho=rho, v_inf=speed, mirror=mirror)
-    except PyflightstreamError as error:
-        _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
-        return []
-    return raw, ["net"] if len(crossings) < 2 else _sheet_names(crossings)
+        placed = np.array(
+            [
+                placed_blade_azimuth_deg(datum, blade=i + 1, blades=rotor.blade_count)
+                for i in range(rotor.blade_count)
+            ],
+            dtype=float,
+        )
+        nearest = np.argmin(abs((angles[:, None] - placed + 180) % 360 - 180), axis=1)
+        if lattices is not None:
+            for lattice in np.unique(lattices[mask & (lattices >= 0)]):
+                selected = mask & (lattices == lattice)
+                mean = np.degrees(np.angle(np.exp(1j * np.radians(angles[selected])).mean()))
+                nearest[selected] = np.argmin(abs((mean - placed + 180) % 360 - 180))
+        for i, name in enumerate(rotor.families_blades):
+            indices = np.flatnonzero(mask & (nearest == i))
+            groups[name] = indices[np.argsort(radius[indices], kind="stable")]
+    return groups, claimed
 
 
-def _no_trace(
-    ctx: SimContext,
-    point: PolarPoint,
-    key: str,
-    lines: list[np.ndarray],
-    *,
-    x_t: float,
-    problem: str,
-    short: int,
-) -> list:
-    """Write the point's B row NA and say why (FR-1025, FR-1026); a short wake states its length."""
-    _skip(
+def _b_family_names(ctx: SimContext, point: PolarPoint, starts: np.ndarray) -> list[str | None]:
+    """Read geometric family attribution, retaining unknowns for named warnings."""
+    saved = _output(ctx, point, "simulation")
+    if saved is None:
+        saved = next(
+            (
+                ctx.workspace.sim_dir(ctx.sim_id) / name
+                for name in ctx.record_of[point.name].outputs or ()
+                if str(name).endswith(".fsm")
+            ),
+            None,
+        )
+    if saved is not None:
+        try:
+            matched = wake_surface_families(
+                saved,
+                starts,
+                _output(ctx, point, "vtk"),
+                per_m=_per_m(ctx, point) or 1.0,
+                moment_m=_moment_point(ctx),
+                mirror=_symmetry(ctx)[0],
+            )
+            spelling = {name.casefold(): name for name in point.loads.surfaces}
+            return [spelling.get(name, name) if name is not None else None for name in matched]
+        except (PyflightstreamError, OSError, ValueError) as error:
+            _skip(ctx, f"{point.name}#surface-families", point.name, str(error))
+    return [None] * len(starts)
+
+
+def _b_groups(ctx, point, key, lines, values, *, mirror, turn, lattices, step):
+    """Name surface runs and ordered blades before cutting the plane."""
+    starts = np.array([line[0] for line in lines]).reshape(-1, 3) @ turn
+    blades, claimed = _b_blades(ctx, point, starts, lattices, step)
+    other = np.flatnonzero(~claimed)
+    local = [lines[i] for i in other]
+    sheets, left = split_wake_sheets(local, values[other], mirror=mirror)
+    groups = [(other[s.index], s.closed, "", None) for s in sheets]
+    groups += [(other[idx], False, why, None) for idx, why in left]
+    groups.sort(key=lambda item: float(starts[item[0], 0].mean()))
+    families = _b_family_names(ctx, point, starts)
+    named = []
+    for number, (idx, closed, why, _) in enumerate(groups, 1):
+        found = {families[i] for i in idx}
+        name = str(next(iter(found))) if len(found) == 1 and None not in found else f"sheet{number}"
+        if name.startswith("sheet"):
+            _skip(
+                ctx,
+                f"{key}#family={name}",
+                point.name,
+                f"{name}: start-node geometry cannot establish one surface family; keeping {name}",
+            )
+        named.append((name, idx, closed, why, False))
+    named += [
+        (name, idx, False, "" if len(idx) > 1 else "fewer than two blade lines", True)
+        for name, idx in blades.items()
+    ]
+    return named
+
+
+def _total_trace(ctx, point, key, lines, values, *, x_t, mirror, turn, lattices, step):
+    """Integrate all established groups once, naming every omitted group in TOTAL."""
+    named = _b_groups(
         ctx,
+        point,
         key,
-        point.name,
-        f"no trace at x = {x_t:.4g} m: {problem}{_reach_text(ctx, lines) if short else ''}",
+        lines,
+        values,
+        mirror=mirror,
+        turn=turn,
+        lattices=lattices,
+        step=step,
     )
-    unavailable = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
-    return [_row(ctx, point, _NA, unavailable)]
+    crossings, names, omitted = [], [], []
+    rho, speed, _, _ = _flow(point)
+    for name, idx, closed, why, blade in named:
+        crossing = sheet_crossings(lines, values, WakeSheet(idx, closed), x_t)
+        crossing = replace(crossing, blade=blade)
+        if crossing.short:
+            why = f"{crossing.short} wake lines end before the plane" + _reach_text(
+                ctx, [lines[i] for i in idx]
+            )
+        if not why:
+            try:
+                sheet_forces([crossing], rho=rho, v_inf=speed, mirror=mirror)
+            except PyflightstreamError as error:
+                why = str(error)
+        if why:
+            reason = f"{name}: {why}; TOTAL leaves out {name}"
+            _skip(ctx, f"{key}#left-out={name}", point.name, reason)
+            omitted.append(name)
+        else:
+            crossings.append(crossing)
+            names.append(name)
+    crossings, names = _b_complete_families(crossings, names, omitted)
+    unavailable = [
+        _row(ctx, point, _NA, {"FAMILY": name, "VARIANT": "B", "X_T_M": x_t})
+        for name in dict.fromkeys(omitted)
+    ]
+    if omitted:
+        _skip(ctx, f"{key}#TOTAL", point.name, "TOTAL leaves out " + ", ".join(omitted))
+    if not crossings:
+        return None, unavailable
+    try:
+        raw = _b_joint_forces(crossings, names, rho, speed, mirror)
+        return (raw, names), unavailable
+    except PyflightstreamError as error:
+        _skip(ctx, f"{key}#TOTAL", point.name, f"TOTAL cannot be established: {error}")
+        unavailable.extend(
+            _row(ctx, point, _NA, {"FAMILY": name, "VARIANT": "B", "X_T_M": x_t})
+            for name in dict.fromkeys(names)
+        )
+        return None, unavailable
+
+
+def _b_complete_families(crossings, names, omitted):
+    """Omit a whole family if any of its disconnected groups is unavailable."""
+    keep = [i for i, name in enumerate(names) if name not in omitted]
+    return [crossings[i] for i in keep], [names[i] for i in keep]
+
+
+def _b_joint_forces(crossings, names, rho, speed, mirror):
+    """Keep interference between disconnected sheets of one isolated family."""
+    raw = sheet_forces(crossings, rho=rho, v_inf=speed, mirror=mirror)
+    isolated = raw.sheet_drag_isolated.copy()
+    for name in dict.fromkeys(names):
+        indices = [i for i, value in enumerate(names) if value == name]
+        if len(indices) > 1:
+            own = sheet_forces([crossings[i] for i in indices], rho=rho, v_inf=speed, mirror=mirror)
+            isolated[indices] = 0.0
+            isolated[indices[0]] = own.induced_drag
+    return replace(raw, sheet_drag_isolated=isolated)
+
+
+def _b_rotor_rows(ctx, point, rows, k, x_t):
+    """Sum blade coefficients into rotor aliases without counting them twice in TOTAL."""
+    first = 3 + len(CONTEXT_COLUMNS)
+    family = first + _TREFFTZ_CELLS.index("FAMILY")
+    by_name = {row[family]: row for row in rows}
+    out = []
+    for alias, rotor in (getattr(getattr(ctx, "live", None), "rotors", None) or {}).items():
+        values = {"FAMILY": alias, "VARIANT": "B", "GAMMA_SCALE": k, "X_T_M": x_t}
+        missing = [name for name in rotor.families_blades if name not in by_name]
+        if missing:
+            _skip(
+                ctx,
+                f"{point.name}#rotor={alias}",
+                point.name,
+                f"{alias}: unavailable blade contributions: {', '.join(missing)}",
+            )
+        for col in ("CL_T", "CY_T", "CDI_T", "N_TRACE"):
+            at = first + _TREFFTZ_CELLS.index(col)
+            values[col] = sum(
+                float(by_name[n][at]) if n in by_name else _NA for n in rotor.families_blades
+            )
+        out.append(_row(ctx, point, _NA, values))
+    return out
 
 
 def _reach_text(ctx: SimContext, lines: list[np.ndarray]) -> str:
@@ -831,49 +1033,6 @@ def _reach_text(ctx: SimContext, lines: list[np.ndarray]) -> str:
         f"reaches a plane at a distance_bref of at most {(last - first) / bref:.3g}, "
         "or the run must record a longer wake"
     )
-
-
-def _sheet_crossings(
-    ctx: SimContext,
-    point: PolarPoint,
-    key: str,
-    lines: list[np.ndarray],
-    values: np.ndarray,
-    *,
-    x_t: float,
-    mirror: bool,
-) -> tuple[list[SheetCrossings] | None, str | None, int]:
-    """Split the lines into sheets and cut each at the plane: crossings, a problem, short lines."""
-    sheets, left_out = split_wake_sheets(lines, values, mirror=mirror)
-    traced = sheets
-    for members, why in left_out:
-        _skip(
-            ctx,
-            f"{key}#left-out",
-            point.name,
-            f"{len(members)} wake lines, with values summing to "
-            f"{float(values[members].sum()):.4g}, are left out of the trace: {why}; "
-            "their circulation is not in the result",
-        )
-    if not traced:
-        return None, "no wake sheet can be traced", 0
-    order = sorted(
-        traced,
-        key=lambda sheet: (
-            float(np.mean([lines[k][0, 0] for k in sheet.index])),
-            int(sheet.index[0]),
-        ),
-    )
-    crossings = [sheet_crossings(lines, values, sheet, x_t) for sheet in order]
-    short = sum(item.short for item in crossings)
-    if short:
-        return None, f"{short} of {len(lines)} wake lines end before the plane", short
-    return crossings, None, 0
-
-
-def _sheet_names(crossings: Sequence[SheetCrossings]) -> list[str]:
-    """Name the traced sheets sheet1, sheet2, ... from the upstream one (smallest mean x)."""
-    return [f"sheet{index + 1}" for index in range(len(crossings))]
 
 
 def _wake_sheet(
@@ -905,43 +1064,6 @@ def _wake_sheet(
         )
     keep &= ~omitted
     return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
-
-
-def _wing_lines(
-    ctx: SimContext, point: PolarPoint, key: str, wake: Any, *, per_m: float, turn: np.ndarray
-) -> tuple[list[np.ndarray], np.ndarray] | None:
-    """Return the wake lines (wind axes) and values that leave no rotor, or skip (P0470-FFR)."""
-    rotors = getattr(ctx.live, "rotors", None) or {}
-    bladed = _rotor_line_mask(rotors, [line / per_m for line in wake.lines])
-    if np.all(bladed):
-        _skip(
-            ctx,
-            key,
-            point.name,
-            "every wake line of the point leaves a rotor's blades, so no wing sheet is "
-            "traced; the rotor's lines give the wake loads (VARIANT W)",
-        )
-        return None
-    lines = [(line / per_m) @ turn.T for line, own in zip(wake.lines, bladed, strict=True)]
-    return [line for line, own in zip(lines, bladed, strict=True) if not own], wake.values[~bladed]
-
-
-def _wing_near_cl(ctx: SimContext, point: PolarPoint) -> float:
-    """Return the lift of the non-rotor families used to calibrate their wake trace."""
-    surfaces = point.loads.surfaces
-    rotors = getattr(ctx.live, "rotors", None) or {}
-    members = [member for rotor in rotors.values() for member in rotor.members]
-    owned = (
-        set(
-            select_group_members(
-                members, list(surfaces), getattr(ctx, "aliases", None), strict=False
-            )
-        )
-        if members
-        else set()
-    )
-    lift = [float(row.get("CL", _NA)) for name, row in surfaces.items() if name not in owned]
-    return sum(lift) if lift else _NA
 
 
 def _final_wakes(ctx: SimContext, point: PolarPoint) -> Path | None:
@@ -984,7 +1106,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             raise PyflightstreamError(
                 "the point saved no simulation whose length unit the package reads"
             )
-        wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
+        wake, _ = _read_geometry_wake(ctx, point, wakes, per_m)
     except (PyflightstreamError, OSError) as error:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
@@ -996,7 +1118,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
     if not speeds and len(rotors) == 1 and isinstance(flat, int | float):
         # A plan of one rotor states its speed at the row level.
         speeds = {str(next(iter(rotors))): float(flat)}
-    lines = [line / per_m for line in wake.lines]
+    lines = list(wake.lines)
     wind = farfield_axes(alpha, beta)[0]
     loads = point.loads
     v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
@@ -1080,7 +1202,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
 def _wake_rotor_products(
     ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str, *, rotor: bool = True
 ) -> None:
-    """B on the non-rotor lines and the rotors' wake loads: final, and the window average.
+    """B on all lines and the rotors' wake loads: final, and the window average.
 
     On an unsteady row without a rotor the same stage writes B alone.
     """
@@ -1985,6 +2107,9 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
                 item.name: {"export_type": item.export_type} for item in ctx.pproc.farfields
             },
         }
+        frames = _wake_frame_provenance(ctx, tables.inputs.get(suffix, {}))
+        if frames:
+            entry["wake_frames"] = frames
         if "_" in suffix:
             entry["reduction"] = suffix.split("_")[1]
         if suffix in tables.reduced:
@@ -2007,3 +2132,22 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
                 if point.name in tables.inputs.get(suffix, {})
             }
         ctx.add(path, entry)
+
+
+def _wake_frame_provenance(ctx: SimContext, inputs) -> dict:
+    """Record the translation decision for each consumed wake snapshot."""
+    frames: dict[str, dict[str, object]] = {}
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    for point in ctx.points:
+        per_m = _per_m(ctx, point)
+        if per_m is None:
+            continue
+        for name in inputs.get(point.name, []):
+            if not name.endswith("_wakes.vtk"):
+                continue
+            try:
+                _, evidence = _read_geometry_wake(ctx, point, root / name, per_m, diagnose=False)
+            except (PyflightstreamError, OSError, ValueError):
+                continue  # the product's existing read diagnostic names the failed export
+            frames.setdefault(point.name, {})[name] = evidence
+    return frames

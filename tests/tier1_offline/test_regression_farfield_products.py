@@ -1,4 +1,8 @@
-"""Regression coverage grouped by subject."""
+"""Regression coverage grouped by subject.
+
+P0551 FFTOTAL reproduction: post a wheel's synthetic wake through
+``farfield_products(ctx)`` and read its B family rows and polar cells.
+"""
 
 from __future__ import annotations
 
@@ -85,6 +89,264 @@ from tests.tier1_offline.test_regression_farfield_interfaces import (
 from tests.tier1_offline.test_regression_farfield_interfaces import (
     _ffproof_plan___unsteady as _rfixf2_plots___unsteady,
 )
+
+
+@pytest.mark.requirement("FR-3601")
+def test_p0551_total_blades_and_rotor_share_all_filaments(tmp_path):
+    wing, shed = _p0470_wing_lines()
+    lines, values = list(wing), list(shed)
+    # P0551-FFNAME: nonclosing strengths distinguish the free-tip anchor.
+    for angle in (0.0, math.pi):
+        for radius, value in zip((0.3, 0.6, 0.9), (1.0, 0.5, -0.7), strict=True):
+            y, z = radius * math.cos(angle), 2.0 + radius * math.sin(angle)
+            lines.append(np.array([(3.0, y, z), (10.0, y, z), (30.0, y, z)]))
+            values.append(value)
+    _, rows, ctx = _p0470_post_rotor_wake(
+        tmp_path, lines, np.array(values), rotor=True, rotor_cl=0.1
+    )
+    b = {r["FAMILY"]: r for r in rows if r["VARIANT"] == "B"}
+    assert {"Blade1", "Blade2", "ROTOR", "TOTAL"} <= b.keys()
+    for column in ("CL_T", "CDI_T"):
+        assert sum(float(b[n][column]) for n in ("Blade1", "Blade2")) == pytest.approx(
+            float(b["ROTOR"][column]), rel=3e-5, abs=1e-8
+        )
+        assert sum(
+            float(r[column]) for n, r in b.items() if n not in ("ROTOR", "TOTAL")
+        ) == pytest.approx(float(b["TOTAL"][column]), rel=3e-5, abs=1e-8)
+    vref = ctx.points[0].loads.reference_velocity_m_s
+    assert float(b["TOTAL"]["CL_T"]) == pytest.approx(0.4 * (vref / 30.0) ** 2, rel=1e-5)
+    assert float(ctx.farfield_super["point"]["CDI_T_B_wake"]) == float(b["TOTAL"]["CDI_T"])
+    # Independent quadrature: exported edge values, including the nonclosing
+    # outer filament, drive every strip's wash. The rotor's own sum is not
+    # substituted for a whole-plane calculation.
+    edges = [np.array([line[0, 1:] for line in wing])]
+    gamma = [np.sqrt(1 - ((edges[0][:-1, 0] + 0.125) / 2) ** 2)]
+    for start in (len(wing), len(wing) + 3):
+        edges.append(np.array([line[0, 1:] for line in lines[start : start + 3]]))
+        gamma.append(np.array([-0.2, -0.7]))
+    filaments = np.array([line[0, 1:] for line in lines])
+    drag = 0.0
+    for e, g in zip(edges, gamma, strict=True):
+        for a, z, circulation in zip(e[:-1], e[1:], g, strict=True):
+            delta = (a + z) / 2 - filaments
+            strength = np.array(values) / (2 * math.pi * np.sum(delta**2, axis=1))
+            v = np.sum(strength * -delta[:, 1])
+            w = np.sum(strength * delta[:, 0])
+            dy, dz = z - a
+            drag -= 0.5 * 1.225 * circulation * (-dz * v + dy * w)
+    k = float(b["TOTAL"]["GAMMA_SCALE"])
+    assert float(b["TOTAL"]["CDI_T"]) == pytest.approx(
+        k * k * drag / (0.5 * 1.225 * 30**2 * 4), rel=3e-5
+    )
+    short = [line.copy() for line in lines]
+    blade_line = short[len(wing)]
+    blade_line[:, 0] = np.linspace(3.0, 3.1, len(blade_line))
+    _, partial, ctx = _p0470_post_rotor_wake(
+        tmp_path / "short-blade", short, np.array(values), rotor=True
+    )
+    blade_rows = [r for r in partial if r["VARIANT"] == "B" and r["FAMILY"].startswith("Blade")]
+    assert [r["FAMILY"] for r in blade_rows] == ["Blade1", "Blade2"]
+    assert blade_rows[0]["CDI_T"] == "NA"
+    assert any("ROTOR" in why and "Blade1" in why for why in ctx.skipped.values())
+
+
+@pytest.mark.requirement("FR-3602")
+def test_p0551_total_names_untraceable_group(tmp_path):
+    lines, values = _p0470_wing_lines()
+    lines.append(np.array([(2.0, 20.0, 30.0), (30.0, 20.0, 30.0)]))
+    rows, ctx = _pfs2187_b_rows(tmp_path, lines, np.append(values, 0.125))
+    assert rows[-1]["FAMILY"] == "TOTAL"
+    missing = [r["FAMILY"] for r in rows[:-1] if r["CDI_T"] == "NA"]
+    assert len(missing) == 1
+    assert any("TOTAL" in reason and missing[0] in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.requirement("FR-3603")
+def test_p0551_first_crossing_keeps_nonrotor_numbers(tmp_path):
+    lines, values = _p0470_wing_lines()
+    plain, _ = _pfs2187_b_rows(tmp_path / "plain", lines, values)
+    looped = [
+        np.vstack([line[:2], [1.0, line[0, 1], line[0, 2] + 2.0], line[-1:]]) for line in lines
+    ]
+    rows, _ = _pfs2187_b_rows(tmp_path / "looped", looped, values)
+    assert rows[-1]["FAMILY"] == "TOTAL"
+    for column in ("CL_T", "CDI_T", "GAMMA_SCALE"):
+        assert rows[-1][column] == plain[-1][column]
+
+
+def _p0551_surface(root, lines):
+    """Two disconnected surfaces of the same family, with a saved boundary map."""
+    from pyflightstream.results.surface import VtkSurface, write_vtk_surface
+
+    vertices, faces = [], []
+    for line in lines:
+        at = len(vertices)
+        vertices.extend([line[0], line[0] + [-0.1, 0, 0], line[0] + [-0.1, 0.01, 0]])
+        faces.append([at, at + 1, at + 2])
+    verts, tri = np.asarray(vertices), np.asarray(faces) + 1
+    n = len(faces)
+
+    def row(values):
+        return ",".join(str(v) for v in values) + ","
+
+    zero = row([0] * n)
+    mesh = ["$MESH_START$", str(n), "2", "1", "2, T, F, F", "Wing", ".5,.5,.5", str(n)]
+    mesh += [row(range(1, n + 1)), row([3] * n), *[row(tri[:, i]) for i in range(3)]]
+    mesh += [zero] * 6 + [row([1] * n)] + [zero] * 8
+    mesh += [row(["F"] * n)] * 5 + ["0", str(len(verts))]
+    mesh += [row(verts[:, i]) for i in range(3)] + ["0", "$MESH_END$"]
+    (root / "point.fsm").write_text(
+        "$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n" + "\n".join(mesh), encoding="utf-8"
+    )
+    write_vtk_surface(
+        root / "point.vtk",
+        VtkSurface(
+            points=verts, offsets=np.arange(0, 3 * n + 1, 3), connectivity=np.array(faces).ravel()
+        ),
+        title="synthetic family surface",
+    )
+
+
+@pytest.mark.requirement("FR-3606")
+@pytest.mark.parametrize("export_frame", ["moment_point", "geometry"])
+@pytest.mark.parametrize("mirror", [False, True])
+def test_p0551_wakeframe_places_all_consumers_in_geometry(tmp_path, export_frame, mirror):
+    """Post identical physical wakes in either export frame, with an off-origin MRP."""
+    lines, values = _p0470_wing_lines()
+    values = list(values)
+    for angle in (0.0, math.pi):
+        for radius, value in zip((0.3, 0.6, 0.9), (1.0, 0.5, -0.7), strict=True):
+            y, z = radius * math.cos(angle), 2 + radius * math.sin(angle)
+            lines.append(np.array([(3.0, y, z), (30.0, y, z)]))
+            values.append(value)
+    moment = np.array([9.152, 0.4, -0.2])
+
+    def run(folder, offset, translated):
+        def prepare(ctx):
+            if mirror:
+                ctx.matrix_row.variables.update(SYMMETRY="MIRROR", SYMMETRY_LOADS="true")
+            ctx.reference = replace(
+                ctx.reference, xmom_m=offset[0], ymom_m=offset[1], zmom_m=offset[2]
+            )
+            # A saved mirror model holds one half; the wake holds both halves.
+            evidence = [line for line in lines if line[0, 1] <= 0] if mirror else lines
+            _p0551_surface(folder, evidence)
+            if translated:
+                from pyflightstream.results.surface import read_vtk_surface, write_vtk_surface
+
+                surface = read_vtk_surface(folder / "point.vtk")
+                write_vtk_surface(
+                    folder / "point.vtk",
+                    replace(surface, points=surface.points - offset),
+                    title="shifted surface",
+                    overwrite=True,
+                )
+            ctx.products = {}
+            ctx.add = lambda path, entry: ctx.products.update({str(path): entry})
+
+        return _p0470_post_rotor_wake(
+            folder,
+            [line - offset if translated else line for line in lines],
+            np.array(values),
+            rotor=True,
+            rotor_cl=0.1,
+            prepare=prepare,
+        )
+
+    _, control, _ = run(tmp_path / "control", np.zeros(3), False)
+    _, actual, ctx = run(tmp_path / "offset", moment, export_frame == "moment_point")
+    assert [(r["FAMILY"], r["VARIANT"]) for r in actual] == [
+        (r["FAMILY"], r["VARIANT"]) for r in control
+    ]
+    assert {r["FAMILY"] for r in actual} >= {"Wing", "Blade1", "Blade2", "ROTOR", "TOTAL"}
+    for got, expected in zip(actual, control, strict=True):
+        for column in ("CL_T", "CDI_T", "X_T_M", "T_WAKE_N", "Q_WAKE_NM"):
+            if expected[column] == "NA":
+                assert got[column] == "NA"
+            else:
+                assert float(got[column]) == pytest.approx(
+                    float(expected[column]), rel=2e-5, abs=1e-12
+                )
+    product = next(v for k, v in ctx.products.items() if k.endswith("_trefftz.csv"))
+    assert "wake_frames" in product
+    decision = product["wake_frames"]["point"]["point_wakes.vtk"]
+    assert decision["frame"] == export_frame
+    assert decision["ambiguous"] is False
+
+
+@pytest.mark.requirement("FR-3607")
+@pytest.mark.parametrize("ambiguous", ["neither", "both", "unreadable"])
+def test_p0551_wakeframe_ambiguous_evidence_warns(tmp_path, ambiguous):
+    lines, values = _p0470_wing_lines()
+    moment = np.array([9.152, 0.0, 0.0])
+
+    def prepare(ctx):
+        ctx.reference = replace(ctx.reference, xmom_m=moment[0])
+        evidence = (
+            [line + 100 for line in lines]
+            if ambiguous == "neither"
+            else [*lines, *[line + moment for line in lines]]
+        )
+        _p0551_surface(tmp_path, evidence)
+        if ambiguous == "unreadable":
+            (tmp_path / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n")
+
+    with pytest.warns(PyflightstreamWarning, match="wake frame.*moment_point=.*geometry="):
+        _, rows, _ = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=False, prepare=prepare)
+    assert float(rows[-1]["X_T_M"]) == pytest.approx(lines[0][0, 0] + 9.152 + 1.0)
+
+
+@pytest.mark.requirement("FR-3604")
+def test_p0551_surface_family_combines_its_sheets(tmp_path):
+    lines, values, _ = _pfs2187_sheet_lines()
+    rows, _ = _pfs2187_b_rows(
+        tmp_path, lines, values, prepare=lambda ctx: _p0551_surface(tmp_path, lines)
+    )
+    assert [row["FAMILY"] for row in rows] == ["Wing", "TOTAL"]
+    for column in ("CL_T", "CDI_T"):
+        assert rows[0][column] == rows[1][column]
+    assert rows[0]["CDI_T_ISOLATED"] == rows[1]["CDI_T"]
+    short = [line.copy() for line in lines]
+    short[-1][:, 0] = np.linspace(short[-1][0, 0], short[-1][0, 0] + 0.1, len(short[-1]))
+    folder = tmp_path / "incomplete"
+    rows, ctx = _pfs2187_b_rows(
+        folder, short, values, prepare=lambda ctx: _p0551_surface(folder, short)
+    )
+    assert [row["FAMILY"] for row in rows] == ["Wing", "TOTAL"]
+    assert all(row["CDI_T"] == "NA" for row in rows)
+    assert any("TOTAL leaves out Wing" in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.requirement("FR-3605")
+def test_p0551_several_rotors_keep_their_blades(tmp_path):
+    lines, values = _p0470_wing_lines()
+    values = list(values)
+    for centre in (0.0, 4.0):
+        for angle in (0.0, math.pi):
+            for radius, value in zip((0.3, 0.6, 0.9), (1.0, 0.5, -0.7), strict=True):
+                y, z = centre + radius * math.cos(angle), 2 + radius * math.sin(angle)
+                lines.append(np.array([(3.0, y, z), (30.0, y, z)]))
+                values.append(value)
+
+    def prepare(ctx):
+        ctx.live.rotors["OTHER"] = ctx.live.rotors["ROTOR"].model_copy(
+            update={"alias": "OTHER", "y_m": 4.0, "families_blades": ["Other1", "Other2"]}
+        )
+        ctx.record_of["point"].reductions["rotors"]["ROTOR"].update(rpm=0.0, steps_per_revolution=4)
+
+    _, rows, _ = _p0470_post_rotor_wake(
+        tmp_path, lines, np.array(values), rotor=True, prepare=prepare
+    )
+    b = {r["FAMILY"]: r for r in rows if r["VARIANT"] == "B"}
+    for alias, blades in (("ROTOR", ("Blade1", "Blade2")), ("OTHER", ("Other1", "Other2"))):
+        assert {alias, *blades, "TOTAL"} <= b.keys()
+        assert float(b[alias]["CDI_T"]) == pytest.approx(
+            sum(float(b[n]["CDI_T"]) for n in blades), rel=3e-5
+        )
+    assert sum(
+        float(r["CDI_T"]) for n, r in b.items() if n not in ("ROTOR", "OTHER", "TOTAL")
+    ) == pytest.approx(float(b["TOTAL"]["CDI_T"]), rel=3e-5)
+
 
 # Transcribed numeric and header lines from the alpha-zero loads export.
 LOADS = """Aerodynamic loads
@@ -652,14 +914,14 @@ def test_p0450_ff5_wake_entries_keep_their_own_spanwise_files(tmp_path):
         )
         _farfield_products___post(workspace)
         root = workspace.root / "post"
-        files = sorted(root.rglob("sections/*_trefftz_net_*.csv"))
+        files = sorted(root.rglob("sections/*_trefftz_TOTAL_*.csv"))
         assert len(files) == len(selected)
         manifest = _farfield_products___one(root, "products.json").read_text(encoding="utf-8")
         for name in selected:
-            path = next(path for path in files if path.name.endswith(f"_net_{name}.csv"))
+            path = next(path for path in files if path.name.endswith(f"_TOTAL_{name}.csv"))
             rows = _farfield_products___table(path)
             assert rows and {row["VARIANT"] for row in rows} == {"B"}
-            assert {row["FAMILY"] for row in rows} == {"net"}
+            assert {row["FAMILY"] for row in rows} == {"TOTAL"}
             assert path.name in manifest
             if len(selected) == 2:
                 expected[name] = rows
@@ -947,7 +1209,7 @@ class TestFarfieldProducts:
         # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
         assert header[:3] == ["POL", "ENTRY", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
         a, b, c = rows["A"], rows["B"], rows["C"]
-        assert [a["FAMILY"], b["FAMILY"], c["FAMILY"]] == ["TOTAL", "net", "net"]
+        assert [a["FAMILY"], b["FAMILY"], c["FAMILY"]] == ["TOTAL", "TOTAL", "net"]
         assert [a["ENTRY"], b["ENTRY"], c["ENTRY"]] == ["sections", "wake", "plane"]
         assert float(a["CL_T"]) == pytest.approx(_FARFIELD_PRODUCTS__CL, rel=2e-3)
         assert 1.0 < float(a["E_T"]) < 1.012, "the elliptic bias of 80 stations per side"
@@ -971,22 +1233,22 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_spanwise_files(posted):
-        """P0450-D5 (FR-1055): A per family, B as net, downwash and local drag."""
+        """P0450-D5 (FR-1055): A per family, B as TOTAL, downwash and local drag."""
         root, _plain, _messages = posted
         family = _farfield_products___table(
             _farfield_products___one(root, "sections/*_trefftz_W.csv")
         )
         total = _farfield_products___table(
-            _farfield_products___one(root, "sections/*_trefftz_net_wake.csv")
+            _farfield_products___one(root, "sections/*_trefftz_TOTAL_wake.csv")
         )
         assert len(family) == _FARFIELD_PRODUCTS__STATIONS and {
             row["VARIANT"] for row in family
         } == {"A"}
         assert {row["CDI_LOCAL"] for row in total} == {"NA"}
-        assert {row["FAMILY"] for row in total} == {"net"}
+        assert {row["FAMILY"] for row in total} == {"TOTAL"}
         manifest = _farfield_products___one(root, "products.json").read_text()
         log = _farfield_products___one(root, "post.log").read_text()
-        assert "_trefftz_net_wake.csv" in manifest
+        assert "_trefftz_TOTAL_wake.csv" in manifest
         assert "_trefftz_TOTAL.csv" not in manifest + log
         downwash = [float(row["W_M_S"]) for row in family[10:-10]]
         assert max(downwash) - min(downwash) < 0.05 * abs(np.mean(downwash)), "elliptic: uniform"
@@ -1377,8 +1639,8 @@ class TestFfproofPost:
         _ffproof_post___post(workspace)
         root = Path(workspace.root)
         _columns, rows = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_trefftz.csv"))
-        (b,) = [row for row in rows if row["VARIANT"] == "B"]
-        assert b["FAMILY"] == "net"
+        (b,) = [row for row in rows if row["VARIANT"] == "B" and row["FAMILY"] == "TOTAL"]
+        assert b["FAMILY"] == "TOTAL"
         assert {b[c] for c in ("CL_T", "CDI_T", "CY_T", "E_T", "GAMMA_SCALE")} == {"NA"}
         assert b["X_T_M"] != "NA"
         said = [
@@ -1392,7 +1654,7 @@ class TestFfproofPost:
             math.radians(_ffproof_post__wing._FARFIELD_PRODUCTS__ALPHA)
         )  # 3 m of wake, along the free stream
         for line in said:
-            assert "3 of 161 wake lines end before the plane" in line
+            assert "3 wake lines end before the plane" in line
             assert f"the recorded wake is {reach:.4g} m long on its shortest line" in line
         skipped = _ffproof_post___manifest(root)["skipped"]
         assert any("variant=wake" in key for key in skipped)
@@ -1617,7 +1879,7 @@ def _litb_post__post_wake(root, fixture, *, cl=0.3400367, vref=None):
     paths = list((root / "post" / "farfield").glob("*_trefftz.csv"))
     assert len(paths) == 1, ctx.skipped
     with paths[0].open(encoding="utf-8", newline="") as handle:
-        (row,) = list(csv.DictReader(handle))
+        (row,) = [row for row in csv.DictReader(handle) if row["FAMILY"] == "TOTAL"]
     return row, [str(w.message) for w in caught], ctx.skipped
 
 
@@ -2359,7 +2621,8 @@ def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
     (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
     assert {(r["VARIANT"], r["FAMILY"]) for r in rows} == {
         ("A", "TOTAL"),
-        ("B", "net"),
+        ("B", "TOTAL"),
+        ("B", "sheet1"),
         ("C", "net"),
     }
     for row in rows:
@@ -3926,6 +4189,7 @@ def _p0470_post_rotor_wake(
     rpm=1000.0,
     clockings=1,
     sector_copies=1,
+    prepare=None,
 ):
     """Post one steady point through the public far-field stage, a rotor row or a wing row."""
     from pyflightstream.cases.reference_blocks import BladeDatum, RotorBlock
@@ -4031,6 +4295,8 @@ def _p0470_post_rotor_wake(
         farfield_super={},
         farfield_off_window=[],
     )
+    if prepare is not None:
+        prepare(ctx)
     farfield_products(cast("Any", ctx))
     paths = list((root / "post" / "farfield").glob("*_trefftz.csv"))
     if not paths:
@@ -4194,10 +4460,11 @@ def test_p0470_ffr_b_on_a_wing_and_rotor_row_traces_the_wing_lines_alone(tmp_pat
         tmp_path / "mixed", wing + blade_lines, np.concatenate([shed, blade_values]), rotor=True
     )
     columns, alone, _ = _p0470_post_rotor_wake(tmp_path / "alone", wing, shed, rotor=False)
-    (b_mixed,) = [row for row in mixed if row["VARIANT"] == "B"]
-    (b_alone,) = [row for row in alone if row["VARIANT"] == "B"]
-    for column in ("CL_T", "CDI_T", "E_T", "N_TRACE", "GAMMA_SCALE", "X_T_M"):
-        assert b_mixed[column] == b_alone[column], column
+    (b_mixed,) = [row for row in mixed if row["VARIANT"] == "B" and row["FAMILY"] == "TOTAL"]
+    (b_alone,) = [row for row in alone if row["VARIANT"] == "B" and row["FAMILY"] == "TOTAL"]
+    assert b_mixed["CL_T"] == b_alone["CL_T"]
+    assert float(b_mixed["N_TRACE"]) > float(b_alone["N_TRACE"])
+    assert b_mixed["CDI_T"] != b_alone["CDI_T"]
     assert "T_WAKE_N" not in columns, "a table of rows without a rotor keeps its columns"
 
 
@@ -4227,10 +4494,10 @@ def test_p0470_r2_wing_wake_calibration_excludes_rotor_lift(tmp_path):
         _, sample, _ = _p0470_post_rotor_wake(
             tmp_path / str(index), lines, values, rotor=True, rotor_cl=rotor_cl
         )
-        (row,) = [row for row in sample if row["VARIANT"] == "B"]
+        (row,) = [row for row in sample if row["VARIANT"] == "B" and row["FAMILY"] == "TOTAL"]
         rows.append(row)
-    for column in ("CL_T", "CDI_T", "GAMMA_SCALE"):
-        assert float(rows[0][column]) == pytest.approx(float(rows[1][column])), column
+    for column, factor in (("CL_T", 3), ("CDI_T", 9), ("GAMMA_SCALE", 3)):
+        assert float(rows[1][column]) == pytest.approx(factor * float(rows[0][column]), rel=2e-5)
 
 
 @pytest.mark.parametrize("complete", [False, True])
@@ -4318,6 +4585,8 @@ def test_p0470_r8_wake_window_uses_same_step_near_loads(tmp_path, stamped):
     columns, average = _ffproof_post___table(
         next((tmp_path / "post/farfield").glob("*_average.csv"))
     )
+    average = [row for row in average if row["VARIANT"] == "W"]
+    instant = [row for row in instant if row["VARIANT"] == "W"]
     assert math.isfinite(float(average[0]["T_WAKE_N"]))
     if stamped:
         assert float(average[0]["T_NEAR_N"]) == pytest.approx(-float(instant[0]["T_NEAR_N"]))
@@ -4363,7 +4632,8 @@ def test_p0470_r2_periodic_wake_comparisons_use_wheel_loads(tmp_path, symmetry_l
     )
     farfield_products(cast("Any", ctx))
     _, periodic = _ffproof_post___table(path)
-    before, after = baseline[0], periodic[0]
+    before = next(row for row in baseline if row["VARIANT"] == "W")
+    after = next(row for row in periodic if row["VARIANT"] == "W")
     factor = 3 if symmetry_loads == "false" else 1
     assert abs(float(before["T_NEAR_N"])) > 0.0
     assert abs(float(before["Q_NEAR_NM"])) > 0.0
@@ -4488,10 +4758,10 @@ def _pfs2187_b_rows(tmp_path, lines, values, **kwargs):
 
 @pytest.mark.requirement("FR-3586")
 def test_pfs2187_21_two_sheets_are_traced_on_one_plane(tmp_path):
-    """Two sheets of one export: a row each beside the net row, the mutual wash counted, one k."""
+    """Two sheets of one export: a row each beside TOTAL, the mutual wash counted, one k."""
     lines, values, edges = _pfs2187_sheet_lines()
     rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
-    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "TOTAL"]
     assert [row["N_TRACE"] for row in rows] == ["16", "8", "24"]
     assert len({row["GAMMA_SCALE"] for row in rows}) == 1
     rho, speed = 1.225, 30.0
@@ -4504,7 +4774,7 @@ def test_pfs2187_21_two_sheets_are_traced_on_one_plane(tmp_path):
     assert float(rows[2]["E_T"]) == pytest.approx(expected_e, rel=2e-5)
     assert float(rows[0]["CDI_T"]) == pytest.approx(k * k * shares[0] / q_s, rel=2e-5)
     assert float(rows[1]["CDI_T"]) == pytest.approx(k * k * shares[1] / q_s, rel=2e-5)
-    # the sheets add up to the net row, and the net lift is the near field's by construction
+    # the sheets add up to TOTAL, and the total lift is the near field's by construction
     assert float(rows[0]["CL_T"]) + float(rows[1]["CL_T"]) == pytest.approx(
         float(rows[2]["CL_T"]), rel=2e-5
     )
@@ -4545,11 +4815,11 @@ def test_pfs2187_21_a_group_that_bounds_no_strip_is_warned_and_the_rest_is_trace
     lines = [*lines, np.array([(2.0, 0.3, 40.0), (15.0, 0.3, 40.0), (30.0, 0.3, 40.0)])]
     values = np.concatenate([values, [0.125]])
     rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
-    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet3", "sheet2", "TOTAL"]
     said = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
     assert len(said) == 1
-    assert "1 wake lines, with values summing to 0.125, are left out of the trace" in said[0]
-    assert "their circulation is not in the result" in said[0]
+    assert "one line alone bounds no strip" in said[0]
+    assert "TOTAL leaves out sheet2" in said[0]
 
 
 @pytest.mark.requirement("FR-3590")
@@ -4557,19 +4827,19 @@ def test_pfs2187_21_a_sheet_short_of_the_plane_writes_the_row_na_with_the_reach(
     """A sheet whose lines end before the plane: NA, and the skip says what would reach."""
     lines, values, _edges = _pfs2187_sheet_lines(tail_end=3.5)
     rows, ctx = _pfs2187_b_rows(tmp_path, lines, values)
-    assert [row["FAMILY"] for row in rows] == ["net"]
-    assert {rows[0][c] for c in ("CL_T", "CDI_T", "E_T", "GAMMA_SCALE")} == {"NA"}
-    (said,) = [reason for key, reason in ctx.skipped.items() if "variant=wake" in key]
-    assert "9 of 26 wake lines end before the plane" in said
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "TOTAL"]
+    assert {rows[1][c] for c in ("CL_T", "CDI_T", "E_T", "GAMMA_SCALE")} == {"NA"}
+    (said,) = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
+    assert "9 wake lines end before the plane" in said
     assert "distance_bref of at most" in said
 
 
 @pytest.mark.requirement("FR-3591")
 def test_pfs2187_21_one_sheet_keeps_its_row_and_its_numbers(tmp_path):
-    """A single sheet writes the one net row it always wrote, from the single-sheet trace."""
+    """A single sheet retains its numbers in TOTAL beside its family contribution."""
     lines, values = _p0470_wing_lines()
     rows, _ctx = _pfs2187_b_rows(tmp_path, lines, values)
-    assert [row["FAMILY"] for row in rows] == ["net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "TOTAL"]
     from pyflightstream.farfield import wake_crossings
 
     trace = wake_crossings(lines, values=values, x_t=1.0 + 0.25 * 4.0)
@@ -4593,10 +4863,10 @@ def test_pfs2187_21_an_unsteady_rotor_row_traces_its_sheets_beside_the_rotor_wak
         (path,) = (root / "post" / "farfield").glob("*_trefftz_instant.csv")
         with path.open(encoding="utf-8", newline="") as handle:
             b = [row for row in csv.DictReader(handle) if row["VARIANT"] == "B"]
-        assert [row["FAMILY"] for row in b] == ["sheet1", "sheet2", "net"]
-        nets.append((float(b[2]["CL_T"]), float(b[2]["GAMMA_SCALE"])))
+        assert b[-1]["FAMILY"] == "TOTAL"
+        nets.append((float(b[-1]["CL_T"]), float(b[-1]["GAMMA_SCALE"])))
     # the rotor's blade lift is excluded from the calibration, as for one sheet
-    assert nets[0] == pytest.approx(nets[1])
+    assert nets[1] == pytest.approx(np.asarray(nets[0]) * 3, rel=2e-5)
 
 
 def _pfs2187_ring(n=12, centre=(1.0, 0.0), radius=0.15, x0=2.0, end=30.0, offset=0.0):
@@ -4648,7 +4918,7 @@ def test_pfs2187_21_a_base_rim_is_traced_as_a_ring_beside_the_wing(tmp_path):
     lines = [*wing[:17], *[ring[k] for k in order]]
     values = np.concatenate([wing_shed[:17], ring_shed[order]])
     rows, _ctx = _pfs2187_b_rows(tmp_path, lines, values)
-    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "TOTAL"]
     assert [row["N_TRACE"] for row in rows] == ["16", "12", "28"]
     wing_nodes = np.linspace(-2.0, 2.0, 17)
     wing_gamma = np.sqrt(1.0 - ((wing_nodes[:-1] + 0.125) / 2.0) ** 2)
@@ -4713,9 +4983,9 @@ def test_pfs2187_21_a_rim_whose_values_do_not_close_is_warned_and_left_out(tmp_p
     rows, ctx = _pfs2187_b_rows(
         tmp_path, [*wing[:17], *ring], np.concatenate([wing_shed[:17], ring_shed])
     )
-    assert [row["FAMILY"] for row in rows] == ["net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "TOTAL"]
     (said,) = [reason for key, reason in ctx.skipped.items() if "left-out" in key]
-    assert "12 wake lines, with values summing to 0.6, are left out" in said
+    assert "TOTAL leaves out sheet2" in said
     assert "close into a ring but its values sum to 0.6 rather than zero" in said
 
 
@@ -4728,7 +4998,7 @@ def test_pfs2187_21_an_unsteady_row_without_a_rotor_writes_b_for_its_last_step(t
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert [row["VARIANT"] for row in rows] == ["B", "B", "B"]
-    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "net"]
+    assert [row["FAMILY"] for row in rows] == ["sheet1", "sheet2", "TOTAL"]
 
 
 @pytest.mark.requirement("FR-3599")
@@ -4752,7 +5022,7 @@ def test_pfs2187_21_an_unsteady_row_without_a_rotor_averages_b_over_its_window(t
     (path,) = (tmp_path / "post" / "farfield").glob("*_trefftz_average.csv")
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert [row["FAMILY"] for row in rows if row["VARIANT"] == "B"] == ["sheet1", "sheet2", "net"]
+    assert [row["FAMILY"] for row in rows if row["VARIANT"] == "B"] == ["sheet1", "sheet2", "TOTAL"]
 
 
 @pytest.mark.requirement("FR-3600")

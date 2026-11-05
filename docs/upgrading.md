@@ -7,6 +7,12 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.55.1
+
+Trefftz B now anchors rotor blade circulation at the free tip, following the wing
+convention. W retains its own treatment. Run `pyfs-matrix post` on stored exports
+to update B's blade, rotor and TOTAL values; no new solve or plan is needed.
+
 ## 0.55.0
 
 A row may state `IDENTIFIERS: {FLAP:0,TESTE:10}` in `VAR_NAMES_VALUES`: columns of every table the

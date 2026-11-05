@@ -30,9 +30,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import islice
+from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._fsm import boundary_vertices, family_of, saved_mesh_coordinate_unit
+from pyflightstream._lengths import scale
 from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 
 __all__ = ["WAKE_VALUE", "WakeExport", "parse_wake_export"]
@@ -67,6 +71,203 @@ class WakeExport:
     lines: tuple[np.ndarray, ...]
     values: np.ndarray
     blades: np.ndarray | None = None
+
+
+def wake_geometry_frame(
+    wake: WakeExport,
+    saved: Path | None,
+    moment_m: np.ndarray,
+    *,
+    per_m: float = 1.0,
+    diagnose: bool = True,
+    mirror: bool = False,
+    surface: Path | None = None,
+) -> tuple[WakeExport, dict[str, object]]:
+    """Place native wake coordinates in geometry metres using saved mesh evidence.
+
+    Parameters
+    ----------
+    wake : WakeExport
+        Parsed native export, before any geometric selection.
+    saved : pathlib.Path or None
+        This row's saved geometry, independent of the VTK export frame.
+    moment_m : numpy.ndarray
+        Moment point in geometry metres, shape (3,).
+    per_m : float
+        Native export units per metre.
+    diagnose : bool
+        Warn when neither or both distinct candidate frames land on the mesh.
+    mirror : bool
+        Include the saved mesh's reflection across geometry y = 0 as evidence.
+    surface : pathlib.Path or None
+        The same snapshot's surface VTK, aligned independently to saved geometry.
+
+    Returns
+    -------
+    WakeExport
+        Lines in geometry metres; circulation and blade identities are preserved.
+    dict
+        Chosen frame, evidence distances and tolerance for product provenance.
+    """
+    lines = tuple(line / per_m for line in wake.lines)
+    vertices, source = _frame_evidence(saved, surface, moment_m, per_m, mirror)
+    starts = np.array([line[0] for line in lines]).reshape(-1, 3)
+    offset, evidence = _frame_offset(starts, vertices, moment_m)
+    evidence.update(source)
+    if evidence["ambiguous"] and diagnose:
+        warn(
+            "wake frame cannot be distinguished from saved geometry: "
+            f"moment_point={evidence['moment_point_distance_m']} m, "
+            f"geometry={evidence['geometry_distance_m']} m, "
+            f"tolerance={evidence['tolerance_m']} m; using the moment-point rule; "
+            "retain a matching saved mesh to establish the export frame. "
+            f"{source.get('evidence_issue', '')}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if np.any(offset):
+        lines = tuple(line + offset for line in lines)
+    return WakeExport(lines, wake.values, wake.blades), evidence
+
+
+def _frame_evidence(saved, surface, moment, per_m, mirror):
+    from pyflightstream.results.surface import read_vtk_surface
+
+    empty = np.empty((0, 3))
+    if not np.any(moment):
+        return empty, {"evidence_source": "equivalent_origins"}
+    metadata: dict[str, object] = {"evidence_source": "saved_mesh"}
+    try:
+        vertices = _saved_vertices_m(saved)
+    except (PyflightstreamError, OSError, ValueError) as error:
+        return empty, {"evidence_source": "unavailable", "evidence_issue": str(error)}
+    if mirror and len(vertices):
+        vertices = np.concatenate([vertices, vertices * [1, -1, 1]])
+    if len(vertices) and surface is not None and surface.is_file():
+        try:
+            points = read_vtk_surface(surface).points / per_m
+            shift, alignment = _frame_offset(points, vertices, moment, median=True)
+            metadata["surface_alignment"] = alignment
+            if not alignment["ambiguous"]:
+                points = points + shift
+                if mirror:
+                    points = np.concatenate([points, points * [1, -1, 1]])
+                return points, {**metadata, "evidence_source": "surface_vtk"}
+        except (PyflightstreamError, OSError, ValueError) as error:
+            metadata["evidence_issue"] = str(error)
+    return vertices, metadata
+
+
+def _saved_vertices_m(saved: Path | None) -> np.ndarray:
+    if saved is None or not saved.is_file():
+        return np.empty((0, 3))
+    vertices = boundary_vertices(saved) or {}
+    unit = saved_mesh_coordinate_unit(saved)
+    factor = scale(unit, "METER") if unit else None
+    arrays = [np.asarray(points) for points in vertices.values() if len(points)]
+    return np.concatenate(arrays) * factor if arrays and factor else np.empty((0, 3))
+
+
+def _frame_offset(points: np.ndarray, vertices: np.ndarray, moment: np.ndarray, *, median=False):
+    from scipy.spatial import cKDTree
+
+    distances: list[float | None] = [None, None]
+    maxima: list[float | None] = [None, None]
+    tolerance = max(1e-7, 0.01 * float(np.ptp(vertices, axis=0).max())) if len(vertices) else 1e-7
+    if len(vertices) and len(points):
+        tree = cKDTree(vertices)
+        nearest = [tree.query(points + offset)[0] for offset in (moment, np.zeros(3))]
+        # Surface alignment uses the stationary majority when saved rotating
+        # blades retain their initial placement. Wake starts use the maximum.
+        distances = [float(np.median(d) if median else d.max()) for d in nearest]
+        maxima = [float(d.max()) for d in nearest]
+    lands = [distance is not None and distance <= tolerance for distance in distances]
+    same = not np.any(moment)
+    ambiguous = not same and lands[0] == lands[1]
+    shifted = same or lands[0] or ambiguous
+    return moment if shifted else np.zeros(3), {
+        "frame": "moment_point" if shifted else "geometry",
+        "translation_m": (moment if shifted else np.zeros(3)).tolist(),
+        "moment_point_distance_m": distances[0],
+        "geometry_distance_m": distances[1],
+        "distance_statistic": "median_nearest_vertex" if median else "maximum_nearest_vertex",
+        "moment_point_max_distance_m": maxima[0],
+        "geometry_max_distance_m": maxima[1],
+        "tolerance_m": tolerance,
+        "ambiguous": ambiguous,
+        "rotation": "untested; translation candidates only",
+    }
+
+
+def wake_surface_families(
+    path: Path,
+    starts_m: np.ndarray,
+    surface: Path | None = None,
+    *,
+    per_m: float = 1.0,
+    moment_m: np.ndarray | None = None,
+    mirror: bool = False,
+) -> list[str | None]:
+    """Match wake start nodes to saved surface families in geometry axes.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The saved simulation carrying boundary geometry and labels.
+    starts_m : numpy.ndarray
+        Wake start positions, shape (n, 3), in metres.
+    surface : pathlib.Path or None
+        Exported surface used to confirm the wake starts lie on the current mesh.
+    per_m : float
+        Native export units per metre.
+    moment_m : numpy.ndarray or None
+        Moment point in geometry metres, used to align the surface export.
+    mirror : bool
+        Include reflected saved vertices when aligning a full surface export.
+
+    Returns
+    -------
+    list of str or None
+        Nearest family per start. Ties between families or starts more than
+        one percent of the mesh extent from a vertex remain unassigned.
+    """
+    from scipy.spatial import cKDTree
+
+    from pyflightstream.results.surface import read_vtk_surface
+
+    vertices = boundary_vertices(path) or {}
+    unit = saved_mesh_coordinate_unit(path)
+    factor = scale(unit, "METER") if unit else None
+    if not vertices or factor is None:
+        return [None] * len(starts_m)
+    families: dict[str, list] = {}
+    for label, points in vertices.items():
+        families.setdefault(family_of(label), []).extend(points)
+    names = [name for name, points in families.items() if points]
+    if not names:
+        return [None] * len(starts_m)
+    arrays = [np.asarray(families[name]) * factor for name in names]
+    distances = np.array([cKDTree(points).query(starts_m)[0] for points in arrays])
+    extent = float(np.ptp(np.concatenate(arrays), axis=0).max())
+    on_surface = np.ones(len(starts_m), dtype=bool)
+    if surface is not None and surface.is_file():
+        exported = read_vtk_surface(surface)
+        surface_points = exported.points / per_m
+        if moment_m is not None and np.any(moment_m):
+            evidence = np.concatenate(arrays)
+            if mirror:
+                evidence = np.concatenate([evidence, evidence * [1, -1, 1]])
+            offset, _ = _frame_offset(surface_points, evidence, moment_m, median=True)
+            surface_points = surface_points + offset
+        on_surface = cKDTree(surface_points).query(starts_m)[0] <= 0.01 * extent
+    answer = []
+    for column, supported in zip(distances.T, on_surface, strict=True):
+        best = int(np.argmin(column))
+        tied = np.count_nonzero(np.isclose(column, column[best], rtol=1e-5, atol=1e-8)) > 1
+        answer.append(
+            None if not supported or tied or column[best] > 0.01 * extent else names[best]
+        )
+    return answer
 
 
 def _tokens(rows: Iterator[str], count: int, what: str) -> list[str]:
