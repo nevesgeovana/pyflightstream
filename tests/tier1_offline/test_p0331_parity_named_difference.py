@@ -12,6 +12,7 @@ pair only where each single entry would name its own part.
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -38,6 +39,97 @@ def _load():
 
 def _name(old: str, new: str, defined: set[str]) -> dict:
     return _load().name_difference("scripts", "row.txt", old, new, defined)
+
+
+def test_p0551_gate_unavailable_b_rows_keep_every_other_cell():
+    """P0551-GATE: FR-3601/3602 name targets, never changed measurements."""
+    checker = _load()
+    old = "POL,FAMILY,VARIANT,CL_T,CDI_T,STATUS\n1,net,B,NA,NA,CONVERGED\n"
+    new = old.replace("net", "wing") + "1,TOTAL,B,NA,NA,CONVERGED\n"
+    args = ("post", "matrix/farfield/point_trefftz_instant.csv")
+    defined = {"FR-3601", "FR-3602", "FR-3604", "FR-3605"}
+    assert "requirement" in checker.name_difference(*args, old, new, defined, "0.55.0")
+    for wrong in (
+        new.replace("NA", "1", 1),
+        new.replace("CONVERGED", "BAD", 1),
+        new.replace("TOTAL", "wing"),
+        new.replace("POL,", "OTHER,"),
+    ):
+        assert "requirement" not in checker.name_difference(*args, old, wrong, defined, "0.55.0")
+    assert "requirement" not in checker.name_difference(*args, old, new, defined, "0.55.1")
+
+
+def test_p0551_gate_warning_allowance_keeps_record_fields():
+    """P0551-GATE: FR-3613 permits its warning, not a changed severity or other record."""
+    checker = _load()
+    message = (
+        "product=farfield: T_NEAR_N, Q_NEAR_NM, DT_WAKE_COUNTS and DQ_WAKE_COUNTS compare "
+        "one rotor with one rotor. The near field includes friction and W does not: Cx = CDi + CDo."
+    )
+    record = dict(
+        point="campaign",
+        product="stage",
+        message=message,
+        remedy=None,
+        category="postprocessing",
+        severity="warning",
+    )
+    old = json.dumps(dict(records=[], matrix="m"))
+    new = json.dumps(dict(records=[record], matrix="m"))
+    args = ("post", "matrix/post.log.json")
+    defined = {"FR-3602", "FR-3601", "FR-3605", "FR-3613", "FR-3625"}
+    assert "requirement" in checker.name_difference(*args, old, new, defined, "0.55.0")
+    for field in record:
+        wrong = json.dumps(dict(records=[{**record, field: "wrong"}], matrix="m"))
+        assert "requirement" not in checker.name_difference(*args, old, wrong, defined, "0.55.0")
+    for wrong in (
+        new.replace('"matrix": "m"', '"matrix": "other"'),
+        json.dumps(dict(records=[{**record, "extra": 1}], matrix="m")),
+    ):
+        assert "requirement" not in checker.name_difference(*args, old, wrong, defined, "0.55.0")
+    assert "requirement" not in checker.name_difference(
+        *args, old, new, defined - {"FR-3613"}, "0.55.0"
+    )
+
+
+def test_p0551_gate_frame_allowance_keeps_every_provenance_field():
+    """P0551-GATE: FR-3606 names equivalent origins only, with all metadata preserved."""
+    checker = _load()
+    frame = dict(
+        frame="moment_point",
+        translation_m=[0.0, 0.0, 0.0],
+        moment_point_distance_m=None,
+        geometry_distance_m=None,
+        distance_statistic="maximum_nearest_vertex",
+        moment_point_max_distance_m=None,
+        geometry_max_distance_m=None,
+        tolerance_m=1e-7,
+        ambiguous=False,
+        rotation="untested; translation candidates only",
+        evidence_source="equivalent_origins",
+    )
+    key = "farfield/p_trefftz_instant.csv"
+
+    def document(evidence):
+        product = {"kind": "instant"}
+        if evidence is not None:
+            product["wake_frames"] = {"p": {"datapoints/dp/p_wakes.vtk": evidence}}
+        return json.dumps({"products": {key: product}, "skipped": {}})
+
+    old, new = document(None), document(frame)
+    args = ("post", "matrix/products.json")
+    defined = {"FR-3606", "FR-3602", "FR-3605", "FR-3625"}
+    assert "requirement" in checker.name_difference(*args, old, new, defined, "0.55.0")
+    for field in frame:
+        assert "requirement" not in checker.name_difference(
+            *args, old, document({**frame, field: "wrong"}), defined, "0.55.0"
+        )
+    for wrong in (
+        new.replace('"instant"', '"average"'),
+        document({**frame, "extra": 1}),
+        new.replace("datapoints/dp/p_wakes.vtk", "unrelated.vtk"),
+    ):
+        assert "requirement" not in checker.name_difference(*args, old, wrong, defined, "0.55.0")
 
 
 def test_p0551_ffname2_parity_preserves_non_farfield_cells():

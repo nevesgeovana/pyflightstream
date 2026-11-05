@@ -478,7 +478,7 @@ def _block_spans(lines: Sequence[str]) -> dict[str, tuple[int, int]]:
         marker = _MARKER.match(line.strip())
         if marker is None:
             continue
-        name, side = marker.groups()
+        name, side = marker.group(1), marker.group(2)
         if side == "START":
             if open_name is not None:
                 raise FreshResetError(
@@ -487,7 +487,7 @@ def _block_spans(lines: Sequence[str]) -> dict[str, tuple[int, int]]:
                 )
             open_name, start = name, index
             continue
-        if open_name != name:
+        if open_name is None or open_name != name:
             inside = f"the open block is {open_name}" if open_name else "no block is open"
             raise FreshResetError(
                 f"the block {name} closes on line {index + 1} without opening ({inside})"

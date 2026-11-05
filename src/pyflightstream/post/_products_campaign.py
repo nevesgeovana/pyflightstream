@@ -562,8 +562,8 @@ def write_refinement_studies(ctx: _CampaignProducts) -> None:
         # is no level of the study; read as one, it made a study of a fabricated group.
         derived = name.endswith("_trim.csv") or entry.get("kind") == "interpolated"
         found = None if derived else _POLAR_NAME.match(name)
-        if found and entry.get("sim_id") == found["sim"]:
-            polars.setdefault(found["sim"], {})[found["group"]] = ctx.out / name
+        if found and entry.get("sim_id") == found.group("sim"):
+            polars.setdefault(found.group("sim"), {})[found.group("group")] = ctx.out / name
     for levels, study in studies.items():
         missing = [level for level in levels if level not in polars]
         if missing:

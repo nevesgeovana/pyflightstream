@@ -959,13 +959,11 @@ def _declares_blade_loads(case: SimCase) -> bool:
     """Whether a declared distribution cuts the blades in a blade or rotor frame."""
     if case.pproc is None:
         return False
-    for entry in case.pproc.sections.distributions:
-        frame = entry.frame.strip().upper()
-        if frame in ("LOCAL_AXIS", "RMRP", "BLADE_AXIS") or frame.rsplit("_", 1)[-1].startswith(
-            "RMRP"
-        ):
-            return True
-    return False
+    frames = (entry.frame.strip().upper() for entry in case.pproc.sections.distributions)
+    return any(
+        frame in ("LOCAL_AXIS", "RMRP", "BLADE_AXIS") or frame.rsplit("_", 1)[-1].startswith("RMRP")
+        for frame in frames
+    )
 
 
 def blade_loads_state(case: SimCase, spec: FarfieldSpec) -> tuple[str, str]:
