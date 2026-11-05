@@ -2105,7 +2105,8 @@ def farfield_products(ctx: SimContext) -> None:
         else:
             _entry_products(selected, tables)
     _write(ctx, tables)
-    ctx.farfield_super.update(ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS))
+    for point, cells in ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS).items():
+        ctx.farfield_super.setdefault(point, {}).update(cells)
     ctx.farfield_off_window.extend(_cells_off_the_row_window(ctx, tables))
 
 

@@ -142,6 +142,7 @@ def test_p0551_frame_off_span_is_measured():
 
 
 @pytest.mark.requirement("FR-3624")
+@pytest.mark.parametrize("companion", [False, True], ids=["alone", "with-wake"])
 @pytest.mark.parametrize(
     "mirror,periodic,wing,cut",
     [
@@ -157,7 +158,7 @@ def test_p0551_frame_off_span_is_measured():
         "P0551-integer-tags",
     ],
 )
-def test_p0551_rotor_sections_through_product(tmp_path, mirror, periodic, wing, cut):
+def test_p0551_rotor_sections_through_product(tmp_path, mirror, periodic, wing, cut, companion):
     import csv
     from dataclasses import replace
 
@@ -204,6 +205,24 @@ def test_p0551_rotor_sections_through_product(tmp_path, mirror, periodic, wing, 
         _, _, ctx = _p0470_post_rotor_wake(
             tmp_path, lines, values, rotor=True, sector_copies=periodic, prepare=prepare
         )
+    if companion:
+        from dataclasses import make_dataclass
+
+        from pyflightstream.post.farfield_products import farfield_products
+
+        # The real context is a dataclass, allowing per-entry copies in the stage.
+        ctx = make_dataclass("Context", [(key, object) for key in vars(ctx)])(**vars(ctx))
+        ctx.pproc = PprocSpec.model_validate(
+            {
+                "farfields": [
+                    {"variant": "rotor_sections", "rotor": "ROTOR"},
+                    {"variant": "wake"},
+                ]
+            }
+        )
+        ctx.farfield_super.clear()
+        farfield_products(ctx)
+        assert "T_WAKE_N_FF_W_ROTOR" in ctx.farfield_super["point"]
     paths = list((tmp_path / "post/farfield").glob("*_rotor_sections_ROTOR.csv"))
     assert paths, [str(w.message) for w in caught]
     path = paths[0]

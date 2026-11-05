@@ -60,6 +60,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Combining `rotor_sections` with another far-field entry preserves both sets
+  of polar and super-file columns (FR-3624).
+
 - The recorded Trefftz B circulation regression now requires the missing-mesh
   attribution warnings while retaining its circulation-scale and efficiency
   checks. Unexpected skips or warnings still fail the test (FR-3640).
