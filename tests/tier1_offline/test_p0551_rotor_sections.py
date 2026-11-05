@@ -464,3 +464,38 @@ def test_p0551_chord_line_keeps_the_requested_span_at_endpoints(tmp_path, fracti
         )
         np.testing.assert_allclose(attachments[groups[name]], expected, atol=1e-12)
         np.testing.assert_allclose(blades[name].radial, [0.0, sign, 0.0], atol=1e-12)
+
+
+def test_p0551_wake_frame_names_missing_scipy(monkeypatch, tmp_path):
+    import sys
+
+    from pyflightstream._errors import ProductError
+    from pyflightstream.results.wake import wake_surface_families
+
+    monkeypatch.setitem(sys.modules, "scipy.spatial", None)
+    with pytest.raises(ProductError, match="requires scipy"):
+        wake_surface_families(tmp_path / "s.sim", np.zeros((1, 3)))
+
+
+def test_p0551_surface_matching_names_missing_scipy(monkeypatch, tmp_path):
+    import sys
+
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.rotor_sections_surface import blade_surface_strips
+
+    monkeypatch.setitem(sys.modules, "scipy.spatial", None)
+    with pytest.raises(ProductError, match="requires scipy"):
+        blade_surface_strips(
+            tmp_path / "s.vtk",
+            tmp_path / "s.fsm",
+            ["B"],
+            [],
+            hub=np.zeros(3),
+            axis=np.eye(3)[0],
+            moment_point=np.zeros(3),
+            per_m=1.0,
+            rho=1.0,
+            reference_speed=1.0,
+            thrust_sign=1.0,
+            chord_fraction=0.25,
+        )
