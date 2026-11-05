@@ -5155,3 +5155,48 @@ def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections):
         assert row["Q_NEAR_NM"] == "NA"
         assert any("torque about the hub" in str(w.message) for w in caught)
     assert sum("Cx = CDi + CDo" in str(w.message) for w in caught) == 1
+
+
+@pytest.mark.requirement("FR-3614")
+def test_p0551_near_c_uses_half_model_load_convention(tmp_path):
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(1.0)
+            )
+        },
+    )
+    _ffproof_post___set_record(workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT)
+    _farfield_products___post(workspace)
+    baseline = next(
+        r
+        for r in _farfield_products___table(
+            _farfield_products___one(workspace.root, "farfield/*_trefftz.csv")
+        )
+        if r["VARIANT"] == "C"
+    )
+    (Path(workspace.root) / "mirror.fs").write_text(
+        "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+        "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+        "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+        "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+        "r001 | s001 | p001 | MIRROR | false | 1 | - | 26.120 | steady | \n",
+        encoding="utf-8",
+    )
+    _ffproof_post___set_record(workspace, matrix_stem="mirror")
+    write_campaign_products(workspace, matrix_stem="mirror")
+    after = next(
+        r
+        for r in _farfield_products___table(
+            _farfield_products___one(workspace.products_dir("mirror"), "farfield/*_trefftz.csv")
+        )
+        if r["VARIANT"] == "C"
+    )
+    for column in ("CL_T", "CDI_T", "CDI_T_QERR", "CDI_T_VORT", "BERNOULLI_RESIDUAL"):
+        assert float(after[column]) == pytest.approx(
+            0.5 * float(baseline[column]), rel=1e-5, abs=1e-8
+        )
+    assert float(after["E_T"]) == pytest.approx(2 * float(baseline["E_T"]), rel=2e-5)
+    assert after["X_T_M"] == baseline["X_T_M"]

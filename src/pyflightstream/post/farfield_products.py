@@ -1555,6 +1555,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
     if "plane" in values:
         plane = values["plane"]
+        qs *= 2.0 if _symmetry(ctx)[1] else 1.0
         cdi = plane["D"] / qs
         cl = _near_cl_on_vinf(point)
         aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
@@ -1898,7 +1899,8 @@ def _flag_a_plane_short_of_the_lift(
     """
     rho, speed, _alpha, _beta = _flow(point)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
-    cl_plane, cl_near = plane["L"] / qs, _near_cl_on_vinf(point)
+    factor = 0.5 if _symmetry(ctx)[1] else 1.0
+    cl_plane, cl_near = factor * plane["L"] / qs, _near_cl_on_vinf(point)
     if not (math.isfinite(cl_plane) and math.isfinite(cl_near)):
         return
     difference = abs(cl_plane - cl_near)

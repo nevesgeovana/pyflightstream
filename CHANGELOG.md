@@ -37,6 +37,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Trefftz C now halves its force coefficients and integral diagnostics on
+  mirror rows with `SYMMETRY_LOADS` false, matching A and B. Migration:
+  repost those rows; C efficiency doubles for unchanged near loads (FR-3614).
+
 - W compares one rotor's wake with one rotor's near loads on mirror rows.
   Hub-frame blade sections recover thrust and torque; absent sections leave
   torque unavailable with a warning. Near-field friction is stated beside

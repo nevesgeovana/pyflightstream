@@ -219,7 +219,11 @@ side of the reference XZ plane, the trace is mirrored, and the inner edge of the
 innermost strip is set on the plane, so no filament is shed at the root by the
 mirror. A half model with points on both sides is not traced. A half model whose
 `SYMMETRY_LOADS` is false reports the coefficients of the meshed half, as its
-polar does.
+polar does. C follows the same convention: its lift, induced drag and integral
+diagnostics are halved, while positions, coverage and sample counts are kept.
+Its efficiency uses the half-model near lift and halved induced drag (FR-3614).
+With the same `SREF` and `BREF`, the coefficient formula reports half the
+whole-model efficiency for A, B and C; it does not silently change the reference area.
 
 **Spanwise quantities** (written per strip):
 
