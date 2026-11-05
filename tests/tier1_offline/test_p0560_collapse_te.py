@@ -1097,3 +1097,29 @@ def test_p0560_a_boundaries_file_that_would_not_read_back_is_refused(tmp_path, t
     written = Path(str(target) + ".boundaries.toml")
     with pytest.raises(InputValueError, match="would not read back"):
         cte._sidecar_reads_back({written: text.encode()}, target)
+
+
+@pytest.mark.requirement("FR-3666")
+def test_p0560_the_refresh_rewrites_a_repitch_output_of_0_55_1(tmp_path, capsys):
+    from pyflightstream.workspace.sidecars import refresh_obj_inventory
+
+    source, _ = make(tmp_path, strip="same", layers=3)
+    cfg = tmp_path / "rep.toml"
+    cfg.write_text(REPITCH)
+    out = tmp_path / "out.obj"
+    assert invoke(source, cfg, out, "repitch") == 0
+    side = Path(str(out) + ".boundaries.toml")
+    data = tomllib.loads(side.read_text())
+    counts = dict(zip(data["boundaries"], data["boundary_faces"], strict=True))
+    # 0.55.1 quoted every top-level key and wrote boundary_faces as a table of family counts.
+    old = []
+    for line in side.read_text().splitlines():
+        name, value = line.split(" = ", 1)
+        if name == "boundary_faces":
+            value = "{ " + ", ".join(f"{k} = {v}" for k, v in counts.items()) + " }"
+        old.append(f'"{name}" = {value}')
+    side.write_text("\n".join(old) + "\n")
+    assert mark_preview(out, capsys) == 2
+    refresh_obj_inventory(out)
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+    assert tomllib.loads(side.read_text())["boundary_faces"] == list(counts.values())

@@ -23,8 +23,10 @@ FlightStream versions.
   job is not cancelled and must be handled separately.
 - The boundaries file `geometry repitch` writes beside an OBJ now reads back: `boundary_faces` is
   a list in family order and a key with a space is quoted, so `geometry mark-boundaries` and
-  `geometry inventory --refresh` take it. An output of 0.55.1 is rewritten by running `repitch`
-  again to a new `--out`.
+  `geometry inventory --refresh` take it. An output of 0.55.1 is made readable by
+  `geometry inventory <out.obj> --refresh`, which now rewrites its quoted counted keys, or by
+  running `repitch` again to a new `--out`; an output of 0.55.1 with a space in a family name
+  needs the second.
 
 ## [0.55.1] - 2026-11-05
 

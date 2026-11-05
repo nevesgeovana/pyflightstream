@@ -802,6 +802,9 @@ def _with_counted_keys(lines: list[str], fresh: dict[str, str]) -> list[str]:
             depth += code.count("[") - code.count("]")
             continue
         key = line.split("=", 1)[0].strip()
+        # A quoted key is the same key: geometry repitch of 0.55.1 quoted every top-level key.
+        if len(key) > 1 and key[0] == key[-1] and key[0] in "\"'":
+            key = key[1:-1]
         if header is None and line.startswith("["):
             header = len(kept)
         if header is None and key in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY):
