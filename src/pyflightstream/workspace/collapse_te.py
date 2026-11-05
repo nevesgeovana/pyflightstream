@@ -485,11 +485,23 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             # family is no rim and is carried to its new position.
             rims = _rim_edges(plan)
             mine = [m for m in mine if m[2] and m[2] <= rims and not m[3]]
+            _first_rim_leads(plan, mine)
         else:
             plan = _plan_by_points(blade, mesh, mine, explicit, skipped)
         if plan is not None:
             plans.append(_labelled(plan, mine, unit))
     return plans, side, skipped, unit
+
+
+def _first_rim_leads(plan: _Plan, mine: list) -> None:
+    """Order a strip's sides as the points route does: the first declared rim leads."""
+    if not mine:
+        return
+    sides = [plan.rim_a, plan.rim_b]
+    edges = [{_key(r[j], r[j + 1]) for j in range(len(r) - 1)} for r in sides]
+    lead = min((0, 1), key=lambda k: (not edges[k] & mine[0][2], min(sides[k])))
+    if lead == 1:
+        plan.rim_a, plan.rim_b = plan.rim_b, plan.rim_a
 
 
 def _best(edges: set[Edge], index: _Index, blades: list[str]) -> str | None:

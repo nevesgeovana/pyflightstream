@@ -1141,3 +1141,32 @@ def test_p0560_an_import_operation_on_a_family_the_collapse_removes_is_skipped(t
     kept = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["import"]["operations"]
     assert kept == [{"op": "scale", "surface": "Hub1", "factors": [2.0, 2.0, 2.0]}]
     assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+
+
+@pytest.mark.requirement("FR-3664")
+@pytest.mark.parametrize("route", ["points", "base"])
+@pytest.mark.parametrize("swap", [False, True], ids=["upper-first", "lower-first"])
+def test_p0560_the_first_declared_rim_keeps_its_place_on_either_route(tmp_path, route, swap):
+    source, infos = make(tmp_path, strip="own", wake=False)
+    node = infos["Blade1"]["node"]
+    mesh = read_obj(source)
+    # The lower rim's nodes move to the end of the node list, so the two rims are told apart.
+    lower = [node(s, M + 1) for s in range(STATIONS + 1)]
+    order = [i for i in range(len(mesh.verts)) if i not in lower] + lower
+    at = {old: new for new, old in enumerate(order)}
+    families = {n: [[at[v] for v in f] for f in fs] for n, fs in mesh.families.items()}
+    source.write_text(obj_text(ObjMesh(mesh.verts[order], families)))
+    side = Path(str(source) + ".boundaries.toml")
+    if swap:
+        text = side.read_text()
+        text = text.replace("Blade1U.te.txt", "@").replace("Blade1L.te.txt", "Blade1U.te.txt")
+        side.write_text(text.replace("@", "Blade1L.te.txt"))
+    out = tmp_path / "sharp.obj"
+    extra = 'base = ["Blade1Base"]' if route == "base" else ""
+    assert invoke(source, control(tmp_path, extra=extra), out) == 0
+    new = read_obj(out).verts
+    up, low = at[node(0, M)], at[node(0, M + 1)]
+    midpoint = 0.5 * (mesh.verts[node(0, M)] + mesh.verts[node(0, M + 1)])
+    # Declared first, the lower rim keeps its places, less the upper nodes removed before them.
+    place = low - len(lower) if swap else up
+    assert np.array_equal(new[place], midpoint)
