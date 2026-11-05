@@ -88,6 +88,7 @@ from pyflightstream.post.farfield_fields import (
     steady_samples,
     symmetry_excluded_orders,
 )
+from pyflightstream.post.rotor_sections_products import rotor_sections_products
 from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
@@ -2054,7 +2055,19 @@ def farfield_products(ctx: SimContext) -> None:
             if len(ctx.pproc.farfields) == 1
             else replace(ctx, pproc=ctx.pproc.model_copy(update={"farfields": [entry]}))
         )
-        _entry_products(selected, tables)
+        if entry.variant == "rotor_sections":
+            rotor_sections_products(
+                selected,
+                output=_output,
+                read_wake=_read_geometry_wake,
+                flow=_flow,
+                per_m=_per_m,
+                copies=_sector_copies,
+                window=_farfield_window,
+                skip=_skip,
+            )
+        else:
+            _entry_products(selected, tables)
     _write(ctx, tables)
     ctx.farfield_super.update(ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS))
     ctx.farfield_off_window.extend(_cells_off_the_row_window(ctx, tables))

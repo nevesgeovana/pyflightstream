@@ -19,6 +19,7 @@ The analyses and where they are written:
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
 | Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_TOTAL_<entry>.csv` |
 | Rotor wake loads (W) | `variant = "wake"` on a rotor row | the rotor's wake lines | `farfield/<group>_trefftz.csv` |
+| Rotor sections (RS), experimental | `variant = "rotor_sections"`, `rotor = "ROTOR"` | blade sections or surface re-cuts, labelled saved geometry and rotor wake | `farfield/<group>_rotor_sections_<rotor>.csv` and `_strips.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
@@ -78,7 +79,9 @@ with the variants that accept it. `families` is required on `sections` and refus
 on `wake`, `plane` and `power`: these read the whole field, respectively every wake
 line, the plane and the lattice. `stations` is a count per side on `sections` and
 a list of x/R positions on `power`. `distance_bref` belongs to `wake` and `plane`;
-the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame`,
+the half extents and spacing belong to `plane` alone. `rotor` selects the rotor
+on `power` and `rotor_sections`. `chord_fraction` belongs to `rotor_sections`,
+defaults to 0.25 and lies between zero and one. `station`, `frame`,
 `tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
 A family a `sections` entry names and a row's geometry does not carry is warned and
@@ -456,8 +459,8 @@ difference. When a blade's values close (their sum is zero) this equals the
 tip sum `- sum_{k > j} value_k` of B. The solver's rotor lattice does not close
 at the tip: its outermost filament carries only part of the circulation of the
 strips beside it, so a sum from the tip would offset every strip by the
-missing part. On a recorded six-blade rotor the root sum gave a wake thrust
-within 3 percent of the near-field thrust and the tip sum about a quarter of it.
+missing part. Neither raw anchor is a general closure rule: the omitted root
+circulation can change the load substantially and vary from blade to blade.
 Line `k` is a chain of straight vortex segments of strength `-value_k` along
 the line.
 
@@ -522,6 +525,69 @@ the lines leave, not at the quarter chord. The free stream is taken along the
 axis (its in-plane component is not in `V_a`). The bound vortices of the other
 blades induce nothing at the lifting line. A rotor with no speed, or whose
 lines the export does not hold, is a named skip.
+
+### Rotor sections, blade-local decomposition
+
+```toml
+[[farfields]]
+variant = "rotor_sections"
+rotor = "ROTOR"
+chord_fraction = 0.25
+export_type = "last_step"
+```
+
+This experimental analysis uses the surface force magnitude. It is **not an
+independent thrust estimate**. Its additional information is the wake-induced
+direction and the local decomposition. Only one RS entry is accepted per row,
+because its rotor and blade polar columns have fixed names. The rotor alias
+must contain only ASCII letters, digits, `_`, `.`, `+` or `-`.
+
+The saved simulation labels the blade surfaces and supplies their units.
+Surface polygon cuts provide strip geometry on the wake's radial spacing.
+Exported distributions replace those loads only where their cut-plane normal
+lies within `FRAME_SPAN_TOLERANCE_DEG = 5` degrees of that blade's measured
+span. Missing sections and cuts off span use the surface re-cut, with a warning
+naming the blade. A frame name alone is insufficient. Surface re-cuts require
+`Cp_reference`, `skin_friction_coeff.`, `Vx`, `Vy` and `Vz`. Friction is removed
+using CF on local dynamic pressure for a surface polygon, and on reference
+dynamic pressure for a section ring. Its thrust and torque are reported
+separately from the inviscid reference.
+
+The rotor's own wake filaments supply Biot-Savart induction, using the newest
+`Normalized_Vorticity` value along each line, at scale one in square metres
+per second. Straight legs join the selected chord fraction to the first wake
+nodes. Induction is sampled between wake radii and interpolated to load
+strips. With unit shaft direction `a`, blade span `rhat`, tangent
+`t = a cross rhat`, and relative components `Va`, `Vt`, the lift normal is
+`n = (-Vt a + Va t) / hypot(Va, Vt)`. The inviscid load is projected onto
+that normal. Its circulation is `Gamma = F.n / (rho |V|)`; `CL` uses the
+absolute projected load, `ALPHAI_DEG` is the change from geometric inflow
+angle, and `CDI = CL tan(alpha_i)`.
+
+Thrust and torque are signed along the shaft; torque is about the hub.
+`PI = abs(Q Omega) - abs(T) Va` and `ETA = abs(T) Va / abs(Q Omega)`.
+`FY`, `FZ`, `MY`, `MZ` use geometry axes, with transverse moments transferred
+to the requested moment point. A mirror row reports one rotor; periodic
+copies complete the wheel, including their rotated in-plane components.
+
+The long table is `farfield/<group>_rotor_sections_<rotor>.csv`; the companion
+`<group>_rotor_sections_<rotor>_strips.csv` carries `BLADE`, `R_M`, `DR_M`,
+`CHORD_M`, `CL`, `CDI`, `ALPHAI_DEG`, `GAMMA`, `WA_M_S` and `WT_M_S`.
+Long-table and polar quantities use `T_FF_RS_ROTOR`, `Q_FF_RS_ROTOR`,
+`ETA_FF_RS_ROTOR`, `PI_FF_RS_ROTOR`, `FY_FF_RS_ROTOR`, `FZ_FF_RS_ROTOR`,
+`MY_FF_RS_ROTOR`, `MZ_FF_RS_ROTOR` and equivalent suffixes for each blade,
+such as `T_FF_RS_Blade1`. `T_NEAR_INVISCID_<rotor>` and
+`Q_NEAR_INVISCID_<rotor>` are the pressure-only strip sums;
+`T_FRICTION_<rotor>` and `Q_FRICTION_<rotor>` state the removed friction.
+Blade columns describe modelled blades; rotor totals include periodic images.
+
+The export policies and window selectors are the same as W. A complete window
+averages per-step quantities; a missing surface or wake snapshot prevents an
+average. A default or last-step entry supplies only its last instant.
+On a row with any surface beyond the rotor and its hub, every row carries
+`LOCAL_VALIDATED = false` and a warning: wing and body induction is absent,
+so local `alpha_i(r)` and `Cd_i(r)` are unvalidated. Isolated rows carry true
+for that applicability check; it is not a claim of experimental validation.
 
 <a id="trefftz-c"></a>
 
@@ -803,8 +869,9 @@ axial balance read 0.93 to 0.97 of the near-field thrust at the stations behind 
 disk. The correction carries the disk loading (0.995 of the near-field pressure
 thrust); the shortfall is in the probe field itself, whose slipstream speed-up is
 weaker than the blade loading implies. Treat `FX_CORRECTED_N` and the rotor-row G4
-as indicative until a validation case closes it; the wake loads of `VARIANT = W`
-are the validated rotor thrust.
+as indicative until a validation case closes it. The raw wake loads of
+`VARIANT = W` also depend on the circulation anchor and are not a general
+validation of rotor thrust.
 
 Where the row exported no usable blade loads, `SPURIOUS_COUNTS` and `F_NEAR_N` are
 `NA` in the instant and averaged ledgers with a named skip saying why, and the
@@ -909,6 +976,7 @@ far-field shape within that declaration and `count` retains its shape count;
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
 | B, W | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none; on `unsteady_rotor` under `"avg_window"`, also at every window step |
+| RS | matching surface and wake VTK exports, labelled saved simulation, optional blade sections | reused with each blade's cut checked against its span | surface and wake exports added; missing usable sections are re-cut from the surface; window policies request matching snapshots |
 | C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 | D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |

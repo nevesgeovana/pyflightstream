@@ -491,6 +491,11 @@
       "path": "farfield/quadrature.py"
     },
     {
+      "id": "pyflightstream.farfield.rotor_sections",
+      "layer": 3.25,
+      "path": "farfield/rotor_sections.py"
+    },
+    {
       "id": "pyflightstream.farfield.trefftz",
       "layer": 3.25,
       "path": "farfield/trefftz.py"
@@ -814,6 +819,21 @@
       "id": "pyflightstream.post.reductions",
       "layer": 0,
       "path": "post/reductions.py"
+    },
+    {
+      "id": "pyflightstream.post.rotor_section_frames",
+      "layer": 0,
+      "path": "post/rotor_section_frames.py"
+    },
+    {
+      "id": "pyflightstream.post.rotor_sections_products",
+      "layer": 0,
+      "path": "post/rotor_sections_products.py"
+    },
+    {
+      "id": "pyflightstream.post.rotor_sections_surface",
+      "layer": 0,
+      "path": "post/rotor_sections_surface.py"
     },
     {
       "id": "pyflightstream.post.rotor_table",
@@ -5108,6 +5128,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.farfield.rotor_sections",
+      "target": "pyflightstream.farfield.trefftz",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.farfield.trefftz",
       "target": "pyflightstream.farfield.balances",
       "kind": "module"
@@ -7079,6 +7104,11 @@
     },
     {
       "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post.rotor_sections_products",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.post.rotor_table",
       "kind": "module"
     },
@@ -7800,6 +7830,111 @@
     {
       "source": "pyflightstream.post.reductions",
       "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_section_frames",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_section_frames",
+      "target": "pyflightstream.farfield.rotor_sections",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_section_frames",
+      "target": "pyflightstream.results.exports",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_section_frames",
+      "target": "pyflightstream.results.sectional_loads",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.farfield",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.farfield.rotor_sections",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post._condition",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post._reduction_stage",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post.axes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post.rotor_section_frames",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post.rotor_sections_surface",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post.section_distributions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post.series",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.results.loads",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_surface",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_surface",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_surface",
+      "target": "pyflightstream.farfield.rotor_sections",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_surface",
+      "target": "pyflightstream.results.surface",
       "kind": "module"
     },
     {

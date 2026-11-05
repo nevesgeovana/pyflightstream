@@ -9,6 +9,14 @@ and an optional unique `name`. `families` belongs only to `sections`; `wake`,
 `plane` and `power` read the whole field. Geometry keys are checked against the
 selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
 
+`variant = "rotor_sections"` requires `rotor = "<alias>"` and accepts
+`chord_fraction = 0.25` (zero through one). It writes the experimental
+`farfield/<group>_rotor_sections_<rotor>.csv` and companion `_strips.csv`,
+with blade and rotor `*_FF_RS_*` polar columns and inviscid near comparisons.
+It uses measured blade cuts or surface re-cuts and the rotor wake. Its force
+magnitude comes from the surface; it is not independent thrust. Rows with a
+wing or body mark the local decomposition `LOCAL_VALIDATED = false`.
+
 Each entry accepts `export_type = "default"`, `"last_step"`, `"avg_window"` or
 `"export_window"`.
 Unstated is `"default"`, which equals `"last_step"` on unsteady rows, regardless

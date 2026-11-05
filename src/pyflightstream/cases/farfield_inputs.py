@@ -151,6 +151,8 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     >>> applies('trefftz:wake', 'unsteady')
     ''
     """
+    if analysis == "trefftz:rotor_sections" and not (rotor or run_type in ROTOR_RUN_TYPES):
+        return "rotor sections need a rotating rotor; this row has none"
     if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
         return (
             "Trefftz A on qsteady_rotor has no lifting surface outside the rotor: "
@@ -316,11 +318,13 @@ def resolve_farfield(
             resolver.item(analysis, "run_type", "not_applicable", reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
-        elif analysis == "trefftz:wake":
+        elif analysis in ("trefftz:wake", "trefftz:rotor_sections"):
             resolver.export(analysis, "vtk", "vtk_export", False)
             resolver.needed(
                 analysis, "vtk_wake", False, "", "the wake switched on in the VTK export"
             )
+            if analysis == "trefftz:rotor_sections" and blade_loads[0]:
+                resolver.blade_loads(analysis, *blade_loads)
         elif not admits_probes:
             # P0471: skipped on this row, never refused;
             # the uncoupled rows of the same pproc read their probes.

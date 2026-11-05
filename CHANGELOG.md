@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Added
 
+- Experimental `rotor_sections` far fields combine blade surface loads with
+  wake induction and write rotor and blade loads plus local strip diagnostics.
+  Friction is removed before projection. Installed-row local angles and drag
+  coefficients remain unvalidated.
+
 - Wake products resolve whether each VTK uses the moment-point or geometry
   origin from saved mesh evidence before selecting rotors, blades and families.
   Ambiguous evidence warns with both distances; `products.json` records the

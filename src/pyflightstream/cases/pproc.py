@@ -2350,6 +2350,11 @@ class PprocSpec(_SuggestsKeys):
                 f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
             )
         _refuse_filename_collisions(entries)
+        if sum(entry.variant == "rotor_sections" for entry in entries) > 1:
+            raise InputValueError(
+                "one rotor_sections entry is allowed per row: its canonical rotor and blade "
+                "polar columns would otherwise overwrite one another"
+            )
         return entries
 
     @property

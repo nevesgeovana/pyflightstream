@@ -449,6 +449,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.post.axes">pyflightstream.post.axes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.farfield_fields">pyflightstream.post.farfield_fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.polar">pyflightstream.post.polar</a> (typing)</li>
+<li>&rarr; <a href="#pyflightstream.post.rotor_sections_products">pyflightstream.post.rotor_sections_products</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.rotor_table">pyflightstream.post.rotor_table</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.section_distributions">pyflightstream.post.section_distributions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.series">pyflightstream.post.series</a> (module)</li>
@@ -636,6 +637,36 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.post.unsteady">pyflightstream.post.unsteady</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.writers">pyflightstream.post.writers</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.post.rotor_section_frames"><summary><code>pyflightstream.post.rotor_section_frames</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.rotor_sections">pyflightstream.farfield.rotor_sections</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.exports">pyflightstream.results.exports</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.sectional_loads">pyflightstream.results.sectional_loads</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.post.rotor_sections_products"><summary><code>pyflightstream.post.rotor_sections_products</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield">pyflightstream.farfield</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.rotor_sections">pyflightstream.farfield.rotor_sections</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._reduction_stage">pyflightstream.post._reduction_stage</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.axes">pyflightstream.post.axes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.rotor_section_frames">pyflightstream.post.rotor_section_frames</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.rotor_sections_surface">pyflightstream.post.rotor_sections_surface</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.section_distributions">pyflightstream.post.section_distributions</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.series">pyflightstream.post.series</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.loads">pyflightstream.results.loads</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.post.rotor_sections_surface"><summary><code>pyflightstream.post.rotor_sections_surface</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.rotor_sections">pyflightstream.farfield.rotor_sections</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.surface">pyflightstream.results.surface</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.post.rotor_table"><summary><code>pyflightstream.post.rotor_table</code></summary><ul>
@@ -3356,6 +3387,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.farfield.quadrature"><summary><code>pyflightstream.farfield.quadrature</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.farfield.rotor_sections"><summary><code>pyflightstream.farfield.rotor_sections</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.farfield.trefftz">pyflightstream.farfield.trefftz</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.farfield.trefftz"><summary><code>pyflightstream.farfield.trefftz</code></summary><ul>
