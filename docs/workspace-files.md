@@ -3,8 +3,9 @@
 `morphing.toml` is a standalone geometry control, stored beside the source mesh and
 passed explicitly to `geometry repitch --morphing`. It is authored by the user,
 read by the repitch operation, and should be retained with the source mesh for
-reproduction. See the [template](mesh/morphing.toml) and
-[control reference](mesh/reference.md#repitch-control).
+reproduction. It may also hold a `[collapse_te]` table, read by `geometry collapse-te`. See the
+[template](mesh/morphing.toml), the [control reference](mesh/reference.md#repitch-control) and
+the [collapse control reference](mesh/reference.md#collapse-trailing-edge-control).
 
 A workspace keeps campaign inputs, executable scripts, run evidence and derived products together. The run manifest records identity and provenance; directory names alone do not establish what ran.
 

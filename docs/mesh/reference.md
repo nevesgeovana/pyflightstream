@@ -1,5 +1,33 @@
 # Mesh input reference
 
+## Collapse trailing-edge control
+
+`geometry collapse-te MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new
+OBJ. A saved `.fsm` is refused with a message that the operation works on the OBJ.
+
+| `[collapse_te]` key | Meaning |
+|---|---|
+| `blades` | Nonempty list of blade families, or `"all"` for every family with a declared blunt edge; under `"all"` a family whose declared edge is not a one-cell strip between two rims, such as a nacelle's base, is warned and skipped |
+| `base` | Optional list of the groups holding the strips, one for each blade in the order of `blades` |
+
+Unknown keys are warned and skipped. The `[repitch]` table of the same file is not read.
+Each merged node takes the place in the node list of the first declared rim's node; when one
+points set names both rims, of the rim holding the lowest node.
+Without `base` the boundaries file beside the OBJ declares the rims; an OBJ with neither is
+refused, saying what to provide. A reference with several blades in the `[repitch]` table of
+the same file makes the wheel periodicity a check; without one it is warned as not applying.
+
+Every check runs in memory before any file is written, and a failed check refuses:
+the face and node counts equal the source minus what was removed; no face repeats a node or
+has zero area, and no new pair of nodes shares a place; each collapsed blade has one
+trailing-edge line with as many nodes as one rim, every edge of it shared by two faces; no
+open edge appears or disappears except the removed rungs and no edge gains a third face;
+the nodes away from the edge keep their text and order, and the faces away from it their
+order and node order; no face near the edge is turned over; each merged node is exactly at
+the midpoint of its pair; and the written bytes read back as the mesh in memory. The total
+area against the source minus the strip and the smallest cosine between the normals before
+and after are reported. `<out>.collapse.json` also holds the digests of source and output.
+
 ## Repitch control
 
 `geometry repitch MESH --morphing FILE --out OUTPUT` accepts OBJ and FSM, retaining

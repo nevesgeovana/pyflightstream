@@ -23,7 +23,7 @@ from pyflightstream.cases.reference_blocks import frame_basis_for_shaft
 from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
 from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import incidence, quality, rebuild, rings, root_loop
-from pyflightstream.workspace._repitch_io import attachments
+from pyflightstream.workspace._repitch_io import attachments, read_rotor
 from pyflightstream.workspace._wheel import Faces, parse_axis, rotate, wheel_symmetry
 from pyflightstream.workspace._wheel_fsm import _parse, _real_row
 
@@ -98,35 +98,6 @@ def _config(path: Path) -> dict[str, Any]:
     )
     cfg["angle_deg"] = angle
     return cfg
-
-
-def _rotor(cfg: dict[str, Any], control: Path, mesh: Path) -> dict[str, Any] | None:
-    if "reference" not in cfg:
-        return None
-    source = control.parent / cfg["reference"]
-    data = tomllib.loads(source.read_text(encoding="utf-8"))
-    candidates = {k: v for k, v in data.items() if isinstance(v, dict) and v.get("kind") == "rotor"}
-    if "rotor" in cfg:
-        _need(cfg["rotor"] in candidates, f"reference has no rotor {cfg['rotor']!r}")
-        rotor = candidates[cfg["rotor"]]
-    else:
-        _need(len(candidates) == 1, "reference must have one rotor or set repitch.rotor")
-        rotor = next(iter(candidates.values()))
-    stated_axis = rotor["axis"]
-    rotor["axis"] = parse_axis(
-        stated_axis.get("vector_wrt_global", []) if isinstance(stated_axis, dict) else stated_axis
-    ).tolist()
-    unit = mesh_unit(mesh) if mesh.suffix.lower() == ".obj" else saved_mesh_coordinate_unit(mesh)
-    if unit is None:
-        warn(
-            "repitch: mesh unit is unstated; reference origin is interpreted in metres",
-            NotApplicableWarning,
-        )
-        unit = "METER"
-    _need(unit in METRES_PER_UNIT, f"mesh unit {unit!r} has no metre scale; state a known unit")
-    for key in ("x_m", "y_m", "z_m"):
-        rotor[key] = float(rotor.get(key, 0)) / METRES_PER_UNIT[unit]
-    return rotor
 
 
 def _axis(name: str, cfg: dict[str, Any], rotor: Any) -> tuple[Any, Any]:
@@ -246,7 +217,7 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
     cfg = _config(control)
     source, parsed = _read(path)
-    rotor = _rotor(cfg, control, path)
+    rotor = read_rotor(cfg, control, path)
     blades, hubs = _selection(cfg, source, rotor)
     unit = mesh_unit(path) if parsed is None else saved_mesh_coordinate_unit(path)
     if unit is None:

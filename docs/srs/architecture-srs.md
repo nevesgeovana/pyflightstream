@@ -488,3 +488,6 @@ loads using wake induction; its result is not an independent thrust estimate.
 `cases.blade_order` resolves selected surfaces before the plan checks blade
 azimuths. `workspace.repitch` shares the reference shaft and blade-datum frame
 convention, then rotates blades and rebuilds constrained hub rings.
+`workspace.collapse_te` reads the same morphing control file for its own table, reuses the
+repitch attachment writer to carry the boundaries file and its point files through the merged
+node list, and works on the OBJ only; it runs on a repitch output, not before it.

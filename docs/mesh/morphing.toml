@@ -7,3 +7,9 @@ keep = []
 axis = { origin = [0.0, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }
 max_angle_deg = 5.0
 # For a reference-defined radial axis, use axis = "auto" and reference = "rotor.toml".
+
+# Collapse the blunt trailing edge of named blades on an OBJ (geometry collapse-te).
+# Run repitch first when both are wanted.
+[collapse_te]
+blades = ["Blade1"]
+# base = ["Blade1Base"]  # the group holding the strip, when no boundaries file declares the rims

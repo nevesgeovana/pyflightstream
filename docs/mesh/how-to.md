@@ -57,6 +57,50 @@ Read `<out>.repitch.json`, inspect the root seam and leading edge, then perform 
 short solver check. The geometric checks do not establish aerodynamic accuracy.
 Choose a new output name for each change; existing outputs are refused.
 
+## Collapse a blunt trailing edge
+
+A blade whose trailing edge ends in a one-cell base strip can be made sharp on the OBJ.
+Add a `[collapse_te]` table to the same `morphing.toml` that holds `[repitch]`; each verb
+reads its own table. The operation works on the OBJ; a saved `.fsm` is refused.
+
+```toml
+[collapse_te]
+blades = ["Blade1"]
+# base = ["Blade1Base"]
+```
+
+```text
+pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+```
+
+`blades` names the families, or `"all"` for every family whose boundaries file declares a
+blunt trailing edge. The rims come from the boundaries file beside the OBJ: its two rim
+entries (or one points set naming both rims) give the two sides of the strip. Without a
+boundaries file, or to name the strip directly, add `base = ["Blade1Base"]`, one group per
+blade in the order of `blades`; the rims are then the strip's two sides against the blade.
+The strip may be in the blade's own group (declared by points) or in a group of its own.
+
+Each node of one rim is paired with the node of the other rim joined to it across the strip,
+from root to tip, and each pair is merged at its midpoint. The strip faces are deleted. A face
+that met the strip loses its repeated node: a quad on the rung becomes a triangle, a tip cap
+loses a node, and a triangle that reaches zero area is deleted. Every other node keeps its
+text and its place in the node list, and every other face its place and node order. Rims with
+different node counts, or a strip more than one cell wide, are refused naming the blade.
+A blade that is already sharp is warned and skipped; when nothing is left to collapse, no
+file is written and the exit status is 2.
+
+The boundaries file written beside the output carries one trailing-edge line for each
+collapsed blade (the label and edge type of the first rim, one wake termination at the merged
+root when the source declares terminations), no base region for the removed strip, and every
+other marking at its new position. A marking that lies on an edge of the removed strip is
+refused. Read `<out>.collapse.json` for the strip faces removed, the closure faces, the nodes
+merged and the largest node move for each blade, with the base thickness; the operation
+reports the thickness and sets no limit on it.
+
+**Order with repitch.** Repitch needs complete quad rings around the blade root, which the
+closure triangle of a collapsed root breaks. Run `repitch` first, then `collapse-te` on its
+output. The two commute on the blade, because the pitch change is a rigid rotation.
+
 ## Refinement controls
 
 Component governing also includes closed tube rings. If an inherited factor

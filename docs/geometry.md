@@ -1,5 +1,19 @@
 # Geometry: build a body before the run
 
+## Collapsing a blunt trailing edge
+
+`geometry collapse-te` merges the two sides of a one-cell base strip of named blades into one
+sharp line on an OBJ, without a solver. A `.fsm` input is refused: the operation works on the
+OBJ.
+
+```text
+pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+```
+
+The [how-to](mesh/how-to.md#collapse-a-blunt-trailing-edge) gives the table and the order with
+repitch (repitch first), and the [reference](mesh/reference.md#collapse-trailing-edge-control)
+lists the checks.
+
 ## Small blade pitch changes
 
 `geometry repitch` changes blade pitch while retaining the blade mesh. The user names

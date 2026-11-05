@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-workspace geometry collapse-te MESH --morphing FILE --out OUTPUT` collapses the blunt
+  trailing edge of named blades on an OBJ: each rim node pair is merged at its midpoint, the
+  base strip leaves, the boundaries file gets one trailing-edge line for each blade, and every
+  other node and face keeps its place. A `[collapse_te]` table sits beside `[repitch]` in the
+  same control file. Run `repitch` first when both are wanted; `repitch` on a collapsed mesh
+  now says so.
+
 ### Fixed
 
 - Submitted jobs remain protected against accidental reruns. Pass

@@ -4,6 +4,11 @@ For small blade pitch changes, author a standalone `morphing.toml` beside the me
 and pass it to `geometry repitch --morphing`. The [template](mesh/morphing.toml)
 and [repitch control reference](mesh/reference.md#repitch-control) describe its inputs.
 
+To collapse a blunt trailing edge on an OBJ, add a `[collapse_te]` table to the same file and
+pass it to `geometry collapse-te --morphing`; see the
+[how-to](mesh/how-to.md#collapse-a-blunt-trailing-edge) and the
+[collapse control reference](mesh/reference.md#collapse-trailing-edge-control).
+
 Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [complete example](mesh/example.md).
 
 <a id="mesh-inputs-and-gui-only-operations"></a>

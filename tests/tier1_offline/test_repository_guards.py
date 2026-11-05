@@ -54,8 +54,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 0.55.1 (PFS-2187) budgets repitch, blade order, rotor sections and tests: 2102, measured.
 #: RELDOCS measures 2093 tracked files: base 2094, collision regression +1,
 #: folded H03/H04 changelog fragments -2. The existing 2100 cap has seven spare files.
+#: 0.56.0 (collapse-te) budgets the module and its test file: 2104, measured (+2 tracked files).
 LEAN_CAPS = {
-    "tracked_files": 2102,
+    "tracked_files": 2104,
     "reports_files": 105,
     "reports_lines": 171604,
     "tests_files": 1167,

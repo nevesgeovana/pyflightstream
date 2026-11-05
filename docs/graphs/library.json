@@ -1811,6 +1811,11 @@
       "path": "workspace/cli.py"
     },
     {
+      "id": "pyflightstream.workspace.collapse_te",
+      "layer": 2,
+      "path": "workspace/collapse_te.py"
+    },
+    {
       "id": "pyflightstream.workspace.costs",
       "layer": 2,
       "path": "workspace/costs.py"
@@ -10604,6 +10609,11 @@
     },
     {
       "source": "pyflightstream.run._cli_mesh",
+      "target": "pyflightstream.workspace.collapse_te",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream.workspace.inputs",
       "kind": "deferred"
     },
@@ -15006,6 +15016,51 @@
       "source": "pyflightstream.workspace.cli",
       "target": "pyflightstream.workspace.migrate",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream.workspace._repitch_io",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream.workspace.repitch",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.collapse_te",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.workspace.costs",

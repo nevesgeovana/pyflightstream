@@ -1273,6 +1273,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_clean">pyflightstream.workspace._geometry_clean</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.cli">pyflightstream.workspace.cli</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.collapse_te">pyflightstream.workspace.collapse_te</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.repitch">pyflightstream.workspace.repitch</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (deferred)</li>
@@ -2356,6 +2357,18 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.fields">pyflightstream.workspace.fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.fsi_setup">pyflightstream.workspace.fsi_setup</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.migrate">pyflightstream.workspace.migrate</a> (deferred)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace.collapse_te"><summary><code>pyflightstream.workspace.collapse_te</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._repitch_io">pyflightstream.workspace._repitch_io</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.repitch">pyflightstream.workspace.repitch</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.costs"><summary><code>pyflightstream.workspace.costs</code></summary><ul>

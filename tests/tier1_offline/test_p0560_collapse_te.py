@@ -1,0 +1,604 @@
+"""P0560-COLLAPSE-TE: collapse a blunt trailing edge of named blades on an OBJ.
+
+Usage: pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+"""
+
+import dataclasses
+import json
+import tomllib
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from pyflightstream._errors import InputValueError, NotApplicableWarning
+from pyflightstream.workspace import collapse_te as cte
+from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj, read_te
+from pyflightstream.workspace.cli import main
+from pyflightstream.workspace.sidecars import read_boundary_declarations
+
+M, STATIONS = 3, 4
+AWAY = lambda v: v + np.array([0.0, 5.0, 0.0])  # noqa: E731
+
+
+def ring_xy(m, h, *, blunt=True, wide=False, fold=False):
+    x = np.linspace(0, 1, m + 1)[1:]
+    top = 0.08 * np.sqrt(x) * (1 - x) + h * x
+    up, lo = np.c_[x, top], np.c_[x, -top]
+    if fold:
+        up[-2], up[-1], lo[-1] = (0.9, -0.1), (1.0, 0.1), (1.0, -0.5)
+    pts = [(0.0, 0.0), *up.tolist()]
+    if blunt:
+        pts += [(1.0, 0.0)] if wide else []
+        pts += lo[::-1].tolist()
+    else:
+        pts += lo[::-1][1:].tolist()
+    return np.array(pts)
+
+
+def blade_parts(
+    name,
+    base,
+    *,
+    strip="same",
+    blunt=True,
+    wide=False,
+    fold=False,
+    layers=1,
+    move=None,
+    cap="polygon",
+):
+    """One blade of S stations with a one-cell base strip, a tip cap polygon and a quad hub."""
+    h = lambda s: (0.01 + 0.002 * s) if blunt else 0.0  # noqa: E731
+    rings = [ring_xy(M, h(s), blunt=blunt, wide=wide, fold=fold) for s in range(STATIONS + 1)]
+    count = len(rings[0])
+    node = lambda s, k: base + s * count + k % count  # noqa: E731
+    verts = [np.c_[r, np.full(len(r), 0.5 * s)] for s, r in enumerate(rings)]
+    centre = np.array([0.5, 0.0])
+    for layer in range(1, layers + 1):
+        xy = centre + (rings[0] - centre) * (1 + 0.6 * layer)
+        verts.append(np.c_[xy, np.full(count, -0.25 * layer)])
+    verts = np.vstack(verts)
+    blade, own = [], []
+    strip_ks = (M, M + 1) if wide else (M,)
+    for s in range(STATIONS):
+        for k in range(count):
+            quad = [node(s, k), node(s, k + 1), node(s + 1, k + 1), node(s + 1, k)]
+            if not (blunt and k in strip_ks):
+                blade.append(quad)
+            elif strip == "same":
+                blade.append(quad)
+            elif strip == "own":
+                own.append(quad)
+            else:
+                own += [quad[:3], [quad[0], quad[2], quad[3]]]
+    if cap == "fan":
+        blade += [
+            [node(STATIONS, 0), node(STATIONS, k), node(STATIONS, k + 1)]
+            for k in range(1, count - 1)
+        ]
+    else:
+        blade.append([node(STATIONS, k) for k in range(count)])
+    hub_node = lambda layer, k: (  # noqa: E731
+        node(0, k) if layer == 0 else base + (STATIONS + layer) * count + k % count
+    )
+    hub = [
+        [hub_node(i, k), hub_node(i, k + 1), hub_node(i + 1, k + 1), hub_node(i + 1, k)]
+        for i in range(layers)
+        for k in range(count)
+    ]
+    families = {name: blade}
+    if own:
+        families[name + "Base"] = own
+    families["Hub" + name[len("Blade") :]] = hub
+    upper, lower = M, (M + 2 if wide else M + 1)
+    if move is not None:
+        verts = move(verts)
+    mids = lambda k: [  # noqa: E731
+        0.5 * (verts[node(s, k) - base] + verts[node(s + 1, k) - base]) for s in range(STATIONS)
+    ]
+    info = {"count": count, "upper": mids(upper), "lower": mids(lower), "node": node}
+    return verts, families, info
+
+
+def pts(path, rows):
+    path.write_text(
+        "METER\n" + "\n".join(",".join(format(float(v), ".17g") for v in r) for r in rows) + "\n"
+    )
+
+
+def make(folder, blades=None, *, entries="two", wake=True, sidecar=True, name="sector.obj", **kw):
+    """Write a mesh of one or more blades and, with ``sidecar``, its boundaries file."""
+    blades = blades or [("Blade1", {})]
+    allv, fams, infos, base = [], {}, {}, 0
+    for blade, extra in blades:
+        v, f, info = blade_parts(blade, base, **{**kw, **extra})
+        allv.append(v)
+        fams.update(f)
+        infos[blade] = info
+        base += len(v)
+    verts = np.vstack(allv)
+    path = folder / name
+    path.write_text(obj_text(ObjMesh(verts, fams)))
+    if not sidecar:
+        return path, infos
+    lines = [
+        'fs_build = "26.125"',
+        f"boundaries = {json.dumps(list(fams))}",
+        "[import]",
+        'units = "METER"',
+    ]
+    for blade, extra in blades:
+        info = infos[blade]
+        node = info["node"]
+        blunt = extra.get("blunt", kw.get("blunt", True))
+        sets = [("U", info["upper"], verts[node(0, M)])]
+        if blunt:
+            lower = M + 2 if extra.get("wide", kw.get("wide", False)) else M + 1
+            sets.append(("L", info["lower"], verts[node(0, lower)]))
+        if entries == "one" and blunt:
+            pts(folder / f"{blade}.te.txt", info["upper"] + info["lower"])
+            pts(folder / f"{blade}.wake.txt", [s[2] for s in sets])
+            lines += [
+                f"[trailing_edges.{blade}]",
+                f'file = "{blade}.te.txt"',
+                'type = "STANDARD"',
+                f'wake_termination_nodes = "{blade}.wake.txt"',
+            ]
+            continue
+        for tag, rows, root in sets:
+            pts(folder / f"{blade}{tag}.te.txt", rows)
+            pts(folder / f"{blade}{tag}.wake.txt", [root])
+            lines += [
+                f"[trailing_edges.{blade}{tag}]",
+                f'file = "{blade}{tag}.te.txt"',
+                'type = "STANDARD"',
+            ]
+            if wake:
+                lines.append(f'wake_termination_nodes = "{blade}{tag}.wake.txt"')
+    for family in fams:
+        if family.endswith("Base"):
+            lines += [f"[base_regions.{family}]", 'trailing_edges = "auto"']
+    Path(str(path) + ".boundaries.toml").write_text("\n".join(lines) + "\n")
+    return path, infos
+
+
+def control(folder, blades='["Blade1"]', extra=""):
+    path = folder / "morphing.toml"
+    path.write_text(f"[collapse_te]\nblades = {blades}\n{extra}\n")
+    return path
+
+
+def invoke(source, config, out, verb="collapse-te"):
+    try:
+        return main(["geometry", verb, str(source), "--morphing", str(config), "--out", str(out)])
+    except SystemExit as error:
+        return error.code
+
+
+def key(p):
+    return tuple(float(v) for v in p)
+
+
+def by_place(mesh):
+    return {key(p): i for i, p in enumerate(mesh.verts)}
+
+
+def run(folder, **kw):
+    source, infos = make(folder, **kw)
+    out = folder / "sharp.obj"
+    assert invoke(source, control(folder), out) == 0
+    return source, out, infos
+
+
+def expected_counts(strip_faces):
+    return {"strip": strip_faces}
+
+
+@pytest.mark.requirement("FR-3664")
+@pytest.mark.parametrize("strip", ["same", "own", "tri"])
+def test_p0560_merges_rungs_at_midpoints_and_keeps_everything_else(tmp_path, strip):
+    source, out, infos = run(tmp_path, strip=strip)
+    old, new = read_obj(source), read_obj(out)
+    pairs = [(infos["Blade1"]["node"](s, M), infos["Blade1"]["node"](s, M + 1)) for s in range(5)]
+    assert len(new.verts) == len(old.verts) - 5
+    place = by_place(new)
+    removed = {b for _, b in pairs}
+    for a, b in pairs:
+        mid = 0.5 * (old.verts[a] + old.verts[b])
+        assert key(mid) in place
+        assert key(old.verts[a]) not in place and key(old.verts[b]) not in place
+    far = [i for i in range(len(old.verts)) if i not in {n for p in pairs for n in p}]
+    order = [place[key(old.verts[i])] for i in far]
+    assert order == sorted(order)
+    assert [new.vertex_text[j] for j in order] == [old.vertex_text[i] for i in far]
+    del removed
+    strip_faces = 4 if strip == "same" or strip == "own" else 8
+    total_old = sum(len(f) for f in old.families.values())
+    assert sum(len(f) for f in new.families.values()) == total_old - strip_faces - 0
+    if strip != "same":
+        assert "Blade1Base" not in new.families
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    blade = report["blades"]["Blade1"]
+    assert blade["strip_faces_removed"] == strip_faces and blade["nodes_merged"] == 5
+    assert blade["trailing_edge_edges"] == 4 and report["checks"]["passed"]
+    assert blade["base_thickness_max"] == pytest.approx(2 * blade["largest_node_move"])
+    assert blade["base_thickness_max"] == pytest.approx(2 * (0.01 + 0.008))
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_quads_on_the_rung_become_triangles_and_face_order_is_kept(tmp_path):
+    source, out, infos = run(tmp_path, strip="own")
+    old, new = read_obj(source), read_obj(out)
+    node = infos["Blade1"]["node"]
+    on_rung = {node(s, k) for s in range(5) for k in (M, M + 1)}
+    hub_old, hub_new = old.families["Hub1"], new.families["Hub1"]
+    assert len(hub_old) == len(hub_new)
+    sizes = [len(f) for f in hub_new]
+    assert sizes.count(3) == 1 and sizes.index(3) == M
+    cap_old, cap_new = old.families["Blade1"][-1], new.families["Blade1"][-1]
+    assert len(cap_new) == len(cap_old) - 1
+    place = by_place(new)
+    for fam in ("Hub1", "Blade1"):
+        assert len(old.families[fam]) == len(new.families[fam])
+        for f_old, f_new in zip(old.families[fam], new.families[fam], strict=True):
+            if not set(f_old) & on_rung:
+                assert [place[key(old.verts[n])] for n in f_old] == f_new
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_tip_cap_triangle_that_reaches_zero_area_is_deleted(tmp_path):
+    source, infos = make(tmp_path, strip="own", cap="fan")
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    old, new = read_obj(source), read_obj(out)
+    assert len(new.families["Blade1"]) == len(old.families["Blade1"]) - 1
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    assert report["blades"]["Blade1"]["faces_collapsed_to_nothing"] == 1
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize("entries", ["two", "one"])
+def test_p0560_sidecar_gets_one_line_and_loses_the_base_region(tmp_path, entries):
+    source, out, infos = run(tmp_path, strip="own", entries=entries)
+    side = Path(str(out) + ".boundaries.toml")
+    data = tomllib.loads(side.read_text())
+    assert list(data["trailing_edges"]) == ["Blade1U" if entries == "two" else "Blade1"]
+    assert "base_regions" not in data or "Blade1Base" not in data["base_regions"]
+    assert data["boundaries"] == ["Blade1", "Hub1"]
+    decl = read_boundary_declarations(side)
+    assert len(decl.trailing_edges) == 1 and not decl.base_regions
+    entry = decl.trailing_edges[0]
+    assert entry.marking.sets[0].edge_type == "STANDARD"
+    new = read_obj(out)
+    unit, rows = read_te(Path(entry.marking.sets[0].points_file))
+    assert unit == "METER" and len(rows) == 4
+    chain = [infos["Blade1"]["node"](s, M) for s in range(5)]
+    old = read_obj(source)
+    line = [0.5 * (old.verts[a] + old.verts[a + 1]) for a in chain]
+    want = [0.5 * (line[i] + line[i + 1]) for i in range(4)]
+    np.testing.assert_allclose(rows, want, atol=1e-15)
+    wake = read_te(Path(str(entry.wake_termination_nodes)))[1]
+    assert len(wake) == 1
+    np.testing.assert_allclose(wake[0], line[0], atol=1e-15)
+    assert data["mesh_faces"] == sum(len(f) for f in new.families.values())
+    assert data["boundary_faces"] == {n: len(f) for n, f in new.families.items()}
+    import hashlib
+
+    assert data["mesh_sha256"] == hashlib.sha256(out.read_bytes()).hexdigest()
+
+
+@pytest.mark.requirement("FR-3666")
+def test_p0560_other_entries_are_carried_to_their_new_positions(tmp_path):
+    source, infos = make(
+        tmp_path,
+        [("Blade1", {}), ("Blade2", {"blunt": False, "move": AWAY})],
+        strip="own",
+        entries="two",
+    )
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning, match="Blade2.*sharp"):
+        assert invoke(source, control(tmp_path, '["Blade1", "Blade2"]'), out) == 0
+    new, old = read_obj(out), read_obj(source)
+    data = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())
+    assert list(data["trailing_edges"]) == ["Blade1U", "Blade2U"]
+    carried = data["trailing_edges"]["Blade2U"]
+    unit, rows = read_te(tmp_path / carried["file"])
+    place = by_place(new)
+    n = infos["Blade2"]["node"]
+    for s, row in enumerate(rows):
+        a, b = (place[key(old.verts[n(t, M)])] for t in (s, s + 1))
+        np.testing.assert_allclose(row, 0.5 * (new.verts[a] + new.verts[b]), atol=1e-15)
+    assert len(read_te(tmp_path / carried["wake_termination_nodes"])[1]) == 1
+    assert new.families["Blade2"] == [
+        [place[key(old.verts[v])] for v in f] for f in old.families["Blade2"]
+    ]
+
+
+@pytest.mark.requirement("FR-3664")
+@pytest.mark.requirement("FR-3664")
+@pytest.mark.parametrize("swap", [False, True])
+def test_p0560_the_first_declared_rim_keeps_its_place(tmp_path, swap):
+    source, infos = make(tmp_path, strip="own", wake=False)
+    side = Path(str(source) + ".boundaries.toml")
+    if swap:
+        text = side.read_text()
+        text = text.replace("Blade1U.te.txt", "@").replace("Blade1L.te.txt", "Blade1U.te.txt")
+        side.write_text(text.replace("@", "Blade1L.te.txt"))
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    old, new = read_obj(source).verts, read_obj(out).verts
+    node = infos["Blade1"]["node"]
+    low, high = node(0, M), node(0, M + 1)
+    assert high == low + 1
+    midpoint = 0.5 * (old[low] + old[high])
+    # The lower-numbered node leaves when the other rim is declared first, and the rest close up.
+    place = high - 1 if swap else low
+    assert np.array_equal(new[place], midpoint)
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_all_warns_and_skips_a_family_that_is_no_strip(tmp_path):
+    source, infos = make(tmp_path, [("Blade1", {}), ("Blade2", {"move": AWAY, "wide": True})])
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning, match="Blade2"):
+        assert invoke(source, control(tmp_path, '"all"'), out) == 0
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    assert set(report["blades"]) == {"Blade1"}
+    assert "Blade2" in report["skipped"]
+
+
+def test_p0560_two_blades_and_all(tmp_path):
+    source, infos = make(tmp_path, [("Blade1", {}), ("Blade2", {"move": AWAY})], strip="own")
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, '"all"'), out) == 0
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    assert set(report["blades"]) == {"Blade1", "Blade2"}
+    data = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())
+    assert list(data["trailing_edges"]) == ["Blade1U", "Blade2U"]
+    assert len(read_obj(out).verts) == len(read_obj(source).verts) - 10
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_base_route_without_sidecar_writes_the_points_file(tmp_path):
+    source, infos = make(tmp_path, strip="own", sidecar=False)
+    out = tmp_path / "sharp.obj"
+    cfg = control(tmp_path, extra='base = ["Blade1Base"]')
+    with pytest.warns(NotApplicableWarning, match="unit is unstated"):
+        assert invoke(source, cfg, out) == 0
+    assert not Path(str(out) + ".boundaries.toml").exists()
+    unit, rows = read_te(tmp_path / "sharp.Blade1.te.txt")
+    assert len(rows) == 4 and unit == "METER"
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_base_route_names_the_group_for_a_strip_in_the_blade_group_it_cannot_find(tmp_path):
+    source, _ = make(tmp_path, strip="same", sidecar=False)
+    out = tmp_path / "sharp.obj"
+    cfg = control(tmp_path, extra='base = ["Blade1"]')
+    assert invoke(source, cfg, out) == 2
+    assert not out.exists()
+
+
+def refused(tmp_path, capsys, source, cfg, text):
+    out = tmp_path / "bad.obj"
+    assert invoke(source, cfg, out) == 2
+    assert text in capsys.readouterr().err
+    assert not out.exists() and not Path(str(out) + ".collapse.json").exists()
+    assert not list(tmp_path.glob("bad.*"))
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_fsm_is_refused_naming_the_obj(tmp_path, capsys):
+    source = tmp_path / "saved.fsm"
+    source.write_text("not read\n")
+    refused(tmp_path, capsys, source, control(tmp_path), "works on the OBJ")
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_missing_sidecar_without_base_is_refused(tmp_path, capsys):
+    source, _ = make(tmp_path, sidecar=False)
+    refused(tmp_path, capsys, source, control(tmp_path), "provide it, or name the strip group")
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_unequal_rims_are_refused_naming_the_blade(tmp_path, capsys):
+    source, infos = make(tmp_path, strip="own")
+    (tmp_path / "Blade1L.te.txt").write_text(
+        (tmp_path / "Blade1L.te.txt").read_text().rsplit("\n", 2)[0] + "\n"
+    )
+    refused(tmp_path, capsys, source, control(tmp_path), "blade 'Blade1': the rims hold 5 and 4")
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_a_strip_wider_than_one_cell_is_refused(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", wide=True)
+    refused(tmp_path, capsys, source, control(tmp_path), "more than one cell wide")
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_nothing_to_collapse_exits_2_and_writes_nothing(tmp_path, capsys):
+    source, _ = make(tmp_path, [("Blade1", {"blunt": False})])
+    with pytest.warns(NotApplicableWarning, match="sharp"):
+        refused(tmp_path, capsys, source, control(tmp_path), "nothing to collapse")
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_unknown_and_foreign_tables_warn_only_for_unknown_keys(tmp_path, recwarn):
+    source, _ = make(tmp_path, strip="own")
+    cfg = tmp_path / "morphing.toml"
+    cfg.write_text('[collapse_te]\nblades = ["Blade1"]\nunused = 1\n[repitch]\nangle_deg = 1\n')
+    assert invoke(source, cfg, tmp_path / "sharp.obj") == 0
+    texts = " ".join(str(w.message) for w in recwarn)
+    assert "unused" in texts and "repitch" not in texts
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_absent_family_and_existing_output_are_refused(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own")
+    refused(tmp_path, capsys, source, control(tmp_path, '["Nope"]'), "absent")
+    (tmp_path / "bad.obj").write_text("x")
+    assert invoke(source, control(tmp_path), tmp_path / "bad.obj") == 2
+
+
+def collapsed(folder, **kw):
+    """Run the library steps and return the plans' result, for the check arms."""
+    source, _ = make(folder, **kw)
+    mesh = read_obj(source)
+    index = cte._Index(mesh)
+    plans, *_ = cte._select({"blades": ["Blade1"]}, source, mesh, index)
+    return cte._build(mesh, plans), plans
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_the_check_arms_pass_on_the_collapse(tmp_path):
+    result, _ = collapsed(tmp_path, strip="own")
+    checks = cte._verify(result)
+    assert checks["smallest_normal_cosine"] > 0.5
+    assert checks["area"]["relative_change_against_source_minus_strip"] == pytest.approx(
+        0, abs=5e-3
+    )
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_far_node_moved_by_1e12_is_refused(tmp_path):
+    result, _ = collapsed(tmp_path, strip="own")
+    result.mesh.verts[2 * 7 + 0, 0] += 1e-12
+    with pytest.raises(InputValueError, match="away from the trailing edge"):
+        cte._verify(result)
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_one_far_face_rotated_is_refused(tmp_path):
+    result, _ = collapsed(tmp_path, strip="own")
+    face = result.mesh.families["Hub1"][0]
+    result.mesh.families["Hub1"][0] = face[1:] + face[:1]
+    with pytest.raises(InputValueError, match="differs from the source in place"):
+        cte._verify(result)
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_rim_pair_left_unmerged_is_refused(tmp_path):
+    result, plans = collapsed(tmp_path, strip="own")
+    plan = plans[0]
+    short = dataclasses.replace(plan, rim_a=plan.rim_a[:-1], rim_b=plan.rim_b[:-1])
+    partial = cte._build(result.source, [short])
+    partial.plans = plans
+    with pytest.raises(InputValueError, match="nodes, not"):
+        cte._verify(partial)
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_face_turned_over_by_the_merge_is_refused(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", fold=True)
+    out = tmp_path / "bad.obj"
+    assert invoke(source, control(tmp_path), out) == 2
+    assert "turned over" in capsys.readouterr().err and not out.exists()
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_marking_on_the_removed_strip_is_refused(tmp_path, capsys):
+    source, infos = make(tmp_path, strip="own")
+    old = read_obj(source)
+    node = infos["Blade1"]["node"]
+    rung = 0.5 * (old.verts[node(2, M)] + old.verts[node(2, M + 1)])
+    pts(tmp_path / "extra.te.txt", [rung])
+    side = Path(str(source) + ".boundaries.toml")
+    side.write_text(
+        side.read_text() + '[trailing_edges.Extra]\nfile = "extra.te.txt"\ntype = "STANDARD"\n'
+    )
+    refused(tmp_path, capsys, source, control(tmp_path), "lies on an edge of the removed strip")
+
+
+def wheel(folder):
+    """Two blades 180 degrees apart about the Z axis, each with its strip in its own group."""
+    shift = lambda v: v + np.array([1.0, 0.0, 0.0])  # noqa: E731
+    flip = lambda v: shift(v) * np.array([-1.0, -1.0, 1.0])  # noqa: E731
+    source, infos = make(
+        folder, [("Blade1", {"move": shift}), ("Blade2", {"move": flip})], strip="own"
+    )
+    (folder / "rotor.toml").write_text(
+        '[ROTOR]\nkind = "rotor"\naxis = "Z"\ndiameter_m = 6.0\n'
+        'families_blades = ["Blade1", "Blade2"]\nblade1 = { zero = "X", azimuth_deg = 0.0 }\n'
+    )
+    return source
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_periodicity_is_required_with_a_reference_and_kept_by_all_blades(tmp_path):
+    source = wheel(tmp_path)
+    cfg = tmp_path / "morphing.toml"
+    cfg.write_text(
+        '[collapse_te]\nblades = "all"\n[repitch]\nangle_deg = 0\nreference = "rotor.toml"\n'
+    )
+    assert invoke(source, cfg, tmp_path / "all.obj") == 0
+    report = json.loads(Path(str(tmp_path / "all.obj") + ".collapse.json").read_text())
+    inv = report["checks"]["periodicity"]
+    assert inv["nodes_mapped"] == inv["nodes"] and inv["faces_mapped"] == inv["faces"]
+    cfg.write_text(
+        '[collapse_te]\nblades = ["Blade1"]\n[repitch]\nangle_deg = 0\nreference = "rotor.toml"\n'
+    )
+    assert invoke(source, cfg, tmp_path / "one.obj") == 2
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_without_a_reference_periodicity_is_warned_as_not_applying(tmp_path):
+    source, _ = make(tmp_path, strip="own")
+    with pytest.warns(NotApplicableWarning, match="periodicity does not apply"):
+        assert invoke(source, control(tmp_path), tmp_path / "sharp.obj") == 0
+
+
+@pytest.mark.requirement("FR-3668")
+def test_p0560_repitch_then_collapse_commutes_on_the_blade_and_carries_marks(tmp_path):
+    source, infos = make(tmp_path, strip="same", layers=3)
+    rep = tmp_path / "rep.toml"
+    rep.write_text(
+        '[repitch]\nangle_deg = 1.0\nblades = ["Blade1"]\nhub = ["Hub1"]\n'
+        "axis = { origin = [0.5, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }\nmax_angle_deg = 5.0\n"
+    )
+    pitched = tmp_path / "pitched.obj"
+    assert invoke(source, rep, pitched, "repitch") == 0
+    assert (tmp_path / "pitched.mark1.txt").exists()
+    final = tmp_path / "final.obj"
+    assert invoke(pitched, control(tmp_path), final) == 0
+    direct = tmp_path / "direct.obj"
+    assert invoke(source, control(tmp_path), direct) == 0
+    from scipy.spatial import cKDTree
+
+    from pyflightstream.workspace._wheel import rotate
+
+    chain, direct_mesh = read_obj(final), read_obj(direct)
+    # the rigid turn commutes with the merge: the blade of the chain is the direct blade, turned
+    blade = sorted({v for f in direct_mesh.families["Blade1"] for v in f})
+    turned = rotate(direct_mesh.verts[blade], np.array([0, 0, 1.0]), np.array([0.5, 0, 0]), 1.0)
+    ours = chain.verts[sorted({v for f in chain.families["Blade1"] for v in f})]
+    assert len(ours) == len(turned)
+    assert cKDTree(ours).query(turned)[0].max() < 1e-12
+    data = tomllib.loads(Path(str(final) + ".boundaries.toml").read_text())
+    assert list(data["trailing_edges"]) == ["Blade1U"]
+    entry = data["trailing_edges"]["Blade1U"]
+    rows = read_te(tmp_path / entry["file"])[1]
+    assert len(rows) == 4
+    mids = 0.5 * (chain.verts[:, None] + chain.verts[None])
+    for row in rows:
+        assert np.linalg.norm(mids - row, axis=2).min() < 1e-12
+    assert len(read_te(tmp_path / entry["wake_termination_nodes"])[1]) == 1
+
+
+@pytest.mark.requirement("FR-3668")
+def test_p0560_collapse_then_repitch_names_the_working_order(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="same", layers=3)
+    collapsed_obj = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), collapsed_obj) == 0
+    rep = tmp_path / "rep.toml"
+    rep.write_text(
+        '[repitch]\nangle_deg = 1.0\nblades = ["Blade1"]\nhub = ["Hub1"]\n'
+        "axis = { origin = [0.5, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }\nmax_angle_deg = 5.0\n"
+    )
+    capsys.readouterr()
+    assert invoke(collapsed_obj, rep, tmp_path / "again.obj", "repitch") == 2
+    err = capsys.readouterr().err
+    assert "repitch first" in err and "collapse-te" in err
+    assert not (tmp_path / "again.obj").exists()
+    warnings.simplefilter("default")
