@@ -243,7 +243,58 @@ _FF_POLAR_LOG = (
 #: difference is already in the base, so the same lines differing again are a
 #: revert or a new change and must be named anew; without the scope a release
 #: that reverted a fix passed as named.
+#: ``release_0551`` selects a field-aware comparator for unavailable B targets,
+#: diagnostic records or equivalent-origin provenance; ``requires`` lists every
+#: additional SRS requirement that must exist for that composite difference.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
+    {
+        "kind": "post",
+        "pattern": "*/farfield/*_trefftz_instant.csv",
+        "release_0551": "unavailable_b",
+        "requirement": "FR-3601",
+        "requires": "FR-3602,FR-3604,FR-3605",
+        "since": "0.55.1",
+        "why": (
+            "Unavailable B targets replace net with family/blade/rotor/TOTAL rows; "
+            "every other cell is identical."
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log",
+        "release_0551": "warnings",
+        "requirement": "FR-3602",
+        "requires": "FR-3601,FR-3605,FR-3613,FR-3625",
+        "since": "0.55.1",
+        "why": (
+            "Only omitted-target, one-rotor friction and unavailable repaired-W "
+            "warning records change."
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log.json",
+        "release_0551": "warnings",
+        "requirement": "FR-3602",
+        "requires": "FR-3601,FR-3605,FR-3613,FR-3625",
+        "since": "0.55.1",
+        "why": (
+            "Only omitted-target, one-rotor friction and unavailable repaired-W "
+            "warning records change; all six record fields remain checked."
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/products.json",
+        "release_0551": "provenance",
+        "requirement": "FR-3606",
+        "requires": "FR-3602,FR-3605,FR-3625",
+        "since": "0.55.1",
+        "why": (
+            "Only equivalent-origin wake_frames provenance and named skipped-target "
+            "reasons are added."
+        ),
+    },
     {
         "kind": "post",
         "pattern": "*/polars/*.csv",
@@ -1671,6 +1722,211 @@ def _csv_rounding(old: str, new: str, inserted: str = "", *, coarser: bool = Fal
     return True
 
 
+def _unavailable_b_targets(old: str, new: str) -> bool:
+    """FR-3601/3602: expand unavailable B rows, holding every other column fixed."""
+    before, after = list(csv.reader(io.StringIO(old))), list(csv.reader(io.StringIO(new)))
+    if not before or not after or before[0] != after[0]:
+        return False
+    header = before[0]
+    if not {"FAMILY", "VARIANT", "CL_T", "CDI_T"} <= set(header):
+        return False
+    family, variant = header.index("FAMILY"), header.index("VARIANT")
+    remaining = iter(after[1:])
+    for row in before[1:]:
+        if len(row) != len(header):
+            return False
+        if row[family] != "net" or row[variant] != "B":
+            if next(remaining, None) != row:
+                return False
+            continue
+        if any(row[header.index(column)] != "NA" for column in ("CL_T", "CDI_T")):
+            return False
+        targets: set[str] = set()
+        while True:
+            added = next(remaining, [])
+            if (
+                len(added) != len(row)
+                or added[:family] + added[family + 1 :] != row[:family] + row[family + 1 :]
+            ):
+                return False
+            target = added[family]
+            if not target or target == "net" or target in targets:
+                return False
+            targets.add(target)
+            if target == "TOTAL":
+                break
+    return next(remaining, None) is None
+
+
+_FF_NUMBER = r"[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?"
+_FF_NAME = r"[A-Za-z0-9_.-]+"
+_FF_NAMES = rf"{_FF_NAME}(?:, {_FF_NAME})*"
+_FF_POINT_ENTRY = rf"point=[^\s#]+ product=farfield entry={_FF_NAME}: "
+_FF_SHORT_WAKE = (
+    rf"[0-9]+ wake lines end before the plane; the recorded wake is {_FF_NUMBER} m long "
+    rf"on its shortest line, and the plane stands {_FF_NUMBER} m behind the trailing edge"
+)
+_FF_OLD_TRACE = rf"no trace at x = {_FF_NUMBER} m: [0-9]+ of {_FF_SHORT_WAKE}"
+_FF_NEW_TRACE = (
+    rf"(?P<target>{_FF_NAME}): {_FF_SHORT_WAKE}; every line reaches a plane at a "
+    rf"distance_bref of at most {_FF_NUMBER}, or the run must record a longer wake; "
+    r"TOTAL leaves out (?P=target)"
+)
+_FF_REPAIR = (
+    rf"W repair needs measured blade sections or a matching surface re-cut: blade {_FF_NAME} "
+    r"needs matching surface faces and at least two wake lines"
+)
+_FF_FRICTION = (
+    "product=farfield: T_NEAR_N, Q_NEAR_NM, DT_WAKE_COUNTS and DQ_WAKE_COUNTS compare "
+    "one rotor with one rotor. The near field includes friction and W does not: Cx = CDi + CDo."
+)
+_FF_REMEDY = "restore the required data or correct the stated inputs and post again."
+
+
+def _ff_warning(key: str, message: str, *, release: bool) -> bool:
+    """Match a diagnostic's key AND full message, never an arbitrary far-field line."""
+    prefix = r"farfield/trefftz#point=[^\s#]+#variant=wake"
+    suffix = rf"#entry={_FF_NAME}"
+    if not release:
+        return bool(re.fullmatch(prefix + suffix, key) and re.fullmatch(_FF_OLD_TRACE, message))
+    trace = re.fullmatch(_FF_NEW_TRACE, message)
+    if trace:
+        return bool(re.fullmatch(prefix + "#left-out=" + re.escape(trace["target"]) + suffix, key))
+    return bool(
+        (
+            re.fullmatch(prefix + "#TOTAL" + suffix, key)
+            and re.fullmatch(rf"TOTAL leaves out {_FF_NAMES}", message)
+        )
+        or (
+            re.fullmatch(rf"[^\s#]+#rotor={_FF_NAME}" + suffix, key)
+            and re.fullmatch(rf"{_FF_NAME}: unavailable blade contributions: {_FF_NAMES}", message)
+        )
+        or (
+            re.fullmatch(r"farfield/w_repaired#[^\s#]+" + suffix, key)
+            and re.fullmatch(_FF_REPAIR, message)
+        )
+    )
+
+
+def _ff_stage_warning(message: str, *, release: bool) -> bool:
+    if release and message == _FF_FRICTION:
+        return True
+    match = re.fullmatch(_FF_POINT_ENTRY + r"(?P<body>.+)", message)
+    if match is None:
+        return False
+    body = match["body"]
+    if not release:
+        return bool(re.fullmatch(_FF_OLD_TRACE, body))
+    return bool(
+        re.fullmatch(_FF_NEW_TRACE, body)
+        or re.fullmatch(rf"TOTAL leaves out {_FF_NAMES}", body)
+        or re.fullmatch(rf"{_FF_NAME}: unavailable blade contributions: {_FF_NAMES}", body)
+        or re.fullmatch(_FF_REPAIR, body)
+    )
+
+
+def _ff_log_record(record: dict, *, release: bool) -> bool:
+    if set(record) != {"point", "product", "message", "remedy", "category", "severity"}:
+        return False
+    if record["severity"] != "warning":
+        return False
+    point, product, message = record["point"], record["product"], record["message"]
+    repair = bool(re.fullmatch(rf"(?:{_FF_POINT_ENTRY})?{_FF_REPAIR}", message))
+    if record["category"] != ("section-layout" if repair else "postprocessing"):
+        return False
+    if (point, product, record["remedy"]) == ("campaign", "stage", None):
+        return _ff_stage_warning(message, release=release)
+    return (
+        point == product
+        and record["remedy"] == _FF_REMEDY
+        and _ff_warning(product, message, release=release)
+    )
+
+
+def _ff_log_line(line: str, *, release: bool) -> bool:
+    stage = "WARNING point=campaign product=stage: "
+    if line.startswith(stage):
+        return _ff_stage_warning(line[len(stage) :], release=release)
+    match = re.fullmatch(
+        r"WARNING point=(\S+) product=(\S+): (.+) Remedy: " + re.escape(_FF_REMEDY), line
+    )
+    return bool(match and match[1] == match[2] and _ff_warning(match[2], match[3], release=release))
+
+
+def _equivalent_wake_frames(frames: object) -> bool:
+    """FR-3606: only the coincident-origin case measured by this parity fixture."""
+    expected = {
+        "frame": "moment_point",
+        "translation_m": [0.0, 0.0, 0.0],
+        "moment_point_distance_m": None,
+        "geometry_distance_m": None,
+        "distance_statistic": "maximum_nearest_vertex",
+        "moment_point_max_distance_m": None,
+        "geometry_max_distance_m": None,
+        "tolerance_m": 1e-7,
+        "ambiguous": False,
+        "rotation": "untested; translation candidates only",
+        "evidence_source": "equivalent_origins",
+    }
+    return (
+        isinstance(frames, dict)
+        and bool(frames)
+        and all(
+            isinstance(point, str)
+            and isinstance(files, dict)
+            and bool(files)
+            and all(
+                isinstance(path, str)
+                and path.startswith("datapoints/")
+                and path.endswith("/" + point + "_wakes.vtk")
+                and evidence == expected
+                for path, evidence in files.items()
+            )
+            for point, files in frames.items()
+        )
+    )
+
+
+def _release_0551_difference(kind: str, name: str, old: str, new: str) -> bool:
+    """Hold unmentioned cells, records, metadata and product fields exactly equal."""
+    if old.endswith("\n") != new.endswith("\n"):
+        return False
+    if kind == "unavailable_b":
+        return _unavailable_b_targets(old, new)
+    if kind == "warnings" and name.endswith("post.log"):
+        return [line for line in old.splitlines() if not _ff_log_line(line, release=False)] == [
+            line for line in new.splitlines() if not _ff_log_line(line, release=True)
+        ]
+    try:
+        before, after = json.loads(old), json.loads(new)
+        if kind == "warnings":
+            before["records"] = [
+                r for r in before["records"] if not _ff_log_record(r, release=False)
+            ]
+            after["records"] = [r for r in after["records"] if not _ff_log_record(r, release=True)]
+        elif kind == "provenance":
+            for key, product in after["products"].items():
+                if "wake_frames" in product:
+                    if not key.startswith("farfield/") or not key.endswith("_trefftz_instant.csv"):
+                        return False
+                    if "wake_frames" in before["products"].get(
+                        key, {}
+                    ) or not _equivalent_wake_frames(product["wake_frames"]):
+                        return False
+                    del product["wake_frames"]
+            for document, release in ((before, False), (after, True)):
+                document["skipped"] = {
+                    key: message
+                    for key, message in document["skipped"].items()
+                    if not _ff_warning(key, message, release=release)
+                }
+        else:
+            return False
+        return before == after
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
 def name_difference(
     kind: str,
     name: str,
@@ -1695,6 +1951,16 @@ def name_difference(
         if not in_scope(named, base_version):
             continue
         if new is None or (old is None) != bool(named.get("added")):
+            continue
+        if named.get("release_0551") and not _release_0551_difference(
+            named["release_0551"], name, old or "", new
+        ):
+            continue
+        if any(
+            requirement not in defined
+            for requirement in named.get("requires", "").split(",")
+            if requirement
+        ):
             continue
         if "old_text" in named and (old, new) != (named["old_text"], named["new_text"]):
             continue
