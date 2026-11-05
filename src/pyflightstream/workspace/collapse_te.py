@@ -793,6 +793,22 @@ def _declare_lines(data: dict[str, Any], plans: list[_Plan]) -> None:
         tes[label] = {"file": f"@collapse:{plan.blade}", "type": kind}
 
 
+def _drop_detect_surfaces(tes: Any, emptied: set[str]) -> None:
+    """Take the families the collapse removes off every detection entry's surfaces."""
+    for label, table in tes.items() if isinstance(tes, dict) else ():
+        detect = table.get("detect") if isinstance(table, dict) else None
+        named = detect.get("surfaces", []) if isinstance(detect, dict) else []
+        left = [s for s in named if s not in emptied]
+        if len(left) != len(named):
+            # An empty list means every surface, so the entry cannot be left with none.
+            _need(
+                bool(left),
+                f"trailing-edge entry {label!r} detects only on families the collapse removes; "
+                "remove the entry or name another surface",
+            )
+            detect["surfaces"] = left
+
+
 def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> None:
     """Declare the edit of the boundaries tables: one line per blade, no base for the strip."""
     emptied = {f for f in result.source.families if f not in result.mesh.families}
@@ -833,6 +849,7 @@ def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> No
                         rebuilt[lab] = table
                 tes.clear()
                 tes.update(rebuilt)
+        _drop_detect_surfaces(data.get("trailing_edges"), emptied)
         regions = data.get("base_regions")
         if isinstance(regions, dict):
             hosts = emptied | (

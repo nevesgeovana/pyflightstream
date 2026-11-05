@@ -899,6 +899,26 @@ def test_p0560_a_rotor_reference_with_no_axis_is_refused_in_words(tmp_path, caps
     refused(tmp_path, capsys, source, cfg, "states no 'axis'")
 
 
+@pytest.mark.requirement("FR-3666")
+def test_p0560_a_detection_entry_loses_only_the_family_the_collapse_removes(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    side = Path(str(source) + ".boundaries.toml")
+    text = side.read_text()
+    side.write_text(
+        text + '[trailing_edges.Det]\ntype = "STANDARD"\n'
+        'detect = { surfaces = ["Blade1Base", "Hub1"] }\n'
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    tables = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["trailing_edges"]
+    assert tables["Det"]["detect"]["surfaces"] == ["Hub1"]
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+    side.write_text(
+        text + '[trailing_edges.Det]\ntype = "STANDARD"\ndetect = { surfaces = ["Blade1Base"] }\n'
+    )
+    refused(tmp_path, capsys, source, control(tmp_path), "detects only on families")
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")
