@@ -23,7 +23,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
+from pyflightstream._errors import (
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream.workspace._hub_rings_grid import (
     Region,
     boundary_loop,
@@ -345,6 +350,22 @@ def _annulus(
     return points, faces, passes
 
 
+def _fell_back(name: str, passes: int, elements: dict[str, Any], shape: dict[str, Any]) -> None:
+    """Warn that a blade's annulus kept fewer remesh passes than ``refine`` runs, and what it is.
+
+    The record alone held the pass count, and its ``elements`` names the mode asked, so an
+    annulus left mostly triangles, or with a sliver, went out with exit 0 and nothing a user
+    reads at the command line.
+    """
+    warn(
+        f"hub_rings: blade {name!r}: the annulus remesh turned a cell against the hub at "
+        f"{PASSES} passes and kept {passes}; its cells are {elements['quad_share']:.0%} quads, "
+        f"the least scaled Jacobian {shape['min_scaled_jacobian']:.3g} and the largest aspect "
+        f"{shape['max_aspect']:.3g}. Inspect the hub around that root, or state a smaller width",
+        PyflightstreamWarning,
+    )
+
+
 def _forward(faces: list[list[int]], loop: list[int]) -> bool:
     """Return whether the hub face on the root's first edge runs that edge in the loop's order."""
     a, b = loop[0], loop[1]
@@ -386,6 +407,8 @@ def _new_faces(mesh: ObjMesh, plans: list[_Blade], surface: HubSurface) -> _Buil
         built.faces[plan.name] = [[int(v) for v in q] for q in quads] + ring_faces
         built.points += [lifted.reshape(-1, 3), points[n + len(plan.hole) :]]
         built.quads[plan.name] = {**element_report("quad-dominant", annulus), "passes": passes}
+        if passes != PASSES:
+            _fell_back(plan.name, passes, built.quads[plan.name], quality(points, annulus))
         start = extra + len(points) - n - len(plan.hole)
     return built
 

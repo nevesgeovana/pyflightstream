@@ -328,6 +328,23 @@ def test_p0560_a_hub_rings_check_arm_refuses_its_mutant(tmp_path, mutate, text):
         _hr().verify_rings(result, surface, ["Spinner"])
 
 
+@pytest.mark.requirement("FR-3671")
+def test_mor1_4_an_annulus_that_keeps_fewer_remesh_passes_is_warned(tmp_path, monkeypatch):
+    """The fallback to fewer passes reached the record's pass count only; on the real wheel one
+    annulus kept 2 passes, 18 percent quads and a scaled Jacobian of 0.0043, exit 0, silent."""
+    hr = _hr()
+    calls = []
+
+    def turned_once(*args):
+        calls.append(1)
+        return 1 if len(calls) == 1 else 0
+
+    monkeypatch.setattr(hr, "_turned_cells", turned_once)
+    with pytest.warns(PyflightstreamWarning, match="Blade1.*kept 4.*quads.*scaled Jacobian"):
+        result, _ = _built(tmp_path)
+    assert result.annulus["Blade1"]["passes"] == 4
+
+
 REPITCH = '[repitch]\nangle_deg = {angle}\nrotor_axis = "x"\nreference_point = {point}\n'
 
 
