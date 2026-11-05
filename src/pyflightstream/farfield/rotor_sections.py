@@ -20,10 +20,34 @@ __all__ = [
     "wake_velocity",
     "anchored_wake_loads",
     "complete_induction_wake",
+    "chord_line_points",
 ]
 
 #: Maximum angle between a section's radial axis and its blade's measured span.
 FRAME_SPAN_TOLERANCE_DEG = 5.0
+
+
+def chord_line_points(radius, points, target, *, radial, hub):
+    """Interpolate a blade chord curve while preserving the requested span.
+
+    Parameters
+    ----------
+    radius, target : numpy.ndarray
+        Increasing source offsets and requested offsets from the hub, in metres.
+    points : numpy.ndarray
+        Source chord-fraction positions in geometry metres, shape (n, 3).
+    radial, hub : numpy.ndarray
+        Measured unit blade span and hub position in geometry metres.
+
+    Returns
+    -------
+    numpy.ndarray
+        Positions at the requested span offsets. Transverse chord coordinates
+        interpolate linearly and hold their endpoint values outside the cuts;
+        the span coordinate always equals target, including beyond the last cut.
+    """
+    sampled = np.column_stack([np.interp(target, radius, points[:, j]) for j in range(3)])
+    return sampled + (target - (sampled - hub) @ radial)[:, None] * radial
 
 
 def complete_induction_wake(lines, values, attachments, exported_lines, exported_values, *, mirror):

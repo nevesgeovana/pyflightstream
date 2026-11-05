@@ -580,8 +580,30 @@ rotor lattice; isolated rows give the same result with either choice. Mirror
 rows include the reflected wakes in `"all"`, without duplicating images already
 in the export. A constructed reflection across geometry y=0 reverses filament
 circulation; images already exported retain their recorded strengths.
-Periodic rotor copies are included once. Induction is sampled between wake radii and interpolated to load
-strips. With unit shaft direction `a`, blade span `rhat`, tangent
+Periodic rotor copies are included once.
+
+**Chord line and sampling.** Each labelled blade supplies its own surface cuts
+normal to its measured span `rhat`. On each cut the trailing edge is the point
+nearest the interpolated wake start and the leading edge is the farthest cut
+point from it. For `f = chord_fraction`, from zero at the leading edge to one
+at the trailing edge, the chord point is `p_f = LE + f (TE - LE)`.
+Let `I(r)` interpolate those points componentwise over cut span offsets, holding
+endpoint values outside that interval. The adopted line is
+
+    C_f(r) = I(r) + [r - (I(r) - hub).rhat] rhat
+
+Thus only the transverse chord position is held at an endpoint; the span offset
+always remains `r`. Straight legs attach at `C_f(r_j)` for each wake-line radius
+`r_j`; velocity is sampled at `C_f((r_j + r_(j+1))/2)` and interpolated to load
+strips. This avoids moving an outer attachment inward to the last load strip.
+The line retains the labelled faces and measured span, with no azimuth snapping
+or borrowed blade geometry. Isolated-rotor comparisons select the line by the
+RMS departure from force-velocity orthogonality over all retained strips first,
+then by thrust and torque closure. The middle-span RMS is a separate diagnostic;
+it does not establish agreement at the root or tip. Installed rows test that
+fixed choice and do not determine it.
+
+With unit shaft direction `a`, blade span `rhat`, tangent
 `t = a cross rhat`, and relative components `Va`, `Vt`, the lift normal is
 `n = (-Vt a + Va t) / hypot(Va, Vt)`. The inviscid load is projected onto
 that normal. Its circulation is `Gamma = F.n / (rho |V|)`; `CL` uses the

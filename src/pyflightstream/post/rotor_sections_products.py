@@ -15,6 +15,7 @@ import numpy as np
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.farfield.rotor_sections import (
     anchored_wake_loads,
+    chord_line_points,
     complete_induction_wake,
     project_sections,
     wake_velocity,
@@ -504,8 +505,8 @@ def _copy_result(
         starts = np.array([lines[i][0] for i in group]) - hub
         radii = np.linalg.norm(starts - (starts @ axis)[:, None] * axis, axis=1)
         sample_radii = 0.5 * (radii[:-1] + radii[1:])
-        sample_points = np.column_stack(
-            [np.interp(sample_radii, rotated.radius, rotated.points[:, j]) for j in range(3)]
+        sample_points = chord_line_points(
+            rotated.radius, rotated.points, sample_radii, radial=rotated.radial, hub=hub
         )
     sampled = wake_velocity(
         sample_points, all_lines, np.array(all_values), np.array(all_attachments)
