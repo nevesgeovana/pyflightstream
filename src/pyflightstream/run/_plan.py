@@ -1141,6 +1141,8 @@ def plan_campaign(
         that its reference's study holds and its model lacks, naming every
         such row (FR-987); the plan status is what it would be without it.
     """
+    from pyflightstream.cases.blade_order import blade_order_errors
+
     canonical = resolve(campaign.fs_version).canonical
     # F-603: the matrix the plan is built from is pinned BEFORE the dry builds,
     # so an edit made while they run is caught by the next run's comparison.
@@ -1154,6 +1156,8 @@ def plan_campaign(
     recorded = set(manifest)
     points: list[PointPlan] = []
     shared = _names_two_cases_share(campaign, workspace)
+    # Geometry is invariant over a row's points; read it once before rehearsing them.
+    shared.update(blade_order_errors(campaign.sims))
     for case, build in zip(campaign.sims, case_builds, strict=True):
         # The row's build decides, then the version read for the row, then the campaign's.
         case_version = (versions or {}).get(case.sim_id, campaign.fs_version)

@@ -161,6 +161,7 @@
       "tests/tier1_offline/test_p0550_low_findings.py",
       "tests/tier1_offline/test_p0550_mesh_verbs.py",
       "tests/tier1_offline/test_p0550_wheel_mark.py",
+      "tests/tier1_offline/test_p0551_blade_order.py",
       "tests/tier1_offline/test_p0551_repitch.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
