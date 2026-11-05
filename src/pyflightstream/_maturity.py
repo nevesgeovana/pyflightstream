@@ -15,6 +15,13 @@ no maturity row.
 """
 
 MATURITY = {
+    "pyflightstream.cases.blade_order": "provisional",
+    "pyflightstream.farfield.rotor_sections": "experimental",
+    "pyflightstream.farfield.wake_sheets": "provisional",
+    "pyflightstream.post.rotor_section_frames": "experimental",
+    "pyflightstream.post.rotor_sections_products": "experimental",
+    "pyflightstream.post.rotor_sections_surface": "experimental",
+    "pyflightstream.workspace.repitch": "provisional",
     "pyflightstream.cases": "stable",
     "pyflightstream.cases.acoustics": "provisional",
     "pyflightstream.cases.ccs_fuselage": "provisional",

@@ -7,12 +7,14 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.55.1] - 2026-11-05
+
 ### Added
 
 - Planning refuses rotor blade lists whose mesh azimuths disagree with the
   per-blade frames by more than a quarter pitch, and prints the computed list
-  to write. Uneven spacing and unavailable mesh evidence warn (FR-3612,
-  FR-3613). Migration: reorder `families_blades` as the refusal instructs;
+  to write. Uneven spacing and unavailable mesh evidence warn (FR-3616,
+  FR-3617). Migration: reorder `families_blades` as the refusal instructs;
   changing RPM sign does not repair blade order.
 - Trefftz C planning reads saved geometry when no surface STL exists, placing
   `distance_bref` behind the body's downstream end. An unreadable extent warns
@@ -22,7 +24,7 @@ FlightStream versions.
 - Experimental `rotor_sections` far fields combine blade surface loads with
   wake induction and write rotor and blade loads plus local strip diagnostics.
   Friction is removed before projection. Installed-row local angles and drag
-  coefficients remain unvalidated. W retains its raw loads and adds optional
+  coefficients remain unvalidated (FR-3620 to FR-3624). W retains its raw loads and adds optional
   section-anchored repaired columns. Mirrored near torque requires measured
   blade cuts or a surface re-cut; otherwise it is unavailable.
 
@@ -48,6 +50,11 @@ FlightStream versions.
 
 ### Changed
 
+- Rotor sections default to every row wake, including missing mirror images;
+  `induction = "rotor"` retains rotor-only selection (FR-3630). The selected
+  chord fraction retains each attachment and sample's measured span, including
+  beyond the last load cut (FR-3632).
+
 - Far-field columns in polars, unsteady polars, merged polars and super files
   use `<QUANTITY>_FF_<METHOD>_<TARGET>` and include all family, blade and rotor
   rows. Entry names are suffixes only on colliding targets (FR-1062).
@@ -59,6 +66,9 @@ FlightStream versions.
   blade, rotor and TOTAL values; no new solve is needed (PFS-2187.21).
 
 ### Fixed
+
+- Generated far-field column collisions retain both cells by appending the
+  later entry name until unique, warning with both source cells (FR-1062).
 
 - Repitch accepts reference installation-axis tables and projects the blade
   datum into the shaft's normal plane, matching the rotor-frame convention.
@@ -105,7 +115,7 @@ FlightStream versions.
   yourself. `run_campaign` takes this behaviour as `redo_submitted=True` (FR-3572).
 - `pyfs-workspace geometry repitch` reads a morphing TOML, rotates blade nodes rigidly,
   and rebuilds the named hub's existing quad rings. Connectivity, face order and saved
-  boundary markings are retained; checks refuse folded hubs before writing (FR-3601 to FR-3604).
+  boundary markings are retained; checks refuse folded hubs before writing (FR-3608 to FR-3611).
 - Repitch hub rebuilding carries the local root-cell orientation across all available rings,
   projects interior nodes onto source faces and safeguards smoothing against reduced minimum
   corner quality. Saved triangle-pair diagonals are retained during projection.

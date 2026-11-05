@@ -748,3 +748,9 @@ When a mesh exists only inside a `.fsm`, the pre-processing export
 (`run.export_surface_mesh`) produces the OBJ counterpart through a solver run,
 which is how the geometry gate of the probe planner gets its watertight
 surface.
+
+Repitch accepts a reference installation-axis table, for example
+`axis = { shaft = "X", vector_wrt_global = [2, 0, 0] }`. It normalizes the
+physical shaft and projects `blade1.zero` into its disk plane, using the same
+frame convention for automatic pitch axes, the hub chart and wheel checks.
+A datum parallel to the shaft cannot define the blade plane and must be fixed.

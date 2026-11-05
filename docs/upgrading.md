@@ -9,6 +9,56 @@ describe the older releases that supplied them.
 
 ## 0.55.1
 
+Planning now refuses a full wheel whose `families_blades` list disagrees with
+geometry by more than a quarter blade pitch. Write the computed order printed
+by the refusal, then plan again. Family aliases and case-insensitive names
+resolve to their selected surfaces. Changing `rpm_sign` does not fix an order.
+Missing geometry and uneven spacing warn; a sector is not mistaken for a wheel.
+
+On mirrored rows, `T_NEAR_N`, `Q_NEAR_NM`, `DT_WAKE_COUNTS` and
+`DQ_WAKE_COUNTS` compare one rotor with one rotor. Torque is about the hub;
+without suitable blade cuts or a surface re-cut it is unavailable. Friction is
+stated separately from inviscid W. Repost stored exports. C on a mirror row
+with `SYMMETRY_LOADS` false uses half-model coefficients and diagnostics.
+
+Rotor sections use `induction = "all"` by default; select `"rotor"` for the
+former rotor-only wake selection. Repost to update chord-line endpoint samples.
+These changes do not make thrust independent of the surface solution.
+
+`--force-rerun-all` can rerun SUBMITTED points. It warns but does not cancel
+their queued jobs; check and cancel those jobs before resubmitting.
+
+The polar and super-file migration below applies to every A/B/C/D/W method.
+`<entry>` is replaced by the actual target (net becomes TOTAL); an entry suffix
+is added only to disambiguate. Long-table column names are unchanged.
+
+| Old polar/super column | New polar/super column |
+|---|---|
+| `CL_T_<method>_<entry>` | `CL_FF_<method>_<target>` |
+| `CDI_T_<method>_<entry>` | `CDI_FF_<method>_<target>` |
+| `E_T_<method>_<entry>` | `E_FF_<method>_<target>` |
+
+Other fields were not projected by 0.55.0. Their new projections are:
+
+| Existing long-table field | New polar/super column |
+|---|---|
+| `CY_T` | `CY_FF_<method>_<target>` |
+| `CDI_T_ISOLATED` | `CDI_ISOLATED_FF_<method>_<target>` |
+| `CDI_T_QERR` | `CDI_QERR_FF_<method>_<target>` |
+| `CDI_T_VORT` | `CDI_VORT_FF_<method>_<target>` |
+| `ETA_FF` | `ETA_FF_<method>_<target>` |
+| `ETA_FF_CORRECTED` | `ETA_CORRECTED_FF_<method>_<target>` |
+| `<other quantity>` | `<other quantity>_FF_<method>_<target>` |
+
+The last rule preserves units, including `T_WAKE_N`, `Q_WAKE_NM`,
+`T_NEAR_N`, `Q_NEAR_NM`, `P_AXIAL_W`, `P_SWIRL_W`, `P_CROSSFLOW_W`,
+`P_TOTAL_W` and `P_TOTAL_CORRECTED_W`. Additional diagnostics now reach each
+family, blade and rotor target; do not add a rotor aggregate to its blades.
+
+A target whose spelling already contains an entry suffix can collide with a
+generated name. The later cell now appends its entry name until unique, with
+a warning naming both cells. No value is dropped and normal names are unchanged.
+
 Far-field columns in polars, unsteady polars, merged polars and super files now
 use `<QUANTITY>_FF_<METHOD>_<TARGET>`, including family, blade and rotor targets.
 For example, `CDI_T_B_wake` becomes `CDI_FF_B_TOTAL`; `CDI_FF_B_W` holds family W.

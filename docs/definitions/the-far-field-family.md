@@ -40,6 +40,10 @@ rotor names retain their spelling. Examples are `CL_FF_B_TOTAL`, `CDI_FF_B_W`,
 Only when two entries of the same method would occupy the same target on one
 point's row is the entry name appended, for example `CDI_FF_C_TOTAL_c05`.
 A single C entry, whatever its name, writes `CDI_FF_C_TOTAL`.
+If that generated name belongs to another cell on the same point, append the
+later cell's entry name repeatedly until it is unique, in input row order.
+One warning per collision names both cells and the retained spelling. For
+example, `CDI_FF_B_TOTAL_c05` and `CDI_FF_B_TOTAL_c05_c05` retain both values.
 
 `CL_T`, `CDI_T`, `CY_T` and `E_T` become quantities `CL`, `CDI`, `CY` and `E`;
 `CDI_T_ISOLATED`, `CDI_T_QERR` and `CDI_T_VORT` become `CDI_ISOLATED`,
@@ -650,6 +654,10 @@ On a row with any surface beyond the rotor and its hub, every row carries
 `LOCAL_VALIDATED = false` and a warning: local `alpha_i(r)` and `Cd_i(r)`
 remain unvalidated even with every row wake included. Isolated rows carry true
 for that applicability check; it is not a claim of experimental validation.
+On the newest supported solver build, measured torque closure still has a
+shortfall, including unequal errors between blades. Neither isolated agreement
+nor the repaired W channels establishes general rotor accuracy. C on a march
+also remains a diagnostic: its sampled field has not established force closure.
 
 <a id="trefftz-c"></a>
 
