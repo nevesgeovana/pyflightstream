@@ -199,8 +199,8 @@ of its hub, taken to 360/N within 0.05 degrees; `copies` may be stated, and an a
 that do not close, as a wrong centre leaves them, are refused.
 
 Each table also runs alone through its verb (`hub-rings`, `repitch`, `collapse-te`), reading its
-own table and the top-level keys; a `[repitch]` table written for 0.55.1, with its own `axis`,
-`axes` or `reference`, reads and behaves as before.
+own table and the top-level keys; a `[repitch]` table that states its own `axis`, `axes` or
+`reference` reads and behaves as it does in `repitch` alone.
 
 ## Refinement controls
 
