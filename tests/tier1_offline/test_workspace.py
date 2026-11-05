@@ -674,6 +674,8 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
         # The repitch control's rotor key selects a named reference RotorBlock.
         # It does not read the legacy reference [rotor] metadata or its signs.
         package / "workspace" / "repitch.py": {"rotor"},
+        # The same reader, read_rotor, moved here so collapse-te shares it (PFS-2189).
+        package / "workspace" / "_repitch_io.py": {"rotor"},
     }
     scanned = 0
     offenders: list[str] = []
