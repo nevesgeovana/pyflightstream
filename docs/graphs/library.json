@@ -7049,6 +7049,11 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.post.polar",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.probes.errors",
       "kind": "module"
     },
