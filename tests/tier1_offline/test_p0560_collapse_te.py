@@ -970,6 +970,22 @@ def test_p0560_the_architecture_gate_holds_for_the_verb():
     assert not named
 
 
+@pytest.mark.requirement("FR-3666")
+def test_p0560_an_unstated_unit_warns_only_of_a_file_it_labels(tmp_path, recwarn):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    side = Path(str(source) + ".boundaries.toml")
+    side.write_text(side.read_text().replace('[import]\nunits = "METER"\n', ""))
+    rows = read_te(tmp_path / "Blade1U.te.txt")[1]
+    (tmp_path / "Blade1U.te.txt").write_text(
+        "MILLIMETER\n" + "\n".join(",".join(format(float(v), ".17g") for v in r) for r in rows)
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    assert "unit is unstated" not in " ".join(str(w.message) for w in recwarn)
+    entry = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["trailing_edges"]
+    assert read_te(tmp_path / entry["Blade1U"]["file"])[0] == "MILLIMETER"
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")

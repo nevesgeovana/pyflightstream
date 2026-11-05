@@ -979,9 +979,10 @@ def collapse_trailing_edge(
         "nothing to collapse: "
         + ("; ".join(f"{b}: {why}" for b, why in skipped.items()) or "no blunt trailing edge"),
     )
-    if unit is None:
+    if unit is None and any(not plan.labels for plan in plans):
         warn(
-            "collapse_te: mesh unit is unstated; trailing-edge points are written in metres",
+            "collapse_te: mesh unit is unstated; a trailing-edge points file with no source entry "
+            "to follow says METER over the mesh's own numbers",
             NotApplicableWarning,
         )
     result = _build(source, plans)
