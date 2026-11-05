@@ -56,8 +56,8 @@ from pyflightstream.post.farfield_fields import (
     plane_values,
     recorded_layout,
 )
-from pyflightstream.post.farfield_products import farfield_axes, farfield_products
-from pyflightstream.post.polar import PolarPoint
+from pyflightstream.post.farfield_products import TREFFTZ_COLUMNS, farfield_axes, farfield_products
+from pyflightstream.post.polar import PolarPoint, farfield_column_names
 from pyflightstream.post.products import ReferenceValues, write_campaign_products
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results import parse_loads, sweep_table, write_table
@@ -118,7 +118,7 @@ def test_p0551_total_blades_and_rotor_share_all_filaments(tmp_path):
         ) == pytest.approx(float(b["TOTAL"][column]), rel=3e-5, abs=1e-8)
     vref = ctx.points[0].loads.reference_velocity_m_s
     assert float(b["TOTAL"]["CL_T"]) == pytest.approx(0.4 * (vref / 30.0) ** 2, rel=1e-5)
-    assert float(ctx.farfield_super["point"]["CDI_T_B_wake"]) == float(b["TOTAL"]["CDI_T"])
+    assert float(ctx.farfield_super["point"]["CDI_FF_B_TOTAL"]) == float(b["TOTAL"]["CDI_T"])
     # Independent quadrature: exported edge values, including the nonclosing
     # outer filament, drive every strip's wash. The rotor's own sum is not
     # substituted for a whole-plane calculation.
@@ -1277,15 +1277,18 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_polar_keeps_its_bytes(posted):
-        """P0400-FFOUT (FR-1060, FR-450): the polar is byte-identical with and without [farfield].
-
-        The super file beside it gains its far-field block (FR-1062), so it is the one
-        file of the folder left out here.
-        """
+        """P0551-FFNAME2: far-field columns append without changing near-field cells."""
         root, plain, _messages = posted
         for path in sorted(p for p in plain.rglob("polars/*") if not p.name.startswith("SUPER-")):
             twin = root / path.relative_to(plain)
-            assert twin.read_bytes() == path.read_bytes(), path.name
+            if path.suffix != ".csv":
+                assert twin.read_bytes() == path.read_bytes(), path.name
+                continue
+            before = _farfield_products___table(path)
+            after = _farfield_products___table(twin)
+            for left, right in zip(before, after, strict=True):
+                assert left == {key: right[key] for key in left}
+                assert all("_FF_" in key for key in right.keys() - left.keys())
         assert not list(plain.rglob("farfield/*")), "no [farfield], no far-field file"
 
     @staticmethod
@@ -1319,10 +1322,11 @@ class TestFarfieldProducts:
             post_matrix(workspace)
         columns, rows = _superfiles(workspace)[name]
         added = [column for column in columns if column not in before]
-        assert added == ["CL_T_B_wake", "CDI_T_B_wake", "E_T_B_wake"]
+        assert {"CL_FF_B_TOTAL", "CDI_FF_B_TOTAL", "E_FF_B_TOTAL"} <= set(added)
+        assert all("_FF_B_" in column for column in added)
         kept = [column for column in before if column != "MESH_FACES"]
-        assert columns.index("CL_T_B_wake") > max(columns.index(column) for column in kept)
-        assert all(row["E_T_B_wake"] not in ("", None) for row in rows)
+        assert columns.index("CL_FF_B_TOTAL") > max(columns.index(column) for column in kept)
+        assert all(row["E_FF_B_TOTAL"] not in ("", None) for row in rows)
 
 
 _FFPROOF_POST___STEM = "POLAR-3207_M20AL-020BE+000"
@@ -2602,10 +2606,14 @@ def test_p0450_d7_super_cells_belong_to_each_entry(tmp_path, plane_name):
     rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
     (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
     assert {r["ENTRY"] for r in rows} == {"wing", "tail", "wake", plane_name}
+    (polar_row,) = _farfield_products___table(_farfield_products___one(root, "polars/P*_g01.csv"))
     for row in rows:
         for column in ("CL_T", "CDI_T", "E_T"):
-            key = f"{column}_{row['VARIANT']}_{row['ENTRY']}"
+            target = "TOTAL" if row["FAMILY"] == "net" else row["FAMILY"]
+            suffix = f"_{row['ENTRY']}" if row["VARIANT"] == "A" else ""
+            key = f"{column.removesuffix('_T')}_FF_{row['VARIANT']}_{target}{suffix}"
             assert key in super_row
+            assert polar_row[key] == super_row[key]
             actual = super_row[key]
             assert (
                 actual == "NA"
@@ -2630,7 +2638,8 @@ def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
     }
     for row in rows:
         for column in ("CL_T", "CDI_T", "E_T"):
-            actual = super_row[f"{column}_{row['VARIANT']}_{row['ENTRY']}"]
+            target = "TOTAL" if row["FAMILY"] == "net" else row["FAMILY"]
+            actual = super_row[f"{column.removesuffix('_T')}_FF_{row['VARIANT']}_{target}"]
             if row[column] == "NA":
                 assert actual == "NA"
             else:
@@ -2811,7 +2820,7 @@ def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
         pproc=(
             _RFIXF_LAYOUT___TABLE_1M
             + '[plots]\nparameters = ["FX", "CDO"]\n[[plots.groups]]\nname = "MRP_TOTAL"\n'
-            + 'frame = "MRP"\nfamilies = "all"\n'
+            + 'frame = "MRP"\nfamilies = "all"\n[products]\nmerged_polar = true\n'
         ).replace("[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'),
         files=files,
         recipe="unsteady_rotor",
@@ -2829,9 +2838,11 @@ def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
     root = Path(workspace.root)
     (average,) = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
     (polar,) = _rfixf_layout___rows(root, "polars/*_uns_avg.csv")
+    (merged,) = _rfixf_layout___rows(root, "polars/*_merge.csv")
     for column in ("CL_T", "CDI_T", "E_T"):
-        assert polar[f"{column}_C_plane"] == average[column]
-    assert list(polar).index("E_T_C_plane") < list(polar).index("MESH_FACES")
+        assert polar[f"{column.removesuffix('_T')}_FF_C_TOTAL"] == average[column]
+        assert merged[f"{column.removesuffix('_T')}_FF_C_TOTAL"] == average[column]
+    assert list(polar).index("E_FF_C_TOTAL") < list(polar).index("MESH_FACES")
 
 
 @pytest.mark.requirement("FR-1062")
@@ -5348,3 +5359,62 @@ def test_p0551_fix17_distance_counts_from_geometry_through_product(tmp_path, geo
     )
     row = next(row for row in rows if row["VARIANT"] == "C")
     assert float(row["X_T_M"]) == pytest.approx(expected)
+
+
+_P0551_TREFFTZ_CELLS = (*TREFFTZ_COLUMNS, "T_WAKE_N", "Q_WAKE_NM")
+
+
+def _p0551_super_cells(rows, columns):
+    out = {}
+    for (row, point), names in zip(rows, farfield_column_names(rows, columns), strict=True):
+        out.setdefault(point, {}).update({name: str(row[index]) for index, name in names.items()})
+    return out
+
+
+def _p0551_ffname2_row(entry, method, target, **values):
+    cells = dict.fromkeys(_P0551_TREFFTZ_CELLS, "NA")
+    cells.update(FAMILY=target, VARIANT=method, **values)
+    return ("polar", entry, "run", *(["NA"] * len(CONTEXT_COLUMNS)), *cells.values())
+
+
+@pytest.mark.requirement("FR-1062")
+def test_p0551_ffname2_targets_and_quantities():
+    rows = [
+        (_p0551_ffname2_row("custom", "B", target, CL_T=1, CDI_T=0.02, E_T=0.9), "p")
+        for target in ("TOTAL", "W", "Blade1", "PUSHER")
+    ]
+    rows += [
+        (_p0551_ffname2_row("sections", "A", "W", CY_T=0.1, CDI_T_ISOLATED=0.03), "p"),
+        (_p0551_ffname2_row("power", "D", "net", P_TOTAL_W=20, ETA_FF=0.8), "p"),
+        (_p0551_ffname2_row("wake", "W", "PUSHER", T_WAKE_N=10, Q_WAKE_NM=2), "p"),
+    ]
+    cells = _p0551_super_cells(rows, _P0551_TREFFTZ_CELLS)["p"]
+    for target in ("TOTAL", "W", "Blade1", "PUSHER"):
+        assert cells.get(f"CL_FF_B_{target}") == "1"
+        assert float(cells.get(f"CDI_FF_B_{target}", "nan")) == 0.02
+        assert float(cells.get(f"E_FF_B_{target}", "nan")) == 0.9
+    assert float(cells.get("CY_FF_A_W", "nan")) == 0.1
+    assert float(cells.get("CDI_ISOLATED_FF_A_W", "nan")) == 0.03
+    assert cells.get("P_TOTAL_W_FF_D_TOTAL") == "20"
+    assert float(cells.get("ETA_FF_D_TOTAL", "nan")) == 0.8
+    assert cells.get("T_WAKE_N_FF_W_PUSHER") == "10"
+    assert cells.get("Q_WAKE_NM_FF_W_PUSHER") == "2"
+    assert not any(key.startswith(("CL_T_", "CDI_T_", "E_T_")) for key in cells)
+
+
+@pytest.mark.requirement("FR-1062")
+def test_p0551_ffname2_suffix_only_for_colliding_targets_on_the_same_point():
+    rows = [
+        (_p0551_ffname2_row("c05", "C", "net", CDI_T=0.05), "p"),
+        (_p0551_ffname2_row("c10", "C", "net", CDI_T=0.1), "p"),
+        (_p0551_ffname2_row("custom", "C", "net", CDI_T=0.2), "other"),
+        (_p0551_ffname2_row("wing", "A", "W", CL_T=1), "p"),
+        (_p0551_ffname2_row("tail", "A", "H", CL_T=2), "p"),
+    ]
+    cells = _p0551_super_cells(rows, _P0551_TREFFTZ_CELLS)
+    assert float(cells["p"].get("CDI_FF_C_TOTAL_c05", "nan")) == 0.05
+    assert float(cells["p"].get("CDI_FF_C_TOTAL_c10", "nan")) == 0.1
+    assert "CDI_FF_C_TOTAL" not in cells["p"]
+    assert float(cells["other"].get("CDI_FF_C_TOTAL", "nan")) == 0.2
+    assert cells["p"].get("CL_FF_A_W") == "1"
+    assert cells["p"].get("CL_FF_A_H") == "2"

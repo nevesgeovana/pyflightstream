@@ -147,8 +147,8 @@ _AXIS_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "ADVANCE_RATIO": "J"}
 RPM_COLUMN = "RPM"
 
 
-#: FR-1062: quantity, variant and entry, for example ``CL_T_A_wing``.
-_FARFIELD_COLUMN = re.compile(r"(CL_T|CDI_T|E_T)_[ABCD]_.+")
+#: FR-1062: quantity, method and target, for example ``CL_FF_A_W``.
+_FARFIELD_COLUMN = re.compile(r"[A-Z][A-Z0-9_]*_FF_[ABCDW]_.+")
 
 
 def release_tag(version: str) -> str:

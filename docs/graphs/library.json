@@ -6140,6 +6140,11 @@
     {
       "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.post.polar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post.polar",
       "kind": "typing"
     },
     {

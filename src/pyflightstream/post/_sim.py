@@ -721,7 +721,16 @@ def _group_polar(
         conditions=group_conditions,
         drag_columns=drags,
     )
-    write_csv_table(target, polar_table_columns(drags), full)
+    polar_columns = list(polar_table_columns(drags))
+    farfield = list(
+        dict.fromkeys(key for p in group_points for key in ctx.farfield_super.get(p.name, {}))
+    )
+    polar_columns.extend(farfield)
+    full = [
+        (*values, *(ctx.farfield_super.get(point.name, {}).get(key, "NA") for key in farfield))
+        for point, values in zip(group_points, full, strict=True)
+    ]
+    write_csv_table(target, polar_columns, full)
     append_tip_columns(ctx, target, group_runs)
     # Retain accepted tip fields before axes selection. Keep the original base
     # cells: the two writers have existing, distinct numeric formatting rules.
@@ -1620,7 +1629,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
-            # FR-1062: the far-field TOTAL cells, after every other key.
+            # FR-1062: all far-field targets, after every other key.
             for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
                 row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.
@@ -1660,14 +1669,13 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     structure_products,
     # FR-3416: where the solver placed the coupled blade, step by step.
     placement_check_products,
-    _group_polars,
     _point_products,
     _rotor_table_products,
     _qsteady_rotor_products,
     noise_products,
-    # FR-456: the far-field family, before the two tables that read its rows: the unsteady polar,
-    # which holds an unsteady point's super file content, and the superfile (FR-1062).
+    # FR-1062: read reduced plots first, then project far-field cells into the polars.
     farfield_products,
+    _group_polars,
     _unsteady_polar_products,
     _superfile_drafts,
     # FR-3511: last, so it reads the tables as every step above left them.

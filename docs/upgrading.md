@@ -9,6 +9,15 @@ describe the older releases that supplied them.
 
 ## 0.55.1
 
+Far-field columns in polars, unsteady polars, merged polars and super files now
+use `<QUANTITY>_FF_<METHOD>_<TARGET>`, including family, blade and rotor targets.
+For example, `CDI_T_B_wake` becomes `CDI_FF_B_TOTAL`; `CDI_FF_B_W` holds family W.
+The entry name is appended only where entries collide on a point's method and
+target, such as `CDI_FF_C_TOTAL_c05`. Update column selectors and repost stored
+exports; no new plan or solver run is needed. Long far-field tables and
+`rotor_sections` names retain their existing forms. See
+[the quantity mapping](definitions/the-far-field-family.md).
+
 Trefftz B now anchors rotor blade circulation at the free tip, following the wing
 convention. W retains its own treatment. Run `pyfs-matrix post` on stored exports
 to update B's blade, rotor and TOTAL values; no new solve or plan is needed.
@@ -514,7 +523,8 @@ instead of allowing an overwrite. Accepted filenames keep the entry's own case.
 Its manifest key changes with it. Super-file far-field columns now include
 the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
 `CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in
-`CDI_T_C_plane`. Update readers to select each entry's cells.
+`CDI_T_C_plane`. Update readers to select each entry's cells. The 0.55.1
+section above supersedes these output names with the `_FF_` target form.
 
 Far-field entries now default to the last unsteady step only. Set
 `export_type = "avg_window"` to export and average a final window for A, C or D.

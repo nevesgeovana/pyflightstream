@@ -9,8 +9,8 @@
 **The far field is an instrument, not a second solver.** It integrates what the
 solver already exported, downstream of the body, and states a number the solver
 does not compute: the solver reports no force in a Trefftz plane (its log's
-"Trefftz plane location" is where it clips the wake). The polar and
-`campaign_sweep.csv` are never changed by it.
+"Trefftz plane location" is where it clips the wake). The polar retains its
+near-field values and appends far-field estimates; `campaign_sweep.csv` is unchanged.
 
 The analyses and where they are written:
 
@@ -32,14 +32,29 @@ identify one exported half (FR-3612).
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_TOTAL_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.
-The super file, and on an unsteady row the unsteady polar that holds its content
-(`polars/P<sim>_<name>_uns_avg.csv`), reads A/B's `TOTAL` and C/D's `net` rows into
-`CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
-`E_T_<VARIANT>_<ENTRY>` columns, one set per entry. A row of the unsteady polar is a window
-average: a cell that is not that average, an entry whose window differs or one with no average
-to give, which holds the last step's instant, is warned and named in `products.json`. For example, A entries
-named `wing` and `tail` write `CL_T_A_wing` and `CDI_T_A_tail`; C named `net`
-writes `CDI_T_C_net`. An unnamed C entry uses `CDI_T_C_plane`.
+The polar, unsteady polar (`polars/P<sim>_<name>_uns_avg.csv`), merged polar and
+super file carry every far-field target as `<QUANTITY>_FF_<METHOD>_<TARGET>`.
+Methods are A, B, C, D and W; `net` becomes `TOTAL`, while family, blade and
+rotor names retain their spelling. Examples are `CL_FF_B_TOTAL`, `CDI_FF_B_W`,
+`CDI_FF_B_Blade1`, `CDI_FF_B_PUSHER` and `CL_FF_A_W`.
+Only when two entries of the same method would occupy the same target on one
+point's row is the entry name appended, for example `CDI_FF_C_TOTAL_c05`.
+A single C entry, whatever its name, writes `CDI_FF_C_TOTAL`.
+
+`CL_T`, `CDI_T`, `CY_T` and `E_T` become quantities `CL`, `CDI`, `CY` and `E`;
+`CDI_T_ISOLATED`, `CDI_T_QERR` and `CDI_T_VORT` become `CDI_ISOLATED`,
+`CDI_QERR` and `CDI_VORT`. `ETA_FF` and `ETA_FF_CORRECTED` become quantities
+`ETA` and `ETA_CORRECTED`. Other numeric quantities and diagnostics retain
+their long-table names, including units: `P_TOTAL_W_FF_D_TOTAL`,
+`T_WAKE_N_FF_W_ROTOR`, `Q_WAKE_NM_FF_W_ROTOR`, `AR_FF_A_W` and
+`X_T_M_FF_B_TOTAL`. Unavailable cells remain `NA`. `FAMILY`, `VARIANT` and
+`STATUS` are not projected as quantities. Rotor-sections names such as
+`T_FF_RS_ROTOR` are unchanged. The long far-field tables keep their existing
+column names and `VARIANT`/`FAMILY` rows.
+
+A row of the unsteady polar is a window average: a cell that is not that
+average, an entry whose window differs or one with no average to give, which
+holds the last step's instant, is warned and named in `products.json`.
 
 ### Selecting analyses
 

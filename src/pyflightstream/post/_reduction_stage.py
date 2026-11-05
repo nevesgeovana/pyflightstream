@@ -48,7 +48,6 @@ from pyflightstream.post._stage import (
     _window_the_reduction_reads,
 )
 from pyflightstream.post._tables import (
-    CONTEXT_COLUMNS,
     ProductError,
     ReferenceValues,
     _significant_cell,
@@ -79,6 +78,7 @@ from pyflightstream.post.point_tables import (
     write_phase_locked_table,
     write_reduction_table,
 )
+from pyflightstream.post.polar import farfield_column_names
 from pyflightstream.post.unsteady import (
     TimestepSeries,
     revolution_drift_warnings,
@@ -257,17 +257,13 @@ def _whole_configuration_drag(ctx: SimContext, point: str, name: str) -> bool:
 def _super_cells(
     rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
 ) -> dict[str, dict[str, str]]:
-    """Return super-file cells from A's TOTAL and whole-flow net rows (FR-1062)."""
-    first = 3 + len(CONTEXT_COLUMNS)
-    family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
+    """Project each far-field target without changing its numeric formatting (FR-1062)."""
+    names = farfield_column_names(rows, columns)
     out: dict[str, dict[str, str]] = {}
-    for row, point in rows:
-        if row[family] != ("TOTAL" if row[variant] in ("A", "B") else "net"):
-            continue
+    for (row, point), projected in zip(rows, names, strict=True):
         cells = out.setdefault(point, {})
-        for column in ("CL_T", "CDI_T", "E_T"):
-            at = first + columns.index(column)
-            cells[f"{column}_{row[variant]}_{row[1]}"] = _significant_cell(row[at])
+        for index, name in projected.items():
+            cells[name] = _significant_cell(row[index])
     return out
 
 

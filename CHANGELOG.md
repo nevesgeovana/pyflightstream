@@ -42,11 +42,17 @@ FlightStream versions.
   Untraceable groups write `NA` and are named in TOTAL's warnings and manifest.
   Blade circulation accumulates from the tip; powered crossflow includes swirl.
   Migration: B's `net` row and spanwise filename become `TOTAL`; polar and super
-  columns read TOTAL while retaining their existing column names (FR-3601 to FR-3605).
+  columns read TOTAL under the far-field naming rule below (FR-3601 to FR-3605).
   Surface families combine disconnected sheets; unresolved names retain warned
   `sheet<n>` labels. Closed rims and unsteady window products remain supported.
 
 ### Changed
+
+- Far-field columns in polars, unsteady polars, merged polars and super files
+  use `<QUANTITY>_FF_<METHOD>_<TARGET>` and include all family, blade and rotor
+  rows. Entry names are suffixes only on colliding targets (FR-1062).
+  Migration: update column selectors and repost stored exports. Long far-field
+  tables and rotor-sections columns keep their names.
 
 - Trefftz B anchors rotor blade circulation at the free tip, following the wing
   convention. W retains its own treatment. Repost stored exports to update B's
