@@ -21,6 +21,10 @@ FlightStream versions.
 - Submitted jobs remain protected against accidental reruns. Pass
   `redo_submitted=True` explicitly to repeat a submitted point; the old scheduler
   job is not cancelled and must be handled separately.
+- The boundaries file `geometry repitch` writes beside an OBJ now reads back: `boundary_faces` is
+  a list in family order and a key with a space is quoted, so `geometry mark-boundaries` and
+  `geometry inventory --refresh` take it. An output of 0.55.1 is rewritten by running `repitch`
+  again to a new `--out`.
 
 ## [0.55.1] - 2026-11-05
 
