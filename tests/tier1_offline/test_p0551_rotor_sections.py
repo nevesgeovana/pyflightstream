@@ -335,6 +335,71 @@ def _blade_exports(root, *, integer_tags=False):
     (root / "point.vtk").write_text("\n".join(vtk) + "\n", encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-3625")
+def test_p0551_w_anchor_restores_a_constant_without_scaling_values():
+    from pyflightstream.farfield.rotor_sections import anchored_wake_loads
+
+    lines = [np.array([[0.0, 0.0, r], [5.0, 0.0, r]]) for r in (0.5, 1.5, 2.5)]
+    values = np.zeros(3)
+    t, q, anchor = anchored_wake_loads(
+        _sections(),
+        np.ones(2),
+        lines,
+        values,
+        np.arange(3),
+        hub=np.zeros(3),
+        axis=np.array([1.0, 0.0, 0.0]),
+        wind=np.array([10.0, 0.0, 0.0]),
+        omega=20.0,
+        rho=1.0,
+    )
+    assert (t, q, anchor) == pytest.approx((60.0, 30.0, 1.0))
+    np.testing.assert_array_equal(values, np.zeros(3))
+
+
+@pytest.mark.requirement("FR-3625")
+def test_p0551_w_product_retains_raw_and_adds_the_anchor(tmp_path):
+    from dataclasses import replace
+
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+    from tests.tier1_offline.test_regression_farfield_products import _p0470_post_rotor_wake
+
+    lines, values = _p0470_helical_wake(
+        2,
+        gamma=np.zeros(4),
+        radii=np.array([0.3, 0.5, 0.7, 0.9, 1.0]),
+        v=30.0,
+        omega=100.0,
+        turns=1.0,
+    )
+    lines = [line + [3.1, 0.0, 2.0] for line in lines]
+    expected = {}
+
+    def prepare(ctx):
+        _blade_exports(tmp_path)
+        ctx.record_of["point"].inventory = ["Blade1", "Blade2"]
+        ctx.matrix_row.variables.update(SYMMETRY="MIRROR", SYMMETRY_LOADS="true")
+        ctx.points[0] = replace(
+            ctx.points[0],
+            loads=replace(
+                ctx.points[0].loads, surfaces={"Blade1": {"Cx": 1.0}, "Blade2": {"Cx": 1.0}}
+            ),
+        )
+        expected["Q"] = (
+            0.5 * 1.225 * ctx.points[0].loads.reference_velocity_m_s ** 2 * 0.2 * (1.0 - 0.2**2)
+        )
+
+    with pytest.warns(UserWarning):
+        _, rows, _ = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True, prepare=prepare)
+    row = next(row for row in rows if row["VARIANT"] == "W")
+    assert "T_WAKE_REPAIRED_N" in row, "W must expose its anchored companion beside raw W"
+    assert float(row["T_WAKE_N"]) == pytest.approx(0.0)
+    assert float(row["Q_WAKE_NM"]) == pytest.approx(0.0)
+    assert abs(float(row["T_WAKE_REPAIRED_N"])) > 0.0
+    assert abs(float(row["Q_WAKE_REPAIRED_NM"])) > 0.0
+    assert float(row["Q_NEAR_NM"]) == pytest.approx(expected["Q"], rel=1e-5)
+
+
 @pytest.mark.requirement("FR-3620")
 @pytest.mark.parametrize(
     "entry",

@@ -485,8 +485,10 @@ scaled by `PERIODIC_COPIES` on a `SYMMETRY PERIODIC` row without
 On a mirror row with `SYMMETRY_LOADS` enabled, the paired surface moments
 cannot recover one rotor's torque. W instead integrates that rotor's blade
 sections in its hub frames, with the shaft force and the tangential force's
-signed radial arm. These sections must cover every modelled blade. Without
-them the in-plane shaft thrust is half the paired surface thrust, while torque
+signed radial arm. Each cut is measured against that blade's surface span;
+a cut more than 5 degrees off span, or missing sections, uses a matching
+surface re-cut. These loads must cover every modelled blade. Without this
+geometric evidence the in-plane shaft thrust is half the paired surface thrust, while torque
 is `NA` and a warning explains why no torque about the hub is available.
 Window comparisons use sections from the same wake step (FR-3613).
 
@@ -525,6 +527,18 @@ the lines leave, not at the quarter chord. The free stream is taken along the
 axis (its in-plane component is not in `V_a`). The bound vortices of the other
 blades induce nothing at the lifting line. A rotor with no speed, or whose
 lines the export does not hold, is a named skip.
+
+**Surface-anchored companion.** `T_WAKE_REPAIRED_N` and
+`Q_WAKE_REPAIRED_NM` retain W's trailing-edge induction and add one constant
+to each blade's root-summed circulation. The constant is the mean difference
+between the reference circulation and W's interpolated circulation,
+over 0.4 to 0.95 of the wake tip radius. This is an additive anchor, not a
+scale factor. The isolated-row reference is load-derived circulation; where
+other surfaces are present it is the closed surface velocity integral about
+the blade span. The raw `T_WAKE_N` and `Q_WAKE_NM` remain unchanged. The repaired
+columns require the same measured sections or surface re-cut as RS; missing
+evidence leaves them unavailable. The anchor depends on the surface solution
+and does not make W an independent validation of that solution.
 
 ### Rotor sections, blade-local decomposition
 
