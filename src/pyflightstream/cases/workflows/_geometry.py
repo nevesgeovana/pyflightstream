@@ -29,7 +29,10 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
+    boundary_vertices,
+    saved_mesh_coordinate_unit,
 )
+from pyflightstream._lengths import scale
 from pyflightstream.cases import (
     BaseRegionOperation,
     CampaignConfigError,
@@ -753,15 +756,30 @@ def _extent_m(
     The source mesh is carried through the surface operations the script emitted
     (a translation or rotation moves the body the solver solves), so the plane is
     laid downstream of the body as placed (F-025). An operation the rule does not
-    know leaves the extent unknown.
+    know leaves the extent unknown. Without a surface export, a saved FSM's
+    boundary vertices supply geometry coordinates in their proved stored unit,
+    independently of its display unit (FR-3641).
     """
     mesh = _mesh(case)
-    if mesh is None:
-        return None
     try:
-        from pyflightstream._mesh import read_mesh
+        if mesh is None:
+            saved = case.geometry
+            if not saved or Path(str(saved)).suffix.lower() != ".fsm":
+                return None
+            boundaries = boundary_vertices(saved) or {}
+            unit = saved_mesh_coordinate_unit(saved)
+            arrays = [
+                np.asarray(points, dtype=float) for points in boundaries.values() if len(points)
+            ]
+            if not arrays or unit is None:
+                return None
+            vertices = np.concatenate(arrays) * scale(unit, "METER")
+        else:
+            from pyflightstream._mesh import read_mesh
 
-        vertices = np.asarray(read_mesh(mesh).vertices, dtype=float) / native_per_m
+            vertices = np.asarray(read_mesh(mesh).vertices, dtype=float) / native_per_m
+        if not len(vertices) or not np.isfinite(vertices).all():
+            return None
     except (OSError, ValueError, PyflightstreamError):
         return None
     operations = [] if script is None else script.surface_operations
@@ -771,6 +789,19 @@ def _extent_m(
         except (CampaignConfigError, KeyError, TypeError, ValueError):
             return None
     return float((vertices @ direction).max())
+
+
+def warn_extent_fallback(case: SimCase, moment_m: np.ndarray) -> str:
+    """Warn and return the recorded reason an added plane counts from the moment point."""
+    reason = (
+        "distance_bref counted from the moment reference point "
+        f"{tuple(float(v) for v in moment_m)} "
+        "m in the geometry reference frame because the downstream geometry extent "
+        "could not be read or transformed. The plane may lie inside the body; "
+        "supply readable saved geometry or a mesh and plan a new survey."
+    )
+    warn(f"case {case.sim_id!r}: {reason}", PyflightstreamWarning, stacklevel=4)
+    return reason
 
 
 def _moves_the_body(case: SimCase) -> bool:

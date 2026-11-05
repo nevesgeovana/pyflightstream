@@ -1,5 +1,8 @@
 """Regression coverage grouped by subject.
 
+P0551 FIX17 reproduction: plan a C plane from saved geometry without STL,
+then post synthetic probe samples at those recorded positions.
+
 P0551 FFTOTAL reproduction: post a wheel's synthetic wake through
 ``farfield_products(ctx)`` and read its B family rows and polar cells.
 """
@@ -5251,3 +5254,95 @@ def test_p0551_near_plane_names_intersected_body_once(tmp_path, offset):
     ]
     assert len(cuts) == (1 if offset == 0 else 0), messages
     assert _farfield_products___one(workspace.root, "farfield/*_trefftz.csv").is_file()
+
+
+@pytest.mark.requirement("FR-3641")
+@pytest.mark.parametrize(
+    "geometry", ["saved", "millimeters", "mesh", "missing"], ids=lambda value: f"P0551-{value}"
+)
+def test_p0551_fix17_distance_counts_from_geometry_through_product(tmp_path, geometry):
+    from pyflightstream.cases.workflows._farfield import farfield_shapes
+
+    source = tmp_path / "source"
+    source.mkdir()
+    case = _rfixa_products__plan._farfield_plan___case(
+        source, [{"variant": "plane", "distance_bref": 0.25, "spacing_bref": 0.25}]
+    )
+    # A body ending at x=12 m and a displaced moment point: counting from
+    # XMOM=3 would put the plane at x=4, inside the body's streamwise extent.
+    _p0551_surface(source, [np.array([[12.0, 0.0, 0.0]])])
+    saved = source / "point.fsm"
+    saved_geometry = saved.read_bytes()
+    if geometry == "millimeters":
+        saved.write_text(
+            "26,1\n8172026\n"
+            + saved.read_text().replace("$GLOBAL_START$\n1.0\n5", "$GLOBAL_START$\n0.001\n2"),
+            encoding="utf-8",
+        )
+    if geometry == "mesh":
+        saved = source / "body.obj"
+        saved.write_text("v 12 0 0\nv 11.9 0 0\nv 11.9 .01 0\nf 1 2 3\n", encoding="utf-8")
+    elif geometry == "missing":
+        saved.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", encoding="utf-8")
+    case = case.model_copy(
+        update={
+            "geometry": str(saved),
+            "point": {"alpha": 0.0, "beta": 0.0},
+            "reference": case.reference.model_copy(update={"moment_point_m": (3.0, 2.0, -1.0)}),
+        }
+    )
+    assert not saved.with_suffix(".surface.stl").exists()
+    with warnings.catch_warnings(record=True) as planned:
+        warnings.simplefilter("always")
+        (shape,) = farfield_shapes(
+            case,
+            Script(version="26.120"),
+            None,
+            1000.0 if geometry == "millimeters" else 1.0,
+        )
+    expected = 4.0 if geometry == "missing" else 13.0
+    assert shape.points_m[:, 0] == pytest.approx(expected)
+    assert shape.points_m.mean(axis=0) == pytest.approx([expected, 2.0, -1.0])
+    notes = [str(w.message) for w in planned if "distance_bref" in str(w.message)]
+    assert len(notes) == (1 if geometry == "missing" else 0)
+    if notes:
+        assert "moment reference point" in notes[0] and "3" in notes[0]
+    record = shape.record()
+    table = '[[farfields]]\nvariant = "plane"\nspacing_bref = 0.25\n'
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=table,
+        files={
+            f"{_FFPROOF_POST___STEM}.txt": _FFPROOF_POST__LOADS.replace("-2.000", "0.000"),
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                shape.points_m, np.tile([68.058, 0.0, 0.0], (len(shape.points_m), 1))
+            ),
+        },
+    )
+    _ffproof_post___set_record(
+        workspace,
+        farfield_layout={"shapes": [record]},
+        point={"alpha": 0.0},
+        reference={
+            "SREF": 50.0,
+            "CREF": 2.526,
+            "BREF": 4.0,
+            "XMOM": 3.0,
+            "YMOM": 2.0,
+            "ZMOM": -1.0,
+        },
+    )
+    # Retain placement provenance even if geometry becomes readable before post.
+    out = workspace.sim_dir("3207") / "outputs" / f"{_FFPROOF_POST___STEM}.fsm"
+    if geometry == "missing":
+        saved.write_bytes(saved_geometry)
+    if geometry in {"saved", "missing"}:
+        out.write_bytes(saved.read_bytes())
+    messages = _farfield_products___post(workspace)
+    notes = [m for m in messages if "distance_bref" in m and "moment reference point" in m]
+    assert len(notes) == (1 if geometry == "missing" else 0), messages
+    rows = _farfield_products___table(
+        _farfield_products___one(workspace.root, "farfield/*_trefftz.csv")
+    )
+    row = next(row for row in rows if row["VARIANT"] == "C")
+    assert float(row["X_T_M"]) == pytest.approx(expected)
