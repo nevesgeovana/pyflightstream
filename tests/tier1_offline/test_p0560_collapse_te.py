@@ -347,6 +347,8 @@ def test_p0560_all_warns_and_skips_a_family_that_is_no_strip(tmp_path):
     report = json.loads(Path(str(out) + ".collapse.json").read_text())
     assert set(report["blades"]) == {"Blade1"}
     assert "Blade2" in report["skipped"]
+    assert "No file was written" not in report["skipped"]["Blade2"]
+    assert not report["skipped"]["Blade2"].startswith("collapse_te:")
 
 
 def test_p0560_two_blades_and_all(tmp_path):

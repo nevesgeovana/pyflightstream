@@ -435,8 +435,11 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             except InputValueError as error:
                 if explicit:
                     raise
-                skipped[blade] = str(error)
-                warn(f"collapse_te: {error} Family {blade!r} is skipped", NotApplicableWarning)
+                # The refusal's own words say no file was written; here the others go on.
+                why = str(error).removeprefix("collapse_te: ")
+                why = why.removesuffix(" No file was written.")
+                skipped[blade] = why
+                warn(f"collapse_te: {why} Family {blade!r} is skipped", NotApplicableWarning)
                 continue
         if plan is None:
             skipped[blade] = "one declared rim with no strip on its nodes: taken as already sharp"
