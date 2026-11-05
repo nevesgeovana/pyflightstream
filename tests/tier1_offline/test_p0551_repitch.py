@@ -218,7 +218,8 @@ def test_p0551_saved_marks_and_all_noncoordinate_rows_are_unchanged(tmp_path, sa
 
 
 @pytest.mark.requirement("FR-3611")
-def test_p0551_wheel_stays_periodic_and_partial_pitch_is_refused(tmp_path, saved_sector):
+@pytest.mark.parametrize("axis", ['"X"', '{ shaft = "X", vector_wrt_global = [2, 0, 0] }'])
+def test_p0551_wheel_stays_periodic_and_partial_pitch_is_refused(tmp_path, saved_sector, axis):
     from pyflightstream.workspace import sector_to_wheel
 
     wheel = tmp_path / "wheel.fsm"
@@ -231,6 +232,7 @@ rpm_sign = -1
 families_blades = ["Blade1", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"]
 blade1 = { zero = "Y", azimuth_deg = 0.0 }
 """)
+    reference.write_text(reference.read_text().replace('"X"', axis))
     config = tmp_path / "wheel.toml"
     text = """[repitch]
 angle_deg = 1.0
@@ -303,11 +305,21 @@ def test_p0551_unknown_key_and_absent_keep_warn_but_do_not_block(tmp_path, recwa
 
 @pytest.mark.requirement("FR-3608")
 @pytest.mark.parametrize("sense", [-1, 1])
-def test_p0551_auto_positive_pitch_uses_rotor_sense(tmp_path, sense):
+@pytest.mark.parametrize("tilt", [0.0, 0.15])
+def test_p0551_auto_positive_pitch_uses_rotor_sense(tmp_path, sense, tilt):
+    from pyflightstream.workspace._wheel import rotate
+
     source = source_mesh(tmp_path)
+    installation = -float(np.degrees(np.arctan(tilt)))
+    mesh = read_obj(source)
+    mesh.verts = rotate(mesh.verts, np.array([0.0, 1.0, 0.0]), np.zeros(3), installation)
+    mesh.vertex_text = []
+    source.write_text(obj_text(mesh))
+    axis = f'{{ shaft = "X", vector_wrt_global = [1.0, 0.0, {tilt}] }}' if tilt else '"X"'
     (tmp_path / "rotor.toml").write_text(f"""[ROTOR]
 kind = "rotor"
-axis = "X"
+axis = {axis}
+diameter_m = 6.0
 rpm_sign = {sense}
 families_blades = ["Blade1"]
 blade1 = {{ zero = "Z", azimuth_deg = 0.0 }}
@@ -321,6 +333,6 @@ blade1 = {{ zero = "Z", azimuth_deg = 0.0 }}
     )
     out = tmp_path / "positive.obj"
     assert invoke(source, cfg, out) == 0
-    q = read_obj(out).verts[0]
+    q = rotate(read_obj(out).verts[:1], np.array([0.0, 1.0, 0.0]), np.zeros(3), -installation)[0]
     angle = np.degrees(np.arctan2(q[1], q[0]))
     assert angle == pytest.approx(-sense, abs=1e-12)

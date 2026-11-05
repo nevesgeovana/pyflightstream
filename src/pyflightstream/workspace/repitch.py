@@ -19,6 +19,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
+from pyflightstream.cases.reference_blocks import frame_basis_for_shaft
 from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
 from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import incidence, quality, rebuild, rings, root_loop
@@ -111,6 +112,10 @@ def _rotor(cfg: dict[str, Any], control: Path, mesh: Path) -> dict[str, Any] | N
     else:
         _need(len(candidates) == 1, "reference must have one rotor or set repitch.rotor")
         rotor = next(iter(candidates.values()))
+    stated_axis = rotor["axis"]
+    rotor["axis"] = parse_axis(
+        stated_axis.get("vector_wrt_global", []) if isinstance(stated_axis, dict) else stated_axis
+    ).tolist()
     unit = mesh_unit(mesh) if mesh.suffix.lower() == ".obj" else saved_mesh_coordinate_unit(mesh)
     if unit is None:
         warn(
@@ -146,7 +151,7 @@ def _axis(name: str, cfg: dict[str, Any], rotor: Any) -> tuple[Any, Any]:
         f"blade {name!r}: reference rotor needs blade1.zero and blade1.azimuth_deg",
     )
     zero = parse_axis(datum["zero"])
-    _need(abs(float(zero @ main_axis)) < 1e-12, "reference blade1.zero must be transverse")
+    zero = np.asarray(frame_basis_for_shaft(tuple(main_axis), tuple(zero))[0])
     names = rotor["families_blades"]
     angle = float(datum["azimuth_deg"]) + names.index(name) * 360 / len(names)
     direction = rotate(zero[None, :], main_axis, np.zeros(3), angle)[0]
