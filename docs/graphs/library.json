@@ -15754,11 +15754,6 @@
     },
     {
       "source": "pyflightstream.workspace.morph",
-      "target": "pyflightstream._lengths",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.morph",
       "target": "pyflightstream._textio",
       "kind": "module"
     },

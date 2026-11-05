@@ -26,14 +26,12 @@ import numpy as np
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
-from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._pitch_axis import plane_basis
-from pyflightstream.workspace._refine._obj import mesh_unit, read_obj
+from pyflightstream.workspace._refine._obj import read_obj
 from pyflightstream.workspace._repitch_grid import incidence
 from pyflightstream.workspace._repitch_io import morphing_table
 from pyflightstream.workspace._sector_read import _ON_AXIS, _snapped
 from pyflightstream.workspace._wheel import (
-    DEFAULT_TOLERANCE_M,
     azimuth_range,
     nearest,
     parse_axis,
@@ -102,20 +100,36 @@ def sector_copies(points: Any, axis: Any, centre: Any) -> tuple[int | None, floa
     return (copies if exact else None), math.degrees(span)
 
 
-def _seams(path: Path, axis: Any, centre: Any, copies: int) -> int:
-    """Return the open edges of a sector that are no seam: their copies stay open in the wheel."""
+def _seams(path: Path, axis: Any, centre: Any, copies: int) -> tuple[int, int]:
+    """Return the open edges of a sector and those of them that are a seam.
+
+    A seam edge is an open edge whose two ends, turned one copy either way about the axis, land
+    on the two ends of another open edge. The landing is judged within half the shortest open
+    edge, where two ends cannot be taken for one another, and not within the merge tolerance:
+    judged there, a seam that the wheel leaves open (a center off the axis, copies that do not
+    tile the turn) would count as no seam, and the count of the wheel's open edges would agree
+    with it whatever the wheel holds.
+    """
     mesh = read_obj(path)
-    unit = mesh_unit(path)
-    tol = DEFAULT_TOLERANCE_M / float(METRES_PER_UNIT.get(unit or "METER", 1.0))
     owners = incidence([f for fs in mesh.families.values() for f in fs])
     open_edges = [e for e, own in owners.items() if len(own) == 1]
-    nodes = np.unique(np.array(open_edges, dtype=np.int64).reshape(-1))
-    step = 360.0 / copies
-    seam = set()
+    if not open_edges:
+        return 0, 0
+    ends = np.array(open_edges, dtype=np.int64)
+    sides = mesh.verts[ends[:, 0]] - mesh.verts[ends[:, 1]]
+    reach = 0.5 * float(np.linalg.norm(sides, axis=1).min())
+    nodes = np.unique(ends.reshape(-1))
+    points, keys = mesh.verts[nodes], set(open_edges)
+    seam: set[tuple[int, int]] = set()
     for sign in (1.0, -1.0):
-        hit = nearest(rotate(mesh.verts[nodes], axis, centre, sign * step), mesh.verts, tol)
-        seam |= {int(v) for v, h in zip(nodes, hit, strict=True) if h >= 0}
-    return sum(1 for a, b in open_edges if not (a in seam and b in seam))
+        hit = nearest(rotate(points, axis, centre, sign * 360.0 / copies), points, reach)
+        lands = {int(v): int(nodes[h]) for v, h in zip(nodes, hit, strict=True) if h >= 0}
+        for a, b in open_edges:
+            if a in lands and b in lands:
+                image = (min(lands[a], lands[b]), max(lands[a], lands[b]))
+                if image in keys and image != (a, b):
+                    seam.add((a, b))
+    return len(open_edges), len(seam)
 
 
 def _wheel_step(source: Path, data: dict[str, Any], target: Path) -> dict[str, Any]:
@@ -143,12 +157,19 @@ def _wheel_step(source: Path, data: dict[str, Any], target: Path) -> dict[str, A
         out=target,
     )
     report = dict(result.report)
-    expected = copies * _seams(source, cfg["axis"], cfg["center"], copies)
+    total, seams = _seams(source, cfg["axis"], cfg["center"], copies)
+    _need(
+        not total or bool(seams),
+        f"no open edge of the sector meets another when turned by 360/{copies} deg about the "
+        "rotor axis, so no seam of the wheel can close; check [wheel] copies, center and the "
+        "rotor axis",
+    )
+    expected = copies * (total - seams)
     merged = report["open_edges"]["merged"]
     _need(
         merged == expected,
         f"the wheel's seams did not close: it holds {merged} open edges, not the {expected} its "
-        "sector leaves open away from its seams; check [wheel] center and the rotor axis",
+        "sector leaves open away from its seams; check [wheel] copies, center and the rotor axis",
     )
     report["sector_angle_deg"] = angle
     return report

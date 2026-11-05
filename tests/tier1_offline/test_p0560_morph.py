@@ -488,3 +488,23 @@ def test_p0560_wheel_reads_the_sector_angle_and_refuses_a_full_wheel(tmp_path, c
     cfg.write_text(cfg.read_text() + "center = [0.0, 0.0, 0.5]\n" + 'axis = "x"\n')
     assert invoke("morph", sector, cfg, tmp_path / "off.obj") == 2
     assert not (tmp_path / "off.obj").exists()
+
+
+@pytest.mark.requirement("FR-3676")
+@pytest.mark.parametrize(
+    "extra",
+    ["center = [0.0, 0.0, 0.0005]\n", "copies = 2\n", "copies = 4\n"],
+    ids=["MOR1-1-centre-within-the-snap", "MOR1-1-copies-short", "MOR1-1-copies-over"],
+)
+def test_mor1_1_a_wheel_whose_seams_stay_open_is_refused(tmp_path, capsys, extra):
+    """A center off the axis by less than the angle snap, or copies that do not tile the turn,
+    leave every seam open; the seam check judged its seams at the merge tolerance, about the
+    same center, so it agreed with any wheel and the morph exited 0."""
+    sector = build(tmp_path)
+    cfg = control(tmp_path, '[wheel]\naxis = "x"\n' + extra)
+    out = tmp_path / "open.obj"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        assert invoke("morph", sector, cfg, out) == 2
+    assert "seam" in capsys.readouterr().err
+    assert not out.exists() and not Path(f"{out}.morph.json").exists()
