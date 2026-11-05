@@ -19,10 +19,52 @@ __all__ = [
     "project_sections",
     "wake_velocity",
     "anchored_wake_loads",
+    "complete_induction_wake",
 ]
 
 #: Maximum angle between a section's radial axis and its blade's measured span.
 FRAME_SPAN_TOLERANCE_DEG = 5.0
+
+
+def complete_induction_wake(lines, values, attachments, exported_lines, exported_values, *, mirror):
+    """Include all exported wakes and any missing reflection across geometry y=0.
+
+    The rotor lattice already contains its periodic copies and chord legs.
+    Other wakes start at their exported first node, without invented bound legs.
+    Matching chains identify copies already supplied by that lattice.
+    Constructed reflections reverse strength because vorticity is an axial
+    vector. An image already in the export retains its recorded strength.
+    Positions are in metres and strengths in square metres per second.
+    """
+    lines, values, attachments = list(lines), list(values), list(attachments)
+
+    def key_of(line, value):
+        coordinates = np.round(line, 8)
+        coordinates[coordinates == 0] = 0.0
+        return coordinates.tobytes(), round(float(value), 10)
+
+    supplied = [key_of(line, value) for line, value in zip(lines, values, strict=True)]
+    for line, value in zip(exported_lines, exported_values, strict=True):
+        key = key_of(line, value)
+        if key in supplied:
+            supplied.remove(key)
+        else:
+            lines.append(line)
+            values.append(value)
+            attachments.append(line[0])
+    if mirror:
+        reflection = np.array([1.0, -1.0, 1.0])
+        present = [key_of(line, 0.0) for line in lines]
+        for line, value, attachment in list(zip(lines, values, attachments, strict=True)):
+            reflected = line * reflection
+            key = key_of(reflected, 0.0)
+            if key in present:
+                present.remove(key)
+            else:
+                lines.append(reflected)
+                values.append(-value)
+                attachments.append(attachment * reflection)
+    return lines, values, attachments
 
 
 @dataclass(frozen=True)

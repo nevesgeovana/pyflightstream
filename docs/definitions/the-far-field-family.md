@@ -80,7 +80,7 @@ on `wake`, `plane` and `power`: these read the whole field, respectively every w
 line, the plane and the lattice. `stations` is a count per side on `sections` and
 a list of x/R positions on `power`. `distance_bref` belongs to `wake` and `plane`;
 the half extents and spacing belong to `plane` alone. `rotor` selects the rotor
-on `power` and `rotor_sections`. `chord_fraction` belongs to `rotor_sections`,
+on `power` and `rotor_sections`. `chord_fraction` and `induction` belong to `rotor_sections`,
 defaults to 0.25 and lies between zero and one. `station`, `frame`,
 `tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
@@ -550,6 +550,7 @@ and does not make W an independent validation of that solution.
 variant = "rotor_sections"
 rotor = "ROTOR"
 chord_fraction = 0.25
+induction = "all"
 export_type = "last_step"
 ```
 
@@ -570,10 +571,16 @@ using CF on local dynamic pressure for a surface polygon, and on reference
 dynamic pressure for a section ring. Its thrust and torque are reported
 separately from the inviscid reference.
 
-The rotor's own wake filaments supply Biot-Savart induction, using the newest
+By default every wake line on the row supplies Biot-Savart induction, using the newest
 `Normalized_Vorticity` value along each line, at scale one in square metres
 per second. Straight legs join the selected chord fraction to the first wake
-nodes. Induction is sampled between wake radii and interpolated to load
+nodes of the selected rotor. Other wakes retain their exported geometry without
+invented chord legs. `induction = "rotor"` restricts the velocity to the selected
+rotor lattice; isolated rows give the same result with either choice. Mirror
+rows include the reflected wakes in `"all"`, without duplicating images already
+in the export. A constructed reflection across geometry y=0 reverses filament
+circulation; images already exported retain their recorded strengths.
+Periodic rotor copies are included once. Induction is sampled between wake radii and interpolated to load
 strips. With unit shaft direction `a`, blade span `rhat`, tangent
 `t = a cross rhat`, and relative components `Va`, `Vt`, the lift normal is
 `n = (-Vt a + Va t) / hypot(Va, Vt)`. The inviscid load is projected onto
@@ -590,6 +597,7 @@ copies complete the wheel, including their rotated in-plane components.
 The long table is `farfield/<group>_rotor_sections_<rotor>.csv`; the companion
 `<group>_rotor_sections_<rotor>_strips.csv` carries `BLADE`, `R_M`, `DR_M`,
 `CHORD_M`, `CL`, `CDI`, `ALPHAI_DEG`, `GAMMA`, `WA_M_S` and `WT_M_S`.
+Both tables carry `INDUCTION` with the selected `all` or `rotor` value.
 Long-table and polar quantities use `T_FF_RS_ROTOR`, `Q_FF_RS_ROTOR`,
 `ETA_FF_RS_ROTOR`, `PI_FF_RS_ROTOR`, `FY_FF_RS_ROTOR`, `FZ_FF_RS_ROTOR`,
 `MY_FF_RS_ROTOR`, `MZ_FF_RS_ROTOR` and equivalent suffixes for each blade,
@@ -602,8 +610,8 @@ The export policies and window selectors are the same as W. A complete window
 averages per-step quantities; a missing surface or wake snapshot prevents an
 average. A default or last-step entry supplies only its last instant.
 On a row with any surface beyond the rotor and its hub, every row carries
-`LOCAL_VALIDATED = false` and a warning: wing and body induction is absent,
-so local `alpha_i(r)` and `Cd_i(r)` are unvalidated. Isolated rows carry true
+`LOCAL_VALIDATED = false` and a warning: local `alpha_i(r)` and `Cd_i(r)`
+remain unvalidated even with every row wake included. Isolated rows carry true
 for that applicability check; it is not a claim of experimental validation.
 
 <a id="trefftz-c"></a>

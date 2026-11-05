@@ -15,6 +15,7 @@ import numpy as np
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.farfield.rotor_sections import (
     anchored_wake_loads,
+    complete_induction_wake,
     project_sections,
     wake_velocity,
 )
@@ -167,7 +168,13 @@ def _point_products(ctx, point, rotor, *, output, read_wake, flow, per_m, copies
             _limitations(installed)
         sample = _columns(totals, spec.rotor)
         samples.append(sample)
-        base = dict(POL=point.name, ENTRY=spec.name, STEP=step, LOCAL_VALIDATED=not installed)
+        base = dict(
+            POL=point.name,
+            ENTRY=spec.name,
+            STEP=step,
+            INDUCTION=spec.induction,
+            LOCAL_VALIDATED=not installed,
+        )
         if not averaging or spec.export_type == "export_window":
             rows.append({**base, **sample})
         for name, diagnostics in strips.items():
@@ -194,6 +201,7 @@ def _point_products(ctx, point, rotor, *, output, read_wake, flow, per_m, copies
                     POL=point.name,
                     ENTRY=spec.name,
                     STEP="AVERAGE",
+                    INDUCTION=spec.induction,
                     LOCAL_VALIDATED=not installed,
                     **reduced,
                 )
@@ -242,7 +250,7 @@ def _limitations(installed):
     if installed:
         warn(
             "rotor sections LOCAL_VALIDATED=false: this row has surfaces beyond the rotor and hub; "
-            "wing and body induction is absent, so local alpha_i and Cd_i are unvalidated.",
+            "local alpha_i and Cd_i remain unvalidated even when all row wakes are included.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -272,7 +280,7 @@ def _write_products(ctx, rows, strips, contexts):
                 "analysis": "rotor_sections",
                 "entry": spec.name,
                 "friction": "CF: surface local pressure; section reference pressure",
-                "induction": "rotor wake, newest values",
+                "induction": spec.induction,
                 "export_type": spec.export_type,
             },
         )
@@ -349,6 +357,16 @@ def rotor_section_snapshot(
         all_lines.extend(_turn(line - hub, axis, angle) + hub for line in lines)
         all_values.extend(values)
         all_attachments.extend(_turn(attachments - hub, axis, angle) + hub)
+    all_lines, all_values, all_attachments = _induction_wake(
+        ctx,
+        point,
+        wake,
+        all_lines,
+        all_values,
+        attachments=all_attachments,
+        rotor_mask=mask,
+        repair_w=repair_w,
+    )
     wind = free_stream_in_export_frame(alpha, beta) * speed
     omega = 2 * math.pi * rpm / 60
     totals, diagnostics = {}, {}
@@ -387,6 +405,23 @@ def rotor_section_snapshot(
     power = abs(total["Q"] * 2 * math.pi * rpm / 60)
     total["ETA"] = abs(total["T"]) * float(wind @ axis) / power if power else float("nan")
     return totals, diagnostics
+
+
+def _induction_wake(ctx, point, wake, lines, values, *, attachments, rotor_mask, repair_w):
+    if repair_w or ctx.pproc.farfields[0].induction == "rotor":
+        return lines, values, attachments
+    other = [line for line, rotor in zip(wake.lines, rotor_mask, strict=True) if not rotor]
+    exported_values = wake.values[~rotor_mask]
+    if str(ctx.record_of[point.name].recipe) == "qsteady_rotor":
+        exported_values = -exported_values
+    return complete_induction_wake(
+        lines,
+        values,
+        attachments,
+        other,
+        exported_values,
+        mirror=str(ctx.matrix_row.variables.get("SYMMETRY", "")).upper() == "MIRROR",
+    )
 
 
 def _turn(vectors, axis, angle):
