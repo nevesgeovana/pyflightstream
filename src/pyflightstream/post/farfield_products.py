@@ -1561,6 +1561,21 @@ def _instant_values(
 
 def _warn_plane_body(ctx: SimContext, point: PolarPoint, positions: np.ndarray) -> None:
     """Warn once per point and entry when saved body bounds meet the sampled C plane."""
+    shapes = (ctx.record_of[point.name].farfield_layout or {}).get("shapes", [])
+    for shape in shapes:
+        if (
+            shape.get("kind") != "plane"
+            or shape.get("farfield_entry", _spec(ctx).name) != _spec(ctx).name
+        ):
+            continue
+        if reason := shape.get("placement_warning"):
+            warn(
+                f"point={point.name} product=farfield entry={_spec(ctx).name}: {reason} "
+                "Post retains the recorded sampled positions.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+            break
     saved = _output(ctx, point, "simulation")
     if saved is None or not len(positions):
         return

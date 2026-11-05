@@ -534,6 +534,22 @@ lines the export does not hold, is a named skip.
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the whole geometry.
+Planning reads the downstream end from the row's mesh or surface export, or
+from saved `.fsm` boundary vertices when no surface export exists (FR-3641).
+Saved vertices use their proved stored coordinate unit, independently of the
+display unit. The known surface transforms are applied before measuring the end.
+For example, with flow along +X, a body ending at 12 m, BREF of 4 m,
+`distance_bref = 0.25` and moment point (3, 2, -1) m, the plane center is
+(13, 2, -1) m. The offset is behind the body while the center stays on the
+free-stream line through the moment point.
+If the extent cannot be read or transformed, an added plane counts from the
+moment reference point instead. Planning warns once with that point in metres
+and records the reason with the plane; post repeats the warning once per point
+and entry. Such a plane may lie inside the body. Supply readable geometry and
+plan a new survey. Post keeps the sampled coordinates, including those of old
+runs; reposting does not move a survey. Older records without placement
+provenance cannot establish which origin the planner used. Explicitly declared
+planes retain their declared positions and do not acquire a fallback warning.
 During post, the actual sampled plane is checked against named boundary
 triangles of the saved geometry. Overlapping triangle bounds produce one
 warning per point and entry naming the plane location and bodies (FR-3615).

@@ -14,6 +14,11 @@ FlightStream versions.
   to write. Uneven spacing and unavailable mesh evidence warn (FR-3612,
   FR-3613). Migration: reorder `families_blades` as the refusal instructs;
   changing RPM sign does not repair blade order.
+- Trefftz C planning reads saved geometry when no surface STL exists, placing
+  `distance_bref` behind the body's downstream end. An unreadable extent warns
+  with the moment point used instead; post repeats the recorded warning without
+  moving samples (FR-3641). Migration: plan and sample a new survey to correct
+  an old plane placed inside the geometry; reposting alone cannot relocate it.
 
 - Wake products resolve whether each VTK uses the moment-point or geometry
   origin from saved mesh evidence before selecting rotors, blades and families.

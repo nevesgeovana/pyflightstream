@@ -57,7 +57,7 @@ from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
 from ._freestream import rotor_row_stepping
-from ._geometry import _extent_m, _inside
+from ._geometry import _extent_m, _inside, warn_extent_fallback
 from ._motion import _origin
 from ._names import _inventory
 from ._probe_imports import _phased_farfield, _shape_key, _stage_import
@@ -483,7 +483,10 @@ def _plane_choice(
                 )
     if not trefftz.states_plane and len(qualifying) == 1:
         return qualifying[0]
-    return identical[0] if identical else own
+    selected = identical[0] if identical else own
+    if selected.source == "added" and extent is None:
+        selected.geometry["placement_warning"] = warn_extent_fallback(case, mrp)
+    return selected
 
 
 def _lattice_placement(
@@ -1003,7 +1006,9 @@ def farfield_plane_of(case: SimCase, *, extent_m: float | None) -> FarfieldPlane
     Normal to the point's free stream, centered on the free-stream line through
     the moment reference point, ``distance_bref BREF`` behind ``extent_m``, the
     most downstream point of the geometry along the free stream (the moment
-    reference point itself where the geometry cannot be read).
+    reference point itself where the geometry cannot be read). The caller
+    records and warns about that fallback only when it adds this plane; a
+    reused declared plane retains its explicit coordinates (FR-3641).
     """
     spec = _spec(case)
     if spec is None or spec.trefftz is None:
