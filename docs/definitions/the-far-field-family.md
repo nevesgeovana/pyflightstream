@@ -531,6 +531,13 @@ lines the export does not hold, is a named skip.
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the whole geometry.
+During post, the actual sampled plane is checked against named boundary
+triangles of the saved geometry. Overlapping triangle bounds produce one
+warning per point and entry naming the plane location and bodies (FR-3615).
+This conservative check means the plane may cut a body; it is not a containment
+proof. The integral is retained with the warning. Place a new survey behind
+the geometry before interpreting it as a far-field load. Missing or unreadable
+saved geometry does not establish that the plane clears the body.
 This includes steady RPM, `unsteady_rotor` and `qsteady_rotor` rows. On a
 `qsteady_rotor` row the probes read the frame that turns with the blades, so
 their velocities are first converted to the hub frame exactly as the lattice's

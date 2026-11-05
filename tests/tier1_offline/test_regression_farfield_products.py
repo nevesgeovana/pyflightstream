@@ -5200,3 +5200,32 @@ def test_p0551_near_c_uses_half_model_load_convention(tmp_path):
         )
     assert float(after["E_T"]) == pytest.approx(2 * float(baseline["E_T"]), rel=2e-5)
     assert after["X_T_M"] == baseline["X_T_M"]
+
+
+@pytest.mark.requirement("FR-3615")
+@pytest.mark.parametrize("offset", [0.0, 10.0], ids=["P0551-cut", "P0551-clear"])
+def test_p0551_near_plane_names_intersected_body_once(tmp_path, offset):
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(1.0)
+            )
+        },
+    )
+    _ffproof_post___set_record(workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT)
+    mesh = tmp_path / "mesh"
+    mesh.mkdir()
+    center = _RFIXF_PLANE_LIFT___PLANE.points.mean(axis=0)
+    _p0551_surface(mesh, [np.array([center + [offset + 0.05, 0, 0]])])
+    saved = workspace.sim_dir("3207") / "outputs" / f"{_FFPROOF_POST___STEM}.fsm"
+    saved.write_bytes((mesh / "point.fsm").read_bytes())
+    messages = _farfield_products___post(workspace)
+    cuts = [
+        message
+        for message in messages
+        if "plane" in message and "cut" in message and "Wing" in message
+    ]
+    assert len(cuts) == (1 if offset == 0 else 0), messages
+    assert _farfield_products___one(workspace.root, "farfield/*_trefftz.csv").is_file()

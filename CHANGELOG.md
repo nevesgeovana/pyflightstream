@@ -37,6 +37,11 @@ FlightStream versions.
 
 ### Fixed
 
+- Post warns once per point and entry when a C plane overlaps saved body
+  triangle bounds, naming the plane and bodies. Migration: inspect this
+  warning before interpreting the retained integral as a far-field load
+  (FR-3615).
+
 - Trefftz C now halves its force coefficients and integral diagnostics on
   mirror rows with `SYMMETRY_LOADS` false, matching A and B. Migration:
   repost those rows; C efficiency doubles for unchanged near loads (FR-3614).

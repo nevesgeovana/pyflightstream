@@ -95,6 +95,7 @@ from pyflightstream.results.loads import drag_pair, parse_loads
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import (
     parse_wake_export,
+    plane_body_candidates,
     wake_geometry_frame,
     wake_surface_families,
 )
@@ -1501,6 +1502,8 @@ def _instant_values(
             raise PyflightstreamError(reason)
     out: dict[str, Any] = {}
     if plane_at is not None and "trefftz:plane" in analyses:
+        if final:
+            _warn_plane_body(ctx, point, instant.samples.positions[plane_at] / probe.per_m)
         out["plane"] = plane_values(
             instant.samples,
             plane_at,
@@ -1548,6 +1551,30 @@ def _instant_values(
             loading=loading,
         )
     return out
+
+
+def _warn_plane_body(ctx: SimContext, point: PolarPoint, positions: np.ndarray) -> None:
+    """Warn once per point and entry when saved body bounds meet the sampled C plane."""
+    saved = _output(ctx, point, "simulation")
+    if saved is None or not len(positions):
+        return
+    _, _, alpha, beta = _flow(point)
+    axes = farfield_axes(alpha, beta)
+    try:
+        bodies = plane_body_candidates(saved, positions, axes)
+    except (PyflightstreamError, OSError, ValueError):
+        return  # No geometry proof: do not claim the plane clears the body.
+    if bodies:
+        x = float(np.mean(positions @ axes[0]))
+        warn(
+            f"point={point.name} product=farfield entry={_spec(ctx).name}: the Trefftz C "
+            f"plane at x={x:.6g} m may cut the body {', '.join(bodies)} in {saved.name}; "
+            "saved triangle bounds intersect the sampled plane. Its integral is written "
+            "with this warning; place a new survey behind the whole geometry before "
+            "interpreting it as a far-field load.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: object):
