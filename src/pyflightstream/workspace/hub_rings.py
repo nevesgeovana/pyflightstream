@@ -437,6 +437,9 @@ def _assemble(source: ObjMesh, plans: list[_Blade], built: _Built) -> _Result:
         for v in f
     }
     count = len(source.verts)
+    # A hole node whose every kept face another blade's hole took (two holes that touch) is
+    # still a corner of both annuli: it stays, or their faces would name a removed node.
+    used |= {v for faces in built.faces.values() for f in faces for v in f if v < count}
     alive = np.array([i in used for i in range(count)])
     every = np.vstack([source.verts, *built.points]) if built.points else source.verts
     keep = np.r_[alive, np.ones(len(every) - count, dtype=bool)]

@@ -224,6 +224,24 @@ def test_p0560_rings_that_do_not_fit_are_refused_naming_a_width_that_fits(tmp_pa
     assert invoke("hub-rings", source, cfg, tmp_path / "fits.obj") == 0
 
 
+@pytest.mark.requirement("FR-3669")
+def test_mor1_5_two_holes_that_touch_keep_the_nodes_they_share(tmp_path):
+    """Two roots five cells apart, three narrow rings each: the holes meet along a line of hub
+    nodes whose every face one hole or the other takes. Those nodes were removed while both
+    annuli still named them, so their faces took the last node and were refused as folds."""
+    source = build(tmp_path, columns=[6, 11])
+    cfg = control(tmp_path, "[hub_rings]\nrings = 3\nwidth = 0.04\n")
+    cfg.write_text(cfg.read_text().replace('["Blade1"]', '["Blade1", "Blade2"]'))
+    out = tmp_path / "touch.obj"
+    assert invoke("hub-rings", source, cfg, out) == 0
+    mesh = read_obj(out)
+    assert {v for fs in mesh.families.values() for f in fs for v in f} == set(
+        range(len(mesh.verts))
+    )
+    assert record(out, "hub_rings")["checks"]["ring_counts"] == [3, 3]
+    assert open_nodes(mesh) == open_nodes(read_obj(source))
+
+
 @pytest.mark.requirement("FR-3670")
 def test_mor1_3_the_width_a_refusal_names_fits_every_blade(tmp_path, capsys):
     """Two roots three cells apart: the refusal of the first named a width judged on it alone,
