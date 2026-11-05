@@ -1219,7 +1219,13 @@ def _w_near(ctx: SimContext, point: PolarPoint, alias: str, rotor: Any, wakes: P
     # Its axial force can be halved for an in-plane shaft; its hub torque cannot.
     thrust = thrust / 2 if abs(float(rotor.axis_vector[1])) < 1e-12 else _NA
     path: Path | None = wakes.with_name(wakes.name.replace("_wakes.vtk", "_sloads.txt"))
-    if path is not None and not path.is_file() and "_iteration=" not in wakes.name:
+    if stamp := re.search(r"_iteration=(\d+)", wakes.stem):
+        path = (
+            stamped_exports(ctx.workspace.sim_dir(ctx.sim_id), point.name, wakes.parent)
+            .get(("_sloads", "txt"), {})
+            .get(int(stamp[1]))
+        )
+    elif path is not None and not path.is_file():
         path = (getattr(ctx, "exports", {}).get(point.name) or (None,))[0]
     reason = "no blade sectional export at this wake's step"
     if path is not None and Path(path).is_file():

@@ -5094,8 +5094,12 @@ def test_p0551_near_sections_touch_mirror_plane(tmp_path, side):
 
 
 @pytest.mark.requirement("FR-3613")
-@pytest.mark.parametrize("sections", [True, False], ids=["P0551-hub", "P0551-no-hub"])
-def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections):
+@pytest.mark.parametrize(
+    "sections, window",
+    [(True, False), (False, False), (True, True)],
+    ids=["P0551-hub", "P0551-no-hub", "P0551-window"],
+)
+def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections, window):
     from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
 
     lines, values = _p0470_helical_wake(
@@ -5140,14 +5144,32 @@ def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections):
             encoding="utf-8",
         )
         ctx.exports = {"point": (source, None, None)}
+        if window:
+            ctx.pproc = PprocSpec.model_validate(
+                {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 1}]}
+            )
+            record.recipe = "unsteady_rotor"
+            record.stopped_at = {"step": 1}
+            record.export_window = None
+            (tmp_path / "point_iteration=1.vtk").write_text("surface", encoding="utf-8")
+            (tmp_path / "point_iteration=1_wakes.vtk").write_text(
+                _p0470_wake_vtk(lines, values), encoding="utf-8"
+            )
+            (tmp_path / "point_iteration=1.txt").write_text(_LITB_POST__LOADS, encoding="utf-8")
+            (tmp_path / "point_sloads_iteration=1.txt").write_text(
+                source.read_text(encoding="utf-8").replace("-10, -4", "-20, -8"),
+                encoding="utf-8",
+            )
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", PyflightstreamWarning)
         _, rows, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True, prepare=prepare)
+    if window:
+        _, rows = _ffproof_post___table(next((tmp_path / "post/farfield").glob("*_average.csv")))
     row = next(row for row in rows if row["VARIANT"] == "W")
     if sections:
-        assert float(row["T_NEAR_N"]) == pytest.approx(-30)
-        assert float(row["Q_NEAR_NM"]) == pytest.approx(12)
+        assert float(row["T_NEAR_N"]) == pytest.approx(-60 if window else -30)
+        assert float(row["Q_NEAR_NM"]) == pytest.approx(24 if window else 12)
     else:
         point = ctx.points[0]
         qs = 0.5 * point.state.density_kg_m3 * point.loads.reference_velocity_m_s**2 * 4
