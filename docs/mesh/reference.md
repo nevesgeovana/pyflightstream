@@ -20,8 +20,8 @@ A reference with several blades in the `[repitch]` table of
 the same file makes the wheel periodicity a check; without one it is warned as not applying.
 
 Every check runs in memory before any file is written, and a failed check refuses:
-the face and node counts equal the source minus what was removed; no face repeats a node or
-has zero area, no new pair of nodes shares a place, and no two used nodes that share a place
+the face and node counts equal the source minus what was removed; no face the merge reaches
+repeats a node or has zero area, no new pair of nodes shares a place, and no two used nodes that share a place
 are moved apart, which refuses a hub with its own copy of a merged root node; each collapsed
 blade has one
 trailing-edge line with as many nodes as one rim, every edge of it shared by two faces; no

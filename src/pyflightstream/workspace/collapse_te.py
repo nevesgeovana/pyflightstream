@@ -489,6 +489,11 @@ def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
         for i, face in enumerate(faces):
             if (name, i) in strip:
                 continue
+            near = {owner[n] for n in face if n in owner}
+            if not near:
+                rows.append([int(index[n]) for n in face])
+                kept.append((name, i))
+                continue
             mapped = [merge.get(n, n) for n in face]
             fixed = _dedupe(mapped)
             _need(
@@ -496,7 +501,6 @@ def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
                 f"face {i + 1} of {name!r} repeats a node that is not next to its twin after the "
                 "merge",
             )
-            near = {owner[n] for n in face if n in owner}
             if len(fixed) < 3:
                 collapsed += 1
                 for blade in near:
@@ -587,11 +591,13 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
         f"the output holds {len(new)} nodes, not {len(old)} - {len(pairs)}",
     )
     checks["faces"] = {"source": src_faces, "strip": n_strip, "collapsed": r.collapsed}
-    # 2 degeneracy
-    for name, faces in out.families.items():
-        for i, f in enumerate(faces):
-            _need(len(set(f)) == len(f), f"face {i + 1} of {name!r} repeats a node")
-            _need(_area(new, f) > 0.0, f"face {i + 1} of {name!r} has zero area")
+    # 2 degeneracy, of the faces the merge reached; a face away from it is held to the source below
+    touched = set(r.moved)
+    written = [(n, f) for n, faces in out.families.items() for f in faces]
+    for (name, i), (family, f) in zip(r.kept, written, strict=True):
+        if set(src.families[name][i]) & touched:
+            _need(len(set(f)) == len(f), f"face {i + 1} of {family!r} repeats a node")
+            _need(_area(new, f) > 0.0, f"face {i + 1} of {family!r} has zero area")
     twins = len(cKDTree(new).query_pairs(0.0))
     before = len(cKDTree(old).query_pairs(0.0))
     _need(twins <= before, f"{twins - before} node pair(s) share one place after the merge")
@@ -622,7 +628,6 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
     _need(over <= over0, f"{over - over0} edge(s) now have more than two faces")
     checks["open_edges"] = {"source": len(was), "output": len(now)}
     # 5 far nodes and faces
-    touched = set(r.moved)
     far = [i for i in range(len(old)) if i not in touched]
     far_new = [int(r.index[i]) for i in far]
     _need(
@@ -641,7 +646,7 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
     for name, i in r.kept:
         pts = [r.moved[n] if n in r.moved else old[n] for n in src.families[name][i]]
         rows = _rows(np.array(pts))
-        expected.append((name, _dedupe(rows)))
+        expected.append((name, _dedupe(rows) if set(src.families[name][i]) & touched else rows))
     actual = [(n, _rows(new[f])) for n, faces in out.families.items() for f in faces]
     wanted = [(n, rows) for n, rows in expected if len(rows) >= 3]
     _need(

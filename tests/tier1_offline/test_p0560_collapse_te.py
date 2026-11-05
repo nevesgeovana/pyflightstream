@@ -826,6 +826,67 @@ def test_p0560_a_repeated_group_line_with_no_face_between_is_one_block(tmp_path)
     assert invoke(source, control(tmp_path), tmp_path / "sharp.obj") == 0
 
 
+def far_hub_face_edit(source, edit):
+    """Rewrite the source through ``edit`` of its verts and hub faces, away from the edge."""
+    mesh = read_obj(source)
+    hub = mesh.families["Hub1"]
+    verts = mesh.verts.copy()
+    edit(verts, hub)
+    source.write_text(obj_text(ObjMesh(verts, mesh.families)))
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_a_face_away_from_the_edge_is_written_as_the_source_holds_it(tmp_path):
+    source, _ = make(tmp_path, strip="own", sidecar=False)
+
+    def repeat_a_node(verts, hub):
+        hub[-1][3] = hub[-1][2]
+
+    far_hub_face_edit(source, repeat_a_node)
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning):
+        assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
+    old, new = read_obj(source), read_obj(out)
+    place = by_place(new)
+    assert new.families["Hub1"][-1] == [place[key(old.verts[n])] for n in old.families["Hub1"][-1]]
+    assert len(new.families["Hub1"][-1]) == 4
+
+
+@pytest.mark.requirement("FR-3667")
+@pytest.mark.parametrize("collinear", [False, True], ids=["coincident", "zero-area"])
+def test_p0560_a_degenerate_face_away_from_the_edge_is_no_refusal(tmp_path, collinear):
+    source, _ = make(tmp_path, strip="own", sidecar=False)
+
+    def flatten(verts, hub):
+        a, b, c, d = hub[0]
+        verts[d] = verts[a] if collinear else verts[c]
+        if collinear:
+            verts[c] = verts[b]
+
+    far_hub_face_edit(source, flatten)
+    with pytest.warns(NotApplicableWarning):
+        cfg = control(tmp_path, extra='base = ["Blade1Base"]')
+        assert invoke(source, cfg, tmp_path / "sharp.obj") == 0
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_near_face_with_a_repeated_node_or_no_area_is_refused(tmp_path):
+    result, plans = collapsed(tmp_path, strip="own")
+    node = plans[0].rim_a[0]
+    face = next(f for f in result.source.families["Hub1"] if node in f)
+    at = result.source.families["Hub1"].index(face)
+    written = result.mesh.families["Hub1"][at]
+    keep = list(written)
+    written[1] = written[0]
+    with pytest.raises(InputValueError, match="repeats a node"):
+        cte._verify(result)
+    written[:] = keep
+    # A third corner on the first: the nodes stay distinct and the area is exactly zero.
+    result.mesh.verts[written[2]] = result.mesh.verts[written[0]]
+    with pytest.raises(InputValueError, match="zero area"):
+        cte._verify(result)
+
+
 @pytest.mark.requirement("FR-3666")
 @pytest.mark.parametrize(
     "text",
