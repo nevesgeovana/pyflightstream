@@ -758,7 +758,7 @@ def _rotor(cfg_path: Path, mesh_path: Path) -> Any:
     if not isinstance(table, dict) or "reference" not in table:
         return None
     try:
-        return read_rotor(dict(table), cfg_path, mesh_path)
+        return read_rotor(dict(table), cfg_path, mesh_path, verb="collapse_te")
     except KeyError as error:
         raise InputValueError(
             f"collapse_te: the rotor of the [repitch] reference states no {error}. "
@@ -921,10 +921,11 @@ def collapse_trailing_edge(
     _readback(result.mesh, payload)
     checks["readback_equal"] = True
     rw = Rewrite(
+        verb="collapse_te",
         counts=(
             sum(len(f) for f in result.mesh.families.values()),
             [len(f) for f in result.mesh.families.values()],
-        )
+        ),
     )
     merged_line: dict[str, np.ndarray] = {}
     new_by_old = result.mesh.verts[result.index]

@@ -919,6 +919,38 @@ def test_p0560_a_detection_entry_loses_only_the_family_the_collapse_removes(tmp_
     refused(tmp_path, capsys, source, control(tmp_path), "detects only on families")
 
 
+@pytest.mark.requirement("FR-3667")
+@pytest.mark.parametrize(
+    ("verb", "text"),
+    [
+        ("collapse-te", "collapse_te: marking 'Blade1U.wake.txt, Blade1L.wake.txt' is not on"),
+        ("repitch", "repitch: marking 'Blade1L.wake.txt' is not on source nodes"),
+    ],
+)
+def test_p0560_a_stale_marking_is_refused_under_the_name_of_the_verb(tmp_path, capsys, verb, text):
+    source, _ = make(tmp_path, strip="same", layers=3)
+    pts(tmp_path / "Blade1L.wake.txt", read_te(tmp_path / "Blade1L.wake.txt")[1] + 1e-3)
+    cfg = tmp_path / "rep.toml"
+    cfg.write_text(REPITCH)
+    cfg = cfg if verb == "repitch" else control(tmp_path)
+    assert invoke(source, cfg, tmp_path / "bad.obj", verb) == 2
+    err = capsys.readouterr().err
+    assert text in err
+    assert f"before {'repitch' if verb == 'repitch' else 'collapse_te'}" in err
+    assert (verb == "repitch") == ("repitch" in err.replace("geometry repitch", ""))
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_a_rotor_table_refusal_names_collapse_te(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own")
+    (tmp_path / "rotor.toml").write_text('[A]\nkind = "rotor"\naxis = "Z"\n')
+    cfg = tmp_path / "morphing.toml"
+    cfg.write_text(
+        '[collapse_te]\nblades = ["Blade1"]\n[repitch]\nreference = "rotor.toml"\nrotor = "B"\n'
+    )
+    refused(tmp_path, capsys, source, cfg, "collapse_te: reference has no rotor 'B'")
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")

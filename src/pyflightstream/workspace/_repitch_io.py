@@ -38,12 +38,14 @@ def _carry(value: Any, point_file: Any) -> Any:
     return result
 
 
-def _need_rotor(ok: bool, message: str) -> None:
+def _need_rotor(ok: bool, message: str, verb: str) -> None:
     if not ok:
-        raise InputValueError(f"repitch: {message}. No file was written.")
+        raise InputValueError(f"{verb}: {message}. No file was written.")
 
 
-def read_rotor(cfg: dict[str, Any], control: Path, mesh: Path) -> dict[str, Any] | None:
+def read_rotor(
+    cfg: dict[str, Any], control: Path, mesh: Path, verb: str = "repitch"
+) -> dict[str, Any] | None:
     """Return the rotor table a ``[repitch]`` reference names, in mesh units, or None."""
     if "reference" not in cfg:
         return None
@@ -51,10 +53,12 @@ def read_rotor(cfg: dict[str, Any], control: Path, mesh: Path) -> dict[str, Any]
     data = tomllib.loads(source.read_text(encoding="utf-8"))
     candidates = {k: v for k, v in data.items() if isinstance(v, dict) and v.get("kind") == "rotor"}
     if "rotor" in cfg:
-        _need_rotor(cfg["rotor"] in candidates, f"reference has no rotor {cfg['rotor']!r}")
+        _need_rotor(cfg["rotor"] in candidates, f"reference has no rotor {cfg['rotor']!r}", verb)
         rotor = candidates[cfg["rotor"]]
     else:
-        _need_rotor(len(candidates) == 1, "reference must have one rotor or set repitch.rotor")
+        _need_rotor(
+            len(candidates) == 1, "reference must have one rotor or set repitch.rotor", verb
+        )
         rotor = next(iter(candidates.values()))
     stated_axis = rotor["axis"]
     rotor["axis"] = parse_axis(
@@ -63,12 +67,12 @@ def read_rotor(cfg: dict[str, Any], control: Path, mesh: Path) -> dict[str, Any]
     unit = mesh_unit(mesh) if mesh.suffix.lower() == ".obj" else saved_mesh_coordinate_unit(mesh)
     if unit is None:
         warn(
-            "repitch: mesh unit is unstated; reference origin is interpreted in metres",
+            f"{verb}: mesh unit is unstated; reference origin is interpreted in metres",
             NotApplicableWarning,
         )
         unit = "METER"
     _need_rotor(
-        unit in METRES_PER_UNIT, f"mesh unit {unit!r} has no metre scale; state a known unit"
+        unit in METRES_PER_UNIT, f"mesh unit {unit!r} has no metre scale; state a known unit", verb
     )
     for key in ("x_m", "y_m", "z_m"):
         rotor[key] = float(rotor.get(key, 0)) / METRES_PER_UNIT[unit]
@@ -85,7 +89,7 @@ class Rewrite:
     of several source files; ``dead`` holds the source edges the verb removed, so that a marking
     still on one is refused; ``counts`` states the face total of the output and its count per
     family, in family order; ``dedupe`` names the termination files whose repeated rows are
-    dropped.
+    dropped; ``verb`` is the name a refusal gives the operation.
     """
 
     edit: Callable[[dict[str, Any]], None] | None = None
@@ -94,6 +98,7 @@ class Rewrite:
     dead: set[tuple[int, int]] = field(default_factory=set)
     counts: tuple[int, list[int]] | None = None
     dedupe: set[str] = field(default_factory=set)
+    verb: str = "repitch"
 
 
 def attachments(
@@ -139,18 +144,19 @@ def attachments(
         loads = [points_from_file(source, source.parent / n) for n in rw.merged.get(value, [value])]
         loaded = loads[0]
         assert loaded is not None
+        shown = ", ".join(rw.merged.get(value, [value]))
         found = np.vstack([x.points for x in loads if x is not None])
         distance, ids = tree.query(found)
         tolerance = max(mesh.size * 1e-8, 1e-10)
         if np.any(distance > tolerance):
             raise InputValueError(
-                f"repitch: marking {value!r} is not on source nodes or edge midpoints; "
-                "regenerate its points before repitch. No file was written."
+                f"{rw.verb}: marking {shown!r} is not on source nodes or edge midpoints; "
+                f"regenerate its points before {rw.verb}. No file was written."
             )
         count = len(mesh.verts)
         if rw.dead and any(i >= count and tuple(pairs[i - count]) in rw.dead for i in ids.tolist()):
             raise InputValueError(
-                f"collapse_te: marking {value!r} lies on an edge of the removed strip; "
+                f"{rw.verb}: marking {shown!r} lies on an edge of the removed strip; "
                 "move or remove that marking. No file was written."
             )
         points = new_points[ids] * loaded.to_file
