@@ -9,6 +9,12 @@ and an optional unique `name`. `families` belongs only to `sections`; `wake`,
 `plane` and `power` read the whole field. Geometry keys are checked against the
 selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
 
+Post appends every far-field target to polar and super tables as
+`<QUANTITY>_FF_<METHOD>_<TARGET>`, for example `CDI_FF_B_TOTAL` and `CDI_FF_B_W`.
+Only entries that collide on the same point, method and target add their name,
+as in `CDI_FF_C_TOTAL_c05`. These are output names; the input keys and long
+far-field table columns keep their existing forms.
+
 `variant = "rotor_sections"` requires `rotor = "<alias>"` and accepts
 `chord_fraction = 0.25` (zero through one). It writes the experimental
 `farfield/<group>_rotor_sections_<rotor>.csv` and companion `_strips.csv`,

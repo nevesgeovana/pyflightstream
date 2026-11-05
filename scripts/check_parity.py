@@ -247,6 +247,18 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "post",
         "pattern": "*/polars/*.csv",
+        "renamed_farfield_columns": r"(?:CL_T|CDI_T|E_T)_[ABCDW]_.+",
+        "inserted_farfield_columns": r"[A-Z][A-Z0-9_]*_FF_[ABCDW]_.+",
+        "requirement": "FR-1062",
+        "since": "0.55.1",
+        "why": (
+            "far-field columns become <QUANTITY>_FF_<METHOD>_<TARGET>, including family, "
+            "blade and rotor rows; entry suffixes occur only for colliding targets"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/polars/*.csv",
         "csv_rounding": "base",
         "requirement": "FR-124",
         "since": "0.40.0",
@@ -1492,6 +1504,31 @@ def _fields(line: str, legacy: bool) -> list[str]:
     return [line[i : i + LEGACY_FIELD].strip(" ") for i in range(0, len(line), LEGACY_FIELD)]
 
 
+def _farfield_column_rename(old: str, new: str, retired: str, inserted: str) -> bool:
+    """Allow only FR-1062 columns, preserving old totals and all unrelated cells."""
+    before, after = list(csv.reader(io.StringIO(old))), list(csv.reader(io.StringIO(new)))
+    if not before or not after or len(before) != len(after):
+        return False
+    old_names, new_names = before[0], after[0]
+    kept = [name for name in old_names if not re.fullmatch(retired, name)]
+    if kept != [name for name in new_names if not re.fullmatch(inserted, name)]:
+        return False
+    for left, right in zip(before[1:], after[1:], strict=True):
+        if len(left) != len(old_names) or len(right) != len(new_names):
+            return False
+        a, b = dict(zip(old_names, left, strict=True)), dict(zip(new_names, right, strict=True))
+        if any(a[name] != b[name] for name in kept):
+            return False
+        for name in set(old_names) - set(kept):
+            quantity, _, rest = name.partition("_T_")
+            method, _, entry = rest.partition("_")
+            target = f"{quantity}_FF_{method}_TOTAL"
+            target = f"{target}_{entry}" if f"{target}_{entry}" in b else target
+            if a[name] != b.get(target):
+                return False
+    return True
+
+
 def inserts_and_fills(old: str, new: str, inserted: str, filled: str, cells: str) -> bool:
     """Whether ``new`` is ``old`` with columns inserted and NA cells filled, and nothing else.
 
@@ -1690,6 +1727,10 @@ def name_difference(
             continue
         appended = named.get("appended_column")
         if appended and not appends_one_column(old or "", new, appended, named["cells"]):
+            continue
+        if "renamed_farfield_columns" in named and not _farfield_column_rename(
+            old or "", new, named["renamed_farfield_columns"], named["inserted_farfield_columns"]
+        ):
             continue
         if "inserted_columns" in named and not inserts_and_fills(
             old or "", new, named["inserted_columns"], named["filled_columns"], named["cells"]

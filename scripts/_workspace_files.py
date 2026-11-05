@@ -790,7 +790,8 @@ def workspace_data(root):
         (
             "polars",
             "<polar>.csv",
-            "Coefficient tables over the swept conditions.",
+            "Coefficient tables over the swept conditions, with far-field cells named "
+            "<QUANTITY>_FF_<METHOD>_<TARGET> and entry suffixes only on collisions.",
             "pyflightstream.post._sim:_group_polar",
             "pyflightstream.post._tables:read_csv_table",
             "steps-35",
