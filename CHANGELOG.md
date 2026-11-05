@@ -9,6 +9,12 @@ FlightStream versions.
 
 ### Added
 
+- Planning refuses rotor blade lists whose mesh azimuths disagree with the
+  per-blade frames by more than a quarter pitch, and prints the computed list
+  to write. Uneven spacing and unavailable mesh evidence warn (FR-3612,
+  FR-3613). Migration: reorder `families_blades` as the refusal instructs;
+  changing RPM sign does not repair blade order.
+
 - Wake products resolve whether each VTK uses the moment-point or geometry
   origin from saved mesh evidence before selecting rotors, blades and families.
   Ambiguous evidence warns with both distances; `products.json` records the

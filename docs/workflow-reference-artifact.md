@@ -84,6 +84,21 @@ is the length of `families_blades`** and nothing else, so a row states
 no count and a sector mesh carrying one blade of four still reduces
 over four.
 
+List blades in positive right-hand order about the declared shaft, starting
+with blade one. Planning measures each family's area-weighted centroid about
+the hub and refuses an angular mismatch greater than a quarter of the blade
+pitch. The message names the mesh, the rotor, the written list and its computed
+replacement. For a four-blade wheel numbered in the opposite sense, write:
+
+```toml
+families_blades = ["Blade1", "Blade4", "Blade3", "Blade2"]
+```
+
+This check compares geometry with the blade frames; changing `rpm_sign` does
+not change the required order. Uneven spacing warns. One blade is silent;
+an unreadable wheel or a sector carrying only one listed family warns once per
+plan with the reason. The moment point is independent of the rotor hub.
+
 `axis = "X"` (also Y or Z) is shorthand for
 `axis = { shaft = "X", vector_wrt_global = [1, 0, 0] }`.
 For an installed shaft, write for example:

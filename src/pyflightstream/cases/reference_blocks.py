@@ -188,7 +188,10 @@ class RotorBlock(BaseModel):
         hub. It has no local axis of its own: its local frame IS the
         rotor's.
     families_blades : list of str
-        One entry per blade, in order. THE BLADE COUNT IS THE LENGTH OF
+        One entry per blade, in positive right-hand order about the shaft.
+        Planning checks readable mesh centroids against this order and names
+        the list to write on a mismatch greater than a quarter blade pitch.
+        RPM sign does not change this order. THE BLADE COUNT IS THE LENGTH OF
         THIS LIST, so a row states no blade count and a sector mesh
         carrying one blade of four still reduces over four.
     blade1 : BladeDatum

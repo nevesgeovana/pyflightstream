@@ -186,6 +186,11 @@
       "path": "cases/acoustics.py"
     },
     {
+      "id": "pyflightstream.cases.blade_order",
+      "layer": 3,
+      "path": "cases/blade_order.py"
+    },
+    {
       "id": "pyflightstream.cases.ccs_fuselage",
       "layer": 3,
       "path": "cases/ccs_fuselage.py"
@@ -2401,6 +2406,36 @@
       "source": "pyflightstream.cases.acoustics",
       "target": "pyflightstream.script",
       "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream._mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream.cases",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.cases.blade_order",
+      "target": "pyflightstream.cases.reference_blocks",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.cases.ccs_fuselage",
@@ -11281,6 +11316,11 @@
       "source": "pyflightstream.run._plan",
       "target": "pyflightstream.cases._skipped_families",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._plan",
+      "target": "pyflightstream.cases.blade_order",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._plan",

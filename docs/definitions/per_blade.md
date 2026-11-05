@@ -55,7 +55,10 @@ number of frames that entered the average, which is fewer than
   periodic sector carrying two blades of four spaces them a quarter turn apart.
   Without the rotor's clock they read `NA`; the averages are written all the same.
 - **Which families are a rotor's blades** is the `families_blades` of its block
-  in the reference artifact; the run also records them. A row
+  in the reference artifact; the run also records them. The list follows the
+  frames' positive right-hand order about the rotor shaft, independently of RPM
+  sign. Planning checks readable blade centroids and refuses a mismatch greater
+  than a quarter pitch, naming the corrected list. A row
   that states its rotor with flat keys and cites no block has no per-blade
   table, and `products.json` says why.
 
