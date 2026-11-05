@@ -749,3 +749,29 @@ def test_p0560_a_line_the_boundaries_file_cannot_take_is_named_in_a_warning(tmp_
         assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
     assert len(read_te(tmp_path / "sharp.Blade1.te.txt")[1]) == 4
     assert "sharp.Blade1.te.txt" not in Path(str(out) + ".boundaries.toml").read_text()
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_a_hub_with_its_own_copy_of_the_root_nodes_is_not_cracked(tmp_path, capsys):
+    verts, families, info = blade_parts("Blade1", 0, strip="own")
+    count = info["count"]
+    copies = len(verts)
+    families["Hub1"] = [[n + copies if n < count else n for n in f] for f in families["Hub1"]]
+    source = tmp_path / "sector.obj"
+    source.write_text(obj_text(ObjMesh(np.vstack([verts, verts[:count]]), families)))
+    cfg = control(tmp_path, extra='base = ["Blade1Base"]')
+    with pytest.warns(NotApplicableWarning):
+        refused(tmp_path, capsys, source, cfg, "opens a crack")
+
+
+@pytest.mark.requirement("FR-3667")
+def test_p0560_coincident_nodes_that_merge_or_stay_are_no_crack(tmp_path):
+    source, infos = make(tmp_path, strip="own", sidecar=False)
+    mesh = read_obj(source)
+    node = infos["Blade1"]["node"]
+    verts = np.vstack([mesh.verts, mesh.verts[0]])
+    verts[node(0, M + 1)] = verts[node(0, M)]
+    source.write_text(obj_text(ObjMesh(verts, mesh.families)))
+    with pytest.warns(NotApplicableWarning):
+        cfg = control(tmp_path, extra='base = ["Blade1Base"]')
+        assert invoke(source, cfg, tmp_path / "sharp.obj") == 0

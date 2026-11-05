@@ -529,6 +529,18 @@ def _open_by_place(mesh: ObjMesh, moved: dict[int, np.ndarray]) -> set[frozenset
     return out
 
 
+def _no_crack(src: ObjMesh, moved: dict[int, np.ndarray], twins: set[Edge]) -> None:
+    """Refuse a merge that parts two used nodes sharing one place: it opens a crack there."""
+    used = {n for faces in src.families.values() for f in faces for n in f}
+    for p, q in sorted(twins):
+        place_p, place_q = moved.get(p, src.verts[p]), moved.get(q, src.verts[q])
+        _need(
+            p not in used or q not in used or np.array_equal(place_p, place_q),
+            f"source nodes {p + 1} and {q + 1} share one place and the merge moves them apart, "
+            "which opens a crack in the mesh; join them in the source first",
+        )
+
+
 def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
     """Refuse any difference from the source the collapse does not account for."""
     from scipy.spatial import cKDTree
@@ -559,6 +571,7 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
     before = len(cKDTree(old).query_pairs(0.0))
     _need(twins <= before, f"{twins - before} node pair(s) share one place after the merge")
     checks["coincident_node_pairs"] = {"source": before, "output": twins}
+    _no_crack(src, r.moved, cKDTree(old).query_pairs(0.0))
     # 3 one line per blade
     owners = _edge_faces(out)
     for plan in r.plans:

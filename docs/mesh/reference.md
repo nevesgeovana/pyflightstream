@@ -19,7 +19,9 @@ the same file makes the wheel periodicity a check; without one it is warned as n
 
 Every check runs in memory before any file is written, and a failed check refuses:
 the face and node counts equal the source minus what was removed; no face repeats a node or
-has zero area, and no new pair of nodes shares a place; each collapsed blade has one
+has zero area, no new pair of nodes shares a place, and no two used nodes that share a place
+are moved apart, which refuses a hub with its own copy of a merged root node; each collapsed
+blade has one
 trailing-edge line with as many nodes as one rim, every edge of it shared by two faces; no
 open edge appears or disappears except the removed rungs and no edge gains a third face;
 the nodes away from the edge keep their text and order, and the faces away from it their
