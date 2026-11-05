@@ -7,7 +7,7 @@ OBJ. A saved `.fsm` is refused with a message that the operation works on the OB
 
 | `[collapse_te]` key | Meaning |
 |---|---|
-| `blades` | Nonempty list of blade families, or `"all"` for every family with a declared blunt edge; under `"all"` a family whose declared edge is not a one-cell strip between two rims, such as a nacelle's base, is warned and skipped |
+| `blades` | Nonempty list of blade families, or `"all"` for every family with a declared blunt edge; under `"all"` a family whose declared edge is not a one-cell strip between two rims, such as a nacelle's base, or an entry marked by detection, which declares no rims, is warned and skipped |
 | `base` | Optional list of the groups holding the strips, one for each blade in the order of `blades` |
 
 Unknown keys are warned and skipped. Of the `[repitch]` table of the same file only `reference`
