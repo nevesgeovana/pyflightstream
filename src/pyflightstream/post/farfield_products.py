@@ -93,7 +93,11 @@ from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.results.loads import drag_pair, parse_loads
 from pyflightstream.results.sectional_loads import parse_sectional_loads
-from pyflightstream.results.wake import parse_wake_export, wake_surface_families
+from pyflightstream.results.wake import (
+    parse_wake_export,
+    wake_geometry_frame,
+    wake_surface_families,
+)
 from pyflightstream.workspace.naming import sweep_file_stem
 
 if TYPE_CHECKING:
@@ -675,6 +679,23 @@ def _per_m(ctx: SimContext, point: PolarPoint) -> float | None:
     )
 
 
+def _moment_point(ctx: SimContext) -> np.ndarray:
+    return np.array([ctx.reference.xmom_m, ctx.reference.ymom_m, ctx.reference.zmom_m])
+
+
+def _read_geometry_wake(ctx, point, path, per_m, *, diagnose=True):
+    wake = parse_wake_export(path.read_text(encoding="utf-8"))
+    return wake_geometry_frame(
+        wake,
+        _output(ctx, point, "simulation"),
+        _moment_point(ctx),
+        per_m=per_m,
+        diagnose=diagnose,
+        mirror=_symmetry(ctx)[0],
+        surface=path.with_name(path.stem.removesuffix("_wakes") + ".vtk"),
+    )
+
+
 def _variant_b(
     ctx: SimContext,
     point: PolarPoint,
@@ -711,7 +732,7 @@ def _variant_b(
         )
         return []
     try:
-        wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
+        wake, _ = _read_geometry_wake(ctx, point, wakes, per_m)
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
@@ -720,7 +741,7 @@ def _variant_b(
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
     turn = farfield_axes(alpha, beta)
-    lines, values = [(line / per_m) @ turn.T for line in wake.lines], wake.values
+    lines, values = [line @ turn.T for line in wake.lines], wake.values
     x_t = max((float(line[0, 0]) for line in lines), default=0.0)
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
@@ -855,7 +876,12 @@ def _b_family_names(ctx: SimContext, point: PolarPoint, starts: np.ndarray) -> l
     if saved is not None:
         try:
             matched = wake_surface_families(
-                saved, starts, _output(ctx, point, "vtk"), per_m=_per_m(ctx, point) or 1.0
+                saved,
+                starts,
+                _output(ctx, point, "vtk"),
+                per_m=_per_m(ctx, point) or 1.0,
+                moment_m=_moment_point(ctx),
+                mirror=_symmetry(ctx)[0],
             )
             spelling = {name.casefold(): name for name in point.loads.surfaces}
             return [spelling.get(name, name) if name is not None else None for name in matched]
@@ -897,7 +923,15 @@ def _b_groups(ctx, point, key, lines, values, *, mirror, turn, lattices, step):
 def _total_trace(ctx, point, key, lines, values, *, x_t, mirror, turn, lattices, step):
     """Integrate all established groups once, naming every omitted group in TOTAL."""
     named = _b_groups(
-        ctx, point, key, lines, values, mirror=mirror, turn=turn, lattices=lattices, step=step
+        ctx,
+        point,
+        key,
+        lines,
+        values,
+        mirror=mirror,
+        turn=turn,
+        lattices=lattices,
+        step=step,
     )
     crossings, names, omitted = [], [], []
     rho, speed, _, _ = _flow(point)
@@ -1072,7 +1106,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             raise PyflightstreamError(
                 "the point saved no simulation whose length unit the package reads"
             )
-        wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
+        wake, _ = _read_geometry_wake(ctx, point, wakes, per_m)
     except (PyflightstreamError, OSError) as error:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
@@ -1084,7 +1118,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
     if not speeds and len(rotors) == 1 and isinstance(flat, int | float):
         # A plan of one rotor states its speed at the row level.
         speeds = {str(next(iter(rotors))): float(flat)}
-    lines = [line / per_m for line in wake.lines]
+    lines = list(wake.lines)
     wind = farfield_axes(alpha, beta)[0]
     loads = point.loads
     v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
@@ -2073,6 +2107,9 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
                 item.name: {"export_type": item.export_type} for item in ctx.pproc.farfields
             },
         }
+        frames = _wake_frame_provenance(ctx, tables.inputs.get(suffix, {}))
+        if frames:
+            entry["wake_frames"] = frames
         if "_" in suffix:
             entry["reduction"] = suffix.split("_")[1]
         if suffix in tables.reduced:
@@ -2095,3 +2132,22 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
                 if point.name in tables.inputs.get(suffix, {})
             }
         ctx.add(path, entry)
+
+
+def _wake_frame_provenance(ctx: SimContext, inputs) -> dict:
+    """Record the translation decision for each consumed wake snapshot."""
+    frames: dict[str, dict[str, object]] = {}
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    for point in ctx.points:
+        per_m = _per_m(ctx, point)
+        if per_m is None:
+            continue
+        for name in inputs.get(point.name, []):
+            if not name.endswith("_wakes.vtk"):
+                continue
+            try:
+                _, evidence = _read_geometry_wake(ctx, point, root / name, per_m, diagnose=False)
+            except (PyflightstreamError, OSError, ValueError):
+                continue  # the product's existing read diagnostic names the failed export
+            frames.setdefault(point.name, {})[name] = evidence
+    return frames

@@ -207,6 +207,95 @@ def _p0551_surface(root, lines):
     )
 
 
+@pytest.mark.requirement("FR-3606")
+@pytest.mark.parametrize("export_frame", ["moment_point", "geometry"])
+@pytest.mark.parametrize("mirror", [False, True])
+def test_p0551_wakeframe_places_all_consumers_in_geometry(tmp_path, export_frame, mirror):
+    """Post identical physical wakes in either export frame, with an off-origin MRP."""
+    lines, values = _p0470_wing_lines()
+    values = list(values)
+    for angle in (0.0, math.pi):
+        for radius, value in zip((0.3, 0.6, 0.9), (1.0, 0.5, -0.7), strict=True):
+            y, z = radius * math.cos(angle), 2 + radius * math.sin(angle)
+            lines.append(np.array([(3.0, y, z), (30.0, y, z)]))
+            values.append(value)
+    moment = np.array([9.152, 0.4, -0.2])
+
+    def run(folder, offset, translated):
+        def prepare(ctx):
+            if mirror:
+                ctx.matrix_row.variables.update(SYMMETRY="MIRROR", SYMMETRY_LOADS="true")
+            ctx.reference = replace(
+                ctx.reference, xmom_m=offset[0], ymom_m=offset[1], zmom_m=offset[2]
+            )
+            # A saved mirror model holds one half; the wake holds both halves.
+            evidence = [line for line in lines if line[0, 1] <= 0] if mirror else lines
+            _p0551_surface(folder, evidence)
+            if translated:
+                from pyflightstream.results.surface import read_vtk_surface, write_vtk_surface
+
+                surface = read_vtk_surface(folder / "point.vtk")
+                write_vtk_surface(
+                    folder / "point.vtk",
+                    replace(surface, points=surface.points - offset),
+                    title="shifted surface",
+                    overwrite=True,
+                )
+            ctx.products = {}
+            ctx.add = lambda path, entry: ctx.products.update({str(path): entry})
+
+        return _p0470_post_rotor_wake(
+            folder,
+            [line - offset if translated else line for line in lines],
+            np.array(values),
+            rotor=True,
+            rotor_cl=0.1,
+            prepare=prepare,
+        )
+
+    _, control, _ = run(tmp_path / "control", np.zeros(3), False)
+    _, actual, ctx = run(tmp_path / "offset", moment, export_frame == "moment_point")
+    assert [(r["FAMILY"], r["VARIANT"]) for r in actual] == [
+        (r["FAMILY"], r["VARIANT"]) for r in control
+    ]
+    assert {r["FAMILY"] for r in actual} >= {"Wing", "Blade1", "Blade2", "ROTOR", "TOTAL"}
+    for got, expected in zip(actual, control, strict=True):
+        for column in ("CL_T", "CDI_T", "X_T_M", "T_WAKE_N", "Q_WAKE_NM"):
+            if expected[column] == "NA":
+                assert got[column] == "NA"
+            else:
+                assert float(got[column]) == pytest.approx(
+                    float(expected[column]), rel=2e-5, abs=1e-12
+                )
+    product = next(v for k, v in ctx.products.items() if k.endswith("_trefftz.csv"))
+    assert "wake_frames" in product
+    decision = product["wake_frames"]["point"]["point_wakes.vtk"]
+    assert decision["frame"] == export_frame
+    assert decision["ambiguous"] is False
+
+
+@pytest.mark.requirement("FR-3607")
+@pytest.mark.parametrize("ambiguous", ["neither", "both", "unreadable"])
+def test_p0551_wakeframe_ambiguous_evidence_warns(tmp_path, ambiguous):
+    lines, values = _p0470_wing_lines()
+    moment = np.array([9.152, 0.0, 0.0])
+
+    def prepare(ctx):
+        ctx.reference = replace(ctx.reference, xmom_m=moment[0])
+        evidence = (
+            [line + 100 for line in lines]
+            if ambiguous == "neither"
+            else [*lines, *[line + moment for line in lines]]
+        )
+        _p0551_surface(tmp_path, evidence)
+        if ambiguous == "unreadable":
+            (tmp_path / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n")
+
+    with pytest.warns(PyflightstreamWarning, match="wake frame.*moment_point=.*geometry="):
+        _, rows, _ = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=False, prepare=prepare)
+    assert float(rows[-1]["X_T_M"]) == pytest.approx(lines[0][0, 0] + 9.152 + 1.0)
+
+
 @pytest.mark.requirement("FR-3604")
 def test_p0551_surface_family_combines_its_sheets(tmp_path):
     lines, values, _ = _pfs2187_sheet_lines()

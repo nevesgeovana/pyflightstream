@@ -284,6 +284,40 @@ their missing shed circulation can bias the result.
 Its coordinates are in the simulation's length unit, which post reads from the
 point's saved simulation; a point whose unit cannot be read is a named skip.
 
+**Coordinate frame.** Before rotor selection, blade azimuth, family matching,
+mirror-half selection or plane placement, post puts wake coordinates in geometry
+metres. It compares the start nodes with the row's saved mesh vertices under two
+translations: adding the moment point and leaving them unshifted. A candidate
+lands when its maximum nearest-vertex distance is at most one percent of the
+mesh extent (with a floor of `1e-7 m`). Exactly one landing chooses that frame.
+The declared mirror symmetry supplies reflected saved vertices before matching.
+When the snapshot has a surface VTK, post first aligns that surface independently
+to the saved mesh using the median nearest-vertex distance and the same tolerance,
+then compares every wake start with the aligned surface. The surface median
+tolerates moving blades whose saved mesh retains the initial placement; this
+requires a stationary majority, and both the median and maximum are recorded.
+An ambiguous surface alignment falls back to the saved mesh evidence.
+If neither or both land, post uses the moment-point translation and warns with
+both distances and the tolerance. Missing independent geometry is ambiguous too.
+Unreadable saved geometry is reported as unavailable evidence and uses the same
+warned fallback. An origin moment point needs no translation and retains the numerical results.
+The chosen frame, translation and distances are recorded per wake snapshot in
+`products.json` under `wake_frames`. Surface VTK vertices used for family
+confirmation are independently aligned against the saved mesh by the same rule.
+RPT-074 measured a 90-degree rotation about z for surface VTK on 26.124:
+the points followed the analysis-loads frame, including its origin. That probe
+does not establish the wake's rotation or an out-of-plane tilted reference.
+The wake resolver tests translations only; rotated wake exports remain untested.
+The command grammar locators are FSM-26.100 p.348 and FSM-26.127 p.366;
+the frame interpretation here rests on probe evidence, not a manual frame claim.
+
+For example, a start exported at `(-6.152, 0.3, 2)` with moment point
+`(9.152, 0, 0)` becomes `(3, 0.3, 2)` when that candidate lands on the saved
+geometry. A geometry-frame export of the same start remains `(3, 0.3, 2)`.
+The product-path regression `test_p0551_wakeframe_places_all_consumers_in_geometry`
+executes both cases and compares surface, blade, rotor and TOTAL rows.
+`X_T_M` retains the geometry origin, projected onto the free-stream axis, as C does.
+
 **Trace.** The plane normal to the free stream at `distance_bref BREF` behind
 the most downstream point of the selected families. Each wake line is cut at its
 first crossing of the plane (linear interpolation on the straddling segment).
@@ -375,6 +409,10 @@ alias, from the lines selected by that rotor's start-node region (the rule of
 [Trefftz B](#trefftz-b)), in metres, about the rotor's hub and axis `e_a`. This
 spatial selection is not a verified trailing-edge family map: overlapping rotor
 regions or nearby wing trailing edges can make membership ambiguous.
+
+W uses the same geometry-frame conversion as B. Its torque arm is measured
+from the rotor hub, not from the moment point: translating the export changes
+neither the physical hub-relative radius nor the definition of `Q_WAKE_NM`.
 
 This includes `qsteady_rotor`: the plan exports the wake VTK after the final
 steady solve. W uses the whole wheel's blade count: the rotor block's count

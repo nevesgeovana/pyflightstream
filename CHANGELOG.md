@@ -9,6 +9,12 @@ FlightStream versions.
 
 ### Added
 
+- Wake products resolve whether each VTK uses the moment-point or geometry
+  origin from saved mesh evidence before selecting rotors, blades and families.
+  Ambiguous evidence warns with both distances; `products.json` records the
+  decision. Migration: repost off-origin runs to recover W and correctly place
+  B's rows and plane; W torque remains about the rotor hub (FR-3606, FR-3607).
+
 - An HPC profile may state `[application_ids]`, keyed by canonical build like `[builds]`, for the
   application name its scheduler uses for that build: `{application_id}` writes it, and every build
   with no line keeps the top-level `application_id`. A profile without the table writes the same
