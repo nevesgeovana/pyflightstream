@@ -19,6 +19,16 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize("page", ["pproc-artifact.md", "definitions/the-unsteady-polar.md"])
+def test_p0551_farfield_guides_state_declared_method_multiplicity(page):
+    """P0551-R3: readers must not infer suffixes from a point's populated targets."""
+    text = " ".join((ROOT / "docs" / page).read_text(encoding="utf-8").split())
+    assert "more than one entry of a method" in text
+    assert "declares" in text
+    assert "Only entries that collide on the same point" not in text
+    assert "Colliding entries append their name" not in text
+
+
 def test_p0460_changelog_describes_changes_without_personal_attribution():
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
