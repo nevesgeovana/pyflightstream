@@ -373,6 +373,10 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
         mine = [m for m in entries if _best(m[2], index, blades) == blade]
         if bases:
             plan: _Plan | None = _base_plan(blade, bases[n], mesh, index)
+            # Only an entry wholly on the strip's sides names a rim; any other marking of the
+            # family is no rim and is carried to its new position.
+            rims = _rim_edges(plan) if plan else set()
+            mine = [m for m in mine if m[2] and m[2] <= rims and not m[3]]
         else:
             _need(
                 bool(mine),

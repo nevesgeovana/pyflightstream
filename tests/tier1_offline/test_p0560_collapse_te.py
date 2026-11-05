@@ -673,3 +673,23 @@ def test_p0560_a_name_with_a_space_keeps_the_output_sidecar_readable(tmp_path, v
     data = tomllib.loads(written.read_text())
     assert "Blade1 U" in data["trailing_edges"] and "Hub 1" in data["base_regions"]
     assert any(r.family == "Hub 1" for r in read_boundary_declarations(written).base_regions)
+
+
+@pytest.mark.requirement("FR-3666")
+def test_p0560_the_base_route_keeps_another_marking_of_the_blade(tmp_path):
+    source, infos = make(tmp_path, strip="own")
+    old = read_obj(source)
+    node = infos["Blade1"]["node"]
+    flap = 0.5 * (old.verts[node(1, 1)] + old.verts[node(2, 1)])
+    pts(tmp_path / "flap.te.txt", [flap])
+    side = Path(str(source) + ".boundaries.toml")
+    side.write_text(
+        side.read_text() + '[trailing_edges.Flap]\nfile = "flap.te.txt"\ntype = "RELAXED"\n'
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
+    tables = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["trailing_edges"]
+    assert list(tables) == ["Blade1U", "Flap"]
+    assert tables["Flap"]["type"] == "RELAXED"
+    np.testing.assert_allclose(read_te(tmp_path / tables["Flap"]["file"])[1], [flap], atol=1e-15)
+    assert len(read_te(tmp_path / tables["Blade1U"]["file"])[1]) == 4
