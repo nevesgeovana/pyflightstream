@@ -376,6 +376,12 @@ RECORD_SCALARS = (
 )
 
 
+def _take_record_scalars(row: dict[str, str], record: object | None) -> None:
+    """Copy the recorded scalar fields, keeping cells supplied by earlier sources."""
+    for field in RECORD_SCALARS:
+        _take(row, field, getattr(record, field, None))
+
+
 def superfile_row(
     *,
     polar_columns: Sequence[str],
@@ -459,8 +465,7 @@ def superfile_row(
         _take(row, key, value)
     for key, value in (getattr(record, "flight_condition_defaults", None) or {}).items():
         _take(row, key, value)
-    for field in RECORD_SCALARS:
-        _take(row, field, getattr(record, field, None))
+    _take_record_scalars(row, record)
     # Historical rotor speeds precede the current matrix's declarations.
     recorded_rotors = _rotor_columns(getattr(record, "reductions", None), own_speeds, rotors or {})
     # 3. EVERY INPUT OF THE MATRIX ROW, under the cell names the matrix

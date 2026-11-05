@@ -59,6 +59,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.farfield_fields import (
     FarLayout,
     ProbeSamples,
+    _q_ref,
     average_rows,
     axial_coefficient,
     derived_layout,
@@ -360,13 +361,6 @@ def _average_entry_rows(rows: list, first: int) -> list:
     name = rows[0][0][1]
     stripped = [[row[:1] + row[2:] for row in step] for step in rows]
     return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
-
-
-def _q_ref(point: PolarPoint, rho: float) -> float:
-    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
-    loads = point.loads
-    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
-    return 0.5 * rho * float(v_ref) ** 2
 
 
 def _near_force(point: PolarPoint, axis: str | Sequence[float], area: float) -> tuple[float, float]:
