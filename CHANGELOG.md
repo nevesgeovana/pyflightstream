@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-workspace geometry repitch` reads a morphing TOML, rotates blade nodes rigidly,
+  and rebuilds the named hub's existing quad rings. Connectivity, face order and saved
+  boundary markings are retained; checks refuse folded hubs before writing (FR-3601 to FR-3604).
+
 ## [0.55.0] - 2026-11-04
 
 ### Added

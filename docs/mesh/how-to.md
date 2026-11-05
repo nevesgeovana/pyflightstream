@@ -1,5 +1,56 @@
 # Mesh inputs and GUI-only operations
 
+## Repitch a blade
+
+Save this as `morphing.toml` beside a mesh with a blade named `Blade1` and a hub
+named `Spinner`. This example uses a pitch axis through the origin along +Z:
+
+```toml
+[repitch]
+angle_deg = 1.0
+blades = ["Blade1"]
+hub = ["Spinner"]
+keep = []
+axis = { origin = [0.0, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }
+max_angle_deg = 5.0
+```
+
+```text
+pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
+```
+
+This call is exercised on a synthetic blade and quad-ring hub in the offline tests.
+Set the origin and direction to the blade's pitch line, in the mesh coordinates.
+A positive angle is a right-handed rotation about that directed line; orient the line
+so this adds pitch for your rotor. The angle is a change from the source blade, not
+an absolute blade setting. Reversing the axis reverses the sign.
+
+For a reference-defined rotor, replace `axis` with `axis = "auto"`, add
+`reference = "../references/rotor.toml"`, and use `blades = "all"` for a wheel.
+The reference's rotor origin, axis, `blade1.zero`, `blade1.azimuth_deg` and ordered
+`families_blades` define equally spaced radial pitch axes. Their directed sense is
+inward for `rpm_sign = 1` (the default) and outward for `rpm_sign = -1`, so positive adds pitch
+from the local rotation plane toward the axial direction, using the chord from
+leading to trailing edge opposite the direction of blade travel. Use `rotor = "ROTOR"`
+when the reference has multiple rotors. Coordinates of explicit axes use mesh units;
+reference origins are converted from metres to the mesh's declared unit. An unstated
+mesh unit is warned and interpreted as metres.
+For another pitch line on each blade, use `[repitch.axes.Blade1]` with `origin`
+and `direction`, and equivalent tables for the other blades.
+
+The hub must have at least two complete quad rings around each blade root.
+The operation recovers the source rings and applies the existing spinner Winslow
+smoother to the changed boundary problem. It adds the difference between the new
+and old smoothed grids to the source interior, retaining its distribution at zero
+angle. Outer rings, other boundaries, connectivity and face order remain unchanged.
+This is an incremental rebuild of the hub grid; it does not redistribute cell counts.
+
+Read `<out>.repitch.json`, inspect the root seam and leading edge, then perform a
+short solver check. The geometric checks do not establish aerodynamic accuracy.
+Choose a new output name for each change; existing outputs are refused.
+
+## Refinement controls
+
 Component governing also includes closed tube rings. If an inherited factor
 would leave too few tube intervals or section nodes, it is raised to the tube's
 minimum with a warning (FR-3322).

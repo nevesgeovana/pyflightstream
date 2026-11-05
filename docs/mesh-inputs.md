@@ -1,5 +1,9 @@
 <h1>Mesh inputs</h1>
 
+For small blade pitch changes, author a standalone `morphing.toml` beside the mesh
+and pass it to `geometry repitch --morphing`. The [template](mesh/morphing.toml)
+and [repitch control reference](mesh/reference.md#repitch-control) describe its inputs.
+
 Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [complete example](mesh/example.md).
 
 <a id="mesh-inputs-and-gui-only-operations"></a>

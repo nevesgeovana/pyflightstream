@@ -654,6 +654,32 @@ def run_inventory(args: argparse.Namespace) -> int:
 GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 
 
+def add_repitch_parser(subparsers: Any) -> None:
+    """Add the rigid-blade repitch verb with its morphing control file."""
+    parser = subparsers.add_parser(
+        "repitch", help="rigidly repitch blades and rebuild the named hub's source rings"
+    )
+    parser.add_argument("mesh", help="source .obj or .fsm, read only")
+    parser.add_argument("--morphing", required=True, help="TOML with a [repitch] table")
+    parser.add_argument("--out", required=True, help="new mesh of the same kind")
+    parser.set_defaults(mesh_command=run_repitch)
+
+
+def run_repitch(args: argparse.Namespace) -> int:
+    """Run repitch and print the checks written beside its output."""
+    import json
+
+    from pyflightstream.workspace.repitch import repitch_mesh
+
+    try:
+        report = repitch_mesh(args.mesh, args.morphing, args.out)
+    except (OSError, PyflightstreamError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(json.dumps(report, indent=2))
+    return 0
+
+
 def cmd_geometry(args: argparse.Namespace) -> int:
     """Run the geometry command ``args`` names."""
     # Every geometry verb's parser names its handler, shared with
