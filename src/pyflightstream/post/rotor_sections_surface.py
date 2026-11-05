@@ -13,7 +13,7 @@ from scipy.spatial import cKDTree
 
 from pyflightstream._fsm import boundary_vertices, saved_mesh_coordinate_unit
 from pyflightstream._lengths import scale
-from pyflightstream.farfield.rotor_sections import SectionLoads
+from pyflightstream.farfield.rotor_sections import SectionLoads, chord_line_points
 from pyflightstream.results.surface import read_vtk_surface
 
 __all__ = ["blade_surface_strips"]
@@ -205,7 +205,7 @@ def _cut(
         normals=normals,
         velocity=velocity,
     )
-    legs = np.column_stack([np.interp(line_radius, radius, chord_points[:, k]) for k in range(3)])
+    legs = chord_line_points(radius, chord_points, line_radius, radial=radial, hub=hub)
     return (
         SectionLoads(
             radius,

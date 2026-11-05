@@ -413,3 +413,35 @@ def test_p0551_w_product_retains_raw_and_adds_the_anchor(tmp_path):
 def test_p0551_rotor_section_keys_refuse_wrong_numbers(entry):
     with pytest.raises(ValueError):
         PprocSpec.model_validate({"farfields": [entry]})
+
+
+@pytest.mark.requirement("FR-3632")
+@pytest.mark.parametrize("fraction", [0.0, 0.25, 1.0], ids=["P0551-LE", "P0551-QC", "P0551-TE"])
+def test_p0551_chord_line_keeps_the_requested_span_at_endpoints(tmp_path, fraction):
+    from pyflightstream.post.rotor_sections_surface import blade_surface_strips
+
+    _blade_exports(tmp_path)
+    radii = np.array([0.3, 0.5, 0.7, 0.9, 1.0])
+    lines = [
+        np.array([[3.1, sign * r, 2.0], [4.1, sign * r, 2.0]]) for sign in (1, -1) for r in radii
+    ]
+    blades, groups, attachments = blade_surface_strips(
+        tmp_path / "point.vtk",
+        tmp_path / "point.fsm",
+        ["Blade1", "Blade2"],
+        lines,
+        hub=np.array([3.0, 0.0, 2.0]),
+        axis=np.array([1.0, 0.0, 0.0]),
+        moment_point=np.zeros(3),
+        per_m=1.0,
+        rho=1.0,
+        reference_speed=30.0,
+        thrust_sign=1.0,
+        chord_fraction=fraction,
+    )
+    for name, sign in (("Blade1", 1), ("Blade2", -1)):
+        expected = np.column_stack(
+            [np.full(5, 2.9 + 0.2 * fraction), sign * radii, np.full(5, 2.0)]
+        )
+        np.testing.assert_allclose(attachments[groups[name]], expected, atol=1e-12)
+        np.testing.assert_allclose(blades[name].radial, [0.0, sign, 0.0], atol=1e-12)

@@ -338,6 +338,8 @@ class FarfieldSpec(BaseModel):
         Reference rotor for the power lattice or blade-local rotor sections.
     chord_fraction : float
         Rotor-section induction location from leading to trailing edge, default 0.25.
+    induction : str
+        Rotor-section wake selection: all row wakes (default) or rotor only.
     frame, tip_radius_m : str and float
         Alternative power lattice placement: frame and reference radius in metres.
     n_r, r_inner, r_outer, n_psi : int or float
@@ -369,6 +371,7 @@ class FarfieldSpec(BaseModel):
     station: float | None = None
     rotor: str | None = None
     chord_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
+    induction: Literal["all", "rotor"] = "all"
     frame: str | None = None
     tip_radius_m: float | None = None
     n_r: int | None = None
@@ -507,6 +510,7 @@ _KEY_VARIANTS = {
     },
     "rotor": ("power", "rotor_sections"),
     "chord_fraction": ("rotor_sections",),
+    "induction": ("rotor_sections",),
 }
 
 
