@@ -775,3 +775,48 @@ def test_p0560_coincident_nodes_that_merge_or_stay_are_no_crack(tmp_path):
     with pytest.warns(NotApplicableWarning):
         cfg = control(tmp_path, extra='base = ["Blade1Base"]')
         assert invoke(source, cfg, tmp_path / "sharp.obj") == 0
+
+
+@pytest.mark.requirement("FR-3666")
+def test_p0560_a_family_the_merge_empties_loses_its_base_region(tmp_path):
+    verts, families, info = blade_parts("Blade1", 0, strip="own", cap="fan")
+    node = info["node"]
+    tip = [f for f in families["Blade1"] if {node(STATIONS, M), node(STATIONS, M + 1)} <= set(f)]
+    assert len(tip) == 1
+    families["Blade1"] = [f for f in families["Blade1"] if f not in tip]
+    families = {"TipSliver": tip, **families}
+    source = tmp_path / "sector.obj"
+    source.write_text(obj_text(ObjMesh(verts, families)))
+    pts(tmp_path / "U.te.txt", info["upper"])
+    pts(tmp_path / "L.te.txt", info["lower"])
+    Path(str(source) + ".boundaries.toml").write_text(
+        f'fs_build = "26.125"\nboundaries = {json.dumps(list(families))}\n'
+        '[import]\nunits = "METER"\n'
+        '[trailing_edges.U]\nfile = "U.te.txt"\ntype = "STANDARD"\n'
+        '[trailing_edges.L]\nfile = "L.te.txt"\ntype = "STANDARD"\n'
+        '[base_regions.TipSliver]\ntrailing_edges = "auto"\n'
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    written = Path(str(out) + ".boundaries.toml")
+    assert "TipSliver" not in read_obj(out).families
+    assert not read_boundary_declarations(written).base_regions
+    assert json.loads(Path(str(out) + ".collapse.json").read_text())["checks"][
+        "boundaries_file_reads_back"
+    ]
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize(
+    "text",
+    [
+        '"broken\n',
+        'fs_build = "26.125"\nboundaries = ["A"]\n[base_regions.Gone]\nmerge_into = "A"\n',
+    ],
+    ids=["toml", "stale-family"],
+)
+def test_p0560_a_boundaries_file_that_would_not_read_back_is_refused(tmp_path, text):
+    target = tmp_path / "sharp.obj"
+    written = Path(str(target) + ".boundaries.toml")
+    with pytest.raises(InputValueError, match="would not read back"):
+        cte._sidecar_reads_back({written: text.encode()}, target)

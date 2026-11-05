@@ -21,7 +21,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
+from pyflightstream._errors import (
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamError,
+    warn,
+)
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._refine._obj import (
     ObjMesh,
@@ -771,8 +776,8 @@ def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> No
                 tes.update(rebuilt)
         regions = data.get("base_regions")
         if isinstance(regions, dict):
-            hosts = {f for plan in plans for f, _ in plan.strip} & (
-                emptied | {p.blade for p in plans}
+            hosts = emptied | (
+                {f for plan in plans for f, _ in plan.strip} & {p.blade for p in plans}
             )
             for name in list(regions):
                 if name in hosts:
@@ -875,6 +880,9 @@ def collapse_trailing_edge(
                 "file does not name",
                 NotApplicableWarning,
             )
+    _sidecar_reads_back(extra, target)
+    if side is not None:
+        checks["boundaries_file_reads_back"] = True
     for file in extra:
         _need(not file.exists(), f"attachment {file} exists; choose new --out")
     report = _report(result, checks, skipped)
@@ -891,6 +899,22 @@ def collapse_trailing_edge(
 
 def _rim_edges(plan: _Plan) -> set[Edge]:
     return {_key(r[j], r[j + 1]) for r in (plan.rim_a, plan.rim_b) for j in range(len(r) - 1)}
+
+
+def _sidecar_reads_back(extra: dict[Path, bytes], target: Path) -> None:
+    """Refuse a boundaries file that the declaration reader would not take from the output."""
+    written = Path(str(target) + ".boundaries.toml")
+    if written not in extra:
+        return
+    with tempfile.TemporaryDirectory() as folder:
+        probe = Path(folder) / written.name
+        probe.write_bytes(extra[written])
+        try:
+            data = tomllib.loads(extra[written].decode("utf-8"))
+            if "trailing_edges" in data or "base_regions" in data:
+                read_boundary_declarations(probe)
+        except (ValueError, PyflightstreamError) as error:
+            _need(False, f"the written boundaries file would not read back ({error})")
 
 
 def _te_bytes(file: Path, unit: str, points: np.ndarray) -> bytes:
