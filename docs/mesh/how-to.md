@@ -39,10 +39,18 @@ For another pitch line on each blade, use `[repitch.axes.Blade1]` with `origin`
 and `direction`, and equivalent tables for the other blades.
 
 The hub must have at least two complete quad rings around each blade root.
-The operation recovers the source rings and applies the existing spinner Winslow
-smoother to the changed boundary problem. It adds the difference between the new
-and old smoothed grids to the source interior, retaining its distribution at zero
-angle. Outer rings, other boundaries, connectivity and face order remain unchanged.
+The operation recovers all complete source rings and carries their local orientation
+with the rotated blade, tapering the displacement to zero at the outer ring. Interior
+nodes are projected onto source faces. Winslow smoothing in a local surface chart is
+accepted only when it improves the minimum corner scaled Jacobian. Zero angle retains
+the source coordinates exactly. Outer rings, other boundaries, connectivity and face
+order remain unchanged. Shared root nodes follow the rigid blade rotation; the interior
+projection does not alter them.
+The checks print and save the root's distance from the source hub surface in metres
+and local cell edges. A root stand-off above half a local edge warns once: the hub
+shape near the root changes by this amount. Inspect that seam even when the rebuild
+passes. Every moved non-root hub node must remain within `1e-8` local cell edges of
+the source faces; otherwise the operation refuses and names the node.
 This is an incremental rebuild of the hub grid; it does not redistribute cell counts.
 
 Read `<out>.repitch.json`, inspect the root seam and leading edge, then perform a

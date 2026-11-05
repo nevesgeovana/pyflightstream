@@ -77,6 +77,11 @@ def test_p0551_cli_rigid_blade_fixed_outer_boundary_and_quad_counts(tmp_path, an
         np.testing.assert_allclose(new.verts, old.verts, atol=2e-14)
     report = json.loads(Path(str(out) + ".repitch.json").read_text())
     assert report["checks"]["passed"]
+    checks = report["checks"]
+    assert checks.get("non_root_max_distance_to_source_hub_over_local_edge", float("inf")) < 1e-8
+    assert checks["root_max_distance_to_source_hub_m"] >= 0
+    assert checks["root_max_distance_to_source_hub_over_local_edge"] >= 0
+    assert len(checks["moved_hub_nodes"]) == (64 if angle else 0)
 
 
 @pytest.mark.requirement("FR-3608")
@@ -86,6 +91,36 @@ def test_p0551_inverse_returns_blade_to_rounding(tmp_path):
     assert invoke(source, control(tmp_path), plus) == 0
     assert invoke(plus, control(tmp_path, -1), back) == 0
     np.testing.assert_allclose(read_obj(back).verts[:48], read_obj(source).verts[:48], atol=2e-14)
+
+
+@pytest.mark.requirement("FR-3609")
+def test_p0551_non_root_surface_escape_names_node():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._repitch import HubSurface, surface_checks
+
+    old = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+    new = old.copy()
+    new[2, 2] = 1e-7
+    with pytest.raises(InputValueError, match="non-root hub node 2 .*No file was written"):
+        surface_checks(HubSurface(old, [[0, 1, 2, 3]]), old, new, {0, 1}, 1.0)
+
+
+@pytest.mark.requirement("FR-3609")
+@pytest.mark.parametrize("height,warning_count", [(0.5, 0), (0.5001, 1), (2.0, 1)])
+def test_p0551_root_standoff_warns_once_and_converts_metres(height, warning_count, recwarn):
+    from pyflightstream.workspace._repitch import HubSurface, surface_checks
+
+    # Analytic unit square: exact perpendicular distances, two exempt shared roots.
+    old = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+    new = old.copy()
+    new[:2, 2] = height
+    result = surface_checks(HubSurface(old, [[0, 1, 2, 3]]), old, new, {0, 1}, 0.001)
+    assert result["root_max_distance_to_source_hub_m"] == pytest.approx(height * 0.001)
+    assert result["root_max_distance_to_source_hub_over_local_edge"] == pytest.approx(height)
+    assert result["non_root_max_distance_to_source_hub_m"] == 0
+    assert len(recwarn) == warning_count
+    if warning_count:
+        assert "hub shape near the root changes by this amount" in str(recwarn[0].message)
 
 
 @pytest.mark.requirement("FR-3609")
@@ -228,17 +263,19 @@ def test_p0551_folded_hub_refuses_before_writing(tmp_path):
 
 
 @pytest.mark.requirement("FR-3609")
-def test_p0551_small_angle_that_folds_a_narrow_hub_is_refused(tmp_path, saved_sector, capsys):
+def test_p0551_rebuild_recovers_the_narrow_hub_at_minus_one(tmp_path, saved_sector):
     config = control(tmp_path, -1, hub="S")
     config.write_text(
         config.read_text()
         .replace("0.0, 0.0, 1.0", "0.0, 1.0, 0.0")
         .replace("origin = [0.0,", "origin = [0.65,")
     )
-    out = tmp_path / "unsafe.fsm"
-    assert invoke(saved_sector, config, out) == 2
-    assert "folded cells" in capsys.readouterr().err
-    assert not out.exists() and not Path(str(out) + ".repitch.json").exists()
+    out = tmp_path / "recovered.fsm"
+    assert invoke(saved_sector, config, out) == 0
+    report = json.loads(Path(str(out) + ".repitch.json").read_text())
+    assert report["hub"]["S"]["output_quality"]["folded_cells"] == 0
+    assert report["blades"]["Blade1"]["rigid_max_error"] < 1e-12
+    assert report["checks"]["hub_boundary_unmoved"]
 
 
 @pytest.mark.requirement("FR-3608")

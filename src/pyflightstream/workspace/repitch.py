@@ -20,6 +20,7 @@ from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
+from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import incidence, quality, rebuild, rings, root_loop
 from pyflightstream.workspace._repitch_io import attachments
 from pyflightstream.workspace._wheel import Faces, check_wheel, parse_axis, rotate
@@ -60,6 +61,10 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
             face = [outer[0][0]]
             for _ in range(3):
                 face.append(next(b for a, b in outer if a == face[-1]))
+            # Fan triangulation must retain the saved pair's actual diagonal.
+            shared = set(t.tolist()) & set(tri[partner].tolist())
+            start = next(j for j, vertex in enumerate(face) if vertex in shared)
+            face = face[start:] + face[:start]
         families[names[int(ints[11][i]) - 1]].append(face)
     return ObjMesh(m["xyz"].copy(), families), parsed
 
@@ -238,14 +243,24 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
     source, parsed = _read(path)
     rotor = _rotor(cfg, control, path)
     blades, hubs = _selection(cfg, source, rotor)
-    new, report = _deform(source, cfg, rotor, blades, hubs)
+    unit = mesh_unit(path) if parsed is None else saved_mesh_coordinate_unit(path)
+    if unit is None:
+        warn(
+            "repitch: mesh unit is unstated; surface distances assume metres", NotApplicableWarning
+        )
+        unit = "METER"
+    _need(unit in METRES_PER_UNIT, f"mesh unit {unit!r} has no metre scale; state a known unit")
+    new, report = _deform(source, cfg, rotor, blades, hubs, scale=float(METRES_PER_UNIT[unit]))
+    report["distance_unit"] = "m"
     report["source_sha256"] = file_sha256(path)
     _write_output(path, target, source, parsed, new)
     _textio.write_text(record, json.dumps(report, indent=2) + "\n")
     return report
 
 
-def _deform(source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list) -> tuple[Any, dict]:
+def _deform(
+    source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list, *, scale: float = 1.0
+) -> tuple[Any, dict]:
     """Compute the new coordinates and checks without touching output files."""
     old, new = source.verts, source.verts.copy()
     hub_faces = [f for n in hubs for f in source.families[n]]
@@ -253,6 +268,7 @@ def _deform(source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list) ->
     held = {v for n in kept for f in source.families[n] for v in f}
     report: dict[str, Any] = {"angle_deg": cfg["angle_deg"], "kept": kept, "blades": {}, "hub": {}}
     patches = []
+    motions = []
     used: set[int] = set()
     for name in blades:
         ids = source.family_vertices(name)
@@ -263,6 +279,7 @@ def _deform(source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list) ->
             new[ids] = rotate(old[ids], axis, origin, cfg["angle_deg"])
         loop = root_loop(source.families[name], hub_faces, name)
         patches.append(rings(loop, hub_faces))
+        motions.append((origin, axis, cfg["angle_deg"]))
         report["blades"][name] = {
             "faces": len(source.families[name]),
             "axis_origin": origin.tolist(),
@@ -271,18 +288,26 @@ def _deform(source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list) ->
         }
     interiors: set[int] = set()
     outer_nodes = {int(v) for patch in patches for v in patch[-1]}
-    for patch in patches:
+    surface = HubSurface(old, hub_faces)
+    frame = None
+    if rotor is not None:
+        frame = (
+            np.array([rotor.get(k + "_m", 0.0) for k in ("x", "y", "z")]),
+            parse_axis(rotor["axis"]),
+        )
+    for patch, motion in zip(patches, motions, strict=True):
         inner = set(patch[1:-1].ravel().tolist())
         _need(
             not inner & (held | used | interiors | outer_nodes),
             "hub rings overlap a blade or another patch boundary",
         )
         interiors.update(inner)
-        rebuild(old, new, patch)
+        rebuild(old, new, patch, motion, surface, frame=frame)
     _need(bool(np.isfinite(new).all()), "hub smoothing produced nonfinite coordinates")
     all_faces = [f for fs in source.families.values() for f in fs]
     edge_map = incidence(all_faces)
     _need(not any(len(owners) > 2 for owners in edge_map.values()), "non-manifold edge in mesh")
+    distances = surface_checks(surface, old, new, {int(v) for p in patches for v in p[0]}, scale)
     report["hub"] = _hub_checks(source, new, hubs)
     boundary = {v for e, owners in incidence(hub_faces).items() if len(owners) == 1 for v in e}
     fixed = sorted((boundary - used) | held)
@@ -294,6 +319,7 @@ def _deform(source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list) ->
         "hub_boundary_unmoved": True,
         "triangles_added": 0,
         "ring_counts": [len(p) - 1 for p in patches],
+        **distances,
     }
     _periodicity(new, all_faces, rotor, report["checks"])
     return new, report
