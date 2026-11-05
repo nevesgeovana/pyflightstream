@@ -689,11 +689,40 @@ def _rotor(cfg_path: Path, mesh_path: Path) -> Any:
     return read_rotor(dict(table), cfg_path, mesh_path)
 
 
-def _edit(plans: list[_Plan], result: _Result, rw: Rewrite) -> None:
+def _undeclarable(data: dict[str, Any]) -> str | None:
+    """Return why the boundaries file cannot take a new trailing-edge entry, or None."""
+    tes = data.get("trailing_edges", {})
+    if not data.get("fs_build"):
+        return "it states no fs_build"
+    if "none" in tes:
+        return "it states that the mesh has no trailing edges"
+    if any(isinstance(t, dict) and "detect" in t for t in tes.values()):
+        return "it marks trailing edges by detection"
+    return None
+
+
+def _declare_lines(data: dict[str, Any], plans: list[_Plan]) -> None:
+    """Add an entry for each blade collapsed with no rim entry, taking a removed region's type."""
+    tes = data.setdefault("trailing_edges", {})
+    regions = data.get("base_regions", {})
+    for plan in plans:
+        kind = plan.edge_type
+        for family in {f for f, _ in plan.strip}:
+            rim = regions.get(family, {}).get("trailing_edges")
+            kind = rim["type"] if isinstance(rim, dict) else kind
+        label = plan.blade
+        while label in tes:
+            label += "_collapsed"
+        tes[label] = {"file": f"@collapse:{plan.blade}", "type": kind}
+
+
+def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> None:
     """Declare the edit of the boundaries tables: one line per blade, no base for the strip."""
     emptied = {f for f in result.source.families if f not in result.mesh.families}
 
     def edit(data: dict[str, Any]) -> None:
+        if declare:
+            _declare_lines(data, [p for p in plans if not p.labels])
         tes = data.get("trailing_edges")
         if isinstance(tes, dict):
             for plan in plans:
@@ -820,11 +849,19 @@ def collapse_trailing_edge(
         for e in _sides(source.families[fam][i])
         if e not in _rim_edges(plan)
     }
-    _edit(plans, result, rw)
+    why = None if side is None else _undeclarable(side[1])
+    _edit(plans, result, rw, side is not None and why is None)
     extra = attachments(path, target, source, new_by_old, payload, rw)
-    for plan in [p for p in plans if not p.labels]:
+    for plan in [p for p in plans if not p.labels] if side is None or why else []:
         file = target.with_name(f"{target.stem}.{plan.blade}.te.txt")
         extra[file] = _te_bytes(file, plan.unit or "METER", merged_line[plan.blade] * plan.to_file)
+        if why:
+            warn(
+                f"collapse_te: the boundaries file holds no entry for blade {plan.blade!r} and "
+                f"cannot take one, because {why}; its trailing edge is in {file.name}, which that "
+                "file does not name",
+                NotApplicableWarning,
+            )
     for file in extra:
         _need(not file.exists(), f"attachment {file} exists; choose new --out")
     report = _report(result, checks, skipped)

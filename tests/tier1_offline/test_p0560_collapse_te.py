@@ -693,3 +693,59 @@ def test_p0560_the_base_route_keeps_another_marking_of_the_blade(tmp_path):
     assert tables["Flap"]["type"] == "RELAXED"
     np.testing.assert_allclose(read_te(tmp_path / tables["Flap"]["file"])[1], [flap], atol=1e-15)
     assert len(read_te(tmp_path / tables["Blade1U"]["file"])[1]) == 4
+
+
+BARE_SIDECAR = (
+    'fs_build = "26.125"\nboundaries = ["Blade1", "Blade1Base", "Hub1"]\n'
+    '[import]\nunits = "METER"\n'
+)
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize(
+    ("region", "kind"),
+    [
+        ("", "STANDARD"),
+        ('[base_regions.Blade1Base]\ntrailing_edges = "auto"\n', "STANDARD"),
+        (
+            "[base_regions.Blade1Base]\n"
+            'trailing_edges = { file = "rim.te.txt", type = "VORTEX_SHEDDING" }\n',
+            "VORTEX_SHEDDING",
+        ),
+    ],
+    ids=["no-region", "auto-region", "file-region"],
+)
+def test_p0560_the_base_route_declares_the_line_in_the_boundaries_file(
+    tmp_path, capsys, region, kind
+):
+    source, infos = make(tmp_path, strip="own", sidecar=False)
+    pts(tmp_path / "rim.te.txt", infos["Blade1"]["upper"])
+    Path(str(source) + ".boundaries.toml").write_text(BARE_SIDECAR + region)
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
+    written = Path(str(out) + ".boundaries.toml")
+    tables = tomllib.loads(written.read_text())["trailing_edges"]
+    assert list(tables) == ["Blade1"] and tables["Blade1"]["type"] == kind
+    assert len(read_te(tmp_path / tables["Blade1"]["file"])[1]) == 4
+    assert not (tmp_path / "sharp.Blade1.te.txt").exists()
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize(
+    "sidecar",
+    [
+        'boundaries = ["Blade1", "Blade1Base", "Hub1"]\n[import]\nunits = "METER"\n',
+        BARE_SIDECAR + "[trailing_edges]\nnone = true\n",
+        BARE_SIDECAR + '[trailing_edges.Found]\ndetect = "auto"\ntype = "STANDARD"\n',
+    ],
+    ids=["no-build", "none", "detect"],
+)
+def test_p0560_a_line_the_boundaries_file_cannot_take_is_named_in_a_warning(tmp_path, sidecar):
+    source, _ = make(tmp_path, strip="own", sidecar=False)
+    Path(str(source) + ".boundaries.toml").write_text(sidecar)
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning, match="sharp.Blade1.te.txt, which that file"):
+        assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
+    assert len(read_te(tmp_path / "sharp.Blade1.te.txt")[1]) == 4
+    assert "sharp.Blade1.te.txt" not in Path(str(out) + ".boundaries.toml").read_text()

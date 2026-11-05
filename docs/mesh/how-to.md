@@ -92,7 +92,11 @@ file is written and the exit status is 2.
 The boundaries file written beside the output carries one trailing-edge line for each
 collapsed blade (the label and edge type of the first rim, one wake termination at the merged
 root when the source declares terminations), no base region for the removed strip, and every
-other marking at its new position. A marking that lies on an edge of the removed strip is
+other marking at its new position. A blade named through `base` with no rim entry gets a new
+entry under its family name, with the edge type of the removed base region's points file, or
+`STANDARD`. Without a boundaries file, or when that file cannot take an entry (it states no
+`fs_build`, `none = true` or a detection route, which a warning names), the line is written to
+`<out-stem>.<blade>.te.txt`. A marking that lies on an edge of the removed strip is
 refused. Read `<out>.collapse.json` for the strip faces removed, the closure faces, the nodes
 merged and the largest node move for each blade, with the base thickness; the operation
 reports the thickness and sets no limit on it.
