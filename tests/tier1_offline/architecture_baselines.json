@@ -1430,7 +1430,8 @@
    "outside": [
     "_cli_geometry",
     "_cli_wheel",
-    "_cli_merge"
+    "_cli_merge",
+    "_cli_morph"
    ]
   }
  },
