@@ -17,6 +17,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from tests.workflow_payloads import before_plots_scene_0530, before_pressure_0460
 
 REPO = Path(__file__).resolve().parents[2]
@@ -130,6 +132,46 @@ def test_p0551_gate_frame_allowance_keeps_every_provenance_field():
         new.replace("datapoints/dp/p_wakes.vtk", "unrelated.vtk"),
     ):
         assert "requirement" not in checker.name_difference(*args, old, wrong, defined, "0.55.0")
+
+
+@pytest.mark.parametrize("name", ["post.log", "post.log.json", "products.json"])
+def test_p0551_gate_rotor_warning_identity_matches_its_key(name):
+    """P0551-R3: a warning about another rotor is not the documented diagnostic."""
+    checker = _load()
+    key = "point#rotor=ROTOR#entry=wake"
+    message = "ROTOR: unavailable blade contributions: Blade1"
+    remedy = "restore the required data or correct the stated inputs and post again."
+
+    def document(body):
+        if name == "products.json":
+            return json.dumps({"products": {}, "skipped": {} if body is None else {key: body}})
+        if name == "post.log.json":
+            record = dict(
+                point=key,
+                product=key,
+                message=body,
+                remedy=remedy,
+                category="postprocessing",
+                severity="warning",
+            )
+            return json.dumps({"records": [] if body is None else [record]})
+        return (
+            "" if body is None else f"WARNING point={key} product={key}: {body} Remedy: {remedy}\n"
+        )
+
+    old = document(None)
+    # Keep the text file's final-newline state identical in the empty baseline.
+    if name == "post.log":
+        old = "INFO retained\n"
+        good = old + document(message)
+        bad = old + document(message.replace("ROTOR:", "OTHER:"))
+    else:
+        good = document(message)
+        bad = document(message.replace("ROTOR:", "OTHER:"))
+    defined = {"FR-3601", "FR-3602", "FR-3605", "FR-3606", "FR-3613", "FR-3625"}
+    args = ("post", f"matrix/{name}")
+    assert "requirement" in checker.name_difference(*args, old, good, defined, "0.55.0")
+    assert "requirement" not in checker.name_difference(*args, old, bad, defined, "0.55.0")
 
 
 def test_p0551_ffname2_parity_preserves_non_farfield_cells():

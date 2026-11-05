@@ -1792,15 +1792,13 @@ def _ff_warning(key: str, message: str, *, release: bool) -> bool:
     trace = re.fullmatch(_FF_NEW_TRACE, message)
     if trace:
         return bool(re.fullmatch(prefix + "#left-out=" + re.escape(trace["target"]) + suffix, key))
+    rotor = re.fullmatch(rf"({_FF_NAME}): unavailable blade contributions: {_FF_NAMES}", message)
     return bool(
         (
             re.fullmatch(prefix + "#TOTAL" + suffix, key)
             and re.fullmatch(rf"TOTAL leaves out {_FF_NAMES}", message)
         )
-        or (
-            re.fullmatch(rf"[^\s#]+#rotor={_FF_NAME}" + suffix, key)
-            and re.fullmatch(rf"{_FF_NAME}: unavailable blade contributions: {_FF_NAMES}", message)
-        )
+        or (rotor and re.fullmatch(r"[^\s#]+#rotor=" + re.escape(rotor[1]) + suffix, key))
         or (
             re.fullmatch(r"farfield/w_repaired#[^\s#]+" + suffix, key)
             and re.fullmatch(_FF_REPAIR, message)

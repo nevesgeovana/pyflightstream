@@ -32,8 +32,10 @@
   content: the face count of the point's geometry as its inventory states it,
   or `NA` ([the mesh face count](the-mesh-face-count.md#the-mesh-face-count-since-0340)).
 - **Far-field cells use `<QUANTITY>_FF_<METHOD>_<TARGET>`**, including total,
-  family, blade and rotor targets. Colliding entries append their name, as in
-  `CDI_FF_C_TOTAL_c05`; a single entry writes `CDI_FF_C_TOTAL`. The merged polar
+  family, blade and rotor targets. When the row declares more than one entry of a method,
+  every column of that method appends its entry name at every point, as in
+  `CDI_FF_C_TOTAL_c05`, even where a companion is absent; a single declared entry
+  writes `CDI_FF_C_TOTAL`. Missing projected cells are empty. The merged polar
   retains these cells. An entry outside the row's averaging window remains
   warned and named in the manifest; see [the far-field family](the-far-field-family.md).
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
