@@ -866,7 +866,7 @@ def _declare_lines(data: dict[str, Any], plans: list[_Plan]) -> None:
 def _drop_detect_surfaces(tes: Any, emptied: set[str]) -> None:
     """Take the families the collapse removes off every detection entry's surfaces."""
     for label, table in tes.items() if isinstance(tes, dict) else ():
-        detect = table.get("detect") if isinstance(table, dict) else None
+        detect: Any = table.get("detect") if isinstance(table, dict) else None
         named = detect.get("surfaces", []) if isinstance(detect, dict) else []
         left = [s for s in named if s not in emptied]
         if len(left) != len(named):
