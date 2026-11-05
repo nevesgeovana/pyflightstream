@@ -249,7 +249,8 @@ def pitch_axes(
     report["blades"] = {}
     for name in blades:
         ids = np.unique([v for f in families[name] for v in f])
-        span = span_direction(verts[ids], point)
+        # Towards the tip is away from the root, wherever reference_point lies on the pitch line.
+        span = span_direction(verts[ids], verts[roots[name]].mean(axis=0))
         across = span - (span @ axis) * axis
         _need(
             float(np.linalg.norm(across)) > _ALONG_AXIS,

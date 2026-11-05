@@ -369,6 +369,28 @@ def test_p0560_a_point_reference_is_one_point_and_a_miss_of_the_root_is_warned(r
         assert invoke("repitch", rings_obj, cfg, folder / "miss.obj") == 0
 
 
+@pytest.mark.requirement("FR-3672")
+@pytest.mark.parametrize("radius", [2.0, 2.5], ids=["MOR1-2-mid-span", "MOR1-2-outboard"])
+def test_mor1_2_a_point_on_the_pitch_line_turns_the_blade_as_one_at_its_root(ringed, radius):
+    """A point anywhere on the blade's pitch line names the same line, so the same turn; the
+    sense of the span came from the point, and a point outboard of the blade's middle turned
+    the pitch axis towards the root and the blade by minus the angle."""
+    folder, _, rings_obj = ringed[False]
+    turned = {}
+    for tag, r in (("root", 1.0), ("on", radius)):
+        point = [1.0, r * np.cos(CENTRE), r * np.sin(CENTRE)]
+        name = f"sense_{tag}_{radius}"
+        cfg = control(folder, REPITCH.format(angle=2.0, point=json.dumps(point)), name=name)
+        assert invoke("repitch", rings_obj, cfg, folder / f"{name}.obj") == 0
+        turned[tag] = read_obj(folder / f"{name}.obj")
+        direction = record(folder / f"{name}.obj", "repitch")["blades"]["Blade1"]
+        assert direction["axis_direction"][1:] == pytest.approx(
+            [np.cos(CENTRE), np.sin(CENTRE)], abs=1e-9
+        )
+    ids = read_obj(rings_obj).family_vertices("Blade1")
+    assert np.abs(turned["on"].verts[ids] - turned["root"].verts[ids]).max() < 1e-12
+
+
 @pytest.mark.requirement("FR-3673")
 def test_p0560_a_0551_repitch_table_reads_and_turns_about_its_own_axis(ringed):
     folder, _, rings_obj = ringed[False]
