@@ -920,6 +920,31 @@ def _drop_regions(regions: dict[str, Any], plans: list[_Plan], emptied: set[str]
             )
 
 
+def _drop_operations(table: Any, emptied: set[str]) -> None:
+    """Skip, with a warning, each import operation on a family the collapse removes."""
+    operations = table.get("operations") if isinstance(table, dict) else None
+    if not isinstance(operations, list):
+        return
+    gone, kept = set(emptied), []
+    for operation in operations:
+        surface = operation.get("surface") if isinstance(operation, dict) else None
+        if surface not in gone:
+            kept.append(operation)
+            continue
+        # A rename of a removed family names it anew; an operation on the new name goes too.
+        if operation.get("op") == "rename" and isinstance(operation.get("to"), str):
+            gone.add(operation["to"])
+        warn(
+            f"collapse_te: import operation {operation.get('op')!r} names {surface!r}, which "
+            "the collapse removes, so it does not apply and is skipped",
+            NotApplicableWarning,
+        )
+    if kept:
+        table["operations"] = kept
+    else:
+        del table["operations"]
+
+
 def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> None:
     """Declare the edit of the boundaries tables: one line per blade, no base for the strip."""
     emptied = {f for f in result.source.families if f not in result.mesh.families}
@@ -936,6 +961,7 @@ def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> No
             _drop_regions(data["base_regions"], plans, emptied)
         if isinstance(data.get("boundaries"), list):
             data["boundaries"] = [n for n in data["boundaries"] if n not in emptied]
+        _drop_operations(data.get("import"), emptied)
 
     rw.edit = edit
 

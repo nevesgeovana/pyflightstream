@@ -1123,3 +1123,21 @@ def test_p0560_the_refresh_rewrites_a_repitch_output_of_0_55_1(tmp_path, capsys)
     refresh_obj_inventory(out)
     assert mark_preview(out, capsys) == 0, capsys.readouterr().err
     assert tomllib.loads(side.read_text())["boundary_faces"] == list(counts.values())
+
+
+@pytest.mark.requirement("FR-3666")
+def test_p0560_an_import_operation_on_a_family_the_collapse_removes_is_skipped(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    side = Path(str(source) + ".boundaries.toml")
+    operations = (
+        '[[import.operations]]\nop = "rename"\nsurface = "Blade1Base"\nto = "Base"\n'
+        '[[import.operations]]\nop = "scale"\nsurface = "Base"\nfactors = [1.0, 1.0, 1.0]\n'
+        '[[import.operations]]\nop = "scale"\nsurface = "Hub1"\nfactors = [2.0, 2.0, 2.0]\n'
+    )
+    side.write_text(side.read_text().replace('units = "METER"\n', 'units = "METER"\n' + operations))
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning, match="'Blade1Base', which the collapse removes"):
+        assert invoke(source, control(tmp_path), out) == 0
+    kept = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["import"]["operations"]
+    assert kept == [{"op": "scale", "surface": "Hub1", "factors": [2.0, 2.0, 2.0]}]
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
