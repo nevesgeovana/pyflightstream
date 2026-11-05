@@ -32,6 +32,23 @@ indices are retained. OBJ sidecar point files must match source vertices or edge
 midpoints; their coordinates follow the corresponding output locations. Failed
 geometric checks produce no mesh or report. Unsupported hub topology is refused
 with a remedy; no triangulated replacement is substituted for a quad hub.
+Interior projection retains the source FSM triangle-pair diagonals. Projection and
+smoothing leave the shared blade-root nodes under the rigid-rotation constraint.
+
+The printed checks and `<out>.repitch.json` include every moved hub node's
+zero-based index, shared-root status, distance to the finite source triangles in
+metres and distance divided by its local cell edge. The local edge is the shortest
+edge among incident source hub cells. Non-root nodes beyond
+`NON_ROOT_SURFACE_TOLERANCE = 1e-8` local edges refuse, naming the node.
+`root_max_distance_to_source_hub_m` and
+`root_max_distance_to_source_hub_over_local_edge` report the rigid root's stand-off.
+Above `ROOT_STANDOFF_WARNING = 0.5` local edges, one warning states how far the root
+stands off the source hub surface and how much the hub shape near the root changes.
+This warning does not refuse the rebuild. The corresponding `non_root_max_...`
+fields measure the largest non-root node departure from the source hub surface;
+they do not bound distances between face interiors or measure enclosed volume.
+Distances use the declared mesh unit converted to metres; an unstated unit warns
+and assumes metres.
 
 ## Refinement controls
 

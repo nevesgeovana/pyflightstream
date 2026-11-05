@@ -1,7 +1,7 @@
 """Recover source hub rings and rebuild their interior with the spinner's Winslow method.
 
-The source connectivity is retained. Smoothing the old and new boundary problems and taking
-their difference preserves the source distribution at zero angle, including its rounding.
+The source connectivity is retained. Transport carries the root's local cell frame through
+the available rings; surface projection and safeguarded smoothing retain the hub interior.
 """
 
 from collections import defaultdict
@@ -11,7 +11,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.workspace._repitch import HubSurface, RingChart
 from pyflightstream.workspace._sector_body import winslow
+from pyflightstream.workspace._wheel import rotate
 
 Array = NDArray[np.float64]
 Edge = tuple[int, int]
@@ -90,19 +92,54 @@ def rings(root: list[int], faces: list[list[int]]) -> NDArray[np.int64]:
     return np.array(rows)
 
 
-def rebuild(old: Array, new: Array, ids: NDArray[np.int64]) -> None:
-    """Rebuild only interior ring nodes, keeping the moved root and original outer loop."""
+def rebuild(
+    old: Array,
+    new: Array,
+    ids: NDArray[np.int64],
+    motion: tuple[Array, Array, float],
+    surface: HubSurface,
+    *,
+    frame: tuple[Array, Array] | None,
+) -> None:
+    """Transport all available rings, then backtrack a surface-chart Winslow candidate."""
     if len(ids) < 3:
         raise InputValueError("hub has fewer than two complete quad rings; supply an O-grid hub")
     if np.array_equal(old[ids[0]], new[ids[0]]):
         return
     before = old[ids]
-    after = before.copy()
-    after[0] = new[ids[0]]
-    # Use the existing metric smoother in physical coordinates. The difference keeps the
-    # original curved surface and source spacing instead of replacing it by a minimal surface.
-    delta = winslow(after) - winslow(before)
-    new[ids[1:-1]] = before[1:-1] + delta[1:-1]
+    origin, axis, angle = motion
+    rotated = rotate(before.reshape(-1, 3), axis, origin, angle).reshape(before.shape)
+    # Zero slope at the root carries its local cell frame with the rigid blade. Every
+    # available ring participates; only the outer loop has zero displacement.
+    weight = 1 - np.linspace(0, 1, len(ids))[:, None, None] ** 2
+    trial = before + weight * (rotated - before)
+    trial[1:-1], _ = surface.nearest(trial[1:-1])
+    trial[0], trial[-1] = new[ids[0]], before[-1]
+    chart = RingChart(before, frame)
+    uv = chart.coordinates(trial)
+    smoothed = winslow(uv)
+    mapping = np.full(len(old), -1, dtype=np.int64)
+    mapping[ids.ravel()] = np.arange(ids.size)
+    triangles = mapping[surface.mesh.faces]
+    triangles = triangles[np.all(triangles >= 0, axis=1)]
+    faces = [
+        [
+            k * ids.shape[1] + j,
+            k * ids.shape[1] + (j + 1) % ids.shape[1],
+            (k + 1) * ids.shape[1] + (j + 1) % ids.shape[1],
+            (k + 1) * ids.shape[1] + j,
+        ]
+        for k in range(len(ids) - 1)
+        for j in range(ids.shape[1])
+    ]
+    best = quality(trial.reshape(-1, 3), faces)["min_scaled_jacobian"]
+    for step in (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125):
+        candidate = trial.copy()
+        candidate[1:-1] = chart.lift((uv + step * (smoothed - uv))[1:-1], before, triangles)
+        score = quality(candidate.reshape(-1, 3), faces)["min_scaled_jacobian"]
+        if score > best:
+            trial, best = candidate, score
+    new[ids[1:-1]] = trial[1:-1]
 
 
 def quality(points: Array, faces: list[list[int]]) -> dict[str, float]:

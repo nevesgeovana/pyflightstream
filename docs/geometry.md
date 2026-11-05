@@ -14,6 +14,12 @@ Start from the [morphing template](mesh/morphing.toml). The
 [how-to](mesh/how-to.md#repitch-a-blade) explains axes and the
 [reference](mesh/reference.md#repitch-control) describes the checks and supported topology.
 Inspect the root and leading edge before using the output in a run.
+The rebuild transports every complete hub ring around the root and projects its free
+interior nodes onto source faces. The shared root follows the rigid blade rotation.
+The checks report root stand-off in metres and local cell edges. Above half a local
+edge, one warning explains that the hub shape near the root changes by that amount.
+Non-root hub nodes that leave the source surface beyond the documented tolerance
+are refused before output is written.
 
 ## Preparing geometry
 

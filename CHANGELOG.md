@@ -69,6 +69,13 @@ FlightStream versions.
 - `pyfs-workspace geometry repitch` reads a morphing TOML, rotates blade nodes rigidly,
   and rebuilds the named hub's existing quad rings. Connectivity, face order and saved
   boundary markings are retained; checks refuse folded hubs before writing (FR-3601 to FR-3604).
+- Repitch hub rebuilding carries the local root-cell orientation across all available rings,
+  projects interior nodes onto source faces and safeguards smoothing against reduced minimum
+  corner quality. Saved triangle-pair diagonals are retained during projection.
+  Migration: inspect the reported rigid-root stand-off; above half a local cell edge
+  it warns that the hub shape near the root changes by that amount. Every moved
+  non-root hub node is checked against source faces at a tolerance of `1e-8` local
+  edges; an escape refuses and names the node. Distances are printed and saved.
 
 ## [0.55.0] - 2026-11-04
 
