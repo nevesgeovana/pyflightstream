@@ -111,6 +111,8 @@ _PRODUCTS_PRIVATE_ALIASES = {
 # because the trimmed polar and the refinement study were added without widening the legacy
 # products surface (its inventory above only gains the two product writers).
 _KEPT_OFF_PRODUCTS = {
+    # FR-1062: far-field column allocation is a domain API added after the split.
+    "farfield_column_names",
     # FR-3343: the interpolation writer belongs to the domain module's API.
     "write_interpolated_polar",
     "GCI_SAFETY_FACTOR",
@@ -215,6 +217,7 @@ def test_extracted_product_modules_preserve_the_public_surface():
             {
                 # 26.125 (FR-423): the drag split carried under its own names.
                 "DRAG_PRODUCT_COLUMNS",
+                "farfield_column_names",
                 "GEOMETRY_ANALYSIS_FRAMES",
                 "POLAR_COLUMNS",
                 "SWEEP_AXES",

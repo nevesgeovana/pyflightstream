@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream._fsm import saved_mesh_coordinate_unit
@@ -24,7 +24,7 @@ from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, 
 from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import incidence, quality, rebuild, rings, root_loop
 from pyflightstream.workspace._repitch_io import attachments
-from pyflightstream.workspace._wheel import Faces, check_wheel, parse_axis, rotate
+from pyflightstream.workspace._wheel import Faces, parse_axis, rotate, wheel_symmetry
 from pyflightstream.workspace._wheel_fsm import _parse, _real_row
 
 __all__ = ["repitch_mesh"]
@@ -357,7 +357,7 @@ def _periodicity(new: Any, all_faces: list, rotor: Any, checks: dict) -> None:
     if rotor is not None and len(rotor["families_blades"]) > 1:
         axis = parse_axis(rotor["axis"])
         origin = np.array([rotor.get(k + "_m", 0.0) for k in ("x", "y", "z")])
-        periodic = check_wheel(
+        periodic = wheel_symmetry(
             new, Faces.of(all_faces), axis, origin, copies=len(rotor["families_blades"]), tol=1e-7
         )
         inv = periodic["invariance"]

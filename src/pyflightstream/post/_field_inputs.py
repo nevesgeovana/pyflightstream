@@ -113,6 +113,10 @@ _FIELD_LEFT_OUT: Final = MappingProxyType(
                 "the power lattice's station x/R; unstated, the last station": ("station",),
                 _A_ROTOR_PLACES_IT: ("rotor",),
                 "an optional unique entry label; defaults to the variant": ("name",),
+                "rotor_sections induction controls; the example uses Trefftz and power analyses": (
+                    "chord_fraction",
+                    "induction",
+                ),
                 "optional exclusive trailing windows with export_type = avg_window; "
                 "omitted, the row's window is used": ("last_revs", "last_steps"),
             }

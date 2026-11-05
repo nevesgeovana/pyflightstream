@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import (
     boundary_names,
     boundary_surface,
@@ -30,6 +30,8 @@ from .reference_blocks import CampaignConfigError, RotorBlock
 if TYPE_CHECKING:
     from . import SimCase
 
+__all__ = ["blade_order_errors", "noting_blade_order", "validate_blade_order"]
+
 #: Maximum angular disagreement: a quarter of one blade pitch.
 BLADE_ORDER_PITCH_TOLERANCE = 0.25
 #: Smaller irregularities are worth reporting even when the order is acceptable.
@@ -39,7 +41,13 @@ _SAID: ContextVar[set[str] | None] = ContextVar("blade_order_warnings", default=
 
 @contextmanager
 def noting_blade_order() -> Iterator[None]:
-    """Report each unavailable or uneven rotor once during one plan."""
+    """Report each unavailable or uneven rotor once during one plan.
+
+    Yields
+    ------
+    None
+        A context that deduplicates blade-order warnings for the plan.
+    """
     token = _SAID.set(set())
     try:
         yield
@@ -96,7 +104,7 @@ def _surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
         )
         read = obj_group_surface
     else:
-        raise ValueError("geometry is not a readable named surface mesh")
+        raise InputValueError("geometry is not a readable named surface mesh")
     vertices: list[tuple[float, float, float]] = []
     faces: list[tuple[int, int, int]] = []
     offset = 0
@@ -111,24 +119,24 @@ def _surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
 def _directions(path: Path, rotor: RotorBlock, units: str | None) -> np.ndarray:
     unit = saved_mesh_coordinate_unit(path) if path.suffix.lower() == ".fsm" else units
     if unit is None or unit not in METRES_PER_UNIT:
-        raise ValueError("stored mesh coordinate unit is unknown")
+        raise InputValueError("stored mesh coordinate unit is unknown")
     axis = np.asarray(rotor.axis_vector)
     radial = []
     for name in rotor.families_blades:
         vertices, faces = _surface(path, name)
         if not len(faces):
-            raise ValueError(f"family {name!r} has no readable faces (possibly a sector)")
+            raise InputValueError(f"family {name!r} has no readable faces (possibly a sector)")
         triangles = vertices[faces] * float(METRES_PER_UNIT[unit])
         areas = np.linalg.norm(
             np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]), axis=1
         )
         if not np.isfinite(triangles).all() or not np.isfinite(areas).all() or areas.sum() <= 0:
-            raise ValueError(f"family {name!r} has no finite positive area")
+            raise InputValueError(f"family {name!r} has no finite positive area")
         delta = np.average(triangles.mean(axis=1), axis=0, weights=areas) - rotor.origin
         direction = delta - np.dot(delta, axis) * axis
         length = np.linalg.norm(direction)
         if length <= max(rotor.diameter_m * 1e-12, 1e-15):
-            raise ValueError(f"family {name!r} has its area-weighted centroid on the axis")
+            raise InputValueError(f"family {name!r} has its area-weighted centroid on the axis")
         radial.append(direction / length)
     return np.asarray(radial)
 
@@ -158,7 +166,7 @@ def validate_blade_order(
     label = f"rotor {rotor.alias!r} in {geometry}: blade order"
     try:
         if geometry is None:
-            raise ValueError("no geometry is available")
+            raise InputValueError("no geometry is available")
         directions = _directions(Path(geometry), rotor, units)
     except (OSError, ValueError) as error:
         _note(f"{label} was not checked: {error}")

@@ -114,6 +114,10 @@ EXCLUDED_EXTERNAL_METADATA = (
 #: package for every ``hashlib`` call and fails on a module absent here,
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {
+    "workspace/_repitch_io.py": (
+        "the exact output OBJ payload bytes prepared by repitch, before writing; "
+        "no decoding, normalization, path or filesystem metadata is added."
+    ),
     "_matrix_identifiers.py": (
         "the UTF-8 encoding of a matrix file with the IDENTIFIERS pairs taken out of its "
         "VAR_NAMES_VALUES cells, so a matrix stating none hashes to the plain SHA-256 of its file. "

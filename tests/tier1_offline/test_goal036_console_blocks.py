@@ -29,6 +29,7 @@ from pyflightstream._console import WIDTH, blocks
 from pyflightstream._errors import PyflightstreamWarning
 from tests.tier1_offline.test_fsm_saved_actions import _saved_simulation
 from tests.tier1_offline.test_goal024_rpm import _rotor_matrix
+from tests.tier1_offline.test_p0551_blade_order import wheel
 
 #: The rotor cell of the 0.30.0 Mach tests: a row that states its clock and window.
 ROTOR_CELL = (
@@ -63,6 +64,23 @@ def _two_case_matrix(tmp_path, *, values="3000,6000", inside=False):
         cell=ROTOR_CELL,
     )
     _saved_simulation(workspace.inputs_dir / "geometries" / "wing_clean.fsm", [], names=("OTHER",))
+    # Real blades with a stored unit let the blade-order check pass without a
+    # warning; the sidecar still names only OTHER, so every point stays blocked.
+    mesh = workspace.inputs_dir / "geometries" / "wing_clean.fsm"
+    saved_actions = mesh.read_text(encoding="utf-8").split("$MESH_END$", 1)[1]
+    wheel(mesh, 2, 1)
+    mesh.write_text(
+        mesh.read_text(encoding="utf-8").replace("Blade1", "Blade_1").replace("Blade2", "Blade_2")
+        + saved_actions,
+        encoding="utf-8",
+    )
+    mesh.with_name(mesh.name + ".boundaries.toml").write_text(
+        'boundaries = ["OTHER"]\n', encoding="utf-8"
+    )
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    setup.write_text(
+        "wake_termination_x_m = 10.0\n" + setup.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     lines = matrix.read_text(encoding="utf-8").splitlines()
     lines.append(lines[-1].replace("9001", "9002", 1))
     target = workspace.root / "inputs" / "matrices" / matrix.name if inside else matrix

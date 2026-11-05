@@ -58,6 +58,28 @@ def aligned_blade_sections(
     Surface re-cuts remain available when a distribution or its geometric
     evidence is missing. Section CF uses reference dynamic pressure, unlike
     the surface VTK coefficient which uses local dynamic pressure.
+
+    Parameters
+    ----------
+    sections : dict
+        Surface re-cuts by blade name, retained when section evidence is absent.
+    layout : sequence of dict
+        Recorded section distributions in exported order.
+    loads_path, cp_path : pathlib.Path or None
+        Matching section-load and cut-geometry exports.
+    axis : numpy.ndarray
+        Unit shaft direction in geometry axes.
+    rho : float
+        Density in kg/m^3.
+    reference_speed : float
+        Reference velocity in m/s for section coefficients.
+    per_m : float
+        Native exported length units per metre.
+
+    Returns
+    -------
+    tuple of dict
+        Accepted loads by blade and the reasons for retained surface re-cuts.
     """
     output = dict(sections)
     reasons = {

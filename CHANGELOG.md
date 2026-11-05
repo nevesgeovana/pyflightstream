@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Submitted jobs remain protected against accidental reruns. Pass
+  `redo_submitted=True` explicitly to repeat a submitted point; the old scheduler
+  job is not cancelled and must be handled separately.
+- Rotor section modules import without SciPy installed; requesting surface
+  matching without SciPy gives an actionable package error. Blade-order and
+  rotor section input refusals use package errors while retaining ValueError compatibility.
+
 ## [0.55.1] - 2026-11-05
 
 ### Added

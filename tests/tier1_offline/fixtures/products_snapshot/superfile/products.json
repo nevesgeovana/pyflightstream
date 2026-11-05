@@ -16,22 +16,6 @@
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ]
   },
-  "polars/P6002-M144RE438AL+000BE+000J+170_g01.csv": {
-   "sim_id": "6002",
-   "pproc": "p002",
-   "runs": [
-    "camp/sim_6002/M144RE438AL+000BE+000J+170"
-   ],
-   "kind": "instant"
-  },
-  "polars/P6002-M144RE438AL+000BE+000J+170_g02.csv": {
-   "sim_id": "6002",
-   "pproc": "p002",
-   "runs": [
-    "camp/sim_6002/M144RE438AL+000BE+000J+170"
-   ],
-   "kind": "instant"
-  },
   "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
    "sim_id": "6002",
    "pproc": "p002",
@@ -55,6 +39,22 @@
    "window_from": "the plots table cut into complete revolutions of 2 solver steps",
    "steps_per_revolution": 2.0,
    "rotor": "PUSHER"
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g01.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "kind": "instant"
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g02.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "kind": "instant"
   },
   "settings/matriz_settings.csv": {
    "kind": "settings_codebook",

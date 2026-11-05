@@ -53,6 +53,7 @@ from pyflightstream.farfield import (
 from pyflightstream.farfield.balances import DiskLoading
 from pyflightstream.farfield.wake_sheets import WakeSheet
 from pyflightstream.post._condition import (
+    _q_ref,
     _recorded_speeds,
     recorded_blade_count,
     row_rotor_speeds,
@@ -782,7 +783,7 @@ def _variant_b(
     k = calibration_scale(
         raw.lift * factor,
         cl_near=_near_field(point)[0],
-        q=ff._q_ref(point, rho),
+        q=_q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
     calibrated = math.isfinite(k)
@@ -1508,7 +1509,7 @@ def _instant_values(
     near-field axial force in N from the same plots history as the unsteady polar.
     """
     rho, speed, alpha, beta = _flow(point)
-    q_ref = ff._q_ref(point, rho)
+    q_ref = _q_ref(point, rho)
     layout = probe.layout
     lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m, final=final)
     # C reads a plane on every applicable row; D and balances read a lattice.

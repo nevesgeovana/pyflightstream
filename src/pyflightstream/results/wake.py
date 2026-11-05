@@ -216,6 +216,7 @@ def plane_body_candidates(saved: Path, points_m: np.ndarray, axes: np.ndarray) -
 
 
 def _frame_offset(points: np.ndarray, vertices: np.ndarray, moment: np.ndarray, *, median=False):
+    # AD-06 scipy: nearest-neighbour matching of wake roots to labelled surface vertices.
     from scipy.spatial import cKDTree
 
     distances: list[float | None] = [None, None]
@@ -278,6 +279,7 @@ def wake_surface_families(
         Nearest family per start. Ties between families or starts more than
         one percent of the mesh extent from a vertex remain unassigned.
     """
+    # AD-06 scipy: nearest-neighbour matching of wake roots to labelled surface vertices.
     from scipy.spatial import cKDTree
 
     from pyflightstream.results.surface import read_vtk_surface

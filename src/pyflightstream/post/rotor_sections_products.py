@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import ProductError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.farfield.rotor_sections import (
     anchored_wake_loads,
     chord_line_points,
@@ -35,7 +35,16 @@ __all__ = ["rotor_sections_products", "rotor_section_snapshot"]
 
 
 def rotor_sections_products(ctx, *, output, read_wake, flow, per_m, copies, window, skip):
-    """Write the selected rotor's blade-local long and strip tables."""
+    """Write the selected rotor's blade-local long and strip tables.
+
+    Parameters
+    ----------
+    ctx : SimContext
+        Resolved simulation, operating points, product paths and provenance.
+    output, read_wake, flow, per_m, copies, window, skip : callable
+        Pipeline adapters resolving exports, reading wakes, reading flow values,
+        converting units, counting periodic copies, selecting steps and reporting skips.
+    """
     spec = ctx.pproc.farfields[0]
     rotor = (getattr(ctx.live, "rotors", None) or {}).get(spec.rotor)
     rows, strips, contexts = [], [], {}
@@ -94,7 +103,7 @@ def _snapshots(ctx, point, *, output, window):
     files = exports.get(("", "vtk"), {})
     steps = list(range(int(span[0]), int(span[1]) + 1)) if span else []
     if not steps or any(step not in files for step in steps):
-        raise ValueError(
+        raise ProductError(
             "rotor sections need a surface and wake snapshot at every window step; "
             "no average is written"
         )
@@ -103,14 +112,14 @@ def _snapshots(ctx, point, *, output, window):
 
 def _sample(ctx, point, rotor, *, surface, saved, averaging, read_wake, flow, per_m, copies):
     if surface is None or saved is None:
-        raise ValueError("rotor sections need the surface VTK and labelled saved simulation")
+        raise ProductError("rotor sections need the surface VTK and labelled saved simulation")
     if averaging:
         point = replace(
             point, loads=parse_loads(surface.with_suffix(".txt").read_text(encoding="utf-8"))
         )
     units = per_m(ctx, point)
     if units is None:
-        raise ValueError("the saved simulation must state its length unit")
+        raise ProductError("the saved simulation must state its length unit")
     wake, _ = read_wake(ctx, point, surface.with_name(surface.stem + "_wakes.vtk"), units)
     rho, speed, alpha, beta = flow(point)
     record = ctx.record_of[point.name]
@@ -119,7 +128,7 @@ def _sample(ctx, point, rotor, *, surface, saved, averaging, read_wake, flow, pe
     if rpm is None and len(ctx.live.rotors) == 1:
         rpm = (record.reductions or {}).get("rpm")
     if not rpm:
-        raise ValueError("rotor sections need a recorded nonzero rotor speed")
+        raise ProductError("rotor sections need a recorded nonzero rotor speed")
     return rotor_section_snapshot(
         ctx,
         point,
@@ -304,7 +313,45 @@ def rotor_section_snapshot(
     copies,
     repair_w=False,
 ):
-    """Reduce one matching surface and wake snapshot in physical geometry axes."""
+    """Reduce one matching surface and wake snapshot in physical geometry axes.
+
+    Parameters
+    ----------
+    ctx : SimContext
+        Resolved simulation and far-field declaration.
+    point : PolarPoint
+        Operating point and its parsed near-field loads.
+    rotor : RotorBlock
+        Selected hub, axis, blade families and diameter in metres.
+    wake : WakeLines
+        Matching wake export in geometry axes and SI units.
+    surface, saved : pathlib.Path
+        Matching surface VTK and labelled saved simulation.
+    units : float
+        Native exported length units per metre.
+    rho : float
+        Density in kg/m^3.
+    speed : float
+        Free-stream velocity in m/s.
+    alpha, beta : float
+        Incidence and sideslip in degrees.
+    rpm : float
+        Recorded rotor speed in revolutions per minute.
+    copies : int
+        Number of periodic sector copies in the full wheel.
+    repair_w : bool
+        Compute the optional section-anchored W diagnostic.
+
+    Returns
+    -------
+    tuple of dict
+        Dimensional loads by blade and rotor, and local strip diagnostics by blade.
+
+    Raises
+    ------
+    ProductError
+        Measured axial load is zero, leaving the surface winding unresolved.
+    """
     from pyflightstream.farfield import rotor_wake_lines
 
     spec = ctx.pproc.farfields[0]
@@ -329,7 +376,7 @@ def rotor_section_snapshot(
         for name in rotor.families_blades
     )
     if thrust_sign == 0:
-        raise ValueError("surface winding needs a nonzero measured blade axial load")
+        raise ProductError("surface winding needs a nonzero measured blade axial load")
     sections, groups, attachments = blade_surface_strips(
         surface,
         saved,

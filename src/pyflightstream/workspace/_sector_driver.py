@@ -71,12 +71,12 @@ from pyflightstream.workspace._sector_save import (
 from pyflightstream.workspace._wheel import (
     _NOTHING,
     Faces,
-    check_wheel,
     drop_stale_inventory,
     merge_nodes,
     refuse_existing,
     refuse_the_source,
     unit_of,
+    wheel_symmetry,
     write_json,
 )
 
@@ -707,7 +707,7 @@ def _body_report(
     owners = numpy.array(sink.owner)
     faces = Faces(tris.ravel(), numpy.full(len(tris), 3))
     scale = float(numpy.ptp(world, axis=0).max())
-    turn = check_wheel(
+    turn = wheel_symmetry(
         world,
         faces,
         numpy.array(_UNIT_VECTOR[ask.axis]),

@@ -7,6 +7,12 @@ ones, and the list is what EXISTS rather than what is planned
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
 
+* :mod:`pyflightstream.post.rotor_section_frames` aligns recorded section cuts;
+  reached by the rotor section product pipeline.
+* :mod:`pyflightstream.post.rotor_sections_surface` cuts labelled blade surfaces;
+  reached by the rotor section product pipeline.
+* :mod:`pyflightstream.post.rotor_sections_products` writes blade-local wake products;
+  reached by the workspace far-field pipeline.
 * :mod:`pyflightstream.post.point_tables` writes declared solver tables;
   reached by the workspace pipeline.
 * :mod:`pyflightstream.post._structure` writes structural response and tip columns;

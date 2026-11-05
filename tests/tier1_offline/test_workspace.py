@@ -668,6 +668,12 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
         package / "cases" / "workflows" / "_farfield.py": {"rotor"},
         package / "post" / "farfield_fields.py": {"rotor"},
         package / "post" / "farfield_products.py": {"rotor"},
+        # FR-3620: FarfieldSpec.rotor selects a declared RotorBlock, as the
+        # far-field siblings above do; it is not the legacy recorded block.
+        package / "post" / "rotor_sections_products.py": {"rotor"},
+        # The repitch control's rotor key selects a named reference RotorBlock.
+        # It does not read the legacy reference [rotor] metadata or its signs.
+        package / "workspace" / "repitch.py": {"rotor"},
     }
     scanned = 0
     offenders: list[str] = []

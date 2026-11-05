@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+import pyflightstream.post._condition as condition
 from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT, select_families
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
@@ -59,7 +60,6 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.farfield_fields import (
     FarLayout,
     ProbeSamples,
-    _q_ref,
     average_rows,
     axial_coefficient,
     derived_layout,
@@ -372,7 +372,7 @@ def _near_force(point: PolarPoint, axis: str | Sequence[float], area: float) -> 
         coefficient = float(total[drag])
     except (PyflightstreamError, KeyError):
         coefficient = _NA
-    qs = _q_ref(point, rho) * area
+    qs = condition._q_ref(point, rho) * area
     viscous = viscous_projection(coefficient, axis, alpha=alpha, beta=beta, qs=qs)
     return -axial_coefficient(total, axis) * qs - viscous, viscous
 

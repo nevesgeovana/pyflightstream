@@ -113,6 +113,7 @@ _DIMENSIONLESS_OR_DEBT = {
     "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m
     "stiffness_scale_factor",  # multiplier on EI/GJ
+    "chord_fraction",  # induction location divided by local chord, dimensionless
     "node_offset_chord_fraction",  # fraction of local chord
     "wake_development_revolutions",  # revolutions are counts
     "coupling_relaxation",  # relaxation factor in (0, 1]

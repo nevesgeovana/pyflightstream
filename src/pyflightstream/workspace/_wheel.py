@@ -454,7 +454,7 @@ def _invariance(
     }
 
 
-def check_wheel(
+def wheel_symmetry(
     nodes: NDArray[numpy.float64],
     faces: Faces,
     axis: NDArray[numpy.float64],
@@ -813,7 +813,7 @@ def report_of(
             "merged": wheel_open[1],
         },
         "area_ratio": joined.area(nodes) / (opts.copies * faces.area(verts)),
-        **check_wheel(nodes, joined, opts.axis, opts.hub, copies=opts.copies, tol=tol),
+        **wheel_symmetry(nodes, joined, opts.axis, opts.hub, copies=opts.copies, tol=tol),
     }
 
 

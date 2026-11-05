@@ -417,6 +417,18 @@
    "names": [
     "pyflightstream.fsi.sections.place_on_mesh_cut"
    ]
+  },
+  {
+   "id": "RX-41",
+   "capability": "Single-sheet wake crossing diagnostic retained for Python callers",
+   "reason": "Python-only by design",
+   "decision": "PFS-2187 CI1: the workspace uses sheet_crossings for multiple sheets; wake_crossings retains the documented single-sheet sorting and gap diagnostic for Python callers. Registering an unrouted public capability is the reach guard prescribed remedy.",
+   "names": [
+    "pyflightstream.farfield.WakeTrace",
+    "pyflightstream.farfield.wake_crossings",
+    "pyflightstream.farfield.trefftz.WakeTrace",
+    "pyflightstream.farfield.trefftz.wake_crossings"
+   ]
   }
  ]
 }

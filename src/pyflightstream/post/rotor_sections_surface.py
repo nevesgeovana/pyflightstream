@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from scipy.spatial import cKDTree
 
+from pyflightstream._errors import ProductError
 from pyflightstream._fsm import boundary_vertices, saved_mesh_coordinate_unit
 from pyflightstream._lengths import scale
 from pyflightstream.farfield.rotor_sections import SectionLoads, chord_line_points
@@ -60,19 +60,32 @@ def blade_surface_strips(
     tuple
         Strips by blade, wake indices by blade, and chord attachment per line.
         The VTK friction coefficient uses local dynamic pressure.
+
+    Raises
+    ------
+    ProductError
+        SciPy is unavailable, geometry units or labels are missing, or surface
+        fields and wake lines cannot define the requested blade strips.
     """
+    try:
+        # AD-06 scipy: nearest-neighbour matching of exported and saved blade vertices.
+        from scipy.spatial import cKDTree
+    except ImportError as error:
+        raise ProductError(
+            "rotor section surface matching requires scipy; install scipy and retry the product"
+        ) from error
     vertices = boundary_vertices(saved_path)
     unit = saved_mesh_coordinate_unit(saved_path)
     factor = scale(unit, "METER") if unit else None
     if not vertices or factor is None:
-        raise ValueError("rotor sections need labelled saved blade geometry with known units")
+        raise ProductError("rotor sections need labelled saved blade geometry with known units")
     owned: dict[str, list] = {name: [] for name in families}
     for label, boundary_points in vertices.items():
         for name in families:
             if label.casefold() == name.casefold():
                 owned[name].extend(boundary_points)
     if any(not value for value in owned.values()):
-        raise ValueError("saved geometry does not identify every selected blade family")
+        raise ProductError("saved geometry does not identify every selected blade family")
     geometry = {name: np.asarray(value) * factor for name, value in owned.items()}
     surface = read_vtk_surface(surface_path)
     points = surface.points / per_m
@@ -97,7 +110,7 @@ def blade_surface_strips(
     data = surface.cell_data
     required = ("Cp_reference", "skin_friction_coeff.", "Vx", "Vy", "Vz")
     if any(key not in data for key in required):
-        raise ValueError("rotor sections need Cp_reference, skin_friction_coeff., Vx, Vy and Vz")
+        raise ProductError("rotor sections need Cp_reference, skin_friction_coeff., Vx, Vy and Vz")
     velocity = np.column_stack([data[key] for key in ("Vx", "Vy", "Vz")])
     starts = np.array([line[0] for line in lines])
     distances_to_blades = np.array([cKDTree(geometry[name]).query(starts)[0] for name in families])
@@ -113,7 +126,7 @@ def blade_surface_strips(
         faces = np.array([i for i, poly in enumerate(polygons) if np.all(on_blade[poly])])
         group = np.flatnonzero(nearest == index)
         if len(faces) == 0 or len(group) < 2:
-            raise ValueError(
+            raise ProductError(
                 f"blade {name} needs matching surface faces and at least two wake lines"
             )
         blade, ordered, legs = _cut(
@@ -175,7 +188,7 @@ def _cut(
     root = float(np.min(rel @ radial))
     edges = np.concatenate(([root], line_radius))
     if np.any(np.diff(edges) <= 0):
-        raise ValueError(
+        raise ProductError(
             "blade root and wake radii must increase; use matching noncollapsed exports"
         )
     width, radius = np.diff(edges), (edges[:-1] + edges[1:]) / 2
@@ -258,7 +271,7 @@ def _chords(
     chord, locations = [], []
     for r, ring in zip(radius, rings, strict=True):
         if len(ring) < 2:
-            raise ValueError(
+            raise ProductError(
                 "surface has no closed blade cut at a strip; retain a matching complete surface"
             )
         te = np.array([np.interp(r, line_radius, starts[:, k]) for k in range(3)])

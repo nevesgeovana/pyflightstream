@@ -66,15 +66,7 @@ from pyflightstream.probes.layouts import farfield_plane, lattice_basis, lattice
 from pyflightstream.results.loads import parse_probe_points
 
 if TYPE_CHECKING:
-    from pyflightstream.post.polar import PolarPoint
     from pyflightstream.workspace import RunRecord
-
-
-def _q_ref(point: PolarPoint, rho: float) -> float:
-    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
-    loads = point.loads
-    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
-    return 0.5 * rho * float(v_ref) ** 2
 
 
 __all__ = [

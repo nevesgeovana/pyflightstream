@@ -16,14 +16,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pyflightstream.farfield.fields import FarfieldInputError
-from pyflightstream.farfield.trefftz import (
-    RUN_GAP_FACTOR,
-    TraceResult,
+from pyflightstream.farfield._wake_math import (
     _first_crossings,
     _induced,
     _require_density,
 )
+from pyflightstream.farfield.fields import FarfieldInputError
+from pyflightstream.farfield.trefftz import RUN_GAP_FACTOR, TraceResult
 
 __all__ = [
     "CLOSURE_RTOL",
@@ -235,7 +234,24 @@ def split_wake_sheets(
 def sheet_crossings(
     lines: Sequence[np.ndarray], values: np.ndarray, sheet: WakeSheet, x_t: float
 ) -> SheetCrossings:
-    """Cut one sheet's lines at their first crossing of the plane ``x = x_t``."""
+    """Cut one sheet's lines at their first crossing of the plane ``x = x_t``.
+
+    Parameters
+    ----------
+    lines : sequence of numpy.ndarray
+        Wake chains in wind axes, in metres, newest node first.
+    values : numpy.ndarray
+        One filament strength per chain in m^2/s.
+    sheet : WakeSheet
+        Indices and topology of the selected sheet.
+    x_t : float
+        Downstream plane position in metres.
+
+    Returns
+    -------
+    SheetCrossings
+        First crossings in sheet order and the count not reaching the plane.
+    """
     chosen = [lines[k] for k in sheet.index]
     crossings, short, _downstream = _first_crossings(chosen, x_t)
     return SheetCrossings(

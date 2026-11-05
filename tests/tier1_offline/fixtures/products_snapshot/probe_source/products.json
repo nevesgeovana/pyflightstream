@@ -1,13 +1,5 @@
 {
  "products": {
-  "polars/P7001-AL-020_g01.csv": {
-   "sim_id": "7001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_7001/AL-020"
-   ],
-   "kind": "instant"
-  },
   "probes/AL-020_plots.csv": {
    "sim_id": "7001",
    "pproc": "p001",
@@ -21,6 +13,14 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ]
+  },
+  "polars/P7001-AL-020_g01.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant"
   },
   "polars/SUPER-7001-AL-020_g01.csv": {
    "sim_id": "7001",

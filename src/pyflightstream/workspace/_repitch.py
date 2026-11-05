@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from pyflightstream._errors import InputValueError, warn
+from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 
 Array = NDArray[np.float64]
 
@@ -66,7 +66,8 @@ def surface_checks(
             f"{result['root_max_distance_to_source_hub_m']:.9g} m "
             f"({result['root_max_distance_to_source_hub_over_local_edge']:.6g} local cell edges); "
             "the hub shape near the root changes by this amount. "
-            "The root follows the blade; inspect the rebuilt seam."
+            "The root follows the blade; inspect the rebuilt seam.",
+            PyflightstreamWarning,
         )
     return result
 

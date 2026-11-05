@@ -481,6 +481,11 @@
       "path": "farfield/__init__.py"
     },
     {
+      "id": "pyflightstream.farfield._wake_math",
+      "layer": 3.25,
+      "path": "farfield/_wake_math.py"
+    },
+    {
       "id": "pyflightstream.farfield.balances",
       "layer": 3.25,
       "path": "farfield/balances.py"
@@ -5143,6 +5148,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.farfield._wake_math",
+      "target": "pyflightstream.farfield.fields",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.farfield.balances",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -5174,7 +5184,17 @@
     },
     {
       "source": "pyflightstream.farfield.rotor_sections",
-      "target": "pyflightstream.farfield.trefftz",
+      "target": "pyflightstream.farfield._wake_math",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.rotor_sections",
+      "target": "pyflightstream.farfield.fields",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.trefftz",
+      "target": "pyflightstream.farfield._wake_math",
       "kind": "module"
     },
     {
@@ -5190,6 +5210,11 @@
     {
       "source": "pyflightstream.farfield.trefftz",
       "target": "pyflightstream.farfield.quadrature",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.wake_sheets",
+      "target": "pyflightstream.farfield._wake_math",
       "kind": "module"
     },
     {
@@ -7049,11 +7074,6 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
-      "target": "pyflightstream.post.polar",
-      "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.probes.errors",
       "kind": "module"
     },
@@ -7970,6 +7990,11 @@
     {
       "source": "pyflightstream.post.rotor_sections_products",
       "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_surface",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {

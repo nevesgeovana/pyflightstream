@@ -939,3 +939,10 @@ def step_of(cell: object) -> int | None:
         return int(float(str(cell)))
     except (ValueError, OverflowError):
         return None
+
+
+def _q_ref(point: PolarPoint, rho: float) -> float:
+    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
+    loads = point.loads
+    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
+    return 0.5 * rho * float(v_ref) ** 2

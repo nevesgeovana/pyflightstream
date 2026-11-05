@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pyflightstream.farfield.trefftz import _segment_velocity
+from pyflightstream.farfield._wake_math import _segment_velocity
+from pyflightstream.farfield.fields import FarfieldInputError
 
 __all__ = [
     "FRAME_SPAN_TOLERANCE_DEG",
@@ -59,6 +60,22 @@ def complete_induction_wake(lines, values, attachments, exported_lines, exported
     Constructed reflections reverse strength because vorticity is an axial
     vector. An image already in the export retains its recorded strength.
     Positions are in metres and strengths in square metres per second.
+
+    Parameters
+    ----------
+    lines, exported_lines : sequence of numpy.ndarray
+        Rotor chains and all exported chains in geometry metres.
+    values, exported_values : numpy.ndarray
+        Corresponding filament strengths in m^2/s.
+    attachments : numpy.ndarray
+        Rotor chord attachment positions in geometry metres.
+    mirror : bool
+        Complete missing reflected chains across geometry y=0.
+
+    Returns
+    -------
+    tuple
+        Complete chains, strengths and attachment positions.
     """
     lines, values, attachments = list(lines), list(values), list(attachments)
 
@@ -147,13 +164,20 @@ def wake_velocity(
     -------
     numpy.ndarray
         Induced velocity in geometry axes, m/s, shape (n, 3).
+
+    Raises
+    ------
+    FarfieldInputError
+        Wake shapes, attachment counts or finite-value requirements are not met.
     """
     if not lines or len(values) != len(lines) or attachment.shape != (len(lines), 3):
-        raise ValueError("wake induction needs one value and chord attachment per wake line")
+        raise FarfieldInputError(
+            "wake induction needs one value and chord attachment per wake line"
+        )
     heads, tails, strengths = [], [], []
     for line, value, start in zip(lines, values, attachment, strict=True):
         if line.ndim != 2 or line.shape[1] != 3 or len(line) < 2:
-            raise ValueError("each wake line needs at least two three-dimensional nodes")
+            raise FarfieldInputError("each wake line needs at least two three-dimensional nodes")
         chain = np.vstack((start, line))
         head, tail = chain[:-1], chain[1:]
         keep = np.linalg.norm(tail - head, axis=1) > 0
@@ -162,7 +186,7 @@ def wake_velocity(
         strengths.append(np.full(np.count_nonzero(keep), -value))
     arrays = (points, *heads, *tails, *strengths)
     if not all(np.isfinite(array).all() for array in arrays):
-        raise ValueError("wake induction needs finite positions and filament strengths")
+        raise FarfieldInputError("wake induction needs finite positions and filament strengths")
     return _segment_velocity(
         points, np.concatenate(heads), np.concatenate(tails), np.concatenate(strengths)
     )
@@ -200,6 +224,11 @@ def project_sections(
     tuple of dict
         Dimensional blade totals and strip diagnostics. Force is in N,
         moments in N m, power in W; GAMMA is signed in m^2/s.
+
+    Raises
+    ------
+    FarfieldInputError
+        Section or frame inputs are invalid, or relative velocity is zero.
     """
     _validate(
         sections,
@@ -218,7 +247,9 @@ def project_sections(
     vt = vt0 + induced @ tangent
     speed = np.hypot(va, vt)
     if np.any(speed == 0):
-        raise ValueError("a zero relative section speed has no lift direction; omit that strip")
+        raise FarfieldInputError(
+            "a zero relative section speed has no lift direction; omit that strip"
+        )
     pressure = sections.force - sections.friction
     normal = (-vt[:, None] * axis + va[:, None] * tangent) / speed[:, None]
     lift = np.einsum("ij,ij->i", pressure, normal)
@@ -273,23 +304,23 @@ def _validate(sections, induced, *, axis, wind, hub, moment_point, omega, rho):
     for name in ("radius", "width", "chord", "moment"):
         value = getattr(sections, name)
         if value.shape != (n,) or not np.isfinite(value).all():
-            raise ValueError(f"section {name} needs one finite value per strip")
+            raise FarfieldInputError(f"section {name} needs one finite value per strip")
     for value in (sections.force, sections.friction, sections.points, induced):
         if value.shape != (n, 3) or not np.isfinite(value).all():
-            raise ValueError("section vectors need three finite components per strip")
+            raise FarfieldInputError("section vectors need three finite components per strip")
     for value in (axis, sections.radial, wind, hub, moment_point):
         if value.shape != (3,) or not np.isfinite(value).all():
-            raise ValueError("frame and flow vectors need three finite components")
+            raise FarfieldInputError("frame and flow vectors need three finite components")
     if not n or any(np.any(getattr(sections, key) <= 0) for key in ("radius", "width", "chord")):
-        raise ValueError("section radii, widths and chords must be positive")
+        raise FarfieldInputError("section radii, widths and chords must be positive")
     if not np.isfinite([rho, omega]).all() or rho <= 0:
-        raise ValueError("density must be positive and shaft speed must be finite")
+        raise FarfieldInputError("density must be positive and shaft speed must be finite")
     if not (
         np.isclose(np.linalg.norm(axis), 1)
         and np.isclose(np.linalg.norm(sections.radial), 1)
         and abs(float(axis @ sections.radial)) < 1e-8
     ):
-        raise ValueError("shaft and blade span must be orthogonal unit vectors")
+        raise FarfieldInputError("shaft and blade span must be orthogonal unit vectors")
 
 
 def anchored_wake_loads(sections, gamma, lines, values, group, *, hub, axis, wind, omega, rho):
@@ -299,6 +330,35 @@ def anchored_wake_loads(sections, gamma, lines, values, group, *, hub, axis, win
     0.4 to 0.95 of the wake tip radius sets the constant. Induction remains at
     W's trailing-edge point with its original filament strengths and no legs.
     Returns thrust (N), torque (N m), and the anchor (m^2/s).
+
+    Parameters
+    ----------
+    sections : SectionLoads
+        Blade strips and measured span direction in geometry axes.
+    gamma : numpy.ndarray
+        Section circulation in m^2/s.
+    lines : sequence of numpy.ndarray
+        Wake chains in geometry metres, newest node first.
+    values : numpy.ndarray
+        Filament strengths in m^2/s.
+    group : numpy.ndarray
+        Indices of this blade's wake chains.
+    hub, axis, wind : numpy.ndarray
+        Hub in metres, unit shaft direction and free-stream velocity in m/s.
+    omega : float
+        Shaft angular velocity in rad/s.
+    rho : float
+        Density in kg/m^3.
+
+    Returns
+    -------
+    tuple of float
+        Repaired thrust in N, torque in N m and circulation anchor in m^2/s.
+
+    Raises
+    ------
+    FarfieldInputError
+        No section circulation lies between 0.4 and 0.95 of the wake tip radius.
     """
     starts = np.array([lines[i][0] for i in group])
     radial = starts - hub
@@ -310,7 +370,9 @@ def anchored_wake_loads(sections, gamma, lines, values, group, *, hub, axis, win
     bound = np.cumsum(values[np.asarray(group)[order]])[:-1]
     band = (sections.radius > 0.4 * radii[-1]) & (sections.radius < 0.95 * radii[-1])
     if not np.any(band):
-        raise ValueError("W's anchor needs section circulation between 0.4 and 0.95 tip radius")
+        raise FarfieldInputError(
+            "W's anchor needs section circulation between 0.4 and 0.95 tip radius"
+        )
     anchor = float(np.mean(gamma[band] - np.interp(sections.radius[band], mid_radius, bound)))
     points = 0.5 * (starts[:-1] + starts[1:])
     velocity = wake_velocity(points, lines, values, np.array([line[0] for line in lines]))

@@ -30,7 +30,7 @@ from numpy.typing import NDArray
 
 from pyflightstream._errors import InputValueError
 from pyflightstream._fsm import MeshReadError, boundary_names, surface_mesh
-from pyflightstream.workspace._wheel import Faces, check_wheel, merge_nodes, rotate
+from pyflightstream.workspace._wheel import Faces, merge_nodes, rotate, wheel_symmetry
 from pyflightstream.workspace._wheel_fsm import (
     _flag_row,
     _int_row,
@@ -282,7 +282,7 @@ def wheel_checks(
     flat = numpy.concatenate([index[root[tris.ravel() + k * len(nodes)]] for k in range(copies)])
     faces = Faces(flat, numpy.full(len(tris) * copies, 3))
     checks: dict[str, Any] = dict(
-        check_wheel(stack[used], faces, axis, origin, copies=copies, tol=tol)
+        wheel_symmetry(stack[used], faces, axis, origin, copies=copies, tol=tol)
     )
     checks["wheel_nodes"] = {"stack": len(stack), "merged": len(stack) - len(used)}
     checks["wheel_faces"] = len(tris) * copies

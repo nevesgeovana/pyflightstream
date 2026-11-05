@@ -426,7 +426,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.farfield.quadrature">pyflightstream.farfield.quadrature</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.axes">pyflightstream.post.axes</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post.polar">pyflightstream.post.polar</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.lattice">pyflightstream.probes.lattice</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.layouts">pyflightstream.probes.layouts</a> (module)</li>
@@ -665,6 +664,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.post.rotor_sections_surface"><summary><code>pyflightstream.post.rotor_sections_surface</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.rotor_sections">pyflightstream.farfield.rotor_sections</a> (module)</li>
@@ -3395,6 +3395,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.farfield.wake_sheets">pyflightstream.farfield.wake_sheets</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.farfield._wake_math"><summary><code>pyflightstream.farfield._wake_math</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.farfield.balances"><summary><code>pyflightstream.farfield.balances</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
@@ -3411,16 +3415,19 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.farfield.rotor_sections"><summary><code>pyflightstream.farfield.rotor_sections</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream.farfield.trefftz">pyflightstream.farfield.trefftz</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield._wake_math">pyflightstream.farfield._wake_math</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.farfield.trefftz"><summary><code>pyflightstream.farfield.trefftz</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.farfield._wake_math">pyflightstream.farfield._wake_math</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.balances">pyflightstream.farfield.balances</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.quadrature">pyflightstream.farfield.quadrature</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.farfield.wake_sheets"><summary><code>pyflightstream.farfield.wake_sheets</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.farfield._wake_math">pyflightstream.farfield._wake_math</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.fields">pyflightstream.farfield.fields</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield.trefftz">pyflightstream.farfield.trefftz</a> (module)</li>
 </ul></details>

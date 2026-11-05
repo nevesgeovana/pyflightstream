@@ -57,10 +57,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # APIs; minimal_workflow is now reached and leaves the register.
 # P0460-INT: D7 removes the raw-run callers; the owner's integration instruction
 # classifies the retained legacy model and QA parser in RX-38 and RX-39.
-_REACH_GUARD___REGISTER_CEILING = 217
+_REACH_GUARD___REGISTER_CEILING = 221
 
 
-_REACH_GUARD___REGISTER_DIGEST = "ed86ab77cc417cefb4ab3b6cee6c3142c69e222d4cc46670d994f1582d19cb31"
+_REACH_GUARD___REGISTER_DIGEST = "2d3e0243be483f06dec0576e3ecd6d4e30acae6952ca6585ef602e69b9e0ad72"
 
 
 _REACH_GUARD__REASONS = (
