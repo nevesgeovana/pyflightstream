@@ -1,3 +1,15 @@
+# The morphing control file. geometry morph applies the tables it holds in this order:
+# [hub_rings], [repitch], [collapse_te], [wheel]; each verb (hub-rings, repitch, collapse-te)
+# also reads its own table alone. blades and hub at the top serve every table; a table's own
+# key wins.
+blades = ["Blade1"]
+hub = ["Spinner"]
+
+# Rings of quads around each blade root on a quad-dominant hub (geometry hub-rings).
+[hub_rings]
+rings = 4
+# width = 0.02  # total height in mesh units; default rings x the median hub edge at the root
+
 # Small rigid blade pitch change. Coordinates use the mesh frame and unit.
 [repitch]
 angle_deg = 1.0
@@ -7,9 +19,17 @@ keep = []
 axis = { origin = [0.0, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }
 max_angle_deg = 5.0
 # For a reference-defined radial axis, use axis = "auto" and reference = "rotor.toml".
+# To find each pitch axis from the rotor axis, drop axis and state:
+# rotor_axis = "x"        # or a vector [1.0, 0.0, 0.0]
+# reference_point = 0.25  # a coordinate along rotor_axis, or a point [x, y, z]
 
 # Collapse the blunt trailing edge of named blades on an OBJ (geometry collapse-te).
 # Run repitch first when both are wanted.
 [collapse_te]
 blades = ["Blade1"]
 # base = ["Blade1Base"]  # the group holding the strip, when no boundaries file declares the rims
+
+# Copy a finished sector about the rotor axis into the full wheel (geometry morph only).
+# [wheel]
+# center = [0.0, 0.0, 0.0]  # default the origin
+# copies = 6                # default from the sector's angle

@@ -1,5 +1,81 @@
 # Mesh input reference
 
+## Morph control
+
+`geometry morph MESH --morphing FILE --out OUTPUT` accepts an OBJ only, a sector or a full
+wheel, and writes a new OBJ with its boundaries file, the points files that file names and
+`<out>.morph.json`. A saved `.fsm` is refused.
+
+| Top-level key or table | Meaning |
+|---|---|
+| `blades` | Blade families, for every table that reads blades; a table's own `blades` wins |
+| `hub` | Hub families, for every table that reads a hub; a table's own `hub` wins |
+| `[hub_rings]` | Applied first; see [hub rings control](#hub-rings-control) |
+| `[repitch]` | Applied second; see [repitch control](#repitch-control) |
+| `[collapse_te]` | Applied third; see [collapse trailing-edge control](#collapse-trailing-edge-control) |
+| `[wheel]` | Applied last, on a sector only |
+
+The order is fixed and is not a key; the tables the file holds are applied, the others are not.
+Another top-level key or table is warned and skipped. The steps pass their mesh, boundaries file
+and points files through a private temporary folder; nothing is written beside the output until
+every step has passed, and a file of the output that exists is refused. `<out>.morph.json`
+holds the order, each step's record (what the verb alone writes as `<out>.hub_rings.json`,
+`<out>.repitch.json`, `<out>.collapse.json` or the wheel's record), the digests of source and
+output and the files written.
+
+| `[wheel]` key | Meaning |
+|---|---|
+| `copies` | Optional whole number of copies, 2 or more; default the sector's angle about the axis, which must be 360/N within 0.05 degrees |
+| `center` | Optional point of the rotor axis `[x, y, z]` in the mesh's unit; default the origin |
+| `axis` | The rotor axis when the file has no `[repitch] rotor_axis`; `x`, `y`, `z`, signed, or a vector |
+| `blades`, `hub` | Optional, over the top-level keys; the hub's azimuth range is the sector's angle |
+
+The wheel reuses `geometry sector-to-wheel` with its default tolerance. Its seams must close:
+the wheel's open edges must be the copies of the sector's open edges that are no seam, which a
+wrong `center` or axis breaks; otherwise the chain refuses.
+
+## Hub rings control
+
+`geometry hub-rings MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new OBJ,
+its boundaries file and `<out>.hub_rings.json`.
+
+| `[hub_rings]` key | Meaning |
+|---|---|
+| `rings` | Whole number of rings, 1 or more; repitch needs at least two |
+| `width` | Optional total height of the rings, in the mesh's unit; default `rings` times the median length of the hub edges that leave the root loop |
+| `blades` | Blade families, over the top-level `blades` |
+| `hub` | Hub families, over the top-level `hub` |
+
+Per blade, the root loop is the closed boundary the blade shares with the named hub; the rings
+have as many nodes as the loop and are marched outward in a chart of the hub around the root
+(the plane of its largest spread), normal to the loop with the normals smoothed along it, then
+lifted onto the source hub. The hole is the hub faces the rings reach, plus one layer, plus any
+pocket they enclose; it lies in one hub family. A face holding a node on an open boundary or on
+another family, or taken by another blade, is never taken: rings that would need one, or that
+fold, are refused, and the refusal names the first width that fits as the width shrinks by a
+tenth at a time, down to a hundredth of it.
+The band between the outer ring and the hole is triangulated by walking the two loops together
+(or, where a jagged hole stops the walk, by clipping ears through one bridge; the record says
+which), then remeshed by the remesh of `refine` with both loops frozen and every node projected
+on the source hub, and paired into quadrilaterals as a quad-dominant family of `refine` is. When
+the full remesh passes leave a cell turned against the source hub, fewer passes are tried, down
+to none; the record states the passes kept.
+
+Kept hub faces keep their order, and each blade's new faces take the place of its first face
+taken: the rings from the root outward, then the band. Kept nodes keep their text and their
+order; nodes used only by the faces taken leave, and the new nodes follow the kept ones.
+
+Every check runs in memory before any file is written, and a failed check refuses: each blade's
+output hub holds exactly `rings` complete rings from its root; no new cell folds or is turned
+against the source hub; every kept node and face is unchanged, in place and order, and the new
+faces sit where the first taken face was; the open edges are the source's, no edge has more than
+two faces and every new cell runs its edges against its neighbours'; the largest distance from a
+new node to the source hub, reported, is within the source's own chord deviation (the largest
+edge length times the turn between the normals of its two faces, over eight); the written bytes
+read back as the mesh in memory; and the boundaries file reads back. A marking on a node or an
+edge the operation removes is refused. The hub's area against the source and the quality of the
+new cells are reported.
+
 ## Collapse trailing-edge control
 
 `geometry collapse-te MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new
@@ -10,8 +86,11 @@ OBJ. A saved `.fsm` is refused with a message that the operation works on the OB
 | `blades` | Nonempty list of blade families, or `"all"` for every family with a declared blunt edge; under `"all"` a family whose declared edge is not a one-cell strip between two rims, such as a nacelle's base, or an entry marked by detection, which declares no rims, is warned and skipped |
 | `base` | Optional list of the groups holding the strips, one for each blade in the order of `blades` |
 
-Unknown keys are warned and skipped. Of the `[repitch]` table of the same file only `reference`
-and `rotor` are read, for the periodicity check below.
+Unknown keys are warned and skipped. `blades` defaults to the top-level `blades` of the file.
+Of the `[repitch]` table of the same file only `reference` and `rotor` are read, for the
+periodicity check below. On the boundaries route the strip is the faces wholly on the nodes
+the blade's entries declare, and only an entry with an edge on the sides of that strip names a
+rim; another marking of the blade, such as a flap line, is carried to its new position.
 Each merged node takes the place in the node list of the first declared rim's node; when one
 points set names both rims, of the rim holding the lowest node.
 Without `base` the boundaries file beside the OBJ declares the rims; an OBJ with neither is
@@ -44,21 +123,33 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 |---|---|
 | `angle_deg` | Finite pitch change, in degrees; required |
 | `max_angle_deg` | Positive limit, default 5, at most 5 |
-| `blades` | Nonempty list of blade families, or `"all"` from the reference |
-| `hub` | Nonempty list of hub families to rebuild; never inferred |
+| `blades` | Nonempty list of blade families, or `"all"` from the reference; default the top-level `blades` |
+| `hub` | Nonempty list of hub families to rebuild; never inferred; default the top-level `hub` |
 | `keep` | Optional kept-family list; all other unselected families are also kept |
 | `axis` | `"auto"` (default) from the reference, or an inline `origin`/`direction` table |
 | `axes.<family>` | Per-blade `origin` and `direction` overriding `axis` |
 | `reference` | Reference TOML for automatic radial axes and wheel checks |
 | `rotor` | Rotor table name when the reference declares several |
+| `rotor_axis` | Direction of the rotor's rotation: `x`, `y`, `z`, signed, or a vector |
+| `reference_point` | A coordinate along `rotor_axis`, which places the plane of the pitch axes, or a point `[x, y, z]` every pitch axis passes through |
 
 The report measures rigid-rotation residual, distance from the pitch axis, and
 pitch change at five span positions including root and tip. It records source and
 output hub counts, quality extrema (corner scaled Jacobian and edge aspect ratio),
 folded cells, shared root seam, non-manifold edges, fixed boundaries and added
-triangles. A reference with several blades requires full-wheel periodicity at
-360 divided by its blade count. With no wheel reference that check is warned and
+triangles. A reference with several blades, or several blades named with `rotor_axis`,
+makes the wheel periodicity a check at 360 divided by the blade count, read on the blades
+and hub only, so a wing or a fuselage in the file takes no part; a source whose blades and
+hub were not periodic either is warned, not refused. Otherwise that check is warned and
 skipped. Unknown control keys and absent `keep` entries are warned and skipped.
+A blade with no `axes` entry and no `axis` takes its pitch axis from `rotor_axis` and
+`reference_point` when the table states them: its span direction (the principal axis of its
+nodes, sensed to the tip) projected on the plane perpendicular to `rotor_axis`, through the
+hub centre in the plane a scalar places (the centroid of the hub's cut by that plane when the
+cut closes, the centre of the circle fitted to it when it is an arc; the cut is joined across
+each blade root) or through the point stated. `pitch_axes` in the record holds the centre,
+the fit's radius and largest residual, and each blade's span and pitch-axis directions with
+the distance by which its pitch axis passes outside its root loop, which is warned.
 
 The blade and hub face lists remain in source order, including the original FSM
 triangle partners. FSM trailing-edge groups, flags, base regions and wake termination

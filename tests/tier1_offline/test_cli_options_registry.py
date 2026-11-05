@@ -981,7 +981,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "tolerance"): frozenset({"sector-to-wheel", "subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
-        "profile refine repitch collapse-te subtract time-mean trailing-edge "
+        "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
         "visual-inspect".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
@@ -1098,12 +1098,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "refine",
             "repitch",
             "collapse-te",
+            "hub-rings",
+            "morph",
             "trailing-edge",
             "visual-inspect",
         }
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
-    ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te"}),
+    ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te", "hub-rings", "morph"}),
     ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),

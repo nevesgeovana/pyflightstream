@@ -1191,6 +1191,11 @@
       "path": "run/_cli_mesh.py"
     },
     {
+      "id": "pyflightstream.run._cli_morph",
+      "layer": 1,
+      "path": "run/_cli_morph.py"
+    },
+    {
       "id": "pyflightstream.run._cli_parsers",
       "layer": 1,
       "path": "run/_cli_parsers.py"
@@ -1561,6 +1566,11 @@
       "path": "workspace/_geometry_vtk.py"
     },
     {
+      "id": "pyflightstream.workspace._hub_rings_grid",
+      "layer": 2,
+      "path": "workspace/_hub_rings_grid.py"
+    },
+    {
       "id": "pyflightstream.workspace._inspect_pages",
       "layer": 2,
       "path": "workspace/_inspect_pages.py"
@@ -1619,6 +1629,11 @@
       "id": "pyflightstream.workspace._missing_log",
       "layer": 2,
       "path": "workspace/_missing_log.py"
+    },
+    {
+      "id": "pyflightstream.workspace._pitch_axis",
+      "layer": 2,
+      "path": "workspace/_pitch_axis.py"
     },
     {
       "id": "pyflightstream.workspace._query_files",
@@ -1866,6 +1881,11 @@
       "path": "workspace/hpc.py"
     },
     {
+      "id": "pyflightstream.workspace.hub_rings",
+      "layer": 2,
+      "path": "workspace/hub_rings.py"
+    },
+    {
       "id": "pyflightstream.workspace.inputs",
       "layer": 2,
       "path": "workspace/inputs.py"
@@ -1889,6 +1909,11 @@
       "id": "pyflightstream.workspace.migrate",
       "layer": 2,
       "path": "workspace/migrate.py"
+    },
+    {
+      "id": "pyflightstream.workspace.morph",
+      "layer": 2,
+      "path": "workspace/morph.py"
     },
     {
       "id": "pyflightstream.workspace.naming",
@@ -10494,6 +10519,11 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.run._cli_morph",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_wheel",
       "kind": "module"
     },
@@ -10609,22 +10639,37 @@
     },
     {
       "source": "pyflightstream.run._cli_mesh",
-      "target": "pyflightstream.workspace.collapse_te",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream.workspace.inputs",
       "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._cli_mesh",
-      "target": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "deferred"
     },
     {
-      "source": "pyflightstream.run._cli_mesh",
-      "target": "pyflightstream.workspace.sidecars",
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.collapse_te",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.hub_rings",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.morph",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.repitch",
       "kind": "deferred"
     },
     {
@@ -13738,6 +13783,16 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._hub_rings_grid",
+      "target": "pyflightstream.workspace._repitch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_rings_grid",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._inspect_pages",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -14145,6 +14200,21 @@
     {
       "source": "pyflightstream.workspace._missing_log",
       "target": "pyflightstream.workspace.manifest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._pitch_axis",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._pitch_axis",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._pitch_axis",
+      "target": "pyflightstream.workspace._wheel",
       "kind": "module"
     },
     {
@@ -14655,6 +14725,11 @@
     {
       "source": "pyflightstream.workspace._repitch_io",
       "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
@@ -15358,6 +15433,51 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._hub_rings_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._refine._remesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._repitch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._repitch_io",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace.inputs",
       "target": "pyflightstream._digest",
       "kind": "module"
@@ -15623,6 +15743,71 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._pitch_axis",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._repitch_io",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._sector_read",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace.collapse_te",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace.hub_rings",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.morph",
+      "target": "pyflightstream.workspace.repitch",
+      "kind": "deferred"
+    },
+    {
       "source": "pyflightstream.workspace.naming",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -15660,6 +15845,11 @@
     {
       "source": "pyflightstream.workspace.repitch",
       "target": "pyflightstream.cases.reference_blocks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._pitch_axis",
       "kind": "module"
     },
     {

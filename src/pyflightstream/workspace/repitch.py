@@ -20,10 +20,11 @@ from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.cases.reference_blocks import frame_basis_for_shaft
+from pyflightstream.workspace._pitch_axis import pitch_axes
 from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
 from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import incidence, quality, rebuild, rings, root_loop
-from pyflightstream.workspace._repitch_io import attachments, read_rotor
+from pyflightstream.workspace._repitch_io import attachments, morphing_table, read_rotor
 from pyflightstream.workspace._wheel import Faces, parse_axis, rotate, wheel_symmetry
 from pyflightstream.workspace._wheel_fsm import _parse, _real_row
 
@@ -72,8 +73,8 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
 
 def _config(path: Path) -> dict[str, Any]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    _need(isinstance(data.get("repitch"), dict), f"{path} needs a [repitch] table")
-    cfg = data["repitch"]
+    cfg = morphing_table(data, "repitch", ("blades", "hub"))
+    _need(isinstance(cfg, dict), f"{path} needs a [repitch] table")
     for key in set(cfg) - {
         "angle_deg",
         "max_angle_deg",
@@ -84,6 +85,8 @@ def _config(path: Path) -> dict[str, Any]:
         "axes",
         "reference",
         "rotor",
+        "rotor_axis",
+        "reference_point",
     }:
         warn(f"repitch.{key} does not apply and is skipped", NotApplicableWarning)
     angle = float(cfg.get("angle_deg", math.nan))
@@ -100,8 +103,16 @@ def _config(path: Path) -> dict[str, Any]:
     return cfg
 
 
-def _axis(name: str, cfg: dict[str, Any], rotor: Any) -> tuple[Any, Any]:
-    spec = cfg.get("axes", {}).get(name, cfg.get("axis", "auto"))
+def _own_axis(name: str, cfg: dict[str, Any]) -> Any:
+    """Return the axis the table states for one blade (``axes`` before ``axis``), or None."""
+    return cfg.get("axes", {}).get(name, cfg.get("axis"))
+
+
+def _axis(name: str, cfg: dict[str, Any], rotor: Any, derived: dict[str, Any]) -> tuple[Any, Any]:
+    spec = _own_axis(name, cfg)
+    if spec is None and name in derived:
+        return derived[name]
+    spec = "auto" if spec is None else spec
     if isinstance(spec, dict):
         origin = np.asarray(spec.get("origin", []), dtype=float)
         _need(
@@ -112,8 +123,9 @@ def _axis(name: str, cfg: dict[str, Any], rotor: Any) -> tuple[Any, Any]:
     _need(spec == "auto", f"blade {name!r}: axis must be auto or origin/direction")
     _need(
         rotor is not None and name in rotor.get("families_blades", []),
-        f"blade {name!r} has no reference axis; add repitch.axes.{name}.origin and direction "
-        "or repitch.reference",
+        f"blade {name!r} has no reference axis; add repitch.rotor_axis and "
+        f"repitch.reference_point, repitch.axes.{name}.origin and direction, or "
+        "repitch.reference",
     )
     main_axis = parse_axis(rotor["axis"])
     datum = rotor.get("blade1", {})
@@ -234,6 +246,62 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
     return report
 
 
+def _pitch_frame(
+    source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list
+) -> tuple[dict, Any, Any]:
+    """Return the derived pitch axes, the hub chart's rotor frame and how they were found.
+
+    A blade with an axis of its own (``axes`` or ``axis``) keeps it; the others take the rule of
+    ``rotor_axis`` and ``reference_point`` when the table states either, else the reference's.
+    """
+    derived: dict[str, Any] = {}
+    found = None
+    needs = [n for n in blades if _own_axis(n, cfg) is None]
+    if needs and ("rotor_axis" in cfg or "reference_point" in cfg):
+        derived, found = pitch_axes(source.verts, source.families, needs, hubs, cfg)
+    frame = None
+    if rotor is not None:
+        frame = (
+            np.array([rotor.get(k + "_m", 0.0) for k in ("x", "y", "z")]),
+            parse_axis(rotor["axis"]),
+        )
+    elif derived:
+        frame = (next(iter(derived.values()))[0], parse_axis(cfg["rotor_axis"]))
+    return derived, frame, found
+
+
+def _turn_blades(
+    source: ObjMesh, new: Any, cfg: dict, axes: tuple[Any, dict], names: tuple[list, list]
+) -> tuple[list, list, set[int], dict]:
+    """Turn each blade rigidly about its pitch axis; return its rings, motions and checks."""
+    old, (rotor, derived), (blades, hubs) = source.verts, axes, names
+    hub_faces = [f for n in hubs for f in source.families[n]]
+    held = {
+        v for n in source.families if n not in blades + hubs for f in source.families[n] for v in f
+    }
+    patches: list = []
+    motions: list = []
+    used: set[int] = set()
+    report: dict = {}
+    for name in blades:
+        ids = source.family_vertices(name)
+        _need(not set(ids) & (held | used), f"blade {name!r} shares nodes with a kept/other blade")
+        used.update(ids.tolist())
+        origin, axis = _axis(name, cfg, rotor, derived)
+        if cfg["angle_deg"]:
+            new[ids] = rotate(old[ids], axis, origin, cfg["angle_deg"])
+        loop = root_loop(source.families[name], hub_faces, name)
+        patches.append(rings(loop, hub_faces))
+        motions.append((origin, axis, cfg["angle_deg"]))
+        report[name] = {
+            "faces": len(source.families[name]),
+            "axis_origin": origin.tolist(),
+            "axis_direction": axis.tolist(),
+            **_blade_check(old, new, ids, origin, axis, angle=cfg["angle_deg"]),
+        }
+    return patches, motions, used | held, report
+
+
 def _deform(
     source: ObjMesh, cfg: dict, rotor: Any, blades: list, hubs: list, *, scale: float = 1.0
 ) -> tuple[Any, dict]:
@@ -243,38 +311,19 @@ def _deform(
     kept = [n for n in source.families if n not in blades + hubs]
     held = {v for n in kept for f in source.families[n] for v in f}
     report: dict[str, Any] = {"angle_deg": cfg["angle_deg"], "kept": kept, "blades": {}, "hub": {}}
-    patches = []
-    motions = []
-    used: set[int] = set()
-    for name in blades:
-        ids = source.family_vertices(name)
-        _need(not set(ids) & (held | used), f"blade {name!r} shares nodes with a kept/other blade")
-        used.update(ids.tolist())
-        origin, axis = _axis(name, cfg, rotor)
-        if cfg["angle_deg"]:
-            new[ids] = rotate(old[ids], axis, origin, cfg["angle_deg"])
-        loop = root_loop(source.families[name], hub_faces, name)
-        patches.append(rings(loop, hub_faces))
-        motions.append((origin, axis, cfg["angle_deg"]))
-        report["blades"][name] = {
-            "faces": len(source.families[name]),
-            "axis_origin": origin.tolist(),
-            "axis_direction": axis.tolist(),
-            **_blade_check(old, new, ids, origin, axis, angle=cfg["angle_deg"]),
-        }
+    derived, frame, found = _pitch_frame(source, cfg, rotor, blades, hubs)
+    if found is not None:
+        report["pitch_axes"] = found
+    patches, motions, taken, report["blades"] = _turn_blades(
+        source, new, cfg, (rotor, derived), (blades, hubs)
+    )
     interiors: set[int] = set()
     outer_nodes = {int(v) for patch in patches for v in patch[-1]}
     surface = HubSurface(old, hub_faces)
-    frame = None
-    if rotor is not None:
-        frame = (
-            np.array([rotor.get(k + "_m", 0.0) for k in ("x", "y", "z")]),
-            parse_axis(rotor["axis"]),
-        )
     for patch, motion in zip(patches, motions, strict=True):
         inner = set(patch[1:-1].ravel().tolist())
         _need(
-            not inner & (held | used | interiors | outer_nodes),
+            not inner & (taken | interiors | outer_nodes),
             "hub rings overlap a blade or another patch boundary",
         )
         interiors.update(inner)
@@ -286,7 +335,7 @@ def _deform(
     distances = surface_checks(surface, old, new, {int(v) for p in patches for v in p[0]}, scale)
     report["hub"] = _hub_checks(source, new, hubs)
     boundary = {v for e, owners in incidence(hub_faces).items() if len(owners) == 1 for v in e}
-    fixed = sorted((boundary - used) | held)
+    fixed = sorted((boundary - (taken - held)) | held)
     _need(np.array_equal(old[fixed], new[fixed]), "non-root hub boundary moved")
     report["checks"] = {
         "passed": True,
@@ -297,7 +346,7 @@ def _deform(
         "ring_counts": [len(p) - 1 for p in patches],
         **distances,
     }
-    _periodicity(new, all_faces, rotor, report["checks"])
+    _periodicity(source, new, _periodic_set(cfg, rotor, blades, hubs, frame), report["checks"])
     return new, report
 
 
@@ -323,25 +372,60 @@ def _hub_checks(source: ObjMesh, new: Any, hubs: list) -> dict:
     return report
 
 
-def _periodicity(new: Any, all_faces: list, rotor: Any, checks: dict) -> None:
-    """Check the wheel whenever its reference declares multiple meshed blades."""
+def _periodic_set(cfg: dict, rotor: Any, blades: list, hubs: list, frame: Any) -> Any:
+    """Return the wheel the periodicity check reads (blades, hubs, axis, origin, copies), or None.
+
+    A reference that declares several blades turns it on, about its own axis, over every blade
+    it declares; without one, several named blades turn it on, about ``rotor_axis`` through the
+    hub centre. Only the blades and the hub are read, so another body in the file (a wing, a
+    fuselage) does not take part.
+    """
     if rotor is not None and len(rotor["families_blades"]) > 1:
-        axis = parse_axis(rotor["axis"])
         origin = np.array([rotor.get(k + "_m", 0.0) for k in ("x", "y", "z")])
-        periodic = wheel_symmetry(
-            new, Faces.of(all_faces), axis, origin, copies=len(rotor["families_blades"]), tol=1e-7
-        )
-        inv = periodic["invariance"]
-        _need(
-            inv["nodes_mapped"] == inv["nodes"] and inv["faces_mapped"] == inv["faces"],
-            "wheel periodicity failed; repitch every blade by the same angle",
-        )
-        checks["periodicity"] = inv
-    else:
+        names = list(rotor["families_blades"])
+        return names, hubs, parse_axis(rotor["axis"]), origin, len(names)
+    if rotor is None and frame is not None and len(blades) > 1:
+        return blades, hubs, frame[1], frame[0], len(blades)
+    return None
+
+
+def _symmetry(verts: Any, faces: list, axis: Any, origin: Any, copies: int) -> dict:
+    """Return the N-fold invariance of some faces, read on their own nodes."""
+    ids = np.unique([v for f in faces for v in f])
+    local = np.full(len(verts), -1, dtype=np.int64)
+    local[ids] = np.arange(len(ids))
+    picked = Faces.of([[int(local[v]) for v in f] for f in faces])
+    return wheel_symmetry(verts[ids], picked, axis, origin, copies=copies, tol=1e-7)["invariance"]
+
+
+def _whole(inv: dict) -> bool:
+    return bool(inv["nodes_mapped"] == inv["nodes"] and inv["faces_mapped"] == inv["faces"])
+
+
+def _periodicity(source: ObjMesh, new: Any, wheel: Any, checks: dict) -> None:
+    """Check the blades and hub of a wheel; refuse only what the repitch made unperiodic."""
+    if wheel is None:
         warn(
-            "repitch: full-wheel periodicity does not apply without a wheel reference; skipped",
+            "repitch: full-wheel periodicity does not apply without a wheel reference or "
+            "several named blades about rotor_axis; skipped",
             NotApplicableWarning,
         )
+        return
+    names, hubs, axis, origin, copies = wheel
+    faces = [f for n in [*names, *hubs] if n in source.families for f in source.families[n]]
+    inv = _symmetry(new, faces, axis, origin, copies)
+    checks["periodicity"] = inv
+    if _whole(inv):
+        return
+    _need(
+        not _whole(_symmetry(source.verts, faces, axis, origin, copies)),
+        "wheel periodicity failed; repitch every blade by the same angle",
+    )
+    warn(
+        "repitch: the blades and hub of the source are not periodic either, so the wheel "
+        "periodicity is reported and does not refuse",
+        NotApplicableWarning,
+    )
 
 
 def _write_output(path: Path, target: Path, source: ObjMesh, parsed: Any, new: Any) -> None:

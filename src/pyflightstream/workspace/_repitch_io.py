@@ -1,6 +1,7 @@
 """Carry OBJ boundary declarations and their mesh-attached points through repitch."""
 
 import hashlib
+import tempfile
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -9,18 +10,26 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
+from pyflightstream._errors import (
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamError,
+    warn,
+)
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._geometry_sidecar import toml_key, toml_value
 from pyflightstream.workspace._refine._obj import (
+    DEFAULT_FAMILY,
     ObjMesh,
     mesh_unit,
     points_from_file,
+    read_obj,
     read_sidecar,
 )
 from pyflightstream.workspace._repitch_grid import incidence
 from pyflightstream.workspace._wheel import parse_axis
+from pyflightstream.workspace.sidecars import read_boundary_declarations
 
 
 def _carry(value: Any, point_file: Any) -> Any:
@@ -36,6 +45,21 @@ def _carry(value: Any, point_file: Any) -> Any:
         else:
             result[key] = _carry(val, point_file)
     return result
+
+
+def morphing_table(data: dict[str, Any], name: str, shared: tuple[str, ...]) -> Any:
+    """Return a table of a morphing control file with the top-level keys it takes.
+
+    ``blades`` and ``hub`` at the top of the file serve every table; a key the table states
+    itself wins, so a table written for one verb reads as it did. Only the top-level keys named
+    in ``shared`` are taken, so a table never meets a key it does not read. A table that is
+    absent, or is not a table, is returned as it is.
+    """
+    table = data.get(name)
+    if not isinstance(table, dict):
+        return table
+    inherited = {k: data[k] for k in shared if k in data and k not in table}
+    return {**inherited, **table}
 
 
 def _need_rotor(ok: bool, message: str, verb: str) -> None:
@@ -87,7 +111,8 @@ class Rewrite:
     points the verb computed itself, by the name the edited tables give them (unit, points in the
     mesh unit, factor into the file unit); ``merged`` names a point file whose rows are the rows
     of several source files; ``dead`` holds the source edges the verb removed, so that a marking
-    still on one is refused; ``counts`` states the face total of the output and its count per
+    still on one is refused; ``gone`` holds the source nodes the verb removed, so that a marking
+    on one is refused; ``counts`` states the face total of the output and its count per
     family, in family order; ``dedupe`` names the termination files whose repeated rows are
     dropped; ``verb`` is the name a refusal gives the operation.
     """
@@ -96,6 +121,7 @@ class Rewrite:
     synthetic: dict[str, tuple[str, Any, float]] = field(default_factory=dict)
     merged: dict[str, list[str]] = field(default_factory=dict)
     dead: set[tuple[int, int]] = field(default_factory=set)
+    gone: set[int] = field(default_factory=set)
     counts: tuple[int, list[int]] | None = None
     dedupe: set[str] = field(default_factory=set)
     verb: str = "repitch"
@@ -146,6 +172,11 @@ class _Carrier:
             )
         count = len(mesh.verts)
         on_edges = [tuple(self.pairs[i - count]) for i in ids.tolist() if i >= count]
+        if rw.gone and any(i in rw.gone for i in ids.tolist() if i < count):
+            raise InputValueError(
+                f"{rw.verb}: marking {shown!r} lies on a node the operation removes; "
+                "move or remove that marking. No file was written."
+            )
         if rw.dead and any(edge in rw.dead for edge in on_edges):
             raise InputValueError(
                 f"{rw.verb}: marking {shown!r} lies on an edge of the removed strip; "
@@ -193,3 +224,53 @@ def attachments(
     text = "\n".join(f"{toml_key(k)} = {toml_value(v)}" for k, v in data.items()) + "\n"
     carrier.outputs[Path(str(target) + ".boundaries.toml")] = text.encode("utf-8")
     return carrier.outputs
+
+
+def one_block_per_family(path: Path, verb: str) -> None:
+    """Refuse an OBJ that returns to a family: the output holds each in one block, reordered."""
+    current, last = DEFAULT_FAMILY, None
+    closed: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        words = line.split(None, 1)
+        if words and words[0] in ("g", "o"):
+            current = (words[1].strip() if len(words) > 1 else "") or DEFAULT_FAMILY
+        elif words and words[0] == "f" and current != last:
+            _need_rotor(
+                current not in closed,
+                f"family {current!r} returns after another family in the OBJ, and the output "
+                "writes each family as one block, which would change the face order; join its "
+                "blocks in the source first",
+                verb,
+            )
+            closed.add(last or current)
+            last = current
+
+
+def read_back(mesh: ObjMesh, payload: bytes, verb: str) -> None:
+    """Refuse OBJ bytes that read back as another mesh than the one they were written from."""
+    with tempfile.TemporaryDirectory() as folder:
+        probe = Path(folder) / "readback.obj"
+        probe.write_bytes(payload)
+        back = read_obj(probe)
+    same = (
+        np.array_equal(back.verts, mesh.verts)
+        and list(back.families) == list(mesh.families)
+        and all(back.families[n] == f for n, f in mesh.families.items())
+    )
+    _need_rotor(same, "the written bytes read back as a different mesh", verb)
+
+
+def sidecar_reads_back(extra: dict[Path, bytes], target: Path, verb: str) -> None:
+    """Refuse a boundaries file that the declaration reader would not take from the output."""
+    written = Path(str(target) + ".boundaries.toml")
+    if written not in extra:
+        return
+    with tempfile.TemporaryDirectory() as folder:
+        probe = Path(folder) / written.name
+        probe.write_bytes(extra[written])
+        try:
+            data = tomllib.loads(extra[written].decode("utf-8"))
+            if "trailing_edges" in data or "base_regions" in data:
+                read_boundary_declarations(probe)
+        except (ValueError, PyflightstreamError) as error:
+            _need_rotor(False, f"the written boundaries file would not read back ({error})", verb)

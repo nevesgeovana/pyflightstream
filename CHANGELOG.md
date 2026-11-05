@@ -15,6 +15,25 @@ FlightStream versions.
   other node and face keeps its place. A `[collapse_te]` table sits beside `[repitch]` in the
   same control file. Run `repitch` first when both are wanted; `repitch` on a collapsed mesh
   now says so.
+- `pyfs-workspace geometry morph MESH --morphing FILE --out OUTPUT` morphs a sector or a full
+  wheel on the OBJ from one control file: `[hub_rings]`, `[repitch]`, `[collapse_te]` and, for a
+  sector, `[wheel]`, applied in that fixed order, with `blades` and `hub` at the top of the file
+  serving every table. One OBJ is written with its boundaries file and `<out>.morph.json`, and
+  nothing when a step refuses.
+- `pyfs-workspace geometry hub-rings MESH --morphing FILE --out OUTPUT` rebuilds a quad-dominant
+  hub around each blade root as the complete rings of quads repitch needs, every other family
+  and the seams kept to the bit; rings that do not fit are refused naming a width that fits.
+- `[repitch]` takes `rotor_axis` and `reference_point`: each blade's pitch axis is its span
+  direction projected on the plane perpendicular to the rotor axis, through the hub centre in
+  the plane a scalar places, or through a stated point. A table written for 0.55.1 reads as
+  before.
+
+### Changed
+
+- The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
+  wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
+  hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn
+  the check on as a reference with several blades does.
 
 ### Fixed
 

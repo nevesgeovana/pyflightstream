@@ -115,7 +115,8 @@ EXCLUDED_EXTERNAL_METADATA = (
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {
     "workspace/_repitch_io.py": (
-        "the exact output OBJ payload bytes prepared by repitch or collapse-te, before writing; "
+        "the exact output OBJ payload bytes prepared by repitch, collapse-te or hub-rings, "
+        "before writing; "
         "no decoding, normalization, path or filesystem metadata is added."
     ),
     "_matrix_identifiers.py": (

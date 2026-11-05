@@ -1,8 +1,10 @@
 """The ``pyfs-workspace geometry`` verbs a morphing control file drives (PFS-2189, PFS-2193).
 
-Pipeline role: the run layer's parsers and handlers for ``repitch`` and ``collapse-te``. The work
-is the workspace layer's (:mod:`pyflightstream.workspace.repitch`,
-:mod:`pyflightstream.workspace.collapse_te`); this module only reads the command line, calls it,
+Pipeline role: the run layer's parsers and handlers for ``repitch``, ``collapse-te``,
+``hub-rings`` and ``morph``. The work is the workspace layer's
+(:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
+:mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`); this module
+only reads the command line, calls it,
 prints the checks it returns and gives the exit code: 0 when the output was written, 2 when the
 input is refused, with the refusal on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
@@ -30,7 +32,7 @@ def _print_checks(work: Callable[[], dict[str, Any]]) -> int:
     except (OSError, PyflightstreamError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
-    print(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2, default=str))
     return 0
 
 
@@ -86,10 +88,66 @@ def run_collapse_te(args: argparse.Namespace) -> int:
     return _print_checks(lambda: collapse_trailing_edge(args.mesh, args.morphing, args.out))
 
 
+def add_hub_rings_parser(subparsers: Any) -> None:
+    """Add the verb that rebuilds a hub around blade roots as rings of quads."""
+    parser = subparsers.add_parser(
+        "hub-rings",
+        help="rebuild the named hub around blade roots as rings of quads, on an OBJ",
+        description=(
+            "MESH is an OBJ. The [hub_rings] table of the morphing file states rings (and "
+            "optionally width); blades and hub sit at the top of the file or in the table. Per "
+            "blade, rings rows of quads are marched outward from the root on the hub, the hub "
+            "faces they reach plus one layer leave, and the band between them is remeshed "
+            "quad-dominant. Blade nodes, other families and the hub's seams stay to the bit; the "
+            "checks are written to <out>.hub_rings.json. Nothing is written when a check fails "
+            "(docs/mesh/how-to.md)."
+        ),
+    )
+    parser.add_argument("mesh", help="source .obj, read only")
+    parser.add_argument("--morphing", required=True, help="TOML with a [hub_rings] table")
+    parser.add_argument("--out", required=True, help="new .obj")
+    parser.set_defaults(mesh_command=run_hub_rings)
+
+
+def run_hub_rings(args: argparse.Namespace) -> int:
+    """Run hub-rings and print the checks written beside its output."""
+    from pyflightstream.workspace.hub_rings import hub_rings_mesh
+
+    return _print_checks(lambda: hub_rings_mesh(args.mesh, args.morphing, args.out))
+
+
+def add_morph_parser(subparsers: Any) -> None:
+    """Add the verb that applies every table of a morphing control file, in its fixed order."""
+    parser = subparsers.add_parser(
+        "morph",
+        help="apply the morphing file's tables in order: hub rings, repitch, collapse, wheel",
+        description=(
+            "MESH is an OBJ, a sector or a full wheel. The tables the morphing file holds are "
+            "applied in one fixed order: [hub_rings], [repitch], [collapse_te], [wheel] (a "
+            "sector only), each with its own checks; blades and hub sit at the top of the file. "
+            "One OBJ is written with its boundaries file, its points files and "
+            "<out>.morph.json. Nothing is written when any step refuses (docs/mesh/how-to.md)."
+        ),
+    )
+    parser.add_argument("mesh", help="source .obj, read only")
+    parser.add_argument("--morphing", required=True, help="TOML control file of the chain")
+    parser.add_argument("--out", required=True, help="new .obj")
+    parser.set_defaults(mesh_command=run_morph)
+
+
+def run_morph(args: argparse.Namespace) -> int:
+    """Run the morphing chain and print the record written beside its output."""
+    from pyflightstream.workspace.morph import morph_mesh
+
+    return _print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
+
+
 #: The parser of each verb this module adds, by its name in the group.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
     "collapse-te": add_collapse_te_parser,
+    "hub-rings": add_hub_rings_parser,
+    "morph": add_morph_parser,
 }
 
 #: The verbs this module adds to the group.

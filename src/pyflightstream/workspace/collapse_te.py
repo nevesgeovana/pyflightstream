@@ -24,12 +24,10 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputValueError,
     NotApplicableWarning,
-    PyflightstreamError,
     warn,
 )
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._refine._obj import (
-    DEFAULT_FAMILY,
     ObjMesh,
     mesh_unit,
     obj_text,
@@ -38,7 +36,15 @@ from pyflightstream.workspace._refine._obj import (
     read_sidecar,
     write_te,
 )
-from pyflightstream.workspace._repitch_io import Rewrite, attachments, read_rotor
+from pyflightstream.workspace._repitch_io import (
+    Rewrite,
+    attachments,
+    morphing_table,
+    one_block_per_family,
+    read_back,
+    read_rotor,
+    sidecar_reads_back,
+)
 from pyflightstream.workspace._wheel import Faces, parse_axis, wheel_symmetry
 from pyflightstream.workspace.sidecars import read_boundary_declarations
 
@@ -98,8 +104,9 @@ class _Result:
 
 def _config(path: Path) -> dict[str, Any]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    _need(isinstance(data.get("collapse_te"), dict), f"{path} needs a [collapse_te] table")
-    cfg = dict(data["collapse_te"])
+    table = morphing_table(data, "collapse_te", ("blades",))
+    _need(isinstance(table, dict), f"{path} needs a [collapse_te] table")
+    cfg = dict(table)
     for key in set(cfg) - {"blades", "base"}:
         warn(f"collapse_te.{key} does not apply and is skipped", NotApplicableWarning)
     return cfg
@@ -347,25 +354,6 @@ def _base_plan(blade: str, group: str, mesh: ObjMesh, index: _Index) -> _Plan:
     a, b = best[0]
     _cells(blade, mesh, strip, a, b)
     return _Plan(blade, "base", strip, a, b)
-
-
-def _one_block_per_family(path: Path) -> None:
-    """Refuse an OBJ that returns to a family: the output holds each in one block, reordered."""
-    current, last = DEFAULT_FAMILY, None
-    closed: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        words = line.split(None, 1)
-        if words and words[0] in ("g", "o"):
-            current = (words[1].strip() if len(words) > 1 else "") or DEFAULT_FAMILY
-        elif words and words[0] == "f" and current != last:
-            _need(
-                current not in closed,
-                f"family {current!r} returns after another family in the OBJ, and the output "
-                "writes each family as one block, which would change the face order; join its "
-                "blocks in the source first",
-            )
-            closed.add(last or current)
-            last = current
 
 
 def _all_blades(
@@ -838,19 +826,6 @@ def _periodicity(src: ObjMesh, out: ObjMesh, rotor: Any) -> Any:
     return found["output"]
 
 
-def _readback(mesh: ObjMesh, payload: bytes) -> None:
-    with tempfile.TemporaryDirectory() as folder:
-        probe = Path(folder) / "readback.obj"
-        probe.write_bytes(payload)
-        back = read_obj(probe)
-    same = (
-        np.array_equal(back.verts, mesh.verts)
-        and list(back.families) == list(mesh.families)
-        and all(back.families[n] == f for n, f in mesh.families.items())
-    )
-    _need(same, "the written bytes read back as a different mesh")
-
-
 def _rotor(cfg_path: Path, mesh_path: Path) -> Any:
     """Return the rotor a [repitch] reference of the same control file names, or None."""
     data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
@@ -1027,7 +1002,7 @@ def collapse_trailing_edge(
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
     cfg = _config(control)
     source = read_obj(path)
-    _one_block_per_family(path)
+    one_block_per_family(path, "collapse_te")
     index = _Index(source)
     plans, side, skipped, unit = _select(cfg, path, source, index)
     _need(
@@ -1044,7 +1019,7 @@ def collapse_trailing_edge(
     result = _build(source, plans)
     checks = _verify(result, _rotor(control, path))
     payload = obj_text(result.mesh).encode("utf-8")
-    _readback(result.mesh, payload)
+    read_back(result.mesh, payload, "collapse_te")
     checks["readback_equal"] = True
     rw = Rewrite(
         verb="collapse_te",
@@ -1107,18 +1082,7 @@ def _rim_edges(plan: _Plan) -> set[Edge]:
 
 def _sidecar_reads_back(extra: dict[Path, bytes], target: Path) -> None:
     """Refuse a boundaries file that the declaration reader would not take from the output."""
-    written = Path(str(target) + ".boundaries.toml")
-    if written not in extra:
-        return
-    with tempfile.TemporaryDirectory() as folder:
-        probe = Path(folder) / written.name
-        probe.write_bytes(extra[written])
-        try:
-            data = tomllib.loads(extra[written].decode("utf-8"))
-            if "trailing_edges" in data or "base_regions" in data:
-                read_boundary_declarations(probe)
-        except (ValueError, PyflightstreamError) as error:
-            _need(False, f"the written boundaries file would not read back ({error})")
+    sidecar_reads_back(extra, target, "collapse_te")
 
 
 def _te_bytes(file: Path, unit: str, points: np.ndarray) -> bytes:

@@ -9,6 +9,10 @@ pass it to `geometry collapse-te --morphing`; see the
 [how-to](mesh/how-to.md#collapse-a-blunt-trailing-edge) and the
 [collapse control reference](mesh/reference.md#collapse-trailing-edge-control).
 
+To morph a sector or a full wheel in one run, hub rings, repitch, collapse and wheel from one
+file, see [Morph a sector or a wheel](mesh/how-to.md#morph-a-sector-or-a-wheel) and the
+[morph control reference](mesh/reference.md#morph-control).
+
 Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [complete example](mesh/example.md).
 
 <a id="mesh-inputs-and-gui-only-operations"></a>

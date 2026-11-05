@@ -280,12 +280,16 @@ PUBLIC_MODULES = [
     # 0.33.0 (AD-11): the HPC profile, cut out of workspace.inputs, which
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.hpc",
+    # 0.56.0 (PFS-2192): the hub rings around blade roots on the OBJ.
+    "pyflightstream.workspace.hub_rings",
     "pyflightstream.workspace.inputs",
     # 0.35.0 (FR-388): the ledger, the Python mirror of the query verbs.
     "pyflightstream.workspace.ledger",
     "pyflightstream.workspace.manifest",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.migrate",
+    # 0.56.0 (PFS-2193): the morphing chain on the OBJ.
+    "pyflightstream.workspace.morph",
     "pyflightstream.workspace.naming",
     "pyflightstream.workspace.record_document",
     # v0.23.0 item 14: the migration that moves a workspace's polar products

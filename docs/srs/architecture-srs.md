@@ -491,3 +491,8 @@ convention, then rotates blades and rebuilds constrained hub rings.
 `workspace.collapse_te` reads the same morphing control file for its own table, reuses the
 repitch attachment writer to carry the boundaries file and its point files through the merged
 node list, and works on the OBJ only; it runs on a repitch output, not before it.
+`workspace.hub_rings` rebuilds a hub around blade roots with the repitch ring walker and
+surface chart, the remesher and quad pairing of `refine` and the same attachment writer;
+`workspace.morph` runs hub-rings, repitch, collapse-te and sector-to-wheel in one fixed
+order through a private staging folder and adds no geometry of its own; the run layer's
+parsers for the four morphing verbs live in `run._cli_morph`.

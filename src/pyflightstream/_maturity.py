@@ -22,6 +22,8 @@ MATURITY = {
     "pyflightstream.post.rotor_sections_products": "experimental",
     "pyflightstream.post.rotor_sections_surface": "experimental",
     "pyflightstream.workspace.collapse_te": "provisional",
+    "pyflightstream.workspace.hub_rings": "provisional",
+    "pyflightstream.workspace.morph": "provisional",
     "pyflightstream.workspace.repitch": "provisional",
     "pyflightstream.cases": "stable",
     "pyflightstream.cases.acoustics": "provisional",

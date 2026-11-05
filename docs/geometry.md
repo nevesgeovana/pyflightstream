@@ -1,5 +1,20 @@
 # Geometry: build a body before the run
 
+## Morphing a sector or a wheel
+
+`geometry morph` applies the tables of one morphing file to an OBJ in a fixed order: hub
+rings, repitch, the collapse of a blunt trailing edge and, for a sector, the full wheel,
+without a solver. `geometry hub-rings` runs the first table alone: it rebuilds a
+quad-dominant hub around each blade root as the complete rings of quads repitch needs.
+
+```text
+pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
+pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj
+```
+
+The [how-to](mesh/how-to.md#morph-a-sector-or-a-wheel) gives both files, the sector's and
+the wheel's, and the [reference](mesh/reference.md#morph-control) lists the keys and checks.
+
 ## Collapsing a blunt trailing edge
 
 `geometry collapse-te` merges the two sides of a one-cell base strip of named blades into one

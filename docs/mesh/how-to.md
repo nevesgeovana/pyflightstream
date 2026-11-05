@@ -36,9 +36,12 @@ when the reference has multiple rotors. Coordinates of explicit axes use mesh un
 reference origins are converted from metres to the mesh's declared unit. An unstated
 mesh unit is warned and interpreted as metres.
 For another pitch line on each blade, use `[repitch.axes.Blade1]` with `origin`
-and `direction`, and equivalent tables for the other blades.
+and `direction`, and equivalent tables for the other blades. To have the code find each
+blade's pitch line from the rotor axis and a reference point, state `rotor_axis` and
+`reference_point` instead; see [Morph a sector or a wheel](#morph-a-sector-or-a-wheel).
 
-The hub must have at least two complete quad rings around each blade root.
+The hub must have at least two complete quad rings around each blade root; a quad-dominant
+hub gets them from `geometry hub-rings` or the `[hub_rings]` table of `geometry morph`.
 The operation recovers all complete source rings and carries their local orientation
 with the rotated blade, tapering the displacement to zero at the outer ring. Interior
 nodes are projected onto source faces. Winslow smoothing in a local surface chart is
@@ -107,6 +110,96 @@ reports the thickness and sets no limit on it.
 **Order with repitch.** Repitch needs complete quad rings around the blade root, which the
 closure triangle of a collapsed root breaks. Run `repitch` first, then `collapse-te` on its
 output. The two commute on the blade, because the pitch change is a rigid rotation.
+
+## Morph a sector or a wheel
+
+One control file drives the whole morphing of a rotor's OBJ: hub rings, repitch, the collapse
+of a blunt trailing edge and, for a sector, the full wheel. `blades` and `hub` sit at the top of
+the file and serve every table; each table may state its own, which wins. The rotor axis and the
+reference point of the pitch change live in `[repitch]`.
+
+A sector, which ends as a full wheel:
+
+```toml title="morphing.toml"
+blades = ["Blade1"]
+hub = ["Spinner"]
+
+[hub_rings]
+rings = 4                    # width optional
+
+[repitch]
+angle_deg = 2.0
+rotor_axis = "x"             # or a vector, [1.0, 0.0, 0.0]
+reference_point = 0.25       # a coordinate along the rotor axis, or a point [x, y, z]
+
+[collapse_te]
+
+[wheel]                      # a sector only
+```
+
+A full wheel, installed or not: every blade is named and there is no `[wheel]`. Every family
+that is neither blade nor hub, a wing or a fuselage, stays to the bit.
+
+```toml title="morphing.toml"
+blades = ["Blade1", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"]
+hub = ["Spinner"]
+
+[hub_rings]
+rings = 4
+
+[repitch]
+angle_deg = 2.0
+rotor_axis = "x"
+reference_point = 0.25
+
+[collapse_te]
+```
+
+```text
+pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
+```
+
+The chain is exercised in the offline tests on a synthetic quad-dominant hub, as a sector and
+as an installed full wheel. `morph` works on the OBJ;
+a saved `.fsm` is refused. It applies the tables the file holds in one fixed order,
+`[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: repitch needs the rings, and the collapse
+leaves a closure triangle on the first ring, so no other order works. Each step is the verb of
+the same name with all its checks. One OBJ is written with its boundaries file, the points files
+that file names and `<out>.morph.json`, which holds every step's checks; when any step refuses,
+nothing is written beside the output.
+
+**Hub rings.** Repitch needs complete rings of quads around each blade root, which a
+quad-dominant hub lacks. `[hub_rings]` builds `rings` rows of quads with as many nodes as the
+root loop, marched outward on the hub, takes out the hub faces they reach plus one layer, and
+remeshes the band between the outer ring and that hole quad-dominant, every node on the source
+hub. `width`, the total height of the rings in the mesh's unit, defaults to `rings` times the
+median length of the hub edges that leave the root. A hub face on an open boundary (a sector's
+seam) or on another family is never taken, so the seams stay node for node and the wheel still
+merges; rings that would need one are refused, naming a width that fits. The same table runs
+alone as `pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj`.
+
+**The pitch axis.** The code finds each blade's span direction, the principal axis of its nodes,
+and the pitch axis is that direction projected on the plane perpendicular to `rotor_axis`.
+`rotor_axis` is `x`, `y` or `z` when it is already the mesh's frame, or a vector. A scalar
+`reference_point` is a coordinate along the rotor axis: it places that plane, and every pitch
+axis passes through the hub centre in it, the centroid of the hub's cut by the plane on a full
+wheel (so all the pitch axes of a wheel cross one point) or the centre of the circle fitted to
+the cut's arc on a sector. A point `[x, y, z]` is one point for every blade. `<out>.morph.json`
+reports the centre, the fit residual and each blade's directions, and a pitch axis that passes
+outside its blade's root is warned with the distance. A positive angle turns right-handed about
+the pitch axis pointing to the tip. With several blades named, the wheel periodicity of the
+blades and hub is checked about the rotor axis; a source whose blades and hub were not periodic
+is warned, not refused.
+
+**The wheel.** `[wheel]` copies the finished sector about `rotor_axis` through the mesh's origin,
+or through `center = [x, y, z]`. The copies come from the sector's own angle, the azimuth range
+of its hub, taken to 360/N within 0.05 degrees; `copies` may be stated, and an angle that is no
+360/N with no `copies` is refused. A chain with no `[repitch]` states `axis` in `[wheel]`. Seams
+that do not close, as a wrong centre leaves them, are refused.
+
+Each table also runs alone through its verb (`hub-rings`, `repitch`, `collapse-te`), reading its
+own table and the top-level keys; a `[repitch]` table written for 0.55.1, with its own `axis`,
+`axes` or `reference`, reads and behaves as before.
 
 ## Refinement controls
 
