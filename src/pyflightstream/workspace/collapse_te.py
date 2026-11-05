@@ -439,12 +439,13 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
                 warn(f"collapse_te: {error} Family {blade!r} is skipped", NotApplicableWarning)
                 continue
         if plan is None:
-            skipped[blade] = "already sharp (one rim, no strip)"
-            if explicit:
-                warn(
-                    f"collapse_te: blade {blade!r} is already sharp and is skipped",
-                    NotApplicableWarning,
-                )
+            skipped[blade] = "one declared rim with no strip on its nodes: taken as already sharp"
+            warn(
+                f"collapse_te: blade {blade!r} declares one rim with no strip on its nodes, so it "
+                "is taken as already sharp and is skipped. If it is blunt, declare its other rim; "
+                "a blade split across families is named by the group holding its strip",
+                NotApplicableWarning,
+            )
             continue
         plan.labels = sorted({m[0] for m in mine})
         if mine:

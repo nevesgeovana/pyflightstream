@@ -86,8 +86,10 @@ that met the strip loses its repeated node: a quad on the rung becomes a triangl
 loses a node, and a triangle that reaches zero area is deleted. Every other node keeps its
 text and its place in the node list, and every other face its place and node order. Rims with
 different node counts, or a strip more than one cell wide, are refused naming the blade.
-A blade that is already sharp is warned and skipped; when nothing is left to collapse, no
-file is written and the exit status is 2.
+A blade that declares one rim with no strip on its nodes is taken as already sharp, warned and
+skipped; when nothing is left to collapse, no file is written and the exit status is 2. A blade
+whose skins are two families around a strip group has one rim on each, so name the strip group
+in `blades` to collapse it.
 
 The boundaries file written beside the output carries one trailing-edge line for each
 collapsed blade (the label and edge type of the first rim, one wake termination at the merged

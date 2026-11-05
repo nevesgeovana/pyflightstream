@@ -826,6 +826,49 @@ def test_p0560_a_repeated_group_line_with_no_face_between_is_one_block(tmp_path)
     assert invoke(source, control(tmp_path), tmp_path / "sharp.obj") == 0
 
 
+def split_blade(folder):
+    """One blunt blade whose upper and lower skins are two families around its strip group."""
+    verts, families, info = blade_parts("Blade1", 0, strip="own")
+    count = info["count"]
+    upper, lower = [], []
+    for face in families["Blade1"]:
+        ring = [n % count for n in face]
+        on_upper = len(face) == 4 and max(ring) <= M and not (0 in ring and M + 1 in ring)
+        (upper if on_upper else lower).append(face)
+    groups = {"BUp": upper, "BLo": lower, "Base": families["Blade1Base"], "Hub1": families["Hub1"]}
+    source = folder / "sector.obj"
+    source.write_text(obj_text(ObjMesh(verts, groups)))
+    pts(folder / "U.te.txt", info["upper"])
+    pts(folder / "L.te.txt", info["lower"])
+    Path(str(source) + ".boundaries.toml").write_text(
+        f'fs_build = "26.125"\nboundaries = {json.dumps(list(groups))}\n'
+        '[import]\nunits = "METER"\n'
+        '[trailing_edges.U]\nfile = "U.te.txt"\ntype = "STANDARD"\n'
+        '[trailing_edges.L]\nfile = "L.te.txt"\ntype = "STANDARD"\n'
+        '[base_regions.Base]\ntrailing_edges = "auto"\n'
+    )
+    return source
+
+
+@pytest.mark.requirement("FR-3665")
+@pytest.mark.parametrize("blades", ['"all"', '["BUp", "BLo"]'])
+def test_p0560_a_blade_split_across_families_is_not_called_sharp_in_silence(
+    tmp_path, capsys, blades
+):
+    source = split_blade(tmp_path)
+    with pytest.warns(NotApplicableWarning, match="named by the group holding its strip"):
+        refused(tmp_path, capsys, source, control(tmp_path, blades), "taken as already sharp")
+
+
+@pytest.mark.requirement("FR-3664")
+def test_p0560_a_blade_split_across_families_collapses_by_its_strip_group(tmp_path):
+    source = split_blade(tmp_path)
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, '["Base"]'), out) == 0
+    assert len(read_obj(out).verts) == len(read_obj(source).verts) - 5
+    assert "Base" not in read_obj(out).families
+
+
 def detect_blade(source, blade):
     """Replace the two rim entries of ``blade`` with one detection entry."""
     side = Path(str(source) + ".boundaries.toml")
