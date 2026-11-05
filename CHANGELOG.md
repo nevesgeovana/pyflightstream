@@ -69,6 +69,7 @@ FlightStream versions.
 
 - Generated far-field column collisions retain both cells by appending the
   later entry name until unique, warning with both source cells (FR-1062).
+  This includes names that collide after the table writer normalizes punctuation.
 
 - Repitch accepts reference installation-axis tables and projects the blade
   datum into the shaft's normal plane, matching the rotor-frame convention.

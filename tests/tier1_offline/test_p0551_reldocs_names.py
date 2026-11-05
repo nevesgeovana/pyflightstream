@@ -49,3 +49,31 @@ def test_p0551_reldocs_names_are_scoped_to_point(case):
     assert float(cells["p"]["CDI_FF_B_TOTAL"]) == 0.05
     assert float(cells["q"]["CDI_FF_B_TOTAL"]) == 0.10
     assert not messages
+
+
+@pytest.mark.parametrize("case", ["P0551-R2-CSV-COLLISION"])
+@pytest.mark.parametrize("targets", [("Wing,tip", "Wing;tip"), ('Wing"tip', "Wing'tip")])
+def test_p0551_reldocs_collision_survives_csv_header_normalization(tmp_path, case, targets):
+    import csv
+
+    from pyflightstream.post._tables import write_csv_table
+
+    rows = [
+        (_row("wake", target, value), "p")
+        for target, value in zip(targets, (0.1, 0.2), strict=True)
+    ]
+    with collecting_warnings() as messages:
+        cells = _super_cells(rows, TREFFTZ_COLUMNS)["p"]
+    path = write_csv_table(tmp_path / "polar.csv", tuple(cells), [tuple(cells.values())])
+    with path.open(newline="") as stream:
+        reader = csv.DictReader(stream)
+        written = next(reader)
+        header = reader.fieldnames
+    assert len(header) == len(set(header)), "serialized far-field columns must remain distinct"
+    assert sorted(
+        float(value) for name, value in written.items() if name.startswith("CDI_FF_")
+    ) == [
+        0.1,
+        0.2,
+    ]
+    assert messages, "normalizing a target must not silently hide a collision"

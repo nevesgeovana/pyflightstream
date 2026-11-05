@@ -42,6 +42,8 @@ point's row is the entry name appended, for example `CDI_FF_C_TOTAL_c05`.
 A single C entry, whatever its name, writes `CDI_FF_C_TOTAL`.
 If that generated name belongs to another cell on the same point, append the
 later cell's entry name repeatedly until it is unique, in input row order.
+Compare the final table spelling: the shared table writer replaces commas
+with semicolons, double quotes with single quotes and line breaks with spaces.
 One warning per collision names both cells and the retained spelling. For
 example, `CDI_FF_B_TOTAL_c05` and `CDI_FF_B_TOTAL_c05_c05` retain both values.
 
