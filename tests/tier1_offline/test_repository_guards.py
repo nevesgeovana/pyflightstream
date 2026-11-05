@@ -51,8 +51,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: _sector_read.py, _sector_remesh.py, _sector_save.py, _wheel.py, _wheel_fsm.py), their tests
 #: and the four 26.100 marking probe reports (reports/compat/CMP-26100_2026-11-02_mark-26100-base
 #: and -vertex, yaml and md: +4 report files, +9698 report lines): +30 tracked files, measured.
+#: 0.55.1 (PFS-2187) budgets repitch, blade order, rotor sections and tests: 2091, measured.
 LEAN_CAPS = {
-    "tracked_files": 2078,
+    "tracked_files": 2100,
     "reports_files": 105,
     "reports_lines": 171604,
     "tests_files": 1167,
