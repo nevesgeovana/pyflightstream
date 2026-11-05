@@ -285,3 +285,23 @@ def test_rel551_r1_blade_order_resolves_surface_families(tmp_path, suffix, selec
         else:
             validate_blade_order(mesh, rotor, units="METER")
     assert not any("was not checked" in str(w.message) for w in caught)
+
+
+@pytest.mark.requirement("FR-3616")
+@pytest.mark.parametrize("sense", [-1, 1])
+def test_rel551_r1_integer_edge_tags_do_not_disable_geometry_check(tmp_path, sense):
+    from pyflightstream._fsm import MeshReadError, trailing_edge_midpoints
+
+    workspace, matrix, _, mesh, _ = fixture(tmp_path, count=4, sense=sense)
+    lines = mesh.read_text().splitlines()
+    first = lines.index(" F," * 4)
+    lines[first + 1 : first + 4] = [" 6," * 4] * 3
+    mesh.write_text("\n".join(lines) + "\n")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = _plan(workspace, matrix)
+    assert all((p.status.value == "BLOCKED") == (sense < 0) for p in plan.points)
+    assert not any("blade order was not checked" in str(w.message) for w in caught)
+    # Reading geometry must not invent the meaning of these marking codes.
+    with pytest.raises(MeshReadError):
+        trailing_edge_midpoints(mesh)
