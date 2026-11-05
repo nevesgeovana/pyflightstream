@@ -37,6 +37,10 @@ FlightStream versions.
 
 ### Fixed
 
+- The recorded Trefftz B circulation regression now requires the missing-mesh
+  attribution warnings while retaining its circulation-scale and efficiency
+  checks. Unexpected skips or warnings still fail the test (FR-3640).
+
 - Post warns once per point and entry when a C plane overlaps saved body
   triangle bounds, naming the plane and bodies. Migration: inspect this
   warning before interpreting the retained integral as a far-field load

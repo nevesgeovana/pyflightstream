@@ -378,6 +378,9 @@ and span efficiency with refinement.
   family name, checked against surface VTK vertices when present. Ambiguous or
   unavailable geometry keeps `sheet<n>`, numbered from upstream, with a warning.
   Multiple sheets of one family contribute to one family row.
+  A saved simulation without a mesh block cannot establish these family names.
+  Post reports the missing mesh and the retained sheet labels; these attribution
+  diagnostics do not discard the trace or its TOTAL circulation and efficiency.
 - A closed run is traced around its ring, including the closing strip. Its
   strengths must sum to zero; its accumulated circulation has its mean removed.
   A mirrored ring is reflected once. This measures its trailing vorticity, not
