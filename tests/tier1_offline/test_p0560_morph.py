@@ -585,3 +585,32 @@ def test_mor1_1_a_wheel_whose_seams_stay_open_is_refused(tmp_path, capsys, extra
         assert invoke("morph", sector, cfg, out) == 2
     assert "seam" in capsys.readouterr().err
     assert not out.exists() and not Path(f"{out}.morph.json").exists()
+
+
+@pytest.mark.requirement("FR-3676")
+def test_mor2_1_a_seam_split_differently_on_its_two_sides_is_refused(tmp_path, capsys):
+    """One hub face of a seam carries an extra node on its seam edge, so that side has two edges
+    where the other has one: the wheel merges the nodes and leaves a crack. The seam check took
+    only an edge whose image is an open edge as a seam, counted the crack as no seam, and the
+    wheel's open edges agreed with it."""
+    source = build(tmp_path)
+    mesh = read_obj(source)
+    seam = {i for i, p in enumerate(mesh.verts) if abs(p[2]) < 1e-9 and p[1] > 0.0}
+    hub = mesh.families["Spinner"]
+    for k, face in enumerate(hub):
+        pairs = [(q, face[q], face[(q + 1) % len(face)]) for q in range(len(face))]
+        hit = [q for q, a, b in pairs if a in seam and b in seam and 0.0 < mesh.verts[a][0] < 1.0]
+        if len(face) == 4 and hit:
+            q = hit[0]
+            a, b = face[q], face[(q + 1) % 4]
+            hub[k] = face[: q + 1] + [len(mesh.verts)] + face[q + 1 :]
+            verts = np.vstack([mesh.verts, 0.5 * (mesh.verts[a] + mesh.verts[b])])
+            break
+    cracked = tmp_path / "cracked.obj"
+    cracked.write_text(obj_text(ObjMesh(verts, mesh.families)))
+    Path(f"{cracked}.boundaries.toml").write_text(Path(f"{source}.boundaries.toml").read_text())
+    cfg = control(tmp_path, '[wheel]\naxis = "x"\n')
+    out = tmp_path / "cracked_wheel.obj"
+    assert invoke("morph", cracked, cfg, out) == 2
+    assert "seam" in capsys.readouterr().err
+    assert not out.exists()

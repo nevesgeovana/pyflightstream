@@ -103,12 +103,13 @@ def sector_copies(points: Any, axis: Any, centre: Any) -> tuple[int | None, floa
 def _seams(path: Path, axis: Any, centre: Any, copies: int) -> tuple[int, int]:
     """Return the open edges of a sector and those of them that are a seam.
 
-    A seam edge is an open edge whose two ends, turned one copy either way about the axis, land
-    on the two ends of another open edge. The landing is judged within half the shortest open
-    edge, where two ends cannot be taken for one another, and not within the merge tolerance:
-    judged there, a seam that the wheel leaves open (a center off the axis, copies that do not
-    tile the turn) would count as no seam, and the count of the wheel's open edges would agree
-    with it whatever the wheel holds.
+    A seam edge is an open edge whose two ends, turned one copy either way about the axis, each
+    land on an open node. A seam split into other edges on its far side stays a seam edge,
+    so the wheel's open edges exceed the count and the wheel is refused. The landing is judged
+    within half the shortest open edge, where two ends cannot be taken for one another, and
+    not within the merge tolerance: judged there, a seam that the wheel leaves open (a center
+    off the axis, copies that do not tile the turn) would count as no seam, and the count of
+    the wheel's open edges would agree with it whatever the wheel holds.
     """
     mesh = read_obj(path)
     owners = incidence([f for fs in mesh.families.values() for f in fs])
@@ -119,16 +120,12 @@ def _seams(path: Path, axis: Any, centre: Any, copies: int) -> tuple[int, int]:
     sides = mesh.verts[ends[:, 0]] - mesh.verts[ends[:, 1]]
     reach = 0.5 * float(np.linalg.norm(sides, axis=1).min())
     nodes = np.unique(ends.reshape(-1))
-    points, keys = mesh.verts[nodes], set(open_edges)
+    points = mesh.verts[nodes]
     seam: set[tuple[int, int]] = set()
     for sign in (1.0, -1.0):
         hit = nearest(rotate(points, axis, centre, sign * 360.0 / copies), points, reach)
-        lands = {int(v): int(nodes[h]) for v, h in zip(nodes, hit, strict=True) if h >= 0}
-        for a, b in open_edges:
-            if a in lands and b in lands:
-                image = (min(lands[a], lands[b]), max(lands[a], lands[b]))
-                if image in keys and image != (a, b):
-                    seam.add((a, b))
+        lands = {int(v) for v, h in zip(nodes, hit, strict=True) if h >= 0}
+        seam |= {(a, b) for a, b in open_edges if a in lands and b in lands}
     return len(open_edges), len(seam)
 
 

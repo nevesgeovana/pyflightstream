@@ -34,7 +34,7 @@ The wheel reuses `geometry sector-to-wheel` with its default tolerance. Its seam
 the wheel's open edges must be the copies of the sector's open edges that are no seam, which a
 wrong `center`, axis or `copies` breaks; otherwise the chain refuses. A seam edge is an open
 edge whose ends, turned one copy either way, land within half the sector's shortest open edge
-on the ends of another open edge, so a seam the wheel leaves open still counts as a seam; a
+on an open node at each end, so a seam the wheel leaves open, or closes only in part, still counts as a seam; a
 sector with open edges and no seam at all is refused.
 
 ## Hub rings control
