@@ -114,6 +114,19 @@ def test_p0551_fixr23_missing_declaration_uses_row_union_once(case):
     assert sum("declared" in str(m) and "union" in str(m) for m in messages) == 1
 
 
+@pytest.mark.requirement("FR-3661")
+@pytest.mark.parametrize("case", ["P0551-R3-EMPTY-DECLARATIONS"])
+@pytest.mark.parametrize("declared", [{}, {"B": []}, {"B": (), "W": ()}])
+def test_p0551_empty_declaration_lists_use_the_table_union(case, declared):
+    """An empty method inventory declares no entries, just like an empty mapping."""
+    rows = [(_row("c05", "net", 0.05), "p"), (_row("c10", "net", 0.10), "q")]
+    with collecting_warnings() as messages:
+        cells = _super_cells(rows, TREFFTZ_COLUMNS, declared_entries=declared)
+    assert float(cells["p"].get("CDI_FF_B_TOTAL_c05", "nan")) == 0.05
+    assert float(cells["q"].get("CDI_FF_B_TOTAL_c10", "nan")) == 0.10
+    assert len(messages) == 1 and "table union" in str(messages[0])
+
+
 @pytest.mark.requirement("FR-3660")
 @pytest.mark.parametrize("method", list("ABCDW"), ids=lambda m: f"P0551-FIXR23-{m}")
 @pytest.mark.parametrize("count", [1, 2])

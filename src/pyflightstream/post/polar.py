@@ -1524,7 +1524,7 @@ def farfield_column_names(
     family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
     identities = [(str(row[variant]), str(row[1]), str(row[family])) for row, _ in rows]
     entries = {method: list(names) for method, names in (declared_entries or {}).items()}
-    if rows and not entries:
+    if rows and not any(entries.values()):
         warn("far-field declared entries unavailable; naming columns from the row's table union")
         for method, entry, _ in sorted(set(identities)):
             if entry not in entries.setdefault(method, []):
