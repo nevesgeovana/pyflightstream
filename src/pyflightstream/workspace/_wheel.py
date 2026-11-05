@@ -182,11 +182,12 @@ def parse_axis(axis: str | Sequence[float]) -> NDArray[numpy.float64]:
     else:
         vector = [float(c) for c in axis]
     array = numpy.asarray(vector, dtype=float)
-    if array.shape != (3,) or not numpy.isfinite(array).all() or not numpy.linalg.norm(array):
+    if array.shape != (3,) or not numpy.isfinite(array).all() or not numpy.any(array):
         raise InputValueError(
             f"axis {axis!r} is not a direction; write x, y, z, -x, -y or -z, or three comma-"
             f"separated numbers such as 1,0,0. {_NOTHING}"
         )
+    array /= numpy.max(numpy.abs(array))
     return array / numpy.linalg.norm(array)
 
 

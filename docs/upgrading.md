@@ -58,6 +58,7 @@ family, blade and rotor target; do not add a rotor aggregate to its blades.
 A target whose spelling already contains an entry suffix can collide with a
 generated name. The later cell now appends its entry name until unique, with
 a warning naming both cells. No value is dropped and normal names are unchanged.
+Collision checks also cover the table writer's comma and quote normalization.
 
 Far-field columns in polars, unsteady polars, merged polars and super files now
 use `<QUANTITY>_FF_<METHOD>_<TARGET>`, including family, blade and rotor targets.

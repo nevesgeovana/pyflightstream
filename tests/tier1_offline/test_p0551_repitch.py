@@ -306,7 +306,10 @@ def test_p0551_unknown_key_and_absent_keep_warn_but_do_not_block(tmp_path, recwa
 @pytest.mark.requirement("FR-3608")
 @pytest.mark.parametrize("sense", [-1, 1])
 @pytest.mark.parametrize("tilt", [0.0, 0.15])
-def test_p0551_auto_positive_pitch_uses_rotor_sense(tmp_path, sense, tilt):
+@pytest.mark.parametrize(
+    "scale", [1.0, 1e-200, 1e200], ids=["P0551-unit", "P0551-tiny", "P0551-large"]
+)
+def test_p0551_auto_positive_pitch_uses_rotor_sense(tmp_path, sense, tilt, scale):
     from pyflightstream.workspace._wheel import rotate
 
     source = source_mesh(tmp_path)
@@ -315,7 +318,11 @@ def test_p0551_auto_positive_pitch_uses_rotor_sense(tmp_path, sense, tilt):
     mesh.verts = rotate(mesh.verts, np.array([0.0, 1.0, 0.0]), np.zeros(3), installation)
     mesh.vertex_text = []
     source.write_text(obj_text(mesh))
-    axis = f'{{ shaft = "X", vector_wrt_global = [1.0, 0.0, {tilt}] }}' if tilt else '"X"'
+    axis = (
+        f'{{ shaft = "X", vector_wrt_global = [{scale}, 0.0, {tilt * scale}] }}'
+        if tilt or scale != 1.0
+        else '"X"'
+    )
     (tmp_path / "rotor.toml").write_text(f"""[ROTOR]
 kind = "rotor"
 axis = {axis}

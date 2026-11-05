@@ -39,7 +39,7 @@ from typing import Literal
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
+from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
     PointState,
@@ -1533,12 +1533,12 @@ def farfield_column_names(
         suffix = f"_{row[1]}" if len(entries[point, row[variant], target]) > 1 else ""
         projected = {}
         for index, quantity in quantities.items():
-            name = f"{quantity}_FF_{row[variant]}_{target}{suffix}"
+            name = plain_cell(f"{quantity}_FF_{row[variant]}_{target}{suffix}")
             cell = f"entry {row[1]!r}, method {row[variant]!r}, target {target!r}, {quantity}"
             previous = occupied.get((point, name))
             original = name
             while (point, name) in occupied:
-                name += f"_{row[1]}"
+                name += plain_cell(f"_{row[1]}")
             if previous is not None:
                 warn(
                     f"far-field column {original!r} at point {point!r} collides between "

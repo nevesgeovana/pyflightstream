@@ -69,10 +69,13 @@ FlightStream versions.
 
 - Generated far-field column collisions retain both cells by appending the
   later entry name until unique, warning with both source cells (FR-1062).
+  This includes names that collide after the table writer normalizes punctuation.
 
 - Repitch accepts reference installation-axis tables and projects the blade
   datum into the shaft's normal plane, matching the rotor-frame convention.
   Automatic pitch axes and wheel periodicity use the same physical shaft.
+  Finite nonzero direction vectors retain their direction at very small or
+  large scales, without norm underflow or overflow.
 
 - Boundary triangles remain readable when a saved mesh carries opaque integer
   edge tags, so blade-order and plane-body checks retain their geometry evidence.
