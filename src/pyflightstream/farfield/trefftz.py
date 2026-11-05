@@ -139,7 +139,7 @@ def _full_sheet(
     original = np.ones(len(y), dtype=bool)
     if not mirror:
         return y, z, gamma, original
-    if not (np.all(y > 0.0) or np.all(y < 0.0)):
+    if not (np.all(y >= 0.0) or np.all(y <= 0.0)) or not np.any(y != 0.0):
         raise FarfieldInputError(
             "a mirrored trace needs every station on one side of the symmetry plane; "
             "these straddle it, and the export cannot say which half was meant"
@@ -148,18 +148,20 @@ def _full_sheet(
     y, z, gamma = y[order], z[order], gamma[order]
     if np.any(np.diff(y) <= 0.0):
         raise FarfieldInputError("a mirrored trace needs distinct station positions along y")
-    if y[0] > 0.0:
+    # A station on the mirror plane is shared, not a second coincident strip.
+    reflected = np.flatnonzero(y != 0.0)[::-1]
+    if y[0] >= 0.0:
         return (
-            np.concatenate([-y[::-1], y]),
-            np.concatenate([z[::-1], z]),
-            np.concatenate([gamma[::-1], gamma]),
-            np.concatenate([np.zeros(len(y), dtype=bool), original]),
+            np.concatenate([-y[reflected], y]),
+            np.concatenate([z[reflected], z]),
+            np.concatenate([gamma[reflected], gamma]),
+            np.concatenate([np.zeros(len(reflected), dtype=bool), original]),
         )
     return (
-        np.concatenate([y, -y[::-1]]),
-        np.concatenate([z, z[::-1]]),
-        np.concatenate([gamma, gamma[::-1]]),
-        np.concatenate([original, np.zeros(len(y), dtype=bool)]),
+        np.concatenate([y, -y[reflected]]),
+        np.concatenate([z, z[reflected]]),
+        np.concatenate([gamma, gamma[reflected]]),
+        np.concatenate([original, np.zeros(len(reflected), dtype=bool)]),
     )
 
 

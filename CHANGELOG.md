@@ -37,6 +37,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Trefftz A now includes a half-model section trace that reaches the mirror
+  plane, retaining its plane station once. Migration: repost existing section
+  exports to recover the previously skipped A row (FR-3612).
+
 - `--force-rerun-all` redoes a point recorded as SUBMITTED, with or without `--sims`, instead of
   refusing it as still in a scheduler's queue. It warns, naming the points, that a point recorded
   as submitted may still be queued and is not cancelled by the run. A plain run and `--force-rerun`

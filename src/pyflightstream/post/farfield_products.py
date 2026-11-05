@@ -595,7 +595,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint, sloads: Path | None = None) -
         point, blocks, chosen, stations=_trefftz(ctx).stations, mirror=mirror
     )
     y = np.concatenate(ys)
-    if mirror and not (np.all(y > 0.0) or np.all(y < 0.0)):
+    if mirror and not (np.all(y >= 0.0) or np.all(y <= 0.0)):
         _skip(
             ctx,
             key,

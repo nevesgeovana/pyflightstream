@@ -24,6 +24,10 @@ The analyses and where they are written:
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
 A and B identify the whole flow with `TOTAL` in `FAMILY`; C and D use lowercase `net`.
+A half-model section trace may reach the mirror plane, including a zero-chord
+endpoint. A station on that plane is included once; the other stations are
+reflected. Stations on both sides are warned and skipped because they do not
+identify one exported half (FR-3612).
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_TOTAL_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.

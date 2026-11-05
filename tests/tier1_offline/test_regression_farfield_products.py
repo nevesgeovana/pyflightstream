@@ -5043,3 +5043,51 @@ def test_pfs2187_21_a_dense_export_is_separated_without_a_pairwise_matrix():
     assert sorted(len(sheet.index) for sheet in sheets) == [1000, 2000]
     assert not left_out
     assert peak < 40e6
+
+
+@pytest.mark.requirement("FR-3612")
+@pytest.mark.parametrize("side", [-1, 1], ids=["P0551-negative", "P0551-positive"])
+def test_p0551_near_sections_touch_mirror_plane(tmp_path, side):
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, [], [], rotor=False)
+    ctx.pproc = PprocSpec.model_validate(
+        {"farfields": [{"variant": "sections", "families": "Wing"}]}
+    )
+    ctx.matrix_row.variables = {"SYMMETRY": "MIRROR", "SYMMETRY_LOADS": "true"}
+    ctx.aliases = {}
+    record = ctx.record_of["point"]
+    record.inventory = ["Wing"]
+    record.sections_layout = [
+        {
+            "distribution": 1,
+            "distribution_families": ["Wing"],
+            "families": ["Wing"],
+            "plane": "XZ",
+            "frame": "MRP",
+            "count": 3,
+        }
+    ]
+    source = tmp_path / "point_sloads.txt"
+    head = _farfield_products___sloads().split("     Offset,")[0]
+    head = head.replace("160", "3")
+    rows = "".join(
+        f"{side * y}, {chord}, 0, 0, 0, {lift}, 0\n"
+        for y, chord, lift in [(0, 0, 0), (1, 1, 20), (2, 1, 10)]
+    )
+    source.write_text(
+        head
+        + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+        + rows
+        + " "
+        + "-" * 100
+        + "\n     Force Units: Newtons\n"
+        "     Moment Units: Newton-Meter\n     Software : Flightstream\n",
+        encoding="utf-8",
+    )
+    ctx.exports = {"point": (source, None, None)}
+    farfield_products(cast("Any", ctx))
+    path = next((tmp_path / "post/farfield").glob("*_trefftz.csv"))
+    _, table = _ffproof_post___table(path)
+    traced = [row for row in table if row["VARIANT"] == "A"]
+    assert len(traced) == 1, ctx.skipped
+    assert np.isfinite(float(traced[0]["CDI_T"]))
+    assert not any("straddle" in reason for reason in ctx.skipped.values())
