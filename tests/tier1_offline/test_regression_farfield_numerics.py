@@ -2021,11 +2021,31 @@ class TestLitBCirculation:
 
     @staticmethod
     @pytest.mark.requirement("FR-452")
-    def test_p0400_litb_shed_circulation_agrees_with_the_recorded_sections(tmp_path):
-        row, messages, skipped = _litb_circulation__post_wake(
-            tmp_path, "p0400_litB_wake_26125_fine.vtk.xz", vref=34.03
-        )
-        assert not skipped, messages
+    @pytest.mark.requirement("FR-3640")
+    @pytest.mark.parametrize(
+        "fixture",
+        [pytest.param("p0400_litB_wake_26125_fine.vtk.xz", id="P0551-no-mesh-attribution")],
+    )
+    def test_p0400_litb_shed_circulation_agrees_with_the_recorded_sections(tmp_path, fixture):
+        row, messages, skipped = _litb_circulation__post_wake(tmp_path, fixture, vref=34.03)
+        # The saved unit header has no mesh: attribution is unavailable, not the trace.
+        expected = {
+            "point#surface-families#entry=wake": (
+                "point.fsm: carries no mesh block ($MESH_START$), so it has no surface "
+                "mesh and no trailing-edge rows to read"
+            ),
+            **{
+                f"farfield/trefftz#point=point#variant=wake#family=sheet{i}#entry=wake": (
+                    f"sheet{i}: start-node geometry cannot establish one surface family; "
+                    f"keeping sheet{i}"
+                )
+                for i in (1, 2)
+            },
+        }
+        assert skipped == expected, messages
+        assert messages == [
+            f"point=point product=farfield entry=wake: {reason}" for reason in expected.values()
+        ]
         # Recorded L5, 4 deg: raw CL / near CL = 1.0169, A efficiency = 0.992.
         assert 1.0 / float(row["GAMMA_SCALE"]) == pytest.approx(1.0169, rel=0.003)
         assert float(row["E_T"]) == pytest.approx(0.992, abs=0.03)
