@@ -32,7 +32,10 @@ output and the files written.
 
 The wheel reuses `geometry sector-to-wheel` with its default tolerance. Its seams must close:
 the wheel's open edges must be the copies of the sector's open edges that are no seam, which a
-wrong `center` or axis breaks; otherwise the chain refuses.
+wrong `center`, axis or `copies` breaks; otherwise the chain refuses. A seam edge is an open
+edge whose ends, turned one copy either way, land within half the sector's shortest open edge
+on the ends of another open edge, so a seam the wheel leaves open still counts as a seam; a
+sector with open edges and no seam at all is refused.
 
 ## Hub rings control
 
@@ -52,14 +55,16 @@ have as many nodes as the loop and are marched outward in a chart of the hub aro
 lifted onto the source hub. The hole is the hub faces the rings reach, plus one layer, plus any
 pocket they enclose; it lies in one hub family. A face holding a node on an open boundary or on
 another family, or taken by another blade, is never taken: rings that would need one, or that
-fold, are refused, and the refusal names the first width that fits as the width shrinks by a
-tenth at a time, down to a hundredth of it.
+fold, are refused, and the refusal names the first width at which the rings of every named
+blade fit, as the width shrinks by a tenth at a time, down to a hundredth of it. Two holes may
+touch; the hub nodes they share stay.
 The band between the outer ring and the hole is triangulated by walking the two loops together
 (or, where a jagged hole stops the walk, by clipping ears through one bridge; the record says
 which), then remeshed by the remesh of `refine` with both loops frozen and every node projected
 on the source hub, and paired into quadrilaterals as a quad-dominant family of `refine` is. When
 the full remesh passes leave a cell turned against the source hub, fewer passes are tried, down
-to none; the record states the passes kept.
+to none; the record states the passes kept, and a blade whose annulus kept fewer passes is
+warned with its quad share, least scaled Jacobian and largest aspect.
 
 Kept hub faces keep their order, and each blade's new faces take the place of its first face
 taken: the rings from the root outward, then the band. Kept nodes keep their text and their

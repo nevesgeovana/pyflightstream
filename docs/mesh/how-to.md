@@ -175,7 +175,8 @@ remeshes the band between the outer ring and that hole quad-dominant, every node
 hub. `width`, the total height of the rings in the mesh's unit, defaults to `rings` times the
 median length of the hub edges that leave the root. A hub face on an open boundary (a sector's
 seam) or on another family is never taken, so the seams stay node for node and the wheel still
-merges; rings that would need one are refused, naming a width that fits. The same table runs
+merges; rings that would need one are refused, naming a width that fits every blade. The same
+table runs
 alone as `pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj`.
 
 **The pitch axis.** The code finds each blade's span direction, the principal axis of its nodes,
