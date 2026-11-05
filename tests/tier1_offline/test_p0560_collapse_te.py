@@ -4,7 +4,9 @@ Usage: pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml -
 """
 
 import dataclasses
+import importlib.util
 import json
+import sys
 import tomllib
 import warnings
 from pathlib import Path
@@ -949,6 +951,23 @@ def test_p0560_a_rotor_table_refusal_names_collapse_te(tmp_path, capsys):
         '[collapse_te]\nblades = ["Blade1"]\n[repitch]\nreference = "rotor.toml"\nrotor = "B"\n'
     )
     refused(tmp_path, capsys, source, cfg, "collapse_te: reference has no rotor 'B'")
+
+
+def test_p0560_the_architecture_gate_holds_for_the_verb():
+    """Main CI runs scripts/arch_metrics.py check; G1, G2 and G5 name these modules when over."""
+    repo = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "arch_metrics_p0560", repo / "scripts/arch_metrics.py"
+    )
+    assert spec is not None and spec.loader is not None
+    arch = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = arch
+    spec.loader.exec_module(arch)
+    baselines = json.loads((repo / "tests/tier1_offline/architecture_baselines.json").read_text())
+    findings = arch.check(*arch.measure_repo(repo), baselines)
+    ours = ("collapse_te", "_repitch_io", "_cli_geometry", "_cli_mesh", "_geometry_sidecar")
+    named = [f for g in ("G1", "G2", "G5") for f in findings[g] if any(n in f for n in ours)]
+    assert not named
 
 
 def detect_blade(source, blade):

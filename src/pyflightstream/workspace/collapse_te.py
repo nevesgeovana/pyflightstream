@@ -378,17 +378,19 @@ def _all_blades(
     return blades
 
 
-def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
-    """Return the plans, the sidecar and the blades skipped that the request leads to."""
+def _requested(
+    cfg: dict[str, Any],
+    side: Any,
+    decl: Any,
+    entries: list,
+    *,
+    mesh: ObjMesh,
+    index: _Index,
+    skipped: dict[str, str],
+) -> tuple[list[str], list[str], bool]:
+    """Return the blades and strip groups the table asks for, and whether it named the blades."""
     blades, bases = _names(cfg, "blades"), _names(cfg, "base")
-    side = read_sidecar(source)
-    decl = None
-    if side is not None and ("trailing_edges" in side[1] or "base_regions" in side[1]):
-        decl = read_boundary_declarations(side[0])
-    unit = mesh_unit(source)
-    entries = _entry_edges(source, decl, index, unit) if decl is not None else []
     explicit = blades != ["all"]
-    skipped: dict[str, str] = {}
     if not explicit:
         _need(not bases, "base names the strip of an explicit blade; it cannot go with blades=all")
         _need(
@@ -396,7 +398,6 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             "blades = all reads the boundaries file, and none that declares trailing edges sits "
             "beside the mesh. Name the blades and their strips with blades and base",
         )
-        assert decl is not None
         blades = _all_blades(decl, entries, mesh, index, skipped)
         _need(
             bool(blades),
@@ -418,48 +419,76 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             "the mesh has no boundaries file, so its trailing-edge rims are not declared; "
             "provide it, or name the strip group of each blade with collapse_te.base",
         )
+    return blades, bases, explicit
+
+
+def _plan_by_points(
+    blade: str, mesh: ObjMesh, mine: list, explicit: bool, skipped: dict[str, str]
+) -> _Plan | None:
+    """Plan a blade from its declared rims, or say why it is skipped and return None."""
+    _need(
+        bool(mine),
+        f"blade {blade!r} has no trailing-edge entry with a points file in the "
+        "boundaries file; declare its rims or name its strip group with collapse_te.base",
+    )
+    try:
+        plan = _points_plan(blade, mesh, mine)
+    except InputValueError as error:
+        if explicit:
+            raise
+        # The refusal's own words say no file was written; here the others go on.
+        why = str(error).removeprefix("collapse_te: ").removesuffix(" No file was written.")
+        skipped[blade] = why
+        warn(f"collapse_te: {why} Family {blade!r} is skipped", NotApplicableWarning)
+        return None
+    if plan is None:
+        skipped[blade] = "one declared rim with no strip on its nodes: taken as already sharp"
+        warn(
+            f"collapse_te: blade {blade!r} declares one rim with no strip on its nodes, so it "
+            "is taken as already sharp and is skipped. If it is blunt, declare its other rim; "
+            "a blade split across families is named by the group holding its strip",
+            NotApplicableWarning,
+        )
+    return plan
+
+
+def _labelled(plan: _Plan, mine: list, unit: str | None) -> _Plan:
+    """Give a plan the labels, the edge type and the units of the entries that name its rims."""
+    plan.labels = sorted({m[0] for m in mine})
+    if mine:
+        plan.edge_type = mine[0][1]
+        plan.unit, plan.to_file = mine[0][4].unit, mine[0][4].to_file
+    else:
+        plan.unit = unit or "METER"
+    return plan
+
+
+def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
+    """Return the plans, the sidecar and the blades skipped that the request leads to."""
+    side = read_sidecar(source)
+    decl = None
+    if side is not None and ("trailing_edges" in side[1] or "base_regions" in side[1]):
+        decl = read_boundary_declarations(side[0])
+    unit = mesh_unit(source)
+    entries = _entry_edges(source, decl, index, unit) if decl is not None else []
+    skipped: dict[str, str] = {}
+    blades, bases, explicit = _requested(
+        cfg, side, decl, entries, mesh=mesh, index=index, skipped=skipped
+    )
     plans: list[_Plan] = []
     for n, blade in enumerate(blades):
         mine = [m for m in entries if _best(m[2], index, blades) == blade]
+        plan: _Plan | None
         if bases:
-            plan: _Plan | None = _base_plan(blade, bases[n], mesh, index)
+            plan = _base_plan(blade, bases[n], mesh, index)
             # Only an entry wholly on the strip's sides names a rim; any other marking of the
             # family is no rim and is carried to its new position.
-            rims = _rim_edges(plan) if plan else set()
+            rims = _rim_edges(plan)
             mine = [m for m in mine if m[2] and m[2] <= rims and not m[3]]
         else:
-            _need(
-                bool(mine),
-                f"blade {blade!r} has no trailing-edge entry with a points file in the "
-                "boundaries file; declare its rims or name its strip group with collapse_te.base",
-            )
-            try:
-                plan = _points_plan(blade, mesh, mine)
-            except InputValueError as error:
-                if explicit:
-                    raise
-                # The refusal's own words say no file was written; here the others go on.
-                why = str(error).removeprefix("collapse_te: ")
-                why = why.removesuffix(" No file was written.")
-                skipped[blade] = why
-                warn(f"collapse_te: {why} Family {blade!r} is skipped", NotApplicableWarning)
-                continue
-        if plan is None:
-            skipped[blade] = "one declared rim with no strip on its nodes: taken as already sharp"
-            warn(
-                f"collapse_te: blade {blade!r} declares one rim with no strip on its nodes, so it "
-                "is taken as already sharp and is skipped. If it is blunt, declare its other rim; "
-                "a blade split across families is named by the group holding its strip",
-                NotApplicableWarning,
-            )
-            continue
-        plan.labels = sorted({m[0] for m in mine})
-        if mine:
-            plan.edge_type = mine[0][1]
-            plan.unit, plan.to_file = mine[0][4].unit, mine[0][4].to_file
-        else:
-            plan.unit = unit or "METER"
-        plans.append(plan)
+            plan = _plan_by_points(blade, mesh, mine, explicit, skipped)
+        if plan is not None:
+            plans.append(_labelled(plan, mine, unit))
     return plans, side, skipped, unit
 
 
@@ -480,9 +509,8 @@ def _dedupe(face: list[Any]) -> list[Any]:
     return out
 
 
-def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
-    """Merge the rung pairs (the first rim's node stays), drop the strips, repair faces."""
-    old = source.verts
+def _pairs_to_merge(old: np.ndarray, plans: list[_Plan]):
+    """Return which node each leaving node merges into, and the midpoint of each merged node."""
     merge: dict[int, int] = {}
     moved: dict[int, np.ndarray] = {}
     for plan in plans:
@@ -493,6 +521,28 @@ def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
             )
             merge[b] = a
             moved[a] = moved[b] = 0.5 * (old[a] + old[b])
+    return merge, moved
+
+
+def _repaired(name: str, i: int, face: list[int], merge: dict[int, int]) -> list[int]:
+    """Return a face the merge reaches without its repeated nodes, refusing what cannot close."""
+    fixed = _dedupe([merge.get(n, n) for n in face])
+    _need(
+        len(set(fixed)) == len(fixed),
+        f"face {i + 1} of {name!r} repeats a node that is not next to its twin after the merge",
+    )
+    return fixed
+
+
+def _tally(counts: dict[str, int], blades: set[str]) -> None:
+    for blade in blades:
+        counts[blade] = counts.get(blade, 0) + 1
+
+
+def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
+    """Merge the rung pairs (the first rim's node stays), drop the strips, repair faces."""
+    old = source.verts
+    merge, moved = _pairs_to_merge(old, plans)
     gone = set(merge)
     index = np.cumsum([0 if i in gone else 1 for i in range(len(old))]) - 1
     for leaving, stays in merge.items():
@@ -519,34 +569,19 @@ def _build(source: ObjMesh, plans: list[_Plan]) -> _Result:
             if (name, i) in strip:
                 continue
             near = {owner[n] for n in face if n in owner}
-            if not near:
-                rows.append([int(index[n]) for n in face])
-                kept.append((name, i))
-                continue
-            mapped = [merge.get(n, n) for n in face]
-            fixed = _dedupe(mapped)
-            _need(
-                len(set(fixed)) == len(fixed),
-                f"face {i + 1} of {name!r} repeats a node that is not next to its twin after the "
-                "merge",
-            )
+            fixed = _repaired(name, i, face, merge) if near else face
             if len(fixed) < 3:
                 collapsed += 1
-                for blade in near:
-                    nothing[blade] = nothing.get(blade, 0) + 1
+                _tally(nothing, near)
                 continue
             if len(fixed) < len(face):
-                for blade in near:
-                    closure[blade] = closure.get(blade, 0) + 1
+                _tally(closure, near)
             rows.append([int(index[n]) for n in fixed])
             kept.append((name, i))
         if rows:
             families[name] = rows
     mesh = ObjMesh(verts, families, list(source.header), source.family_tag, new_text)
-    lines = {}
-    for plan in plans:
-        chain = [int(index[a]) for a in plan.rim_a]
-        lines[plan.blade] = np.array(chain)
+    lines = {plan.blade: np.array([int(index[a]) for a in plan.rim_a]) for plan in plans}
     return _Result(
         source, mesh, plans, index, moved, strip, kept, lines, collapsed, closure, nothing
     )
@@ -599,41 +634,42 @@ def _no_crack(src: ObjMesh, moved: dict[int, np.ndarray], twins: set[Edge]) -> N
         )
 
 
-def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
-    """Refuse any difference from the source the collapse does not account for."""
-    from scipy.spatial import cKDTree
-
-    src, out = r.source, r.mesh
-    old, new = src.verts, out.verts
-    pairs = [p for plan in r.plans for p in plan.pairs]
-    checks: dict[str, Any] = {}
-    # 1 counts
+def _check_counts(r: _Result) -> dict[str, int]:
     n_strip = len(r.strip)
-    src_faces = sum(len(f) for f in src.families.values())
-    out_faces = sum(len(f) for f in out.families.values())
+    src_faces = sum(len(f) for f in r.source.families.values())
+    out_faces = sum(len(f) for f in r.mesh.families.values())
     _need(
         out_faces == src_faces - n_strip - r.collapsed,
         f"the output holds {out_faces} faces, not {src_faces} - {n_strip} - {r.collapsed}",
     )
-    _need(
-        len(new) == len(old) - len(pairs),
-        f"the output holds {len(new)} nodes, not {len(old)} - {len(pairs)}",
-    )
-    checks["faces"] = {"source": src_faces, "strip": n_strip, "collapsed": r.collapsed}
-    # 2 degeneracy, of the faces the merge reached; a face away from it is held to the source below
+    n_old, n_new = len(r.source.verts), len(r.mesh.verts)
+    n_pairs = sum(len(plan.pairs) for plan in r.plans)
+    _need(n_new == n_old - n_pairs, f"the output holds {n_new} nodes, not {n_old} - {n_pairs}")
+    return {"source": src_faces, "strip": n_strip, "collapsed": r.collapsed}
+
+
+def _check_near_faces(r: _Result) -> None:
+    """Hold the faces the merge reached; a face away from it is held to the source below."""
     touched = set(r.moved)
-    written = [(n, f) for n, faces in out.families.items() for f in faces]
+    written = [(n, f) for n, faces in r.mesh.families.items() for f in faces]
     for (name, i), (family, f) in zip(r.kept, written, strict=True):
-        if set(src.families[name][i]) & touched:
+        if set(r.source.families[name][i]) & touched:
             _need(len(set(f)) == len(f), f"face {i + 1} of {family!r} repeats a node")
-            _need(_area(new, f) > 0.0, f"face {i + 1} of {family!r} has zero area")
-    twins = len(cKDTree(new).query_pairs(0.0))
-    before = len(cKDTree(old).query_pairs(0.0))
+            _need(_area(r.mesh.verts, f) > 0.0, f"face {i + 1} of {family!r} has zero area")
+
+
+def _check_twins(r: _Result) -> dict[str, int]:
+    from scipy.spatial import cKDTree
+
+    source_twins = cKDTree(r.source.verts).query_pairs(0.0)
+    before = len(source_twins)
+    twins = len(cKDTree(r.mesh.verts).query_pairs(0.0))
     _need(twins <= before, f"{twins - before} node pair(s) share one place after the merge")
-    checks["coincident_node_pairs"] = {"source": before, "output": twins}
-    _no_crack(src, r.moved, cKDTree(old).query_pairs(0.0))
-    # 3 one line per blade
-    owners = _edge_faces(out)
+    _no_crack(r.source, r.moved, source_twins)
+    return {"source": before, "output": twins}
+
+
+def _check_lines(r: _Result, owners: dict[Edge, list[str]]) -> None:
     for plan in r.plans:
         chain = r.lines[plan.blade]
         _need(
@@ -648,19 +684,24 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
                 f"blade {plan.blade!r}: a trailing-edge edge is owned by {len(sides)} faces, "
                 "not two",
             )
-    # 4 open and non-manifold edges
-    now = _open_by_place(out, {})
-    was = _open_by_place(src, r.moved)
+
+
+def _check_open(r: _Result, owners: dict[Edge, list[str]]) -> dict[str, int]:
+    now = _open_by_place(r.mesh, {})
+    was = _open_by_place(r.source, r.moved)
     _need(now == was, f"open edges differ from the source: {len(now ^ was)} edge(s) changed")
     over = sum(len(f) > 2 for f in owners.values())
-    over0 = sum(len(f) > 2 for f in _edge_faces(src).values())
+    over0 = sum(len(f) > 2 for f in _edge_faces(r.source).values())
     _need(over <= over0, f"{over - over0} edge(s) now have more than two faces")
-    checks["open_edges"] = {"source": len(was), "output": len(now)}
-    # 5 far nodes and faces
-    far = [i for i in range(len(old)) if i not in touched]
+    return {"source": len(was), "output": len(now)}
+
+
+def _check_far_nodes(r: _Result) -> None:
+    src, out = r.source, r.mesh
+    far = [i for i in range(len(src.verts)) if i not in r.moved]
     far_new = [int(r.index[i]) for i in far]
     _need(
-        np.array_equal(new[far_new], old[far]),
+        np.array_equal(out.verts[far_new], src.verts[far]),
         "a node away from the trailing edge differs from the source",
     )
     if out.vertex_text and src.vertex_text:
@@ -671,46 +712,75 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
             "a node away from the trailing edge is written differently from the source",
         )
     _need(far_new == sorted(far_new), "nodes away from the trailing edge changed order")
+
+
+def _check_faces(r: _Result) -> None:
+    src, old = r.source, r.source.verts
     expected = []
     for name, i in r.kept:
-        pts = [r.moved[n] if n in r.moved else old[n] for n in src.families[name][i]]
-        rows = _rows(np.array(pts))
-        expected.append((name, _dedupe(rows) if set(src.families[name][i]) & touched else rows))
-    actual = [(n, _rows(new[f])) for n, faces in out.families.items() for f in faces]
+        face = src.families[name][i]
+        rows = _rows(np.array([r.moved[n] if n in r.moved else old[n] for n in face]))
+        expected.append((name, _dedupe(rows) if set(face) & set(r.moved) else rows))
+    actual = [(n, _rows(r.mesh.verts[f])) for n, faces in r.mesh.families.items() for f in faces]
     wanted = [(n, rows) for n, rows in expected if len(rows) >= 3]
     _need(
         len(actual) == len(wanted)
         and all(a[0] == w[0] and a[1] == w[1] for a, w in zip(actual, wanted, strict=True)),
         "a face away from the trailing edge differs from the source in place, family or node order",
     )
-    # 6 turned over
+
+
+def _check_turned(r: _Result) -> float:
+    old, new = r.source.verts, r.mesh.verts
     low = 1.0
-    flat = [f for fs in out.families.values() for f in fs]
+    flat = [f for fs in r.mesh.families.values() for f in fs]
     for (name, i), face in zip(r.kept, flat, strict=False):
-        before_f = src.families[name][i]
-        if not set(before_f) & touched:
+        before_f = r.source.families[name][i]
+        if not set(before_f) & set(r.moved):
             continue
         a, b = _normal(old[before_f]), _normal(new[face])
         low = min(low, float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-300)))
     _need(low > 0.0, f"a face near the trailing edge is turned over (cosine {low:.4f})")
-    checks["smallest_normal_cosine"] = low
-    # 7 area
-    area0 = sum(_area(old, f) for fs in src.families.values() for f in fs)
-    area_strip = sum(_area(old, src.families[n][i]) for n, i in r.strip)
-    area1 = sum(_area(new, f) for fs in out.families.values() for f in fs)
-    checks["area"] = {
+    return low
+
+
+def _area_report(r: _Result) -> dict[str, float]:
+    src, out = r.source, r.mesh
+    area0 = sum(_area(src.verts, f) for fs in src.families.values() for f in fs)
+    area_strip = sum(_area(src.verts, src.families[n][i]) for n, i in r.strip)
+    area1 = sum(_area(out.verts, f) for fs in out.families.values() for f in fs)
+    return {
         "source": area0,
         "strip": area_strip,
         "output": area1,
         "relative_change_against_source_minus_strip": area1 / (area0 - area_strip) - 1,
     }
-    # 8 midpoints
-    for p, q in pairs:
-        _need(
-            np.array_equal(new[r.index[p]], 0.5 * (old[p] + old[q])),
-            f"merged node of source nodes {p + 1} and {q + 1} is not at their midpoint",
-        )
-    checks["periodicity"] = _periodicity(src, out, rotor)
+
+
+def _check_midpoints(r: _Result) -> None:
+    old, new = r.source.verts, r.mesh.verts
+    for plan in r.plans:
+        for p, q in plan.pairs:
+            _need(
+                np.array_equal(new[r.index[p]], 0.5 * (old[p] + old[q])),
+                f"merged node of source nodes {p + 1} and {q + 1} is not at their midpoint",
+            )
+
+
+def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
+    """Refuse any difference from the source the collapse does not account for."""
+    checks: dict[str, Any] = {"faces": _check_counts(r)}
+    _check_near_faces(r)
+    checks["coincident_node_pairs"] = _check_twins(r)
+    owners = _edge_faces(r.mesh)
+    _check_lines(r, owners)
+    checks["open_edges"] = _check_open(r, owners)
+    _check_far_nodes(r)
+    _check_faces(r)
+    checks["smallest_normal_cosine"] = _check_turned(r)
+    checks["area"] = _area_report(r)
+    _check_midpoints(r)
+    checks["periodicity"] = _periodicity(r.source, r.mesh, rotor)
     return checks
 
 
@@ -809,6 +879,47 @@ def _drop_detect_surfaces(tes: Any, emptied: set[str]) -> None:
             detect["surfaces"] = left
 
 
+def _one_line(tes: dict[str, Any], plan: _Plan, rw: Rewrite) -> None:
+    """Replace the rim entries of one blade with one entry at the place of the first."""
+    mine = [lab for lab in tes if lab in plan.labels]
+    if not mine:
+        return
+    nodes = [tes[lab].get("wake_termination_nodes") for lab in mine]
+    names = [n for n in nodes if isinstance(n, str) and n != "auto"]
+    replaced = {"files", "file", "type", "wake_termination_nodes"}
+    kept = {k: v for k, v in tes[mine[0]].items() if k not in replaced}
+    merged: dict[str, Any] = {"file": f"@collapse:{plan.blade}", "type": plan.edge_type, **kept}
+    if names:
+        merged["wake_termination_nodes"] = f"@terminations:{plan.blade}"
+        rw.merged[f"@terminations:{plan.blade}"] = names
+        rw.dedupe.add(f"@terminations:{plan.blade}")
+    elif "auto" in nodes:
+        merged["wake_termination_nodes"] = "auto"
+    rebuilt = {}
+    for lab, table in tes.items():
+        if lab == mine[0]:
+            rebuilt[lab] = merged
+        elif lab not in mine:
+            rebuilt[lab] = table
+    tes.clear()
+    tes.update(rebuilt)
+
+
+def _drop_regions(regions: dict[str, Any], plans: list[_Plan], emptied: set[str]) -> None:
+    """Remove the base regions of what the collapse removes, refusing a merge into one."""
+    strips = {f for plan in plans for f, _ in plan.strip}
+    hosts = emptied | (strips & {p.blade for p in plans})
+    for name in list(regions):
+        if name in hosts:
+            del regions[name]
+    for name, table in regions.items():
+        if isinstance(table, dict) and table.get("merge_into") in emptied:
+            raise InputValueError(
+                f"collapse_te: base region {name!r} merges into {table['merge_into']!r}, "
+                "which the collapse removes. No file was written."
+            )
+
+
 def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> None:
     """Declare the edit of the boundaries tables: one line per blade, no base for the strip."""
     emptied = {f for f in result.source.families if f not in result.mesh.families}
@@ -819,54 +930,12 @@ def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> No
         tes = data.get("trailing_edges")
         if isinstance(tes, dict):
             for plan in plans:
-                mine = [lab for lab in tes if lab in plan.labels]
-                if not mine:
-                    continue
-                first = dict(tes[mine[0]])
-                names = []
-                for lab in mine:
-                    node = tes[lab].get("wake_termination_nodes")
-                    if isinstance(node, str) and node != "auto":
-                        names.append(node)
-                merged: dict[str, Any] = {}
-                for k, v in first.items():
-                    if k in {"files", "file", "type", "wake_termination_nodes"}:
-                        continue
-                    merged[k] = v
-                tag = f"@collapse:{plan.blade}"
-                merged = {"file": tag, "type": plan.edge_type, **merged}
-                if names:
-                    merged["wake_termination_nodes"] = f"@terminations:{plan.blade}"
-                    rw.merged[f"@terminations:{plan.blade}"] = names
-                    rw.dedupe.add(f"@terminations:{plan.blade}")
-                elif any(tes[lab].get("wake_termination_nodes") == "auto" for lab in mine):
-                    merged["wake_termination_nodes"] = "auto"
-                rebuilt = {}
-                for lab, table in tes.items():
-                    if lab == mine[0]:
-                        rebuilt[lab] = merged
-                    elif lab not in mine:
-                        rebuilt[lab] = table
-                tes.clear()
-                tes.update(rebuilt)
-        _drop_detect_surfaces(data.get("trailing_edges"), emptied)
-        regions = data.get("base_regions")
-        if isinstance(regions, dict):
-            hosts = emptied | (
-                {f for plan in plans for f, _ in plan.strip} & {p.blade for p in plans}
-            )
-            for name in list(regions):
-                if name in hosts:
-                    del regions[name]
-            for name, table in regions.items():
-                if isinstance(table, dict) and table.get("merge_into") in emptied:
-                    raise InputValueError(
-                        f"collapse_te: base region {name!r} merges into {table['merge_into']!r}, "
-                        "which the collapse removes. No file was written."
-                    )
-        inventory = data.get("boundaries")
-        if isinstance(inventory, list):
-            data["boundaries"] = [n for n in inventory if n not in emptied]
+                _one_line(tes, plan, rw)
+        _drop_detect_surfaces(tes, emptied)
+        if isinstance(data.get("base_regions"), dict):
+            _drop_regions(data["base_regions"], plans, emptied)
+        if isinstance(data.get("boundaries"), list):
+            data["boundaries"] = [n for n in data["boundaries"] if n not in emptied]
 
     rw.edit = edit
 
@@ -947,7 +1016,7 @@ def collapse_trailing_edge(
     }
     why = None if side is None else _undeclarable(side[1])
     _edit(plans, result, rw, side is not None and why is None)
-    extra = attachments(path, target, source, new_by_old, payload, rw)
+    extra = attachments(path, target, source, new_by_old, payload, rewrite=rw)
     for plan in [p for p in plans if not p.labels] if side is None or why else []:
         file = target.with_name(f"{target.stem}.{plan.blade}.te.txt")
         extra[file] = _te_bytes(file, plan.unit or "METER", merged_line[plan.blade] * plan.to_file)

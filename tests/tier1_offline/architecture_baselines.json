@@ -1084,6 +1084,7 @@
   "pyflightstream.workspace._sector_read": 1,
   "pyflightstream.workspace._wheel": 1,
   "pyflightstream.workspace.cli": 1,
+  "pyflightstream.workspace.collapse_te": 5,
   "pyflightstream.workspace.costs": 1,
   "pyflightstream.workspace.hpc": 1,
   "pyflightstream.workspace.matrix": 12,

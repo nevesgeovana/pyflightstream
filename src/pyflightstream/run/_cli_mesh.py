@@ -654,6 +654,12 @@ def run_inventory(args: argparse.Namespace) -> int:
 GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 
 
+def add_morphing_parsers(subparsers: Any) -> None:
+    """Add the two verbs a morphing control file drives: repitch and collapse-te."""
+    add_repitch_parser(subparsers)
+    add_collapse_te_parser(subparsers)
+
+
 def add_repitch_parser(subparsers: Any) -> None:
     """Add the rigid-blade repitch verb with its morphing control file."""
     parser = subparsers.add_parser(

@@ -31,11 +31,10 @@ from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
 from pyflightstream.run._cli_mesh import (
     _progress_printer,
-    add_collapse_te_parser,
     add_degenerate_parser,
     add_inventory_parser,
     add_mesh_parsers,
-    add_repitch_parser,
+    add_morphing_parsers,
 )
 from pyflightstream.run._cli_wheel import WHEEL_HANDLERS, add_wheel_verbs
 from pyflightstream.run._executors import (
@@ -98,8 +97,7 @@ GEOMETRY_VERBS = (
     "trailing-edge",
     "export-surface-mesh",
     "merge",
-    "repitch",
-    "collapse-te",
+    *("repitch", "collapse-te"),
     *PYFS_MATRIX_ALIASES,
 )
 
@@ -171,8 +169,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
     _add_mesh_verbs(verbs)
     add_wheel_verbs(verbs)
-    add_repitch_parser(verbs)
-    add_collapse_te_parser(verbs)
+    add_morphing_parsers(verbs)
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",

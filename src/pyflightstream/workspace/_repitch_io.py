@@ -101,12 +101,70 @@ class Rewrite:
     verb: str = "repitch"
 
 
+class _Carrier:
+    """Give each declared points file its new positions, as one mark file beside the output."""
+
+    def __init__(self, source: Path, target: Path, mesh: ObjMesh, new: Any, rw: Rewrite) -> None:
+        from scipy.spatial import cKDTree
+
+        self.source, self.target, self.mesh, self.rw = source, target, mesh, rw
+        faces = [f for fs in mesh.families.values() for f in fs]
+        self.pairs = np.array(list(incidence(faces)))
+        self.tree = cKDTree(np.vstack([mesh.verts, mesh.verts[self.pairs].mean(axis=1)]))
+        self.new_points = np.vstack([new, new[self.pairs].mean(axis=1)])
+        self.outputs: dict[Path, bytes] = {}
+        self.named: dict[str, str] = {}
+
+    def __call__(self, value: str, terminations: bool = False) -> str:
+        if value in self.named:
+            return self.named[value]
+        file = self.target.with_name(f"{self.target.stem}.mark{len(self.named) + 1}.txt")
+        if value in self.rw.synthetic:
+            unit, made, to_file = self.rw.synthetic[value]
+            unit_and_points = unit, made * to_file
+        else:
+            unit_and_points = self._moved(value, terminations)
+        unit, points = unit_and_points
+        lines = [unit, *[",".join(format(float(x), ".17g") for x in p) for p in points]]
+        self.outputs[file] = ("\n".join(lines) + "\n").encode("utf-8")
+        self.named[value] = file.name
+        return file.name
+
+    def _moved(self, value: str, terminations: bool) -> tuple[str, Any]:
+        """Return the unit and the new positions of a source file's points, refusing a stale one."""
+        rw, mesh = self.rw, self.mesh
+        names = rw.merged.get(value, [value])
+        loads = [points_from_file(self.source, self.source.parent / n) for n in names]
+        loaded = loads[0]
+        assert loaded is not None
+        shown = ", ".join(names)
+        distance, ids = self.tree.query(np.vstack([x.points for x in loads if x is not None]))
+        if np.any(distance > max(mesh.size * 1e-8, 1e-10)):
+            raise InputValueError(
+                f"{rw.verb}: marking {shown!r} is not on source nodes or edge midpoints; "
+                f"regenerate its points before {rw.verb}. No file was written."
+            )
+        count = len(mesh.verts)
+        on_edges = [tuple(self.pairs[i - count]) for i in ids.tolist() if i >= count]
+        if rw.dead and any(edge in rw.dead for edge in on_edges):
+            raise InputValueError(
+                f"{rw.verb}: marking {shown!r} lies on an edge of the removed strip; "
+                "move or remove that marking. No file was written."
+            )
+        points = self.new_points[ids] * loaded.to_file
+        if terminations and value in rw.dedupe:
+            _, first = np.unique(points, axis=0, return_index=True)
+            points = points[np.sort(first)]
+        return loaded.unit, points
+
+
 def attachments(
     source: Path,
     target: Path,
     mesh: ObjMesh,
     new: Any,
     payload: bytes,
+    *,
     rewrite: Rewrite | None = None,
 ) -> dict:
     """Prepare sidecar and point-file bytes in memory, refusing unmatched moving markings.
@@ -114,8 +172,6 @@ def attachments(
     ``new`` holds, per source node, that node's position in the output. With a ``rewrite`` the
     declarations are edited first and the counts of the output are stated, not read from ``mesh``.
     """
-    from scipy.spatial import cKDTree
-
     sidecar = read_sidecar(source)
     if sidecar is None:
         return {}
@@ -123,61 +179,17 @@ def attachments(
     rw = rewrite or Rewrite()
     if rw.edit is not None:
         rw.edit(data)
-    faces = [f for fs in mesh.families.values() for f in fs]
-    pairs = np.array(list(incidence(faces)))
-    old_points = np.vstack([mesh.verts, mesh.verts[pairs].mean(axis=1)])
-    new_points = np.vstack([new, new[pairs].mean(axis=1)])
-    tree = cKDTree(old_points)
-    outputs: dict[Path, bytes] = {}
-    named: dict[str, str] = {}
-
-    def point_file(value: str, terminations: bool = False) -> str:
-        if value in named:
-            return named[value]
-        file = target.with_name(f"{target.stem}.mark{len(named) + 1}.txt")
-        if value in rw.synthetic:
-            unit, made, to_file = rw.synthetic[value]
-            rows = [",".join(format(float(x), ".17g") for x in p) for p in made * to_file]
-            outputs[file] = ("\n".join([unit, *rows]) + "\n").encode("utf-8")
-            named[value] = file.name
-            return file.name
-        loads = [points_from_file(source, source.parent / n) for n in rw.merged.get(value, [value])]
-        loaded = loads[0]
-        assert loaded is not None
-        shown = ", ".join(rw.merged.get(value, [value]))
-        found = np.vstack([x.points for x in loads if x is not None])
-        distance, ids = tree.query(found)
-        tolerance = max(mesh.size * 1e-8, 1e-10)
-        if np.any(distance > tolerance):
-            raise InputValueError(
-                f"{rw.verb}: marking {shown!r} is not on source nodes or edge midpoints; "
-                f"regenerate its points before {rw.verb}. No file was written."
-            )
-        count = len(mesh.verts)
-        if rw.dead and any(i >= count and tuple(pairs[i - count]) in rw.dead for i in ids.tolist()):
-            raise InputValueError(
-                f"{rw.verb}: marking {shown!r} lies on an edge of the removed strip; "
-                "move or remove that marking. No file was written."
-            )
-        points = new_points[ids] * loaded.to_file
-        if terminations and value in rw.dedupe:
-            _, first = np.unique(points, axis=0, return_index=True)
-            points = points[np.sort(first)]
-        lines = [loaded.unit, *[",".join(format(float(x), ".17g") for x in p) for p in points]]
-        outputs[file] = ("\n".join(lines) + "\n").encode("utf-8")
-        named[value] = file.name
-        return file.name
-
+    carrier = _Carrier(source, target, mesh, new, rw)
     for key in ("trailing_edges", "base_regions"):
         if key in data:
-            data[key] = _carry(data[key], point_file)
+            data[key] = _carry(data[key], carrier)
     data["file"] = target.name
     data["mesh_sha256"] = hashlib.sha256(payload).hexdigest()
-    data["mesh_faces"] = len(faces)
+    data["mesh_faces"] = sum(len(fs) for fs in mesh.families.values())
     if rw.counts is None:
         data["boundary_faces"] = [len(fs) for fs in mesh.families.values()]
     else:
         data["mesh_faces"], data["boundary_faces"] = rw.counts
     text = "\n".join(f"{toml_key(k)} = {toml_value(v)}" for k, v in data.items()) + "\n"
-    outputs[Path(str(target) + ".boundaries.toml")] = text.encode("utf-8")
-    return outputs
+    carrier.outputs[Path(str(target) + ".boundaries.toml")] = text.encode("utf-8")
+    return carrier.outputs
