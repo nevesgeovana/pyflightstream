@@ -5091,3 +5091,67 @@ def test_p0551_near_sections_touch_mirror_plane(tmp_path, side):
     assert len(traced) == 1, ctx.skipped
     assert np.isfinite(float(traced[0]["CDI_T"]))
     assert not any("straddle" in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.requirement("FR-3613")
+@pytest.mark.parametrize("sections", [True, False], ids=["P0551-hub", "P0551-no-hub"])
+def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections):
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+
+    def prepare(ctx):
+        ctx.matrix_row.variables.update(SYMMETRY="MIRROR", SYMMETRY_LOADS="true")
+        surfaces = {
+            name: dict(Cx=-0.1, Cy=0, Cz=0.03, CMx=0, CMy=0, CMz=0) for name in ("Blade1", "Blade2")
+        }
+        ctx.points[0] = replace(
+            ctx.points[0], loads=replace(ctx.points[0].loads, surfaces=surfaces)
+        )
+        ctx.exports = {}
+        if not sections:
+            return
+        record = ctx.record_of["point"]
+        record.inventory = list(surfaces)
+        record.sections_layout = [
+            dict(
+                distribution=i,
+                distribution_families=[name],
+                families=[name],
+                plane="XY",
+                frame=f"ROTOR_RMRP{i}",
+                count=3,
+            )
+            for i, name in enumerate(surfaces, 1)
+        ]
+        head = _farfield_products___sloads().split("     Offset,")[0].replace("160", "6")
+        source = tmp_path / "point_sloads.txt"
+        source.write_text(
+            head
+            + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+            + "".join(f"{r}, .1, 0, 0, -10, -4, 0\n" for r in [0.5, 1, 1.5] * 2)
+            + " "
+            + "-" * 100
+            + "\n     Force Units: Newtons\n"
+            "     Moment Units: Newton-Meter\n     Software : Flightstream\n",
+            encoding="utf-8",
+        )
+        ctx.exports = {"point": (source, None, None)}
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        _, rows, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True, prepare=prepare)
+    row = next(row for row in rows if row["VARIANT"] == "W")
+    if sections:
+        assert float(row["T_NEAR_N"]) == pytest.approx(-30)
+        assert float(row["Q_NEAR_NM"]) == pytest.approx(12)
+    else:
+        point = ctx.points[0]
+        qs = 0.5 * point.state.density_kg_m3 * point.loads.reference_velocity_m_s**2 * 4
+        assert float(row["T_NEAR_N"]) == pytest.approx(-0.1 * qs, rel=1e-5)
+        assert row["Q_NEAR_NM"] == "NA"
+        assert any("torque about the hub" in str(w.message) for w in caught)
+    assert sum("Cx = CDi + CDo" in str(w.message) for w in caught) == 1

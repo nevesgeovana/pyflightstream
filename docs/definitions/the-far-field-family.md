@@ -474,7 +474,18 @@ are copied about the axis by the sector angle before the sums.
 along `e_a` and torque about it at the hub from the point's loads export (the
 rotor table's rule, its own families only; `NA` where the export holds none),
 scaled by `PERIODIC_COPIES` on a `SYMMETRY PERIODIC` row without
-`SYMMETRY_LOADS`, so every comparison uses the whole wheel. The differences are
+`SYMMETRY_LOADS`, so every comparison uses the whole wheel.
+On a mirror row with `SYMMETRY_LOADS` enabled, the paired surface moments
+cannot recover one rotor's torque. W instead integrates that rotor's blade
+sections in its hub frames, with the shaft force and the tangential force's
+signed radial arm. These sections must cover every modelled blade. Without
+them the in-plane shaft thrust is half the paired surface thrust, while torque
+is `NA` and a warning explains why no torque about the hub is available.
+Window comparisons use sections from the same wake step (FR-3613).
+
+These four comparison columns concern one rotor on each side. The near field
+includes friction and W does not: `Cx = CDi + CDo`. Post warns once about this
+difference. The differences are
 
     DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)

@@ -37,6 +37,12 @@ FlightStream versions.
 
 ### Fixed
 
+- W compares one rotor's wake with one rotor's near loads on mirror rows.
+  Hub-frame blade sections recover thrust and torque; absent sections leave
+  torque unavailable with a warning. Near-field friction is stated beside
+  the comparisons. Migration: repost stored exports to correct the near
+  columns and wake differences (FR-3613).
+
 - Trefftz A now includes a half-model section trace that reaches the mirror
   plane, retaining its plane station once. Migration: repost existing section
   exports to recover the previously skipped A row (FR-3612).

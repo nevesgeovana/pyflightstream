@@ -1120,8 +1120,6 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         speeds = {str(next(iter(rotors))): float(flat)}
     lines = list(wake.lines)
     wind = farfield_axes(alpha, beta)[0]
-    loads = point.loads
-    v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
     # Hover retains dimensional loads; a zero free-stream pressure defines no counts.
     qs = qs if qs > 0.0 else _NA
@@ -1168,18 +1166,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             reason = f"the wake loads cannot be formed: {error}"
             _skip(ctx, f"{key}#rotor={alias}", point.name, reason)
             continue
-        near = rotor_shaft_loads(
-            loads.surfaces,
-            rotor=rotor,
-            reference=ctx.reference,
-            density_kg_m3=rho,
-            speed_m_s=v_ref,
-            alpha_deg=alpha,
-            beta_deg=beta,
-        )
-        # A rotor whose families the loads export does not hold has no near field: NA, not 0.
-        t_near = near.thrust_n * _sector_copies(ctx) if near.families_used else _NA
-        q_near = near.torque_nm * _sector_copies(ctx) if near.families_used else _NA
+        t_near, q_near = _w_near(ctx, point, str(alias), rotor, wakes)
         values = {
             "FAMILY": str(alias),
             "VARIANT": "W",
@@ -1197,6 +1184,72 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         }
         rows.append(_row(ctx, point, _NA, values))
     return rows
+
+
+def _w_near(ctx: SimContext, point: PolarPoint, alias: str, rotor: Any, wakes: Path):
+    """Compare one rotor's hub loads with W, never a mirrored pair's moment arm."""
+    rho, _speed, alpha, beta = _flow(point)
+    loads = point.loads
+    near = rotor_shaft_loads(
+        loads.surfaces,
+        rotor=rotor,
+        reference=ctx.reference,
+        density_kg_m3=rho,
+        speed_m_s=float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s),
+        alpha_deg=alpha,
+        beta_deg=beta,
+        analysis_frame=loads.frame,
+    )
+    factor = _sector_copies(ctx)
+    thrust = near.thrust_n * factor if near.families_used else _NA
+    torque = near.torque_nm * factor if near.families_used else _NA
+    mirror, half = _symmetry(ctx)
+    if not mirror or half:
+        if not math.isfinite(torque):
+            _skip(
+                ctx,
+                f"farfield/near#point={point.name}#rotor={alias}",
+                point.name,
+                f"rotor {alias}: its loads cannot give a torque about the hub; "
+                "Q_NEAR_NM and DQ_WAKE_COUNTS are NaN",
+            )
+        return thrust, torque
+    # The paired surface export has lost antisymmetric forces and moments.
+    # Its axial force can be halved for an in-plane shaft; its hub torque cannot.
+    thrust = thrust / 2 if abs(float(rotor.axis_vector[1])) < 1e-12 else _NA
+    path: Path | None = wakes.with_name(wakes.name.replace("_wakes.vtk", "_sloads.txt"))
+    if path is not None and not path.is_file() and "_iteration=" not in wakes.name:
+        path = (getattr(ctx, "exports", {}).get(point.name) or (None,))[0]
+    reason = "no blade sectional export at this wake's step"
+    if path is not None and Path(path).is_file():
+        try:
+            blocks, count = _blade_rows(ctx, point, Path(path), alias)
+            if count != rotor.blade_count:
+                reason = "blade sections do not cover every modelled blade"
+            else:
+                loading = disk_loading(
+                    blocks,
+                    shaft=_shaft_letter(rotor.axis_vector, rotor),
+                    blades=count,
+                    tip_radius_m=float(rotor.diameter_m) / 2,
+                )
+                if not isinstance(loading, str):
+                    widths = np.diff(loading.edges_m)
+                    return (
+                        -float(loading.thrust_per_m @ widths),
+                        -float(loading.torque_per_m @ widths),
+                    )
+                reason = loading
+        except (PyflightstreamError, OSError) as error:
+            reason = str(error)
+    _skip(
+        ctx,
+        f"farfield/near#point={point.name}#rotor={alias}",
+        point.name,
+        f"rotor {alias}: the mirrored loads cannot give a torque about the hub; {reason}; "
+        "Q_NEAR_NM and DQ_WAKE_COUNTS are NaN, never the force times a wrong arm",
+    )
+    return thrust, _NA
 
 
 def _wake_rotor_products(
@@ -1948,6 +2001,17 @@ def farfield_products(ctx: SimContext) -> None:
     """
     if not ctx.pproc.farfields:
         return
+    if getattr(getattr(ctx, "live", None), "rotors", None) and any(
+        entry.trefftz is not None and "wake" in entry.trefftz.variant
+        for entry in ctx.pproc.farfields
+    ):
+        warn(
+            "product=farfield: T_NEAR_N, Q_NEAR_NM, DT_WAKE_COUNTS and DQ_WAKE_COUNTS "
+            "compare one rotor with one rotor. The near field includes friction and W "
+            "does not: Cx = CDi + CDo.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     tables = ff._Tables()
     for entry in ctx.pproc.farfields:
         selected = (
@@ -2079,6 +2143,10 @@ def _held_columns(
             for row in rows
         )
     }
+    if "T_NEAR_N" in cells and first + cells.index("T_NEAR_N") not in drop:
+        drop.discard(first + cells.index("Q_NEAR_NM"))
+        if first + cells.index("DT_WAKE_COUNTS") not in drop:
+            drop.discard(first + cells.index("DQ_WAKE_COUNTS"))
     kept = tuple(name for index, name in enumerate(cells) if first + index not in drop)
     return kept, [tuple(c for i, c in enumerate(row) if i not in drop) for row in rows]
 
