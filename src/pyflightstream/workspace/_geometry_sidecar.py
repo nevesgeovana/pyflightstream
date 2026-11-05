@@ -62,7 +62,8 @@ def toml_value(value: Any) -> str:
         # TOML's, and DEL, which TOML also refuses raw, is escaped too.
         return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
     if isinstance(value, Mapping):
-        return "{ " + ", ".join(f"{key} = {toml_value(item)}" for key, item in value.items()) + " }"
+        pairs = (f"{toml_key(key)} = {toml_value(item)}" for key, item in value.items())
+        return "{ " + ", ".join(pairs) + " }"
     return "[" + ", ".join(toml_value(item) for item in value) + "]"
 
 

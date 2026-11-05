@@ -652,3 +652,24 @@ def test_p0560_the_inventory_refresh_the_refusal_names_works_on_the_output(tmp_p
     before = tomllib.loads(side.read_text())
     refresh_obj_inventory(out)
     assert tomllib.loads(side.read_text()) == before
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize("verb", ["collapse-te", "repitch"])
+def test_p0560_a_name_with_a_space_keeps_the_output_sidecar_readable(tmp_path, verb):
+    source, _ = make(tmp_path, strip="same" if verb == "repitch" else "own", layers=3)
+    source.write_text(source.read_text().replace("g Hub1", "g Hub 1"))
+    side = Path(str(source) + ".boundaries.toml")
+    side.write_text(
+        side.read_text().replace('"Hub1"', '"Hub 1"').replace(".Blade1U]", '."Blade1 U"]')
+        + '[base_regions."Hub 1"]\ntrailing_edges = "auto"\n'
+    )
+    cfg = tmp_path / "rep.toml"
+    cfg.write_text(REPITCH.replace('"Hub1"', '"Hub 1"'))
+    cfg = cfg if verb == "repitch" else control(tmp_path)
+    out = tmp_path / "out.obj"
+    assert invoke(source, cfg, out, verb) == 0
+    written = Path(str(out) + ".boundaries.toml")
+    data = tomllib.loads(written.read_text())
+    assert "Blade1 U" in data["trailing_edges"] and "Hub 1" in data["base_regions"]
+    assert any(r.family == "Hub 1" for r in read_boundary_declarations(written).base_regions)
