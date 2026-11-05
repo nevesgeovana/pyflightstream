@@ -826,6 +826,42 @@ def test_p0560_a_repeated_group_line_with_no_face_between_is_one_block(tmp_path)
     assert invoke(source, control(tmp_path), tmp_path / "sharp.obj") == 0
 
 
+def detect_blade(source, blade):
+    """Replace the two rim entries of ``blade`` with one detection entry."""
+    side = Path(str(source) + ".boundaries.toml")
+    data = side.read_text().split("[")
+    kept = [
+        t
+        for t in data
+        if not t.startswith((f"trailing_edges.{blade}U", f"trailing_edges.{blade}L"))
+    ]
+    side.write_text(
+        "[".join(kept) + f'[trailing_edges.{blade}]\ndetect = "auto"\ntype = "STANDARD"\n'
+    )
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_all_says_it_skipped_a_blade_marked_by_detection(tmp_path):
+    source, _ = make(
+        tmp_path, [("Blade1", {}), ("Blade2", {"move": AWAY})], strip="own", wake=False
+    )
+    detect_blade(source, "Blade2")
+    out = tmp_path / "sharp.obj"
+    with pytest.warns(NotApplicableWarning, match="'Blade2' is marked by detection"):
+        assert invoke(source, control(tmp_path, '"all"'), out) == 0
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    assert set(report["blades"]) == {"Blade1"}
+    assert "detection" in report["skipped"]["Blade2"]
+
+
+@pytest.mark.requirement("FR-3665")
+def test_p0560_all_with_no_points_entry_says_so(tmp_path, capsys):
+    source, _ = make(tmp_path, strip="own", wake=False)
+    detect_blade(source, "Blade1")
+    with pytest.warns(NotApplicableWarning, match="marked by detection"):
+        refused(tmp_path, capsys, source, control(tmp_path, '"all"'), "no trailing-edge entry")
+
+
 def far_hub_face_edit(source, edit):
     """Rewrite the source through ``edit`` of its verts and hub faces, away from the edge."""
     mesh = read_obj(source)

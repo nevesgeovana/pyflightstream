@@ -351,6 +351,30 @@ def _one_block_per_family(path: Path) -> None:
             last = current
 
 
+def _all_blades(
+    decl: Any, entries: list, mesh: ObjMesh, index: _Index, skipped: dict[str, str]
+) -> list[str]:
+    """Return the family each points entry lies on; an entry with no points is said skipped."""
+    for entry in decl.trailing_edges:
+        if entry.marking.route != "file":
+            skipped[entry.label] = "marked by detection, so no rims are declared"
+            warn(
+                f"collapse_te: trailing-edge entry {entry.label!r} is marked by detection, so no "
+                "rims are declared, and it is skipped; name its blade and strip with blades and "
+                "base",
+                NotApplicableWarning,
+            )
+    declared = {r.family for r in decl.base_regions}
+    blades: list[str] = []
+    for m in entries:
+        score = {f: _owner(m[2], index, f) for f in mesh.families}
+        pool = {f: s for f, s in score.items() if f not in declared and s} or score
+        top = max(pool, key=lambda f: pool[f], default=None)
+        if top is not None and pool[top] and top not in blades:
+            blades.append(top)
+    return blades
+
+
 def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
     """Return the plans, the sidecar and the blades skipped that the request leads to."""
     blades, bases = _names(cfg, "blades"), _names(cfg, "base")
@@ -361,6 +385,7 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
     unit = mesh_unit(source)
     entries = _entry_edges(source, decl, index, unit) if decl is not None else []
     explicit = blades != ["all"]
+    skipped: dict[str, str] = {}
     if not explicit:
         _need(not bases, "base names the strip of an explicit blade; it cannot go with blades=all")
         _need(
@@ -369,14 +394,12 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             "beside the mesh. Name the blades and their strips with blades and base",
         )
         assert decl is not None
-        declared = {r.family for r in decl.base_regions}
-        blades = []
-        for m in entries:
-            score = {f: _owner(m[2], index, f) for f in mesh.families}
-            pool = {f: s for f, s in score.items() if f not in declared and s} or score
-            top = max(pool, key=lambda f: pool[f], default=None)
-            if top is not None and pool[top] and top not in blades:
-                blades.append(top)
+        blades = _all_blades(decl, entries, mesh, index, skipped)
+        _need(
+            bool(blades),
+            "blades = all found no trailing-edge entry with a points file in the boundaries "
+            "file. Name the blades and their strips with blades and base",
+        )
     else:
         absent = [n for n in blades + bases if n not in mesh.families]
         _need(not absent, f"families {absent} are absent from the mesh")
@@ -393,7 +416,6 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             "provide it, or name the strip group of each blade with collapse_te.base",
         )
     plans: list[_Plan] = []
-    skipped: dict[str, str] = {}
     for n, blade in enumerate(blades):
         mine = [m for m in entries if _best(m[2], index, blades) == blade]
         if bases:
