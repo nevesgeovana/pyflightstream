@@ -207,29 +207,59 @@ def _attempt(mesh: ObjMesh, seed: _Seed, forbidden: set[int]) -> _Blade | None:
     return _Blade(seed.name, seed.family, loop, rows, taken, hole, seed.width, area, tris, route)
 
 
-def _plan(mesh: ObjMesh, name: str, cfg: dict[str, Any], gone: dict[str, set[int]]) -> _Blade:
-    """Plan one blade's rings, refusing rings that do not fit and naming the width that does."""
+def _seed(
+    mesh: ObjMesh, name: str, cfg: dict[str, Any], gone: dict[str, set[int]]
+) -> tuple[_Seed, set[int]]:
+    """Return what one blade's rings are asked and the hub faces they may not take."""
     hub_faces = [f for n in cfg["hub"] for f in mesh.families[n]]
     loop = root_loop(mesh.families[name], hub_faces, name)
     family = _family(mesh, cfg["hub"], loop, name)
     forbidden = _forbidden(mesh, family, name, gone.setdefault(family, set()))
     width = cfg["width"] or _default_width(mesh, family, loop, cfg["rings"])
-    seed = _Seed(name, family, loop, cfg["rings"], width)
+    return _Seed(name, family, loop, cfg["rings"], width), forbidden
+
+
+def _fits_every_blade(mesh: ObjMesh, cfg: dict[str, Any], width: float) -> bool:
+    """Return whether the rings of every named blade fit at one stated width, planned in turn.
+
+    The width a refusal names is the ``width`` a user then states for every blade, so it is
+    judged on them all: judged on the refused blade alone, the faces it then takes can leave no
+    room for the next blade.
+    """
+    gone: dict[str, set[int]] = {}
+    for name in cfg["blades"]:
+        seed, forbidden = _seed(mesh, name, {**cfg, "width": width}, gone)
+        found = _attempt(mesh, seed, forbidden)
+        if found is None:
+            return False
+        gone[seed.family] |= found.taken
+    return True
+
+
+def _plan(mesh: ObjMesh, name: str, cfg: dict[str, Any], gone: dict[str, set[int]]) -> _Blade:
+    """Plan one blade's rings, refusing rings that do not fit and naming the width that does."""
+    seed, forbidden = _seed(mesh, name, cfg, gone)
+    family, width = seed.family, seed.width
     found = _attempt(mesh, seed, forbidden)
     if found is not None:
         gone[family] |= found.taken
         return found
     fits = None
     for k in range(1, _TRIES + 1):
-        seed.width = width * _SHRINK**k
-        if _attempt(mesh, seed, forbidden) is not None:
-            fits = seed.width
+        # The width named is the one tried, to the digits the message prints.
+        trial = float(f"{width * _SHRINK**k:.6g}")
+        if _fits_every_blade(mesh, cfg, trial):
+            fits = trial
             break
     raise InputValueError(
         f"hub_rings: blade {name!r}: {cfg['rings']} rings of width {width:.6g} do not fit on "
         f"hub {family!r}: they fold, or the faces they need reach an open boundary (a seam), "
         "another family or another blade's rings; "
-        + (f"a width of {fits:.6g} fits" if fits else "no width down to a hundredth of it fits")
+        + (
+            f"a width of {fits:.6g} fits every blade"
+            if fits
+            else "no width down to a hundredth of it fits every blade"
+        )
         + ". No file was written."
     )
 

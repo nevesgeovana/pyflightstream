@@ -73,15 +73,19 @@ def _blade(nodes, j0):
     return faces, ([row[te] for row in rows], [row[te + 1] for row in rows])
 
 
-def build(folder, *, wheel=False, nacelle=False, wing=False, name="hub.obj"):
-    """Write the mesh and its boundaries file, two rim entries per blade; return the path."""
+def build(folder, *, wheel=False, nacelle=False, wing=False, name="hub.obj", columns=None):
+    """Write the mesh and its boundaries file, two rim entries per blade; return the path.
+
+    ``columns`` places the blades' roots at those hub columns instead of one per sector.
+    """
     sectors = COPIES if wheel else 1
     nt = PER * sectors
     nodes = _Nodes(wheel, nt)
     families, rims = {}, {}
-    for k in range(sectors):
-        families[f"Blade{k + 1}"], rims[f"Blade{k + 1}"] = _blade(nodes, k * PER + FOOT_J)
-    feet = {(i, k * PER + FOOT_J) for k in range(sectors) for i in range(*FOOT_I)}
+    columns = columns or [k * PER + FOOT_J for k in range(sectors)]
+    for k, j0 in enumerate(columns):
+        families[f"Blade{k + 1}"], rims[f"Blade{k + 1}"] = _blade(nodes, j0)
+    feet = {(i, j0) for j0 in columns for i in range(*FOOT_I)}
     hub = []
     for i in range(NX):
         for j in range(nt):
@@ -218,6 +222,22 @@ def test_p0560_rings_that_do_not_fit_are_refused_naming_a_width_that_fits(tmp_pa
     width = float(err.split("a width of ")[1].split(" fits")[0])
     cfg.write_text(cfg.read_text().replace("width = 1.5", f"width = {width}"))
     assert invoke("hub-rings", source, cfg, tmp_path / "fits.obj") == 0
+
+
+@pytest.mark.requirement("FR-3670")
+def test_mor1_3_the_width_a_refusal_names_fits_every_blade(tmp_path, capsys):
+    """Two roots three cells apart: the refusal of the first named a width judged on it alone,
+    and at that width the second blade's rings found no room."""
+    source = build(tmp_path, columns=[8, 12])
+    cfg = control(tmp_path, "[hub_rings]\nrings = 4\n")
+    cfg.write_text(cfg.read_text().replace('["Blade1"]', '["Blade1", "Blade2"]'))
+    assert invoke("hub-rings", source, cfg, tmp_path / "wide.obj") == 2
+    err = capsys.readouterr().err
+    assert "do not fit" in err
+    if "a width of" in err:
+        width = float(err.split("a width of ")[1].split(" fits")[0])
+        cfg.write_text(cfg.read_text() + f"width = {width}\n")
+        assert invoke("hub-rings", source, cfg, tmp_path / "fits.obj") == 0, capsys.readouterr()
 
 
 @pytest.mark.requirement("FR-3670")
