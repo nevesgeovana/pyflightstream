@@ -52,6 +52,8 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: and the four 26.100 marking probe reports (reports/compat/CMP-26100_2026-11-02_mark-26100-base
 #: and -vertex, yaml and md: +4 report files, +9698 report lines): +30 tracked files, measured.
 #: 0.55.1 (PFS-2187) budgets repitch, blade order, rotor sections and tests: 2091, measured.
+#: RELDOCS measures 2093 tracked files: base 2094, collision regression +1,
+#: folded H03/H04 changelog fragments -2. The existing 2100 cap has seven spare files.
 LEAN_CAPS = {
     "tracked_files": 2100,
     "reports_files": 105,

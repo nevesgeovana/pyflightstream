@@ -818,3 +818,9 @@ They read `<mesh>.obj.boundaries.toml` with the same strict named declarations a
 where a command documented and not verified on the row's build is warned and emitted.
 Every other matrix row requires an `.fsm`; prepare it once with
 `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.
+
+Repitch accepts a reference installation-axis table, for example
+`axis = { shaft = "X", vector_wrt_global = [2, 0, 0] }`. It normalizes the
+physical shaft and projects `blade1.zero` into its disk plane, using the same
+frame convention for automatic pitch axes, the hub chart and wheel checks.
+A datum parallel to the shaft cannot define the blade plane and must be fixed.

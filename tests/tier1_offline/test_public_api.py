@@ -32,6 +32,7 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.acoustics",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.blade_order",
     "pyflightstream.cases.ccs_fuselage",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.ccs_revolution",
@@ -80,7 +81,9 @@ PUBLIC_MODULES = [
     "pyflightstream.farfield.balances",
     "pyflightstream.farfield.fields",
     "pyflightstream.farfield.quadrature",
+    "pyflightstream.farfield.rotor_sections",
     "pyflightstream.farfield.trefftz",
+    "pyflightstream.farfield.wake_sheets",
     "pyflightstream.fsi",
     "pyflightstream.fsi.beam",
     "pyflightstream.fsi.calibration",
@@ -164,6 +167,9 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.qsteady_noise",
     "pyflightstream.post.reductions",
+    "pyflightstream.post.rotor_section_frames",
+    "pyflightstream.post.rotor_sections_products",
+    "pyflightstream.post.rotor_sections_surface",
     "pyflightstream.post.rotor_table",
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",
@@ -292,6 +298,7 @@ PUBLIC_MODULES = [
     # of the promotion and what PFS-2025.20.03 measures.
     # 0.33.0 (AD-11): the rule on empty entity selections, cut out of
     # workspace.inputs, which re-exports every public name of it.
+    "pyflightstream.workspace.repitch",
     "pyflightstream.workspace.selections",
     "pyflightstream.workspace.setup_inspection",
     "pyflightstream.workspace.setup_standards",

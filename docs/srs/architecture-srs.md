@@ -470,3 +470,20 @@ regardless. Refinement can govern factors per declared component instead of
 per patch (`--keep-within-component`), and every runtime dependency and extra
 declares a tested range whose floor and ceiling CI exercises, with no upper
 bound on Python.
+
+## Far-field projection and rotor geometry
+
+The post stage reduces selected export windows before `polar.farfield_column_names`
+projects quantity, method and target into shared polar and super-file names
+(FR-1062). Collision resolution is point-local and deterministic in row order;
+each later cell receives repeated entry suffixes until unique. The reducer
+uses that same mapping, preserving distinct values and warning with both sources.
+Rotor-section cells merge into each point alongside the other far fields.
+
+`results.wake` supplies wake-frame placement; `post.farfield_products` carries
+family, blade, rotor and TOTAL contributions with the selected symmetry and
+window conventions. `farfield.rotor_sections` projects pressure-only surface
+loads using wake induction; its result is not an independent thrust estimate.
+`cases.blade_order` resolves selected surfaces before the plan checks blade
+azimuths. `workspace.repitch` shares the reference shaft and blade-datum frame
+convention, then rotates blades and rebuilds constrained hub rings.

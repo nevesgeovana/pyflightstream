@@ -654,6 +654,10 @@ On a row with any surface beyond the rotor and its hub, every row carries
 `LOCAL_VALIDATED = false` and a warning: local `alpha_i(r)` and `Cd_i(r)`
 remain unvalidated even with every row wake included. Isolated rows carry true
 for that applicability check; it is not a claim of experimental validation.
+On the newest supported solver build, measured torque closure still has a
+shortfall, including unequal errors between blades. Neither isolated agreement
+nor the repaired W channels establishes general rotor accuracy. C on a march
+also remains a diagnostic: its sampled field has not established force closure.
 
 <a id="trefftz-c"></a>
 
