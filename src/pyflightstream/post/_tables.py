@@ -531,7 +531,10 @@ def write_csv_table(
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
             writer.writerow(
                 [
-                    _significant_cell(value)
+                    ""
+                    if (value is None or isinstance(value, str) and value == "")
+                    and re.search(r"_FF_[ABCDW]_", name)
+                    else _significant_cell(value)
                     if (
                         name in _SIGNIFICANT_DIGIT_COLUMNS
                         or name.startswith(_DIMENSIONAL_PREFIXES)

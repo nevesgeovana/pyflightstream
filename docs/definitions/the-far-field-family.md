@@ -37,11 +37,7 @@ super file carry every far-field target as `<QUANTITY>_FF_<METHOD>_<TARGET>`.
 Methods are A, B, C, D and W; `net` becomes `TOTAL`, while family, blade and
 rotor names retain their spelling. Examples are `CL_FF_B_TOTAL`, `CDI_FF_B_W`,
 `CDI_FF_B_Blade1`, `CDI_FF_B_PUSHER` and `CL_FF_A_W`.
-Only when two entries of the same method would occupy the same target on one
-point's row is the entry name appended, for example `CDI_FF_C_TOTAL_c05`.
-A single C entry, whatever its name, writes `CDI_FF_C_TOTAL`.
-If that generated name belongs to another cell on the same point, append the
-later cell's entry name repeatedly until it is unique, in input row order.
+Each method uses entry suffixes at every point when the row declares more than one entry of that method (one entry has none), reserves collisions across the union of targets in declaration order and sorted target order by repeatedly appending the later entry's name, and leaves missing cells empty; without reachable declarations it warns once and uses the row's table-entry union.
 Compare the final table spelling: the shared table writer replaces commas
 with semicolons, double quotes with single quotes and line breaks with spaces.
 One warning per collision names both cells and the retained spelling. For
@@ -53,7 +49,7 @@ example, `CDI_FF_B_TOTAL_c05` and `CDI_FF_B_TOTAL_c05_c05` retain both values.
 `ETA` and `ETA_CORRECTED`. Other numeric quantities and diagnostics retain
 their long-table names, including units: `P_TOTAL_W_FF_D_TOTAL`,
 `T_WAKE_N_FF_W_ROTOR`, `Q_WAKE_NM_FF_W_ROTOR`, `AR_FF_A_W` and
-`X_T_M_FF_B_TOTAL`. Unavailable cells remain `NA`. `FAMILY`, `VARIANT` and
+`X_T_M_FF_B_TOTAL`. Explicit unavailable diagnostics remain `NA`. `FAMILY`, `VARIANT` and
 `STATUS` are not projected as quantities. Rotor-sections names such as
 `T_FF_RS_ROTOR` are unchanged. The long far-field tables keep their existing
 column names and `VARIANT`/`FAMILY` rows.

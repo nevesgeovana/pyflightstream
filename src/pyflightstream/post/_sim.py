@@ -727,7 +727,7 @@ def _group_polar(
     )
     polar_columns.extend(farfield)
     full = [
-        (*values, *(ctx.farfield_super.get(point.name, {}).get(key, "NA") for key in farfield))
+        (*values, *(ctx.farfield_super.get(point.name, {}).get(key, "") for key in farfield))
         for point, values in zip(group_points, full, strict=True)
     ]
     write_csv_table(target, polar_columns, full)

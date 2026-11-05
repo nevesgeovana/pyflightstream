@@ -435,6 +435,8 @@ def superfile_row(
     #    the two files agree digit for digit on every column they share.
     for column, value in zip(polar_columns, polar_values, strict=True):
         _take(row, column, value, fixed=True)
+        if isinstance(value, str) and value == "" and re.search(r"_FF_[ABCDW]_", column):
+            row[column] = ""
     # 2. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION AS THE RUN
     #    RECORDED IT: what the row STATED, what the setup PINNED, and what
     #    the resolver SOLVED, under the keys each of the three is recorded

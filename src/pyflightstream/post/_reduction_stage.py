@@ -255,10 +255,13 @@ def _whole_configuration_drag(ctx: SimContext, point: str, name: str) -> bool:
 
 
 def _super_cells(
-    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
+    rows: Sequence[tuple[tuple[object, ...], str]],
+    columns: Sequence[str],
+    *,
+    declared_entries: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Project each far-field target without changing its numeric formatting (FR-1062)."""
-    names = farfield_column_names(rows, columns)
+    names = farfield_column_names(rows, columns, declared_entries=declared_entries)
     out: dict[str, dict[str, str]] = {}
     for (row, point), projected in zip(rows, names, strict=True):
         cells = out.setdefault(point, {})

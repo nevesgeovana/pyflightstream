@@ -2105,7 +2105,14 @@ def farfield_products(ctx: SimContext) -> None:
         else:
             _entry_products(selected, tables)
     _write(ctx, tables)
-    for point, cells in ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS).items():
+    methods = {"sections": ("A",), "wake": ("B", "W"), "plane": ("C",), "power": ("D",)}
+    declared: dict[str, list[str]] = {}
+    for entry in ctx.pproc.farfields:
+        for method in methods.get(entry.variant, ()):
+            declared.setdefault(method, []).append(entry.name)
+    for point, cells in ff._super_cells(
+        tables.super_rows(), _TREFFTZ_CELLS, declared_entries=declared
+    ).items():
         ctx.farfield_super.setdefault(point, {}).update(cells)
     ctx.farfield_off_window.extend(_cells_off_the_row_window(ctx, tables))
 

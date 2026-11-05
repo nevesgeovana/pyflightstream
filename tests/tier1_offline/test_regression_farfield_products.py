@@ -5403,7 +5403,7 @@ def test_p0551_ffname2_targets_and_quantities():
 
 
 @pytest.mark.requirement("FR-1062")
-def test_p0551_ffname2_suffix_only_for_colliding_targets_on_the_same_point():
+def test_p0551_ffname2_suffix_from_the_row_union_without_declarations():
     rows = [
         (_p0551_ffname2_row("c05", "C", "net", CDI_T=0.05), "p"),
         (_p0551_ffname2_row("c10", "C", "net", CDI_T=0.1), "p"),
@@ -5415,6 +5415,6 @@ def test_p0551_ffname2_suffix_only_for_colliding_targets_on_the_same_point():
     assert float(cells["p"].get("CDI_FF_C_TOTAL_c05", "nan")) == 0.05
     assert float(cells["p"].get("CDI_FF_C_TOTAL_c10", "nan")) == 0.1
     assert "CDI_FF_C_TOTAL" not in cells["p"]
-    assert float(cells["other"].get("CDI_FF_C_TOTAL", "nan")) == 0.2
-    assert cells["p"].get("CL_FF_A_W") == "1"
-    assert cells["p"].get("CL_FF_A_H") == "2"
+    assert float(cells["other"].get("CDI_FF_C_TOTAL_custom", "nan")) == 0.2
+    assert cells["p"].get("CL_FF_A_W_wing") == "1"
+    assert cells["p"].get("CL_FF_A_H_tail") == "2"

@@ -33,8 +33,8 @@ def test_p0551_reldocs_preserves_colliding_cells(case):
     assert {
         name: float(value) for name, value in cells.items() if name.startswith("CDI_FF_")
     } == expected
-    assert messages
-    assert any("TOTAL_c05" in str(message) and "c05" in str(message) for message in messages)
+    # Uniform method suffixes now separate this chain before collision handling.
+    assert len(messages) == 1 and "table union" in str(messages[0])
     with collecting_warnings():
         names = farfield_column_names(rows, TREFFTZ_COLUMNS)
     drag = 3 + len(CONTEXT_COLUMNS) + TREFFTZ_COLUMNS.index("CDI_T")
@@ -48,7 +48,7 @@ def test_p0551_reldocs_names_are_scoped_to_point(case):
         cells = _super_cells(rows, TREFFTZ_COLUMNS)
     assert float(cells["p"]["CDI_FF_B_TOTAL"]) == 0.05
     assert float(cells["q"]["CDI_FF_B_TOTAL"]) == 0.10
-    assert not messages
+    assert len(messages) == 1 and "table union" in str(messages[0])
 
 
 @pytest.mark.parametrize("case", ["P0551-R2-CSV-COLLISION"])
