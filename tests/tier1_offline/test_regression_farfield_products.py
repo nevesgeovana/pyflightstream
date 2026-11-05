@@ -95,7 +95,7 @@ from tests.tier1_offline.test_regression_farfield_interfaces import (
 def test_p0551_total_blades_and_rotor_share_all_filaments(tmp_path):
     wing, shed = _p0470_wing_lines()
     lines, values = list(wing), list(shed)
-    # Two radial blades with a deliberately nonclosing root-anchored export.
+    # P0551-FFNAME: nonclosing strengths distinguish the free-tip anchor.
     for angle in (0.0, math.pi):
         for radius, value in zip((0.3, 0.6, 0.9), (1.0, 0.5, -0.7), strict=True):
             y, z = radius * math.cos(angle), 2.0 + radius * math.sin(angle)
@@ -123,7 +123,7 @@ def test_p0551_total_blades_and_rotor_share_all_filaments(tmp_path):
     gamma = [np.sqrt(1 - ((edges[0][:-1, 0] + 0.125) / 2) ** 2)]
     for start in (len(wing), len(wing) + 3):
         edges.append(np.array([line[0, 1:] for line in lines[start : start + 3]]))
-        gamma.append(np.array([-1.0, -1.5]))
+        gamma.append(np.array([-0.2, -0.7]))
     filaments = np.array([line[0, 1:] for line in lines])
     drag = 0.0
     for e, g in zip(edges, gamma, strict=True):

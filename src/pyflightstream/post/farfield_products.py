@@ -903,7 +903,7 @@ def _total_trace(ctx, point, key, lines, values, *, x_t, mirror, turn, lattices,
     rho, speed, _, _ = _flow(point)
     for name, idx, closed, why, blade in named:
         crossing = sheet_crossings(lines, values, WakeSheet(idx, closed), x_t)
-        crossing = replace(crossing, root_anchor=blade)
+        crossing = replace(crossing, blade=blade)
         if crossing.short:
             why = f"{crossing.short} wake lines end before the plane" + _reach_text(
                 ctx, [lines[i] for i in idx]

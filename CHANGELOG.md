@@ -17,11 +17,17 @@ FlightStream versions.
   rotor alias. All included filaments contribute normalwash to every strip;
   calibration uses the whole near-field lift, with signed `GAMMA_SCALE`.
   Untraceable groups write `NA` and are named in TOTAL's warnings and manifest.
-  Blade circulation accumulates from the root; powered crossflow includes swirl.
+  Blade circulation accumulates from the tip; powered crossflow includes swirl.
   Migration: B's `net` row and spanwise filename become `TOTAL`; polar and super
   columns read TOTAL while retaining their existing column names (FR-3601 to FR-3605).
   Surface families combine disconnected sheets; unresolved names retain warned
   `sheet<n>` labels. Closed rims and unsteady window products remain supported.
+
+### Changed
+
+- Trefftz B anchors rotor blade circulation at the free tip, following the wing
+  convention. W retains its own treatment. Repost stored exports to update B's
+  blade, rotor and TOTAL values; no new solve is needed (PFS-2187.21).
 
 ### Fixed
 

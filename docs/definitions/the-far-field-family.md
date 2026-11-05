@@ -302,9 +302,10 @@ crossings are never re-sorted after roll-up.
 
 Blade lines are assigned through their lattice and the reference's blade azimuth
 rule, in `families_blades` order, and ordered from root to tip. A blade uses the
-root anchor: the strip after line `j` carries the negative sum of exported values
-from the root through `j`. Sectional-load comparison has not settled the anchor;
-root is the fallback, consistent with W. Blade values need not sum to zero.
+tip anchor, following the wing convention: bound circulation vanishes at a free
+tip, and each strip accumulates the shed circulation from the tip inward.
+Four of the six exported distributions on the measured row could not be compared.
+This rule applies to B; W retains its own treatment. Blade values need not sum to zero.
 Every exported blade filament contributes its signed strength to the normalwash,
 including the tip filament. A mirrored blade is reflected once without a strip
 joining the two hubs.
