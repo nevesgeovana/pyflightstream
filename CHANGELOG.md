@@ -60,6 +60,20 @@ FlightStream versions.
 
 ### Fixed
 
+- Repitch accepts reference installation-axis tables and projects the blade
+  datum into the shaft's normal plane, matching the rotor-frame convention.
+  Automatic pitch axes and wheel periodicity use the same physical shaft.
+
+- Boundary triangles remain readable when a saved mesh carries opaque integer
+  edge tags, so blade-order and plane-body checks retain their geometry evidence.
+  Edge-marking readers still refuse unknown marking codes.
+
+- Blade-order checks resolve family selectors and case-insensitive surface
+  names with the same rule as workflow selection (FR-3616).
+
+- Combining `rotor_sections` with another far-field entry preserves both sets
+  of polar and super-file columns (FR-3624).
+
 - The recorded Trefftz B circulation regression now requires the missing-mesh
   attribution warnings while retaining its circulation-scale and efficiency
   checks. Unexpected skips or warnings still fail the test (FR-3640).

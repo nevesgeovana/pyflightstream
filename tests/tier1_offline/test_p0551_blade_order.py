@@ -238,3 +238,70 @@ def test_p0551_installed_shaft_preserves_geometric_order(tmp_path):
     reference.write_text(reference.read_text().replace(json.dumps(names), json.dumps(correct)))
     accepted = _plan(workspace, matrix)
     assert all(p.status.value == "READY" for p in accepted.points), accepted.summary()
+
+
+@pytest.mark.requirement("FR-3616")
+@pytest.mark.parametrize("suffix", [".fsm", ".obj"])
+@pytest.mark.parametrize("selection", ["family", "casefold"])
+@pytest.mark.parametrize("sense", [-1, 1])
+def test_rel551_r1_blade_order_resolves_surface_families(tmp_path, suffix, selection, sense):
+    from pyflightstream._fsm import boundary_surface
+    from pyflightstream.cases.blade_order import validate_blade_order
+    from pyflightstream.cases.reference_blocks import CampaignConfigError, RotorBlock
+
+    source = tmp_path / "source.fsm"
+    wheel(source, 4, sense)
+    names = ["Alpha", "Bravo", "Charlie", "Delta"]
+    data = source.read_text()
+    for i, name in enumerate(names, 1):
+        data = data.replace(f"Blade{i}\n", f"{name}1\n")
+    source.write_text(data)
+    if suffix == ".obj":
+        mesh = tmp_path / "wheel.obj"
+        rows = []
+        for i, name in enumerate(names):
+            vertices, _ = boundary_surface(source, name + "1")
+            # Two separately named surfaces of each blade, sharing its area.
+            rows.extend("v " + " ".join(map(str, p)) for p in vertices)
+            for part in (1, 2) if selection == "family" else (1,):
+                rows += [f"g {name}{part}", f"f {3 * i + 1} {3 * i + 2} {3 * i + 3}"]
+    else:
+        mesh = source
+    if suffix == ".obj":
+        mesh.write_text("\n".join(rows) + "\n")
+    selected = names if selection == "family" else [name.lower() + "1" for name in names]
+    rotor = RotorBlock(
+        alias="R",
+        axis="X",
+        diameter_m=4,
+        families_blades=selected,
+        blade1={"zero": "Y", "azimuth_deg": 0.0},
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if sense < 0:
+            with pytest.raises(CampaignConfigError, match="blade order disagrees"):
+                validate_blade_order(mesh, rotor, units="METER")
+        else:
+            validate_blade_order(mesh, rotor, units="METER")
+    assert not any("was not checked" in str(w.message) for w in caught)
+
+
+@pytest.mark.requirement("FR-3616")
+@pytest.mark.parametrize("sense", [-1, 1])
+def test_rel551_r1_integer_edge_tags_do_not_disable_geometry_check(tmp_path, sense):
+    from pyflightstream._fsm import MeshReadError, trailing_edge_midpoints
+
+    workspace, matrix, _, mesh, _ = fixture(tmp_path, count=4, sense=sense)
+    lines = mesh.read_text().splitlines()
+    first = lines.index(" F," * 4)
+    lines[first + 1 : first + 4] = [" 6," * 4] * 3
+    mesh.write_text("\n".join(lines) + "\n")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = _plan(workspace, matrix)
+    assert all((p.status.value == "BLOCKED") == (sense < 0) for p in plan.points)
+    assert not any("blade order was not checked" in str(w.message) for w in caught)
+    # Reading geometry must not invent the meaning of these marking codes.
+    with pytest.raises(MeshReadError):
+        trailing_edge_midpoints(mesh)

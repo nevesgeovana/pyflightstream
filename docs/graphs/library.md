@@ -2526,6 +2526,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.reference_blocks">pyflightstream.cases.reference_blocks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch">pyflightstream.workspace._repitch</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch_grid">pyflightstream.workspace._repitch_grid</a> (module)</li>

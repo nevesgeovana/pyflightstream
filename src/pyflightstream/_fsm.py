@@ -1419,7 +1419,7 @@ def boundary_surface(
         row, so no face can be told to a boundary, or no single boundary
         carries ``name``.
     """
-    vertices, triangles, _, owners = _mesh_block(path)
+    vertices, triangles, _, owners = _mesh_block(path, geometry_only=True)
     if not owners or len(owners) != len(triangles):
         raise MeshReadError(
             f"{Path(path).name}: its mesh block carries no boundary row, so no face can be "

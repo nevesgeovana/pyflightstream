@@ -7,16 +7,21 @@ shaft rotation used by the blade frames. Spin direction is deliberately absent.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream._fsm import boundary_surface, saved_mesh_coordinate_unit
+from pyflightstream._fsm import (
+    boundary_names,
+    boundary_surface,
+    names_of,
+    saved_mesh_coordinate_unit,
+)
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream._mesh import obj_group_surface
 
@@ -77,12 +82,30 @@ def blade_order_errors(cases: Iterable[SimCase]) -> dict[str, str]:
 
 
 def _surface(path: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
+    read: Callable[[Path, str], tuple[Any, Any]]
     if path.suffix.lower() == ".fsm":
-        vertices, faces = boundary_surface(path, name)
-        return np.asarray(vertices, dtype=float), np.asarray(faces, dtype=int)
-    if path.suffix.lower() == ".obj":
-        return obj_group_surface(path, name)
-    raise ValueError("geometry is not a readable named surface mesh")
+        names = boundary_names(path) or ()
+        read = boundary_surface
+    elif path.suffix.lower() == ".obj":
+        names = tuple(
+            dict.fromkeys(
+                words[1]
+                for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+                if len(words := line.split("#", 1)[0].split()) > 1 and words[0] in ("o", "g")
+            )
+        )
+        read = obj_group_surface
+    else:
+        raise ValueError("geometry is not a readable named surface mesh")
+    vertices: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, int, int]] = []
+    offset = 0
+    for selected in names_of(name, names):
+        points, triangles = read(path, selected)
+        vertices.extend(points)
+        faces.extend(np.asarray(triangles, dtype=int) + offset)
+        offset += len(points)
+    return np.asarray(vertices, dtype=float), np.asarray(faces, dtype=int)
 
 
 def _directions(path: Path, rotor: RotorBlock, units: str | None) -> np.ndarray:
