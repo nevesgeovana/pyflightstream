@@ -1170,3 +1170,28 @@ def test_p0560_the_first_declared_rim_keeps_its_place_on_either_route(tmp_path, 
     # Declared first, the lower rim keeps its places, less the upper nodes removed before them.
     place = low - len(lower) if swap else up
     assert np.array_equal(new[place], midpoint)
+
+
+@pytest.mark.requirement("FR-3677")
+@pytest.mark.parametrize("strip", ["same", "own"])
+def test_p0560_cte2_004_the_points_route_keeps_another_marking_of_the_blade(tmp_path, strip):
+    """CTE2-004: a flap line on the blade beside the declared rims is carried, not a third rim."""
+    source, infos = make(tmp_path, strip=strip)
+    old = read_obj(source)
+    node = infos["Blade1"]["node"]
+    flap = [0.5 * (old.verts[node(s, 1)] + old.verts[node(s + 1, 1)]) for s in range(2)]
+    pts(tmp_path / "flap.te.txt", flap)
+    side = Path(str(source) + ".boundaries.toml")
+    side.write_text(
+        side.read_text() + '[trailing_edges.Flap]\nfile = "flap.te.txt"\ntype = "RELAXED"\n'
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path), out) == 0
+    tables = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())["trailing_edges"]
+    assert list(tables) == ["Blade1U", "Flap"]
+    assert tables["Flap"]["type"] == "RELAXED"
+    np.testing.assert_allclose(read_te(tmp_path / tables["Flap"]["file"])[1], flap, atol=1e-15)
+    assert len(read_te(tmp_path / tables["Blade1U"]["file"])[1]) == STATIONS
+    report = json.loads(Path(str(out) + ".collapse.json").read_text())
+    assert report["blades"]["Blade1"]["route"] == "boundaries"
+    assert report["blades"]["Blade1"]["nodes_merged"] == STATIONS + 1

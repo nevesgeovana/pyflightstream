@@ -243,6 +243,23 @@ def _owner(plan_edges: set[Edge], index: _Index, family: str) -> int:
     return sum(any(f == family for f, _ in index.owners[e]) for e in plan_edges)
 
 
+def _rims_only(mesh: ObjMesh, mine: list) -> list:
+    """Return the entries of a blade that name rims: those that lie on the sides of its strip.
+
+    The strip is the faces wholly on the nodes the entries declare; an entry with no edge on its
+    sides (a flap line on the blade) names no rim and is carried to its new position. An entry
+    with only part of its edges there stays a rim, so that a rim one interval short is still
+    refused as unequal to the other. When no face lies wholly on those nodes, or no entry lies on
+    the strip's sides, every entry is kept and the edge is judged as the entries declare it.
+    """
+    nodes = {n for m in mine for e in m[2] for n in e}
+    sides = {
+        e for faces in mesh.families.values() for f in faces if set(f) <= nodes for e in _sides(f)
+    }
+    rims = [m for m in mine if m[2] & sides]
+    return rims or mine
+
+
 def _points_plan(blade: str, mesh: ObjMesh, mine: list) -> _Plan | None:
     """Plan one blade from its declared rims; None when its edge is sharp."""
     edges = set().union(*[m[2] for m in mine])
@@ -487,6 +504,7 @@ def _select(cfg: dict[str, Any], source: Path, mesh: ObjMesh, index: _Index):
             mine = [m for m in mine if m[2] and m[2] <= rims and not m[3]]
             _first_rim_leads(plan, mine)
         else:
+            mine = _rims_only(mesh, mine)
             plan = _plan_by_points(blade, mesh, mine, explicit, skipped)
         if plan is not None:
             plans.append(_labelled(plan, mine, unit))
