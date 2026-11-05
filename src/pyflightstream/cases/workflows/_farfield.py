@@ -225,7 +225,9 @@ def wants_wake(case: SimCase) -> bool:
     if entries:
         return any(wants_wake(entry) for entry in entries)
     spec = _spec(case)
-    return spec is not None and "trefftz:wake" in _analyses(spec, case)
+    return spec is not None and any(
+        name in _analyses(spec, case) for name in ("trefftz:wake", "trefftz:rotor_sections")
+    )
 
 
 def _needs_plane(case: SimCase) -> bool:
@@ -941,9 +943,9 @@ def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
 
 def _blade_rotor(case: SimCase, spec: FarfieldSpec) -> tuple[str, Any] | None:
     """Return the alias and block of the rotor a power entry's disk loading reads, or None."""
-    if spec.ledgers is None or not _rotor(case):
+    if (spec.ledgers is None and spec.variant != "rotor_sections") or not _rotor(case):
         return None
-    alias = spec.ledgers.rotor
+    alias = spec.rotor
     rotors = dict(case.rotors)
     if alias is None:
         if len(rotors) != 1:
@@ -1390,9 +1392,11 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
             )
         # P0470-FFR: a rotor row's wake entry exports the surface VTK, its wake on, per step.
         kinds = [
-            {"sections": "sectional_loads", "wake": "vtk"}.get(entry.variant, "farfield_probes")
+            {"sections": "sectional_loads", "wake": "vtk", "rotor_sections": "vtk"}.get(
+                entry.variant, "farfield_probes"
+            )
         ]
-        if entry.variant == "power":
+        if entry.variant in ("power", "rotor_sections"):
             entry_case = case.model_copy(
                 update={"pproc": case.pproc.model_copy(update={"farfields": [entry]})}
             )

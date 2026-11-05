@@ -88,6 +88,10 @@ from pyflightstream.post.farfield_fields import (
     steady_samples,
     symmetry_excluded_orders,
 )
+from pyflightstream.post.rotor_sections_products import (
+    rotor_section_snapshot,
+    rotor_sections_products,
+)
 from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
@@ -154,6 +158,8 @@ _ROTOR_TREFFTZ_COLUMNS: tuple[str, ...] = (
     "ETA_FF_CORRECTED",
     "T_WAKE_N",
     "Q_WAKE_NM",
+    "T_WAKE_REPAIRED_N",
+    "Q_WAKE_REPAIRED_NM",
     "T_NEAR_N",
     "Q_NEAR_NM",
     "DT_WAKE_COUNTS",
@@ -1167,7 +1173,10 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             reason = f"the wake loads cannot be formed: {error}"
             _skip(ctx, f"{key}#rotor={alias}", point.name, reason)
             continue
-        t_near, q_near = _w_near(ctx, point, str(alias), rotor, wakes)
+        section_totals = _w_section_totals(ctx, point, rotor, wake, wakes, per_m=per_m, rpm=rpm)
+        t_near, q_near = _w_near(
+            ctx, point, str(alias), rotor, wakes, section_totals=section_totals
+        )
         values = {
             "FAMILY": str(alias),
             "VARIANT": "W",
@@ -1176,6 +1185,8 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             "GAMMA_SCALE": 1.0,
             "T_WAKE_N": wake_loads.thrust,
             "Q_WAKE_NM": wake_loads.torque,
+            "T_WAKE_REPAIRED_N": section_totals.get("T_WAKE_REPAIRED_N", _NA),
+            "Q_WAKE_REPAIRED_NM": section_totals.get("Q_WAKE_REPAIRED_NM", _NA),
             "T_NEAR_N": t_near,
             "Q_NEAR_NM": q_near,
             "DT_WAKE_COUNTS": 1e4 * (wake_loads.thrust - t_near) / qs,
@@ -1187,7 +1198,44 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
     return rows
 
 
-def _w_near(ctx: SimContext, point: PolarPoint, alias: str, rotor: Any, wakes: Path):
+def _w_section_totals(ctx, point, rotor, wake, wakes, *, per_m, rpm):
+    """Read the surface-anchored W companion without changing raw W columns."""
+    surface = wakes.with_name(wakes.stem.removesuffix("_wakes") + ".vtk")
+    saved = _output(ctx, point, "simulation")
+    if saved is None or not surface.is_file():
+        return {}
+    try:
+        rho, speed, alpha, beta = _flow(point)
+        totals, _ = rotor_section_snapshot(
+            ctx,
+            point,
+            rotor=rotor,
+            wake=wake,
+            surface=surface,
+            saved=saved,
+            units=per_m,
+            rho=rho,
+            speed=speed,
+            alpha=alpha,
+            beta=beta,
+            rpm=rpm,
+            copies=_sector_copies(ctx),
+            repair_w=True,
+        )
+        return totals["ROTOR"]
+    except (OSError, ValueError, PyflightstreamError) as error:
+        _skip(
+            ctx,
+            f"farfield/w_repaired#{point.name}",
+            point.name,
+            f"W repair needs measured blade sections or a matching surface re-cut: {error}",
+        )
+        return {}
+
+
+def _w_near(
+    ctx: SimContext, point: PolarPoint, alias: str, rotor: Any, wakes: Path, *, section_totals=None
+):
     """Compare one rotor's hub loads with W, never a mirrored pair's moment arm."""
     rho, _speed, alpha, beta = _flow(point)
     loads = point.loads
@@ -1218,43 +1266,17 @@ def _w_near(ctx: SimContext, point: PolarPoint, alias: str, rotor: Any, wakes: P
     # The paired surface export has lost antisymmetric forces and moments.
     # Its axial force can be halved for an in-plane shaft; its hub torque cannot.
     thrust = thrust / 2 if abs(float(rotor.axis_vector[1])) < 1e-12 else _NA
-    path: Path | None = wakes.with_name(wakes.name.replace("_wakes.vtk", "_sloads.txt"))
-    if stamp := re.search(r"_iteration=(\d+)", wakes.stem):
-        path = (
-            stamped_exports(ctx.workspace.sim_dir(ctx.sim_id), point.name, wakes.parent)
-            .get(("_sloads", "txt"), {})
-            .get(int(stamp[1]))
+    if section_totals:
+        return (
+            section_totals["T_NEAR_INVISCID"] + section_totals["T_FRICTION"],
+            section_totals["Q_NEAR_INVISCID"] + section_totals["Q_FRICTION"],
         )
-    elif path is not None and not path.is_file():
-        path = (getattr(ctx, "exports", {}).get(point.name) or (None,))[0]
-    reason = "no blade sectional export at this wake's step"
-    if path is not None and Path(path).is_file():
-        try:
-            blocks, count = _blade_rows(ctx, point, Path(path), alias)
-            if count != rotor.blade_count:
-                reason = "blade sections do not cover every modelled blade"
-            else:
-                loading = disk_loading(
-                    blocks,
-                    shaft=_shaft_letter(rotor.axis_vector, rotor),
-                    blades=count,
-                    tip_radius_m=float(rotor.diameter_m) / 2,
-                )
-                if not isinstance(loading, str):
-                    widths = np.diff(loading.edges_m)
-                    return (
-                        -float(loading.thrust_per_m @ widths),
-                        -float(loading.torque_per_m @ widths),
-                    )
-                reason = loading
-        except (PyflightstreamError, OSError) as error:
-            reason = str(error)
     _skip(
         ctx,
         f"farfield/near#point={point.name}#rotor={alias}",
         point.name,
-        f"rotor {alias}: the mirrored loads cannot give a torque about the hub; {reason}; "
-        "Q_NEAR_NM and DQ_WAKE_COUNTS are NaN, never the force times a wrong arm",
+        f"rotor {alias}: mirrored torque about the hub needs blade cuts measured against "
+        "each blade span or a matching surface re-cut; Q_NEAR_NM and DQ_WAKE_COUNTS are NaN",
     )
     return thrust, _NA
 
@@ -2069,7 +2091,19 @@ def farfield_products(ctx: SimContext) -> None:
             if len(ctx.pproc.farfields) == 1
             else replace(ctx, pproc=ctx.pproc.model_copy(update={"farfields": [entry]}))
         )
-        _entry_products(selected, tables)
+        if entry.variant == "rotor_sections":
+            rotor_sections_products(
+                selected,
+                output=_output,
+                read_wake=_read_geometry_wake,
+                flow=_flow,
+                per_m=_per_m,
+                copies=_sector_copies,
+                window=_farfield_window,
+                skip=_skip,
+            )
+        else:
+            _entry_products(selected, tables)
     _write(ctx, tables)
     ctx.farfield_super.update(ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS))
     ctx.farfield_off_window.extend(_cells_off_the_row_window(ctx, tables))

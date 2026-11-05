@@ -5170,15 +5170,17 @@ def test_p0551_near_mirror_uses_one_rotor_hub_loads(tmp_path, sections, window):
     if window:
         _, rows = _ffproof_post___table(next((tmp_path / "post/farfield").glob("*_average.csv")))
     row = next(row for row in rows if row["VARIANT"] == "W")
-    if sections:
-        assert float(row["T_NEAR_N"]) == pytest.approx(-60 if window else -30)
-        assert float(row["Q_NEAR_NM"]) == pytest.approx(24 if window else 12)
+    if window:
+        # This snapshot has neither blade loads nor geometry establishing the
+        # distribution's span. The final snapshot cannot supply its near load.
+        assert row.get("T_NEAR_N", "NA") == "NA"
     else:
         point = ctx.points[0]
         qs = 0.5 * point.state.density_kg_m3 * point.loads.reference_velocity_m_s**2 * 4
         assert float(row["T_NEAR_N"]) == pytest.approx(-0.1 * qs, rel=1e-5)
-        assert row["Q_NEAR_NM"] == "NA"
-        assert any("torque about the hub" in str(w.message) for w in caught)
+    # A named blade frame alone does not establish an across-span cut.
+    assert row.get("Q_NEAR_NM", "NA") == "NA"
+    assert any("torque about the hub" in str(w.message) for w in caught)
     assert sum("Cx = CDi + CDo" in str(w.message) for w in caught) == 1
 
 

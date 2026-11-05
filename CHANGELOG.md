@@ -19,6 +19,12 @@ FlightStream versions.
   with the moment point used instead; post repeats the recorded warning without
   moving samples (FR-3641). Migration: plan and sample a new survey to correct
   an old plane placed inside the geometry; reposting alone cannot relocate it.
+- Experimental `rotor_sections` far fields combine blade surface loads with
+  wake induction and write rotor and blade loads plus local strip diagnostics.
+  Friction is removed before projection. Installed-row local angles and drag
+  coefficients remain unvalidated. W retains its raw loads and adds optional
+  section-anchored repaired columns. Mirrored near torque requires measured
+  blade cuts or a surface re-cut; otherwise it is unavailable.
 
 - Wake products resolve whether each VTK uses the moment-point or geometry
   origin from saved mesh evidence before selecting rotors, blades and families.

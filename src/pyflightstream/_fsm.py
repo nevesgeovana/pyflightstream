@@ -1134,7 +1134,7 @@ def _faces_per_boundary(block: _BlockReader, boundaries: int, faces: int) -> tup
     return tuple(counts)
 
 
-def _mesh_block(path: str | Path) -> _Block:
+def _mesh_block(path: str | Path, *, geometry_only: bool = False) -> _Block:
     """Read the mesh block's vertices, triangles and five T/F rows.
 
     Everything is located by the block's own counts, never by an absolute
@@ -1206,7 +1206,7 @@ def _mesh_block(path: str | Path) -> _Block:
         while True:
             line = block.row("line after the T/F rows")
             tokens = _tokens(line)
-            if not tokens or not set(tokens) <= _FLAGS:
+            if not tokens or not _mesh_flag_row(tokens, len(flags), geometry_only=geometry_only):
                 break
             if len(tokens) != faces:
                 raise block.refuse(
@@ -1234,6 +1234,24 @@ def _mesh_block(path: str | Path) -> _Block:
     vertices = tuple(zip(axes[0], axes[1], axes[2], strict=True))
     triangles = tuple(zip(slots[0], slots[1], slots[2], strict=True))
     return vertices, triangles, tuple(flags), owners
+
+
+def _mesh_flag_row(tokens, index, *, geometry_only):
+    """Accept opaque integer edge tags only for boundary-coordinate reads.
+
+    Integer tags occur in the three edge slots between the first and last
+    boolean rows. Their meaning is deliberately not decoded: boundary_vertices
+    discards flags, while trailing-edge consumers retain strict boolean reads.
+    """
+    if set(tokens) <= _FLAGS:
+        return True
+    if geometry_only and 1 <= index <= 3:
+        try:
+            [int(token) for token in tokens]
+        except ValueError:
+            return False
+        return True
+    return False
 
 
 def surface_mesh(
@@ -1354,7 +1372,7 @@ def boundary_vertices(
     MeshReadError
         As :func:`surface_mesh`.
     """
-    vertices, triangles, _, owners = _mesh_block(path)
+    vertices, triangles, _, owners = _mesh_block(path, geometry_only=True)
     names = boundary_names(path) or ()
     if not owners or len(owners) != len(triangles) or not names:
         return None

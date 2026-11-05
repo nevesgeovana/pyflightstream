@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 #: The three accepted Trefftz variants.
-TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane", "power")
+TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane", "power", "rotor_sections")
 #: The six balances of FR-479, in the order the ledgers table writes them.
 BALANCES: tuple[str, ...] = (
     "mass",
@@ -206,7 +206,8 @@ class TrefftzSpec(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     variant: Annotated[
-        list[Literal["sections", "wake", "plane", "power"]], BeforeValidator(_one_or_list)
+        list[Literal["sections", "wake", "plane", "power", "rotor_sections"]],
+        BeforeValidator(_one_or_list),
     ] = Field(
         min_length=1,
         description=(
@@ -310,12 +311,13 @@ class FarfieldSpec(BaseModel):
 
     ``sections`` requires families and accepts a station count. ``wake`` and
     ``plane`` read the whole field. ``power`` requires a rotor or a frame
-    lattice and optionally writes balances. Names default to the variant.
+    lattice and optionally writes balances. ``rotor_sections`` requires a
+    rotor and accepts a chord fraction. Names default to the variant.
 
     Attributes
     ----------
     variant : str
-        One analysis: sections (A), wake (B), plane (C), or power (D).
+        One analysis: sections (A), wake (B), plane (C), power (D), or rotor_sections.
     name : str
         Unique entry label, defaulting to the variant word.
     export_type : str
@@ -333,7 +335,9 @@ class FarfieldSpec(BaseModel):
     station : float
         Power station x/R; defaults to the last lattice station.
     rotor : str
-        Reference rotor whose hub and radius place the power lattice.
+        Reference rotor for the power lattice or blade-local rotor sections.
+    chord_fraction : float
+        Rotor-section induction location from leading to trailing edge, default 0.25.
     frame, tip_radius_m : str and float
         Alternative power lattice placement: frame and reference radius in metres.
     n_r, r_inner, r_outer, n_psi : int or float
@@ -353,7 +357,7 @@ class FarfieldSpec(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-    variant: Literal["sections", "wake", "plane", "power"]
+    variant: Literal["sections", "wake", "plane", "power", "rotor_sections"]
     name: str = Field(default="", min_length=1)
     export_type: Literal["last_step", "avg_window", "export_window", "default"] = "default"
     families: Annotated[str | list[str] | None, BeforeValidator(_family_selection)] = None
@@ -364,6 +368,7 @@ class FarfieldSpec(BaseModel):
     spacing_bref: float | None = Field(default=None, gt=0)
     station: float | None = None
     rotor: str | None = None
+    chord_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
     frame: str | None = None
     tip_radius_m: float | None = None
     n_r: int | None = None
@@ -407,6 +412,8 @@ class FarfieldSpec(BaseModel):
             raise InputValueError("state only one window, not both last_revs and last_steps")
         if not self.name:
             self.name = self.variant
+        if self.variant == "rotor_sections":
+            self._rotor_section_alias()
         if self.variant == "sections":
             if self.families is None:
                 raise InputValueError(
@@ -424,6 +431,12 @@ class FarfieldSpec(BaseModel):
                 raise InputValueError('variant = "power" reads stations as a list of x/R positions')
             self._power_station(self.ledgers)
         return self
+
+    def _rotor_section_alias(self) -> None:
+        if not self.rotor:
+            raise InputValueError('variant = "rotor_sections" requires rotor; state its alias')
+        if not re.fullmatch(r"[A-Za-z0-9_.+-]+", self.rotor) or self.rotor in (".", ".."):
+            raise InputValueError("rotor_sections rotor alias must be a safe filename component")
 
     def _power_station(self, lattice: LedgersSpec | None) -> None:
         """Refuse an explicit power station that selects no unique lattice plane."""
@@ -492,6 +505,8 @@ _KEY_VARIANTS = {
             "balances",
         )
     },
+    "rotor": ("power", "rotor_sections"),
+    "chord_fraction": ("rotor_sections",),
 }
 
 

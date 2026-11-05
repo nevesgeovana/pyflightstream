@@ -871,6 +871,14 @@ def workspace_data(root):
                 "steps-34",
             ),
             (
+                "farfield",
+                "<group>_rotor_sections_<rotor>*.csv",
+                "Rotor section totals and strip diagnostics from surface loads and rotor wake.",
+                "pyflightstream.post.rotor_sections_products:rotor_sections_products",
+                "",
+                "steps-34",
+            ),
+            (
                 "streamlines",
                 "<point>*",
                 "Streamline tables and VTK visualization products.",

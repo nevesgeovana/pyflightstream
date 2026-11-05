@@ -764,11 +764,19 @@ def _segment_velocity(
         n1 = np.linalg.norm(r1, axis=1)
         n2 = np.linalg.norm(r2, axis=1)
         r0 = tails - heads
-        scale = (np.einsum("ij,ij->i", r0, r1 / n1[:, None] - r2 / n2[:, None])) * strength
         # A point on a segment's line induces nothing from it (a point vortex has no
         # self-induction); the cutoff is round-off relative to the segment length.
         live = c2 > 1e-12 * np.einsum("ij,ij->i", r0, r0) ** 2
-        out[index] = (cross[live] * (scale[live] / c2[live])[:, None]).sum(axis=0) / (4.0 * math.pi)
+        live &= (n1 > 0.0) & (n2 > 0.0)
+        scale = (
+            np.einsum(
+                "ij,ij->i",
+                r0[live],
+                r1[live] / n1[live, None] - r2[live] / n2[live, None],
+            )
+            * strength[live]
+        )
+        out[index] = (cross[live] * (scale / c2[live])[:, None]).sum(axis=0) / (4.0 * math.pi)
     return out
 
 
