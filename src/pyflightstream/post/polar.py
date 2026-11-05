@@ -1498,7 +1498,10 @@ def grid_convergence(
 
 
 def farfield_column_names(
-    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
+    rows: Sequence[tuple[tuple[object, ...], str]],
+    columns: Sequence[str],
+    *,
+    declared_entries: Mapping[str, Sequence[str]] | None = None,
 ) -> list[dict[int, str]]:
     """Name each far-field cell by quantity, method and target (FR-1062).
 
@@ -1508,6 +1511,9 @@ def farfield_column_names(
         Long-table rows paired with point names, after window selection.
     columns : sequence of str
         Columns following POL, ENTRY, step and the condition block.
+    declared_entries : mapping, optional
+        Entry names in declaration order for each method of this simulation row.
+        Without declarations, use the row's table union and warn once (FR-3661).
 
     Returns
     -------
@@ -1516,10 +1522,13 @@ def farfield_column_names(
     """
     first = 3 + len(CONTEXT_COLUMNS)
     family, variant = (first + columns.index(name) for name in ("FAMILY", "VARIANT"))
-    targets = ["TOTAL" if row[family] == "net" else str(row[family]) for row, _ in rows]
-    entries: dict[tuple[str, object, str], set[object]] = {}
-    for (row, point), target in zip(rows, targets, strict=True):
-        entries.setdefault((point, row[variant], target), set()).add(row[1])
+    identities = [(str(row[variant]), str(row[1]), str(row[family])) for row, _ in rows]
+    entries = {method: list(names) for method, names in (declared_entries or {}).items()}
+    if rows and not entries:
+        warn("far-field declared entries unavailable; naming columns from the row's table union")
+        for method, entry, _ in sorted(set(identities)):
+            if entry not in entries.setdefault(method, []):
+                entries[method].append(entry)
     quantities = {
         first + index: column.replace("_T", "", 1)
         if column.startswith(("CL_T", "CDI_T", "CY_T", "E_T"))
@@ -1527,25 +1536,39 @@ def farfield_column_names(
         for index, column in enumerate(columns)
         if column not in ("FAMILY", "VARIANT", "STATUS")
     }
-    out = []
-    occupied: dict[tuple[str, str], str] = {}
-    for (row, point), target in zip(rows, targets, strict=True):
-        suffix = f"_{row[1]}" if len(entries[point, row[variant], target]) > 1 else ""
+    # Reserve once for the row, never once per point. Declaration order and the
+    # sorted union of each entry's targets also make missing exports immaterial.
+    ordered = sorted(
+        set(identities),
+        key=lambda identity: (
+            identity[0],
+            entries.get(identity[0], []).index(identity[1])
+            if identity[1] in entries.get(identity[0], [])
+            else len(entries.get(identity[0], [])),
+            identity[1],
+            identity[2],
+        ),
+    )
+    names = {}
+    occupied: dict[str, str] = {}
+    for method, entry, raw_target in ordered:
+        target = "TOTAL" if raw_target == "net" else raw_target
+        suffix = f"_{entry}" if len(entries.get(method, [])) > 1 else ""
         projected = {}
         for index, quantity in quantities.items():
-            name = plain_cell(f"{quantity}_FF_{row[variant]}_{target}{suffix}")
-            cell = f"entry {row[1]!r}, method {row[variant]!r}, target {target!r}, {quantity}"
-            previous = occupied.get((point, name))
+            name = plain_cell(f"{quantity}_FF_{method}_{target}{suffix}")
+            cell = f"entry {entry!r}, method {method!r}, target {raw_target!r}, {quantity}"
+            previous = occupied.get(name)
             original = name
-            while (point, name) in occupied:
-                name += plain_cell(f"_{row[1]}")
+            while name in occupied:
+                name += plain_cell(f"_{entry}")
             if previous is not None:
                 warn(
-                    f"far-field column {original!r} at point {point!r} collides between "
+                    f"far-field column {original!r} on the row collides between "
                     f"{previous} and {cell}; keeping the earlier cell and naming the later "
                     f"cell {name!r}"
                 )
-            occupied[point, name] = cell
+            occupied[name] = cell
             projected[index] = name
-        out.append(projected)
-    return out
+        names[method, entry, raw_target] = projected
+    return [names[identity] for identity in identities]

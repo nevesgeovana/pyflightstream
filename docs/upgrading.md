@@ -30,7 +30,7 @@ their queued jobs; check and cancel those jobs before resubmitting.
 
 The polar and super-file migration below applies to every A/B/C/D/W method.
 `<entry>` is replaced by the actual target (net becomes TOTAL); an entry suffix
-is added only to disambiguate. Long-table column names are unchanged.
+follows the row's declared method count. Long-table column names are unchanged.
 
 | Old polar/super column | New polar/super column |
 |---|---|
@@ -63,9 +63,8 @@ Collision checks also cover the table writer's comma and quote normalization.
 Far-field columns in polars, unsteady polars, merged polars and super files now
 use `<QUANTITY>_FF_<METHOD>_<TARGET>`, including family, blade and rotor targets.
 For example, `CDI_T_B_wake` becomes `CDI_FF_B_TOTAL`; `CDI_FF_B_W` holds family W.
-The entry name is appended only where entries collide on a point's method and
-target, such as `CDI_FF_C_TOTAL_c05`. Update column selectors and repost stored
-exports; no new plan or solver run is needed. Long far-field tables and
+Repost stored exports and update selectors: every column of a method with multiple declared entries now keeps its entry suffix across all points, such as `CDI_FF_C_TOTAL_c05`, with missing cells empty.
+Long far-field tables and
 `rotor_sections` names retain their existing forms. See
 [the quantity mapping](definitions/the-far-field-family.md).
 

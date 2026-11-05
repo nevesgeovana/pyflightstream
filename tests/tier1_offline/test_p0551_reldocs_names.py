@@ -13,6 +13,16 @@ def _row(entry, target, drag):
     return ("polar", entry, "run", *(["NA"] * len(CONTEXT_COLUMNS)), *cells.values())
 
 
+def _cells(rows):
+    """Project far-field cells by point through the public column-name function."""
+    names = farfield_column_names(rows, TREFFTZ_COLUMNS)
+    cells = {}
+    for (row, point), mapping in zip(rows, names, strict=True):
+        for index, name in mapping.items():
+            cells.setdefault(point, {})[name] = row[index]
+    return cells
+
+
 @pytest.mark.parametrize("case", ["P0551-RELDOCS-COLLISION"])
 def test_p0551_reldocs_preserves_colliding_cells(case):
     rows = [
@@ -34,8 +44,11 @@ def test_p0551_reldocs_preserves_colliding_cells(case):
     assert {
         name: float(value) for name, value in cells.items() if name.startswith("CDI_FF_")
     } == expected
-    assert messages
-    assert any("TOTAL_c05" in str(message) and "c05" in str(message) for message in messages)
+    # Uniform method suffixes now separate this chain before collision handling.
+    assert len(messages) == 1 and "table union" in str(messages[0])
+    with collecting_warnings():
+        names = farfield_column_names(rows, TREFFTZ_COLUMNS)
+    drag = 3 + len(CONTEXT_COLUMNS) + TREFFTZ_COLUMNS.index("CDI_T")
     assert [mapping[drag] for mapping in names] == list(expected)
 
 
@@ -43,10 +56,10 @@ def test_p0551_reldocs_preserves_colliding_cells(case):
 def test_p0551_reldocs_names_are_scoped_to_point(case):
     rows = [(_row("wake", "net", 0.05), "p"), (_row("wake", "net", 0.10), "q")]
     with collecting_warnings() as messages:
-        names = farfield_column_names(rows, TREFFTZ_COLUMNS)
-    drag = 3 + len(CONTEXT_COLUMNS) + TREFFTZ_COLUMNS.index("CDI_T")
-    assert [mapping[drag] for mapping in names] == ["CDI_FF_B_TOTAL", "CDI_FF_B_TOTAL"]
-    assert not messages
+        cells = _cells(rows)
+    assert float(cells["p"]["CDI_FF_B_TOTAL"]) == 0.05
+    assert float(cells["q"]["CDI_FF_B_TOTAL"]) == 0.10
+    assert len(messages) == 1 and "table union" in str(messages[0])
 
 
 @pytest.mark.parametrize("case", ["P0551-R2-CSV-COLLISION"])
@@ -61,7 +74,7 @@ def test_p0551_reldocs_collision_survives_csv_header_normalization(tmp_path, cas
         for target, value in zip(targets, (0.1, 0.2), strict=True)
     ]
     with collecting_warnings() as messages:
-        cells = _super_cells(rows, TREFFTZ_COLUMNS)["p"]
+        cells = _cells(rows)["p"]
     path = write_csv_table(tmp_path / "polar.csv", tuple(cells), [tuple(cells.values())])
     with path.open(newline="") as stream:
         reader = csv.DictReader(stream)

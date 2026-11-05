@@ -475,8 +475,9 @@ bound on Python.
 
 The post stage reduces selected export windows before `polar.farfield_column_names`
 projects quantity, method and target into shared polar and super-file names
-(FR-1062). Collision resolution is point-local and deterministic in row order;
-each later cell receives repeated entry suffixes until unique. The reducer
+(FR-1062). Declarations determine method suffixes across the row (FR-3660);
+collisions use the union of targets in declaration order and sorted target order,
+with repeated entry suffixes until unique (FR-3662). The reducer
 uses that same mapping, preserving distinct values and warning with both sources.
 Rotor-section cells merge into each point alongside the other far fields.
 
