@@ -326,6 +326,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{geometry merge <a.obj> <b.obj>}{join two trimmed OBJ along their open boundaries within a distance; \fl{--threshold LENGTH}, \fl{--adapt OBJ} (the part adapted, the other kept unchanged), \fl{--out OBJ}, \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}}
 \sub{geometry identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
 \fl{--families A,B} one file each (default: one file of the quad families; without nodes also <obj>.nodes.txt); \fl{--all-families} every family, not only the quad ones; \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty}; \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}.
+\sub{geometry repitch <mesh>}{rigid blade pitch change; rebuild the named hub's source quad rings; preserve face order and saved markings; no solver. Requires \fl{--morphing FILE} and \fl{--out PATH}; checks in \texttt{<out>.repitch.json}.}
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.

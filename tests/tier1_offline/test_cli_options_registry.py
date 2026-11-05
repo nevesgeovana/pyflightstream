@@ -232,6 +232,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ),
     ("pyfs-workspace", "geometry"): SUBJECT,
     ("pyfs-workspace", "mesh"): SUBJECT,
+    ("pyfs-workspace", "morphing"): SUBJECT,  # Control input for this geometry operation.
     ("pyfs-workspace", "against"): SUBJECT,
     ("pyfs-workspace", "kind"): SUBJECT,
     ("pyfs-workspace", "boundary"): SUBJECT,
@@ -980,7 +981,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "tolerance"): frozenset({"sector-to-wheel", "subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
-        "profile refine subtract time-mean trailing-edge "
+        "profile refine repitch subtract time-mean trailing-edge "
         "visual-inspect".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
@@ -1095,11 +1096,13 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "mark-boundaries",
             "prepare-to-refine",
             "refine",
+            "repitch",
             "trailing-edge",
             "visual-inspect",
         }
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
+    ("pyfs-workspace", "morphing"): frozenset({"repitch"}),
     ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),

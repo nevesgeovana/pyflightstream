@@ -1,5 +1,40 @@
 # Mesh input reference
 
+## Repitch control
+
+`geometry repitch MESH --morphing FILE --out OUTPUT` accepts OBJ and FSM, retaining
+the input kind. The standalone morphing control belongs beside the geometry; it
+is not a matrix input identifier. Relative reference paths resolve from that file.
+
+| `[repitch]` key | Meaning |
+|---|---|
+| `angle_deg` | Finite pitch change, in degrees; required |
+| `max_angle_deg` | Positive limit, default 5, at most 5 |
+| `blades` | Nonempty list of blade families, or `"all"` from the reference |
+| `hub` | Nonempty list of hub families to rebuild; never inferred |
+| `keep` | Optional kept-family list; all other unselected families are also kept |
+| `axis` | `"auto"` (default) from the reference, or an inline `origin`/`direction` table |
+| `axes.<family>` | Per-blade `origin` and `direction` overriding `axis` |
+| `reference` | Reference TOML for automatic radial axes and wheel checks |
+| `rotor` | Rotor table name when the reference declares several |
+
+The report measures rigid-rotation residual, distance from the pitch axis, and
+pitch change at five span positions including root and tip. It records source and
+output hub counts, quality extrema (corner scaled Jacobian and edge aspect ratio),
+folded cells, shared root seam, non-manifold edges, fixed boundaries and added
+triangles. A reference with several blades requires full-wheel periodicity at
+360 divided by its blade count. With no wheel reference that check is warned and
+skipped. Unknown control keys and absent `keep` entries are warned and skipped.
+
+The blade and hub face lists remain in source order, including the original FSM
+triangle partners. FSM trailing-edge groups, flags, base regions and wake termination
+indices are retained. OBJ sidecar point files must match source vertices or edge
+midpoints; their coordinates follow the corresponding output locations. Failed
+geometric checks produce no mesh or report. Unsupported hub topology is refused
+with a remedy; no triangulated replacement is substituted for a quad hub.
+
+## Refinement controls
+
 Refinement files warn and skip the retired `[periodic]` and `[trailing_edge]`
 tables and the family keys `keep_first_row`, `trailing_edge_direction`, `axial`,
 `circumferential`, `axis` and `origin`, including empty or malformed values. Use

@@ -34,6 +34,7 @@ from pyflightstream.run._cli_mesh import (
     add_degenerate_parser,
     add_inventory_parser,
     add_mesh_parsers,
+    add_repitch_parser,
 )
 from pyflightstream.run._cli_wheel import WHEEL_HANDLERS, add_wheel_verbs
 from pyflightstream.run._executors import (
@@ -96,6 +97,7 @@ GEOMETRY_VERBS = (
     "trailing-edge",
     "export-surface-mesh",
     "merge",
+    "repitch",
     *PYFS_MATRIX_ALIASES,
 )
 
@@ -167,6 +169,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
     _add_mesh_verbs(verbs)
     add_wheel_verbs(verbs)
+    add_repitch_parser(verbs)
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -1076,7 +1079,6 @@ def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
 
 def run_geometry(args: argparse.Namespace) -> int:
     """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
-    verb = args.geometry_command
     handlers = {
         "mark-boundaries": _cmd_mark_boundaries,
         "export-surface-mesh": _cmd_export_surface_mesh,
@@ -1092,10 +1094,10 @@ def run_geometry(args: argparse.Namespace) -> int:
         "from-sidecar": _cmd_from_sidecar,
         **WHEEL_HANDLERS,
     }
-    if verb in handlers:
-        return handlers[verb](args)
+    if args.geometry_command in handlers:
+        return handlers[args.geometry_command](args)
     # THE pyfs-matrix HANDLER ITSELF, named by the copied parser (FR-477).
-    args.subcommand = PYFS_MATRIX_ALIASES[verb]
+    args.subcommand = PYFS_MATRIX_ALIASES.get(args.geometry_command, args.geometry_command)
     try:
         return int(args.mesh_command(args))
     except PyflightstreamError as error:

@@ -1,5 +1,22 @@
 # Geometry: build a body before the run
 
+## Small blade pitch changes
+
+`geometry repitch` changes blade pitch while retaining the blade mesh. The user names
+the hub families to rebuild; every other family stays in place and is listed in the report.
+It runs without a solver on `.fsm` and `.obj` files:
+
+```text
+pyfs-workspace geometry repitch sector.fsm --morphing morphing.toml --out pitched.fsm
+```
+
+Start from the [morphing template](mesh/morphing.toml). The
+[how-to](mesh/how-to.md#repitch-a-blade) explains axes and the
+[reference](mesh/reference.md#repitch-control) describes the checks and supported topology.
+Inspect the root and leading edge before using the output in a run.
+
+## Preparing geometry
+
 Inventory filenames include the mesh format: `geometry inventory wing.obj`
 writes `wing.obj.boundaries.toml`, and inventory of `wing.fsm` writes
 `wing.fsm.boundaries.toml`. OBJ inventories are never overwritten because

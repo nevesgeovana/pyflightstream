@@ -1241,6 +1241,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_clean">pyflightstream.workspace._geometry_clean</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.cli">pyflightstream.workspace.cli</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.repitch">pyflightstream.workspace.repitch</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (deferred)</li>
 </ul></details>
 
@@ -2181,6 +2182,18 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._repitch_grid"><summary><code>pyflightstream.workspace._repitch_grid</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._sector_body">pyflightstream.workspace._sector_body</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._repitch_io"><summary><code>pyflightstream.workspace._repitch_io</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_sidecar">pyflightstream.workspace._geometry_sidecar</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._repitch_grid">pyflightstream.workspace._repitch_grid</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._row_setup"><summary><code>pyflightstream.workspace._row_setup</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
@@ -2466,6 +2479,19 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace.record_document"><summary><code>pyflightstream.workspace.record_document</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace.repitch"><summary><code>pyflightstream.workspace.repitch</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._repitch_grid">pyflightstream.workspace._repitch_grid</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._repitch_io">pyflightstream.workspace._repitch_io</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._wheel_fsm">pyflightstream.workspace._wheel_fsm</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.selections"><summary><code>pyflightstream.workspace.selections</code></summary><ul>

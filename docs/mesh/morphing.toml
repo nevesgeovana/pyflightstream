@@ -1,0 +1,9 @@
+# Small rigid blade pitch change. Coordinates use the mesh frame and unit.
+[repitch]
+angle_deg = 1.0
+blades = ["Blade1"]
+hub = ["Spinner"]
+keep = []
+axis = { origin = [0.0, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }
+max_angle_deg = 5.0
+# For a reference-defined radial axis, use axis = "auto" and reference = "rotor.toml".

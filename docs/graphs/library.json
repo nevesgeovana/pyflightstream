@@ -1686,6 +1686,16 @@
       "path": "workspace/_refine/_staging.py"
     },
     {
+      "id": "pyflightstream.workspace._repitch_grid",
+      "layer": 2,
+      "path": "workspace/_repitch_grid.py"
+    },
+    {
+      "id": "pyflightstream.workspace._repitch_io",
+      "layer": 2,
+      "path": "workspace/_repitch_io.py"
+    },
+    {
       "id": "pyflightstream.workspace._row_setup",
       "layer": 2,
       "path": "workspace/_row_setup.py"
@@ -1849,6 +1859,11 @@
       "id": "pyflightstream.workspace.record_document",
       "layer": 2,
       "path": "workspace/record_document.py"
+    },
+    {
+      "id": "pyflightstream.workspace.repitch",
+      "layer": 2,
+      "path": "workspace/repitch.py"
     },
     {
       "id": "pyflightstream.workspace.selections",
@@ -10379,6 +10394,11 @@
     },
     {
       "source": "pyflightstream.run._cli_mesh",
+      "target": "pyflightstream.workspace.repitch",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream.workspace.sidecars",
       "kind": "deferred"
     },
@@ -14348,6 +14368,36 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._repitch_grid",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_grid",
+      "target": "pyflightstream.workspace._sector_body",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream.workspace._geometry_sidecar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._repitch_io",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._row_setup",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -15280,6 +15330,56 @@
     {
       "source": "pyflightstream.workspace.record_document",
       "target": "pyflightstream.workspace.manifest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._repitch_io",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._wheel",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._wheel_fsm",
       "kind": "module"
     },
     {
