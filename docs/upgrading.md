@@ -9,6 +9,10 @@ describe the older releases that supplied them.
 
 ## 0.55.1
 
+A target whose spelling already contains an entry suffix can collide with a
+generated name. The later cell now appends its entry name until unique, with
+a warning naming both cells. No value is dropped and normal names are unchanged.
+
 Far-field columns in polars, unsteady polars, merged polars and super files now
 use `<QUANTITY>_FF_<METHOD>_<TARGET>`, including family, blade and rotor targets.
 For example, `CDI_T_B_wake` becomes `CDI_FF_B_TOTAL`; `CDI_FF_B_W` holds family W.

@@ -60,6 +60,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Generated far-field column collisions retain both cells by appending the
+  later entry name until unique, warning with both source cells (FR-1062).
+
 - Repitch accepts reference installation-axis tables and projects the blade
   datum into the shaft's normal plane, matching the rotor-frame convention.
   Automatic pitch axes and wheel periodicity use the same physical shaft.

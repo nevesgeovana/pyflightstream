@@ -1528,12 +1528,24 @@ def farfield_column_names(
         if column not in ("FAMILY", "VARIANT", "STATUS")
     }
     out = []
+    occupied: dict[tuple[str, str], str] = {}
     for (row, point), target in zip(rows, targets, strict=True):
         suffix = f"_{row[1]}" if len(entries[point, row[variant], target]) > 1 else ""
-        out.append(
-            {
-                index: f"{quantity}_FF_{row[variant]}_{target}{suffix}"
-                for index, quantity in quantities.items()
-            }
-        )
+        projected = {}
+        for index, quantity in quantities.items():
+            name = f"{quantity}_FF_{row[variant]}_{target}{suffix}"
+            cell = f"entry {row[1]!r}, method {row[variant]!r}, target {target!r}, {quantity}"
+            previous = occupied.get((point, name))
+            original = name
+            while (point, name) in occupied:
+                name += f"_{row[1]}"
+            if previous is not None:
+                warn(
+                    f"far-field column {original!r} at point {point!r} collides between "
+                    f"{previous} and {cell}; keeping the earlier cell and naming the later "
+                    f"cell {name!r}"
+                )
+            occupied[point, name] = cell
+            projected[index] = name
+        out.append(projected)
     return out
