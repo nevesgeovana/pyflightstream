@@ -283,7 +283,7 @@ def test_p0560_sidecar_gets_one_line_and_loses_the_base_region(tmp_path, entries
     assert len(wake) == 1
     np.testing.assert_allclose(wake[0], line[0], atol=1e-15)
     assert data["mesh_faces"] == sum(len(f) for f in new.families.values())
-    assert data["boundary_faces"] == {n: len(f) for n, f in new.families.items()}
+    assert data["boundary_faces"] == [len(f) for f in new.families.values()]
     import hashlib
 
     assert data["mesh_sha256"] == hashlib.sha256(out.read_bytes()).hexdigest()
@@ -602,3 +602,53 @@ def test_p0560_collapse_then_repitch_names_the_working_order(tmp_path, capsys):
     assert "repitch first" in err and "collapse-te" in err
     assert not (tmp_path / "again.obj").exists()
     warnings.simplefilter("default")
+
+
+REPITCH = (
+    '[repitch]\nangle_deg = 1.0\nblades = ["Blade1"]\nhub = ["Hub1"]\n'
+    "axis = { origin = [0.5, 0.0, 0.0], direction = [0.0, 0.0, 1.0] }\nmax_angle_deg = 5.0\n"
+)
+
+
+def mark_preview(path, capsys):
+    """Run the mark-boundaries preview, which needs no solver, and return its exit status."""
+    capsys.readouterr()
+    try:
+        return main(["geometry", "mark-boundaries", str(path)])
+    except SystemExit as error:
+        return error.code
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize("verb", ["collapse-te", "repitch"])
+def test_p0560_mark_boundaries_reads_the_output_of_the_verb(tmp_path, capsys, verb):
+    # The strip group of "own" leaves under collapse-te; repitch turns a blade holding its strip.
+    source, _ = make(tmp_path, strip="same" if verb == "repitch" else "own", layers=3)
+    cfg = tmp_path / "rep.toml"
+    cfg.write_text(REPITCH)
+    cfg = cfg if verb == "repitch" else control(tmp_path)
+    out = tmp_path / "out.obj"
+    assert invoke(source, cfg, out, verb) == 0
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+    data = tomllib.loads(Path(str(out) + ".boundaries.toml").read_text())
+    mesh = read_obj(out)
+    assert data["boundaries"] == list(mesh.families)
+    assert data["boundary_faces"] == [len(f) for f in mesh.families.values()]
+
+
+@pytest.mark.requirement("FR-3666")
+@pytest.mark.parametrize("verb", ["collapse-te", "repitch"])
+def test_p0560_the_inventory_refresh_the_refusal_names_works_on_the_output(tmp_path, verb):
+    from pyflightstream.workspace.sidecars import refresh_obj_inventory
+
+    # The strip group of "own" leaves under collapse-te; repitch turns a blade holding its strip.
+    source, _ = make(tmp_path, strip="same" if verb == "repitch" else "own", layers=3)
+    cfg = tmp_path / "rep.toml"
+    cfg.write_text(REPITCH)
+    cfg = cfg if verb == "repitch" else control(tmp_path)
+    out = tmp_path / "out.obj"
+    assert invoke(source, cfg, out, verb) == 0
+    side = Path(str(out) + ".boundaries.toml")
+    before = tomllib.loads(side.read_text())
+    refresh_obj_inventory(out)
+    assert tomllib.loads(side.read_text()) == before

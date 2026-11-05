@@ -45,6 +45,12 @@ class UnreadableSidecarError(ValueError):
     """A sidecar that exists and cannot be read: a build must not carry nothing over it."""
 
 
+def toml_key(name: str) -> str:
+    """Return one TOML key: bare where TOML allows it, a basic string otherwise."""
+    bare = name and all(c.isascii() and (c.isalnum() or c in "_-") for c in name)
+    return name if bare else toml_value(name)
+
+
 def toml_value(value: Any) -> str:
     """Return one TOML value: a boolean, a number, a string, an inline table or an array."""
     if isinstance(value, bool):

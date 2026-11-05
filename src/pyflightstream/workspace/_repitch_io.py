@@ -12,7 +12,7 @@ import numpy as np
 from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
-from pyflightstream.workspace._geometry_sidecar import toml_value
+from pyflightstream.workspace._geometry_sidecar import toml_key, toml_value
 from pyflightstream.workspace._refine._obj import (
     ObjMesh,
     mesh_unit,
@@ -83,15 +83,16 @@ class Rewrite:
     points the verb computed itself, by the name the edited tables give them (unit, points in the
     mesh unit, factor into the file unit); ``merged`` names a point file whose rows are the rows
     of several source files; ``dead`` holds the source edges the verb removed, so that a marking
-    still on one is refused; ``counts`` states the face counts of the output; ``dedupe`` names
-    the termination files whose repeated rows are dropped.
+    still on one is refused; ``counts`` states the face total of the output and its count per
+    family, in family order; ``dedupe`` names the termination files whose repeated rows are
+    dropped.
     """
 
     edit: Callable[[dict[str, Any]], None] | None = None
     synthetic: dict[str, tuple[str, Any, float]] = field(default_factory=dict)
     merged: dict[str, list[str]] = field(default_factory=dict)
     dead: set[tuple[int, int]] = field(default_factory=set)
-    counts: tuple[int, dict[str, int]] | None = None
+    counts: tuple[int, list[int]] | None = None
     dedupe: set[str] = field(default_factory=set)
 
 
@@ -168,9 +169,9 @@ def attachments(
     data["mesh_sha256"] = hashlib.sha256(payload).hexdigest()
     data["mesh_faces"] = len(faces)
     if rw.counts is None:
-        data["boundary_faces"] = {n: len(fs) for n, fs in mesh.families.items()}
+        data["boundary_faces"] = [len(fs) for fs in mesh.families.values()]
     else:
         data["mesh_faces"], data["boundary_faces"] = rw.counts
-    text = "\n".join(f"{toml_value(k)} = {toml_value(v)}" for k, v in data.items()) + "\n"
+    text = "\n".join(f"{toml_key(k)} = {toml_value(v)}" for k, v in data.items()) + "\n"
     outputs[Path(str(target) + ".boundaries.toml")] = text.encode("utf-8")
     return outputs

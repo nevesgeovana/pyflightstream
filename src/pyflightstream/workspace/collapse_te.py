@@ -795,7 +795,7 @@ def collapse_trailing_edge(
     rw = Rewrite(
         counts=(
             sum(len(f) for f in result.mesh.families.values()),
-            {n: len(f) for n, f in result.mesh.families.items()},
+            [len(f) for f in result.mesh.families.values()],
         )
     )
     merged_line: dict[str, np.ndarray] = {}
