@@ -24,6 +24,10 @@ The analyses and where they are written:
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
 A and B identify the whole flow with `TOTAL` in `FAMILY`; C and D use lowercase `net`.
+A half-model section trace may reach the mirror plane, including a zero-chord
+endpoint. A station on that plane is included once; the other stations are
+reflected. Stations on both sides are warned and skipped because they do not
+identify one exported half (FR-3612).
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_TOTAL_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.
@@ -215,7 +219,11 @@ side of the reference XZ plane, the trace is mirrored, and the inner edge of the
 innermost strip is set on the plane, so no filament is shed at the root by the
 mirror. A half model with points on both sides is not traced. A half model whose
 `SYMMETRY_LOADS` is false reports the coefficients of the meshed half, as its
-polar does.
+polar does. C follows the same convention: its lift, induced drag and integral
+diagnostics are halved, while positions, coverage and sample counts are kept.
+Its efficiency uses the half-model near lift and halved induced drag (FR-3614).
+With the same `SREF` and `BREF`, the coefficient formula reports half the
+whole-model efficiency for A, B and C; it does not silently change the reference area.
 
 **Spanwise quantities** (written per strip):
 
@@ -470,7 +478,18 @@ are copied about the axis by the sector angle before the sums.
 along `e_a` and torque about it at the hub from the point's loads export (the
 rotor table's rule, its own families only; `NA` where the export holds none),
 scaled by `PERIODIC_COPIES` on a `SYMMETRY PERIODIC` row without
-`SYMMETRY_LOADS`, so every comparison uses the whole wheel. The differences are
+`SYMMETRY_LOADS`, so every comparison uses the whole wheel.
+On a mirror row with `SYMMETRY_LOADS` enabled, the paired surface moments
+cannot recover one rotor's torque. W instead integrates that rotor's blade
+sections in its hub frames, with the shaft force and the tangential force's
+signed radial arm. These sections must cover every modelled blade. Without
+them the in-plane shaft thrust is half the paired surface thrust, while torque
+is `NA` and a warning explains why no torque about the hub is available.
+Window comparisons use sections from the same wake step (FR-3613).
+
+These four comparison columns concern one rotor on each side. The near field
+includes friction and W does not: `Cx = CDi + CDo`. Post warns once about this
+difference. The differences are
 
     DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
@@ -512,6 +531,13 @@ lines the export does not hold, is a named skip.
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the whole geometry.
+During post, the actual sampled plane is checked against named boundary
+triangles of the saved geometry. Overlapping triangle bounds produce one
+warning per point and entry naming the plane location and bodies (FR-3615).
+This conservative check means the plane may cut a body; it is not a containment
+proof. The integral is retained with the warning. Place a new survey behind
+the geometry before interpreting it as a far-field load. Missing or unreadable
+saved geometry does not establish that the plane clears the body.
 This includes steady RPM, `unsteady_rotor` and `qsteady_rotor` rows. On a
 `qsteady_rotor` row the probes read the frame that turns with the blades, so
 their velocities are first converted to the hub frame exactly as the lattice's
