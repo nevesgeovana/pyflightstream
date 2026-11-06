@@ -215,7 +215,9 @@ The report measures rigid-rotation residual, distance from the pitch axis, and
 pitch change at five span positions including root and tip. It records source and
 output hub counts, quality extrema (corner scaled Jacobian and edge aspect ratio),
 folded cells, shared root seam, non-manifold edges, fixed boundaries and added
-triangles. A reference with several blades, or several blades named with `rotor_axis`,
+triangles. The ring route refuses an edge over two faces only at a node it moves (a hub ring or
+a blade); one elsewhere, as where an airframe beside an installed rotor is imprinted on itself,
+is left as it is. A reference with several blades, or several blades named with `rotor_axis`,
 makes the wheel periodicity a check at 360 divided by the blade count, read on the blades
 and hub only, so a wing or a fuselage in the file takes no part; a source whose blades and
 hub were not periodic either is warned, not refused. Otherwise that check is warned and

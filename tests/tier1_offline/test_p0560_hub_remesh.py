@@ -314,6 +314,38 @@ def test_p0560_hubq_morph_writes_without_a_hub_rings_table(tmp_path, wheel, angl
     assert len(sidecar["trailing_edges"]) == COPIES
 
 
+@pytest.mark.requirement("FR-3680")
+@pytest.mark.parametrize("rings", [False, True], ids=["P0560-HUBQ-remesh", "P0560-HUBQ-rings"])
+def test_p0560_hubq_an_installed_junction_away_from_the_hub_is_morphed_by_either_route(
+    tmp_path, rings
+):
+    """An airframe imprinted on itself (a wing through a body: its edges held by four faces) is
+    no broken input for a rotor's morph: both hub routes write it and keep it to the bit."""
+    source = build(tmp_path, nacelle=True, wing=True)
+    mesh = read_obj(source)
+    families = {**mesh.families, "Body": [list(f) for f in mesh.families["Wing"]]}
+    source.write_text(obj_text(ObjMesh(mesh.verts, families)))
+    side = Path(f"{source}.boundaries.toml")
+    text = side.read_text().replace('"Wing"]', '"Wing", "Body"]')
+    assert '"Body"' in text
+    side.write_text(text)
+    table = "[hub_rings]\nrings = 4\n" if rings else ""
+    method = 'hub_method = "rings"\n' if rings else ""
+    cfg = control(
+        tmp_path,
+        table
+        + CHAIN.format(angle=2.0, point=STATION).replace("[collapse_te]", method + "[collapse_te]"),
+    )
+    out = tmp_path / "out" / "morphed.obj"
+    assert _quiet_invoke("morph", source, cfg, out) == 0
+    report = json.loads(Path(f"{out}.morph.json").read_text())
+    route = {b["hub_route"] for b in report["steps"]["repitch"]["blades"].values()}
+    assert route == {"rings" if rings else "remesh"}
+    written = read_obj(out)
+    for name in ("Wing", "Body"):
+        assert places(written, written.families[name]) == places(mesh, mesh.families["Wing"])
+
+
 # PFS-2197: quality is warned with its numbers and the mesh is written.
 
 

@@ -52,6 +52,9 @@ FlightStream versions.
   and broken invariants still refuse. `geometry collapse-te`, alone and inside `geometry
   morph`, warns of a face its merge turns over (count, worst cosine, place) and writes the
   mesh instead of refusing.
+- The ring route of `geometry repitch` no longer refuses a mesh for an edge over two faces
+  away from what it moves, such as an airframe imprinted on itself beside an installed rotor;
+  such an edge at a moved hub or blade node still refuses.
 - `geometry repitch` on a hub without two complete quad rings around a root now remeshes the
   hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
   the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,

@@ -475,9 +475,15 @@ def _rings_route(
         interiors.update(inner)
         rebuild(old, new, patch, motion, surface, frame=frame)
     _need(bool(np.isfinite(new).all()), "hub smoothing produced nonfinite coordinates")
-    all_faces = [f for fs in source.families.values() for f in fs]
-    edge_map = incidence(all_faces)
-    _need(not any(len(owners) > 2 for owners in edge_map.values()), "non-manifold edge in mesh")
+    # An edge over two faces where nothing moves (an airframe imprinted on itself beside an
+    # installed rotor) is no broken input for the ring route; one at a moved node is.
+    moving = set(np.flatnonzero((new != old).any(axis=1)).tolist())
+    near = [f for fs in source.families.values() for f in fs if moving.intersection(f)]
+    edge_map = incidence(near)
+    _need(
+        not any(len(owners) > 2 and moving & set(e) for e, owners in edge_map.items()),
+        "non-manifold edge at a moved hub or blade node",
+    )
     distances = surface_checks(surface, old, new, {int(v) for p in patches for v in p[0]}, scale)
     report["hub"] = _hub_checks(source, new, hubs)
     boundary = {v for e, owners in incidence(hub_faces).items() if len(owners) == 1 for v in e}
