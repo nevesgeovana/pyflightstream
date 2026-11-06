@@ -121,6 +121,16 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
     return ObjMesh(m["xyz"].copy(), families), parsed
 
 
+def _degrees(cfg: dict[str, Any], key: str, default: float) -> float:
+    """Return an angle of the table in degrees, refusing a value that is not a number."""
+    value = cfg.get(key, default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        _need(False, f"{key} must be a number of degrees, not {value!r}")
+        raise
+
+
 def _config(path: Path) -> dict[str, Any]:
     data = read_control(path, "repitch")
     cfg = morphing_table(data, "repitch", ("blades", "hub"))
@@ -158,8 +168,14 @@ def _config(path: Path) -> dict[str, Any]:
         f"band_width must be a positive length in the mesh's unit, not {width!r}",
     )
     cfg["hub_method"] = method
-    angle = float(cfg.get("angle_deg", math.nan))
-    limit = float(cfg.get("max_angle_deg", 5.0))
+    _need(isinstance(cfg.get("axes", {}), dict), "repitch.axes must be a table of blade axes")
+    keep = cfg.get("keep", [])
+    _need(
+        isinstance(keep, list) and all(isinstance(n, str) for n in keep),
+        f"repitch.keep must be a list of family names, not {keep!r}",
+    )
+    angle = _degrees(cfg, "angle_deg", math.nan)
+    limit = _degrees(cfg, "max_angle_deg", 5.0)
     _need(
         math.isfinite(limit) and 0 < limit <= 5,
         f"max_angle_deg {limit!r} must be positive and at most 5 degrees",

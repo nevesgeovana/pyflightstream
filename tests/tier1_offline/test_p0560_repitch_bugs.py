@@ -122,6 +122,35 @@ def test_p0560_r1_morph_003_a_control_file_with_a_byte_order_mark_is_read(tmp_pa
     assert not list(tmp_path.glob("broken.*"))
 
 
+@pytest.mark.requirement("FR-3609")
+@pytest.mark.parametrize(
+    "extra, words",
+    [
+        ("angle_deg = [1.0]", "angle_deg must be a number"),
+        ("max_angle_deg = [5]", "max_angle_deg must be a number"),
+        ("axes = [1]", "repitch.axes must be a table"),
+        ("keep = 3", "repitch.keep must be a list"),
+        ("reference = 5", "repitch.reference must be a name"),
+        ('reference = "rotor.toml"\nrotor = ["R"]', "repitch.rotor must be a name"),
+    ],
+    ids=["P0560-R1-MORPH-005-" + k for k in ("angle", "max", "axes", "keep", "ref", "rotor")],
+)
+def test_p0560_r1_morph_005_a_value_of_the_wrong_kind_is_refused_in_words(
+    tmp_path, capsys, extra, words
+):
+    """P0560-R1-MORPH-005: exit 2 naming the key, not a TypeError or AttributeError."""
+    source = source_mesh(tmp_path)
+    (tmp_path / "rotor.toml").write_text('[R]\nkind = "rotor"\naxis = "z"\n')
+    text = control(tmp_path, 1.0).read_text().replace("angle_deg = 1.0\n", "")
+    config = tmp_path / "wrong.toml"
+    config.write_text(text.replace("max_angle_deg = 5.0\n", "") + extra + "\n")
+    if "angle_deg" not in extra:
+        config.write_text(config.read_text() + "angle_deg = 1.0\n")
+    assert invoke(source, config, tmp_path / "bad.obj") == 2
+    assert words in capsys.readouterr().err
+    assert not list(tmp_path.glob("bad.*"))
+
+
 @pytest.mark.requirement("FR-3761")
 def test_p0560_repitch_refuses_a_rotor_with_no_axis_in_words(tmp_path, capsys):
     source = source_mesh(tmp_path)

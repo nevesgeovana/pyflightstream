@@ -87,6 +87,12 @@ def read_rotor(
     """Return the rotor table a ``[repitch]`` reference names, in mesh units, or None."""
     if "reference" not in cfg:
         return None
+    for key in ("reference", "rotor"):
+        _need_rotor(
+            isinstance(cfg.get(key, ""), str),
+            f"repitch.{key} must be a name in quotes, not {cfg.get(key)!r}",
+            verb,
+        )
     source = control.parent / cfg["reference"]
     data = read_control(source, verb)
     candidates = {k: v for k, v in data.items() if isinstance(v, dict) and v.get("kind") == "rotor"}
