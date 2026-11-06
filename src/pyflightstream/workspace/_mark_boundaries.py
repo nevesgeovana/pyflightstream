@@ -305,8 +305,30 @@ def _marking_inputs(mesh):
     return source, sidecar, declarations, spec, names, faces
 
 
+def termination_entries(declarations: BoundaryDeclarations) -> list[Any]:
+    """Return the trailing-edge entries and base-region rims that declare termination nodes.
+
+    A base region's rim table takes ``wake_termination_nodes`` as an entry does (R1-MARK-012),
+    so the rim a converted saved sector declares once carries the saved terminations; it is
+    returned as an entry labelled by its family, and marked by the same selection and rules.
+    """
+    from pyflightstream.cases.mesh import BoundaryTrailingEdge
+
+    entries: list[Any] = [e for e in declarations.trailing_edges if e.wake_termination_nodes]
+    entries += [
+        BoundaryTrailingEdge(
+            label=region.family,
+            marking=region.trailing_edges,
+            wake_termination_nodes=region.wake_termination_nodes,
+        )
+        for region in declarations.base_regions
+        if region.wake_termination_nodes and region.trailing_edges != "auto"
+    ]
+    return entries
+
+
 def _node_routes(sidecar, declarations, spec):
-    termination = [entry for entry in declarations.trailing_edges if entry.wake_termination_nodes]
+    termination = termination_entries(declarations)
     explicit = [entry for entry in termination if entry.wake_termination_nodes != "auto"]
     if declarations.fs_build == VERTEX_FILE_BUILD:
         # No such command on this build: _emit_nodes warns and skips them, so nothing is numbered.
@@ -733,7 +755,7 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
             f"{saved}: {termination} termination nodes, expected at least {required}"
         )
     if termination == 0 and any(
-        entry.wake_termination_nodes == "auto" for entry in plan.declarations.trailing_edges
+        entry.wake_termination_nodes == "auto" for entry in termination_entries(plan.declarations)
     ):
         print(
             "warning: the autodetect marked no wake-termination node: "

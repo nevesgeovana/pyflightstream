@@ -952,13 +952,28 @@ def _one_base(
         one = rim.sets[0]
         loaded = points_from_file(obj, Path(str(one.points_file)))
         assert loaded is not None
+        copy = k if s.replicated else None
         file = f"{opts.out.stem}.{name}.te.txt"
         out.points[opts.out.with_name(file)] = (
             loaded.unit,
-            _copy_points(loaded.points, opts, k if s.replicated else None, tol) * loaded.to_file,
+            _copy_points(loaded.points, opts, copy, tol) * loaded.to_file,
         )
+        extra = ""
+        nodes = region.wake_termination_nodes if opts.wake_terminations else None
+        if nodes is not None and nodes != "auto":
+            # the rim's terminations, turned into this copy as an entry's are (R1-MARK-012)
+            held = points_from_file(obj, Path(str(nodes)))
+            assert held is not None
+            nodes = f"{opts.out.stem}.{name}.wake.te.txt"
+            out.points[opts.out.with_name(nodes)] = (
+                held.unit,
+                _copy_points(held.points, opts, copy, tol) * held.to_file,
+            )
+        if nodes is not None:
+            extra = f", wake_termination_nodes = {toml_value(nodes)}"
         out.lines.append(
-            f"trailing_edges = {{ file = {toml_value(file)}, type = {toml_value(one.edge_type)} }}"
+            f"trailing_edges = {{ file = {toml_value(file)}, "
+            f"type = {toml_value(one.edge_type)}{extra} }}"
         )
     if region is not None and region.model != "EMPIRICAL":
         out.lines.append(f"model = {toml_value(region.model)}")

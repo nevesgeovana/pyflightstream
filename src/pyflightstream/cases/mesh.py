@@ -459,6 +459,9 @@ class BoundaryBaseRegion(BaseModel):
     cp: float = -0.2
     trailing_edges: TrailingEdgeMarking | Literal["auto"]
     merge_into: str | None = None
+    #: The wake-termination nodes of a rim given as a file: a points file or ``"auto"``, marked
+    #: as a trailing-edge entry's are (R1-MARK-012). Read from the rim table.
+    wake_termination_nodes: str | None = None
 
 
 class BoundaryDeclarations(BaseModel):

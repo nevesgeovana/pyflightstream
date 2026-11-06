@@ -278,8 +278,8 @@ def _outside_face_order(points: np.ndarray, mesh: Path, unit: str, family: str) 
     FlightStream 26.127 reads an IMPORT_WAKE_EDGES_FROM_FILE node file in the order written
     and drops some of the edges that meet an edge it has already marked when the new edge's
     face outside the base comes later in the mesh than the marked edge's; it has dropped none
-    whose face comes earlier. Measured on 2026-11-06 with licensed probes of a six-blade wheel
-    (the 0.56.0 wheel-routes receipt): 742 of 768 rim edges kept in the file's order, 768 of
+    whose face comes earlier. Licensed probes of a six-blade wheel (the wheel-routes receipt of
+    the release records, FR-3766) kept 742 of 768 rim edges in the file's order, 768 of
     768 in this order, and 768 of 768 on 26.125 in the file's order. Writing the last face
     first makes every edge meet only edges of later faces.
 

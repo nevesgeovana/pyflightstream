@@ -46,6 +46,12 @@ FlightStream versions.
   them into every copy, as the saved route does, and `<out>.wheel.json` now states
   `wake_terminations` as `"carried"` or `"dropped"`. On a saved sector the switch is warned as not
   applicable.
+- A base region's rim given as a file takes `wake_termination_nodes` (a points file or
+  `"auto"`) in its table, `trailing_edges = { file = ..., type = ..., wake_termination_nodes =
+  ... }`: `geometry mark-boundaries` marks them as an entry's, with the same merge rules, and
+  `geometry sector-to-wheel` turns them into every copy (dropped with
+  `--no-wake-terminations`). A blunt rim declared once on its base region now carries its
+  terminations, where only a second declaration of the same rim could.
 - `[repitch] hub_method` chooses how the hub follows each turned blade: `"rings"` moves the
   complete quad rings around the root as before, `"remesh"` (OBJ only) remeshes the hub band
   around the turned root quad-dominant, every free node on the source hub and the kept faces in
