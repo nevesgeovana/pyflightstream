@@ -39,9 +39,9 @@ from pyflightstream.workspace._hub_remesh import (
     cell_findings,
     cell_warnings,
     check_kept,
-    check_manifold,
     chord_deviation,
     distance_warning,
+    edge_counts,
     kept_edges,
     new_by_old,
     remesh_bands,
@@ -645,7 +645,7 @@ def _remesh(
     out = result.mesh
     _need(bool(np.isfinite(out.verts).all()), "the hub remesh produced nonfinite coordinates")
     check_kept(result, "repitch")
-    manifold = check_manifold(result, "repitch")
+    manifold = edge_counts(result, "repitch")
     shape, turned = cell_findings(result, surface)
     allowed = chord_deviation(old, hub_faces)
     skip = frozenset(int(result.index[v]) for n in blades for v in source.family_vertices(n))

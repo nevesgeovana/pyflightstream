@@ -43,10 +43,10 @@ from pyflightstream.workspace._hub_remesh import (
     cell_findings,
     cell_warnings,
     check_kept,
-    check_manifold,
     chord_deviation,
     cut,
     distance_warning,
+    edge_counts,
     forbidden,
     forward,
     hub_family,
@@ -321,7 +321,7 @@ def verify_rings(r: Result, surface: HubSurface, hubs: list[str]) -> dict[str, A
     checks["turned_cells"] = turned
     found = cell_warnings(shape, turned)
     check_kept(r, _VERB)
-    checks["manifold"] = check_manifold(r, _VERB)
+    checks["manifold"] = edge_counts(r, _VERB)
     hub_faces = [f for n in hubs for f in r.source.families[n]]
     allowed = chord_deviation(r.source.verts, hub_faces)
     distance, off = distance_warning(r, surface, allowed)

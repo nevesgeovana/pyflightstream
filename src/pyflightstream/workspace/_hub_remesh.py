@@ -522,8 +522,8 @@ def open_edges(mesh: ObjMesh) -> tuple[set[frozenset], int]:
     return places, sum(len(own) > 2 for own in owners.values())
 
 
-def check_manifold(r: Result, verb: str) -> dict[str, int]:
-    """Refuse an open edge made or closed, an edge over two faces, or a cell turned in the hub."""
+def edge_counts(r: Result, verb: str) -> dict[str, int]:
+    """Return the open edges and edges over two faces; refuse a change of them or a turned cell."""
     now, over = open_edges(r.mesh)
     was, over0 = open_edges(r.source)
     need(now == was, f"open edges differ from the source: {len(now ^ was)} edge(s) changed", verb)
