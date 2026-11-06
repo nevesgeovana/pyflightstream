@@ -68,8 +68,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: specs): 2143 files, 121 reports, 208338 report lines, measured.
 #: then the 26.127 rim face-order test (test_p0560_rim_face_order.py): 2144 files, measured.
 #: then the outer skin of iges-grid (workspace/_iges_skin.py): 2145 files, measured.
+#: then the CI shard selector test (test_p0560_ci_shards.py): 2146 files, measured.
 LEAN_CAPS = {
-    "tracked_files": 2145,
+    "tracked_files": 2146,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
