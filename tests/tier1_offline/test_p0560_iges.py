@@ -481,6 +481,22 @@ def test_p0560_grid_four_sided_patches_follow_the_laws_and_are_quads(tmp_path, c
 
 
 @pytest.mark.requirement("FR-3702")
+def test_p0560_the_cosine_ratio_is_documented_as_the_grid_measures_it(tmp_path, capsys):
+    """R1-IGES-007: at 6 cells a cosine ratio of 0.2 gives an end cell about 0.33 of the middle."""
+    text = PLATE_GRID.replace('law = "cosine"}', 'law = "cosine", ratio = 0.2}')
+    target, _, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], text)
+    mesh = read_obj(target)
+    nodes = mesh.verts[sorted({v for f in mesh.families["Flap"] for v in f})]
+    chord = np.diff(np.unique(np.round(nodes[np.isclose(nodes[:, 1], 2.0)][:, 0], 9)))
+    assert len(chord) == 6
+    assert chord[0] / chord[2] == pytest.approx(0.33, abs=0.01)
+    page = (Path(__file__).resolve().parents[2] / "docs/mesh/iges.md").read_text(encoding="utf-8")
+    (row,) = [line for line in page.splitlines() if line.startswith("| `cosine` |")]
+    assert "at 6 cells a ratio of 0.2 gives an end cell about 0.33 of the middle one" in row
+    assert "not at the cosine-spacing positions" in row
+
+
+@pytest.mark.requirement("FR-3702")
 def test_p0560_grid_other_patches_are_quad_dominant_at_the_component_size(tmp_path, capsys):
     target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
     # The plate's top edge is cut where the flap ends, so it has five sides.

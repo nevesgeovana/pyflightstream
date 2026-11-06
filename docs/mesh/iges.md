@@ -75,7 +75,7 @@ Lengths are in the unit of the first IGES file.
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
 | `chord`, `span` | `{count, law, ratio}`: the cells along each direction of a four-sided patch and their law |
 | `span_axis` | `x`, `y`, `z` or three numbers; default `y` or `z`, whichever the component extends along more |
-| `le_cluster`, `te_cluster` | For a cosine chord: the end cell over the middle cell, 1 or less |
+| `le_cluster`, `te_cluster` | For a cosine chord: its `ratio`, the end cell over the middle cell as the count grows, 1 or less |
 | `structured` | `false` meshes even the four-sided patches quad-dominant; default `true` |
 | `trailing_edge` | `"auto"`, or a list of IGES curve names |
 | `te_angle_deg` | The angle of `"auto"` for this component |
@@ -93,7 +93,7 @@ of a blunt trailing edge, and takes one cell whatever its law.
 | `law` | Spacing |
 |---|---|
 | `uniform` | Equal cells |
-| `cosine` | Clustered at both ends; `ratio` is the end cell over the middle cell, default the cosine spacing's own for the count |
+| `cosine` | Clustered at both ends by a symmetric bump law. `ratio` is the end cell over the middle cell as the count grows: at 6 cells a ratio of 0.2 gives an end cell about 0.33 of the middle one, at 40 cells about 0.21. Default: the end-to-middle ratio of cosine spacing for the count; the nodes are not at the cosine-spacing positions |
 | `geometric` | Each cell `ratio` times the next one toward the clustered end (default 1.1) |
 | `tanh` | A one-sided clustering of coefficient `ratio` (default 1.05; nearer 1 clusters harder) |
 
