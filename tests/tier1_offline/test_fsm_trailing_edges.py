@@ -120,7 +120,16 @@ def test_p0560_the_26127_integer_edge_rows_read_as_trailing_edge_flags(tmp_path)
     lines[rows[2]] = lines[rows[2]].replace("0", "x", 1)
     path = tmp_path / "10_WING_bad_token.fsm"
     path.write_text("\n".join(lines), encoding="utf-8")
-    with pytest.raises(MeshReadError):
+    with pytest.raises(MeshReadError, match="T/F rows"):
+        trailing_edge_midpoints(path)
+
+    # The first and last of the five rows stay boolean: an integer there is refused.
+    lines = text.split("\n")
+    assert " T" in lines[rows[0]] or " F" in lines[rows[0]]
+    lines[rows[0]] = lines[rows[0]].replace("T", "1").replace("F", "0")
+    path = tmp_path / "10_WING_int_first_row.fsm"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    with pytest.raises(MeshReadError, match="T/F rows"):
         trailing_edge_midpoints(path)
 
 
