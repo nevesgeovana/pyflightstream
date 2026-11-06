@@ -389,3 +389,60 @@ def test_p0560_r1_mark_002_the_upgrading_notes_say_what_changed_since_0551() -> 
     ):
         assert words in section, words
     assert page.index("\n## 0.56.0\n") < page.index("\n## 0.55.1\n")
+
+
+def _two_rim_wheel(folder: Path, build: str) -> Path:
+    """The wheel of the sector whose blunt blade rims come two to one file, as a sector the
+    solver saved and converted declares them; return the wheel's OBJ."""
+    built = build_sector(folder, copies=COPIES, separate_base=True)
+    rows = [
+        line
+        for name in ("sector.TE_a.te.txt", "sector.TE_b.te.txt")
+        for line in (folder / name).read_text(encoding="utf-8").splitlines()[1:]
+        if line.strip()
+    ]
+    (folder / "sector.TE.te.txt").write_text("\n".join(["METER", *rows]) + "\n", encoding="utf-8")
+    sidecar = folder / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    assert text.count(RIM + OTHER_RIM) == 1
+    one = '[trailing_edges.TE]\nfile = "sector.TE.te.txt"\ntype = "STANDARD"\n'
+    text = text.replace(RIM + OTHER_RIM, one).replace('"26.124"', f'"{build}"')
+    sidecar.write_text(text, encoding="utf-8")
+    wheel = folder / "wheel.obj"
+    wheel_of(built, wheel)
+    return wheel
+
+
+@pytest.mark.parametrize(("build", "per_file"), [("26.125", 1), ("26.127", 2)])
+def test_p0560_r1_mark_s2_a_file_of_two_rims_is_one_group_per_rim_on_26127(
+    tmp_path: Path, build: str, per_file: int
+) -> None:
+    """R1-MARK-S2: on 26.127 one import is one trailing-edge group, so a file holding both
+    rims of a blunt edge is imported one rim at a time: the groups the saved route copies, the
+    same edges. 26.125 keeps one import per file."""
+    wheel = _two_rim_wheel(tmp_path, build)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_mark_boundaries(wheel)
+    imports = [line for line in plan.script.splitlines() if line.startswith("IMPORT_WAKE_EDGES")]
+    # one file per blade copy and the nacelle's rim
+    assert len(imports) == COPIES * per_file + 1
+    labels = [entry.label for entry in plan.declarations.trailing_edges]
+    spans = plan.group_spans()
+    blades = [spans[i][1] for i, label in enumerate(labels) if label.startswith("TE_")]
+    assert blades == [per_file] * COPIES
+    # the rim files of one entry hold, together, every point of the entry once
+    for entry in plan.sets:
+        if not entry["label"].startswith("TE_"):
+            continue
+        number = plan.sets.index(entry) + 1
+        stems = (f"edges-{number}", *(f"edges-{number}-{k}" for k in range(1, per_file + 1)))
+        names = [n for n in plan.pending if Path(n).stem in stems]
+        rows = [
+            row
+            for name in names
+            for row in plan.pending[name].decode("utf-8").splitlines()[2:]
+            if row.strip()
+        ]
+        assert len(names) == per_file
+        assert len(rows) == len(set(rows)) == len(entry["points_m"])

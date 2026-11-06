@@ -42,6 +42,7 @@ from pyflightstream.workspace._mark_rims import (
     _placed_points,
     _placed_rim,
     rim_edges,
+    rim_runs,
     saved_cross_edges,
 )
 from pyflightstream.workspace.sidecars import (
@@ -94,6 +95,19 @@ these builds the merge keeps them; on any other build explicit nodes across a me
 """
 
 
+RIM_GROUP_BUILDS: frozenset[str] = frozenset({"26.127"})
+"""Builds on which a trailing-edge file is imported one rim at a time, one group per rim.
+
+On 26.127 one IMPORT_WAKE_EDGES_FROM_FILE is one trailing-edge group: a second import adds a
+second group and keeps the first (the IMPORT_WAKE_EDGES_FROM_FILE probe of
+reports/compat/CMP-26127_2026-11-06_marking.yaml, groups ``["Rim", "Rim"]``), and a licensed
+marking of a six-blade wheel whose blunt rims came two to a file saved one group per blade
+where the solver's own sector of that blade holds one per rim. Importing each connected run of
+a file on its own gives the groups the saved route copies; the edges marked are the same. 26.100
+parts its vertex files into rims for its own reason (FR-3470).
+"""
+
+
 class BoundaryMarkingError(PyflightstreamError):
     """A marking pass failed its solver execution or saved-state read-back."""
 
@@ -132,12 +146,17 @@ class BoundaryMarkingPlan:
 
         Saved groups stand in the order the script marked them. A declared unit is one group,
         except on 26.100, where each rim file is a group of its own (measured), a file warned
-        and skipped is none, and an ``auto`` rim follows the file rims.
+        and skipped is none, and an ``auto`` rim follows the file rims, and on the builds of
+        :data:`RIM_GROUP_BUILDS`, where each rim of a file is a group of its own.
         """
         declared = self.declarations
         units: list[Any] = [*(entry.marking for entry in declared.trailing_edges)]
         units += [region.trailing_edges for region in declared.base_regions]
         vertex_files = declared.fs_build == VERTEX_FILE_BUILD
+        rim_groups = (
+            declared.fs_build is not None
+            and resolve(declared.fs_build).canonical in RIM_GROUP_BUILDS
+        )
         rim_sets = iter(self.sets)
         spans: dict[int, tuple[int, int]] = {}
         first = 0
@@ -147,6 +166,8 @@ class BoundaryMarkingPlan:
             if vertex_files and marking != "auto" and marking.route == "file":
                 standard = [s for s in marking.sets if s.edge_type == "STANDARD"]
                 count = sum(len(next(rim_sets)["rim_vertices"]) for _ in standard)
+            elif rim_groups and marking != "auto" and marking.route == "file":
+                count = next(rim_sets).get("groups", 1)
             spans[unit] = (first, count)
             first += count
         return [spans[unit] for unit in range(len(units))]
@@ -973,19 +994,27 @@ def _emit_marking(
         assert entry.points_file is not None
         path = Path(entry.points_file)
         inputs[str(path)] = file_sha256(path)
-        token = work / f"edges-{len(sets) + 1}.txt"
         say(f"{label}: placing {len(entry.points_m)} points through the import operations")
         points = _placed_points(entry.points_m, source, spec, bound.tolerance)
-        helpers.mark_wake_edges(
-            script,
-            edge_type=entry.edge_type,
-            tolerance=bound.tolerance,
-            units="METER",
-            node_file=str(token),
-            midpoints=points,
-        )
-        body = script.pending_input_files[str(token)]
-        pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
+        runs: list[Any] = [entry.points_m]
+        if script.version.canonical in RIM_GROUP_BUILDS:
+            runs = rim_runs(entry.points_m, source, spec.units)
+        for number, run in enumerate(runs, 1):
+            stem = f"edges-{len(sets) + 1}" + (f"-{number}" if len(runs) > 1 else "")
+            token = work / f"{stem}.txt"
+            placed = (
+                points if len(runs) == 1 else _placed_points(run, source, spec, bound.tolerance)
+            )
+            helpers.mark_wake_edges(
+                script,
+                edge_type=entry.edge_type,
+                tolerance=bound.tolerance,
+                units="METER",
+                node_file=str(token),
+                midpoints=placed,
+            )
+            body = script.pending_input_files[str(token)]
+            pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
         sets.append(
             {
                 "label": label,
@@ -993,9 +1022,11 @@ def _emit_marking(
                 "file": str(path),
                 "points_m": points,
                 "tolerance": bound.tolerance,
+                **({"groups": len(runs)} if len(runs) > 1 else {}),
             }
         )
-        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points")
+        rims = f" in {len(runs)} rim imports" if len(runs) > 1 else ""
+        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points{rims}")
 
     for entry in declarations.trailing_edges:
         mark(entry.label, entry.marking)
