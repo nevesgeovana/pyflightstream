@@ -206,12 +206,11 @@ hub_method = "remesh"        # or "auto" (the default) or "rings"
 pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
 ```
 
-The chain is exercised in the offline tests on a synthetic quad-dominant hub, as a sector and
-as an installed full wheel, with and without `[hub_rings]`, and was run without `[hub_rings]` on
-an SMI-derived quad-dominant spinner, as a sector, as a six-blade wheel and as that wheel beside
-an airframe, at 0, 2 and 5 degrees. Each remeshed band is held to half its source band's least
-scaled Jacobian and twice its largest aspect, and a band that misses is warned with its numbers;
-a face the trailing-edge merge turns over is warned the same way and the mesh is written. `morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
+The chain works on a sector and on a full wheel, installed beside an airframe or not, with or
+without `[hub_rings]`. Each remeshed band is held to half its source band's least scaled
+Jacobian and twice its largest aspect, and a band that misses is warned with its numbers;
+a face the trailing-edge merge turns over is warned the same way and the mesh is written.
+`morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
 order, `[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: the ring route of repitch needs
 the rings, and the collapse leaves a closure triangle on the first ring, so no other order
 works. `[hub_rings]` is optional: without it, repitch's `hub_method` decides how the hub

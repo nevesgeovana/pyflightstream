@@ -457,3 +457,13 @@ def test_p0560_r1_morph_006_a_missed_band_target_is_listed_and_fails_passed(tmp_
     checks = record(out, "repitch")["checks"]
     assert any("misses its quality target" in w for w in checks["warnings"])
     assert checks["passed"] is False
+
+
+def test_p0560_r1_morph_007_the_morph_how_to_states_the_feature_not_where_it_was_run():
+    """P0560-R1-MORPH-007: the public page states the chain and its targets, no run history."""
+    page = Path(__file__).resolve().parents[2] / "docs/mesh/how-to.md"
+    text = " ".join(page.read_text(encoding="utf-8").split())
+    section = text[text.index("## Morph a sector or a wheel") :]
+    section = section[: section.index("## ", 3)]
+    assert "was run" not in section and "SMI" not in section
+    assert "half its source band's least scaled Jacobian and twice its largest aspect" in section
