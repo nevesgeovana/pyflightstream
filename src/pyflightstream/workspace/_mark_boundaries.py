@@ -1128,6 +1128,9 @@ def _emit_marking(
     _import_operations(script, spec, names, faces)
     source_families = [region.family for region in declarations.base_regions]
     declarations = _renamed_declarations(declarations, before, names)
+    obj_family = dict(
+        zip((r.family for r in declarations.base_regions), source_families, strict=True)
+    )
     script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
     emit("SET_SIMULATION_LENGTH_UNITS", "METER")
     declared: dict[str, tuple[Any, float]] = {}
@@ -1161,8 +1164,9 @@ def _emit_marking(
                 say=say,
             )
             return
-        # A base region's rim is written in the order 26.127 keeps every edge of (rim_runs).
-        base = label if any(r.family == label for r in declarations.base_regions) else None
+        # A base region's rim is written in the order 26.127 keeps every edge of (rim_runs),
+        # read from the OBJ by the base's family there, before any rename of the import.
+        base = obj_family.get(label)
         _mark_file_runs(
             script,
             label,

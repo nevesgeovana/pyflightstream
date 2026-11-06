@@ -142,7 +142,8 @@ collapsed blade (the label and edge type of the first rim, one wake termination 
 root when the source declares terminations), no base region for the removed strip, and every
 other marking at its new position. A blade named through `base` with no rim entry gets a new
 entry under its family name, with the edge type of the removed base region's points file, or
-`STANDARD`. Without a boundaries file, or when that file cannot take an entry (it states no
+`STANDARD`, and the wake termination nodes that region's rim declares, at their new position.
+Without a boundaries file, or when that file cannot take an entry (it states no
 `fs_build`, `none = true` or a detection route, which a warning names), the line is written to
 `<out-stem>.<blade>.te.txt`. An `[[import.operations]]` entry on a family the collapse
 removes, or on the name a rename gave it, is warned and skipped. A marking that lies on an
