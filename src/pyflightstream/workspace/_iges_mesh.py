@@ -166,9 +166,52 @@ def _span_axis(gmsh: Any, faces: list[int], grid: ComponentGrid) -> NDArray[np.f
     return axis
 
 
+#: A patch is four-sided only when each of its four corners is below this angle. A curve that
+#: meets the next nearly straight on (a side the join cut in two, a three-cornered patch whose
+#: degenerate edge left) is a point on a side, not a corner, and the transfinite map flattens the
+#: cell there; 160 degrees keeps every real corner of a wing, tail or body panel and leaves a
+#: margin above them.
+CORNER_LIMIT_DEG = 160.0
+
+
+def _inward(gmsh: Any, curve: int) -> dict[int, NDArray[np.float64]]:
+    """Return the unit tangent of a curve at each of its end points, pointing into the curve."""
+    ends = [abs(t) for _, t in gmsh.model.getBoundary([(1, curve)], oriented=True)]
+    where = {p: np.asarray(gmsh.model.getValue(0, p, []), dtype=float) for p in ends}
+    lo, hi = gmsh.model.getParametrizationBounds(1, curve)
+    out: dict[int, NDArray[np.float64]] = {}
+    for at, sign in ((lo[0], 1.0), (hi[0], -1.0)):
+        # The end a parameter bound is at, by position: the boundary's order need not follow it.
+        here = np.asarray(gmsh.model.getValue(1, curve, [at]), dtype=float)
+        point = min(where, key=lambda p: float(np.linalg.norm(where[p] - here)))
+        d = sign * np.asarray(gmsh.model.getDerivative(1, curve, [at]), dtype=float)
+        n = float(np.linalg.norm(d))
+        if n > 0:
+            out[point] = d / n
+    return out
+
+
+def corner_angles(gmsh: Any, loop: list[int]) -> list[float]:
+    """Return the angle at each point where two consecutive curves of a loop meet, in degrees."""
+    tangents = [_inward(gmsh, c) for c in loop]
+    angles = []
+    for i, here in enumerate(tangents):
+        after = tangents[(i + 1) % len(loop)]
+        shared = set(here) & set(after)
+        if not shared:
+            angles.append(180.0)
+            continue
+        point = shared.pop()
+        cosine = float(np.clip(here[point] @ after[point], -1.0, 1.0))
+        angles.append(math.degrees(math.acos(cosine)))
+    return angles
+
+
 def _four_sides(gmsh: Any, face: int) -> list[int] | None:
     loop = [abs(t) for _, t in gmsh.model.getBoundary([(2, face)], combined=False, oriented=True)]
     if len(loop) != 4 or len(set(loop)) != 4:
+        return None
+    if max(corner_angles(gmsh, loop)) >= CORNER_LIMIT_DEG:
         return None
     return loop
 

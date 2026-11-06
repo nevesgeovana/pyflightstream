@@ -80,6 +80,12 @@ Lengths are in the unit of the first IGES file.
 | `trailing_edge` | `"auto"`, or a list of IGES curve names |
 | `te_angle_deg` | The angle of `"auto"` for this component |
 
+A patch is four-sided when it has four distinct curves and each of its four corners is below 160
+degrees. A curve that continues the next nearly straight on is a point on a side, not a corner:
+a side the join cut in two, or a three-cornered patch, is meshed quad-dominant, since a
+transfinite map flattens the cell at such a point. 160 degrees leaves a margin above the real
+corners of wing, tail and body panels.
+
 The span pair of a four-sided patch is the pair of opposite sides closer to the span axis; the
 other pair is the chord. A side shorter than the component's size is a strip, such as the base
 of a blunt trailing edge, and takes one cell whatever its law.

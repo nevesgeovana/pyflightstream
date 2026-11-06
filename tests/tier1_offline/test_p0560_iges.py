@@ -432,6 +432,30 @@ def test_p0560_grid_structured_false_meshes_a_four_sided_patch_unstructured(tmp_
     assert record["components"]["Flap"]["faces"] != 24
 
 
+def triangle_and_tab(folder):
+    """A three-cornered patch on level 1, its top edge collapsed to the apex (1, 1), and a tab on
+    level 2 that shares the left half of its base, so the join cuts the base in two at (1, 0)."""
+    iges = Iges()
+    iges.name(1, "Tri")
+    iges.name(2, "Tab")
+    iges.patch([(0, 0, 0), (2, 0, 0), (1, 1, 0), (1, 1, 0)], level=1)
+    iges.patch(square(0, -1, 1, 0), level=2)
+    return iges.write(folder / "tri.igs")
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_a_three_cornered_patch_with_a_cut_side_is_not_transfinite(tmp_path, capsys):
+    """Four curves, three corners: the 180 degree point on the cut base is no corner."""
+    text = "[defaults]\nsize = 0.25\n[component.Tri]\n[component.Tab]\n"
+    target, record, _ = run_grid(tmp_path, capsys, [triangle_and_tab(tmp_path)], text)
+    assert record["transfinite_patches"]["Tab"] == 1
+    assert record["transfinite_patches"]["Tri"] == 0
+    tri = record["components"]["Tri"]
+    assert tri["least_scaled_jacobian"] > 0
+    assert tri["quad_share"] > 0.5  # quad-dominant
+    assert record["conformal"]["conformal_mismatches"] == 0
+
+
 @pytest.mark.requirement("FR-3703")
 def test_p0560_grid_boundaries_file_passes_the_mark_boundaries_preview(tmp_path, capsys):
     target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
