@@ -69,6 +69,10 @@ FlightStream versions.
 
 ### Changed
 
+- CI runs the suite in shards: three for Windows, Ubuntu, dependency floors and all
+  extras, and two for lean and dependency ceilings. Every suite keeps its full test
+  collection across the shards. Set `PYFS_SHARD=1/3` to select the first of three
+  deterministic partitions locally; leave it unset to run the original collection.
 - Mesh quality no longer refuses `geometry repitch` or `geometry hub-rings`: folded or reversed
   hub cells, a moved non-root hub node off the source hub, new cells folded or turned against
   the hub and a new node beyond the source's chord deviation are warned with their numbers

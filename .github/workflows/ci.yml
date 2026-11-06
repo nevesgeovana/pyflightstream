@@ -41,6 +41,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.12"]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -55,13 +56,17 @@ jobs:
       - name: Install package with dev extras
         run: pip install -e .[dev,fsi,excel]
       - name: Lint
+        if: matrix.shard == 1
         run: ruff check .
       - name: Format check
+        if: matrix.shard == 1
         run: ruff format --check .
       - name: Tier 1 tests
+        env:
+          PYFS_SHARD: ${{ matrix.shard }}/3
         run: pytest -n auto
       - name: Lean repository caps
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.shard == 1
         run: pytest tests/tier1_offline/test_repository_guards.py::test_repository_lean_caps
       - name: Nested pytest runs, fully traced
         # FR-399. tests/tier1_offline/test_examples.py starts pytest inside
@@ -73,11 +78,12 @@ jobs:
         # the inner runs because they inherit this environment, and the
         # failure text they print ends with the innermost frames. It runs
         # even when the step above failed, which is when it is wanted.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         env:
           PYTEST_ADDOPTS: --full-trace
         run: pytest tests/tier1_offline/test_examples.py
       - name: Executable examples
+        if: matrix.shard == 1
         # Sybil runs the docstring doctests and the python code blocks
         # in the root README and docs/ (INB-006 item 1e, decision
         # Q-007); the shim skiplist is in the root conftest.py.
@@ -91,6 +97,10 @@ jobs:
         run: pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
   test-all-extras:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # Named for the measurement rather than the subject: a red "extras"
     # reads as "installing an extra is broken", when what it means is
     # that the tier 1 suite failed with every extra present.
@@ -140,6 +150,8 @@ jobs:
       - name: Install package with every declared extra
         run: pip install -e .[dev,fsi,excel,manual,pandas,gmsh]
       - name: Tier 1 with nothing skipped for a missing extra
+        env:
+          PYFS_SHARD: ${{ matrix.shard }}/3
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
         # absent fixture). What this leg buys is that the extra-gated
@@ -147,6 +159,10 @@ jobs:
         run: pytest -n auto
 
   test-lean:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # PFS-2025.20.03: the leg that installs NO user-facing extra, and the
     # only place the mesh reader's promotion is actually measured. Marking
     # a trailing edge is on the default path of a rotor campaign, so a
@@ -177,15 +193,22 @@ jobs:
       - name: Install the package with no user-facing extra
         run: pip install -e .[dev]
       - name: The mesh reader arrives with the package alone
+        if: matrix.shard == 1
         # Loud and readable: a base install either has the reader or this
         # line names the version it does not have. The test below would
         # fail too, at collection, but a failing import inside a suite
         # reads as a broken test rather than as a broken dependency set.
         run: python -c "import trimesh; print('trimesh', trimesh.__version__)"
       - name: Tier 1 with no user-facing extras present
+        env:
+          PYFS_SHARD: ${{ matrix.shard }}/2
         run: pytest -n auto tests/tier1_offline
 
   test-floors:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # Every runtime and user-extra floor comes from package metadata.
     runs-on: ubuntu-latest
     steps:
@@ -239,9 +262,15 @@ jobs:
               print(req.name, metadata.version(req.name), flush=True)
           PY
       - name: Tier 1 on the floors
+        env:
+          PYFS_SHARD: ${{ matrix.shard }}/3
         run: pytest -n auto tests/tier1_offline
 
   test-ceilings:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # Exercise dependency ceilings on the Python version tested by CI.
     runs-on: ubuntu-latest
     steps:
@@ -260,6 +289,8 @@ jobs:
           DEPENDENCY_ENDPOINT: ceilings
         run: *install-declared-endpoint
       - name: Tier 1 on the newest allowed releases
+        env:
+          PYFS_SHARD: ${{ matrix.shard }}/2
         run: pytest -n auto tests/tier1_offline
 
   types:

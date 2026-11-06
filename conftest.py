@@ -40,6 +40,36 @@ checkout without the ``dev`` extra), this module registers no collector
 so the Tier 1 suite still runs anywhere.
 """
 
+import os
+
+import pytest
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    """Partition the final selected collection, identically on every xdist worker.
+
+    Sorted round-robin keeps counts within one item, unlike a hash partition.
+    Consume the variable so pytest subprocesses launched by tests run in full.
+    With no shard requested, preserve both the items and their original order.
+    """
+    shard = os.environ.pop("PYFS_SHARD", None)
+    yield
+    if shard is None:
+        return
+    try:
+        index, count = (int(value) for value in shard.split("/"))
+        if not 1 <= index <= count:
+            raise ValueError
+    except ValueError as error:
+        raise pytest.UsageError("PYFS_SHARD must be i/n with 1 <= i <= n") from error
+    ordered = sorted(items, key=lambda item: item.nodeid)
+    selected, deselected = [], []
+    for position, item in enumerate(ordered):
+        (selected if position % count == index - 1 else deselected).append(item)
+    items[:] = selected
+    config.hook.pytest_deselected(items=deselected)
+
 
 def pytest_configure(config):
     """Initialize the package before the controller deserializes worker warnings."""
