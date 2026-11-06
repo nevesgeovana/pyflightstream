@@ -720,6 +720,49 @@ def blunt_wedge(folder, name="blunt.igs"):
 
 
 @pytest.mark.requirement("FR-3703")
+@pytest.mark.parametrize("outboard", ["sharp", "tip base"])
+def test_p0560_r3_001_one_rim_keeps_a_sharp_line_where_a_blunt_edge_closes(outboard):
+    """A blunt base closing to a point inboard of a sharp trailing edge: the sharp line meets
+    both rims at one node and is kept. A tip's base edge joins the dropped rim to the kept one at
+    two different nodes and goes with the dropped rim."""
+    from pyflightstream.workspace.iges_grid import one_rim
+
+    at = {
+        "U0": (1.0, 0.0, 0.05),
+        "U1": (1.0, 1.0, 0.05),
+        "L0": (1.0, 0.0, -0.05),
+        "L1": (1.0, 1.0, -0.05),
+        "T": (1.0, 2.0, 0.0),
+        "S1": (1.0, 3.0, 0.0),
+        "S2": (1.0, 4.0, 0.0),
+    }
+    index = {name: i for i, name in enumerate(at)}
+    verts = np.array(list(at.values()))
+
+    def edge(a, b):
+        return (min(index[a], index[b]), max(index[a], index[b]))
+
+    rims = {edge("U0", "U1"), edge("L0", "L1")}
+    faces = [[index[n] for n in ("U0", "U1", "L1", "L0")]]
+    if outboard == "sharp":
+        faces.append([index[n] for n in ("U1", "T", "L1")])
+        rims |= {edge("U1", "T"), edge("L1", "T")}
+        extra = {edge("T", "S1"), edge("S1", "S2")}
+    else:
+        extra = {edge("U1", "L1")}
+    kept, dropped = one_rim(verts, faces, rims | extra)
+    if outboard == "sharp":
+        assert extra <= kept
+        assert dropped == 2
+    else:
+        assert not extra & kept
+        assert dropped == 2
+    # One rim survives whole: upper or lower, never a mix.
+    sides = {float(np.sign(verts[list(e)][:, 2].sum())) for e in kept - extra}
+    assert len(sides) == 1
+
+
+@pytest.mark.requirement("FR-3703")
 def test_p0560_grid_marks_one_rim_of_a_blunt_trailing_edge(tmp_path, capsys):
     """Both rims of a blunt trailing edge shed two wakes a base cell apart, and 26.127 keeps only
     part of the second: the SMI wing diverged with both and converged with either alone."""
