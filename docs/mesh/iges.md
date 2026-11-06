@@ -174,7 +174,9 @@ holds at least half of the open nodes. Each component that lost faces is warned 
 and the area and recorded under `inner_faces_removed` and `inner_area_removed`; the record's
 `inner_faces` says what was done. When no selection closes every crossing, as where a tailplane
 with an open trailing edge crosses a fin and the crossing curve on the fin does not close, every
-face is kept and `inner_faces` says so. On FlightStream 26.127 the SMI wing, body, tails and
+face is kept, a warning says so and `inner_faces` says why; so is an assembly whose crossings
+leave more than 200000 selections to try. With `remove_inner_faces = false` and components that
+cross, every face is kept and a warning says so. On FlightStream 26.127 the SMI wing, body, tails and
 fillet grid diverged with its inner faces kept, even with no wake, and converged without them.
 
 ## Convert to B-spline faces

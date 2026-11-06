@@ -955,6 +955,36 @@ def test_p0560_the_faces_inside_where_components_cross_are_removed(half):
 
 
 @pytest.mark.requirement("FR-3768")
+def test_p0560_r3_002_inner_faces_kept_whole_are_warned():
+    """An open sheet through a closed body leaves no selection that closes every crossing: every
+    face is kept, and a warning says so (the crossing warning before the mesh said they would be
+    removed)."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._iges_grid_config import GridConfig
+    from pyflightstream.workspace.iges_grid import _inner
+
+    verts, families = crossing_mesh()
+    sheet = [f for f in families["Wing"] if np.allclose(verts[f][:, 2], 0.7)]
+    meshed = SimpleNamespace(
+        nodes=verts,
+        faces={"Body": families["Body"], "Wing": sheet},
+        record={"fragment": {"crossings": [{"components": ["Body", "Wing"], "curves": 2}]}},
+    )
+    config = GridConfig(fs_build=None, size=None, tolerance=None, te_angle_deg=60.0)
+    said: list[str] = []
+    kept, removed, note = _inner(config, meshed, ["Body", "Wing"], said)
+    assert note.startswith("kept whole: no selection")
+    assert removed == {}
+    assert sum(map(len, kept.values())) == len(families["Body"]) + len(sheet)
+    assert any("inside the assembly" in w and "are kept" in w for w in said)
+    config.remove_inner_faces = False
+    said = []
+    _inner(config, meshed, ["Body", "Wing"], said)
+    assert any("remove_inner_faces = false" in w and "are kept" in w for w in said)
+
+
+@pytest.mark.requirement("FR-3768")
 def test_p0560_grid_keeps_the_inner_faces_when_told_to(tmp_path, capsys):
     text = CROSSING_GRID.replace("[defaults]\n", "[defaults]\nremove_inner_faces = false\n")
     target, record, _ = run_grid(tmp_path, capsys, [body_and_slab(tmp_path)], text)

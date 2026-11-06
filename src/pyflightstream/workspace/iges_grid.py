@@ -364,8 +364,18 @@ def _inner(
     """Return the families without the faces inside the assembly, what went, and the note."""
     families = {name: meshed.faces[name] for name in order if meshed.faces.get(name)}
     if not config.remove_inner_faces:
+        if meshed.record.get("fragment", {}).get("crossings"):
+            warnings.append(
+                "remove_inner_faces = false: the faces that lie inside the assembly where "
+                "components cross are kept"
+            )
         return families, {}, "kept whole: remove_inner_faces = false"
     families, removed, skin = outer_skin(meshed.nodes, families)
+    if skin.startswith("kept whole"):
+        warnings.append(
+            "the faces that lie inside the assembly where components cross are kept, every "
+            f"face of the assembly with them ({skin.removeprefix('kept whole: ')})"
+        )
     for name, gone in removed.items():
         warnings.append(
             f"{name}: {gone['faces']:g} face(s) of area {gone['area']:.4g} lie inside the "
