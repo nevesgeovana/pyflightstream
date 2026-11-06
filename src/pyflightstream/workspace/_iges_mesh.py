@@ -12,6 +12,7 @@ every other request in the group is recorded as overridden.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -89,10 +90,13 @@ def _heal(gmsh: Any, model: NamedModel, tolerance: float) -> str:
 
 
 def _fragment(
-    gmsh: Any, model: NamedModel, order: list[str], tolerance: float, warnings: list[str]
+    gmsh: Any,
+    by_name: dict[str, list[int]],
+    order: list[str],
+    tolerance: float,
+    warnings: list[str],
 ) -> tuple[dict[str, list[int]], dict[str, Any]]:
     """Fragment every face against every other; return the faces of each component after."""
-    by_name = model.components()
     inputs = [(name, t) for name in order for t in by_name[name]]
     gmsh.option.setNumber("Geometry.ToleranceBoolean", tolerance)
     _, mapping = gmsh.model.occ.fragment([(2, t) for _, t in inputs], [])
@@ -289,11 +293,36 @@ def mesh_model(
     order: list[str],
     sizes: dict[str, float],
     tolerance: float,
+    reopen: Callable[[], NamedModel] | None = None,
 ) -> Meshed:
-    """Join, mesh and read back every component of an imported model."""
+    """Join, mesh and read back every component of an imported model.
+
+    With ``reopen`` (which clears gmsh and imports the files again) and no stated tolerance, a
+    gap the files leave between faces that should meet is measured after the first join and,
+    when :data:`_CLOSE_FACTOR` times the widest is above that join's tolerance, the files are
+    imported and joined again at it (:func:`_near_miss_gaps`).
+    """
     warnings: list[str] = []
     healing = _heal(gmsh, model, tolerance)
-    faces, fragment = _fragment(gmsh, model, order, tolerance, warnings)
+    faces, fragment = _fragment(gmsh, model.components(), order, tolerance, warnings)
+    closed: list[dict[str, Any]] = []
+    if config.tolerance is None and reopen is not None:
+        closed, joined = _near_miss_gaps(gmsh, faces, sizes)
+        if joined > tolerance:
+            first = {"tolerance": tolerance, **fragment}
+            model, tolerance = reopen(), joined
+            warnings.clear()
+            healing = _heal(gmsh, model, tolerance)
+            faces, fragment = _fragment(gmsh, model.components(), order, tolerance, warnings)
+            fragment["first_join"] = first
+            for entry in closed:
+                warnings.append(
+                    f"the files leave a gap of up to {entry['gap']:.4g} between faces of "
+                    f"{' and '.join(entry['components'])} along {entry['curves']} curve(s); "
+                    f"the faces were joined again at {joined:.4g}"
+                )
+        else:
+            closed = []
     # Said now, before the mesh: on overlapping or crossing faces the mesher can take long, and
     # whoever waits should already know why. The record keeps them with the others.
     for message in warnings:
@@ -334,33 +363,56 @@ def mesh_model(
             "healing": healing,
             "fragment": fragment,
             "tolerance": tolerance,
+            "closed_gaps": closed,
             "transfinite_patches": {n: len(p) for n, p in patches.items()},
             "count_overrides": overrides,
         },
     )
-    meshed.boundary, meshed.record["unsewn_curves"] = _boundary_edges(gmsh, tolerance)
+    owner = {f: n for n, fs in faces.items() for f in fs}
+    meshed.boundary, meshed.record["unsewn_curves"] = _boundary_edges(gmsh, owner, sizes)
     return meshed
 
 
-#: Two free curves closer than this many join tolerances everywhere are one edge left unsewn.
-_UNSEWN_TOLERANCES = 10.0
+#: A free curve that lies on another within this share of the smaller of their components'
+#: sizes is a join the file missed: a grid of that size cannot show an opening so narrow, and a
+#: wider one, such as a blunt trailing edge left open, is a boundary of the body.
+NEAR_MISS_SHARE = 0.01
+#: The second join that closes a near miss takes this multiple of the widest gap measured.
+_CLOSE_FACTOR = 1.5
 
 
-def _boundary_edges(gmsh: Any, tolerance: float) -> tuple[set[tuple[int, int]], int]:
-    """Return the mesh edges on true boundaries of the body, and the free curves left unsewn.
+def lies_on(
+    params: NDArray[np.float64],
+    bounds: tuple[float, float],
+    gaps: NDArray[np.float64],
+    reach: float,
+) -> bool:
+    """Return whether sampled points lie on a curve: every gap within reach, on its own span.
 
-    A true boundary is a curve that bounds one face and lies on no other such curve: the open
-    root of a wing, the open base of a blunt trailing edge. A free curve that lies on another
-    (within :data:`_UNSEWN_TOLERANCES` join tolerances at five points) is an edge the join
-    missed, and its mesh edges are not boundaries.
+    ``params`` are the parameters of the closest points on the curve and ``bounds`` its
+    parameter range. A projection outside the range lands on the curve's extension, where the
+    next piece of a curve the join cut continues: such points lie beside the curve, not on it.
     """
-    tags, _, _ = gmsh.model.mesh.getNodes()
-    index = {int(t): i for i, t in enumerate(tags)}
-    free = []
+    lo, hi = bounds
+    margin = 1e-9 * max(abs(hi - lo), 1.0)
+    inside = bool(np.all(params >= lo - margin) and np.all(params <= hi + margin))
+    return inside and bool(np.all(gaps <= reach))
+
+
+def _near_misses(
+    gmsh: Any, owner: dict[int, str], sizes: dict[str, float]
+) -> list[tuple[int, int, float]]:
+    """Return each free curve that lies on another free curve, that curve and the widest gap.
+
+    A free curve bounds one face. Five points of it are projected on each other free curve
+    whose box comes within reach, the reach being :data:`NEAR_MISS_SHARE` of the smaller size
+    of the two curves' components.
+    """
+    free: dict[int, str] = {}
     for _, curve in gmsh.model.getEntities(1):
         up, _ = gmsh.model.getAdjacencies(1, curve)
         if len(up) == 1:
-            free.append(curve)
+            free[curve] = owner.get(int(up[0]), "")
     samples: dict[int, NDArray[np.float64]] = {}
     boxes: dict[int, NDArray[np.float64]] = {}
     for curve in free:
@@ -368,21 +420,67 @@ def _boundary_edges(gmsh: Any, tolerance: float) -> tuple[set[tuple[int, int]], 
         ts = np.linspace(lo[0], hi[0], 7)[1:-1]
         samples[curve] = np.asarray(gmsh.model.getValue(1, curve, ts), dtype=float)
         boxes[curve] = np.asarray(gmsh.model.getBoundingBox(1, curve), dtype=float)
-    reach = _UNSEWN_TOLERANCES * tolerance
-    unsewn: set[int] = set()
-    for a in free:
-        for b in free:
-            if a == b or a in unsewn:
+    smallest = min(sizes.values()) if sizes else 0.0
+    out: list[tuple[int, int, float]] = []
+    for a, name_a in free.items():
+        for b, name_b in free.items():
+            if a == b:
                 continue
+            reach = NEAR_MISS_SHARE * min(sizes.get(name_a, smallest), sizes.get(name_b, smallest))
             box_a, box_b = boxes[a], boxes[b]
             if np.any(box_a[:3] > box_b[3:] + reach) or np.any(box_b[:3] > box_a[3:] + reach):
                 continue
-            closest, _ = gmsh.model.getClosestPoint(1, b, samples[a])
-            gap = np.linalg.norm(
+            closest, params = gmsh.model.getClosestPoint(1, b, samples[a])
+            gaps = np.linalg.norm(
                 np.asarray(closest).reshape(-1, 3) - samples[a].reshape(-1, 3), axis=1
             )
-            if float(gap.max()) <= reach:
-                unsewn.add(a)
+            lo, hi = gmsh.model.getParametrizationBounds(1, b)
+            if lies_on(np.asarray(params, dtype=float), (lo[0], hi[0]), gaps, reach):
+                out.append((a, b, float(gaps.max())))
+                break
+    return out
+
+
+def _near_miss_gaps(
+    gmsh: Any, faces: dict[str, list[int]], sizes: dict[str, float]
+) -> tuple[list[dict[str, Any]], float]:
+    """Return the near misses of a join by pair of components, and the tolerance that closes them.
+
+    The first join's tolerance is a share of the assembly; a gap the files leave between two
+    faces that should meet can be wider. Each such gap is measured (:func:`_near_misses`); the
+    closing tolerance is :data:`_CLOSE_FACTOR` times the widest, 0 when there is none.
+    """
+    owner = {f: n for n, fs in faces.items() for f in fs}
+    misses = _near_misses(gmsh, owner, sizes)
+    pairs: dict[tuple[str, ...], dict[str, Any]] = {}
+    for a, b, gap in misses:
+        names = tuple(
+            sorted({owner.get(int(gmsh.model.getAdjacencies(1, c)[0][0]), "") for c in (a, b)})
+        )
+        entry = pairs.setdefault(names, {"components": list(names), "curves": 0, "gap": 0.0})
+        entry["curves"] += 1
+        entry["gap"] = max(entry["gap"], gap)
+    widest = max((gap for *_, gap in misses), default=0.0)
+    return [pairs[k] for k in sorted(pairs)], _CLOSE_FACTOR * widest
+
+
+def _boundary_edges(
+    gmsh: Any, owner: dict[int, str], sizes: dict[str, float]
+) -> tuple[set[tuple[int, int]], int]:
+    """Return the mesh edges on true boundaries of the body, and the free curves left unsewn.
+
+    A true boundary is a curve that bounds one face and lies on no other such curve: the open
+    root of a wing, the open base of a blunt trailing edge. A free curve that lies on another
+    (:func:`_near_misses`) is an edge the join missed, and its mesh edges are not boundaries.
+    """
+    tags, _, _ = gmsh.model.mesh.getNodes()
+    index = {int(t): i for i, t in enumerate(tags)}
+    unsewn = {a for a, _, _ in _near_misses(gmsh, owner, sizes)}
+    free = [
+        curve
+        for _, curve in gmsh.model.getEntities(1)
+        if len(gmsh.model.getAdjacencies(1, curve)[0]) == 1
+    ]
     boundary: set[tuple[int, int]] = set()
     for curve in free:
         if curve in unsewn:

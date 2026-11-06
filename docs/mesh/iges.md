@@ -69,7 +69,7 @@ Lengths are in the unit of the first IGES file.
 |---|---|
 | `fs_build` | The solver build the boundaries file names; default the newest build this package knows |
 | `[defaults] size` | The target edge of a component with no size; default a hundredth of the assembly's diagonal |
-| `[defaults] tolerance` | The distance within which two faces are joined; default a millionth of the assembly's diagonal |
+| `[defaults] tolerance` | The distance within which two faces are joined; default a millionth of the assembly's diagonal, widened to a measured gap the files leave (see checks below) |
 | `[defaults] te_angle_deg` | The angle of `trailing_edge = "auto"`, default 60 |
 | `[component.<Name>]` | One table per component, by the name the IGES gives it |
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
@@ -125,6 +125,14 @@ largest aspect above 20, and a component face that could not be meshed. The conf
 counts the open edges of the grid. An open edge on a curve that bounds one face and lies on no
 other is a boundary of the body, such as the open root of a wing; every other open edge is a
 mismatch, warned and recorded as `conformal_mismatches`.
+
+A free curve lies on another when five points of it are within a hundredth of the smaller size
+of the two components and project inside the other curve's own span (a point that projects past
+its end lies beside it, on the next piece of a curve the join cut). Such a pair is a join the
+files missed: when `[defaults] tolerance` is not given, the gap is measured and every face is
+joined again at one and a half times the widest gap, warned and recorded under `closed_gaps`
+with the components and the gap. A wider opening, such as a blunt trailing edge left open, is a
+boundary. A stated tolerance is kept, and a near miss under it stays a mismatch.
 
 ## Convert to B-spline faces
 

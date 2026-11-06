@@ -305,6 +305,86 @@ def test_p0560_grid_counts_an_unjoined_edge_as_a_mismatch(tmp_path, capsys):
     _, record, caught = run_grid(tmp_path, capsys, [source], text)
     assert record["conformal"]["conformal_mismatches"] > 0
     assert any("not boundaries of the body" in str(w.message) for w in caught)
+    # A stated tolerance is the user's: the near miss is reported, not closed.
+    assert record["closed_gaps"] == []
+
+
+def shared_nodes(target, a, b):
+    mesh = read_obj(target)
+    return {v for f in mesh.families[a] for v in f} & {v for f in mesh.families[b] for v in f}
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_closes_a_near_miss_join_from_its_measured_gap(tmp_path, capsys):
+    """A gap far below the component size is a join the file missed: measured, then closed."""
+    # 0.0005 is a fifth of a percent of the size 0.25, and far above the default join.
+    source = plate_and_flap(tmp_path, flap_gap=0.0005)
+    target, record, _ = run_grid(tmp_path, capsys, [source], PLATE_GRID)
+    assert record["conformal"]["conformal_mismatches"] == 0
+    assert len(shared_nodes(target, "Flap", "Plate")) == 7
+    (closed,) = record["closed_gaps"]
+    assert sorted(closed["components"]) == ["Flap", "Plate"]
+    assert closed["gap"] == pytest.approx(0.0005, rel=1e-3)
+    assert record["tolerance"] == pytest.approx(1.5 * closed["gap"], rel=1e-6)
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_keeps_a_gap_of_the_component_scale_as_an_open_boundary(tmp_path, capsys):
+    """A gap of 4 percent of the size is a real opening, such as a blunt trailing edge left open."""
+    source = plate_and_flap(tmp_path, flap_gap=0.01)
+    target, record, _ = run_grid(tmp_path, capsys, [source], PLATE_GRID)
+    assert record["conformal"]["conformal_mismatches"] == 0
+    assert record["conformal"]["boundary_edges"] == record["conformal"]["open_edges"]
+    assert not shared_nodes(target, "Flap", "Plate")
+    assert record["closed_gaps"] == []
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_a_point_projected_past_a_curves_end_does_not_lie_on_it():
+    """The numbers the no-cap tailplane root gave: the cut root's next piece, on the extension."""
+    from pyflightstream.workspace._iges_mesh import lies_on
+
+    gaps = np.array([2.19e-07, 7.49e-07, 3.73e-07, 4.69e-07, 5.3e-08])
+    beyond = np.array([1679.06967, 1679.6661, 1680.262529, 1680.858959, 1681.455389])
+    assert not lies_on(beyond, (0.0, 1678.47323995), gaps, 0.5)
+    # The control: the same gaps on the curve's own span lie on it, and a wide gap does not.
+    within = np.array([10.0, 400.0, 800.0, 1200.0, 1678.47323995])
+    assert lies_on(within, (0.0, 1678.47323995), gaps, 0.5)
+    assert not lies_on(within, (0.0, 1678.47323995), gaps + 0.6, 0.5)
+
+
+def curved_patch(iges, low, high, *, level):
+    """A patch quadratic along u (three control points per row) and linear along v."""
+    values = ["2", "1", "2", "1", "0", "0", "0", "0", "0"]
+    values += ["0.0", "0.0", "0.0", "1.0", "1.0", "1.0", "0.0", "0.0", "1.0", "1.0"]
+    values += ["1.0"] * 6
+    for point in (*low, *high):
+        values += [f"{c:.6f}" for c in point]
+    values += ["0.0", "1.0", "0.0", "1.0"]
+    return iges.add(128, values, level=level)
+
+
+def plate_and_fin(folder):
+    """A plate whose free lower edge is a parabola, and a fin on x = 1 that the join cuts it at."""
+    iges = Iges()
+    iges.name(1, "Plate")
+    iges.name(2, "Fin")
+    curved_patch(
+        iges, [(0, 0, 0), (1, -0.4, 0), (2, 0, 0)], [(0, 1, 0), (1, 1, 0), (2, 1, 0)], level=1
+    )
+    iges.patch([(1, -0.5, 0), (1, 1.2, 0), (1, -0.5, 1), (1, 1.2, 1)], level=2)
+    return iges.write(folder / "fin.igs")
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_two_pieces_of_one_cut_edge_are_both_boundaries(tmp_path, capsys):
+    """The pieces of a free edge the join cut lie on one curve's extension, never on each other."""
+    text = "[defaults]\nsize = 0.25\n[component.Plate]\n[component.Fin]\n"
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_fin(tmp_path)], text)
+    assert record["fragment"]["split"] >= 1
+    assert record["unsewn_curves"] == 0
+    assert record["conformal"]["conformal_mismatches"] == 0
+    assert record["conformal"]["boundary_edges"] == record["conformal"]["open_edges"] > 0
 
 
 @pytest.mark.requirement("FR-3702")

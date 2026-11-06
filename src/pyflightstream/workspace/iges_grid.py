@@ -280,7 +280,12 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
                 )
             sizes[name] = grid_of.size if grid_of and grid_of.size else default
         tolerance = config.tolerance or _DEFAULT_TOLERANCE_SHARE * diagonal
-        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance)
+
+        def reopen() -> Any:
+            gmsh.clear()
+            return import_named(gmsh, sources)
+
+        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance, reopen)
     return _write(
         target, model, config, order, sizes, meshed, default, _curves(sources, model.unit)
     )
