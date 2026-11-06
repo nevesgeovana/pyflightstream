@@ -3,10 +3,13 @@
 Usage: pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
 """
 
+import datetime
+import tomllib
 from pathlib import Path
 
 import pytest
 
+from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace._refine._obj import read_obj, read_sidecar
 from tests.tier1_offline.test_p0551_repitch import control, invoke, source_mesh
 
@@ -63,3 +66,18 @@ def test_p0560_refine_sidecar_reader_accepts_a_byte_order_mark(tmp_path):
     side.write_bytes(b"\xef\xbb\xbf" + b'file = "sector.obj"\n')
     found = read_sidecar(mesh)
     assert found is not None and found[1] == {"file": "sector.obj"}
+
+
+@pytest.mark.requirement("FR-3763")
+@pytest.mark.parametrize(
+    "value",
+    [
+        datetime.date(2026, 11, 5),
+        datetime.datetime(2026, 11, 5, 14, 30, 0),
+        datetime.datetime(2026, 11, 5, 14, 30, 0, 250000, tzinfo=datetime.UTC),
+        datetime.time(14, 30, 0),
+    ],
+)
+def test_p0560_toml_value_writes_a_date_or_time_that_reads_back(value):
+    text = toml_value({"when": value, "list": [value]})
+    assert tomllib.loads(f"x = {text}")["x"] == {"when": value, "list": [value]}
