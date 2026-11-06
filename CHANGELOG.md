@@ -84,6 +84,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Saved simulations written by FlightStream 26.127 are read again: that build writes the three
+  per-face edge rows of the mesh block as integers (0, or the trailing-edge group's number) where
+  earlier builds wrote T/F, and the reader refused every such file.
 - `geometry repitch` keeps the face order of an OBJ whose family returns after another; it wrote one
   block for each family, which moved faces with exit status 0 (PFS-2194).
 - `geometry repitch` with a `[repitch]` reference whose rotor states no `axis` is refused in words

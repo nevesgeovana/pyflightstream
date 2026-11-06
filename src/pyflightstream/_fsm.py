@@ -1145,6 +1145,13 @@ def _mesh_block(path: str | Path, *, geometry_only: bool = False) -> _Block:
     vertex-index rows (1-based), the 0/1 rows, the five T/F rows, a line
     reading 0, the vertex count, and the x, y and z rows. Every deviation
     is refused by name.
+
+    FlightStream 26.127 writes the three edge-slot rows (the second to the
+    fourth of the five) as integers: 0 for an edge that carries no trailing
+    edge and the trailing-edge group's number for one that does, measured by
+    the IMPORT_WAKE_EDGES_FROM_FILE probe of
+    reports/compat/CMP-26127_2026-11-06_marking.yaml (the second import's
+    edges read 2). A nonzero integer reads as a flagged edge, 0 as not.
     """
     target = Path(path)
     try:
@@ -1212,7 +1219,7 @@ def _mesh_block(path: str | Path, *, geometry_only: bool = False) -> _Block:
                 raise block.refuse(
                     f"a T/F row holds {len(tokens)} values where the block states {faces} faces"
                 )
-            flags.append(tuple(token == "T" for token in tokens))
+            flags.append(tuple(_edge_flag(token) for token in tokens))
         if len(flags) != _FLAG_ROWS:
             raise block.refuse(
                 f"it carries {len(flags)} T/F rows where every block read carries five"
@@ -1236,16 +1243,25 @@ def _mesh_block(path: str | Path, *, geometry_only: bool = False) -> _Block:
     return vertices, triangles, tuple(flags), owners
 
 
-def _mesh_flag_row(tokens, index, *, geometry_only):
-    """Accept opaque integer edge tags only for boundary-coordinate reads.
+def _edge_flag(token: str) -> bool:
+    """Read one per-face flag: T, or a nonzero trailing-edge group number (26.127)."""
+    if token in _FLAGS:
+        return token == "T"
+    return int(token) != 0
 
-    Integer tags occur in the three edge slots between the first and last
-    boolean rows. Their meaning is deliberately not decoded: boundary_vertices
-    discards flags, while trailing-edge consumers retain strict boolean reads.
+
+def _mesh_flag_row(tokens, index, *, geometry_only):
+    """Accept the integer edge-slot rows 26.127 writes between the first and last boolean rows.
+
+    The three edge slots (rows 1 to 3 of the five) may hold integers: 0 for no
+    trailing edge, the group's number for one (see :func:`_mesh_block`). The
+    first and last rows stay strictly boolean. ``geometry_only`` is kept for
+    the boundary-coordinate readers, which discard the flags either way.
     """
+    del geometry_only
     if set(tokens) <= _FLAGS:
         return True
-    if geometry_only and 1 <= index <= 3:
+    if 1 <= index <= 3:
         try:
             [int(token) for token in tokens]
         except ValueError:
