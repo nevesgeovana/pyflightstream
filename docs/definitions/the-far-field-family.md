@@ -336,7 +336,7 @@ RPT-074 measured a 90-degree rotation about z for surface VTK on 26.124:
 the points followed the analysis-loads frame, including its origin. That probe
 does not establish the wake's rotation or an out-of-plane tilted reference.
 The wake resolver tests translations only; rotated wake exports remain untested.
-The command grammar locators are FSM-26.100 p.348 and FSM-26.127 p.366;
+The command grammar locators are FSM-26.100 p.348 and FSM-26.127 p.367;
 the frame interpretation here rests on probe evidence, not a manual frame claim.
 
 For example, a start exported at `(-6.152, 0.3, 2)` with moment point
