@@ -23,6 +23,7 @@ from pyflightstream._errors import (
     NotApplicableWarning,
     PyflightstreamWarning,
 )
+from pyflightstream._fsm import trailing_edge_midpoints
 from pyflightstream.workspace import plan_mark_boundaries
 from pyflightstream.workspace._wheel import sector_to_wheel
 from tests.tier1_offline.test_p0540_wheel import (
@@ -266,3 +267,100 @@ def test_p0560_a_nacelle_base_under_another_boundary_s_name_is_not_guessed(tmp_p
     words = " ".join(str(item.message) for item in caught)
     assert not result.written and not (tmp_path / "body.fsm").exists()
     assert "base region of the nacelle 'N'" in words and "0 such names" in words
+
+
+# R1-MARK-001: a sector saved by FlightStream 26.127 holds the three edge-slot rows of the mesh
+# block as integers, 0 for no trailing edge and the trailing-edge group's number for one
+# (FR-3764). The saved route read only T/F rows there, so it warned the layout as not
+# recognized and wrote no wheel.
+EDGE_ROWS = (21, 22, 23)
+
+
+def _first_row(lines: list[str]) -> int:
+    start = lines.index("$MESH_START$")
+    return start + 4 + 3 * int(lines[start + 3]) + 1
+
+
+def _cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.split(",") if cell.strip()]
+
+
+def _as_26127(sector: Path, out: Path, *, value: int | None = None) -> Path:
+    """Rewrite the edge-slot rows as 26.127 saves them: T as the face's group (row 5), F as 0."""
+    lines = sector.read_text().split("\n")
+    first = _first_row(lines)
+    group = [int(v) for v in _cells(lines[first + 5])]
+    for k in EDGE_ROWS:
+        flags = _cells(lines[first + k])
+        lines[first + k] = "".join(
+            f"{(group[i] if value is None else value) if f == 'T' else 0},"
+            for i, f in enumerate(flags)
+        )
+    out.write_text("\n".join(lines))
+    return out
+
+
+def _mesh_rows(path: Path) -> dict[int, list[str]]:
+    lines = path.read_text().split("\n")
+    first = _first_row(lines)
+    return {k: _cells(lines[first + k]) for k in range(25)}
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_001_the_saved_route_repeats_a_26127_sector_with_each_copy_s_groups(
+    tmp_path: Path,
+) -> None:
+    sector = build_saved_sector(tmp_path, build_sector(tmp_path, copies=COPIES))
+    saved = _as_26127(sector, tmp_path / "sector_26127.fsm")
+    out = tmp_path / "wheel.fsm"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], axis="x", out=out)
+    assert not [w for w in caught if "not recognized" in str(w.message)]
+    assert result.written
+    plain = tmp_path / "plain_wheel.fsm"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], axis="x", out=plain)
+    # the trailing edges of the wheel of the same sector saved with T/F rows
+    assert trailing_edge_midpoints(out) == trailing_edge_midpoints(plain)
+    rows, flags = _mesh_rows(out), _mesh_rows(plain)
+    group = np.array([int(v) for v in rows[5]])
+    named: set[int] = set()
+    for k in EDGE_ROWS:
+        written = np.array([int(v) for v in rows[k]])
+        marked = np.array([f == "T" for f in flags[k]])
+        # the integer form is kept, and each flagged edge names its own copy's group
+        assert (written[marked] == group[marked]).all()
+        assert (written[~marked] == 0).all()
+        named |= set(written[marked].tolist())
+    # every copy's rim groups, not the sector's repeated: two blade rims per copy and the nacelle
+    assert len(named) == 2 * COPIES + 1
+    assert set(rows[20]) <= {"T", "F"} and set(rows[24]) <= {"T", "F"}
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_001_an_integer_edge_flag_that_is_not_its_face_s_group_is_not_guessed(
+    tmp_path: Path,
+) -> None:
+    """An integer that is not the rim face's group has no measured meaning: warned, no wheel."""
+    sector = build_saved_sector(tmp_path, build_sector(tmp_path, copies=COPIES))
+    odd = _as_26127(sector, tmp_path / "odd.fsm", value=7)
+    out = tmp_path / "odd_wheel.fsm"
+    with pytest.warns(PyflightstreamWarning, match="not recognized"):
+        result = sector_to_wheel(odd, copies=COPIES, blades=["Blade1"], axis="x", out=out)
+    assert not result.written and not out.exists()
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_001_the_body_of_a_26127_sector_names_the_form_it_does_not_read(
+    tmp_path: Path,
+) -> None:
+    """power-off-body reads the edge rows as flags, so it names the 26.127 form, writes nothing."""
+    from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+
+    saved = _as_26127(build_blunt_sector(tmp_path), tmp_path / "blunt_26127.fsm")
+    with pytest.warns(PyflightstreamWarning) as caught:
+        result = _body(saved, tmp_path / "body.fsm")
+    assert not result.written and not (tmp_path / "body.fsm").exists()
+    assert "26.127" in " ".join(str(item.message) for item in caught)

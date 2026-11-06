@@ -642,7 +642,10 @@ after the base-region model codes, and the wheel keeps them unchanged, comparing
 row it copies with the sector's and writing nothing if one differs. A base region or trailing-edge group
 named for no boundary, as a sector marked with `merge_into` holds, follows the
 boundary its faces lie on: on a blade it is repeated, its copies named
-`<stem><k>`, and elsewhere it stays single. A file whose layout the reader does
+`<stem><k>`, and elsewhere it stays single. A save of FlightStream 26.127 holds the
+three per-face trailing-edge rows as integers, 0 or the rim face's trailing-edge group,
+where earlier builds hold T/F; the wheel keeps that form, each copy's edges naming the
+copy's own group. A file whose layout the reader does
 not recognize (a name in the physics block with no face in the mesh, or with
 faces both on a blade and off it, two names whose copies would be named alike,
 a row of another length, a termination count that differs) is warned with the
