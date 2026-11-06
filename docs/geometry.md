@@ -537,7 +537,10 @@ Setting `MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
 **FlightStream 26.127.** Each `IMPORT_WAKE_EDGES_FROM_FILE` is one trailing-edge group there,
 so a file whose edges form several connected runs, such as the two sides of a blunt trailing
 edge, is imported one run at a time: one group per rim, the groups a sector saved by the solver
-holds, with the same edges marked. The read-back expects one group per run.
+holds, with the same edges marked. The read-back expects one group per run. As on 26.100,
+every file rim of a base region is imported before the first `CREATE_NEW_BASE_REGION`, and an
+`auto` rim follows the creates: a rim file imported right after the create of its base has
+been seen to keep only part of its edges, which the read-back refuses by name.
 
 A long preview reports each stage on standard error (reading, matching and placing each entry,
 rendering), so a fine mesh is not silent.

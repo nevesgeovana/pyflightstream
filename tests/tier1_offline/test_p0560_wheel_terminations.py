@@ -446,3 +446,42 @@ def test_p0560_r1_mark_s2_a_file_of_two_rims_is_one_group_per_rim_on_26127(
         ]
         assert len(names) == per_file
         assert len(rows) == len(set(rows)) == len(entry["points_m"])
+
+
+NACELLE_RIM = '[trailing_edges.N]\nfile = "sector.N.te.txt"\ntype = "STANDARD"\n'
+NACELLE_BASE = '[base_regions.NBase]\ntrailing_edges = "auto"\n'
+
+
+@pytest.mark.parametrize("build", ["26.125", "26.127"])
+def test_p0560_r1_mark_s3_a_base_region_s_rim_file_is_imported_before_the_creates_on_26127(
+    tmp_path: Path, build: str
+) -> None:
+    """R1-MARK-S3: on 26.127 the nacelle's rim file, imported right after the create of its
+    base, kept 50 of its 72 edges, while every rim imported before the first create kept all.
+    On 26.127 every file rim is imported before the first CREATE_NEW_BASE_REGION, as on
+    26.100, and an ``auto`` rim follows the creates; 26.125 keeps its order."""
+    built = build_sector(tmp_path, copies=COPIES, separate_base=True)
+    sidecar = tmp_path / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    assert text.count(NACELLE_RIM) == 1 and text.count(NACELLE_BASE) == 1
+    text = text.replace(NACELLE_RIM, "").replace(
+        NACELLE_BASE,
+        '[base_regions.NBase]\ntrailing_edges = { file = "sector.N.te.txt", type = "STANDARD" }\n',
+    )
+    sidecar.write_text(text.replace('"26.124"', f'"{build}"'), encoding="utf-8")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_mark_boundaries(wheel)
+    lines = plan.script.splitlines()
+    imports = [i for i, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES")]
+    creates = [i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_BASE_REGION")]
+    autos = [i for i, line in enumerate(lines) if line.startswith("SET_BASE_REGION_TRAILING")]
+    assert imports and creates and autos
+    if build == "26.127":
+        assert max(imports) < min(creates) < max(creates) < min(autos)
+    else:
+        assert max(imports) > min(creates)
+    # the read-back expects as many groups as the script marks
+    assert sum(count for _, count in plan.group_spans()) == len(imports) + len(autos)

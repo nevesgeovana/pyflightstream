@@ -108,6 +108,20 @@ parts its vertex files into rims for its own reason (FR-3470).
 """
 
 
+RIMS_FIRST_BUILDS: frozenset[str] = frozenset({VERTEX_FILE_BUILD, "26.127"})
+"""Builds on which every file rim of a base region is imported before the first base is created.
+
+26.100 measured it (:func:`_bases_on_the_vertex_build`). On 26.127 a licensed marking of a
+six-blade wheel imported every blade rim file in full before any CREATE_NEW_BASE_REGION (six
+times 116 of 116 edges), and the nacelle's rim file, imported right after the create of its
+base, 50 of its 72 edges, though each of its points lies within 5e-10 m of one mesh edge
+mid-point shared by the nacelle and its base, the next 13.9 mm away, at a tolerance of 1e-4 m,
+before any merge. Which of the 22 edges are lost follows neither the nearer face nor the face
+order; the import order is the one difference left, so it is the one changed here, for a
+licensed run to confirm. The read-back refuses a file whose edges are missing either way.
+"""
+
+
 class BoundaryMarkingError(PyflightstreamError):
     """A marking pass failed its solver execution or saved-state read-back."""
 
@@ -146,21 +160,21 @@ class BoundaryMarkingPlan:
 
         Saved groups stand in the order the script marked them. A declared unit is one group,
         except on 26.100, where each rim file is a group of its own (measured), a file warned
-        and skipped is none, and an ``auto`` rim follows the file rims, and on the builds of
-        :data:`RIM_GROUP_BUILDS`, where each rim of a file is a group of its own.
+        and skipped is none, and on the builds of :data:`RIM_GROUP_BUILDS`, where each rim of a
+        file is a group of its own. On the builds of :data:`RIMS_FIRST_BUILDS` an ``auto`` rim
+        follows the file rims.
         """
         declared = self.declarations
         units: list[Any] = [*(entry.marking for entry in declared.trailing_edges)]
         units += [region.trailing_edges for region in declared.base_regions]
         vertex_files = declared.fs_build == VERTEX_FILE_BUILD
-        rim_groups = (
-            declared.fs_build is not None
-            and resolve(declared.fs_build).canonical in RIM_GROUP_BUILDS
-        )
+        build = None if declared.fs_build is None else resolve(declared.fs_build).canonical
+        rim_groups = build in RIM_GROUP_BUILDS
+        rims_first = build in RIMS_FIRST_BUILDS
         rim_sets = iter(self.sets)
         spans: dict[int, tuple[int, int]] = {}
         first = 0
-        for unit in sorted(range(len(units)), key=lambda i: vertex_files and units[i] == "auto"):
+        for unit in sorted(range(len(units)), key=lambda i: rims_first and units[i] == "auto"):
             marking = units[unit]
             count = 1
             if vertex_files and marking != "auto" and marking.route == "file":
@@ -541,7 +555,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
 
-    if build == VERTEX_FILE_BUILD:
+    if build in RIMS_FIRST_BUILDS:
         _bases_on_the_vertex_build(regions, rim, create, step)
         return
     for index, region in enumerate(regions, 1):

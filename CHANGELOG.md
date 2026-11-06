@@ -84,7 +84,9 @@ FlightStream versions.
 - `geometry mark-boundaries` on FlightStream 26.127 imports a trailing-edge file one connected
   run of edges at a time, so the two sides of a blunt trailing edge declared in one file are two
   trailing-edge groups, as in a sector the solver saved, where one import made one group of
-  both; the edges marked are the same, and the read-back expects one group per run.
+  both; the edges marked are the same, and the read-back expects one group per run. Every
+  file rim of a base region is imported there before the first base is created, as on 26.100,
+  where a rim file imported right after the create of its base kept only part of its edges.
 - `pyfs-workspace geometry build --apply` runs a `[mesh]` build with no operation on 26.100 and
   on 26.124 to 26.127: `EXPORT_SURFACE_MESH` is verified on those builds by a new probe that
   reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the
