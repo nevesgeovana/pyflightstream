@@ -1181,11 +1181,6 @@
       "path": "run/_cli_geometry.py"
     },
     {
-      "id": "pyflightstream.run._cli_iges",
-      "layer": 1,
-      "path": "run/_cli_iges.py"
-    },
-    {
       "id": "pyflightstream.run._cli_merge",
       "layer": 1,
       "path": "run/_cli_merge.py"
@@ -10549,11 +10544,6 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
-      "target": "pyflightstream.run._cli_iges",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_merge",
       "kind": "module"
     },
@@ -10638,21 +10628,6 @@
       "kind": "deferred"
     },
     {
-      "source": "pyflightstream.run._cli_iges",
-      "target": "pyflightstream.run._cli_morph",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_iges",
-      "target": "pyflightstream.workspace.iges_convert",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.run._cli_iges",
-      "target": "pyflightstream.workspace.iges_grid",
-      "kind": "deferred"
-    },
-    {
       "source": "pyflightstream.run._cli_merge",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -10720,6 +10695,16 @@
     {
       "source": "pyflightstream.run._cli_morph",
       "target": "pyflightstream.workspace.hub_rings",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.iges_convert",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.workspace.iges_grid",
       "kind": "deferred"
     },
     {

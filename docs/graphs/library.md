@@ -1242,7 +1242,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.run._cli_iges">pyflightstream.run._cli_iges</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_merge">pyflightstream.run._cli_merge</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_mesh">pyflightstream.run._cli_mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_morph">pyflightstream.run._cli_morph</a> (module)</li>
@@ -1260,12 +1259,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.trailing_edges">pyflightstream.workspace.trailing_edges</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.trailing_edges">pyflightstream.workspace.trailing_edges</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (deferred)</li>
-</ul></details>
-
-<details id="pyflightstream.run._cli_iges"><summary><code>pyflightstream.run._cli_iges</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream.run._cli_morph">pyflightstream.run._cli_morph</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace.iges_convert">pyflightstream.workspace.iges_convert</a> (deferred)</li>
-<li>&rarr; <a href="#pyflightstream.workspace.iges_grid">pyflightstream.workspace.iges_grid</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.run._cli_merge"><summary><code>pyflightstream.run._cli_merge</code></summary><ul>
@@ -1289,6 +1282,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.collapse_te">pyflightstream.workspace.collapse_te</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.hub_rings">pyflightstream.workspace.hub_rings</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.iges_convert">pyflightstream.workspace.iges_convert</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.iges_grid">pyflightstream.workspace.iges_grid</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.morph">pyflightstream.workspace.morph</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.repitch">pyflightstream.workspace.repitch</a> (deferred)</li>
 </ul></details>

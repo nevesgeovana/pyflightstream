@@ -40,7 +40,7 @@ command writes:
 | `model.obj` | One family (`g`) per component, in the order of the grid control file, then the components the file does not name in the order of the IGES files; each family's faces turned to point outward |
 | `model.obj.boundaries.toml` | The boundaries file `geometry mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
 | `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line; a character of the name a file name cannot hold is written `_` |
-| `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, and every warning |
+| `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect, smallest and largest corner angle, sliver faces and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, and every warning |
 
 The OBJ then enters `geometry mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
 other OBJ.
@@ -88,7 +88,15 @@ corners of wing, tail and body panels.
 
 The span pair of a four-sided patch is the pair of opposite sides closer to the span axis; the
 other pair is the chord. A side shorter than the component's size is a strip, such as the base
-of a blunt trailing edge, and takes one cell whatever its law.
+of a blunt trailing edge, and takes one cell whatever its law; a count the grid control file
+states for that direction is then warned with the component, the side and both counts.
+
+A patch meshed quad-dominant grows its cells from its short curves: about a curve shorter than
+the component's size, such as a piece the join cuts off, the size is that curve's length and
+grows by 0.3 of the distance from it until it is the component's size again, so the curve
+closes with cells of its own length rather than a sliver. These patches are meshed with gmsh's
+MeshAdapt algorithm, which keeps the size on a strongly curved or narrow face, and two triangles
+become a quad only when its every corner lies between 6 and 174 degrees.
 
 | `law` | Spacing |
 |---|---|
@@ -98,7 +106,8 @@ of a blunt trailing edge, and takes one cell whatever its law.
 | `tanh` | A one-sided clustering of coefficient `ratio` (default 1.05; nearer 1 clusters harder) |
 
 The clustered end of a one-sided law is the tip for a span side (the end farther from the plane
-of symmetry along the span axis) and the downstream end, the larger x, for a chord side. When
+of symmetry along the span axis) and the downstream end, the larger x, for a chord side, on both
+sides of a patch whichever way the join left each curve. When
 `le_cluster` and `te_cluster` differ, the cosine law, which is symmetric, takes the smaller and
 warns.
 
@@ -127,7 +136,9 @@ those curves, within a hundredth of the component's size, are the trailing edge.
 ### Checks and warnings
 
 Quality is warned with its numbers and never refused: a least scaled Jacobian below 0.1, a
-largest aspect above 20, and a component face that could not be meshed. The conformal check
+largest aspect above 20, sliver faces (a corner under 5 or over 175 degrees, on which the
+solver's surface vorticity can degenerate) with their count and the component's corner range,
+and a component face that could not be meshed. The conformal check
 counts the open edges of the grid. An open edge on a curve that bounds one face and lies on no
 other is a boundary of the body, such as the open root of a wing; every other open edge is a
 mismatch, warned and recorded as `conformal_mismatches`.

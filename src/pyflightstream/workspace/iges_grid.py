@@ -51,6 +51,9 @@ _DEFAULT_TOLERANCE_SHARE = 1e-6
 #: Quality below which a component is warned (never refused): least scaled Jacobian, largest
 #: aspect (longest edge over shortest edge of one face).
 WARN_JACOBIAN, WARN_ASPECT = 0.1, 20.0
+#: A sliver is a face with a corner under this angle or over 180 degrees less it, in degrees: a
+#: panel the solver's surface vorticity can degenerate on.
+SLIVER_DEG = 5.0
 #: The half angle of the cone about +x (downstream) within which the bisector of a trailing
 #: edge's two normals points.
 _AFT_CONE_DEG = 60.0
@@ -90,6 +93,34 @@ def _normal(verts: NDArray[np.float64], face: list[int]) -> NDArray[np.float64]:
     )
 
 
+def _walk(
+    out: Faces, owners: dict[tuple[int, int], list[int]], start: int, seen: list[bool]
+) -> tuple[list[int], int]:
+    """Orient the connected piece of ``start`` like it, in place; return the piece and the flips.
+
+    A neighbour across an edge two faces share that runs the edge the same way is reversed.
+    """
+    piece, stack = [start], [start]
+    seen[start] = True
+    flips = 0
+    while stack:
+        i = stack.pop()
+        for a, b in set(_edges(out[i])):
+            sharing = owners[(min(a, b), max(a, b))]
+            if len(sharing) != 2:
+                continue
+            for j in sharing:
+                if j == i or seen[j]:
+                    continue
+                if (a, b) in set(_edges(out[j])):
+                    out[j].reverse()
+                    flips += 1
+                seen[j] = True
+                piece.append(j)
+                stack.append(j)
+    return piece, flips
+
+
 def orient(verts: NDArray[np.float64], faces: Faces) -> tuple[Faces, int]:
     """Orient the faces of one component consistently and outward; return them and the flips.
 
@@ -108,21 +139,8 @@ def orient(verts: NDArray[np.float64], faces: Faces) -> tuple[Faces, int]:
     for start in range(len(out)):
         if seen[start]:
             continue
-        piece, stack = [start], [start]
-        seen[start] = True
-        while stack:
-            i = stack.pop()
-            directed = set(_edges(out[i]))
-            for a, b in directed:
-                for j in owners[(min(a, b), max(a, b))]:
-                    if j == i or seen[j] or len(owners[(min(a, b), max(a, b))]) != 2:
-                        continue
-                    if (a, b) in set(_edges(out[j])):
-                        out[j].reverse()
-                        flips += 1
-                    seen[j] = True
-                    piece.append(j)
-                    stack.append(j)
+        piece, turned = _walk(out, owners, start, seen)
+        flips += turned
         centre = verts[np.unique([v for i in piece for v in out[i]])].mean(axis=0)
         outward = sum(
             float(_normal(verts, out[i]) @ (verts[out[i]].mean(axis=0) - centre)) for i in piece
@@ -175,10 +193,21 @@ def _compact(
     return nodes[keep], out, edges
 
 
+def _corners(p: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Return the angle at each corner of one face, in degrees (0 where an edge has no length)."""
+    before = np.roll(p, 1, axis=0) - p
+    after = np.roll(p, -1, axis=0) - p
+    lengths = np.linalg.norm(before, axis=1) * np.linalg.norm(after, axis=1)
+    dot = np.einsum("ij,ij->i", before, after)
+    cosine = np.divide(dot, lengths, out=np.ones_like(dot), where=lengths > 0)
+    return np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+
+
 def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
-    """Return the faces, nodes, quad share and largest aspect of one component."""
+    """Return the faces, nodes, quad share, largest aspect and corner angles of one component."""
     quads = sum(1 for f in faces if len(f) == 4)
     aspect = 0.0
+    smallest, largest, slivers = 180.0, 0.0, 0
     for face in faces:
         p = verts[face]
         e = np.linalg.norm(np.roll(p, -1, axis=0) - p, axis=1)
@@ -186,6 +215,10 @@ def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
             aspect = max(aspect, float(e.max() / e.min()))
         else:
             aspect = math.inf
+        angles = _corners(p)
+        low, high = float(angles.min()), float(angles.max())
+        smallest, largest = min(smallest, low), max(largest, high)
+        slivers += low < SLIVER_DEG or high > 180.0 - SLIVER_DEG
     return {
         "faces": len(faces),
         "nodes": len({v for f in faces for v in f}),
@@ -193,6 +226,9 @@ def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
         "triangles": len(faces) - quads,
         "quad_share": quads / len(faces) if faces else 0.0,
         "largest_aspect": aspect,
+        "smallest_corner_deg": smallest,
+        "largest_corner_deg": largest,
+        "sliver_faces": slivers,
     }
 
 
@@ -286,9 +322,16 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
             gmsh.clear()
             return import_named(gmsh, sources)
 
-        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance, reopen)
+        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen)
     return _write(
-        target, model, config, order, sizes, meshed, default, _curves(sources, model.unit)
+        target,
+        model,
+        config,
+        order,
+        sizes,
+        meshed=meshed,
+        default=default,
+        curves=_curves(sources, model.unit),
     )
 
 
@@ -333,6 +376,12 @@ def _quality_warnings(name: str, stats: dict[str, Any]) -> list[str]:
         out.append(f"{name}: least scaled Jacobian {jacobian:.3g} is below {WARN_JACOBIAN}")
     if stats["largest_aspect"] > WARN_ASPECT:
         out.append(f"{name}: largest aspect {stats['largest_aspect']:.3g} is above {WARN_ASPECT}")
+    if stats["sliver_faces"]:
+        out.append(
+            f"{name}: {stats['sliver_faces']} sliver face(s) with a corner under {SLIVER_DEG:g} "
+            f"or over {180 - SLIVER_DEG:g} degrees (corners from "
+            f"{stats['smallest_corner_deg']:.3g} to {stats['largest_corner_deg']:.4g})"
+        )
     return out
 
 
@@ -341,6 +390,7 @@ def _trailing(
     faces: Faces,
     grid: Any,
     config: GridConfig,
+    *,
     curves: dict[str, list[NDArray[np.float64]]],
     size: float,
 ) -> tuple[set[tuple[int, int]], list[str]]:
@@ -392,6 +442,7 @@ def _write(
     config: GridConfig,
     order: list[str],
     sizes: dict[str, float],
+    *,
     meshed: Any,
     default: float,
     curves: dict[str, list[NDArray[np.float64]]],
@@ -416,7 +467,7 @@ def _write(
         warnings += _quality_warnings(name, stats)
         grid = config.components.get(name)
         if grid is not None and grid.trailing_edge is not None:
-            found, said = _trailing(verts, faces, grid, config, curves, sizes[name])
+            found, said = _trailing(verts, faces, grid, config, curves=curves, size=sizes[name])
             warnings += said
             if found:
                 te[name] = found

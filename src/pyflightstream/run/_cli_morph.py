@@ -1,12 +1,15 @@
-"""The ``pyfs-workspace geometry`` verbs a morphing control file drives (PFS-2189, PFS-2193).
+"""The ``pyfs-workspace geometry`` verbs that write a new mesh and print its record.
 
-Pipeline role: the run layer's parsers and handlers for ``repitch``, ``collapse-te``,
-``hub-rings`` and ``morph``. The work is the workspace layer's
+Pipeline role: the run layer's parsers and handlers for the verbs a morphing control file
+drives, ``repitch``, ``collapse-te``, ``hub-rings`` and ``morph`` (PFS-2189, PFS-2193), and for
+the verbs that read named IGES files, ``iges-grid`` and ``iges-convert`` (PFS-2198, PFS-2199,
+on the optional ``gmsh`` extra). The work is the workspace layer's
 (:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
-:mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`); this module
-only reads the command line, calls it,
-prints the checks it returns and gives the exit code: 0 when the output was written, 2 when the
-input is refused, with the refusal on standard error and nothing written. Each parser names its
+:mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`,
+:mod:`pyflightstream.workspace.iges_grid`, :mod:`pyflightstream.workspace.iges_convert`); this
+module only reads the command line, calls it, prints the checks or the record it returns and
+gives the exit code: 0 when the output was written, 2 when the input is refused or the gmsh
+extra is missing, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
 :data:`MORPH_VERBS`.
@@ -150,12 +153,65 @@ def run_morph(args: argparse.Namespace) -> int:
     return _print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
 
 
+def add_iges_grid_parser(subparsers: Any) -> None:
+    """Add the verb that grids named IGES components into one OBJ."""
+    parser = subparsers.add_parser(
+        "iges-grid",
+        help="grid the named components of IGES files into one OBJ (needs the gmsh extra)",
+        description=(
+            "Each component the IGES files name (the NAME of a level) becomes one family of the "
+            "OBJ. Faces are joined so shared edges are conformal; four-sided patches follow the "
+            "laws of the grid control file and become quads, other patches are quad-dominant at "
+            "the component's size. Writes the OBJ, <out>.boundaries.toml for mark-boundaries, "
+            "one points file per trailing edge found and the record <out>.json. Quality is "
+            "warned, never refused (docs/mesh/iges.md)."
+        ),
+    )
+    parser.add_argument("iges", nargs="+", help="IGES files, read only")
+    parser.add_argument("--grid", required=True, help="grid control file (TOML)")
+    parser.add_argument("--out", required=True, help="new .obj")
+    parser.set_defaults(mesh_command=run_iges_grid)
+
+
+def run_iges_grid(args: argparse.Namespace) -> int:
+    """Run iges-grid and print the record written beside its output."""
+    from pyflightstream.workspace.iges_grid import grid_iges
+
+    return _print_checks(lambda: grid_iges(args.iges, args.grid, args.out))
+
+
+def add_iges_convert_parser(subparsers: Any) -> None:
+    """Add the verb that rewrites named IGES files as one IGES of B-spline faces."""
+    parser = subparsers.add_parser(
+        "iges-convert",
+        help="rewrite IGES files as one IGES of B-spline faces, names kept (needs the gmsh extra)",
+        description=(
+            "Every face of the IGES files is converted to a B-spline surface and written to one "
+            "IGES, each component on its own level with one NAME, so the solver's CAD import "
+            "and this package read the same components back. The first file's length unit is "
+            "kept. Writes the IGES and the record <out>.json (docs/mesh/iges.md)."
+        ),
+    )
+    parser.add_argument("iges", nargs="+", help="IGES files, read only")
+    parser.add_argument("--out", required=True, help="new .igs")
+    parser.set_defaults(mesh_command=run_iges_convert)
+
+
+def run_iges_convert(args: argparse.Namespace) -> int:
+    """Run iges-convert and print the record written beside its output."""
+    from pyflightstream.workspace.iges_convert import convert_iges
+
+    return _print_checks(lambda: convert_iges(args.iges, args.out))
+
+
 #: The parser of each verb this module adds, by its name in the group.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
     "collapse-te": add_collapse_te_parser,
     "hub-rings": add_hub_rings_parser,
     "morph": add_morph_parser,
+    "iges-grid": add_iges_grid_parser,
+    "iges-convert": add_iges_convert_parser,
 }
 
 #: The verbs this module adds to the group.
