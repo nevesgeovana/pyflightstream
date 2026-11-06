@@ -562,6 +562,22 @@ def test_p0560_grid_finds_a_sharp_trailing_edge_and_marks_it(tmp_path, capsys):
 
 
 @pytest.mark.requirement("FR-3703")
+def test_p0560_grid_names_a_trailing_edge_file_the_file_system_takes(tmp_path, capsys):
+    """R1-IGES-006: a component name a file name cannot hold still gets its points file."""
+    name = "Wing/Left: A"
+    text = (
+        f'[component."{name}"]\nsize = 0.5\nchord = {{count = 8, law = "cosine"}}\n'
+        'span = {count = 5, law = "uniform"}\ntrailing_edge = "auto"\n'
+    )
+    target, record, _ = run_grid(tmp_path, capsys, [wedge(tmp_path, component=name)], text)
+    data = tomllib.loads(Path(str(target) + ".boundaries.toml").read_text(encoding="utf-8"))
+    file = data["trailing_edges"][name]["file"]
+    assert file == record["trailing_edges"][name]["file"] == "model.Wing_Left_ A.te.txt"
+    unit, points = read_te(tmp_path / file)
+    assert unit == "MILLIMETER" and len(points) == 5
+
+
+@pytest.mark.requirement("FR-3703")
 def test_p0560_grid_takes_a_trailing_edge_from_a_named_iges_curve(tmp_path, capsys):
     text = (
         '[component.Wing]\nsize = 0.5\nchord = {count = 8, law = "cosine"}\n'

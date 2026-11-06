@@ -39,7 +39,7 @@ command writes:
 |---|---|
 | `model.obj` | One family (`g`) per component, in the order of the grid control file, then the components the file does not name in the order of the IGES files; each family's faces turned to point outward |
 | `model.obj.boundaries.toml` | The boundaries file `geometry mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
-| `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line |
+| `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line; a character of the name a file name cannot hold is written `_` |
 | `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, and every warning |
 
 The OBJ then enters `geometry mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
