@@ -12,6 +12,7 @@ nothing.
 """
 
 import json
+import shutil
 import tomllib
 import warnings
 from pathlib import Path
@@ -584,6 +585,26 @@ def test_p0560_morph_runs_the_chain_and_writes_one_output(tmp_path, wheel):
     # each blade's two rim entries became one trailing-edge line
     sidecar = tomllib.loads(Path(f"{out}.boundaries.toml").read_text())
     assert len(sidecar["trailing_edges"]) == COPIES
+
+
+def test_p0560_api_f1_a_wheel_without_a_centre_says_it_turns_about_the_origin(tmp_path):
+    """RELEASE review API F1: [wheel] takes its axis from [repitch] but its centre defaults to the
+    origin, so a rotor off the origin would be copied wrongly with no word. The default is now
+    warned; a stated centre is not."""
+    source = build(tmp_path, wheel=False, nacelle=True, wing=False)
+    out = tmp_path / "out" / "morphed.obj"
+    for text, said in (
+        (CHAIN.format(angle=2.0, point=STATION) + "[wheel]\n", True),
+        (CHAIN.format(angle=2.0, point=STATION) + "[wheel]\ncenter = [0.0, 0.0, 0.0]\n", False),
+    ):
+        cfg = control(tmp_path, text, wheel=False)
+        if out.parent.exists():
+            shutil.rmtree(out.parent)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert invoke("morph", source, cfg, out) == 0
+        hits = [w for w in caught if "wheel.center is not stated" in str(w.message)]
+        assert bool(hits) is said, [str(w.message) for w in caught]
 
 
 @pytest.mark.requirement("FR-3675")
