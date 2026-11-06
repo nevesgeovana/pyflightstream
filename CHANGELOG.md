@@ -56,6 +56,10 @@ FlightStream versions.
   so the wheel `geometry sector-to-wheel` writes from an OBJ sector with explicit terminations and
   merged bases passes the preview. On another build the pair is still refused, now naming the
   measured builds and their reports.
+- `geometry power-off-body` reads a sector marked with `merge_into`: the nacelle's base region
+  and rim group, held under the merged family's name (`NBase` on `N`), become the body's, and a
+  warning names every merged family, which the body keeps and which it removes with the blade.
+  The verb used to write nothing on that sector.
 
 ## [0.55.1] - 2026-11-05
 

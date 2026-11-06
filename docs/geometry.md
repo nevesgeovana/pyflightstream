@@ -748,9 +748,12 @@ edge, more than one blade, a nacelle without a base, a blade that is not a quad 
 between two rims, an axis off the origin) is warned, naming what was not found;
 nothing is written and the exit code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
 inferred from saved files**, as for `sector-to-wheel`, and a sector marked with `merge_into` is
-read as it is there, except that `power-off-body` needs the nacelle's base region and rim group
-under the nacelle's name, and says so; the rows written are stated
-in the writer's docstring.
+read as it is there. `power-off-body` takes the nacelle's base region and rim group under the
+nacelle's name or, as that marking leaves them, under the one name for no boundary whose faces
+lie on the nacelle alone (`NBase` merged into `N`), and writes them under that name. It warns,
+naming every merged family, which it keeps and which it removes with the blade (`Base1` merged
+into `Blade1`); a nacelle with no such entry, or with two, is warned as not found and nothing is
+written. The rows written are stated in the writer's docstring.
 
 **The blade** is rebuilt from the source surface, not from its distribution. Each
 chord ring is a monotonic spline of arc length on each side from the leading edge;

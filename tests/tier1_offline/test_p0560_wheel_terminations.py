@@ -1,10 +1,11 @@
 """P0560-WHEEL: wake terminations carried by sector-to-wheel and marked across a merge.
 
-Pipeline role: tier-1 oracle of PFS-2195 (FR-3720, FR-3721) and PFS-2187.08 (FR-3722, FR-3723).
-The sector is the synthetic one of ``test_p0540_wheel``, with its blade base and nacelle base
-merged into their parents and one explicit wake-termination node at the tip end of a rim. The
-node expected in the wheel is that tip point turned by each copy's angle, computed here, not
-read from the code under test.
+Pipeline role: tier-1 oracle of PFS-2195 (FR-3720, FR-3721), PFS-2187.08 (FR-3722, FR-3723)
+and PFS-2187.11 (FR-3724, the body of a nacelle marked with ``merge_into``, compared with the
+body of the same sector named for its boundaries). The wheel's sector is the synthetic one of
+``test_p0540_wheel``, with its blade base and nacelle base merged into their parents and one
+explicit wake-termination node at the tip end of a rim. The node expected in the wheel is that
+tip point turned by each copy's angle, computed here, not read from the code under test.
 """
 
 from __future__ import annotations
@@ -17,7 +18,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError, NotApplicableWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    NotApplicableWarning,
+    PyflightstreamWarning,
+)
 from pyflightstream.workspace import plan_mark_boundaries
 from pyflightstream.workspace._wheel import sector_to_wheel
 from tests.tier1_offline.test_p0540_wheel import (
@@ -197,3 +202,67 @@ def test_p0560_the_saved_route_warns_that_the_switch_does_not_apply_and_carries_
     assert result.written
     assert any("--no-wake-terminations" in str(item.message) for item in caught)
     assert _record(tmp_path, "saved")["wake_terminations"] == "carried"
+
+
+def _body(sector: Path, out: Path):
+    from pyflightstream.workspace import power_off_body
+
+    return power_off_body(sector, blades=["Blade1"], copies=COPIES, out=out)
+
+
+@pytest.mark.requirement("FR-3724")
+def test_p0560_the_body_of_a_marked_nacelle_is_the_plain_body_under_the_merged_names(
+    tmp_path: Path,
+) -> None:
+    """PFS-2187.11: the mesh and every physics value are the plain sector's; only names move."""
+    from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+    from tests.tier1_offline.test_p0550_wheel_mark import _marked
+
+    plain = build_blunt_sector(tmp_path)
+    marked = _marked(plain, tmp_path / "marked.fsm")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        expected = _body(plain, tmp_path / "plain_body.fsm")
+    with pytest.warns(PyflightstreamWarning) as caught:
+        got = _body(marked, tmp_path / "marked_body.fsm")
+    assert expected.written and got.written
+    lines = got.output.read_text(encoding="latin-1").splitlines()
+    want = expected.output.read_text(encoding="latin-1").splitlines()
+    assert len(lines) == len(want)
+    differing = [(w, g) for w, g in zip(want, lines, strict=True) if w != g]
+    assert differing == [("N", "NBase"), ("N", "NBase")]
+    words = [str(item.message) for item in caught if "merged" in str(item.message)]
+    assert len(words) == 1
+    assert "NBase into N" in words[0] and "Base1 into Blade1" in words[0]
+    assert "keeps NBase" in words[0] and "removes Base1" in words[0]
+
+
+@pytest.mark.requirement("FR-3724")
+def test_p0560_a_plain_sector_s_body_says_nothing_of_merged_families(tmp_path: Path) -> None:
+    from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = _body(build_blunt_sector(tmp_path), tmp_path / "body.fsm")
+    assert result.written
+    assert not [item for item in caught if "merged" in str(item.message)]
+
+
+@pytest.mark.requirement("FR-3724")
+def test_p0560_a_nacelle_base_under_another_boundary_s_name_is_not_guessed(tmp_path: Path) -> None:
+    """The nacelle's base named for the spinner: no entry is the nacelle's, nothing is written."""
+    from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+    from tests.tier1_offline.test_p0550_wheel_mark import _relabelled
+
+    other = _relabelled(
+        build_blunt_sector(tmp_path),
+        tmp_path / "other.fsm",
+        base="2\nBase1\nS\n F, F,",
+        te="3\nBase1\nBase1\nNBase\n1,1,1,",
+        term="2\nBase1\nBase1\n1,1,\n",
+    )
+    with pytest.warns(PyflightstreamWarning) as caught:
+        result = _body(other, tmp_path / "body.fsm")
+    words = " ".join(str(item.message) for item in caught)
+    assert not result.written and not (tmp_path / "body.fsm").exists()
+    assert "base region of the nacelle 'N'" in words and "0 such names" in words
