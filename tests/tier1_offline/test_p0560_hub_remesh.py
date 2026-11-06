@@ -422,3 +422,102 @@ def test_p0560_hubq_hub_rings_warns_a_folded_new_cell(tmp_path):
         checks = hub_rings.verify_rings(result, surface, ["Spinner"])
     assert checks["new_cell_quality"]["folded_cells"] >= 1
     assert any("fold" in w for w in checks["warnings"])
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_r1_morph_004_the_how_to_states_the_band_target_the_code_keeps():
+    """P0560-R1-MORPH-004: the how-to names the target that picks the band, as the code does."""
+    from pyflightstream.workspace._hub_remesh import target_of
+
+    page = Path(__file__).resolve().parents[2] / "docs/mesh/how-to.md"
+    text = " ".join(page.read_text(encoding="utf-8").split())
+    section = text[text.index('- `"remesh"` (OBJ only)') : text.index('- `"auto"` takes')]
+    assert target_of({"min_scaled_jacobian": 0.8, "max_aspect": 3.0}) == {
+        "least_scaled_jacobian": 0.4,
+        "largest_aspect": 6.0,
+    }
+    assert "half the source band's" in section and "at most twice the source band's" in section
+    assert "the highest least scaled Jacobian" not in section
+
+
+@pytest.mark.requirement("FR-3681")
+def test_p0560_r1_morph_006_a_missed_band_target_is_listed_and_fails_passed(tmp_path, monkeypatch):
+    """P0560-R1-MORPH-006: a target no band meets is in checks.warnings; passed is false."""
+    from pyflightstream.workspace import _hub_remesh
+
+    def unreachable(source_band):
+        return {"least_scaled_jacobian": 2.0, "largest_aspect": 0.5}
+
+    monkeypatch.setattr(_hub_remesh, "target_of", unreachable)
+    source = build(tmp_path)
+    text = REPITCH.format(angle=2.0, point=STATION) + 'hub_method = "remesh"\n'
+    cfg = control(tmp_path, text)
+    out = tmp_path / "missed.obj"
+    assert _quiet_invoke("repitch", source, cfg, out) == 0
+    checks = record(out, "repitch")["checks"]
+    assert any("misses its quality target" in w for w in checks["warnings"])
+    assert checks["passed"] is False
+
+
+def test_p0560_r1_morph_007_the_morph_how_to_states_the_feature_not_where_it_was_run():
+    """P0560-R1-MORPH-007: the public page states the chain and its targets, no run history."""
+    page = Path(__file__).resolve().parents[2] / "docs/mesh/how-to.md"
+    text = " ".join(page.read_text(encoding="utf-8").split())
+    section = text[text.index("## Morph a sector or a wheel") :]
+    section = section[: section.index("## ", 3)]
+    assert "was run" not in section and "SMI" not in section
+    assert "half its source band's least scaled Jacobian and twice its largest aspect" in section
+
+
+def test_p0560_r1_morph_008_the_example_wheel_table_reads_once_uncommented():
+    """P0560-R1-MORPH-008: the example's [wheel], uncommented, states the axis it needs."""
+    from pyflightstream.workspace._wheel import parse_axis
+
+    page = Path(__file__).resolve().parents[2] / "docs/mesh/morphing.toml"
+    lines = page.read_text(encoding="utf-8").splitlines()
+    start = lines.index("# [wheel]")
+    opened = lines[:start] + [line.removeprefix("# ") for line in lines[start:]]
+    data = tomllib.loads("\n".join(opened) + "\n")
+    # Without [repitch] rotor_axis, [wheel] reads the rotor axis from its own axis (morph.py).
+    assert "rotor_axis" not in data["repitch"]
+    assert parse_axis(data["wheel"]["axis"]).tolist() == [0.0, 0.0, 1.0]
+
+
+def _lone_root(folder: Path, share: float):
+    """The sector's one blade root, planned as remesh_bands plans it, with a share stated."""
+    from pyflightstream.workspace import _hub_remesh as hr
+    from pyflightstream.workspace._repitch_grid import root_loop
+
+    mesh = read_obj(build(folder))
+    hub = mesh.families["Spinner"]
+    loop = root_loop(mesh.families["Blade1"], hub, "Blade1")
+    banned = hr.forbidden(mesh, "Spinner", "Blade1", set())
+    cell = hr.root_edge_median(mesh, "Spinner", loop, "repitch")
+    foot = hr.footprint(mesh, hub, loop)
+    return mesh, hr.Root("Blade1", "Spinner", loop, cell, banned, foot, share)
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_r1_morph_009_a_band_width_lowered_to_the_share_is_warned(tmp_path):
+    """P0560-R1-MORPH-009: a stated band_width above the share is lowered and warned."""
+    from pyflightstream.workspace._hub_remesh import bands_tried
+
+    mesh, root = _lone_root(tmp_path, share=0.0)
+    root.share = 6.0 * root.cell
+    stated = 8.0 * root.cell
+    with pytest.warns(PyflightstreamWarning, match=r"band_width [\d.]+ is lowered to [\d.]+"):
+        bands, info = bands_tried(mesh, mesh.verts, root, stated)
+    assert info["asked"] == stated
+    assert bands[0].width == pytest.approx(5.0 * root.cell)
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_r1_morph_009_a_share_with_no_room_keeps_the_marched_rows_only(tmp_path):
+    """P0560-R1-MORPH-009: a share at or below one cell is warned; no negative band."""
+    from pyflightstream.workspace._hub_remesh import MIN_ROWS, bands_tried
+
+    mesh, root = _lone_root(tmp_path, share=0.0)
+    root.share = 0.5 * root.cell
+    with pytest.warns(PyflightstreamWarning, match="leaves no room beyond one local cell"):
+        bands, _ = bands_tried(mesh, mesh.verts, root, None)
+    assert bands and all(b.width == pytest.approx(MIN_ROWS * root.cell) for b in bands)

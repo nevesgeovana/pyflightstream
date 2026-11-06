@@ -354,6 +354,46 @@ def test_p0560_a_hub_rings_check_arm_refuses_its_mutant(tmp_path, mutate, text):
         _hr().verify_rings(result, surface, ["Spinner"])
 
 
+class _TurnedHub:
+    """A source hub's surface mesh with its face normals turned over; all else delegated."""
+
+    def __init__(self, real):
+        self._real = real
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    @property
+    def face_normals(self):
+        return -np.asarray(self._real.face_normals)
+
+
+@pytest.mark.requirement("FR-3671")
+@pytest.mark.requirement("FR-3681")
+def test_p0560_r1_morph_011_hub_rings_warns_new_cells_turned_against_the_hub(tmp_path, monkeypatch):
+    """P0560-R1-MORPH-011: a new cell turned against the source hub is warned and listed, and
+    the mesh is written; the check that measures it is quality, not a refusal."""
+    hr = _hr()
+    built = hr.build_rings
+
+    def turned(source, cfg):
+        result, surface = built(source, cfg)
+        surface.mesh = _TurnedHub(surface.mesh)
+        return result, surface
+
+    monkeypatch.setattr(hr, "build_rings", turned)
+    source = build(tmp_path)
+    out = tmp_path / "rings.obj"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        assert invoke("hub-rings", source, control(tmp_path, "[hub_rings]\nrings = 4\n"), out) == 0
+    assert out.is_file()
+    checks = record(out, "hub_rings")["checks"]
+    assert checks["turned_cells"] >= 1 and checks["passed"] is False
+    assert any("turned against the source hub" in w for w in checks["warnings"])
+    assert any("turned against the source hub" in str(w.message) for w in caught)
+
+
 @pytest.mark.requirement("FR-3671")
 def test_mor1_4_an_annulus_that_keeps_fewer_remesh_passes_is_warned(tmp_path, monkeypatch):
     """The fallback to fewer passes reached the record's pass count only; on the real wheel one

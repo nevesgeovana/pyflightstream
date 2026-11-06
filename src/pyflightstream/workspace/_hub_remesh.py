@@ -430,6 +430,38 @@ def assemble(source: ObjMesh, plans: list[Any], built: Built) -> Result:
     return Result(source, mesh, plans, index, added, kept, built.quads)
 
 
+def written_blocks(blocks: list[tuple[str, int]], r: Result) -> list[tuple[str, int]]:
+    """Return the face blocks of the output, in the source's file order.
+
+    ``blocks`` are the source's (:func:`~pyflightstream.workspace._refine._obj.face_blocks`): a
+    family that returns after another has one block per run. Each block keeps its kept faces,
+    and the block that holds a blade's first taken face also holds that blade's new faces, as
+    :func:`assemble` places them; a block left empty is dropped and the runs it separated join.
+    """
+    taken = {(p.family, i): p.name for p in r.plans for i in p.taken}
+    out: list[tuple[str, int]] = []
+    start: dict[str, int] = {}
+    placed: set[str] = set()
+    for name, count in blocks:
+        first = start.get(name, 0)
+        start[name] = first + count
+        size = 0
+        for i in range(first, first + count):
+            owner = taken.get((name, i))
+            if owner is None:
+                size += 1
+            elif owner not in placed:
+                placed.add(owner)
+                size += len(r.added[owner])
+        if not size:
+            continue
+        if out and out[-1][0] == name:
+            out[-1] = (name, out[-1][1] + size)
+        else:
+            out.append((name, size))
+    return out
+
+
 def chord_deviation(verts: np.ndarray, faces: list[list[int]]) -> float:
     """Return the largest sagitta of the source hub's facets, length times turn over eight.
 
@@ -793,6 +825,31 @@ def _gaps(inner: np.ndarray, loop: np.ndarray) -> np.ndarray:
     return np.asarray(np.linalg.norm(near - inner[:, None, :], axis=2).min(axis=1))
 
 
+def _capped(root: Root, asked: float, cap: float, stated: bool, rows: float) -> float:
+    """Return the first band width: the one asked, kept to the root's share of the gap.
+
+    A stated ``band_width`` lowered to the share is warned with both numbers. A share that
+    leaves no room (the share less one local cell at or below zero) is warned, and the band is
+    no wider than the marched rows need (``rows``: the root's move plus their depth), never
+    negative.
+    """
+    if cap <= 0.0:
+        warn(
+            f"repitch: blade {root.name!r}: its share of the gap to the nearest other root "
+            f"({root.share:.6g}) leaves no room beyond one local cell ({root.cell:.6g}); the "
+            f"band holds the marched rows only, width {min(asked, rows):.6g}",
+            PyflightstreamWarning,
+        )
+        return min(asked, rows)
+    if stated and asked > cap:
+        warn(
+            f"repitch: blade {root.name!r}: band_width {asked:.6g} is lowered to {cap:.6g}, its "
+            "share of the gap to the nearest other root less one local cell",
+            PyflightstreamWarning,
+        )
+    return min(asked, cap)
+
+
 def bands_tried(
     mesh: ObjMesh, moved: np.ndarray, root: Root, stated: float | None
 ) -> tuple[list[Band], dict[str, Any]]:
@@ -809,7 +866,7 @@ def bands_tried(
     # On a wheel each band keeps to its share of the gap to the next root, less the one layer
     # of faces a hole takes beyond its width (about one local cell).
     cap = root.share - root.cell
-    width = min(asked, cap)
+    width = _capped(root, asked, cap, stated is not None, shift + MIN_ROWS * root.cell)
     info: dict[str, Any] = {
         "rule": "stated" if stated is not None else "root move plus two local cells",
         "asked": asked,
@@ -1188,20 +1245,26 @@ def remesh_bands(
     return assemble(turned, plans, built), surface, numbers
 
 
-def _target_check(name: str, blade: dict[str, Any]) -> dict[str, Any]:
-    """Hold a blade's output band to its target; warn of a miss with its numbers."""
+def target_miss(name: str, blade: dict[str, Any]) -> str | None:
+    """Return the sentence that states a blade's band missing its target, or None when met."""
     target = target_of(blade["source_band"])
     out = blade["output_band"]
     sj, aspect = out["min_scaled_jacobian"], out["max_aspect"]
-    met = sj >= target["least_scaled_jacobian"] and aspect <= target["largest_aspect"]
-    if not met:
-        warn(
-            f"repitch: blade {name!r}: the remeshed hub band misses its quality target: least "
-            f"scaled Jacobian {sj:.4f} against {target['least_scaled_jacobian']:.4f} (half the "
-            f"source band's), largest aspect {aspect:.4f} against "
-            f"{target['largest_aspect']:.4f} (twice the source band's), with "
-            f"{blade['held_rows']} rows of {blade['row_height']:.6g} in a band of "
-            f"{blade['band_width']:.6g}; the mesh is written",
-            PyflightstreamWarning,
-        )
-    return {**target, "met": bool(met)}
+    if sj >= target["least_scaled_jacobian"] and aspect <= target["largest_aspect"]:
+        return None
+    return (
+        f"blade {name!r}: the remeshed hub band misses its quality target: least "
+        f"scaled Jacobian {sj:.4f} against {target['least_scaled_jacobian']:.4f} (half the "
+        f"source band's), largest aspect {aspect:.4f} against "
+        f"{target['largest_aspect']:.4f} (twice the source band's), with "
+        f"{blade['held_rows']} rows of {blade['row_height']:.6g} in a band of "
+        f"{blade['band_width']:.6g}"
+    )
+
+
+def _target_check(name: str, blade: dict[str, Any]) -> dict[str, Any]:
+    """Hold a blade's output band to its target; warn of a miss with its numbers."""
+    miss = target_miss(name, blade)
+    if miss is not None:
+        warn(f"repitch: {miss}; the mesh is written", PyflightstreamWarning)
+    return {**target_of(blade["source_band"]), "met": miss is None}

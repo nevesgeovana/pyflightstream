@@ -4,7 +4,9 @@
 
 `geometry morph MESH --morphing FILE --out OUTPUT` accepts an OBJ only, a sector or a full
 wheel, and writes a new OBJ with its boundaries file, the points files that file names and
-`<out>.morph.json`. A saved `.fsm` is refused.
+`<out>.morph.json`. A saved `.fsm` is refused. The morphing file, read by `morph`, `hub-rings`,
+`repitch` and `collapse-te`, and the `[repitch] reference` file are UTF-8 TOML; a byte order mark
+at the start is read past, and a file that is not TOML is refused naming the file.
 
 | Top-level key or table | Meaning |
 |---|---|
@@ -67,7 +69,9 @@ to none; the record states the passes kept, and a blade whose annulus kept fewer
 warned with its quad share, least scaled Jacobian and largest aspect.
 
 Kept hub faces keep their order, and each blade's new faces take the place of its first face
-taken: the rings from the root outward, then the band. Kept nodes keep their text and their
+taken: the rings from the root outward, then the band. An OBJ whose family returns after another
+is written as the source has it, one `g` line for each run of faces, the new faces in the run of
+the first face they replace. Kept nodes keep their text and their
 order; nodes used only by the faces taken leave, and the new nodes follow the kept ones.
 
 Every check runs in memory before any file is written, and a failed invariant refuses: each
@@ -156,9 +160,10 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 | `hub_method` | How the hub follows each blade: `"rings"`, `"remesh"` (OBJ only) or `"auto"` (default); see the hub routes below |
 | `band_width` | Remesh only: the band's width in the mesh's unit, positive; default the root's largest move plus two local cells |
 
-Repitch changes coordinates only. On the ring route the written OBJ holds the source's faces in the
-source's order, including an OBJ whose family returns after another, which is written as the source
-has it, one `g` line for each run of faces (FlightStream results depend on face order).
+On the ring route repitch changes coordinates only. On either route the written OBJ holds the
+source's faces in the source's order, including an OBJ whose family returns after another, which is
+written as the source has it, one `g` line for each run of faces; on the remesh route each blade's
+new faces sit in the run of the first face they replace (FlightStream results depend on face order).
 
 **Hub routes.** `"rings"` moves the nodes of the complete quad rings around each root (at least two); it changes
 coordinates only and is the only route on a saved `.fsm`, where `"remesh"` is warned and the
@@ -170,7 +175,10 @@ narrowed by a tenth at a time, down to a hundredth, and warned (none fitting ref
 cell is the median length of the hub edges leaving the root; the default width is the root's
 largest move by the turn plus two of them. The blades of a wheel are planned together: each
 band keeps to its share of the gap to the nearest other root (half the least distance between
-the two roots, less one local cell), so no band takes room another needs. The annulus from the
+the two roots, less one local cell), so no band takes room another needs. A stated `band_width`
+above the share is lowered to it and warned with both numbers; a share that leaves no room beyond
+one local cell is warned, and the band holds the marched rows only (the root's move plus two
+local cells, or less when `band_width` says so), never a negative width. The annulus from the
 turned root (its nodes the blade's, never duplicated) to the band's unmoved boundary is filled
 in two parts, in a chart of the hub. At least two rows are marched out from the turned root,
 and more while the nearest point of the boundary leaves a row's height beyond them. Each root
@@ -261,8 +269,10 @@ Quality is warned with its numbers and the mesh is written; `checks.passed` is t
 `checks.warnings` lists every warning: folded hub cells (the count and the least scaled
 Jacobian beside the source's), reversed hub cells against the source (the count), moved
 non-root hub nodes off the source hub (below), and on the remesh route new cells folded or
-turned against the source hub and a new node beyond the source's chord deviation (the worst
-node and its distance).
+turned against the source hub, a new node beyond the source's chord deviation (the worst
+node and its distance), a band that misses its quality target and a new band worse than the
+source band it replaces (both with their numbers). `checks.passed` is false whenever
+`checks.warnings` is not empty.
 
 The printed checks and `<out>.repitch.json` include every moved hub node's
 zero-based index, shared-root status, distance to the finite source triangles in

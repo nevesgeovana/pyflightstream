@@ -63,9 +63,14 @@ hub_method = "auto"      # the default; or "rings", or "remesh"
   another family or another blade's band; a band that would is narrowed a tenth at a time and
   warned. `band_width` defaults to the root's largest move plus two local cells (the median
   length of the hub edges leaving the root), the depth of the two rings the ring route needs.
-  Among the remesh passes and up to three band widths (the first and two more, each one local
-  cell wider, while they fit), the band kept has the fewest cells turned against the hub
-  (none when one has none) and the highest least scaled Jacobian. Kept hub faces keep their
+  At least two rows of quads are marched around the turned root and only the gap beyond them
+  is remeshed. Each band is held to a target: a least scaled Jacobian at least half the
+  source band's and a largest aspect at most twice the source band's. Up to three band widths
+  are tried (the first and two more, each one local cell wider, while they fit), with graded
+  rows and then rows of one height, each remesh sized by the source hub and then by its two
+  loops, at the remesh passes; the first with no cell turned against the hub that meets its
+  target is kept, otherwise the one with the fewest turned cells and the largest margin to its
+  target, and a miss is warned with its numbers. Kept hub faces keep their
   order, the new faces take the place of the first face taken, and the band is remeshed at every angle, zero included, so a series
   of angles shares one method.
 - `"auto"` takes `"rings"` where every named root has two complete quad rings, and
@@ -201,12 +206,11 @@ hub_method = "remesh"        # or "auto" (the default) or "rings"
 pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
 ```
 
-The chain is exercised in the offline tests on a synthetic quad-dominant hub, as a sector and
-as an installed full wheel, with and without `[hub_rings]`, and was run without `[hub_rings]` on
-an SMI-derived quad-dominant spinner, as a sector, as a six-blade wheel and as that wheel beside
-an airframe, at 0, 2 and 5 degrees. Each remeshed band is held to half its source band's least
-scaled Jacobian and twice its largest aspect, and a band that misses is warned with its numbers;
-a face the trailing-edge merge turns over is warned the same way and the mesh is written. `morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
+The chain works on a sector and on a full wheel, installed beside an airframe or not, with or
+without `[hub_rings]`. Each remeshed band is held to half its source band's least scaled
+Jacobian and twice its largest aspect, and a band that misses is warned with its numbers;
+a face the trailing-edge merge turns over is warned the same way and the mesh is written.
+`morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
 order, `[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: the ring route of repitch needs
 the rings, and the collapse leaves a closure triangle on the first ring, so no other order
 works. `[hub_rings]` is optional: without it, repitch's `hub_method` decides how the hub

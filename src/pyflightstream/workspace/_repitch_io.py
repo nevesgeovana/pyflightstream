@@ -62,6 +62,20 @@ def morphing_table(data: dict[str, Any], name: str, shared: tuple[str, ...]) -> 
     return {**inherited, **table}
 
 
+def read_control(path: Path, verb: str) -> dict[str, Any]:
+    """Return the tables of a morphing control or reference file, refusing one that is not TOML.
+
+    A byte order mark, which an editor may write at the start of a UTF-8 file, is read past, as
+    the boundaries-file reader does; a file that is not UTF-8 TOML is refused naming the file.
+    """
+    try:
+        return tomllib.loads(Path(path).read_text(encoding="utf-8-sig"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise InputValueError(
+            f"{verb}: {path}: not TOML ({error}); fix the file and run again. No file was written."
+        ) from error
+
+
 def _need_rotor(ok: bool, message: str, verb: str) -> None:
     if not ok:
         raise InputValueError(f"{verb}: {message}. No file was written.")
@@ -73,8 +87,14 @@ def read_rotor(
     """Return the rotor table a ``[repitch]`` reference names, in mesh units, or None."""
     if "reference" not in cfg:
         return None
+    for key in ("reference", "rotor"):
+        _need_rotor(
+            isinstance(cfg.get(key, ""), str),
+            f"repitch.{key} must be a name in quotes, not {cfg.get(key)!r}",
+            verb,
+        )
     source = control.parent / cfg["reference"]
-    data = tomllib.loads(source.read_text(encoding="utf-8"))
+    data = read_control(source, verb)
     candidates = {k: v for k, v in data.items() if isinstance(v, dict) and v.get("kind") == "rotor"}
     if "rotor" in cfg:
         _need_rotor(cfg["rotor"] in candidates, f"reference has no rotor {cfg['rotor']!r}", verb)

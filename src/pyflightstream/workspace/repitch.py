@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import math
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,6 +44,8 @@ from pyflightstream.workspace._hub_remesh import (
     kept_edges,
     new_by_old,
     remesh_bands,
+    target_miss,
+    written_blocks,
 )
 from pyflightstream.workspace._pitch_axis import pitch_axes
 from pyflightstream.workspace._refine._obj import (
@@ -67,8 +68,8 @@ from pyflightstream.workspace._repitch_io import (
     Rewrite,
     attachments,
     morphing_table,
-    one_block_per_family,
     read_back,
+    read_control,
     read_rotor,
     sidecar_reads_back,
 )
@@ -121,8 +122,18 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
     return ObjMesh(m["xyz"].copy(), families), parsed
 
 
+def _degrees(cfg: dict[str, Any], key: str, default: float) -> float:
+    """Return an angle of the table in degrees, refusing a value that is not a number."""
+    value = cfg.get(key, default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        _need(False, f"{key} must be a number of degrees, not {value!r}")
+        raise
+
+
 def _config(path: Path) -> dict[str, Any]:
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data = read_control(path, "repitch")
     cfg = morphing_table(data, "repitch", ("blades", "hub"))
     _need(isinstance(cfg, dict), f"{path} needs a [repitch] table")
     for key in set(cfg) - {
@@ -158,8 +169,14 @@ def _config(path: Path) -> dict[str, Any]:
         f"band_width must be a positive length in the mesh's unit, not {width!r}",
     )
     cfg["hub_method"] = method
-    angle = float(cfg.get("angle_deg", math.nan))
-    limit = float(cfg.get("max_angle_deg", 5.0))
+    _need(isinstance(cfg.get("axes", {}), dict), "repitch.axes must be a table of blade axes")
+    keep = cfg.get("keep", [])
+    _need(
+        isinstance(keep, list) and all(isinstance(n, str) for n in keep),
+        f"repitch.keep must be a list of family names, not {keep!r}",
+    )
+    angle = _degrees(cfg, "angle_deg", math.nan)
+    limit = _degrees(cfg, "max_angle_deg", 5.0)
     _need(
         math.isfinite(limit) and 0 < limit <= 5,
         f"max_angle_deg {limit!r} must be positive and at most 5 degrees",
@@ -616,11 +633,15 @@ def _periodicity(source: ObjMesh, new: Any, wheel: Any, checks: dict) -> None:
 
 @dataclass
 class _Remeshed:
-    """The remesh route's output: the mesh, the boundaries rewrite and each source node's place."""
+    """The remesh route's output: the mesh, the boundaries rewrite, each source node's place.
+
+    ``result`` is the remesh result, which places the new faces in the source's face blocks.
+    """
 
     mesh: ObjMesh
     rewrite: Rewrite
     moved: Any
+    result: Any
 
 
 def _turned_mesh(source: ObjMesh, new: Any) -> ObjMesh:
@@ -682,6 +703,8 @@ def _remesh(
     notes = _band_notes(report["hub_remesh"])
     for sentence in notes:
         warn(f"repitch: {sentence}", PyflightstreamWarning)
+    # A band that misses its target was warned as it was kept; it is listed with the others.
+    found += [s for n, b in report["hub_remesh"].items() if (s := target_miss(n, b)) is not None]
     report["hub"] = {
         name: {
             "source_cells": len(source.families[name]),
@@ -693,7 +716,7 @@ def _remesh(
     }
     hub_out = [f for n in hubs for f in out.families[n]]
     report["checks"] = {
-        "passed": not found,
+        "passed": not (found + notes),
         "warnings": found + notes,
         "non_manifold_edges": manifold["edges_over_two_faces"],
         "open_edges": manifold["open_edges"],
@@ -705,7 +728,8 @@ def _remesh(
         "hub_area": {"source": area(old, hub_faces), "output": area(out.verts, hub_out)},
         **distances,
     }
-    return _Remeshed(out, _rewrite(source, result), new_by_old(source, out, result.index))
+    moved = new_by_old(source, out, result.index)
+    return _Remeshed(out, _rewrite(source, result), moved, result)
 
 
 def _rewrite(source: ObjMesh, result: Any) -> Rewrite:
@@ -758,9 +782,13 @@ def _periodicity_remeshed(source: ObjMesh, mesh: ObjMesh, wheel: Any, checks: di
 
 
 def _write_remeshed(path: Path, target: Path, source: ObjMesh, made: _Remeshed) -> None:
-    """Write the remeshed OBJ and its boundaries file after they read back as prepared."""
-    one_block_per_family(path, "repitch")
-    payload = obj_text(made.mesh).encode("utf-8")
+    """Write the remeshed OBJ and its boundaries file after they read back as prepared.
+
+    The faces are written in the source's order: a family that returns after another keeps a
+    block for each run, the new faces in the block of the first face they replace.
+    """
+    blocks = written_blocks(face_blocks(path), made.result)
+    payload = obj_text(made.mesh, blocks=blocks).encode("utf-8")
     read_back(made.mesh, payload, "repitch")
     extra = attachments(path, target, source, made.moved, payload, rewrite=made.rewrite)
     sidecar_reads_back(extra, target, "repitch")

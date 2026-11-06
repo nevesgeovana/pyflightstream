@@ -19,7 +19,6 @@ import json
 import math
 import shutil
 import tempfile
-import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -32,7 +31,7 @@ from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 from pyflightstream.workspace._pitch_axis import plane_basis
 from pyflightstream.workspace._refine._obj import read_obj
 from pyflightstream.workspace._repitch_grid import incidence
-from pyflightstream.workspace._repitch_io import morphing_table
+from pyflightstream.workspace._repitch_io import morphing_table, read_control
 from pyflightstream.workspace._sector_read import _ON_AXIS, _snapped
 from pyflightstream.workspace._wheel import (
     azimuth_range,
@@ -235,7 +234,7 @@ def morph_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dict[
     _need(target.suffix.lower() == ".obj", "--out must be an .obj")
     _need(target.resolve() != path.resolve(), "--out must differ from the source")
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
-    data = tomllib.loads(control.read_text(encoding="utf-8"))
+    data = read_control(control, "morph")
     tables = _tables(data)
     steps: dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as folder:

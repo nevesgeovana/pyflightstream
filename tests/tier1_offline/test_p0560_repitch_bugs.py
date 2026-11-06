@@ -5,13 +5,18 @@ Usage: pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out
 
 import datetime
 import tomllib
+import warnings
 from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace._refine._obj import read_obj, read_sidecar
 from tests.tier1_offline.test_p0551_repitch import control, invoke, source_mesh
+from tests.tier1_offline.test_p0560_morph import STATION, build, record
+from tests.tier1_offline.test_p0560_morph import control as morph_control
+from tests.tier1_offline.test_p0560_morph import invoke as morph_invoke
 
 
 def face_lines(path: Path) -> list[str]:
@@ -45,6 +50,115 @@ def test_p0560_repitch_of_one_block_per_family_is_written_as_before(tmp_path):
     out = tmp_path / "pitched.obj"
     assert invoke(source, control(tmp_path, 1.0, 'hub_method = "rings"'), out) == 0
     assert face_lines(out) == face_lines(source)
+
+
+def _interleaved_hub(folder: Path) -> tuple[Path, list[list[float]]]:
+    """The quad-dominant hub of the morph tests, its first face moved behind the nacelle.
+
+    The hub returns after the nacelle under a second ``g Spinner``; returns the OBJ and the
+    places of the moved face's nodes.
+    """
+    source = build(folder, nacelle=True)
+    lines = source.read_text().splitlines()
+    moved = lines.pop(lines.index("g Spinner") + 1)
+    lines += ["g Spinner", moved]
+    source.write_text("\n".join(lines) + "\n")
+    mesh = read_obj(source)
+    return source, [mesh.verts[v].tolist() for v in mesh.families["Spinner"][-1]]
+
+
+def group_lines(path: Path) -> list[str]:
+    """Return the group lines of an OBJ, in file order."""
+    return [line for line in face_lines(path) if not line.startswith("f ")]
+
+
+@pytest.mark.requirement("FR-3760")
+def test_p0560_r1_morph_001_the_remesh_route_keeps_the_runs_of_a_family_that_returns(tmp_path):
+    """P0560-R1-MORPH-001: auto takes the remesh and writes the source's runs, not a refusal."""
+    source, moved = _interleaved_hub(tmp_path)
+    text = f'[repitch]\nangle_deg = 3.0\nrotor_axis = "x"\nreference_point = {STATION}\n'
+    out = tmp_path / "pitched.obj"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        assert morph_invoke("repitch", source, morph_control(tmp_path, text), out) == 0
+    assert record(out, "repitch")["blades"]["Blade1"]["hub_route"] == "remesh"
+    assert group_lines(out) == group_lines(source)
+    written = read_obj(out)
+    last = [int(v) - 1 for v in face_lines(out)[-1].split()[1:]]
+    assert [written.verts[v].tolist() for v in last] == moved
+    assert written.families["Nacelle"] == [
+        [written.verts.tolist().index(read_obj(source).verts[v].tolist()) for v in f]
+        for f in read_obj(source).families["Nacelle"]
+    ]
+
+
+@pytest.mark.requirement("FR-3669")
+def test_p0560_r1_morph_002_hub_rings_keeps_the_runs_of_a_family_that_returns(tmp_path):
+    """P0560-R1-MORPH-002: hub-rings writes the source's runs of a returning hub, not a refusal."""
+    source, moved = _interleaved_hub(tmp_path)
+    out = tmp_path / "rings.obj"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\n")
+        assert morph_invoke("hub-rings", source, cfg, out) == 0
+    assert group_lines(out) == group_lines(source)
+    written = read_obj(out)
+    last = [int(v) - 1 for v in face_lines(out)[-1].split()[1:]]
+    assert [written.verts[v].tolist() for v in last] == moved
+
+
+@pytest.mark.requirement("FR-3609")
+def test_p0560_r1_morph_003_a_control_file_with_a_byte_order_mark_is_read(tmp_path, capsys):
+    """P0560-R1-MORPH-003: a mark is read past; a file that is not TOML is refused by name."""
+    source = source_mesh(tmp_path)
+    config = control(tmp_path, 1.0)
+    config.write_bytes(b"\xef\xbb\xbf" + config.read_bytes())
+    assert invoke(source, config, tmp_path / "marked.obj") == 0
+    config.write_text("[repitch\nangle_deg = 1.0\n")
+    capsys.readouterr()
+    assert invoke(source, config, tmp_path / "broken.obj") == 2
+    err = capsys.readouterr().err
+    assert f"{config}: not TOML" in err and "No file was written" in err
+    assert not list(tmp_path.glob("broken.*"))
+
+
+@pytest.mark.requirement("FR-3609")
+@pytest.mark.parametrize(
+    "extra, words",
+    [
+        ("angle_deg = [1.0]", "angle_deg must be a number"),
+        ("max_angle_deg = [5]", "max_angle_deg must be a number"),
+        ("axes = [1]", "repitch.axes must be a table"),
+        ("keep = 3", "repitch.keep must be a list"),
+        ("reference = 5", "repitch.reference must be a name"),
+        ('reference = "rotor.toml"\nrotor = ["R"]', "repitch.rotor must be a name"),
+    ],
+    ids=["P0560-R1-MORPH-005-" + k for k in ("angle", "max", "axes", "keep", "ref", "rotor")],
+)
+def test_p0560_r1_morph_005_a_value_of_the_wrong_kind_is_refused_in_words(
+    tmp_path, capsys, extra, words
+):
+    """P0560-R1-MORPH-005: exit 2 naming the key, not a TypeError or AttributeError."""
+    source = source_mesh(tmp_path)
+    (tmp_path / "rotor.toml").write_text('[R]\nkind = "rotor"\naxis = "z"\n')
+    text = control(tmp_path, 1.0).read_text().replace("angle_deg = 1.0\n", "")
+    config = tmp_path / "wrong.toml"
+    config.write_text(text.replace("max_angle_deg = 5.0\n", "") + extra + "\n")
+    if "angle_deg" not in extra:
+        config.write_text(config.read_text() + "angle_deg = 1.0\n")
+    assert invoke(source, config, tmp_path / "bad.obj") == 2
+    assert words in capsys.readouterr().err
+    assert not list(tmp_path.glob("bad.*"))
+
+
+@pytest.mark.requirement("FR-3670")
+def test_p0560_r1_morph_010_a_boolean_ring_width_is_refused_naming_the_key(tmp_path, capsys):
+    """P0560-R1-MORPH-010: width = true is no length; it is refused, not read as 1."""
+    source = build(tmp_path)
+    cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\nwidth = true\n")
+    assert morph_invoke("hub-rings", source, cfg, tmp_path / "rings.obj") == 2
+    assert "hub_rings.width must be a positive length" in capsys.readouterr().err
+    assert not list(tmp_path.glob("rings.*"))
 
 
 @pytest.mark.requirement("FR-3761")
