@@ -725,17 +725,26 @@ def test_p0560_grid_names_a_trailing_edge_file_the_file_system_takes(tmp_path, c
 
 
 @pytest.mark.requirement("FR-3703")
-def test_p0560_r2_002_two_names_that_differ_in_case_get_two_trailing_edge_files(tmp_path):
+def test_p0560_r2_002_two_names_that_differ_in_case_get_two_trailing_edge_files(tmp_path, capsys):
     """R2-002: ``Wing`` and ``wing`` are one file on Windows and macOS, so the second
     component's trailing-edge file took the first's and overwrote its points."""
-    from pyflightstream.workspace.iges_grid import _te_path
-
-    target = tmp_path / "model.obj"
-    first = _te_path(target, "Wing", set())
-    second = _te_path(target, "wing", {first.name})
-    assert first.name == "model.Wing.te.txt"
-    assert second.name.casefold() != first.name.casefold()
-    assert second.name == "model.wing_2.te.txt"
+    iges = Iges()
+    for level, name, y in ((1, "Wing", 0.0), (2, "wing", 2.0)):
+        iges.name(level, name)
+        iges.patch([(0, y, 0.1), (1, y, 0), (0, y + 1, 0.1), (1, y + 1, 0)], level=level)
+        iges.patch([(0, y, -0.1), (1, y, 0), (0, y + 1, -0.1), (1, y + 1, 0)], level=level)
+        iges.patch([(0, y, -0.1), (0, y, 0.1), (0, y + 1, -0.1), (0, y + 1, 0.1)], level=level)
+    text = "".join(
+        f'[component.{name}]\nsize = 0.5\nchord = {{count = 8, law = "cosine"}}\n'
+        'span = {count = 5, law = "uniform"}\ntrailing_edge = "auto"\n'
+        for name in ("Wing", "wing")
+    )
+    _, record, _ = run_grid(tmp_path, capsys, [iges.write(tmp_path / "two.igs")], text)
+    files = [record["trailing_edges"][name]["file"] for name in ("Wing", "wing")]
+    assert files[0].casefold() != files[1].casefold(), files
+    for file, y in zip(files, (0.5, 2.5), strict=True):
+        points = read_te(tmp_path / file)[1]
+        assert len(points) == 5 and all(y - 0.6 < p[1] < y + 0.6 for p in points), (file, points)
 
 
 @pytest.mark.requirement("FR-3703")
