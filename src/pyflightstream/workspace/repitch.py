@@ -307,7 +307,12 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
             "simulation (.fsm); the ring route runs",
             NotApplicableWarning,
         )
-    rotor = read_rotor(cfg, control, path)
+    try:
+        rotor = read_rotor(cfg, control, path)
+    except KeyError as error:
+        raise InputValueError(
+            f"repitch: the rotor of the reference states no {error}. No file was written."
+        ) from error
     blades, hubs = _selection(cfg, source, rotor)
     unit = mesh_unit(path) if parsed is None else saved_mesh_coordinate_unit(path)
     if unit is None:

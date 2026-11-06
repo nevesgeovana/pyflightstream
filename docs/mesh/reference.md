@@ -136,7 +136,7 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 | `keep` | Optional kept-family list; all other unselected families are also kept |
 | `axis` | `"auto"` (default) from the reference, or an inline `origin`/`direction` table |
 | `axes.<family>` | Per-blade `origin` and `direction` overriding `axis` |
-| `reference` | Reference TOML for automatic radial axes and wheel checks |
+| `reference` | Reference TOML for automatic radial axes and wheel checks; its rotor must state `axis`, else the run is refused naming the missing key |
 | `rotor` | Rotor table name when the reference declares several |
 | `rotor_axis` | Direction of the rotor's rotation: `x`, `y`, `z`, signed, or a vector |
 | `reference_point` | A coordinate along `rotor_axis`, which places the plane of the pitch axes, or a point `[x, y, z]` every pitch axis passes through |

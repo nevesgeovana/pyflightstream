@@ -59,6 +59,8 @@ FlightStream versions.
 
 - `geometry repitch` keeps the face order of an OBJ whose family returns after another; it wrote one
   block for each family, which moved faces with exit status 0 (PFS-2194).
+- `geometry repitch` with a `[repitch]` reference whose rotor states no `axis` is refused in words
+  naming the missing key, with exit status 2, instead of ending in a KeyError traceback (PFS-2194).
 - Submitted jobs remain protected against accidental reruns. Pass
   `redo_submitted=True` explicitly to repeat a submitted point; the old scheduler
   job is not cancelled and must be handled separately.
