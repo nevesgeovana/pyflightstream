@@ -28,7 +28,7 @@ output and the files written.
 | `[wheel]` key | Meaning |
 |---|---|
 | `copies` | Optional whole number of copies, 2 or more; default the sector's angle about the axis, which must be 360/N within 0.05 degrees |
-| `center` | Optional point of the rotor axis `[x, y, z]` in the mesh's unit; default the origin |
+| `center` | Optional point of the rotor axis `[x, y, z]` in the mesh's unit; default the origin, warned when not stated |
 | `axis` | The rotor axis when the file has no `[repitch] rotor_axis`; `x`, `y`, `z`, signed, or a vector |
 | `blades`, `hub` | Optional, over the top-level keys; the hub's azimuth range is the sector's angle |
 

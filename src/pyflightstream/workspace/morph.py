@@ -27,7 +27,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
+from pyflightstream._errors import (
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream.workspace._pitch_axis import plane_basis
 from pyflightstream.workspace._refine._obj import read_obj
 from pyflightstream.workspace._repitch_grid import incidence
@@ -71,6 +76,12 @@ def _wheel_table(data: dict[str, Any]) -> dict[str, Any]:
         "[wheel] needs the rotor axis: [repitch] rotor_axis, or [wheel] axis when the file has "
         "no [repitch]",
     )
+    if "center" not in cfg:
+        warn(
+            "wheel.center is not stated, so the copies turn about the origin [0, 0, 0]; state "
+            "[wheel] center as a point on the rotor axis when the axis does not pass through it",
+            PyflightstreamWarning,
+        )
     centre = np.asarray(cfg.get("center", [0.0, 0.0, 0.0]), dtype=float)
     _need(
         centre.shape == (3,) and bool(np.isfinite(centre).all()),
