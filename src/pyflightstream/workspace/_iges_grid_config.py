@@ -26,7 +26,7 @@ LAWS = ("cosine", "geometric", "tanh", "uniform")
 DEFAULT_RATIO = {"geometric": 1.1, "tanh": 1.05}
 #: The angle between the normals of two faces above which their shared edge is a trailing edge
 #: when ``trailing_edge = "auto"`` and their bisector faces downstream: 60 degrees takes the sharp
-#: trailing edge and both rims of a blunt one (each near 90 degrees).
+#: trailing edge and both rims of a blunt one (each near 90 degrees), of which one is marked.
 DEFAULT_TE_ANGLE_DEG = 60.0
 
 _TOP = {"fs_build", "defaults", "component"}

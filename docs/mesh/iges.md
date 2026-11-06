@@ -126,8 +126,14 @@ anything is imported.
 With `trailing_edge = "auto"`, an edge two faces of the component share is a trailing edge when
 their outward normals differ by more than `te_angle_deg` and their bisector points downstream
 (+x) within 60 degrees. A leading edge faces upstream and a tip cap sideways, so neither is
-taken. A sharp trailing edge gives one line; a blunt one with its base faces gives both rims. An
-open trailing edge, with no base face, is not found this way.
+taken. A sharp trailing edge gives one line. A blunt one with its base faces is found as two
+rims, the lines on opposite sides of a base face, and one of them is marked: the longer, or on
+a tie the one holding the lower node. A line that joins the dropped rim to the kept one, such as
+a tip's base edge, is dropped with it, and the record gives the count under
+`dropped_rim_edges`. Both rims shed two wakes a base cell apart: on FlightStream 26.127 the
+solve of the SMI wing then diverged, and converged with either rim alone. A trailing edge read
+from named IGES curves is marked as named. An open trailing edge, with no base face, is not
+found this way.
 
 With a list, each name is the NAME of a level holding curves at the top level of an IGES file
 (lines, B-spline curves and composite curves); the edges of the component whose nodes lie on

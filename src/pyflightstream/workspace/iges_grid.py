@@ -59,6 +59,9 @@ SLIVER_DEG = 5.0
 _AFT_CONE_DEG = 60.0
 #: A node lies on a named trailing-edge curve within this share of its component size.
 _ON_CURVE_SHARE = 0.01
+#: Two trailing edges that meet at a node belong to one line when the line turns there by less
+#: than this, in degrees; a tip's base edge turns about 90 degrees from the rims it joins.
+_RIM_TURN_DEG = 60.0
 
 Faces = list[list[int]]
 
@@ -240,7 +243,7 @@ def trailing_edges(
     An edge two faces share is a trailing edge when the faces' outward normals differ by more
     than ``angle_deg`` and their bisector points downstream (+x) within
     :data:`_AFT_CONE_DEG`. A leading edge points upstream and a tip cap sideways, so neither is
-    taken; on a blunt trailing edge both rims are.
+    taken; on a blunt trailing edge both rims are, and :func:`one_rim` keeps one of them.
     """
     owners: dict[tuple[int, int], list[int]] = {}
     for i, face in enumerate(faces):
@@ -260,6 +263,83 @@ def trailing_edges(
         if float(n1 @ n2) < limit and length > 0 and bisector[0] / length > aft:
             sharp.add(edge)
     return sharp
+
+
+def _lines(verts: NDArray[np.float64], edges: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
+    """Split edges into lines, returned longest first, then by node.
+
+    Two edges at a node are one line when only they meet there and the line turns by less than
+    :data:`_RIM_TURN_DEG`.
+    """
+    at: dict[int, list[tuple[int, int]]] = {}
+    for edge in edges:
+        for v in edge:
+            at.setdefault(v, []).append(edge)
+    parent = {edge: edge for edge in edges}
+
+    def find(edge: tuple[int, int]) -> tuple[int, int]:
+        while parent[edge] != edge:
+            parent[edge] = parent[parent[edge]]
+            edge = parent[edge]
+        return edge
+
+    limit = math.cos(math.radians(_RIM_TURN_DEG))
+    for v, meeting in at.items():
+        if len(meeting) != 2:
+            continue
+        (a, b) = (verts[e[0] if e[1] == v else e[1]] - verts[v] for e in meeting)
+        la, lb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
+        # A straight line through v has its two edges pointing opposite ways from it.
+        if la > 0 and lb > 0 and -float(a @ b) / (la * lb) > limit:
+            parent[find(meeting[0])] = find(meeting[1])
+    groups: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    for edge in edges:
+        groups.setdefault(find(edge), set()).add(edge)
+    return sorted(groups.values(), key=lambda g: (-len(g), min(g)))
+
+
+def one_rim(
+    verts: NDArray[np.float64], faces: Faces, edges: set[tuple[int, int]]
+) -> tuple[set[tuple[int, int]], int]:
+    """Keep one rim of each blunt trailing edge; return the edges kept and the number dropped.
+
+    A blunt trailing edge is found as two rims, lines of edges that lie on opposite sides of one
+    face of its base strip. Marking both sheds two wakes a base cell apart, and 26.127 keeps
+    only part of the second: the solve of the SMI wing diverged so, and converged with either rim
+    alone. Of two opposite rims the longer is kept (on a tie the one with the lower node), and a
+    line that joins a dropped rim to a kept one, a tip's base edge, is dropped with it. A sharp
+    trailing edge is one line with nothing opposite and is kept whole.
+    """
+    lines = _lines(verts, edges)
+    line_of = {edge: i for i, line in enumerate(lines) for edge in line}
+    opposite: dict[int, set[int]] = {i: set() for i in range(len(lines))}
+    for face in faces:
+        on = [(a, b) for a, b in ((min(e), max(e)) for e in _edges(face)) if (a, b) in line_of]
+        for i, e1 in enumerate(on):
+            for e2 in on[i + 1 :]:
+                if not set(e1) & set(e2) and line_of[e1] != line_of[e2]:
+                    opposite[line_of[e1]].add(line_of[e2])
+                    opposite[line_of[e2]].add(line_of[e1])
+    dropped: set[int] = set()
+    for i in range(len(lines)):
+        # Lines come longest first, so a line still kept when its turn comes is the longer rim.
+        if i not in dropped:
+            dropped |= opposite[i]
+    at: dict[int, set[int]] = {}
+    for edge, i in line_of.items():
+        for v in edge:
+            at.setdefault(v, set()).add(i)
+    touching: dict[int, set[int]] = {i: set() for i in range(len(lines))}
+    for meeting in at.values():
+        for i in meeting:
+            touching[i] |= meeting - {i}
+    for i in range(len(lines)):
+        if i in dropped or opposite[i]:
+            continue
+        if touching[i] & dropped and touching[i] - dropped:
+            dropped.add(i)
+    kept = {e for i, line in enumerate(lines) if i not in dropped for e in line}
+    return kept, len(edges) - len(kept)
 
 
 def _toml_key(name: str) -> str:
@@ -393,18 +473,18 @@ def _trailing(
     *,
     curves: dict[str, list[NDArray[np.float64]]],
     size: float,
-) -> tuple[set[tuple[int, int]], list[str]]:
-    """Return the trailing edges a component asks for, and what to warn."""
+) -> tuple[set[tuple[int, int]], list[str], int]:
+    """Return the trailing edges a component asks for, what to warn and the rim edges dropped."""
     name = grid.name
     if grid.trailing_edge == "auto":
         angle = grid.te_angle_deg or config.te_angle_deg
-        found = trailing_edges(verts, faces, angle)
+        found, dropped = one_rim(verts, faces, trailing_edges(verts, faces, angle))
         said = (
             []
             if found
             else [f'{name}: trailing_edge = "auto" found no edge sharper than {angle:g} degrees']
         )
-        return found, said
+        return found, said, dropped
     lines: list[NDArray[np.float64]] = []
     said = []
     for curve in grid.trailing_edge:
@@ -415,7 +495,7 @@ def _trailing(
     found = edges_on(verts, faces, lines, _ON_CURVE_SHARE * size)
     if lines and not found:
         said.append(f"{name}: no edge of the grid lies on {', '.join(grid.trailing_edge)}")
-    return found, said
+    return found, said, 0
 
 
 #: The characters a file name cannot hold on any platform the package runs on.
@@ -458,6 +538,7 @@ def _write(
     check = conformal(every, boundary)
     per: dict[str, Any] = {}
     te: dict[str, set[tuple[int, int]]] = {}
+    rims: dict[str, int] = {}
     for name, faces in families.items():
         stats = quality(verts, faces)
         stats["least_scaled_jacobian"] = meshed.jacobian.get(name)
@@ -467,7 +548,9 @@ def _write(
         warnings += _quality_warnings(name, stats)
         grid = config.components.get(name)
         if grid is not None and grid.trailing_edge is not None:
-            found, said = _trailing(verts, faces, grid, config, curves=curves, size=sizes[name])
+            found, said, rims[name] = _trailing(
+                verts, faces, grid, config, curves=curves, size=sizes[name]
+            )
             warnings += said
             if found:
                 te[name] = found
@@ -525,7 +608,12 @@ def _write(
         "components": per,
         "conformal": check,
         "trailing_edges": {
-            name: {"file": te_files[name], "edges": len(te[name])} for name in te_files
+            name: {
+                "file": te_files[name],
+                "edges": len(te[name]),
+                "dropped_rim_edges": rims.get(name, 0),
+            }
+            for name in te_files
         },
         **meshed.record,
         "warnings": warnings,

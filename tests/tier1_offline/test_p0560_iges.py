@@ -708,6 +708,37 @@ def test_p0560_grid_finds_a_sharp_trailing_edge_and_marks_it(tmp_path, capsys):
     assert code == 0, stderr
 
 
+def blunt_wedge(folder, name="blunt.igs"):
+    """A wing wedge whose trailing edge at x = 1 is a base 0.02 tall, closed at the nose."""
+    iges = Iges()
+    iges.name(1, "Wing")
+    iges.patch([(0, 0, 0.1), (1, 0, 0.01), (0, 1, 0.1), (1, 1, 0.01)], level=1)
+    iges.patch([(0, 0, -0.1), (1, 0, -0.01), (0, 1, -0.1), (1, 1, -0.01)], level=1)
+    iges.patch([(1, 0, -0.01), (1, 0, 0.01), (1, 1, -0.01), (1, 1, 0.01)], level=1)
+    iges.patch([(0, 0, -0.1), (0, 0, 0.1), (0, 1, -0.1), (0, 1, 0.1)], level=1)
+    return iges.write(folder / name)
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_marks_one_rim_of_a_blunt_trailing_edge(tmp_path, capsys):
+    """Both rims of a blunt trailing edge shed two wakes a base cell apart, and 26.127 keeps only
+    part of the second: the SMI wing diverged with both and converged with either alone."""
+    text = (
+        '[component.Wing]\nsize = 0.5\nchord = {count = 8, law = "cosine"}\n'
+        'span = {count = 5, law = "uniform"}\ntrailing_edge = "auto"\n'
+    )
+    target, record, _ = run_grid(tmp_path, capsys, [blunt_wedge(tmp_path)], text)
+    entry = record["trailing_edges"]["Wing"]
+    _, points = read_te(tmp_path / entry["file"])
+    assert len(points) == entry["edges"] == 5
+    assert entry["dropped_rim_edges"] == 5
+    assert np.allclose(points[:, 0], 1.0)
+    # One rim: every marked edge lies on the same side of the base.
+    assert np.allclose(np.abs(points[:, 2]), 0.01) and len(set(np.sign(points[:, 2]))) == 1
+    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    assert code == 0, stderr
+
+
 @pytest.mark.requirement("FR-3703")
 def test_p0560_grid_names_a_trailing_edge_file_the_file_system_takes(tmp_path, capsys):
     """R1-IGES-006: a component name a file name cannot hold still gets its points file."""
