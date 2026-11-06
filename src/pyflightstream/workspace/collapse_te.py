@@ -884,19 +884,33 @@ def _undeclarable(data: dict[str, Any]) -> str | None:
     return None
 
 
-def _declare_lines(data: dict[str, Any], plans: list[_Plan]) -> None:
-    """Add an entry for each blade collapsed with no rim entry, taking a removed region's type."""
+def _declare_lines(data: dict[str, Any], plans: list[_Plan], rw: Rewrite) -> None:
+    """Add an entry for each blade collapsed with no rim entry, taking a removed region's type.
+
+    The removed region's rim termination nodes (a file, or ``"auto"``) go to the new entry, as
+    a rim entry's do in :func:`_one_line`, so the collapse keeps them.
+    """
     tes = data.setdefault("trailing_edges", {})
     regions = data.get("base_regions", {})
     for plan in plans:
         kind = plan.edge_type
-        for family in {f for f, _ in plan.strip}:
+        nodes: list[Any] = []
+        for family in sorted({f for f, _ in plan.strip}):
             rim = regions.get(family, {}).get("trailing_edges")
             kind = rim["type"] if isinstance(rim, dict) else kind
+            nodes += [rim.get("wake_termination_nodes")] if isinstance(rim, dict) else []
         label = plan.blade
         while label in tes:
             label += "_collapsed"
-        tes[label] = {"file": f"@collapse:{plan.blade}", "type": kind}
+        entry: dict[str, Any] = {"file": f"@collapse:{plan.blade}", "type": kind}
+        names = [n for n in nodes if isinstance(n, str) and n != "auto"]
+        if names:
+            entry["wake_termination_nodes"] = f"@terminations:{plan.blade}"
+            rw.merged[f"@terminations:{plan.blade}"] = names
+            rw.dedupe.add(f"@terminations:{plan.blade}")
+        elif "auto" in nodes:
+            entry["wake_termination_nodes"] = "auto"
+        tes[label] = entry
 
 
 def _drop_detect_surfaces(tes: Any, emptied: set[str]) -> None:
@@ -987,7 +1001,7 @@ def _edit(plans: list[_Plan], result: _Result, rw: Rewrite, declare: bool) -> No
 
     def edit(data: dict[str, Any]) -> None:
         if declare:
-            _declare_lines(data, [p for p in plans if not p.labels])
+            _declare_lines(data, [p for p in plans if not p.labels], rw)
         tes = data.get("trailing_edges")
         if isinstance(tes, dict):
             for plan in plans:

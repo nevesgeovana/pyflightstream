@@ -760,6 +760,31 @@ def test_p0560_the_base_route_declares_the_line_in_the_boundaries_file(
     assert mark_preview(out, capsys) == 0, capsys.readouterr().err
 
 
+@pytest.mark.requirement("FR-3767")
+@pytest.mark.parametrize("nodes", ['"rim.wake.te.txt"', '"auto"'], ids=["file", "auto"])
+def test_p0560_r2_004_the_base_route_keeps_the_rim_termination_nodes(tmp_path, capsys, nodes):
+    """P0560-R2-004: a removed base region's rim termination nodes go to the blade's new entry;
+    the line was declared with its file and type only, and the nodes were dropped."""
+    source, infos = make(tmp_path, strip="own", sidecar=False)
+    pts(tmp_path / "rim.te.txt", infos["Blade1"]["upper"])
+    root = read_obj(source).verts[infos["Blade1"]["node"](0, M)]
+    pts(tmp_path / "rim.wake.te.txt", [root])
+    Path(str(source) + ".boundaries.toml").write_text(
+        BARE_SIDECAR + "[base_regions.Blade1Base]\n"
+        'trailing_edges = { file = "rim.te.txt", type = "STANDARD", '
+        f"wake_termination_nodes = {nodes} }}\n"
+    )
+    out = tmp_path / "sharp.obj"
+    assert invoke(source, control(tmp_path, extra='base = ["Blade1Base"]'), out) == 0
+    written = Path(str(out) + ".boundaries.toml")
+    entry = tomllib.loads(written.read_text())["trailing_edges"]["Blade1"]
+    if nodes == '"auto"':
+        assert entry["wake_termination_nodes"] == "auto"
+    else:
+        assert len(read_te(tmp_path / entry["wake_termination_nodes"])[1]) == 1
+    assert mark_preview(out, capsys) == 0, capsys.readouterr().err
+
+
 @pytest.mark.requirement("FR-3666")
 @pytest.mark.parametrize(
     "sidecar",
