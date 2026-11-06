@@ -614,3 +614,106 @@ def test_p0560_convert_refuses_an_output_that_is_not_iges(tmp_path, capsys):
     )
     assert code == 2 and "output of iges-convert is an IGES file" in stderr
     assert not out.exists()
+
+
+def directory_rows(path):
+    """Each directory entry's type, status field and first parameter record, by sequence number."""
+    lines = [line for line in path.read_text(encoding="latin-1").splitlines() if len(line) >= 73]
+    rows = [line for line in lines if line[72] == "D"]
+    params = {}
+    for line in lines:
+        if line[72] == "P":
+            params.setdefault(int(line[64:72]), "")
+            params[int(line[64:72])] += line[:64]
+    return {
+        i + 1: (int(rows[i][0:8]), rows[i][64:72], params.get(i + 1, "").split(";")[0].split(","))
+        for i in range(0, len(rows), 2)
+    }
+
+
+def occ_like_trimmed_patch(folder):
+    """A trimmed patch as the OpenCASCADE writer leaves it: the 142 flagged as parameter-space
+    geometry (use 05) with PREF 3, its 102 boundary in parameter space, the members flagged 00."""
+    iges = Iges()
+    iges.name(1, "Body")
+    surface = iges.patch(square(0, 0, 1, 1), level=1, status="00010000")
+    curve = ["1", "1", "0", "0", "1", "0", "0.0", "0.0", "1.0", "1.0", "1.0", "1.0"]
+    a = iges.add(
+        126, curve + ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0", "0.0", "1.0"], status="00010000"
+    )
+    b = iges.add(
+        126, curve + ["1.0", "0.0", "0.0", "1.0", "1.0", "0.0", "0.0", "1.0"], status="00010000"
+    )
+    loop = iges.add(102, ["2", str(a), str(b)], status="00010000")
+    model = iges.add(
+        126, curve + ["0.0", "0.0", "0.0", "1.0", "1.0", "0.0", "0.0", "1.0"], status="00010000"
+    )
+    on = iges.add(142, ["0", str(surface), str(loop), str(model), "3"], status="00010500")
+    iges.add(144, [str(surface), "1", "0", str(on)], level=1)
+    return iges.write(folder / "occ.igs"), {
+        "surface": surface,
+        "members": (a, b),
+        "loop": loop,
+        "model": model,
+        "on": on,
+    }
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_parameter_space_curves_carry_use_05_and_the_142_use_00(tmp_path):
+    """The flags the solver's CAD import reads: the 142 is geometry, its BPTR curves are 2D."""
+    from pyflightstream.workspace._iges_names import flag_curves_on_surfaces, read_iges_names
+
+    source, tags = occ_like_trimmed_patch(tmp_path)
+    before = source.read_text(encoding="latin-1").splitlines()
+    out = flag_curves_on_surfaces(source, tmp_path / "flagged.igs")
+    after = out.read_text(encoding="latin-1").splitlines()
+    rows = directory_rows(out)
+    assert rows[tags["on"]][1][4:6] == "00"
+    assert rows[tags["loop"]][1][4:6] == "05"
+    assert all(rows[m][1][4:6] == "05" for m in tags["members"])
+    assert rows[tags["model"]][1][4:6] == "00"
+    assert rows[tags["on"]][2][5] == "1"
+    # Fixed records: the same lines, each 80 columns with its sequence number, only the flags moved.
+    assert len(after) == len(before)
+    assert all(len(line) == 80 for line in after)
+    assert [line[72:] for line in after] == [line[72:] for line in before]
+    changed = [i for i, (x, y) in enumerate(zip(before, after, strict=True)) if x != y]
+    assert len(changed) == 5
+    assert read_iges_names(out).faces == read_iges_names(source).faces
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_convert_output_flags_the_curves_on_its_surfaces(tmp_path, capsys):
+    gmsh = gmsh_or_skip()
+    # A disk is a trimmed plane: the writer gives it a 144 bounded by a 142.
+    source = tmp_path / "disk.igs"
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.occ.addDisk(0, 0, 0, 1, 0.5)
+        gmsh.model.occ.synchronize()
+        gmsh.write(str(source))
+    finally:
+        gmsh.finalize()
+    out = tmp_path / "config.igs"
+    code, _, stderr = cli(["geometry", "iges-convert", str(source), "--out", str(out)], capsys)
+    assert code == 0, stderr
+    rows = directory_rows(out)
+    ons = [values for kind, status, values in rows.values() if kind == 142]
+    assert ons, "the converted surface has no curve on a surface"
+    for kind, status, values in rows.values():
+        if kind == 142:
+            assert status[4:6] == "00", status
+            assert values[5] == "1" or values[3] == "0", values
+    parameter = set()
+    for kind, _, values in rows.values():
+        if kind == 142 and values[3] != "0":
+            stack = [int(values[3])]
+            while stack:
+                entry = stack.pop()
+                parameter.add(entry)
+                if rows[entry][0] == 102:
+                    stack += [int(v) for v in rows[entry][2][2 : 2 + int(rows[entry][2][1])]]
+    assert parameter
+    assert all(rows[e][1][4:6] == "05" for e in parameter)

@@ -153,6 +153,14 @@ written file back face by face before it keeps it and writes the record `<out>.j
 of each component, the digest of each source, the surface types before and after, and the
 read-back.
 
+The trimming curves carry the flags the solver's CAD import reads. Each curve on a parametric
+surface (entity 142) with a parameter-space curve is flagged as geometry (entity use 00, columns
+69 and 70 of its directory entry) with PREF 1, the parameter-space curve preferred; that curve
+(its BPTR) and every member of it when it is a composite curve (102) are flagged as
+parameter-space geometry (entity use 05). The geometry kernel writes these the other way round,
+and the solver then refuses every patch as having non-parametric curves. Every record keeps its
+80 columns and its sequence number.
+
 ## Units
 
 The first file's length unit is kept. Every other file is scaled to it, and the record says

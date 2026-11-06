@@ -23,7 +23,14 @@ from scipy.interpolate import BSpline
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
 
-__all__ = ["IgesNames", "name_faces", "named_curves", "read_iges_names", "unit_of_flag"]
+__all__ = [
+    "IgesNames",
+    "flag_curves_on_surfaces",
+    "name_faces",
+    "named_curves",
+    "read_iges_names",
+    "unit_of_flag",
+]
 
 #: The kind of artifact a refusal of this module names.
 _IGES_KIND = "geometry"
@@ -412,6 +419,88 @@ def _with_unit(glob: str, unit: str) -> str:
     out = [_hollerith(v) if i in strings and v else v for i, v in enumerate(fields)]
     out[0], out[1] = _hollerith(delimiter), _hollerith(end)
     return delimiter.join(out) + end
+
+
+#: The curve on a parametric surface (142) and the composite curve (102) its boundary may be.
+_CURVE_ON_SURFACE = 142
+#: The entity use flag, columns 69 and 70 of a directory entry's first line: 00 geometry, 05
+#: two-dimensional geometry in a surface's parameter space.
+_USE = slice(68, 70)
+_GEOMETRY, _PARAMETER_SPACE = "00", "05"
+
+
+def _set_use(line: str, use: str) -> str:
+    return line[: _USE.start] + use + line[_USE.stop :]
+
+
+def _with_pref(lines: list[str], delimiter: str, end: str) -> list[str]:
+    """Return a 142's parameter lines with PREF set to 1, each line keeping its 64 data columns."""
+    data = "".join(line[:64] for line in lines)
+    record, terminator, rest = data.partition(end)
+    fields = record.split(delimiter)
+    if len(fields) < 6 or fields[5].strip() == "1":
+        return lines
+    width = len(fields[5])
+    fields[5] = "1".rjust(width) if width > 1 else "1"
+    text = delimiter.join(fields) + terminator + rest
+    if len(text) > 64 * len(lines):
+        return lines
+    text = text.ljust(64 * len(lines))
+    return [text[64 * i : 64 * i + 64] + line[64:] for i, line in enumerate(lines)]
+
+
+def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
+    """Write ``source`` to ``target`` with the flags the solver's CAD import reads on each 142.
+
+    Each curve on a parametric surface (142) that has a parameter-space curve (its BPTR) is
+    flagged as geometry (use 00) with PREF 1, the parameter-space representation preferred,
+    and its BPTR curve, with every member a composite (102) reaches, is flagged as
+    parameter-space geometry (use 05). The OpenCASCADE writer flags these the other way round
+    (the 142 05, its BPTR curves 00, PREF 3), and the solver refuses every such patch as
+    having non-parametric curves. Every line keeps its 80 columns and its sequence number;
+    nothing else in the file changes.
+    """
+    src = Path(source)
+    parsed = _Parsed(src)
+    sections = _sections(src)
+    directory = list(sections["D"])
+    parameters = list(sections["P"])
+    delimiter, end = parsed.sep
+    curves: set[int] = set()
+    for entry in parsed.entries:
+        if entry.kind != _CURVE_ON_SURFACE:
+            continue
+        words = parsed.parameters(entry)
+        bptr = int(words[3]) if len(words) > 3 and words[3].strip() else 0
+        directory[entry.number - 1] = _set_use(directory[entry.number - 1], _GEOMETRY)
+        if bptr == 0:
+            continue
+        first = entry.pstart - 1
+        span = slice(first, first + entry.pcount)
+        parameters[span] = _with_pref(parameters[span], delimiter, end)
+        stack = [bptr]
+        while stack:
+            number = stack.pop()
+            member = parsed.by_number.get(number)
+            if member is None or number in curves:
+                continue
+            curves.add(number)
+            if member.kind == _COMPOSITE:
+                values = parsed.parameters(member)
+                count = int(values[1]) if len(values) > 1 and values[1].strip() else 0
+                stack += [int(v) for v in values[2 : 2 + count] if v.strip()]
+    for number in curves:
+        directory[number - 1] = _set_use(directory[number - 1], _PARAMETER_SPACE)
+    out = Path(target)
+    lines = [
+        *(line[:80] for line in sections["S"]),
+        *(line[:80] for line in sections["G"]),
+        *directory,
+        *parameters,
+        *(line[:80] for line in sections["T"]),
+    ]
+    _textio.write_lines(out, lines)
+    return out
 
 
 def name_faces(
