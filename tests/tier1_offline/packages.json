@@ -170,6 +170,7 @@
       "tests/tier1_offline/test_p0560_collapse_te.py",
       "tests/tier1_offline/test_p0560_hub_remesh.py",
       "tests/tier1_offline/test_p0560_morph.py",
+      "tests/tier1_offline/test_p0560_repitch_bugs.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
       "tests/tier1_offline/test_reference_vocabulary.py",

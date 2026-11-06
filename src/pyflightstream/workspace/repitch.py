@@ -47,7 +47,13 @@ from pyflightstream.workspace._hub_remesh import (
     remesh_bands,
 )
 from pyflightstream.workspace._pitch_axis import pitch_axes
-from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
+from pyflightstream.workspace._refine._obj import (
+    ObjMesh,
+    face_blocks,
+    mesh_unit,
+    obj_text,
+    read_obj,
+)
 from pyflightstream.workspace._repitch import HubSurface, surface_checks
 from pyflightstream.workspace._repitch_grid import (
     edges,
@@ -753,7 +759,8 @@ def _write_remeshed(path: Path, target: Path, source: ObjMesh, made: _Remeshed) 
 def _write_output(path: Path, target: Path, source: ObjMesh, parsed: Any, new: Any) -> None:
     """Prepare every payload and validate readback before writing any output."""
     if parsed is None:
-        payload = obj_text(ObjMesh(new, source.families, source.header)).encode("utf-8")
+        text = obj_text(ObjMesh(new, source.families, source.header), blocks=face_blocks(path))
+        payload = text.encode("utf-8")
         extra = attachments(path, target, source, new, payload)
     else:
         for k in range(3):
