@@ -27,6 +27,11 @@ FlightStream versions.
   direction projected on the plane perpendicular to the rotor axis, through the hub centre in
   the plane a scalar places, or through a stated point. A table written for 0.55.1 reads as
   before.
+- `geometry sector-to-wheel --no-wake-terminations` (`wake_terminations=False`) drops the wake
+  terminations an OBJ sector's trailing-edge entries declare. By default the OBJ route carries
+  them into every copy, as the saved route does, and `<out>.wheel.json` now states
+  `wake_terminations` as `"carried"` or `"dropped"`. On a saved sector the switch is warned as not
+  applicable.
 
 ### Changed
 
@@ -46,6 +51,15 @@ FlightStream versions.
   `geometry inventory <out.obj> --refresh`, which now rewrites its quoted counted keys, or by
   running `repitch` again to a new `--out`; an output of 0.55.1 with a space in a family name
   needs the second.
+- `geometry mark-boundaries` marks explicit wake-termination nodes together with `merge_into` on
+  FlightStream 26.124 and 26.125, where a probe saved the mark across the merge on the same node,
+  so the wheel `geometry sector-to-wheel` writes from an OBJ sector with explicit terminations and
+  merged bases passes the preview. On another build the pair is still refused, now naming the
+  measured builds and their reports.
+- `geometry power-off-body` reads a sector marked with `merge_into`: the nacelle's base region
+  and rim group, held under the merged family's name (`NBase` on `N`), become the body's, and a
+  warning names every merged family, which the body keeps and which it removes with the blade.
+  The verb used to write nothing on that sector.
 
 ## [0.55.1] - 2026-11-05
 

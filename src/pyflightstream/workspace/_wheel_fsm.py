@@ -740,6 +740,7 @@ def _result(
     report.update(
         provenance(path, "fsm", unit, [(b, int(counts[i + 1])) for i, b in enumerate(boundaries)])
     )
+    report["wake_terminations"] = "carried"
     return WheelResult(True, opts.out, [opts.out, write_json(record, report)], report)
 
 

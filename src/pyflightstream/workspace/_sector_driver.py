@@ -665,20 +665,54 @@ def _copies_of(sink: QuadSink, nodes: Array, copies: int, tol: float) -> tuple[Q
     return full, stack[used]
 
 
+def _nacelle_entry(sector: Sector, labels: list[str], what: str) -> str:
+    """Return the nacelle's entry in a physics list (base regions or trailing-edge groups).
+
+    The entry is named for the nacelle, or, as a sector marked with ``merge_into`` holds it, it
+    is the one name for no boundary whose faces lie on the nacelle alone (the rows say which).
+    """
+    name = sector.names[sector.nacelle - 1]
+    if name in labels:
+        return name
+    held = sector.parsed.held_by
+    found = [label for label in dict.fromkeys(labels) if held.get(label) == {sector.nacelle}]
+    if len(found) != 1:
+        raise TopologyNotFoundError(
+            f"a {what} of the nacelle {name!r}, named for it or the one name for no boundary "
+            f"whose faces lie on it alone ({what}s {labels}, {len(found)} such names)"
+        )
+    return found[0]
+
+
+def _warn_merged(sector: Sector, kept: set[str]) -> None:
+    """Warn of the names merged into a boundary: which the body keeps and which it removes."""
+    held = sector.parsed.held_by
+    if not held:
+        return
+    names = sector.names
+    merged = ", ".join(
+        f"{label} into {', '.join(names[b - 1] for b in sorted(held[label]))}" for label in held
+    )
+    removed = sorted(set(held) - kept)
+    warn(
+        f"the sector holds families merged into another boundary ({merged}): the body keeps "
+        f"{', '.join(sorted(kept & set(held))) or 'none of them'} as the nacelle's base region "
+        f"and rim group and removes {', '.join(removed) or 'none'}, which the body does not hold.",
+        PyflightstreamWarning,
+        stacklevel=6,
+    )
+
+
 def _body_physics(sector: Sector) -> list[str]:
     """Return the physics block of the body: the nacelle's base region and rim group."""
     phys, lines = sector.parsed.phys, sector.parsed.lines
-    name = sector.names[sector.nacelle - 1]
-    if name not in phys["base_names"] or name not in phys["te_names"]:
-        raise TopologyNotFoundError(
-            f"a base region and a trailing-edge group named {name!r} (base regions "
-            f"{phys['base_names']}, trailing-edge groups {phys['te_names']}: a family merged into "
-            "its parent keeps its own name there, which this verb does not follow for a nacelle)"
-        )
-    ib, it = phys["base_names"].index(name), phys["te_names"].index(name)
-    out = lines[phys["p0"] : phys["p0"] + 4] + ["1", name, f" {phys['base_rows'][0][ib]},"]
+    base = _nacelle_entry(sector, phys["base_names"], "base region")
+    rim = _nacelle_entry(sector, phys["te_names"], "trailing-edge group")
+    _warn_merged(sector, {base, rim})
+    ib, it = phys["base_names"].index(base), phys["te_names"].index(rim)
+    out = lines[phys["p0"] : phys["p0"] + 4] + ["1", base, f" {phys['base_rows'][0][ib]},"]
     out += [f"{row[ib]}," for row in phys["base_rows"][1:]]
-    out += ["1", name, f"{phys['te_values'][it]},", "0"]
+    out += ["1", rim, f"{phys['te_values'][it]},", "0"]
     out += [*lines[phys["after"] : phys["codes_at"]], f"{phys['base_codes'][ib]},"]
     return out + lines[phys["codes_at"] + 1 : phys["p_end"]]
 
@@ -778,6 +812,9 @@ def power_off_body(
     The body is the whole turn (``copies`` sectors merged across the seams), full quad, with
     no blade surface. Its nacelle is built by the function ``sector-remesh`` uses, with the same
     arguments, so the nacelle of the remeshed wheel and of this body have the same nodes.
+    A sector marked with ``merge_into`` holds the nacelle's base region and rim group under the
+    merged family's name: that name is read through the faces it lies on and kept, and a warning
+    names every merged family, which the body keeps and which it removes.
 
     Parameters
     ----------

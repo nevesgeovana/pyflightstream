@@ -79,6 +79,19 @@ EVIDENCE_GATED: frozenset[str] = frozenset(
 )
 """Marking commands requiring verified evidence; session and mesh import are excluded."""
 
+MERGED_NODE_EVIDENCE: dict[str, str] = {
+    "26.124": "reports/compat/CMP-26124_2026-10-26_marking.yaml",
+    "26.125": "reports/compat/CMP-26125_2026-10-26_marking.yaml",
+}
+"""Builds on which a wake-termination mark made before SURFACE_COMBINE was saved after it.
+
+The SURFACE_COMBINE probe of each report marks one selected node, combines the two boundaries
+and saves: the termination record survives (one before, one after) and the node a selection
+by number moves is the same vertex before and after the combine (``record_survives`` and
+``same_vertex``). The marking pass selects and marks explicit nodes before its merges, so on
+these builds the merge keeps them; on any other build explicit nodes across a merge are refused.
+"""
+
 
 class BoundaryMarkingError(PyflightstreamError):
     """A marking pass failed its solver execution or saved-state read-back."""
@@ -265,9 +278,16 @@ def _node_routes(sidecar, declarations, spec):
             f"{sidecar}: explicit nodes after a vertex-changing import operation "
             "have unmeasured numbering"
         )
-    if explicit and any(region.merge_into for region in declarations.base_regions):
+    merged = explicit and any(region.merge_into for region in declarations.base_regions)
+    build = resolve(declarations.fs_build).canonical if merged else None
+    if merged and build not in MERGED_NODE_EVIDENCE:
+        measured = " and ".join(sorted(MERGED_NODE_EVIDENCE))
+        reports = ", ".join(MERGED_NODE_EVIDENCE[name] for name in sorted(MERGED_NODE_EVIDENCE))
         raise InputArtifactError(
-            f"{sidecar}: explicit termination nodes across a merge await saved-node evidence"
+            f"{sidecar}: explicit termination nodes across a merge are measured on FlightStream "
+            f"{measured} only, where the mark survives SURFACE_COMBINE on the node selected "
+            f"({reports}); FlightStream {build} has no such measurement. State one of those "
+            'builds in fs_build, declare the nodes as "auto", or remove the merge_into'
         )
     return termination, explicit
 
