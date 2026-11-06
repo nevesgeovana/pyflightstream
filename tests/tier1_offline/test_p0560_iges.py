@@ -520,6 +520,33 @@ def test_p0560_grid_structured_false_meshes_a_four_sided_patch_unstructured(tmp_
     assert record["components"]["Flap"]["faces"] != 24
 
 
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_warns_when_the_strip_rule_overrides_a_stated_count(tmp_path, capsys):
+    """A chord side 0.1 long under a size of 0.25 is a strip of one cell: the chord count of 6 the
+    grid file states is not silently dropped, it is warned with the component, side and counts."""
+    iges = Iges()
+    iges.name(1, "Plate")
+    iges.name(2, "Flap")
+    iges.patch(square(0, 0, 2, 1), level=1)
+    iges.patch(square(0, 1, 0.1, 2), level=2)
+    path = iges.write(tmp_path / "strip.igs")
+    _, record, caught = run_grid(tmp_path, capsys, [path], PLATE_GRID)
+    assert record["transfinite_patches"]["Flap"] == 1
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    expected = (
+        "Flap: 1 patch(es) with a chord side shorter than the size 0.25 take 1 cell across it, "
+        "not the chord count of 6"
+    )
+    assert any(expected in s for s in said), said
+    assert any(expected in w for w in record["warnings"])
+    # A law with no stated count takes its cells from the size and is not warned.
+    _, again, caught = run_grid(
+        tmp_path, capsys, [path], PLATE_GRID.replace("count = 6, ", ""), out="again.obj"
+    )
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert not any("take 1 cell across it" in s for s in said), said
+
+
 def triangle_and_tab(folder):
     """A three-cornered patch on level 1, its top edge collapsed to the apex (1, 1), and a tab on
     level 2 that shares the left half of its base, so the join cuts the base in two at (1, 0)."""

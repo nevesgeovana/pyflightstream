@@ -88,7 +88,8 @@ corners of wing, tail and body panels.
 
 The span pair of a four-sided patch is the pair of opposite sides closer to the span axis; the
 other pair is the chord. A side shorter than the component's size is a strip, such as the base
-of a blunt trailing edge, and takes one cell whatever its law.
+of a blunt trailing edge, and takes one cell whatever its law; a count the grid control file
+states for that direction is then warned with the component, the side and both counts.
 
 A patch meshed quad-dominant grows its cells from its short curves: about a curve shorter than
 the component's size, such as a piece the join cuts off, the size is that curve's length and

@@ -245,11 +245,26 @@ def _bump(
     return math.tan(math.pi / (2 * max(count, 1)))
 
 
+def _span_pair(gmsh: Any, pairs: list[tuple[int, int]], axis: NDArray[np.float64]) -> int:
+    """Return the index of the pair of opposite sides that runs closer to the span axis."""
+    align = []
+    for pair in pairs:
+        total = 0.0
+        for curve in pair:
+            a, b = _ends(gmsh, curve)
+            d = b - a
+            n = float(np.linalg.norm(d))
+            total += abs(float(d @ axis)) / n if n > 0 else 0.0
+        align.append(total)
+    return int(np.argmax(align))
+
+
 def _sides(
     gmsh: Any,
     name: str,
     grid: ComponentGrid,
     faces: list[int],
+    *,
     size: float,
     warnings: list[str],
 ) -> tuple[list[_Side], list[int]]:
@@ -257,30 +272,24 @@ def _sides(
     axis = _span_axis(gmsh, faces, grid)
     sides: list[_Side] = []
     patches: list[int] = []
+    strips: dict[tuple[str, int], int] = {}
     for face in faces:
         loop = _four_sides(gmsh, face)
         if loop is None or not grid.structured:
             continue
         pairs = [(loop[0], loop[2]), (loop[1], loop[3])]
-        align = []
-        for pair in pairs:
-            total = 0.0
-            for curve in pair:
-                a, b = _ends(gmsh, curve)
-                d = b - a
-                n = float(np.linalg.norm(d))
-                total += abs(float(d @ axis)) / n if n > 0 else 0.0
-            align.append(total)
-        span_index = int(np.argmax(align))
+        span_index = _span_pair(gmsh, pairs, axis)
         patches.append(face)
         for index, pair in enumerate(pairs):
             direction = "span" if index == span_index else "chord"
-            law = getattr(grid, direction)
+            spec = getattr(grid, direction) or Direction(count=None)
             length = max(gmsh.model.occ.getMass(1, c) for c in pair)
-            spec = law or Direction(count=None)
             if length < size:
                 # A side shorter than the component's size is a strip, such as the base of a
                 # blunt trailing edge: one cell across it, whatever the law of its direction.
+                if spec.count is not None and spec.count != 1:
+                    key = (direction, spec.count)
+                    strips[key] = strips.get(key, 0) + 1
                 spec = Direction(count=1)
             count = spec.count or max(1, round(length / size))
             ratio = spec.ratio
@@ -289,6 +298,11 @@ def _sides(
             elif spec.law in DEFAULT_RATIO and ratio is None:
                 ratio = DEFAULT_RATIO[spec.law]
             sides.append(_Side(name, pair, direction, count, spec.law, ratio, axis))
+    for (direction, asked), patches_cut in sorted(strips.items()):
+        warnings.append(
+            f"{name}: {patches_cut} patch(es) with a {direction} side shorter than the size "
+            f"{size:g} take 1 cell across it, not the {direction} count of {asked}"
+        )
     return sides, patches
 
 
@@ -432,7 +446,7 @@ def mesh_model(
         grid = config.components.get(name, ComponentGrid(name=name))
         if not faces[name]:
             continue
-        found, four = _sides(gmsh, name, grid, faces[name], sizes[name], warnings)
+        found, four = _sides(gmsh, name, grid, faces[name], size=sizes[name], warnings=warnings)
         sides += found
         patches[name] = four
     overrides = _transfinite(gmsh, sides)
