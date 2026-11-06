@@ -1,7 +1,7 @@
-"""Remesh a hub band between two frozen loops, the machinery of hub-rings (PFS-2192, PFS-2197).
+"""Remesh a hub band between two frozen loops, shared by hub-rings and repitch (PFS-2192, PFS-2196).
 
-A verb takes a hole of hub faces out around a blade root and fills the annulus between an inner
-loop (the outer ring of ``hub-rings``) and the hole's
+Both verbs take a hole of hub faces out around a blade root and fill the annulus between an inner
+loop (the outer ring of ``hub-rings``, the turned root of the repitch remesh route) and the hole's
 boundary: first triangulated in a chart of the hub, then remeshed quad-dominant by the remesh
 ``refine`` uses, both loops frozen and every free node projected on the source hub. The kept faces
 keep their place and order, and each blade's new faces take the place of its first face taken,
@@ -13,21 +13,25 @@ new cells is measured and returned for the verb to warn.
 
 from __future__ import annotations
 
+import copy
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
 
-from pyflightstream._errors import InputValueError
+from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream.workspace._hub_rings_grid import (
     Region,
+    _best_ear,
     boundary_loop,
     clip_annulus,
     inside,
     islands_filled,
+    march,
     one_layer,
+    region,
     signed_area,
     walk_loops,
 )
@@ -38,9 +42,10 @@ from pyflightstream.workspace._refine._remesh import (
     SMOOTH_PASSES,
     Patch,
     Remesher,
+    element_report,
 )
-from pyflightstream.workspace._repitch import HubSurface, _nearest
-from pyflightstream.workspace._repitch_grid import edges, incidence, quality
+from pyflightstream.workspace._repitch import HubSurface, RingChart, _nearest
+from pyflightstream.workspace._repitch_grid import edges, incidence, quality, root_loop
 
 Edge = tuple[int, int]
 Triangles = list[tuple[int, int, int]]
@@ -142,6 +147,25 @@ def cut(
     annulus's inner loop in the chart, counterclockwise. Returns None when the hole would take a
     banned face, has no single boundary, or neither first triangulation closes.
     """
+    found = hole_of(verts, faces, area, reach, banned=banned)
+    if found is None:
+        return None
+    return join(inner, found[2], found[:2])
+
+
+def hole_of(
+    verts: np.ndarray,
+    faces: list[list[int]],
+    area: Region,
+    reach: tuple[np.ndarray, list[int]],
+    *,
+    banned: set[int],
+) -> tuple[set[int], list[int], np.ndarray] | None:
+    """Return the faces a march reaches plus one layer, the hole's loop and its chart points.
+
+    The loop runs counterclockwise in the chart. None when the hole would take a banned face or
+    has no single boundary.
+    """
     rows, loop = reach
     taken = islands_filled(faces, one_layer(faces, reached(faces, area, rows, loop)))
     hole = None if taken & banned else boundary_loop(faces, taken, loop)
@@ -150,12 +174,17 @@ def cut(
     hole_xy = area.chart.coordinates(verts[hole])
     if signed_area(hole_xy) < 0.0:
         hole, hole_xy = hole[::-1], hole_xy[::-1]
+    return taken, hole, hole_xy
+
+
+def join(inner: np.ndarray, hole_xy: np.ndarray, found: tuple[set[int], list[int]]) -> Hole | None:
+    """Triangulate from ``inner`` to the hole's loop: by the two-pointer walk, else by ears."""
     tris, route = walk_loops(inner, hole_xy), "two-pointer walk"
     if tris is None:
         tris, route = clip_annulus(inner, hole_xy), "ear clipping"
     if tris is None:
         return None
-    return Hole(taken, hole, tris, route)
+    return Hole(found[0], found[1], tris, route)
 
 
 def targets(mesh: ObjMesh, family: str) -> np.ndarray:
@@ -231,6 +260,25 @@ def remeshed(
     return _finished(remesher, plan, patch, surface, verb)
 
 
+def remesh_series(
+    mesh: ObjMesh, plan: Plan, inner: np.ndarray, surface: HubSurface, verb: str
+) -> dict[int, tuple[np.ndarray, list[list[int]]]]:
+    """Return :func:`remeshed` at every pass count of :data:`PASSES_TRIED`, the passes shared.
+
+    A pass of the remesher does not depend on how many follow, so the passes run once, from
+    the fewest up, and each count is finished on a copy; the result at each count is the one
+    :func:`remeshed` gives. The copy shares only the source hub, which nothing changes.
+    """
+    remesher, patch = _remesher(mesh, plan, inner, surface)
+    done, found = 0, {}
+    for passes in sorted(PASSES_TRIED):
+        remesher.run(passes - done)
+        done = passes
+        twin = copy.deepcopy(remesher, {id(surface.mesh): surface.mesh})
+        found[passes] = _finished(twin, plan, patch, surface, verb)
+    return found
+
+
 def turned_cells(
     points: np.ndarray, faces: list[list[int]], surface: HubSurface, sense: int
 ) -> int:
@@ -276,6 +324,19 @@ def forward(faces: list[list[int]], loop: list[int]) -> bool:
     a, b = loop[0], loop[1]
     face = next(f for f in faces if a in f and b in f)
     return face[(face.index(a) + 1) % len(face)] == b
+
+
+def numbered(
+    faces: list[list[int]], loops: tuple[Any, list[int]], first: int, free: int, ahead: bool
+) -> list[list[int]]:
+    """Return annulus faces in mesh numbering: inner loop, hole loop, then ``free`` new nodes.
+
+    The new nodes are numbered from ``first``; ``ahead`` is :func:`forward` of the root, and a
+    root run the other way writes every face reversed.
+    """
+    inner, hole = loops
+    local = np.r_[inner, hole, first + np.arange(free)]
+    return [[int(local[v]) for v in (f if ahead else f[::-1])] for f in faces]
 
 
 @dataclass
@@ -500,3 +561,332 @@ def new_by_old(source: ObjMesh, mesh: ObjMesh, index: np.ndarray) -> np.ndarray:
     alive = index[: len(source.verts)] >= 0
     out[alive] = mesh.verts[index[: len(source.verts)][alive]]
     return out
+
+
+# The remesh route of repitch (PFS-2196): one band per blade around its turned root.
+
+#: Source cells across the default band beyond the root's largest move: two, the depth of the two
+#: complete quad rings the ring route needs around a root.
+BAND_CELLS = 2
+#: Wider bands tried beside the first, each one more source cell across, while they fit.
+WIDER = 2
+_REPITCH = "repitch"
+
+
+@dataclass
+class Root:
+    """What a band is cut around: the blade, its hub family, root loop, cell and barred faces."""
+
+    name: str
+    family: str
+    loop: list[int]
+    cell: float
+    banned: set[int]
+    foot: list[list[int]] = field(default_factory=list)
+
+
+def footprint(mesh: ObjMesh, hub_faces: list[list[int]], loop: list[int]) -> list[list[int]]:
+    """Return triangles closing the hub under a blade's root loop, run as the hub's faces run.
+
+    The loop is triangulated in the plane of its largest spread by clipping, each time, the ear
+    with the widest least angle; an empty list when no ear is found.
+    """
+    chart = RingChart(mesh.verts[loop], None)
+    xy = chart.coordinates(mesh.verts[loop])
+    ccw = list(range(len(loop)))
+    if signed_area(xy) < 0.0:
+        ccw.reverse()
+    ring = list(ccw)
+    tris = []
+    while len(ring) > 3:
+        k = _best_ear(xy, ring)
+        if k is None:
+            return []
+        tris.append([ring[k - 1], ring[k], ring[(k + 1) % len(ring)]])
+        del ring[k]
+    tris.append(ring)
+    # A counterclockwise ear runs the root's edges as the loop does; the hub face across a root
+    # edge runs it the other way when it runs the loop forward.
+    ahead = forward(hub_faces, [loop[i] for i in ccw])
+    return [[loop[i] for i in (t[::-1] if ahead else t)] for t in tris]
+
+
+@dataclass
+class Band:
+    """One blade's band: its root loop (counterclockwise in the chart), the hole and annulus."""
+
+    name: str
+    family: str
+    loop: list[int]
+    taken: set[int]
+    hole: list[int]
+    tris: Triangles
+    route: str
+    width: float
+    rows: Any = None
+
+
+def root_move(verts: np.ndarray, moved: np.ndarray, loop: list[int]) -> float:
+    """Return the largest move of a root node by the blade's turn."""
+    return float(np.linalg.norm(moved[loop] - verts[loop], axis=1).max())
+
+
+def band_at(mesh: ObjMesh, moved: np.ndarray, root: Root, width: float) -> Band | None:
+    """Return the band of hub faces within ``width`` of the old root, or None when it does not fit.
+
+    The band's edge is marched from the old root in steps of at most one source cell, so the
+    normals are taken again at least once a cell; the faces it reaches plus one layer leave. The
+    annulus runs from the turned root to the hole's boundary. Rows are marched from the turned
+    root, one local cell apart, as many as stay a cell inside the hole (the hole reaches past
+    the width, one layer of source faces beyond it), and lifted on the hub; they are written as
+    quads, as hub-rings writes its rings, so the cells around the root have the source's size,
+    and only the gap from the last row to the hole is triangulated and remeshed. When a row
+    folds or leaves the hole, or the triangulation does not close, fewer rows are tried, down
+    to none. None when the march folds, the turned root turns over in the chart,
+    the hole would take a barred face or no triangulation closes.
+    """
+    faces = mesh.families[root.family]
+    zone = region(mesh.verts, faces + root.foot, root.loop, width)
+    loop = list(root.loop)
+    xy = zone.chart.coordinates(mesh.verts[loop])
+    if signed_area(xy) < 0.0:
+        loop = [loop[0], *loop[:0:-1]]
+        xy = xy[[0, *range(len(loop) - 1, 0, -1)]]
+    rows = march(xy, max(1, math.ceil(width / root.cell)), width)
+    inner = zone.chart.coordinates(moved[loop])
+    if rows is None or signed_area(inner) <= 0.0:
+        return None
+    found = hole_of(mesh.verts, faces, zone, (rows, loop), banned=root.banned)
+    if found is None:
+        return None
+    taken, hole, hole_xy = found
+    gap = _gap(inner, hole_xy)
+    for count in range(max(0, math.floor(gap / root.cell) - 1), -1, -1):
+        ring = march(inner, count, count * root.cell) if count else inner[None]
+        if ring is None or (count and not inside(ring[1:].reshape(-1, 2), hole_xy).all()):
+            continue
+        joined = join(ring[-1], hole_xy, (taken, hole))
+        if joined is None:
+            continue
+        lifted = zone.chart.lift(ring[1:], mesh.verts[zone.ids], zone.triangles) if count else None
+        return Band(
+            root.name, root.family, loop, taken, hole, joined.tris, joined.route, width, lifted
+        )
+    return None
+
+
+def _gap(inner: np.ndarray, loop: np.ndarray) -> float:
+    """Return the least distance in the chart from the inner loop's nodes to a closed loop."""
+    a, b = loop, np.roll(loop, -1, axis=0)
+    ab = b - a
+    along = np.einsum("pk,sk->ps", inner, ab) - (a * ab).sum(axis=1)[None, :]
+    t = np.clip(along / np.maximum((ab * ab).sum(axis=1), 1e-300)[None, :], 0.0, 1.0)
+    near = a[None, :, :] + t[:, :, None] * ab[None, :, :]
+    return float(np.linalg.norm(near - inner[:, None, :], axis=2).min())
+
+
+def bands_tried(
+    mesh: ObjMesh, moved: np.ndarray, root: Root, stated: float | None
+) -> tuple[list[Band], dict[str, Any]]:
+    """Return the bands to remesh around one root and how their width was found.
+
+    The first width is the stated ``band_width``, else the root's largest move plus
+    :data:`BAND_CELLS` local cells (the median length of the hub edges leaving the root). When its
+    band does not fit (it would take a face on an open boundary, another family or another
+    blade's band), the width shrinks by :data:`SHRINK` until one fits, and that is warned.
+    Otherwise up to :data:`WIDER` bands, each one local cell wider, join while they fit.
+    """
+    shift = root_move(mesh.verts, moved, root.loop)
+    width = stated if stated is not None else shift + BAND_CELLS * root.cell
+    info: dict[str, Any] = {
+        "rule": "stated" if stated is not None else "root move plus two local cells",
+        "asked": width,
+        "root_largest_move": shift,
+        "local_cell_size": root.cell,
+        "shrunk_from": None,
+    }
+    first = band_at(mesh, moved, root, width)
+    if first is not None:
+        bands = [first]
+        for k in range(1, WIDER + 1):
+            wider = band_at(mesh, moved, root, width + k * root.cell)
+            if wider is None:
+                break
+            bands.append(wider)
+        return bands, info
+    for k in range(1, TRIES + 1):
+        first = band_at(mesh, moved, root, width * SHRINK**k)
+        if first is not None:
+            break
+    need(
+        first is not None,
+        f"blade {root.name!r}: no hub band down to a hundredth of the width {width:.6g} fits "
+        f"on hub {root.family!r} without an open boundary (a seam), another family or another "
+        "blade's band; state [repitch] band_width, or hub_method = 'rings' with [hub_rings]",
+        _REPITCH,
+    )
+    assert first is not None
+    warn(
+        f"repitch: blade {root.name!r}: the hub band of width {width:.6g} reaches an open "
+        f"boundary (a seam), another family or another blade's band; it is shrunk to "
+        f"{first.width:.6g}",
+        PyflightstreamWarning,
+    )
+    info["shrunk_from"] = width
+    return [first], info
+
+
+@dataclass
+class Candidate:
+    """One remesh of one band: its pass count, points, faces, turned cells and shape."""
+
+    band: Band
+    passes: int
+    points: np.ndarray
+    faces: list[list[int]]
+    ahead: bool
+    turned: int
+    shape: dict[str, Any]
+
+
+def _inner(moved: np.ndarray, band: Band) -> np.ndarray:
+    """Return the annulus's inner loop: the last held row, or the turned root without rows."""
+    return moved[band.loop] if band.rows is None else band.rows[-1]
+
+
+def best_candidate(
+    mesh: ObjMesh, moved: np.ndarray, bands: list[Band], surface: HubSurface
+) -> tuple[Candidate, list[dict[str, Any]]]:
+    """Remesh every band at every pass count of the fallback; return the best and the table.
+
+    The best has the fewest cells turned against the source hub (none, when one has none) and,
+    among those, the highest least scaled Jacobian.
+    """
+    tried = []
+    for band in bands:
+        ahead = forward(mesh.families[band.family], band.loop)
+        series = remesh_series(mesh, band, _inner(moved, band), surface, _REPITCH)
+        for passes in PASSES_TRIED:
+            points, faces = series[passes]
+            turned = turned_cells(points, faces, surface, 1 if ahead else -1)
+            shape = quality(points, faces)
+            tried.append(Candidate(band, passes, points, faces, ahead, turned, shape))
+    best = max(tried, key=lambda c: (-c.turned, c.shape["min_scaled_jacobian"]))
+    table = [
+        {
+            "band_width": c.band.width,
+            "passes": c.passes,
+            "turned_cells": c.turned,
+            "min_scaled_jacobian": c.shape["min_scaled_jacobian"],
+            "max_aspect": c.shape["max_aspect"],
+            "quad_share": element_report("quad-dominant", c.faces)["quad_share"],
+        }
+        for c in tried
+    ]
+    return best, table
+
+
+def band_numbers(verts: np.ndarray, faces: list[list[int]]) -> dict[str, Any]:
+    """Return a band's quality, its quad share and its mean edge length."""
+    sides = [np.linalg.norm(np.roll(verts[f], -1, axis=0) - verts[f], axis=1) for f in faces]
+    return {
+        **quality(verts, faces),
+        "quad_share": element_report("quad-dominant", faces)["quad_share"],
+        "mean_edge": float(np.mean(np.concatenate(sides))),
+    }
+
+
+def _blade_numbers(
+    mesh: ObjMesh, best: Candidate, info: dict[str, Any], table: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Return what the record says of one blade's band; the output band is filled in later."""
+    band = best.band
+    return {
+        "hub_family": band.family,
+        "band_width": band.width,
+        "band_width_rule": info["rule"],
+        "band_width_asked": info["asked"],
+        "shrunk_from": info["shrunk_from"],
+        "local_cell_size": info["local_cell_size"],
+        "root_largest_move": info["root_largest_move"],
+        "candidate_widths": sorted({c["band_width"] for c in table}),
+        "root_loop_nodes": len(band.loop),
+        "held_rows": 0 if band.rows is None else len(band.rows),
+        "faces_taken": len(band.taken),
+        "hole_boundary_nodes": len(band.hole),
+        "first_triangulation": band.route,
+        "passes": best.passes,
+        "turned_cells": best.turned,
+        "source_band": band_numbers(
+            mesh.verts, [mesh.families[band.family][i] for i in band.taken]
+        ),
+        "candidates": table,
+    }
+
+
+def _rows_and_annulus(best: Candidate, start: int) -> tuple[list[list[int]], list[np.ndarray], int]:
+    """Return a band's faces in mesh numbering from ``start``, its new points and their count.
+
+    The held rows are written as quads from the root outward, as hub-rings writes its rings,
+    then the remeshed annulus from the last row to the hole.
+    """
+    band = best.band
+    n, m = len(band.loop), len(band.hole)
+    count = 0 if band.rows is None else len(band.rows)
+    ids = np.vstack(
+        [np.asarray(band.loop)[None, :], start + np.arange(count * n).reshape(count, n)]
+    )
+    quads = [
+        [ids[k, j], ids[k, (j + 1) % n], ids[k + 1, (j + 1) % n], ids[k + 1, j]]
+        if best.ahead
+        else [ids[k, j], ids[k + 1, j], ids[k + 1, (j + 1) % n], ids[k, (j + 1) % n]]
+        for k in range(count)
+        for j in range(n)
+    ]
+    free = len(best.points) - n - m
+    ring = numbered(best.faces, (ids[-1], band.hole), start + count * n, free, best.ahead)
+    points = ([] if band.rows is None else [band.rows.reshape(-1, 3)]) + [best.points[n + m :]]
+    faces = [[int(v) for v in q] for q in quads] + ring
+    return faces, points, count * n + free
+
+
+def remesh_bands(
+    source: ObjMesh, turned: ObjMesh, names: tuple[list[str], list[str]], stated: float | None
+) -> tuple[Result, HubSurface, dict[str, dict[str, Any]]]:
+    """Remesh the hub band around every turned blade root, unchecked; return the result.
+
+    ``turned`` is the source with the blades turned; every band is cut and measured against the
+    same source hub, in the order the blades are named, and no band takes a face another took.
+    """
+    blades, hubs = names
+    hub_faces = [f for n in hubs for f in source.families[n]]
+    roots = {name: root_loop(source.families[name], hub_faces, name) for name in blades}
+    feet = {name: footprint(source, hub_faces, loop) for name, loop in roots.items()}
+    # The source hub closed under each blade's old root: a turned root uncovers part of the
+    # footprint, and the band's nodes there need a surface to lie on.
+    surface = HubSurface(source.verts, hub_faces + [f for foot in feet.values() for f in foot])
+    gone: dict[str, set[int]] = {}
+    built = Built([], {}, {})
+    start, plans, numbers = len(source.verts), [], {}
+    for name in blades:
+        loop = roots[name]
+        family = hub_family(source, hubs, loop, name, _REPITCH)
+        banned = forbidden(source, family, name, gone.setdefault(family, set()))
+        cell = root_edge_median(source, family, loop, _REPITCH)
+        root = Root(name, family, loop, cell, banned, feet[name])
+        bands, info = bands_tried(source, turned.verts, root, stated)
+        best, table = best_candidate(source, turned.verts, bands, surface)
+        gone[family] |= best.band.taken
+        faces, points, made = _rows_and_annulus(best, start)
+        built.faces[name] = faces
+        built.points += points
+        built.quads[name] = element_report("quad-dominant", faces)
+        start += made
+        plans.append(best.band)
+        numbers[name] = _blade_numbers(source, best, info, table)
+    every = np.vstack([turned.verts, *built.points])
+    for name, blade in numbers.items():
+        blade["faces_added"] = len(built.faces[name])
+        blade["output_band"] = band_numbers(every, built.faces[name])
+        blade["size_ratio"] = blade["output_band"]["mean_edge"] / blade["source_band"]["mean_edge"]
+    return assemble(turned, plans, built), surface, numbers

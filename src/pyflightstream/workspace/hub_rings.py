@@ -4,12 +4,12 @@ A hub that is quad-dominant has no complete rings of quads around a blade root, 
 ring route needs. Per blade, ``rings`` rows of quads with as many nodes as the root loop are
 marched outward on the hub, the hub faces they reach plus one layer leave, and the annulus
 between the outer ring and that hole is remeshed quad-dominant by the remesh ``refine`` uses,
-with both loops frozen and every node on the source hub (:mod:`._hub_remesh`). Blade nodes and
-root nodes never move; every other family, the hub's open boundaries (a sector's seams) and the
-hub faces away from the roots stay to the bit. The kept hub faces keep their order and the new
-faces take the place of the first face taken, rings from the root outward, because the solver's
-results depend on face order. The quality of the new cells (folded or turned cells, a node off
-the hub) is warned with its numbers, and the mesh written.
+with both loops frozen and every node on the source hub (:mod:`._hub_remesh`, which repitch's
+remesh route shares). Blade nodes and root nodes never move; every other family, the hub's open
+boundaries (a sector's seams) and the hub faces away from the roots stay to the bit. The kept hub
+faces keep their order and the new faces take the place of the first face taken, rings from the
+root outward, because the solver's results depend on face order. The quality of the new cells
+(folded or turned cells, a node off the hub) is warned with its numbers, and the mesh written.
 """
 
 from __future__ import annotations

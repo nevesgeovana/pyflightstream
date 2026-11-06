@@ -1,28 +1,274 @@
-"""P0560-HUBQ: quality warned with its numbers and the mesh written, not refused.
+"""P0560-HUBQ: the remesh route of repitch on a quad-dominant hub, and quality warned, not refused.
 
 Usage:
     pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
-    pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj
+    pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
 
-Mesh quality (folded, reversed or turned cells, a node off the hub) is warned with its numbers
-and the mesh is written; only broken input and broken invariants are refused.
+``[repitch] hub_method`` is ``"rings"``, ``"remesh"`` or ``"auto"`` (the default). The remesh route
+turns each blade rigidly and remeshes the hub band around its moved root quad-dominant, every free
+node on the source hub, the kept faces in place and order. Mesh quality (folded, reversed or
+turned cells, a node off the hub) is warned with its numbers and the mesh is written; only broken
+input and broken invariants are refused.
+
+The fixture is the quad-dominant cylinder hub of ``test_p0560_morph``: it has no complete quad
+rings around its roots, so the ring route alone refuses it.
 """
 
+import json
 import re
 import tomllib
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import NotApplicableWarning, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj
 from tests.tier1_offline.test_p0560_morph import (
+    COPIES,
+    STATION,
     build,
     control,
     invoke,
+    open_nodes,
+    places,
     record,
 )
+
+REPITCH = '[repitch]\nangle_deg = {angle}\nrotor_axis = "x"\nreference_point = {point}\n'
+
+
+def _hub_distance(source, points):
+    """Largest distance of points to the source hub's triangles, by trimesh."""
+    import trimesh
+
+    tris = [
+        [f[0], f[j], f[j + 1]] for f in source.families["Spinner"] for j in range(1, len(f) - 1)
+    ]
+    surface = trimesh.Trimesh(source.verts, tris, process=False)
+    _, distance, _ = trimesh.proximity.closest_point(surface, points)
+    return float(np.max(distance, initial=0.0))
+
+
+def _quiet_invoke(verb, source, cfg, out):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        return invoke(verb, source, cfg, out)
+
+
+@pytest.fixture(scope="module")
+def remeshed(tmp_path_factory):
+    """The quad-dominant sector (no hub_method: auto) and full wheel (remesh), turned 3 degrees."""
+    made = {}
+    for wheel in (False, True):
+        folder = tmp_path_factory.mktemp("hubq_wheel" if wheel else "hubq_sector")
+        source = build(folder, wheel=wheel, nacelle=True, wing=wheel)
+        text = REPITCH.format(angle=3.0, point=STATION) + (
+            'hub_method = "remesh"\n' if wheel else ""
+        )
+        cfg = control(folder, text, wheel=wheel)
+        out = folder / "remeshed.obj"
+        assert _quiet_invoke("repitch", source, cfg, out) == 0
+        made[wheel] = (folder, source, out)
+    return made
+
+
+@pytest.mark.requirement("FR-3678")
+@pytest.mark.parametrize("wheel", [False, True], ids=["P0560-HUBQ-sector", "P0560-HUBQ-wheel"])
+def test_p0560_hubq_remesh_turns_the_blades_and_keeps_everything_else(remeshed, wheel):
+    folder, source, out = remeshed[wheel]
+    old, new = read_obj(source), read_obj(out)
+    report = record(out, "repitch")
+    names = [n for n in old.families if n.startswith("Blade")]
+    assert report["hub_method"] == ("remesh" if wheel else "auto")
+    for name in names:
+        assert report["blades"][name]["hub_route"] == "remesh"
+        assert report["blades"][name]["pitch_min_deg"] == pytest.approx(3.0, abs=1e-9)
+        assert report["blades"][name]["pitch_max_deg"] == pytest.approx(3.0, abs=1e-9)
+        # the blade keeps its faces, in order, on its own (turned) nodes
+        assert len(new.families[name]) == len(old.families[name])
+        assert [len(f) for f in new.families[name]] == [len(f) for f in old.families[name]]
+    for name in ("Nacelle", "Wing") if wheel else ("Nacelle",):
+        assert places(new, new.families[name]) == places(old, old.families[name])
+    assert open_nodes(new) == open_nodes(old)  # seams, the hub's ends and the nacelle's end
+    hub, old_hub = new.families["Spinner"], old.families["Spinner"]
+    taken = sum(b["faces_taken"] for b in report["hub_remesh"].values())
+    added = sum(b["faces_added"] for b in report["hub_remesh"].values())
+    assert len(hub) == len(old_hub) - taken + added
+    # every node of the output that the source does not hold lies on the source hub
+    known = {tuple(p) for p in old.verts.tolist()}
+    blade_nodes = {v for n in names for f in new.families[n] for v in f}
+    fresh = [i for i, p in enumerate(new.verts.tolist()) if tuple(p) not in known]
+    free = [i for i in fresh if i not in blade_nodes]
+    assert free and _hub_distance(old, new.verts[free]) < 1e-9
+    band = [f for f in hub if not set(f) <= {i for i in range(len(new.verts)) if i not in fresh}]
+    assert sum(len(f) == 4 for f in band) / len(band) > 0.5  # quad-dominant
+    for name in names:
+        numbers = report["hub_remesh"][name]
+        for side in ("source_band", "output_band"):
+            assert {"min_scaled_jacobian", "max_aspect", "quad_share"} <= set(numbers[side])
+        assert numbers["output_band"]["folded_cells"] == 0
+        assert numbers["turned_cells"] == 0
+        assert numbers["size_ratio"] > 0.0
+        assert numbers["band_width"] > 0.0
+    sidecar = tomllib.loads(Path(f"{out}.boundaries.toml").read_text())
+    assert sidecar["boundary_faces"] == [len(f) for f in new.families.values()]
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_hubq_kept_hub_faces_keep_their_order_and_new_faces_take_the_first_place(remeshed):
+    _, source, out = remeshed[False]
+    old, new = read_obj(source), read_obj(out)
+    numbers = record(out, "repitch")["hub_remesh"]["Blade1"]
+    old_hub, new_hub = places(old, old.families["Spinner"]), places(new, new.families["Spinner"])
+    kept = [f for f in old_hub if f in new_hub]
+    assert len(kept) == len(old_hub) - numbers["faces_taken"]
+    first = next(i for i, f in enumerate(old_hub) if f not in new_hub)
+    assert new_hub[:first] == old_hub[:first]
+    assert new_hub[first + numbers["faces_added"] :] == kept[first:]
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_hubq_the_rim_markings_follow_the_turned_blade(remeshed):
+    folder, _, out = remeshed[False]
+    sidecar = tomllib.loads(Path(f"{out}.boundaries.toml").read_text())
+    report = record(out, "repitch")["blades"]["Blade1"]
+    from pyflightstream.workspace._wheel import rotate
+
+    origin, axis = np.array(report["axis_origin"]), np.array(report["axis_direction"])
+    for tag in ("U", "L"):
+        moved = np.loadtxt(
+            folder / sidecar["trailing_edges"][f"Blade1{tag}"]["file"], skiprows=1, delimiter=","
+        )
+        given = np.loadtxt(folder / f"Blade1{tag}.te.txt", skiprows=1, delimiter=",")
+        assert np.abs(moved - rotate(given, axis, origin, 3.0)).max() < 1e-12
+
+
+@pytest.mark.requirement("FR-3679")
+def test_p0560_hubq_auto_takes_rings_where_every_root_has_them_and_remesh_otherwise(
+    tmp_path, remeshed
+):
+    source = build(tmp_path)
+    rings_obj = tmp_path / "rings.obj"
+    assert (
+        invoke("hub-rings", source, control(tmp_path, "[hub_rings]\nrings = 4\n"), rings_obj) == 0
+    )
+    cfg = control(tmp_path, REPITCH.format(angle=2.0, point=STATION), name="auto.toml")
+    out = tmp_path / "auto_rings.obj"
+    assert _quiet_invoke("repitch", rings_obj, cfg, out) == 0
+    # the same table without hub_method on the quad-dominant hub, with no rings: the remesh
+    for made, route in ((out, "rings"), (remeshed[False][2], "remesh")):
+        report = record(made, "repitch")
+        assert report["hub_method"] == "auto"
+        assert report["blades"]["Blade1"]["hub_route"] == route
+
+
+@pytest.mark.requirement("FR-3679")
+def test_p0560_hubq_rings_keeps_the_ring_route_bit_for_bit(tmp_path, capsys):
+    source = build(tmp_path)
+    rings_obj = tmp_path / "rings.obj"
+    assert (
+        invoke("hub-rings", source, control(tmp_path, "[hub_rings]\nrings = 4\n"), rings_obj) == 0
+    )
+    plain = control(tmp_path, REPITCH.format(angle=2.0, point=STATION), name="plain.toml")
+    stated = control(
+        tmp_path,
+        REPITCH.format(angle=2.0, point=STATION) + 'hub_method = "rings"\n',
+        name="stated.toml",
+    )
+    assert _quiet_invoke("repitch", rings_obj, plain, tmp_path / "plain.obj") == 0
+    assert _quiet_invoke("repitch", rings_obj, stated, tmp_path / "stated.obj") == 0
+    assert (tmp_path / "plain.obj").read_bytes() == (tmp_path / "stated.obj").read_bytes()
+    assert record(tmp_path / "stated.obj", "repitch")["blades"]["Blade1"]["hub_route"] == "rings"
+    # the ring route on a hub without rings still refuses as it did
+    capsys.readouterr()
+    assert _quiet_invoke("repitch", source, stated, tmp_path / "norings.obj") == 2
+    assert "fewer than two complete quad rings" in capsys.readouterr().err
+
+
+@pytest.mark.requirement("FR-3679")
+@pytest.mark.parametrize(
+    ("extra", "text"),
+    [
+        ('hub_method = "mesh"\n', "hub_method"),
+        ("band_width = -0.1\n", "band_width"),
+        ('band_width = "wide"\n', "band_width"),
+    ],
+    ids=["P0560-HUBQ-method", "P0560-HUBQ-negative-width", "P0560-HUBQ-text-width"],
+)
+def test_p0560_hubq_an_unreadable_hub_method_or_band_width_is_refused(
+    tmp_path, capsys, extra, text
+):
+    source = build(tmp_path)
+    cfg = control(tmp_path, REPITCH.format(angle=2.0, point=STATION) + extra)
+    out = tmp_path / "bad.obj"
+    assert invoke("repitch", source, cfg, out) == 2
+    assert text in capsys.readouterr().err
+    assert not out.exists() and not Path(f"{out}.repitch.json").exists()
+
+
+@pytest.mark.requirement("FR-3679")
+def test_p0560_hubq_a_stated_band_width_is_used_and_one_that_reaches_a_seam_is_shrunk(tmp_path):
+    source = build(tmp_path)
+    # a band of 1.0 reaches the sector's seams, eleven cells from the root: shrunk, warned
+    wide = REPITCH.format(angle=2.0, point=STATION) + 'hub_method = "remesh"\nband_width = 1.0\n'
+    with pytest.warns(PyflightstreamWarning, match="band of width 1 .*shrunk to"):
+        assert invoke("repitch", source, control(tmp_path, wide), tmp_path / "w.obj") == 0
+    numbers = record(tmp_path / "w.obj", "repitch")["hub_remesh"]["Blade1"]
+    assert numbers["band_width_rule"] == "stated" and numbers["band_width_asked"] == 1.0
+    assert numbers["shrunk_from"] == 1.0
+    steps = np.log(numbers["band_width"]) / np.log(0.9)
+    assert steps == pytest.approx(round(steps), abs=1e-9) and round(steps) >= 1
+    assert numbers["candidate_widths"] == [numbers["band_width"]]
+
+
+@pytest.mark.requirement("FR-3679")
+def test_p0560_hubq_remesh_on_a_saved_simulation_is_warned_and_takes_the_rings(tmp_path):
+    from pyflightstream.workspace import sector_remesh
+    from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
+
+    built = build_blunt_sector(tmp_path)
+    saved = sector_remesh(built, blades=["Blade1"], out=tmp_path / "rebuilt.fsm", **ARGS).output
+    text = (
+        '[repitch]\nangle_deg = 1.0\nblades = ["Blade1"]\nhub = ["S"]\nmax_angle_deg = 5.0\n'
+        "axis = { origin = [0.65, 0.0, 0.0], direction = [0.0, 1.0, 0.0] }\n"
+    )
+    (tmp_path / "plain.toml").write_text(text)
+    (tmp_path / "remesh.toml").write_text(text + 'hub_method = "remesh"\n')
+    assert invoke("repitch", saved, tmp_path / "plain.toml", tmp_path / "plain.fsm") == 0
+    with pytest.warns(NotApplicableWarning, match="remesh.*saved simulation"):
+        assert invoke("repitch", saved, tmp_path / "remesh.toml", tmp_path / "remesh.fsm") == 0
+    assert (tmp_path / "plain.fsm").read_bytes() == (tmp_path / "remesh.fsm").read_bytes()
+    assert record(tmp_path / "remesh.fsm", "repitch")["blades"]["Blade1"]["hub_route"] == "rings"
+
+
+CHAIN = REPITCH + "[collapse_te]\n"
+
+
+@pytest.mark.requirement("FR-3680")
+@pytest.mark.parametrize(
+    ("wheel", "angle"),
+    [(False, 0.0), (False, 2.0), (False, 5.0), (True, 5.0)],
+    ids=["P0560-HUBQ-sector-0", "P0560-HUBQ-sector-2", "P0560-HUBQ-sector-5", "P0560-HUBQ-wheel-5"],
+)
+def test_p0560_hubq_morph_writes_without_a_hub_rings_table(tmp_path, wheel, angle):
+    source = build(tmp_path, wheel=wheel, nacelle=True, wing=wheel)
+    text = CHAIN.format(angle=angle, point=STATION) + ("" if wheel else "[wheel]\n")
+    cfg = control(tmp_path, text, wheel=wheel)
+    out = tmp_path / "out" / "morphed.obj"
+    assert _quiet_invoke("morph", source, cfg, out) == 0
+    report = json.loads(Path(f"{out}.morph.json").read_text())
+    assert report["order"][0] == "repitch"
+    steps = report["steps"]["repitch"]
+    assert {b["hub_route"] for b in steps["blades"].values()} == {"remesh"}
+    mesh = read_obj(out)
+    assert sorted(n for n in mesh.families if n.startswith("Blade")) == [
+        f"Blade{k + 1}" for k in range(COPIES)
+    ]
+    sidecar = tomllib.loads(Path(f"{out}.boundaries.toml").read_text())
+    assert len(sidecar["trailing_edges"]) == COPIES
+
 
 # PFS-2197: quality is warned with its numbers and the mesh is written.
 

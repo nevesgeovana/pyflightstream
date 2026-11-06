@@ -40,27 +40,59 @@ and `direction`, and equivalent tables for the other blades. To have the code fi
 blade's pitch line from the rotor axis and a reference point, state `rotor_axis` and
 `reference_point` instead; see [Morph a sector or a wheel](#morph-a-sector-or-a-wheel).
 
-The hub must have at least two complete quad rings around each blade root; a quad-dominant
-hub gets them from `geometry hub-rings` or the `[hub_rings]` table of `geometry morph`.
-The operation recovers all complete source rings and carries their local orientation
-with the rotated blade, tapering the displacement to zero at the outer ring. Interior
-nodes are projected onto source faces. Winslow smoothing in a local surface chart is
-accepted only when it improves the minimum corner scaled Jacobian. Zero angle retains
-the source coordinates exactly. Outer rings, other boundaries, connectivity and face
-order remain unchanged. Shared root nodes follow the rigid blade rotation; the interior
-projection does not alter them.
-The checks print and save the root's distance from the source hub surface in metres
+**How the hub follows the blade.** `hub_method` in `[repitch]` chooses one of two routes:
+
+```toml
+hub_method = "auto"      # the default; or "rings", or "remesh"
+# band_width = 0.02      # remesh only: the band's width in the mesh's unit
+```
+
+- `"rings"` needs at least two complete quad rings around each blade root, as an O-grid hub
+  has; a quad-dominant hub gets them from `geometry hub-rings` or the `[hub_rings]` table of
+  `geometry morph`. The operation recovers all complete source rings and carries their local
+  orientation with the rotated blade, tapering the displacement to zero at the outer ring.
+  Interior nodes are projected onto source faces. Winslow smoothing in a local surface chart
+  is accepted only when it improves the minimum corner scaled Jacobian. Zero angle retains
+  the source coordinates exactly. Outer rings, other boundaries, connectivity and face order
+  remain unchanged. This is an incremental rebuild of the hub grid; it does not redistribute
+  cell counts. It is the only route on a saved `.fsm`.
+- `"remesh"` (OBJ only) works on a quad-dominant hub as it is. Around each root it takes out
+  the hub faces within `band_width` of the root plus one layer, and remeshes the band
+  between the turned root and the band's unmoved boundary quad-dominant, as `refine` remeshes
+  a quad-dominant family, every free node on the source hub. The band never reaches a seam,
+  another family or another blade's band; a band that would is narrowed a tenth at a time and
+  warned. `band_width` defaults to the root's largest move plus two local cells (the median
+  length of the hub edges leaving the root), the depth of the two rings the ring route needs.
+  Among the remesh passes and up to three band widths (the first and two more, each one local
+  cell wider, while they fit), the band kept has the fewest cells turned against the hub
+  (none when one has none) and the highest least scaled Jacobian. Kept hub faces keep their
+  order, the new faces take the place of the first face taken, and the band is remeshed at every angle, zero included, so a series
+  of angles shares one method.
+- `"auto"` takes `"rings"` where every named root has two complete quad rings, and
+  `"remesh"` otherwise. A root whose trailing edge was collapsed keeps the ring route, which
+  then refuses naming the working order (see
+  [Collapse a blunt trailing edge](#collapse-a-blunt-trailing-edge)).
+
+`<out>.repitch.json` names the route each blade took (`hub_route`) and, for the remesh,
+`hub_remesh` per blade: the band width and how it was found, the faces taken and added, and
+the quality of the source band beside the new band (least and largest scaled Jacobian and
+aspect, folded cells, quad share, mean edge and the size ratio of the two). A new band worse
+than the source band (a lower least scaled Jacobian or a higher largest aspect) is warned
+with both numbers.
+
+Shared root nodes follow the rigid blade rotation; the interior projection does not alter
+them. The checks print and save the root's distance from the source hub surface in metres
 and local cell edges. A root stand-off above half a local edge warns once: the hub
 shape near the root changes by this amount. Inspect that seam even when the rebuild
 passes.
 
-**Quality is warned, not refused.** A folded or reversed hub cell and a moved non-root hub
-node farther than `1e-8` local cell edges from the source faces are each warned with their
-numbers (the count, the least scaled Jacobian, the worst node and its distance) and the mesh
-is written; `checks.passed` is then false and `checks.warnings` lists them. Only a broken
-input or a broken invariant refuses: nonfinite coordinates, an edge over two faces, a moved
-boundary, an unreadable control file.
-This is an incremental rebuild of the hub grid; it does not redistribute cell counts.
+**Quality is warned, not refused.** A folded or reversed hub cell, a moved non-root hub node
+farther than `1e-8` local cell edges from the source faces, a new cell turned against the hub
+and a new node off the hub are each warned with their numbers (the count, the least scaled
+Jacobian, the worst node and its distance) and the mesh is written; `checks.passed` is then
+false and `checks.warnings` lists them. Only a broken input or a broken invariant refuses:
+nonfinite coordinates, an edge over two faces, a kept node, face or open boundary that
+moved, a frozen loop node that moved, an unreadable control file.
 
 Read `<out>.repitch.json`, inspect the root seam and leading edge, then perform a
 short solver check. The geometric checks do not establish aerodynamic accuracy.
@@ -113,9 +145,10 @@ edge of the removed strip is refused. Read `<out>.collapse.json` for the strip f
 merged and the largest node move for each blade, with the base thickness; the operation
 reports the thickness and sets no limit on it.
 
-**Order with repitch.** Repitch needs complete quad rings around the blade root, which the
-closure triangle of a collapsed root breaks. Run `repitch` first, then `collapse-te` on its
-output. The two commute on the blade, because the pitch change is a rigid rotation.
+**Order with repitch.** The ring route of repitch needs complete quad rings around the blade
+root, which the closure triangle of a collapsed root breaks, and `hub_method = "auto"` keeps
+the ring route on such a root. Run `repitch` first, then `collapse-te` on its output. The two
+commute on the blade, because the pitch change is a rigid rotation.
 
 ## Morph a sector or a wheel
 
@@ -144,19 +177,20 @@ reference_point = 0.25       # a coordinate along the rotor axis, or a point [x,
 ```
 
 A full wheel, installed or not: every blade is named and there is no `[wheel]`. Every family
-that is neither blade nor hub, a wing or a fuselage, stays to the bit.
+that is neither blade nor hub, a wing or a fuselage, stays to the bit. With no `[hub_rings]`,
+repitch remeshes the quad-dominant hub around each turned root (`hub_method = "auto"` takes
+the remesh where a root has no complete quad rings):
 
 ```toml title="morphing.toml"
 blades = ["Blade1", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"]
 hub = ["Spinner"]
 
-[hub_rings]
-rings = 4
-
 [repitch]
 angle_deg = 2.0
 rotor_axis = "x"
 reference_point = 0.25
+hub_method = "remesh"        # or "auto" (the default) or "rings"
+# band_width = 0.02          # default the root's largest move plus two local cells
 
 [collapse_te]
 ```
@@ -166,16 +200,21 @@ pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.
 ```
 
 The chain is exercised in the offline tests on a synthetic quad-dominant hub, as a sector and
-as an installed full wheel. `morph` works on the OBJ;
-a saved `.fsm` is refused. It applies the tables the file holds in one fixed order,
-`[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: repitch needs the rings, and the collapse
-leaves a closure triangle on the first ring, so no other order works. Each step is the verb of
+as an installed full wheel, with and without `[hub_rings]`, and was run without `[hub_rings]` on
+an SMI-derived quad-dominant spinner, as a sector at 0, 2 and 5 degrees and as a six-blade wheel
+at 0 and 2 degrees. On that wheel at 5 degrees the bands left between neighbouring roots are
+narrow, and `[collapse_te]` refuses a cell next to a trailing edge that its merge turns over;
+there, `[hub_rings]` with `hub_method = "rings"` writes the wheel. `morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
+order, `[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: the ring route of repitch needs
+the rings, and the collapse leaves a closure triangle on the first ring, so no other order
+works. `[hub_rings]` is optional: without it, repitch's `hub_method` decides how the hub
+follows each blade (see [Repitch a blade](#repitch-a-blade)). Each step is the verb of
 the same name with all its checks. One OBJ is written with its boundaries file, the points files
 that file names and `<out>.morph.json`, which holds every step's checks; when any step refuses,
 nothing is written beside the output.
 
-**Hub rings.** Repitch needs complete rings of quads around each blade root, which a
-quad-dominant hub lacks. `[hub_rings]` builds `rings` rows of quads with as many nodes as the
+**Hub rings.** The ring route of repitch needs complete rings of quads around each blade
+root, which a quad-dominant hub lacks. `[hub_rings]` builds `rings` rows of quads with as many nodes as the
 root loop, marched outward on the hub, takes out the hub faces they reach plus one layer, and
 remeshes the band between the outer ring and that hole quad-dominant, every node on the source
 hub. `width`, the total height of the rings in the mesh's unit, defaults to `rings` times the

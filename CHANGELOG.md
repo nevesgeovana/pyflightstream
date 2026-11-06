@@ -27,6 +27,15 @@ FlightStream versions.
   direction projected on the plane perpendicular to the rotor axis, through the hub centre in
   the plane a scalar places, or through a stated point. A table written for 0.55.1 reads as
   before.
+- `[repitch] hub_method` chooses how the hub follows each turned blade: `"rings"` moves the
+  complete quad rings around the root as before, `"remesh"` (OBJ only) remeshes the hub band
+  around the turned root quad-dominant, every free node on the source hub and the kept faces in
+  place and order, and `"auto"`, the default, takes the rings where every root has two complete
+  quad rings and the remesh otherwise. `band_width` states the band; by default it is the
+  root's largest move plus two local cells. The remesh keeps, among its pass counts and up to
+  three widths, the band with the fewest cells turned against the hub (none when one has none)
+  and the highest least scaled Jacobian, and the record gives the source band's quality
+  beside the new band's. `geometry morph` reads both keys, so a quad-dominant sector or wheel morphs without `[hub_rings]`.
 
 ### Changed
 
@@ -36,6 +45,11 @@ FlightStream versions.
   (the count, the least scaled Jacobian, the worst node and its distance), the mesh is written,
   and `checks.passed` in the record is false with `checks.warnings` listing them. Broken input
   and broken invariants still refuse.
+- `geometry repitch` on a hub without two complete quad rings around a root now remeshes the
+  hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
+  the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,
+  naming the order repitch, then collapse-te.
+
 - The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn

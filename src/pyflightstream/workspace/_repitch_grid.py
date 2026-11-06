@@ -104,9 +104,10 @@ def rebuild(
     """Transport all available rings, then backtrack a surface-chart Winslow candidate."""
     if len(ids) < 3:
         raise InputValueError(
-            "hub has fewer than two complete quad rings; supply an O-grid hub. A mesh whose "
-            "trailing edge was collapsed (collapse-te) has a closure triangle on the hub: "
-            "repitch first, then run collapse-te on the repitched mesh"
+            "hub has fewer than two complete quad rings; supply an O-grid hub, or state "
+            "[repitch] hub_method = 'remesh' to remesh the hub band around each turned root. "
+            "A mesh whose trailing edge was collapsed (collapse-te) has a closure triangle on "
+            "the hub: repitch first, then run collapse-te on the repitched mesh"
         )
     if np.array_equal(old[ids[0]], new[ids[0]]):
         return

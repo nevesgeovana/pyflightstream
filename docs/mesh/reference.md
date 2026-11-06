@@ -10,8 +10,8 @@ wheel, and writes a new OBJ with its boundaries file, the points files that file
 |---|---|
 | `blades` | Blade families, for every table that reads blades; a table's own `blades` wins |
 | `hub` | Hub families, for every table that reads a hub; a table's own `hub` wins |
-| `[hub_rings]` | Applied first; see [hub rings control](#hub-rings-control) |
-| `[repitch]` | Applied second; see [repitch control](#repitch-control) |
+| `[hub_rings]` | Optional; applied first; see [hub rings control](#hub-rings-control) |
+| `[repitch]` | Applied second; see [repitch control](#repitch-control); without `[hub_rings]`, its `hub_method` decides how the hub follows each blade |
 | `[collapse_te]` | Applied third; see [collapse trailing-edge control](#collapse-trailing-edge-control) |
 | `[wheel]` | Applied last, on a sector only |
 
@@ -44,7 +44,7 @@ its boundaries file and `<out>.hub_rings.json`.
 
 | `[hub_rings]` key | Meaning |
 |---|---|
-| `rings` | Whole number of rings, 1 or more; repitch needs at least two |
+| `rings` | Whole number of rings, 1 or more; the ring route of repitch needs at least two |
 | `width` | Optional total height of the rings, in the mesh's unit; default `rings` times the median length of the hub edges that leave the root loop |
 | `blades` | Blade families, over the top-level `blades` |
 | `hub` | Hub families, over the top-level `hub` |
@@ -140,6 +140,46 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 | `rotor` | Rotor table name when the reference declares several |
 | `rotor_axis` | Direction of the rotor's rotation: `x`, `y`, `z`, signed, or a vector |
 | `reference_point` | A coordinate along `rotor_axis`, which places the plane of the pitch axes, or a point `[x, y, z]` every pitch axis passes through |
+| `hub_method` | How the hub follows each blade: `"rings"`, `"remesh"` (OBJ only) or `"auto"` (default); see the hub routes below |
+| `band_width` | Remesh only: the band's width in the mesh's unit, positive; default the root's largest move plus two local cells |
+
+**Hub routes.** `"rings"` moves the nodes of the complete quad rings around each root (at least two); it changes
+coordinates only and is the only route on a saved `.fsm`, where `"remesh"` is warned and the
+ring route runs. `"remesh"` changes the hub's faces around each root, on an OBJ: the band is the
+hub faces a march of `band_width` from the old root reaches, in steps of at most one local cell,
+plus one layer and any pocket they enclose, in one hub family; a face on an open boundary, on
+another family or in another blade's band is never taken, and a band that would take one is
+narrowed by a tenth at a time, down to a hundredth, and warned (none fitting refuses). The local
+cell is the median length of the hub edges leaving the root; the default width is the root's
+largest move by the turn plus two of them. The annulus from the turned root (its nodes the
+blade's, never duplicated) to the band's unmoved boundary is filled in two parts, in a chart of
+the hub. Rows are marched out from the turned root one local cell apart, as many as stay a cell
+inside the hole (fewer when a row folds or leaves it), lifted onto the source hub and written as
+quads from the root outward, as hub rings writes its rings, so the cells around the root have
+the source's size and one local cell of depth, which the rim merge of `collapse-te` at a blunt
+trailing edge needs. The gap from the last row to the boundary is triangulated as for hub rings
+and remeshed with both loops frozen at every pass count of the fallback (8, 4, 2, 1, 0), every
+free node projected on the source hub, and paired into quadrilaterals. The source hub is closed
+under each old root by triangles across the root loop, so that the part of the old footprint a
+turned root uncovers has a surface for the rows and nodes there. This is done for the first
+width and up to two more, each one local cell wider, while they fit; the band kept has
+the fewest cells turned against the source hub (none, when one has none) and, among those, the
+highest least scaled Jacobian. Bands are planned in the order the blades are named, each against
+the same source hub. Kept faces keep their place and order; each blade's new faces take the
+place of its first face taken. `"auto"` takes `"rings"` where every named root has two complete
+quad rings and `"remesh"` otherwise, but keeps the ring route, and its refusal naming the order
+repitch then collapse-te, for a root that shows the closure triangle of a collapsed trailing edge
+(every root edge on one quad, and one triangle the only other hub face at the root).
+
+The record names each blade's `hub_route` and the `hub_method` asked. For the remesh,
+`hub_remesh.<blade>` holds the width (asked, kept, shrunk from, the rule, the local cell and the
+root's largest move), the candidates (width, passes, turned cells, least scaled Jacobian,
+largest aspect, quad share), the faces taken and added, the hole's boundary nodes, the first
+triangulation, and `source_band` beside `output_band` (scaled Jacobian and aspect extrema,
+folded cells, quad share, mean edge) with `size_ratio`, the mean edge of the new band over the
+source band's. A new band with a lower least scaled Jacobian or a higher largest aspect than the
+source band is warned with both numbers. On a remeshed wheel the blades must stay periodic; hub
+bands that do not map node for node from one blade to the next are warned.
 
 The report measures rigid-rotation residual, distance from the pitch axis, and
 pitch change at five span positions including root and tip. It records source and
@@ -159,16 +199,24 @@ each blade root) or through the point stated. `pitch_axes` in the record holds t
 the fit's radius and largest residual, and each blade's span and pitch-axis directions with
 the distance by which its pitch axis passes outside its root loop, which is warned.
 
-The blade and hub face lists remain in source order, including the original FSM
-triangle partners. FSM trailing-edge groups, flags, base regions and wake termination
-indices are retained. OBJ sidecar point files must match source vertices or edge
-midpoints; their coordinates follow the corresponding output locations. A broken
-input or a broken invariant produces no mesh or report; folded and reversed hub cells
-(their count and least scaled Jacobian) are warned and the mesh is written, with
-`checks.passed` false and `checks.warnings` listing them. Unsupported hub topology is refused
-with a remedy; no triangulated replacement is substituted for a quad hub.
-Interior projection retains the source FSM triangle-pair diagonals. Projection and
+On the ring route the blade and hub face lists remain in source order, including the
+original FSM triangle partners. FSM trailing-edge groups, flags, base regions and wake
+termination indices are retained. OBJ sidecar point files must match source vertices or edge
+midpoints; their coordinates follow the corresponding output locations, and on the remesh
+route a marking on a node or an edge the band removes is refused. A broken input or a broken
+invariant (nonfinite coordinates, an edge over two faces, a kept node, face or open boundary
+that moved, a frozen loop node that moved, an unreadable control file) produces no mesh or
+report. The ring route refuses a hub without two complete quad rings with a remedy; it
+substitutes no triangulated replacement for a quad hub, which is what the remesh route is
+for. Interior projection retains the source FSM triangle-pair diagonals. Projection and
 smoothing leave the shared blade-root nodes under the rigid-rotation constraint.
+
+Quality is warned with its numbers and the mesh is written; `checks.passed` is then false and
+`checks.warnings` lists every warning: folded hub cells (the count and the least scaled
+Jacobian beside the source's), reversed hub cells against the source (the count), moved
+non-root hub nodes off the source hub (below), and on the remesh route new cells folded or
+turned against the source hub and a new node beyond the source's chord deviation (the worst
+node and its distance).
 
 The printed checks and `<out>.repitch.json` include every moved hub node's
 zero-based index, shared-root status, distance to the finite source triangles in
