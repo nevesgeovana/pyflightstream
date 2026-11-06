@@ -520,3 +520,45 @@ def test_p0560_r1_mark_s3_every_base_is_created_before_the_first_import_on_26127
         assert max(imports) > min(creates)
     # the read-back expects as many groups as the script marks
     assert sum(count for _, count in plan.group_spans()) == len(imports) + len(autos)
+
+
+def test_p0560_r1_mark_005_two_declarations_of_the_same_rim_are_warned_naming_both(
+    tmp_path: Path,
+) -> None:
+    """R1-MARK-005: a second entry naming the rim file of another is planned (never refused)
+    and warned, naming both entries; a sector that declares each edge once is not."""
+    built = build_sector(tmp_path, copies=COPIES, separate_base=True)
+    sidecar = tmp_path / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    dup = '[trailing_edges.TE_c]\nfile = "sector.TE_a.te.txt"\ntype = "STANDARD"\n'
+    sidecar.write_text(text.replace(OTHER_RIM, OTHER_RIM + dup), encoding="utf-8")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_mark_boundaries(wheel)
+    words = [str(item.message) for item in caught if "name the same" in str(item.message)]
+    assert plan.script
+    assert any("TE_a_1 and TE_c_1" in line for line in words), words
+    assert not any("TE_a_1 and TE_b_1" in line for line in words), words
+
+
+def test_p0560_r1_mark_005_the_read_back_does_not_blame_a_replacing_import_on_26127(
+    tmp_path: Path,
+) -> None:
+    """R1-MARK-005: the marking probes of 26.124, 26.125 and 26.127 show a second import adding
+    a group and keeping the first, so the missing-edge verdict names that evidence there and
+    keeps the unmeasured reading on another build."""
+    import shutil
+
+    from pyflightstream.workspace.wake_edges import saved_wake_edge_verdict
+
+    library = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
+    shutil.copy(library / "10_WING.fsm", tmp_path / "wing.fsm")
+    sets = [{"file": "far.te.txt", "points_m": [(99.0, 99.0, 99.0)], "tolerance": 1e-4}]
+    _, measured = saved_wake_edge_verdict(sets, tmp_path, ["wing.fsm"], "26.127")
+    assert "far.te.txt are missing" in measured and "replacing" not in measured
+    assert "adds a group and keeps the first" in measured
+    assert "CMP-26127_2026-11-06_marking" in measured
+    _, other = saved_wake_edge_verdict(sets, tmp_path, ["wing.fsm"], "26.120")
+    assert "replacing the first" in other

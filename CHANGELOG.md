@@ -88,6 +88,10 @@ FlightStream versions.
   build every base region is created before the first wake-edge import, then every
   trailing-edge entry and rim file is imported and the `auto` rims follow: a wake-edge import
   placed before the first create was lost when the solver saved.
+- `geometry mark-boundaries` warns, naming both, when two declarations (two entries, or an
+  entry and a base region's rim) name the same edges, since a saved edge belongs to one group;
+  the pass is still planned. On 26.124, 26.125 and 26.127 the read-back of missing edges no
+  longer blames a second import replacing the first, which the marking probes there disprove.
 - `pyfs-workspace geometry build --apply` runs a `[mesh]` build with no operation on 26.100 and
   on 26.124 to 26.127: `EXPORT_SURFACE_MESH` is verified on those builds by a new probe that
   reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the

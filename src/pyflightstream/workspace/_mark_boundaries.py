@@ -981,6 +981,54 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             ) from error
 
 
+def _warn_shared_edges(declared, autos, source, unit) -> None:
+    """Warn, never refuse, where two declarations name the same mesh edges (R1-MARK-005).
+
+    ``declared`` holds each file entry's mid-points in metres and its tolerance by label;
+    ``autos`` the (label, OBJ family) of each base region whose rim is ``auto``, whose edges are
+    those its faces share with another family. A saved edge belongs to one trailing-edge group:
+    a 26.127 wheel that declared each blade rim twice saved one group per blade, not two, so one
+    of the two declarations loses the edges and the read-back reports them missing.
+    """
+    import numpy
+    from scipy.spatial import cKDTree
+
+    from pyflightstream.workspace._mark_rims import _obj_edges
+    from pyflightstream.workspace.wake_edges import DEFAULT_TOLERANCE
+
+    named = {label: (pts, tol) for label, (pts, tol) in declared.items() if len(pts)}
+    if autos:
+        owners: dict[tuple[float, ...], set[str]] = {}
+        exact: dict[tuple[float, ...], tuple[float, ...]] = {}
+        for family, mid in _obj_edges(source, unit):
+            key = tuple(round(value, 9) for value in mid)
+            owners.setdefault(key, set()).add(family)
+            exact[key] = mid
+        for label, family in autos:
+            rim = [exact[key] for key, held in owners.items() if family in held and len(held) > 1]
+            if rim:
+                named.setdefault(label, (rim, DEFAULT_TOLERANCE))
+    labels = list(named)
+    for i, first in enumerate(labels):
+        points, tolerance = named[first]
+        for second in labels[i + 1 :]:
+            others, other_tolerance = named[second]
+            near = cKDTree(numpy.asarray(others, dtype=float).reshape(-1, 3))
+            hits = near.query_ball_point(
+                numpy.asarray(points, dtype=float).reshape(-1, 3), max(tolerance, other_tolerance)
+            )
+            shared = sum(1 for hit in hits if hit)
+            if shared:
+                warn(
+                    f"{first} and {second} name the same {shared} trailing-edge edges. A saved "
+                    "edge belongs to one trailing-edge group, so one of the two keeps them and "
+                    "the read-back finds the other's edges missing; declare each edge once "
+                    "(one entry, or the base region's rim).",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+
+
 def _emit_marking(
     script, source, sidecar, *, declarations, spec, names, faces, work, routes, say=_no_progress
 ):
@@ -996,9 +1044,11 @@ def _emit_marking(
     emit("IMPORT", spec.units, "OBJ", str(source), clear=True)
     before = tuple(names)
     _import_operations(script, spec, names, faces)
+    source_families = [region.family for region in declarations.base_regions]
     declarations = _renamed_declarations(declarations, before, names)
     script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
     emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    declared: dict[str, tuple[Any, float]] = {}
 
     def mark(label: str, marking: Any) -> None:
         if marking.route == "detect":
@@ -1013,6 +1063,10 @@ def _emit_marking(
             return
         say(f"{label}: matching the points file to mesh edges")
         bound = matched_trailing_edge_sets(marking, source, spec.units)
+        declared[label] = (
+            [point for found in bound.sets for point in found.points_m],
+            bound.tolerance,
+        )
         if script.version.canonical == VERTEX_FILE_BUILD:
             _mark_rims_26100(
                 script,
@@ -1077,6 +1131,12 @@ def _emit_marking(
         entries=entries,
         say=say,
     )
+    autos = [
+        (region.family, family)
+        for region, family in zip(declarations.base_regions, source_families, strict=True)
+        if region.trailing_edges == "auto"
+    ]
+    _warn_shared_edges(declared, autos, source, spec.units)
     say("wake-termination nodes and merges")
     _emit_nodes(
         script,
