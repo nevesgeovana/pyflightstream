@@ -217,7 +217,8 @@ def _delimiters(glob: str) -> tuple[str, str]:
         if rest.startswith("1H"):
             end = rest[2]
     elif glob.startswith(delimiter + "1H"):
-        end = glob[4]
+        # ",1H;": the default parameter delimiter, then the record delimiter at column 4.
+        end = glob[3]
     return delimiter, end
 
 

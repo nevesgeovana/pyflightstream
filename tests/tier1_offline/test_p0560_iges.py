@@ -218,6 +218,19 @@ def test_p0560_iges_names_read_a_unit_given_by_its_name(tmp_path):
         assert read_iges_names(iges.write(tmp_path / f"{word}.igs")).unit == unit
 
 
+@pytest.mark.requirement("FR-3700")
+def test_p0560_iges_names_read_a_record_delimiter_after_a_default_parameter_delimiter(tmp_path):
+    """R1-IGES-003: ``,1H;,`` opens a global section whose parameter delimiter is the default."""
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    iges = Iges("MM", head=",1H;,")
+    iges.name(1, "Wing")
+    iges.patch(square(0, 0, 1, 1), level=1)
+    names = read_iges_names(iges.write(tmp_path / "a.igs"))
+    assert names.unit == "MILLIMETER"
+    assert names.components == {"Wing": 1}
+
+
 @pytest.mark.requirement("FR-3704")
 @pytest.mark.parametrize("verb", ["iges-grid", "iges-convert"])
 def test_p0560_without_gmsh_each_verb_gives_one_install_message(
