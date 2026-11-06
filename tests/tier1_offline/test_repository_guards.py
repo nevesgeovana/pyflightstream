@@ -64,10 +64,12 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: integration of 0.56.0: 2110 + 1 (wheel) + 9 (iges) + 2 (hubq) + 1 (pbug) = 2123, then the 26.127
 #: marking report pair (CMP-26127_2026-11-06_marking): 2125 files, 107 reports,
 #: 177027 report lines, measured.
+#: then the v127 lane at 7a7ce6ee7 (14 probe reports of PFS-2187.04, .05 and PFS-2191, 4 tests and
+#: specs): 2143 files, 121 reports, 208338 report lines, measured.
 LEAN_CAPS = {
-    "tracked_files": 2125,
-    "reports_files": 107,
-    "reports_lines": 177027,
+    "tracked_files": 2143,
+    "reports_files": 121,
+    "reports_lines": 208338,
     "tests_files": 1167,
     "tests_lines": 406996,
 }
