@@ -19,7 +19,12 @@ ROOT_STANDOFF_WARNING = 0.5
 def surface_checks(
     surface: HubSurface, old: Array, new: Array, roots: set[int], scale: float
 ) -> dict[str, Any]:
-    """Measure every moved hub node; shared roots belong to the rigid blade."""
+    """Measure every moved hub node; shared roots belong to the rigid blade.
+
+    A non-root node farther from the source hub than :data:`NON_ROOT_SURFACE_TOLERANCE` local
+    cell edges is quality: it is warned with the count, the worst node and its distance, and
+    listed under ``warnings``. A zero local cell edge is a broken source and refuses.
+    """
     ids = np.flatnonzero(np.isfinite(surface.local_size) & np.any(old != new, axis=1))
     distance = surface.nearest(new[ids])[1] if len(ids) else np.empty(0)
     size = surface.local_size[ids]
@@ -30,15 +35,22 @@ def surface_checks(
     ratio = distance / size
     root = np.array([int(i) in roots for i in ids], dtype=bool)
     failed = np.flatnonzero((~root) & (ratio > NON_ROOT_SURFACE_TOLERANCE))
+    off: list[str] = []
     if len(failed):
-        i = int(failed[0])
-        raise InputValueError(
-            f"repitch: non-root hub node {ids[i]} (zero-based) is {distance[i] * scale:.9g} m "
-            f"from the source hub ({ratio[i]:.9g} local cell edges), beyond "
-            f"NON_ROOT_SURFACE_TOLERANCE={NON_ROOT_SURFACE_TOLERANCE:g}; "
-            "use a smaller pitch change. No file was written."
+        # Quality, not a broken mesh (PFS-2197): the worst node is warned and the mesh written.
+        i = int(failed[np.argmax(ratio[failed])])
+        off.append(
+            f"{len(failed)} non-root hub node(s) leave the source hub; the worst, non-root hub "
+            f"node {ids[i]} (zero-based), is {distance[i] * scale:.9g} m from it "
+            f"({ratio[i]:.9g} local cell edges), beyond "
+            f"NON_ROOT_SURFACE_TOLERANCE={NON_ROOT_SURFACE_TOLERANCE:g}"
+        )
+        warn(
+            f"repitch: {off[0]}; the mesh is written. A smaller pitch change keeps the hub",
+            PyflightstreamWarning,
         )
     result: dict[str, Any] = {
+        "warnings": off,
         "non_root_surface_tolerance": NON_ROOT_SURFACE_TOLERANCE,
         "root_standoff_warning": ROOT_STANDOFF_WARNING,
         "local_edge_definition": "shortest edge of incident source hub cells",

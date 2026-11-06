@@ -392,15 +392,20 @@ def test_p0550_merge_names_the_file_it_writes_for_an_output_of_another_kind(tmp_
 
 
 @pytest.mark.requirement("FR-3540")
+@pytest.mark.requirement("FR-3724")
 def test_p0550_the_body_verb_on_a_marked_nacelle_says_what_it_holds(tmp_path: Path) -> None:
+    """PFS-2187.11: the body reads the nacelle's merged names and warns, naming every one."""
     from pyflightstream.workspace import power_off_body
 
     marked = _marked(build_blunt_sector(tmp_path), tmp_path / "marked.fsm")
     with pytest.warns(PyflightstreamWarning) as caught:
         result = power_off_body(marked, blades=["Blade1"], copies=COPIES, out=tmp_path / "b.fsm")
     words = " ".join(str(item.message) for item in caught)
-    assert not result.written
-    assert "NBase" in words and "cannot be remeshed" not in words
+    assert result.written
+    assert "NBase" in words and "Base1" in words and "cannot be remeshed" not in words
+    assert [name for name, _, _ in saved_base_regions(result.output)] == ["NBase"]
+    assert saved_trailing_edge_groups(result.output) == ("NBase",)
+    assert boundary_names(result.output) == ("S", "N")
 
 
 # A save of head 2612: what the file holds after the base-region model codes.

@@ -1,11 +1,14 @@
 """Morph a sector or a full wheel from one control file, on the OBJ (PFS-2193).
 
 ``morph`` applies the tables the morphing file holds, in one fixed order: ``[hub_rings]``,
-``[repitch]``, ``[collapse_te]``, ``[wheel]``. The order is not a key: repitch needs the rings,
-and the collapse leaves a closure triangle on the first ring, so no other order works; the wheel
-copies the finished sector. Each step is the verb of the same name with its own checks, reading
-its own table and the top-level ``blades`` and ``hub``. The steps pass their mesh, boundaries
-file and points files to the next through a private temporary folder; one output is written
+``[repitch]``, ``[collapse_te]``, ``[wheel]``. The order is not a key: the ring route of repitch
+needs the rings, and the collapse leaves a closure triangle on the first ring, so no other order
+works; the wheel copies the finished sector. ``[hub_rings]`` is optional: without it,
+``[repitch] hub_method`` (and ``band_width``) decide how the hub follows each blade, and a
+quad-dominant hub is remeshed around each turned root (PFS-2196). Each step is the verb of the
+same name with its own checks, reading its own table and the top-level ``blades`` and ``hub``.
+The steps pass their mesh, boundaries file and points files to the next through a private
+temporary folder; one output is written
 with its boundaries file, the points files it names and ``<out>.morph.json``, and nothing is
 written beside the output when any step refuses.
 """

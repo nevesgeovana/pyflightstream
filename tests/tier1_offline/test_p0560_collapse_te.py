@@ -494,11 +494,36 @@ def test_p0560_a_rim_pair_left_unmerged_is_refused(tmp_path):
 
 
 @pytest.mark.requirement("FR-3667")
-def test_p0560_a_face_turned_over_by_the_merge_is_refused(tmp_path, capsys):
+@pytest.mark.requirement("FR-3681")
+def test_p0560_a_face_turned_over_by_the_merge_is_warned_and_written(tmp_path):
+    # P0560-HUBQ (PFS-2197): this test asserted the refusal; a face the merge turns over is a
+    # quality finding, warned with its count, worst cosine and place, and the mesh is written.
+    from pyflightstream._errors import PyflightstreamWarning
+
     source, _ = make(tmp_path, strip="own", fold=True)
     out = tmp_path / "bad.obj"
-    assert invoke(source, control(tmp_path), out) == 2
-    assert "turned over" in capsys.readouterr().err and not out.exists()
+    with pytest.warns(
+        PyflightstreamWarning, match=r"\d+ face\(s\) near the trailing edge .*turned over.*cosine"
+    ):
+        assert invoke(source, control(tmp_path), out) == 0
+    assert out.exists()
+    checks = json.loads(Path(f"{out}.collapse.json").read_text())["checks"]
+    assert checks["passed"] is False
+    assert checks["turned_faces"]["count"] >= 1 and checks["turned_faces"]["worst_cosine"] <= 0.0
+    assert any("turned over" in w for w in checks["warnings"])
+
+
+@pytest.mark.requirement("FR-3681")
+def test_p0560_hubq_morph_writes_a_collapse_that_turns_a_face_over(tmp_path):
+    """Inside the morph chain the same finding is warned and the chain's output written."""
+    from pyflightstream._errors import PyflightstreamWarning
+
+    source, _ = make(tmp_path, strip="own", fold=True)
+    out = tmp_path / "out" / "morphed.obj"
+    with pytest.warns(PyflightstreamWarning, match="turned over"):
+        assert invoke(source, control(tmp_path), out, "morph") == 0
+    report = json.loads(Path(f"{out}.morph.json").read_text())
+    assert report["steps"]["collapse_te"]["checks"]["passed"] is False
 
 
 @pytest.mark.requirement("FR-3667")

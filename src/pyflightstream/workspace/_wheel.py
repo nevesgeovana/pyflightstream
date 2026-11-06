@@ -697,7 +697,10 @@ def _surfaces(
 
 @dataclass
 class Options:
-    """What every route is asked: copies, blade surfaces, axis, hub, tolerance, output."""
+    """What every route is asked: copies, blade surfaces, axis, hub, tolerance, output.
+
+    ``wake_terminations`` False drops the wake terminations the OBJ route would carry.
+    """
 
     copies: int
     blades: list[str]
@@ -706,6 +709,7 @@ class Options:
     tolerance_m: float
     out: Path
     overwrite: bool
+    wake_terminations: bool = True
 
 
 def _assemble(
@@ -876,7 +880,7 @@ def _rim_tables(
                     _copy_points(points, opts, k, tol) * rim.to_file,
                 )
                 files.append((name, kind))
-            nodes = rim.nodes
+            nodes = rim.nodes if opts.wake_terminations else None
             if nodes not in (None, "auto"):
                 loaded = points_from_file(obj, Path(str(nodes)))
                 assert loaded is not None
@@ -1008,6 +1012,7 @@ def sector_to_wheel(
     tolerance: float = DEFAULT_TOLERANCE_M,
     out: str | Path | None = None,
     overwrite: bool = False,
+    wake_terminations: bool = True,
 ) -> WheelResult:
     """Copy one sector about an axis into a full wheel and write it (PFS-2186.01, PFS-2186.02).
 
@@ -1039,6 +1044,12 @@ def sector_to_wheel(
         kind than the sector is warned and takes the sector's kind.
     overwrite : bool
         Replace the files of a wheel that exists; without it an existing file is refused.
+    wake_terminations : bool
+        Carry the wake terminations of the sector's trailing-edge entries into every copy
+        (default), so the OBJ route builds the wheel the saved route builds; False drops them
+        (CLI: ``--no-wake-terminations``). The record's ``wake_terminations`` says which. A
+        saved sector's terminations are copied with its blocks, so False is warned there as
+        not applicable and they are carried.
 
     Returns
     -------
@@ -1084,10 +1095,23 @@ def sector_to_wheel(
         raise InputValueError(
             f"hub (CLI: --hub) {tuple(hub)!r} must be three finite numbers. {_NOTHING}"
         )
-    opts = Options(copies, list(blades), parse_axis(axis), point, tolerance, target, overwrite)
+    opts = Options(
+        copies, list(blades), parse_axis(axis), point, tolerance, target, overwrite,
+        wake_terminations,
+    )  # fmt: skip
     if suffix == ".fsm":
         from pyflightstream.workspace._wheel_fsm import sector_fsm_to_wheel
 
+        if not wake_terminations:
+            warn(
+                "wake_terminations (CLI: --no-wake-terminations) is False, and a saved "
+                "sector's wake terminations are rows of its mesh and physics blocks, which the "
+                "saved route copies with every other row: the switch does not apply, and they "
+                "are carried.",
+                NotApplicableWarning,
+                stacklevel=2,
+            )
+            opts.wake_terminations = True
         return sector_fsm_to_wheel(path, opts)
     return _obj_route(path, opts)
 
@@ -1168,6 +1192,7 @@ def _obj_route(path: Path, opts: Options) -> WheelResult:
         )
     report = report_of((verts, concat(list(families.values()))), (nodes, joined), facts, opts, tol)
     report.update(provenance(path, "obj", unit, [(n, len(f)) for n, f in groups]))
+    report["wake_terminations"] = "carried" if opts.wake_terminations else "dropped"
     written = _Written()
     if declarations is not None:
         _rim_tables(rims, surfaces, opts, obj=path, tol=tol, out=written)

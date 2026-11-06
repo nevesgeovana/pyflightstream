@@ -99,6 +99,31 @@ def test_the_saved_trailing_edge_rows_name_the_edges_by_their_midpoints(tmp_path
     assert trailing_edge_midpoints(cleared) == wing
 
 
+@pytest.mark.requirement("FR-3764")
+def test_p0560_the_26127_integer_edge_rows_read_as_trailing_edge_flags(tmp_path):
+    """26.127 writes the three edge-slot rows as integers, 0 or the trailing-edge
+    group's number (reports/compat/CMP-26127_2026-11-06_marking.yaml, the
+    IMPORT_WAKE_EDGES_FROM_FILE probe). The wing rewritten that way, its flags
+    as group 2, gives the same sixteen mid-points; a token that is neither T/F
+    nor an integer is still refused."""
+    wing = trailing_edge_midpoints(_LIBRARY / "10_WING.fsm")
+    text = (_LIBRARY / "10_WING.fsm").read_text(encoding="utf-8")
+    lines = text.split("\n")
+    rows = _flag_row_lines(text)
+    assert len(rows) == 5, rows
+    for row in rows[1:4]:
+        lines[row] = lines[row].replace("T", "2").replace("F", "0")
+    path = tmp_path / "10_WING_26127.fsm"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    assert trailing_edge_midpoints(path) == wing
+
+    lines[rows[2]] = lines[rows[2]].replace("0", "x", 1)
+    path = tmp_path / "10_WING_bad_token.fsm"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    with pytest.raises(MeshReadError):
+        trailing_edge_midpoints(path)
+
+
 def test_the_surface_mesh_is_the_block_s_triangles_and_vertices():
     """The wing's block states 816 faces over 410 vertices; every face is a
     triangle of 0-based vertex indices, and every trailing-edge mid-point is

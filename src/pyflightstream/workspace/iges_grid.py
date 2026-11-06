@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -367,6 +368,24 @@ def _trailing(
     return found, said
 
 
+#: The characters a file name cannot hold on any platform the package runs on.
+_NOT_IN_A_FILE_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _te_path(target: Path, name: str, taken: set[str]) -> Path:
+    """Return ``<stem>.<component>.te.txt`` beside ``target``, the name made a file name.
+
+    Each character a file name cannot hold becomes ``_``; a name another component already took
+    that way gets ``_2``, ``_3``, ... The boundaries file names the file, so the component keeps
+    its own name.
+    """
+    safe = _NOT_IN_A_FILE_NAME.sub("_", name)
+    path, n = target.with_name(f"{target.stem}.{safe}.te.txt"), 2
+    while path.name in taken:
+        path, n = target.with_name(f"{target.stem}.{safe}_{n}.te.txt"), n + 1
+    return path
+
+
 def _write(
     target: Path,
     model: Any,
@@ -415,10 +434,9 @@ def _write(
         ObjMesh(verts, families), note=f"pyflightstream geometry iges-grid, unit {model.unit}"
     )
     _textio.write_text(target, text)
-    stem = target.stem
-    te_files = {}
+    te_files: dict[str, str] = {}
     for name, edges in te.items():
-        path = target.with_name(f"{stem}.{name}.te.txt")
+        path = _te_path(target, name, set(te_files.values()))
         write_te(path, model.unit, midpoints(verts, edges))
         te_files[name] = path.name
     counts = [len(f) for f in families.values()]

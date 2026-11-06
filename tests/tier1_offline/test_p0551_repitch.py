@@ -94,15 +94,19 @@ def test_p0551_inverse_returns_blade_to_rounding(tmp_path):
 
 
 @pytest.mark.requirement("FR-3609")
+@pytest.mark.requirement("FR-3681")
 def test_p0551_non_root_surface_escape_names_node():
-    from pyflightstream._errors import InputValueError
+    # P0560-HUBQ (PFS-2197): a node off the hub is quality, warned with its numbers, not refused.
+    from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.workspace._repitch import HubSurface, surface_checks
 
     old = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
     new = old.copy()
     new[2, 2] = 1e-7
-    with pytest.raises(InputValueError, match="non-root hub node 2 .*No file was written"):
-        surface_checks(HubSurface(old, [[0, 1, 2, 3]]), old, new, {0, 1}, 1.0)
+    with pytest.warns(PyflightstreamWarning, match="non-root hub node 2 .*1e-07 m"):
+        result = surface_checks(HubSurface(old, [[0, 1, 2, 3]]), old, new, {0, 1}, 1.0)
+    assert result["non_root_max_distance_to_source_hub_m"] == pytest.approx(1e-7)
+    assert result["warnings"] and "non-root hub node 2" in result["warnings"][0]
 
 
 @pytest.mark.requirement("FR-3609")

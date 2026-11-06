@@ -486,6 +486,12 @@ executable's build banner with a small log-only pass, then runs one marking
 pass in a fresh work folder. An existing FSM requires `--overwrite`. With the FSM
 absent, the other outputs are replaced without it, and each one replaced is warned by name.
 
+Explicit wake-termination nodes are selected and marked before the merges of `merge_into`. On
+FlightStream 26.124, 26.125 and 26.127 a probe saved a mark made before `SURFACE_COMBINE` on the same node
+after it, so a boundaries file that holds both, as the one `sector-to-wheel` writes from a sector
+with explicit nodes and merged bases does, is previewed and applied there. On any other build that
+pair is refused, naming those builds: declare the nodes as `"auto"` or drop the `merge_into`.
+
 The saved surface names, trailing-edge points and group count, termination
 count and base-region records must agree before publication. The five outputs
 are `wing.fsm`, `wing.fsm.boundaries.toml`, `wing.mark.json`, `wing.mark.txt`
@@ -546,7 +552,7 @@ inputs/geometries/sector/
   sector.N.te.txt
 
 pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
-    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite]
+    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
 ```
 
 The OBJ gives an OBJ and a saved simulation (`.fsm`) gives a `.fsm`; an `--out`
@@ -575,13 +581,23 @@ faces are joined only across edges that are not rim edges has a blunt trailing
 edge, and its base is the faces whose every node lies on a rim line. A surface
 that the rim edges cut into two pieces (the aft base of a body) has the
 smaller piece as its base. One rim and one piece is a sharp trailing edge:
-no base. The wheel is written beside the OBJ as:
+no base.
+
+The wake terminations of the trailing-edge entries are carried by default, as the
+saved route carries those of a saved sector, so both routes build the same wheel: an
+entry's `wake_termination_nodes` file is turned into each copy as
+`wheel.<label>_<k>.wake.te.txt`, and `"auto"` is kept as it is. `--no-wake-terminations`
+(`wake_terminations=False` from Python) drops them, and the wheel's entries declare none.
+`wheel.wheel.json` says which: `wake_terminations` is `"carried"` or `"dropped"`. On a saved
+sector the terminations are rows of the file the route copies, so the switch is warned as not
+applicable there and they are carried. The wheel is written beside the OBJ as:
 
 ```text
 wheel.obj                     one group per surface
 wheel.obj.boundaries.toml     the named form: [trailing_edges.<label>_<k>] and [base_regions.Base<k>] per copy
 wheel.<label>_<k>.te.txt      one points file per rim per blade
-wheel.wheel.json              source sha256, copies, axis, hub, tolerance and the checks
+wheel.<label>_<k>.wake.te.txt the wake-termination nodes of an entry that names a file, per copy
+wheel.wheel.json              source sha256, copies, axis, hub, tolerance, wake_terminations and the checks
 ```
 
 With `--overwrite`, a points file the earlier wheel's record lists and the new wheel does not
@@ -747,9 +763,12 @@ edge, more than one blade, a nacelle without a base, a blade that is not a quad 
 between two rims, an axis off the origin) is warned, naming what was not found;
 nothing is written and the exit code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is
 inferred from saved files**, as for `sector-to-wheel`, and a sector marked with `merge_into` is
-read as it is there, except that `power-off-body` needs the nacelle's base region and rim group
-under the nacelle's name, and says so; the rows written are stated
-in the writer's docstring.
+read as it is there. `power-off-body` takes the nacelle's base region and rim group under the
+nacelle's name or, as that marking leaves them, under the one name for no boundary whose faces
+lie on the nacelle alone (`NBase` merged into `N`), and writes them under that name. It warns,
+naming every merged family, which it keeps and which it removes with the blade (`Base1` merged
+into `Blade1`); a nacelle with no such entry, or with two, is warned as not found and nothing is
+written. The rows written are stated in the writer's docstring.
 
 **The blade** is rebuilt from the source surface, not from its distribution. Each
 chord ring is a monotonic spline of arc length on each side from the leading edge;

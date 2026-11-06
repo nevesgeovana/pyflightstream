@@ -10,8 +10,8 @@ wheel, and writes a new OBJ with its boundaries file, the points files that file
 |---|---|
 | `blades` | Blade families, for every table that reads blades; a table's own `blades` wins |
 | `hub` | Hub families, for every table that reads a hub; a table's own `hub` wins |
-| `[hub_rings]` | Applied first; see [hub rings control](#hub-rings-control) |
-| `[repitch]` | Applied second; see [repitch control](#repitch-control) |
+| `[hub_rings]` | Optional; applied first; see [hub rings control](#hub-rings-control) |
+| `[repitch]` | Applied second; see [repitch control](#repitch-control); without `[hub_rings]`, its `hub_method` decides how the hub follows each blade |
 | `[collapse_te]` | Applied third; see [collapse trailing-edge control](#collapse-trailing-edge-control) |
 | `[wheel]` | Applied last, on a sector only |
 
@@ -44,7 +44,7 @@ its boundaries file and `<out>.hub_rings.json`.
 
 | `[hub_rings]` key | Meaning |
 |---|---|
-| `rings` | Whole number of rings, 1 or more; repitch needs at least two |
+| `rings` | Whole number of rings, 1 or more; the ring route of repitch needs at least two |
 | `width` | Optional total height of the rings, in the mesh's unit; default `rings` times the median length of the hub edges that leave the root loop |
 | `blades` | Blade families, over the top-level `blades` |
 | `hub` | Hub families, over the top-level `hub` |
@@ -70,16 +70,19 @@ Kept hub faces keep their order, and each blade's new faces take the place of it
 taken: the rings from the root outward, then the band. Kept nodes keep their text and their
 order; nodes used only by the faces taken leave, and the new nodes follow the kept ones.
 
-Every check runs in memory before any file is written, and a failed check refuses: each blade's
-output hub holds exactly `rings` complete rings from its root; no new cell folds or is turned
-against the source hub; every kept node and face is unchanged, in place and order, and the new
-faces sit where the first taken face was; the open edges are the source's, no edge has more than
-two faces and every new cell runs its edges against its neighbours'; the largest distance from a
-new node to the source hub, reported, is within the source's own chord deviation (the largest
-edge length times the turn between the normals of its two faces, over eight); the written bytes
-read back as the mesh in memory; and the boundaries file reads back. A marking on a node or an
-edge the operation removes is refused. The hub's area against the source and the quality of the
-new cells are reported.
+Every check runs in memory before any file is written, and a failed invariant refuses: each
+blade's output hub holds exactly `rings` complete rings from its root; every kept node and face
+is unchanged, in place and order, and the new faces sit where the first taken face was; the open
+edges are the source's, no edge has more than two faces and every new cell runs its edges
+against its neighbours'; the written bytes read back as the mesh in memory; and the boundaries
+file reads back. A marking on a node or an edge the operation removes is refused. Quality is
+warned, with its numbers, and the mesh is written: new cells that fold (their count and least
+scaled Jacobian) or are turned against the source hub (their count), and a new node farther
+from the source hub than the source's own chord deviation (the largest edge length times the
+turn between the normals of its two faces, over eight; the worst node and its distance).
+`checks.passed` is false when one is warned and `checks.warnings` lists them. The hub's area
+against the source, the quality of the new cells and the largest distance of a new node to the
+source hub are reported.
 
 ## Collapse trailing-edge control
 
@@ -112,11 +115,14 @@ blade has one
 trailing-edge line with as many nodes as one rim, every edge of it shared by two faces; no
 open edge appears or disappears except the removed rungs and no edge gains a third face;
 the nodes away from the edge keep their text and order, and the faces away from it their
-order and node order; no face near the edge is turned over; each merged node is exactly at
+order and node order; each merged node is exactly at
 the midpoint of its pair; the written bytes read back as the mesh in memory; and the written
-boundaries file reads back through the declaration reader. The total
-area against the source minus the strip and the smallest cosine between the normals before
-and after are reported. `<out>.collapse.json` also holds the digests of source and output.
+boundaries file reads back through the declaration reader. A face near the edge that the merge
+turns over (its normal against the source's) is quality, not a refusal: it is warned with the
+count, the worst cosine and the family, face and place of the worst, the mesh is written,
+`checks.passed` is false and `checks.warnings` lists it, inside `geometry morph` as alone. The
+total area against the source minus the strip, the smallest cosine between the normals before
+and after and `turned_faces` are reported. `<out>.collapse.json` also holds the digests of source and output.
 
 ## IGES grid control
 
@@ -143,16 +149,89 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 | `keep` | Optional kept-family list; all other unselected families are also kept |
 | `axis` | `"auto"` (default) from the reference, or an inline `origin`/`direction` table |
 | `axes.<family>` | Per-blade `origin` and `direction` overriding `axis` |
-| `reference` | Reference TOML for automatic radial axes and wheel checks |
+| `reference` | Reference TOML for automatic radial axes and wheel checks; its rotor must state `axis`, else the run is refused naming the missing key |
 | `rotor` | Rotor table name when the reference declares several |
 | `rotor_axis` | Direction of the rotor's rotation: `x`, `y`, `z`, signed, or a vector |
 | `reference_point` | A coordinate along `rotor_axis`, which places the plane of the pitch axes, or a point `[x, y, z]` every pitch axis passes through |
+| `hub_method` | How the hub follows each blade: `"rings"`, `"remesh"` (OBJ only) or `"auto"` (default); see the hub routes below |
+| `band_width` | Remesh only: the band's width in the mesh's unit, positive; default the root's largest move plus two local cells |
+
+Repitch changes coordinates only. On the ring route the written OBJ holds the source's faces in the
+source's order, including an OBJ whose family returns after another, which is written as the source
+has it, one `g` line for each run of faces (FlightStream results depend on face order).
+
+**Hub routes.** `"rings"` moves the nodes of the complete quad rings around each root (at least two); it changes
+coordinates only and is the only route on a saved `.fsm`, where `"remesh"` is warned and the
+ring route runs. `"remesh"` changes the hub's faces around each root, on an OBJ: the band is the
+hub faces a march of `band_width` from the old root reaches, in steps of at most one local cell,
+plus one layer and any pocket they enclose, in one hub family; a face on an open boundary, on
+another family or in another blade's band is never taken, and a band that would take one is
+narrowed by a tenth at a time, down to a hundredth, and warned (none fitting refuses). The local
+cell is the median length of the hub edges leaving the root; the default width is the root's
+largest move by the turn plus two of them. The blades of a wheel are planned together: each
+band keeps to its share of the gap to the nearest other root (half the least distance between
+the two roots, less one local cell), so no band takes room another needs. The annulus from the
+turned root (its nodes the blade's, never duplicated) to the band's unmoved boundary is filled
+in two parts, in a chart of the hub. At least two rows are marched out from the turned root,
+and more while the nearest point of the boundary leaves a row's height beyond them. Each root
+node's rows are one local cell high, less where the boundary is near (a row's height is left
+beyond the last row) and less where the root's sides at the node are short (at most twice the
+shorter, as at a blunt trailing edge), smoothed over two nodes each way without any node
+exceeding its own limit, so the rows thin only where they must. Where they do not fit, all
+heights are thinned by a fifth at a time, while the thinnest stays at least the root's finest
+spacing, before one row is dropped, and the last row keeps at least the least row height from
+the boundary everywhere. The
+rows are lifted onto the source hub and written as quads from the root outward, as hub rings
+writes its rings, so the cells around the root have the source's size and one local cell of
+depth, which the rim merge of `collapse-te` at a blunt trailing edge needs. The gap from the
+last row to the boundary is triangulated as for hub rings and remeshed with both loops frozen
+at every pass count of the fallback (8, 4, 2, 1, 0), every free node projected on the source
+hub, and paired into quadrilaterals; fewer passes are tried only when the full count leaves a
+cell turned against the source hub. Each remesh is then polished: a free node of a cell whose
+least corner Jacobian against the source hub's normal, or shortest side over longest, is below
+0.5 moves to the best of its neighbours' centroid and steps of a half, a quarter, a tenth and a
+twentieth of its mean edge in eight directions, projected on the source hub, when that raises
+its worst cell, for up to twelve sweeps; the loops never move. The source hub is closed under
+each old root by triangles across the root loop, so that the part of the old footprint a turned
+root uncovers has a surface for the rows and nodes there. This is done for the first width and
+up to two more, each one local cell wider, while they fit and keep to the share, and then
+again at the same widths with rows all of one height (a local cell, or the room the nearest
+point of the boundary leaves). Each band is remeshed sized by the source hub's cells, then
+sized from its two loops (at the band's nodes, the side lengths of the nearest inner and
+boundary loop nodes weighted by the distances to them). Each band's target is a least scaled
+Jacobian at least half the source band's and a largest aspect at most twice the source
+band's, measured on the rows and the annulus together; the first candidate with no cell turned
+against the source hub that meets its target is kept, and otherwise the one with the fewest
+turned cells and, among those, the largest margin to its target (the lesser of the least
+scaled Jacobian over the target's and the target's aspect over its own). A band that misses
+its target is warned with both numbers, its rows and width, and the mesh is written. Kept
+faces keep their place and order; each blade's new faces take the
+place of its first face taken. `"auto"` takes `"rings"` where every named root has two complete
+quad rings and `"remesh"` otherwise, but keeps the ring route, and its refusal naming the order
+repitch then collapse-te, for a root that shows the closure triangle of a collapsed trailing edge
+(every root edge on one quad, and one triangle the only other hub face at the root).
+
+The record names each blade's `hub_route` and the `hub_method` asked. For the remesh,
+`hub_remesh.<blade>` holds the width (asked, kept, shrunk from, the rule, the local cell, the
+root's largest move and `share_of_gap`, null for a lone root), `held_rows`, `row_height` and
+`row_height_largest` (the least and largest row height),
+the candidates (width, passes, turned cells, least scaled Jacobian, largest aspect,
+`target_margin`, quad share, `rows`, `sizing`), the kept band's `rows` (`graded` or
+`uniform`) and `sizing` (`source` or `loops`), the faces taken and added, the hole's boundary nodes, the first
+triangulation, `source_band` beside `output_band` (scaled Jacobian and aspect extrema, folded
+cells, quad share, mean edge) with `size_ratio`, the mean edge of the new band over the source
+band's, and `target` (`least_scaled_jacobian`, `largest_aspect`, `met`). A new band with a lower
+least scaled Jacobian or a higher largest aspect than the
+source band is warned with both numbers. On a remeshed wheel the blades must stay periodic; hub
+bands that do not map node for node from one blade to the next are warned.
 
 The report measures rigid-rotation residual, distance from the pitch axis, and
 pitch change at five span positions including root and tip. It records source and
 output hub counts, quality extrema (corner scaled Jacobian and edge aspect ratio),
 folded cells, shared root seam, non-manifold edges, fixed boundaries and added
-triangles. A reference with several blades, or several blades named with `rotor_axis`,
+triangles. The ring route refuses an edge over two faces only at a node it moves (a hub ring or
+a blade); one elsewhere, as where an airframe beside an installed rotor is imprinted on itself,
+is left as it is. A reference with several blades, or several blades named with `rotor_axis`,
 makes the wheel periodicity a check at 360 divided by the blade count, read on the blades
 and hub only, so a wing or a fuselage in the file takes no part; a source whose blades and
 hub were not periodic either is warned, not refused. Otherwise that check is warned and
@@ -166,20 +245,31 @@ each blade root) or through the point stated. `pitch_axes` in the record holds t
 the fit's radius and largest residual, and each blade's span and pitch-axis directions with
 the distance by which its pitch axis passes outside its root loop, which is warned.
 
-The blade and hub face lists remain in source order, including the original FSM
-triangle partners. FSM trailing-edge groups, flags, base regions and wake termination
-indices are retained. OBJ sidecar point files must match source vertices or edge
-midpoints; their coordinates follow the corresponding output locations. Failed
-geometric checks produce no mesh or report. Unsupported hub topology is refused
-with a remedy; no triangulated replacement is substituted for a quad hub.
-Interior projection retains the source FSM triangle-pair diagonals. Projection and
+On the ring route the blade and hub face lists remain in source order, including the
+original FSM triangle partners. FSM trailing-edge groups, flags, base regions and wake
+termination indices are retained. OBJ sidecar point files must match source vertices or edge
+midpoints; their coordinates follow the corresponding output locations, and on the remesh
+route a marking on a node or an edge the band removes is refused. A broken input or a broken
+invariant (nonfinite coordinates, an edge over two faces, a kept node, face or open boundary
+that moved, a frozen loop node that moved, an unreadable control file) produces no mesh or
+report. The ring route refuses a hub without two complete quad rings with a remedy; it
+substitutes no triangulated replacement for a quad hub, which is what the remesh route is
+for. Interior projection retains the source FSM triangle-pair diagonals. Projection and
 smoothing leave the shared blade-root nodes under the rigid-rotation constraint.
+
+Quality is warned with its numbers and the mesh is written; `checks.passed` is then false and
+`checks.warnings` lists every warning: folded hub cells (the count and the least scaled
+Jacobian beside the source's), reversed hub cells against the source (the count), moved
+non-root hub nodes off the source hub (below), and on the remesh route new cells folded or
+turned against the source hub and a new node beyond the source's chord deviation (the worst
+node and its distance).
 
 The printed checks and `<out>.repitch.json` include every moved hub node's
 zero-based index, shared-root status, distance to the finite source triangles in
 metres and distance divided by its local cell edge. The local edge is the shortest
 edge among incident source hub cells. Non-root nodes beyond
-`NON_ROOT_SURFACE_TOLERANCE = 1e-8` local edges refuse, naming the node.
+`NON_ROOT_SURFACE_TOLERANCE = 1e-8` local edges are warned with their count and the worst
+node and its distance, and the mesh is written.
 `root_max_distance_to_source_hub_m` and
 `root_max_distance_to_source_hub_over_local_edge` report the rigid root's stand-off.
 Above `ROOT_STANDOFF_WARNING = 0.5` local edges, one warning states how far the root
@@ -1158,8 +1248,13 @@ file entry becomes one import; detection remains STANDARD only. Source points
 are matched before import operations and carried through their scale, rotation,
 translation and mirror transformations in metres. Explicit termination nodes
 use the written OBJ vertex indices and are refused after vertex-changing
-operations. Termination nodes combined with merging remain conservatively
-refused until their saved-state persistence is measured.
+operations. Explicit termination nodes are selected and marked before the
+merges of `merge_into`. A mark made before `SURFACE_COMBINE` is saved on the
+same node after it on FlightStream 26.124, 26.125 and 26.127, measured by the probes of
+`reports/compat/CMP-26124_2026-10-26_marking.yaml`,
+`CMP-26125_2026-10-26_marking.yaml` and `CMP-26127_2026-11-06_marking.yaml`, so the two are marked together on those
+builds; on any other build explicit nodes with a `merge_into` are refused,
+naming those builds.
 
 The output `.fsm.boundaries.toml` contains only inventory fields and
 `marked_by`; it carries no import or marking declarations. The original

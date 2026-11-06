@@ -260,11 +260,35 @@ def coordinates(point: NDArray[numpy.float64]) -> str:
     return " ".join(plain_decimal(float(x)) for x in point)
 
 
-def obj_text(mesh: ObjMesh, note: str | None = None) -> str:
+def face_blocks(path: str | Path) -> list[tuple[str, int]]:
+    """Return an OBJ's face blocks in file order, each as its family and its face count.
+
+    A family that returns after another has one entry per run of faces, so a text
+    written with these blocks (``obj_text(..., blocks=...)``) keeps the source's face order.
+    """
+    blocks: list[tuple[str, int]] = []
+    current = DEFAULT_FAMILY
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        words = line.split(None, 1)
+        if words and words[0] in ("g", "o"):
+            current = (words[1].strip() if len(words) > 1 else "") or DEFAULT_FAMILY
+        elif words and words[0] == "f":
+            if blocks and blocks[-1][0] == current:
+                blocks[-1] = (current, blocks[-1][1] + 1)
+            else:
+                blocks.append((current, 1))
+    return blocks
+
+
+def obj_text(
+    mesh: ObjMesh, note: str | None = None, blocks: Sequence[tuple[str, int]] | None = None
+) -> str:
     """Return the OBJ text of a mesh, families in their order.
 
     A vertex whose source text is known (``vertex_text``) is written as the
-    source wrote it; every other is written by :func:`coordinates`.
+    source wrote it; every other is written by :func:`coordinates`. With ``blocks``
+    (:func:`face_blocks` of the source) the faces are written in the source's order,
+    a family that returns after another in a block of its own.
     """
     lines = list(mesh.header)
     if note:
@@ -274,8 +298,13 @@ def obj_text(mesh: ObjMesh, note: str | None = None) -> str:
         f"v {known[i] if known and known[i] is not None else coordinates(p)}"
         for i, p in enumerate(mesh.verts)
     ]
-    for name, faces in mesh.families.items():
+    if blocks is None:
+        blocks = [(name, len(faces)) for name, faces in mesh.families.items()]
+    taken = dict.fromkeys(mesh.families, 0)
+    for name, count in blocks:
         lines.append(f"{mesh.family_tag} {name}")
+        faces = mesh.families[name][taken[name] : taken[name] + count]
+        taken[name] += count
         lines += ["f " + " ".join(str(v + 1) for v in f) for f in faces]
     return "\n".join(lines) + "\n"
 
@@ -319,7 +348,7 @@ def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
     if not sidecar.is_file():
         return None
     try:
-        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))
+        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8-sig"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise InputArtifactError(
             f"{sidecar}: not TOML ({error}). Fix the file and run again. Nothing was written.",

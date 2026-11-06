@@ -216,6 +216,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "nacelle_cells"): CASE,
     ("pyfs-workspace", "root_margin_r"): CASE,
     ("pyfs-workspace", "nose_radius_r"): CASE,
+    # 0.56.0 (PFS-2187.08): `sector-to-wheel --no-wake-terminations` drops what the wheel's
+    # boundaries file declares, which changes what is marked and run.
+    ("pyfs-workspace", "wake_terminations"): CASE,
     # 0.54.0 (PFS-2186.09): `geometry merge` names its two parts, the one adapted and the
     # distance across their interface, facts of this one call.
     ("pyfs-workspace", "parts"): SUBJECT,
@@ -1077,6 +1080,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "nacelle_cells"): frozenset({"sector-remesh", "power-off-body"}),
     ("pyfs-workspace", "root_margin_r"): frozenset({"sector-remesh"}),
     ("pyfs-workspace", "nose_radius_r"): frozenset({"sector-remesh", "power-off-body"}),
+    # 0.56.0 (PFS-2187.08): `sector-to-wheel --no-wake-terminations`.
+    ("pyfs-workspace", "wake_terminations"): frozenset({"sector-to-wheel"}),
     # 0.54.0 (PFS-2186.09): `geometry merge`.
     ("pyfs-workspace", "parts"): frozenset({"merge"}),
     ("pyfs-workspace", "threshold"): frozenset({"merge"}),

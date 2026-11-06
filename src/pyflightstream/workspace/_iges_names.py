@@ -72,6 +72,15 @@ _UNIT_WORDS = {
 }
 
 
+#: Unit flag 3: the unit is the one the unit name field names.
+_FLAG_BY_NAME = 3
+#: The solver's word for each unit name the global section may write, with flag 3 or any other.
+_UNIT_NAMES = {
+    **{word: unit for unit, (_, word) in _UNIT_WORDS.items()},
+    "IN": "INCH",
+}
+
+
 def unit_of_flag(flag: int) -> str | None:
     """Return the solver's word for an IGES unit flag, or None for a flag it has no word for."""
     return _UNIT_FLAGS.get(flag)
@@ -177,9 +186,14 @@ def _split(text: str, delimiter: str, end: str) -> list[str]:
     return out
 
 
+#: The encoding an IGES file is read and written in: one character per byte, so a column is a
+#: byte and a Hollerith count is kept, whatever bytes a name outside ASCII holds.
+_BYTES = "latin-1"
+
+
 def _sections(path: Path) -> dict[str, list[str]]:
     try:
-        text = path.read_text(encoding="latin-1")
+        text = path.read_text(encoding=_BYTES)
     except OSError as error:
         raise _refuse(path, f"not readable ({error})") from error
     sections: dict[str, list[str]] = {"S": [], "G": [], "D": [], "P": [], "T": []}
@@ -203,7 +217,8 @@ def _delimiters(glob: str) -> tuple[str, str]:
         if rest.startswith("1H"):
             end = rest[2]
     elif glob.startswith(delimiter + "1H"):
-        end = glob[4]
+        # ",1H;": the default parameter delimiter, then the record delimiter at column 4.
+        end = glob[3]
     return delimiter, end
 
 
@@ -214,6 +229,9 @@ def _global_unit(path: Path, glob: str) -> str | None:
         flag = int(float(fields[13])) if len(fields) > 13 and fields[13] else 1
     except ValueError as error:
         raise _refuse(path, f"the unit flag {fields[13]!r} is not a number") from error
+    if flag == _FLAG_BY_NAME:
+        name = fields[14].strip().upper() if len(fields) > 14 else ""
+        return _UNIT_NAMES.get(name)
     return unit_of_flag(flag)
 
 
@@ -499,7 +517,7 @@ def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
         *parameters,
         *(line[:80] for line in sections["T"]),
     ]
-    _textio.write_lines(out, lines)
+    _textio.write_lines(out, lines, encoding=_BYTES)
     return out
 
 
@@ -563,5 +581,5 @@ def name_faces(
     counts = f"S{len(start):>7}G{len(glines):>7}D{len(directory):>7}P{len(parameters):>7}"
     out = Path(target)
     lines = start + glines + directory + parameters + [_line(counts, "T", 1)]
-    _textio.write_lines(out, lines)
+    _textio.write_lines(out, lines, encoding=_BYTES)
     return out
