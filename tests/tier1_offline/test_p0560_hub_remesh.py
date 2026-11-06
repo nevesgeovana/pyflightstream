@@ -471,15 +471,16 @@ def test_p0560_r1_morph_007_the_morph_how_to_states_the_feature_not_where_it_was
 
 def test_p0560_r1_morph_008_the_example_wheel_table_reads_once_uncommented():
     """P0560-R1-MORPH-008: the example's [wheel], uncommented, states the axis it needs."""
-    from pyflightstream.workspace.morph import _wheel_table
+    from pyflightstream.workspace._wheel import parse_axis
 
     page = Path(__file__).resolve().parents[2] / "docs/mesh/morphing.toml"
     lines = page.read_text(encoding="utf-8").splitlines()
     start = lines.index("# [wheel]")
     opened = lines[:start] + [line.removeprefix("# ") for line in lines[start:]]
     data = tomllib.loads("\n".join(opened) + "\n")
+    # Without [repitch] rotor_axis, [wheel] reads the rotor axis from its own axis (morph.py).
     assert "rotor_axis" not in data["repitch"]
-    assert _wheel_table(data)["axis"].tolist() == [0.0, 0.0, 1.0]
+    assert parse_axis(data["wheel"]["axis"]).tolist() == [0.0, 0.0, 1.0]
 
 
 def _lone_root(folder: Path, share: float):
