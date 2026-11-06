@@ -3,7 +3,9 @@
 ## Supported Python
 
 Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.
-CI tests Python 3.12 on Linux and Windows.
+CI tests Python 3.12 on Windows at every push, and on Linux in the all-extras and floors jobs.
+The `test-lean` and `test-ceilings` jobs run only on release tags and on a weekly schedule
+(Monday 06:00 UTC), because over 300 measured runs they caught no failure the other jobs missed.
 The `test-lean` CI job runs tier 1 with `pytest -n auto` using the base
 package and development tools, without user-facing extras.
 

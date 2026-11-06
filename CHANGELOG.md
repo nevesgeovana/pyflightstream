@@ -69,8 +69,10 @@ FlightStream versions.
 
 ### Changed
 
-- CI runs the suite in shards: three for Windows, Ubuntu, dependency floors and all
-  extras, and two for lean and dependency ceilings. Every suite keeps its full test
+- CI runs the suite in shards: three for Windows, dependency floors and all
+  extras, and two for lean and dependency ceilings. The plain Ubuntu leg is gone, and
+  lean and ceilings run only on release tags and weekly (Monday 06:00 UTC), because
+  300 measured runs showed they caught no failure the other jobs missed. Every suite keeps its full test
   collection across the shards. Set `PYFS_SHARD=1/3` to select the first of three
   deterministic partitions locally; leave it unset to run the original collection.
 - Mesh quality no longer refuses `geometry repitch` or `geometry hub-rings`: folded or reversed

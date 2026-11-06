@@ -10,7 +10,7 @@ def test_p0410_ci_triggers_and_cancellation():
         (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text("utf-8")
     )
     triggers = workflow.get("on", workflow.get(True))
-    assert set(triggers) == {"push", "workflow_dispatch"}
+    assert set(triggers) == {"push", "schedule", "workflow_dispatch"}
     assert set(triggers["push"]["paths-ignore"]) == {"docs/**", "**/*.md", "guide/**"}
     assert triggers["push"]["branches-ignore"] == ["dry-run/**"]
     assert workflow["concurrency"] == {

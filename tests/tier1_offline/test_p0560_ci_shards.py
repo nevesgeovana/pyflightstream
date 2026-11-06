@@ -59,6 +59,26 @@ def test_p0560_ci_selector_complete_disjoint_stable(monkeypatch):
         assert sum(map(len, shards)) == len(set.union(*shards))
 
 
+EVENT_GATED = ("test-lean", "test-ceilings")
+EVENT_GATE = "(github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v'))"
+
+
+def test_p0560_ci_workflow_shape_by_event():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    jobs = workflow["jobs"]
+    assert jobs["test"]["strategy"]["matrix"]["os"] == ["windows-latest"]
+    triggers = workflow.get("on", workflow.get(True))
+    assert triggers["push"]["tags"] == ["v*"]
+    assert triggers["schedule"] == [{"cron": "0 6 * * 1"}]
+    for name in EVENT_GATED:
+        # No job-level condition: a skipped job would fail the release check's all-green rule.
+        assert "if" not in jobs[name]
+        assert all(EVENT_GATE in step["if"] for step in jobs[name]["steps"]), name
+    caps = [s for s in jobs["test-all-extras"]["steps"] if "lean_caps" in s.get("run", "")]
+    assert len(caps) == 1
+    assert not any("lean_caps" in s.get("run", "") for s in jobs["test"]["steps"])
+
+
 def test_p0560_ci_workflow_shards():
     jobs = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
     for name, count in (
@@ -76,9 +96,14 @@ def test_p0560_ci_workflow_shards():
             command = step.get("run", "")
             if command.startswith("pytest -n auto"):
                 assert step["env"]["PYFS_SHARD"] == "${{ matrix.shard }}/" + str(count)
-                assert "if" not in step
+                if name in EVENT_GATED:
+                    assert step["if"] == "${{ " + EVENT_GATE + " }}"
+                else:
+                    assert "if" not in step
             elif command.startswith(("pytest", "ruff")):
                 assert "matrix.shard == 1" in step.get("if", "")
+                if name in EVENT_GATED:
+                    assert EVENT_GATE in step["if"]
                 assert "PYFS_SHARD" not in step.get("env", {})
 
 
