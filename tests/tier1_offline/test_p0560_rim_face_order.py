@@ -82,3 +82,24 @@ def test_p0560_r1_mark_s4_a_base_rim_is_written_last_face_first_on_26127(
         warnings.simplefilter("ignore")
         plan = plan_mark_boundaries(_wing_with_cap(tmp_path, build))
     assert _written_rim(plan) == expected
+
+
+@pytest.mark.requirement("FR-3766")
+def test_p0560_r2_001_a_renamed_base_rim_is_written_last_face_first_on_26127(
+    tmp_path: Path,
+) -> None:
+    """R2-001: a base family renamed by an import operation keeps 26.127's rim order, read
+    from the OBJ by the family's name there; with the renamed name the rim matched no OBJ
+    family and was written in the file's order, the order 26.127 drops edges of."""
+    mesh = _wing_with_cap(tmp_path, "26.127")
+    sidecar = Path(str(mesh) + ".boundaries.toml")
+    text = sidecar.read_text(encoding="utf-8").replace(
+        '[import]\nunits = "METER"\n',
+        '[import]\nunits = "METER"\n[[import.operations]]\nop = "rename"\nsurface = "cap"\n'
+        'to = "Base"\n',
+    )
+    sidecar.write_text(text, encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_mark_boundaries(mesh)
+    assert _written_rim(plan) == [3.5, 2.5, 1.5, 0.5]
