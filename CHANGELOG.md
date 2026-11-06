@@ -32,10 +32,15 @@ FlightStream versions.
   around the turned root quad-dominant, every free node on the source hub and the kept faces in
   place and order, and `"auto"`, the default, takes the rings where every root has two complete
   quad rings and the remesh otherwise. `band_width` states the band; by default it is the
-  root's largest move plus two local cells. The remesh keeps, among its pass counts and up to
-  three widths, the band with the fewest cells turned against the hub (none when one has none)
-  and the highest least scaled Jacobian, and the record gives the source band's quality
-  beside the new band's. `geometry morph` reads both keys, so a quad-dominant sector or wheel morphs without `[hub_rings]`.
+  root's largest move plus two local cells. The blades of a wheel are planned together, each
+  band within its share of the gap to the nearest other root, with at least two rows of quads
+  around every root (thinned before one is dropped), and each remesh is polished by
+  quality-guarded node moves on the hub. Among its pass counts and up to three widths the
+  remesh keeps the first band with no cell turned against the hub that meets its target (least
+  scaled Jacobian at least half the source band's, largest aspect at most twice), else the
+  closest, and warns of a miss with its numbers; the record gives the source band's quality
+  beside the new band's, the share, the rows and the target. `geometry morph` reads both keys,
+  so a quad-dominant sector or wheel morphs without `[hub_rings]`.
 
 ### Changed
 

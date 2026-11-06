@@ -69,8 +69,11 @@ def remeshed(tmp_path_factory):
         )
         cfg = control(folder, text, wheel=wheel)
         out = folder / "remeshed.obj"
-        assert _quiet_invoke("repitch", source, cfg, out) == 0
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", PyflightstreamWarning)
+            assert invoke("repitch", source, cfg, out) == 0
         made[wheel] = (folder, source, out)
+        made["warned", wheel] = [str(w.message) for w in caught]
     return made
 
 
@@ -114,6 +117,47 @@ def test_p0560_hubq_remesh_turns_the_blades_and_keeps_everything_else(remeshed, 
         assert numbers["band_width"] > 0.0
     sidecar = tomllib.loads(Path(f"{out}.boundaries.toml").read_text())
     assert sidecar["boundary_faces"] == [len(f) for f in new.families.values()]
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_hubq_every_root_holds_two_rows_within_its_share_of_the_wheel(remeshed):
+    """The blades of a wheel are planned together: each band keeps to its share of the gap to
+    the nearest other root, and at least two rows of quads are marched around every root."""
+    _, source, out = remeshed[True]
+    old = read_obj(source)
+    numbers = record(out, "repitch")["hub_remesh"]
+    names = [n for n in old.families if n.startswith("Blade")]
+    assert sorted(numbers) == sorted(names)
+    hub = {v for f in old.families["Spinner"] for v in f}
+    roots = {n: sorted({v for f in old.families[n] for v in f} & hub) for n in names}
+    for name in names:
+        others = np.vstack([old.verts[roots[n]] for n in names if n != name])
+        gap = min(np.linalg.norm(others - p, axis=1).min() for p in old.verts[roots[name]])
+        assert numbers[name]["share_of_gap"] == pytest.approx(gap / 2, rel=1e-9)
+        assert 0.0 < numbers[name]["band_width"] <= numbers[name]["share_of_gap"]
+        assert numbers[name]["held_rows"] >= 2
+        assert numbers[name]["row_height"] > 0.0
+
+
+@pytest.mark.requirement("FR-3678")
+@pytest.mark.parametrize("wheel", [False, True], ids=["P0560-HUBQ-sector", "P0560-HUBQ-wheel"])
+def test_p0560_hubq_the_band_quality_target_is_recorded_and_a_miss_is_warned(remeshed, wheel):
+    """Per blade the output band's least scaled Jacobian is held to half the source band's and
+    its largest aspect to twice the source band's; a miss is warned with its numbers."""
+    _, _, out = remeshed[wheel]
+    for name, numbers in record(out, "repitch")["hub_remesh"].items():
+        source, output, target = numbers["source_band"], numbers["output_band"], numbers["target"]
+        assert target["least_scaled_jacobian"] == pytest.approx(0.5 * source["min_scaled_jacobian"])
+        assert target["largest_aspect"] == pytest.approx(2.0 * source["max_aspect"])
+        met = (
+            output["min_scaled_jacobian"] >= target["least_scaled_jacobian"]
+            and output["max_aspect"] <= target["largest_aspect"]
+        )
+        assert target["met"] is met
+        missed = [w for w in remeshed["warned", wheel] if f"{name!r}" in w and "target" in w]
+        assert bool(missed) is not met
+        for sentence in missed:
+            assert re.search(r"scaled Jacobian -?[\d.]+ .* aspect [\d.]+", sentence)
 
 
 @pytest.mark.requirement("FR-3678")

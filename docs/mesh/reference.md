@@ -154,33 +154,60 @@ plus one layer and any pocket they enclose, in one hub family; a face on an open
 another family or in another blade's band is never taken, and a band that would take one is
 narrowed by a tenth at a time, down to a hundredth, and warned (none fitting refuses). The local
 cell is the median length of the hub edges leaving the root; the default width is the root's
-largest move by the turn plus two of them. The annulus from the turned root (its nodes the
-blade's, never duplicated) to the band's unmoved boundary is filled in two parts, in a chart of
-the hub. Rows are marched out from the turned root one local cell apart, as many as stay a cell
-inside the hole (fewer when a row folds or leaves it), lifted onto the source hub and written as
-quads from the root outward, as hub rings writes its rings, so the cells around the root have
-the source's size and one local cell of depth, which the rim merge of `collapse-te` at a blunt
-trailing edge needs. The gap from the last row to the boundary is triangulated as for hub rings
-and remeshed with both loops frozen at every pass count of the fallback (8, 4, 2, 1, 0), every
-free node projected on the source hub, and paired into quadrilaterals. The source hub is closed
-under each old root by triangles across the root loop, so that the part of the old footprint a
-turned root uncovers has a surface for the rows and nodes there. This is done for the first
-width and up to two more, each one local cell wider, while they fit; the band kept has
-the fewest cells turned against the source hub (none, when one has none) and, among those, the
-highest least scaled Jacobian. Bands are planned in the order the blades are named, each against
-the same source hub. Kept faces keep their place and order; each blade's new faces take the
+largest move by the turn plus two of them. The blades of a wheel are planned together: each
+band keeps to its share of the gap to the nearest other root (half the least distance between
+the two roots, less one local cell), so no band takes room another needs. The annulus from the
+turned root (its nodes the blade's, never duplicated) to the band's unmoved boundary is filled
+in two parts, in a chart of the hub. At least two rows are marched out from the turned root,
+and more while the nearest point of the boundary leaves a row's height beyond them. Each root
+node's rows are one local cell high, less where the boundary is near (a row's height is left
+beyond the last row) and less where the root's sides at the node are short (at most twice the
+shorter, as at a blunt trailing edge), smoothed over two nodes each way without any node
+exceeding its own limit, so the rows thin only where they must. Where they do not fit, all
+heights are thinned by a fifth at a time, while the thinnest stays at least the root's finest
+spacing, before one row is dropped, and the last row keeps at least the least row height from
+the boundary everywhere. The
+rows are lifted onto the source hub and written as quads from the root outward, as hub rings
+writes its rings, so the cells around the root have the source's size and one local cell of
+depth, which the rim merge of `collapse-te` at a blunt trailing edge needs. The gap from the
+last row to the boundary is triangulated as for hub rings and remeshed with both loops frozen
+at every pass count of the fallback (8, 4, 2, 1, 0), every free node projected on the source
+hub, and paired into quadrilaterals; fewer passes are tried only when the full count leaves a
+cell turned against the source hub. Each remesh is then polished: a free node of a cell whose
+least corner Jacobian against the source hub's normal, or shortest side over longest, is below
+0.5 moves to the best of its neighbours' centroid and steps of a half, a quarter, a tenth and a
+twentieth of its mean edge in eight directions, projected on the source hub, when that raises
+its worst cell, for up to twelve sweeps; the loops never move. The source hub is closed under
+each old root by triangles across the root loop, so that the part of the old footprint a turned
+root uncovers has a surface for the rows and nodes there. This is done for the first width and
+up to two more, each one local cell wider, while they fit and keep to the share, and then
+again at the same widths with rows all of one height (a local cell, or the room the nearest
+point of the boundary leaves). Each band is remeshed sized by the source hub's cells, then
+sized from its two loops (at the band's nodes, the side lengths of the nearest inner and
+boundary loop nodes weighted by the distances to them). Each band's target is a least scaled
+Jacobian at least half the source band's and a largest aspect at most twice the source
+band's, measured on the rows and the annulus together; the first candidate with no cell turned
+against the source hub that meets its target is kept, and otherwise the one with the fewest
+turned cells and, among those, the largest margin to its target (the lesser of the least
+scaled Jacobian over the target's and the target's aspect over its own). A band that misses
+its target is warned with both numbers, its rows and width, and the mesh is written. Kept
+faces keep their place and order; each blade's new faces take the
 place of its first face taken. `"auto"` takes `"rings"` where every named root has two complete
 quad rings and `"remesh"` otherwise, but keeps the ring route, and its refusal naming the order
 repitch then collapse-te, for a root that shows the closure triangle of a collapsed trailing edge
 (every root edge on one quad, and one triangle the only other hub face at the root).
 
 The record names each blade's `hub_route` and the `hub_method` asked. For the remesh,
-`hub_remesh.<blade>` holds the width (asked, kept, shrunk from, the rule, the local cell and the
-root's largest move), the candidates (width, passes, turned cells, least scaled Jacobian,
-largest aspect, quad share), the faces taken and added, the hole's boundary nodes, the first
-triangulation, and `source_band` beside `output_band` (scaled Jacobian and aspect extrema,
-folded cells, quad share, mean edge) with `size_ratio`, the mean edge of the new band over the
-source band's. A new band with a lower least scaled Jacobian or a higher largest aspect than the
+`hub_remesh.<blade>` holds the width (asked, kept, shrunk from, the rule, the local cell, the
+root's largest move and `share_of_gap`, null for a lone root), `held_rows`, `row_height` and
+`row_height_largest` (the least and largest row height),
+the candidates (width, passes, turned cells, least scaled Jacobian, largest aspect,
+`target_margin`, quad share, `rows`, `sizing`), the kept band's `rows` (`graded` or
+`uniform`) and `sizing` (`source` or `loops`), the faces taken and added, the hole's boundary nodes, the first
+triangulation, `source_band` beside `output_band` (scaled Jacobian and aspect extrema, folded
+cells, quad share, mean edge) with `size_ratio`, the mean edge of the new band over the source
+band's, and `target` (`least_scaled_jacobian`, `largest_aspect`, `met`). A new band with a lower
+least scaled Jacobian or a higher largest aspect than the
 source band is warned with both numbers. On a remeshed wheel the blades must stay periodic; hub
 bands that do not map node for node from one blade to the next are warned.
 
