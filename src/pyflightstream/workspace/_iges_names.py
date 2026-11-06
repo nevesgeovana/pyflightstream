@@ -177,9 +177,14 @@ def _split(text: str, delimiter: str, end: str) -> list[str]:
     return out
 
 
+#: The encoding an IGES file is read and written in: one character per byte, so a column is a
+#: byte and a Hollerith count is kept, whatever bytes a name outside ASCII holds.
+_BYTES = "latin-1"
+
+
 def _sections(path: Path) -> dict[str, list[str]]:
     try:
-        text = path.read_text(encoding="latin-1")
+        text = path.read_text(encoding=_BYTES)
     except OSError as error:
         raise _refuse(path, f"not readable ({error})") from error
     sections: dict[str, list[str]] = {"S": [], "G": [], "D": [], "P": [], "T": []}
@@ -499,7 +504,7 @@ def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
         *parameters,
         *(line[:80] for line in sections["T"]),
     ]
-    _textio.write_lines(out, lines)
+    _textio.write_lines(out, lines, encoding=_BYTES)
     return out
 
 
@@ -563,5 +568,5 @@ def name_faces(
     counts = f"S{len(start):>7}G{len(glines):>7}D{len(directory):>7}P{len(parameters):>7}"
     out = Path(target)
     lines = start + glines + directory + parameters + [_line(counts, "T", 1)]
-    _textio.write_lines(out, lines)
+    _textio.write_lines(out, lines, encoding=_BYTES)
     return out

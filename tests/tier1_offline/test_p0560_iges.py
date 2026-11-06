@@ -33,8 +33,12 @@ def _line(text, section, number):
 class Iges:
     """A small IGES writer: entities in directory order, each with its level and status."""
 
-    def __init__(self, unit="MM"):
+    def __init__(self, unit="MM", *, flag=None, head=",,"):
         self.unit = unit
+        # The unit flag (default the one of ``unit``) and the two delimiter fields that open
+        # the global section.
+        self.flag = UNIT_FLAG[unit] if flag is None else flag
+        self.head = head
         self.entities = []
 
     def add(self, kind, values, *, level=0, form=0, status="00000000"):
@@ -60,7 +64,7 @@ class Iges:
         start = [_line("pyflightstream test IGES", "S", 1)]
         unit = self.unit
         fields = (
-            f",,4HTEST,8Htest.igs,4HPYFS,3H1.0,32,38,6,308,15,4HTEST,1.0,{UNIT_FLAG[unit]},"
+            f"{self.head}4HTEST,8Htest.igs,4HPYFS,3H1.0,32,38,6,308,15,4HTEST,1.0,{self.flag},"
             f"{len(unit)}H{unit},1,1.0,15H20261105.120000,1.0E-6,100000.0,4HPYFS,4HPYFS,11,0,"
             "15H20261105.120000;"
         )
@@ -104,10 +108,10 @@ def plate_and_flap(folder, *, flap_gap=0.0, unit="MM", scale=1.0, name="parts.ig
     return iges.write(folder / name)
 
 
-def wedge(folder, *, te_curve=False, name="wing.igs"):
+def wedge(folder, *, te_curve=False, name="wing.igs", component="Wing"):
     """A wing wedge on level 1: upper and lower faces meet at a sharp trailing edge at x = 1."""
     iges = Iges()
-    iges.name(1, "Wing")
+    iges.name(1, component)
     iges.patch([(0, 0, 0.1), (1, 0, 0), (0, 1, 0.1), (1, 1, 0)], level=1)
     iges.patch([(0, 0, -0.1), (1, 0, 0), (0, 1, -0.1), (1, 1, 0)], level=1)
     iges.patch([(0, 0, -0.1), (0, 0, 0.1), (0, 1, -0.1), (0, 1, 0.1)], level=1)
@@ -178,6 +182,27 @@ def test_p0560_iges_names_read_a_global_section_split_across_lines(tmp_path):
     names = read_iges_names(path)
     assert names.unit == "INCH"
     assert names.components == {"Plate": 1, "Flap": 1}
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_named_and_flagged_files_keep_every_byte_of_a_name_outside_ascii(tmp_path):
+    """R1-IGES-001: a name the reader took byte for byte is written back byte for byte."""
+    from pyflightstream.workspace._iges_names import (
+        flag_curves_on_surfaces,
+        name_faces,
+        read_iges_names,
+    )
+
+    iges = Iges()
+    iges.patch(square(0, 0, 1, 1), level=0)
+    iges.patch(square(0, 0, 1, 1, z=1), level=0)
+    source = iges.write(tmp_path / "raw.igs")
+    names = ["Asa_é", "Leme_ção"]
+    named = name_faces(source, tmp_path / "named.igs", names, unit="MILLIMETER")
+    flagged = flag_curves_on_surfaces(named, tmp_path / "flagged.igs")
+    for path in (named, flagged):
+        assert read_iges_names(path).faces == tuple(names)
+        assert {len(line) for line in path.read_bytes().splitlines()} == {80}
 
 
 @pytest.mark.requirement("FR-3704")
