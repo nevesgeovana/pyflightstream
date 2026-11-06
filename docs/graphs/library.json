@@ -971,6 +971,11 @@
       "path": "qa/_spec_0540_marking.py"
     },
     {
+      "id": "pyflightstream.qa._spec_0560_export_detect",
+      "layer": 0,
+      "path": "qa/_spec_0560_export_detect.py"
+    },
+    {
       "id": "pyflightstream.qa._spec_26125",
       "layer": 0,
       "path": "qa/_spec_26125.py"
@@ -1824,6 +1829,11 @@
       "id": "pyflightstream.workspace._visual_inspect",
       "layer": 2,
       "path": "workspace/_visual_inspect.py"
+    },
+    {
+      "id": "pyflightstream.workspace._wake_edge_verdict",
+      "layer": 2,
+      "path": "workspace/_wake_edge_verdict.py"
     },
     {
       "id": "pyflightstream.workspace._wheel",
@@ -8893,6 +8903,26 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.qa._spec_0560_export_detect",
+      "target": "pyflightstream.qa._spec_0460_marking",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0560_export_detect",
+      "target": "pyflightstream.qa._spec_kit",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0560_export_detect",
+      "target": "pyflightstream.qa.probes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0560_export_detect",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.qa._spec_26125",
       "target": "pyflightstream.qa._spec_catalog_b",
       "kind": "module"
@@ -9490,6 +9520,11 @@
     {
       "source": "pyflightstream.qa.specs",
       "target": "pyflightstream.qa._spec_0540_marking",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa.specs",
+      "target": "pyflightstream.qa._spec_0560_export_detect",
       "kind": "module"
     },
     {
@@ -14050,6 +14085,11 @@
     {
       "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream.cases.mesh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.cases.mesh",
       "kind": "module"
     },
     {
@@ -14075,12 +14115,22 @@
     {
       "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream.workspace._mark_rims",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace._mark_rims",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace.wake_edges",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
@@ -15056,6 +15106,26 @@
       "source": "pyflightstream.workspace._visual_inspect",
       "target": "pyflightstream.workspace._refine._nastran",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._wake_edge_verdict",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wake_edge_verdict",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wake_edge_verdict",
+      "target": "pyflightstream.versions",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._wake_edge_verdict",
+      "target": "pyflightstream.workspace.manifest",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._wheel",
@@ -16294,11 +16364,6 @@
     },
     {
       "source": "pyflightstream.workspace.wake_edges",
-      "target": "pyflightstream._fsm",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.wake_edges",
       "target": "pyflightstream._lengths",
       "kind": "module"
     },
@@ -16344,12 +16409,12 @@
     },
     {
       "source": "pyflightstream.workspace.wake_edges",
-      "target": "pyflightstream.workspace.inputs",
+      "target": "pyflightstream.workspace._wake_edge_verdict",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace.wake_edges",
-      "target": "pyflightstream.workspace.manifest",
+      "target": "pyflightstream.workspace.inputs",
       "kind": "module"
     }
   ]

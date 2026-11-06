@@ -866,6 +866,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.script.helpers">pyflightstream.script.helpers</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.qa._spec_0560_export_detect"><summary><code>pyflightstream.qa._spec_0560_export_detect</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.qa._spec_0460_marking">pyflightstream.qa._spec_0460_marking</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.qa._spec_kit">pyflightstream.qa._spec_kit</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.qa.probes">pyflightstream.qa.probes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.qa._spec_26125"><summary><code>pyflightstream.qa._spec_26125</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.qa._spec_catalog_b">pyflightstream.qa._spec_catalog_b</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_ccs_noise">pyflightstream.qa._spec_ccs_noise</a> (module)</li>
@@ -1035,6 +1042,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.qa._spec_0400_gap">pyflightstream.qa._spec_0400_gap</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_0460_marking">pyflightstream.qa._spec_0460_marking</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_0540_marking">pyflightstream.qa._spec_0540_marking</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.qa._spec_0560_export_detect">pyflightstream.qa._spec_0560_export_detect</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_26125">pyflightstream.qa._spec_26125</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_catalog_b">pyflightstream.qa._spec_catalog_b</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_ccs_mesh">pyflightstream.qa._spec_ccs_mesh</a> (module)</li>
@@ -2039,13 +2047,16 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.mesh">pyflightstream.cases.mesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases.mesh">pyflightstream.cases.mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script.helpers">pyflightstream.script.helpers</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._mark_rims">pyflightstream.workspace._mark_rims</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._mark_rims">pyflightstream.workspace._mark_rims</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (module)</li>
 </ul></details>
 
@@ -2362,6 +2373,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._inspect_pages">pyflightstream.workspace._inspect_pages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._nastran">pyflightstream.workspace._refine._nastran</a> (deferred)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._wake_edge_verdict"><summary><code>pyflightstream.workspace._wake_edge_verdict</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._wheel"><summary><code>pyflightstream.workspace._wheel</code></summary><ul>
@@ -2717,7 +2735,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.workspace.wake_edges"><summary><code>pyflightstream.workspace.wake_edges</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._decimal">pyflightstream._decimal</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
@@ -2727,8 +2744,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.script.helpers">pyflightstream.script.helpers</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._prepare">pyflightstream.workspace._refine._prepare</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._wake_edge_verdict">pyflightstream.workspace._wake_edge_verdict</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
 </ul></details>
 
 ## Layer 3
