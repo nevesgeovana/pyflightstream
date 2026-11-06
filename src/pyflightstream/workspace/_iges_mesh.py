@@ -3,10 +3,10 @@
 The faces of every component are healed and fragmented together, so an edge two faces share
 becomes one curve and its nodes are shared. Four-sided patches of a structured component get
 transfinite curves with the laws of the grid control file and are recombined into quads; every
-other patch is meshed quad-dominant (Frontal-Delaunay for quads, Blossom recombination) at its
-component's size. The opposite sides of a four-sided patch must take one count, so the curves
-that must agree are grouped and each group takes the count of the first component that asks;
-every other request in the group is recorded as overridden.
+other patch is meshed quad-dominant (MeshAdapt, Blossom recombination) at its component's size,
+graded from any curve shorter than it. The opposite sides of a four-sided patch must take one
+count, so the curves that must agree are grouped and each group takes the count of the first
+component that asks; every other request in the group is recorded as overridden.
 """
 
 from __future__ import annotations
@@ -32,8 +32,18 @@ __all__ = ["Meshed", "mesh_model"]
 
 #: gmsh's mesh element type numbers of the linear triangle and quadrangle.
 _TRIANGLE, _QUAD = 2, 3
-#: gmsh 2D algorithm 8: Frontal-Delaunay for quads; recombination algorithm 1: Blossom.
-_FRONTAL_QUADS, _BLOSSOM = 8, 1
+#: gmsh 2D algorithm 1, MeshAdapt, and recombination algorithm 1, Blossom. MeshAdapt keeps the
+#: component's size on a face whose parametrization is stretched and meshes a narrow face
+#: without slivers, where Frontal-Delaunay for quads (8) left cells many sizes long across both
+#: (measured on SMI-WBVH: 200 sliver faces with 8, 29 with MeshAdapt).
+_MESH_ADAPT, _BLOSSOM = 1, 1
+#: How fast the size grows with the distance from a short curve: a cell about a third larger
+#: than its neighbour nearer the curve.
+_GROWTH = 0.3
+#: The least quality of a quad Blossom may make: 1 less the largest departure of a corner from
+#: 90 degrees over 90. 6/90 refuses a quad with a corner over 174 or under 6 degrees, which stays
+#: two triangles, so recombination makes no sliver (the record's limit is 5 degrees).
+_RECOMBINE_QUALITY = 6.0 / 90.0
 
 
 @dataclass
@@ -142,16 +152,17 @@ def _fragment(
     return faces, record
 
 
-def _point(gmsh: Any, tag: int) -> NDArray[np.float64]:
-    return np.asarray(gmsh.model.getValue(0, tag, []), dtype=float)
-
-
 def _ends(gmsh: Any, curve: int) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    points = [abs(t) for _, t in gmsh.model.getBoundary([(1, curve)], oriented=True)]
-    if len(points) < 2:
-        p = _point(gmsh, points[0]) if points else np.zeros(3)
-        return p, p
-    return _point(gmsh, points[0]), _point(gmsh, points[-1])
+    """Return the points at a curve's first and last parameter, the order its mesh runs in.
+
+    The order ``getBoundary`` lists a curve's end points in need not be that one: after the join
+    a curve can keep another face's orientation, and a law clustered by the listed order would
+    then cluster toward the wrong end of that curve only.
+    """
+    lo, hi = gmsh.model.getParametrizationBounds(1, curve)
+    start = np.asarray(gmsh.model.getValue(1, curve, [lo[0]]), dtype=float)
+    end = np.asarray(gmsh.model.getValue(1, curve, [hi[0]]), dtype=float)
+    return start, end
 
 
 def _span_axis(gmsh: Any, faces: list[int], grid: ComponentGrid) -> NDArray[np.float64]:
@@ -329,6 +340,50 @@ def _set_curve(gmsh: Any, curve: int, side: _Side) -> None:
     gmsh.model.mesh.setTransfiniteCurve(curve, nodes, kind, ratio if at_start else -ratio)
 
 
+def _point_sizes(
+    gmsh: Any, faces: dict[str, list[int]], order: list[str], sizes: dict[str, float]
+) -> None:
+    """Set the mesh size: its component's at every point, and graded about every short curve.
+
+    A point takes the size of the first component in the grid file whose faces reach it. A curve
+    shorter than the size at its ends, such as a piece the join cut off, gets one cell; a
+    quad-dominant face meshed at the full size around it would close that cell with a sliver. So
+    the size about such a curve is its length, growing by :data:`_GROWTH` of the distance from it
+    until it is the full size again: the cells grow from the curve and only near it.
+    """
+    size: dict[int, float] = {}
+    for name in order:
+        points = gmsh.model.getBoundary(
+            [(2, t) for t in faces[name]], combined=False, recursive=True
+        )
+        for dim, tag in points:
+            if dim == 0:
+                size.setdefault(abs(tag), sizes[name])
+    for point, value in size.items():
+        gmsh.model.mesh.setSize([(0, point)], value)
+    fields = []
+    for _, curve in gmsh.model.getEntities(1):
+        ends = [abs(t) for d, t in gmsh.model.getBoundary([(1, curve)]) if d == 0]
+        full = min((size[p] for p in ends if p in size), default=0.0)
+        length = gmsh.model.occ.getMass(1, curve)
+        if not 0 < length < full:
+            continue
+        distance = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(distance, "CurvesList", [curve])
+        threshold = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(threshold, "InField", distance)
+        gmsh.model.mesh.field.setNumber(threshold, "SizeMin", length)
+        gmsh.model.mesh.field.setNumber(threshold, "SizeMax", full)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.0)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMax", (full - length) / _GROWTH)
+        gmsh.model.mesh.field.setNumber(threshold, "StopAtDistMax", 1)
+        fields.append(threshold)
+    if fields:
+        least = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(least, "FieldsList", fields)
+        gmsh.model.mesh.field.setAsBackgroundMesh(least)
+
+
 def mesh_model(
     gmsh: Any,
     model: NamedModel,
@@ -381,18 +436,15 @@ def mesh_model(
         sides += found
         patches[name] = four
     overrides = _transfinite(gmsh, sides)
-    for name in reversed(order):
-        points = gmsh.model.getBoundary(
-            [(2, t) for t in faces[name]], combined=False, recursive=True
-        )
-        gmsh.model.mesh.setSize([(0, abs(t)) for d, t in points if d == 0], sizes[name])
+    _point_sizes(gmsh, faces, order, sizes)
     for name in order:
         for face in patches.get(name, []):
             gmsh.model.mesh.setTransfiniteSurface(face)
         for face in faces[name]:
             gmsh.model.mesh.setRecombine(2, face)
-    gmsh.option.setNumber("Mesh.Algorithm", _FRONTAL_QUADS)
+    gmsh.option.setNumber("Mesh.Algorithm", _MESH_ADAPT)
     gmsh.option.setNumber("Mesh.RecombinationAlgorithm", _BLOSSOM)
+    gmsh.option.setNumber("Mesh.RecombineMinimumQuality", _RECOMBINE_QUALITY)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
     gmsh.option.setNumber("Mesh.MeshSizeMax", max(sizes.values()))

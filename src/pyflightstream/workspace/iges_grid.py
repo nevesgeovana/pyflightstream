@@ -51,6 +51,9 @@ _DEFAULT_TOLERANCE_SHARE = 1e-6
 #: Quality below which a component is warned (never refused): least scaled Jacobian, largest
 #: aspect (longest edge over shortest edge of one face).
 WARN_JACOBIAN, WARN_ASPECT = 0.1, 20.0
+#: A sliver is a face with a corner under this angle or over 180 degrees less it, in degrees: a
+#: panel the solver's surface vorticity can degenerate on.
+SLIVER_DEG = 5.0
 #: The half angle of the cone about +x (downstream) within which the bisector of a trailing
 #: edge's two normals points.
 _AFT_CONE_DEG = 60.0
@@ -175,10 +178,21 @@ def _compact(
     return nodes[keep], out, edges
 
 
+def _corners(p: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Return the angle at each corner of one face, in degrees (0 where an edge has no length)."""
+    before = np.roll(p, 1, axis=0) - p
+    after = np.roll(p, -1, axis=0) - p
+    lengths = np.linalg.norm(before, axis=1) * np.linalg.norm(after, axis=1)
+    dot = np.einsum("ij,ij->i", before, after)
+    cosine = np.divide(dot, lengths, out=np.ones_like(dot), where=lengths > 0)
+    return np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+
+
 def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
-    """Return the faces, nodes, quad share and largest aspect of one component."""
+    """Return the faces, nodes, quad share, largest aspect and corner angles of one component."""
     quads = sum(1 for f in faces if len(f) == 4)
     aspect = 0.0
+    smallest, largest, slivers = 180.0, 0.0, 0
     for face in faces:
         p = verts[face]
         e = np.linalg.norm(np.roll(p, -1, axis=0) - p, axis=1)
@@ -186,6 +200,10 @@ def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
             aspect = max(aspect, float(e.max() / e.min()))
         else:
             aspect = math.inf
+        angles = _corners(p)
+        low, high = float(angles.min()), float(angles.max())
+        smallest, largest = min(smallest, low), max(largest, high)
+        slivers += low < SLIVER_DEG or high > 180.0 - SLIVER_DEG
     return {
         "faces": len(faces),
         "nodes": len({v for f in faces for v in f}),
@@ -193,6 +211,9 @@ def quality(verts: NDArray[np.float64], faces: Faces) -> dict[str, Any]:
         "triangles": len(faces) - quads,
         "quad_share": quads / len(faces) if faces else 0.0,
         "largest_aspect": aspect,
+        "smallest_corner_deg": smallest,
+        "largest_corner_deg": largest,
+        "sliver_faces": slivers,
     }
 
 
@@ -333,6 +354,12 @@ def _quality_warnings(name: str, stats: dict[str, Any]) -> list[str]:
         out.append(f"{name}: least scaled Jacobian {jacobian:.3g} is below {WARN_JACOBIAN}")
     if stats["largest_aspect"] > WARN_ASPECT:
         out.append(f"{name}: largest aspect {stats['largest_aspect']:.3g} is above {WARN_ASPECT}")
+    if stats["sliver_faces"]:
+        out.append(
+            f"{name}: {stats['sliver_faces']} sliver face(s) with a corner under {SLIVER_DEG:g} "
+            f"or over {180 - SLIVER_DEG:g} degrees (corners from "
+            f"{stats['smallest_corner_deg']:.3g} to {stats['largest_corner_deg']:.4g})"
+        )
     return out
 
 

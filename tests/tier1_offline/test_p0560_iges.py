@@ -544,6 +544,95 @@ def test_p0560_grid_a_three_cornered_patch_with_a_cut_side_is_not_transfinite(tm
     assert record["conformal"]["conformal_mismatches"] == 0
 
 
+def corners(mesh, family):
+    """Every corner angle of the faces of one family, in degrees."""
+    out = []
+    for face in mesh.families[family]:
+        p = mesh.verts[face]
+        for k in range(len(p)):
+            a, b = p[k - 1] - p[k], p[(k + 1) % len(p)] - p[k]
+            cosine = a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
+            out.append(math.degrees(math.acos(np.clip(cosine, -1.0, 1.0))))
+    return np.asarray(out)
+
+
+def thin_wing_on_body(folder):
+    """A thin wedge (chord 1, span 0.03) whose root lies on a body plate at y = 0. The body comes
+    first in the grid file, so the join leaves the wing's root chord with the body's orientation
+    and its tip chord with its own: the two run against each other."""
+    iges = Iges()
+    iges.name(1, "Wing")
+    iges.name(2, "Body")
+    iges.patch([(0, 0, 0.01), (1, 0, 0), (0, 0.03, 0.01), (1, 0.03, 0)], level=1)
+    iges.patch([(0, 0, -0.01), (1, 0, 0), (0, 0.03, -0.01), (1, 0.03, 0)], level=1)
+    iges.patch([(-0.5, 0, -0.5), (1.5, 0, -0.5), (-0.5, 0, 0.5), (1.5, 0, 0.5)], level=2)
+    return iges.write(folder / "thin.igs")
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_a_one_sided_law_clusters_alike_on_opposite_sides_of_a_patch(tmp_path, capsys):
+    """Both chord sides cluster toward the larger x whichever way the join left each curve: the
+    cells are not sheared into slivers."""
+    text = (
+        "[defaults]\nsize = 0.25\n[component.Body]\n[component.Wing]\n"
+        'chord = {count = 8, law = "geometric", ratio = 1.4}\n'
+    )
+    target, record, _ = run_grid(tmp_path, capsys, [thin_wing_on_body(tmp_path)], text)
+    assert record["transfinite_patches"]["Wing"] == 2
+    angles = corners(read_obj(target), "Wing")
+    assert angles.min() > 80 and angles.max() < 100, (angles.min(), angles.max())
+    wing = record["components"]["Wing"]
+    assert wing["smallest_corner_deg"] == pytest.approx(angles.min(), abs=1e-6)
+    assert wing["largest_corner_deg"] == pytest.approx(angles.max(), abs=1e-6)
+    assert wing["sliver_faces"] == 0
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_a_short_curve_the_join_leaves_makes_no_sliver(tmp_path, capsys):
+    """The flap ends 0.01 short of the plate's corner, so the join leaves a curve of 0.01 on the
+    plate's top edge, 25 times shorter than the size: the cells grow from it, none a sliver."""
+    iges = Iges()
+    iges.name(1, "Plate")
+    iges.name(2, "Flap")
+    iges.patch(square(0, 0, 2, 1), level=1)
+    iges.patch(square(0, 1, 1.99, 2), level=2)
+    path = iges.write(tmp_path / "short.igs")
+    text = "[defaults]\nsize = 0.25\n[component.Flap]\n[component.Plate]\n"
+    target, record, caught = run_grid(tmp_path, capsys, [path], text)
+    angles = corners(read_obj(target), "Plate")
+    assert angles.min() >= 5 and angles.max() <= 175, (angles.min(), angles.max())
+    assert record["components"]["Plate"]["sliver_faces"] == 0
+    assert record["conformal"]["conformal_mismatches"] == 0
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert not any("sliver" in s for s in said), said
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_warns_a_sliver_the_geometry_forces_with_its_angles(tmp_path, capsys):
+    """A three-cornered patch whose apex is 1.7 degrees cannot be meshed without a corner under
+    5 degrees: warned with the count and the angles, recorded, and the grid is still written."""
+    iges = Iges()
+    iges.name(1, "Spike")
+    iges.name(2, "Tab")
+    iges.patch([(0, 0, 0), (1, 0, 0), (0, 0, 0), (1, 0.03, 0)], level=1)
+    iges.patch(square(0, -1, 1, 0), level=2)
+    path = iges.write(tmp_path / "spike.igs")
+    text = "[defaults]\nsize = 0.25\n[component.Tab]\n[component.Spike]\n"
+    target, record, caught = run_grid(tmp_path, capsys, [path], text)
+    assert target.is_file()
+    spike = record["components"]["Spike"]
+    assert spike["sliver_faces"] >= 1
+    assert spike["smallest_corner_deg"] < 5
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    expected = (
+        f"Spike: {spike['sliver_faces']} sliver face(s) with a corner under 5 or over 175 "
+        f"degrees (corners from {spike['smallest_corner_deg']:.3g} to "
+        f"{spike['largest_corner_deg']:.4g})"
+    )
+    assert any(expected in s for s in said), said
+    assert any(expected in w for w in record["warnings"])
+
+
 @pytest.mark.requirement("FR-3703")
 def test_p0560_grid_boundaries_file_passes_the_mark_boundaries_preview(tmp_path, capsys):
     target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
