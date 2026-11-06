@@ -485,11 +485,14 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
         else:
             mark(region.family, region.trailing_edges)
 
-    def create(index, region, *, set_cp):
+    def create(index, region):
+        # The create states the model and the Cp, and saves both. The solver stops the script at
+        # SET_BASE_REGION_CP <n> EMPIRICAL <cp> and at <n> AXISYMMETRIC <cp> on every build this
+        # pass serves (26.100, then 26.124 to 26.127, FR-3740), so only a USER or CUSTOM base
+        # gets the setter, in the <n> CUSTOM <cp> form that saves its value.
         emit("CREATE_NEW_BASE_REGION", names.index(region.family) + 1, region.model, region.cp)
-        if set_cp:
-            cp_model = "CUSTOM" if region.model == "USER" else region.model
-            emit("SET_BASE_REGION_CP", index, cp_model, region.cp)
+        if region.model in ("USER", "CUSTOM"):
+            emit("SET_BASE_REGION_CP", index, "CUSTOM", region.cp)
 
     def step(region):
         steps.append(
@@ -500,7 +503,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
         _bases_on_the_vertex_build(regions, rim, create, step)
         return
     for index, region in enumerate(regions, 1):
-        create(index, region, set_cp=True)
+        create(index, region)
         rim(region)
         step(region)
 
@@ -510,15 +513,14 @@ def _bases_on_the_vertex_build(regions, rim, create, step):
 
     A rim import between two CREATE_NEW_BASE_REGION lines leaves only the last base saved, and
     all seven of a six-blade wheel survive with every rim imported first. An ``auto`` rim names
-    its base by number, so it follows the creates (two bases, two groups, measured). The solver
-    stops the script at SET_BASE_REGION_CP <n> EMPIRICAL <cp> and at <n> AXISYMMETRIC <cp>, and
-    their create has stated both; a USER or CUSTOM base saves its model only through <n> CUSTOM.
+    its base by number, so it follows the creates (two bases, two groups, measured). Which base
+    gets SET_BASE_REGION_CP is the create's rule, the same on every build.
     """
     for region in regions:
         if region.trailing_edges != "auto":
             rim(region)
     for index, region in enumerate(regions, 1):
-        create(index, region, set_cp=region.model in ("USER", "CUSTOM"))
+        create(index, region)
         step(region)
     for region in regions:
         if region.trailing_edges == "auto":

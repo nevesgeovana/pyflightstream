@@ -573,7 +573,6 @@ def test_p0460_planner_marks_all_entries_then_auto_then_explicit(tmp_path):
         "IMPORT_WAKE_EDGES_FROM_FILE STANDARD",
         "IMPORT_WAKE_EDGES_FROM_FILE RELAXED",
         "CREATE_NEW_BASE_REGION",
-        "SET_BASE_REGION_CP",
         "SET_BASE_REGION_TRAILING_EDGES",
         "AUTO_DETECT_WAKE_TERMINATION_NODES",
         "SELECT_MESH_NODE 2",
@@ -584,6 +583,8 @@ def test_p0460_planner_marks_all_entries_then_auto_then_explicit(tmp_path):
     ]
     offsets = [text.index(command) for command in commands]
     assert offsets == sorted(offsets)
+    # P0560-BASECP (FR-3740): the default EMPIRICAL base is stated by its create alone.
+    assert "SET_BASE_REGION_CP" not in text
     assert text.count("AUTO_DETECT_WAKE_TERMINATION_NODES") == 1
     assert "INITIALIZE_SOLVER" not in text
     assert len(plan.sets) == 2

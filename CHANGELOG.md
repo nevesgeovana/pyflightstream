@@ -46,6 +46,12 @@ FlightStream versions.
   `geometry inventory <out.obj> --refresh`, which now rewrites its quoted counted keys, or by
   running `repitch` again to a new `--out`; an output of 0.55.1 with a space in a family name
   needs the second.
+- `geometry mark-boundaries` no longer stops at `SET_BASE_REGION_CP <n> EMPIRICAL <cp>` when a
+  base region is declared on 26.124 to 26.127: an `EMPIRICAL` or `AXISYMMETRIC` base is stated
+  by its `CREATE_NEW_BASE_REGION` alone on every build, as on 26.100, and a `USER` or `CUSTOM`
+  base keeps `SET_BASE_REGION_CP <n> CUSTOM <cp>`. The setter with a Cp after those two models
+  is a syntax error on all five builds, and its two-argument form saves a Cp of zero
+  (FR-3740, `reports/compat/CMP-26127_2026-11-05_base-region-cp.md`).
 
 ## [0.55.1] - 2026-11-05
 
