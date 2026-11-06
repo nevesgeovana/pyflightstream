@@ -1,9 +1,9 @@
 """The grid control file of ``geometry iges-grid``: one table per component, read and checked.
 
 ``grid.toml`` holds an optional top-level ``fs_build``, a ``[defaults]`` table (``size``,
-``tolerance``, ``te_angle_deg``) and one ``[component.<Name>]`` table per component named in the
-IGES. A key that does not apply is warned and skipped; a value that cannot be read is refused
-before anything is imported, with nothing written.
+``tolerance``, ``te_angle_deg``, ``remove_inner_faces``) and one ``[component.<Name>]`` table
+per component named in the IGES. A key that does not apply is warned and skipped; a value that
+cannot be read is refused before anything is imported, with nothing written.
 """
 
 from __future__ import annotations
@@ -26,11 +26,11 @@ LAWS = ("cosine", "geometric", "tanh", "uniform")
 DEFAULT_RATIO = {"geometric": 1.1, "tanh": 1.05}
 #: The angle between the normals of two faces above which their shared edge is a trailing edge
 #: when ``trailing_edge = "auto"`` and their bisector faces downstream: 60 degrees takes the sharp
-#: trailing edge and both rims of a blunt one (each near 90 degrees).
+#: trailing edge and both rims of a blunt one (each near 90 degrees), of which one is marked.
 DEFAULT_TE_ANGLE_DEG = 60.0
 
 _TOP = {"fs_build", "defaults", "component"}
-_DEFAULTS = {"size", "tolerance", "te_angle_deg"}
+_DEFAULTS = {"size", "tolerance", "te_angle_deg", "remove_inner_faces"}
 _COMPONENT = {
     "size",
     "chord",
@@ -101,6 +101,8 @@ class GridConfig:
     tolerance: float | None
     te_angle_deg: float
     components: dict[str, ComponentGrid] = field(default_factory=dict)
+    #: Remove the faces that lie inside the assembly where components cross (true by default).
+    remove_inner_faces: bool = True
 
 
 def _direction(value: object, where: str) -> Direction:
@@ -222,6 +224,8 @@ def read_grid(path: str | Path) -> GridConfig:
         if "te_angle_deg" in defaults
         else DEFAULT_TE_ANGLE_DEG
     )
+    inner = defaults.get("remove_inner_faces", True)
+    _need(isinstance(inner, bool), "defaults.remove_inner_faces must be true or false")
     tables = data.get("component", {})
     _need(isinstance(tables, dict), "[component.<Name>] tables must be tables")
     components = {name: _component(name, table) for name, table in tables.items()}
@@ -231,4 +235,5 @@ def read_grid(path: str | Path) -> GridConfig:
         tolerance=tolerance,
         te_angle_deg=angle,
         components=components,
+        remove_inner_faces=inner,
     )

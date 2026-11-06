@@ -14,7 +14,11 @@ FlightStream versions.
   junctions are conformal, four-sided patches follow the chord and span laws of the grid control
   file as quads, other patches are quad-dominant at the component's size, and the boundaries
   file it writes passes `geometry mark-boundaries`. Trailing edges are found sharp and facing
-  downstream, or read from named IGES curves. Cells grow from a curve shorter than the size, so
+  downstream, or read from named IGES curves; of the two rims of a blunt trailing edge one is
+  marked, the longer, since both diverged the solve of the SMI wing on 26.127. Where untrimmed
+  components cross, the faces that lie inside the assembly are removed after the mesh, so the OBJ
+  holds the outer skin, warned and recorded per component as `inner_faces_removed`;
+  `[defaults] remove_inner_faces = false` keeps them. Cells grow from a curve shorter than the size, so
   a piece the join cuts off leaves no sliver. Quality is warned with its numbers, never refused,
   a face with a corner under 5 or over 175 degrees among it.
 - `pyfs-workspace geometry iges-convert IGES... --out OUTPUT` rewrites IGES files as one IGES of

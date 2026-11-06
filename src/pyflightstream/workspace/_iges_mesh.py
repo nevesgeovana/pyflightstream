@@ -90,12 +90,19 @@ class _Side:
 
 
 def _heal(gmsh: Any, model: NamedModel, tolerance: float) -> str:
+    """Fix degenerate edges and sew the faces; small edges are left as they are.
+
+    Fixing small edges took the zero-length apex edge off the two half cones of the SMI-L2-PN
+    nacelle nose, and the join after it gave both halves, and both half rings behind them, one
+    half circle of the four: the mesh of the other half folded across the nose and four faces met
+    along each of its edges.
+    """
     tags = [(2, t) for t in model.faces]
-    out = gmsh.model.occ.healShapes(tags, tolerance, True, True, False, True, False)
+    out = gmsh.model.occ.healShapes(tags, tolerance, True, False, False, True, False)
     gmsh.model.occ.synchronize()
     healed = sorted(t for d, t in out if d == 2)
     if healed == sorted(model.faces):
-        return "healed (degenerate and small edges fixed, faces sewn)"
+        return "healed (degenerate edges fixed, faces sewn)"
     return "healing changed the faces and was not kept"
 
 
@@ -110,8 +117,8 @@ def _crossings(gmsh: Any, owner: dict[int, str], warnings: list[str]) -> dict[tu
     for names, count in sorted(crossings.items()):
         warnings.append(
             f"more than two faces meet along {count} curve(s) of {' and '.join(names)}: a face "
-            "crosses another without a trimmed junction, and both parts are kept (the "
-            "intersection of untrimmed parts is outside this command)"
+            "crosses another without a trimmed junction; after the mesh the faces that lie "
+            "inside the assembly are removed (remove_inner_faces in [defaults])"
         )
     return crossings
 

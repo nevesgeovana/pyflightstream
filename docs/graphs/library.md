@@ -2006,6 +2006,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._iges_skin"><summary><code>pyflightstream.workspace._iges_skin</code></summary><ul>
+<li>No package-internal outgoing imports.</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._inspect_pages"><summary><code>pyflightstream.workspace._inspect_pages</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._visual_inspect">pyflightstream.workspace._visual_inspect</a> (module)</li>
@@ -2563,6 +2567,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._iges_grid_config">pyflightstream.workspace._iges_grid_config</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._iges_mesh">pyflightstream.workspace._iges_mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._iges_names">pyflightstream.workspace._iges_names</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_skin">pyflightstream.workspace._iges_skin</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
