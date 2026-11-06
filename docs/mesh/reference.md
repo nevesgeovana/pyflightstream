@@ -118,6 +118,16 @@ boundaries file reads back through the declaration reader. The total
 area against the source minus the strip and the smallest cosine between the normals before
 and after are reported. `<out>.collapse.json` also holds the digests of source and output.
 
+## IGES grid control
+
+`geometry iges-grid IGES... --grid FILE --out OUTPUT` reads named IGES files and writes an OBJ
+with one family per component, its boundaries file, one points file per trailing edge found
+and `<out>.json`; `geometry iges-convert IGES... --out OUTPUT` writes one IGES of B-spline
+faces with one NAME per component and `<out>.json`. Both need the `gmsh` extra. The grid
+control file's keys, the spacing laws, the name rule, the checks and the limits are in
+[Grid and convert a named IGES](iges.md). An input refused writes nothing; quality is warned
+with its numbers and never refused.
+
 ## Repitch control
 
 `geometry repitch MESH --morphing FILE --out OUTPUT` accepts OBJ and FSM, retaining

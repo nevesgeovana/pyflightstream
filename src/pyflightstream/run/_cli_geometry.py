@@ -28,6 +28,7 @@ from typing import Any
 from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.run._cli_iges import IGES_VERBS, add_iges_verbs
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
 from pyflightstream.run._cli_mesh import (
     _progress_printer,
@@ -98,6 +99,7 @@ GEOMETRY_VERBS = (
     "export-surface-mesh",
     "merge",
     *MORPH_VERBS,
+    *IGES_VERBS,
     *PYFS_MATRIX_ALIASES,
 )
 
@@ -170,6 +172,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     _add_mesh_verbs(verbs)
     add_wheel_verbs(verbs)
     add_morph_verbs(verbs)
+    add_iges_verbs(verbs)
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",

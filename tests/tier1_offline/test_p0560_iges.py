@@ -1,0 +1,512 @@
+"""P0560-IGES: grid and convert the named components of IGES files (PFS-2198, PFS-2199).
+
+Usage: pyfs-workspace geometry iges-grid a.igs b.igs --grid grid.toml --out model.obj
+       pyfs-workspace geometry iges-convert a.igs b.igs --out config.igs
+
+Every IGES file here is written by the test from the fixed eighty-column layout: bilinear
+B-spline patches (128), a surface of revolution (120) on a line axis (110), a free line (110),
+and 406 form 15 NAME entities on levels. The gmsh tests skip where the optional extra is absent;
+the name reader and the missing-extra refusal run everywhere.
+"""
+
+import json
+import math
+import sys
+import tomllib
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from pyflightstream._errors import NotApplicableWarning, PyflightstreamWarning
+from pyflightstream.workspace._refine._obj import read_obj, read_te
+from pyflightstream.workspace.cli import main
+
+UNIT_FLAG = {"MM": 2, "IN": 1, "M": 6}
+
+
+def _line(text, section, number):
+    return f"{text:<72}{section}{number:>7}"
+
+
+class Iges:
+    """A small IGES writer: entities in directory order, each with its level and status."""
+
+    def __init__(self, unit="MM"):
+        self.unit = unit
+        self.entities = []
+
+    def add(self, kind, values, *, level=0, form=0, status="00000000"):
+        self.entities.append((kind, values, level, form, status))
+        return 2 * len(self.entities) - 1
+
+    def name(self, level, text):
+        return self.add(406, ["1", f"{len(text)}H{text}"], level=level, form=15)
+
+    def patch(self, corners, *, level, status="00000000"):
+        """A bilinear B-spline patch: corners (u0v0, u1v0, u0v1, u1v1)."""
+        values = ["1", "1", "1", "1", "0", "0", "1", "0", "0"]
+        values += ["0.0", "0.0", "1.0", "1.0", "0.0", "0.0", "1.0", "1.0"] + ["1.0"] * 4
+        for point in corners:
+            values += [f"{c:.6f}" for c in point]
+        values += ["0.0", "1.0", "0.0", "1.0"]
+        return self.add(128, values, level=level, status=status)
+
+    def line(self, a, b, *, level=0, status="00000000"):
+        return self.add(110, [f"{c:.6f}" for c in (*a, *b)], level=level, status=status)
+
+    def text(self):
+        start = [_line("pyflightstream test IGES", "S", 1)]
+        unit = self.unit
+        fields = (
+            f",,4HTEST,8Htest.igs,4HPYFS,3H1.0,32,38,6,308,15,4HTEST,1.0,{UNIT_FLAG[unit]},"
+            f"{len(unit)}H{unit},1,1.0,15H20261105.120000,1.0E-6,100000.0,4HPYFS,4HPYFS,11,0,"
+            "15H20261105.120000;"
+        )
+        glob = [
+            _line(fields[i : i + 72], "G", n + 1) for n, i in enumerate(range(0, len(fields), 72))
+        ]
+        directory, parameters = [], []
+        for index, (kind, values, level, form, status) in enumerate(self.entities):
+            de = 2 * index + 1
+            record = ",".join([str(kind), *values]) + ";"
+            first = len(parameters) + 1
+            for i in range(0, len(record), 64):
+                parameters.append(
+                    _line(f"{record[i : i + 64]:<64}{de:>8}", "P", len(parameters) + 1)
+                )
+            count = len(parameters) - first + 1
+            one = [str(kind), str(first), "0", "0", str(level), "0", "0", "0", status]
+            two = [str(kind), "0", "0", str(count), str(form), "", "", "", "0"]
+            directory.append(_line("".join(f"{f:>8}" for f in one), "D", de))
+            directory.append(_line("".join(f"{f:>8}" for f in two), "D", de + 1))
+        counts = f"S{len(start):>7}G{len(glob):>7}D{len(directory):>7}P{len(parameters):>7}"
+        return "\n".join(start + glob + directory + parameters + [_line(counts, "T", 1)]) + "\n"
+
+    def write(self, path):
+        path.write_text(self.text(), encoding="latin-1")
+        return path
+
+
+def square(x0, y0, x1, y1, z=0.0):
+    return [(x0, y0, z), (x1, y0, z), (x0, y1, z), (x1, y1, z)]
+
+
+def plate_and_flap(folder, *, flap_gap=0.0, unit="MM", scale=1.0, name="parts.igs"):
+    """Plate [0,2]x[0,1] on level 1, flap [0,1]x[1,2] on level 2: the flap shares half an edge."""
+    iges = Iges(unit)
+    iges.name(1, "Plate|ANSA_Thick=1.")
+    iges.name(2, "Flap")
+    iges.name(0, "Translate.3")
+    iges.patch([tuple(c * scale for c in p) for p in square(0, 0, 2, 1)], level=1)
+    iges.patch([tuple(c * scale for c in p) for p in square(0, 1 + flap_gap, 1, 2)], level=2)
+    return iges.write(folder / name)
+
+
+def wedge(folder, *, te_curve=False, name="wing.igs"):
+    """A wing wedge on level 1: upper and lower faces meet at a sharp trailing edge at x = 1."""
+    iges = Iges()
+    iges.name(1, "Wing")
+    iges.patch([(0, 0, 0.1), (1, 0, 0), (0, 1, 0.1), (1, 1, 0)], level=1)
+    iges.patch([(0, 0, -0.1), (1, 0, 0), (0, 1, -0.1), (1, 1, 0)], level=1)
+    iges.patch([(0, 0, -0.1), (0, 0, 0.1), (0, 1, -0.1), (0, 1, 0.1)], level=1)
+    if te_curve:
+        iges.name(3, "WingTE")
+        iges.line((1, 0, 0), (1, 1, 0), level=3)
+    return iges.write(folder / name)
+
+
+def revolution(folder, name="body.igs"):
+    """A cone-like surface of revolution (120) of a slanted line about the x axis, on level 4."""
+    iges = Iges()
+    iges.name(4, "Body")
+    axis = iges.line((0, 0, 0), (1, 0, 0), status="00010000")
+    generatrix = iges.line((0, 0, 0.2), (1, 0, 0.5), status="00010000")
+    iges.add(120, [str(axis), str(generatrix), "0.0", f"{2 * math.pi:.9f}"], level=4)
+    return iges.write(folder / name)
+
+
+def grid_file(folder, text):
+    path = folder / "grid.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def cli(args, capsys):
+    capsys.readouterr()
+    try:
+        code = main(args)
+    except SystemExit as error:
+        code = error.code
+    out = capsys.readouterr()
+    return code, out.out, out.err
+
+
+def gmsh_or_skip():
+    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+
+
+# ---------------------------------------------------------------- names, without gmsh
+
+
+@pytest.mark.requirement("FR-3700")
+def test_p0560_iges_names_come_from_the_name_on_each_faces_level(tmp_path):
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    iges = Iges()
+    iges.name(1, "Wing|ANSA_Thick=1.")
+    iges.name(0, "Sweep.1")
+    iges.patch(square(0, 0, 1, 1), level=1)
+    iges.patch(square(0, 0, 1, 1, z=1), level=7)
+    iges.patch(square(0, 0, 1, 1, z=2), level=1)
+    iges.patch(square(0, 0, 1, 1, z=3), level=0)
+    # A patch under a trimmed surface is no face of its own: physically dependent.
+    iges.patch(square(0, 0, 1, 1, z=4), level=1, status="00010000")
+    names = read_iges_names(iges.write(tmp_path / "a.igs"))
+    assert names.faces == ("Wing", "a_level7", "Wing", "a_level0")
+    assert names.levels == (1, 7, 1, 0)
+    assert names.components == {"Wing": 2, "a_level7": 1, "a_level0": 1}
+    assert names.unit == "MILLIMETER"
+
+
+@pytest.mark.requirement("FR-3700")
+def test_p0560_iges_names_read_a_global_section_split_across_lines(tmp_path):
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    path = plate_and_flap(tmp_path, unit="IN")
+    names = read_iges_names(path)
+    assert names.unit == "INCH"
+    assert names.components == {"Plate": 1, "Flap": 1}
+
+
+@pytest.mark.requirement("FR-3704")
+@pytest.mark.parametrize("verb", ["iges-grid", "iges-convert"])
+def test_p0560_without_gmsh_each_verb_gives_one_install_message(
+    tmp_path, capsys, monkeypatch, verb
+):
+    source = plate_and_flap(tmp_path)
+    monkeypatch.setitem(sys.modules, "gmsh", None)
+    out = tmp_path / ("model.obj" if verb == "iges-grid" else "conv.igs")
+    extra = (
+        ["--grid", str(grid_file(tmp_path, "[defaults]\nsize = 0.25\n"))]
+        if verb == "iges-grid"
+        else []
+    )
+    code, stdout, stderr = cli(["geometry", verb, str(source), *extra, "--out", str(out)], capsys)
+    assert code == 2
+    assert stderr.count('pip install "pyflightstream[gmsh]"') == 1, stderr
+    assert "gmsh" in stderr
+    assert not out.exists()
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(
+        ["parts.igs"] + (["grid.toml"] if verb == "iges-grid" else [])
+    )
+
+
+@pytest.mark.requirement("FR-3704")
+def test_p0560_the_base_install_never_imports_gmsh():
+    import os
+    import subprocess
+
+    import pyflightstream
+
+    code = (
+        "import sys; import pyflightstream.run._cli_geometry, pyflightstream.workspace.cli; "
+        "import pyflightstream.workspace._iges_names; print('gmsh' in sys.modules)"
+    )
+    # The interpreter of this run, with the package this run imports first on its path.
+    source = str(Path(pyflightstream.__file__).resolve().parents[1])
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join([source, os.environ.get("PYTHONPATH", "")])}
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True, env=env
+    )
+    assert out.stdout.strip() == "False"
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_a_grid_value_that_cannot_be_read_is_refused_before_import(tmp_path, capsys):
+    source = plate_and_flap(tmp_path)
+    grid = grid_file(tmp_path, '[component.Flap]\nchord = {count = 4, law = "spline"}\n')
+    out = tmp_path / "model.obj"
+    code, _, stderr = cli(
+        ["geometry", "iges-grid", str(source), "--grid", str(grid), "--out", str(out)], capsys
+    )
+    assert code == 2
+    assert "law must be one of cosine, geometric, tanh, uniform" in stderr
+    assert not out.exists()
+
+
+# ---------------------------------------------------------------- grid, with gmsh
+
+PLATE_GRID = """
+fs_build = "26.127"
+[defaults]
+size = 0.25
+[component.Flap]
+size = 0.25
+chord = {count = 6, law = "cosine"}
+span = {count = 4, law = "geometric", ratio = 1.2}
+[component.Plate]
+size = 0.25
+"""
+
+
+def run_grid(tmp_path, capsys, sources, text, out="model.obj"):
+    gmsh_or_skip()
+    grid = grid_file(tmp_path, text)
+    target = tmp_path / out
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        code, stdout, stderr = cli(
+            [
+                "geometry",
+                "iges-grid",
+                *map(str, sources),
+                "--grid",
+                str(grid),
+                "--out",
+                str(target),
+            ],
+            capsys,
+        )
+    assert code == 0, stderr
+    record = json.loads((tmp_path / f"{out}.json").read_text(encoding="utf-8"))
+    return target, record, caught
+
+
+@pytest.mark.requirement("FR-3700")
+def test_p0560_grid_families_are_the_named_components_in_the_grid_order(tmp_path, capsys):
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    mesh = read_obj(target)
+    assert list(mesh.families) == ["Flap", "Plate"]
+    assert list(record["components"]) == ["Flap", "Plate"]
+    assert record["unit"] == "MILLIMETER"
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_shared_edges_are_conformal(tmp_path, capsys):
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    mesh = read_obj(target)
+    flap = {v for f in mesh.families["Flap"] for v in f}
+    plate = {v for f in mesh.families["Plate"] for v in f}
+    shared = flap & plate
+    # The flap's lower side, cut into 6 chordwise cells, is 7 nodes both families use.
+    assert len(shared) == 7
+    assert np.allclose(mesh.verts[sorted(shared)][:, 1], 1.0)
+    assert record["conformal"]["conformal_mismatches"] == 0
+    assert record["conformal"]["open_edges"] == record["conformal"]["boundary_edges"] > 0
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_counts_an_unjoined_edge_as_a_mismatch(tmp_path, capsys):
+    """The control of the conformal check: a gap wider than the join is not a boundary."""
+    source = plate_and_flap(tmp_path, flap_gap=0.0005)
+    text = PLATE_GRID.replace("[defaults]\n", "[defaults]\ntolerance = 0.0001\n")
+    _, record, caught = run_grid(tmp_path, capsys, [source], text)
+    assert record["conformal"]["conformal_mismatches"] > 0
+    assert any("not boundaries of the body" in str(w.message) for w in caught)
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_four_sided_patches_follow_the_laws_and_are_quads(tmp_path, capsys):
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    mesh = read_obj(target)
+    flap = mesh.families["Flap"]
+    assert len(flap) == 6 * 4 and all(len(f) == 4 for f in flap)
+    assert record["transfinite_patches"]["Flap"] == 1
+    nodes = mesh.verts[sorted({v for f in flap for v in f})]
+    # Span (y): geometric toward the tip (y = 2), each cell 1.2 times the next one outward.
+    ys = np.unique(np.round(nodes[np.isclose(nodes[:, 0], 0.0)][:, 1], 9))
+    cells = np.diff(ys)
+    assert len(cells) == 4
+    assert np.allclose(cells[:-1] / cells[1:], 1.2, rtol=1e-6)
+    # Chord (x): cosine, symmetric, the end cells smaller than the middle ones.
+    xs = np.unique(np.round(nodes[np.isclose(nodes[:, 1], 2.0)][:, 0], 9))
+    chord = np.diff(xs)
+    assert len(chord) == 6
+    assert np.allclose(chord, chord[::-1], rtol=1e-6)
+    assert chord[0] < chord[2]
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_other_patches_are_quad_dominant_at_the_component_size(tmp_path, capsys):
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    # The plate's top edge is cut where the flap ends, so it has five sides.
+    assert record["transfinite_patches"]["Plate"] == 0
+    plate = record["components"]["Plate"]
+    assert plate["quad_share"] >= 0.8
+    mesh = read_obj(target)
+    edges = [
+        np.linalg.norm(mesh.verts[a] - mesh.verts[b])
+        for f in mesh.families["Plate"]
+        for a, b in zip(f, f[1:] + f[:1], strict=True)
+    ]
+    assert 0.1 < float(np.median(edges)) < 0.4
+
+
+@pytest.mark.requirement("FR-3702")
+def test_p0560_grid_structured_false_meshes_a_four_sided_patch_unstructured(tmp_path, capsys):
+    text = PLATE_GRID.replace("[component.Flap]\n", "[component.Flap]\nstructured = false\n")
+    _, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], text)
+    assert record["transfinite_patches"]["Flap"] == 0
+    assert record["components"]["Flap"]["faces"] != 24
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_boundaries_file_passes_the_mark_boundaries_preview(tmp_path, capsys):
+    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    data = tomllib.loads(Path(str(target) + ".boundaries.toml").read_text(encoding="utf-8"))
+    mesh = read_obj(target)
+    assert data["boundaries"] == list(mesh.families)
+    assert data["boundary_faces"] == [len(f) for f in mesh.families.values()]
+    assert data["import"]["units"] == "MILLIMETER"
+    assert data["fs_build"] == "26.127"
+    assert data["trailing_edges"] == {"none": True}
+    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    assert code == 0, stderr
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_finds_a_sharp_trailing_edge_and_marks_it(tmp_path, capsys):
+    text = (
+        '[component.Wing]\nsize = 0.5\nchord = {count = 8, law = "cosine"}\n'
+        'span = {count = 5, law = "uniform"}\ntrailing_edge = "auto"\n'
+    )
+    target, record, _ = run_grid(tmp_path, capsys, [wedge(tmp_path)], text)
+    assert record["trailing_edges"]["Wing"]["edges"] == 5
+    data = tomllib.loads(Path(str(target) + ".boundaries.toml").read_text(encoding="utf-8"))
+    entry = data["trailing_edges"]["Wing"]
+    assert entry["type"] == "STANDARD"
+    unit, points = read_te(tmp_path / entry["file"])
+    assert unit == "MILLIMETER"
+    assert len(points) == 5
+    assert np.allclose(points[:, 0], 1.0) and np.allclose(points[:, 2], 0.0)
+    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    assert code == 0, stderr
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_takes_a_trailing_edge_from_a_named_iges_curve(tmp_path, capsys):
+    text = (
+        '[component.Wing]\nsize = 0.5\nchord = {count = 8, law = "cosine"}\n'
+        'span = {count = 5, law = "uniform"}\ntrailing_edge = ["WingTE"]\n'
+    )
+    _, record, _ = run_grid(tmp_path, capsys, [wedge(tmp_path, te_curve=True)], text)
+    assert record["trailing_edges"]["Wing"]["edges"] == 5
+
+
+@pytest.mark.requirement("FR-3703")
+def test_p0560_grid_quality_is_warned_with_its_numbers_and_never_refused(tmp_path, capsys):
+    text = (
+        "[defaults]\nsize = 0.25\n[component.Flap]\n"
+        'chord = {count = 1, law = "uniform"}\nspan = {count = 40, law = "uniform"}\n'
+    )
+    target, record, caught = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], text)
+    assert target.is_file()
+    aspect = record["components"]["Flap"]["largest_aspect"]
+    assert aspect > 20
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("Flap: largest aspect" in s and f"{aspect:.3g}" in s for s in said), said
+    assert any("Flap: largest aspect" in w for w in record["warnings"])
+
+
+@pytest.mark.requirement("FR-3700")
+def test_p0560_grid_warns_a_component_with_no_table_and_a_table_with_no_component(tmp_path, capsys):
+    text = (
+        "[defaults]\nsize = 0.3\n[component.Rudder]\nsize = 0.1\n[component.Plate]\nsize = 0.25\n"
+    )
+    target, record, caught = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], text)
+    said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
+    assert any("component.Rudder names no component" in s for s in said), said
+    assert any("component Flap has no [component.Flap] table" in s for s in said), said
+    assert list(read_obj(target).families) == ["Plate", "Flap"]
+    assert record["components"]["Flap"]["size"] == 0.3
+
+
+@pytest.mark.requirement("FR-3701")
+def test_p0560_grid_scales_every_file_to_the_first_files_unit(tmp_path, capsys):
+    first = plate_and_flap(tmp_path, name="mm.igs")
+    iges = Iges("IN")
+    iges.name(5, "Tab")
+    iges.patch(square(0, -1, 0.05, 0), level=5)
+    second = iges.write(tmp_path / "in.igs")
+    text = "[defaults]\nsize = 0.25\n"
+    target, record, _ = run_grid(tmp_path, capsys, [first, second], text)
+    mesh = read_obj(target)
+    tab = mesh.verts[sorted({v for f in mesh.families["Tab"] for v in f})]
+    assert np.isclose(tab[:, 1].min(), -25.4) and np.isclose(tab[:, 0].max(), 1.27)
+    assert record["unit"] == "MILLIMETER"
+    assert any("in.igs is in INCH and was scaled to MILLIMETER" in w for w in record["warnings"])
+
+
+# ---------------------------------------------------------------- convert, with gmsh
+
+
+def directory_kinds(path):
+    lines = [line for line in path.read_text(encoding="latin-1").splitlines() if len(line) >= 73]
+    rows = [line for line in lines if line[72] == "D"]
+    return [int(rows[i][0:8]) for i in range(0, len(rows), 2)]
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_convert_writes_bspline_faces_with_one_name_per_component(tmp_path, capsys):
+    gmsh_or_skip()
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    sources = [plate_and_flap(tmp_path), revolution(tmp_path)]
+    out = tmp_path / "config.igs"
+    code, stdout, stderr = cli(
+        ["geometry", "iges-convert", *map(str, sources), "--out", str(out)], capsys
+    )
+    assert code == 0, stderr
+    record = json.loads(stdout)
+    assert record == json.loads(Path(str(out) + ".json").read_text(encoding="utf-8"))
+    assert "Surface of Revolution" in record["surface_types_before"]
+    assert record["surface_types_after"] == {"BSpline surface": 3}
+    kinds = directory_kinds(out)
+    assert 120 not in kinds and 128 in kinds
+    assert kinds.count(406) == 3
+    names = read_iges_names(out)
+    assert names.components == {"Plate": 1, "Flap": 1, "Body": 1}
+    assert len(set(names.levels)) == 3
+    assert record["readback"]["same_components"] is True
+    assert names.unit == "MILLIMETER"
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_convert_keeps_the_first_files_unit_and_scales_the_others(tmp_path, capsys):
+    gmsh = gmsh_or_skip()
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    first = plate_and_flap(tmp_path, unit="M", name="m.igs")
+    second = plate_and_flap(tmp_path, unit="MM", scale=1000.0, name="mm.igs")
+    out = tmp_path / "config.igs"
+    code, stdout, stderr = cli(
+        ["geometry", "iges-convert", str(first), str(second), "--out", str(out)], capsys
+    )
+    assert code == 0, stderr
+    record = json.loads(stdout)
+    assert record["unit"] == "METER" and read_iges_names(out).unit == "METER"
+    assert any("mm.igs is in MILLIMETER and was scaled to METER" in n for n in record["notes"])
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.occ.importShapes(str(out))
+        gmsh.model.occ.synchronize()
+        box = gmsh.model.getBoundingBox(-1, -1)
+    finally:
+        gmsh.finalize()
+    # The import reads millimetres; both copies, in metres, span 2 units, so 2000 mm.
+    assert np.isclose(box[3] - box[0], 2000.0, rtol=1e-6)
+    assert np.isclose(box[4] - box[1], 2000.0, rtol=1e-6)
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0560_convert_refuses_an_output_that_is_not_iges(tmp_path, capsys):
+    gmsh_or_skip()
+    out = tmp_path / "config.obj"
+    code, _, stderr = cli(
+        ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
+    )
+    assert code == 2 and "output of iges-convert is an IGES file" in stderr
+    assert not out.exists()

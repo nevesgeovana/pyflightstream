@@ -9,6 +9,18 @@ FlightStream versions.
 
 ### Added
 
+- `pyfs-workspace geometry iges-grid IGES... --grid FILE --out OUTPUT` grids IGES files whose
+  components are named on levels into one OBJ, one family per component: faces are joined so
+  junctions are conformal, four-sided patches follow the chord and span laws of the grid control
+  file as quads, other patches are quad-dominant at the component's size, and the boundaries
+  file it writes passes `geometry mark-boundaries`. Trailing edges are found sharp and facing
+  downstream, or read from named IGES curves. Quality is warned with its numbers, never refused.
+- `pyfs-workspace geometry iges-convert IGES... --out OUTPUT` rewrites IGES files as one IGES of
+  B-spline faces, a surface of revolution included, with one NAME per component on its own
+  level and the first file's unit, read back before it is kept.
+- The optional `gmsh` extra, `pip install "pyflightstream[gmsh]"`, which both IGES commands
+  need; without it they stop with that install line. gmsh is GPL-2.0-or-later and is never
+  installed or imported by the base package.
 - `pyfs-workspace geometry collapse-te MESH --morphing FILE --out OUTPUT` collapses the blunt
   trailing edge of named blades on an OBJ: each rim node pair is merged at its midpoint, the
   base strip leaves, the boundaries file gets one trailing-edge line for each blade, and every

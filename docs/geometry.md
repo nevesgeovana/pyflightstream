@@ -1,5 +1,20 @@
 # Geometry: build a body before the run
 
+## Gridding a named IGES
+
+`geometry iges-grid` builds one surface grid from IGES files whose components are named, one
+family per component, with conformal junctions and the spacing laws of a grid control file;
+`geometry iges-convert` rewrites IGES files as one IGES of B-spline faces the solver's CAD
+import reads, names kept. Both need the optional `gmsh` extra.
+
+```text
+pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out model.obj
+pyfs-workspace geometry iges-convert fuselage.igs --out fuselage-nurbs.igs
+```
+
+[Grid and convert a named IGES](mesh/iges.md) gives the grid control file, the name rule and the
+limits.
+
 ## Morphing a sector or a wheel
 
 `geometry morph` applies the tables of one morphing file to an OBJ in a fixed order: hub
