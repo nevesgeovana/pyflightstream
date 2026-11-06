@@ -630,6 +630,27 @@ def test_p0560_grid_a_one_sided_law_clusters_alike_on_opposite_sides_of_a_patch(
 
 
 @pytest.mark.requirement("FR-3702")
+def test_p0560_r3_003_the_heal_fixes_degenerate_edges_and_leaves_small_edges():
+    """Fixing small edges took the zero-length apex edge off two half cones of revolution, and the
+    join gave both halves one half circle; the heal leaves small edges and the note says so."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._iges_mesh import _heal
+
+    calls = []
+
+    def heal_shapes(tags, tolerance, degenerated, small_edges, small_faces, sew, solid):
+        calls.append((degenerated, small_edges, small_faces, sew, solid))
+        return tags
+
+    occ = SimpleNamespace(healShapes=heal_shapes, synchronize=lambda: None)
+    gmsh = SimpleNamespace(model=SimpleNamespace(occ=occ))
+    note = _heal(gmsh, SimpleNamespace(faces=[1, 2]), 1e-6)
+    assert calls == [(True, False, False, True, False)]
+    assert note == "healed (degenerate edges fixed, faces sewn)"
+
+
+@pytest.mark.requirement("FR-3702")
 def test_p0560_grid_a_short_curve_the_join_leaves_makes_no_sliver(tmp_path, capsys):
     """The flap ends 0.01 short of the plate's corner, so the join leaves a curve of 0.01 on the
     plate's top edge, 25 times shorter than the size: the cells grow from it, none a sliver."""
