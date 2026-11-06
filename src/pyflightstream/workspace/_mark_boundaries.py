@@ -586,16 +586,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build, entries, say=_
 
     if build in CREATES_FIRST_BUILDS:
         say("base regions")
-        for index, region in enumerate(regions, 1):
-            create(index, region)
-            step(region)
-        entries()
-        for region in regions:
-            if region.trailing_edges != "auto":
-                rim(region)
-        for region in regions:
-            if region.trailing_edges == "auto":
-                rim(region)
+        _bases_before_the_imports(regions, rim, create, step, entries)
         return
     entries()
     say("base regions")
@@ -606,6 +597,24 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build, entries, say=_
         create(index, region)
         rim(region)
         step(region)
+
+
+def _bases_before_the_imports(regions, rim, create, step, entries):
+    """Every base, then every entry and file rim, then every ``auto`` rim: 26.127's order.
+
+    On that build a wake-edge import placed before the first CREATE_NEW_BASE_REGION is lost at
+    the save (:data:`CREATES_FIRST_BUILDS`).
+    """
+    for index, region in enumerate(regions, 1):
+        create(index, region)
+        step(region)
+    entries()
+    for region in regions:
+        if region.trailing_edges != "auto":
+            rim(region)
+    for region in regions:
+        if region.trailing_edges == "auto":
+            rim(region)
 
 
 def _bases_on_the_vertex_build(regions, rim, create, step):
