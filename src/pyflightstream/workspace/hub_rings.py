@@ -53,6 +53,7 @@ from pyflightstream.workspace._hub_remesh import (
     kept_edges,
     new_by_old,
     root_edge_median,
+    written_blocks,
 )
 from pyflightstream.workspace._hub_remesh import turned_cells as _turned_cells
 from pyflightstream.workspace._hub_rings_grid import (
@@ -61,7 +62,13 @@ from pyflightstream.workspace._hub_rings_grid import (
     region,
     signed_area,
 )
-from pyflightstream.workspace._refine._obj import ObjMesh, mesh_unit, obj_text, read_obj
+from pyflightstream.workspace._refine._obj import (
+    ObjMesh,
+    face_blocks,
+    mesh_unit,
+    obj_text,
+    read_obj,
+)
 from pyflightstream.workspace._refine._remesh import PASSES, element_report
 from pyflightstream.workspace._repitch import HubSurface
 from pyflightstream.workspace._repitch_grid import edges, quality, rings, root_loop
@@ -69,7 +76,6 @@ from pyflightstream.workspace._repitch_io import (
     Rewrite,
     attachments,
     morphing_table,
-    one_block_per_family,
     read_back,
     sidecar_reads_back,
 )
@@ -348,13 +354,11 @@ def build_rings(source: ObjMesh, cfg: dict[str, Any]) -> tuple[Result, HubSurfac
     return assemble(source, plans, _new_faces(source, plans, surface)), surface
 
 
-def rings_step(
-    source: ObjMesh, cfg: dict[str, Any]
-) -> tuple[ObjMesh, dict[str, Any], Rewrite, Any]:
+def rings_step(source: ObjMesh, cfg: dict[str, Any]) -> tuple[Result, dict[str, Any], Rewrite, Any]:
     """Rebuild the hub around every named blade in memory.
 
-    Returns the mesh, the report, the rewrite of the boundaries file and each source node's
-    place in the output (NaN for a node removed).
+    Returns the result (the mesh, and where its new faces sit), the report, the rewrite of the
+    boundaries file and each source node's place in the output (NaN for a node removed).
 
     Every check runs here; nothing is written. The rewrite carries the boundaries file through
     the new node list: a marking on a removed node or edge is refused.
@@ -380,7 +384,7 @@ def rings_step(
             if e not in kept
         },
     )
-    return result.mesh, report, rw, new_by_old(source, result.mesh, result.index)
+    return result, report, rw, new_by_old(source, result.mesh, result.index)
 
 
 def _report(r: Result, cfg: dict[str, Any], checks: dict[str, Any]) -> dict[str, Any]:
@@ -438,9 +442,10 @@ def hub_rings_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> d
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
     source = read_obj(path)
     cfg = read_config(tomllib.loads(control.read_text(encoding="utf-8")), source)
-    one_block_per_family(path, "hub_rings")
-    built, report, rw, moved = rings_step(source, cfg)
-    payload = obj_text(built).encode("utf-8")
+    result, report, rw, moved = rings_step(source, cfg)
+    built = result.mesh
+    # The faces in the source's order: a family that returns after another keeps its runs.
+    payload = obj_text(built, blocks=written_blocks(face_blocks(path), result)).encode("utf-8")
     read_back(built, payload, "hub_rings")
     report["checks"]["readback_equal"] = True
     extra = attachments(path, target, source, moved, payload, rewrite=rw)

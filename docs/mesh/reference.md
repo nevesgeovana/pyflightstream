@@ -67,7 +67,9 @@ to none; the record states the passes kept, and a blade whose annulus kept fewer
 warned with its quad share, least scaled Jacobian and largest aspect.
 
 Kept hub faces keep their order, and each blade's new faces take the place of its first face
-taken: the rings from the root outward, then the band. Kept nodes keep their text and their
+taken: the rings from the root outward, then the band. An OBJ whose family returns after another
+is written as the source has it, one `g` line for each run of faces, the new faces in the run of
+the first face they replace. Kept nodes keep their text and their
 order; nodes used only by the faces taken leave, and the new nodes follow the kept ones.
 
 Every check runs in memory before any file is written, and a failed invariant refuses: each

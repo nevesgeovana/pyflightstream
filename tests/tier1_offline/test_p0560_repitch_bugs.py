@@ -92,6 +92,21 @@ def test_p0560_r1_morph_001_the_remesh_route_keeps_the_runs_of_a_family_that_ret
     ]
 
 
+@pytest.mark.requirement("FR-3669")
+def test_p0560_r1_morph_002_hub_rings_keeps_the_runs_of_a_family_that_returns(tmp_path):
+    """P0560-R1-MORPH-002: hub-rings writes the source's runs of a returning hub, not a refusal."""
+    source, moved = _interleaved_hub(tmp_path)
+    out = tmp_path / "rings.obj"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\n")
+        assert morph_invoke("hub-rings", source, cfg, out) == 0
+    assert group_lines(out) == group_lines(source)
+    written = read_obj(out)
+    last = [int(v) - 1 for v in face_lines(out)[-1].split()[1:]]
+    assert [written.verts[v].tolist() for v in last] == moved
+
+
 @pytest.mark.requirement("FR-3761")
 def test_p0560_repitch_refuses_a_rotor_with_no_axis_in_words(tmp_path, capsys):
     source = source_mesh(tmp_path)
