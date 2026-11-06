@@ -9,6 +9,7 @@ base regions and the generated entry's termination choice survive a rebuild.
 
 from __future__ import annotations
 
+import datetime
 import json
 import tomllib
 from collections.abc import Mapping, Sequence
@@ -52,9 +53,12 @@ def toml_key(name: str) -> str:
 
 
 def toml_value(value: Any) -> str:
-    """Return one TOML value: a boolean, a number, a string, an inline table or an array."""
+    """Return one TOML value: a boolean, a number, a date or time, a string, a table or an array."""
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, (datetime.date, datetime.time)):
+        # What the reader returns for a TOML date, time or date-time; ISO 8601 is TOML's form.
+        return value.isoformat()
     if isinstance(value, (int, float)):
         return repr(value)
     if isinstance(value, str):

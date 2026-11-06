@@ -44,8 +44,28 @@ FlightStream versions.
   them into every copy, as the saved route does, and `<out>.wheel.json` now states
   `wake_terminations` as `"carried"` or `"dropped"`. On a saved sector the switch is warned as not
   applicable.
+- `[repitch] hub_method` chooses how the hub follows each turned blade: `"rings"` moves the
+  complete quad rings around the root as before, `"remesh"` (OBJ only) remeshes the hub band
+  around the turned root quad-dominant, every free node on the source hub and the kept faces in
+  place and order, and `"auto"`, the default, takes the rings where every root has two complete
+  quad rings and the remesh otherwise. `band_width` states the band; by default it is the
+  root's largest move plus two local cells. The remesh keeps, among its pass counts and up to
+  three widths, the band with the fewest cells turned against the hub (none when one has none)
+  and the highest least scaled Jacobian, and the record gives the source band's quality
+  beside the new band's. `geometry morph` reads both keys, so a quad-dominant sector or wheel morphs without `[hub_rings]`.
 
 ### Changed
+
+- Mesh quality no longer refuses `geometry repitch` or `geometry hub-rings`: folded or reversed
+  hub cells, a moved non-root hub node off the source hub, new cells folded or turned against
+  the hub and a new node beyond the source's chord deviation are warned with their numbers
+  (the count, the least scaled Jacobian, the worst node and its distance), the mesh is written,
+  and `checks.passed` in the record is false with `checks.warnings` listing them. Broken input
+  and broken invariants still refuse.
+- `geometry repitch` on a hub without two complete quad rings around a root now remeshes the
+  hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
+  the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,
+  naming the order repitch, then collapse-te.
 
 - The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
@@ -54,6 +74,14 @@ FlightStream versions.
 
 ### Fixed
 
+- `geometry repitch` keeps the face order of an OBJ whose family returns after another; it wrote one
+  block for each family, which moved faces with exit status 0 (PFS-2194).
+- `geometry repitch` with a `[repitch]` reference whose rotor states no `axis` is refused in words
+  naming the missing key, with exit status 2, instead of ending in a KeyError traceback (PFS-2194).
+- The boundaries file beside an OBJ is read when it starts with a byte order mark, by the mesh
+  refinement reader as by the others, instead of being refused as not TOML (PFS-2194).
+- A TOML date, time or date-time in a boundaries file table the tools carry over is written back as
+  it was read, instead of failing with a TypeError (PFS-2194).
 - Submitted jobs remain protected against accidental reruns. Pass
   `redo_submitted=True` explicitly to repeat a submitted point; the old scheduler
   job is not cancelled and must be handled separately.

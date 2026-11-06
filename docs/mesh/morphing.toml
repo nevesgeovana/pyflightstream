@@ -5,7 +5,9 @@
 blades = ["Blade1"]
 hub = ["Spinner"]
 
-# Rings of quads around each blade root on a quad-dominant hub (geometry hub-rings).
+# Rings of quads around each blade root on a quad-dominant hub (geometry hub-rings), for the
+# ring route of repitch. Optional: without it, hub_method = "auto" or "remesh" in [repitch]
+# remeshes the hub band around each turned root instead.
 [hub_rings]
 rings = 4
 # width = 0.02  # total height in mesh units; default rings x the median hub edge at the root
@@ -22,6 +24,11 @@ max_angle_deg = 5.0
 # To find each pitch axis from the rotor axis, drop axis and state:
 # rotor_axis = "x"        # or a vector [1.0, 0.0, 0.0]
 # reference_point = 0.25  # a coordinate along rotor_axis, or a point [x, y, z]
+# How the hub follows each blade: "rings" moves the complete quad rings around the root,
+# "remesh" (OBJ only) remeshes the hub band around the turned root quad-dominant, and "auto"
+# takes the rings where every root has two complete rings and the remesh otherwise.
+# hub_method = "auto"
+# band_width = 0.02       # remesh band in mesh units; default the root's move + 2 local cells
 
 # Collapse the blunt trailing edge of named blades on an OBJ (geometry collapse-te).
 # Run repitch first when both are wanted.
