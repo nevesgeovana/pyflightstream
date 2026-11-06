@@ -765,6 +765,156 @@ def test_p0560_grid_takes_a_trailing_edge_from_a_named_iges_curve(tmp_path, caps
     assert record["trailing_edges"]["Wing"]["edges"] == 5
 
 
+def box(iges, low, high, *, level):
+    """The six faces of the box from ``low`` to ``high``, as bilinear patches."""
+    (x0, y0, z0), (x1, y1, z1) = low, high
+    iges.patch([(x0, y0, z0), (x1, y0, z0), (x0, y1, z0), (x1, y1, z0)], level=level)
+    iges.patch([(x0, y0, z1), (x1, y0, z1), (x0, y1, z1), (x1, y1, z1)], level=level)
+    iges.patch([(x0, y0, z0), (x1, y0, z0), (x0, y0, z1), (x1, y0, z1)], level=level)
+    iges.patch([(x0, y1, z0), (x1, y1, z0), (x0, y1, z1), (x1, y1, z1)], level=level)
+    iges.patch([(x0, y0, z0), (x0, y1, z0), (x0, y0, z1), (x0, y1, z1)], level=level)
+    iges.patch([(x1, y0, z0), (x1, y1, z0), (x1, y0, z1), (x1, y1, z1)], level=level)
+
+
+def body_and_slab(folder):
+    """A closed body box and a closed wing slab that runs through it, wall to wall, untrimmed."""
+    iges = Iges()
+    iges.name(1, "Body")
+    iges.name(2, "Wing")
+    box(iges, (0, 0, 0), (2, 2, 2), level=1)
+    box(iges, (0.5, -1, 0.7), (1.5, 3, 1.3), level=2)
+    return iges.write(folder / "crossing.igs")
+
+
+CROSSING_GRID = "[defaults]\nsize = 0.25\n[component.Body]\n[component.Wing]\nsize = 0.1\n"
+
+
+def centres(target, name):
+    mesh = read_obj(target)
+    return np.array([mesh.verts[f].mean(axis=0) for f in mesh.families[name]])
+
+
+def non_manifold_edges(target):
+    mesh = read_obj(target)
+    uses = {}
+    for faces in mesh.families.values():
+        for f in faces:
+            for a, b in zip(f, list(f[1:]) + [f[0]], strict=True):
+                key = (min(a, b), max(a, b))
+                uses[key] = uses.get(key, 0) + 1
+    return sum(1 for n in uses.values() if n > 2)
+
+
+def crossing_mesh(*, half=False):
+    """A conformal quad mesh of a body box [0,2]^3 and a wing slab x 0.5..1.5, z 0.7..1.3 that
+    runs through it along y from -1 to 3, untrimmed: the four faces along each crossing edge
+    are the body's inside and outside the slab and the slab's inside and outside the body.
+
+    ``half`` cuts both at the plane y = 0 and keeps y >= 0 open there, as a half model is.
+    """
+    nodes, families = {}, {"Body": [], "Wing": []}
+
+    def node(p):
+        return nodes.setdefault(tuple(round(c, 9) for c in p), len(nodes))
+
+    def wall(name, axis, value, us, vs):
+        others = [a for a in range(3) if a != axis]
+        for i in range(len(us) - 1):
+            for j in range(len(vs) - 1):
+                quad = []
+                for u, v in (
+                    (us[i], vs[j]),
+                    (us[i + 1], vs[j]),
+                    (us[i + 1], vs[j + 1]),
+                    (us[i], vs[j + 1]),
+                ):
+                    p = [0.0, 0.0, 0.0]
+                    p[axis], p[others[0]], p[others[1]] = value, u, v
+                    quad.append(node(p))
+                families[name].append(quad)
+
+    xs, zs = [0, 0.5, 1, 1.5, 2], [0, 0.7, 1.3, 2]
+    ys = [0, 1, 2]
+    for value in (0, 2):
+        wall("Body", 0, value, ys, zs)
+        wall("Body", 2, value, xs, ys)
+    for value in [2] if half else [0, 2]:
+        wall("Body", 1, value, xs, zs)
+    slab_y = [0, 1, 2, 3] if half else [-1, 0, 1, 2, 3]
+    for value in (0.5, 1.5):
+        wall("Wing", 0, value, slab_y, [0.7, 1.3])
+    for value in (0.7, 1.3):
+        wall("Wing", 2, value, [0.5, 1, 1.5], slab_y)
+    for value in [3] if half else [-1, 3]:
+        wall("Wing", 1, value, [0.5, 1, 1.5], [0.7, 1.3])
+    verts = np.zeros((len(nodes), 3))
+    for p, i in nodes.items():
+        verts[i] = p
+    return verts, families
+
+
+def mesh_edges_used_more_than_twice(families):
+    uses = {}
+    for faces in families.values():
+        for f in faces:
+            for a, b in zip(f, f[1:] + f[:1], strict=True):
+                uses[(min(a, b), max(a, b))] = uses.get((min(a, b), max(a, b)), 0) + 1
+    return sum(1 for n in uses.values() if n > 2)
+
+
+@pytest.mark.requirement("FR-3768")
+@pytest.mark.parametrize("half", [False, True])
+def test_p0560_the_faces_inside_where_components_cross_are_removed(half):
+    """The slab inside the body and the body wall inside the slab are not the outer skin; a half
+    model, open on its plane of symmetry, loses the same faces."""
+    from pyflightstream.workspace._iges_skin import outer_skin
+
+    verts, families = crossing_mesh(half=half)
+    assert mesh_edges_used_more_than_twice(families) > 0
+    kept, removed, note = outer_skin(verts, families)
+    assert note == "removed"
+    wing = np.array([verts[f].mean(axis=0) for f in kept["Wing"]])
+    assert not ((wing[:, 1] > 0) & (wing[:, 1] < 2)).any()
+    body = np.array([verts[f].mean(axis=0) for f in kept["Body"]])
+    footprint = (body[:, 0] > 0.5) & (body[:, 0] < 1.5) & (body[:, 2] > 0.7) & (body[:, 2] < 1.3)
+    assert not footprint.any()
+    assert mesh_edges_used_more_than_twice(kept) == 0
+    # Inside the body the slab is 2 long: upper and lower faces 1 wide, sides 0.6 high.
+    assert removed["Wing"]["area"] == pytest.approx(2 * (2 * 1.0 + 2 * 0.6))
+    assert removed["Wing"]["faces"] == 12
+    assert removed["Body"]["faces"] == (2 if half else 4)
+    # The outer skin keeps every face that is not inside.
+    total = sum(len(f) for f in families.values())
+    assert sum(len(f) for f in kept.values()) == total - 12 - removed["Body"]["faces"]
+
+
+@pytest.mark.requirement("FR-3768")
+def test_p0560_grid_keeps_the_inner_faces_when_told_to(tmp_path, capsys):
+    text = CROSSING_GRID.replace("[defaults]\n", "[defaults]\nremove_inner_faces = false\n")
+    target, record, _ = run_grid(tmp_path, capsys, [body_and_slab(tmp_path)], text)
+    wing = centres(target, "Wing")
+    assert ((wing[:, 1] > 0.01) & (wing[:, 1] < 1.99)).any()
+    assert non_manifold_edges(target) > 0
+    assert record["inner_faces"] == "kept whole: remove_inner_faces = false"
+    assert record["components"]["Wing"]["inner_faces_removed"] == 0
+    bad = CROSSING_GRID.replace("[defaults]\n", '[defaults]\nremove_inner_faces = "no"\n')
+    grid = grid_file(tmp_path, bad)
+    code, _, stderr = cli(
+        [
+            "geometry",
+            "iges-grid",
+            str(body_and_slab(tmp_path)),
+            "--grid",
+            str(grid),
+            "--out",
+            str(tmp_path / "bad.obj"),
+        ],
+        capsys,
+    )
+    assert code == 2
+    assert "defaults.remove_inner_faces must be true or false" in stderr
+
+
 @pytest.mark.requirement("FR-3703")
 def test_p0560_grid_quality_is_warned_with_its_numbers_and_never_refused(tmp_path, capsys):
     text = (

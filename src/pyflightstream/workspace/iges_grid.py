@@ -39,6 +39,7 @@ from pyflightstream.workspace._gmsh import import_named, session
 from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
 from pyflightstream.workspace._iges_mesh import mesh_model
 from pyflightstream.workspace._iges_names import named_curves, read_iges_names
+from pyflightstream.workspace._iges_skin import outer_skin
 from pyflightstream.workspace._refine._obj import ObjMesh, midpoints, obj_text, write_te
 
 __all__ = ["grid_iges"]
@@ -312,7 +313,23 @@ def one_rim(
     """
     lines = _lines(verts, edges)
     line_of = {edge: i for i, line in enumerate(lines) for edge in line}
-    opposite: dict[int, set[int]] = {i: set() for i in range(len(lines))}
+    opposite = _opposite(faces, line_of, len(lines))
+    dropped: set[int] = set()
+    for i in range(len(lines)):
+        # Lines come longest first, so a line still kept when its turn comes is the longer rim.
+        if i not in dropped:
+            dropped |= opposite[i]
+    touching = _touching(line_of, len(lines))
+    for i in range(len(lines)):
+        if i not in dropped and not opposite[i] and touching[i] & dropped and touching[i] - dropped:
+            dropped.add(i)
+    kept = {e for i, line in enumerate(lines) if i not in dropped for e in line}
+    return kept, len(edges) - len(kept)
+
+
+def _opposite(faces: Faces, line_of: dict[tuple[int, int], int], count: int) -> dict[int, set[int]]:
+    """Return, per line, the lines with an edge on the far side of one of its faces."""
+    opposite: dict[int, set[int]] = {i: set() for i in range(count)}
     for face in faces:
         on = [(a, b) for a, b in ((min(e), max(e)) for e in _edges(face)) if (a, b) in line_of]
         for i, e1 in enumerate(on):
@@ -320,26 +337,36 @@ def one_rim(
                 if not set(e1) & set(e2) and line_of[e1] != line_of[e2]:
                     opposite[line_of[e1]].add(line_of[e2])
                     opposite[line_of[e2]].add(line_of[e1])
-    dropped: set[int] = set()
-    for i in range(len(lines)):
-        # Lines come longest first, so a line still kept when its turn comes is the longer rim.
-        if i not in dropped:
-            dropped |= opposite[i]
+    return opposite
+
+
+def _touching(line_of: dict[tuple[int, int], int], count: int) -> dict[int, set[int]]:
+    """Return, per line, the lines that share a node with it."""
     at: dict[int, set[int]] = {}
     for edge, i in line_of.items():
         for v in edge:
             at.setdefault(v, set()).add(i)
-    touching: dict[int, set[int]] = {i: set() for i in range(len(lines))}
+    touching: dict[int, set[int]] = {i: set() for i in range(count)}
     for meeting in at.values():
         for i in meeting:
             touching[i] |= meeting - {i}
-    for i in range(len(lines)):
-        if i in dropped or opposite[i]:
-            continue
-        if touching[i] & dropped and touching[i] - dropped:
-            dropped.add(i)
-    kept = {e for i, line in enumerate(lines) if i not in dropped for e in line}
-    return kept, len(edges) - len(kept)
+    return touching
+
+
+def _inner(
+    config: GridConfig, meshed: Any, order: list[str], warnings: list[str]
+) -> tuple[dict[str, Faces], dict[str, dict[str, float]], str]:
+    """Return the families without the faces inside the assembly, what went, and the note."""
+    families = {name: meshed.faces[name] for name in order if meshed.faces.get(name)}
+    if not config.remove_inner_faces:
+        return families, {}, "kept whole: remove_inner_faces = false"
+    families, removed, skin = outer_skin(meshed.nodes, families)
+    for name, gone in removed.items():
+        warnings.append(
+            f"{name}: {gone['faces']:g} face(s) of area {gone['area']:.4g} lie inside the "
+            "assembly and were removed"
+        )
+    return families, removed, skin
 
 
 def _toml_key(name: str) -> str:
@@ -529,7 +556,7 @@ def _write(
 ) -> dict[str, Any]:
     joined = meshed.record["fragment"]["warned"]
     warnings = list(model.notes) + list(meshed.warnings)
-    families = {name: meshed.faces[name] for name in order if meshed.faces.get(name)}
+    families, removed, skin = _inner(config, meshed, order, warnings)
     verts, families, boundary = _compact(meshed.nodes, families, meshed.boundary)
     flips: dict[str, int] = {}
     for name in families:
@@ -544,6 +571,8 @@ def _write(
         stats["least_scaled_jacobian"] = meshed.jacobian.get(name)
         stats["size"] = sizes[name]
         stats["reoriented_faces"] = flips[name]
+        stats["inner_faces_removed"] = int(removed.get(name, {}).get("faces", 0))
+        stats["inner_area_removed"] = float(removed.get(name, {}).get("area", 0.0))
         per[name] = stats
         warnings += _quality_warnings(name, stats)
         grid = config.components.get(name)
@@ -616,6 +645,7 @@ def _write(
             for name in te_files
         },
         **meshed.record,
+        "inner_faces": skin,
         "warnings": warnings,
     }
     _textio.write_text(

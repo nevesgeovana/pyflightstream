@@ -1601,6 +1601,11 @@
       "path": "workspace/_iges_names.py"
     },
     {
+      "id": "pyflightstream.workspace._iges_skin",
+      "layer": 2,
+      "path": "workspace/_iges_skin.py"
+    },
+    {
       "id": "pyflightstream.workspace._inspect_pages",
       "layer": 2,
       "path": "workspace/_inspect_pages.py"
@@ -15755,6 +15760,11 @@
     {
       "source": "pyflightstream.workspace.iges_grid",
       "target": "pyflightstream.workspace._iges_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._iges_skin",
       "kind": "module"
     },
     {

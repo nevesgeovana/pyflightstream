@@ -71,6 +71,7 @@ Lengths are in the unit of the first IGES file.
 | `[defaults] size` | The target edge of a component with no size; default a hundredth of the assembly's diagonal |
 | `[defaults] tolerance` | The distance within which two faces are joined; default a millionth of the assembly's diagonal, widened to a measured gap the files leave (see checks below) |
 | `[defaults] te_angle_deg` | The angle of `trailing_edge = "auto"`, default 60 |
+| `[defaults] remove_inner_faces` | `true` (default) removes the faces that lie inside the assembly where components cross (see below); `false` keeps every face |
 | `[component.<Name>]` | One table per component, by the name the IGES gives it |
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
 | `chord`, `span` | `{count, law, ratio}`: the cells along each direction of a four-sided patch and their law |
@@ -157,6 +158,25 @@ joined again at one and a half times the widest gap, warned and recorded under `
 with the components and the gap. A wider opening, such as a blunt trailing edge left open, is a
 boundary. A stated tolerance is kept, and a near miss under it stays a mismatch.
 
+### Faces inside the assembly
+
+Untrimmed components cross: a wing runs through the body to the plane of symmetry, a fillet lies
+over the wing and the body, a fin root sinks into the body. The join splits them along each
+crossing, where four faces then meet, and after the mesh the faces that lie inside the assembly
+are removed so the OBJ holds the outer skin only. The faces of a component split into regions at
+the crossings. The kept regions leave every edge to two faces or none and keep at least one
+region of every component; each region left out lies inside what is kept, by the median
+generalized winding number of the kept faces, oriented outward, at the centres of its nine
+deepest faces (those farthest from its edge, so a fillet's tangent start on the skin it covers
+does not decide). Of those selections the one keeping the largest area is written. A half model
+is mirrored across its plane of symmetry for the measure: the axis plane through the origin that
+holds at least half of the open nodes. Each component that lost faces is warned with the count
+and the area and recorded under `inner_faces_removed` and `inner_area_removed`; the record's
+`inner_faces` says what was done. When no selection closes every crossing, as where a tailplane
+with an open trailing edge crosses a fin and the crossing curve on the fin does not close, every
+face is kept and `inner_faces` says so. On FlightStream 26.127 the SMI wing, body, tails and
+fillet grid diverged with its inner faces kept, even with no wake, and converged without them.
+
 ## Convert to B-spline faces
 
 ```text
@@ -186,9 +206,9 @@ flag is 3. A file whose global section names a unit this package has no scale fo
 
 ## Limits
 
-- The intersection of untrimmed parts is not computed: where a face crosses another without a
-  trimmed junction, the join splits them along the crossing when it can, both parts are kept,
-  and the command warns with both component names.
+- A crossing whose curve does not close on a component, such as a tailplane with an open
+  trailing edge through a fin, keeps both parts: the faces inside are removed only where the
+  crossings split the components into regions (see Faces inside the assembly).
 - Two components that hold the same surface twice, such as two versions of one part in one
   file, are joined into faces the mesher may not finish: the faces of the second that lie on
   the first are given to the first and warned before meshing starts. Write each version to an

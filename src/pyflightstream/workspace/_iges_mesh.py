@@ -117,8 +117,8 @@ def _crossings(gmsh: Any, owner: dict[int, str], warnings: list[str]) -> dict[tu
     for names, count in sorted(crossings.items()):
         warnings.append(
             f"more than two faces meet along {count} curve(s) of {' and '.join(names)}: a face "
-            "crosses another without a trimmed junction, and both parts are kept (the "
-            "intersection of untrimmed parts is outside this command)"
+            "crosses another without a trimmed junction; after the mesh the faces that lie "
+            "inside the assembly are removed (remove_inner_faces in [defaults])"
         )
     return crossings
 
