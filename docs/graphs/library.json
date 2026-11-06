@@ -1181,6 +1181,11 @@
       "path": "run/_cli_geometry.py"
     },
     {
+      "id": "pyflightstream.run._cli_iges",
+      "layer": 1,
+      "path": "run/_cli_iges.py"
+    },
+    {
       "id": "pyflightstream.run._cli_merge",
       "layer": 1,
       "path": "run/_cli_merge.py"
@@ -1566,9 +1571,29 @@
       "path": "workspace/_geometry_vtk.py"
     },
     {
+      "id": "pyflightstream.workspace._gmsh",
+      "layer": 2,
+      "path": "workspace/_gmsh.py"
+    },
+    {
       "id": "pyflightstream.workspace._hub_rings_grid",
       "layer": 2,
       "path": "workspace/_hub_rings_grid.py"
+    },
+    {
+      "id": "pyflightstream.workspace._iges_grid_config",
+      "layer": 2,
+      "path": "workspace/_iges_grid_config.py"
+    },
+    {
+      "id": "pyflightstream.workspace._iges_mesh",
+      "layer": 2,
+      "path": "workspace/_iges_mesh.py"
+    },
+    {
+      "id": "pyflightstream.workspace._iges_names",
+      "layer": 2,
+      "path": "workspace/_iges_names.py"
     },
     {
       "id": "pyflightstream.workspace._inspect_pages",
@@ -1884,6 +1909,16 @@
       "id": "pyflightstream.workspace.hub_rings",
       "layer": 2,
       "path": "workspace/hub_rings.py"
+    },
+    {
+      "id": "pyflightstream.workspace.iges_convert",
+      "layer": 2,
+      "path": "workspace/iges_convert.py"
+    },
+    {
+      "id": "pyflightstream.workspace.iges_grid",
+      "layer": 2,
+      "path": "workspace/iges_grid.py"
     },
     {
       "id": "pyflightstream.workspace.inputs",
@@ -10509,6 +10544,11 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.run._cli_iges",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_merge",
       "kind": "module"
     },
@@ -10590,6 +10630,21 @@
     {
       "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.workspace.wake_edges",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_iges",
+      "target": "pyflightstream.run._cli_morph",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_iges",
+      "target": "pyflightstream.workspace.iges_convert",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_iges",
+      "target": "pyflightstream.workspace.iges_grid",
       "kind": "deferred"
     },
     {
@@ -13783,6 +13838,31 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._gmsh",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh",
+      "target": "pyflightstream.extras",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh",
+      "target": "pyflightstream.workspace._iges_names",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._hub_rings_grid",
       "target": "pyflightstream.workspace._repitch",
       "kind": "module"
@@ -13790,6 +13870,36 @@
     {
       "source": "pyflightstream.workspace._hub_rings_grid",
       "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_grid_config",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_mesh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_mesh",
+      "target": "pyflightstream.workspace._gmsh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_mesh",
+      "target": "pyflightstream.workspace._iges_grid_config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_names",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._iges_names",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
@@ -15475,6 +15585,86 @@
     {
       "source": "pyflightstream.workspace.hub_rings",
       "target": "pyflightstream.workspace._repitch_io",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream.workspace._gmsh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream.workspace._iges_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.versions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._gmsh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._iges_grid_config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._iges_mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._iges_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._refine._obj",
       "kind": "module"
     },
     {

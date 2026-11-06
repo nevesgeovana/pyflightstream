@@ -26,6 +26,7 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | pandas | `>=2.3,<3` | `pandas` extra |
 | PyNiteFEA | `>=3.0,<4` | `fsi` extra |
 | XlsxWriter | `>=3.2.9,<4` | `excel` extra |
+| gmsh | `>=4.13,<5` | `gmsh` extra |
 
 PyYAML gains its first explicit floor, 6.0.1. The NumPy floor rises to 2.4, the Pydantic floor to 2.10.4 and the rtree floor to
 1.1 (see [upgrading](upgrading.md)); the other floors are unchanged.
@@ -47,6 +48,8 @@ synchronization; the `manual` extra supports manual database maintenance.
 The `pandas` extra provides `Table.to_pandas()` for dataframe workflows:
 `pip install "pyflightstream[pandas]"`. Parsing, NumPy tables and CSV products
 work with the core install alone. See [upgrading](upgrading.md#numpy-tables-and-optional-pandas).
+The `gmsh` extra adds the IGES commands `geometry iges-grid` and
+`geometry iges-convert`: `pip install "pyflightstream[gmsh]"`. See [IGES](mesh/iges.md).
 
 ## Choose the FlightStream build
 
@@ -87,6 +90,7 @@ preserve those notices when redistributing them.
 | matplotlib | 3.11.1 | Matplotlib License, derived from the PSF license |
 | pypdf (`manual`) | 6.14.2 | BSD-3-Clause |
 | XlsxWriter (`excel`) | 3.2.9 | BSD-2-Clause |
+| gmsh (`gmsh`) | 4.15.2 | GPL-2.0-or-later |
 
 This summary describes the inspected versions. It does not establish the licenses
 of future releases or every transitive dependency. Scientific wheels can include
@@ -94,3 +98,10 @@ additional components: the inspected scipy wheels include OpenBLAS, LAPACK and
 the GCC runtime with its Runtime Library Exception. Read the notices accompanying
 the wheels you redistribute. FlightStream remains separately licensed and is not
 included with pyflightstream.
+
+gmsh is licensed under the GNU General Public License, version 2 or later. It is
+never installed with the base package, never imported by it and not
+redistributed with it: it comes from its own distribution only when the `gmsh`
+extra is installed, and only the two IGES commands call it. Whoever
+redistributes an environment that holds gmsh takes on the obligations of its
+license.

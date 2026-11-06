@@ -63,6 +63,7 @@ _EXTRA_IMPORT_ROOTS = {
     "XlsxWriter": "xlsxwriter",  # excel
     "pandas": "pandas",  # pandas
     "pypdf": "pypdf",  # manual
+    "gmsh": "gmsh",  # gmsh
 }
 
 

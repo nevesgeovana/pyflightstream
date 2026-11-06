@@ -236,6 +236,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "geometry"): SUBJECT,
     ("pyfs-workspace", "mesh"): SUBJECT,
     ("pyfs-workspace", "morphing"): SUBJECT,  # Control input for this geometry operation.
+    ("pyfs-workspace", "iges"): SUBJECT,  # The IGES files iges-grid and iges-convert read.
+    ("pyfs-workspace", "grid"): SUBJECT,  # Control input of iges-grid.
     ("pyfs-workspace", "against"): SUBJECT,
     ("pyfs-workspace", "kind"): SUBJECT,
     ("pyfs-workspace", "boundary"): SUBJECT,
@@ -985,7 +987,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
         "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
-        "visual-inspect".split()
+        "visual-inspect iges-grid iges-convert".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -1111,6 +1113,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te", "hub-rings", "morph"}),
+    ("pyfs-workspace", "iges"): frozenset({"iges-grid", "iges-convert"}),
+    ("pyfs-workspace", "grid"): frozenset({"iges-grid"}),
     ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),

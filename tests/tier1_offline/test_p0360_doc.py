@@ -137,6 +137,8 @@ def test_mesh_split(tmp_path):
         "how-to.md",
         "reference.md",
         "example.md",
+        # 0.56.0 (PFS-2198, PFS-2199): the IGES grid and converter page beside the split.
+        "iges.md",
     }
     roles = {
         "how-to.md": "starting-from-an-obj-or-stl",
