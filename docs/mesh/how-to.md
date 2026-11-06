@@ -143,7 +143,9 @@ entry under its family name, with the edge type of the removed base region's poi
 removes, or on the name a rename gave it, is warned and skipped. A marking that lies on an
 edge of the removed strip is refused. Read `<out>.collapse.json` for the strip faces removed, the closure faces, the nodes
 merged and the largest node move for each blade, with the base thickness; the operation
-reports the thickness and sets no limit on it.
+reports the thickness and sets no limit on it. A face near the trailing edge that the merge
+turns over is warned with the count, the worst cosine and its place, and the mesh is written
+(`checks.turned_faces`, `checks.passed` false).
 
 **Order with repitch.** The ring route of repitch needs complete quad rings around the blade
 root, which the closure triangle of a collapsed root breaks, and `hub_method = "auto"` keeps
@@ -201,17 +203,18 @@ pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.
 
 The chain is exercised in the offline tests on a synthetic quad-dominant hub, as a sector and
 as an installed full wheel, with and without `[hub_rings]`, and was run without `[hub_rings]` on
-an SMI-derived quad-dominant spinner, as a sector at 0, 2 and 5 degrees and as a six-blade wheel
-at 0 and 2 degrees. On that wheel at 5 degrees the bands left between neighbouring roots are
-narrow, and `[collapse_te]` refuses a cell next to a trailing edge that its merge turns over;
-there, `[hub_rings]` with `hub_method = "rings"` writes the wheel. `morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
+an SMI-derived quad-dominant spinner, as a sector, as a six-blade wheel and as that wheel beside
+an airframe, at 0, 2 and 5 degrees. Each remeshed band is held to half its source band's least
+scaled Jacobian and twice its largest aspect, and a band that misses is warned with its numbers;
+a face the trailing-edge merge turns over is warned the same way and the mesh is written. `morph` works on the OBJ; a saved `.fsm` is refused. It applies the tables the file holds in one fixed
 order, `[hub_rings]`, `[repitch]`, `[collapse_te]`, `[wheel]`: the ring route of repitch needs
 the rings, and the collapse leaves a closure triangle on the first ring, so no other order
 works. `[hub_rings]` is optional: without it, repitch's `hub_method` decides how the hub
 follows each blade (see [Repitch a blade](#repitch-a-blade)). Each step is the verb of
 the same name with all its checks. One OBJ is written with its boundaries file, the points files
-that file names and `<out>.morph.json`, which holds every step's checks; when any step refuses,
-nothing is written beside the output.
+that file names and `<out>.morph.json`, which holds every step's checks. A quality finding in any
+step is warned with its numbers and the chain goes on; when a step refuses a broken input or
+invariant, nothing is written beside the output.
 
 **Hub rings.** The ring route of repitch needs complete rings of quads around each blade
 root, which a quad-dominant hub lacks. `[hub_rings]` builds `rings` rows of quads with as many nodes as the

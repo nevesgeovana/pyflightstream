@@ -24,6 +24,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputValueError,
     NotApplicableWarning,
+    PyflightstreamWarning,
     warn,
 )
 from pyflightstream._lengths import METRES_PER_UNIT
@@ -748,18 +749,39 @@ def _check_faces(r: _Result) -> None:
     )
 
 
-def _check_turned(r: _Result) -> float:
+def _turned_faces(r: _Result) -> dict[str, Any]:
+    """Measure the faces the merge reached against their source normals; count those turned.
+
+    A face whose normal now opposes the source's (cosine at or below zero) is a quality finding:
+    it is counted, with the worst cosine and the family, face and place of the worst one, and
+    is warned of; nothing refuses here (PFS-2197).
+    """
     old, new = r.source.verts, r.mesh.verts
-    low = 1.0
-    flat = [f for fs in r.mesh.families.values() for f in fs]
-    for (name, i), face in zip(r.kept, flat, strict=False):
+    low, worst, count = 1.0, None, 0
+    flat = [(n, f) for n, fs in r.mesh.families.items() for f in fs]
+    for (name, i), (family, face) in zip(r.kept, flat, strict=False):
         before_f = r.source.families[name][i]
         if not set(before_f) & set(r.moved):
             continue
         a, b = _normal(old[before_f]), _normal(new[face])
-        low = min(low, float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-300)))
-    _need(low > 0.0, f"a face near the trailing edge is turned over (cosine {low:.4f})")
-    return low
+        cosine = float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-300))
+        count += cosine <= 0.0
+        if cosine < low:
+            low, worst = cosine, [family, i + 1, new[face].mean(axis=0).tolist()]
+    return {"count": count, "worst_cosine": low, "worst": worst}
+
+
+def _turned_warning(turned: dict[str, Any]) -> list[str]:
+    """Return the sentence that states the faces the merge turned over, or nothing."""
+    if not turned["count"]:
+        return []
+    family, face, place = turned["worst"]
+    return [
+        f"{turned['count']} face(s) near the trailing edge are turned over by the merge; the "
+        f"worst, face {face} of {family!r} in the source, has cosine "
+        f"{turned['worst_cosine']:.4f} against its source normal, at "
+        f"[{', '.join(f'{v:.6g}' for v in place)}]"
+    ]
 
 
 def _area_report(r: _Result) -> dict[str, float]:
@@ -786,7 +808,11 @@ def _check_midpoints(r: _Result) -> None:
 
 
 def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
-    """Refuse any difference from the source the collapse does not account for."""
+    """Refuse any difference from the source the collapse does not account for.
+
+    A face the merge turns over is quality, not a broken mesh: it is warned with its numbers
+    and listed under ``warnings`` (PFS-2197).
+    """
     checks: dict[str, Any] = {"faces": _check_counts(r)}
     _check_near_faces(r)
     checks["coincident_node_pairs"] = _check_twins(r)
@@ -795,10 +821,15 @@ def _verify(r: _Result, rotor: Any = None) -> dict[str, Any]:
     checks["open_edges"] = _check_open(r, owners)
     _check_far_nodes(r)
     _check_faces(r)
-    checks["smallest_normal_cosine"] = _check_turned(r)
+    turned = _turned_faces(r)
+    checks["smallest_normal_cosine"] = turned["worst_cosine"]
+    checks["turned_faces"] = turned
     checks["area"] = _area_report(r)
     _check_midpoints(r)
     checks["periodicity"] = _periodicity(r.source, r.mesh, rotor)
+    checks["warnings"] = _turned_warning(turned)
+    for sentence in checks["warnings"]:
+        warn(f"collapse_te: {sentence}; the mesh is written", PyflightstreamWarning)
     return checks
 
 
@@ -1110,5 +1141,5 @@ def _report(result: _Result, checks: dict[str, Any], skipped: dict[str, str]) ->
     return {
         "blades": blades,
         "skipped": skipped,
-        "checks": {"passed": True, **checks},
+        "checks": {"passed": not checks["warnings"], **checks},
     }

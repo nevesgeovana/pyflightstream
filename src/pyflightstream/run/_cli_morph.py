@@ -40,13 +40,16 @@ def add_repitch_parser(subparsers: Any) -> None:
     """Add the rigid-blade repitch verb with its morphing control file."""
     parser = subparsers.add_parser(
         "repitch",
-        help="rigidly repitch blades and rebuild the named hub's source rings",
+        help="rigidly repitch blades and rebuild the named hub around their roots",
         description=(
             "MESH is an OBJ or a saved simulation (.fsm). The [repitch] table of the morphing "
             "file names the blades, the hub and the angle; each blade turns rigidly about its "
-            "pitch axis and the hub's quad rings around its root follow. The output keeps the "
-            "source's kind, its face order and its markings; the checks are written to "
-            "<out>.repitch.json. Nothing is written when a check fails (docs/mesh/how-to.md)."
+            "pitch axis; [repitch] hub_method chooses how the hub follows: its complete quad "
+            "rings move (rings), the band around each turned root is remeshed quad-dominant "
+            "(remesh, OBJ only), or auto picks one. The checks are written to "
+            "<out>.repitch.json. Quality findings are warned with their numbers and the mesh "
+            "is written; a broken input or invariant refuses and nothing is written "
+            "(docs/mesh/how-to.md)."
         ),
     )
     parser.add_argument("mesh", help="source .obj or .fsm, read only")
@@ -72,7 +75,9 @@ def add_collapse_te_parser(subparsers: Any) -> None:
             "each pair of rim nodes across a blade's one-cell base strip merges at its "
             "midpoint and the strip leaves. Every other node and face keeps its place; the "
             "boundaries file gets one trailing-edge line per blade and the checks are written "
-            "to <out>.collapse.json. Nothing is written when a check fails (docs/mesh/how-to.md)."
+            "to <out>.collapse.json. Quality findings (a face the merge turns over) are warned "
+            "with their numbers and the mesh is written; a broken input or invariant refuses "
+            "and nothing is written (docs/mesh/how-to.md)."
         ),
     )
     parser.add_argument("mesh", help="source .obj, read only")
@@ -99,8 +104,9 @@ def add_hub_rings_parser(subparsers: Any) -> None:
             "blade, rings rows of quads are marched outward from the root on the hub, the hub "
             "faces they reach plus one layer leave, and the band between them is remeshed "
             "quad-dominant. Blade nodes, other families and the hub's seams stay to the bit; the "
-            "checks are written to <out>.hub_rings.json. Nothing is written when a check fails "
-            "(docs/mesh/how-to.md)."
+            "checks are written to <out>.hub_rings.json. Quality findings are warned with their "
+            "numbers and the mesh is written; a broken input or invariant refuses and nothing "
+            "is written (docs/mesh/how-to.md)."
         ),
     )
     parser.add_argument("mesh", help="source .obj, read only")
@@ -126,7 +132,9 @@ def add_morph_parser(subparsers: Any) -> None:
             "applied in one fixed order: [hub_rings], [repitch], [collapse_te], [wheel] (a "
             "sector only), each with its own checks; blades and hub sit at the top of the file. "
             "One OBJ is written with its boundaries file, its points files and "
-            "<out>.morph.json. Nothing is written when any step refuses (docs/mesh/how-to.md)."
+            "<out>.morph.json. Each step warns of quality with its numbers and goes on; "
+            "nothing is written when a step refuses a broken input or invariant "
+            "(docs/mesh/how-to.md)."
         ),
     )
     parser.add_argument("mesh", help="source .obj, read only")

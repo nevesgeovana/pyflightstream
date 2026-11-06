@@ -14,6 +14,7 @@ new cells is measured and returned for the verb to warn.
 from __future__ import annotations
 
 import copy
+import dataclasses
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -25,8 +26,10 @@ from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream.workspace._hub_rings_grid import (
     Region,
     _best_ear,
+    _normals,
     boundary_loop,
     clip_annulus,
+    folded,
     inside,
     islands_filled,
     march,
@@ -224,7 +227,29 @@ def _remesher(
     # Every node is projected on the source hub, not on the first triangulation.
     remesher.surface = surface.mesh
     remesher.h_source = targets(mesh, plan.family)
+    if getattr(plan, "sizing", "source") == "loops":
+        remesher.h_source = loop_sizing(mesh, plan, inner, remesher.h_source)
     return remesher, patch
+
+
+def loop_sizing(mesh: ObjMesh, plan: Any, inner: np.ndarray, source: np.ndarray) -> np.ndarray:
+    """Return the remesh's target lengths with the band's nodes sized from its two loops.
+
+    At each node of the faces the band takes and of its root, the target is the side length of
+    the nearest inner-loop node and of the nearest hole-loop node, weighted by the distances to
+    them; elsewhere the source hub's own lengths stay.
+    """
+    from scipy.spatial import cKDTree
+
+    hub = mesh.families[plan.family]
+    near = sorted({v for i in plan.taken for v in hub[i]} | set(plan.loop))
+    hole = mesh.verts[plan.hole]
+    d_in, i_in = cKDTree(inner).query(mesh.verts[near])
+    d_out, i_out = cKDTree(hole).query(mesh.verts[near])
+    w = d_in / np.maximum(d_in + d_out, 1e-300)
+    sized = source.copy()
+    sized[near] = (1.0 - w) * _loop_target(inner)[i_in] + w * _loop_target(hole)[i_out]
+    return sized
 
 
 def _finished(
@@ -570,6 +595,17 @@ def new_by_old(source: ObjMesh, mesh: ObjMesh, index: np.ndarray) -> np.ndarray:
 BAND_CELLS = 2
 #: Wider bands tried beside the first, each one more source cell across, while they fit.
 WIDER = 2
+#: Rows marched around every turned root, at least: two, as the ring route needs two rings.
+MIN_ROWS = 2
+#: Each thinner row height tried is this fraction of the one before, down to the root's finest
+#: spacing, before a row is dropped.
+THIN = 0.8
+#: Least distance, in row heights, from the outer row to the hole's boundary.
+CLEAR = 1.0
+#: A row is at most this many times as high as the shorter root side at its node.
+ROW_ASPECT = 2.0
+#: Root nodes each way over which the row heights are smoothed.
+ROW_SPAN = 2
 _REPITCH = "repitch"
 
 
@@ -583,6 +619,7 @@ class Root:
     cell: float
     banned: set[int]
     foot: list[list[int]] = field(default_factory=list)
+    share: float = math.inf
 
 
 def footprint(mesh: ObjMesh, hub_faces: list[list[int]], loop: list[int]) -> list[list[int]]:
@@ -624,6 +661,9 @@ class Band:
     route: str
     width: float
     rows: Any = None
+    heights: Any = None
+    graded: bool = True
+    sizing: str = "source"
 
 
 def root_move(verts: np.ndarray, moved: np.ndarray, loop: list[int]) -> float:
@@ -631,7 +671,9 @@ def root_move(verts: np.ndarray, moved: np.ndarray, loop: list[int]) -> float:
     return float(np.linalg.norm(moved[loop] - verts[loop], axis=1).max())
 
 
-def band_at(mesh: ObjMesh, moved: np.ndarray, root: Root, width: float) -> Band | None:
+def band_at(
+    mesh: ObjMesh, moved: np.ndarray, root: Root, width: float, *, graded: bool = True
+) -> Band | None:
     """Return the band of hub faces within ``width`` of the old root, or None when it does not fit.
 
     The band's edge is marched from the old root in steps of at most one source cell, so the
@@ -660,29 +702,95 @@ def band_at(mesh: ObjMesh, moved: np.ndarray, root: Root, width: float) -> Band 
     if found is None:
         return None
     taken, hole, hole_xy = found
-    gap = _gap(inner, hole_xy)
-    for count in range(max(0, math.floor(gap / root.cell) - 1), -1, -1):
-        ring = march(inner, count, count * root.cell) if count else inner[None]
+    finest = float(np.linalg.norm(np.roll(xy, -1, axis=0) - xy, axis=1).min())
+    for count, heights in row_tries(inner, hole_xy, (root.cell, finest), graded=graded):
+        ring = _march_by(inner, count, heights) if count else inner[None]
         if ring is None or (count and not inside(ring[1:].reshape(-1, 2), hole_xy).all()):
+            continue
+        if count and clearance(ring[-1], hole_xy) < CLEAR * float(heights.min()):
             continue
         joined = join(ring[-1], hole_xy, (taken, hole))
         if joined is None:
             continue
         lifted = zone.chart.lift(ring[1:], mesh.verts[zone.ids], zone.triangles) if count else None
-        return Band(
-            root.name, root.family, loop, taken, hole, joined.tris, joined.route, width, lifted
-        )
+        made = Band(root.name, root.family, loop, taken, hole, joined.tris, joined.route, width)
+        made.rows, made.heights, made.graded = lifted, heights, graded
+        return made
     return None
+
+
+def row_heights(inner: np.ndarray, hole_xy: np.ndarray, count: int, cell: float) -> np.ndarray:
+    """Return, per root node, the height of each of ``count`` rows marched from it.
+
+    One local cell, less where the hole is near (a row's height is left beyond the last row)
+    and less where the root's sides are short (at most :data:`ROW_ASPECT` times the shorter side
+    at the node, as at a blunt trailing edge), so the rows thin only where they must. The
+    limits are smoothed along the root over :data:`ROW_SPAN` nodes each way without any node
+    passing its own.
+    """
+    side = np.linalg.norm(np.roll(inner, -1, axis=0) - inner, axis=1)
+    shorter = np.minimum(side, np.roll(side, 1))
+    limit = np.minimum(np.minimum(cell, _gaps(inner, hole_xy) / (count + 1)), ROW_ASPECT * shorter)
+    shifts = range(-ROW_SPAN, ROW_SPAN + 1)
+    low = np.min([np.roll(limit, s) for s in shifts], axis=0)
+    return np.asarray(np.mean([np.roll(low, s) for s in shifts], axis=0))
+
+
+def row_tries(
+    inner: np.ndarray, hole_xy: np.ndarray, sizes: tuple[float, float], *, graded: bool
+) -> list[tuple[int, np.ndarray]]:
+    """Return the (rows, heights per root node) tried around a turned root, the first preferred.
+
+    As many rows as the hole leaves room for (at least :data:`MIN_ROWS`), each of the heights of
+    :func:`row_heights` (``graded``) or all of one height, a local cell or the room the nearest
+    point of the hole leaves; where they do not fit, the rows thin by :data:`THIN` at a time,
+    until the thinnest would be below the root's finest spacing, before one row is dropped;
+    last, no rows. ``sizes`` holds the local cell and the root's finest spacing.
+    """
+    cell, finest = sizes
+    tries = []
+    room = _gap(inner, hole_xy)
+    for count in range(max(MIN_ROWS, math.floor(room / cell) - 1), 0, -1):
+        heights = (
+            row_heights(inner, hole_xy, count, cell)
+            if graded
+            else np.full(len(inner), min(cell, room / (count + 1)))
+        )
+        while heights.min() >= finest:
+            tries.append((count, heights))
+            heights = heights * THIN
+    return [*tries, (0, np.zeros(len(inner)))]
+
+
+def _march_by(root: np.ndarray, rows: int, heights: np.ndarray) -> np.ndarray | None:
+    """Return the rows of a counterclockwise root marched out by per-node heights, or None."""
+    made = [root]
+    for _ in range(rows):
+        nxt = made[-1] + heights[:, None] * _normals(made[-1])
+        if folded(made[-1], nxt):
+            return None
+        made.append(nxt)
+    return np.array(made)
+
+
+def clearance(one: np.ndarray, other: np.ndarray) -> float:
+    """Return the least chart distance between two closed loops, node to side both ways."""
+    return min(_gap(one, other), _gap(other, one))
 
 
 def _gap(inner: np.ndarray, loop: np.ndarray) -> float:
     """Return the least distance in the chart from the inner loop's nodes to a closed loop."""
+    return float(_gaps(inner, loop).min())
+
+
+def _gaps(inner: np.ndarray, loop: np.ndarray) -> np.ndarray:
+    """Return, per node of ``inner``, its least distance in the chart to a closed loop."""
     a, b = loop, np.roll(loop, -1, axis=0)
     ab = b - a
     along = np.einsum("pk,sk->ps", inner, ab) - (a * ab).sum(axis=1)[None, :]
     t = np.clip(along / np.maximum((ab * ab).sum(axis=1), 1e-300)[None, :], 0.0, 1.0)
     near = a[None, :, :] + t[:, :, None] * ab[None, :, :]
-    return float(np.linalg.norm(near - inner[:, None, :], axis=2).min())
+    return np.asarray(np.linalg.norm(near - inner[:, None, :], axis=2).min(axis=1))
 
 
 def bands_tried(
@@ -697,10 +805,15 @@ def bands_tried(
     Otherwise up to :data:`WIDER` bands, each one local cell wider, join while they fit.
     """
     shift = root_move(mesh.verts, moved, root.loop)
-    width = stated if stated is not None else shift + BAND_CELLS * root.cell
+    asked = stated if stated is not None else shift + BAND_CELLS * root.cell
+    # On a wheel each band keeps to its share of the gap to the next root, less the one layer
+    # of faces a hole takes beyond its width (about one local cell).
+    cap = root.share - root.cell
+    width = min(asked, cap)
     info: dict[str, Any] = {
         "rule": "stated" if stated is not None else "root move plus two local cells",
-        "asked": width,
+        "asked": asked,
+        "share_of_gap": None if math.isinf(root.share) else root.share,
         "root_largest_move": shift,
         "local_cell_size": root.cell,
         "shrunk_from": None,
@@ -709,11 +822,13 @@ def bands_tried(
     if first is not None:
         bands = [first]
         for k in range(1, WIDER + 1):
+            if width + k * root.cell > cap:
+                break
             wider = band_at(mesh, moved, root, width + k * root.cell)
             if wider is None:
                 break
             bands.append(wider)
-        return bands, info
+        return bands + _uniform(mesh, moved, root, bands), info
     for k in range(1, TRIES + 1):
         first = band_at(mesh, moved, root, width * SHRINK**k)
         if first is not None:
@@ -733,7 +848,13 @@ def bands_tried(
         PyflightstreamWarning,
     )
     info["shrunk_from"] = width
-    return [first], info
+    return [first, *_uniform(mesh, moved, root, [first])], info
+
+
+def _uniform(mesh: ObjMesh, moved: np.ndarray, root: Root, bands: list[Band]) -> list[Band]:
+    """Return the bands of the same widths with rows of one height, where they fit."""
+    made = [band_at(mesh, moved, root, b.width, graded=False) for b in bands]
+    return [b for b in made if b is not None]
 
 
 @dataclass
@@ -747,6 +868,7 @@ class Candidate:
     ahead: bool
     turned: int
     shape: dict[str, Any]
+    margin: float = 0.0
 
 
 def _inner(moved: np.ndarray, band: Band) -> np.ndarray:
@@ -754,36 +876,184 @@ def _inner(moved: np.ndarray, band: Band) -> np.ndarray:
     return moved[band.loop] if band.rows is None else band.rows[-1]
 
 
+#: A cell scoring below this (its least corner Jacobian against the source hub's normal, or its
+#: shortest side over its longest) has its free nodes moved by :func:`polish`.
+POLISH_FLOOR = 0.5
+#: Sweeps of :func:`polish` at most; it stops when a sweep moves no node.
+POLISH_SWEEPS = 12
+#: The steps a node is tried at, in its cells' mean edge length, in eight tangent directions.
+POLISH_STEPS = (0.5, 0.25, 0.1, 0.05)
+#: How an annulus remesh is sized, in the order tried: by the source hub's cells, then by
+#: its two loops (:func:`loop_sizing`).
+SIZINGS = ("source", "loops")
+
+
+def _scores(q: np.ndarray, normal: np.ndarray) -> np.ndarray:
+    """Score cells stacked as (..., corners, 3) against reference normals.
+
+    The score is the lesser of the least corner Jacobian along the normal and the shortest side
+    over the longest.
+    """
+    side = np.roll(q, -1, axis=-2) - q
+    lengths = np.linalg.norm(side, axis=-1)
+    corners = np.cross(side, -np.roll(side, 1, axis=-2))
+    jac = (corners @ normal) / np.maximum(lengths * np.roll(lengths, 1, axis=-1), 1e-300)
+    ratio = lengths.min(axis=-1) / np.maximum(lengths.max(axis=-1), 1e-300)
+    return np.minimum(jac.min(axis=-1), ratio)
+
+
+def _places(points: np.ndarray, v: int, ring: list[int], normal: np.ndarray) -> np.ndarray:
+    """Return where a node is tried: its neighbours' centroid and steps about it, unprojected."""
+    h = float(np.mean(np.linalg.norm(points[ring] - points[v], axis=1)))
+    t1 = np.cross(normal, np.eye(3)[int(np.argmin(np.abs(normal)))])
+    t1 /= np.linalg.norm(t1)
+    t2 = np.cross(normal, t1)
+    turns = [t1, -t1, t2, -t2, t1 + t2, t1 - t2, t2 - t1, -t1 - t2]
+    steps = [points[v] + s * h * d / np.linalg.norm(d) for s in POLISH_STEPS for d in turns]
+    return np.array([points[ring].mean(axis=0), *steps])
+
+
+def _move(points: np.ndarray, v: int, cells: list[int], faces: list[list[int]], ref: Any) -> bool:
+    """Move node ``v`` to its best tried place on the hub when that raises its worst cell."""
+    normals, surface = ref
+    ring = sorted({u for i in cells for u in faces[i] if u != v})
+    normal = normals[cells].mean(axis=0)
+    normal /= max(float(np.linalg.norm(normal)), 1e-300)
+    tries = surface.nearest(_places(points, v, ring, normal))[0]
+    worst, now = np.full(len(tries), np.inf), np.inf
+    for i in cells:
+        q = np.repeat(points[faces[i]][None], len(tries), axis=0)
+        q[:, faces[i].index(v)] = tries
+        worst = np.minimum(worst, _scores(q, normals[i]))
+        now = min(now, float(_scores(points[faces[i]], normals[i])))
+    k = int(np.argmax(worst))
+    if worst[k] <= now + 1e-9:
+        return False
+    points[v] = tries[k]
+    return True
+
+
+def polish(
+    points: np.ndarray, faces: list[list[int]], frozen: int, surface: HubSurface, sense: int
+) -> np.ndarray:
+    """Return an annulus's points with the free nodes of its worst cells moved to better places.
+
+    Every free node of a cell scoring below :data:`POLISH_FLOOR` is tried at its neighbours'
+    centroid and at :data:`POLISH_STEPS` of its mean edge in eight directions of the tangent
+    plane, each projected on the source hub, and takes the place that most raises the least
+    score of its cells, if any does. The score is taken against the source hub's normal, so a
+    cell turned over scores below zero and is lifted first. The first ``frozen`` points (the
+    loops) never move; the faces do not change. At most :data:`POLISH_SWEEPS` sweeps.
+    """
+    points = points.copy()
+    cells: dict[int, list[int]] = {}
+    for i, face in enumerate(faces):
+        for v in face:
+            cells.setdefault(v, []).append(i)
+    centres = np.array([points[f].mean(axis=0) for f in faces])
+    normals = sense * surface.mesh.face_normals[_nearest(surface.mesh, centres)[2]]
+    for _ in range(POLISH_SWEEPS):
+        low = {
+            v
+            for i, face in enumerate(faces)
+            if float(_scores(points[face], normals[i])) < POLISH_FLOOR
+            for v in face
+            if v >= frozen
+        }
+        moved = [_move(points, v, cells[v], faces, (normals, surface)) for v in sorted(low)]
+        if not any(moved):
+            break
+    return points
+
+
+def target_of(source_band: dict[str, Any]) -> dict[str, float]:
+    """Return a band's quality target from its source band's numbers.
+
+    The output band's least scaled Jacobian is to be at least half the source band's, and its
+    largest aspect at most twice the source band's.
+    """
+    return {
+        "least_scaled_jacobian": 0.5 * source_band["min_scaled_jacobian"],
+        "largest_aspect": 2.0 * source_band["max_aspect"],
+    }
+
+
+def _margin(shape: dict[str, Any], target: dict[str, float]) -> float:
+    """Return how far a band's shape clears its target: 1 or more when it meets it."""
+    floor, ceiling = target["least_scaled_jacobian"], target["largest_aspect"]
+    sj = shape["min_scaled_jacobian"]
+    over = sj / floor if floor > 0.0 else 1.0 + sj - floor
+    return min(over, ceiling / max(shape["max_aspect"], 1e-300))
+
+
+def _candidate(band: Band, passes: int, made: Any, target: dict[str, float]) -> Candidate:
+    """Polish one remesh of a band and measure it as written, held rows and annulus together."""
+    (points, faces), moved, surface, ahead = made
+    sense = 1 if ahead else -1
+    points = polish(points, faces, len(band.loop) + len(band.hole), surface, sense)
+    turned = turned_cells(points, faces, surface, sense)
+    found = Candidate(band, passes, points, faces, ahead, turned, {})
+    written, new, _ = _rows_and_annulus(found, len(moved))
+    found.shape = quality(np.vstack([moved, *new]), written)
+    found.margin = _margin(found.shape, target)
+    return found
+
+
 def best_candidate(
     mesh: ObjMesh, moved: np.ndarray, bands: list[Band], surface: HubSurface
 ) -> tuple[Candidate, list[dict[str, Any]]]:
-    """Remesh every band at every pass count of the fallback; return the best and the table.
+    """Remesh the bands until one meets its target; return the best and the table.
 
-    The best has the fewest cells turned against the source hub (none, when one has none) and,
-    among those, the highest least scaled Jacobian.
+    The bands come as :func:`bands_tried` gives them (graded rows at each width, then rows of
+    one height); each is remeshed sized by the source hub's cells, then by its two loops
+    (:func:`loop_sizing`). Fewer passes of the fallback are tried only while a cell is left
+    turned against the source hub. Each remesh is polished (:func:`polish`) and measured as
+    written, its held rows with its annulus. The first with no cell turned that meets its target
+    (:func:`target_of`) ends the search; else the best has the fewest turned cells and, among
+    those, the largest margin to its target: the lesser of its least scaled Jacobian over the
+    target's and the target's largest aspect over its own.
     """
-    tried = []
+    tried: list[Candidate] = []
     for band in bands:
-        ahead = forward(mesh.families[band.family], band.loop)
-        series = remesh_series(mesh, band, _inner(moved, band), surface, _REPITCH)
-        for passes in PASSES_TRIED:
-            points, faces = series[passes]
-            turned = turned_cells(points, faces, surface, 1 if ahead else -1)
-            shape = quality(points, faces)
-            tried.append(Candidate(band, passes, points, faces, ahead, turned, shape))
-    best = max(tried, key=lambda c: (-c.turned, c.shape["min_scaled_jacobian"]))
-    table = [
+        hub = mesh.families[band.family]
+        target = target_of(band_numbers(mesh.verts, [hub[i] for i in band.taken]))
+        for sizing in SIZINGS:
+            plan = dataclasses.replace(band, sizing=sizing)
+            if _remesh_one(plan, (mesh, moved, surface), target, tried):
+                return tried[-1], _table(tried)
+    return max(tried, key=lambda c: (-c.turned, c.margin)), _table(tried)
+
+
+def _remesh_one(
+    band: Band, inputs: tuple[ObjMesh, np.ndarray, HubSurface], target: Any, tried: list[Candidate]
+) -> bool:
+    """Remesh a band at the pass counts it needs into ``tried``; True when one meets its target."""
+    mesh, moved, surface = inputs
+    ahead = forward(mesh.families[band.family], band.loop)
+    series = remesh_series(mesh, band, _inner(moved, band), surface, _REPITCH)
+    for passes in PASSES_TRIED:
+        tried.append(_candidate(band, passes, (series[passes], moved, surface, ahead), target))
+        if tried[-1].turned == 0:
+            return tried[-1].margin >= 1.0
+    return False
+
+
+def _table(tried: list[Candidate]) -> list[dict[str, Any]]:
+    """Return the record's line for every candidate tried."""
+    return [
         {
             "band_width": c.band.width,
+            "rows": "graded" if c.band.graded else "uniform",
+            "sizing": c.band.sizing,
             "passes": c.passes,
             "turned_cells": c.turned,
             "min_scaled_jacobian": c.shape["min_scaled_jacobian"],
             "max_aspect": c.shape["max_aspect"],
+            "target_margin": c.margin,
             "quad_share": element_report("quad-dominant", c.faces)["quad_share"],
         }
         for c in tried
     ]
-    return best, table
 
 
 def band_numbers(verts: np.ndarray, faces: list[list[int]]) -> dict[str, Any]:
@@ -809,12 +1079,17 @@ def _blade_numbers(
         "shrunk_from": info["shrunk_from"],
         "local_cell_size": info["local_cell_size"],
         "root_largest_move": info["root_largest_move"],
+        "share_of_gap": info["share_of_gap"],
         "candidate_widths": sorted({c["band_width"] for c in table}),
         "root_loop_nodes": len(band.loop),
         "held_rows": 0 if band.rows is None else len(band.rows),
+        "row_height": 0.0 if band.heights is None else float(band.heights.min()),
+        "row_height_largest": 0.0 if band.heights is None else float(band.heights.max()),
         "faces_taken": len(band.taken),
         "hole_boundary_nodes": len(band.hole),
         "first_triangulation": band.route,
+        "rows": "graded" if band.graded else "uniform",
+        "sizing": band.sizing,
         "passes": best.passes,
         "turned_cells": best.turned,
         "source_band": band_numbers(
@@ -850,6 +1125,25 @@ def _rows_and_annulus(best: Candidate, start: int) -> tuple[list[list[int]], lis
     return faces, points, count * n + free
 
 
+def gap_shares(verts: np.ndarray, roots: dict[str, list[int]]) -> dict[str, float]:
+    """Return each root's share of the gap to its nearest other root: half the least distance.
+
+    The blades of a wheel are planned together: a band reaches no farther than its share, less
+    the layer of faces a hole takes beyond its width, so no band takes room the next needs and
+    none is shrunk to nothing by the bands planned before it. A lone root has no limit.
+    """
+    from scipy.spatial import cKDTree
+
+    shares = {}
+    for name, loop in roots.items():
+        others = [v for other, ids in roots.items() if other != name for v in ids]
+        if not others:
+            shares[name] = math.inf
+            continue
+        shares[name] = 0.5 * float(cKDTree(verts[others]).query(verts[loop])[0].min())
+    return shares
+
+
 def remesh_bands(
     source: ObjMesh, turned: ObjMesh, names: tuple[list[str], list[str]], stated: float | None
 ) -> tuple[Result, HubSurface, dict[str, dict[str, Any]]]:
@@ -865,6 +1159,7 @@ def remesh_bands(
     # The source hub closed under each blade's old root: a turned root uncovers part of the
     # footprint, and the band's nodes there need a surface to lie on.
     surface = HubSurface(source.verts, hub_faces + [f for foot in feet.values() for f in foot])
+    shares = gap_shares(source.verts, roots)
     gone: dict[str, set[int]] = {}
     built = Built([], {}, {})
     start, plans, numbers = len(source.verts), [], {}
@@ -873,7 +1168,7 @@ def remesh_bands(
         family = hub_family(source, hubs, loop, name, _REPITCH)
         banned = forbidden(source, family, name, gone.setdefault(family, set()))
         cell = root_edge_median(source, family, loop, _REPITCH)
-        root = Root(name, family, loop, cell, banned, feet[name])
+        root = Root(name, family, loop, cell, banned, feet[name], shares[name])
         bands, info = bands_tried(source, turned.verts, root, stated)
         best, table = best_candidate(source, turned.verts, bands, surface)
         gone[family] |= best.band.taken
@@ -889,4 +1184,24 @@ def remesh_bands(
         blade["faces_added"] = len(built.faces[name])
         blade["output_band"] = band_numbers(every, built.faces[name])
         blade["size_ratio"] = blade["output_band"]["mean_edge"] / blade["source_band"]["mean_edge"]
+        blade["target"] = _target_check(name, blade)
     return assemble(turned, plans, built), surface, numbers
+
+
+def _target_check(name: str, blade: dict[str, Any]) -> dict[str, Any]:
+    """Hold a blade's output band to its target; warn of a miss with its numbers."""
+    target = target_of(blade["source_band"])
+    out = blade["output_band"]
+    sj, aspect = out["min_scaled_jacobian"], out["max_aspect"]
+    met = sj >= target["least_scaled_jacobian"] and aspect <= target["largest_aspect"]
+    if not met:
+        warn(
+            f"repitch: blade {name!r}: the remeshed hub band misses its quality target: least "
+            f"scaled Jacobian {sj:.4f} against {target['least_scaled_jacobian']:.4f} (half the "
+            f"source band's), largest aspect {aspect:.4f} against "
+            f"{target['largest_aspect']:.4f} (twice the source band's), with "
+            f"{blade['held_rows']} rows of {blade['row_height']:.6g} in a band of "
+            f"{blade['band_width']:.6g}; the mesh is written",
+            PyflightstreamWarning,
+        )
+    return {**target, "met": bool(met)}
