@@ -266,8 +266,10 @@ Quality is warned with its numbers and the mesh is written; `checks.passed` is t
 `checks.warnings` lists every warning: folded hub cells (the count and the least scaled
 Jacobian beside the source's), reversed hub cells against the source (the count), moved
 non-root hub nodes off the source hub (below), and on the remesh route new cells folded or
-turned against the source hub and a new node beyond the source's chord deviation (the worst
-node and its distance).
+turned against the source hub, a new node beyond the source's chord deviation (the worst
+node and its distance), a band that misses its quality target and a new band worse than the
+source band it replaces (both with their numbers). `checks.passed` is false whenever
+`checks.warnings` is not empty.
 
 The printed checks and `<out>.repitch.json` include every moved hub node's
 zero-based index, shared-root status, distance to the finite source triangles in

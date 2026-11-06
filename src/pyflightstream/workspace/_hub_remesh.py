@@ -1220,20 +1220,26 @@ def remesh_bands(
     return assemble(turned, plans, built), surface, numbers
 
 
-def _target_check(name: str, blade: dict[str, Any]) -> dict[str, Any]:
-    """Hold a blade's output band to its target; warn of a miss with its numbers."""
+def target_miss(name: str, blade: dict[str, Any]) -> str | None:
+    """Return the sentence that states a blade's band missing its target, or None when met."""
     target = target_of(blade["source_band"])
     out = blade["output_band"]
     sj, aspect = out["min_scaled_jacobian"], out["max_aspect"]
-    met = sj >= target["least_scaled_jacobian"] and aspect <= target["largest_aspect"]
-    if not met:
-        warn(
-            f"repitch: blade {name!r}: the remeshed hub band misses its quality target: least "
-            f"scaled Jacobian {sj:.4f} against {target['least_scaled_jacobian']:.4f} (half the "
-            f"source band's), largest aspect {aspect:.4f} against "
-            f"{target['largest_aspect']:.4f} (twice the source band's), with "
-            f"{blade['held_rows']} rows of {blade['row_height']:.6g} in a band of "
-            f"{blade['band_width']:.6g}; the mesh is written",
-            PyflightstreamWarning,
-        )
-    return {**target, "met": bool(met)}
+    if sj >= target["least_scaled_jacobian"] and aspect <= target["largest_aspect"]:
+        return None
+    return (
+        f"blade {name!r}: the remeshed hub band misses its quality target: least "
+        f"scaled Jacobian {sj:.4f} against {target['least_scaled_jacobian']:.4f} (half the "
+        f"source band's), largest aspect {aspect:.4f} against "
+        f"{target['largest_aspect']:.4f} (twice the source band's), with "
+        f"{blade['held_rows']} rows of {blade['row_height']:.6g} in a band of "
+        f"{blade['band_width']:.6g}"
+    )
+
+
+def _target_check(name: str, blade: dict[str, Any]) -> dict[str, Any]:
+    """Hold a blade's output band to its target; warn of a miss with its numbers."""
+    miss = target_miss(name, blade)
+    if miss is not None:
+        warn(f"repitch: {miss}; the mesh is written", PyflightstreamWarning)
+    return {**target_of(blade["source_band"]), "met": miss is None}

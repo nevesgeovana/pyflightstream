@@ -44,6 +44,7 @@ from pyflightstream.workspace._hub_remesh import (
     kept_edges,
     new_by_old,
     remesh_bands,
+    target_miss,
     written_blocks,
 )
 from pyflightstream.workspace._pitch_axis import pitch_axes
@@ -702,6 +703,8 @@ def _remesh(
     notes = _band_notes(report["hub_remesh"])
     for sentence in notes:
         warn(f"repitch: {sentence}", PyflightstreamWarning)
+    # A band that misses its target was warned as it was kept; it is listed with the others.
+    found += [s for n, b in report["hub_remesh"].items() if (s := target_miss(n, b)) is not None]
     report["hub"] = {
         name: {
             "source_cells": len(source.families[name]),
@@ -713,7 +716,7 @@ def _remesh(
     }
     hub_out = [f for n in hubs for f in out.families[n]]
     report["checks"] = {
-        "passed": not found,
+        "passed": not (found + notes),
         "warnings": found + notes,
         "non_manifold_edges": manifold["edges_over_two_faces"],
         "open_edges": manifold["open_edges"],

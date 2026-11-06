@@ -438,3 +438,22 @@ def test_p0560_r1_morph_004_the_how_to_states_the_band_target_the_code_keeps():
     }
     assert "half the source band's" in section and "at most twice the source band's" in section
     assert "the highest least scaled Jacobian" not in section
+
+
+@pytest.mark.requirement("FR-3681")
+def test_p0560_r1_morph_006_a_missed_band_target_is_listed_and_fails_passed(tmp_path, monkeypatch):
+    """P0560-R1-MORPH-006: a target no band meets is in checks.warnings; passed is false."""
+    from pyflightstream.workspace import _hub_remesh
+
+    def unreachable(source_band):
+        return {"least_scaled_jacobian": 2.0, "largest_aspect": 0.5}
+
+    monkeypatch.setattr(_hub_remesh, "target_of", unreachable)
+    source = build(tmp_path)
+    text = REPITCH.format(angle=2.0, point=STATION) + 'hub_method = "remesh"\n'
+    cfg = control(tmp_path, text)
+    out = tmp_path / "missed.obj"
+    assert _quiet_invoke("repitch", source, cfg, out) == 0
+    checks = record(out, "repitch")["checks"]
+    assert any("misses its quality target" in w for w in checks["warnings"])
+    assert checks["passed"] is False
