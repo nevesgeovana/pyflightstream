@@ -44,7 +44,9 @@ FlightStream versions.
   the hub and a new node beyond the source's chord deviation are warned with their numbers
   (the count, the least scaled Jacobian, the worst node and its distance), the mesh is written,
   and `checks.passed` in the record is false with `checks.warnings` listing them. Broken input
-  and broken invariants still refuse.
+  and broken invariants still refuse. `geometry collapse-te`, alone and inside `geometry
+  morph`, warns of a face its merge turns over (count, worst cosine, place) and writes the
+  mesh instead of refusing.
 - `geometry repitch` on a hub without two complete quad rings around a root now remeshes the
   hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
   the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,

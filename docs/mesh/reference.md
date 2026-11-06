@@ -115,11 +115,14 @@ blade has one
 trailing-edge line with as many nodes as one rim, every edge of it shared by two faces; no
 open edge appears or disappears except the removed rungs and no edge gains a third face;
 the nodes away from the edge keep their text and order, and the faces away from it their
-order and node order; no face near the edge is turned over; each merged node is exactly at
+order and node order; each merged node is exactly at
 the midpoint of its pair; the written bytes read back as the mesh in memory; and the written
-boundaries file reads back through the declaration reader. The total
-area against the source minus the strip and the smallest cosine between the normals before
-and after are reported. `<out>.collapse.json` also holds the digests of source and output.
+boundaries file reads back through the declaration reader. A face near the edge that the merge
+turns over (its normal against the source's) is quality, not a refusal: it is warned with the
+count, the worst cosine and the family, face and place of the worst, the mesh is written,
+`checks.passed` is false and `checks.warnings` lists it, inside `geometry morph` as alone. The
+total area against the source minus the strip, the smallest cosine between the normals before
+and after and `turned_faces` are reported. `<out>.collapse.json` also holds the digests of source and output.
 
 ## Repitch control
 
