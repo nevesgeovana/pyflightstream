@@ -24,7 +24,11 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.workspace._gmsh import IMPORT_UNIT, import_iges, import_named, session
-from pyflightstream.workspace._iges_names import name_faces, read_iges_names
+from pyflightstream.workspace._iges_names import (
+    flag_curves_on_surfaces,
+    name_faces,
+    read_iges_names,
+)
 
 __all__ = ["convert_iges"]
 
@@ -100,8 +104,10 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
                     "can carry its name. Nothing was written.",
                     kind="geometry",
                 )
-            staged = Path(folder) / "named.igs"
-            name_faces(raw, staged, model.names, unit=model.unit)
+            named = Path(folder) / "named.igs"
+            name_faces(raw, named, model.names, unit=model.unit)
+            # The solver's CAD import reads the parameter-space flags the writer leaves wrong.
+            staged = flag_curves_on_surfaces(named, Path(folder) / "flagged.igs")
             again = read_iges_names(staged)
             if list(again.faces) != model.names:
                 raise InputArtifactError(
