@@ -21,6 +21,7 @@ EXTRAS: dict[str, tuple[str, ...]] = {
     "excel": ("XlsxWriter",),
     "fsi": ("PyNiteFEA",),
     "manual": ("pypdf",),
+    "gmsh": ("gmsh",),
 }
 
 
