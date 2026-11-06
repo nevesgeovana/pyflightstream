@@ -76,7 +76,6 @@ FlightStream versions.
   hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
   the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,
   naming the order repitch, then collapse-te.
-
 - The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn

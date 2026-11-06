@@ -572,3 +572,18 @@ def test_p0560_r1_mark_009_the_merge_refusal_lists_the_measured_builds_once(tmp_
     with pytest.raises(InputArtifactError) as caught:
         plan_mark_boundaries(wheel)
     assert "measured on FlightStream 26.124, 26.125 and 26.127 only" in str(caught.value)
+
+
+def test_p0560_r1_mark_010_no_blank_line_splits_an_unreleased_changelog_list() -> None:
+    """R1-MARK-010: a blank line between two items of one section split its list in two."""
+    text = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    lines = unreleased.splitlines()
+    split = [
+        number
+        for number in range(1, len(lines) - 1)
+        if not lines[number].strip()
+        and lines[number + 1].startswith("- ")
+        and lines[number - 1].startswith(("- ", "  "))
+    ]
+    assert not split, [lines[number + 1][:60] for number in split]
