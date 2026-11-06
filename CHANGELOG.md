@@ -76,11 +76,21 @@ FlightStream versions.
   hub around it (`hub_method = "auto"`) instead of refusing; state `hub_method = "rings"` for
   the refusal. A root with the closure triangle of a collapsed trailing edge still refuses,
   naming the order repitch, then collapse-te.
-
 - The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn
   the check on as a reference with several blades does.
+- `geometry mark-boundaries` on FlightStream 26.127 imports a trailing-edge file one connected
+  run of edges at a time, so the two sides of a blunt trailing edge declared in one file are two
+  trailing-edge groups, as in a sector the solver saved, where one import made one group of
+  both; the edges marked are the same, and the read-back expects one group per run. On that
+  build every base region is created before the first wake-edge import, then every
+  trailing-edge entry and rim file is imported and the `auto` rims follow: a wake-edge import
+  placed before the first create was lost when the solver saved.
+- `geometry mark-boundaries` warns, naming both, when two declarations (two entries, or an
+  entry and a base region's rim) name the same edges, since a saved edge belongs to one group;
+  the pass is still planned. On 26.124, 26.125 and 26.127 the read-back of missing edges no
+  longer blames a second import replacing the first, which the marking probes there disprove.
 - `pyfs-workspace geometry build --apply` runs a `[mesh]` build with no operation on 26.100 and
   on 26.124 to 26.127: `EXPORT_SURFACE_MESH` is verified on those builds by a new probe that
   reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the
@@ -97,9 +107,13 @@ FlightStream versions.
 
 ### Fixed
 
-- Saved simulations written by FlightStream 26.127 are read again: that build writes the three
+- Saved simulations written by FlightStream 26.127 are read: that build writes the three
   per-face edge rows of the mesh block as integers (0, or the trailing-edge group's number) where
-  earlier builds wrote T/F, and the reader refused every such file.
+  earlier builds wrote T/F, and the reader refused every such file. The saved routes of
+  `geometry sector-to-wheel`, `geometry sector-remesh`, `geometry power-off-body` and
+  `geometry repitch` read such a sector and write their output in that form, each trailing edge
+  naming its rim face's group (a copy's own group in a wheel), where they warned the layout as
+  not recognized and wrote nothing.
 - `geometry repitch` keeps the face order of an OBJ whose family returns after another; it wrote one
   block for each family, which moved faces with exit status 0 (PFS-2194).
 - `geometry repitch` with a `[repitch]` reference whose rotor states no `axis` is refused in words

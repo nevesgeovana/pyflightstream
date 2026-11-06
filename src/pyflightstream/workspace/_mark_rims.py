@@ -224,6 +224,43 @@ def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray]
     return rims, midpoints[cross]
 
 
+def rim_runs(points: Any, mesh: Path, mesh_unit: str) -> list[np.ndarray]:
+    """Part the mid-points of one file by the connected run of mesh edges they name.
+
+    Each run is one rim: the two sides of a blunt trailing edge are two runs, a sharp edge or a
+    closed ring one. The points keep the file's order inside each run, and the runs follow the
+    order of their first point. Unlike :func:`rim_edges`, nothing is parted for cross edges: an
+    edge the file names that joins two rims makes them one run.
+
+    Parameters
+    ----------
+    points : array_like
+        The (n, 3) mid-points in metres.
+    mesh : Path
+        The OBJ the mid-points name edges of.
+    mesh_unit : str
+        The unit of the OBJ's coordinates.
+
+    Returns
+    -------
+    list of numpy.ndarray
+        Per run an (m, 3) array of the file's mid-points, in metres.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    vertices, edges = mesh_edge_table(mesh)
+    vertices = vertices * length_scale(mesh_unit, "METER")
+    midpoints = (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
+    placed = np.asarray(points, dtype=float).reshape(-1, 3)
+    ends = edges[nearest_candidates(placed, midpoints)[0]]
+    size = len(vertices)
+    graph = coo_matrix((np.ones(len(ends)), (ends[:, 0], ends[:, 1])), shape=(size, size))
+    _, label = connected_components(graph, directed=False)
+    run = label[ends[:, 0]]
+    return [placed[run == value] for value in dict.fromkeys(run.tolist())]
+
+
 def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, int]:
     """Count, per entry label, the saved trailing edges that join two rims of that entry.
 

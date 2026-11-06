@@ -534,6 +534,14 @@ documents, and `--apply` stays refused, naming them, until a probe on 26.100 has
 Setting `MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
 `pyfs-workspace geometry sector-to-wheel` on a saved sector and write nothing.
 
+**FlightStream 26.127.** Each `IMPORT_WAKE_EDGES_FROM_FILE` is one trailing-edge group there,
+so a file whose edges form several connected runs, such as the two sides of a blunt trailing
+edge, is imported one run at a time: one group per rim, the groups a sector saved by the solver
+holds, with the same edges marked. The read-back expects one group per run. Unlike 26.100,
+every base region is created first, then every trailing-edge entry and every base region's rim
+file is imported, and the `auto` rims follow: on that build a wake-edge import placed before the
+first `CREATE_NEW_BASE_REGION` is reported imported and lost when the simulation is saved.
+
 A long preview reports each stage on standard error (reading, matching and placing each entry,
 rendering), so a fine mesh is not silent.
 
@@ -648,7 +656,10 @@ after the base-region model codes, and the wheel keeps them unchanged, comparing
 row it copies with the sector's and writing nothing if one differs. A base region or trailing-edge group
 named for no boundary, as a sector marked with `merge_into` holds, follows the
 boundary its faces lie on: on a blade it is repeated, its copies named
-`<stem><k>`, and elsewhere it stays single. A file whose layout the reader does
+`<stem><k>`, and elsewhere it stays single. A save of FlightStream 26.127 holds the
+three per-face trailing-edge rows as integers, 0 or the rim face's trailing-edge group,
+where earlier builds hold T/F; the wheel keeps that form, each copy's edges naming the
+copy's own group. A file whose layout the reader does
 not recognize (a name in the physics block with no face in the mesh, or with
 faces both on a blade and off it, two names whose copies would be named alike,
 a row of another length, a termination count that differs) is warned with the

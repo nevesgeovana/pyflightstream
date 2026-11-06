@@ -29,7 +29,7 @@ import numpy
 from numpy.typing import NDArray
 
 from pyflightstream.workspace._wheel import azimuth_range
-from pyflightstream.workspace._wheel_fsm import _parse, _UnrecognizedError
+from pyflightstream.workspace._wheel_fsm import _parse, _UnrecognizedError, edge_flags
 
 __all__ = ["Frame", "Sector", "TopologyNotFoundError", "read_sector"]
 
@@ -124,9 +124,11 @@ class Sector:
         return numpy.unique(self.tri[mask])
 
     def flag(self, slot: int) -> NDArray[numpy.bool_]:
-        """Return which faces carry the trailing-edge flag of an edge slot (rows 21 to 23)."""
-        row = self.parsed.mesh["rows"][21 + slot]
-        return numpy.array([c == "T" for c in row], dtype=bool)
+        """Return which faces carry the trailing-edge flag of an edge slot (rows 21 to 23).
+
+        The T/F rows and the integer rows of a sector saved by 26.127 give the same flags.
+        """
+        return edge_flags(self.parsed.mesh, slot)
 
 
 def _need(ok: bool, what: str) -> None:

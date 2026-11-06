@@ -14,7 +14,8 @@ blade, and each row is stated where it is used:
   on a rim face), 6 to 8 and 13 to 19 values copied unchanged, 9 the edge shared with the
   partner face, 10 the partner face (0 for none), 11 the boundary the face belongs to, 12 the
   kind (1 a rim face, 3 a base face, 0 any other), and 20 to 24 the five T/F rows whose
-  rows 21 to 23 flag the trailing edge per edge slot;
+  rows 21 to 23 flag the trailing edge per edge slot (FlightStream 26.127 writes those three
+  as integers, 0 or the rim face's group, which each copy writes as its own group);
 * after the rows come ``0``, the node count and the x, y and z rows, then the wake termination
   as a count and three rows (face, vertex slot of that face, trailing-edge group);
 * the physics block holds, after three header values, the base regions (count, names, a flag
@@ -82,6 +83,8 @@ from pyflightstream.workspace._wheel import (
 __all__ = ["sector_fsm_to_wheel"]
 
 _ROWS = 25
+_EDGE_ROWS = (21, 22, 23)
+"""The edge-slot rows: T/F up to 26.125, integers on 26.127 (0, or the rim face's group)."""
 _HEAD = re.compile(r"^(\d+),\s*([TF]),\s*([TF]),\s*([TF])$")
 
 
@@ -101,6 +104,34 @@ def _flag_row(values: Any) -> str:
     return "".join(f" {v}," for v in values)
 
 
+def edge_flags(mesh: dict[str, Any], slot: int) -> NDArray[numpy.bool_]:
+    """Return which faces flag the trailing edge of an edge slot (0 to 2), in either form.
+
+    The T/F rows of 26.125 and earlier and the integer rows of 26.127 (0, or the rim face's
+    group) give the same flags.
+    """
+    k = _EDGE_ROWS[slot]
+    if k in mesh["ints"]:
+        return numpy.asarray(mesh["ints"][k] != 0, dtype=bool)
+    return numpy.array([c == "T" for c in mesh["rows"][k]], dtype=bool)
+
+
+def edge_rows(template: list[list[str]], slots: Any, groups: Any) -> list[str]:
+    """Return the three edge-slot rows of faces whose flagged slot is ``slots`` (None for none).
+
+    The form is the template's: T/F, or, where the source was saved by 26.127, the face's
+    trailing-edge group (``groups``) on its flagged slot and 0 elsewhere.
+    """
+    integer = template[_EDGE_ROWS[0]][0] not in ("T", "F")
+    rows = []
+    for k in range(3):
+        if integer:
+            rows.append(_int_row([g if s == k else 0 for s, g in zip(slots, groups, strict=True)]))
+        else:
+            rows.append(_flag_row(["T" if s == k else "F" for s in slots]))
+    return rows
+
+
 def _real_row(values: Any) -> str:
     return "".join(format(v, " .17E") + "," for v in values)
 
@@ -118,7 +149,13 @@ def _need(ok: bool, what: str) -> None:
 
 
 def _mesh(lines: list[str]) -> dict[str, Any]:
-    """Read the mesh block by its own counts and refuse any row out of the layout."""
+    """Read the mesh block by its own counts and refuse any row out of the layout.
+
+    FlightStream 26.127 saves the three edge-slot rows (21 to 23) as integers, 0 for no
+    trailing edge and the group's number for one (:func:`pyflightstream._fsm._mesh_block`).
+    They are kept as read, in ``rows`` and as integers in ``ints``; every reader and writer of
+    those rows takes either form (:func:`edge_flags`, :func:`edge_rows`).
+    """
     start, end = _at(lines, "$MESH_START$"), _at(lines, "$MESH_END$")
     faces, nb = int(lines[start + 1]), int(lines[start + 3])
     heads = []
@@ -137,9 +174,14 @@ def _mesh(lines: list[str]) -> dict[str, Any]:
     ints = {}
     for k, row in enumerate(rows):
         flag = row[0] in ("T", "F")
-        _need(flag == (k >= 20), f"row {k} is not {'a T/F row' if k >= 20 else 'integers'}")
+        if k not in _EDGE_ROWS or flag:
+            _need(flag == (k >= 20), f"row {k} is not {'a T/F row' if k >= 20 else 'integers'}")
         if not flag:
             ints[k] = numpy.array([int(x) for x in row], dtype=numpy.int64)
+    _need(
+        len({k in ints for k in _EDGE_ROWS}) == 1,
+        "the three edge-slot rows are not all T/F or all integers",
+    )
     i = first + _ROWS
     _need(lines[i].strip() == "0", "the line after the 25 rows is not 0")
     nodes = int(lines[i + 1])
@@ -299,7 +341,12 @@ class _Parsed:
 
 
 def _parse(text: str) -> _Parsed:
-    """Read the sector's mesh and physics blocks, refusing (as unrecognized) any deviation."""
+    """Read the sector's mesh and physics blocks, refusing (as unrecognized) any deviation.
+
+    The integer edge-slot rows of 26.127 (see :func:`_mesh`) are read with each nonzero value
+    held to be the trailing-edge group of its rim face, the one meaning a writer can renumber;
+    any other value is not guessed at.
+    """
     newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.split(newline)
     mesh, phys = _mesh(lines), _physics(lines)
@@ -321,6 +368,12 @@ def _parse(text: str) -> _Parsed:
     ):
         picked = group[kind == value]
         _need(bool(((picked >= 1) & (picked <= size)).all()), f"a {what} face names no group")
+    for k in _EDGE_ROWS if _EDGE_ROWS[0] in ints else ():
+        on = ints[k] != 0
+        _need(
+            bool((kind[on] == 1).all() and (ints[k][on] == group[on]).all()),
+            f"an integer edge flag of row {k} is not the trailing-edge group of its rim face",
+        )
     _in_block(mesh, ints, len(phys["te_names"]))
     return _Parsed(lines, newline, mesh, phys, _held_by(mesh, phys, names))
 
@@ -449,7 +502,10 @@ def _face_rows(parsed: _Parsed, maps: _Maps, opts: Options) -> list[str]:
             boundary[owner == b] = maps.position[(b, c)]
         out[11].append(boundary)
         for k in ints:
-            if k not in (0, 2, 3, 4, 5, 10, 11):
+            if k in _EDGE_ROWS:
+                # 26.127: a flagged edge names its rim face's group, so the copy's group
+                out[k].append(numpy.where(ints[k] != 0, grown, 0))
+            elif k not in (0, 2, 3, 4, 5, 10, 11):
                 out[k].append(ints[k])
     return [
         _int_row(numpy.concatenate(out[k])) if k in ints else _flag_row(rows[k] * n)

@@ -7,6 +7,47 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.56.0
+
+`geometry repitch` now keeps the face order of an OBJ whose family returns after another
+family. 0.55.1 wrote one block for each family there and moved faces with exit status 0;
+results depend on face order, so run `repitch` again on such a source and rerun what used
+its output.
+
+The boundaries file `repitch` wrote beside an OBJ in 0.55.1 does not read back. Run
+`pyfs-workspace geometry inventory <out.obj> --refresh` on it, or run `repitch` again to a
+new `--out`; an output with a space in a family name needs the second.
+
+`[repitch] hub_method` defaults to `"auto"`: a hub without two complete quad rings around a
+root is remeshed around it where 0.55.1 refused. State `hub_method = "rings"` to keep the
+refusal. A `[repitch]` table written for 0.55.1 otherwise reads and turns as before.
+
+Mesh quality no longer stops `geometry repitch` or `geometry hub-rings`, and a face that
+`geometry collapse-te` turns over no longer stops it: the mesh is written, the warning gives
+the numbers, and the record's `checks.passed` is false with `checks.warnings` listing them. A
+script that relied on exit status 2 and no file now reads `checks.passed`. Broken input and
+broken invariants still refuse. The periodicity check of `repitch` reads the blades and the
+hub only and warns where the source's blades and hub were not periodic either; the ring route
+refuses an edge over two faces only at a node it moves.
+
+`geometry mark-boundaries` marks explicit wake-termination nodes together with `merge_into`
+on FlightStream 26.124, 26.125 and 26.127. On another build that pair is still refused, in
+new words that name the measured builds.
+
+`geometry power-off-body` on a sector marked with `merge_into` writes the body, with a warning
+naming the merged families, where 0.55.1 wrote nothing and exited 2.
+
+`geometry sector-to-wheel` states `wake_terminations`, `"carried"` or `"dropped"`, in
+`<out>.wheel.json`. The OBJ route carries a sector's wake terminations by default, as before;
+`--no-wake-terminations` drops them.
+
+Saved simulations of FlightStream 26.127 are read by the saved-simulation readers and by the
+saved routes of `sector-to-wheel`, `sector-remesh`, `power-off-body` and `repitch`, which write
+their outputs in that build's form.
+
+`geometry iges-grid` and `geometry iges-convert` need the optional extra:
+`pip install "pyflightstream[gmsh]"`. The base install is unchanged.
+
 ## 0.55.1
 
 Planning now refuses a full wheel whose `families_blades` list disagrees with

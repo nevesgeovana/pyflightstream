@@ -158,12 +158,42 @@ def saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build:
         if found < len(entry["points_m"]):
             missing.append(entry["file"])
     if missing:
-        return RunStatus.FAILED_SCRIPT, (
+        head = (
             f"the saved simulation marks {present} of {total} trailing-edge points; the edges of "
-            f"{', '.join(missing)} are missing, which is what a second wake-edge import replacing "
-            f"the first would leave (unmeasured on {build}, PFS-2149.01)"
+            f"{', '.join(missing)} are missing"
+        )
+        report = SECOND_IMPORT_ADDS_A_GROUP.get(_canonical_build(build) or "")
+        if report is None:
+            return RunStatus.FAILED_SCRIPT, (
+                f"{head}, which is what a second wake-edge import replacing the first would "
+                f"leave (unmeasured on {build}, PFS-2149.01)"
+            )
+        return RunStatus.FAILED_SCRIPT, (
+            f"{head}. On FlightStream {build} a second wake-edge import adds a group and keeps "
+            f"the first ({report}), so the solver did not keep those edges: compare the edges "
+            "the solver log reports imported with the file, and look for an edge two "
+            "declarations name or, on 26.127, an import before the first CREATE_NEW_BASE_REGION"
         )
     return None
+
+
+#: Builds whose marking probe imported a second wake-edge file and saved both groups, the first
+#: kept (the IMPORT_WAKE_EDGES_FROM_FILE observation, groups ["Rim", "Rim"], of each report).
+SECOND_IMPORT_ADDS_A_GROUP: dict[str, str] = {
+    "26.124": "reports/compat/CMP-26124_2026-10-26_marking.yaml",
+    "26.125": "reports/compat/CMP-26125_2026-10-26_marking.yaml",
+    "26.127": "reports/compat/CMP-26127_2026-11-06_marking.yaml",
+}
+
+
+def _canonical_build(build: str) -> str | None:
+    """Return the registered build ``build`` names, or None where it names none or several."""
+    from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
+
+    try:
+        return resolve(build).canonical
+    except (AmbiguousVersionAliasError, UnknownVersionError):
+        return None
 
 
 def tolerance_unit() -> str:

@@ -23,6 +23,7 @@ from pyflightstream._errors import (
     NotApplicableWarning,
     PyflightstreamWarning,
 )
+from pyflightstream._fsm import trailing_edge_midpoints
 from pyflightstream.workspace import plan_mark_boundaries
 from pyflightstream.workspace._wheel import sector_to_wheel
 from tests.tier1_offline.test_p0540_wheel import (
@@ -266,3 +267,323 @@ def test_p0560_a_nacelle_base_under_another_boundary_s_name_is_not_guessed(tmp_p
     words = " ".join(str(item.message) for item in caught)
     assert not result.written and not (tmp_path / "body.fsm").exists()
     assert "base region of the nacelle 'N'" in words and "0 such names" in words
+
+
+# R1-MARK-001: a sector saved by FlightStream 26.127 holds the three edge-slot rows of the mesh
+# block as integers, 0 for no trailing edge and the trailing-edge group's number for one
+# (FR-3764). The saved route read only T/F rows there, so it warned the layout as not
+# recognized and wrote no wheel.
+EDGE_ROWS = (21, 22, 23)
+
+
+def _first_row(lines: list[str]) -> int:
+    start = lines.index("$MESH_START$")
+    return start + 4 + 3 * int(lines[start + 3]) + 1
+
+
+def _cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.split(",") if cell.strip()]
+
+
+def _as_26127(sector: Path, out: Path, *, value: int | None = None) -> Path:
+    """Rewrite the edge-slot rows as 26.127 saves them: T as the face's group (row 5), F as 0."""
+    lines = sector.read_text().split("\n")
+    first = _first_row(lines)
+    group = [int(v) for v in _cells(lines[first + 5])]
+    for k in EDGE_ROWS:
+        flags = _cells(lines[first + k])
+        lines[first + k] = "".join(
+            f"{(group[i] if value is None else value) if f == 'T' else 0},"
+            for i, f in enumerate(flags)
+        )
+    out.write_text("\n".join(lines))
+    return out
+
+
+def _mesh_rows(path: Path) -> dict[int, list[str]]:
+    lines = path.read_text().split("\n")
+    first = _first_row(lines)
+    return {k: _cells(lines[first + k]) for k in range(25)}
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_001_the_saved_route_repeats_a_26127_sector_with_each_copy_s_groups(
+    tmp_path: Path,
+) -> None:
+    sector = build_saved_sector(tmp_path, build_sector(tmp_path, copies=COPIES))
+    saved = _as_26127(sector, tmp_path / "sector_26127.fsm")
+    out = tmp_path / "wheel.fsm"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = sector_to_wheel(saved, copies=COPIES, blades=["Blade1"], axis="x", out=out)
+    assert not [w for w in caught if "not recognized" in str(w.message)]
+    assert result.written
+    plain = tmp_path / "plain_wheel.fsm"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sector_to_wheel(sector, copies=COPIES, blades=["Blade1"], axis="x", out=plain)
+    # the trailing edges of the wheel of the same sector saved with T/F rows
+    assert trailing_edge_midpoints(out) == trailing_edge_midpoints(plain)
+    rows, flags = _mesh_rows(out), _mesh_rows(plain)
+    group = np.array([int(v) for v in rows[5]])
+    named: set[int] = set()
+    for k in EDGE_ROWS:
+        written = np.array([int(v) for v in rows[k]])
+        marked = np.array([f == "T" for f in flags[k]])
+        # the integer form is kept, and each flagged edge names its own copy's group
+        assert (written[marked] == group[marked]).all()
+        assert (written[~marked] == 0).all()
+        named |= set(written[marked].tolist())
+    # every copy's rim groups, not the sector's repeated: two blade rims per copy and the nacelle
+    assert len(named) == 2 * COPIES + 1
+    assert set(rows[20]) <= {"T", "F"} and set(rows[24]) <= {"T", "F"}
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_001_an_integer_edge_flag_that_is_not_its_face_s_group_is_not_guessed(
+    tmp_path: Path,
+) -> None:
+    """An integer that is not the rim face's group has no measured meaning: warned, no wheel."""
+    sector = build_saved_sector(tmp_path, build_sector(tmp_path, copies=COPIES))
+    odd = _as_26127(sector, tmp_path / "odd.fsm", value=7)
+    out = tmp_path / "odd_wheel.fsm"
+    with pytest.warns(PyflightstreamWarning, match="not recognized"):
+        result = sector_to_wheel(odd, copies=COPIES, blades=["Blade1"], axis="x", out=out)
+    assert not result.written and not out.exists()
+
+
+def _same_edges_in_the_26127_form(written: Path, plain: Path) -> None:
+    """The 26.127 output marks the plain output's trailing edges, in the integer form."""
+    assert trailing_edge_midpoints(written) == trailing_edge_midpoints(plain)
+    assert len(trailing_edge_midpoints(written)) > 0
+    rows, flags = _mesh_rows(written), _mesh_rows(plain)
+    group = np.array([int(v) for v in rows[5]])
+    for k in EDGE_ROWS:
+        values = np.array([int(v) for v in rows[k]])
+        marked = np.array([f == "T" for f in flags[k]])
+        assert (values[marked] == group[marked]).all() and (values[~marked] == 0).all()
+
+
+@pytest.mark.requirement("FR-3764")
+def test_p0560_r1_mark_004_the_saved_sector_verbs_read_and_write_a_26127_sector(
+    tmp_path: Path,
+) -> None:
+    """R1-MARK-004: sector-remesh, power-off-body and repitch read the flags of a sector saved
+    by 26.127 and write its integer form, where they warned it as not recognized and wrote
+    nothing; each output marks the trailing edges of the same verb's output on the T/F sector."""
+    from pyflightstream.workspace import sector_remesh
+    from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
+    from tests.tier1_offline.test_p0551_repitch import control, invoke
+
+    source = build_blunt_sector(tmp_path)
+    saved = _as_26127(source, tmp_path / "blunt_26127.fsm")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        remesh = sector_remesh(saved, blades=["Blade1"], out=tmp_path / "r127.fsm", **ARGS)
+        plain = sector_remesh(source, blades=["Blade1"], out=tmp_path / "r.fsm", **ARGS)
+        body = _body(saved, tmp_path / "b127.fsm")
+        plain_body = _body(source, tmp_path / "b.fsm")
+    assert remesh.written and plain.written and body.written and plain_body.written
+    _same_edges_in_the_26127_form(tmp_path / "r127.fsm", tmp_path / "r.fsm")
+    _same_edges_in_the_26127_form(tmp_path / "b127.fsm", tmp_path / "b.fsm")
+
+    config = control(tmp_path, 0.0, hub="S")
+    config.write_text(
+        config.read_text()
+        .replace("0.0, 0.0, 1.0", "0.0, 1.0, 0.0")
+        .replace("origin = [0.0,", "origin = [0.65,")
+    )
+    out = tmp_path / "pitched127.fsm"
+    assert invoke(tmp_path / "r127.fsm", config, out) == 0
+    before, after = _mesh_rows(tmp_path / "r127.fsm"), _mesh_rows(out)
+    assert all(before[k] == after[k] for k in EDGE_ROWS)
+
+
+def test_p0560_r1_mark_002_the_upgrading_notes_say_what_changed_since_0551() -> None:
+    """R1-MARK-002: the release changed behaviour a 0.55.1 user meets (a moved face order, an
+    unreadable repitch sidecar, hub_method's default, quality warned instead of refused, marking
+    across a merge, the body of a marked nacelle, the wheel record, 26.127 saves, the gmsh
+    extra) and docs/upgrading.md had no section for it."""
+    page = (Path(__file__).resolve().parents[2] / "docs" / "upgrading.md").read_text(
+        encoding="utf-8"
+    )
+    assert "\n## 0.56.0\n" in page
+    section = page.split("\n## 0.56.0\n", 1)[1].split("\n## ", 1)[0]
+    for words in (
+        "face order",
+        "--refresh",
+        'hub_method = "rings"',
+        "checks.passed",
+        "merge_into",
+        "power-off-body",
+        "wake_terminations",
+        "26.127",
+        'pip install "pyflightstream[gmsh]"',
+    ):
+        assert words in section, words
+    assert page.index("\n## 0.56.0\n") < page.index("\n## 0.55.1\n")
+
+
+def _two_rim_wheel(folder: Path, build: str) -> Path:
+    """The wheel of the sector whose blunt blade rims come two to one file, as a sector the
+    solver saved and converted declares them; return the wheel's OBJ."""
+    built = build_sector(folder, copies=COPIES, separate_base=True)
+    rows = [
+        line
+        for name in ("sector.TE_a.te.txt", "sector.TE_b.te.txt")
+        for line in (folder / name).read_text(encoding="utf-8").splitlines()[1:]
+        if line.strip()
+    ]
+    (folder / "sector.TE.te.txt").write_text("\n".join(["METER", *rows]) + "\n", encoding="utf-8")
+    sidecar = folder / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    assert text.count(RIM + OTHER_RIM) == 1
+    one = '[trailing_edges.TE]\nfile = "sector.TE.te.txt"\ntype = "STANDARD"\n'
+    text = text.replace(RIM + OTHER_RIM, one).replace('"26.124"', f'"{build}"')
+    sidecar.write_text(text, encoding="utf-8")
+    wheel = folder / "wheel.obj"
+    wheel_of(built, wheel)
+    return wheel
+
+
+@pytest.mark.parametrize(("build", "per_file"), [("26.125", 1), ("26.127", 2)])
+def test_p0560_r1_mark_s2_a_file_of_two_rims_is_one_group_per_rim_on_26127(
+    tmp_path: Path, build: str, per_file: int
+) -> None:
+    """R1-MARK-S2: on 26.127 one import is one trailing-edge group, so a file holding both
+    rims of a blunt edge is imported one rim at a time: the groups the saved route copies, the
+    same edges. 26.125 keeps one import per file."""
+    wheel = _two_rim_wheel(tmp_path, build)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_mark_boundaries(wheel)
+    imports = [line for line in plan.script.splitlines() if line.startswith("IMPORT_WAKE_EDGES")]
+    # one file per blade copy and the nacelle's rim
+    assert len(imports) == COPIES * per_file + 1
+    labels = [entry.label for entry in plan.declarations.trailing_edges]
+    spans = plan.group_spans()
+    blades = [spans[i][1] for i, label in enumerate(labels) if label.startswith("TE_")]
+    assert blades == [per_file] * COPIES
+    # the rim files of one entry hold, together, every point of the entry once
+    for entry in plan.sets:
+        if not entry["label"].startswith("TE_"):
+            continue
+        number = plan.sets.index(entry) + 1
+        stems = (f"edges-{number}", *(f"edges-{number}-{k}" for k in range(1, per_file + 1)))
+        names = [n for n in plan.pending if Path(n).stem in stems]
+        rows = [
+            row
+            for name in names
+            for row in plan.pending[name].decode("utf-8").splitlines()[2:]
+            if row.strip()
+        ]
+        assert len(names) == per_file
+        assert len(rows) == len(set(rows)) == len(entry["points_m"])
+
+
+NACELLE_RIM = '[trailing_edges.N]\nfile = "sector.N.te.txt"\ntype = "STANDARD"\n'
+NACELLE_BASE = '[base_regions.NBase]\ntrailing_edges = "auto"\n'
+
+
+@pytest.mark.requirement("FR-3765")
+@pytest.mark.parametrize("build", ["26.125", "26.127"])
+def test_p0560_r1_mark_s3_every_base_is_created_before_the_first_import_on_26127(
+    tmp_path: Path, build: str
+) -> None:
+    """R1-MARK-S3: on 26.127 every wake-edge import placed before the first
+    CREATE_NEW_BASE_REGION was lost at the save and every one after the creates survived
+    (receipt 0.56.0/receipts/wheel-routes-0550.json, marked_counts_b67210f0b). So every base is
+    created first, then every entry and file rim is imported, then the ``auto`` rims; 26.125
+    keeps create, rim."""
+    built = build_sector(tmp_path, copies=COPIES, separate_base=True)
+    sidecar = tmp_path / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    assert text.count(NACELLE_RIM) == 1 and text.count(NACELLE_BASE) == 1
+    text = text.replace(NACELLE_RIM, "").replace(
+        NACELLE_BASE,
+        '[base_regions.NBase]\ntrailing_edges = { file = "sector.N.te.txt", type = "STANDARD" }\n',
+    )
+    sidecar.write_text(text.replace('"26.124"', f'"{build}"'), encoding="utf-8")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_mark_boundaries(wheel)
+    lines = plan.script.splitlines()
+    imports = [i for i, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES")]
+    creates = [i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_BASE_REGION")]
+    autos = [i for i, line in enumerate(lines) if line.startswith("SET_BASE_REGION_TRAILING")]
+    assert imports and creates and autos
+    if build == "26.127":
+        assert max(creates) < min(imports) < max(imports) < min(autos)
+    else:
+        assert max(imports) > min(creates)
+    # the read-back expects as many groups as the script marks
+    assert sum(count for _, count in plan.group_spans()) == len(imports) + len(autos)
+
+
+def test_p0560_r1_mark_005_two_declarations_of_the_same_rim_are_warned_naming_both(
+    tmp_path: Path,
+) -> None:
+    """R1-MARK-005: a second entry naming the rim file of another is planned (never refused)
+    and warned, naming both entries; a sector that declares each edge once is not."""
+    built = build_sector(tmp_path, copies=COPIES, separate_base=True)
+    sidecar = tmp_path / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    dup = '[trailing_edges.TE_c]\nfile = "sector.TE_a.te.txt"\ntype = "STANDARD"\n'
+    sidecar.write_text(text.replace(OTHER_RIM, OTHER_RIM + dup), encoding="utf-8")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_mark_boundaries(wheel)
+    words = [str(item.message) for item in caught if "name the same" in str(item.message)]
+    assert plan.script
+    assert any("TE_a_1 and TE_c_1" in line for line in words), words
+    assert not any("TE_a_1 and TE_b_1" in line for line in words), words
+
+
+def test_p0560_r1_mark_005_the_read_back_does_not_blame_a_replacing_import_on_26127(
+    tmp_path: Path,
+) -> None:
+    """R1-MARK-005: the marking probes of 26.124, 26.125 and 26.127 show a second import adding
+    a group and keeping the first, so the missing-edge verdict names that evidence there and
+    keeps the unmeasured reading on another build."""
+    import shutil
+
+    from pyflightstream.workspace.wake_edges import saved_wake_edge_verdict
+
+    library = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
+    shutil.copy(library / "10_WING.fsm", tmp_path / "wing.fsm")
+    sets = [{"file": "far.te.txt", "points_m": [(99.0, 99.0, 99.0)], "tolerance": 1e-4}]
+    _, measured = saved_wake_edge_verdict(sets, tmp_path, ["wing.fsm"], "26.127")
+    assert "far.te.txt are missing" in measured and "replacing" not in measured
+    assert "adds a group and keeps the first" in measured
+    assert "CMP-26127_2026-11-06_marking" in measured
+    _, other = saved_wake_edge_verdict(sets, tmp_path, ["wing.fsm"], "26.120")
+    assert "replacing the first" in other
+
+
+def test_p0560_r1_mark_009_the_merge_refusal_lists_the_measured_builds_once(tmp_path: Path) -> None:
+    """R1-MARK-009: the refusal named the builds as "26.124 and 26.125 and 26.127"."""
+    built, _ = terminated_sector(tmp_path, "26.126")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with pytest.raises(InputArtifactError) as caught:
+        plan_mark_boundaries(wheel)
+    assert "measured on FlightStream 26.124, 26.125 and 26.127 only" in str(caught.value)
+
+
+def test_p0560_r1_mark_010_no_blank_line_splits_an_unreleased_changelog_list() -> None:
+    """R1-MARK-010: a blank line between two items of one section split its list in two."""
+    text = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    lines = unreleased.splitlines()
+    split = [
+        number
+        for number in range(1, len(lines) - 1)
+        if not lines[number].strip()
+        and lines[number + 1].startswith("- ")
+        and lines[number - 1].startswith(("- ", "  "))
+    ]
+    assert not split, [lines[number + 1][:60] for number in split]

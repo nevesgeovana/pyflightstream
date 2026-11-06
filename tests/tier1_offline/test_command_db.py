@@ -2347,3 +2347,15 @@ def test_p0440_vv1_unreceipted_time_averaging_run_states_no_duration():
     row = CommandRegistry.load().commands["SOLVER_TIME_AVERAGING"].versions["26.124"]
     assert "observed without receipt" in row.note
     assert "300 s" not in row.note
+
+
+def test_p0560_r1_mark_003_a_verified_row_never_says_it_has_no_run():
+    """R1-MARK-003: a row promoted to verified by a report does not keep a note saying that no
+    run exists on its version (the 26.127 marking rows carried the 26.126 text)."""
+    stale = [
+        f"{name} {version}"
+        for name, command in CommandRegistry.load().commands.items()
+        for version, row in command.versions.items()
+        if row.status == "verified" and f"no run on {version}" in (row.note or "")
+    ]
+    assert not stale, stale

@@ -42,6 +42,7 @@ from pyflightstream.workspace._mark_rims import (
     _placed_points,
     _placed_rim,
     rim_edges,
+    rim_runs,
     saved_cross_edges,
 )
 from pyflightstream.workspace.sidecars import (
@@ -94,6 +95,38 @@ these builds the merge keeps them; on any other build explicit nodes across a me
 """
 
 
+RIM_GROUP_BUILDS: frozenset[str] = frozenset({"26.127"})
+"""Builds on which a trailing-edge file is imported one rim at a time, one group per rim.
+
+On 26.127 one IMPORT_WAKE_EDGES_FROM_FILE is one trailing-edge group: a second import adds a
+second group and keeps the first (the IMPORT_WAKE_EDGES_FROM_FILE probe of
+reports/compat/CMP-26127_2026-11-06_marking.yaml, groups ``["Rim", "Rim"]``), and a licensed
+marking of a six-blade wheel whose blunt rims came two to a file saved one group per blade
+where the solver's own sector of that blade holds one per rim. Importing each connected run of
+a file on its own gives the groups the saved route copies; the edges marked are the same. 26.100
+parts its vertex files into rims for its own reason (FR-3470).
+"""
+
+
+RIMS_FIRST_BUILDS: frozenset[str] = frozenset({VERTEX_FILE_BUILD})
+"""Builds on which every file rim is imported before the first base is created (26.100, measured,
+:func:`_bases_on_the_vertex_build`)."""
+
+CREATES_FIRST_BUILDS: frozenset[str] = frozenset({"26.127"})
+"""Builds on which every base is created before the first IMPORT_WAKE_EDGES_FROM_FILE.
+
+Licensed markings of a six-blade wheel on 26.127 (receipt
+GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.56.0/receipts/wheel-routes-0550.json, sections
+marked_counts and marked_counts_b67210f0b): every wake-edge import placed before the first
+CREATE_NEW_BASE_REGION was reported imported by the solver and lost at the save, and every one
+placed after the creates survived. With all thirteen imports before the seven creates the wheel
+saved one group of one edge; with the rims imported after their creates the groups survived.
+So on 26.127 every base is created first, then every trailing-edge entry and every file rim is
+imported, then the ``auto`` rims and the rest of the pass follow in their order. 26.124 to
+26.126 keep create, rim (not measured there).
+"""
+
+
 class BoundaryMarkingError(PyflightstreamError):
     """A marking pass failed its solver execution or saved-state read-back."""
 
@@ -132,21 +165,28 @@ class BoundaryMarkingPlan:
 
         Saved groups stand in the order the script marked them. A declared unit is one group,
         except on 26.100, where each rim file is a group of its own (measured), a file warned
-        and skipped is none, and an ``auto`` rim follows the file rims.
+        and skipped is none, and on the builds of :data:`RIM_GROUP_BUILDS`, where each rim of a
+        file is a group of its own. On the builds of :data:`RIMS_FIRST_BUILDS` and
+        :data:`CREATES_FIRST_BUILDS` an ``auto`` rim follows the file rims.
         """
         declared = self.declarations
         units: list[Any] = [*(entry.marking for entry in declared.trailing_edges)]
         units += [region.trailing_edges for region in declared.base_regions]
         vertex_files = declared.fs_build == VERTEX_FILE_BUILD
+        build = None if declared.fs_build is None else resolve(declared.fs_build).canonical
+        rim_groups = build in RIM_GROUP_BUILDS
+        rims_first = build in RIMS_FIRST_BUILDS | CREATES_FIRST_BUILDS
         rim_sets = iter(self.sets)
         spans: dict[int, tuple[int, int]] = {}
         first = 0
-        for unit in sorted(range(len(units)), key=lambda i: vertex_files and units[i] == "auto"):
+        for unit in sorted(range(len(units)), key=lambda i: rims_first and units[i] == "auto"):
             marking = units[unit]
             count = 1
             if vertex_files and marking != "auto" and marking.route == "file":
                 standard = [s for s in marking.sets if s.edge_type == "STANDARD"]
                 count = sum(len(next(rim_sets)["rim_vertices"]) for _ in standard)
+            elif rim_groups and marking != "auto" and marking.route == "file":
+                count = next(rim_sets).get("groups", 1)
             spans[unit] = (first, count)
             first += count
         return [spans[unit] for unit in range(len(units))]
@@ -282,7 +322,8 @@ def _node_routes(sidecar, declarations, spec):
     merged = explicit and any(region.merge_into for region in declarations.base_regions)
     build = resolve(declarations.fs_build).canonical if merged else None
     if merged and build not in MERGED_NODE_EVIDENCE:
-        measured = " and ".join(sorted(MERGED_NODE_EVIDENCE))
+        *others, last = sorted(MERGED_NODE_EVIDENCE)
+        measured = f"{', '.join(others)} and {last}" if others else last
         reports = ", ".join(MERGED_NODE_EVIDENCE[name] for name in sorted(MERGED_NODE_EVIDENCE))
         raise InputArtifactError(
             f"{sidecar}: explicit termination nodes across a merge are measured on FlightStream "
@@ -497,7 +538,8 @@ def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_
         )
 
 
-def _emit_bases(emit, mark, declarations, names, steps, *, build):
+def _emit_bases(emit, mark, declarations, names, steps, *, build, entries, say=_no_progress):
+    """Emit the trailing-edge entries (``entries``) and the base regions in the build's order."""
     regions = declarations.base_regions
 
     def rim(region):
@@ -520,7 +562,22 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
 
-    if build == VERTEX_FILE_BUILD:
+    if build in CREATES_FIRST_BUILDS:
+        say("base regions")
+        for index, region in enumerate(regions, 1):
+            create(index, region)
+            step(region)
+        entries()
+        for region in regions:
+            if region.trailing_edges != "auto":
+                rim(region)
+        for region in regions:
+            if region.trailing_edges == "auto":
+                rim(region)
+        return
+    entries()
+    say("base regions")
+    if build in RIMS_FIRST_BUILDS:
         _bases_on_the_vertex_build(regions, rim, create, step)
         return
     for index, region in enumerate(regions, 1):
@@ -925,6 +982,54 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             ) from error
 
 
+def _warn_shared_edges(declared, autos, source, unit) -> None:
+    """Warn, never refuse, where two declarations name the same mesh edges (R1-MARK-005).
+
+    ``declared`` holds each file entry's mid-points in metres and its tolerance by label;
+    ``autos`` the (label, OBJ family) of each base region whose rim is ``auto``, whose edges are
+    those its faces share with another family. A saved edge belongs to one trailing-edge group:
+    a 26.127 wheel that declared each blade rim twice saved one group per blade, not two, so one
+    of the two declarations loses the edges and the read-back reports them missing.
+    """
+    import numpy
+    from scipy.spatial import cKDTree
+
+    from pyflightstream.workspace._mark_rims import _obj_edges
+    from pyflightstream.workspace.wake_edges import DEFAULT_TOLERANCE
+
+    named = {label: (pts, tol) for label, (pts, tol) in declared.items() if len(pts)}
+    if autos:
+        owners: dict[tuple[float, ...], set[str]] = {}
+        exact: dict[tuple[float, ...], tuple[float, ...]] = {}
+        for family, mid in _obj_edges(source, unit):
+            key = tuple(round(value, 9) for value in mid)
+            owners.setdefault(key, set()).add(family)
+            exact[key] = mid
+        for label, family in autos:
+            rim = [exact[key] for key, held in owners.items() if family in held and len(held) > 1]
+            if rim:
+                named.setdefault(label, (rim, DEFAULT_TOLERANCE))
+    labels = list(named)
+    for i, first in enumerate(labels):
+        points, tolerance = named[first]
+        for second in labels[i + 1 :]:
+            others, other_tolerance = named[second]
+            near = cKDTree(numpy.asarray(others, dtype=float).reshape(-1, 3))
+            hits = near.query_ball_point(
+                numpy.asarray(points, dtype=float).reshape(-1, 3), max(tolerance, other_tolerance)
+            )
+            shared = sum(1 for hit in hits if hit)
+            if shared:
+                warn(
+                    f"{first} and {second} name the same {shared} trailing-edge edges. A saved "
+                    "edge belongs to one trailing-edge group, so one of the two keeps them and "
+                    "the read-back finds the other's edges missing; declare each edge once "
+                    "(one entry, or the base region's rim).",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+
+
 def _emit_marking(
     script, source, sidecar, *, declarations, spec, names, faces, work, routes, say=_no_progress
 ):
@@ -940,9 +1045,11 @@ def _emit_marking(
     emit("IMPORT", spec.units, "OBJ", str(source), clear=True)
     before = tuple(names)
     _import_operations(script, spec, names, faces)
+    source_families = [region.family for region in declarations.base_regions]
     declarations = _renamed_declarations(declarations, before, names)
     script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
     emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    declared: dict[str, tuple[Any, float]] = {}
 
     def mark(label: str, marking: Any) -> None:
         if marking.route == "detect":
@@ -957,6 +1064,10 @@ def _emit_marking(
             return
         say(f"{label}: matching the points file to mesh edges")
         bound = matched_trailing_edge_sets(marking, source, spec.units)
+        declared[label] = (
+            [point for found in bound.sets for point in found.points_m],
+            bound.tolerance,
+        )
         if script.version.canonical == VERTEX_FILE_BUILD:
             _mark_rims_26100(
                 script,
@@ -973,19 +1084,27 @@ def _emit_marking(
         assert entry.points_file is not None
         path = Path(entry.points_file)
         inputs[str(path)] = file_sha256(path)
-        token = work / f"edges-{len(sets) + 1}.txt"
         say(f"{label}: placing {len(entry.points_m)} points through the import operations")
         points = _placed_points(entry.points_m, source, spec, bound.tolerance)
-        helpers.mark_wake_edges(
-            script,
-            edge_type=entry.edge_type,
-            tolerance=bound.tolerance,
-            units="METER",
-            node_file=str(token),
-            midpoints=points,
-        )
-        body = script.pending_input_files[str(token)]
-        pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
+        runs: list[Any] = [entry.points_m]
+        if script.version.canonical in RIM_GROUP_BUILDS:
+            runs = rim_runs(entry.points_m, source, spec.units)
+        for number, run in enumerate(runs, 1):
+            stem = f"edges-{len(sets) + 1}" + (f"-{number}" if len(runs) > 1 else "")
+            token = work / f"{stem}.txt"
+            placed = (
+                points if len(runs) == 1 else _placed_points(run, source, spec, bound.tolerance)
+            )
+            helpers.mark_wake_edges(
+                script,
+                edge_type=entry.edge_type,
+                tolerance=bound.tolerance,
+                units="METER",
+                node_file=str(token),
+                midpoints=placed,
+            )
+            body = script.pending_input_files[str(token)]
+            pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
         sets.append(
             {
                 "label": label,
@@ -993,14 +1112,32 @@ def _emit_marking(
                 "file": str(path),
                 "points_m": points,
                 "tolerance": bound.tolerance,
+                **({"groups": len(runs)} if len(runs) > 1 else {}),
             }
         )
-        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points")
+        rims = f" in {len(runs)} rim imports" if len(runs) > 1 else ""
+        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points{rims}")
 
-    for entry in declarations.trailing_edges:
-        mark(entry.label, entry.marking)
-    say("base regions")
-    _emit_bases(emit, mark, declarations, names, steps, build=script.version.canonical)
+    def entries() -> None:
+        for entry in declarations.trailing_edges:
+            mark(entry.label, entry.marking)
+
+    _emit_bases(
+        emit,
+        mark,
+        declarations,
+        names,
+        steps,
+        build=script.version.canonical,
+        entries=entries,
+        say=say,
+    )
+    autos = [
+        (region.family, family)
+        for region, family in zip(declarations.base_regions, source_families, strict=True)
+        if region.trailing_edges == "auto"
+    ]
+    _warn_shared_edges(declared, autos, source, spec.units)
     say("wake-termination nodes and merges")
     _emit_nodes(
         script,
