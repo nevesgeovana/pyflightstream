@@ -52,8 +52,14 @@ projection does not alter them.
 The checks print and save the root's distance from the source hub surface in metres
 and local cell edges. A root stand-off above half a local edge warns once: the hub
 shape near the root changes by this amount. Inspect that seam even when the rebuild
-passes. Every moved non-root hub node must remain within `1e-8` local cell edges of
-the source faces; otherwise the operation refuses and names the node.
+passes.
+
+**Quality is warned, not refused.** A folded or reversed hub cell and a moved non-root hub
+node farther than `1e-8` local cell edges from the source faces are each warned with their
+numbers (the count, the least scaled Jacobian, the worst node and its distance) and the mesh
+is written; `checks.passed` is then false and `checks.warnings` lists them. Only a broken
+input or a broken invariant refuses: nonfinite coordinates, an edge over two faces, a moved
+boundary, an unreadable control file.
 This is an incremental rebuild of the hub grid; it does not redistribute cell counts.
 
 Read `<out>.repitch.json`, inspect the root seam and leading edge, then perform a

@@ -330,7 +330,7 @@ def _mutants():
     return [
         (kept_node, "a kept node moved"),
         (kept_face, "differs from the source in place"),
-        (lifted, "chord deviation"),
+        (lifted, "WARNS: chord deviation"),
         (moved_block, "not where its first taken face was"),
         (ring_lost, "complete rings, not 4"),
         (turned, "turned against the source hub|runs an edge the way"),
@@ -338,10 +338,18 @@ def _mutants():
 
 
 @pytest.mark.requirement("FR-3671")
+@pytest.mark.requirement("FR-3681")
 @pytest.mark.parametrize(("mutate", "text"), _mutants(), ids=lambda m: getattr(m, "__name__", ""))
 def test_p0560_a_hub_rings_check_arm_refuses_its_mutant(tmp_path, mutate, text):
+    # P0560-HUBQ (PFS-2197): a new node off the hub (lifted) is quality, warned with the worst
+    # node and its distance and listed in the checks; the other arms are broken invariants.
     result, surface = _built(tmp_path)
     mutate(result)
+    if text.startswith("WARNS: "):
+        with pytest.warns(PyflightstreamWarning, match=text[7:]):
+            checks = _hr().verify_rings(result, surface, ["Spinner"])
+        assert any(text[7:] in w for w in checks["warnings"])
+        return
     with pytest.raises(InputValueError, match=text):
         _hr().verify_rings(result, surface, ["Spinner"])
 

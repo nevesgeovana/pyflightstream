@@ -16,7 +16,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
+from pyflightstream._errors import (
+    InputValueError,
+    NotApplicableWarning,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._fsm import saved_mesh_coordinate_unit
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.cases.reference_blocks import frame_basis_for_shaft
@@ -206,7 +211,7 @@ def _blade_check(old: Any, new: Any, ids: Any, origin: Any, axis: Any, *, angle:
 
 
 def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dict[str, Any]:
-    """Repitch named blades, rebuild hub rings and write only after all checks pass.
+    """Repitch named blades, rebuild hub rings and write after every check.
 
     Parameters
     ----------
@@ -220,7 +225,8 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
     Returns
     -------
     dict
-        The checks also written beside the output as ``<out>.repitch.json``.
+        The checks also written beside the output as ``<out>.repitch.json``;
+        ``checks["passed"]`` is false with ``checks["warnings"]`` when quality was warned.
     """
     path, control, target = Path(mesh), Path(morphing), Path(out)
     record = Path(str(target) + ".repitch.json")
@@ -337,8 +343,10 @@ def _deform(
     boundary = {v for e, owners in incidence(hub_faces).items() if len(owners) == 1 for v in e}
     fixed = sorted((boundary - (taken - held)) | held)
     _need(np.array_equal(old[fixed], new[fixed]), "non-root hub boundary moved")
+    found = distances.pop("warnings") + [w for h in report["hub"].values() for w in h["warnings"]]
     report["checks"] = {
-        "passed": True,
+        "passed": not found,
+        "warnings": found,
         "non_manifold_edges": 0,
         "root_gap": 0.0,
         "hub_boundary_unmoved": True,
@@ -351,23 +359,41 @@ def _deform(
 
 
 def _hub_checks(source: ObjMesh, new: Any, hubs: list) -> dict:
-    """Reject folds and reversed cells; measure quality against the source."""
+    """Measure the hub's quality against the source; warn of folded and reversed cells.
+
+    A folded cell (a corner's scaled Jacobian at or below zero) and a reversed cell (its normal
+    against the source cell's) are quality: each is warned with its count, the least scaled
+    Jacobian beside the source's, and listed under the hub's ``warnings``.
+    """
     old = source.verts
     report = {}
     for name in hubs:
         faces = source.families[name]
         before, after = quality(old, faces), quality(new, faces)
-        _need(after["folded_cells"] == 0, f"hub {name!r} has folded cells")
+        reversed_cells = 0
         for face in faces:
             a, b = old[face], new[face]
             na = np.cross(a, np.roll(a, -1, axis=0)).sum(axis=0)
             nb = np.cross(b, np.roll(b, -1, axis=0)).sum(axis=0)
-            _need(float(na @ nb) > 0, f"hub {name!r} has a reversed cell")
+            reversed_cells += float(na @ nb) <= 0
+        found = []
+        if after["folded_cells"]:
+            found.append(
+                f"hub {name!r} has {after['folded_cells']} folded cell(s); the least scaled "
+                f"Jacobian is {after['min_scaled_jacobian']:.6g} (source "
+                f"{before['min_scaled_jacobian']:.6g})"
+            )
+        if reversed_cells:
+            found.append(f"hub {name!r} has {reversed_cells} reversed cell(s) against the source")
+        for sentence in found:
+            warn(f"repitch: {sentence}; the mesh is written", PyflightstreamWarning)
         report[name] = {
             "source_cells": len(faces),
             "output_cells": len(faces),
             "source_quality": before,
             "output_quality": after,
+            "reversed_cells": reversed_cells,
+            "warnings": found,
         }
     return report
 

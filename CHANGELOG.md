@@ -30,6 +30,12 @@ FlightStream versions.
 
 ### Changed
 
+- Mesh quality no longer refuses `geometry repitch` or `geometry hub-rings`: folded or reversed
+  hub cells, a moved non-root hub node off the source hub, new cells folded or turned against
+  the hub and a new node beyond the source's chord deviation are warned with their numbers
+  (the count, the least scaled Jacobian, the worst node and its distance), the mesh is written,
+  and `checks.passed` in the record is false with `checks.warnings` listing them. Broken input
+  and broken invariants still refuse.
 - The wheel periodicity of `geometry repitch` reads the blades and the hub only, so an installed
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn

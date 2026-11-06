@@ -70,16 +70,19 @@ Kept hub faces keep their order, and each blade's new faces take the place of it
 taken: the rings from the root outward, then the band. Kept nodes keep their text and their
 order; nodes used only by the faces taken leave, and the new nodes follow the kept ones.
 
-Every check runs in memory before any file is written, and a failed check refuses: each blade's
-output hub holds exactly `rings` complete rings from its root; no new cell folds or is turned
-against the source hub; every kept node and face is unchanged, in place and order, and the new
-faces sit where the first taken face was; the open edges are the source's, no edge has more than
-two faces and every new cell runs its edges against its neighbours'; the largest distance from a
-new node to the source hub, reported, is within the source's own chord deviation (the largest
-edge length times the turn between the normals of its two faces, over eight); the written bytes
-read back as the mesh in memory; and the boundaries file reads back. A marking on a node or an
-edge the operation removes is refused. The hub's area against the source and the quality of the
-new cells are reported.
+Every check runs in memory before any file is written, and a failed invariant refuses: each
+blade's output hub holds exactly `rings` complete rings from its root; every kept node and face
+is unchanged, in place and order, and the new faces sit where the first taken face was; the open
+edges are the source's, no edge has more than two faces and every new cell runs its edges
+against its neighbours'; the written bytes read back as the mesh in memory; and the boundaries
+file reads back. A marking on a node or an edge the operation removes is refused. Quality is
+warned, with its numbers, and the mesh is written: new cells that fold (their count and least
+scaled Jacobian) or are turned against the source hub (their count), and a new node farther
+from the source hub than the source's own chord deviation (the largest edge length times the
+turn between the normals of its two faces, over eight; the worst node and its distance).
+`checks.passed` is false when one is warned and `checks.warnings` lists them. The hub's area
+against the source, the quality of the new cells and the largest distance of a new node to the
+source hub are reported.
 
 ## Collapse trailing-edge control
 
@@ -159,8 +162,10 @@ the distance by which its pitch axis passes outside its root loop, which is warn
 The blade and hub face lists remain in source order, including the original FSM
 triangle partners. FSM trailing-edge groups, flags, base regions and wake termination
 indices are retained. OBJ sidecar point files must match source vertices or edge
-midpoints; their coordinates follow the corresponding output locations. Failed
-geometric checks produce no mesh or report. Unsupported hub topology is refused
+midpoints; their coordinates follow the corresponding output locations. A broken
+input or a broken invariant produces no mesh or report; folded and reversed hub cells
+(their count and least scaled Jacobian) are warned and the mesh is written, with
+`checks.passed` false and `checks.warnings` listing them. Unsupported hub topology is refused
 with a remedy; no triangulated replacement is substituted for a quad hub.
 Interior projection retains the source FSM triangle-pair diagonals. Projection and
 smoothing leave the shared blade-root nodes under the rigid-rotation constraint.
@@ -169,7 +174,8 @@ The printed checks and `<out>.repitch.json` include every moved hub node's
 zero-based index, shared-root status, distance to the finite source triangles in
 metres and distance divided by its local cell edge. The local edge is the shortest
 edge among incident source hub cells. Non-root nodes beyond
-`NON_ROOT_SURFACE_TOLERANCE = 1e-8` local edges refuse, naming the node.
+`NON_ROOT_SURFACE_TOLERANCE = 1e-8` local edges are warned with their count and the worst
+node and its distance, and the mesh is written.
 `root_max_distance_to_source_hub_m` and
 `root_max_distance_to_source_hub_over_local_edge` report the rigid root's stand-off.
 Above `ROOT_STANDOFF_WARNING = 0.5` local edges, one warning states how far the root
