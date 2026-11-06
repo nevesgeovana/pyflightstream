@@ -1094,7 +1094,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 161,
+ "monkeypatch_targets": 162,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1157,6 +1157,7 @@
   "pyflightstream.workspace._batches": 1,
   "pyflightstream.workspace._geometry_build": 3,
   "pyflightstream.workspace._geometry_vtk": 1,
+  "pyflightstream.workspace._hub_remesh": 1,
   "pyflightstream.workspace._mark_boundaries": 6,
   "pyflightstream.workspace._refine._level": 1,
   "pyflightstream.workspace.excel": 1,
