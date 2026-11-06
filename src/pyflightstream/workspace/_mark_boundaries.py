@@ -108,17 +108,22 @@ parts its vertex files into rims for its own reason (FR-3470).
 """
 
 
-RIMS_FIRST_BUILDS: frozenset[str] = frozenset({VERTEX_FILE_BUILD, "26.127"})
-"""Builds on which every file rim of a base region is imported before the first base is created.
+RIMS_FIRST_BUILDS: frozenset[str] = frozenset({VERTEX_FILE_BUILD})
+"""Builds on which every file rim is imported before the first base is created (26.100, measured,
+:func:`_bases_on_the_vertex_build`)."""
 
-26.100 measured it (:func:`_bases_on_the_vertex_build`). On 26.127 a licensed marking of a
-six-blade wheel imported every blade rim file in full before any CREATE_NEW_BASE_REGION (six
-times 116 of 116 edges), and the nacelle's rim file, imported right after the create of its
-base, 50 of its 72 edges, though each of its points lies within 5e-10 m of one mesh edge
-mid-point shared by the nacelle and its base, the next 13.9 mm away, at a tolerance of 1e-4 m,
-before any merge. Which of the 22 edges are lost follows neither the nearer face nor the face
-order; the import order is the one difference left, so it is the one changed here, for a
-licensed run to confirm. The read-back refuses a file whose edges are missing either way.
+CREATES_FIRST_BUILDS: frozenset[str] = frozenset({"26.127"})
+"""Builds on which every base is created before the first IMPORT_WAKE_EDGES_FROM_FILE.
+
+Licensed markings of a six-blade wheel on 26.127 (receipt
+GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.56.0/receipts/wheel-routes-0550.json, sections
+marked_counts and marked_counts_b67210f0b): every wake-edge import placed before the first
+CREATE_NEW_BASE_REGION was reported imported by the solver and lost at the save, and every one
+placed after the creates survived. With all thirteen imports before the seven creates the wheel
+saved one group of one edge; with the rims imported after their creates the groups survived.
+So on 26.127 every base is created first, then every trailing-edge entry and every file rim is
+imported, then the ``auto`` rims and the rest of the pass follow in their order. 26.124 to
+26.126 keep create, rim (not measured there).
 """
 
 
@@ -161,8 +166,8 @@ class BoundaryMarkingPlan:
         Saved groups stand in the order the script marked them. A declared unit is one group,
         except on 26.100, where each rim file is a group of its own (measured), a file warned
         and skipped is none, and on the builds of :data:`RIM_GROUP_BUILDS`, where each rim of a
-        file is a group of its own. On the builds of :data:`RIMS_FIRST_BUILDS` an ``auto`` rim
-        follows the file rims.
+        file is a group of its own. On the builds of :data:`RIMS_FIRST_BUILDS` and
+        :data:`CREATES_FIRST_BUILDS` an ``auto`` rim follows the file rims.
         """
         declared = self.declarations
         units: list[Any] = [*(entry.marking for entry in declared.trailing_edges)]
@@ -170,7 +175,7 @@ class BoundaryMarkingPlan:
         vertex_files = declared.fs_build == VERTEX_FILE_BUILD
         build = None if declared.fs_build is None else resolve(declared.fs_build).canonical
         rim_groups = build in RIM_GROUP_BUILDS
-        rims_first = build in RIMS_FIRST_BUILDS
+        rims_first = build in RIMS_FIRST_BUILDS | CREATES_FIRST_BUILDS
         rim_sets = iter(self.sets)
         spans: dict[int, tuple[int, int]] = {}
         first = 0
@@ -532,7 +537,8 @@ def _mark_rims_26100(script, label, bound, *, source, spec, work, book, say=_no_
         )
 
 
-def _emit_bases(emit, mark, declarations, names, steps, *, build):
+def _emit_bases(emit, mark, declarations, names, steps, *, build, entries, say=_no_progress):
+    """Emit the trailing-edge entries (``entries``) and the base regions in the build's order."""
     regions = declarations.base_regions
 
     def rim(region):
@@ -555,6 +561,21 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build):
             f"base {region.family}: {region.model}, Cp {region.cp}, rim {region.trailing_edges}"
         )
 
+    if build in CREATES_FIRST_BUILDS:
+        say("base regions")
+        for index, region in enumerate(regions, 1):
+            create(index, region)
+            step(region)
+        entries()
+        for region in regions:
+            if region.trailing_edges != "auto":
+                rim(region)
+        for region in regions:
+            if region.trailing_edges == "auto":
+                rim(region)
+        return
+    entries()
+    say("base regions")
     if build in RIMS_FIRST_BUILDS:
         _bases_on_the_vertex_build(regions, rim, create, step)
         return
@@ -1042,10 +1063,20 @@ def _emit_marking(
         rims = f" in {len(runs)} rim imports" if len(runs) > 1 else ""
         steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points{rims}")
 
-    for entry in declarations.trailing_edges:
-        mark(entry.label, entry.marking)
-    say("base regions")
-    _emit_bases(emit, mark, declarations, names, steps, build=script.version.canonical)
+    def entries() -> None:
+        for entry in declarations.trailing_edges:
+            mark(entry.label, entry.marking)
+
+    _emit_bases(
+        emit,
+        mark,
+        declarations,
+        names,
+        steps,
+        build=script.version.canonical,
+        entries=entries,
+        say=say,
+    )
     say("wake-termination nodes and merges")
     _emit_nodes(
         script,

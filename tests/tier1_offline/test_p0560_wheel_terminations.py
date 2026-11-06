@@ -485,14 +485,16 @@ NACELLE_RIM = '[trailing_edges.N]\nfile = "sector.N.te.txt"\ntype = "STANDARD"\n
 NACELLE_BASE = '[base_regions.NBase]\ntrailing_edges = "auto"\n'
 
 
+@pytest.mark.requirement("FR-3765")
 @pytest.mark.parametrize("build", ["26.125", "26.127"])
-def test_p0560_r1_mark_s3_a_base_region_s_rim_file_is_imported_before_the_creates_on_26127(
+def test_p0560_r1_mark_s3_every_base_is_created_before_the_first_import_on_26127(
     tmp_path: Path, build: str
 ) -> None:
-    """R1-MARK-S3: on 26.127 the nacelle's rim file, imported right after the create of its
-    base, kept 50 of its 72 edges, while every rim imported before the first create kept all.
-    On 26.127 every file rim is imported before the first CREATE_NEW_BASE_REGION, as on
-    26.100, and an ``auto`` rim follows the creates; 26.125 keeps its order."""
+    """R1-MARK-S3: on 26.127 every wake-edge import placed before the first
+    CREATE_NEW_BASE_REGION was lost at the save and every one after the creates survived
+    (receipt 0.56.0/receipts/wheel-routes-0550.json, marked_counts_b67210f0b). So every base is
+    created first, then every entry and file rim is imported, then the ``auto`` rims; 26.125
+    keeps create, rim."""
     built = build_sector(tmp_path, copies=COPIES, separate_base=True)
     sidecar = tmp_path / "sector.obj.boundaries.toml"
     text = sidecar.read_text(encoding="utf-8")
@@ -513,7 +515,7 @@ def test_p0560_r1_mark_s3_a_base_region_s_rim_file_is_imported_before_the_create
     autos = [i for i, line in enumerate(lines) if line.startswith("SET_BASE_REGION_TRAILING")]
     assert imports and creates and autos
     if build == "26.127":
-        assert max(imports) < min(creates) < max(creates) < min(autos)
+        assert max(creates) < min(imports) < max(imports) < min(autos)
     else:
         assert max(imports) > min(creates)
     # the read-back expects as many groups as the script marks

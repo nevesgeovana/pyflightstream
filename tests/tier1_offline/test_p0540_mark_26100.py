@@ -348,8 +348,8 @@ def test_p0540_26100_an_axisymmetric_base_is_stated_once_by_its_create(tmp_path)
 @pytest.mark.parametrize("build", ["26.124", "26.127"])
 @pytest.mark.parametrize("model", ["USER", "CUSTOM", "EMPIRICAL", "AXISYMMETRIC"])
 def test_p0540_other_builds_keep_each_base_with_its_setter_and_its_rim(tmp_path, build, model):
-    """26.124 renders every base as v0.53.0 did; 26.127 imports its file rims before the first
-    create, as 26.100 does (R1-MARK-S3), and keeps each base's setter."""
+    """26.124 renders every base as v0.53.0 did; 26.127 creates every base before the first
+    import (R1-MARK-S3, receipt wheel-routes-0550.json), each base keeping its setter."""
     from pyflightstream.workspace import plan_mark_boundaries
 
     mesh = _capped_strip(
@@ -367,14 +367,14 @@ def test_p0540_other_builds_keep_each_base_with_its_setter_and_its_rim(tmp_path,
         for line in plan_mark_boundaries(mesh).script.splitlines()
         if line.startswith(("CREATE_NEW_BASE", "SET_BASE", "IMPORT_WAKE", "TRAILING_EDGES"))
     ]
-    first = build == "26.127"
+    last = build == "26.127"
     assert lines == [
-        *(["IMPORT_WAKE_EDGES_FROM_FILE"] if first else []),
         f"CREATE_NEW_BASE_REGION 1 {model} -0.2",
         *(["SET_BASE_REGION_CP 1 CUSTOM -0.2"] if custom else []),
-        *([] if first else ["IMPORT_WAKE_EDGES_FROM_FILE"]),
+        *([] if last else ["IMPORT_WAKE_EDGES_FROM_FILE"]),
         f"CREATE_NEW_BASE_REGION 2 {model} -0.3",
         *(["SET_BASE_REGION_CP 2 CUSTOM -0.3"] if custom else []),
+        *(["IMPORT_WAKE_EDGES_FROM_FILE"] if last else []),
         "SET_BASE_REGION_TRAILING_EDGES 2",
     ]
 

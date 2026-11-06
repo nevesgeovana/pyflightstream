@@ -36,11 +36,13 @@ def _base_lines(tmp_path, build, model):
 
 
 def _in_build_order(build, lines):
-    """On 26.127 every file rim stands before the first create (R1-MARK-S3), as on 26.100."""
+    """On 26.127 every base is created first, then every import, then the auto rims
+    (R1-MARK-S3, receipt wheel-routes-0550.json: imports before the creates are lost at save)."""
     if build != "26.127":
         return lines
-    rims = [line for line in lines if line == "IMPORT_WAKE_EDGES_FROM_FILE"]
-    return rims + [line for line in lines if line != "IMPORT_WAKE_EDGES_FROM_FILE"]
+    imports = [line for line in lines if line == "IMPORT_WAKE_EDGES_FROM_FILE"]
+    autos = [line for line in lines if line.startswith("SET_BASE_REGION_TRAILING_EDGES")]
+    return [line for line in lines if line not in imports + autos] + imports + autos
 
 
 @pytest.mark.requirement("FR-3740")
