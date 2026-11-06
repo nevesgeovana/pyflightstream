@@ -34,6 +34,11 @@ FlightStream versions.
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn
   the check on as a reference with several blades does.
+- `pyfs-workspace geometry build --apply` runs a `[mesh]` build with no operation on 26.100 and
+  on 26.124 to 26.127: `EXPORT_SURFACE_MESH` is verified on those builds by a new probe that
+  reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the
+  preview no longer names it as awaiting a licensed probe there (FR-3741,
+  `reports/compat/CMP-<build>_2026-11-05_export-surface.yaml`).
 
 ### Fixed
 

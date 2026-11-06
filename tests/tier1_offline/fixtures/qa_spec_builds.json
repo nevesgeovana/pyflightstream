@@ -538,6 +538,14 @@
   "requires": "SOLUTION",
   "version": "26.120"
  },
+ "EXPORT_SURFACE_MESH": {
+  "build": [
+   "EXPORT_SURFACE_MESH OBJ -1",
+   "<WORKDIR>/export.obj"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
  "EXPORT_SURFACE_SECTIONAL_LOADS": {
   "build": [
    "EXPORT_SURFACE_SECTIONAL_LOADS",

@@ -163,7 +163,9 @@ VERIFIED = {
     "26.000": 0,
     # 13 until 2026-11-02; the two 26.100 marking probes (CMP-26100_2026-11-02_mark-26100-base,
     # CMP-26100_2026-11-02_mark-26100-vertex) then verified six more rows: 19.
-    "26.100": 19,
+    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26100_2026-11-05_export-surface): 20.
+    "26.100": 20,
     "26.101": 35,
     # 66 until 2026-09-08; the rotor path's thirteen solver-setting
     # emitters were then measured through the workflow on this build
@@ -231,7 +233,9 @@ VERIFIED = {
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 163.
     # Seven marking promotions: CMP-26124_2026-10-26_marking.yaml.
     # FR-3350: five motion rows promoted by CMP-26124_2026-10-12_pfs2135-items.
-    "26.124": 175,
+    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26124_2026-11-05_export-surface): 176.
+    "26.124": 176,
     # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
     # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
     # +44 on 2026-10-12, the same runs on this build (CMP-26125_2026-10-12_*): 185.
@@ -240,17 +244,23 @@ VERIFIED = {
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 185.
     # Seven marking promotions: CMP-26125_2026-10-26_marking.yaml.
     # FR-3350: five motion rows promoted by CMP-26125_2026-10-12_pfs2135-items.
-    "26.125": 197,
+    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26125_2026-11-05_export-surface): 198.
+    "26.125": 198,
     # 2026-10-30 (FR-3402): registered with no run of its own; every row
     # verified on 26.125 is documented here until a run on this build promotes it.
     # +93 and +89 the same day, the two probe campaigns on this build
     # (CMP-26126_2026-10-30_probe-campaign and -fsm): 182.
-    "26.126": 182,
+    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26126_2026-11-05_export-surface): 183.
+    "26.126": 183,
     # 2026-10-30 (FR-3406): registered with no run of its own; every row is
     # documented here until a run on this build promotes it. +93 and +89 the same
     # day, the two probe campaigns on this build (CMP-26127_2026-10-30_probe-campaign
     # and -fsm): 182.
-    "26.127": 182,
+    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26127_2026-11-05_export-surface): 183.
+    "26.127": 183,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

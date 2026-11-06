@@ -323,6 +323,9 @@ CCS lofts and the surface-mesh export. Until a licensed probe verifies one,
 `--apply` refuses on that build, naming the command; the preview still shows
 the script. A command the build does not have, or records broken, has no script
 to show: the preview refuses too, naming it, writes nothing and exits 2.
+The surface-mesh export is verified on 26.100 and on 26.124 to 26.127, so a
+`[mesh]` build with no operation awaits nothing on those builds and runs with
+`--apply`; on another build it still names `EXPORT_SURFACE_MESH`.
 
 ## A control-surface deflection sweep
 
