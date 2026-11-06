@@ -825,6 +825,31 @@ def _gaps(inner: np.ndarray, loop: np.ndarray) -> np.ndarray:
     return np.asarray(np.linalg.norm(near - inner[:, None, :], axis=2).min(axis=1))
 
 
+def _capped(root: Root, asked: float, cap: float, stated: bool, rows: float) -> float:
+    """Return the first band width: the one asked, kept to the root's share of the gap.
+
+    A stated ``band_width`` lowered to the share is warned with both numbers. A share that
+    leaves no room (the share less one local cell at or below zero) is warned, and the band is
+    no wider than the marched rows need (``rows``: the root's move plus their depth), never
+    negative.
+    """
+    if cap <= 0.0:
+        warn(
+            f"repitch: blade {root.name!r}: its share of the gap to the nearest other root "
+            f"({root.share:.6g}) leaves no room beyond one local cell ({root.cell:.6g}); the "
+            f"band holds the marched rows only, width {min(asked, rows):.6g}",
+            PyflightstreamWarning,
+        )
+        return min(asked, rows)
+    if stated and asked > cap:
+        warn(
+            f"repitch: blade {root.name!r}: band_width {asked:.6g} is lowered to {cap:.6g}, its "
+            "share of the gap to the nearest other root less one local cell",
+            PyflightstreamWarning,
+        )
+    return min(asked, cap)
+
+
 def bands_tried(
     mesh: ObjMesh, moved: np.ndarray, root: Root, stated: float | None
 ) -> tuple[list[Band], dict[str, Any]]:
@@ -841,7 +866,7 @@ def bands_tried(
     # On a wheel each band keeps to its share of the gap to the next root, less the one layer
     # of faces a hole takes beyond its width (about one local cell).
     cap = root.share - root.cell
-    width = min(asked, cap)
+    width = _capped(root, asked, cap, stated is not None, shift + MIN_ROWS * root.cell)
     info: dict[str, Any] = {
         "rule": "stated" if stated is not None else "root move plus two local cells",
         "asked": asked,

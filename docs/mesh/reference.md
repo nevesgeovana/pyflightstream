@@ -175,7 +175,10 @@ narrowed by a tenth at a time, down to a hundredth, and warned (none fitting ref
 cell is the median length of the hub edges leaving the root; the default width is the root's
 largest move by the turn plus two of them. The blades of a wheel are planned together: each
 band keeps to its share of the gap to the nearest other root (half the least distance between
-the two roots, less one local cell), so no band takes room another needs. The annulus from the
+the two roots, less one local cell), so no band takes room another needs. A stated `band_width`
+above the share is lowered to it and warned with both numbers; a share that leaves no room beyond
+one local cell is warned, and the band holds the marched rows only (the root's move plus two
+local cells, or less when `band_width` says so), never a negative width. The annulus from the
 turned root (its nodes the blade's, never duplicated) to the band's unmoved boundary is filled
 in two parts, in a chart of the hub. At least two rows are marched out from the turned root,
 and more while the nearest point of the boundary leaves a row's height beyond them. Each root
