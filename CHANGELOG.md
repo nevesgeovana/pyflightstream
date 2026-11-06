@@ -81,6 +81,15 @@ FlightStream versions.
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn
   the check on as a reference with several blades does.
+- `pyfs-workspace geometry build --apply` runs a `[mesh]` build with no operation on 26.100 and
+  on 26.124 to 26.127: `EXPORT_SURFACE_MESH` is verified on those builds by a new probe that
+  reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the
+  preview no longer names it as awaiting a licensed probe there (FR-3741,
+  `reports/compat/CMP-<build>_2026-11-05_export-surface.yaml`).
+- The `AUTO_DETECT_TRAILING_EDGES` probe reads the saved trailing edges before and after the
+  command instead of a log line, and verifies the command on 26.124 (FR-3742,
+  `reports/compat/CMP-26124_2026-11-05_autodetect-te.yaml`). The 26.127 solver still runs the
+  command, which its manual no longer documents; no 26.127 row is written for it.
 
 ### Fixed
 
@@ -117,6 +126,12 @@ FlightStream versions.
   and rim group, held under the merged family's name (`NBase` on `N`), become the body's, and a
   warning names every merged family, which the body keeps and which it removes with the blade.
   The verb used to write nothing on that sector.
+- `geometry mark-boundaries` no longer stops at `SET_BASE_REGION_CP <n> EMPIRICAL <cp>` when a
+  base region is declared on 26.124 to 26.127: an `EMPIRICAL` or `AXISYMMETRIC` base is stated
+  by its `CREATE_NEW_BASE_REGION` alone on every build, as on 26.100, and a `USER` or `CUSTOM`
+  base keeps `SET_BASE_REGION_CP <n> CUSTOM <cp>`. The setter with a Cp after those two models
+  is a syntax error on all five builds, and its two-argument form saves a Cp of zero
+  (FR-3740, `reports/compat/CMP-26127_2026-11-05_base-region-cp.md`).
 
 ## [0.55.1] - 2026-11-05
 

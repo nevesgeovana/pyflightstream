@@ -15,11 +15,25 @@ AUTO_DETECT_TRAILING_EDGES:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.323"}
-    "26.124": {status: documented, note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-11-05_autodetect-te.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
   notes: >
     Finds and marks all trailing edge nodes in the geometry. Trailing
     edge marking controls where the wake is shed, so it must precede
     solver initialization.
+
+    VERIFIED ON 26.124 FROM THE SAVED EDGES (CMP-26124_2026-11-05_autodetect-te):
+    on a sharp diamond wing stub joined to a body, the save after the
+    command flags the wing's trailing edge and the save before it flags
+    no edge, read with the measured mesh-block reader. The body's own
+    sharp aft edge was not flagged.
+
+    NO ROW FROM 26.125 ON, AND THAT IS A READING, NOT A REFUSAL:
+    FSM-26.125 and FSM-26.127 no longer print the command. The 26.127
+    solver still runs it: the same probe script, replayed outside the
+    harness, ran past it with no error, printed one trailing edge
+    marked on the wing and saved a Wing trailing-edge group
+    (CMP-26127_2026-11-05_autodetect-te.md). No row is written for a
+    build whose manual does not document the command.
 
 SET_TRAILING_EDGE_TYPE:
   layout: inline

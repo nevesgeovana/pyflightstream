@@ -25,7 +25,7 @@
   "build": [
    "AUTO_DETECT_TRAILING_EDGES"
   ],
-  "requires": "SIM",
+  "requires": "NONE",
   "version": "26.120"
  },
  "AUTO_DETECT_WAKE_TERMINATION_NODES": {
@@ -536,6 +536,14 @@
    "SURFACES -1"
   ],
   "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SURFACE_MESH": {
+  "build": [
+   "EXPORT_SURFACE_MESH OBJ -1",
+   "<WORKDIR>/export.obj"
+  ],
+  "requires": "NONE",
   "version": "26.120"
  },
  "EXPORT_SURFACE_SECTIONAL_LOADS": {

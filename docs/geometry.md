@@ -338,6 +338,9 @@ CCS lofts and the surface-mesh export. Until a licensed probe verifies one,
 `--apply` refuses on that build, naming the command; the preview still shows
 the script. A command the build does not have, or records broken, has no script
 to show: the preview refuses too, naming it, writes nothing and exits 2.
+The surface-mesh export is verified on 26.100 and on 26.124 to 26.127, so a
+`[mesh]` build with no operation awaits nothing on those builds and runs with
+`--apply`; on another build it still names `EXPORT_SURFACE_MESH`.
 
 ## A control-surface deflection sweep
 
@@ -491,6 +494,11 @@ FlightStream 26.124, 26.125 and 26.127 a probe saved a mark made before `SURFACE
 after it, so a boundaries file that holds both, as the one `sector-to-wheel` writes from a sector
 with explicit nodes and merged bases does, is previewed and applied there. On any other build that
 pair is refused, naming those builds: declare the nodes as `"auto"` or drop the `merge_into`.
+Each declared base is made by `CREATE_NEW_BASE_REGION`, which states its model and Cp and
+saves both. `SET_BASE_REGION_CP <n> CUSTOM <cp>` follows it for a `USER` or `CUSTOM` model
+only: on every build the pass serves, the form with `EMPIRICAL` or `AXISYMMETRIC` and a Cp
+stops the script, and its two-argument form saves a Cp of zero
+(`reports/compat/CMP-26127_2026-11-05_base-region-cp.md`).
 
 The saved surface names, trailing-edge points and group count, termination
 count and base-region records must agree before publication. The five outputs
@@ -517,9 +525,7 @@ into rims and writes one vertex file per rim beside the work script, with one im
 no file names both ends of an edge that joins the two sides of a blunt trailing edge. Sides
 that touch at a vertex, and a rim closed in a loop, take as many files as that needs. Every
 file import stands before the first `CREATE_NEW_BASE_REGION`, because an import between two of
-them leaves only the last base saved, and an `auto` rim follows the creates. The create states
-a base's model and Cp, and `SET_BASE_REGION_CP` follows it for a `USER` or `CUSTOM` model only,
-because the form with `EMPIRICAL` or `AXISYMMETRIC` and a Cp stops the script on that build. The read-back counts
+them leaves only the last base saved, and an `auto` rim follows the creates. The read-back counts
 the saved trailing edges that join rim vertices without being rim edges, records the count in
 `wing.mark.json` and refuses a count above zero. An entry with an edge type other than
 `STANDARD`, and explicit wake-termination nodes, have no form on that build and are warned and

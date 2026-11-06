@@ -100,14 +100,14 @@ EXPORT_SURFACE_MESH:
     "25.100": {status: documented, note: "FSM-25.100 p.281, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.280, same grammar as 26.120"}
     "26.121": {status: documented, note: "FSM-26.121 p.310, same grammar as 26.120"}
-    "26.100": {status: documented, note: "FSM-26.100 p.302, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-11-05_export-surface.yaml", note: "FSM-26.100 p.302, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 pp.306-307, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.311, unchanged from FSM-26.122 p.311"}
-    "26.124": {status: documented, note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
-    "26.127": {status: documented, note: "FSM-26.127 p.316, unchanged from FSM-26.125 p.317"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-11-05_export-surface.yaml", note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-11-05_export-surface.yaml", note: "FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-11-05_export-surface.yaml", note: "Judged on 26.126 by CMP-26126_2026-11-05_export-surface; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-11-05_export-surface.yaml", note: "FSM-26.127 p.316, unchanged from FSM-26.125 p.317"}
   notes: >
     Exports one geometry surface (first surface is index 1) or all
     surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
@@ -119,6 +119,13 @@ EXPORT_SURFACE_MESH:
     can follow geometry operations or unit setup and SAVEAS, as measured
     in RPT-170; it changes neither geometry nor solver setup. Trailing-edge
     marks are saved in the .fsm and are not carried by the OBJ.
+
+    VERIFIED ON 26.100 AND 26.124 TO 26.127 by the 0.56.0 export probe
+    (CMP-<build>_2026-11-05_export-surface): after a two-boundary box
+    imported in metres, the all-boundaries form wrote an OBJ holding the
+    twelve faces over the eight source vertices, in groups named after
+    the boundaries. The geometry build's evidence gate (FR-1110) reads
+    these rows, so a [mesh] build with no operation runs on those builds.
 
 DELETE_SURFACES:
   layout: inline
