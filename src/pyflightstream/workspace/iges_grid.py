@@ -93,6 +93,34 @@ def _normal(verts: NDArray[np.float64], face: list[int]) -> NDArray[np.float64]:
     )
 
 
+def _walk(
+    out: Faces, owners: dict[tuple[int, int], list[int]], start: int, seen: list[bool]
+) -> tuple[list[int], int]:
+    """Orient the connected piece of ``start`` like it, in place; return the piece and the flips.
+
+    A neighbour across an edge two faces share that runs the edge the same way is reversed.
+    """
+    piece, stack = [start], [start]
+    seen[start] = True
+    flips = 0
+    while stack:
+        i = stack.pop()
+        for a, b in set(_edges(out[i])):
+            sharing = owners[(min(a, b), max(a, b))]
+            if len(sharing) != 2:
+                continue
+            for j in sharing:
+                if j == i or seen[j]:
+                    continue
+                if (a, b) in set(_edges(out[j])):
+                    out[j].reverse()
+                    flips += 1
+                seen[j] = True
+                piece.append(j)
+                stack.append(j)
+    return piece, flips
+
+
 def orient(verts: NDArray[np.float64], faces: Faces) -> tuple[Faces, int]:
     """Orient the faces of one component consistently and outward; return them and the flips.
 
@@ -111,21 +139,8 @@ def orient(verts: NDArray[np.float64], faces: Faces) -> tuple[Faces, int]:
     for start in range(len(out)):
         if seen[start]:
             continue
-        piece, stack = [start], [start]
-        seen[start] = True
-        while stack:
-            i = stack.pop()
-            directed = set(_edges(out[i]))
-            for a, b in directed:
-                for j in owners[(min(a, b), max(a, b))]:
-                    if j == i or seen[j] or len(owners[(min(a, b), max(a, b))]) != 2:
-                        continue
-                    if (a, b) in set(_edges(out[j])):
-                        out[j].reverse()
-                        flips += 1
-                    seen[j] = True
-                    piece.append(j)
-                    stack.append(j)
+        piece, turned = _walk(out, owners, start, seen)
+        flips += turned
         centre = verts[np.unique([v for i in piece for v in out[i]])].mean(axis=0)
         outward = sum(
             float(_normal(verts, out[i]) @ (verts[out[i]].mean(axis=0) - centre)) for i in piece
@@ -307,9 +322,16 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
             gmsh.clear()
             return import_named(gmsh, sources)
 
-        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance, reopen)
+        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen)
     return _write(
-        target, model, config, order, sizes, meshed, default, _curves(sources, model.unit)
+        target,
+        model,
+        config,
+        order,
+        sizes,
+        meshed=meshed,
+        default=default,
+        curves=_curves(sources, model.unit),
     )
 
 
@@ -368,6 +390,7 @@ def _trailing(
     faces: Faces,
     grid: Any,
     config: GridConfig,
+    *,
     curves: dict[str, list[NDArray[np.float64]]],
     size: float,
 ) -> tuple[set[tuple[int, int]], list[str]]:
@@ -419,6 +442,7 @@ def _write(
     config: GridConfig,
     order: list[str],
     sizes: dict[str, float],
+    *,
     meshed: Any,
     default: float,
     curves: dict[str, list[NDArray[np.float64]]],
@@ -443,7 +467,7 @@ def _write(
         warnings += _quality_warnings(name, stats)
         grid = config.components.get(name)
         if grid is not None and grid.trailing_edge is not None:
-            found, said = _trailing(verts, faces, grid, config, curves, sizes[name])
+            found, said = _trailing(verts, faces, grid, config, curves=curves, size=sizes[name])
             warnings += said
             if found:
                 te[name] = found

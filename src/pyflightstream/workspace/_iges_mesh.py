@@ -99,6 +99,23 @@ def _heal(gmsh: Any, model: NamedModel, tolerance: float) -> str:
     return "healing changed the faces and was not kept"
 
 
+def _crossings(gmsh: Any, owner: dict[int, str], warnings: list[str]) -> dict[tuple[str, ...], int]:
+    """Count and warn the curves more than two faces meet along, by the components that meet."""
+    crossings: dict[tuple[str, ...], int] = {}
+    for _, curve in gmsh.model.getEntities(1):
+        up, _ = gmsh.model.getAdjacencies(1, curve)
+        if len(up) > 2:
+            names = tuple(sorted({owner.get(int(t), "?") for t in up}))
+            crossings[names] = crossings.get(names, 0) + 1
+    for names, count in sorted(crossings.items()):
+        warnings.append(
+            f"more than two faces meet along {count} curve(s) of {' and '.join(names)}: a face "
+            "crosses another without a trimmed junction, and both parts are kept (the "
+            "intersection of untrimmed parts is outside this command)"
+        )
+    return crossings
+
+
 def _fragment(
     gmsh: Any,
     by_name: dict[str, list[int]],
@@ -131,18 +148,7 @@ def _fragment(
         faces[name].append(tag)
     for name in faces:
         faces[name].sort()
-    crossings: dict[tuple[str, ...], int] = {}
-    for _, curve in gmsh.model.getEntities(1):
-        up, _ = gmsh.model.getAdjacencies(1, curve)
-        if len(up) > 2:
-            names = tuple(sorted({owner.get(int(t), "?") for t in up}))
-            crossings[names] = crossings.get(names, 0) + 1
-    for names, count in sorted(crossings.items()):
-        warnings.append(
-            f"more than two faces meet along {count} curve(s) of {' and '.join(names)}: a face "
-            "crosses another without a trimmed junction, and both parts are kept (the "
-            "intersection of untrimmed parts is outside this command)"
-        )
+    crossings = _crossings(gmsh, owner, warnings)
     record = {
         "faces_before": len(inputs),
         "faces_after": len(owner),
@@ -404,6 +410,7 @@ def mesh_model(
     config: GridConfig,
     order: list[str],
     sizes: dict[str, float],
+    *,
     tolerance: float,
     reopen: Callable[[], NamedModel] | None = None,
 ) -> Meshed:
