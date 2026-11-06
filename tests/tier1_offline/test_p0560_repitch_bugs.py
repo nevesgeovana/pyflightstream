@@ -5,13 +5,18 @@ Usage: pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out
 
 import datetime
 import tomllib
+import warnings
 from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace._refine._obj import read_obj, read_sidecar
 from tests.tier1_offline.test_p0551_repitch import control, invoke, source_mesh
+from tests.tier1_offline.test_p0560_morph import STATION, build, record
+from tests.tier1_offline.test_p0560_morph import control as morph_control
+from tests.tier1_offline.test_p0560_morph import invoke as morph_invoke
 
 
 def face_lines(path: Path) -> list[str]:
@@ -45,6 +50,46 @@ def test_p0560_repitch_of_one_block_per_family_is_written_as_before(tmp_path):
     out = tmp_path / "pitched.obj"
     assert invoke(source, control(tmp_path, 1.0, 'hub_method = "rings"'), out) == 0
     assert face_lines(out) == face_lines(source)
+
+
+def _interleaved_hub(folder: Path) -> tuple[Path, list[list[float]]]:
+    """The quad-dominant hub of the morph tests, its first face moved behind the nacelle.
+
+    The hub returns after the nacelle under a second ``g Spinner``; returns the OBJ and the
+    places of the moved face's nodes.
+    """
+    source = build(folder, nacelle=True)
+    lines = source.read_text().splitlines()
+    moved = lines.pop(lines.index("g Spinner") + 1)
+    lines += ["g Spinner", moved]
+    source.write_text("\n".join(lines) + "\n")
+    mesh = read_obj(source)
+    return source, [mesh.verts[v].tolist() for v in mesh.families["Spinner"][-1]]
+
+
+def group_lines(path: Path) -> list[str]:
+    """Return the group lines of an OBJ, in file order."""
+    return [line for line in face_lines(path) if not line.startswith("f ")]
+
+
+@pytest.mark.requirement("FR-3760")
+def test_p0560_r1_morph_001_the_remesh_route_keeps_the_runs_of_a_family_that_returns(tmp_path):
+    """P0560-R1-MORPH-001: auto takes the remesh and writes the source's runs, not a refusal."""
+    source, moved = _interleaved_hub(tmp_path)
+    text = f'[repitch]\nangle_deg = 3.0\nrotor_axis = "x"\nreference_point = {STATION}\n'
+    out = tmp_path / "pitched.obj"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        assert morph_invoke("repitch", source, morph_control(tmp_path, text), out) == 0
+    assert record(out, "repitch")["blades"]["Blade1"]["hub_route"] == "remesh"
+    assert group_lines(out) == group_lines(source)
+    written = read_obj(out)
+    last = [int(v) - 1 for v in face_lines(out)[-1].split()[1:]]
+    assert [written.verts[v].tolist() for v in last] == moved
+    assert written.families["Nacelle"] == [
+        [written.verts.tolist().index(read_obj(source).verts[v].tolist()) for v in f]
+        for f in read_obj(source).families["Nacelle"]
+    ]
 
 
 @pytest.mark.requirement("FR-3761")

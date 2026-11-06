@@ -430,6 +430,38 @@ def assemble(source: ObjMesh, plans: list[Any], built: Built) -> Result:
     return Result(source, mesh, plans, index, added, kept, built.quads)
 
 
+def written_blocks(blocks: list[tuple[str, int]], r: Result) -> list[tuple[str, int]]:
+    """Return the face blocks of the output, in the source's file order.
+
+    ``blocks`` are the source's (:func:`~pyflightstream.workspace._refine._obj.face_blocks`): a
+    family that returns after another has one block per run. Each block keeps its kept faces,
+    and the block that holds a blade's first taken face also holds that blade's new faces, as
+    :func:`assemble` places them; a block left empty is dropped and the runs it separated join.
+    """
+    taken = {(p.family, i): p.name for p in r.plans for i in p.taken}
+    out: list[tuple[str, int]] = []
+    start: dict[str, int] = {}
+    placed: set[str] = set()
+    for name, count in blocks:
+        first = start.get(name, 0)
+        start[name] = first + count
+        size = 0
+        for i in range(first, first + count):
+            owner = taken.get((name, i))
+            if owner is None:
+                size += 1
+            elif owner not in placed:
+                placed.add(owner)
+                size += len(r.added[owner])
+        if not size:
+            continue
+        if out and out[-1][0] == name:
+            out[-1] = (name, out[-1][1] + size)
+        else:
+            out.append((name, size))
+    return out
+
+
 def chord_deviation(verts: np.ndarray, faces: list[list[int]]) -> float:
     """Return the largest sagitta of the source hub's facets, length times turn over eight.
 

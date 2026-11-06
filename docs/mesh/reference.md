@@ -156,9 +156,10 @@ is not a matrix input identifier. Relative reference paths resolve from that fil
 | `hub_method` | How the hub follows each blade: `"rings"`, `"remesh"` (OBJ only) or `"auto"` (default); see the hub routes below |
 | `band_width` | Remesh only: the band's width in the mesh's unit, positive; default the root's largest move plus two local cells |
 
-Repitch changes coordinates only. On the ring route the written OBJ holds the source's faces in the
-source's order, including an OBJ whose family returns after another, which is written as the source
-has it, one `g` line for each run of faces (FlightStream results depend on face order).
+On the ring route repitch changes coordinates only. On either route the written OBJ holds the
+source's faces in the source's order, including an OBJ whose family returns after another, which is
+written as the source has it, one `g` line for each run of faces; on the remesh route each blade's
+new faces sit in the run of the first face they replace (FlightStream results depend on face order).
 
 **Hub routes.** `"rings"` moves the nodes of the complete quad rings around each root (at least two); it changes
 coordinates only and is the only route on a saved `.fsm`, where `"remesh"` is warned and the

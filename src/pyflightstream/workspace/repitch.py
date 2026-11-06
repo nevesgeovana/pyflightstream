@@ -45,6 +45,7 @@ from pyflightstream.workspace._hub_remesh import (
     kept_edges,
     new_by_old,
     remesh_bands,
+    written_blocks,
 )
 from pyflightstream.workspace._pitch_axis import pitch_axes
 from pyflightstream.workspace._refine._obj import (
@@ -67,7 +68,6 @@ from pyflightstream.workspace._repitch_io import (
     Rewrite,
     attachments,
     morphing_table,
-    one_block_per_family,
     read_back,
     read_rotor,
     sidecar_reads_back,
@@ -616,11 +616,15 @@ def _periodicity(source: ObjMesh, new: Any, wheel: Any, checks: dict) -> None:
 
 @dataclass
 class _Remeshed:
-    """The remesh route's output: the mesh, the boundaries rewrite and each source node's place."""
+    """The remesh route's output: the mesh, the boundaries rewrite, each source node's place.
+
+    ``result`` is the remesh result, which places the new faces in the source's face blocks.
+    """
 
     mesh: ObjMesh
     rewrite: Rewrite
     moved: Any
+    result: Any
 
 
 def _turned_mesh(source: ObjMesh, new: Any) -> ObjMesh:
@@ -705,7 +709,8 @@ def _remesh(
         "hub_area": {"source": area(old, hub_faces), "output": area(out.verts, hub_out)},
         **distances,
     }
-    return _Remeshed(out, _rewrite(source, result), new_by_old(source, out, result.index))
+    moved = new_by_old(source, out, result.index)
+    return _Remeshed(out, _rewrite(source, result), moved, result)
 
 
 def _rewrite(source: ObjMesh, result: Any) -> Rewrite:
@@ -758,9 +763,13 @@ def _periodicity_remeshed(source: ObjMesh, mesh: ObjMesh, wheel: Any, checks: di
 
 
 def _write_remeshed(path: Path, target: Path, source: ObjMesh, made: _Remeshed) -> None:
-    """Write the remeshed OBJ and its boundaries file after they read back as prepared."""
-    one_block_per_family(path, "repitch")
-    payload = obj_text(made.mesh).encode("utf-8")
+    """Write the remeshed OBJ and its boundaries file after they read back as prepared.
+
+    The faces are written in the source's order: a family that returns after another keeps a
+    block for each run, the new faces in the block of the first face they replace.
+    """
+    blocks = written_blocks(face_blocks(path), made.result)
+    payload = obj_text(made.mesh, blocks=blocks).encode("utf-8")
     read_back(made.mesh, payload, "repitch")
     extra = attachments(path, target, source, made.moved, payload, rewrite=made.rewrite)
     sidecar_reads_back(extra, target, "repitch")
