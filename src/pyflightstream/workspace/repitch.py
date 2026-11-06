@@ -293,6 +293,11 @@ def repitch_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> dic
     dict
         The checks also written beside the output as ``<out>.repitch.json``: the route each blade
         took, and ``checks["passed"]`` false with ``checks["warnings"]`` when quality was warned.
+
+    Raises
+    ------
+    InputValueError
+        When the input is broken or the reference rotor states no axis; nothing is written.
     """
     path, control, target = Path(mesh), Path(morphing), Path(out)
     record = Path(str(target) + ".repitch.json")
