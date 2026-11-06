@@ -725,6 +725,20 @@ def test_p0560_grid_names_a_trailing_edge_file_the_file_system_takes(tmp_path, c
 
 
 @pytest.mark.requirement("FR-3703")
+def test_p0560_r2_002_two_names_that_differ_in_case_get_two_trailing_edge_files(tmp_path):
+    """R2-002: ``Wing`` and ``wing`` are one file on Windows and macOS, so the second
+    component's trailing-edge file took the first's and overwrote its points."""
+    from pyflightstream.workspace.iges_grid import _te_path
+
+    target = tmp_path / "model.obj"
+    first = _te_path(target, "Wing", set())
+    second = _te_path(target, "wing", {first.name})
+    assert first.name == "model.Wing.te.txt"
+    assert second.name.casefold() != first.name.casefold()
+    assert second.name == "model.wing_2.te.txt"
+
+
+@pytest.mark.requirement("FR-3703")
 def test_p0560_grid_takes_a_trailing_edge_from_a_named_iges_curve(tmp_path, capsys):
     text = (
         '[component.Wing]\nsize = 0.5\nchord = {count = 8, law = "cosine"}\n'

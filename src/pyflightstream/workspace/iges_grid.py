@@ -426,12 +426,14 @@ def _te_path(target: Path, name: str, taken: set[str]) -> Path:
     """Return ``<stem>.<component>.te.txt`` beside ``target``, the name made a file name.
 
     Each character a file name cannot hold becomes ``_``; a name another component already took
-    that way gets ``_2``, ``_3``, ... The boundaries file names the file, so the component keeps
-    its own name.
+    that way gets ``_2``, ``_3``, ... Names are compared without case, as the file systems of
+    Windows and macOS compare them, so ``Wing`` and ``wing`` never share one file. The boundaries
+    file names the file, so the component keeps its own name.
     """
     safe = _NOT_IN_A_FILE_NAME.sub("_", name)
+    held = {other.casefold() for other in taken}
     path, n = target.with_name(f"{target.stem}.{safe}.te.txt"), 2
-    while path.name in taken:
+    while path.name.casefold() in held:
         path, n = target.with_name(f"{target.stem}.{safe}_{n}.te.txt"), n + 1
     return path
 
