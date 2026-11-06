@@ -121,7 +121,13 @@ def read_config(data: dict[str, Any], mesh: ObjMesh) -> dict[str, Any]:
     )
     width = cfg.get("width")
     _need(
-        width is None or (isinstance(width, (int, float)) and math.isfinite(width) and width > 0.0),
+        width is None
+        or (
+            isinstance(width, (int, float))
+            and not isinstance(width, bool)
+            and math.isfinite(width)
+            and width > 0.0
+        ),
         f"hub_rings.width must be a positive length in the mesh's unit, not {width!r}",
     )
     blades, hubs = _names(cfg, "blades", mesh), _names(cfg, "hub", mesh)

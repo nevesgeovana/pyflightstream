@@ -151,6 +151,16 @@ def test_p0560_r1_morph_005_a_value_of_the_wrong_kind_is_refused_in_words(
     assert not list(tmp_path.glob("bad.*"))
 
 
+@pytest.mark.requirement("FR-3670")
+def test_p0560_r1_morph_010_a_boolean_ring_width_is_refused_naming_the_key(tmp_path, capsys):
+    """P0560-R1-MORPH-010: width = true is no length; it is refused, not read as 1."""
+    source = build(tmp_path)
+    cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\nwidth = true\n")
+    assert morph_invoke("hub-rings", source, cfg, tmp_path / "rings.obj") == 2
+    assert "hub_rings.width must be a positive length" in capsys.readouterr().err
+    assert not list(tmp_path.glob("rings.*"))
+
+
 @pytest.mark.requirement("FR-3761")
 def test_p0560_repitch_refuses_a_rotor_with_no_axis_in_words(tmp_path, capsys):
     source = source_mesh(tmp_path)
