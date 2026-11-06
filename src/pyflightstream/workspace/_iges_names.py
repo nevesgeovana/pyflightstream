@@ -26,7 +26,7 @@ from pyflightstream._errors import InputArtifactError
 __all__ = ["IgesNames", "name_faces", "named_curves", "read_iges_names", "unit_of_flag"]
 
 #: The kind of artifact a refusal of this module names.
-_KIND = "geometry"
+_IGES_KIND = "geometry"
 
 #: The trimmed surface entity, a face whatever its subordinate switch.
 TRIMMED = 144
@@ -131,7 +131,7 @@ class IgesNames:
 
 def _refuse(path: Path, reason: str) -> InputArtifactError:
     return InputArtifactError(
-        f"{path}: {reason}. Fix the file and run again. Nothing was written.", kind=_KIND
+        f"{path}: {reason}. Fix the file and run again. Nothing was written.", kind=_IGES_KIND
     )
 
 

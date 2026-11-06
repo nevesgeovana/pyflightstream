@@ -54,13 +54,14 @@ def _quiet_stdout() -> Iterator[None]:
         return
     sys.stdout.flush()
     saved = os.dup(fd)
+    null = os.open(os.devnull, os.O_WRONLY)
     try:
-        with open(os.devnull, "w", encoding="utf-8") as null:
-            os.dup2(null.fileno(), fd)
-            yield
+        os.dup2(null, fd)
+        yield
     finally:
         os.dup2(saved, fd)
         os.close(saved)
+        os.close(null)
 
 
 def import_iges(gmsh: Any, path: str | Path) -> list[int]:

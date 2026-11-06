@@ -282,6 +282,10 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.hpc",
     # 0.56.0 (PFS-2192): the hub rings around blade roots on the OBJ.
     "pyflightstream.workspace.hub_rings",
+    # 0.56.0 (PFS-2198, PFS-2199): the IGES grid and converter behind `geometry iges-grid`
+    # and `geometry iges-convert`; PUBLIC as collapse_te is, a script grids a configuration.
+    "pyflightstream.workspace.iges_convert",
+    "pyflightstream.workspace.iges_grid",
     "pyflightstream.workspace.inputs",
     # 0.35.0 (FR-388): the ledger, the Python mirror of the query verbs.
     "pyflightstream.workspace.ledger",

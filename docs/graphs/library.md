@@ -1242,6 +1242,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._cli_iges">pyflightstream.run._cli_iges</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_merge">pyflightstream.run._cli_merge</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_mesh">pyflightstream.run._cli_mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_morph">pyflightstream.run._cli_morph</a> (module)</li>
@@ -1259,6 +1260,12 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.trailing_edges">pyflightstream.workspace.trailing_edges</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.trailing_edges">pyflightstream.workspace.trailing_edges</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (deferred)</li>
+</ul></details>
+
+<details id="pyflightstream.run._cli_iges"><summary><code>pyflightstream.run._cli_iges</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.run._cli_morph">pyflightstream.run._cli_morph</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.iges_convert">pyflightstream.workspace.iges_convert</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.iges_grid">pyflightstream.workspace.iges_grid</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.run._cli_merge"><summary><code>pyflightstream.run._cli_merge</code></summary><ul>
@@ -1959,9 +1966,32 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._gmsh"><summary><code>pyflightstream.workspace._gmsh</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_names">pyflightstream.workspace._iges_names</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._hub_rings_grid"><summary><code>pyflightstream.workspace._hub_rings_grid</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch">pyflightstream.workspace._repitch</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch_grid">pyflightstream.workspace._repitch_grid</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._iges_grid_config"><summary><code>pyflightstream.workspace._iges_grid_config</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._iges_mesh"><summary><code>pyflightstream.workspace._iges_mesh</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_grid_config">pyflightstream.workspace._iges_grid_config</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._iges_names"><summary><code>pyflightstream.workspace._iges_names</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._inspect_pages"><summary><code>pyflightstream.workspace._inspect_pages</code></summary><ul>
@@ -2489,6 +2519,28 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._repitch">pyflightstream.workspace._repitch</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch_grid">pyflightstream.workspace._repitch_grid</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._repitch_io">pyflightstream.workspace._repitch_io</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace.iges_convert"><summary><code>pyflightstream.workspace.iges_convert</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_names">pyflightstream.workspace._iges_names</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace.iges_grid"><summary><code>pyflightstream.workspace.iges_grid</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_grid_config">pyflightstream.workspace._iges_grid_config</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_mesh">pyflightstream.workspace._iges_mesh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_names">pyflightstream.workspace._iges_names</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.inputs"><summary><code>pyflightstream.workspace.inputs</code></summary><ul>
