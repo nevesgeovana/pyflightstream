@@ -4,7 +4,9 @@
 
 `geometry morph MESH --morphing FILE --out OUTPUT` accepts an OBJ only, a sector or a full
 wheel, and writes a new OBJ with its boundaries file, the points files that file names and
-`<out>.morph.json`. A saved `.fsm` is refused.
+`<out>.morph.json`. A saved `.fsm` is refused. The morphing file, read by `morph`, `hub-rings`,
+`repitch` and `collapse-te`, and the `[repitch] reference` file are UTF-8 TOML; a byte order mark
+at the start is read past, and a file that is not TOML is refused naming the file.
 
 | Top-level key or table | Meaning |
 |---|---|

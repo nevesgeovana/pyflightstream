@@ -107,6 +107,21 @@ def test_p0560_r1_morph_002_hub_rings_keeps_the_runs_of_a_family_that_returns(tm
     assert [written.verts[v].tolist() for v in last] == moved
 
 
+@pytest.mark.requirement("FR-3609")
+def test_p0560_r1_morph_003_a_control_file_with_a_byte_order_mark_is_read(tmp_path, capsys):
+    """P0560-R1-MORPH-003: a mark is read past; a file that is not TOML is refused by name."""
+    source = source_mesh(tmp_path)
+    config = control(tmp_path, 1.0)
+    config.write_bytes(b"\xef\xbb\xbf" + config.read_bytes())
+    assert invoke(source, config, tmp_path / "marked.obj") == 0
+    config.write_text("[repitch\nangle_deg = 1.0\n")
+    capsys.readouterr()
+    assert invoke(source, config, tmp_path / "broken.obj") == 2
+    err = capsys.readouterr().err
+    assert f"{config}: not TOML" in err and "No file was written" in err
+    assert not list(tmp_path.glob("broken.*"))
+
+
 @pytest.mark.requirement("FR-3761")
 def test_p0560_repitch_refuses_a_rotor_with_no_axis_in_words(tmp_path, capsys):
     source = source_mesh(tmp_path)

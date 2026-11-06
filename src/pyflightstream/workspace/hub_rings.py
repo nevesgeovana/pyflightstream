@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import math
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -77,6 +76,7 @@ from pyflightstream.workspace._repitch_io import (
     attachments,
     morphing_table,
     read_back,
+    read_control,
     sidecar_reads_back,
 )
 
@@ -441,7 +441,7 @@ def hub_rings_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> d
     _need(target.resolve() != path.resolve(), "--out must differ from the source")
     _need(not target.exists() and not record.exists(), "output or report exists; choose new --out")
     source = read_obj(path)
-    cfg = read_config(tomllib.loads(control.read_text(encoding="utf-8")), source)
+    cfg = read_config(read_control(control, _VERB), source)
     result, report, rw, moved = rings_step(source, cfg)
     built = result.mesh
     # The faces in the source's order: a family that returns after another keeps its runs.

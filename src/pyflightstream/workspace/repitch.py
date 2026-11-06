@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import math
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -69,6 +68,7 @@ from pyflightstream.workspace._repitch_io import (
     attachments,
     morphing_table,
     read_back,
+    read_control,
     read_rotor,
     sidecar_reads_back,
 )
@@ -122,7 +122,7 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
 
 
 def _config(path: Path) -> dict[str, Any]:
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data = read_control(path, "repitch")
     cfg = morphing_table(data, "repitch", ("blades", "hub"))
     _need(isinstance(cfg, dict), f"{path} needs a [repitch] table")
     for key in set(cfg) - {

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import tempfile
-import tomllib
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +42,7 @@ from pyflightstream.workspace._repitch_io import (
     morphing_table,
     one_block_per_family,
     read_back,
+    read_control,
     read_rotor,
     sidecar_reads_back,
 )
@@ -104,7 +104,7 @@ class _Result:
 
 
 def _config(path: Path) -> dict[str, Any]:
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data = read_control(path, "collapse_te")
     table = morphing_table(data, "collapse_te", ("blades",))
     _need(isinstance(table, dict), f"{path} needs a [collapse_te] table")
     cfg = dict(table)
@@ -859,7 +859,7 @@ def _periodicity(src: ObjMesh, out: ObjMesh, rotor: Any) -> Any:
 
 def _rotor(cfg_path: Path, mesh_path: Path) -> Any:
     """Return the rotor a [repitch] reference of the same control file names, or None."""
-    data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
+    data = read_control(cfg_path, "collapse_te")
     table = data.get("repitch")
     if not isinstance(table, dict) or "reference" not in table:
         return None
