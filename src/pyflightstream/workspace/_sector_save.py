@@ -37,6 +37,7 @@ from pyflightstream.workspace._wheel_fsm import (
     _parse,
     _real_row,
     _UnrecognizedError,
+    edge_rows,
 )
 
 __all__ = ["QuadSink", "RemeshResult", "compose_sector", "mesh_checks", "wheel_checks"]
@@ -170,8 +171,9 @@ def face_rows(sink: QuadSink, template: list[list[str]]) -> list[str]:
         out[k] = zero
     for k in (20, 24):
         out[k] = _flag_row([template[k][0]] * n)
-    for k in (21, 22, 23):
-        out[k] = _flag_row(["T" if s == k - 21 else "F" for s in sink.slot])
+    # T/F, or a 26.127 source's integer form: the rim face's group on its flagged slot
+    for k, row in zip((21, 22, 23), edge_rows(template, sink.slot, sink.group), strict=True):
+        out[k] = row
     return [out[k] for k in range(25)]
 
 

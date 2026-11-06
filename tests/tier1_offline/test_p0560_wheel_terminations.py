@@ -352,18 +352,51 @@ def test_p0560_r1_mark_001_an_integer_edge_flag_that_is_not_its_face_s_group_is_
     assert not result.written and not out.exists()
 
 
+def _same_edges_in_the_26127_form(written: Path, plain: Path) -> None:
+    """The 26.127 output marks the plain output's trailing edges, in the integer form."""
+    assert trailing_edge_midpoints(written) == trailing_edge_midpoints(plain)
+    assert len(trailing_edge_midpoints(written)) > 0
+    rows, flags = _mesh_rows(written), _mesh_rows(plain)
+    group = np.array([int(v) for v in rows[5]])
+    for k in EDGE_ROWS:
+        values = np.array([int(v) for v in rows[k]])
+        marked = np.array([f == "T" for f in flags[k]])
+        assert (values[marked] == group[marked]).all() and (values[~marked] == 0).all()
+
+
 @pytest.mark.requirement("FR-3764")
-def test_p0560_r1_mark_001_the_body_of_a_26127_sector_names_the_form_it_does_not_read(
+def test_p0560_r1_mark_004_the_saved_sector_verbs_read_and_write_a_26127_sector(
     tmp_path: Path,
 ) -> None:
-    """power-off-body reads the edge rows as flags, so it names the 26.127 form, writes nothing."""
-    from tests.tier1_offline.test_p0540_sector_remesh import build_blunt_sector
+    """R1-MARK-004: sector-remesh, power-off-body and repitch read the flags of a sector saved
+    by 26.127 and write its integer form, where they warned it as not recognized and wrote
+    nothing; each output marks the trailing edges of the same verb's output on the T/F sector."""
+    from pyflightstream.workspace import sector_remesh
+    from tests.tier1_offline.test_p0540_sector_remesh import ARGS, build_blunt_sector
+    from tests.tier1_offline.test_p0551_repitch import control, invoke
 
-    saved = _as_26127(build_blunt_sector(tmp_path), tmp_path / "blunt_26127.fsm")
-    with pytest.warns(PyflightstreamWarning) as caught:
-        result = _body(saved, tmp_path / "body.fsm")
-    assert not result.written and not (tmp_path / "body.fsm").exists()
-    assert "26.127" in " ".join(str(item.message) for item in caught)
+    source = build_blunt_sector(tmp_path)
+    saved = _as_26127(source, tmp_path / "blunt_26127.fsm")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        remesh = sector_remesh(saved, blades=["Blade1"], out=tmp_path / "r127.fsm", **ARGS)
+        plain = sector_remesh(source, blades=["Blade1"], out=tmp_path / "r.fsm", **ARGS)
+        body = _body(saved, tmp_path / "b127.fsm")
+        plain_body = _body(source, tmp_path / "b.fsm")
+    assert remesh.written and plain.written and body.written and plain_body.written
+    _same_edges_in_the_26127_form(tmp_path / "r127.fsm", tmp_path / "r.fsm")
+    _same_edges_in_the_26127_form(tmp_path / "b127.fsm", tmp_path / "b.fsm")
+
+    config = control(tmp_path, 0.0, hub="S")
+    config.write_text(
+        config.read_text()
+        .replace("0.0, 0.0, 1.0", "0.0, 1.0, 0.0")
+        .replace("origin = [0.0,", "origin = [0.65,")
+    )
+    out = tmp_path / "pitched127.fsm"
+    assert invoke(tmp_path / "r127.fsm", config, out) == 0
+    before, after = _mesh_rows(tmp_path / "r127.fsm"), _mesh_rows(out)
+    assert all(before[k] == after[k] for k in EDGE_ROWS)
 
 
 def test_p0560_r1_mark_002_the_upgrading_notes_say_what_changed_since_0551() -> None:

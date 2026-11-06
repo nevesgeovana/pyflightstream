@@ -42,8 +42,8 @@ naming the merged families, where 0.55.1 wrote nothing and exited 2.
 `--no-wake-terminations` drops them.
 
 Saved simulations of FlightStream 26.127 are read by the saved-simulation readers and by the
-saved route of `sector-to-wheel`. `sector-remesh`, `power-off-body` and `repitch` on a saved
-sector of that build name the form they do not read and write nothing.
+saved routes of `sector-to-wheel`, `sector-remesh`, `power-off-body` and `repitch`, which write
+their outputs in that build's form.
 
 `geometry iges-grid` and `geometry iges-convert` need the optional extra:
 `pip install "pyflightstream[gmsh]"`. The base install is unchanged.

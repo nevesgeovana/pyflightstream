@@ -104,6 +104,34 @@ def _flag_row(values: Any) -> str:
     return "".join(f" {v}," for v in values)
 
 
+def edge_flags(mesh: dict[str, Any], slot: int) -> NDArray[numpy.bool_]:
+    """Return which faces flag the trailing edge of an edge slot (0 to 2), in either form.
+
+    The T/F rows of 26.125 and earlier and the integer rows of 26.127 (0, or the rim face's
+    group) give the same flags.
+    """
+    k = _EDGE_ROWS[slot]
+    if k in mesh["ints"]:
+        return numpy.asarray(mesh["ints"][k] != 0, dtype=bool)
+    return numpy.array([c == "T" for c in mesh["rows"][k]], dtype=bool)
+
+
+def edge_rows(template: list[list[str]], slots: Any, groups: Any) -> list[str]:
+    """Return the three edge-slot rows of faces whose flagged slot is ``slots`` (None for none).
+
+    The form is the template's: T/F, or, where the source was saved by 26.127, the face's
+    trailing-edge group (``groups``) on its flagged slot and 0 elsewhere.
+    """
+    integer = template[_EDGE_ROWS[0]][0] not in ("T", "F")
+    rows = []
+    for k in range(3):
+        if integer:
+            rows.append(_int_row([g if s == k else 0 for s, g in zip(slots, groups, strict=True)]))
+        else:
+            rows.append(_flag_row(["T" if s == k else "F" for s in slots]))
+    return rows
+
+
 def _real_row(values: Any) -> str:
     return "".join(format(v, " .17E") + "," for v in values)
 
@@ -120,13 +148,13 @@ def _need(ok: bool, what: str) -> None:
         raise _UnrecognizedError(what)
 
 
-def _mesh(lines: list[str], *, integer_edges: bool = False) -> dict[str, Any]:
+def _mesh(lines: list[str]) -> dict[str, Any]:
     """Read the mesh block by its own counts and refuse any row out of the layout.
 
     FlightStream 26.127 saves the three edge-slot rows (21 to 23) as integers, 0 for no
     trailing edge and the group's number for one (:func:`pyflightstream._fsm._mesh_block`).
-    Only a reader that renumbers them per copy asks for them (``integer_edges``); every other
-    reader of the T/F rows refuses them as unrecognized rather than read them as unflagged.
+    They are kept as read, in ``rows`` and as integers in ``ints``; every reader and writer of
+    those rows takes either form (:func:`edge_flags`, :func:`edge_rows`).
     """
     start, end = _at(lines, "$MESH_START$"), _at(lines, "$MESH_END$")
     faces, nb = int(lines[start + 1]), int(lines[start + 3])
@@ -146,13 +174,7 @@ def _mesh(lines: list[str], *, integer_edges: bool = False) -> dict[str, Any]:
     ints = {}
     for k, row in enumerate(rows):
         flag = row[0] in ("T", "F")
-        if k in _EDGE_ROWS and not flag:
-            _need(
-                integer_edges,
-                f"row {k} holds the integer edge flags of FlightStream 26.127, which this "
-                "reader does not read yet",
-            )
-        else:
+        if k not in _EDGE_ROWS or flag:
             _need(flag == (k >= 20), f"row {k} is not {'a T/F row' if k >= 20 else 'integers'}")
         if not flag:
             ints[k] = numpy.array([int(x) for x in row], dtype=numpy.int64)
@@ -318,16 +340,16 @@ class _Parsed:
     held_by: dict[str, set[int]]
 
 
-def _parse(text: str, *, integer_edges: bool = False) -> _Parsed:
+def _parse(text: str) -> _Parsed:
     """Read the sector's mesh and physics blocks, refusing (as unrecognized) any deviation.
 
-    ``integer_edges`` admits the integer edge-slot rows of 26.127 (see :func:`_mesh`), each
-    nonzero value held to be the trailing-edge group of its rim face, the one meaning that
-    renumbers per copy; any other value is not guessed at.
+    The integer edge-slot rows of 26.127 (see :func:`_mesh`) are read with each nonzero value
+    held to be the trailing-edge group of its rim face, the one meaning a writer can renumber;
+    any other value is not guessed at.
     """
     newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.split(newline)
-    mesh, phys = _mesh(lines, integer_edges=integer_edges), _physics(lines)
+    mesh, phys = _mesh(lines), _physics(lines)
     names = [h[4] for h in mesh["heads"]]
     ids = [h[0] for h in mesh["heads"]]
     _need(
@@ -611,7 +633,7 @@ def sector_fsm_to_wheel(path: Path, opts: Options) -> WheelResult:
     refuse_existing([opts.out, record], opts.overwrite)
     text = path.read_bytes().decode("latin-1")
     try:
-        parsed = _parse(text, integer_edges=True)
+        parsed = _parse(text)
         _readback(path, {"boundaries": tuple(names or ())})
         return _write(path, parsed, opts, record)
     except (_UnrecognizedError, ValueError, IndexError, KeyError) as error:

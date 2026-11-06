@@ -101,11 +101,11 @@ FlightStream versions.
 
 - Saved simulations written by FlightStream 26.127 are read: that build writes the three
   per-face edge rows of the mesh block as integers (0, or the trailing-edge group's number) where
-  earlier builds wrote T/F, and the reader refused every such file. The saved route of
-  `geometry sector-to-wheel` repeats such a sector in that form, each copy's edges naming the
-  copy's own group, where it warned the layout as not recognized and wrote nothing.
-  `geometry sector-remesh`, `geometry power-off-body` and `geometry repitch` on a saved sector
-  do not read that form yet and say so.
+  earlier builds wrote T/F, and the reader refused every such file. The saved routes of
+  `geometry sector-to-wheel`, `geometry sector-remesh`, `geometry power-off-body` and
+  `geometry repitch` read such a sector and write their output in that form, each trailing edge
+  naming its rim face's group (a copy's own group in a wheel), where they warned the layout as
+  not recognized and wrote nothing.
 - `geometry repitch` keeps the face order of an OBJ whose family returns after another; it wrote one
   block for each family, which moved faces with exit status 0 (PFS-2194).
 - `geometry repitch` with a `[repitch]` reference whose rotor states no `axis` is refused in words
