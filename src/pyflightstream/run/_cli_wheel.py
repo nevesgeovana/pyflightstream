@@ -70,6 +70,13 @@ def _add_sector_to_wheel(verbs: Any) -> None:
         "--out", metavar="PATH", help="the wheel (default <sector stem>_wheel beside the sector)"
     )
     wheel.add_argument("--overwrite", action="store_true", help="replace an existing wheel")
+    wheel.add_argument(
+        "--no-wake-terminations",
+        dest="wake_terminations",
+        action="store_false",
+        help="drop the wake terminations an OBJ sector's trailing-edge entries declare; by "
+        "default every copy carries them, as the saved route does",
+    )
 
 
 def _cmd_sector_to_wheel(args: argparse.Namespace) -> int:
@@ -86,6 +93,7 @@ def _cmd_sector_to_wheel(args: argparse.Namespace) -> int:
             tolerance=args.tolerance,
             out=args.out,
             overwrite=args.overwrite,
+            wake_terminations=args.wake_terminations,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

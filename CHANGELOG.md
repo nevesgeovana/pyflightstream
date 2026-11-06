@@ -27,6 +27,11 @@ FlightStream versions.
   direction projected on the plane perpendicular to the rotor axis, through the hub centre in
   the plane a scalar places, or through a stated point. A table written for 0.55.1 reads as
   before.
+- `geometry sector-to-wheel --no-wake-terminations` (`wake_terminations=False`) drops the wake
+  terminations an OBJ sector's trailing-edge entries declare. By default the OBJ route carries
+  them into every copy, as the saved route does, and `<out>.wheel.json` now states
+  `wake_terminations` as `"carried"` or `"dropped"`. On a saved sector the switch is warned as not
+  applicable.
 
 ### Changed
 

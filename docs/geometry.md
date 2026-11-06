@@ -537,7 +537,7 @@ inputs/geometries/sector/
   sector.N.te.txt
 
 pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
-    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite]
+    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
 ```
 
 The OBJ gives an OBJ and a saved simulation (`.fsm`) gives a `.fsm`; an `--out`
@@ -566,13 +566,23 @@ faces are joined only across edges that are not rim edges has a blunt trailing
 edge, and its base is the faces whose every node lies on a rim line. A surface
 that the rim edges cut into two pieces (the aft base of a body) has the
 smaller piece as its base. One rim and one piece is a sharp trailing edge:
-no base. The wheel is written beside the OBJ as:
+no base.
+
+The wake terminations of the trailing-edge entries are carried by default, as the
+saved route carries those of a saved sector, so both routes build the same wheel: an
+entry's `wake_termination_nodes` file is turned into each copy as
+`wheel.<label>_<k>.wake.te.txt`, and `"auto"` is kept as it is. `--no-wake-terminations`
+(`wake_terminations=False` from Python) drops them, and the wheel's entries declare none.
+`wheel.wheel.json` says which: `wake_terminations` is `"carried"` or `"dropped"`. On a saved
+sector the terminations are rows of the file the route copies, so the switch is warned as not
+applicable there and they are carried. The wheel is written beside the OBJ as:
 
 ```text
 wheel.obj                     one group per surface
 wheel.obj.boundaries.toml     the named form: [trailing_edges.<label>_<k>] and [base_regions.Base<k>] per copy
 wheel.<label>_<k>.te.txt      one points file per rim per blade
-wheel.wheel.json              source sha256, copies, axis, hub, tolerance and the checks
+wheel.<label>_<k>.wake.te.txt the wake-termination nodes of an entry that names a file, per copy
+wheel.wheel.json              source sha256, copies, axis, hub, tolerance, wake_terminations and the checks
 ```
 
 With `--overwrite`, a points file the earlier wheel's record lists and the new wheel does not
