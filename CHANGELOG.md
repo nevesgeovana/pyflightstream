@@ -81,6 +81,10 @@ FlightStream versions.
   wheel (a wing or a fuselage in the file) is no longer refused, and a source whose blades and
   hub were not periodic is warned instead of refused. Several blades named with `rotor_axis` turn
   the check on as a reference with several blades does.
+- On the remesh route of `geometry repitch`, a stated `band_width` above a wheel root's share of
+  the gap to the nearest other root is lowered to the share and warned with both numbers, and a
+  share that leaves no room beyond one local cell is warned and the band holds the marched rows
+  only; such a root was refused naming a negative width.
 
 ### Fixed
 
@@ -95,6 +99,16 @@ FlightStream versions.
   refinement reader as by the others, instead of being refused as not TOML (PFS-2194).
 - A TOML date, time or date-time in a boundaries file table the tools carry over is written back as
   it was read, instead of failing with a TypeError (PFS-2194).
+- `geometry repitch` on its remesh route (taken by the default `hub_method = "auto"` on a
+  quad-dominant hub) and `geometry hub-rings` keep the face order of an OBJ whose family returns
+  after another, one `g` line for each run, each blade's new faces in the run of the first face
+  they replace; both refused such an OBJ.
+- The morphing file read by `geometry morph`, `hub-rings`, `repitch` and `collapse-te`, and the
+  `[repitch]` reference file, are read when they start with a byte order mark; a file that is not
+  TOML is refused naming it and saying that nothing was written, where the message named neither.
+- A `[repitch]` value of the wrong kind (`angle_deg` or `max_angle_deg` as an array, `axes` as an
+  array, `keep` as a number, `reference` as a number, `rotor` as an array) is refused naming the
+  key, with exit status 2, instead of ending in a traceback.
 - Submitted jobs remain protected against accidental reruns. Pass
   `redo_submitted=True` explicitly to repeat a submitted point; the old scheduler
   job is not cancelled and must be handled separately.
