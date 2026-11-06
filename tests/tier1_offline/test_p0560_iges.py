@@ -976,6 +976,18 @@ def test_p0560_the_faces_inside_where_components_cross_are_removed(half):
 
 
 @pytest.mark.requirement("FR-3768")
+def test_p0560_r3_004_no_requirement_cites_a_local_scratch_folder():
+    """The evidence of a requirement names a committed receipt; a scratch folder of one machine is
+    neither published nor kept."""
+    import csv
+
+    path = Path(__file__).resolve().parents[1] / "requirements_l3.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        cited = [row[0] for row in csv.reader(handle) if any("C:/WORK" in cell for cell in row)]
+    assert cited == []
+
+
+@pytest.mark.requirement("FR-3768")
 def test_p0560_r3_002_inner_faces_kept_whole_are_warned():
     """An open sheet through a closed body leaves no selection that closes every crossing: every
     face is kept, and a warning says so (the crossing warning before the mesh said they would be
