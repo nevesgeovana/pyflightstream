@@ -1148,8 +1148,13 @@ file entry becomes one import; detection remains STANDARD only. Source points
 are matched before import operations and carried through their scale, rotation,
 translation and mirror transformations in metres. Explicit termination nodes
 use the written OBJ vertex indices and are refused after vertex-changing
-operations. Termination nodes combined with merging remain conservatively
-refused until their saved-state persistence is measured.
+operations. Explicit termination nodes are selected and marked before the
+merges of `merge_into`. A mark made before `SURFACE_COMBINE` is saved on the
+same node after it on FlightStream 26.124 and 26.125, measured by the probes of
+`reports/compat/CMP-26124_2026-10-26_marking.yaml` and
+`CMP-26125_2026-10-26_marking.yaml`, so the two are marked together on those
+builds; on any other build explicit nodes with a `merge_into` are refused,
+naming those builds.
 
 The output `.fsm.boundaries.toml` contains only inventory fields and
 `marked_by`; it carries no import or marking declarations. The original

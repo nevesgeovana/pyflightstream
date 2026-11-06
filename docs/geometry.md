@@ -471,6 +471,12 @@ executable's build banner with a small log-only pass, then runs one marking
 pass in a fresh work folder. An existing FSM requires `--overwrite`. With the FSM
 absent, the other outputs are replaced without it, and each one replaced is warned by name.
 
+Explicit wake-termination nodes are selected and marked before the merges of `merge_into`. On
+FlightStream 26.124 and 26.125 a probe saved a mark made before `SURFACE_COMBINE` on the same node
+after it, so a boundaries file that holds both, as the one `sector-to-wheel` writes from a sector
+with explicit nodes and merged bases does, is previewed and applied there. On any other build that
+pair is refused, naming those builds: declare the nodes as `"auto"` or drop the `merge_into`.
+
 The saved surface names, trailing-edge points and group count, termination
 count and base-region records must agree before publication. The five outputs
 are `wing.fsm`, `wing.fsm.boundaries.toml`, `wing.mark.json`, `wing.mark.txt`

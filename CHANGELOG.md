@@ -46,6 +46,11 @@ FlightStream versions.
   `geometry inventory <out.obj> --refresh`, which now rewrites its quoted counted keys, or by
   running `repitch` again to a new `--out`; an output of 0.55.1 with a space in a family name
   needs the second.
+- `geometry mark-boundaries` marks explicit wake-termination nodes together with `merge_into` on
+  FlightStream 26.124 and 26.125, where a probe saved the mark across the merge on the same node,
+  so the wheel `geometry sector-to-wheel` writes from an OBJ sector with explicit terminations and
+  merged bases passes the preview. On another build the pair is still refused, now naming the
+  measured builds and their reports.
 
 ## [0.55.1] - 2026-11-05
 
