@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-06
+
 ### Added
 
 - `pyfs-workspace geometry iges-grid IGES... --grid FILE --out OUTPUT` grids IGES files whose

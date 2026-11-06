@@ -340,7 +340,7 @@ def test_the_changelog_names_the_public_keyword_that_turns_the_refusal_off():
     from pathlib import Path
 
     text = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(encoding="utf-8")
-    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    unreleased = text.split("## [0.56.0]", 1)[1].split("\n## [", 1)[0]
     assert "redo_submitted=True" in unreleased
 
 
