@@ -233,9 +233,10 @@ VERIFIED = {
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 163.
     # Seven marking promotions: CMP-26124_2026-10-26_marking.yaml.
     # FR-3350: five motion rows promoted by CMP-26124_2026-10-12_pfs2135-items.
-    # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
-    # (CMP-26124_2026-11-05_export-surface): 176.
-    "26.124": 176,
+    # +2 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
+    # (CMP-26124_2026-11-05_export-surface), and
+    # AUTO_DETECT_TRAILING_EDGES from its saved edges (CMP-26124_2026-11-05_autodetect-te): 177.
+    "26.124": 177,
     # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
     # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
     # +44 on 2026-10-12, the same runs on this build (CMP-26125_2026-10-12_*): 185.

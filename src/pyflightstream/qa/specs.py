@@ -73,7 +73,6 @@ from pyflightstream.qa._spec_kit import (  # noqa: E402
     _spec,
     _unobservable,
     fsm_grep,
-    region_printed_lax,
     sheet_matches,
 )
 
@@ -288,20 +287,8 @@ def _detect_trailing_edges(script: Script, workdir: Path) -> None:
     detect_every_boundary(script, "trailing_edges")
 
 
-_spec(
-    command="AUTO_DETECT_TRAILING_EDGES",
-    build_target=_emit("AUTO_DETECT_TRAILING_EDGES"),
-    requires=Requires.SIM,
-    assert_effect=region_printed_lax("trailing edge"),
-    effect_note=(
-        "a line of the target region naming trailing edges, which detection prints as "
-        "N trailing edges marked on surface <name>; INITIALIZE_SOLVER alone marks no "
-        "trailing edge and prints no such line, measured on 26.124 (RPT-065). A silent "
-        "region is unprobed: the saved-state reader of RPT-065, the instrument that "
-        "separates what detection and initialisation mark, is not this probe's "
-        "assertion yet"
-    ),
-)
+# AUTO_DETECT_TRAILING_EDGES reads the saved edges since 0.56.0 (FR-3742); its probe is in
+# _spec_0560_export_detect, beside the surface-export probe.
 _spec(
     command="SET_TRAILING_EDGE_TYPE",
     build_target=_emit("SET_TRAILING_EDGE_TYPE", 1, "RELAXED"),

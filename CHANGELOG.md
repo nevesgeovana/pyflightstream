@@ -39,6 +39,10 @@ FlightStream versions.
   reads the OBJ it writes (twelve faces over the eight vertices of an imported box), so the
   preview no longer names it as awaiting a licensed probe there (FR-3741,
   `reports/compat/CMP-<build>_2026-11-05_export-surface.yaml`).
+- The `AUTO_DETECT_TRAILING_EDGES` probe reads the saved trailing edges before and after the
+  command instead of a log line, and verifies the command on 26.124 (FR-3742,
+  `reports/compat/CMP-26124_2026-11-05_autodetect-te.yaml`). The 26.127 solver still runs the
+  command, which its manual no longer documents; no 26.127 row is written for it.
 
 ### Fixed
 
