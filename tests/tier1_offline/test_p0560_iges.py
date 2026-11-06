@@ -274,6 +274,27 @@ def test_p0560_the_base_install_never_imports_gmsh():
     assert out.stdout.strip() == "False"
 
 
+@pytest.mark.requirement("FR-3704")
+def test_p0560_every_ci_leg_that_installs_the_gmsh_extra_installs_its_system_libraries():
+    """R1-IGES-005: the floors and ceilings legs install every user extra, gmsh included."""
+    import yaml
+
+    repo = Path(__file__).resolve().parents[2]
+    jobs = yaml.safe_load((repo / ".github/workflows/ci.yml").read_text(encoding="utf-8"))["jobs"]
+    project = tomllib.loads((repo / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert "gmsh" in project["optional-dependencies"]
+    legs = []
+    for name, job in jobs.items():
+        runs = [str(step.get("run", "")) for step in job.get("steps", [])]
+        # A pip install that names the extra, or one resolved from every declared extra.
+        if any("gmsh]" in r or "DEPENDENCY_ENDPOINT" in str(job) for r in runs):
+            legs.append(name)
+            assert "ubuntu" not in str(job.get("runs-on")) or any(
+                "libglu1-mesa" in r for r in runs
+            ), name
+    assert {"test-floors", "test-ceilings"} <= set(legs)
+
+
 @pytest.mark.requirement("FR-3702")
 def test_p0560_a_grid_value_that_cannot_be_read_is_refused_before_import(tmp_path, capsys):
     source = plate_and_flap(tmp_path)
