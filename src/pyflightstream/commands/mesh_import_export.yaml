@@ -120,7 +120,7 @@ EXPORT_SURFACE_MESH:
     in RPT-170; it changes neither geometry nor solver setup. Trailing-edge
     marks are saved in the .fsm and are not carried by the OBJ.
 
-    VERIFIED ON 26.100 AND 26.124 TO 26.127 by the 0.56.0 export probe
+    VERIFIED ON 26.100 AND 26.124 TO 26.127 by the surface-export probe
     (CMP-<build>_2026-11-05_export-surface): after a two-boundary box
     imported in metres, the all-boundaries form wrote an OBJ holding the
     twelve faces over the eight source vertices, in groups named after

@@ -287,7 +287,7 @@ def _detect_trailing_edges(script: Script, workdir: Path) -> None:
     detect_every_boundary(script, "trailing_edges")
 
 
-# AUTO_DETECT_TRAILING_EDGES reads the saved edges since 0.56.0 (FR-3742); its probe is in
+# AUTO_DETECT_TRAILING_EDGES is judged by the saved edges (FR-3742); its probe is in
 # _spec_0560_export_detect, beside the surface-export probe.
 _spec(
     command="SET_TRAILING_EDGE_TYPE",
