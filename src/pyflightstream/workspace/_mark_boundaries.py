@@ -1087,13 +1087,19 @@ def _emit_marking(
         say(f"{label}: placing {len(entry.points_m)} points through the import operations")
         points = _placed_points(entry.points_m, source, spec, bound.tolerance)
         runs: list[Any] = [entry.points_m]
+        # A base region's rim is written in the order 26.127 keeps every edge of (rim_runs).
+        base = label if any(r.family == label for r in declarations.base_regions) else None
+        reordered = False
         if script.version.canonical in RIM_GROUP_BUILDS:
-            runs = rim_runs(entry.points_m, source, spec.units)
+            runs = rim_runs(entry.points_m, source, spec.units, base_family=base)
+            reordered = base is not None
         for number, run in enumerate(runs, 1):
             stem = f"edges-{len(sets) + 1}" + (f"-{number}" if len(runs) > 1 else "")
             token = work / f"{stem}.txt"
             placed = (
-                points if len(runs) == 1 else _placed_points(run, source, spec, bound.tolerance)
+                points
+                if len(runs) == 1 and not reordered
+                else _placed_points(run, source, spec, bound.tolerance)
             )
             helpers.mark_wake_edges(
                 script,

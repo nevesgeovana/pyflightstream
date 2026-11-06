@@ -494,6 +494,11 @@ FlightStream 26.124, 26.125 and 26.127 a probe saved a mark made before `SURFACE
 after it, so a boundaries file that holds both, as the one `sector-to-wheel` writes from a sector
 with explicit nodes and merged bases does, is previewed and applied there. On any other build that
 pair is refused, naming those builds: declare the nodes as `"auto"` or drop the `merge_into`.
+
+On 26.127 every base region is created before the first wake-edge import, and each base
+region's rim file is written in descending order of the face outside the base that holds each
+edge: that build drops an imported edge touching an already marked edge whose face comes earlier
+in the mesh. Other builds keep the order of the boundaries file.
 Each declared base is made by `CREATE_NEW_BASE_REGION`, which states its model and Cp and
 saves both. `SET_BASE_REGION_CP <n> CUSTOM <cp>` follows it for a `USER` or `CUSTOM` model
 only: on every build the pass serves, the form with `EMPIRICAL` or `AXISYMMETRIC` and a Cp

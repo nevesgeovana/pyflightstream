@@ -107,6 +107,11 @@ FlightStream versions.
 
 ### Fixed
 
+- `geometry mark-boundaries` on FlightStream 26.127 writes each base region's rim file in
+  descending order of the face outside the base that holds each edge: 26.127 drops an imported
+  edge that touches an already marked edge whose face comes earlier in the mesh, which left a
+  six-blade wheel 26 trailing-edge points short (742 of 768); 26.125 marks all 768 from the same
+  files. Other builds and other trailing-edge entries keep the file's order.
 - Saved simulations written by FlightStream 26.127 are read: that build writes the three
   per-face edge rows of the mesh block as integers (0, or the trailing-edge group's number) where
   earlier builds wrote T/F, and the reader refused every such file. The saved routes of

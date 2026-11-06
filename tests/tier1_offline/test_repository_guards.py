@@ -66,8 +66,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 177027 report lines, measured.
 #: then the v127 lane at 7a7ce6ee7 (14 probe reports of PFS-2187.04, .05 and PFS-2191, 4 tests and
 #: specs): 2143 files, 121 reports, 208338 report lines, measured.
+#: then the 26.127 rim face-order test (test_p0560_rim_face_order.py): 2144 files, measured.
 LEAN_CAPS = {
-    "tracked_files": 2143,
+    "tracked_files": 2144,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,

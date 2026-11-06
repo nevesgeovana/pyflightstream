@@ -224,13 +224,18 @@ def rim_edges(points: Any, mesh: Path, mesh_unit: str) -> tuple[list[np.ndarray]
     return rims, midpoints[cross]
 
 
-def rim_runs(points: Any, mesh: Path, mesh_unit: str) -> list[np.ndarray]:
+def rim_runs(
+    points: Any, mesh: Path, mesh_unit: str, *, base_family: str | None = None
+) -> list[np.ndarray]:
     """Part the mid-points of one file by the connected run of mesh edges they name.
 
     Each run is one rim: the two sides of a blunt trailing edge are two runs, a sharp edge or a
-    closed ring one. The points keep the file's order inside each run, and the runs follow the
-    order of their first point. Unlike :func:`rim_edges`, nothing is parted for cross edges: an
-    edge the file names that joins two rims makes them one run.
+    closed ring one. The runs follow the order of their first point. Unlike :func:`rim_edges`,
+    nothing is parted for cross edges: an edge the file names that joins two rims makes them
+    one run.
+
+    Inside a run the points keep the file's order, except on the rim of a base region
+    (``base_family``), whose points are put in the order of :func:`_outside_face_order`.
 
     Parameters
     ----------
@@ -240,6 +245,9 @@ def rim_runs(points: Any, mesh: Path, mesh_unit: str) -> list[np.ndarray]:
         The OBJ the mid-points name edges of.
     mesh_unit : str
         The unit of the OBJ's coordinates.
+    base_family : str, optional
+        The OBJ family of the base region whose rim the points are; None keeps the file's
+        order.
 
     Returns
     -------
@@ -258,7 +266,62 @@ def rim_runs(points: Any, mesh: Path, mesh_unit: str) -> list[np.ndarray]:
     graph = coo_matrix((np.ones(len(ends)), (ends[:, 0], ends[:, 1])), shape=(size, size))
     _, label = connected_components(graph, directed=False)
     run = label[ends[:, 0]]
-    return [placed[run == value] for value in dict.fromkeys(run.tolist())]
+    runs = [placed[run == value] for value in dict.fromkeys(run.tolist())]
+    if base_family is None:
+        return runs
+    return [_outside_face_order(part, mesh, mesh_unit, base_family) for part in runs]
+
+
+def _outside_face_order(points: np.ndarray, mesh: Path, unit: str, family: str) -> np.ndarray:
+    """Order a base rim's mid-points by the OBJ face outside the base, the last face first.
+
+    FlightStream 26.127 reads an IMPORT_WAKE_EDGES_FROM_FILE node file in the order written
+    and drops some of the edges that meet an edge it has already marked when the new edge's
+    face outside the base comes later in the mesh than the marked edge's; it has dropped none
+    whose face comes earlier. Measured on 2026-11-06 with licensed probes of a six-blade wheel
+    (the 0.56.0 wheel-routes receipt): 742 of 768 rim edges kept in the file's order, 768 of
+    768 in this order, and 768 of 768 on 26.125 in the file's order. Writing the last face
+    first makes every edge meet only edges of later faces.
+
+    The points are returned in their order where it cannot be stated: the family is not an
+    OBJ family, or a point's edge has no face outside it.
+    """
+    from scipy.spatial import cKDTree
+
+    scale = METRES_PER_UNIT[unit]
+    vertices: list[tuple[float, float, float]] = []
+    owners: dict[tuple[int, int], list[tuple[int, str]]] = {}
+    group = "Boundary-1"
+    face = 0
+    for line in mesh.read_text(encoding="utf-8").splitlines():
+        words = line.split("#", 1)[0].split()
+        if not words:
+            continue
+        if words[0] == "v":
+            vertices.append(
+                (float(words[1]) * scale, float(words[2]) * scale, float(words[3]) * scale)
+            )
+        elif words[0] in {"g", "o"}:
+            group = words[1]
+        elif words[0] == "f":
+            ids = [int(word.split("/")[0]) for word in words[1:]]
+            ids = [i - 1 if i > 0 else len(vertices) + i for i in ids]
+            for a, b in zip(ids, ids[1:] + ids[:1], strict=True):
+                owners.setdefault((min(a, b), max(a, b)), []).append((face, group))
+            face += 1
+    if not any(name == family for held in owners.values() for _, name in held):
+        return points
+    edges = list(owners)
+    xyz = np.asarray(vertices, dtype=float)
+    pairs = np.asarray(edges, dtype=np.intp)
+    _, nearest = cKDTree((xyz[pairs[:, 0]] + xyz[pairs[:, 1]]) / 2.0).query(points)
+    keys = []
+    for index in np.atleast_1d(nearest):
+        outside = [number for number, name in owners[edges[int(index)]] if name != family]
+        if not outside:
+            return points
+        keys.append(max(outside))
+    return points[np.argsort(-np.asarray(keys), kind="stable")]
 
 
 def saved_cross_edges(sets: Sequence[dict[str, Any]], saved: Path) -> dict[str, int]:

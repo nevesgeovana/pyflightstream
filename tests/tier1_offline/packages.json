@@ -172,6 +172,7 @@
       "tests/tier1_offline/test_p0560_iges.py",
       "tests/tier1_offline/test_p0560_morph.py",
       "tests/tier1_offline/test_p0560_repitch_bugs.py",
+      "tests/tier1_offline/test_p0560_rim_face_order.py",
       "tests/tier1_offline/test_p0560_v127_base_cp.py",
       "tests/tier1_offline/test_p0560_v127_mesh_build.py",
       "tests/tier1_offline/test_p0560_wheel_terminations.py",
