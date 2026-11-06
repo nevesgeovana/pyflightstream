@@ -630,6 +630,27 @@ def test_p0560_grid_a_one_sided_law_clusters_alike_on_opposite_sides_of_a_patch(
 
 
 @pytest.mark.requirement("FR-3702")
+def test_p0560_r3_003_the_heal_fixes_degenerate_edges_and_leaves_small_edges():
+    """Fixing small edges took the zero-length apex edge off two half cones of revolution, and the
+    join gave both halves one half circle; the heal leaves small edges and the note says so."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._iges_mesh import _heal
+
+    calls = []
+
+    def heal_shapes(tags, tolerance, degenerated, small_edges, small_faces, sew, solid):
+        calls.append((degenerated, small_edges, small_faces, sew, solid))
+        return tags
+
+    occ = SimpleNamespace(healShapes=heal_shapes, synchronize=lambda: None)
+    gmsh = SimpleNamespace(model=SimpleNamespace(occ=occ))
+    note = _heal(gmsh, SimpleNamespace(faces=[1, 2]), 1e-6)
+    assert calls == [(True, False, False, True, False)]
+    assert note == "healed (degenerate edges fixed, faces sewn)"
+
+
+@pytest.mark.requirement("FR-3702")
 def test_p0560_grid_a_short_curve_the_join_leaves_makes_no_sliver(tmp_path, capsys):
     """The flap ends 0.01 short of the plate's corner, so the join leaves a curve of 0.01 on the
     plate's top edge, 25 times shorter than the size: the cells grow from it, none a sliver."""
@@ -717,6 +738,49 @@ def blunt_wedge(folder, name="blunt.igs"):
     iges.patch([(1, 0, -0.01), (1, 0, 0.01), (1, 1, -0.01), (1, 1, 0.01)], level=1)
     iges.patch([(0, 0, -0.1), (0, 0, 0.1), (0, 1, -0.1), (0, 1, 0.1)], level=1)
     return iges.write(folder / name)
+
+
+@pytest.mark.requirement("FR-3703")
+@pytest.mark.parametrize("outboard", ["sharp", "tip base"])
+def test_p0560_r3_001_one_rim_keeps_a_sharp_line_where_a_blunt_edge_closes(outboard):
+    """A blunt base closing to a point inboard of a sharp trailing edge: the sharp line meets
+    both rims at one node and is kept. A tip's base edge joins the dropped rim to the kept one at
+    two different nodes and goes with the dropped rim."""
+    from pyflightstream.workspace.iges_grid import one_rim
+
+    at = {
+        "U0": (1.0, 0.0, 0.05),
+        "U1": (1.0, 1.0, 0.05),
+        "L0": (1.0, 0.0, -0.05),
+        "L1": (1.0, 1.0, -0.05),
+        "T": (1.0, 2.0, 0.0),
+        "S1": (1.0, 3.0, 0.0),
+        "S2": (1.0, 4.0, 0.0),
+    }
+    index = {name: i for i, name in enumerate(at)}
+    verts = np.array(list(at.values()))
+
+    def edge(a, b):
+        return (min(index[a], index[b]), max(index[a], index[b]))
+
+    rims = {edge("U0", "U1"), edge("L0", "L1")}
+    faces = [[index[n] for n in ("U0", "U1", "L1", "L0")]]
+    if outboard == "sharp":
+        faces.append([index[n] for n in ("U1", "T", "L1")])
+        rims |= {edge("U1", "T"), edge("L1", "T")}
+        extra = {edge("T", "S1"), edge("S1", "S2")}
+    else:
+        extra = {edge("U1", "L1")}
+    kept, dropped = one_rim(verts, faces, rims | extra)
+    if outboard == "sharp":
+        assert extra <= kept
+        assert dropped == 2
+    else:
+        assert not extra & kept
+        assert dropped == 2
+    # One rim survives whole: upper or lower, never a mix.
+    sides = {float(np.sign(verts[list(e)][:, 2].sum())) for e in kept - extra}
+    assert len(sides) == 1
 
 
 @pytest.mark.requirement("FR-3703")
@@ -909,6 +973,48 @@ def test_p0560_the_faces_inside_where_components_cross_are_removed(half):
     # The outer skin keeps every face that is not inside.
     total = sum(len(f) for f in families.values())
     assert sum(len(f) for f in kept.values()) == total - 12 - removed["Body"]["faces"]
+
+
+@pytest.mark.requirement("FR-3768")
+def test_p0560_r3_004_no_requirement_cites_a_local_scratch_folder():
+    """The evidence of a requirement names a committed receipt; a scratch folder of one machine is
+    neither published nor kept."""
+    import csv
+
+    path = Path(__file__).resolve().parents[1] / "requirements_l3.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        cited = [row[0] for row in csv.reader(handle) if any("C:/WORK" in cell for cell in row)]
+    assert cited == []
+
+
+@pytest.mark.requirement("FR-3768")
+def test_p0560_r3_002_inner_faces_kept_whole_are_warned():
+    """An open sheet through a closed body leaves no selection that closes every crossing: every
+    face is kept, and a warning says so (the crossing warning before the mesh said they would be
+    removed)."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._iges_grid_config import GridConfig
+    from pyflightstream.workspace.iges_grid import _inner
+
+    verts, families = crossing_mesh()
+    sheet = [f for f in families["Wing"] if np.allclose(verts[f][:, 2], 0.7)]
+    meshed = SimpleNamespace(
+        nodes=verts,
+        faces={"Body": families["Body"], "Wing": sheet},
+        record={"fragment": {"crossings": [{"components": ["Body", "Wing"], "curves": 2}]}},
+    )
+    config = GridConfig(fs_build=None, size=None, tolerance=None, te_angle_deg=60.0)
+    said: list[str] = []
+    kept, removed, note = _inner(config, meshed, ["Body", "Wing"], said)
+    assert note.startswith("kept whole: no selection")
+    assert removed == {}
+    assert sum(map(len, kept.values())) == len(families["Body"]) + len(sheet)
+    assert any("inside the assembly" in w and "are kept" in w for w in said)
+    config.remove_inner_faces = False
+    said = []
+    _inner(config, meshed, ["Body", "Wing"], said)
+    assert any("remove_inner_faces = false" in w and "are kept" in w for w in said)
 
 
 @pytest.mark.requirement("FR-3768")

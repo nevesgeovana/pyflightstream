@@ -319,9 +319,14 @@ def one_rim(
         # Lines come longest first, so a line still kept when its turn comes is the longer rim.
         if i not in dropped:
             dropped |= opposite[i]
-    touching = _touching(line_of, len(lines))
+    meets = _meets(line_of, len(lines))
     for i in range(len(lines)):
-        if i not in dropped and not opposite[i] and touching[i] & dropped and touching[i] - dropped:
+        if i in dropped or opposite[i]:
+            continue
+        ends = [m for m in meets[i] if m]
+        # A tip's base edge meets the dropped rim alone at one end and the kept rim at the other;
+        # a sharp line going on where a blunt edge closes meets both rims at one node, and stays.
+        if any(m <= dropped for m in ends) and any(m - dropped for m in ends):
             dropped.add(i)
     kept = {e for i, line in enumerate(lines) if i not in dropped for e in line}
     return kept, len(edges) - len(kept)
@@ -340,17 +345,17 @@ def _opposite(faces: Faces, line_of: dict[tuple[int, int], int], count: int) -> 
     return opposite
 
 
-def _touching(line_of: dict[tuple[int, int], int], count: int) -> dict[int, set[int]]:
-    """Return, per line, the lines that share a node with it."""
+def _meets(line_of: dict[tuple[int, int], int], count: int) -> dict[int, list[set[int]]]:
+    """Return, per line, the other lines that meet it at each of its nodes."""
     at: dict[int, set[int]] = {}
     for edge, i in line_of.items():
         for v in edge:
             at.setdefault(v, set()).add(i)
-    touching: dict[int, set[int]] = {i: set() for i in range(count)}
+    meets: dict[int, list[set[int]]] = {i: [] for i in range(count)}
     for meeting in at.values():
         for i in meeting:
-            touching[i] |= meeting - {i}
-    return touching
+            meets[i].append(meeting - {i})
+    return meets
 
 
 def _inner(
@@ -359,8 +364,18 @@ def _inner(
     """Return the families without the faces inside the assembly, what went, and the note."""
     families = {name: meshed.faces[name] for name in order if meshed.faces.get(name)}
     if not config.remove_inner_faces:
+        if meshed.record.get("fragment", {}).get("crossings"):
+            warnings.append(
+                "remove_inner_faces = false: the faces that lie inside the assembly where "
+                "components cross are kept"
+            )
         return families, {}, "kept whole: remove_inner_faces = false"
     families, removed, skin = outer_skin(meshed.nodes, families)
+    if skin.startswith("kept whole"):
+        warnings.append(
+            "the faces that lie inside the assembly where components cross are kept, every "
+            f"face of the assembly with them ({skin.removeprefix('kept whole: ')})"
+        )
     for name, gone in removed.items():
         warnings.append(
             f"{name}: {gone['faces']:g} face(s) of area {gone['area']:.4g} lie inside the "
