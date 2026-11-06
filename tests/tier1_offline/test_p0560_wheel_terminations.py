@@ -364,3 +364,28 @@ def test_p0560_r1_mark_001_the_body_of_a_26127_sector_names_the_form_it_does_not
         result = _body(saved, tmp_path / "body.fsm")
     assert not result.written and not (tmp_path / "body.fsm").exists()
     assert "26.127" in " ".join(str(item.message) for item in caught)
+
+
+def test_p0560_r1_mark_002_the_upgrading_notes_say_what_changed_since_0551() -> None:
+    """R1-MARK-002: the release changed behaviour a 0.55.1 user meets (a moved face order, an
+    unreadable repitch sidecar, hub_method's default, quality warned instead of refused, marking
+    across a merge, the body of a marked nacelle, the wheel record, 26.127 saves, the gmsh
+    extra) and docs/upgrading.md had no section for it."""
+    page = (Path(__file__).resolve().parents[2] / "docs" / "upgrading.md").read_text(
+        encoding="utf-8"
+    )
+    assert "\n## 0.56.0\n" in page
+    section = page.split("\n## 0.56.0\n", 1)[1].split("\n## ", 1)[0]
+    for words in (
+        "face order",
+        "--refresh",
+        'hub_method = "rings"',
+        "checks.passed",
+        "merge_into",
+        "power-off-body",
+        "wake_terminations",
+        "26.127",
+        'pip install "pyflightstream[gmsh]"',
+    ):
+        assert words in section, words
+    assert page.index("\n## 0.56.0\n") < page.index("\n## 0.55.1\n")
