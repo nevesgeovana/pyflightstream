@@ -153,8 +153,9 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     # P0460-INT: EV promotes seven documented rows with the accepted measurements
     # in reports/compat/CMP-26125_2026-10-26_marking.yaml (PFS-2149.01 / PFS-2175).
     # FR-3350: CMP-26125_2026-10-12_pfs2135-items adds five measured motion rows.
-    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (197, 5, 4)
-    assert counts[Status.DOCUMENTED] == 176
+    # PFS-2187.04: CMP-26125_2026-11-05_export-surface verifies EXPORT_SURFACE_MESH (198).
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (198, 5, 4)
+    assert counts[Status.DOCUMENTED] == 175
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
@@ -437,4 +438,4 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
     # RPT-166 leaves three removed names outside this build's view. The
     # SET_VORTICITY_LIFT_MODEL name probe adds one documented spelling without
     # claiming a measured effect or restoring any removed command.
-    assert built == 236  # P0460 adds six specs and replaces two marking instruments.
+    assert built == 237  # P0460 adds six specs; PFS-2187.04 adds the surface-export spec.
