@@ -348,7 +348,7 @@ def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
     if not sidecar.is_file():
         return None
     try:
-        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))
+        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8-sig"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise InputArtifactError(
             f"{sidecar}: not TOML ({error}). Fix the file and run again. Nothing was written.",
