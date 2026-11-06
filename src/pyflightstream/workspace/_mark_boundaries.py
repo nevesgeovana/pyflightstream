@@ -1061,6 +1061,56 @@ def _warn_shared_edges(declared, autos, source, unit) -> None:
                 )
 
 
+def _mark_file_runs(script, label, bound, *, source, spec, work, base, book, say=_no_progress):
+    """Import an entry's points file, one connected run at a time on RIM_GROUP_BUILDS.
+
+    ``base`` is the base family when the entry is that base region's rim, whose runs 26.127
+    takes in its own order (:func:`rim_runs`). ``book`` is (inputs, pending, sets, steps).
+    """
+    inputs, pending, sets, steps = book
+    entry = bound.sets[0]
+    assert entry.points_file is not None
+    path = Path(entry.points_file)
+    inputs[str(path)] = file_sha256(path)
+    say(f"{label}: placing {len(entry.points_m)} points through the import operations")
+    points = _placed_points(entry.points_m, source, spec, bound.tolerance)
+    runs: list[Any] = [entry.points_m]
+    reordered = False
+    if script.version.canonical in RIM_GROUP_BUILDS:
+        runs = rim_runs(entry.points_m, source, spec.units, base_family=base)
+        reordered = base is not None
+    for number, run in enumerate(runs, 1):
+        stem = f"edges-{len(sets) + 1}" + (f"-{number}" if len(runs) > 1 else "")
+        token = work / f"{stem}.txt"
+        placed = (
+            points
+            if len(runs) == 1 and not reordered
+            else _placed_points(run, source, spec, bound.tolerance)
+        )
+        helpers.mark_wake_edges(
+            script,
+            edge_type=entry.edge_type,
+            tolerance=bound.tolerance,
+            units="METER",
+            node_file=str(token),
+            midpoints=placed,
+        )
+        body = script.pending_input_files[str(token)]
+        pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
+    sets.append(
+        {
+            "label": label,
+            "type": entry.edge_type,
+            "file": str(path),
+            "points_m": points,
+            "tolerance": bound.tolerance,
+            **({"groups": len(runs)} if len(runs) > 1 else {}),
+        }
+    )
+    rims = f" in {len(runs)} rim imports" if len(runs) > 1 else ""
+    steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points{rims}")
+
+
 def _emit_marking(
     script, source, sidecar, *, declarations, spec, names, faces, work, routes, say=_no_progress
 ):
@@ -1111,49 +1161,19 @@ def _emit_marking(
                 say=say,
             )
             return
-        entry = bound.sets[0]
-        assert entry.points_file is not None
-        path = Path(entry.points_file)
-        inputs[str(path)] = file_sha256(path)
-        say(f"{label}: placing {len(entry.points_m)} points through the import operations")
-        points = _placed_points(entry.points_m, source, spec, bound.tolerance)
-        runs: list[Any] = [entry.points_m]
         # A base region's rim is written in the order 26.127 keeps every edge of (rim_runs).
         base = label if any(r.family == label for r in declarations.base_regions) else None
-        reordered = False
-        if script.version.canonical in RIM_GROUP_BUILDS:
-            runs = rim_runs(entry.points_m, source, spec.units, base_family=base)
-            reordered = base is not None
-        for number, run in enumerate(runs, 1):
-            stem = f"edges-{len(sets) + 1}" + (f"-{number}" if len(runs) > 1 else "")
-            token = work / f"{stem}.txt"
-            placed = (
-                points
-                if len(runs) == 1 and not reordered
-                else _placed_points(run, source, spec, bound.tolerance)
-            )
-            helpers.mark_wake_edges(
-                script,
-                edge_type=entry.edge_type,
-                tolerance=bound.tolerance,
-                units="METER",
-                node_file=str(token),
-                midpoints=placed,
-            )
-            body = script.pending_input_files[str(token)]
-            pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
-        sets.append(
-            {
-                "label": label,
-                "type": entry.edge_type,
-                "file": str(path),
-                "points_m": points,
-                "tolerance": bound.tolerance,
-                **({"groups": len(runs)} if len(runs) > 1 else {}),
-            }
+        _mark_file_runs(
+            script,
+            label,
+            bound,
+            source=source,
+            spec=spec,
+            work=work,
+            base=base,
+            book=(inputs, pending, sets, steps),
+            say=say,
         )
-        rims = f" in {len(runs)} rim imports" if len(runs) > 1 else ""
-        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points{rims}")
 
     def entries() -> None:
         for entry in declarations.trailing_edges:
