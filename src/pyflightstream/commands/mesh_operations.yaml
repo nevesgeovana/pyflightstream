@@ -653,7 +653,7 @@ SURFACE_COMBINE:
           cites: boundaries
           required: false
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322 adds a second sample, -1 with no index line after it, which combines every surface; the counted form of FSM-26.124 p.316 is unchanged", "args": [{"name": "surface_count", "cites": null}, {"name": "surface_indices", "cites": "boundaries", "required": false}]}
-    "26.127": {"status": "documented", "note": "FSM-26.127 p.321, unchanged from FSM-26.125 p.322", "args": [{"name": "surface_count", "cites": null}, {"name": "surface_indices", "cites": "boundaries", "required": false}]}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-11-06_marking.yaml", note: "FSM-26.127 p.321, unchanged from FSM-26.125 p.322", args: [{"name": "surface_count", "cites": null}, {"name": "surface_indices", "cites": "boundaries", "required": false}]}
   notes: >
     Merges several surfaces into one. The count sits on the command line
     and the indices follow on the next, comma separated, which this page
@@ -734,7 +734,7 @@ SURFACE_RENAME:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
-    "26.127": {status: documented, note: "FSM-26.127 p.319, unchanged from FSM-26.125 p.320"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-11-06_marking.yaml", note: "FSM-26.127 p.319, unchanged from FSM-26.125 p.320"}
   notes: >
     Renames a surface, which is worth doing early: the name is what a
     reader of the emitted script sees, and this package's own entity

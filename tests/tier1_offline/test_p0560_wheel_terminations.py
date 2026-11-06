@@ -85,7 +85,7 @@ def wheel_of(built: Built, out: Path, **options):
 
 
 @pytest.mark.requirement("FR-3720")
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
+@pytest.mark.parametrize("build", ["26.124", "26.125", "26.127"])
 def test_p0560_a_wheel_with_explicit_terminations_across_a_merge_passes_the_preview(
     tmp_path: Path, build: str
 ) -> None:
@@ -112,7 +112,7 @@ def test_p0560_a_wheel_with_explicit_terminations_across_a_merge_passes_the_prev
 
 
 @pytest.mark.requirement("FR-3721")
-@pytest.mark.parametrize("build", ["26.126", "26.127"])
+@pytest.mark.parametrize("build", ["26.126"])
 def test_p0560_explicit_terminations_across_a_merge_on_an_unmeasured_build_name_the_evidence(
     tmp_path: Path, build: str
 ) -> None:
@@ -122,7 +122,7 @@ def test_p0560_explicit_terminations_across_a_merge_on_an_unmeasured_build_name_
     with pytest.raises(InputArtifactError) as caught:
         plan_mark_boundaries(wheel)
     words = str(caught.value)
-    assert build in words and "26.124" in words and "26.125" in words
+    assert build in words and all(name in words for name in ("26.124", "26.125", "26.127"))
     assert "CMP-26125_2026-10-26_marking" in words
 
 

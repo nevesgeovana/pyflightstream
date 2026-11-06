@@ -226,10 +226,10 @@ def _import(script: Script, workdir: Path, second: bool = False) -> None:
 
 
 def _prepare(script: Script, workdir: Path, command: str, initialized: bool, prefix: str) -> None:
-    if script.version.canonical not in {"26.100", "26.124", "26.125"}:
+    if script.version.canonical not in {"26.100", "26.124", "26.125", "26.127"}:
         raise CommandArgumentError(
             "marking instruments are bounded to 26.100 (base region, combine and rename "
-            "only), 26.124 and 26.125"
+            "only), 26.124, 26.125 and 26.127"
         )
     _geometry(script, workdir, wing_body=command == _AUTO)
     if command == _AUTO:

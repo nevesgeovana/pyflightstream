@@ -487,7 +487,7 @@ pass in a fresh work folder. An existing FSM requires `--overwrite`. With the FS
 absent, the other outputs are replaced without it, and each one replaced is warned by name.
 
 Explicit wake-termination nodes are selected and marked before the merges of `merge_into`. On
-FlightStream 26.124 and 26.125 a probe saved a mark made before `SURFACE_COMBINE` on the same node
+FlightStream 26.124, 26.125 and 26.127 a probe saved a mark made before `SURFACE_COMBINE` on the same node
 after it, so a boundaries file that holds both, as the one `sector-to-wheel` writes from a sector
 with explicit nodes and merged bases does, is previewed and applied there. On any other build that
 pair is refused, naming those builds: declare the nodes as `"auto"` or drop the `merge_into`.

@@ -82,6 +82,7 @@ EVIDENCE_GATED: frozenset[str] = frozenset(
 MERGED_NODE_EVIDENCE: dict[str, str] = {
     "26.124": "reports/compat/CMP-26124_2026-10-26_marking.yaml",
     "26.125": "reports/compat/CMP-26125_2026-10-26_marking.yaml",
+    "26.127": "reports/compat/CMP-26127_2026-11-06_marking.yaml",
 }
 """Builds on which a wake-termination mark made before SURFACE_COMBINE was saved after it.
 
