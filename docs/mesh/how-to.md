@@ -63,9 +63,14 @@ hub_method = "auto"      # the default; or "rings", or "remesh"
   another family or another blade's band; a band that would is narrowed a tenth at a time and
   warned. `band_width` defaults to the root's largest move plus two local cells (the median
   length of the hub edges leaving the root), the depth of the two rings the ring route needs.
-  Among the remesh passes and up to three band widths (the first and two more, each one local
-  cell wider, while they fit), the band kept has the fewest cells turned against the hub
-  (none when one has none) and the highest least scaled Jacobian. Kept hub faces keep their
+  At least two rows of quads are marched around the turned root and only the gap beyond them
+  is remeshed. Each band is held to a target: a least scaled Jacobian at least half the
+  source band's and a largest aspect at most twice the source band's. Up to three band widths
+  are tried (the first and two more, each one local cell wider, while they fit), with graded
+  rows and then rows of one height, each remesh sized by the source hub and then by its two
+  loops, at the remesh passes; the first with no cell turned against the hub that meets its
+  target is kept, otherwise the one with the fewest turned cells and the largest margin to its
+  target, and a miss is warned with its numbers. Kept hub faces keep their
   order, the new faces take the place of the first face taken, and the band is remeshed at every angle, zero included, so a series
   of angles shares one method.
 - `"auto"` takes `"rings"` where every named root has two complete quad rings, and

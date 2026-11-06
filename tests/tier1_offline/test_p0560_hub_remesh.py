@@ -422,3 +422,19 @@ def test_p0560_hubq_hub_rings_warns_a_folded_new_cell(tmp_path):
         checks = hub_rings.verify_rings(result, surface, ["Spinner"])
     assert checks["new_cell_quality"]["folded_cells"] >= 1
     assert any("fold" in w for w in checks["warnings"])
+
+
+@pytest.mark.requirement("FR-3678")
+def test_p0560_r1_morph_004_the_how_to_states_the_band_target_the_code_keeps():
+    """P0560-R1-MORPH-004: the how-to names the target that picks the band, as the code does."""
+    from pyflightstream.workspace._hub_remesh import target_of
+
+    page = Path(__file__).resolve().parents[2] / "docs/mesh/how-to.md"
+    text = " ".join(page.read_text(encoding="utf-8").split())
+    section = text[text.index('- `"remesh"` (OBJ only)') : text.index('- `"auto"` takes')]
+    assert target_of({"min_scaled_jacobian": 0.8, "max_aspect": 3.0}) == {
+        "least_scaled_jacobian": 0.4,
+        "largest_aspect": 6.0,
+    }
+    assert "half the source band's" in section and "at most twice the source band's" in section
+    assert "the highest least scaled Jacobian" not in section
