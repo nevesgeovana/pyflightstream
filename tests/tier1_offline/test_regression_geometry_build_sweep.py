@@ -114,6 +114,8 @@ _GEOMETRY_BUILD__MESH_INSTRUCTION = (
     'fs_build = "26.125"\nboundaries = ["Wing"]\noutputs = ["fsm", "obj"]\n'
     '[mesh]\nfile = "src.obj"\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n'
 )
+# A build no export probe ran, so its surface export still awaits evidence (FR-1110, FR-3741).
+_UNPROBED_MESH_INSTRUCTION = _GEOMETRY_BUILD__MESH_INSTRUCTION.replace('"26.125"', '"26.123"')
 
 
 def _geometry_build__workspace(tmp_path: Path) -> Path:
@@ -284,10 +286,11 @@ class TestGeometryBuild:
     def test_p0400_geom_build_refuses_a_command_awaiting_evidence_and_runs_nothing(tmp_path):
         """P0400-GEOM-BUILD (PFS-2081.41, FR-1110).
 
-        The evidence gate; the runner is never called.
+        The evidence gate; the runner is never called. On 26.123, which no export probe ran:
+        26.100 and 26.124 to 26.127 are verified since 0.56.0 (FR-3741).
         """
         root = _geometry_build__workspace(tmp_path)
-        _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
+        _geometry_build__geometry(root, "wing", _UNPROBED_MESH_INSTRUCTION)
         plan = plan_geometry_build(root / "inputs" / "geometries" / "wing")
         assert "EXPORT_SURFACE_MESH" in plan.awaiting_evidence
         called = []
@@ -418,7 +421,7 @@ class TestGeometryBuild:
         """
         root = _geometry_build__workspace(tmp_path)
         (root / "inputs" / "executables.toml").unlink()
-        folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
+        folder = _geometry_build__geometry(root, "wing", _UNPROBED_MESH_INSTRUCTION)
         monkeypatch.chdir(folder)
         assert main(["geometry", "build", "--apply"]) == 2
         err = capsys.readouterr().err

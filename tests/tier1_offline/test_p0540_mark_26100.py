@@ -359,7 +359,8 @@ def test_p0540_other_builds_keep_each_base_with_its_setter_and_its_rim(tmp_path,
     )
     sidecar = mesh.with_name(mesh.name + ".boundaries.toml")
     sidecar.write_text(sidecar.read_text().replace("26.100", build))
-    setter = "CUSTOM" if model == "USER" else model
+    # P0560-BASECP (FR-3740): an EMPIRICAL or AXISYMMETRIC base is stated by its create alone.
+    custom = model in ("USER", "CUSTOM")
     lines = [
         line.split()[0] if line.startswith("IMPORT_WAKE") else line
         for line in plan_mark_boundaries(mesh).script.splitlines()
@@ -367,10 +368,10 @@ def test_p0540_other_builds_keep_each_base_with_its_setter_and_its_rim(tmp_path,
     ]
     assert lines == [
         f"CREATE_NEW_BASE_REGION 1 {model} -0.2",
-        f"SET_BASE_REGION_CP 1 {setter} -0.2",
+        *(["SET_BASE_REGION_CP 1 CUSTOM -0.2"] if custom else []),
         "IMPORT_WAKE_EDGES_FROM_FILE",
         f"CREATE_NEW_BASE_REGION 2 {model} -0.3",
-        f"SET_BASE_REGION_CP 2 {setter} -0.3",
+        *(["SET_BASE_REGION_CP 2 CUSTOM -0.3"] if custom else []),
         "SET_BASE_REGION_TRAILING_EDGES 2",
     ]
 
