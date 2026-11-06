@@ -164,7 +164,8 @@ and the solver then refuses every patch as having non-parametric curves. Every r
 ## Units
 
 The first file's length unit is kept. Every other file is scaled to it, and the record says
-so. A file whose global section names a unit this package has no scale for is refused.
+so. A file's unit is the one its global section's unit flag names, or its unit name when the
+flag is 3. A file whose global section names a unit this package has no scale for is refused.
 
 ## Limits
 

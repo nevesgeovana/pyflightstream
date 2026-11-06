@@ -72,6 +72,15 @@ _UNIT_WORDS = {
 }
 
 
+#: Unit flag 3: the unit is the one the unit name field names.
+_FLAG_BY_NAME = 3
+#: The solver's word for each unit name the global section may write, with flag 3 or any other.
+_UNIT_NAMES = {
+    **{word: unit for unit, (_, word) in _UNIT_WORDS.items()},
+    "IN": "INCH",
+}
+
+
 def unit_of_flag(flag: int) -> str | None:
     """Return the solver's word for an IGES unit flag, or None for a flag it has no word for."""
     return _UNIT_FLAGS.get(flag)
@@ -219,6 +228,9 @@ def _global_unit(path: Path, glob: str) -> str | None:
         flag = int(float(fields[13])) if len(fields) > 13 and fields[13] else 1
     except ValueError as error:
         raise _refuse(path, f"the unit flag {fields[13]!r} is not a number") from error
+    if flag == _FLAG_BY_NAME:
+        name = fields[14].strip().upper() if len(fields) > 14 else ""
+        return _UNIT_NAMES.get(name)
     return unit_of_flag(flag)
 
 

@@ -205,6 +205,19 @@ def test_p0560_named_and_flagged_files_keep_every_byte_of_a_name_outside_ascii(t
         assert {len(line) for line in path.read_bytes().splitlines()} == {80}
 
 
+@pytest.mark.requirement("FR-3700")
+def test_p0560_iges_names_read_a_unit_given_by_its_name(tmp_path):
+    """R1-IGES-002: unit flag 3 says the unit is the one the unit name field names."""
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    for word, unit in (("MM", "MILLIMETER"), ("IN", "INCH"), ("INCH", "INCH"), ("M", "METER")):
+        iges = Iges(word if word in UNIT_FLAG else "MM", flag=3)
+        iges.unit = word
+        iges.name(1, "Wing")
+        iges.patch(square(0, 0, 1, 1), level=1)
+        assert read_iges_names(iges.write(tmp_path / f"{word}.igs")).unit == unit
+
+
 @pytest.mark.requirement("FR-3704")
 @pytest.mark.parametrize("verb", ["iges-grid", "iges-convert"])
 def test_p0560_without_gmsh_each_verb_gives_one_install_message(
