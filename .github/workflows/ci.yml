@@ -134,8 +134,9 @@ jobs:
       - name: System libraries the gmsh wheel loads
         # The gmsh extra's Linux wheel links the X11 and GLU libraries; the
         # IGES tests import it, and without these the import fails instead of
-        # running them.
-        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa libxcursor1 libxft2 libxinerama1
+        # running them. The floors and ceilings legs install every user extra
+        # too, so they take the same step.
+        run: &gmsh-system-libraries sudo apt-get update && sudo apt-get install -y libglu1-mesa libxcursor1 libxft2 libxinerama1
       - name: Install package with every declared extra
         run: pip install -e .[dev,fsi,excel,manual,pandas,gmsh]
       - name: Tier 1 with nothing skipped for a missing extra
@@ -194,6 +195,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
+      - name: System libraries the gmsh wheel loads
+        run: *gmsh-system-libraries
       - name: Install resolver tools
         run: python -m pip install packaging
       - name: Install declared endpoint
@@ -248,6 +251,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
+      - name: System libraries the gmsh wheel loads
+        run: *gmsh-system-libraries
       - name: Install resolver tools
         run: python -m pip install packaging
       - name: Install declared endpoint

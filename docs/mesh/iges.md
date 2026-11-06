@@ -39,7 +39,7 @@ command writes:
 |---|---|
 | `model.obj` | One family (`g`) per component, in the order of the grid control file, then the components the file does not name in the order of the IGES files; each family's faces turned to point outward |
 | `model.obj.boundaries.toml` | The boundaries file `geometry mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
-| `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line |
+| `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line; a character of the name a file name cannot hold is written `_` |
 | `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, and every warning |
 
 The OBJ then enters `geometry mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
@@ -75,7 +75,7 @@ Lengths are in the unit of the first IGES file.
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
 | `chord`, `span` | `{count, law, ratio}`: the cells along each direction of a four-sided patch and their law |
 | `span_axis` | `x`, `y`, `z` or three numbers; default `y` or `z`, whichever the component extends along more |
-| `le_cluster`, `te_cluster` | For a cosine chord: the end cell over the middle cell, 1 or less |
+| `le_cluster`, `te_cluster` | For a cosine chord: its `ratio`, the end cell over the middle cell as the count grows, 1 or less |
 | `structured` | `false` meshes even the four-sided patches quad-dominant; default `true` |
 | `trailing_edge` | `"auto"`, or a list of IGES curve names |
 | `te_angle_deg` | The angle of `"auto"` for this component |
@@ -93,7 +93,7 @@ of a blunt trailing edge, and takes one cell whatever its law.
 | `law` | Spacing |
 |---|---|
 | `uniform` | Equal cells |
-| `cosine` | Clustered at both ends; `ratio` is the end cell over the middle cell, default the cosine spacing's own for the count |
+| `cosine` | Clustered at both ends by a symmetric bump law. `ratio` is the end cell over the middle cell as the count grows: at 6 cells a ratio of 0.2 gives an end cell about 0.33 of the middle one, at 40 cells about 0.21. Default: the end-to-middle ratio of cosine spacing for the count; the nodes are not at the cosine-spacing positions |
 | `geometric` | Each cell `ratio` times the next one toward the clustered end (default 1.1) |
 | `tanh` | A one-sided clustering of coefficient `ratio` (default 1.05; nearer 1 clusters harder) |
 
@@ -164,7 +164,8 @@ and the solver then refuses every patch as having non-parametric curves. Every r
 ## Units
 
 The first file's length unit is kept. Every other file is scaled to it, and the record says
-so. A file whose global section names a unit this package has no scale for is refused.
+so. A file's unit is the one its global section's unit flag names, or its unit name when the
+flag is 3. A file whose global section names a unit this package has no scale for is refused.
 
 ## Limits
 
