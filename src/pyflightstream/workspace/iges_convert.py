@@ -88,6 +88,13 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
             gmsh.write(str(raw))
             gmsh.clear()
             back = _read_back(gmsh, raw, len(model.faces))
+            if len(back) != len(model.faces):
+                raise InputArtifactError(
+                    f"{target}: the written file does not read back with its "
+                    f"{len(model.faces)} faces, so no face can carry its name. Nothing was "
+                    "written.",
+                    kind="geometry",
+                )
             distance = max(
                 (
                     max(abs(a - b) for a, b in zip(x, y, strict=True))
@@ -97,7 +104,7 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
             )
             # The writer rounds coordinates; a face read back out of order moves by a face.
             tolerance = 1e-4 * max(size, 1.0)
-            if len(back) != len(model.faces) or distance > tolerance:
+            if distance > tolerance:
                 raise InputArtifactError(
                     f"{target}: the written faces do not read back in the order they were "
                     f"written (largest centre distance {distance:g} {model.unit}), so no face "

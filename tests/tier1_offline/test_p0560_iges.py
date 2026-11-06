@@ -667,6 +667,26 @@ def test_p0560_convert_refuses_an_output_that_is_not_iges(tmp_path, capsys):
     assert not out.exists()
 
 
+@pytest.mark.requirement("FR-3705")
+def test_p0560_convert_says_so_when_the_written_faces_read_back_in_another_count(
+    tmp_path, capsys, monkeypatch
+):
+    """R1-IGES-004: a read-back with another face count is refused in the package's words."""
+    gmsh_or_skip()
+    from pyflightstream.workspace import iges_convert
+
+    # The read-back returns no centres when the written file imports another number of faces.
+    monkeypatch.setattr(iges_convert, "_read_back", lambda gmsh, path, expected: [])
+    out = tmp_path / "config.igs"
+    code, _, stderr = cli(
+        ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
+    )
+    assert code == 2
+    assert "does not read back with its 2 faces" in stderr, stderr
+    assert "zip()" not in stderr
+    assert not out.exists()
+
+
 def directory_rows(path):
     """Each directory entry's type, status field and first parameter record, by sequence number."""
     lines = [line for line in path.read_text(encoding="latin-1").splitlines() if len(line) >= 73]
