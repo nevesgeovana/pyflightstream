@@ -1359,13 +1359,35 @@ def _named_base_entry(path, family, table, families):
         )
     values = dict(table)
     rim = values.pop("trailing_edges", None)
+    if "wake_termination_nodes" in values:
+        raise InputValueError(
+            f"base_regions.{family}: wake_termination_nodes belongs to the rim; write "
+            "trailing_edges = { file = ..., type = ..., wake_termination_nodes = ... }"
+        )
+    nodes = None
     if rim != "auto":
-        if not isinstance(rim, dict) or set(rim) != {"file", "type"}:
+        if not isinstance(rim, dict) or not {"file", "type"} <= set(rim) <= {
+            "file",
+            "type",
+            "wake_termination_nodes",
+        }:
             raise InputValueError(
-                f"base_regions.{family}: trailing_edges needs auto or file and type"
+                f"base_regions.{family}: trailing_edges needs auto or file and type, "
+                "with wake_termination_nodes if the rim has them"
             )
+        rim = dict(rim)
+        nodes = rim.pop("wake_termination_nodes", None)
+        if nodes is not None and nodes != "auto":
+            nodes = _trailing_edge_file_fields(
+                path,
+                f"{path}: base_regions.{family}.trailing_edges.wake_termination_nodes",
+                {"file": nodes, "type": "STANDARD"},
+                0.0001,
+            )["points_file"]
         rim = read_trailing_edges(path, rim)
-    region = BoundaryBaseRegion(family=family, trailing_edges=rim, **values)
+    region = BoundaryBaseRegion(
+        family=family, trailing_edges=rim, wake_termination_nodes=nodes, **values
+    )
     if region.merge_into is not None and (
         region.merge_into not in families or region.merge_into == family
     ):

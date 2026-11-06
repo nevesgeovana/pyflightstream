@@ -372,8 +372,11 @@ level writes, `<level>.<family>.fs.nodes.txt`, read in the `[import]` unit.
 Each point must match exactly one mesh vertex within the tolerance.
 
 Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
-`"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A merge destination
-must be another existing family and cannot itself be merged.
+`"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A rim given as a file
+takes the rim's termination nodes in the same table,
+`{ file = "rim.te.txt", type = "STANDARD", wake_termination_nodes = "rim.wake.te.txt" }`
+or `"auto"`, marked as an entry's are, so a rim declared once carries them. A merge
+destination must be another existing family and cannot itself be merged.
 
 Migration: each old unnamed trailing-edge file becomes a named entry (use its
 file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`

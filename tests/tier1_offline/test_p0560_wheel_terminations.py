@@ -587,3 +587,88 @@ def test_p0560_r1_mark_010_no_blank_line_splits_an_unreleased_changelog_list() -
         and lines[number - 1].startswith(("- ", "  "))
     ]
     assert not split, [lines[number + 1][:60] for number in split]
+
+
+BLADE_BASE = '[base_regions.Base1]\ntrailing_edges = "auto"\n'
+
+
+def _rim_on_the_base(folder: Path, build: str = "26.127") -> tuple[Built, np.ndarray]:
+    """The sector as a converted saved sector declares it: the blade's two blunt rims in one
+    file on [base_regions.Base1], with the saved terminations on that rim, and no entry."""
+    built = build_sector(folder, copies=COPIES, separate_base=True)
+    rows = [
+        line
+        for name in ("sector.TE_a.te.txt", "sector.TE_b.te.txt")
+        for line in (folder / name).read_text(encoding="utf-8").splitlines()[1:]
+        if line.strip()
+    ]
+    (folder / "sector.Base1.te.txt").write_text("\n".join(["METER", *rows]) + "\n")
+    _, tip = built.rims["TE_a"][-1]
+    point = built.verts[tip]
+    _write_points(folder / "sector.Base1.wake.te.txt", [point])
+    sidecar = folder / "sector.obj.boundaries.toml"
+    text = sidecar.read_text(encoding="utf-8")
+    assert text.count(RIM + OTHER_RIM) == 1 and text.count(BLADE_BASE) == 1
+    rim = (
+        '[base_regions.Base1]\ntrailing_edges = { file = "sector.Base1.te.txt", '
+        'type = "STANDARD", wake_termination_nodes = "sector.Base1.wake.te.txt" }\n'
+    )
+    text = text.replace(RIM + OTHER_RIM, "").replace(BLADE_BASE, rim)
+    sidecar.write_text(text.replace('"26.124"', f'"{build}"'), encoding="utf-8")
+    return built, point
+
+
+@pytest.mark.requirement("FR-3767")
+def test_p0560_r1_mark_012_a_base_region_rim_carries_its_wake_terminations(tmp_path: Path) -> None:
+    """R1-MARK-012: a base region's rim table takes wake_termination_nodes; sector-to-wheel
+    turns them into every copy, and the marking pass marks each copy's node before the merges,
+    as for a trailing-edge entry, with the rim declared once."""
+    from pyflightstream.workspace.sidecars import read_boundary_declarations
+
+    built, point = _rim_on_the_base(tmp_path)
+    declared = read_boundary_declarations(tmp_path / "sector.obj.boundaries.toml")
+    (base,) = [r for r in declared.base_regions if r.family == "Base1"]
+    assert base.wake_termination_nodes is not None
+    assert Path(base.wake_termination_nodes).name == "sector.Base1.wake.te.txt"
+
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    side = tomllib.loads((tmp_path / "wheel.obj.boundaries.toml").read_text(encoding="utf-8"))
+    # the blade's rim is declared once, on its base: the only entry left is the nacelle's
+    assert set(side.get("trailing_edges", {})) == {"N"}
+    names = [f"Base{k + 1}" for k in range(COPIES)]
+    for k, name in enumerate(names):
+        rim = side["base_regions"][name]["trailing_edges"]
+        rows = (tmp_path / rim["wake_termination_nodes"]).read_text(encoding="utf-8").split()
+        assert rows[0] == "METER" and len(rows) == 2, name
+        got = np.array([float(c) for c in rows[1].split(",")])
+        expected = turn(point[None, :], np.array([1.0, 0.0, 0.0]), np.zeros(3), 60.0 * k)[0]
+        assert np.allclose(got, expected, atol=1e-9), name
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_mark_boundaries(wheel)
+    # the blade rim is declared once (the fixture's nacelle keeps its entry and its auto rim)
+    shared = [str(w.message) for w in caught if "name the same" in str(w.message)]
+    assert not [line for line in shared if "Base" in line.replace("NBase", "")], shared
+    verts, _ = read_wheel(wheel)
+    assert sorted(plan.nodes) == sorted(names)
+    for k, name in enumerate(names):
+        expected = turn(point[None, :], np.array([1.0, 0.0, 0.0]), np.zeros(3), 60.0 * k)[0]
+        (node,) = plan.nodes[name]
+        assert np.allclose(verts[node - 1], expected, atol=1e-9), name
+    lines = plan.script.splitlines()
+    marks = [i for i, line in enumerate(lines) if line == "MARK_WAKE_TERMINATION_NODES"]
+    combines = [i for i, line in enumerate(lines) if line.startswith("SURFACE_COMBINE")]
+    assert len(marks) == COPIES and max(marks) < min(combines)
+
+
+def test_p0560_r1_mark_012_no_wake_terminations_drops_the_base_rim_s_nodes(tmp_path: Path) -> None:
+    """R1-MARK-012: --no-wake-terminations drops a base rim's nodes as it drops an entry's."""
+    built, _ = _rim_on_the_base(tmp_path)
+    wheel_of(built, tmp_path / "wheel.obj", wake_terminations=False)
+    side = tomllib.loads((tmp_path / "wheel.obj.boundaries.toml").read_text(encoding="utf-8"))
+    for k in range(COPIES):
+        rim = side["base_regions"][f"Base{k + 1}"]["trailing_edges"]
+        assert "wake_termination_nodes" not in rim
+    assert not list(tmp_path.glob("wheel.*.wake.te.txt"))

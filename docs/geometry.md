@@ -605,8 +605,11 @@ no base.
 The wake terminations of the trailing-edge entries are carried by default, as the
 saved route carries those of a saved sector, so both routes build the same wheel: an
 entry's `wake_termination_nodes` file is turned into each copy as
-`wheel.<label>_<k>.wake.te.txt`, and `"auto"` is kept as it is. `--no-wake-terminations`
-(`wake_terminations=False` from Python) drops them, and the wheel's entries declare none.
+`wheel.<label>_<k>.wake.te.txt`, and `"auto"` is kept as it is. A base region's rim file
+carries its own `wake_termination_nodes` the same way, into `wheel.<base>.wake.te.txt` in each
+copy's rim table, so a sector that declares its blunt rim once, on the base region, keeps its
+terminations. `--no-wake-terminations` (`wake_terminations=False` from Python) drops them all,
+and the wheel's entries and rims declare none.
 `wheel.wheel.json` says which: `wake_terminations` is `"carried"` or `"dropped"`. On a saved
 sector the terminations are rows of the file the route copies, so the switch is warned as not
 applicable there and they are carried. The wheel is written beside the OBJ as:
