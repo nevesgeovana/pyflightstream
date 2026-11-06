@@ -372,7 +372,7 @@ def _write(
     default: float,
     curves: dict[str, list[NDArray[np.float64]]],
 ) -> dict[str, Any]:
-    said = meshed.record["fragment"]["warned"]
+    joined = meshed.record["fragment"]["warned"]
     warnings = list(model.notes) + list(meshed.warnings)
     families = {name: meshed.faces[name] for name in order if meshed.faces.get(name)}
     verts, families, boundary = _compact(meshed.nodes, families, meshed.boundary)
@@ -403,7 +403,7 @@ def _write(
         )
     # The join's warnings were said before the mesh; the record keeps every one.
     notes = len(model.notes)
-    for message in warnings[:notes] + warnings[notes + said :]:
+    for message in warnings[:notes] + warnings[notes + joined :]:
         warn(f"iges-grid: {message}", PyflightstreamWarning)
     target.parent.mkdir(parents=True, exist_ok=True)
     text = obj_text(
