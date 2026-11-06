@@ -1576,6 +1576,11 @@
       "path": "workspace/_gmsh.py"
     },
     {
+      "id": "pyflightstream.workspace._hub_remesh",
+      "layer": 2,
+      "path": "workspace/_hub_remesh.py"
+    },
+    {
       "id": "pyflightstream.workspace._hub_rings_grid",
       "layer": 2,
       "path": "workspace/_hub_rings_grid.py"
@@ -13863,6 +13868,36 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream.workspace._hub_rings_grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream.workspace._refine._remesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream.workspace._repitch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._hub_remesh",
+      "target": "pyflightstream.workspace._repitch_grid",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._hub_rings_grid",
       "target": "pyflightstream.workspace._repitch",
       "kind": "module"
@@ -15559,6 +15594,11 @@
     },
     {
       "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream.workspace._hub_remesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
       "target": "pyflightstream.workspace._hub_rings_grid",
       "kind": "module"
     },
@@ -16030,6 +16070,11 @@
     {
       "source": "pyflightstream.workspace.repitch",
       "target": "pyflightstream.cases.reference_blocks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.repitch",
+      "target": "pyflightstream.workspace._hub_remesh",
       "kind": "module"
     },
     {
