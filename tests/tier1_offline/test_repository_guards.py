@@ -57,8 +57,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 0.56.0 (collapse-te) budgets the module and its test file: 2104, measured (+2 tracked files).
 #: 0.56.0 (morph, PFS-2192 and PFS-2193) budgets run/_cli_morph.py, workspace/_pitch_axis.py,
 #: _hub_rings_grid.py, hub_rings.py, morph.py and test_p0560_morph.py: 2110, measured (+6).
+#: 0.56.0 (wheel, PFS-2195) budgets test_p0560_wheel_terminations.py: 2111, measured (+1).
 LEAN_CAPS = {
-    "tracked_files": 2110,
+    "tracked_files": 2111,
     "reports_files": 105,
     "reports_lines": 171604,
     "tests_files": 1167,
