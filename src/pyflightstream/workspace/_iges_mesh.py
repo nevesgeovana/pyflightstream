@@ -116,6 +116,19 @@ def _crossings(gmsh: Any, owner: dict[int, str], warnings: list[str]) -> dict[tu
     return crossings
 
 
+def _join(gmsh: Any, faces: list[int]) -> list[list[tuple[int, int]]]:
+    """Fragment the faces against each other; return the pieces of each face, in their order.
+
+    A single face has nothing to be joined to, and gmsh's fragment of one shape returns no map
+    at all: it is kept whole, its own only piece.
+    """
+    if len(faces) < 2:
+        return [[(2, t)] for t in faces]
+    _, mapping = gmsh.model.occ.fragment([(2, t) for t in faces], [])
+    gmsh.model.occ.synchronize()
+    return [list(pieces) for pieces in mapping]
+
+
 def _fragment(
     gmsh: Any,
     by_name: dict[str, list[int]],
@@ -126,8 +139,7 @@ def _fragment(
     """Fragment every face against every other; return the faces of each component after."""
     inputs = [(name, t) for name in order for t in by_name[name]]
     gmsh.option.setNumber("Geometry.ToleranceBoolean", tolerance)
-    _, mapping = gmsh.model.occ.fragment([(2, t) for _, t in inputs], [])
-    gmsh.model.occ.synchronize()
+    mapping = _join(gmsh, [t for _, t in inputs])
     owner: dict[int, str] = {}
     overlaps: dict[tuple[str, str], int] = {}
     for (name, _), pieces in zip(inputs, mapping, strict=True):

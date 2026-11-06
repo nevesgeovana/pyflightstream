@@ -355,6 +355,21 @@ def test_p0560_grid_families_are_the_named_components_in_the_grid_order(tmp_path
     assert record["unit"] == "MILLIMETER"
 
 
+@pytest.mark.requirement("FR-3700")
+def test_p0560_grid_meshes_a_file_of_one_face(tmp_path, capsys):
+    """One face has nothing to be joined to: it is meshed as it is, not stopped by the join."""
+    iges = Iges()
+    iges.name(1, "Plate")
+    iges.patch(square(0, 0, 2, 1), level=1)
+    path = iges.write(tmp_path / "one.igs")
+    target, record, _ = run_grid(tmp_path, capsys, [path], "[defaults]\nsize = 0.25\n")
+    assert list(read_obj(target).families) == ["Plate"]
+    assert record["transfinite_patches"]["Plate"] == 1
+    assert record["components"]["Plate"]["faces"] == 8 * 4
+    assert record["fragment"]["faces_before"] == record["fragment"]["faces_after"] == 1
+    assert record["fragment"]["split"] == 0
+
+
 @pytest.mark.requirement("FR-3701")
 def test_p0560_grid_shared_edges_are_conformal(tmp_path, capsys):
     target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
