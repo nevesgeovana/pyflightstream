@@ -841,11 +841,17 @@ def test_p0560_convert_says_so_when_the_written_faces_read_back_in_another_count
     tmp_path, capsys, monkeypatch
 ):
     """R1-IGES-004: a read-back with another face count is refused in the package's words."""
-    gmsh_or_skip()
-    from pyflightstream.workspace import iges_convert
+    gmsh = gmsh_or_skip()
+    importing = gmsh.model.occ.importShapes
+    calls = []
 
-    # The read-back returns no centres when the written file imports another number of faces.
-    monkeypatch.setattr(iges_convert, "_read_back", lambda gmsh, path, expected: [])
+    def short_of_one_face(path, *args, **kwargs):
+        # The source imports whole; the written file, imported second, comes back one face short.
+        calls.append(path)
+        out = importing(path, *args, **kwargs)
+        return out if len(calls) == 1 else out[:-1]
+
+    monkeypatch.setattr(gmsh.model.occ, "importShapes", short_of_one_face)
     out = tmp_path / "config.igs"
     code, _, stderr = cli(
         ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
