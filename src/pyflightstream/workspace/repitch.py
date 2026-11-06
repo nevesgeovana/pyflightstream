@@ -123,8 +123,12 @@ def _read(path: Path) -> tuple[ObjMesh, Any]:
 
 
 def _degrees(cfg: dict[str, Any], key: str, default: float) -> float:
-    """Return an angle of the table in degrees, refusing a value that is not a number."""
+    """Return an angle of the table in degrees, refusing a value that is not a number.
+
+    A boolean is refused too: ``true`` would read as one degree, as ``hub_rings.width`` would.
+    """
     value = cfg.get(key, default)
+    _need(not isinstance(value, bool), f"{key} must be a number of degrees, not {value!r}")
     try:
         return float(value)
     except (TypeError, ValueError):

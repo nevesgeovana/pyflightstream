@@ -151,6 +151,21 @@ def test_p0560_r1_morph_005_a_value_of_the_wrong_kind_is_refused_in_words(
     assert not list(tmp_path.glob("bad.*"))
 
 
+@pytest.mark.requirement("FR-3609")
+@pytest.mark.parametrize("key", ["angle_deg", "max_angle_deg"])
+def test_p0560_r2_003_a_boolean_angle_is_refused_not_read_as_one_degree(tmp_path, capsys, key):
+    """P0560-R2-003: angle_deg = true turned the blades one degree and wrote the mesh."""
+    source = source_mesh(tmp_path)
+    text = control(tmp_path, 1.0).read_text().replace("max_angle_deg = 5.0\n", "")
+    if key == "angle_deg":
+        text = text.replace("angle_deg = 1.0\n", "")
+    config = tmp_path / "wrong.toml"
+    config.write_text(text + f"{key} = true\n")
+    assert invoke(source, config, tmp_path / "bad.obj") == 2
+    assert f"{key} must be a number of degrees, not True" in capsys.readouterr().err
+    assert not list(tmp_path.glob("bad.*"))
+
+
 @pytest.mark.requirement("FR-3670")
 def test_p0560_r1_morph_010_a_boolean_ring_width_is_refused_naming_the_key(tmp_path, capsys):
     """P0560-R1-MORPH-010: width = true is no length; it is refused, not read as 1."""
