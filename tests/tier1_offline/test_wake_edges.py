@@ -322,15 +322,18 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
     report = "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
     campaign = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
     imported = registry.commands[WAKE_EDGE_IMPORT_COMMAND]
-    assert [c for c, row in imported.versions.items() if row.report] == ["26.124", "26.125"], (
-        "the wake-edge import cites a compat report on a build other than 26.124 and 26.125"
-    )
-    for build in ("26.124", "26.125"):
+    assert [c for c, row in imported.versions.items() if row.report] == [
+        "26.124",
+        "26.125",
+        "26.127",
+    ], "the wake-edge import cites a compat report on a build other than 26.124, 26.125 and 26.127"
+    marking = "reports/compat/CMP-26127_2026-11-06_marking.yaml"
+    for build in ("26.124", "26.125", "26.127"):
         later = evidence_notice(build)
-        assert report in later and campaign in later, later
-        assert "verified on 26.124, 26.125" in later, later
+        assert report in later and campaign in later and marking in later, later
+        assert "verified on 26.124, 26.125, 26.127" in later, later
         assert "weaker evidence" not in later, f"{build} is verified and still called weaker"
-    assert "verified on 26.124, 26.125 and not on 26.123" in notice, notice
+    assert "verified on 26.124, 26.125, 26.127 and not on 26.123" in notice, notice
     assert "weaker evidence" in notice, notice
     assert WakeEdgeImport(nodes=ONE_NODE, edge_type="STANDARD").evidence_notice("26.123") == notice
 

@@ -1988,6 +1988,7 @@ def test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes
         if report.name in {
             "CMP-26124_2026-10-26_marking.yaml",
             "CMP-26125_2026-10-26_marking.yaml",
+            "CMP-26127_2026-11-06_marking.yaml",
         }:
             # PFS-2170 measures saved-state accumulation, not a log-count claim.
             observation = json.loads(entry["observation"])

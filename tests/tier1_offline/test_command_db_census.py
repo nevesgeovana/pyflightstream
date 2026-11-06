@@ -261,7 +261,7 @@ VERIFIED = {
     # and -fsm): 182.
     # +1 on 2026-11-05: EXPORT_SURFACE_MESH by the 0.56.0 export probe
     # (CMP-26127_2026-11-05_export-surface): 183.
-    "26.127": 183,
+    "26.127": 191,  # +8: the marking commands, CMP-26127_2026-11-06_marking.yaml (0.56.0)
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

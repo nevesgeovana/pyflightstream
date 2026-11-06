@@ -302,6 +302,7 @@ def test_rel551_r1_integer_edge_tags_do_not_disable_geometry_check(tmp_path, sen
         plan = _plan(workspace, matrix)
     assert all((p.status.value == "BLOCKED") == (sense < 0) for p in plan.points)
     assert not any("blade order was not checked" in str(w.message) for w in caught)
-    # Reading geometry must not invent the meaning of these marking codes.
-    with pytest.raises(MeshReadError):
-        trailing_edge_midpoints(mesh)
+    # PFS-2200: 26.127 writes the edge-slot rows as integers, 0 or the trailing-edge group's
+    # number (CMP-26127_2026-11-06_marking.yaml), so a nonzero tag reads as a flagged edge.
+    del MeshReadError
+    assert trailing_edge_midpoints(mesh)
