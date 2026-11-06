@@ -322,7 +322,8 @@ def _node_routes(sidecar, declarations, spec):
     merged = explicit and any(region.merge_into for region in declarations.base_regions)
     build = resolve(declarations.fs_build).canonical if merged else None
     if merged and build not in MERGED_NODE_EVIDENCE:
-        measured = " and ".join(sorted(MERGED_NODE_EVIDENCE))
+        *others, last = sorted(MERGED_NODE_EVIDENCE)
+        measured = f"{', '.join(others)} and {last}" if others else last
         reports = ", ".join(MERGED_NODE_EVIDENCE[name] for name in sorted(MERGED_NODE_EVIDENCE))
         raise InputArtifactError(
             f"{sidecar}: explicit termination nodes across a merge are measured on FlightStream "

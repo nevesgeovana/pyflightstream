@@ -562,3 +562,13 @@ def test_p0560_r1_mark_005_the_read_back_does_not_blame_a_replacing_import_on_26
     assert "CMP-26127_2026-11-06_marking" in measured
     _, other = saved_wake_edge_verdict(sets, tmp_path, ["wing.fsm"], "26.120")
     assert "replacing the first" in other
+
+
+def test_p0560_r1_mark_009_the_merge_refusal_lists_the_measured_builds_once(tmp_path: Path) -> None:
+    """R1-MARK-009: the refusal named the builds as "26.124 and 26.125 and 26.127"."""
+    built, _ = terminated_sector(tmp_path, "26.126")
+    wheel = tmp_path / "wheel.obj"
+    wheel_of(built, wheel)
+    with pytest.raises(InputArtifactError) as caught:
+        plan_mark_boundaries(wheel)
+    assert "measured on FlightStream 26.124, 26.125 and 26.127 only" in str(caught.value)
