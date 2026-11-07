@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# artifact_id: CITATION.cff
+# last_modified_at: 2026-11-07T22:04:26.618357+00:00
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Record the published archive identifier for release 0.56.0.
+# revision_source: git
 cff-version: 1.2.0
 message: "If you use pyflightstream, please cite it using this metadata."
 title: "pyflightstream: version-aware, didactic Python driver for the FlightStream panel-method solver"
@@ -14,6 +25,9 @@ version: 0.56.0
 date-released: 2026-11-06
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24016189
+    description: "Zenodo archive of release v0.56.0"
   - type: doi
     value: 10.5281/zenodo.23976658
     description: "Zenodo archive of release v0.55.1"
