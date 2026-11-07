@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/cases/_setup_keys.py
+# last_modified_at: 2026-11-07T14:42:20.800408-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.01]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The setup keys of a preset: the command each reaches, and the tables some of them hold.
 
 Pipeline role: vocabulary, read by :class:`pyflightstream.cases.SolverSettings`
@@ -160,6 +172,7 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
     "physics_auto_trailing_edges": "PHYSICS",
     "physics_auto_wake_nodes": "PHYSICS",
     "max_threads": "SET_MAX_PARALLEL_THREADS",
+    "runtime": "SET_MAX_PARALLEL_THREADS",
     "solver_model": "INITIALIZE_SOLVER",
     "wall_collision_avoidance": "INITIALIZE_SOLVER",
     "convergence_iterations": "SET_SOLVER_CONVERGENCE_ITERATIONS",
@@ -217,6 +230,7 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
 #: defaults (G47), read by :mod:`pyflightstream.post.guides`; a setup
 #: key added to the package is stated by the example or named here.
 TEMPLATE_SETTINGS_LEFT_OUT: tuple[str, ...] = (
+    "runtime",
     "apply_trailing_edges",
     "apply_wake_termination",
     "apply_base_regions",

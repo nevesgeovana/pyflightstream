@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/cases/settings.py
+# last_modified_at: 2026-11-07T14:42:20.808430-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.01]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The solver settings, the flight-condition state and the reference data of a case.
 
 Pipeline role: describes how a case asks the solver to solve.
@@ -33,6 +45,7 @@ from pyflightstream.cases.mesh import (
     PortBoundary,
 )
 from pyflightstream.cases.reference_blocks import ActuatorOperation
+from pyflightstream.cases.runtime import RuntimeSettings
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script.solver_setup import (
     AirfoilSeparation,
@@ -253,6 +266,8 @@ class SolverSettings(BaseModel):
         The solver's own words are accepted too (see below).
     max_threads : int, optional
         Parallel core count; a row's ``NCPUS`` column wins over it.
+    runtime : RuntimeSettings, optional
+        Launch-machine thread and affinity request; unset preserves existing behavior.
     timeout_s : float, optional
         Wall-clock limit for one point's solver process; enforced by
         the executor, not by FlightStream.
@@ -553,6 +568,7 @@ class SolverSettings(BaseModel):
     #: Legacy PHYSICS wake-node detection; state with physics_auto_trailing_edges.
     physics_auto_wake_nodes: bool | None = None
     max_threads: int | None = Field(default=None, ge=1)
+    runtime: RuntimeSettings | None = None
     timeout_s: float | None = Field(default=None, gt=0.0)
     #: How much wall time to reserve for exports, in seconds. Defaults to twenty minutes. This is
     #: a setup setting because export duration is shared across the row's platforms. It emits

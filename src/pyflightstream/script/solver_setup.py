@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/script/solver_setup.py
+# last_modified_at: 2026-11-07T14:42:20.836263-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.01]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Solver-setup snapshot: total provenance of the solver flags.
 
 Pipeline role: records, for every solver flag of the runtime_settings,
@@ -583,6 +595,7 @@ class SolverSetup(BaseModel):
     #: with its value and the rule (FR-318: the moments model linked to the
     #: vorticity drag on a row turning a rotor).
     derived: dict[str, str] = Field(default_factory=dict)
+    runtime: dict | None = None
 
     @model_serializer(mode="wrap")
     def _absent_when_empty(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:

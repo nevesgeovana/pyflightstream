@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/cases/workflows/_solver_settings.py
+# last_modified_at: 2026-11-07T14:42:20.808430-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.01]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The solver settings of a row: the preset, the analysis, flags and raw commands.
 
 :func:`_settings` emits the solver settings the row and its input library
@@ -321,6 +333,10 @@ def _settings(
         vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
+    if solver.runtime is not None and script.solver_setup is not None:
+        script.solver_setup = script.solver_setup.model_copy(
+            update={"runtime": solver.runtime._resolved}
+        )
     if solver.remove_initialization:
         script.emit("REMOVE_INITIALIZATION")
     if solver.proximal_boundaries is not None:

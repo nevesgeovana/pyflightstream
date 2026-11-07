@@ -109,6 +109,7 @@
       "tests/tier1_offline/test_regression_script_emission.py",
       "tests/tier1_offline/test_round1_surface_emissions.py",
       "tests/tier1_offline/test_rpt133_fr318_vorticity_order.py",
+      "tests/tier1_offline/test_rt057_runtime.py",
       "tests/tier1_offline/test_setup_native_state_evidence.py",
       "tests/tier1_offline/test_unsteady_section_cp.py"
     ],
