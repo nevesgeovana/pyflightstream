@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/run/collect.py
+# last_modified_at: 2026-11-07T14:42:20.833689-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.03]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.03 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Collect a submitted job's outputs when they land, then post (FR-99).
 
 THIS IS COLLECT-AND-POST, not submit-and-collect. A watcher stands by, sees
@@ -1063,6 +1075,10 @@ def _complete(
     limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
+    from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
+    from pyflightstream.run._step_timing import read_step_timing
+
+    update.update(read_step_timing(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT))
     raw_steps = stamped.get("time_steps", record.time_steps)
     steps = raw_steps if isinstance(raw_steps, int) and not isinstance(raw_steps, bool) else None
     warning = missing_step_warning(

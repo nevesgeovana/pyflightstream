@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/workspace/manifest.py
+# last_modified_at: 2026-11-07T14:42:20.836263-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.03]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.03 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Run and extraction records, manifest writers and the owned manifest lease.
 
 The workspace facade keeps the historical imports and delegates writes here.
@@ -949,6 +961,9 @@ class RunRecord(BaseModel):
     action_program: str | None = None
     action_script: str | None = None
     action_count: int | None = None
+    step_wall_timestamps_s: list[float] | None = None
+    step_wall_times_s: list[float | None] | None = None
+    step_wall_time_last20_mean_s: float | None = None
     #: Nonfatal run diagnostics, separate from the assessed solver status and
     #: error. In particular, missing per-step action evidence does not invalidate
     #: converged final loads. Recorded by local execution and collection alike.

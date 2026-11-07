@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/qa/cost.py
+# last_modified_at: 2026-11-07T14:42:20.809977-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.03]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Implement PFS-2201.03 acceptance for RT057.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Wall-time cost of recorded runs, gathered so two builds can be compared.
 
 Pipeline role: a READER over campaign manifests, at the qa end of the
@@ -132,6 +144,8 @@ COST_ROW_COLUMNS = (
     "fs_exe_sha256",
     "status",
     "wall_time_s",
+    "step_wall_times_s",
+    "step_wall_time_last20_mean_s",
 )
 
 #: Fixed identity columns of the pivot; every other column of a pivot
@@ -681,6 +695,8 @@ def cost_rows(source: CostSource) -> list[dict[str, object]]:
             "fs_exe_sha256": record.fs_exe_sha256,
             "status": str(record.status),
             "wall_time_s": record.wall_time_s,
+            "step_wall_times_s": record.step_wall_times_s,
+            "step_wall_time_last20_mean_s": record.step_wall_time_last20_mean_s,
         }
         for record in _records(source)
     ]

@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: tests/tier1_offline/test_qa_cost.py
+# last_modified_at: 2026-11-07T14:42:20.849726-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [PFS-2201.03]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Extend regression coverage for PFS-2201.03.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the wall-time cost view over run manifests (PFS-2018.02).
 
 Pipeline role: quality gate on :mod:`pyflightstream.qa.cost`, the reader
@@ -205,6 +217,8 @@ def test_the_long_form_carries_fs_build_and_fs_exe_sha256_as_columns():
             "fs_exe_sha256",
             "status",
             "wall_time_s",
+            "step_wall_times_s",
+            "step_wall_time_last20_mean_s",
         }
     assert rows[0]["fs_exe_sha256"] == SHA_A
     assert rows[1]["fs_exe_sha256"] == SHA_B, "the long form carries the FULL hash, not a prefix"
