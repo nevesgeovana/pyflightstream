@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
+# file_version: 1.0.1
 # artifact_id: tests/tier1_offline/test_rt057_runtime.py
-# last_modified_at: 2026-11-07T14:42:20.881538-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# last_modified_at: 2026-11-07T21:44:09.638270+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / gated-reviewer
 # dependencies: [PFS-2201.01]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# change_summary: F2 regression for non-integer Linux core type metadata.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """PFS-2201.01: recorded synthetic topologies, never the test host."""
@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from pyflightstream.cases import SimCase, SolverSettings
 from pyflightstream.cases.runtime import RuntimeSettings
 from pyflightstream.cases.workflows._solver_settings import _settings
-from pyflightstream.run import LocalExecutor
+from pyflightstream.run import LocalExecutor, _runtime
 from pyflightstream.run._runtime import resolve_runtime
 from pyflightstream.script import Script
 from pyflightstream.workspace import RunRecord, RunStatus
@@ -104,6 +104,29 @@ TOPOLOGIES = [
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_linux_non_integer_core_type_falls_back_to_zero(self):
+        # Raw sysfs text reaches the real detector; no normalized topology is mocked.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            topology = root / "cpu/cpu0/topology"
+            topology.mkdir(parents=True)
+            (topology / "physical_package_id").write_text("0\n")
+            (topology / "core_id").write_text("0\n")
+            (topology / "core_type").write_text("unknown\n")
+            (root / "cpuinfo").write_text("vendor_id\t: GenuineIntel\n")
+            paths = {"/sys/devices/system/cpu": root / "cpu", "/proc/cpuinfo": root / "cpuinfo"}
+            with patch.object(_runtime, "Path", side_effect=paths.__getitem__):
+                try:
+                    detected = _runtime._linux_topology()
+                except ValueError as error:
+                    self.fail(f"Non-integer core_type must degrade to class 0: {error}")
+            self.assertEqual(
+                detected["cores"], [{"efficiency_class": 0, "logical_processors": [0]}]
+            )
+            self.assertEqual(detected["p_cores"], 0)
+            self.assertEqual(detected["e_cores"], 0)
+            self.assertEqual(detected["numa_nodes"], [{"id": 0, "logical_processors": [0]}])
+
     def test_fixture_emission_environment_and_record(self):
         with tempfile.TemporaryDirectory() as folder:
             exe = Path(folder) / "solver.exe"

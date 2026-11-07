@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
+# file_version: 1.0.1
 # artifact_id: src/pyflightstream/run/_runtime.py
-# last_modified_at: 2026-11-07T14:42:20.865837-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# last_modified_at: 2026-11-07T21:44:09.638270+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / gated-reviewer
 # dependencies: [PFS-2201.01]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Implement PFS-2201.01 acceptance for RT057.
+# change_summary: F2 falls back to class zero for non-integer Linux core types.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Launch CPU policy, re-expressed from the GOAL-076 detection and rules kit.
@@ -157,7 +157,10 @@ def _linux_topology() -> dict[str, Any]:
         socket = int((topology / "physical_package_id").read_text())
         core = int((topology / "core_id").read_text())
         kind = topology / "core_type"
-        efficiency = int(kind.read_text()) if kind.exists() else 0
+        try:
+            efficiency = int(kind.read_text()) if kind.exists() else 0
+        except ValueError:
+            efficiency = 0
         entry = grouped.setdefault(
             (socket, core), {"efficiency_class": efficiency, "logical_processors": []}
         )
