@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/workspace/_iges_mesh.py
+# last_modified_at: 2026-11-07T22:04:26.641205+00:00
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Describe validation geometry by role in the meshing comment.
+# revision_source: git
 """The gmsh half of ``geometry iges-grid``: join the faces, set the laws, mesh, read the elements.
 
 The faces of every component are healed and fragmented together, so an edge two faces share
@@ -35,7 +46,7 @@ _TRIANGLE, _QUAD = 2, 3
 #: gmsh 2D algorithm 1, MeshAdapt, and recombination algorithm 1, Blossom. MeshAdapt keeps the
 #: component's size on a face whose parametrization is stretched and meshes a narrow face
 #: without slivers, where Frontal-Delaunay for quads (8) left cells many sizes long across both
-#: (measured on SMI-WBVH: 200 sliver faces with 8, 29 with MeshAdapt).
+#: in the release validation assembly (200 sliver faces with 8, 29 with MeshAdapt).
 _MESH_ADAPT, _BLOSSOM = 1, 1
 #: How fast the size grows with the distance from a short curve: a cell about a third larger
 #: than its neighbour nearer the curve.

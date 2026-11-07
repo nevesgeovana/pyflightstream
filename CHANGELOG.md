@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: CHANGELOG.md
+last_modified_at: 2026-11-07T22:04:26.666363+00:00
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+dependencies: []
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Record the carried release debt corrections.
+revision_source: git
+-->
 # Changelog
 
 All notable changes to pyflightstream. The format follows
@@ -6,6 +19,17 @@ follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
 ## [Unreleased]
+
+### Fixed
+
+- IGES component names retain embedded Latin-1 control bytes when records are read.
+- IGES guidance clarifies the node-number tie-break and the limit for a blunt base
+  with multiple cells across its thickness; marking probe descriptions cover supported builds.
+
+### Changed
+
+- Release wheel tests run in three shards per operating system; executable examples run
+  once per operating system.
 
 ## [0.56.0] - 2026-11-06
 

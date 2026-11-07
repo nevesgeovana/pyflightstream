@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# artifact_id: .github/workflows/release.yml
+# last_modified_at: 2026-11-07T22:04:26.631187+00:00
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Shard wheel tests and run examples once per operating system.
+# revision_source: git
 # Release workflow: publishes pyflightstream to PyPI through trusted
 # publishing (OIDC), so no API token is stored in the repository. It
 # mirrors the ITACA release workflow. Requires the matching publisher
@@ -107,6 +118,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        shard: [1, 2, 3]
         # The declared floor, as in ci.yml (SPEC 0, PFS-2024.07).
         python-version: ["3.12"]
     steps:
@@ -161,9 +173,11 @@ jobs:
         shell: bash
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
+          PYFS_SHARD: "${{ matrix.shard }}/3"
         run: |
           pytest -n auto -o pythonpath=
       - name: Executable examples against the wheel
+        if: matrix.shard == 1
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
         run: pytest -o pythonpath= README.md docs -W error::pyflightstream._errors.PyflightstreamWarning

@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: docs/mesh/iges.md
+last_modified_at: 2026-11-07T22:04:26.650241+00:00
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+dependencies: []
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Use generic example names and clarify blunt trailing-edge limits.
+revision_source: git
+-->
 # Grid and convert a named IGES
 
 Two commands read IGES files whose components are named, as a CAD or meshing system writes
@@ -26,7 +39,7 @@ the command compares the two counts: a file where they differ is refused with bo
 ## Grid a configuration
 
 ```text
-pyfs-workspace geometry iges-grid SMI-WBVH.igs SMI-L2-PN.igs --grid grid.toml --out model.obj
+pyfs-workspace geometry iges-grid airframe.igs rotor.igs --grid grid.toml --out model.obj
 ```
 
 The faces of every file are healed and joined, so an edge two faces share becomes one curve
@@ -129,12 +142,14 @@ their outward normals differ by more than `te_angle_deg` and their bisector poin
 (+x) within 60 degrees. A leading edge faces upstream and a tip cap sideways, so neither is
 taken. A sharp trailing edge gives one line. A blunt one with its base faces is found as two
 rims, the lines on opposite sides of a base face, and one of them is marked: the longer, or on
-a tie the one holding the lower node. A line that joins the dropped rim to the kept one, such as
+a tie the one containing the lowest node number. This is a mesh-numbering tie-break,
+not a choice of the geometrically lower rim. A line that joins the dropped rim to the kept one, such as
 a tip's base edge, is dropped with it, and the record gives the count under
 `dropped_rim_edges`. Both rims shed two wakes a base cell apart: on FlightStream 26.127 the
-solve of the SMI wing then diverged, and converged with either rim alone. A trailing edge read
+solve of the validation wing then diverged, and converged with either rim alone. A trailing edge read
 from named IGES curves is marked as named. An open trailing edge, with no base face, is not
-found this way.
+found this way. If more than one cell spans the blunt base thickness, the rims share no
+base face and both remain marked.
 
 With a list, each name is the NAME of a level holding curves at the top level of an IGES file
 (lines, B-spline curves and composite curves); the edges of the component whose nodes lie on
@@ -176,13 +191,13 @@ and the area and recorded under `inner_faces_removed` and `inner_area_removed`; 
 with an open trailing edge crosses a fin and the crossing curve on the fin does not close, every
 face is kept, a warning says so and `inner_faces` says why; so is an assembly whose crossings
 leave more than 200000 selections to try. With `remove_inner_faces = false` and components that
-cross, every face is kept and a warning says so. On FlightStream 26.127 the SMI wing, body, tails and
+cross, every face is kept and a warning says so. On FlightStream 26.127 the validation wing, body, tails and
 fillet grid diverged with its inner faces kept, even with no wake, and converged without them.
 
 ## Convert to B-spline faces
 
 ```text
-pyfs-workspace geometry iges-convert SMI-Fuselage.igs --out fuselage-nurbs.igs
+pyfs-workspace geometry iges-convert fuselage.igs --out fuselage-nurbs.igs
 ```
 
 Every face, including a surface of revolution, is converted to a B-spline surface and written
