@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# artifact_id: tests/tier1_offline/test_p0560_iges.py
+# last_modified_at: 2026-11-07T22:04:26.666363+00:00
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Cover embedded control bytes with LF and CRLF IGES records.
+# revision_source: git
 """P0560-IGES: grid and convert the named components of IGES files (PFS-2198, PFS-2199).
 
 Usage: pyfs-workspace geometry iges-grid a.igs b.igs --grid grid.toml --out model.obj
@@ -172,6 +183,20 @@ def test_p0560_iges_names_come_from_the_name_on_each_faces_level(tmp_path):
     assert names.levels == (1, 7, 1, 0)
     assert names.components == {"Wing": 2, "a_level7": 1, "a_level0": 1}
     assert names.unit == "MILLIMETER"
+
+
+@pytest.mark.parametrize("control", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_iges_hollerith_control_bytes_do_not_split_records(tmp_path, control, newline):
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    iges = Iges()
+    name = f"Wing{control}Part"
+    iges.name(1, name)
+    iges.patch(square(0, 0, 1, 1), level=1)
+    path = tmp_path / "control.igs"
+    path.write_bytes(iges.text().replace("\n", newline).encode("latin-1"))
+    assert read_iges_names(path).faces == (name,)
 
 
 @pytest.mark.requirement("FR-3700")

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# artifact_id: src/pyflightstream/workspace/_iges_names.py
+# last_modified_at: 2026-11-07T22:04:26.640199+00:00
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Preserve embedded Latin-1 control bytes within IGES records.
+# revision_source: git
 """Read and write the component names of an IGES file: its directory and parameter sections only.
 
 An IGES file names a component with a 406 form 15 NAME property on a level: every entity on that
@@ -197,7 +208,7 @@ def _sections(path: Path) -> dict[str, list[str]]:
     except OSError as error:
         raise _refuse(path, f"not readable ({error})") from error
     sections: dict[str, list[str]] = {"S": [], "G": [], "D": [], "P": [], "T": []}
-    for line in text.splitlines():
+    for line in text.split("\n"):
         body = line.rstrip("\r\n")
         if len(body) < 73:
             continue
