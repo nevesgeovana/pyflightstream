@@ -48,6 +48,20 @@ def test_p0570_invalid_bytes_for_the_encoding_are_refused_not_replaced(tmp_path)
 
 
 @pytest.mark.requirement("FR-3705")
+def test_p0570_a_name_no_level_takes_is_not_decoded(tmp_path):
+    """RL57B-2: a level-0 feature name, or a second NAME of a level, never refuses the file."""
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    iges = Iges()
+    iges.patch(square(0, 0, 1, 1), level=1)
+    iges.name(0, b"Pi\xe8ce".decode("latin-1"))  # a feature name in Latin-1, on no level
+    iges.name(1, "Asa_ção".encode().decode("latin-1"))
+    iges.name(1, b"Asa_\xe7".decode("latin-1"))  # a later NAME of level 1: not the level's name
+    path = iges.write(tmp_path / "mixed.igs")
+    assert read_iges_names(path, name_encoding="utf-8").faces == ("Asa_ção",)
+
+
+@pytest.mark.requirement("FR-3705")
 def test_p0570_unknown_encoding_is_refused(tmp_path):
     from pyflightstream.workspace._iges_names import read_iges_names
 

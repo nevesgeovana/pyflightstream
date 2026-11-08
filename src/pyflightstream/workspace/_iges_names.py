@@ -377,12 +377,15 @@ class _Parsed:
         for entry in self.entries:
             if entry.kind != NAME_ENTITY or entry.form != NAME_FORM:
                 continue
+            # Level 0 is no level: a NAME there is a property another entity points at (a
+            # feature name of the writing system), never the name of a level. Only the NAME a
+            # level takes is decoded, so a name the file never uses cannot refuse it.
+            if entry.level <= 0 or entry.level in self.named:
+                continue
             words = self.parameters(entry)
             text = words[2] if len(words) > 2 else ""
             name = _decode_name(path, text, name_encoding).split("|", 1)[0].strip()
-            # Level 0 is no level: a NAME there is a property another entity points at (a
-            # feature name of the writing system), never the name of a level.
-            if name and entry.level > 0 and entry.level not in self.named:
+            if name:
                 self.named[entry.level] = name
 
     def parameters(self, entry: _Entry) -> list[str]:
