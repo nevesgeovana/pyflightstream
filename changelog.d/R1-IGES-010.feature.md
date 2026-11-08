@@ -1,0 +1,1 @@
+Read IGES NAME properties byte for byte and decode them with an explicit `--name-encoding` (default `latin-1`) on `iges-grid` and `iges-convert`; names written in UTF-8 decode deterministically with `utf-8`, undecodable names are refused, and converted files count Hollerith lengths in bytes.

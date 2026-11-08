@@ -1,5 +1,13 @@
 # Upgrading
 
+## IGES name encoding (0.57)
+
+`geometry iges-grid` and `geometry iges-convert` take `--name-encoding` (Python:
+`name_encoding=`), default `latin-1`, which keeps the former reading of every name. Names
+written in UTF-8 now decode with `--name-encoding utf-8` instead of appearing as mojibake and
+failing to match component tables. A name invalid in the stated encoding is refused, never
+replaced.
+
 ## Coordinate and band names (0.57)
 
 Use `[hub_rings] band_width` instead of the deprecated `width`, and

@@ -19,6 +19,12 @@ face on that level belongs to the component. The name is read up to its first `|
 belongs to `<file stem>_level<N>`. A NAME on level 0 names no level: it is a property another
 entity points at, such as a feature name of the CAD system, and is never a component.
 
+The file is read byte for byte, so its fixed 80-byte records and Hollerith counts hold for
+any name. The bytes of a NAME are decoded with `--name-encoding` (default `latin-1`, one
+character per byte); use `--name-encoding utf-8` for names written in UTF-8. The encoding is
+never guessed, a name that is not valid in it is refused, and `iges-convert` writes names in
+the same encoding, counting bytes in each Hollerith length.
+
 The faces are every trimmed surface (144) and every untrimmed surface at the top level, in the
 order of the file's directory. That is the order in which the geometry kernel imports them, and
 the command compares the two counts: a file where they differ is refused with both counts.

@@ -22,7 +22,11 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.extras import missing_extra
-from pyflightstream.workspace._iges_names import IgesNames, read_iges_names
+from pyflightstream.workspace._iges_names import (
+    DEFAULT_NAME_ENCODING,
+    IgesNames,
+    read_iges_names,
+)
 
 __all__ = ["NamedModel", "gmsh_module", "import_iges", "import_named", "session"]
 
@@ -113,18 +117,21 @@ def _unit_of(names: IgesNames) -> str:
     return names.unit
 
 
-def import_named(gmsh: Any, paths: Sequence[str | Path]) -> NamedModel:
+def import_named(
+    gmsh: Any, paths: Sequence[str | Path], *, name_encoding: str = DEFAULT_NAME_ENCODING
+) -> NamedModel:
     """Import every IGES file into the open gmsh model and name each face from its file.
 
     The i-th face the import returns is the i-th face :func:`read_iges_names` lists; the counts
     are compared and a file where they differ is refused with both. Coordinates are scaled from
     the import's unit to the first file's unit, so every file of the model is in that unit.
+    ``name_encoding`` is the text encoding of the NAME bytes (:func:`read_iges_names`).
     """
     if not paths:
         raise InputArtifactError(
             "name at least one IGES file. Nothing was written.", kind="geometry"
         )
-    listed: list[IgesNames] = [read_iges_names(p) for p in paths]
+    listed: list[IgesNames] = [read_iges_names(p, name_encoding=name_encoding) for p in paths]
     unit = _unit_of(listed[0])
     model = NamedModel(unit=unit, faces=[], names=[])
     for names in listed:

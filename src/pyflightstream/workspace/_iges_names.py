@@ -189,6 +189,38 @@ def _split(text: str, delimiter: str, end: str) -> list[str]:
 #: The encoding an IGES file is read and written in: one character per byte, so a column is a
 #: byte and a Hollerith count is kept, whatever bytes a name outside ASCII holds.
 _BYTES = "latin-1"
+#: The encoding a NAME payload is decoded with unless the caller states another.
+DEFAULT_NAME_ENCODING = "latin-1"
+
+
+def _decode_name(path: Path, raw: str, encoding: str) -> str:
+    """Decode a NAME payload read as one character per byte, strictly, with ``encoding``."""
+    try:
+        return raw.encode(_BYTES).decode(encoding)
+    except UnicodeDecodeError as error:
+        raise _refuse(
+            path,
+            f"a NAME is not valid {encoding} text ({error.reason}); give the encoding the file's "
+            "names are written in, or write them again",
+        ) from error
+    except LookupError as error:
+        raise _refuse(path, f"{encoding!r} is not a known text encoding") from error
+
+
+def _encode_name(name: str, encoding: str) -> str:
+    """Return ``name`` as the one-character-per-byte text of its bytes in ``encoding``."""
+    try:
+        return name.encode(encoding).decode(_BYTES)
+    except UnicodeEncodeError as error:
+        raise InputArtifactError(
+            f"the name {name!r} cannot be written in {encoding} ({error.reason}); choose an "
+            "encoding that holds it. Nothing was written.",
+            kind=_IGES_KIND,
+        ) from error
+    except LookupError as error:
+        raise InputArtifactError(
+            f"{encoding!r} is not a known text encoding. Nothing was written.", kind=_IGES_KIND
+        ) from error
 
 
 def _sections(path: Path) -> dict[str, list[str]]:
@@ -285,7 +317,7 @@ def _level_list(
         return 0
 
 
-def read_iges_names(path: str | Path) -> IgesNames:
+def read_iges_names(path: str | Path, *, name_encoding: str = DEFAULT_NAME_ENCODING) -> IgesNames:
     """Read the faces of an IGES file in directory order and the component of each.
 
     The component of a face is the NAME (406 form 15) on the face's level, cut at the first
@@ -296,6 +328,10 @@ def read_iges_names(path: str | Path) -> IgesNames:
     ----------
     path : str or Path
         The IGES file, read only.
+    name_encoding : str, optional
+        The text encoding of the NAME bytes. The file is always read byte for byte, so columns
+        and Hollerith counts hold whatever the encoding; only the name is decoded, strictly.
+        Default ``"latin-1"``, which maps every byte to one character.
 
     Returns
     -------
@@ -307,7 +343,7 @@ def read_iges_names(path: str | Path) -> IgesNames:
     InputArtifactError
         The file is not an IGES file this reader can read; nothing was written.
     """
-    parsed = _Parsed(Path(path))
+    parsed = _Parsed(Path(path), name_encoding)
     faces, levels, numbers = [], [], []
     for entry in parsed.entries:
         top = entry.subordinate == "00"
@@ -328,7 +364,7 @@ def read_iges_names(path: str | Path) -> IgesNames:
 class _Parsed:
     """The sections of one IGES file this module reads, with the NAME of each level."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, name_encoding: str = DEFAULT_NAME_ENCODING) -> None:
         self.path = path
         sections = _sections(path)
         glob = "".join(line[:72] for line in sections["G"])
@@ -343,7 +379,7 @@ class _Parsed:
                 continue
             words = self.parameters(entry)
             text = words[2] if len(words) > 2 else ""
-            name = text.split("|", 1)[0].strip()
+            name = _decode_name(path, text, name_encoding).split("|", 1)[0].strip()
             # Level 0 is no level: a NAME there is a property another entity points at (a
             # feature name of the writing system), never the name of a level.
             if name and entry.level > 0 and entry.level not in self.named:
@@ -399,13 +435,16 @@ def _polyline(parsed: _Parsed, entry: _Entry, depth: int = 0) -> list[NDArray[np
     return []
 
 
-def named_curves(path: str | Path) -> dict[str, list[NDArray[np.float64]]]:
+def named_curves(
+    path: str | Path, *, name_encoding: str = DEFAULT_NAME_ENCODING
+) -> dict[str, list[NDArray[np.float64]]]:
     """Return the curves at the top level of an IGES file whose level a NAME names, as polylines.
 
     Lines (110), rational B-spline curves (126) and composite curves (102) of them are sampled in
     the file's unit; any other curve entity, and a curve on a level no NAME names, is not read.
+    ``name_encoding`` is as for :func:`read_iges_names`.
     """
-    parsed = _Parsed(Path(path))
+    parsed = _Parsed(Path(path), name_encoding)
     out: dict[str, list[NDArray[np.float64]]] = {}
     for entry in parsed.entries:
         if entry.subordinate != "00" or entry.kind not in (_LINE, _BSPLINE_CURVE, _COMPOSITE):
@@ -527,13 +566,15 @@ def name_faces(
     components: Sequence[str],
     *,
     unit: str | None = None,
+    name_encoding: str = DEFAULT_NAME_ENCODING,
 ) -> Path:
     """Write ``source`` to ``target`` with the i-th face on its component's level and its NAME.
 
     Each component, in the order of its first face, takes level 1, 2, ... and one 406 form 15
     NAME on that level; every face (as :func:`read_iges_names` lists them) moves to its
     component's level, and nothing else in the file changes but the terminate counts and,
-    when ``unit`` is given, the global unit flag and name.
+    when ``unit`` is given, the global unit flag and name. Each name is written as the bytes it
+    has in ``name_encoding`` and its Hollerith count is that byte count.
 
     Raises
     ------
@@ -541,7 +582,8 @@ def name_faces(
         The file holds another number of faces than ``components`` names; nothing was written.
     """
     src = Path(source)
-    listed = read_iges_names(src)
+    listed = read_iges_names(src, name_encoding=name_encoding)
+    wire = {name: _encode_name(name, name_encoding) for name in dict.fromkeys(components)}
     if len(listed.faces) != len(components):
         raise _refuse(
             src,
@@ -563,7 +605,7 @@ def name_faces(
     parameters = list(sections["P"])
     for name, level in order.items():
         number = len(directory) + 1
-        record = f"{NAME_ENTITY},1,{_hollerith(name)};"
+        record = f"{NAME_ENTITY},1,{_hollerith(wire[name])};"
         first = len(parameters) + 1
         for i in range(0, len(record), 64):
             parameters.append(

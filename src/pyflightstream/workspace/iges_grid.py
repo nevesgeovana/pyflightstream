@@ -38,7 +38,11 @@ from pyflightstream.versions import known_versions
 from pyflightstream.workspace._gmsh import import_named, session
 from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
 from pyflightstream.workspace._iges_mesh import mesh_model
-from pyflightstream.workspace._iges_names import named_curves, read_iges_names
+from pyflightstream.workspace._iges_names import (
+    DEFAULT_NAME_ENCODING,
+    named_curves,
+    read_iges_names,
+)
 from pyflightstream.workspace._iges_skin import outer_skin
 from pyflightstream.workspace._refine._obj import ObjMesh, midpoints, obj_text, write_te
 
@@ -392,7 +396,13 @@ def _fs_build(config: GridConfig) -> str:
     return config.fs_build or str(known_versions()[-1].canonical)
 
 
-def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) -> dict[str, Any]:
+def grid_iges(
+    sources: Sequence[str | Path],
+    grid: str | Path,
+    out: str | Path,
+    *,
+    name_encoding: str = DEFAULT_NAME_ENCODING,
+) -> dict[str, Any]:
     """Grid the named components of IGES files into one OBJ with its boundaries file and record.
 
     Parameters
@@ -401,6 +411,8 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
         IGES files, read only; their faces are named by the NAME of their level.
     grid : str or Path
         The grid control file (``grid.toml``).
+    name_encoding : str, optional
+        The text encoding of the NAME bytes in the IGES files; default ``"latin-1"``.
     out : str or Path
         The OBJ to write; ``<out>.boundaries.toml``, ``<out>.json`` and one
         ``<stem>.<component>.te.txt`` per component with a trailing edge are written beside it.
@@ -422,7 +434,7 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
         raise InputValueError(f"grid: {target} must be an .obj file. Nothing was written.")
     config = read_grid(grid)
     with session(_PURPOSE) as gmsh:
-        model = import_named(gmsh, sources)
+        model = import_named(gmsh, sources, name_encoding=name_encoding)
         found = list(model.components())
         order = _order(config, found)
         box = gmsh.model.getBoundingBox(-1, -1)
@@ -442,7 +454,7 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
 
         def reopen() -> Any:
             gmsh.clear()
-            return import_named(gmsh, sources)
+            return import_named(gmsh, sources, name_encoding=name_encoding)
 
         meshed = mesh_model(gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen)
     return _write(
@@ -453,18 +465,21 @@ def grid_iges(sources: Sequence[str | Path], grid: str | Path, out: str | Path) 
         sizes,
         meshed=meshed,
         default=default,
-        curves=_curves(sources, model.unit),
+        curves=_curves(sources, model.unit, name_encoding),
     )
 
 
-def _curves(sources: Sequence[str | Path], unit: str) -> dict[str, list[NDArray[np.float64]]]:
+def _curves(
+    sources: Sequence[str | Path], unit: str, name_encoding: str
+) -> dict[str, list[NDArray[np.float64]]]:
     """Return the named curves of every source, scaled to the model's unit."""
     out: dict[str, list[NDArray[np.float64]]] = {}
     for source in sources:
         factor = float(
-            METRES_PER_UNIT[read_iges_names(source).unit or unit] / METRES_PER_UNIT[unit]
+            METRES_PER_UNIT[read_iges_names(source, name_encoding=name_encoding).unit or unit]
+            / METRES_PER_UNIT[unit]
         )
-        for name, lines in named_curves(source).items():
+        for name, lines in named_curves(source, name_encoding=name_encoding).items():
             out.setdefault(name, []).extend(line * factor for line in lines)
     return out
 
