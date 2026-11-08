@@ -260,6 +260,10 @@ _FIELD_UNSCRIPTED: Mapping[tuple[str, str], str] = MappingProxyType(
             "SolverSettings",
             "apply_wake_termination",
         ): "mark-boundaries prepares the stored nodes before the run.",
+        ("SolverSettings", "runtime"): (
+            "the local executor resolves this request against launch topology, then emits "
+            "the derived thread count and supplies subprocess affinity."
+        ),
         ("SolverSettings", "timeout_s"): "the executor stops the solver process at it.",
         ("SolverSettings", "walltime_margin_s"): (
             "the wall-clock program the run writes beside the script reads it."

@@ -187,3 +187,22 @@ def test_p0560_ci_real_collection_complete_disjoint(tmp_path):
         assert len(combined) == len(set(combined))
         assert set(combined) == set(full)
         print(f"P0560 n={n}: counts={[len(s) for s in shards]}, total={len(full)}")
+
+
+def test_release_wheel_shards_keep_all_platforms_and_publish_gates():
+    jobs = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())["jobs"]
+    job = jobs["test-artifact"]
+    assert job["strategy"]["matrix"]["os"] == ["ubuntu-latest", "windows-latest"]
+    assert job["strategy"]["matrix"]["shard"] == [1, 2, 3]
+    assert job["strategy"]["fail-fast"] is False
+    assert "PYFS_SHARD" not in job.get("env", {})
+    suite = next(s for s in job["steps"] if s.get("name") == "Tier 1 tests against the wheel")
+    assert suite["env"]["PYFS_SHARD"] == "${{ matrix.shard }}/3"
+    assert suite["env"]["PYFLIGHTSTREAM_TEST_INSTALLED"] == "1"
+    assert "-o pythonpath=" in suite["run"]
+    examples = next(
+        s for s in job["steps"] if s.get("name") == "Executable examples against the wheel"
+    )
+    assert examples["if"] == "matrix.shard == 1"
+    assert "PYFS_SHARD" not in examples.get("env", {})
+    assert set(jobs["publish"]["needs"]) == {"build", "test-artifact", "ci-at-sha"}

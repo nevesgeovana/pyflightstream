@@ -35,7 +35,7 @@ _TRIANGLE, _QUAD = 2, 3
 #: gmsh 2D algorithm 1, MeshAdapt, and recombination algorithm 1, Blossom. MeshAdapt keeps the
 #: component's size on a face whose parametrization is stretched and meshes a narrow face
 #: without slivers, where Frontal-Delaunay for quads (8) left cells many sizes long across both
-#: (measured on SMI-WBVH: 200 sliver faces with 8, 29 with MeshAdapt).
+#: in the release validation assembly (200 sliver faces with 8, 29 with MeshAdapt).
 _MESH_ADAPT, _BLOSSOM = 1, 1
 #: How fast the size grows with the distance from a short curve: a cell about a third larger
 #: than its neighbour nearer the curve.

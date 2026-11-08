@@ -197,7 +197,7 @@ def _sections(path: Path) -> dict[str, list[str]]:
     except OSError as error:
         raise _refuse(path, f"not readable ({error})") from error
     sections: dict[str, list[str]] = {"S": [], "G": [], "D": [], "P": [], "T": []}
-    for line in text.splitlines():
+    for line in text.split("\n"):
         body = line.rstrip("\r\n")
         if len(body) < 73:
             continue

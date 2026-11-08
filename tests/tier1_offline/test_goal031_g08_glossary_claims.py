@@ -829,6 +829,7 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "convergence": _setting("convergence", 1e-5, 1e-6),
     "boundary_layer": _setting("boundary_layer", "TRANSITIONAL", "TURBULENT"),
     "max_threads": _setting("max_threads", 4, 8),
+    "runtime": _setting("runtime", {"max_threads": 4}, {"max_threads": "auto"}),
     # The executor's and the wall-clock program's: on the run type that has a clock.
     "timeout_s": _setting("timeout_s", 100.0, 200.0, unsteady_case, WALLTIME="10h"),
     "walltime_margin_s": _setting(

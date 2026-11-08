@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- IGES component names retain embedded Latin-1 control bytes when records are read.
+- IGES guidance clarifies the node-number tie-break and the limit for a blunt base
+  with multiple cells across its thickness; marking probe descriptions cover supported builds.
+
+### Changed
+
+- Release wheel tests run in three shards per operating system; executable examples run
+  once per operating system.
+
 ## [0.56.0] - 2026-11-06
 
 ### Added

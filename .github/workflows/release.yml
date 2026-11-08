@@ -107,6 +107,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        shard: [1, 2, 3]
         # The declared floor, as in ci.yml (SPEC 0, PFS-2024.07).
         python-version: ["3.12"]
     steps:
@@ -161,9 +162,11 @@ jobs:
         shell: bash
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
+          PYFS_SHARD: "${{ matrix.shard }}/3"
         run: |
           pytest -n auto -o pythonpath=
       - name: Executable examples against the wheel
+        if: matrix.shard == 1
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
         run: pytest -o pythonpath= README.md docs -W error::pyflightstream._errors.PyflightstreamWarning

@@ -9,6 +9,7 @@ path above reuses those helpers.
 
 from __future__ import annotations
 
+import json
 import time
 import warnings
 from collections.abc import Mapping, Sequence
@@ -902,6 +903,17 @@ def start_the_wall_clock(job: _PointJob) -> None:
     first-invocation origin, and its margin must also cover the time before
     the first step.
     """
+    if job.counter is not None and isinstance(job.executor, LocalExecutor):
+        _textio.write_text(
+            job.work_dir / UNSTEADY_ACTION_COUNT,
+            json.dumps(
+                {
+                    "count": 0,
+                    "wall_timestamp_s": time.time(),
+                    "wall_monotonic_s": time.perf_counter(),
+                }
+            ),
+        )
     if any(use.name == WALLTIME_CLOCK_ACTION for use in job.script.unsteady_actions):
         # F-604: the state of an EARLIER point is removed only here, once the point
         # is certain to launch, so a refusal that launches nothing leaves it as evidence.
@@ -995,6 +1007,9 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     # which is a run with no counter or a solver that never reached a
     # time step.
     if job.counter is not None:
+        from pyflightstream.run._step_timing import read_step_timing
+
+        job.base.update(read_step_timing(job.work_dir / UNSTEADY_ACTION_COUNT))
         job.base["action_count"] = action_count(job.work_dir / UNSTEADY_ACTION_COUNT)
     # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
     # This is the only thing that knows: the solver reports a run that

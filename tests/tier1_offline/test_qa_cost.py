@@ -205,6 +205,8 @@ def test_the_long_form_carries_fs_build_and_fs_exe_sha256_as_columns():
             "fs_exe_sha256",
             "status",
             "wall_time_s",
+            "step_wall_times_s",
+            "step_wall_time_last20_mean_s",
         }
     assert rows[0]["fs_exe_sha256"] == SHA_A
     assert rows[1]["fs_exe_sha256"] == SHA_B, "the long form carries the FULL hash, not a prefix"

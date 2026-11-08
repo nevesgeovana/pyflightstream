@@ -1,11 +1,12 @@
-"""Saved boundary-marking measurements for 26.124 and 26.125 (PFS-2149.01).
+"""Saved boundary-marking measurements for supported builds (PFS-2149.01).
 
 Pipeline role: register controlled probes, using synthetic two-surface meshes.
 AUTO uses a sharp wing stub joined to a body; other probes use a blunt box.
 The readers accept only the WTN4 and BASE measured layouts. Missing or unknown
 layouts are unobservable. No convergence, log message or whole-file difference
 can verify these commands. On 26.124 the primary trial is initialized and an
-independent uninitialized trial is reported separately; 26.125 needs no init.
+independent uninitialized trial is reported separately; the other supported builds run
+without initialization.
 M3 is a measurement in the combine epilogue, never a promotion criterion.
 """
 
@@ -407,7 +408,8 @@ def _register(command: str) -> None:
             if name != _IMPORT or command == _IMPORT
         ),
         effect_note="saved marking state against an unchanged control; 26.124 primary initialized, "
-        "with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER",
+        "with an independent no-initialization measurement; other supported builds without "
+        "INITIALIZE_SOLVER",
     )
 
 
