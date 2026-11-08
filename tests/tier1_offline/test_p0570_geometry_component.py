@@ -10,14 +10,14 @@ from pydantic import ValidationError
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry import ComponentRecord
-from pyflightstream.geometry.component import (
-    DEVIATION_PROFILES,
+from pyflightstream.geometry._boundary import (
     deviation_limit_mm,
     export_schema,
     schema_digest,
     sha256_file,
     verify_pins,
 )
+from pyflightstream.geometry.component import DEVIATION_PROFILES
 
 H = "a" * 64
 

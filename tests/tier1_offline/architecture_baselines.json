@@ -258,37 +258,37 @@
    "statements": 61,
    "positional": 2
   },
-  "geometry/airfoils.py:cst_airfoil": {
+  "geometry/_airfoils.py:cst_airfoil": {
    "branches": 3,
    "complexity": 4,
    "positional": 6,
    "statements": 12
   },
-  "geometry/caps.py:fillet_contact": {
+  "geometry/_caps.py:fillet_contact": {
    "branches": 0,
    "complexity": 4,
    "positional": 7,
    "statements": 5
   },
-  "geometry/caps.py:junction_normal": {
+  "geometry/_caps.py:junction_normal": {
    "branches": 1,
    "complexity": 2,
    "positional": 6,
    "statements": 6
   },
-  "geometry/caps.py:ridge_cross": {
+  "geometry/_caps.py:ridge_cross": {
    "branches": 1,
    "complexity": 2,
    "positional": 6,
    "statements": 8
   },
-  "geometry/caps.py:wing_contour_normal": {
+  "geometry/_caps.py:wing_contour_normal": {
    "branches": 0,
    "complexity": 2,
    "positional": 6,
    "statements": 5
   },
-  "geometry/caps.py:wing_contour_point": {
+  "geometry/_caps.py:wing_contour_point": {
    "branches": 0,
    "complexity": 1,
    "positional": 6,

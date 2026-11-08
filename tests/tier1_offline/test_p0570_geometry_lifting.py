@@ -5,24 +5,24 @@ import copy
 import numpy as np
 import pytest
 
-from pyflightstream.geometry import Patch, resolve_config
-from pyflightstream.geometry.airfoils import cst_airfoil
-from pyflightstream.geometry.caps import (
+from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._airfoils import cst_airfoil
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._caps import (
     cap_taper,
     contour_segment,
     root_fillet,
     tip_cap,
 )
-from pyflightstream.geometry.config import unpack
-from pyflightstream.geometry.distributions import blended_section
-from pyflightstream.geometry.lifting import (
+from pyflightstream.geometry._distributions import blended_section
+from pyflightstream.geometry._lifting import (
     lifting_surface,
     planform_metrics,
     section_models,
     section_points,
     thickness_station,
 )
-from pyflightstream.geometry.patch import evaluate_patch, interpolate_patch, patch_layout
+from pyflightstream.geometry._patch import Patch, evaluate_patch, interpolate_patch, patch_layout
 
 PROFILE = {
     "stations": [0.0, 0.01, 0.09, 0.36, 0.81, 1.0],

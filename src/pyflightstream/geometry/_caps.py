@@ -15,10 +15,10 @@ from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from .airfoils import cst_airfoil
-from .distributions import blended_section, chord_spacing, planform_values
-from .lifting import section_models, thickness_station
-from .patch import Patch, interpolate_patch
+from ._airfoils import cst_airfoil
+from ._distributions import blended_section, chord_spacing, planform_values
+from ._lifting import section_models, thickness_station
+from ._patch import Patch, interpolate_patch
 
 __all__ = [
     "CAP_NOSE_LENGTH",

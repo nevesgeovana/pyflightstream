@@ -5,8 +5,13 @@ import pytest
 from scipy.optimize import minimize_scalar
 from scipy.spatial import cKDTree
 
-from pyflightstream.geometry.airfoils import cst_airfoil, naca_camber, naca_coordinates, naca_to_cst
-from pyflightstream.geometry.distributions import spline_distribution
+from pyflightstream.geometry._airfoils import (
+    cst_airfoil,
+    naca_camber,
+    naca_coordinates,
+    naca_to_cst,
+)
+from pyflightstream.geometry._distributions import spline_distribution
 
 
 def test_two_controls_are_linear():

@@ -107,13 +107,8 @@ PUBLIC_MODULES = [
     # 0.30.0 (FSI-G): the fixed wing's structural solve, its own weight.
     "pyflightstream.fsi.wing",
     "pyflightstream.geometry",
-    "pyflightstream.geometry.airfoils",
-    "pyflightstream.geometry.caps",
     "pyflightstream.geometry.component",
     "pyflightstream.geometry.config",
-    "pyflightstream.geometry.distributions",
-    "pyflightstream.geometry.lifting",
-    "pyflightstream.geometry.patch",
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
