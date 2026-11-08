@@ -1,0 +1,597 @@
+"""Meshing a generated parametric configuration into one all-quad surface mesh (FR-1221).
+
+Pipeline role: the workspace row of the geometry meshing. The pure geometry package gives the
+placed patches of every component, the spacing laws, the rules and the mesh checks; this module
+adds the patches to one OpenCASCADE model, prescribes the edge nodes of each structured patch
+from its role (spanwise, chordwise, body band, pole), meshes them transfinite and recombined,
+meshes the planar flat tip cap apart from its rim, meshes the wing-fuselage transition ring
+quad-dominant, orients the skin outward, measures the spacing rules and the mesh checks, and
+returns the mesh with one record.
+
+gmsh ships with the optional ``gmsh`` extra; :func:`mesh_generated` refuses with the package's
+missing-extra refusal, with the install command, when it is absent.
+
+Patch roles. A body band carries its axial station interval in ``Patch.bay`` and a pole patch
+carries none. The wing patches of a configuration with a fairing are listed family by family, six
+families times (inner, outer, outboard) spanwise bays, then the tip cap, so the junction bay of a
+patch is its position in that order (:func:`junction_bays`).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from pyflightstream._errors import InputValueError
+from pyflightstream.geometry.bodies import body
+from pyflightstream.geometry.caps import tip_cap
+from pyflightstream.geometry.config import load_config, resolve_config, unpack
+from pyflightstream.geometry.generation import assembly_regions, generate_components
+from pyflightstream.geometry.lifting import lifting_surface
+from pyflightstream.geometry.mesh_rules import (
+    check_body,
+    check_lifting,
+    chord_fraction,
+    chord_nodes,
+    constant,
+    count_classes,
+    insert_seed,
+    load_mesh_controls,
+    tip_refinement,
+)
+from pyflightstream.geometry.mesh_topology import (
+    Mesh,
+    check_mesh,
+    orient_mesh,
+    oriented_source_normals,
+    repair_inverted,
+    write_obj,
+)
+from pyflightstream.geometry.patch import Patch
+from pyflightstream.geometry.placement import wing_in_body_frame
+from pyflightstream.workspace._geometry_generate import add_occ_patch, assemble
+from pyflightstream.workspace._geometry_mesh_occ import (
+    CAP_SURFACE,
+    MeshPatch,
+    Transition,
+    curve_endpoints,
+    mesh_cap,
+    mesh_patches,
+    rim_edges,
+    rim_loop,
+    smooth_faces,
+    source_metrics,
+    uv_edges,
+)
+from pyflightstream.workspace._gmsh import session
+
+__all__ = ["GeneratedMesh", "junction_bays", "mesh_generated"]
+
+JUNCTION_BAYS = ("inner", "outer", "outboard")
+RING_ALGORITHMS = (8,)
+
+
+@dataclass
+class GeneratedMesh:
+    """The mesh of a generated configuration and the record of its checks."""
+
+    mesh: Mesh
+    record: dict[str, Any]
+
+
+def junction_bays(patches: list[Patch]) -> list[str | None]:
+    """Return the spanwise junction bay of each wing patch of a configuration with a fairing.
+
+    The skin is listed family by family, each with an inner, an outer and an outboard bay; the
+    tip cap follows and has none.
+    """
+    result: list[str | None] = []
+    counter = 0
+    for patch in patches:
+        if patch.family == "tip_cap":
+            result.append(None)
+        else:
+            result.append(JUNCTION_BAYS[counter % 3])
+            counter += 1
+    return result
+
+
+def patch_roles(patch: Patch, kind: str, junction: str | None = None) -> dict[str, Any]:
+    """Return the roles the seed laws read: family, bay, axial interval and junction bay."""
+    roles: dict[str, Any] = {"family": patch.family}
+    if patch.bay is not None:
+        roles["axial" if kind == "body" else "bay"] = list(patch.bay)
+    if junction is not None:
+        roles["junction_bay"] = junction
+    return roles
+
+
+def _seed_bay(component, controls, roles, e, seeds):
+    a, b = roles["bay"]
+    span = tip_refinement(controls["span_cells"], controls["tip_cells"], controls["tip_ratio"])
+    # Preserve global stations; a geometric bay boundary must be a mesh station.
+    span = np.unique(np.r_[a, span[(span > a) & (span < b)], b])
+    span = (span - a) / (b - a)
+    insert_seed(seeds, e[1], span)
+    insert_seed(seeds, -e[3], span)
+    for edge, eta in [(e[0], a), (-e[2], b)]:
+        x = chord_nodes(component, controls, roles["family"], eta)
+        if x is not None:
+            insert_seed(seeds, edge, x)
+
+
+def _seed_outboard(model, component, controls, roles, e, seeds, span_count):
+    # Outboard of the transition ring: constant spanwise cells of the standalone width, finer at
+    # the tip. The parameter directions of the junction patches differ between families, so the
+    # spanwise pair is found from the geometry and each law along its own walking direction.
+    def ends(signed):
+        a, b = curve_endpoints(model, abs(signed))
+        if signed < 0:
+            a, b = b, a
+        return np.asarray(model.getValue(0, a, [])), np.asarray(model.getValue(0, b, []))
+
+    walks = [e[0], e[1], -e[2], -e[3]]
+    rise = [abs(ends(w)[1][1] - ends(w)[0][1]) for w in walks]
+    span_pair = (
+        (walks[0], walks[2]) if rise[0] + rise[2] > rise[1] + rise[3] else (walks[1], walks[3])
+    )
+    chord_pair = (walks[1], walks[3]) if span_pair == (walks[0], walks[2]) else (walks[0], walks[2])
+    law = tip_refinement(controls["span_cells"], controls["tip_cells"], controls["tip_ratio"])
+    half = component["planform"]["span"] / 2
+    width = float(law[1] - law[0]) * half
+    tip = width * sum(controls["tip_ratio"] ** -j for j in range(1, controls["tip_cells"] + 1))
+    lengths = [model.occ.getMass(1, abs(t)) for t in span_pair]
+    count = span_count or max(
+        controls["tip_cells"] + 1,
+        int(round((np.mean(lengths) - tip) / width)) + controls["tip_cells"],
+    )
+    span = tip_refinement(count, controls["tip_cells"], controls["tip_ratio"])
+    for w in span_pair:
+        a, b = ends(w)
+        insert_seed(seeds, w, span if b[1] > a[1] else 1 - span[::-1])
+    for w in chord_pair:
+        a, b = ends(w)
+        if roles["family"].startswith("trailing"):
+            insert_seed(seeds, w, constant(controls["thickness_cells"]))
+            continue
+        eta = 0.0 if 0.5 * (a[1] + b[1]) < 0.5 * half else 1.0
+        x = chord_nodes(component, controls, roles["family"], eta)
+        xa, xb = chord_fraction(component, np.array([a, b]))
+        insert_seed(seeds, w, x if xb > xa else 1 - x[::-1])
+
+
+def _seed_body_band(component, controls, roles, e, seeds, strict):
+    a, b = roles["axial"]
+    count = max(1, int(round((b - a) * controls["x_cells"])))
+    if strict and abs(count / controls["x_cells"] - (b - a)) > 1e-10:
+        raise InputValueError("body: stations must coincide with the constant x mesh spacing")
+    axial = constant(count)
+    # Native u is azimuth and v is axial in the body bands.
+    sectors = 2 * (len(component["azimuths"]) - 1)
+    if controls["azimuth_cells"] % sectors:
+        raise InputValueError("body: azimuth count must divide the generated half-sector layout")
+    azimuth = constant(controls["azimuth_cells"] // sectors)
+    insert_seed(seeds, e[0], azimuth)
+    insert_seed(seeds, -e[2], azimuth)
+    insert_seed(seeds, e[1], axial)
+    insert_seed(seeds, -e[3], axial)
+
+
+def seed_patch(model, component, controls, roles, e, seeds, strict=True, span_count=None):
+    """Insert the physical spacing laws of one tensor patch into ``seeds`` (edge tag to nodes)."""
+    if component["type"] == "lifting_surface" and "bay" in roles:
+        _seed_bay(component, controls, roles, e, seeds)
+    elif component["type"] == "lifting_surface" and roles.get("junction_bay") == "outboard":
+        _seed_outboard(model, component, controls, roles, e, seeds, span_count)
+    elif component["type"] == "body" and "axial" in roles:
+        _seed_body_band(component, controls, roles, e, seeds, strict)
+
+
+def _edge_polylines(model, edges):
+    """Return the realized mesh nodes of each curve, ordered by native parameter, ends included."""
+    result = {}
+    for e in edges:
+        _, xyz, param = model.mesh.getNodes(1, abs(e), includeBoundary=True)
+        result[abs(e)] = np.asarray(xyz).reshape(-1, 3)[np.argsort(param)]
+    return result
+
+
+def _patch_items(patches, roles_by_surface):
+    return [
+        {
+            "surface": p.surface,
+            "family": roles_by_surface[p.surface]["family"],
+            "u": [abs(p.edges[0]), abs(p.edges[2])],
+            "v": [abs(p.edges[1]), abs(p.edges[3])],
+            "axial": "axial" in roles_by_surface[p.surface],
+        }
+        for p in patches
+    ]
+
+
+def _component_patches(model, component, source, controls, name, split_cap):
+    surfaces = [add_occ_patch(model.occ, p) for p in source]
+    model.occ.synchronize()
+    model.occ.removeAllDuplicates()
+    model.occ.synchronize()
+    if {s for _, s in model.getEntities(2)} != set(surfaces):
+        raise InputValueError("source: sewing changed source face identities")
+    entries = [
+        (patch_roles(p, component["type"]), s) for p, s in zip(source, surfaces, strict=True)
+    ]
+    cap = (
+        [s for p, s in zip(source, surfaces, strict=True) if p.family == "tip_cap"]
+        if split_cap
+        else []
+    )
+    entries = [(r, s) for r, s in entries if s not in cap]
+    loops = {s: uv_edges(model, s) for _, s in entries}
+    seeds: dict[int, np.ndarray] = {}
+    for roles, surface in entries:
+        seed_patch(model, component, controls, roles, loops[surface], seeds)
+    if component["type"] == "body":
+        lengths = {abs(e): model.occ.getMass(1, abs(e)) for loop in loops.values() for e in loop}
+        counts = count_classes(loops, seeds, 4, lengths, component["length"] / controls["x_cells"])
+    else:
+        counts = count_classes(loops, seeds, controls.get("thickness_cells", 4))
+    edge_nodes = {edge: seeds.get(edge, constant(count)) for edge, count in counts.items()}
+    patches = [
+        MeshPatch(
+            s,
+            loops[s],
+            constant(1),
+            constant(1),
+            name,
+            {abs(e): edge_nodes[abs(e)] for e in loops[s]},
+        )
+        for _, s in entries
+    ]
+    return patches, entries, cap
+
+
+def _mesh_component(gmsh, name, component, controls, source):
+    model = gmsh.model
+    model.add(name)
+    lifting = component["type"] == "lifting_surface"
+    patches, entries, cap = _component_patches(model, component, source, controls, name, lifting)
+    rim = rim_edges(model, cap) if cap else []
+    if cap:
+        model.removeEntities([(2, s) for s in cap])
+    mesh = mesh_patches(model, patches)
+    roles = {s: r for r, s in entries}
+    polylines = _edge_polylines(model, {abs(e) for p in patches for e in p.edges})
+    check = check_lifting if lifting else check_body
+    rows, failures = check(component, controls, _patch_items(patches, roles), polylines)
+    planes = {}
+    if cap:
+        loop = rim_loop(model, mesh, rim)
+        mesh, normal = mesh_cap(mesh, loop, name)
+        planes[CAP_SURFACE] = (mesh.xyz[loop].mean(axis=0), normal)
+    mesh, orientation = orient_mesh(
+        mesh, "body" if component["type"] == "body" else "mirror_volume"
+    )
+    normals, distances = source_metrics(model, mesh, planes)
+    normals = oriented_source_normals(mesh, normals)
+    record = check_mesh(mesh, normals, distances)
+    record["orientation"] = orientation
+    record["source_patches"] = len(entries) + len(cap)
+    record["spacing_rules"] = {
+        "checked_edges": len(rows),
+        "failures": failures,
+        "passed": not failures,
+        "rows": rows,
+    }
+    record["cap_cells"] = sum(1 for s in mesh.surfaces if s == CAP_SURFACE)
+    return mesh, record
+
+
+def _wb_sources(resolved, member_names):
+    components = unpack(resolved)["components"]
+    sources = generate_components(resolved)
+    body_name, wing_name = member_names[0], member_names[1]
+    roles: dict[int, dict] = {}
+    bays = junction_bays(sources[wing_name])
+    return components, sources, bays, (body_name, wing_name), roles
+
+
+def _wb_model(model, resolved, member_names):
+    """Add, fragment and audit the members; return the state the ring meshing reads."""
+    components, sources, bays, (body_name, wing_name), roles = _wb_sources(resolved, member_names)
+    regions = assembly_regions(resolved, sources)
+    groups = {}
+    for name in member_names:
+        groups[name] = []
+        for index, patch in enumerate(sources[name]):
+            surface = add_occ_patch(model.occ, patch)
+            groups[name].append(surface)
+            junction = bays[index] if name == wing_name else None
+            roles[surface] = patch_roles(patch, components[name]["type"], junction)
+    model.occ.synchronize()
+    exposed, audit = assemble(model, groups, {k: regions[k] for k in member_names})
+    if (
+        audit["free_edges_off_symmetry"]
+        or audit["nonmanifold_edges"]
+        or audit["non_ring_nonquadrilateral_faces"]
+    ):
+        raise InputValueError(
+            "assembly: source topology gate failed (free, non-manifold or non-quad faces)"
+        )
+    rings = set(audit["transition_ring_faces"])
+    owner = {s: name for name, tags in exposed.items() for s in tags}
+    cap = [
+        s
+        for s, name in owner.items()
+        if name == wing_name and roles.get(s, {}).get("family") == "tip_cap" and s not in rings
+    ]
+    structured = [s for s in owner if s not in rings and s not in cap]
+    for s in structured:
+        if s not in roles:
+            raise InputValueError(f"face {s}: structured face lost its source roles")
+    host_wing = wing_in_body_frame(components, body_name, wing_name)
+    return {
+        "components": components,
+        "host_wing": host_wing,
+        "roles": roles,
+        "audit": audit,
+        "rings": rings,
+        "owner": owner,
+        "cap": cap,
+        "structured": structured,
+    }
+
+
+def _wb_nodes(model, state, controls, member_names, ring_cell_m):
+    """Seed every structured edge, solve the count classes, and return (nodes, loops, seeds)."""
+    names = {"body": member_names[0], "wing": member_names[1]}
+    components, host_wing = state["components"], state["host_wing"]
+    structured, owner, roles, cap = (
+        state["structured"],
+        state["owner"],
+        state["roles"],
+        state["cap"],
+    )
+    loops = {s: uv_edges(model, s) for s in structured}
+    seeds: dict[int, np.ndarray] = {}
+    body_c, wing_c = components[names["body"]], components[names["wing"]]
+    outboard = [s for s in structured if roles[s].get("junction_bay") == "outboard"]
+    lc = controls["lifting_surface"]
+    law = np.diff(np.asarray(tip_refinement(lc["span_cells"], lc["tip_cells"], lc["tip_ratio"])))
+    width = float(law[0]) * wing_c["planform"]["span"] / 2
+    tip_length = width * sum(lc["tip_ratio"] ** -j for j in range(1, lc["tip_cells"] + 1))
+
+    def span_length(s):
+        lengths = [model.occ.getMass(1, abs(t)) for t in loops[s]]
+        return max((lengths[0] + lengths[2]) / 2, (lengths[1] + lengths[3]) / 2)
+
+    mean_span = np.mean([span_length(s) for s in outboard]) if outboard else 0.0
+    span_count = (
+        max(lc["tip_cells"] + 1, int(round((mean_span - tip_length) / width)) + lc["tip_cells"])
+        if outboard
+        else None
+    )
+    for s in structured:
+        is_body = owner[s] == names["body"]
+        seed_patch(
+            model,
+            body_c if is_body else host_wing,
+            controls["body" if is_body else "lifting_surface"],
+            roles[s],
+            loops[s],
+            seeds,
+            strict=False,
+            span_count=span_count,
+        )
+    all_edges = {
+        t for s in owner if s not in cap for _, t in model.getBoundary([(2, s)], oriented=False)
+    }
+    lengths = {e: model.occ.getMass(1, e) for e in all_edges}
+    x_step = body_c["length"] / controls["body"]["x_cells"]
+    counts = count_classes(
+        loops,
+        seeds,
+        1,
+        {e: lengths[e] for e in {abs(t) for lp in loops.values() for t in lp}},
+        x_step,
+    )
+    nodes = {}
+    for e in all_edges:
+        if e in seeds:
+            nodes[e] = seeds[e]
+        elif e in counts:
+            nodes[e] = constant(counts[e])
+        else:
+            nodes[e] = constant(max(1, int(round(lengths[e] / ring_cell_m))))
+    return nodes, loops
+
+
+def _wb_patches(model, state, nodes, loops, member_names):
+    patches = []
+    for s in sorted(state["structured"]):
+        boundary = {abs(t): nodes[abs(t)] for t in loops[s]}
+        patches.append(
+            MeshPatch(s, loops[s], constant(1), constant(1), state["owner"][s], boundary)
+        )
+    for s in sorted(state["rings"]):
+        edges = [t for _, t in model.getBoundary([(2, s)], oriented=False)]
+        patches.append(
+            Transition(s, {t: nodes[t] for t in edges}, "wing-fuselage", state["owner"][s])
+        )
+    return patches
+
+
+def _wb_pass(model, state, controls, patches, rim, member_names):
+    """Mesh once, cap, orient, measure and repair; return mesh, record, orientation, repairs."""
+    rings = state["rings"]
+    mesh = smooth_faces(model, mesh_patches(model, patches), rings)
+    loop = rim_loop(model, mesh, rim)
+    mesh, normal = mesh_cap(mesh, loop, member_names[1])
+    planes = {CAP_SURFACE: (mesh.xyz[loop].mean(axis=0), normal)}
+    mesh, orientation = orient_mesh(mesh, "mirror_volume")
+    normals, distances = source_metrics(model, mesh, planes)
+    normals = oriented_source_normals(mesh, normals)
+    record = check_mesh(mesh, normals, distances, transition_surfaces=rings)
+    repairs = 0
+    for _ in range(8):
+        if not record["inverted_cells"]:
+            break
+        repaired, count = repair_inverted(mesh, normals, record["inverted_cells"])
+        if not count:
+            break
+        mesh, repairs = repaired, repairs + count
+        record = check_mesh(mesh, normals, distances, transition_surfaces=rings)
+    return mesh, record, orientation, repairs
+
+
+def _wb_spacing_rules(model, state, controls, patches, member_names):
+    body_name, wing_name = member_names[0], member_names[1]
+    roles = state["roles"]
+    bodies = [p for p in patches if isinstance(p, MeshPatch) and p.component == body_name]
+    wings = [p for p in patches if isinstance(p, MeshPatch) and p.component == wing_name]
+    poly = _edge_polylines(model, {abs(e) for p in bodies + wings for e in p.edges})
+    body_rows, body_fail = check_body(
+        state["components"][body_name], controls["body"], _patch_items(bodies, roles), poly
+    )
+    wing_rows, wing_fail = check_lifting(
+        state["host_wing"], controls["lifting_surface"], _patch_items(wings, roles), poly
+    )
+    return body_rows + wing_rows, body_fail + wing_fail
+
+
+def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, ring_size_limits, ring_plan):
+    model = gmsh.model
+    model.add("assembly")
+    state = _wb_model(model, resolved, member_names)
+    nodes, loops = _wb_nodes(model, state, controls, member_names, ring_cell_m)
+    patches = _wb_patches(model, state, nodes, loops, member_names)
+    rim = rim_edges(model, state["cap"])
+    model.removeEntities([(2, s) for s in state["cap"]])
+    rings = state["rings"]
+    if ring_size_limits:
+        # Very short ring edges would otherwise pull tiny cells over whole faces.
+        gmsh.option.setNumber("Mesh.MeshSizeMin", ring_size_limits[0])
+        gmsh.option.setNumber("Mesh.MeshSizeMax", ring_size_limits[1])
+    plan = {s: list((ring_plan or {}).get(s, RING_ALGORITHMS)) for s in rings}
+    attempt = {s: 0 for s in rings}
+    history, rows, failures = [], [], []
+    for _ in range(len(RING_ALGORITHMS) * 3):
+        for s in rings:
+            model.mesh.setAlgorithm(2, s, plan[s][attempt[s]])
+        model.mesh.clear()
+        mesh, record, orientation, repairs = _wb_pass(
+            model, state, controls, patches, rim, member_names
+        )
+        if not history:
+            rows, failures = _wb_spacing_rules(model, state, controls, patches, member_names)
+        bad = {mesh.surfaces[i] for i in record["inverted_cells"] + record["degenerate_cells"]}
+        history.append({"defective_surfaces": sorted(int(x) for x in bad)})
+        if not bad or not bad <= rings:
+            break
+        exhausted = [s for s in bad if attempt[s] + 1 >= len(plan[s])]
+        if exhausted:
+            record["exhausted_transition_faces"] = sorted(int(x) for x in exhausted)
+            break
+        for s in bad:
+            attempt[s] += 1
+    record["ring_algorithm_history"] = history
+    record["inverted_triangle_edge_flips"] = repairs
+    record["ring_algorithms"] = {int(s): int(plan[s][attempt[s]]) for s in sorted(rings)}
+    record["orientation"] = orientation
+    record["transition_surfaces"] = sorted(rings)
+    record["component_cells"] = {n: mesh.components.count(n) for n in member_names}
+    record["structured_faces"] = len(state["structured"])
+    record["triangles_by_surface"] = {
+        int(s): sum(1 for i, c in enumerate(mesh.cells) if len(c) == 3 and mesh.surfaces[i] == s)
+        for s in rings
+    }
+    record["spacing_rules"] = {
+        "checked_edges": len(rows),
+        "failures": failures,
+        "passed": not failures,
+        "rows": rows,
+    }
+    keys = (
+        "free_edges_off_symmetry",
+        "nonmanifold_edges",
+        "transition_ring_faces",
+        "non_ring_nonquadrilateral_faces",
+    )
+    record["audit"] = {k: state["audit"][k] for k in keys}
+    return mesh, record
+
+
+def _assembly_members(resolved):
+    components = unpack(resolved)["components"]
+    fairings = [n for n, c in components.items() if c["type"] == "wing_fuselage_fairing"]
+    if len(fairings) != 1:
+        raise InputValueError(
+            f"component: assembly meshing needs exactly one wing_fuselage_fairing, "
+            f"found {fairings}; "
+            "name one component to mesh it alone"
+        )
+    body_name, wing_name = components[fairings[0]]["hosts"]
+    return body_name, wing_name, fairings[0]
+
+
+def mesh_generated(
+    config: Any,
+    *,
+    component: str | None = None,
+    controls: Any = None,
+    obj: str | Path | None = None,
+) -> GeneratedMesh:
+    """Mesh a generated parametric configuration into an all-quad surface mesh.
+
+    Parameters
+    ----------
+    config : mapping or path
+        A configuration (resolved or not) or the path of its TOML file.
+    component : str, optional
+        Name of one body or lifting surface to mesh alone in its own frame (a lifting surface
+        carries its flat tip cap). When omitted, the whole assembly of a body, its attached wing
+        and the wing-fuselage fairing is meshed, the fairing faces as one quad-dominant
+        transition ring.
+    controls : mapping or path, optional
+        Mesh controls overriding the defaults, by table (``lifting_surface``, ``body``,
+        ``checks``, ``assembly``) as a mapping or a TOML file.
+    obj : str or Path, optional
+        Write the mesh as OBJ, one group per component.
+
+    Returns
+    -------
+    GeneratedMesh
+        The oriented mesh and its record: counts, the acceptance checks, the spacing rules
+        measured on the realized edge nodes, and the orientation.
+
+    Raises
+    ------
+    InputValueError
+        For an unknown component, an unsupported assembly or controls, a topology gate that
+        fails, or a mesh that cannot be built all-quad.
+    pyflightstream.extras.MissingExtraError
+        When the optional gmsh extra is not installed.
+    """
+    resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
+    values = load_mesh_controls(controls)
+    components = unpack(resolved)["components"]
+    if component is not None and component not in components:
+        raise InputValueError(f"component: {component!r} unknown; available: {sorted(components)}")
+    members = None if component is not None else _assembly_members(resolved)
+    with session("meshing a generated parametric configuration") as gmsh:
+        if component is not None:
+            spec = components[component]
+            if spec["type"] not in ("body", "lifting_surface"):
+                raise InputValueError(f"{component}.type: only body and lifting_surface mesh alone")
+            if spec["type"] == "body":
+                source = body(spec)
+            else:
+                source = lifting_surface(spec) + tip_cap(spec)
+            mesh, record = _mesh_component(gmsh, component, spec, values[spec["type"]], source)
+        else:
+            assert members is not None
+            mesh, record = _mesh_wb(gmsh, resolved, values, members, 0.15, (0.06, 0.3), None)
+    if obj is not None:
+        write_obj(obj, mesh)
+    return GeneratedMesh(mesh=mesh, record=record)
