@@ -1027,9 +1027,13 @@ def _center_point(center: Sequence[float] | None, hub: Sequence[float] | None) -
         try:
             point = numpy.asarray(value, dtype=float)
         except (TypeError, ValueError) as error:
-            raise InputValueError(f"{name} must be three finite numbers. {_NOTHING}") from error
+            raise InputValueError(
+                f"{name} (CLI: --{name}) must be three finite numbers. {_NOTHING}"
+            ) from error
         if point.shape != (3,) or not numpy.isfinite(point).all():
-            raise InputValueError(f"{name} must be three finite numbers. {_NOTHING}")
+            raise InputValueError(
+                f"{name} (CLI: --{name}) must be three finite numbers. {_NOTHING}"
+            )
         points.append(point)
     if hub is not None:
         warn(
@@ -1038,7 +1042,10 @@ def _center_point(center: Sequence[float] | None, hub: Sequence[float] | None) -
             stacklevel=3,
         )
     if len(points) == 2 and not numpy.array_equal(points[0], points[1]):
-        raise InputValueError(f"center and hub conflict; state one rotor-axis point. {_NOTHING}")
+        raise InputValueError(
+            "center (CLI: --center) and hub (CLI: --hub) conflict; state one rotor-axis point. "
+            f"{_NOTHING}"
+        )
     return points[0] if points else numpy.zeros(3)
 
 

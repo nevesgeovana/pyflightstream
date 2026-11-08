@@ -362,3 +362,12 @@ def test_p0570_cli_help_uses_center(capsys):
     help_text = capsys.readouterr().out
     assert "--center X Y Z" in help_text
     assert "deprecated alias for --center" in help_text
+
+
+@pytest.mark.parametrize("key", ["center", "hub"])
+def test_rl57_center_messages_name_the_cli_spelling(tmp_path, key):
+    sector = build_sector(tmp_path)
+    with pytest.raises(InputValueError, match=rf"{key} \(CLI: --{key}\) must be three finite"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], **{key: [0, 0]})
+    with pytest.raises(InputValueError, match=r"center \(CLI: --center\) and hub \(CLI: --hub\)"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=[0, 0, 0], hub=[0, 1, 0])
