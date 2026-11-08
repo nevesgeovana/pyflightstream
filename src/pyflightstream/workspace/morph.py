@@ -82,7 +82,12 @@ def _wheel_table(data: dict[str, Any]) -> dict[str, Any]:
             "[wheel] center as a point on the rotor axis when the axis does not pass through it",
             PyflightstreamWarning,
         )
-    centre = np.asarray(cfg.get("center", [0.0, 0.0, 0.0]), dtype=float)
+    try:
+        centre = np.asarray(cfg.get("center", [0.0, 0.0, 0.0]), dtype=float)
+    except (TypeError, ValueError) as error:
+        raise InputValueError(
+            "morph: wheel.center must be a point [x, y, z] in the mesh's unit. No file was written."
+        ) from error
     _need(
         centre.shape == (3,) and bool(np.isfinite(centre).all()),
         "wheel.center must be a point [x, y, z] in the mesh's unit",
@@ -163,7 +168,7 @@ def _wheel_step(source: Path, data: dict[str, Any], target: Path) -> dict[str, A
         copies=copies,
         blades=cfg["blades"],
         axis=cfg["axis"].tolist(),
-        hub=cfg["center"].tolist(),
+        center=cfg["center"].tolist(),
         out=target,
     )
     report = dict(result.report)

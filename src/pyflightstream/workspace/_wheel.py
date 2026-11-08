@@ -55,6 +55,7 @@ from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
     NotApplicableWarning,
+    PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
     warn,
 )
@@ -778,7 +779,7 @@ def warn_sector_angle(bodies: NDArray[numpy.float64], opts: Options, tol: float)
         warn(
             f"the sector's surfaces that are not blades: the sector spans {angle:.4f} deg about "
             f"the axis through the hub, and one of {opts.copies} copies is {expected:g} deg, so "
-            "the copies do not close. Check --axis, --hub and --copies.",
+            "the copies do not close. Check --axis, --center and --copies.",
             PyflightstreamWarning,
             stacklevel=4,
         )
@@ -1017,13 +1018,38 @@ def validate_blades(
     return chosen
 
 
+def _center_point(center: Sequence[float] | None, hub: Sequence[float] | None) -> Any:
+    """Resolve the rotor-axis point and its deprecated coordinate spelling."""
+    points = []
+    for name, value in (("center", center), ("hub", hub)):
+        if value is None:
+            continue
+        try:
+            point = numpy.asarray(value, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise InputValueError(f"{name} must be three finite numbers. {_NOTHING}") from error
+        if point.shape != (3,) or not numpy.isfinite(point).all():
+            raise InputValueError(f"{name} must be three finite numbers. {_NOTHING}")
+        points.append(point)
+    if hub is not None:
+        warn(
+            "hub (CLI: --hub) is deprecated for coordinates; use center (CLI: --center)",
+            PyflightstreamDeprecationWarning,
+            stacklevel=3,
+        )
+    if len(points) == 2 and not numpy.array_equal(points[0], points[1]):
+        raise InputValueError(f"center and hub conflict; state one rotor-axis point. {_NOTHING}")
+    return points[0] if points else numpy.zeros(3)
+
+
 def sector_to_wheel(
     sector: str | Path,
     *,
     copies: int,
     blades: Sequence[str],
     axis: str | Sequence[float] = "x",
-    hub: Sequence[float] = (0.0, 0.0, 0.0),
+    hub: Sequence[float] | None = None,
+    center: Sequence[float] | None = None,
     tolerance: float = DEFAULT_TOLERANCE_M,
     out: str | Path | None = None,
     overwrite: bool = False,
@@ -1050,8 +1076,12 @@ def sector_to_wheel(
         trailing digits, and every other surface is one group shared by the copies.
     axis : str or sequence of float
         ``x``, ``y``, ``z``, a signed one of them, or a vector; the turn is right-handed.
-    hub : sequence of float
+    center : sequence of float, optional
         A point of the axis, in the mesh's unit (default the origin).
+        Independent of the repitch pitch-plane or off-axis ``reference_point``.
+    hub : sequence of float, optional
+        Deprecated coordinate alias for ``center``; equal duplicates are accepted,
+        conflicting points are refused. Existing report keys remain unchanged.
     tolerance : float
         The distance, in metres, within which two nodes are one.
     out : str or Path, optional
@@ -1105,11 +1135,7 @@ def sector_to_wheel(
             f"tolerance (CLI: --tolerance) {tolerance!r} must be a positive length in "
             f"metres. {_NOTHING}"
         )
-    point = numpy.asarray([float(c) for c in hub], dtype=float)
-    if point.shape != (3,) or not numpy.isfinite(point).all():
-        raise InputValueError(
-            f"hub (CLI: --hub) {tuple(hub)!r} must be three finite numbers. {_NOTHING}"
-        )
+    point = _center_point(center, hub)
     opts = Options(
         copies, list(blades), parse_axis(axis), point, tolerance, target, overwrite,
         wake_terminations,

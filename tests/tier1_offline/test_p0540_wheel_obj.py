@@ -230,3 +230,135 @@ def test_p0540_a_group_name_outside_ascii_makes_a_table_toml_can_read():
     name = "Pá1"
     assert tomllib.loads(_table("base_regions", name))["base_regions"] == {name: {}}
     assert _table("base_regions", "Blade_1-a") == "[base_regions.Blade_1-a]"
+
+
+@pytest.mark.parametrize("spelling", ["center", "hub", "both"])
+def test_p0570_center_alias_off_origin_and_legacy_report(tmp_path, spelling):
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj
+
+    sector = build_sector(tmp_path)
+    baseline = sector_to_wheel(
+        sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "baseline.obj"
+    )
+    mesh = read_obj(sector.obj)
+    offset = np.array([2.0, 3.0, 4.0])
+    sector.obj.write_text(obj_text(ObjMesh(mesh.verts + offset, mesh.families)))
+    # Move declared edge points with the mesh.
+    for path in tmp_path.glob("*.txt"):
+        rows = path.read_text().splitlines()
+        if rows and rows[0] == "METER":
+            points = [
+                np.array([float(c) for c in row.split(",")]) + offset
+                for row in rows[1:]
+                if row.strip()
+            ]
+            path.write_text("METER\n" + "\n".join(",".join(map(str, p)) for p in points) + "\n")
+    opts = {key: offset for key in (["center", "hub"] if spelling == "both" else [spelling])}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = sector_to_wheel(
+            sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "w.obj", **opts
+        )
+    assert result.written
+    assert len([w for w in caught if issubclass(w.category, PyflightstreamDeprecationWarning)]) == (
+        spelling != "center"
+    )
+    assert result.report["hub"] == [2.0, 3.0, 4.0]
+    assert "center" not in result.report
+    np.testing.assert_allclose(
+        read_obj(result.output).verts, read_obj(baseline.output).verts + offset, atol=1e-12, rtol=0
+    )
+    canonical = sector_to_wheel(
+        sector.obj, copies=6, blades=["Blade1"], center=offset, out=tmp_path / "canonical.obj"
+    )
+    np.testing.assert_array_equal(read_obj(result.output).verts, read_obj(canonical.output).verts)
+
+
+@pytest.mark.parametrize("value", [[0, 0], [0, 0, float("nan")], [0, float("inf"), 0], "bad", 3])
+@pytest.mark.parametrize("key", ["center", "hub"])
+def test_p0570_invalid_center(tmp_path, value, key):
+    sector = build_sector(tmp_path)
+    with pytest.raises(InputValueError, match="three finite"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], **{key: value})
+
+
+def test_p0570_center_conflict_even_when_one_is_origin(tmp_path):
+    sector = build_sector(tmp_path)
+    with pytest.raises(InputValueError, match="conflict"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=[0, 0, 0], hub=[0, 1, 0])
+
+
+@pytest.mark.parametrize(
+    "options, code",
+    [
+        (["--center", "0", "0", "0"], 0),
+        (["--hub", "0", "0", "0"], 0),
+        (["--center", "0", "0", "0", "--hub", "0", "0", "0"], 0),
+        (["--center", "0", "0", "0", "--hub", "0", "1", "0"], 2),
+        (["--center", "nan", "0", "0"], 2),
+    ],
+)
+def test_p0570_cli_center_alias(tmp_path, options, code):
+    from pyflightstream.workspace.cli import main
+
+    sector = build_sector(tmp_path)
+    out = tmp_path / "wheel.obj"
+    assert (
+        main(
+            [
+                "geometry",
+                "sector-to-wheel",
+                str(sector.obj),
+                "--copies",
+                "6",
+                "--blades",
+                "Blade1",
+                "--out",
+                str(out),
+                *options,
+            ]
+        )
+        == code
+    )
+    assert out.exists() == (code == 0)
+    if code == 0:
+        canonical = sector_to_wheel(
+            sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "canonical.obj"
+        )
+        np.testing.assert_array_equal(read_wheel(out)[0], read_wheel(canonical.output)[0])
+
+
+def test_p0570_saved_center_alias_and_origin_default(tmp_path):
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from tests.tier1_offline.test_p0540_wheel_fsm import build_saved_sector
+
+    sector = build_saved_sector(tmp_path, build_sector(tmp_path))
+    outputs = []
+    for name, opts in (
+        ("default", {}),
+        ("center", {"center": [0, 0, 0]}),
+        ("hub", {"hub": [0, 0, 0]}),
+    ):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = sector_to_wheel(
+                sector, copies=6, blades=["Blade1"], out=tmp_path / f"{name}.fsm", **opts
+            )
+        assert result.written
+        assert any(issubclass(w.category, PyflightstreamDeprecationWarning) for w in caught) == (
+            name == "hub"
+        )
+        outputs.append(result.output.read_bytes())
+    assert outputs[0] == outputs[1] == outputs[2]
+
+
+def test_p0570_cli_help_uses_center(capsys):
+    from pyflightstream.workspace.cli import main
+
+    with pytest.raises(SystemExit) as error:
+        main(["geometry", "sector-to-wheel", "--help"])
+    assert error.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--center X Y Z" in help_text
+    assert "deprecated alias for --center" in help_text

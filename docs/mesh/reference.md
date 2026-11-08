@@ -32,6 +32,9 @@ output and the files written.
 | `axis` | The rotor axis when the file has no `[repitch] rotor_axis`; `x`, `y`, `z`, signed, or a vector |
 | `blades`, `hub` | Optional, over the top-level keys; the hub's azimuth range is the sector's angle |
 
+`center` is a rotor-axis point, independent of `[repitch] reference_point`, which can be a
+scalar pitch-plane datum or an off-axis point. Neither is an alias or fallback for the other.
+
 The wheel reuses `geometry sector-to-wheel` with its default tolerance. Its seams must close:
 the wheel's open edges must be the copies of the sector's open edges that are no seam, which a
 wrong `center`, axis or `copies` breaks; otherwise the chain refuses. A seam edge is an open
@@ -47,9 +50,15 @@ its boundaries file and `<out>.hub_rings.json`.
 | `[hub_rings]` key | Meaning |
 |---|---|
 | `rings` | Whole number of rings, 1 or more; the ring route of repitch needs at least two |
-| `width` | Optional total height of the rings, in the mesh's unit; default `rings` times the median length of the hub edges that leave the root loop |
+| `band_width` | Optional total height of the rings, in the mesh's unit; default `rings` times the median length of the hub edges that leave the root loop |
 | `blades` | Blade families, over the top-level `blades` |
 | `hub` | Hub families, over the top-level `hub` |
+
+`width` is a deprecated alias for `band_width`; equal values supplied together are accepted
+once, conflicting values are refused. No removal release is assigned. The name describes the
+band extent in both `[hub_rings]` and `[repitch]`, but each route retains its own defaults,
+units, capping and applicability; the routes do not promise equal meshes. Existing report
+keys (`width`, `width_stated`) are unchanged.
 
 Per blade, the root loop is the closed boundary the blade shares with the named hub; the rings
 have as many nodes as the loop and are marched outward in a chart of the hub around the root

@@ -103,7 +103,7 @@ def add_hub_rings_parser(subparsers: Any) -> None:
         help="rebuild the named hub around blade roots as rings of quads, on an OBJ",
         description=(
             "MESH is an OBJ. The [hub_rings] table of the morphing file states rings (and "
-            "optionally width); blades and hub sit at the top of the file or in the table. Per "
+            "optionally band_width); blades and hub sit at the top or in the table. Per "
             "blade, rings rows of quads are marched outward from the root on the hub, the hub "
             "faces they reach plus one layer leave, and the band between them is remeshed "
             "quad-dominant. Blade nodes, other families and the hub's seams stay to the bit; the "

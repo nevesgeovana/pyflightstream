@@ -571,13 +571,19 @@ inputs/geometries/sector/
   sector.N.te.txt
 
 pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
-    [--hub X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
+    [--center X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
 ```
+
+`--hub` remains a deprecated coordinate alias for `--center`. The Python API accepts
+`center=` and the deprecated `hub=`. Equal old/new values are accepted once; conflicting
+values are refused. No removal release is assigned, and report keys remain unchanged.
+The center is a rotor-axis point in mesh units, independent of repitch `reference_point`.
+
 
 The OBJ gives an OBJ and a saved simulation (`.fsm`) gives a `.fsm`; an `--out`
 of the other kind is warned and takes the input's kind. Copy `k` is the sector
 turned right-handed about `--axis` (`x`, `y`, `z`, a signed one written
-`--axis=-x`, or three numbers) through `--hub` (default the origin, in the mesh's unit) by
+`--axis=-x`, or three numbers) through `--center` (default the origin, in the mesh's unit) by
 `360 k / copies` degrees. Nodes of the copies within `--tolerance`, in metres,
 are one node. The default is `1e-4`: a seam that sits `1e-5` m apart is merged
 by it and so is one that sits `1e-4` m apart. The mesh unit is the `[import]
@@ -642,7 +648,7 @@ span about the axis through the hub differs from `360 / copies` by more than 0.0
 degrees, the wheel is still written and the verb warns: `the sector's surfaces that
 are not blades: the sector spans <angle> deg about the axis through the hub, and
 one of <copies> copies is <360/copies> deg, so the copies do not close. Check
---axis, --hub and --copies.`
+--axis, --center and --copies.`
 
 From Python, `pyflightstream.workspace.sector_to_wheel(sector, copies=6,
 blades=["Blade1"], axis="x")` does the same and returns a `WheelResult`: its
@@ -783,7 +789,7 @@ with a base strip between them (a blunt trailing edge), and the nacelle has a fl
 base (faces of kind 3). No boundary name is fixed in the code: the spinner is the
 boundary the blade's root loop lies on, and the nacelle is the other one, the one
 with a base and a rim. The axis passes through the origin of the file's coordinates:
-these two verbs take no `--hub`. A sector without this topology (a sharp trailing
+these two verbs take no `--center`. A sector without this topology (a sharp trailing
 edge, more than one blade, a nacelle without a base, a blade that is not a quad grid
 between two rims, an axis off the origin) is warned, naming what was not found;
 nothing is written and the exit code is 2. **A sharp trailing edge is not covered yet.** **The saved layout is

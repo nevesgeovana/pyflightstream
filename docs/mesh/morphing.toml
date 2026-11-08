@@ -10,7 +10,8 @@ hub = ["Spinner"]
 # remeshes the hub band around each turned root instead.
 [hub_rings]
 rings = 4
-# width = 0.02  # total height in mesh units; default rings x the median hub edge at the root
+# band_width = 0.02  # total height in mesh units; default rings x median hub edge at the root
+# width is a deprecated alias; equal duplicates are accepted, conflicting values are refused.
 
 # Small rigid blade pitch change. Coordinates use the mesh frame and unit.
 [repitch]
@@ -39,5 +40,5 @@ blades = ["Blade1"]
 # Copy a finished sector about the rotor axis into the full wheel (geometry morph only).
 # [wheel]
 # axis = "z"                # the rotor axis; needed when [repitch] states no rotor_axis
-# center = [0.0, 0.0, 0.0]  # default the origin
+# center = [0.0, 0.0, 0.0]  # rotor-axis point; default origin, independent of reference_point
 # copies = 6                # default from the sector's angle

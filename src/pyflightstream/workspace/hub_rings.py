@@ -27,6 +27,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputValueError,
     NotApplicableWarning,
+    PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
     warn,
 )
@@ -112,27 +113,38 @@ def read_config(data: dict[str, Any], mesh: ObjMesh) -> dict[str, Any]:
     """Return the ``[hub_rings]`` table of a morphing file, checked against a mesh."""
     cfg = morphing_table(data, "hub_rings", ("blades", "hub"))
     _need(isinstance(cfg, dict), "the morphing file needs a [hub_rings] table")
-    for key in sorted(set(cfg) - {"blades", "hub", "rings", "width"}):
+    for key in sorted(set(cfg) - {"blades", "hub", "rings", "band_width", "width"}):
         warn(f"hub_rings.{key} does not apply and is skipped", NotApplicableWarning)
     count = cfg.get("rings")
     _need(
         isinstance(count, int) and not isinstance(count, bool) and count >= 1,
         f"hub_rings.rings must be a whole number of rings, 1 or more, not {count!r}",
     )
-    width = cfg.get("width")
-    _need(
-        width is None
-        or (
-            isinstance(width, (int, float))
-            and not isinstance(width, bool)
-            and math.isfinite(width)
-            and width > 0.0
-        ),
-        f"hub_rings.width must be a positive length in the mesh's unit, not {width!r}",
-    )
+    for key in ("band_width", "width"):
+        value = cfg.get(key)
+        _need(
+            key not in cfg
+            or (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                and value > 0.0
+            ),
+            f"hub_rings.{key} must be a positive length in the mesh's unit, not {value!r}",
+        )
+    if "width" in cfg:
+        warn(
+            "hub_rings.width is deprecated; use hub_rings.band_width",
+            PyflightstreamDeprecationWarning,
+        )
+        _need(
+            "band_width" not in cfg or cfg["width"] == cfg["band_width"],
+            "hub_rings.width and hub_rings.band_width conflict; state one value",
+        )
+    width = cfg.get("band_width", cfg.get("width"))
     blades, hubs = _names(cfg, "blades", mesh), _names(cfg, "hub", mesh)
     _need(not set(blades) & set(hubs), "hub_rings.blades and hub must be disjoint")
-    return {"blades": blades, "hub": hubs, "rings": count, "width": width}
+    return {"blades": blades, "hub": hubs, "rings": count, "band_width": width}
 
 
 @dataclass
@@ -204,20 +216,20 @@ def _seed(
     loop = root_loop(mesh.families[name], hub_faces, name)
     family = hub_family(mesh, cfg["hub"], loop, name, _VERB)
     banned = forbidden(mesh, family, name, gone.setdefault(family, set()))
-    width = cfg["width"] or _default_width(mesh, family, loop, cfg["rings"])
+    width = cfg["band_width"] or _default_width(mesh, family, loop, cfg["rings"])
     return _Seed(name, family, loop, cfg["rings"], width), banned
 
 
 def _fits_every_blade(mesh: ObjMesh, cfg: dict[str, Any], width: float) -> bool:
     """Return whether the rings of every named blade fit at one stated width, planned in turn.
 
-    The width a refusal names is the ``width`` a user then states for every blade, so it is
+    The width a refusal names is the ``band_width`` a user then states for every blade, so it is
     judged on them all: judged on the refused blade alone, the faces it then takes can leave no
     room for the next blade.
     """
     gone: dict[str, set[int]] = {}
     for name in cfg["blades"]:
-        seed, banned = _seed(mesh, name, {**cfg, "width": width}, gone)
+        seed, banned = _seed(mesh, name, {**cfg, "band_width": width}, gone)
         found = _attempt(mesh, seed, banned)
         if found is None:
             return False
@@ -235,7 +247,7 @@ def _plan(mesh: ObjMesh, name: str, cfg: dict[str, Any], gone: dict[str, set[int
         return found
     fits = None
     for k in range(1, _TRIES + 1):
-        # The width named is the one tried, to the digits the message prints.
+        # The band_width named is the one tried, to the digits the message prints.
         trial = float(f"{width * _SHRINK**k:.6g}")
         if _fits_every_blade(mesh, cfg, trial):
             fits = trial
@@ -410,7 +422,7 @@ def _report(r: Result, cfg: dict[str, Any], checks: dict[str, Any]) -> dict[str,
         }
     return {
         "rings": cfg["rings"],
-        "width_stated": cfg["width"],
+        "width_stated": cfg["band_width"],
         "blades": blades,
         "checks": {"passed": not checks["warnings"], **checks},
     }
@@ -425,7 +437,7 @@ def hub_rings_mesh(mesh: str | Path, morphing: str | Path, out: str | Path) -> d
         Source OBJ, read only. A saved simulation (.fsm) is refused.
     morphing : str or Path
         TOML control file with a ``[hub_rings]`` table: ``rings`` (a whole number), optionally
-        ``width`` (the total height of the rings in the mesh's unit), and ``blades`` and ``hub``
+        ``band_width`` (total ring height in the mesh's unit), and ``blades`` and ``hub``
         of its own or at the top of the file.
     out : str or Path
         New OBJ. Existing outputs are refused.

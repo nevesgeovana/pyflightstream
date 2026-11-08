@@ -29,7 +29,7 @@ def _add_sector_to_wheel(verbs: Any) -> None:
         description=(
             "SECTOR is an OBJ (with its .obj.boundaries.toml and trailing-edge points files "
             "beside it) or a saved simulation (.fsm). The sector is copied --copies times about "
-            "--axis through --hub, the nodes of the seams are merged within --tolerance, the "
+            "--axis through --center, the nodes of the seams are merged within --tolerance, the "
             "surfaces named in --blades are numbered one per copy and every other surface is "
             "one group. An OBJ gives an OBJ, its boundaries file in the named form, one points "
             "file per rim per blade and <out stem>.wheel.json; a .fsm gives a .fsm, with no "
@@ -53,11 +53,18 @@ def _add_sector_to_wheel(verbs: Any) -> None:
         "(default x)",
     )
     wheel.add_argument(
-        "--hub",
+        "--center",
         nargs=3,
         type=float,
         metavar=("X", "Y", "Z"),
         help="a point of the axis, in the mesh's unit (default the origin)",
+    )
+    wheel.add_argument(
+        "--hub",
+        nargs=3,
+        type=float,
+        metavar=("X", "Y", "Z"),
+        help="deprecated alias for --center; both may be given only with equal values",
     )
     wheel.add_argument(
         "--tolerance",
@@ -89,7 +96,8 @@ def _cmd_sector_to_wheel(args: argparse.Namespace) -> int:
             copies=args.copies,
             blades=args.blades,
             axis=args.axis,
-            hub=args.hub or (0.0, 0.0, 0.0),
+            hub=args.hub,
+            center=args.center,
             tolerance=args.tolerance,
             out=args.out,
             overwrite=args.overwrite,

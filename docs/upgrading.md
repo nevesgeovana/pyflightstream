@@ -1,5 +1,23 @@
 # Upgrading
 
+## Coordinate and band names (0.57)
+
+Use `[hub_rings] band_width` instead of the deprecated `width`, and
+`geometry sector-to-wheel --center X Y Z` instead of the deprecated `--hub`.
+Python callers can use `sector_to_wheel(..., center=(x, y, z))`; `hub=` still
+accepts coordinates. Equal old/new values are accepted once; conflicts are refused.
+Deprecation warnings use `PyflightstreamDeprecationWarning`. No removal release is set.
+Reports retain their existing keys. Each hub-band route keeps its units, defaults and
+capping. `wheel.center` remains independent of `repitch.reference_point`; a missing
+center uses the origin, never the pitch datum.
+
+The fixed synthetic trailing-edge QA probe now checks for a finite midpoint within
+1e-6 metres per coordinate after confirming stored units and edge identity. This is
+an owner-chosen coordinate-identity allowance, not an aerodynamic accuracy claim.
+The verdict uses unrounded saved midpoints; observation reports retain their existing rounding.
+An empty or wrong-edge result is False; missing or incomparable saves and already-marked
+baselines are None. Additional marked edges do not invalidate a target match.
+
 ## Which version are you on
 
 Read the section for each release after the version used by the workspace, in
@@ -149,7 +167,7 @@ below.
 New verbs of `pyfs-workspace geometry`, none of which starts a solver:
 
 - `sector-to-wheel <sector.obj|sector.fsm> --copies N --blades FAMILY ...` copies
-  one sector about an axis (`--axis`, `--hub`) into a full wheel, merging the seam
+  one sector about an axis (`--axis`, `--center`) into a full wheel, merging the seam
   nodes within `--tolerance`. An OBJ gives an OBJ, a boundaries file, one rim
   points file per rim per blade and `<out stem>.wheel.json`; a saved simulation
   gives a saved wheel. A layout the reader does not recognize is warned, nothing

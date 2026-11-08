@@ -683,3 +683,100 @@ def test_mor2_1_a_seam_split_differently_on_its_two_sides_is_refused(tmp_path, c
     assert invoke("morph", cracked, cfg, out) == 2
     assert "seam" in capsys.readouterr().err
     assert not out.exists()
+
+
+@pytest.mark.parametrize("spelling", ["band_width", "width", "both"])
+def test_p0570_band_width_alias_parser(tmp_path, spelling):
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pyflightstream.workspace.hub_rings import read_config
+
+    mesh = read_obj(build(tmp_path))
+    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"]}
+    cfg.update(
+        {key: 0.04 for key in (["width", "band_width"] if spelling == "both" else [spelling])}
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        parsed = read_config({"hub_rings": cfg}, mesh)
+    assert parsed["band_width"] == 0.04
+    assert len([w for w in caught if issubclass(w.category, PyflightstreamDeprecationWarning)]) == (
+        spelling != "band_width"
+    )
+    assert (
+        read_config(
+            {"hub_rings": {k: v for k, v in cfg.items() if k not in ("width", "band_width")}}, mesh
+        )["band_width"]
+        is None
+    )
+
+
+@pytest.mark.parametrize("value", [-1, 0, True, "wide", float("nan"), float("inf"), None])
+@pytest.mark.parametrize("key", ["width", "band_width"])
+def test_p0570_band_width_invalid(tmp_path, value, key):
+    from pyflightstream.workspace.hub_rings import read_config
+
+    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], key: value}
+    with pytest.raises(InputValueError, match="positive length"):
+        read_config({"hub_rings": cfg}, read_obj(build(tmp_path)))
+
+
+def test_p0570_band_width_conflict(tmp_path):
+    from pyflightstream.workspace.hub_rings import read_config
+
+    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], "width": 0.04, "band_width": 0.05}
+    with pytest.raises(InputValueError, match="conflict"):
+        read_config({"hub_rings": cfg}, read_obj(build(tmp_path)))
+
+
+@pytest.mark.parametrize("verb", ["hub-rings", "morph"])
+def test_p0570_band_width_alias_same_mesh_and_legacy_report(tmp_path, verb):
+    source = build(tmp_path)
+    outputs = []
+    for spelling in ("width", "band_width", "both"):
+        text = "[hub_rings]\nrings = 3\n"
+        text += (
+            "width = 0.04\nband_width = 0.04\n" if spelling == "both" else f"{spelling} = 0.04\n"
+        )
+        if verb == "morph":
+            text += '[wheel]\naxis = "x"\ncenter = [0, 0, 0]\n'
+        cfg = control(tmp_path, text)
+        out = tmp_path / f"{spelling}.obj"
+        assert invoke(verb, source, cfg, out) == 0
+        outputs.append(read_obj(out))
+        report = record(out, "hub_rings" if verb == "hub-rings" else "morph")
+        if verb == "hub-rings":
+            assert report["width_stated"] == 0.04
+    for mesh in outputs[1:]:
+        np.testing.assert_array_equal(mesh.verts, outputs[0].verts)
+        assert mesh.families == outputs[0].families
+
+
+@pytest.mark.parametrize("point", [1.0123, [1.0123, 0.3, 0.4]])
+def test_p0570_pitch_datum_never_supplies_wheel_center(tmp_path, point):
+    source = build(tmp_path)
+    for center in (None, [0, 0, 0]):
+        text = CHAIN.format(angle=0.5, point=point) + "[wheel]\n"
+        if center is not None:
+            text += f"center = {center}\n"
+        cfg = control(tmp_path, text)
+        out = tmp_path / ("implicit.obj" if center is None else "explicit.obj")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert invoke("morph", source, cfg, out) == 0
+        assert any("wheel.center is not stated" in str(w.message) for w in caught) == (
+            center is None
+        )
+        assert record(out, "morph")["steps"]["wheel"]["hub"] == [0, 0, 0]
+    np.testing.assert_array_equal(
+        read_obj(tmp_path / "implicit.obj").verts, read_obj(tmp_path / "explicit.obj").verts
+    )
+
+
+@pytest.mark.parametrize("center", ['"bad"', '[0, "bad", 0]', "[0, 0]", "[0, nan, 0]"])
+def test_p0570_invalid_toml_center_is_didactic(tmp_path, capsys, center):
+    source = build(tmp_path)
+    cfg = control(tmp_path, f'[wheel]\naxis = "x"\ncenter = {center}\n')
+    out = tmp_path / "invalid.obj"
+    assert invoke("morph", source, cfg, out) == 2
+    assert "wheel.center must be a point" in capsys.readouterr().err
+    assert not out.exists()

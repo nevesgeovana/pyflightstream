@@ -172,7 +172,7 @@ blades = ["Blade1"]
 hub = ["Spinner"]
 
 [hub_rings]
-rings = 4                    # width optional
+rings = 4                    # band_width optional
 
 [repitch]
 angle_deg = 2.0
@@ -182,6 +182,7 @@ reference_point = 0.25       # a coordinate along the rotor axis, or a point [x,
 [collapse_te]
 
 [wheel]                      # a sector only
+center = [0.0, 0.0, 0.0]      # rotor-axis point, independent of reference_point
 ```
 
 A full wheel, installed or not: every blade is named and there is no `[wheel]`. Every family
@@ -225,7 +226,7 @@ invariant, nothing is written beside the output.
 root, which a quad-dominant hub lacks. `[hub_rings]` builds `rings` rows of quads with as many nodes as the
 root loop, marched outward on the hub, takes out the hub faces they reach plus one layer, and
 remeshes the band between the outer ring and that hole quad-dominant, every node on the source
-hub. `width`, the total height of the rings in the mesh's unit, defaults to `rings` times the
+hub. `band_width`, the total height of the rings in the mesh's unit, defaults to `rings` times the
 median length of the hub edges that leave the root. A hub face on an open boundary (a sector's
 seam) or on another family is never taken, so the seams stay node for node and the wheel still
 merges; rings that would need one are refused, naming a width that fits every blade. The same
