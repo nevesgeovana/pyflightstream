@@ -606,6 +606,46 @@
       "path": "fsi/wing.py"
     },
     {
+      "id": "pyflightstream.geometry",
+      "layer": 3.25,
+      "path": "geometry/__init__.py"
+    },
+    {
+      "id": "pyflightstream.geometry.airfoils",
+      "layer": 3.25,
+      "path": "geometry/airfoils.py"
+    },
+    {
+      "id": "pyflightstream.geometry.caps",
+      "layer": 3.25,
+      "path": "geometry/caps.py"
+    },
+    {
+      "id": "pyflightstream.geometry.component",
+      "layer": 3.25,
+      "path": "geometry/component.py"
+    },
+    {
+      "id": "pyflightstream.geometry.config",
+      "layer": 3.25,
+      "path": "geometry/config.py"
+    },
+    {
+      "id": "pyflightstream.geometry.distributions",
+      "layer": 3.25,
+      "path": "geometry/distributions.py"
+    },
+    {
+      "id": "pyflightstream.geometry.lifting",
+      "layer": 3.25,
+      "path": "geometry/lifting.py"
+    },
+    {
+      "id": "pyflightstream.geometry.patch",
+      "layer": 3.25,
+      "path": "geometry/patch.py"
+    },
+    {
       "id": "pyflightstream.options",
       "layer": 7.0,
       "path": "options.py"
@@ -1589,6 +1629,11 @@
       "id": "pyflightstream.workspace._gmsh",
       "layer": 2,
       "path": "workspace/_gmsh.py"
+    },
+    {
+      "id": "pyflightstream.workspace._gmsh_worker",
+      "layer": 2,
+      "path": "workspace/_gmsh_worker.py"
     },
     {
       "id": "pyflightstream.workspace._hub_remesh",
@@ -5683,6 +5728,86 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry",
+      "target": "pyflightstream.geometry.component",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry",
+      "target": "pyflightstream.geometry.config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry",
+      "target": "pyflightstream.geometry.patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.airfoils",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.caps",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.caps",
+      "target": "pyflightstream.geometry.airfoils",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.caps",
+      "target": "pyflightstream.geometry.distributions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.caps",
+      "target": "pyflightstream.geometry.lifting",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.caps",
+      "target": "pyflightstream.geometry.patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.component",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.config",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.distributions",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.lifting",
+      "target": "pyflightstream.geometry.airfoils",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.lifting",
+      "target": "pyflightstream.geometry.distributions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.lifting",
+      "target": "pyflightstream.geometry.patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.patch",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.options",
       "target": "pyflightstream._console",
       "kind": "module"
@@ -8925,6 +9050,11 @@
     {
       "source": "pyflightstream.qa._spec_0540_marking",
       "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0560_export_detect",
+      "target": "pyflightstream._fsm",
       "kind": "module"
     },
     {
@@ -12224,7 +12354,7 @@
     },
     {
       "source": "pyflightstream.run._runtime",
-      "target": "pyflightstream.cases._runtime_settings",
+      "target": "pyflightstream.cases.settings",
       "kind": "module"
     },
     {
@@ -13936,6 +14066,16 @@
       "source": "pyflightstream.workspace._gmsh",
       "target": "pyflightstream.workspace._iges_names",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh_worker",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh_worker",
+      "target": "pyflightstream.extras",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._hub_remesh",
@@ -15759,6 +15899,11 @@
     },
     {
       "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream.workspace._gmsh_worker",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
       "target": "pyflightstream.workspace._iges_names",
       "kind": "module"
     },
@@ -15790,6 +15935,11 @@
     {
       "source": "pyflightstream.workspace.iges_grid",
       "target": "pyflightstream.workspace._gmsh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_grid",
+      "target": "pyflightstream.workspace._gmsh_worker",
       "kind": "module"
     },
     {

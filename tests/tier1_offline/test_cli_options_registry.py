@@ -72,6 +72,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "output"): OUTPUT,
     ("pyfs-workspace", "axis"): CASE,
     ("pyfs-workspace", "hub"): CASE,
+    ("pyfs-workspace", "center"): CASE,
+    ("pyfs-workspace", "name_encoding"): CASE,
     ("pyfs-workspace", "unit"): CASE,
     ("pyfs-workspace", "sections"): CASE,
     # 0.35.0 QV1: read-only query subjects and per-invocation filters.
@@ -655,6 +657,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         {"sector-to-wheel", "sector-remesh", "power-off-body", "trailing-edge"}
     ),
     ("pyfs-workspace", "hub"): frozenset({"sector-to-wheel", "trailing-edge"}),
+    ("pyfs-workspace", "center"): frozenset({"sector-to-wheel"}),
+    ("pyfs-workspace", "name_encoding"): frozenset({"iges-convert", "iges-grid"}),
     ("pyfs-workspace", "unit"): frozenset(
         {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine", "visual-inspect"}
     ),
