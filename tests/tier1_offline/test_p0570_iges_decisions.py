@@ -235,6 +235,18 @@ def test_p0570_a_hung_worker_is_ended_and_reported(monkeypatch):
 
 
 @pytest.mark.requirement("FR-3705")
+@pytest.mark.parametrize("value", ["soon", "0", "-5", "nan", "inf"])
+def test_p0570_a_time_limit_that_is_not_a_positive_number_is_refused(monkeypatch, value):
+    """RL57B-4: the documented switch is refused by name, not as a parse error or instant end."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._gmsh_worker import run_isolated
+
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", value)
+    with pytest.raises(InputValueError, match="PYFLIGHTSTREAM_GMSH_TIMEOUT.*positive number"):
+        run_isolated(f"{_HERE}:worker_ok", {}, worker_ok)
+
+
+@pytest.mark.requirement("FR-3705")
 def test_p0570_convert_never_initializes_the_kernel_in_the_calling_process(tmp_path, monkeypatch):
     from pyflightstream.workspace.iges_convert import convert_iges
     from tests.tier1_offline.test_p0560_iges import gmsh_or_skip, plate_and_flap

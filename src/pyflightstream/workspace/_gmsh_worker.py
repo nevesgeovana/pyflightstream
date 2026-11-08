@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -52,6 +53,23 @@ def _describe(code: int) -> str:
     return f"exit code {code} ({code & 0xFFFFFFFF:#x})"
 
 
+def _timeout() -> float:
+    """Return the worker's time limit in seconds, refusing a value that is not a positive number."""
+    text = os.environ.get(TIMEOUT_ENV)
+    if text is None:
+        return _DEFAULT_TIMEOUT_S
+    try:
+        limit = float(text)
+    except ValueError:
+        limit = math.nan
+    if not (math.isfinite(limit) and limit > 0):
+        raise _errors.InputValueError(
+            f"{TIMEOUT_ENV}={text!r} must be a positive number of seconds (default "
+            f"{_DEFAULT_TIMEOUT_S:g}). Nothing was written."
+        )
+    return limit
+
+
 def run_isolated(
     operation: str, arguments: dict[str, Any], direct: Callable[..., dict[str, Any]]
 ) -> dict[str, Any]:
@@ -74,7 +92,7 @@ def run_isolated(
         request.write_text(
             json.dumps({"operation": operation, "arguments": arguments}), encoding="utf-8"
         )
-        limit = float(os.environ.get(TIMEOUT_ENV, _DEFAULT_TIMEOUT_S))
+        limit = _timeout()
         flags = _NO_WINDOW if os.name == "nt" else 0
         env = {**os.environ, _ENV: "1"}
         try:

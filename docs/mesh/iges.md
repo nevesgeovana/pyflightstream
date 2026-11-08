@@ -239,7 +239,7 @@ limit it exceeded, and the tail of what it printed), says that nothing was writt
 2, and the calling process is untouched. A failed conversion is final for that run: the kernel
 is not reused or retried after a fault, and outputs are written only after the last kernel
 call returns. Write the IGES file again from its CAD system, or remove the offending
-surface, and run again. `PYFLIGHTSTREAM_GMSH_TIMEOUT` sets the seconds a worker may run before it is ended (default 3600).
+surface, and run again. `PYFLIGHTSTREAM_GMSH_TIMEOUT` sets the seconds a worker may run before it is ended (a positive number, default 3600; any other value is refused).
 
 ## License of the extra
 
