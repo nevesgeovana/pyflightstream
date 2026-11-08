@@ -70,8 +70,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the outer skin of iges-grid (workspace/_iges_skin.py): 2145 files, measured.
 #: then the CI shard selector test (test_p0560_ci_shards.py): 2146 files, measured.
 #: Runtime and timing files and the scripts marker bring the tree to 2154 (two SRS pages folded).
+#: then the IGES decisions (R1-IGES-008 worker, R1-IGES-010, R2-006, R3-006): four changelog
+#: fragments, workspace/_gmsh_worker.py and test_p0570_iges_decisions.py: 2160, measured (+6).
 LEAN_CAPS = {
-    "tracked_files": 2154,
+    "tracked_files": 2160,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
