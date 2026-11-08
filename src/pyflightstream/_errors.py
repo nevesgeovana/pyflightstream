@@ -493,6 +493,32 @@ def warn(
     sink.append(warnings.WarningMessage(category(message), category, *where))
 
 
+def warn_by_name(message: str, name: str, stacklevel: int = 1) -> None:
+    """Replay a warning recorded elsewhere by its category's name, through :func:`warn`.
+
+    A worker process sends back the class name of each warning it caught; this
+    raises it again here as that package category, or as
+    :class:`PyflightstreamWarning` when the name is not one of this module's
+    warning classes.
+
+    Parameters
+    ----------
+    message : str
+        The warning text.
+    name : str
+        The class name of the recorded category.
+    stacklevel : int
+        As for :func:`warn`, counted from the caller of this function.
+    """
+    found = globals().get(name)
+    category = (
+        found
+        if isinstance(found, type) and issubclass(found, PyflightstreamWarning)
+        else PyflightstreamWarning
+    )
+    warn(message, category, stacklevel + 1)
+
+
 @contextmanager
 def collecting_warnings() -> Iterator[list[warnings.WarningMessage]]:
     """Collect every warning :func:`warn` routes in this context, and only here.

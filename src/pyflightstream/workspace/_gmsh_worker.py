@@ -26,8 +26,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pyflightstream import _errors
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputValueError, warn_by_name
+from pyflightstream._textio import write_text
 
 __all__ = ["run_isolated"]
 
@@ -63,7 +63,7 @@ def _timeout() -> float:
     except ValueError:
         limit = math.nan
     if not (math.isfinite(limit) and limit > 0):
-        raise _errors.InputValueError(
+        raise InputValueError(
             f"{TIMEOUT_ENV}={text!r} must be a positive number of seconds (default "
             f"{_DEFAULT_TIMEOUT_S:g}). Nothing was written."
         )
@@ -89,9 +89,7 @@ def run_isolated(
         return direct(**arguments)
     with tempfile.TemporaryDirectory(prefix="pyfs-gmsh-") as folder:
         request, answer = Path(folder) / "request.json", Path(folder) / "answer.json"
-        request.write_text(
-            json.dumps({"operation": operation, "arguments": arguments}), encoding="utf-8"
-        )
+        write_text(request, json.dumps({"operation": operation, "arguments": arguments}))
         limit = _timeout()
         flags = _NO_WINDOW if os.name == "nt" else 0
         env = {**os.environ, _ENV: "1"}
@@ -114,7 +112,7 @@ def run_isolated(
             raise _failed(f"its worker process ended with {_describe(done.returncode)}", tail)
         reply = json.loads(answer.read_text(encoding="utf-8"))
     for category, message in reply.get("warnings", []):
-        warnings.warn(message, getattr(_errors, category, _errors.PyflightstreamWarning), 2)
+        warn_by_name(message, category, 2)
     if "error" in reply:
         raise _rebuilt(reply["error"])
     result: dict[str, Any] = reply["result"]
@@ -138,7 +136,7 @@ def _rebuilt(error: dict[str, str | None]) -> Exception:
     if name == "MissingExtraError":
         return _errors_missing(message)
     if name == "InputValueError":
-        return _errors.InputValueError(message)
+        return InputValueError(message)
     return InputArtifactError(message, kind=error.get("kind") or "geometry")
 
 
@@ -170,7 +168,7 @@ def _main(request: Path, answer: Path) -> int:
                 "kind": getattr(error, "kind", None),
             }
     reply["warnings"] = [(w.category.__name__, str(w.message)) for w in caught]
-    answer.write_text(json.dumps(reply), encoding="utf-8")
+    write_text(answer, json.dumps(reply))
     return 0
 
 
