@@ -147,3 +147,82 @@ def test_p0570_generated_paths_are_role_qualified_and_case_safe(tmp_path):
     assert first == "wheel.Rim.te.txt"
     assert second == "wheel.base.Rim.te.txt"
     assert len({first.casefold(), second.casefold(), third.casefold()}) == 3
+
+
+# ----------------------------------------------- R1-IGES-008: the kernel runs in a worker
+
+
+def worker_crash(code=-1073741819):
+    """Stand in for a native kernel fault: the process ends at once, with no Python unwinding."""
+    import os
+
+    os._exit(code)
+
+
+def worker_ok(value=1):
+    import warnings
+
+    from pyflightstream._errors import NotApplicableWarning
+
+    warnings.warn("careful", NotApplicableWarning, stacklevel=1)
+    return {"value": value}
+
+
+def worker_refuses():
+    raise InputArtifactError("bad surface. Nothing was written.", kind="geometry")
+
+
+def worker_hangs():
+    import time
+
+    time.sleep(60)
+
+
+_HERE = "tests.tier1_offline.test_p0570_iges_decisions"
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_a_kernel_fault_ends_the_worker_and_reports_its_cause_then_a_fresh_worker_works():
+    from pyflightstream.workspace._gmsh_worker import run_isolated
+
+    with pytest.raises(InputArtifactError) as raised:
+        run_isolated(f"{_HERE}:worker_crash", {}, worker_crash)
+    text = str(raised.value)
+    assert "0xc0000005" in text.lower()
+    assert "Nothing was written" in text
+    assert "not reused" in text
+    with pytest.warns(PyflightstreamWarning, match="careful"):
+        assert run_isolated(f"{_HERE}:worker_ok", {"value": 7}, worker_ok) == {"value": 7}
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_a_refusal_in_the_worker_arrives_as_the_same_type_and_message():
+    from pyflightstream.workspace._gmsh_worker import run_isolated
+
+    with pytest.raises(InputArtifactError, match="bad surface. Nothing was written."):
+        run_isolated(f"{_HERE}:worker_refuses", {}, worker_refuses)
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_a_hung_worker_is_ended_and_reported(monkeypatch):
+    from pyflightstream.workspace._gmsh_worker import run_isolated
+
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", "2")
+    with pytest.raises(InputArtifactError, match="longer than 2 s"):
+        run_isolated(f"{_HERE}:worker_hangs", {}, worker_hangs)
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_convert_never_initializes_the_kernel_in_the_calling_process(tmp_path, monkeypatch):
+    from pyflightstream.workspace.iges_convert import convert_iges
+    from tests.tier1_offline.test_p0560_iges import gmsh_or_skip, plate_and_flap
+
+    gmsh = gmsh_or_skip()
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the calling process initialized the kernel")
+
+    monkeypatch.setattr(gmsh, "initialize", refuse)
+    record = convert_iges([plate_and_flap(tmp_path)], tmp_path / "out.igs")
+    assert record["faces"] == 2
+    assert (tmp_path / "out.igs").is_file()

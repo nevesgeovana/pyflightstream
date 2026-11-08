@@ -230,6 +230,17 @@ flag is 3. A file whose global section names a unit this package has no scale fo
 - Entities the commands do not read: transformation matrices of named curves, and curve
   entities other than lines, B-spline curves and composite curves.
 
+## Kernel failures
+
+Both commands run the geometry kernel in a worker process of their own. A malformed surface
+can fault the kernel natively, which no Python handler can recover from, so the fault ends
+only the worker: the command reports it with its cause (the worker's exit code, or the time
+limit it exceeded, and the tail of what it printed), says that nothing was written, and exits
+2, and the calling process is untouched. A failed conversion is final for that run: the kernel
+is not reused or retried after a fault, and outputs are written only after the last kernel
+call returns. Write the IGES file again from its CAD system, or remove the offending
+surface, and run again. `PYFLIGHTSTREAM_GMSH_TIMEOUT` sets the seconds a worker may run before it is ended (default 3600).
+
 ## License of the extra
 
 gmsh is licensed under the GNU General Public License, version 2 or later. The base install

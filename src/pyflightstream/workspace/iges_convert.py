@@ -23,7 +23,14 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
-from pyflightstream.workspace._gmsh import IMPORT_UNIT, import_iges, import_named, session
+from pyflightstream.workspace._gmsh import (
+    IMPORT_UNIT,
+    gmsh_module,
+    import_iges,
+    import_named,
+    session,
+)
+from pyflightstream.workspace._gmsh_worker import run_isolated
 from pyflightstream.workspace._iges_names import (
     DEFAULT_NAME_ENCODING,
     flag_curves_on_surfaces,
@@ -71,8 +78,10 @@ def convert_iges(
     MissingExtraError
         gmsh is not installed (``pip install "pyflightstream[gmsh]"``).
     InputArtifactError
-        A source cannot be named face by face, or the written file does not read back with the
-        same components; nothing was written.
+        A source cannot be named face by face, the written file does not read back with the
+        same components, or the geometry kernel failed (it runs in a worker process of its
+        own, so a native fault ends only that worker, is reported with its cause, and the
+        conversion is not retried); nothing was written.
     """
     target = Path(out)
     if target.suffix.lower() not in (".igs", ".iges"):
@@ -81,6 +90,21 @@ def convert_iges(
             "written.",
             kind="geometry",
         )
+    gmsh_module(_PURPOSE)
+    return run_isolated(
+        f"{__name__}:_convert",
+        {
+            "sources": [str(s) for s in sources],
+            "out": str(target),
+            "name_encoding": name_encoding,
+        },
+        _convert,
+    )
+
+
+def _convert(sources: Sequence[str | Path], out: str | Path, name_encoding: str) -> dict[str, Any]:
+    """Run the conversion in this process; :func:`convert_iges` calls it in a worker."""
+    target = Path(out)
     with session(_PURPOSE) as gmsh:
         model = import_named(gmsh, sources, name_encoding=name_encoding)
         before = _types(gmsh, model.faces)

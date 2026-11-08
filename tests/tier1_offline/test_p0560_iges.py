@@ -1191,6 +1191,8 @@ def test_p0560_convert_says_so_when_the_written_faces_read_back_in_another_count
         return out if len(calls) == 1 else out[:-1]
 
     monkeypatch.setattr(gmsh.model.occ, "importShapes", short_of_one_face)
+    # the patch lives in this process, so the kernel runs here and not in a worker
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
     out = tmp_path / "config.igs"
     code, _, stderr = cli(
         ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys

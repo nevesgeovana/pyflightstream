@@ -1,0 +1,1 @@
+`iges-grid` and `iges-convert` run the geometry kernel in a disposable worker process: a native kernel fault ends only the worker, is reported with its cause and nothing is written, and the kernel is never reused after a fault.

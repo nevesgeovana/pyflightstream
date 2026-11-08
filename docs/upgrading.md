@@ -1,5 +1,13 @@
 # Upgrading
 
+## IGES kernel runs in a worker (0.57)
+
+`iges-grid` and `iges-convert` run the geometry kernel in a worker process. Results and
+outputs are unchanged. A kernel fault now ends the command with a refusal that gives the
+cause (exit code 2, nothing written) instead of ending the whole process; start the command
+again after fixing the IGES file. Each run starts one extra Python process, a second or two
+of start-up.
+
 ## Trailing-edge and base-region names (0.57)
 
 A trailing-edge entry and a base region that share one name are no longer merged into one

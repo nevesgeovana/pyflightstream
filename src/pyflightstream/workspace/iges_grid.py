@@ -35,7 +35,8 @@ from pyflightstream._errors import (
 )
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.versions import known_versions
-from pyflightstream.workspace._gmsh import import_named, session
+from pyflightstream.workspace._gmsh import gmsh_module, import_named, session
+from pyflightstream.workspace._gmsh_worker import run_isolated
 from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
 from pyflightstream.workspace._iges_mesh import mesh_model
 from pyflightstream.workspace._iges_names import (
@@ -427,11 +428,32 @@ def grid_iges(
     MissingExtraError
         gmsh is not installed (``pip install "pyflightstream[gmsh]"``).
     InputValueError, InputArtifactError
-        The control file or an IGES file is refused; nothing was written.
+        The control file or an IGES file is refused, or the geometry kernel failed (it runs in
+        a worker process of its own, so a native fault ends only that worker and is reported
+        with its cause); nothing was written.
     """
     target = Path(out)
     if target.suffix.lower() != ".obj":
         raise InputValueError(f"grid: {target} must be an .obj file. Nothing was written.")
+    read_grid(grid)  # a control file that cannot be read is refused before a worker starts
+    gmsh_module(_PURPOSE)
+    return run_isolated(
+        f"{__name__}:_grid",
+        {
+            "sources": [str(s) for s in sources],
+            "grid": str(grid),
+            "out": str(target),
+            "name_encoding": name_encoding,
+        },
+        _grid,
+    )
+
+
+def _grid(
+    sources: Sequence[str | Path], grid: str | Path, out: str | Path, name_encoding: str
+) -> dict[str, Any]:
+    """Run the grid in this process; :func:`grid_iges` calls it in a worker."""
+    target = Path(out)
     config = read_grid(grid)
     with session(_PURPOSE) as gmsh:
         model = import_named(gmsh, sources, name_encoding=name_encoding)
