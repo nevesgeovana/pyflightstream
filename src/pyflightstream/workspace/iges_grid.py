@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +45,7 @@ from pyflightstream.workspace._iges_names import (
     read_iges_names,
     require_name_encoding,
 )
+from pyflightstream.workspace._iges_select import keep_components, resolve_components
 from pyflightstream.workspace._iges_skin import outer_skin
 from pyflightstream.workspace._refine._obj import ObjMesh, midpoints, obj_text, write_te
 
@@ -71,16 +72,23 @@ _ON_CURVE_SHARE = 0.01
 _RIM_TURN_DEG = 60.0
 
 Faces = list[list[int]]
+#: The junction nodes whose distance to the original faces is measured, at most per pair.
+_JUNCTION_SAMPLES = 200
 
 
-def _order(config: GridConfig, found: list[str]) -> list[str]:
-    """Return the components in the control file's order, then the others in the files' order."""
+def _order(config: GridConfig, found: list[str], known: list[str] | None = None) -> list[str]:
+    """Return the components in the control file's order, then the others in the files' order.
+
+    ``known`` lists every component the files carry when ``found`` is only the selected ones:
+    a table naming a component that is known but not selected is skipped without a warning.
+    """
+    every = found if known is None else known
     order = [name for name in config.components if name in found]
     for name in config.components:
-        if name not in found:
+        if name not in every:
             warn(
                 f"grid: component.{name} names no component of the IGES files "
-                f"({', '.join(found)}) and is skipped",
+                f"({', '.join(every)}) and is skipped",
                 NotApplicableWarning,
             )
     return order + [name for name in found if name not in order]
@@ -390,6 +398,44 @@ def _inner(
     return families, removed, skin
 
 
+def _junctions(
+    verts: NDArray[np.float64],
+    families: dict[str, Faces],
+    distance: Callable[[str, NDArray[np.float64]], float],
+    tolerance: float,
+) -> list[dict[str, Any]]:
+    """Check each junction, the nodes two components share, against both original components.
+
+    A node of the junction of ``a`` and ``b`` lies on the curve where the two surfaces cross,
+    so it must lie on the original face set of each. The distance of at most
+    :data:`_JUNCTION_SAMPLES` nodes (evenly spaced in node order) to each component is
+    measured with the geometry kernel; ``within_tolerance`` compares the larger one with the
+    join tolerance. The nodes are counted whole.
+    """
+    names = [n for n in families if families[n]]
+    nodes = {n: {v for f in families[n] for v in f} for n in names}
+    out: list[dict[str, Any]] = []
+    for i, a in enumerate(names):
+        for b in names[i + 1 :]:
+            common = sorted(nodes[a] & nodes[b])
+            if not common:
+                continue
+            step = max(1, len(common) // _JUNCTION_SAMPLES)
+            points = verts[common[::step]]
+            gaps = {a: distance(a, points), b: distance(b, points)}
+            out.append(
+                {
+                    "components": [a, b],
+                    "nodes": len(common),
+                    "checked": len(points),
+                    "distance": gaps,
+                    "tolerance": tolerance,
+                    "within_tolerance": max(gaps.values()) <= tolerance,
+                }
+            )
+    return out
+
+
 def _toml_key(name: str) -> str:
     return json.dumps(name, ensure_ascii=False)
 
@@ -404,6 +450,7 @@ def grid_iges(
     out: str | Path,
     *,
     name_encoding: str = DEFAULT_NAME_ENCODING,
+    components: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Grid the named components of IGES files into one OBJ with its boundaries file and record.
 
@@ -415,6 +462,10 @@ def grid_iges(
         The grid control file (``grid.toml``).
     name_encoding : str, optional
         The text encoding of the NAME bytes in the IGES files; default ``"latin-1"``.
+    components : sequence of str, optional
+        Grid only these components, named as the files name them (an exact name, or one that
+        differs only in case); the others leave the model before the join. An unknown or
+        ambiguous name is refused with the names found. Every component when omitted.
     out : str or Path
         The OBJ to write; ``<out>.boundaries.toml``, ``<out>.json`` and one
         ``<stem>.<component>.te.txt`` per component with a trailing edge are written beside it.
@@ -446,21 +497,29 @@ def grid_iges(
             "grid": str(grid),
             "out": str(target),
             "name_encoding": name_encoding,
+            "components": None if components is None else list(components),
         },
         _grid,
     )
 
 
 def _grid(
-    sources: Sequence[str | Path], grid: str | Path, out: str | Path, name_encoding: str
+    sources: Sequence[str | Path],
+    grid: str | Path,
+    out: str | Path,
+    name_encoding: str,
+    components: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run the grid in this process; :func:`grid_iges` calls it in a worker."""
     target = Path(out)
     config = read_grid(grid)
     with session(_PURPOSE) as gmsh:
         model = import_named(gmsh, sources, name_encoding=name_encoding)
-        found = list(model.components())
-        order = _order(config, found)
+        known = list(model.components())
+        found = known if components is None else resolve_components(known, components)
+        if components is not None:
+            model = keep_components(gmsh, model, found)
+        order = _order(config, found, known)
         box = gmsh.model.getBoundingBox(-1, -1)
         diagonal = math.dist(box[:3], box[3:])
         default = config.size or _DEFAULT_SIZE_SHARE * diagonal
@@ -478,19 +537,45 @@ def _grid(
 
         def reopen() -> Any:
             gmsh.clear()
-            return import_named(gmsh, sources, name_encoding=name_encoding)
+            again = import_named(gmsh, sources, name_encoding=name_encoding)
+            return again if components is None else keep_components(gmsh, again, found)
 
         meshed = mesh_model(gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen)
-    return _write(
-        target,
-        model,
-        config,
-        order,
-        sizes,
-        meshed=meshed,
-        default=default,
-        curves=_curves(sources, model.unit, name_encoding),
-    )
+        originals: dict[str, list[int]] = {}
+
+        def distance(name: str, points: NDArray[np.float64]) -> float:
+            """Largest distance of ``points`` to the original, untrimmed faces of ``name``."""
+            if not originals:  # the files are read once more, only when a junction is checked
+                gmsh.clear()
+                again = import_named(gmsh, sources, name_encoding=name_encoding)
+                if components is not None:
+                    again = keep_components(gmsh, again, found)
+                originals.update(again.components())
+            gap = np.full(len(points), np.inf)
+            for face in originals[name]:
+                for i, point in enumerate(points):
+                    nearest, _ = gmsh.model.getClosestPoint(2, face, point.tolist())
+                    gap[i] = min(gap[i], math.dist(nearest, point))
+            return float(gap.max())
+
+        return _write(
+            target,
+            model,
+            config,
+            order,
+            sizes,
+            meshed=meshed,
+            default=default,
+            curves=_curves(sources, model.unit, name_encoding),
+            selection=None
+            if components is None
+            else {
+                "requested": list(components),
+                "selected": found,
+                "left_out": [n for n in known if n not in found],
+            },
+            junction=(distance, tolerance),
+        )
 
 
 def _curves(
@@ -609,6 +694,8 @@ def _write(
     meshed: Any,
     default: float,
     curves: dict[str, list[NDArray[np.float64]]],
+    selection: dict[str, Any] | None = None,
+    junction: tuple[Callable[[str, NDArray[np.float64]], float], float] | None = None,
 ) -> dict[str, Any]:
     joined = meshed.record["fragment"]["warned"]
     warnings = list(model.notes) + list(meshed.warnings)
@@ -619,6 +706,7 @@ def _write(
         families[name], flips[name] = orient(verts, families[name])
     every = [f for faces in families.values() for f in faces]
     check = conformal(every, boundary)
+    junctions = [] if junction is None else _junctions(verts, families, *junction)
     per: dict[str, Any] = {}
     te: dict[str, set[tuple[int, int]]] = {}
     rims: dict[str, int] = {}
@@ -639,6 +727,13 @@ def _write(
             warnings += said
             if found:
                 te[name] = found
+    for entry in junctions:
+        if not entry["within_tolerance"]:
+            warnings.append(
+                f"junction of {' and '.join(entry['components'])}: {entry['nodes']} node(s) lie "
+                f"up to {max(entry['distance'].values()):.4g} from the original faces of the "
+                f"components, past the join tolerance {entry['tolerance']:.4g}"
+            )
     if check["conformal_mismatches"]:
         warnings.append(
             f"{check['conformal_mismatches']} open edge(s) are not boundaries of the body: two "
@@ -692,6 +787,8 @@ def _write(
         "faces": sum(counts),
         "components": per,
         "conformal": check,
+        "junctions": junctions,
+        "selection": selection,
         "trailing_edges": {
             name: {
                 "file": te_files[name],

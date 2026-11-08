@@ -175,13 +175,25 @@ def add_iges_grid_parser(subparsers: Any) -> None:
             "OBJ. Faces are joined so shared edges are conformal; four-sided patches follow the "
             "laws of the grid control file and become quads, other patches are quad-dominant at "
             "the component's size. Writes the OBJ, <out>.boundaries.toml for mark-boundaries, "
-            "one points file per trailing edge found and the record <out>.json. Quality is "
+            "one points file per trailing edge found and the record <out>.json. Each junction of "
+            "two components is measured against the original faces of both. Quality is "
             "warned, never refused (docs/mesh/iges.md)."
         ),
     )
     parser.add_argument("iges", nargs="+", help="IGES files, read only")
     parser.add_argument("--grid", required=True, help="grid control file (TOML)")
     parser.add_argument("--out", required=True, help="new .obj")
+    parser.add_argument(
+        "--component",
+        dest="components",
+        action="append",
+        metavar="NAME",
+        help=(
+            "grid only this component, named as the files name it (repeatable); the others "
+            "leave the model before the join. An unknown or ambiguous name is refused with the "
+            "names found. Default: every component"
+        ),
+    )
     _add_name_encoding(parser)
     parser.set_defaults(mesh_command=run_iges_grid)
 
@@ -191,7 +203,13 @@ def run_iges_grid(args: argparse.Namespace) -> int:
     from pyflightstream.workspace.iges_grid import grid_iges
 
     return _print_checks(
-        lambda: grid_iges(args.iges, args.grid, args.out, name_encoding=args.name_encoding)
+        lambda: grid_iges(
+            args.iges,
+            args.grid,
+            args.out,
+            name_encoding=args.name_encoding,
+            components=args.components,
+        )
     )
 
 

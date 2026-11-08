@@ -9,8 +9,12 @@ import reads, names kept. Both need the optional `gmsh` extra.
 
 ```text
 pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out model.obj
+pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out wing.obj --component Wing
 pyfs-workspace geometry iges-convert fuselage.igs --out fuselage-nurbs.igs
 ```
+
+`--component NAME` (repeatable) grids only the components it names, and the record measures each
+junction of two components against the original faces of both.
 
 [Grid and convert a named IGES](mesh/iges.md) gives the grid control file, the name rule and the
 limits.

@@ -100,8 +100,12 @@ def _heal(gmsh: Any, model: NamedModel, tolerance: float) -> str:
     tags = [(2, t) for t in model.faces]
     out = gmsh.model.occ.healShapes(tags, tolerance, True, False, False, True, False)
     gmsh.model.occ.synchronize()
-    healed = sorted(t for d, t in out if d == 2)
-    if healed == sorted(model.faces):
+    healed = [t for d, t in out if d == 2]
+    if len(healed) == len(model.faces):
+        # One healed face per face, in the order given. gmsh numbers them again from the lowest
+        # free tag, so a model that lost its first faces (a selection of components) gets new
+        # tags: the model follows them and each face keeps its component.
+        model.faces[:] = healed
         return "healed (degenerate edges fixed, faces sewn)"
     return "healing changed the faces and was not kept"
 

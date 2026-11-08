@@ -46,7 +46,31 @@ command writes:
 | `model.obj` | One family (`g`) per component, in the order of the grid control file, then the components the file does not name in the order of the IGES files; each family's faces turned to point outward |
 | `model.obj.boundaries.toml` | The boundaries file `geometry mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
 | `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line; a character of the name a file name cannot hold is written `_` |
-| `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect, smallest and largest corner angle, sliver faces and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, and every warning |
+| `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect, smallest and largest corner angle, sliver faces and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, the junction check, the selection and every warning |
+
+### Select components
+
+```text
+pyfs-workspace geometry iges-grid airframe.igs --grid grid.toml --out wing.obj --component Wing
+```
+
+`--component NAME` (repeatable) grids only the components it names. A name is matched against the
+names the files carry: an exact name wins, otherwise a name that differs only in case or in
+surrounding blanks selects the one component it matches. A name no component carries, or one that
+matches two components that differ only in case, is refused with the names found and nothing is
+written, so a mistyped name never grids nothing or the wrong part. The faces of the components
+left out leave the model before it is healed and joined, so they take no part in the junctions;
+a grid control table for a component that is known but not selected is skipped without a
+warning. The record lists the names requested, selected and left out under `selection`.
+
+### Junctions of crossing components
+
+A node two components share lies on the curve where their surfaces cross, so it must lie on the
+original faces of both. The command measures the distance of up to 200 of those nodes, evenly
+spaced, to the original untrimmed face set of each component with the geometry kernel and
+records it under `junctions` (the pair, the nodes shared, the nodes checked, the largest
+distance per component, the join tolerance and `within_tolerance`). A junction past the join
+tolerance is warned with its distance, never refused.
 
 The OBJ then enters `geometry mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
 other OBJ.
