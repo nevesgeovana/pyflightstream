@@ -210,7 +210,7 @@ class ComponentRecord(_Strict):
     lifting components; ``te_base`` is explicit for lifting components and null
     for the others. Structural rules are enforced on construction. Checks that
     need the referenced files (that an entity exists, has the declared type and
-    that splits lie on their curves) are not made here: :func:`verify_pins`
+    that splits lie on their curves) are not made here: the pin check
     covers the pins and the geometric checks belong to the check stage.
     """
 

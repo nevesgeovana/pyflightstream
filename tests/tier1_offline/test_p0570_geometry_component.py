@@ -351,3 +351,13 @@ def test_packaged_schema_equals_the_export_and_has_a_stable_digest():
     assert on_disk["additionalProperties"] is False
     assert schema_digest() == schema_digest()
     assert len(schema_digest()) == 64
+
+
+def test_the_record_docstring_names_no_function_the_package_no_longer_exports():
+    """R4-001: a role in the public docstring (and so the schema) must resolve in its module."""
+    import re
+
+    from pyflightstream.geometry import component
+
+    roles = re.findall(r":func:`([\w.]+)`", ComponentRecord.__doc__)
+    assert [name for name in roles if not hasattr(component, name)] == []
