@@ -1992,6 +1992,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._gmsh_worker"><summary><code>pyflightstream.workspace._gmsh_worker</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (deferred)</li>
 </ul></details>
 

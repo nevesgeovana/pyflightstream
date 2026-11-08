@@ -14074,6 +14074,11 @@
     },
     {
       "source": "pyflightstream.workspace._gmsh_worker",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._gmsh_worker",
       "target": "pyflightstream.extras",
       "kind": "deferred"
     },
