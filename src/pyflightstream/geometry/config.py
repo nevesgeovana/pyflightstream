@@ -13,7 +13,6 @@ particular aircraft.
 
 from __future__ import annotations
 
-import json
 import math
 import re
 import tomllib
@@ -21,8 +20,9 @@ from copy import deepcopy
 from pathlib import Path
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._boundary import unit_for, unpack
 
-__all__ = ["load_config", "resolve_config", "unpack", "write_config"]
+__all__ = ["load_config", "resolve_config"]
 
 RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
 
@@ -368,44 +368,6 @@ def resolve_propeller(raw, component):
     return {}
 
 
-def unit_for(path):
-    """Return the unit of the parameter at a dotted path: ``deg``, ``m``, ``m2`` or ``1``."""
-    key = path.split(".")[-1]
-    if key in (
-        "sweep",
-        "dihedral",
-        "incidence",
-        "tip_twist",
-        "twist",
-        "rotation",
-        "azimuths",
-        "setting_angle",
-        "footprint_upper",
-        "footprint_lower",
-    ):
-        return "deg"
-    if key in ("area",):
-        return "m2"
-    if key in (
-        "span",
-        "root_chord",
-        "tip_chord",
-        "radius",
-        "hub_radius",
-        "base_radius",
-        "translation",
-        "radii",
-        "mac",
-        "centre_height",
-        "body_blend_radius",
-        "wing_blend_radius",
-    ):
-        return "m"
-    if key == "length" and "tip_cap" not in path:
-        return "m"
-    return "1"
-
-
 def provenance(value, supplied, path=""):
     """Wrap each leaf of a component as ``{value, unit, source}``; source is given or default."""
     if isinstance(value, dict):
@@ -420,21 +382,6 @@ def provenance(value, supplied, path=""):
         "unit": unit_for(path),
         "source": "default" if supplied is None else "given",
     }
-
-
-def unpack(value, path=""):
-    """Strip the ``{value, unit, source}`` wrappers, checking each unit, and return plain values."""
-    if isinstance(value, list):
-        return [unpack(v, path) for v in value]
-    if isinstance(value, dict) and set(value) == {"value", "unit", "source"}:
-        if value["unit"] != unit_for(path):
-            raise InputValueError(f"{path}.unit: expected {unit_for(path)}")
-        if value["source"] not in ("given", "default"):
-            raise InputValueError(f"{path}.source: expected given or default")
-        return deepcopy(value["value"])
-    if isinstance(value, dict):
-        return {k: unpack(v, f"{path}.{k}".strip(".")) for k, v in value.items()}
-    return deepcopy(value)
 
 
 def validate_relationships(components, configurations):
@@ -486,7 +433,32 @@ def assembly_defaults(components, supplied):
 
 
 def resolve_config(data):
-    """Validate and resolve fresh input or an output from write_resolved."""
+    """Validate a geometry configuration and resolve it with the source of every value.
+
+    Parameters
+    ----------
+    data : dict
+        A configuration as read from TOML: fresh input (a ``components``
+        table, or a single component carrying ``type``) or a previously
+        resolved configuration (``format = "pyflightstream-geometry-resolved"``),
+        whose derived quantities are recomputed and compared.
+
+    Returns
+    -------
+    dict
+        The resolved configuration: ``format``, ``units`` (m and deg),
+        ``components`` with each leaf wrapped as ``{value, unit, source}``
+        (source ``given`` or ``default``), ``derived`` quantities and
+        ``configurations``. A resolved input that checks out is returned as a
+        copy of itself.
+
+    Raises
+    ------
+    InputValueError
+        When the units are not m and deg, no component is given, a component
+        lacks its type or an X.Y.Z version, a value or relationship is out of
+        range, or a resolved input's derived quantity is inconsistent.
+    """
     resolved = data.get("format") == RESOLVED_FORMAT
     source = unpack(data)
     if "type" in source:
@@ -545,29 +517,17 @@ def resolve_config(data):
 
 
 def load_config(path):
-    """Read a TOML configuration file and return it validated and resolved."""
+    """Read a TOML geometry configuration file and return it validated and resolved.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        The TOML file to read.
+
+    Returns
+    -------
+    dict
+        The resolved configuration, as returned by :func:`resolve_config`.
+    """
     with Path(path).open("rb") as stream:
         return resolve_config(tomllib.load(stream))
-
-
-def toml_value(value):
-    """Render a plain value as an inline TOML value."""
-    if isinstance(value, dict):
-        return (
-            "{ " + ", ".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in value.items()) + " }"
-        )
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(v) for v in value) + "]"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return json.dumps(value)
-    if isinstance(value, (int, float)) and math.isfinite(value):
-        return repr(value)
-    raise InputValueError(f"Unsupported TOML value: {value!r}")
-
-
-def write_config(config, path):
-    """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged."""
-    text = "\n".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in config.items()) + "\n"
-    Path(path).write_text(text, encoding="utf-8")

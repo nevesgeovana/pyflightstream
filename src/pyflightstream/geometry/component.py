@@ -8,14 +8,14 @@ trailing-edge base and the measured deviation from the source geometry.
 
 Section curves are referenced, not copied: each is an IGES type 126 B-spline
 curve named by file path, the SHA-256 of the exact file bytes and the
-directory-entry sequence number. :func:`verify_pins` re-reads every referenced
+directory-entry sequence number. The pin check re-reads every referenced
 file against its pin, so a record is only as current as the bytes it names.
 
 Coordinate convention: component geometry is in the shared configuration
 frame (x downstream, y along span, z upward). All lengths of a record,
 including deviations and station coordinates, are in millimetres and all
 angles are in degrees. The record model is the authored definition of the
-contract; :func:`export_schema` renders the draft 2020-12 JSON Schema from it
+contract; the schema export renders the draft 2020-12 JSON Schema from it
 and the packaged copy is compared with the export in the test suite, so the
 two cannot drift.
 
@@ -28,25 +28,15 @@ Examples
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from pyflightstream._errors import InputValueError
 
-__all__ = [
-    "DEVIATION_PROFILES",
-    "ComponentRecord",
-    "deviation_limit_mm",
-    "export_schema",
-    "schema_digest",
-    "sha256_file",
-    "verify_pins",
-]
+__all__ = ["DEVIATION_PROFILES", "ComponentRecord"]
 
 #: Named deviation limits. The limit is a profile, not a universal acceptance
 #: threshold: a record names the profile it was measured against, and the
@@ -213,17 +203,6 @@ class Deviation(_Strict):
     evidence: FileRef
 
 
-def deviation_limit_mm(local_size_mm: float, profile: str = "study_default") -> float:
-    """Return the allowed deviation for a local chord or diameter under a named profile."""
-    try:
-        constants = DEVIATION_PROFILES[profile]
-    except KeyError:
-        raise InputValueError(
-            f"deviation profile {profile!r}: unknown; available: {sorted(DEVIATION_PROFILES)}"
-        ) from None
-    return max(constants["floor_mm"], constants["local_fraction"] * local_size_mm)
-
-
 class ComponentRecord(_Strict):
     """The parameter record of one component (schema 0.2.0 of the contract).
 
@@ -231,7 +210,7 @@ class ComponentRecord(_Strict):
     lifting components; ``te_base`` is explicit for lifting components and null
     for the others. Structural rules are enforced on construction. Checks that
     need the referenced files (that an entity exists, has the declared type and
-    that splits lie on their curves) are not made here: :func:`verify_pins`
+    that splits lie on their curves) are not made here: the pin check
     covers the pins and the geometric checks belong to the check stage.
     """
 
@@ -266,7 +245,7 @@ class ComponentRecord(_Strict):
         self._construction_problems(problems)
         self._deviation_problems(problems)
         if problems:
-            raise ValueError("; ".join(problems))
+            raise InputValueError("; ".join(problems))
         return self
 
     def _station_problems(self, problems: list[str], lifting: bool) -> None:
@@ -429,45 +408,3 @@ class ComponentRecord(_Strict):
             return cls.model_validate_json(text)
         except ValidationError as error:
             raise InputValueError(f"component record: {error}") from error
-
-
-def sha256_file(path: str | Path) -> str:
-    """Return the SHA-256 of the exact bytes of a file as lowercase hex."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:
-    """Check every referenced file against its pin; return one message per failure.
-
-    Paths resolve against ``asset_root``. An empty list means every referenced
-    file exists with matching bytes. A path that escapes the root is a failure.
-    """
-    root = Path(asset_root).resolve()
-    problems: list[str] = []
-    for reference in record.referenced_files():
-        target = (root / reference.path).resolve()
-        if root != target and root not in target.parents:
-            problems.append(f"{reference.path}: outside the asset root")
-        elif not target.is_file():
-            problems.append(f"{reference.path}: missing")
-        elif sha256_file(target) != reference.sha256:
-            problems.append(f"{reference.path}: SHA-256 differs from the pin")
-    return problems
-
-
-def export_schema() -> dict:
-    """Return the draft 2020-12 JSON Schema of :class:`ComponentRecord`."""
-    schema = ComponentRecord.model_json_schema()
-    schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["title"] = "Shared geometry component"
-    return schema
-
-
-def schema_digest() -> str:
-    """Return the SHA-256 of the exported schema in its canonical JSON form."""
-    text = json.dumps(export_schema(), sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()

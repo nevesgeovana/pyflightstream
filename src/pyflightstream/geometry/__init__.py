@@ -6,10 +6,10 @@ patches, with no geometry kernel, no solver and no import from the run, post
 or workspace layers. Stages that need a kernel (IGES writing, meshing) live in
 the workspace and import the types defined here.
 
-The public names are :class:`ComponentRecord` (the parameter contract),
-:class:`Patch` (the exchange type between stages), and
-:func:`load_config`, :func:`resolve_config` and :func:`write_config`
-(the TOML input boundary).
+The public names are :class:`ComponentRecord` (the parameter contract) and
+:func:`load_config` and :func:`resolve_config` (the TOML input boundary).
+The sections, distributions, lifting surfaces, caps and B-spline patches
+behind them are private modules of this package.
 
 Examples
 --------
@@ -20,7 +20,6 @@ Examples
 """
 
 from pyflightstream.geometry.component import ComponentRecord
-from pyflightstream.geometry.config import load_config, resolve_config, write_config
-from pyflightstream.geometry.patch import Patch
+from pyflightstream.geometry.config import load_config, resolve_config
 
-__all__ = ["ComponentRecord", "Patch", "load_config", "resolve_config", "write_config"]
+__all__ = ["ComponentRecord", "load_config", "resolve_config"]

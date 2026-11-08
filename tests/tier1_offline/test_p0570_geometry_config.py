@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry import load_config, resolve_config, write_config
-from pyflightstream.geometry.config import unpack
+from pyflightstream.geometry import load_config, resolve_config
+from pyflightstream.geometry._boundary import unpack, write_config
 
 FIXTURE = Path(__file__).parent / "fixtures" / "p0570_geometry_config.toml"
 

@@ -534,7 +534,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The parameter record of one component (schema 0.2.0 of the contract).\n\n``symmetry`` is required for body and revolution components and absent for\nlifting components; ``te_base`` is explicit for lifting components and null\nfor the others. Structural rules are enforced on construction. Checks that\nneed the referenced files (that an entity exists, has the declared type and\nthat splits lie on their curves) are not made here: :func:`verify_pins`\ncovers the pins and the geometric checks belong to the check stage.",
+  "description": "The parameter record of one component (schema 0.2.0 of the contract).\n\n``symmetry`` is required for body and revolution components and absent for\nlifting components; ``te_base`` is explicit for lifting components and null\nfor the others. Structural rules are enforced on construction. Checks that\nneed the referenced files (that an entity exists, has the declared type and\nthat splits lie on their curves) are not made here: the pin check\ncovers the pins and the geometric checks belong to the check stage.",
   "properties": {
     "break_stations": {
       "items": {

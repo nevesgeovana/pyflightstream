@@ -12,14 +12,23 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import minimize_scalar
 
-from .airfoils import cst_airfoil, naca_to_cst
-from .distributions import (
+from ._airfoils import cst_airfoil, naca_to_cst
+from ._distributions import (
     blended_section,
     chord_spacing,
     elevate_coefficients,
     planform_values,
 )
-from .patch import Patch, interpolate_patch, patch_layout
+from ._patch import Patch, interpolate_patch, patch_layout
+
+__all__ = [
+    "lifting_patch_grid",
+    "lifting_surface",
+    "planform_metrics",
+    "section_models",
+    "section_points",
+    "thickness_station",
+]
 
 
 def section_models(sections):

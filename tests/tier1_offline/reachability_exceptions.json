@@ -429,6 +429,18 @@
     "pyflightstream.farfield.trefftz.WakeTrace",
     "pyflightstream.farfield.trefftz.wake_crossings"
    ]
+  },
+  {
+   "id": "RX-42",
+   "capability": "Geometry component record and TOML configuration boundary of 0.57.0 item 3 (lane L1), routed by the item 3 geometry CLI verbs of lane L3",
+   "reason": "routed later",
+   "node": "PFS-2211.01",
+   "release": "0.57.0",
+   "names": [
+    "pyflightstream.geometry.ComponentRecord",
+    "pyflightstream.geometry.load_config",
+    "pyflightstream.geometry.resolve_config"
+   ]
   }
  ]
 }
