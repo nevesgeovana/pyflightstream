@@ -103,6 +103,7 @@ _LAYER_STACK: tuple[tuple[tuple[str, ...], str], ...] = _CORE_LAYERS + _BASE_LAY
 _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ("fsi", "structural executable of the aeroelastic coupling loop"),
     ("probes, farfield", "probe lattices and far-field conservation ledgers"),
+    ("geometry", "parametric component records, configuration and lifting-surface patches"),
     ("reference, overview", "presentation: command reference and this page"),
     (
         "utils",
@@ -141,6 +142,7 @@ _SECTIONS: tuple[str, ...] = (
     "fsi",
     "probes",
     "farfield",
+    "geometry",
     "reference",
     "overview",
     "options",

@@ -258,6 +258,78 @@
    "statements": 61,
    "positional": 2
   },
+  "geometry/airfoils.py:cst_airfoil": {
+   "branches": 3,
+   "complexity": 4,
+   "positional": 6,
+   "statements": 12
+  },
+  "geometry/caps.py:fillet_contact": {
+   "branches": 0,
+   "complexity": 4,
+   "positional": 7,
+   "statements": 5
+  },
+  "geometry/caps.py:junction_normal": {
+   "branches": 1,
+   "complexity": 2,
+   "positional": 6,
+   "statements": 6
+  },
+  "geometry/caps.py:ridge_cross": {
+   "branches": 1,
+   "complexity": 2,
+   "positional": 6,
+   "statements": 8
+  },
+  "geometry/caps.py:wing_contour_normal": {
+   "branches": 0,
+   "complexity": 2,
+   "positional": 6,
+   "statements": 5
+  },
+  "geometry/caps.py:wing_contour_point": {
+   "branches": 0,
+   "complexity": 1,
+   "positional": 6,
+   "statements": 6
+  },
+  "geometry/component.py:ComponentRecord._construction_problems": {
+   "branches": 12,
+   "complexity": 13,
+   "positional": 1,
+   "statements": 25
+  },
+  "geometry/component.py:ComponentRecord._station_problems": {
+   "branches": 12,
+   "complexity": 12,
+   "positional": 2,
+   "statements": 23
+  },
+  "geometry/config.py:resolve_body": {
+   "branches": 11,
+   "complexity": 11,
+   "positional": 2,
+   "statements": 23
+  },
+  "geometry/config.py:resolve_config": {
+   "branches": 13,
+   "complexity": 14,
+   "positional": 1,
+   "statements": 33
+  },
+  "geometry/config.py:resolve_lifting": {
+   "branches": 14,
+   "complexity": 15,
+   "positional": 2,
+   "statements": 33
+  },
+  "geometry/config.py:validate_relationships": {
+   "branches": 10,
+   "complexity": 11,
+   "positional": 2,
+   "statements": 15
+  },
   "post/_additional.py:_additional_products": {
    "complexity": 16,
    "branches": 15,
@@ -702,6 +774,12 @@
    "statements": 16,
    "positional": 6
   },
+  "run/_rebuild.py:mint_record": {
+   "complexity": 7,
+   "branches": 6,
+   "statements": 43,
+   "positional": 8
+  },
   "run/_rebuild.py:rebuild": {
    "complexity": 18,
    "branches": 18,
@@ -947,12 +1025,6 @@
    "branches": 10,
    "statements": 32,
    "positional": 1
-  },
-  "run/_rebuild.py:mint_record": {
-   "complexity": 7,
-   "branches": 6,
-   "statements": 43,
-   "positional": 8
   }
  },
  "baseline_sccs": [
