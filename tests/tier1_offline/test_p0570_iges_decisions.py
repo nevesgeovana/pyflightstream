@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import signal
+
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
@@ -152,11 +155,16 @@ def test_p0570_generated_paths_are_role_qualified_and_case_safe(tmp_path):
 # ----------------------------------------------- R1-IGES-008: the kernel runs in a worker
 
 
-def worker_crash(code=-1073741819):
-    """Stand in for a native kernel fault: the process ends at once, with no Python unwinding."""
-    import os
+#: How the parent names the simulated fault: the access-violation status on Windows, the
+#: segmentation signal elsewhere (a POSIX exit status keeps only the low byte of a code).
+_FAULT_TEXT = "0xc0000005" if os.name == "nt" else "signal 11"
 
-    os._exit(code)
+
+def worker_crash():
+    """Stand in for a native kernel fault: the process ends at once, with no Python unwinding."""
+    if os.name == "nt":
+        os._exit(-1073741819)  # STATUS_ACCESS_VIOLATION, 0xC0000005
+    os.kill(os.getpid(), signal.SIGSEGV)
 
 
 def worker_ok(value=1):
@@ -188,7 +196,7 @@ def test_p0570_a_kernel_fault_ends_the_worker_and_reports_its_cause_then_a_fresh
     with pytest.raises(InputArtifactError) as raised:
         run_isolated(f"{_HERE}:worker_crash", {}, worker_crash)
     text = str(raised.value)
-    assert "0xc0000005" in text.lower()
+    assert _FAULT_TEXT in text.lower()
     assert "Nothing was written" in text
     assert "not reused" in text
     with pytest.warns(PyflightstreamWarning, match="careful"):
