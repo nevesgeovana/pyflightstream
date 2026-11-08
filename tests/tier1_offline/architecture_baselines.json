@@ -1152,6 +1152,7 @@
   "pyflightstream.workspace._geometry_build": 2,
   "pyflightstream.workspace._geometry_vtk": 1,
   "pyflightstream.workspace._iges_mesh": 1,
+  "pyflightstream.workspace._iges_skin": 1,
   "pyflightstream.workspace._links": 1,
   "pyflightstream.workspace._mark_boundaries": 2,
   "pyflightstream.workspace._mark_rims": 3,

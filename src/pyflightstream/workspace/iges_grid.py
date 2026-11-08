@@ -43,6 +43,7 @@ from pyflightstream.workspace._iges_names import (
     DEFAULT_NAME_ENCODING,
     named_curves,
     read_iges_names,
+    require_name_encoding,
 )
 from pyflightstream.workspace._iges_skin import outer_skin
 from pyflightstream.workspace._refine._obj import ObjMesh, midpoints, obj_text, write_te
@@ -432,6 +433,7 @@ def grid_iges(
         a worker process of its own, so a native fault ends only that worker and is reported
         with its cause); nothing was written.
     """
+    require_name_encoding(name_encoding)
     target = Path(out)
     if target.suffix.lower() != ".obj":
         raise InputValueError(f"grid: {target} must be an .obj file. Nothing was written.")
