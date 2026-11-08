@@ -303,3 +303,54 @@ def test_p0570_the_python_entry_points_refuse_an_unknown_encoding_by_name(tmp_pa
         grid_iges([], tmp_path / "g.toml", tmp_path / "m.obj", name_encoding="no-such-codec")
     with pytest.raises(InputValueError, match="no-such-codec"):
         convert_iges([], tmp_path / "c.igs", name_encoding="no-such-codec")
+
+
+class _ReachedError(Exception):
+    """Raised by the patched ``oriented`` once it has seen its argument."""
+
+
+def _crossing_skin_mirror(monkeypatch, run):
+    """Run ``run`` on three faces sharing an edge; return what ``oriented`` got."""
+    import numpy as np
+
+    from pyflightstream.workspace import _iges_skin
+
+    seen: list[int | None] = []
+
+    def oriented(self, mirror):
+        seen.append(mirror)
+        raise _ReachedError
+
+    monkeypatch.setattr(_iges_skin._Assembly, "oriented", oriented)
+    verts = np.array([[0.0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, -1, 0]])
+    families = {"a": [[0, 1, 2]], "b": [[0, 1, 3]], "c": [[0, 1, 4]]}
+    with pytest.raises(_ReachedError):
+        run(verts, families)
+    return seen
+
+
+@pytest.mark.requirement("FR-3705")
+@pytest.mark.parametrize(("plane", "axis"), [("x", 0), ("y", 1), ("z", 2), ("none", None)])
+def test_p0570_the_skin_mirrors_across_the_axis_its_plane_names(monkeypatch, plane, axis):
+    """RL57B-3: each stated plane reaches the assembly as its own axis (x=0, y=1, z=2)."""
+    from pyflightstream.workspace._iges_skin import outer_skin
+
+    seen = _crossing_skin_mirror(monkeypatch, lambda v, f: outer_skin(v, f, symmetry=plane))
+    assert seen == [axis]
+
+
+@pytest.mark.requirement("FR-3705")
+@pytest.mark.parametrize(("plane", "axis"), [("x", 0), ("y", 1), ("z", 2), ("none", None)])
+def test_p0570_the_grid_hands_its_configured_symmetry_to_the_skin(monkeypatch, plane, axis):
+    """RL57B-3: ``_inner`` passes ``config.symmetry`` on; a dropped argument mirrors nothing."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace.iges_grid import _inner
+
+    config = SimpleNamespace(remove_inner_faces=True, symmetry=plane)
+
+    def run(verts, families):
+        meshed = SimpleNamespace(nodes=verts, faces=families, record={})
+        _inner(config, meshed, list(families), [])
+
+    assert _crossing_skin_mirror(monkeypatch, run) == [axis]
