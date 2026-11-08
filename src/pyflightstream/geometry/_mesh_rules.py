@@ -147,6 +147,15 @@ def tip_refinement(cells, refined_cells=4, ratio=1.3):
     return result
 
 
+def _free_counts(members, fixed, target):
+    """Return the rounded mean-length cell count of every class not already fixed."""
+    return {
+        r: max(1, int(round(float(np.mean(values)) / target)))
+        for r, values in members.items()
+        if r not in fixed
+    }
+
+
 def count_classes(loops, seeds, default_cells=4, lengths=None, target=None):
     """Solve the opposite-edge cell-count equalities; refuse contradictory fixed counts.
 
@@ -178,9 +187,7 @@ def count_classes(loops, seeds, default_cells=4, lengths=None, target=None):
         members = {}
         for edge in parent:
             members.setdefault(root(edge), []).append(lengths[edge])
-        for r, values in members.items():
-            if r not in fixed:
-                fixed[r] = max(1, int(round(float(np.mean(values)) / target)))
+        fixed.update(_free_counts(members, fixed, target))
     return {edge: fixed.get(root(edge), default_cells) for edge in parent}
 
 
@@ -228,7 +235,7 @@ def chord_fraction(component, points):
     return dx / chord + 0.25
 
 
-def _spanwise(points, controls, half):
+def spanwise(points, controls, half):
     y = points[np.argsort(points[:, 1]), 1]
     widths = np.diff(y)
     if len(widths) < 2:
@@ -254,7 +261,7 @@ def _spanwise(points, controls, half):
     }
 
 
-def _chordwise(component, points, controls):
+def chordwise(component, points, controls):
     x = np.sort(chord_fraction(component, points))
     widths = np.diff(x)
     if len(widths) < 2:
@@ -281,7 +288,7 @@ def _constant_spread(widths):
     return float(np.max(np.abs(widths - mean)) / mean), mean
 
 
-def _body_edge(points, kind, x_step, azimuth_step_deg):
+def body_edge(points, kind, x_step, azimuth_step_deg):
     if kind == "azimuth":
         angle = np.degrees(np.unwrap(np.arctan2(points[:, 2], points[:, 1])))
         spread, mean = _constant_spread(np.abs(np.diff(angle)))
@@ -317,9 +324,9 @@ def check_lifting(component, controls, items, polylines):
             for edge in edges:
                 points = polylines[abs(edge)]
                 if role == "span":
-                    ok, detail = _spanwise(points, controls, half)
+                    ok, detail = spanwise(points, controls, half)
                 else:
-                    ok, detail = _chordwise(component, points, controls)
+                    ok, detail = chordwise(component, points, controls)
                 row = {
                     "surface": item["surface"],
                     "family": item["family"],
@@ -343,7 +350,7 @@ def check_body(component, controls, items, polylines):
         banded = item["axial"]
         for edge in item["u"] + item["v"]:
             kind = ("azimuth" if edge in item["u"] else "axial") if banded else "pole"
-            ok, detail = _body_edge(polylines[abs(edge)], kind, x_step, az_step)
+            ok, detail = body_edge(polylines[abs(edge)], kind, x_step, az_step)
             row = {
                 "surface": item["surface"],
                 "family": item["family"],

@@ -109,7 +109,7 @@ def _propagate_winding(mesh):
     return signs, islands
 
 
-def _island_score(mesh, cells, vectors, island, sense, axis_origin, direction, reference):
+def _island_score(mesh, cells, vectors, island, sense, *, axis_origin, direction, reference):
     if sense == "body":
         centers = np.array([mesh.xyz[list(cells[i])].mean(axis=0) for i in island])
         radial = centers - np.asarray(axis_origin)
@@ -152,7 +152,14 @@ def orient_mesh(
     scores = []
     for island in islands:
         score = _island_score(
-            mesh, cells, vectors, island, sense, axis_origin, direction, reference
+            mesh,
+            cells,
+            vectors,
+            island,
+            sense,
+            axis_origin=axis_origin,
+            direction=direction,
+            reference=reference,
         )
         if abs(score) <= 1e-14:
             raise InputValueError("mesh: physical outward sense is indeterminate")
@@ -212,6 +219,7 @@ def check_mesh(
     distances,
     transition_surfaces=(),
     symmetry_tolerance=1e-7,
+    *,
     distance_tolerance=5e-4,
     area_tolerance=1e-14,
 ):
@@ -293,7 +301,7 @@ def _quality(p):
     return float(np.linalg.norm(np.cross(p[1] - p[0], p[2] - p[0])) / np.max(edges) ** 2)
 
 
-def _flip_candidate(mesh, cells, surfaces, edge_cells, i, threshold):
+def _flip_candidate(mesh, cells, surfaces, edge_cells, i, *, threshold):
     c = cells[i]
     if len(c) != 3 or _quality(mesh.xyz[list(c)]) >= threshold:
         return None
@@ -331,7 +339,7 @@ def flip_slivers(mesh, threshold=0.15, passes=400):
                 edge_cells[tuple(sorted((a, b)))].append(i)
         changed = False
         for i in range(len(cells)):
-            found = _flip_candidate(mesh, cells, surfaces, edge_cells, i, threshold)
+            found = _flip_candidate(mesh, cells, surfaces, edge_cells, i, threshold=threshold)
             if found is not None:
                 cells[i], cells[found[0]] = found[1]
                 changed = True

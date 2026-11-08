@@ -134,16 +134,16 @@ def span_stations(count, tip_cells=6, ratio=1.3, half=10.0):
 
 
 def test_spanwise_rule_accepts_the_law_and_refuses_growth():
-    ok, detail = mesh_rules._spanwise(span_stations(32), CONTROLS, 10.0)
+    ok, detail = mesh_rules.spanwise(span_stations(32), CONTROLS, 10.0)
     assert ok and detail["shrinking_steps"] == 6 and detail["reaches_tip"]
     squared = np.stack([np.zeros(33), 10 * np.linspace(0, 1, 33) ** 2, np.zeros(33)], axis=1)
-    assert not mesh_rules._spanwise(squared, CONTROLS, 10.0)[0]
+    assert not mesh_rules.spanwise(squared, CONTROLS, 10.0)[0]
 
 
 def test_spanwise_rule_refuses_a_missing_tip_refinement():
     y = np.linspace(0, 10, 20)
     points = np.stack([np.zeros_like(y), y, np.zeros_like(y)], axis=1)
-    assert not mesh_rules._spanwise(points, CONTROLS, 10.0)[0]
+    assert not mesh_rules.spanwise(points, CONTROLS, 10.0)[0]
 
 
 def wing_component():
@@ -182,23 +182,23 @@ def test_chord_fraction_inverts_the_chord_station_of_a_point():
 def test_chordwise_rule_accepts_growth_then_plateau_and_refuses_reversal():
     component = wing_component()
     law = geometric_cap(40, 1.15, growth_until=0.5)
-    ok, detail = mesh_rules._chordwise(component, chord_points(component, law), CONTROLS)
+    ok, detail = mesh_rules.chordwise(component, chord_points(component, law), CONTROLS)
     assert ok and detail["growth_steps"] > 0
-    assert not mesh_rules._chordwise(component, chord_points(component, 1 - law[::-1]), CONTROLS)[0]
+    assert not mesh_rules.chordwise(component, chord_points(component, 1 - law[::-1]), CONTROLS)[0]
     uniform = chord_points(component, np.linspace(0, 1, 41))
-    assert mesh_rules._chordwise(component, uniform, CONTROLS)[0]
+    assert mesh_rules.chordwise(component, uniform, CONTROLS)[0]
 
 
 def test_body_rules():
     angle = np.deg2rad(np.linspace(0, 30, 5))
     arc = np.stack([np.zeros(5), 1.2 * np.cos(angle), 1.2 * np.sin(angle)], axis=1)
-    assert mesh_rules._body_edge(arc, "azimuth", 0.25, 7.5)[0]
+    assert mesh_rules.body_edge(arc, "azimuth", 0.25, 7.5)[0]
     skew = angle**1.3
     skewed = np.stack([np.zeros(5), 1.2 * np.cos(skew), 1.2 * np.sin(skew)], axis=1)
-    assert not mesh_rules._body_edge(skewed, "azimuth", 0.25, 7.5)[0]
+    assert not mesh_rules.body_edge(skewed, "azimuth", 0.25, 7.5)[0]
     line = np.stack([np.linspace(0, 1, 5), np.zeros(5), np.ones(5)], axis=1)
-    assert mesh_rules._body_edge(line, "axial", 0.25, 7.5)[0]
-    assert not mesh_rules._body_edge(line, "axial", 0.5, 7.5)[0]
+    assert mesh_rules.body_edge(line, "axial", 0.25, 7.5)[0]
+    assert not mesh_rules.body_edge(line, "axial", 0.5, 7.5)[0]
 
 
 def test_check_lifting_skips_trailing_strips_and_reports_failing_edges():

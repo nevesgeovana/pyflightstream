@@ -371,7 +371,7 @@ def _cut_stations(ring, te, le, arc_a, cut_shift):
     return [ring[te] + s * direction for s in station]
 
 
-def _build_cap_halves(gmsh: Any, ring, te, le, arcs, cut):
+def _build_cap_halves(gmsh: Any, ring, te, le, arcs, *, cut):
     g = gmsh.model.geo
 
     def size(a, b, c):
@@ -457,7 +457,7 @@ def _mesh_cap_once(mesh, loop, component, cut_shift=0, algorithms=None):
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
     gmsh.model.add("cap")
     try:
-        points = _build_cap_halves(gmsh, ring, te, le, (arc_a, arc_b), cut)
+        points = _build_cap_halves(gmsh, ring, te, le, (arc_a, arc_b), cut=cut)
         _generate_quads(gmsh, algorithms or ALGORITHMS, len(ring), len(cut))
         tags, coords, _ = gmsh.model.mesh.getNodes()
         coords = np.asarray(coords).reshape(-1, 3)

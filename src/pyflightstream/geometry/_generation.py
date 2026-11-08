@@ -94,7 +94,7 @@ def junction_lifting_surface(wing, host, fairing) -> list[Patch]:
     patches = []
     for index, family in enumerate(families):
         contacts = [
-            wing_junction(fairing, host, table, wing, models, root_max, index, u)
+            wing_junction(fairing, host, table, wing, models, maximum=root_max, index=index, u=u)
             for u in np.linspace(0, 1, 49)
         ]
         for bay in ("inner", "outer", "outboard"):

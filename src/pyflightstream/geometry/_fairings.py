@@ -49,7 +49,7 @@ def host_point_normal(body, table, x, theta):
     return point, normal / np.linalg.norm(normal)
 
 
-def footprint(fairing, body, table, root_planform, section, maximum, index, u):
+def footprint(fairing, body, table, root_planform, section, *, maximum, index, u):
     """Return the body point and normal where contour parameter ``u`` of a segment lands."""
     q = contour_segment(section, maximum, index, np.asarray(u))
     upper, lower = (
@@ -70,7 +70,7 @@ def footprint(fairing, body, table, root_planform, section, maximum, index, u):
     return host_point_normal(body, table, float(x), float(theta))
 
 
-def wing_junction(fairing, body, table, wing, models, maximum, index, u):
+def wing_junction(fairing, body, table, wing, models, *, maximum, index, u):
     """Return the wing point, normal and fairing width where the fairing leaves the wing."""
     section = blended_section(wing["sections"], models, 0.0)
     x = contour_segment(section, maximum, index, np.asarray(u))[0]
@@ -96,7 +96,7 @@ def tangent_direction(vector, normal):
     return projected / length
 
 
-def blend_curve(start, end, n_start, n_end, ridge, r_start, r_end, at, end_tangent=None):
+def blend_curve(start, end, n_start, n_end, ridge, *, r_start, r_end, at, end_tangent=None):
     """Quintic endpoint jets plus a sixth-degree ridge correction.
 
     The correction and its first two derivatives vanish at both hosts, so
@@ -136,8 +136,12 @@ def wing_fuselage_fairing(fairing, body, wing) -> list[Patch]:
         for low, high in [(0.0, 0.5), (0.5, 1.0)]:
             grid = []
             for u in np.linspace(0, 1, 49):
-                p, np_ = footprint(fairing, body, table, root_planform, section, maximum, index, u)
-                q, nq, width = wing_junction(fairing, body, table, wing, models, maximum, index, u)
+                p, np_ = footprint(
+                    fairing, body, table, root_planform, section, maximum=maximum, index=index, u=u
+                )
+                q, nq, width = wing_junction(
+                    fairing, body, table, wing, models, maximum=maximum, index=index, u=u
+                )
                 eta = 2 * q[1] / wing["planform"]["span"]
                 tangent = wing_contour_point(
                     wing, models, maximum, index, u, min(1.0, eta + 1e-5)
@@ -151,10 +155,10 @@ def wing_fuselage_fairing(fairing, body, wing) -> list[Patch]:
                         np_,
                         nq,
                         ridge,
-                        fairing["body_blend_radius"],
-                        fairing["wing_blend_radius"],
-                        np.linspace(low, high, 7),
-                        tangent,
+                        r_start=fairing["body_blend_radius"],
+                        r_end=fairing["wing_blend_radius"],
+                        at=np.linspace(low, high, 7),
+                        end_tangent=tangent,
                     )
                 )
             family = "fairing_body" if low == 0 else "fairing_wing"

@@ -288,7 +288,7 @@ def statistics(points, distance, limits, profile="study_default"):
     }
 
 
-def _region_results(limits, profile, old, new, forward, reverse, interior):
+def _region_results(limits, profile, old, new, forward, *, reverse, interior):
     regions = {}
     for label, mask in (limits.get("regions") or {}).items():
         fm, rm = np.asarray(mask(old), bool), np.asarray(mask(new[interior]), bool)
@@ -351,7 +351,9 @@ def check_against_original(
         r = statistics(new[interior], reverse[interior], limits, profile)
         return {
             "accepted": bool(f["sampled_pass"] and r["sampled_pass"]),
-            "regions": _region_results(limits, profile, old, new, forward, reverse, interior),
+            "regions": _region_results(
+                limits, profile, old, new, forward, reverse=reverse, interior=interior
+            ),
             "forward": f,
             "restricted_reverse": r,
             "unrestricted_reverse": statistics(new, reverse, limits, profile),

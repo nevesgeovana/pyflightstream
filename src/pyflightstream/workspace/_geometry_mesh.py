@@ -124,7 +124,7 @@ def _seed_bay(component, controls, roles, e, seeds):
             insert_seed(seeds, edge, x)
 
 
-def _seed_outboard(model, component, controls, roles, e, seeds, span_count):
+def _seed_outboard(model, component, controls, roles, e, *, seeds, span_count):
     # Outboard of the transition ring: constant spanwise cells of the standalone width, finer at
     # the tip. The parameter directions of the junction patches differ between families, so the
     # spanwise pair is found from the geometry and each law along its own walking direction.
@@ -164,7 +164,7 @@ def _seed_outboard(model, component, controls, roles, e, seeds, span_count):
         insert_seed(seeds, w, x if xb > xa else 1 - x[::-1])
 
 
-def _seed_body_band(component, controls, roles, e, seeds, strict):
+def _seed_body_band(component, controls, roles, e, seeds, *, strict):
     a, b = roles["axial"]
     count = max(1, int(round((b - a) * controls["x_cells"])))
     if strict and abs(count / controls["x_cells"] - (b - a)) > 1e-10:
@@ -181,14 +181,14 @@ def _seed_body_band(component, controls, roles, e, seeds, strict):
     insert_seed(seeds, -e[3], axial)
 
 
-def seed_patch(model, component, controls, roles, e, seeds, strict=True, span_count=None):
+def seed_patch(model, component, controls, roles, e, *, seeds, strict=True, span_count=None):
     """Insert the physical spacing laws of one tensor patch into ``seeds`` (edge tag to nodes)."""
     if component["type"] == "lifting_surface" and "bay" in roles:
         _seed_bay(component, controls, roles, e, seeds)
     elif component["type"] == "lifting_surface" and roles.get("junction_bay") == "outboard":
-        _seed_outboard(model, component, controls, roles, e, seeds, span_count)
+        _seed_outboard(model, component, controls, roles, e, seeds=seeds, span_count=span_count)
     elif component["type"] == "body" and "axial" in roles:
-        _seed_body_band(component, controls, roles, e, seeds, strict)
+        _seed_body_band(component, controls, roles, e, seeds, strict=strict)
 
 
 def _edge_polylines(model, edges):
@@ -213,7 +213,7 @@ def _patch_items(patches, roles_by_surface):
     ]
 
 
-def _component_patches(model, component, source, controls, name, split_cap):
+def _component_patches(model, component, source, controls, name, *, split_cap):
     surfaces = [add_occ_patch(model.occ, p) for p in source]
     model.occ.synchronize()
     model.occ.removeAllDuplicates()
@@ -232,7 +232,7 @@ def _component_patches(model, component, source, controls, name, split_cap):
     loops = {s: uv_edges(model, s) for _, s in entries}
     seeds: dict[int, np.ndarray] = {}
     for roles, surface in entries:
-        seed_patch(model, component, controls, roles, loops[surface], seeds)
+        seed_patch(model, component, controls, roles, loops[surface], seeds=seeds)
     if component["type"] == "body":
         lengths = {abs(e): model.occ.getMass(1, abs(e)) for loop in loops.values() for e in loop}
         counts = count_classes(loops, seeds, 4, lengths, component["length"] / controls["x_cells"])
@@ -257,7 +257,9 @@ def _mesh_component(gmsh, name, component, controls, source):
     model = gmsh.model
     model.add(name)
     lifting = component["type"] == "lifting_surface"
-    patches, entries, cap = _component_patches(model, component, source, controls, name, lifting)
+    patches, entries, cap = _component_patches(
+        model, component, source, controls, name, split_cap=lifting
+    )
     rim = rim_edges(model, cap) if cap else []
     if cap:
         model.removeEntities([(2, s) for s in cap])
@@ -381,7 +383,7 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
             controls["body" if is_body else "lifting_surface"],
             roles[s],
             loops[s],
-            seeds,
+            seeds=seeds,
             strict=False,
             span_count=span_count,
         )
@@ -423,7 +425,7 @@ def _wb_patches(model, state, nodes, loops, member_names):
     return patches
 
 
-def _wb_pass(model, state, controls, patches, rim, member_names):
+def _wb_pass(model, state, controls, patches, rim, *, member_names):
     """Mesh once, cap, orient, measure and repair; return mesh, record, orientation, repairs."""
     rings = state["rings"]
     mesh = smooth_faces(model, mesh_patches(model, patches), rings)
@@ -461,7 +463,7 @@ def _wb_spacing_rules(model, state, controls, patches, member_names):
     return body_rows + wing_rows, body_fail + wing_fail
 
 
-def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, ring_size_limits, ring_plan):
+def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, *, ring_size_limits, ring_plan):
     model = gmsh.model
     model.add("assembly")
     state = _wb_model(model, resolved, member_names)
@@ -482,7 +484,7 @@ def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, ring_size_limi
             model.mesh.setAlgorithm(2, s, plan[s][attempt[s]])
         model.mesh.clear()
         mesh, record, orientation, repairs = _wb_pass(
-            model, state, controls, patches, rim, member_names
+            model, state, controls, patches, rim, member_names=member_names
         )
         if not history:
             rows, failures = _wb_spacing_rules(model, state, controls, patches, member_names)
@@ -592,7 +594,9 @@ def mesh_generated(
             mesh, record = _mesh_component(gmsh, component, spec, values[spec["type"]], source)
         else:
             assert members is not None
-            mesh, record = _mesh_wb(gmsh, resolved, values, members, 0.15, (0.06, 0.3), None)
+            mesh, record = _mesh_wb(
+                gmsh, resolved, values, members, 0.15, ring_size_limits=(0.06, 0.3), ring_plan=None
+            )
     if obj is not None:
         write_obj(obj, mesh)
     return GeneratedMesh(mesh=mesh, record=record)
