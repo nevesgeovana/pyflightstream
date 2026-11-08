@@ -447,3 +447,25 @@ def test_p0570_mesh_controls_refuse_a_value_outside_its_domain(table, key, value
 def test_p0570_mesh_controls_refuse_a_table_that_is_not_a_table():
     with pytest.raises(InputValueError, match="controls.body"):
         load_mesh_controls({"body": 5})
+
+
+def _line(widths):
+    x = np.r_[0.0, np.cumsum(widths)]
+    return np.column_stack([x, np.zeros_like(x), np.zeros_like(x)])
+
+
+@pytest.mark.parametrize(
+    ("step", "accepted"), [(0.4, False), (0.5, True), (1.0, True), (3.0, True), (3.5, False)]
+)
+def test_p0570_a_pole_edge_step_must_stay_within_the_band_of_the_x_step(step, accepted):
+    ok, detail = mesh_rules.body_edge(_line([step] * 6), "pole", 1.0, 15.0)
+    assert ok is accepted
+    assert detail["step_over_x_step"] == pytest.approx(step)
+
+
+def test_p0570_a_pole_edge_refuses_a_cell_width_spread_beyond_the_limit():
+    mean = 1.0
+    uneven = [mean * 0.6, mean * 1.4, mean * 0.6, mean * 1.4]
+    assert mesh_rules.body_edge(_line(uneven), "pole", 1.0, 15.0)[0] is False
+    nearly = [mean * 0.9, mean * 1.1, mean * 0.9, mean * 1.1]
+    assert mesh_rules.body_edge(_line(nearly), "pole", 1.0, 15.0)[0] is True
