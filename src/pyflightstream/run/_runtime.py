@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases._runtime_settings import RuntimeSettings
+from pyflightstream.cases.settings import RuntimeSettings
 
 
 def resolve_runtime(settings: RuntimeSettings, topology: dict[str, Any]) -> dict[str, Any]:
