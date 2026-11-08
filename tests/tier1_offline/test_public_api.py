@@ -116,6 +116,8 @@ PUBLIC_MODULES = [
     "pyflightstream.geometry.fairings",
     "pyflightstream.geometry.generation",
     "pyflightstream.geometry.lifting",
+    "pyflightstream.geometry.mesh_rules",
+    "pyflightstream.geometry.mesh_topology",
     "pyflightstream.geometry.patch",
     "pyflightstream.geometry.placement",
     "pyflightstream.geometry.regions",

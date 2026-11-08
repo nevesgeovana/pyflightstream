@@ -72,6 +72,8 @@ MATURITY = {
     "pyflightstream.geometry.fairings": "provisional",
     "pyflightstream.geometry.generation": "provisional",
     "pyflightstream.geometry.lifting": "provisional",
+    "pyflightstream.geometry.mesh_rules": "provisional",
+    "pyflightstream.geometry.mesh_topology": "provisional",
     "pyflightstream.geometry.patch": "provisional",
     "pyflightstream.geometry.placement": "provisional",
     "pyflightstream.geometry.regions": "provisional",

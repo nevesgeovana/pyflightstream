@@ -185,6 +185,7 @@
       "tests/tier1_offline/test_p0570_geometry_bodies.py",
       "tests/tier1_offline/test_p0570_geometry_check.py",
       "tests/tier1_offline/test_p0570_geometry_generate.py",
+      "tests/tier1_offline/test_p0570_geometry_mesh_rules.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
       "tests/tier1_offline/test_reference_vocabulary.py",

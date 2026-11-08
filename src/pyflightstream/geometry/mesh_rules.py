@@ -1,0 +1,358 @@
+"""Spacing laws and the rules a patch mesh is measured against.
+
+Pipeline role: pure numerical stage of the geometry package, upstream of the
+mesher in the workspace. It holds the normalized node laws of an edge (constant,
+geometric growth to a plateau, constant with a refined tip), the seed laws that
+turn a patch's role into those laws, the solver of opposite-edge cell counts, and
+the rules measured on the realized edge nodes of a mesh: spanwise width constant
+except at the tip, chordwise width growing from the leading edge then constant,
+constant azimuth and axial step on a body band, bounded step on a pole patch.
+It imports no geometry kernel.
+"""
+
+from __future__ import annotations
+
+import tomllib
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from pyflightstream._errors import InputValueError
+
+from .distributions import planform_values
+from .lifting import section_models, thickness_station
+
+__all__ = [
+    "DEFAULT_CONTROLS",
+    "chord_fraction",
+    "chord_nodes",
+    "constant",
+    "count_classes",
+    "geometric_cap",
+    "insert_seed",
+    "load_mesh_controls",
+    "check_body",
+    "check_lifting",
+    "tip_refinement",
+]
+
+TOLERANCE = 0.01  # relative deviation allowed on a successive-width ratio
+AXIAL_TOLERANCE = 0.10  # relative deviation of a body x step from x_length/x_cells
+POLE_BAND = (0.5, 3.0)  # nose and rear pole-patch step relative to the x step
+POLE_SPREAD = 0.35  # largest relative spread of cell width along a pole-patch edge
+
+#: Mesh controls of the study this mesher was written for; a caller overrides any entry.
+DEFAULT_CONTROLS: dict[str, dict[str, float]] = {
+    "lifting_surface": {
+        "chord_cells": 40,
+        "chord_growth": 1.15,
+        "growth_until": 0.5,
+        "span_cells": 32,
+        "tip_cells": 6,
+        "tip_ratio": 1.3,
+        "thickness_cells": 1,
+    },
+    "body": {"x_cells": 80, "azimuth_cells": 24},
+    "checks": {"distance_tolerance_m": 0.0005, "symmetry_tolerance_m": 0.0000001},
+    "assembly": {"candidate_edge_cells": 6},
+}
+
+
+def load_mesh_controls(source: Any = None) -> dict[str, dict[str, float]]:
+    """Return the mesh controls: the defaults, overridden by a mapping or a TOML file."""
+    given: dict[str, Any] = {}
+    if isinstance(source, (str, Path)):
+        given = tomllib.loads(Path(source).read_text(encoding="utf-8"))
+    elif source is not None:
+        given = dict(source)
+    unknown = sorted(set(given) - set(DEFAULT_CONTROLS))
+    if unknown:
+        raise InputValueError(
+            f"controls: unknown table {unknown}; available {sorted(DEFAULT_CONTROLS)}"
+        )
+    result = {table: dict(values) for table, values in DEFAULT_CONTROLS.items()}
+    for table, values in given.items():
+        wrong = sorted(set(values) - set(DEFAULT_CONTROLS[table]))
+        if wrong:
+            raise InputValueError(
+                f"controls.{table}: unknown key {wrong}; "
+                f"available {sorted(DEFAULT_CONTROLS[table])}"
+            )
+        result[table].update(values)
+    return result
+
+
+def _count(cells) -> None:
+    if isinstance(cells, bool) or not isinstance(cells, (int, np.integer)) or cells < 1:
+        raise InputValueError("cells: must be a positive integer")
+
+
+def _nodes(widths):
+    result = np.r_[0.0, np.cumsum(widths / np.sum(widths))]
+    result[-1] = 1.0
+    return result
+
+
+def constant(cells):
+    """Return ``cells + 1`` equally spaced normalized nodes."""
+    _count(cells)
+    return np.linspace(0.0, 1.0, cells + 1)
+
+
+def geometric_cap(cells, ratio=1.15, cap_index=None, growth_until=0.5):
+    """Return nodes with geometric cell growth followed by a plateau.
+
+    ``cap_index`` is the first plateau cell (zero based). When omitted, the index whose plateau
+    starts nearest ``growth_until`` of the length is chosen. The count is exact; the split is
+    quantized by cells.
+    """
+    _count(cells)
+    if not np.isfinite(ratio) or ratio < 1 or not 0 < growth_until < 1:
+        raise InputValueError("ratio: must be finite and >= 1; growth_until must be in (0, 1)")
+
+    def widths(k):
+        # Subtract the maximum exponent to avoid overflow at large counts.
+        return np.exp((np.minimum(np.arange(cells), k) - k) * np.log(ratio))
+
+    if cap_index is None:
+        cap_index = min(range(cells), key=lambda k: abs(_nodes(widths(k))[k] - growth_until))
+    if (
+        isinstance(cap_index, bool)
+        or not isinstance(cap_index, (int, np.integer))
+        or not 0 <= cap_index < cells
+    ):
+        raise InputValueError("cap_index: must be an integer in [0, cells)")
+    result = _nodes(widths(cap_index))
+    if np.any(np.diff(result) <= 0):
+        raise InputValueError("spacing: exceeds floating point resolution")
+    return result
+
+
+def tip_refinement(cells, refined_cells=4, ratio=1.3):
+    """Return nodes of constant interior cells, then successive division by ``ratio`` at the tip."""
+    _count(cells)
+    if (
+        isinstance(refined_cells, bool)
+        or not isinstance(refined_cells, (int, np.integer))
+        or not 0 <= refined_cells < cells
+    ):
+        raise InputValueError("refined_cells: must be an integer in [0, cells)")
+    if not np.isfinite(ratio) or ratio < 1:
+        raise InputValueError("tip ratio: must be finite and >= 1")
+    exponents = np.maximum(0, np.arange(cells) - (cells - refined_cells - 1))
+    result = _nodes(np.exp(-exponents * np.log(ratio)))
+    if np.any(np.diff(result) <= 0):
+        raise InputValueError("spacing: exceeds floating point resolution")
+    return result
+
+
+def count_classes(loops, seeds, default_cells=4, lengths=None, target=None):
+    """Solve the opposite-edge cell-count equalities; refuse contradictory fixed counts.
+
+    ``loops`` maps a surface to its four signed edges, ``seeds`` maps an edge to its fixed
+    normalized nodes. With ``lengths`` and ``target`` the free classes take the rounded mean
+    length over ``target``; otherwise they take ``default_cells``.
+    """
+    parent = {abs(e): abs(e) for loop in loops.values() for e in loop}
+
+    def root(e):
+        while parent[e] != e:
+            parent[e] = parent[parent[e]]
+            e = parent[e]
+        return e
+
+    for loop in loops.values():
+        for i in (0, 1):
+            a, b = root(abs(loop[i])), root(abs(loop[i + 2]))
+            parent[b] = a
+    fixed = {}
+    for edge, nodes in seeds.items():
+        r, count = root(edge), len(nodes) - 1
+        if r in fixed and fixed[r] != count:
+            raise InputValueError(
+                f"edge {edge}: opposite-edge constraint conflict, {fixed[r]} versus {count} cells"
+            )
+        fixed[r] = count
+    if lengths is not None:
+        members = {}
+        for edge in parent:
+            members.setdefault(root(edge), []).append(lengths[edge])
+        for r, values in members.items():
+            if r not in fixed:
+                fixed[r] = max(1, int(round(float(np.mean(values)) / target)))
+    return {edge: fixed.get(root(edge), default_cells) for edge in parent}
+
+
+def insert_seed(seeds, signed_edge, nodes):
+    """Record the nodes of an edge walked in its own direction; refuse a different earlier seed."""
+    x = np.asarray(nodes) if signed_edge > 0 else 1 - np.asarray(nodes)[::-1]
+    tag = abs(signed_edge)
+    if tag in seeds and (
+        len(x) != len(seeds[tag]) or not np.allclose(x, seeds[tag], atol=2e-7, rtol=0)
+    ):
+        raise InputValueError(f"edge {tag}: shared edge has inconsistent source parameterizations")
+    seeds[tag] = x
+
+
+def chord_nodes(component, controls, family, eta):
+    """Return the chordwise nodes of a fore or aft skin patch at span fraction ``eta``, or None."""
+    if family.startswith("trailing"):
+        return None
+    mid = thickness_station(component, section_models(component["sections"]), eta)
+    global_x = geometric_cap(
+        controls["chord_cells"], controls["chord_growth"], growth_until=controls["growth_until"]
+    )
+    split = int(np.argmin(abs(global_x - mid)))
+    if family.endswith("fore"):
+        x = global_x[: split + 1] / global_x[split]
+        return np.sqrt(x)
+    x = (global_x[split:] - global_x[split]) / (1 - global_x[split])
+    return (np.sqrt(mid + (1 - mid) * x) - np.sqrt(mid)) / (1 - np.sqrt(mid))
+
+
+def _ratios(widths):
+    return widths[1:] / widths[:-1]
+
+
+def chord_fraction(component, points):
+    """Return the chord fraction of model-space points on a lifting surface."""
+    half = component["planform"]["span"] / 2
+    eta = np.clip(points[:, 1] / half, 0, 1)
+    values = planform_values(component, eta)
+    theta = np.deg2rad(values["twist"])
+    chord = values["chord"]
+    dx = (points[:, 0] - values["leading_edge_x"] - 0.25 * chord) * np.cos(theta) - (
+        points[:, 2] - values["leading_edge_z"]
+    ) * np.sin(theta)
+    return dx / chord + 0.25
+
+
+def _spanwise(points, controls, half):
+    y = points[np.argsort(points[:, 1]), 1]
+    widths = np.diff(y)
+    if len(widths) < 2:
+        return True, {"cells": len(widths)}
+    ratio = _ratios(widths)
+    shrink = 1 / controls["tip_ratio"]
+    flat = np.abs(ratio - 1) <= TOLERANCE
+    step = np.abs(ratio - shrink) <= TOLERANCE * shrink
+    ok = bool(np.all(flat | step))
+    first = int(np.argmax(step)) if step.any() else len(ratio)
+    ok = ok and bool(np.all(step[first:]))
+    tip = bool(abs(y[-1] - half) < 1e-6)
+    expected = min(controls["tip_cells"], len(ratio))
+    if tip and step.sum() != expected:
+        ok = False
+    return ok, {
+        "cells": len(widths),
+        "shrinking_steps": int(step.sum()),
+        "reaches_tip": tip,
+        "max_ratio_error": float(
+            np.max(np.minimum(np.abs(ratio - 1), np.abs(ratio - shrink) / shrink))
+        ),
+    }
+
+
+def _chordwise(component, points, controls):
+    x = np.sort(chord_fraction(component, points))
+    widths = np.diff(x)
+    if len(widths) < 2:
+        return True, {"cells": len(widths)}
+    ratio = _ratios(widths)
+    growth = controls["chord_growth"]
+    flat = np.abs(ratio - 1) <= TOLERANCE
+    step = np.abs(ratio - growth) <= TOLERANCE * growth
+    ok = bool(np.all(flat | step))
+    if flat.any():
+        ok = ok and not bool(np.any(step[int(np.argmax(flat)) :]))
+    return ok, {
+        "cells": len(widths),
+        "growth_steps": int(step.sum()),
+        "ratios": [] if ok else [round(float(v), 4) for v in ratio],
+        "max_ratio_error": float(
+            np.max(np.minimum(np.abs(ratio - 1), np.abs(ratio - growth) / growth))
+        ),
+    }
+
+
+def _constant_spread(widths):
+    mean = float(np.mean(widths))
+    return float(np.max(np.abs(widths - mean)) / mean), mean
+
+
+def _body_edge(points, kind, x_step, azimuth_step_deg):
+    if kind == "azimuth":
+        angle = np.degrees(np.unwrap(np.arctan2(points[:, 2], points[:, 1])))
+        spread, mean = _constant_spread(np.abs(np.diff(angle)))
+        ok = spread <= TOLERANCE and abs(mean - azimuth_step_deg) <= TOLERANCE * azimuth_step_deg
+        return ok, {"cells": len(angle) - 1, "angle_step_deg": mean, "spread": spread}
+    widths = np.linalg.norm(np.diff(points, axis=0), axis=1)
+    spread, mean = _constant_spread(widths)
+    if kind == "axial":
+        ok = spread <= TOLERANCE and abs(mean / x_step - 1) <= AXIAL_TOLERANCE
+    else:
+        ok = spread <= POLE_SPREAD and POLE_BAND[0] <= mean / x_step <= POLE_BAND[1]
+    return bool(ok), {
+        "cells": len(widths),
+        "step_m": mean,
+        "step_over_x_step": mean / x_step,
+        "spread": spread,
+    }
+
+
+def check_lifting(component, controls, items, polylines):
+    """Measure the lifting-surface spacing rules.
+
+    ``items`` lists ``{"family", "u", "v", "surface"}`` per structured patch (``u`` and ``v`` the
+    edge tags); ``polylines`` maps an edge tag to its ``(n, 3)`` realized nodes. Trailing-edge
+    strips are skipped. Returns ``(rows, failures)``.
+    """
+    half = component["planform"]["span"] / 2
+    result, failures = [], []
+    for item in items:
+        if item["family"].startswith("trailing"):
+            continue
+        for role, edges in (("span", item["v"]), ("chord", item["u"])):
+            for edge in edges:
+                points = polylines[abs(edge)]
+                if role == "span":
+                    ok, detail = _spanwise(points, controls, half)
+                else:
+                    ok, detail = _chordwise(component, points, controls)
+                row = {
+                    "surface": item["surface"],
+                    "family": item["family"],
+                    "role": role,
+                    "edge": abs(edge),
+                    "ok": bool(ok),
+                    **detail,
+                }
+                result.append(row)
+                if not ok:
+                    failures.append(row)
+    return result, failures
+
+
+def check_body(component, controls, items, polylines):
+    """Measure the body spacing rules; ``items`` also carry ``axial`` (set on a band)."""
+    x_step = component["length"] / controls["x_cells"]
+    az_step = 180.0 / controls["azimuth_cells"]
+    result, failures = [], []
+    for item in items:
+        banded = item["axial"]
+        for edge in item["u"] + item["v"]:
+            kind = ("azimuth" if edge in item["u"] else "axial") if banded else "pole"
+            ok, detail = _body_edge(polylines[abs(edge)], kind, x_step, az_step)
+            row = {
+                "surface": item["surface"],
+                "family": item["family"],
+                "role": kind,
+                "edge": abs(edge),
+                "ok": bool(ok),
+                **detail,
+            }
+            result.append(row)
+            if not ok:
+                failures.append(row)
+    return result, failures
