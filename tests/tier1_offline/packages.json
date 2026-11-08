@@ -109,7 +109,6 @@
       "tests/tier1_offline/test_regression_script_emission.py",
       "tests/tier1_offline/test_round1_surface_emissions.py",
       "tests/tier1_offline/test_rpt133_fr318_vorticity_order.py",
-      "tests/tier1_offline/test_rt057_runtime.py",
       "tests/tier1_offline/test_setup_native_state_evidence.py",
       "tests/tier1_offline/test_unsteady_section_cp.py"
     ],
@@ -312,7 +311,6 @@
       "tests/tier1_offline/test_regression_workspace_inputs_setup.py",
       "tests/tier1_offline/test_rel0250_pproc_validation.py",
       "tests/tier1_offline/test_rel0250_s04.py",
-      "tests/tier1_offline/test_rt057_step_timing.py",
       "tests/tier1_offline/test_run.py",
       "tests/tier1_offline/test_run_cli.py",
       "tests/tier1_offline/test_run_preproc.py",

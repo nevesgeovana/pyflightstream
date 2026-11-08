@@ -21,7 +21,7 @@ without an escaping rule of their own.
 
 A ROW WITH NO PER-STEP EXPORT GETS A COUNTER TOO (FR-314): the progress bar
 of a local run (FR-129) reads the count. Such a row's program is
-:data:`COUNT_ONLY_TEMPLATE`: it keeps count and timing evidence without rewriting exports, so
+:data:`COUNT_ONLY_TEMPLATE`: it keeps the count and rewrites nothing else, so
 no exports file exists and no exports script runs. :func:`stage_counter`
 writes whichever program the script's registration names.
 """
@@ -78,7 +78,6 @@ this file's own location, never from the working directory.
 """
 
 import json
-import time
 from pathlib import Path
 
 #: Written by pyflightstream at build time, from the row.
@@ -112,24 +111,11 @@ def state(count):
 
 
 def main():
-    previous = json.loads(COUNT_FILE.read_text(encoding="utf-8")) if COUNT_FILE.is_file() else {}
-    count = int(previous.get("count", 0))
-    now = time.time()
-    monotonic = time.perf_counter()
-    timestamps = previous.get("step_wall_timestamps_s", []) + [now]
-    origin = previous.get("wall_monotonic_s")
-    elapsed = None if origin is None else monotonic - origin
-    durations = previous.get("step_wall_times_s", []) + [elapsed]
-    measured = [value for value in durations[-20:] if value is not None]
-    timing = {"wall_timestamp_s": now, "wall_monotonic_s": monotonic,
-              "step_wall_timestamps_s": timestamps,
-              "step_wall_times_s": durations,
-              "step_wall_time_last20_mean_s": sum(measured) / len(measured) if measured else None}
-    current = {**state(count + 1), **timing}
+    count = 0
+    if COUNT_FILE.is_file():
+        count = int(json.loads(COUNT_FILE.read_text(encoding="utf-8"))["count"])
+    current = state(count + 1)
     COUNT_FILE.write_text(json.dumps(current), encoding="utf-8", newline="\\n")
-    COUNT_FILE.with_name("step-cost.json").write_text(
-        json.dumps(current), encoding="utf-8", newline="\\n"
-    )
     SCRIPT_FILE.write_text(EXPORTS if current["exporting"] else "", encoding="utf-8", newline="\\n")
     return 0
 
@@ -251,19 +237,19 @@ def render_program(
     return _fill(text, values)
 
 
-#: Code for a row without per-step exports: count and wall-time evidence.
-#: Tokens in angle brackets are replaced by :func:`render_count_program`.
+#: The program of a row that asks no per-step export (FR-314): the count and
+#: nothing else. The tokens in angle brackets are replaced by
+#: :func:`render_count_program`.
 COUNT_ONLY_TEMPLATE = '''"""Step counter of one pyflightstream point, counting only.
 
 Written by pyflightstream (FR-314). The solver runs this program after
 every unsteady time step and passes it nothing, so the count of
 invocations kept in COUNT_FILE is the time step, exactly (RPT-041). Each
-invocation increments the count and records wall-time evidence: the row asks no
+invocation increments the count and writes nothing else: the row asks no
 per-step export. Every path is taken from this file's own location.
 """
 
 import json
-import time
 from pathlib import Path
 
 #: Written by pyflightstream at build time, from the row.
@@ -275,24 +261,10 @@ COUNT_FILE = HERE / <COUNT_NAME>
 
 
 def main():
-    previous = json.loads(COUNT_FILE.read_text(encoding="utf-8")) if COUNT_FILE.is_file() else {}
-    count = int(previous.get("count", 0))
-    now = time.time()
-    monotonic = time.perf_counter()
-    timestamps = previous.get("step_wall_timestamps_s", []) + [now]
-    origin = previous.get("wall_monotonic_s")
-    elapsed = None if origin is None else monotonic - origin
-    durations = previous.get("step_wall_times_s", []) + [elapsed]
-    measured = [value for value in durations[-20:] if value is not None]
-    timing = {"wall_timestamp_s": now, "wall_monotonic_s": monotonic,
-              "step_wall_timestamps_s": timestamps,
-              "step_wall_times_s": durations,
-              "step_wall_time_last20_mean_s": sum(measured) / len(measured) if measured else None}
-    current = {"count": count + 1, **timing}
-    COUNT_FILE.write_text(json.dumps(current), encoding="utf-8", newline="\\n")
-    COUNT_FILE.with_name("step-cost.json").write_text(
-        json.dumps(current), encoding="utf-8", newline="\\n"
-    )
+    count = 0
+    if COUNT_FILE.is_file():
+        count = int(json.loads(COUNT_FILE.read_text(encoding="utf-8"))["count"])
+    COUNT_FILE.write_text(json.dumps({"count": count + 1}), encoding="utf-8", newline="\\n")
     return 0
 
 
@@ -384,7 +356,6 @@ def stage_counter(
         else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),
     )
     (work_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
-    (work_dir / UNSTEADY_ACTION_COUNT).with_name("step-cost.json").unlink(missing_ok=True)
     hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}
     fields: dict[str, object] = {"inputs_sha256": hashes, "action_program": UNSTEADY_ACTION_PROGRAM}
     if threshold is None:

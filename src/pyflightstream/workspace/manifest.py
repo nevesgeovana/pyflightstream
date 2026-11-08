@@ -949,9 +949,6 @@ class RunRecord(BaseModel):
     action_program: str | None = None
     action_script: str | None = None
     action_count: int | None = None
-    step_wall_timestamps_s: list[float] | None = None
-    step_wall_times_s: list[float | None] | None = None
-    step_wall_time_last20_mean_s: float | None = None
     #: Nonfatal run diagnostics, separate from the assessed solver status and
     #: error. In particular, missing per-step action evidence does not invalidate
     #: converged final loads. Recorded by local execution and collection alike.

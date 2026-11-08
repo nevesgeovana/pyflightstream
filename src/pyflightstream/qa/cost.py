@@ -132,8 +132,6 @@ COST_ROW_COLUMNS = (
     "fs_exe_sha256",
     "status",
     "wall_time_s",
-    "step_wall_times_s",
-    "step_wall_time_last20_mean_s",
 )
 
 #: Fixed identity columns of the pivot; every other column of a pivot
@@ -683,8 +681,6 @@ def cost_rows(source: CostSource) -> list[dict[str, object]]:
             "fs_exe_sha256": record.fs_exe_sha256,
             "status": str(record.status),
             "wall_time_s": record.wall_time_s,
-            "step_wall_times_s": record.step_wall_times_s,
-            "step_wall_time_last20_mean_s": record.step_wall_time_last20_mean_s,
         }
         for record in _records(source)
     ]

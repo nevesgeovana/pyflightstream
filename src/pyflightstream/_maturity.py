@@ -42,7 +42,6 @@ MATURITY = {
     "pyflightstream.cases.pproc": "provisional",
     "pyflightstream.cases.qsteady": "stable",
     "pyflightstream.cases.reference_blocks": "provisional",
-    "pyflightstream.cases.runtime": "provisional",
     # Restart wire types describe continuation state.
     "pyflightstream.cases.selection": "provisional",
     "pyflightstream.cases.settings": "provisional",

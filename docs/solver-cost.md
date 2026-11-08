@@ -1,4 +1,3 @@
-
 # What a run cost, and which build got slower
 
 Every campaign this package runs already records how long each point
@@ -144,17 +143,3 @@ answer. Failed, clock-stopped, queued and log-less runs are counted separately
 and their times remain available as excluded samples. The command reports the
 excluded count and omits those times from cell means and comparisons. Mark a run
 failed or converged after review when its recorded status needs correction.
-
-## Per-step wall time
-
-Unsteady records and detailed cost rows carry `step_wall_times_s` and
-`step_wall_time_last20_mean_s`. The counter also retains Unix wall timestamps
-in `step_wall_timestamps_s`, one per completed step. Intervals use the monotonic
-performance clock so wall-clock adjustments do not change elapsed measurements. The first local interval
-starts at launch and includes initialization. Without a launch origin (for
-example a submitted job), that first interval is null. The mean uses available
-intervals among the last 20 steps. Old records keep these fields absent.
-
-The counter also writes `actions/step-cost.json` beside the counter, preserving
-the step count, timestamps, intervals and mean as measured cost evidence.
-The user-maintained machine calibration files in `inputs/costs/` are unchanged.

@@ -1,4 +1,3 @@
-
 # Setup standards and guidance
 
 ## Solver-free separation example
@@ -286,37 +285,3 @@ The unreleased sidecar `[[inlets]]` and `[[outlets]]` forms are rejected with a
 setup/MATRIX migration message. Use `[ports]` for identity only. Creating ports on
 a saved FSM remains refused while its existing port indices are unknown; use a
 fresh mesh for the measured creation sequence. No saved state is implicitly cleared.
-
-## Launch runtime resources
-
-An optional setup block selects resources on the local solver machine:
-
-```toml
-[runtime]
-max_threads = "auto"
-affinity = "auto"
-```
-
-`max_threads` also accepts a positive integer. `affinity = "all"` disables
-pinning while retaining the selected thread count. Omitted fields remain unset;
-without `[runtime]`, execution retains its existing behavior. The owner's choice
-of future defaults is still open. Do not combine `runtime.max_threads` with the
-legacy `max_threads` or a row's `NCPUS`.
-
-On hybrid Intel machines, auto selects P-core logical processors, including SMT,
-with `KMP_HW_SUBSET="<Pcores>c:intel_core,<smt>t"` and
-`KMP_AFFINITY="granularity=fine,compact"`. Homogeneous single-socket machines use
-all logical processors without pinning. Multiple sockets or NUMA nodes select
-the lowest-numbered NUMA node and pin to its logical processor list. Affinity
-is applied only to the solver subprocess, retaining license and installation
-variables. Explicit affinity replaces inherited KMP affinity variables.
-
-The homogeneous policies are inferred from GOAL-076, not measured. They are
-conservative starting points for the kit's calibration to confirm. Detection
-uses Windows processor relationships or Linux sysfs; unsupported or incomplete
-topology is refused. Submitted jobs cannot use the submit host as evidence for
-a compute node, so this block requires a local launch on the solver machine.
-
-The run record's `solver_setup.runtime` stores the resolved count, requested
-affinity, applied KMP environment and topology (physical and logical cores,
-P/E classification, per-core SMT, sockets and NUMA membership).

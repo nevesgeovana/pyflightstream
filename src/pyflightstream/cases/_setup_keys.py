@@ -160,7 +160,6 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
     "physics_auto_trailing_edges": "PHYSICS",
     "physics_auto_wake_nodes": "PHYSICS",
     "max_threads": "SET_MAX_PARALLEL_THREADS",
-    "runtime": "SET_MAX_PARALLEL_THREADS",
     "solver_model": "INITIALIZE_SOLVER",
     "wall_collision_avoidance": "INITIALIZE_SOLVER",
     "convergence_iterations": "SET_SOLVER_CONVERGENCE_ITERATIONS",
@@ -218,7 +217,6 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
 #: defaults (G47), read by :mod:`pyflightstream.post.guides`; a setup
 #: key added to the package is stated by the example or named here.
 TEMPLATE_SETTINGS_LEFT_OUT: tuple[str, ...] = (
-    "runtime",
     "apply_trailing_edges",
     "apply_wake_termination",
     "apply_base_regions",

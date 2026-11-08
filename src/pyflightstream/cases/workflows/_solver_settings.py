@@ -321,10 +321,6 @@ def _settings(
         vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
-    if solver.runtime is not None and script.solver_setup is not None:
-        script.solver_setup = script.solver_setup.model_copy(
-            update={"runtime": solver.runtime._resolved}
-        )
     if solver.remove_initialization:
         script.emit("REMOVE_INITIALIZATION")
     if solver.proximal_boundaries is not None:

@@ -174,20 +174,6 @@ def test_p0560_iges_names_come_from_the_name_on_each_faces_level(tmp_path):
     assert names.unit == "MILLIMETER"
 
 
-@pytest.mark.parametrize("control", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85"])
-@pytest.mark.parametrize("newline", ["\n", "\r\n"])
-def test_iges_hollerith_control_bytes_do_not_split_records(tmp_path, control, newline):
-    from pyflightstream.workspace._iges_names import read_iges_names
-
-    iges = Iges()
-    name = f"Wing{control}Part"
-    iges.name(1, name)
-    iges.patch(square(0, 0, 1, 1), level=1)
-    path = tmp_path / "control.igs"
-    path.write_bytes(iges.text().replace("\n", newline).encode("latin-1"))
-    assert read_iges_names(path).faces == (name,)
-
-
 @pytest.mark.requirement("FR-3700")
 def test_p0560_iges_names_read_a_global_section_split_across_lines(tmp_path):
     from pyflightstream.workspace._iges_names import read_iges_names

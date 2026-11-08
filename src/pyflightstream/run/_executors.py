@@ -1082,10 +1082,7 @@ STEADY_COUPLED_STOP_LOG = "pyfs-aeroelastic-stop.log"
 
 
 def _run_until_the_analysis_ends(
-    argv: list[str],
-    working_dir: Path,
-    timeout_s: float | None,
-    env: dict[str, str] | None = None,
+    argv: list[str], working_dir: Path, timeout_s: float | None
 ) -> tuple[int | None, str, str, bool]:
     """Run a steady coupled script and stop its process once the analysis ended (FSI-G).
 
@@ -1165,7 +1162,7 @@ def _run_until_the_analysis_ends(
             stdout=out_file,
             stderr=err_file,
             text=True,
-            env=env if env is not None else os.environ.copy(),
+            env=os.environ.copy(),
             creationflags=_NO_WINDOW,
             **launch_options(argv),
         )
@@ -1186,7 +1183,6 @@ def _run_with_progress(
     counter: Path,
     total: int | None,
     every: int,
-    env: dict[str, str] | None = None,
 ) -> tuple[int | None, str, str, bool]:
     """Run the solver and say its progress every ``every`` steps while it runs.
 
@@ -1205,7 +1201,7 @@ def _run_with_progress(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env=env if env is not None else os.environ.copy(),
+        env=os.environ.copy(),
         creationflags=_NO_WINDOW,
         **launch_options(argv),
     )
@@ -1256,7 +1252,6 @@ def _progress_loop(
     counter: Path,
     total: int | None,
     every: int,
-    env: dict[str, str] | None = None,
 ) -> tuple[int | None, str, str, bool]:
     """Wait for ``process`` in slices, saying its progress; the caller kills it on any exit."""
     said = 0
@@ -1434,47 +1429,12 @@ class LocalExecutor:
                 "progress lines, so it is a whole number, 0 to say nothing."
             )
         self.progress_every = int(progress_every)
-        self.runtime_environment: dict[str, str] = {}
-        self.runtime_affinity: str | None = None
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "
                 "explicit campaign input (fs_exe); check the installation folder of "
                 "the version the campaign requests."
             )
-
-    def resolve_case_runtime(self, case: SimCase) -> SimCase:
-        """Resolve an explicit setup runtime block on this launch host before emission."""
-        from pyflightstream.run._runtime import detect_topology, resolve_runtime
-
-        self.runtime_environment = {}
-        self.runtime_affinity = None
-        request = case.solver.runtime
-        if request is None:
-            return case
-        if request.max_threads is not None and (
-            case.solver.max_threads is not None or row_ncpus(case, None) is not None
-        ):
-            raise CampaignConfigError("runtime.max_threads conflicts with max_threads or NCPUS")
-        try:
-            resolved = resolve_runtime(request, detect_topology())
-        except (OSError, ValueError) as error:
-            raise CampaignConfigError(f"Cannot resolve runtime topology: {error}") from error
-        if request.max_threads is None:
-            resolved["max_threads"] = row_ncpus(case, case.solver.max_threads)
-        self.runtime_environment = resolved["environment"]
-        self.runtime_affinity = request.affinity
-        runtime = request.model_copy()
-        runtime._resolved = resolved
-        solver = case.solver.model_copy(
-            update={
-                "max_threads": resolved["max_threads"]
-                if request.max_threads is not None
-                else case.solver.max_threads,
-                "runtime": runtime,
-            }
-        )
-        return case.model_copy(update={"solver": solver})
 
     def _argv(self, script_path: Path) -> list[str]:
         argv = [str(self.fs_exe)]
@@ -1526,11 +1486,6 @@ class LocalExecutor:
             the campaign loop decides the manifest status.
         """
         argv = self._argv(script_path)
-        env = os.environ.copy()
-        if getattr(self, "runtime_affinity", None) is not None:
-            for key in ("KMP_HW_SUBSET", "KMP_AFFINITY"):
-                env.pop(key, None)
-        env.update(getattr(self, "runtime_environment", {}))
         # A keyword bag for ExecutionResult: values differ by key, hence ``Any``.
         invocation: dict[str, Any] = {
             "argv": tuple(argv),
@@ -1558,7 +1513,7 @@ class LocalExecutor:
         # the solver reads it (PFS-2094.011), never from this process's.
         if _a_steady_coupled_script(Path(working_dir) / script_path):
             return_code, stdout, stderr, timed_out = _run_until_the_analysis_ends(
-                argv, Path(working_dir), timeout_s, env=env
+                argv, Path(working_dir), timeout_s
             )
         elif total is not None or os.name == "nt":
             return_code, stdout, stderr, timed_out = _run_with_progress(
@@ -1568,7 +1523,6 @@ class LocalExecutor:
                 Path(working_dir) / UNSTEADY_ACTION_COUNT,
                 total,
                 self.progress_every,
-                env=env,
             )
         else:
             try:
@@ -1579,9 +1533,15 @@ class LocalExecutor:
                     text=True,
                     timeout=timeout_s,
                     check=False,
-                    # Preserve license and installation variables; scope runtime policy
-                    # to this subprocess without changing the parent environment.
-                    env=env,
+                    # EXPLICIT and IDENTICAL to what an omitted env= would give.
+                    # This is not a behaviour change and is not meant to be one:
+                    # the solver needs the ambient environment (its licence server
+                    # address and its own installation variables live there), so
+                    # the inheritance is correct and the point is that it is now a
+                    # DECISION at this call rather than a default nobody chose.
+                    # A future change that narrows it belongs here, where the
+                    # solver's requirements are known, and not in a caller.
+                    env=os.environ.copy(),
                 )
                 return_code = completed.returncode
                 stdout = completed.stdout or ""
@@ -1713,10 +1673,6 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     keeps on such a cluster carries it on its local executor, because the build
     that aborts at ``EXPORT_LOG`` is the same build either way.
     """
-    if isinstance(executor, LocalExecutor):
-        case = executor.resolve_case_runtime(case)
-    elif case.solver.runtime is not None:
-        raise CampaignConfigError("[runtime] requires a local launch on the solver machine")
     if _machine_exports_log(executor):
         return case
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})

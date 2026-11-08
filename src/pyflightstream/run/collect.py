@@ -1063,10 +1063,6 @@ def _complete(
     limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
-    from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
-    from pyflightstream.run._step_timing import read_step_timing
-
-    update.update(read_step_timing(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT))
     raw_steps = stamped.get("time_steps", record.time_steps)
     steps = raw_steps if isinstance(raw_steps, int) and not isinstance(raw_steps, bool) else None
     warning = missing_step_warning(
