@@ -17,14 +17,24 @@ of every flagged edge. The effect is True when the wing's sharp trailing edge, t
 (2, 1, 0) to (2, 3, 0) with mid-point (2, 2, 0), is marked after the command and no edge was
 marked before; False when the saved state before shows no edge and after shows no wing trailing
 edge; None when either save is missing or in a layout the reader does not know, which is the
-case on builds whose save layout the reader was never measured against.
+case on builds whose save layout the reader was never measured against. Stored coordinates
+must be metres and the target edge unambiguous in comparable finite meshes. The coordinate
+allowance is absolute (relative tolerance zero), local to this fixed synthetic probe. Extra
+marked edges do not invalidate the presence-only result.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
+from pyflightstream._fsm import (
+    MeshReadError,
+    _mesh_block,
+    saved_mesh_coordinate_unit,
+    trailing_edge_midpoints,
+)
 from pyflightstream.qa._spec_0460_marking import _POINTS, _geometry, _state
 from pyflightstream.qa._spec_kit import _spec
 from pyflightstream.qa.probes import ProbeArtifacts
@@ -39,6 +49,58 @@ _EXPORTED = "export.obj"
 _BOX_FACES = 12
 #: Mid-point of the wing stub's sharp trailing edge, from (2, 1, 0) to (2, 3, 0).
 _WING_TE = (2.0, 2.0, 0.0)
+# Owner's numerical call: coordinate-identity allowance, not solver/aerodynamic accuracy.
+_COORDINATE_TOLERANCE_M = 1e-6
+
+
+def _comparable_saves(workdir: Path, tolerance: float) -> bool:
+    """Require metre coordinates, finite comparable meshes and an unambiguous target edge."""
+    paths = [workdir / f"state_{stage}.fsm" for stage in ("before", "after")]
+    try:
+        if any(saved_mesh_coordinate_unit(path) != "METER" for path in paths):
+            return False
+        meshes = [_mesh_block(path) for path in paths]
+    except (OSError, ValueError, MeshReadError):
+        return False
+    vertices, faces = meshes[0][:2]
+    after_vertices, after_faces = meshes[1][:2]
+    if faces != after_faces or len(vertices) != len(after_vertices):
+        return False
+    if any(not math.isfinite(c) for mesh in meshes for p in mesh[0] for c in p):
+        return False
+    edges = {
+        tuple(sorted((a, b)))
+        for face in faces
+        for a, b in zip(face, face[1:] + face[:1], strict=True)
+    }
+    midpoints = {
+        edge: tuple((vertices[edge[0]][i] + vertices[edge[1]][i]) / 2 for i in range(3))
+        for edge in edges
+    }
+    targets = [
+        e
+        for e, p in midpoints.items()
+        if max(abs(p[i] - _WING_TE[i]) for i in range(3)) <= tolerance
+    ]
+    if len(targets) != 1:
+        return False
+    target = targets[0]
+    separation = min(
+        (math.dist(midpoints[target], p) for e, p in midpoints.items() if e != target), default=0.0
+    )
+    # A geometry change large enough to exchange edge identities is not a comparable save.
+    if any(
+        math.dist(a, b) >= separation / 2 for a, b in zip(vertices, after_vertices, strict=True)
+    ):
+        return False
+    # Distinct edges must be separated by more than twice the Euclidean allowance.
+    for points in (vertices, after_vertices):
+        midpoint = tuple((points[target[0]][i] + points[target[1]][i]) / 2 for i in range(3))
+        for edge in edges - {target}:
+            other = tuple((points[edge[0]][i] + points[edge[1]][i]) / 2 for i in range(3))
+            if math.dist(midpoint, other) <= 2 * math.sqrt(3) * tolerance:
+                return False
+    return True
 
 
 def _obj_reading(path: Path) -> dict[str, object] | None:
@@ -104,6 +166,8 @@ def _detect_target(script: Script, workdir: Path) -> None:
 def _detect_reading(workdir: Path) -> dict[str, object]:
     before = _state(workdir / "state_before.fsm")
     after = _state(workdir / "state_after.fsm")
+    if before is not None and after is not None and before.names != after.names:
+        return {"before": None, "after": None}
 
     def edges(state: object) -> list[list[float]] | None:
         if state is None:
@@ -113,13 +177,28 @@ def _detect_reading(workdir: Path) -> dict[str, object]:
     return {"before": edges(before), "after": edges(after)}
 
 
-def _detect_effect(artifacts: ProbeArtifacts) -> bool | None:
+def _detect_effect(
+    artifacts: ProbeArtifacts, *, coordinate_tolerance_m: float = _COORDINATE_TOLERANCE_M
+) -> bool | None:
+    """Judge target presence with an overridable absolute coordinate allowance in metres."""
+    if not math.isfinite(coordinate_tolerance_m) or coordinate_tolerance_m < 0:
+        raise ValueError("coordinate_tolerance_m must be finite and nonnegative")
+    if not _comparable_saves(artifacts.workdir, coordinate_tolerance_m):
+        return None
     reading = _detect_reading(artifacts.workdir)
     before, after = reading["before"], reading["after"]
     if before is None or after is None or before:
         return None
-    assert isinstance(after, list)
-    return list(_WING_TE) in after
+    # The observation retains its legacy rounding; the verdict uses saved precision.
+    try:
+        midpoints = trailing_edge_midpoints(artifacts.workdir / "state_after.fsm")
+    except (OSError, ValueError, MeshReadError):
+        return None
+    if any(not all(math.isfinite(c) for c in p) for p in midpoints):
+        return None
+    return any(
+        max(abs(p[i] - _WING_TE[i]) for i in range(3)) <= coordinate_tolerance_m for p in midpoints
+    )
 
 
 _detect_effect.needs_saved_state = True  # type: ignore[attr-defined]
