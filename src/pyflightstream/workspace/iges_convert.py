@@ -36,6 +36,7 @@ from pyflightstream.workspace._iges_names import (
     flag_curves_on_surfaces,
     name_faces,
     read_iges_names,
+    require_name_encoding,
 )
 
 __all__ = ["convert_iges"]
@@ -83,6 +84,7 @@ def convert_iges(
         own, so a native fault ends only that worker, is reported with its cause, and the
         conversion is not retried); nothing was written.
     """
+    require_name_encoding(name_encoding)
     target = Path(out)
     if target.suffix.lower() not in (".igs", ".iges"):
         raise InputArtifactError(

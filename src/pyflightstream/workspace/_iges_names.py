@@ -12,6 +12,7 @@ and appending one NAME per component.
 
 from __future__ import annotations
 
+import codecs
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +22,7 @@ from numpy.typing import NDArray
 from scipy.interpolate import BSpline
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputValueError
 
 __all__ = [
     "IgesNames",
@@ -191,6 +192,16 @@ def _split(text: str, delimiter: str, end: str) -> list[str]:
 _BYTES = "latin-1"
 #: The encoding a NAME payload is decoded with unless the caller states another.
 DEFAULT_NAME_ENCODING = "latin-1"
+
+
+def require_name_encoding(name_encoding: str) -> None:
+    """Refuse, by name, a text encoding Python does not know, before any file is read."""
+    try:
+        codecs.lookup(name_encoding)
+    except LookupError as error:
+        raise InputValueError(
+            f"name_encoding: {name_encoding!r} is not a known text encoding. Nothing was written."
+        ) from error
 
 
 def _decode_name(path: Path, raw: str, encoding: str) -> str:

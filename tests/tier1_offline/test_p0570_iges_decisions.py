@@ -260,3 +260,46 @@ def test_p0570_convert_never_initializes_the_kernel_in_the_calling_process(tmp_p
     record = convert_iges([plate_and_flap(tmp_path)], tmp_path / "out.igs")
     assert record["faces"] == 2
     assert (tmp_path / "out.igs").is_file()
+
+
+@pytest.mark.requirement("FR-3705")
+@pytest.mark.parametrize("verb", ["iges-grid", "iges-convert"])
+def test_p0570_an_unknown_encoding_is_refused_by_name_before_any_work(tmp_path, capsys, verb):
+    """RL57B-8: a file with no level NAME never decodes one, so the codec is looked up at entry."""
+    from tests.tier1_offline.test_p0560_iges import cli, grid_file, plate_and_flap
+
+    source = plate_and_flap(tmp_path)
+    out = tmp_path / ("model.obj" if verb == "iges-grid" else "conv.igs")
+    extra = (
+        ["--grid", str(grid_file(tmp_path, "[defaults]\nsize = 0.25\n"))] if "grid" in verb else []
+    )
+    before = sorted(p.name for p in tmp_path.iterdir())
+    code, _, stderr = cli(
+        [
+            "geometry",
+            verb,
+            str(source),
+            *extra,
+            "--out",
+            str(out),
+            "--name-encoding",
+            "no-such-codec",
+        ],
+        capsys,
+    )
+    assert code != 0
+    assert "no-such-codec" in stderr
+    assert "pip install" not in stderr
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_the_python_entry_points_refuse_an_unknown_encoding_by_name(tmp_path):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace.iges_convert import convert_iges
+    from pyflightstream.workspace.iges_grid import grid_iges
+
+    with pytest.raises(InputValueError, match="no-such-codec"):
+        grid_iges([], tmp_path / "g.toml", tmp_path / "m.obj", name_encoding="no-such-codec")
+    with pytest.raises(InputValueError, match="no-such-codec"):
+        convert_iges([], tmp_path / "c.igs", name_encoding="no-such-codec")
