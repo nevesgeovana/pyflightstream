@@ -242,8 +242,12 @@ def local_limits(points, limits, profile="study_default"):
         if len(stations) < 2 or len(stations) != len(chords) or np.any(np.diff(stations) <= 0):
             raise InputValueError("limits: increasing stations and matching chords required")
         chord = np.interp(points[:, limits.get("axis", 1)], stations, chords)
-    else:
+    elif "chord_m" in limits:
         chord = np.full(len(points), limits["chord_m"])
+    else:
+        raise InputValueError(
+            "limits: give chord_m, stations_m with chords_m, or a local_chord function"
+        )
     chord = np.broadcast_to(chord, (len(points),))
     if np.any(~np.isfinite(chord)) or np.any(chord <= 0):
         raise InputValueError("limits: positive finite local chord required")

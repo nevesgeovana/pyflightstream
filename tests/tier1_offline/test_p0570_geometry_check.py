@@ -139,3 +139,10 @@ def test_p0570_local_limits_refuses_a_bad_chord(limits, message):
 
     with pytest.raises(InputValueError, match=message):
         local_limits(np.zeros((2, 3)), limits)
+
+
+def test_p0570_local_limits_refuses_limits_that_name_no_chord():
+    from pyflightstream.workspace._geometry_check import local_limits
+
+    with pytest.raises(InputValueError, match="chord_m"):
+        local_limits(np.zeros((2, 3)), {"forward_count": 13})
