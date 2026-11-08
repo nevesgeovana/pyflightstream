@@ -8,9 +8,10 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry import mesh_rules, mesh_topology
-from pyflightstream.geometry.config import unpack
-from pyflightstream.geometry.mesh_rules import (
+from pyflightstream.geometry import _mesh_rules as mesh_rules
+from pyflightstream.geometry import _mesh_topology as mesh_topology
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._mesh_rules import (
     DEFAULT_CONTROLS,
     constant,
     count_classes,
@@ -19,7 +20,7 @@ from pyflightstream.geometry.mesh_rules import (
     load_mesh_controls,
     tip_refinement,
 )
-from pyflightstream.geometry.mesh_topology import (
+from pyflightstream.geometry._mesh_topology import (
     Mesh,
     area_vectors,
     check_mesh,
@@ -153,7 +154,7 @@ def wing_component():
 
 
 def chord_points(component, fractions, eta=0.5):
-    from pyflightstream.geometry.distributions import planform_values
+    from pyflightstream.geometry._distributions import planform_values
 
     p = planform_values(component, eta)
     theta = np.deg2rad(p["twist"])
@@ -420,7 +421,7 @@ def test_the_pure_modules_import_no_geometry_kernel():
     import sys
 
     code = (
-        "import sys, pyflightstream.geometry.mesh_rules, pyflightstream.geometry.mesh_topology;"
+        "import sys, pyflightstream.geometry._mesh_rules, pyflightstream.geometry._mesh_topology;"
         "sys.exit(1 if 'gmsh' in sys.modules else 0)"
     )
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}

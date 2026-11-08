@@ -16,8 +16,8 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from .distributions import planform_values
-from .patch import Patch
+from ._distributions import planform_values
+from ._patch import Patch
 
 
 def rotation_matrix(angles):

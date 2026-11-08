@@ -116,7 +116,7 @@ def test_p0570_local_limit_floor_and_chord():
 
 
 def test_p0570_local_limit_matches_the_named_profile_function():
-    from pyflightstream.geometry.component import deviation_limit_mm
+    from pyflightstream.geometry._boundary import deviation_limit_mm
     from pyflightstream.workspace._geometry_check import local_limits
 
     chords = np.array([0.05, 0.4, 3.0])

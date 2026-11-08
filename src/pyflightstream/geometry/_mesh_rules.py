@@ -20,8 +20,8 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from .distributions import planform_values
-from .lifting import section_models, thickness_station
+from ._distributions import planform_values
+from ._lifting import section_models, thickness_station
 
 __all__ = [
     "DEFAULT_CONTROLS",

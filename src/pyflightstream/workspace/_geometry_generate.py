@@ -23,9 +23,9 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._generation import assembly_regions, generate_components
+from pyflightstream.geometry._patch import Patch
 from pyflightstream.geometry.config import load_config, resolve_config
-from pyflightstream.geometry.generation import assembly_regions, generate_components
-from pyflightstream.geometry.patch import Patch
 from pyflightstream.workspace._gmsh import session
 
 __all__ = ["add_occ_patch", "assemble", "generate_iges", "write_iges"]

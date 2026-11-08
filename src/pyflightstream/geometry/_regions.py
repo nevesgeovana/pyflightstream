@@ -12,11 +12,11 @@ from __future__ import annotations
 import numpy as np
 from scipy.interpolate import BSpline
 
-from .airfoils import cst_airfoil
-from .bodies import body_profile, body_station_table
-from .distributions import blended_section, planform_values
-from .lifting import section_models
-from .patch import Patch
+from ._airfoils import cst_airfoil
+from ._bodies import body_profile, body_station_table
+from ._distributions import blended_section, planform_values
+from ._lifting import section_models
+from ._patch import Patch
 
 
 def body_region(component):

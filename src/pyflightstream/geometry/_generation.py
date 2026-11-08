@@ -13,20 +13,20 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from .bodies import body, body_station_table
-from .caps import tip_cap, wing_contour_point
-from .config import unpack
-from .fairings import wing_fuselage_fairing, wing_junction
-from .lifting import lifting_surface, section_models, thickness_station
-from .patch import Patch, interpolate_patch
-from .placement import (
+from ._bodies import body, body_station_table
+from ._boundary import unpack
+from ._caps import tip_cap, wing_contour_point
+from ._fairings import wing_fuselage_fairing, wing_junction
+from ._lifting import lifting_surface, section_models, thickness_station
+from ._patch import Patch, interpolate_patch
+from ._placement import (
     body_junctions,
     move,
     place,
     placement_transform,
     wing_in_body_frame,
 )
-from .regions import (
+from ._regions import (
     body_region,
     fairing_volume_triangles,
     inside_triangles,

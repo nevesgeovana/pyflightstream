@@ -17,11 +17,11 @@ import pytest
 from pyflightstream._errors import InputValueError
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
-from pyflightstream.geometry.bodies import body
-from pyflightstream.geometry.caps import wing_contour_normal
-from pyflightstream.geometry.config import unpack
-from pyflightstream.geometry.fairings import wing_fuselage_fairing
-from pyflightstream.geometry.lifting import lifting_surface, section_models, thickness_station
+from pyflightstream.geometry._bodies import body
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._caps import wing_contour_normal
+from pyflightstream.geometry._fairings import wing_fuselage_fairing
+from pyflightstream.geometry._lifting import lifting_surface, section_models, thickness_station
 
 WB = {
     "components": {
@@ -241,7 +241,7 @@ def test_p0570_generate_iges_names_read_back_through_the_library_reader(tmp_path
 
 def test_p0570_generate_iges_reads_a_toml_file_and_selects_a_configuration(tmp_path):
     gmsh_or_skip()
-    from pyflightstream.geometry.config import write_config
+    from pyflightstream.geometry._boundary import write_config
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     toml = tmp_path / "wb.toml"
@@ -294,7 +294,7 @@ def test_p0570_the_pure_geometry_package_imports_no_kernel_and_no_upper_layer():
 def test_p0570_importing_the_geometry_math_does_not_import_gmsh():
     import pyflightstream
 
-    code = "import sys, pyflightstream.geometry.generation; print('gmsh' in sys.modules)"
+    code = "import sys, pyflightstream.geometry._generation; print('gmsh' in sys.modules)"
     source = str(Path(pyflightstream.__file__).resolve().parents[1])
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([source, os.environ.get("PYTHONPATH", "")])}
     out = subprocess.run(

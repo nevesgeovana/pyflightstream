@@ -15,11 +15,11 @@ from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from .bodies import body_points, body_profile, body_station_table
-from .caps import contour_segment, junction_normal, wing_contour_point
-from .distributions import blended_section, planform_values, spline_distribution
-from .lifting import section_models, thickness_station
-from .patch import Patch, interpolate_polynomial_strip
+from ._bodies import body_points, body_profile, body_station_table
+from ._caps import contour_segment, junction_normal, wing_contour_point
+from ._distributions import blended_section, planform_values, spline_distribution
+from ._lifting import section_models, thickness_station
+from ._patch import Patch, interpolate_polynomial_strip
 
 
 def host_y(body, table, x, z):

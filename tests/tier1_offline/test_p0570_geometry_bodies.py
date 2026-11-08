@@ -9,18 +9,18 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry import Patch, resolve_config
-from pyflightstream.geometry.bodies import (
+from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._bodies import (
     axisymmetric_radius,
     body,
     body_points,
     body_station_table,
 )
-from pyflightstream.geometry.config import unpack
-from pyflightstream.geometry.fairings import host_y, wing_fuselage_fairing
-from pyflightstream.geometry.lifting import lifting_surface
-from pyflightstream.geometry.patch import evaluate_patch
-from pyflightstream.geometry.placement import (
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._fairings import host_y, wing_fuselage_fairing
+from pyflightstream.geometry._lifting import lifting_surface
+from pyflightstream.geometry._patch import Patch, evaluate_patch
+from pyflightstream.geometry._placement import (
     attachment_point,
     body_junctions,
     place,
@@ -28,7 +28,7 @@ from pyflightstream.geometry.placement import (
     rotation_matrix,
     wing_in_body_frame,
 )
-from pyflightstream.geometry.regions import body_region, inside_triangles, lifting_region
+from pyflightstream.geometry._regions import body_region, inside_triangles, lifting_region
 
 SUPERELLIPSE = {
     "at": "middle",
@@ -292,7 +292,7 @@ def test_p0570_generation_equals_the_research_reference_to_the_last_bit(monkeypa
     import geomgen.config as research_config
     import geomgen.generation as research
 
-    from pyflightstream.geometry.generation import generate_components
+    from pyflightstream.geometry._generation import generate_components
 
     raw = {
         "components": {

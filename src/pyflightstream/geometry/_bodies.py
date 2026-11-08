@@ -12,8 +12,8 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from .distributions import spline_distribution
-from .patch import Patch, interpolate_patch
+from ._distributions import spline_distribution
+from ._patch import Patch, interpolate_patch
 
 
 def body_station_table(component):
