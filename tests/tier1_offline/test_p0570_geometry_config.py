@@ -1,0 +1,140 @@
+"""P0570 geometry: the TOML configuration boundary (read, validate, resolve, write)."""
+
+from pathlib import Path
+
+import pytest
+
+from pyflightstream._errors import InputValueError
+from pyflightstream.geometry import load_config, resolve_config, write_config
+from pyflightstream.geometry.config import unpack
+
+FIXTURE = Path(__file__).parent / "fixtures" / "p0570_geometry_config.toml"
+
+
+@pytest.mark.parametrize("kind", ["lifting_surface", "body", "wing_fuselage_fairing", "propeller"])
+def test_minimal_and_round_trip(kind, tmp_path):
+    path = tmp_path / "minimal.toml"
+    path.write_text(f'type = "{kind}"\n', encoding="utf-8")
+    result = load_config(path)
+    assert result["components"]["COMPONENT"]["type"]["source"] == "given"
+    assert result["components"]["COMPONENT"]["version"]["source"] == "default"
+    output = tmp_path / "resolved.toml"
+    write_config(result, output)
+    assert load_config(output) == result
+
+
+def test_generic_multi_component_file_round_trips(tmp_path):
+    result = load_config(FIXTURE)
+    assert set(result["components"]) == {"FUS", "WING"}
+    assert result["configurations"] == {"demo": ["FUS", "WING"]}
+    wing = unpack(result)["components"]["WING"]
+    assert wing["tip_cap"]["kind"] == "rounded"
+    assert wing["attach"] == {"parent": "FUS", "station": 0.4}
+    write_config(result, tmp_path / "again.toml")
+    assert load_config(tmp_path / "again.toml") == result
+
+
+def test_resolved_input_with_a_changed_derived_value_is_refused(tmp_path):
+    result = load_config(FIXTURE)
+    result["derived"]["WING"]["area"] += 1.0
+    with pytest.raises(InputValueError, match="derived.WING.area"):
+        resolve_config(result)
+
+
+def test_inconsistent_root_chord():
+    with pytest.raises(ValueError, match="root_chord"):
+        resolve_config(
+            {
+                "type": "lifting_surface",
+                "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "root_chord": 4.0},
+            }
+        )
+
+
+def test_independent_set_derives_area_and_mean_chord(tmp_path):
+    result = resolve_config(
+        {
+            "type": "lifting_surface",
+            "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
+            "sections": {"airfoils": ["NACA23018", "NACA23012"]},
+        }
+    )
+    derived = result["derived"]["COMPONENT"]
+    assert derived["area"] == pytest.approx(50.0)
+    # mac = 2/3 * root * (1 + t + t^2) / (1 + t) with root = 2 * area / (span * (1 + t))
+    root = 2 * 50.0 / (20.0 * 1.7)
+    assert derived["mac"] == pytest.approx(2 / 3 * root * (1 + 0.7 + 0.49) / 1.7)
+    write_config(result, tmp_path / "paper.toml")
+    assert load_config(tmp_path / "paper.toml") == result
+
+
+@pytest.mark.parametrize(
+    "raw,parameter",
+    [
+        ({"type": "body", "stations": [0.2, 0.8]}, "stations"),
+        ({"type": "body", "azimuths": [0, 90, 180]}, "azimuths"),
+        ({"type": "body", "stations": [0.2, 0.1, 0.8]}, "stations"),
+        ({"type": "lifting_surface", "planform": {"span": -1}}, "span"),
+        ({"type": "lifting_surface", "planform": {"aspect_ratio": float("nan")}}, "aspect_ratio"),
+        ({"type": "lifting_surface", "sections": {"airfoils": []}}, "sections.eta"),
+        ({"type": "propeller", "hub_radius": 2}, "hub_radius"),
+        ({"type": "body", "units": {"length": "ft", "angle": "deg"}}, "units"),
+        ({"type": "body", "length": {"value": 1, "unit": "ft", "source": "given"}}, "length.unit"),
+        ({"type": "body", "unknown_parameter": 1}, "unknown_parameter"),
+        ({"type": "lifting_surface", "tip_cap": {"kind": "spiky"}}, "tip_cap.kind"),
+        ({"type": "lifting_surface", "sections": {"airfoils": ["CLARKY", "CLARKY"]}}, "NACA"),
+    ],
+)
+def test_invalid_parameters_are_refused_with_the_parameter_named(raw, parameter):
+    with pytest.raises(InputValueError, match=parameter):
+        resolve_config(raw)
+
+
+def test_a_refusal_is_a_value_error_for_callers_that_catch_the_standard_type():
+    with pytest.raises(ValueError):
+        resolve_config({"components": {}})
+
+
+def test_parent_cycle():
+    with pytest.raises(ValueError, match="attach.parent"):
+        resolve_config(
+            {
+                "components": {
+                    "A": {"type": "body", "attach": {"parent": "B"}},
+                    "B": {"type": "body", "attach": {"parent": "A"}},
+                }
+            }
+        )
+
+
+def test_alternate_independent_sets():
+    c = resolve_config(
+        {"type": "lifting_surface", "planform": {"span": 20, "root_chord": 3, "tip_chord": 2}}
+    )
+    p = unpack(c)["components"]["COMPONENT"]["planform"]
+    assert p["area"] == 50
+    assert p["aspect_ratio"] == 8
+    c = resolve_config(
+        {"type": "lifting_surface", "planform": {"area": 50, "aspect_ratio": 8, "taper": 0.7}}
+    )
+    assert unpack(c)["components"]["COMPONENT"]["planform"]["span"] == 20
+
+
+def test_ridge_profile_validation():
+    profile = {
+        "stations": [0.0, 0.5, 1.0],
+        "start": [0.0, 0.01, 0.02],
+        "ridge": [0.01, 0.05, 0.06],
+        "exponent": [2.5, 2.5, 3.0],
+    }
+    resolve_config({"type": "lifting_surface", "tip_cap": {"kind": "ridged", "profile": profile}})
+    for key, value, word in [
+        ("stations", [0.0, 0.5, 0.9], "stations"),
+        ("exponent", [1.0, 2.5, 3.0], "exponent"),
+        ("ridge", [0.0, 0.05, 0.06], "ridge"),
+    ]:
+        bad = {**profile, key: value}
+        with pytest.raises(InputValueError, match=word):
+            resolve_config(
+                {"type": "lifting_surface", "tip_cap": {"kind": "ridged", "profile": bad}}
+            )

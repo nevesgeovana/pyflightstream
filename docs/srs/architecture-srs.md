@@ -30,7 +30,7 @@ cycle as an explicit exception. Existing cross-package private imports have a
 separate shrink-only baseline; that baseline does not permit new such imports.
 
 Side branches follow the same downward-only rule: `fsi`, `probes`, `farfield`,
-`reference`, `overview`, `utils`, `options`, `exceptions`, `extras` and `testing`.
+`geometry`, `reference`, `overview`, `utils`, `options`, `exceptions`, `extras` and `testing`.
 
 The core rows are declared by `pyflightstream.overview._CORE_LAYERS`.
 `tests/tier1_offline/test_conventions.py` supplies the complete root-unit ranks
@@ -39,7 +39,7 @@ used by both layer checks. Lower numeric ranks mean higher layers:
 | Rank | Units outside the core rows |
 |---|---|
 | 0 | `exceptions`, which assembles the exception catalog |
-| 3.25 | `farfield` |
+| 3.25 | `farfield`, `geometry` |
 | 3.5 | `fsi`, `probes`, `support` |
 | 4.5 | `utils`, `reference` |
 | 6.25 | `_cli` |

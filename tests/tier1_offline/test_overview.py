@@ -212,6 +212,7 @@ def test_overview_sections_match_the_deliverable_list():
         "fsi",
         "probes",
         "farfield",
+        "geometry",
         "reference",
         "overview",
         "options",

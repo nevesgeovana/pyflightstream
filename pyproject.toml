@@ -186,6 +186,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "pyflightstream.commands" = ["*.yaml"]
+"pyflightstream.geometry" = ["schemas/*.json"]
 "pyflightstream.qa" = ["references/*.yaml", "references/pressure-drag/*.yaml"]
 
 # NEVER SHIPPED, whatever a package-data pattern or a stray file says

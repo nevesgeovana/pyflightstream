@@ -49,6 +49,17 @@ _DIMENSIONLESS_OR_DEBT = {
     "station",
     # Normalized airfoil coordinates and chord fraction are dimensionless.
     "airfoil",
+    # ComponentRecord (schema 0.2.0): the record declares units "mm" once, so these
+    # millimetre fields keep the contract's names; the rest are unit-free parameters.
+    "coordinate",  # station coordinate along the station axis, mm by the record's units field
+    "x_range",  # hybrid region interval along x, mm by the record's units field
+    "LE",  # normalized curve parameter of the leading-edge split, in [0, 1]
+    "t",  # normalized curve parameter, in [0, 1]
+    "upper",  # normalized curve parameter of the upper split, in [0, 1]
+    "lower",  # normalized curve parameter of the lower split, in [0, 1]
+    "local_fraction",  # fraction of the local chord or diameter in the deviation limit
+    "interval_floor_fraction",  # fraction of the component length that floors station insertion
+    "max_local_limit_ratio",  # measured distance over the local limit, a ratio
     "pitch_axis_chord_fraction",
     # (a) dimensionless by physics or by construction
     "cp",  # BaseRegionOperation: pressure coefficient, (p - p_ref) / dynamic pressure
@@ -467,6 +478,7 @@ _ROOT_UNIT_ROWS: dict[str, float] = {
     **dict.fromkeys(("utils", "reference"), 4.5),
     **dict.fromkeys(("probes", "fsi", "support"), 3.5),
     "farfield": 3.25,
+    "geometry": 3.25,
     "exceptions": 0.0,
 }
 
