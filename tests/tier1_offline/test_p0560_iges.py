@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# artifact_id: tests/tier1_offline/test_p0560_iges.py
-# last_modified_at: 2026-11-07T22:04:26.666363+00:00
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Cover embedded control bytes with LF and CRLF IGES records.
-# revision_source: git
 """P0560-IGES: grid and convert the named components of IGES files (PFS-2198, PFS-2199).
 
 Usage: pyfs-workspace geometry iges-grid a.igs b.igs --grid grid.toml --out model.obj

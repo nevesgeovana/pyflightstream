@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: src/pyflightstream/cases/workflows/_solver_settings.py
-# last_modified_at: 2026-11-07T14:42:20.808430-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [PFS-2201.01]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Implement PFS-2201.01 acceptance for RT057.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The solver settings of a row: the preset, the analysis, flags and raw commands.
 
 :func:`_settings` emits the solver settings the row and its input library

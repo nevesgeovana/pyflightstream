@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: docs/mesh/iges.md
-last_modified_at: 2026-11-07T22:04:26.650241+00:00
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-dependencies: []
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Use generic example names and clarify blunt trailing-edge limits.
-revision_source: git
--->
 # Grid and convert a named IGES
 
 Two commands read IGES files whose components are named, as a CAD or meshing system writes

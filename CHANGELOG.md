@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: CHANGELOG.md
-last_modified_at: 2026-11-07T22:04:26.666363+00:00
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-dependencies: []
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Record the carried release debt corrections.
-revision_source: git
--->
 # Changelog
 
 All notable changes to pyflightstream. The format follows

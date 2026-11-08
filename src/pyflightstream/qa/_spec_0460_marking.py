@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# artifact_id: src/pyflightstream/qa/_spec_0460_marking.py
-# last_modified_at: 2026-11-07T22:04:26.657815+00:00
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Describe initialization for every supported marking probe build.
-# revision_source: git
 """Saved boundary-marking measurements for supported builds (PFS-2149.01).
 
 Pipeline role: register controlled probes, using synthetic two-surface meshes.

@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.2
-# artifact_id: tests/tier1_offline/test_rt057_runtime.py
-# last_modified_at: 2026-11-07T21:50:05.819391+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / gated-reviewer
-# dependencies: [PFS-2201.01]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: F1 exercises native topology parsers with fixed raw offline fixtures.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """PFS-2201.01: recorded synthetic topologies, never the test host."""
 
 import ctypes

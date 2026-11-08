@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: docs/srs/step-wall-time.md
-last_modified_at: 2026-11-07T14:42:20.865837-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [PFS-2201.03]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Implement PFS-2201.03 acceptance for RT057.
-revision_source: git
--->
 
 # Per-step run timing
 

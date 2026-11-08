@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: tests/tier1_offline/test_qa_cost.py
-# last_modified_at: 2026-11-07T14:42:20.849726-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [PFS-2201.03]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Extend regression coverage for PFS-2201.03.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the wall-time cost view over run manifests (PFS-2018.02).
 
 Pipeline role: quality gate on :mod:`pyflightstream.qa.cost`, the reader

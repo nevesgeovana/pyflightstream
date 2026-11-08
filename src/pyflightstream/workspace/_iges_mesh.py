@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# artifact_id: src/pyflightstream/workspace/_iges_mesh.py
-# last_modified_at: 2026-11-07T22:04:26.641205+00:00
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Describe validation geometry by role in the meshing comment.
-# revision_source: git
 """The gmsh half of ``geometry iges-grid``: join the faces, set the laws, mesh, read the elements.
 
 The faces of every component are healed and fragmented together, so an edge two faces share

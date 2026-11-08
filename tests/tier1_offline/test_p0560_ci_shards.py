@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# artifact_id: tests/tier1_offline/test_p0560_ci_shards.py
-# last_modified_at: 2026-11-07T22:04:26.666363+00:00
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Verify release wheel shard coverage and publication gates.
-# revision_source: git
 """P0560 CI sharding: PYFS_SHARD=1/3 pytest --collect-only -q.
 
 Collection-only subprocesses exercise the actual hook without running bodies.

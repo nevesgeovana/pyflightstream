@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: tests/tier1_offline/test_goal031_g08_glossary_claims.py
-# last_modified_at: 2026-11-07T14:42:20.840197-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [PFS-2201.01]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Extend regression coverage for PFS-2201.01.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1, 0.27.0 item G08: a key the glossary says SETS something reaches the script.
 
 THE FINDING THIS HOLDS, from an independent reading of block 7: ``INPUTS.md``

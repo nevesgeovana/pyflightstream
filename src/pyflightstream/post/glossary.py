@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: src/pyflightstream/post/glossary.py
-# last_modified_at: 2026-11-07T14:42:20.809977-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [PFS-2201.01]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Extend regression coverage for PFS-2201.01.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The input glossary, ``INPUTS.md``, and the parts every generated input guide shares.
 
 The glossary states every key an INPUT artifact may state, the matrix row, the

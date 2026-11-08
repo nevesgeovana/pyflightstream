@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: src/pyflightstream/run/_points.py
-# last_modified_at: 2026-11-07T14:42:20.833689-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [PFS-2201.03]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Implement PFS-2201.03 acceptance for RT057.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """One campaign point: render, run or submit, assess, record.
 
 Private to :mod:`pyflightstream.run`. :func:`_execute_point` is the path of

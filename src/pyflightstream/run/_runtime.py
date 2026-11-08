@@ -1,15 +1,15 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# artifact_id: src/pyflightstream/run/_runtime.py
-# last_modified_at: 2026-11-07T21:44:09.638270+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / gated-reviewer
-# dependencies: [PFS-2201.01]
+# file_version: 1.0.0
+# last_modified_at: 2026-11-08T00:05:50.267080+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.cases.runtime]
 # authority: pyflightstream
 # status: active
-# confidentiality: public
-# change_summary: F2 falls back to class zero for non-integer Linux core types.
+# confidentiality: internal
+# change_summary: Extract Windows relationship parsing without changing detection behavior.
 # revision_source: git
 # GEOVERSE_HEADER_END
+
 """Launch CPU policy, re-expressed from the GOAL-076 detection and rules kit.
 
 Windows EfficiencyClass distinguishes higher-performance cores from lower classes.
@@ -84,32 +84,18 @@ def _summary(
     }
 
 
-def _windows_topology() -> dict[str, Any]:
-    """Read core, package and NUMA relationships through the Windows API."""
-    import winreg
-    from ctypes import wintypes
-
-    if ctypes.sizeof(ctypes.c_void_p) != 8:
-        raise ValueError("Runtime topology requires 64-bit Python on Windows")
-    query = ctypes.WinDLL("kernel32", use_last_error=True).GetLogicalProcessorInformationEx
-    query.argtypes = [wintypes.DWORD, ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD)]
-    query.restype = wintypes.BOOL
-    size = wintypes.DWORD()
-    query(0xFFFF, None, ctypes.byref(size))
-    if not size.value:
-        raise ctypes.WinError(ctypes.get_last_error())
-    buffer = ctypes.create_string_buffer(size.value)
-    if not query(0xFFFF, buffer, ctypes.byref(size)):
-        raise ctypes.WinError(ctypes.get_last_error())
-    data = buffer.raw
+def _windows_relationships(
+    data: bytes, size: int
+) -> tuple[list[dict[str, Any]], int, list[dict[str, Any]]]:
+    """Parse native relationship records, retaining core and NUMA membership."""
     offset = 0
     cores: list[dict[str, Any]] = []
     nodes: dict[int, dict[str, Any]] = {}
     sockets = 0
-    while offset < size.value:
+    while offset < size:
         relation = int.from_bytes(data[offset : offset + 4], "little")
         length = int.from_bytes(data[offset + 4 : offset + 8], "little")
-        if length < 8 or offset + length > size.value:
+        if length < 8 or offset + length > size:
             raise ValueError("Invalid CPU relationship record")
         row = data[offset : offset + length]
         if relation in (0, 1, 3, 6):
@@ -134,13 +120,35 @@ def _windows_topology() -> dict[str, Any]:
                     "logical_processors": sorted(set(existing) | set(processors)),
                 }
         offset += length
-    with winreg.OpenKey(
-        winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
+    return cores, sockets, list(nodes.values())
+
+
+def _windows_topology() -> dict[str, Any]:
+    """Read core, package and NUMA relationships through the Windows API."""
+    import winreg
+    from ctypes import wintypes
+
+    if ctypes.sizeof(ctypes.c_void_p) != 8:
+        raise ValueError("Runtime topology requires 64-bit Python on Windows")
+    query = ctypes.WinDLL("kernel32", use_last_error=True).GetLogicalProcessorInformationEx  # type: ignore[attr-defined]
+    query.argtypes = [wintypes.DWORD, ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD)]
+    query.restype = wintypes.BOOL
+    size = wintypes.DWORD()
+    query(0xFFFF, None, ctypes.byref(size))
+    if not size.value:
+        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+    buffer = ctypes.create_string_buffer(size.value)
+    if not query(0xFFFF, buffer, ctypes.byref(size)):
+        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+    cores, sockets, nodes = _windows_relationships(buffer.raw, size.value)
+    with winreg.OpenKey(  # type: ignore[attr-defined]
+        winreg.HKEY_LOCAL_MACHINE,  # type: ignore[attr-defined]
+        r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
     ) as key:
-        vendor = str(winreg.QueryValueEx(key, "VendorIdentifier")[0])
+        vendor = str(winreg.QueryValueEx(key, "VendorIdentifier")[0])  # type: ignore[attr-defined]
     if not cores or not sockets or not nodes:
         raise ValueError("Incomplete CPU topology")
-    return _summary(cores, sockets, list(nodes.values()), vendor)
+    return _summary(cores, sockets, nodes, vendor)
 
 
 def _linux_topology() -> dict[str, Any]:
