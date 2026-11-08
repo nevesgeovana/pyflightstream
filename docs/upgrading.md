@@ -1,5 +1,12 @@
 # Upgrading
 
+## Trailing-edge and base-region names (0.57)
+
+A trailing-edge entry and a base region that share one name are no longer merged into one
+declaration. The base region keeps its edge ordering and the entry keeps its own; wheel
+point files written under one name for both now take the role in the second name
+(`<out-stem>.base.<name>.te.txt`). Names that were unique keep their file names.
+
 ## IGES half-model symmetry (0.57)
 
 `iges-grid` no longer infers a plane of symmetry from the open nodes. A half model that was

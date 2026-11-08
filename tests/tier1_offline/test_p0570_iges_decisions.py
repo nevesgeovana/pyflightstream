@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from tests.tier1_offline.test_p0560_iges import Iges, square
 
 
@@ -139,3 +139,41 @@ def test_p0570_the_skin_mirrors_only_across_the_stated_plane(monkeypatch, symmet
     else:
         _iges_skin.outer_skin(verts, families, symmetry=symmetry)
     assert seen == [expected]
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_a_label_and_a_base_family_with_one_name_are_two_declarations():
+    """R2-006: the shared-edge check keeps a trailing-edge entry and a base rim of one name."""
+    import numpy as np
+
+    from pyflightstream.workspace import _mark_boundaries as mb
+
+    shared = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    declared = {("trailing_edge", "Rim"): (shared, 1e-6), ("base", "Rim"): (shared, 1e-6)}
+    with pytest.warns(PyflightstreamWarning, match="trailing edge Rim and base Rim"):
+        mb._warn_shared_edges(declared, [], None, "METER")
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_only_a_base_rim_takes_the_base_family_ordering():
+    """R2-006: a trailing-edge entry named like a base family does not inherit its ordering."""
+    from pyflightstream.workspace import _mark_boundaries as mb
+
+    obj_family = {"Rim": "Base_obj"}
+    assert mb._rim_base("trailing_edge", "Rim", obj_family) is None
+    assert mb._rim_base("base", "Rim", obj_family) == "Base_obj"
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_generated_paths_are_role_qualified_and_case_safe(tmp_path):
+    """R2-006: equal or case-only equal names never replace one another's point file."""
+    from pyflightstream.workspace import _wheel
+
+    out = _wheel._Written()
+    stem = "wheel"
+    first = out.reserve(stem, "Rim.te.txt", "trailing_edge")
+    second = out.reserve(stem, "Rim.te.txt", "base")
+    third = out.reserve(stem, "RIM.te.txt", "base")
+    assert first == "wheel.Rim.te.txt"
+    assert second == "wheel.base.Rim.te.txt"
+    assert len({first.casefold(), second.casefold(), third.casefold()}) == 3

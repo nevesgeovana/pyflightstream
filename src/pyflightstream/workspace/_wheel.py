@@ -856,6 +856,28 @@ class _Written:
 
     points: dict[Path, tuple[str, NDArray[numpy.float64]]] = field(default_factory=dict)
     lines: list[str] = field(default_factory=list)
+    #: The file names handed out, case-folded: a file system may fold case, so two names that
+    #: differ only in case would otherwise write one file.
+    taken: set[str] = field(default_factory=set)
+
+    def reserve(self, stem: str, body: str, role: str) -> str:
+        """Return a file name ``<stem>.<body>`` no earlier reservation shares, ignoring case.
+
+        A trailing-edge entry and a base region live in separate namespaces and may carry one
+        name; the first keeps the plain name and a later one takes its role in the name
+        (``<stem>.<role>.<body>``), then a number, so no point file replaces another.
+        """
+        candidates = (f"{stem}.{body}", f"{stem}.{role}.{body}")
+        for name in candidates:
+            if name.casefold() not in self.taken:
+                self.taken.add(name.casefold())
+                return name
+        number = 2
+        while f"{stem}.{role}{number}.{body}".casefold() in self.taken:
+            number += 1
+        name = f"{stem}.{role}{number}.{body}"
+        self.taken.add(name.casefold())
+        return name
 
 
 def _rim_tables(
@@ -875,7 +897,7 @@ def _rim_tables(
             files = []
             for j, (kind, points) in enumerate(rim.sets):
                 tag = f".{j + 1}" if len(rim.sets) > 1 else ""
-                name = f"{opts.out.stem}.{label}{tag}.te.txt"
+                name = out.reserve(opts.out.stem, f"{label}{tag}.te.txt", "trailing_edge")
                 out.points[opts.out.with_name(name)] = (
                     rim.unit,
                     _copy_points(points, opts, k, tol) * rim.to_file,
@@ -885,7 +907,7 @@ def _rim_tables(
             if nodes not in (None, "auto"):
                 loaded = points_from_file(obj, Path(str(nodes)))
                 assert loaded is not None
-                nodes = f"{opts.out.stem}.{label}.wake.te.txt"
+                nodes = out.reserve(opts.out.stem, f"{label}.wake.te.txt", "trailing_edge")
                 out.points[opts.out.with_name(nodes)] = (
                     loaded.unit,
                     _copy_points(loaded.points, opts, k, tol) * loaded.to_file,
@@ -954,7 +976,7 @@ def _one_base(
         loaded = points_from_file(obj, Path(str(one.points_file)))
         assert loaded is not None
         copy = k if s.replicated else None
-        file = f"{opts.out.stem}.{name}.te.txt"
+        file = out.reserve(opts.out.stem, f"{name}.te.txt", "base")
         out.points[opts.out.with_name(file)] = (
             loaded.unit,
             _copy_points(loaded.points, opts, copy, tol) * loaded.to_file,
@@ -965,7 +987,7 @@ def _one_base(
             # the rim's terminations, turned into this copy as an entry's are (R1-MARK-012)
             held = points_from_file(obj, Path(str(nodes)))
             assert held is not None
-            nodes = f"{opts.out.stem}.{name}.wake.te.txt"
+            nodes = out.reserve(opts.out.stem, f"{name}.wake.te.txt", "base")
             out.points[opts.out.with_name(nodes)] = (
                 held.unit,
                 _copy_points(held.points, opts, copy, tol) * held.to_file,

@@ -387,6 +387,13 @@ takes the rim's termination nodes in the same table,
 or `"auto"`, marked as an entry's are, so a rim declared once carries them. A merge
 destination must be another existing family and cannot itself be merged.
 
+Trailing-edge entries and base regions are separate namespaces: `[trailing_edges.Rim]` and
+`[base_regions.Rim]` may both exist and stay two declarations, and only the base region takes
+the base family's edge ordering. Where the wheel route writes points files for both under one
+name, the first keeps `<out-stem>.<name>.te.txt` and a later one takes its role in the name,
+`<out-stem>.base.<name>.te.txt`, then a number; names that differ only in case are treated as
+one name, so no file replaces another. Shared-edge warnings name the role when a label repeats.
+
 Migration: each old unnamed trailing-edge file becomes a named entry (use its
 file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
 on the entry it serves, or the first entry if it served all. Replace base-region
