@@ -850,6 +850,26 @@ def _table(prefix: str, name: str) -> str:
     return f"[{prefix}.{name if bare else toml_value(name)}]"
 
 
+def reserve_name(taken: set[str], stem: str, body: str, role: str) -> str:
+    """Return a file name ``<stem>.<body>`` that ``taken`` does not hold, ignoring case, and add it.
+
+    A trailing-edge entry and a base region live in separate namespaces and may carry one name;
+    the first keeps the plain name and a later one takes its role in the name
+    (``<stem>.<role>.<body>``), then a number, so no point file replaces another.
+    """
+    candidates = (f"{stem}.{body}", f"{stem}.{role}.{body}")
+    for name in candidates:
+        if name.casefold() not in taken:
+            taken.add(name.casefold())
+            return name
+    number = 2
+    while f"{stem}.{role}{number}.{body}".casefold() in taken:
+        number += 1
+    name = f"{stem}.{role}{number}.{body}"
+    taken.add(name.casefold())
+    return name
+
+
 @dataclass
 class _Written:
     """The rim point files a wheel writes (path to unit and points) and its sidecar tables."""
@@ -861,23 +881,8 @@ class _Written:
     taken: set[str] = field(default_factory=set)
 
     def reserve(self, stem: str, body: str, role: str) -> str:
-        """Return a file name ``<stem>.<body>`` no earlier reservation shares, ignoring case.
-
-        A trailing-edge entry and a base region live in separate namespaces and may carry one
-        name; the first keeps the plain name and a later one takes its role in the name
-        (``<stem>.<role>.<body>``), then a number, so no point file replaces another.
-        """
-        candidates = (f"{stem}.{body}", f"{stem}.{role}.{body}")
-        for name in candidates:
-            if name.casefold() not in self.taken:
-                self.taken.add(name.casefold())
-                return name
-        number = 2
-        while f"{stem}.{role}{number}.{body}".casefold() in self.taken:
-            number += 1
-        name = f"{stem}.{role}{number}.{body}"
-        self.taken.add(name.casefold())
-        return name
+        """Return a file name no earlier reservation shares (see :func:`reserve_name`)."""
+        return reserve_name(self.taken, stem, body, role)
 
 
 def _rim_tables(

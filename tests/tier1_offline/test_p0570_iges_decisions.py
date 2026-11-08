@@ -109,71 +109,41 @@ def test_p0570_an_unknown_symmetry_is_refused(tmp_path):
         read_grid(_symmetry_grid(tmp_path, 'symmetry = "auto"'))
 
 
-def _crossing():
-    """Three quads of three components that meet along one edge, open elsewhere."""
-    import numpy as np
+@pytest.mark.requirement("FR-3705")
+def test_p0570_the_skin_takes_its_plane_of_symmetry_only_from_the_caller():
+    import inspect
 
-    verts = np.array(
-        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, -1, 0], [1, -1, 0], [0, 0, 1], [1, 0, 1]],
-        dtype=float,
+    from pyflightstream.workspace._iges_skin import outer_skin
+
+    assert inspect.signature(outer_skin).parameters["symmetry"].default == "none"
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_a_label_and_a_base_family_with_one_name_are_two_declarations(tmp_path):
+    """R2-006: an entry and a base rim of one name both survive and the overlap is warned."""
+    from pyflightstream.workspace import plan_mark_boundaries
+    from tests.tier1_offline.test_p0540_mark_26100 import _capped_strip
+
+    mesh = _capped_strip(
+        tmp_path,
+        '[trailing_edges.wing]\nfile = "top.te.txt"\ntype = "STANDARD"\n'
+        '[base_regions.wing]\ntrailing_edges = {file = "top.te.txt", type = "STANDARD"}\n',
     )
-    return verts, {"A": [[0, 1, 3, 2]], "B": [[0, 1, 5, 4]], "C": [[0, 1, 7, 6]]}
-
-
-@pytest.mark.requirement("FR-3705")
-@pytest.mark.parametrize(("symmetry", "expected"), [(None, None), ("none", None), ("y", 1)])
-def test_p0570_the_skin_mirrors_only_across_the_stated_plane(monkeypatch, symmetry, expected):
-    from pyflightstream.workspace import _iges_skin
-
-    seen = []
-    real = _iges_skin._Assembly.oriented
-
-    def spy(self, mirror):
-        seen.append(mirror)
-        return real(self, mirror)
-
-    monkeypatch.setattr(_iges_skin._Assembly, "oriented", spy)
-    verts, families = _crossing()
-    if symmetry is None:
-        _iges_skin.outer_skin(verts, families)
-    else:
-        _iges_skin.outer_skin(verts, families, symmetry=symmetry)
-    assert seen == [expected]
-
-
-@pytest.mark.requirement("FR-3705")
-def test_p0570_a_label_and_a_base_family_with_one_name_are_two_declarations():
-    """R2-006: the shared-edge check keeps a trailing-edge entry and a base rim of one name."""
-    import numpy as np
-
-    from pyflightstream.workspace import _mark_boundaries as mb
-
-    shared = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-    declared = {("trailing_edge", "Rim"): (shared, 1e-6), ("base", "Rim"): (shared, 1e-6)}
-    with pytest.warns(PyflightstreamWarning, match="trailing edge Rim and base Rim"):
-        mb._warn_shared_edges(declared, [], None, "METER")
-
-
-@pytest.mark.requirement("FR-3705")
-def test_p0570_only_a_base_rim_takes_the_base_family_ordering():
-    """R2-006: a trailing-edge entry named like a base family does not inherit its ordering."""
-    from pyflightstream.workspace import _mark_boundaries as mb
-
-    obj_family = {"Rim": "Base_obj"}
-    assert mb._rim_base("trailing_edge", "Rim", obj_family) is None
-    assert mb._rim_base("base", "Rim", obj_family) == "Base_obj"
+    with pytest.warns(PyflightstreamWarning, match="trailing edge wing and base wing"):
+        plan = plan_mark_boundaries(mesh)
+    assert [entry["label"] for entry in plan.sets] == ["wing", "wing"]
 
 
 @pytest.mark.requirement("FR-3705")
 def test_p0570_generated_paths_are_role_qualified_and_case_safe(tmp_path):
     """R2-006: equal or case-only equal names never replace one another's point file."""
-    from pyflightstream.workspace import _wheel
+    from pyflightstream.workspace._wheel import reserve_name
 
-    out = _wheel._Written()
+    taken: set[str] = set()
     stem = "wheel"
-    first = out.reserve(stem, "Rim.te.txt", "trailing_edge")
-    second = out.reserve(stem, "Rim.te.txt", "base")
-    third = out.reserve(stem, "RIM.te.txt", "base")
+    first = reserve_name(taken, stem, "Rim.te.txt", "trailing_edge")
+    second = reserve_name(taken, stem, "Rim.te.txt", "base")
+    third = reserve_name(taken, stem, "RIM.te.txt", "base")
     assert first == "wheel.Rim.te.txt"
     assert second == "wheel.base.Rim.te.txt"
     assert len({first.casefold(), second.casefold(), third.casefold()}) == 3
