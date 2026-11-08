@@ -20,6 +20,32 @@ from .distributions import blended_section, chord_spacing, planform_values
 from .lifting import section_models, thickness_station
 from .patch import Patch, interpolate_patch
 
+__all__ = [
+    "CAP_NOSE_LENGTH",
+    "CAP_NOSE_RATIO",
+    "CAP_TE_TAPER",
+    "cap_patch_grids",
+    "cap_plane_grids",
+    "cap_rates",
+    "cap_taper",
+    "cap_to_space",
+    "contour_segment",
+    "coons_grid",
+    "fillet_arc",
+    "fillet_contact",
+    "junction_normal",
+    "map_cap_grid",
+    "ridge_arc",
+    "ridge_cross",
+    "ridge_profile",
+    "ridged_cap_grids",
+    "root_fillet",
+    "rounded_cap_grids",
+    "tip_cap",
+    "wing_contour_normal",
+    "wing_contour_point",
+]
+
 
 def contour_segment(section, maximum, index, u):
     """Six oriented boundary curves, beginning at the leading edge."""

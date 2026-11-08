@@ -19,6 +19,17 @@ from scipy.optimize import minimize_scalar
 
 from pyflightstream._errors import InputValueError
 
+__all__ = [
+    "bernstein_matrix",
+    "cst_airfoil",
+    "fit_cst",
+    "naca_camber",
+    "naca_coordinates",
+    "naca_digits",
+    "naca_to_cst",
+    "normalized_naca",
+]
+
 
 def naca_digits(designation):
     """Return the digit string of a NACA 4 or 5 digit designation, refusing any other."""

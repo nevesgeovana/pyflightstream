@@ -21,6 +21,15 @@ from .distributions import (
 )
 from .patch import Patch, interpolate_patch, patch_layout
 
+__all__ = [
+    "lifting_patch_grid",
+    "lifting_surface",
+    "planform_metrics",
+    "section_models",
+    "section_points",
+    "thickness_station",
+]
+
 
 def section_models(sections):
     """Fit a CST model to each section airfoil of a lifting surface at one common degree."""
