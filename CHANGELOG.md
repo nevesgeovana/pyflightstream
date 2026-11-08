@@ -16,17 +16,14 @@ FlightStream versions.
 - The fixed synthetic trailing-edge QA probe uses a fixed absolute
   coordinate allowance of 1e-6 m, after checking units and edge identity, with
   presence-only True/False verdicts and None for unobservable saves.
+- Release wheel tests run in three shards per operating system; executable examples run
+  once per operating system.
 
 ### Fixed
 
 - IGES component names retain embedded Latin-1 control bytes when records are read.
 - IGES guidance clarifies the node-number tie-break and the limit for a blunt base
   with multiple cells across its thickness; marking probe descriptions cover supported builds.
-
-### Changed
-
-- Release wheel tests run in three shards per operating system; executable examples run
-  once per operating system.
 
 ## [0.56.0] - 2026-11-06
 

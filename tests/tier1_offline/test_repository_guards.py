@@ -487,3 +487,10 @@ def test_rl57_public_files_do_not_narrate_who_chose_the_allowance():
         text = REPO.joinpath(*parts).read_text(encoding="utf-8").lower()
         assert "owner-chosen" not in text, parts
         assert "owner's numerical call" not in text, parts
+
+
+def test_rl57_unreleased_changelog_has_one_section_per_heading():
+    text = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = text.split("## [Unreleased]")[1].split("## [")[0]
+    headings = [line for line in unreleased.splitlines() if line.startswith("### ")]
+    assert len(headings) == len(set(headings)), headings
