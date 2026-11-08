@@ -354,3 +354,26 @@ def test_p0570_the_grid_hands_its_configured_symmetry_to_the_skin(monkeypatch, p
         _inner(config, meshed, list(families), [])
 
     assert _crossing_skin_mirror(monkeypatch, run) == [axis]
+
+
+def test_a_recorded_warning_replays_by_name_through_the_package_route():
+    """R4-002: warn_by_name keeps a package category, else falls back, and collects."""
+    from pyflightstream import _errors
+
+    category = next(
+        c
+        for c in vars(_errors).values()
+        if isinstance(c, type)
+        and issubclass(c, _errors.PyflightstreamWarning)
+        and c is not _errors.PyflightstreamWarning
+    )
+    with _errors.collecting_warnings() as caught:
+        _errors.warn_by_name("named", category.__name__)
+        _errors.warn_by_name("unnamed", "NoSuchWarning")
+        _errors.warn_by_name("an exception, not a warning", "InputValueError")
+    assert [(str(w.message), w.category) for w in caught] == [
+        ("named", category),
+        ("unnamed", _errors.PyflightstreamWarning),
+        ("an exception, not a warning", _errors.PyflightstreamWarning),
+    ]
+    assert all(w.filename == __file__ for w in caught)
