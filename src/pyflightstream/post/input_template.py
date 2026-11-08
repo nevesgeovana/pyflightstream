@@ -720,14 +720,7 @@ _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 #: reason and its keys: the separation models, whose assignment is
 #: scenario-specific, and the per-step actions of FR-319.
 _SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
-    "`[runtime]`": MappingProxyType(
-        {
-            "optional launch resources of the machine; absent, the solver default holds": (
-                "max_threads",
-                "affinity",
-            )
-        }
-    ),
+    "`[runtime]`": MappingProxyType({"machine launch resources": ("max_threads", "affinity")}),
     "`[bulk_separation]`": MappingProxyType(
         {
             "scenario-specific assignment; select surfaces explicitly": (
@@ -770,12 +763,7 @@ _SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
         }
     ),
     "`[[stratford_bulk_separation]]`": MappingProxyType(
-        {
-            "scenario-specific assignment; select surfaces explicitly": (
-                "name",
-                "boundaries",
-            )
-        }
+        {"scenario-specific assignment; select surfaces explicitly": ("name", "boundaries")}
     ),
     "`[[unsteady_solver_actions]]`": MappingProxyType(
         {"optional, a marching row's per-step actions": ("type", "name", "filename")}
