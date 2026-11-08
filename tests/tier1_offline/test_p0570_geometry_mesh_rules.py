@@ -426,3 +426,24 @@ def test_the_pure_modules_import_no_geometry_kernel():
     )
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
     assert subprocess.run([sys.executable, "-c", code], check=False, env=env).returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("table", "key", "value"),
+    [
+        ("body", "x_cells", 0),
+        ("body", "azimuth_cells", 2.5),
+        ("lifting_surface", "span_cells", "32"),
+        ("lifting_surface", "tip_ratio", float("nan")),
+        ("lifting_surface", "chord_growth", -1.0),
+        ("checks", "distance_tolerance_m", 0.0),
+    ],
+)
+def test_p0570_mesh_controls_refuse_a_value_outside_its_domain(table, key, value):
+    with pytest.raises(InputValueError, match=rf"controls\.{table}\.{key}"):
+        load_mesh_controls({table: {key: value}})
+
+
+def test_p0570_mesh_controls_refuse_a_table_that_is_not_a_table():
+    with pytest.raises(InputValueError, match="controls.body"):
+        load_mesh_controls({"body": 5})

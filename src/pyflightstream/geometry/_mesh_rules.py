@@ -13,6 +13,7 @@ It imports no geometry kernel.
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -73,14 +74,32 @@ def load_mesh_controls(source: Any = None) -> dict[str, dict[str, float]]:
         )
     result = {table: dict(values) for table, values in DEFAULT_CONTROLS.items()}
     for table, values in given.items():
+        if not isinstance(values, Mapping):
+            raise InputValueError(f"controls.{table}: must be a table of keys and numbers")
         wrong = sorted(set(values) - set(DEFAULT_CONTROLS[table]))
         if wrong:
             raise InputValueError(
                 f"controls.{table}: unknown key {wrong}; "
                 f"available {sorted(DEFAULT_CONTROLS[table])}"
             )
+        for key, value in values.items():
+            _control_value(table, key, value)
         result[table].update(values)
     return result
+
+
+def _control_value(table, key, value):
+    """Refuse a control that is not a finite positive number (a positive integer for a count)."""
+    if key.endswith("_cells"):
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 1:
+            raise InputValueError(f"controls.{table}.{key}: must be a positive integer")
+    elif (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float, np.integer, np.floating))
+        or not np.isfinite(value)
+        or value <= 0
+    ):
+        raise InputValueError(f"controls.{table}.{key}: must be a finite positive number")
 
 
 def _count(cells) -> None:
