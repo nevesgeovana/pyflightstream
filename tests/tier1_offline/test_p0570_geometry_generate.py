@@ -301,3 +301,32 @@ def test_p0570_importing_the_geometry_math_does_not_import_gmsh():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True, env=env
     )
     assert out.stdout.strip() == "False"
+
+
+def test_p0570_iges_records_break_between_parameters_never_inside_one():
+    from pyflightstream.workspace._geometry_generate import _records, tokens
+
+    values = [repr(-123.456789012345678 * k) for k in range(1, 40)] + ["4HNAME", "7"]
+    for width in (64, 72):
+        records = _records(values, width)
+        assert all(len(record) <= width for record in records)
+        assert all(record.endswith(",") or record.endswith(";") for record in records)
+        assert tokens("".join(records)) == values
+    long_name = ["406", "1", "100H" + "a" * 100]
+    assert tokens("".join(_records(long_name, 64))) == long_name
+
+
+def test_p0570_a_generated_body_reimports_with_every_face(tmp_path):
+    gmsh_or_skip()
+    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace._gmsh import session
+
+    path = tmp_path / "FUS.igs"
+    written = generate_iges(WB, path, configuration="FUS_ONLY")["faces"]["FUS"]
+    assert written > 1
+    with session("a test") as gmsh:
+        gmsh.model.add("again")
+        gmsh.option.setString("Geometry.OCCTargetUnit", "M")
+        imported = gmsh.model.occ.importShapes(str(path))
+        gmsh.model.occ.synchronize()
+        assert sum(1 for dim, _ in imported if dim == 2) == written
