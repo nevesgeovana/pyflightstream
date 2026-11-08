@@ -74,8 +74,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: fragments, workspace/_gmsh_worker.py and test_p0570_iges_decisions.py: 2160, measured (+6).
 #: then the L1 merge (+15 files, RL57B-5) and the lane-057-debt commits: 2175, measured.
 #: then geometry._boundary, the private home of the L1 boundary helpers: 2176, measured (+1).
+#: then item 3 lanes L2 and L4 (seven private geometry modules, four workspace modules,
+#: five test files, two changelog fragments): 2194, measured (+18).
 LEAN_CAPS = {
-    "tracked_files": 2176,
+    "tracked_files": 2194,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
