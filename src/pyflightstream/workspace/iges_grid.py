@@ -374,7 +374,7 @@ def _inner(
                 "components cross are kept"
             )
         return families, {}, "kept whole: remove_inner_faces = false"
-    families, removed, skin = outer_skin(meshed.nodes, families)
+    families, removed, skin = outer_skin(meshed.nodes, families, symmetry=config.symmetry)
     if skin.startswith("kept whole"):
         warnings.append(
             "the faces that lie inside the assembly where components cross are kept, every "
@@ -678,6 +678,7 @@ def _write(
         },
         **meshed.record,
         "inner_faces": skin,
+        "symmetry": config.symmetry,
         "warnings": warnings,
     }
     _textio.write_text(

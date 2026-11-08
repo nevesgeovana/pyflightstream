@@ -30,7 +30,8 @@ DEFAULT_RATIO = {"geometric": 1.1, "tanh": 1.05}
 DEFAULT_TE_ANGLE_DEG = 60.0
 
 _TOP = {"fs_build", "defaults", "component"}
-_DEFAULTS = {"size", "tolerance", "te_angle_deg", "remove_inner_faces"}
+_DEFAULTS = {"size", "tolerance", "te_angle_deg", "remove_inner_faces", "symmetry"}
+_SYMMETRY = ("none", "x", "y", "z")
 _COMPONENT = {
     "size",
     "chord",
@@ -103,6 +104,9 @@ class GridConfig:
     components: dict[str, ComponentGrid] = field(default_factory=dict)
     #: Remove the faces that lie inside the assembly where components cross (true by default).
     remove_inner_faces: bool = True
+    #: The origin plane a half model is mirrored across for that removal: ``"none"`` (default),
+    #: or the axis ``"x"``, ``"y"`` or ``"z"`` normal to it. Never inferred from the geometry.
+    symmetry: str = "none"
 
 
 def _direction(value: object, where: str) -> Direction:
@@ -226,6 +230,11 @@ def read_grid(path: str | Path) -> GridConfig:
     )
     inner = defaults.get("remove_inner_faces", True)
     _need(isinstance(inner, bool), "defaults.remove_inner_faces must be true or false")
+    symmetry = defaults.get("symmetry", "none")
+    _need(
+        symmetry in _SYMMETRY,
+        f"defaults.symmetry must be one of {', '.join(repr(v) for v in _SYMMETRY)}",
+    )
     tables = data.get("component", {})
     _need(isinstance(tables, dict), "[component.<Name>] tables must be tables")
     components = {name: _component(name, table) for name, table in tables.items()}
@@ -236,4 +245,5 @@ def read_grid(path: str | Path) -> GridConfig:
         te_angle_deg=angle,
         components=components,
         remove_inner_faces=inner,
+        symmetry=symmetry,
     )

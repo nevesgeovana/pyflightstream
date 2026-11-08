@@ -13,8 +13,8 @@ centres of the region's deepest faces (those farthest from its edge, away from a
 where a fillet starts on the skin it covers): a region is inside when the median is above one
 half. The winding number of a surface with an opening, such as a lifting surface without its tip
 cap, falls gently near the opening instead of flipping as a ray count would. A half model is
-mirrored across its plane of symmetry, the axis plane through the origin that holds the most open
-nodes, so a point near that plane sees a closed body.
+mirrored across the plane of symmetry the caller states, an axis plane through the origin; with
+none stated (the default) nothing is mirrored and no symmetry is inferred from the geometry.
 """
 
 from __future__ import annotations
@@ -32,10 +32,8 @@ Faces = list[list[int]]
 _SAMPLES = 9
 #: The selections tried at most; past it the assembly is kept whole and the record says so.
 _SEARCH_LIMIT = 200_000
-#: A node lies on an axis plane through the origin within this share of the assembly's diagonal.
-_PLANE_SHARE = 1e-6
-#: A plane of symmetry holds at least this share of the open nodes.
-_PLANE_HOLDS = 0.5
+#: The axis a stated plane of symmetry is normal to.
+_PLANE_AXIS = {"x": 0, "y": 1, "z": 2}
 
 
 def _key(a: int, b: int) -> tuple[int, int]:
@@ -185,18 +183,6 @@ class _Assembly:
         return out, regions
 
 
-def _mirror(verts: NDArray[np.float64], every: _Assembly) -> int | None:
-    """Return the axis of the plane of symmetry through the origin that most open nodes lie on."""
-    open_nodes = sorted({v for e, used in every.users.items() if len(used) == 1 for v in e})
-    if not open_nodes:
-        return None
-    used_nodes = sorted({v for _, f in every.faces for v in f})
-    reach = _PLANE_SHARE * float(np.linalg.norm(np.ptp(verts[used_nodes], axis=0)))
-    on = np.abs(verts[open_nodes]) <= reach
-    axis = int(np.argmax(on.sum(axis=0)))
-    return axis if on[:, axis].mean() >= _PLANE_HOLDS else None
-
-
 def _selections(
     variable: list[int], checks: list[tuple[int, ...]], fixed: set[int]
 ) -> Iterator[dict[int, int]]:
@@ -230,12 +216,13 @@ def _selections(
 
 
 def outer_skin(
-    verts: NDArray[np.float64], families: dict[str, Faces]
+    verts: NDArray[np.float64], families: dict[str, Faces], *, symmetry: str = "none"
 ) -> tuple[dict[str, Faces], dict[str, dict[str, float]], str]:
     """Remove the faces that lie inside the assembly; return the families, what went, and why.
 
     The second value maps each component that lost faces to its ``faces`` and ``area`` removed;
-    the third says in a few words what was done, for the record.
+    the third says in a few words what was done, for the record. ``symmetry`` is ``"none"`` or
+    the axis (``"x"``, ``"y"``, ``"z"``) normal to the origin plane the model is mirrored across.
     """
     every = _Assembly(verts, families)
     crossing = [e for e, used in every.users.items() if len(used) > 2]
@@ -250,7 +237,7 @@ def outer_skin(
             if len(used) >= 2 and any(every.region[i] in variable for i in used)
         }
     )
-    tris, owner = every.oriented(_mirror(verts, every))
+    tris, owner = every.oriented(_PLANE_AXIS.get(symmetry))
     regions = len(every.members)
     # The winding number is a sum over faces: each region's share at each sample, once.
     share = {

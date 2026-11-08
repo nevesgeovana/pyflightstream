@@ -77,6 +77,7 @@ Lengths are in the unit of the first IGES file.
 | `[defaults] size` | The target edge of a component with no size; default a hundredth of the assembly's diagonal |
 | `[defaults] tolerance` | The distance within which two faces are joined; default a millionth of the assembly's diagonal, widened to a measured gap the files leave (see checks below) |
 | `[defaults] te_angle_deg` | The angle of `trailing_edge = "auto"`, default 60 |
+| `[defaults] symmetry` | `"none"` (default), or `"x"`, `"y"`, `"z"`: the origin plane (normal to that axis) a half model is mirrored across when inner faces are removed. Never inferred; recorded as `symmetry` |
 | `[defaults] remove_inner_faces` | `true` (default) removes the faces that lie inside the assembly where components cross (see below); `false` keeps every face |
 | `[component.<Name>]` | One table per component, by the name the IGES gives it |
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
@@ -177,8 +178,10 @@ region of every component; each region left out lies inside what is kept, by the
 generalized winding number of the kept faces, oriented outward, at the centres of its nine
 deepest faces (those farthest from its edge, so a fillet's tangent start on the skin it covers
 does not decide). Of those selections the one keeping the largest area is written. A half model
-is mirrored across its plane of symmetry for the measure: the axis plane through the origin that
-holds at least half of the open nodes. Each component that lost faces is warned with the count
+is mirrored for the measure only across the plane `[defaults] symmetry` states; with none
+stated nothing is mirrored and no plane is inferred from the geometry. Without a mirror, a region
+near an open symmetry seam is measured against an open body, so check the removed areas the
+warnings report. Each component that lost faces is warned with the count
 and the area and recorded under `inner_faces_removed` and `inner_area_removed`; the record's
 `inner_faces` says what was done. When no selection closes every crossing, as where a tailplane
 with an open trailing edge crosses a fin and the crossing curve on the fin does not close, every

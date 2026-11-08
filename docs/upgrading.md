@@ -1,5 +1,12 @@
 # Upgrading
 
+## IGES half-model symmetry (0.57)
+
+`iges-grid` no longer infers a plane of symmetry from the open nodes. A half model that was
+mirrored automatically now needs `[defaults] symmetry = "y"` (or `"x"`, `"z"`) in `grid.toml`;
+the default `"none"` mirrors nothing, so a half model without it may keep or remove other
+inner faces than in 0.56. The record states the `symmetry` used.
+
 ## IGES name encoding (0.57)
 
 `geometry iges-grid` and `geometry iges-convert` take `--name-encoding` (Python:

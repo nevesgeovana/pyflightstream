@@ -83,3 +83,59 @@ def test_p0570_a_name_the_encoding_cannot_hold_is_refused_before_writing(tmp_pat
     with pytest.raises(InputArtifactError, match="cannot be written"):
         name_faces(source, tmp_path / "n.igs", ["Asa_€"], name_encoding="latin-1")
     assert not (tmp_path / "n.igs").exists()
+
+
+def _symmetry_grid(tmp_path, line):
+    path = tmp_path / "grid.toml"
+    path.write_text(f"[defaults]\n{line}\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_symmetry_is_none_unless_the_grid_states_a_plane(tmp_path):
+    """R3-006: no half-model mirroring is inferred; the plane is stated."""
+    from pyflightstream.workspace._iges_grid_config import read_grid
+
+    assert read_grid(_symmetry_grid(tmp_path, "size = 1.0")).symmetry == "none"
+    assert read_grid(_symmetry_grid(tmp_path, 'symmetry = "y"')).symmetry == "y"
+
+
+@pytest.mark.requirement("FR-3705")
+def test_p0570_an_unknown_symmetry_is_refused(tmp_path):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace._iges_grid_config import read_grid
+
+    with pytest.raises(InputValueError, match="symmetry"):
+        read_grid(_symmetry_grid(tmp_path, 'symmetry = "auto"'))
+
+
+def _crossing():
+    """Three quads of three components that meet along one edge, open elsewhere."""
+    import numpy as np
+
+    verts = np.array(
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, -1, 0], [1, -1, 0], [0, 0, 1], [1, 0, 1]],
+        dtype=float,
+    )
+    return verts, {"A": [[0, 1, 3, 2]], "B": [[0, 1, 5, 4]], "C": [[0, 1, 7, 6]]}
+
+
+@pytest.mark.requirement("FR-3705")
+@pytest.mark.parametrize(("symmetry", "expected"), [(None, None), ("none", None), ("y", 1)])
+def test_p0570_the_skin_mirrors_only_across_the_stated_plane(monkeypatch, symmetry, expected):
+    from pyflightstream.workspace import _iges_skin
+
+    seen = []
+    real = _iges_skin._Assembly.oriented
+
+    def spy(self, mirror):
+        seen.append(mirror)
+        return real(self, mirror)
+
+    monkeypatch.setattr(_iges_skin._Assembly, "oriented", spy)
+    verts, families = _crossing()
+    if symmetry is None:
+        _iges_skin.outer_skin(verts, families)
+    else:
+        _iges_skin.outer_skin(verts, families, symmetry=symmetry)
+    assert seen == [expected]
