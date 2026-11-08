@@ -299,8 +299,7 @@ affinity = "auto"
 
 `max_threads` also accepts a positive integer. `affinity = "all"` disables
 pinning while retaining the selected thread count. Omitted fields remain unset;
-without `[runtime]`, execution retains its existing behavior. The owner's choice
-of future defaults is still open. Do not combine `runtime.max_threads` with the
+without `[runtime]`, execution retains its existing behavior. Do not combine `runtime.max_threads` with the
 legacy `max_threads` or a row's `NCPUS`.
 
 On hybrid Intel machines, auto selects P-core logical processors, including SMT,

@@ -494,3 +494,10 @@ def test_rl57_unreleased_changelog_has_one_section_per_heading():
     unreleased = text.split("## [Unreleased]")[1].split("## [")[0]
     headings = [line for line in unreleased.splitlines() if line.startswith("### ")]
     assert len(headings) == len(set(headings)), headings
+
+
+def test_rl57_runtime_docs_do_not_call_the_defaults_open():
+    text = (REPO / "docs" / "setup-standards.md").read_text(encoding="utf-8")
+    section = text.split("## Launch runtime resources")[1].split("## ")[0]
+    assert "still open" not in section
+    assert "owner" not in section.lower()
