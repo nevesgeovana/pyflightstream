@@ -153,6 +153,18 @@ def run_morph(args: argparse.Namespace) -> int:
     return _print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
 
 
+def _add_name_encoding(parser: Any) -> None:
+    parser.add_argument(
+        "--name-encoding",
+        default="latin-1",
+        help=(
+            "text encoding of the NAME bytes in the IGES files (default latin-1, one "
+            "character per byte; use utf-8 for UTF-8 names). Never guessed: a name invalid "
+            "in the encoding is refused"
+        ),
+    )
+
+
 def add_iges_grid_parser(subparsers: Any) -> None:
     """Add the verb that grids named IGES components into one OBJ."""
     parser = subparsers.add_parser(
@@ -170,6 +182,7 @@ def add_iges_grid_parser(subparsers: Any) -> None:
     parser.add_argument("iges", nargs="+", help="IGES files, read only")
     parser.add_argument("--grid", required=True, help="grid control file (TOML)")
     parser.add_argument("--out", required=True, help="new .obj")
+    _add_name_encoding(parser)
     parser.set_defaults(mesh_command=run_iges_grid)
 
 
@@ -177,7 +190,9 @@ def run_iges_grid(args: argparse.Namespace) -> int:
     """Run iges-grid and print the record written beside its output."""
     from pyflightstream.workspace.iges_grid import grid_iges
 
-    return _print_checks(lambda: grid_iges(args.iges, args.grid, args.out))
+    return _print_checks(
+        lambda: grid_iges(args.iges, args.grid, args.out, name_encoding=args.name_encoding)
+    )
 
 
 def add_iges_convert_parser(subparsers: Any) -> None:
@@ -194,6 +209,7 @@ def add_iges_convert_parser(subparsers: Any) -> None:
     )
     parser.add_argument("iges", nargs="+", help="IGES files, read only")
     parser.add_argument("--out", required=True, help="new .igs")
+    _add_name_encoding(parser)
     parser.set_defaults(mesh_command=run_iges_convert)
 
 
@@ -201,7 +217,9 @@ def run_iges_convert(args: argparse.Namespace) -> int:
     """Run iges-convert and print the record written beside its output."""
     from pyflightstream.workspace.iges_convert import convert_iges
 
-    return _print_checks(lambda: convert_iges(args.iges, args.out))
+    return _print_checks(
+        lambda: convert_iges(args.iges, args.out, name_encoding=args.name_encoding)
+    )
 
 
 #: The parser of each verb this module adds, by its name in the group.

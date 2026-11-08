@@ -19,6 +19,12 @@ face on that level belongs to the component. The name is read up to its first `|
 belongs to `<file stem>_level<N>`. A NAME on level 0 names no level: it is a property another
 entity points at, such as a feature name of the CAD system, and is never a component.
 
+The file is read byte for byte, so its fixed 80-byte records and Hollerith counts hold for
+any name. The bytes of a NAME are decoded with `--name-encoding` (default `latin-1`, one
+character per byte); use `--name-encoding utf-8` for names written in UTF-8. The encoding is
+never guessed, a name that is not valid in it is refused, and `iges-convert` writes names in
+the same encoding, counting bytes in each Hollerith length.
+
 The faces are every trimmed surface (144) and every untrimmed surface at the top level, in the
 order of the file's directory. That is the order in which the geometry kernel imports them, and
 the command compares the two counts: a file where they differ is refused with both counts.
@@ -71,6 +77,7 @@ Lengths are in the unit of the first IGES file.
 | `[defaults] size` | The target edge of a component with no size; default a hundredth of the assembly's diagonal |
 | `[defaults] tolerance` | The distance within which two faces are joined; default a millionth of the assembly's diagonal, widened to a measured gap the files leave (see checks below) |
 | `[defaults] te_angle_deg` | The angle of `trailing_edge = "auto"`, default 60 |
+| `[defaults] symmetry` | `"none"` (default), or `"x"`, `"y"`, `"z"`: the origin plane (normal to that axis) a half model is mirrored across when inner faces are removed. Never inferred; recorded as `symmetry` |
 | `[defaults] remove_inner_faces` | `true` (default) removes the faces that lie inside the assembly where components cross (see below); `false` keeps every face |
 | `[component.<Name>]` | One table per component, by the name the IGES gives it |
 | `size` | The component's target edge; also the count of a side that `chord` or `span` does not set |
@@ -171,8 +178,10 @@ region of every component; each region left out lies inside what is kept, by the
 generalized winding number of the kept faces, oriented outward, at the centres of its nine
 deepest faces (those farthest from its edge, so a fillet's tangent start on the skin it covers
 does not decide). Of those selections the one keeping the largest area is written. A half model
-is mirrored across its plane of symmetry for the measure: the axis plane through the origin that
-holds at least half of the open nodes. Each component that lost faces is warned with the count
+is mirrored for the measure only across the plane `[defaults] symmetry` states; with none
+stated nothing is mirrored and no plane is inferred from the geometry. Without a mirror, a region
+near an open symmetry seam is measured against an open body, so check the removed areas the
+warnings report. Each component that lost faces is warned with the count
 and the area and recorded under `inner_faces_removed` and `inner_area_removed`; the record's
 `inner_faces` says what was done. When no selection closes every crossing, as where a tailplane
 with an open trailing edge crosses a fin and the crossing curve on the fin does not close, every
@@ -220,6 +229,17 @@ flag is 3. A file whose global section names a unit this package has no scale fo
 - A trailing edge with no base face is not found by `"auto"`.
 - Entities the commands do not read: transformation matrices of named curves, and curve
   entities other than lines, B-spline curves and composite curves.
+
+## Kernel failures
+
+Both commands run the geometry kernel in a worker process of their own. A malformed surface
+can fault the kernel natively, which no Python handler can recover from, so the fault ends
+only the worker: the command reports it with its cause (the worker's exit code, or the time
+limit it exceeded, and the tail of what it printed), says that nothing was written, and exits
+2, and the calling process is untouched. A failed conversion is final for that run: the kernel
+is not reused or retried after a fault, and outputs are written only after the last kernel
+call returns. Write the IGES file again from its CAD system, or remove the offending
+surface, and run again. `PYFLIGHTSTREAM_GMSH_TIMEOUT` sets the seconds a worker may run before it is ended (default 3600).
 
 ## License of the extra
 

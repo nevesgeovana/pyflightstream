@@ -1,5 +1,35 @@
 # Upgrading
 
+## IGES kernel runs in a worker (0.57)
+
+`iges-grid` and `iges-convert` run the geometry kernel in a worker process. Results and
+outputs are unchanged. A kernel fault now ends the command with a refusal that gives the
+cause (exit code 2, nothing written) instead of ending the whole process; start the command
+again after fixing the IGES file. Each run starts one extra Python process, a second or two
+of start-up.
+
+## Trailing-edge and base-region names (0.57)
+
+A trailing-edge entry and a base region that share one name are no longer merged into one
+declaration. The base region keeps its edge ordering and the entry keeps its own; wheel
+point files written under one name for both now take the role in the second name
+(`<out-stem>.base.<name>.te.txt`). Names that were unique keep their file names.
+
+## IGES half-model symmetry (0.57)
+
+`iges-grid` no longer infers a plane of symmetry from the open nodes. A half model that was
+mirrored automatically now needs `[defaults] symmetry = "y"` (or `"x"`, `"z"`) in `grid.toml`;
+the default `"none"` mirrors nothing, so a half model without it may keep or remove other
+inner faces than in 0.56. The record states the `symmetry` used.
+
+## IGES name encoding (0.57)
+
+`geometry iges-grid` and `geometry iges-convert` take `--name-encoding` (Python:
+`name_encoding=`), default `latin-1`, which keeps the former reading of every name. Names
+written in UTF-8 now decode with `--name-encoding utf-8` instead of appearing as mojibake and
+failing to match component tables. A name invalid in the stated encoding is refused, never
+replaced.
+
 ## Coordinate and band names (0.57)
 
 Use `[hub_rings] band_width` instead of the deprecated `width`, and

@@ -568,7 +568,7 @@ def _emit_bases(emit, mark, declarations, names, steps, *, build, entries, say=_
         if region.trailing_edges == "auto":
             emit("SET_BASE_REGION_TRAILING_EDGES", regions.index(region) + 1)
         else:
-            mark(region.family, region.trailing_edges)
+            mark(region.family, region.trailing_edges, "base")
 
     def create(index, region):
         # The create states the model and the Cp, and saves both. The solver stops the script at
@@ -1013,11 +1013,29 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             ) from error
 
 
+def _rim_base(role: str, label: str, obj_family: dict[str, str]) -> str | None:
+    """Return the OBJ family whose edge order a rim takes: a base region's own, never an entry's.
+
+    Trailing-edge entries and base regions are separate namespaces, so an entry that shares a
+    base family's name still marks in the order of its points file.
+    """
+    return obj_family.get(label) if role == "base" else None
+
+
+def _shown(key: tuple[str, str], keys: list[tuple[str, str]]) -> str:
+    """Name a declaration by its label, with its role when another declaration shares the label."""
+    role, label = key
+    if sum(1 for _, other in keys if other == label) > 1:
+        return f"{role.replace('_', ' ')} {label}"
+    return label
+
+
 def _warn_shared_edges(declared, autos, source, unit) -> None:
     """Warn, never refuse, where two declarations name the same mesh edges (R1-MARK-005).
 
-    ``declared`` holds each file entry's mid-points in metres and its tolerance by label;
-    ``autos`` the (label, OBJ family) of each base region whose rim is ``auto``, whose edges are
+    ``declared`` holds each file entry's mid-points in metres and its tolerance by (role, label),
+    the role being ``trailing_edge`` or ``base``; ``autos`` the (label, OBJ family) of each base
+    region whose rim is ``auto``, whose edges are
     those its faces share with another family. A saved edge belongs to one trailing-edge group:
     a 26.127 wheel that declared each blade rim twice saved one group per blade, not two, so one
     of the two declarations loses the edges and the read-back reports them missing.
@@ -1028,7 +1046,7 @@ def _warn_shared_edges(declared, autos, source, unit) -> None:
     from pyflightstream.workspace._mark_rims import _obj_edges
     from pyflightstream.workspace.wake_edges import DEFAULT_TOLERANCE
 
-    named = {label: (pts, tol) for label, (pts, tol) in declared.items() if len(pts)}
+    named = {key: (pts, tol) for key, (pts, tol) in declared.items() if len(pts)}
     if autos:
         owners: dict[tuple[float, ...], set[str]] = {}
         exact: dict[tuple[float, ...], tuple[float, ...]] = {}
@@ -1039,7 +1057,7 @@ def _warn_shared_edges(declared, autos, source, unit) -> None:
         for label, family in autos:
             rim = [exact[key] for key, held in owners.items() if family in held and len(held) > 1]
             if rim:
-                named.setdefault(label, (rim, DEFAULT_TOLERANCE))
+                named.setdefault(("base", label), (rim, DEFAULT_TOLERANCE))
     labels = list(named)
     for i, first in enumerate(labels):
         points, tolerance = named[first]
@@ -1052,7 +1070,8 @@ def _warn_shared_edges(declared, autos, source, unit) -> None:
             shared = sum(1 for hit in hits if hit)
             if shared:
                 warn(
-                    f"{first} and {second} name the same {shared} trailing-edge edges. A saved "
+                    f"{_shown(first, labels)} and {_shown(second, labels)} name the same "
+                    f"{shared} trailing-edge edges. A saved "
                     "edge belongs to one trailing-edge group, so one of the two keeps them and "
                     "the read-back finds the other's edges missing; declare each edge once "
                     "(one entry, or the base region's rim).",
@@ -1133,9 +1152,9 @@ def _emit_marking(
     )
     script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
     emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    declared: dict[str, tuple[Any, float]] = {}
+    declared: dict[tuple[str, str], tuple[Any, float]] = {}
 
-    def mark(label: str, marking: Any) -> None:
+    def mark(label: str, marking: Any, role: str = "trailing_edge") -> None:
         if marking.route == "detect":
             if marking.sweep_angle_deg is not None:
                 emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
@@ -1148,7 +1167,7 @@ def _emit_marking(
             return
         say(f"{label}: matching the points file to mesh edges")
         bound = matched_trailing_edge_sets(marking, source, spec.units)
-        declared[label] = (
+        declared[(role, label)] = (
             [point for found in bound.sets for point in found.points_m],
             bound.tolerance,
         )
@@ -1166,7 +1185,7 @@ def _emit_marking(
             return
         # A base region's rim is written in the order 26.127 keeps every edge of (rim_runs),
         # read from the OBJ by the base's family there, before any rename of the import.
-        base = obj_family.get(label)
+        base = _rim_base(role, label, obj_family)
         _mark_file_runs(
             script,
             label,

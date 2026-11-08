@@ -23,8 +23,16 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
-from pyflightstream.workspace._gmsh import IMPORT_UNIT, import_iges, import_named, session
+from pyflightstream.workspace._gmsh import (
+    IMPORT_UNIT,
+    gmsh_module,
+    import_iges,
+    import_named,
+    session,
+)
+from pyflightstream.workspace._gmsh_worker import run_isolated
 from pyflightstream.workspace._iges_names import (
+    DEFAULT_NAME_ENCODING,
     flag_curves_on_surfaces,
     name_faces,
     read_iges_names,
@@ -43,7 +51,12 @@ def _centres(gmsh: Any, faces: Sequence[int]) -> list[tuple[float, ...]]:
     return [tuple(gmsh.model.occ.getCenterOfMass(2, t)) for t in faces]
 
 
-def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, Any]:
+def convert_iges(
+    sources: Sequence[str | Path],
+    out: str | Path,
+    *,
+    name_encoding: str = DEFAULT_NAME_ENCODING,
+) -> dict[str, Any]:
     """Write the faces of ``sources`` as one IGES of NURBS faces with their component names.
 
     Parameters
@@ -52,6 +65,8 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
         IGES files, read only; their faces are named by the NAME of their level.
     out : str or Path
         The IGES to write; ``<out>.json`` is written beside it.
+    name_encoding : str, optional
+        The text encoding of the NAME bytes, read and written; default ``"latin-1"``.
 
     Returns
     -------
@@ -63,8 +78,10 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
     MissingExtraError
         gmsh is not installed (``pip install "pyflightstream[gmsh]"``).
     InputArtifactError
-        A source cannot be named face by face, or the written file does not read back with the
-        same components; nothing was written.
+        A source cannot be named face by face, the written file does not read back with the
+        same components, or the geometry kernel failed (it runs in a worker process of its
+        own, so a native fault ends only that worker, is reported with its cause, and the
+        conversion is not retried); nothing was written.
     """
     target = Path(out)
     if target.suffix.lower() not in (".igs", ".iges"):
@@ -73,8 +90,23 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
             "written.",
             kind="geometry",
         )
+    gmsh_module(_PURPOSE)
+    return run_isolated(
+        f"{__name__}:_convert",
+        {
+            "sources": [str(s) for s in sources],
+            "out": str(target),
+            "name_encoding": name_encoding,
+        },
+        _convert,
+    )
+
+
+def _convert(sources: Sequence[str | Path], out: str | Path, name_encoding: str) -> dict[str, Any]:
+    """Run the conversion in this process; :func:`convert_iges` calls it in a worker."""
+    target = Path(out)
     with session(_PURPOSE) as gmsh:
-        model = import_named(gmsh, sources)
+        model = import_named(gmsh, sources, name_encoding=name_encoding)
         before = _types(gmsh, model.faces)
         gmsh.model.occ.convertToNURBS([(2, t) for t in model.faces])
         gmsh.model.occ.synchronize()
@@ -112,10 +144,10 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
                     kind="geometry",
                 )
             named = Path(folder) / "named.igs"
-            name_faces(raw, named, model.names, unit=model.unit)
+            name_faces(raw, named, model.names, unit=model.unit, name_encoding=name_encoding)
             # The solver's CAD import reads the parameter-space flags the writer leaves wrong.
             staged = flag_curves_on_surfaces(named, Path(folder) / "flagged.igs")
-            again = read_iges_names(staged)
+            again = read_iges_names(staged, name_encoding=name_encoding)
             if list(again.faces) != model.names:
                 raise InputArtifactError(
                     f"{target}: the named file reads back other components than were written. "
@@ -124,7 +156,7 @@ def convert_iges(sources: Sequence[str | Path], out: str | Path) -> dict[str, An
                 )
             target.parent.mkdir(parents=True, exist_ok=True)
             _textio.write_bytes(target, staged.read_bytes())
-    readback = read_iges_names(target)
+    readback = read_iges_names(target, name_encoding=name_encoding)
     record = {
         "output": target.name,
         "sha256": file_sha256(target),
