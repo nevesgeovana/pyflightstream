@@ -13,7 +13,7 @@ FlightStream versions.
 - Sector-to-wheel uses CLI `--center` and Python `center=` for a rotor-axis point;
   `--hub` and `hub=` remain deprecated coordinate aliases. Equal duplicates are
   accepted, conflicts are refused, and report keys remain unchanged.
-- The fixed synthetic trailing-edge QA probe uses an owner-chosen absolute
+- The fixed synthetic trailing-edge QA probe uses a fixed absolute
   coordinate allowance of 1e-6 m, after checking units and edge identity, with
   presence-only True/False verdicts and None for unobservable saves.
 

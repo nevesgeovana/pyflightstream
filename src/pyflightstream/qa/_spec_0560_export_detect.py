@@ -49,7 +49,7 @@ _EXPORTED = "export.obj"
 _BOX_FACES = 12
 #: Mid-point of the wing stub's sharp trailing edge, from (2, 1, 0) to (2, 3, 0).
 _WING_TE = (2.0, 2.0, 0.0)
-# Owner's numerical call: coordinate-identity allowance, not solver/aerodynamic accuracy.
+# A coordinate-identity allowance, not a solver or aerodynamic accuracy.
 _COORDINATE_TOLERANCE_M = 1e-6
 
 

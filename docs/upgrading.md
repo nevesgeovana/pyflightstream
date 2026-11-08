@@ -13,7 +13,7 @@ center uses the origin, never the pitch datum.
 
 The fixed synthetic trailing-edge QA probe now checks for a finite midpoint within
 1e-6 metres per coordinate after confirming stored units and edge identity. This is
-an owner-chosen coordinate-identity allowance, not an aerodynamic accuracy claim.
+a fixed coordinate-identity allowance, not an aerodynamic accuracy claim.
 The verdict uses unrounded saved midpoints; observation reports retain their existing rounding.
 An empty or wrong-edge result is False; missing or incomparable saves and already-marked
 baselines are None. Additional marked edges do not invalidate a target match.

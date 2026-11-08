@@ -475,3 +475,15 @@ def test_xz_text_is_scanned_in_full_and_a_compressed_identifier_is_refused():
     assert any("an institution name" in finding for finding in bad.findings)
     broken = checker.scan([("fixture.vtk.xz", lzma.compress(clean)[:-10])], config)
     assert broken.undecodable == ["fixture.vtk.xz"] and not broken.scanned
+
+
+def test_rl57_public_files_do_not_narrate_who_chose_the_allowance():
+    """A requirement is stated, never its provenance."""
+    for parts in (
+        ("CHANGELOG.md",),
+        ("docs", "upgrading.md"),
+        ("src", "pyflightstream", "qa", "_spec_0560_export_detect.py"),
+    ):
+        text = REPO.joinpath(*parts).read_text(encoding="utf-8").lower()
+        assert "owner-chosen" not in text, parts
+        assert "owner's numerical call" not in text, parts
