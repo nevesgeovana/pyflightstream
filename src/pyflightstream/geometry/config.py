@@ -21,6 +21,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from pyflightstream._errors import InputValueError
+from pyflightstream._textio import write_text
 
 __all__ = ["load_config", "resolve_config", "unpack", "write_config"]
 
@@ -570,4 +571,4 @@ def toml_value(value):
 def write_config(config, path):
     """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged."""
     text = "\n".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in config.items()) + "\n"
-    Path(path).write_text(text, encoding="utf-8")
+    write_text(path, text)
