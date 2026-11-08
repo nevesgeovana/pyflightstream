@@ -11,7 +11,7 @@ from unittest.mock import patch
 from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT, UnsteadyExportThreshold
 from pyflightstream.qa.cost import cost_rows
 from pyflightstream.run import LocalExecutor
-from pyflightstream.run._actions_counter import render_count_program, render_program
+from pyflightstream.run._actions_counter import render_program, render_timed_count_program
 from pyflightstream.run._points import start_the_wall_clock
 from pyflightstream.run._step_timing import read_step_timing
 from pyflightstream.workspace import RunRecord, RunStatus
@@ -32,7 +32,7 @@ def assert_declared_steps_have_wall_times(tmp_path: Path, exports: bool) -> None
     program = (
         render_program(threshold, interpreter="python")
         if exports
-        else render_count_program(steps, interpreter="python")
+        else render_timed_count_program(steps, interpreter="python")
     )
     counter = tmp_path / UNSTEADY_ACTION_COUNT
     counter.parent.mkdir(parents=True)
@@ -56,6 +56,8 @@ def assert_declared_steps_have_wall_times(tmp_path: Path, exports: bool) -> None
             namespace["main"]()
     data = json.loads(counter.read_text())
     assert data["count"] == steps
+    if not exports:
+        assert data == {"count": steps}  # FR-314: timing belongs to the launcher.
     record = RunRecord(
         run_id="timed",
         sim_id="1",
@@ -81,12 +83,12 @@ def assert_declared_steps_have_wall_times(tmp_path: Path, exports: bool) -> None
     assert cost["step_wall_time_last20_mean_s"] == 13.5
 
 
-class StepTimingTests(unittest.TestCase):
+class TestStepTiming(unittest.TestCase):
     def test_missing_origin_is_absent_not_zero(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)
             namespace = {"__file__": str(directory / "counter.py"), "__name__": "test"}
-            exec(render_count_program(1, interpreter="python"), namespace)
+            exec(render_timed_count_program(1, interpreter="python"), namespace)
             with patch("time.time", return_value=101.0):
                 namespace["main"]()
             fields = read_step_timing(directory / Path(UNSTEADY_ACTION_COUNT).name)
@@ -95,6 +97,7 @@ class StepTimingTests(unittest.TestCase):
             self.assertIsNone(fields["step_wall_time_last20_mean_s"])
 
     def test_both_templates(self):
+        """FR-3769: every callback retains its timestamp and measured interval."""
         for exports in (False, True):
             with self.subTest(exports=exports), tempfile.TemporaryDirectory() as folder:
                 assert_declared_steps_have_wall_times(Path(folder), exports)

@@ -69,8 +69,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the 26.127 rim face-order test (test_p0560_rim_face_order.py): 2144 files, measured.
 #: then the outer skin of iges-grid (workspace/_iges_skin.py): 2145 files, measured.
 #: then the CI shard selector test (test_p0560_ci_shards.py): 2146 files, measured.
+#: Runtime and timing files and the scripts marker bring the tree to 2154 (two SRS pages folded).
 LEAN_CAPS = {
-    "tracked_files": 2146,
+    "tracked_files": 2154,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,

@@ -218,6 +218,8 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
         )
         return True
 
+    # An empty desktop may leave last-error untouched; do not reuse another API failure.
+    ctypes.set_last_error(0)
     if not user32.EnumWindows(visit, 0):
         error = ctypes.get_last_error()
         if error:

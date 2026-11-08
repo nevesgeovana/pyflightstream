@@ -2,6 +2,8 @@
 
 import subprocess
 
+import pytest
+
 from pyflightstream.run import _executors as run
 from pyflightstream.run._solver_windows import _native_windows, owned_solver_dialogs
 
@@ -210,3 +212,43 @@ def test_f834_an_interrupt_kills_the_steady_coupled_solver(tmp_path, monkeypatch
     else:
         raise AssertionError("the interrupt must propagate")
     assert process.killed
+
+
+@pytest.mark.parametrize("reported_error", [0, 5])
+def test_native_enumeration_clears_stale_error_but_preserves_a_new_error(
+    monkeypatch, reported_error
+):
+    """An empty desktop must not inherit an earlier API failure; a fresh failure still raises."""
+    import ctypes
+    from unittest.mock import Mock
+
+    import pyflightstream.run._solver_windows as solver_windows
+
+    last_error = [87]
+
+    def enumerate_windows(callback, parameter):
+        if reported_error:
+            last_error[0] = reported_error
+        return 0
+
+    native = Mock()
+    native.EnumWindows.side_effect = enumerate_windows
+    monkeypatch.setattr(solver_windows.sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: native, raising=False)
+    monkeypatch.setattr(
+        ctypes, "WINFUNCTYPE", lambda *args: lambda callback: callback, raising=False
+    )
+    monkeypatch.setattr(
+        ctypes, "set_last_error", lambda error: last_error.__setitem__(0, error), raising=False
+    )
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: last_error[0], raising=False)
+    monkeypatch.setattr(
+        ctypes, "WinError", lambda error: OSError(error, "enumeration failed"), raising=False
+    )
+    if reported_error:
+        with pytest.raises(OSError) as refused:
+            _native_windows(123)
+        assert refused.value.errno == reported_error
+    else:
+        assert _native_windows(123) == []
+    native.EnumWindows.assert_called_once()

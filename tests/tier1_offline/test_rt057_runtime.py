@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 from pydantic import ValidationError
 
 from pyflightstream.cases import SimCase, SolverSettings
-from pyflightstream.cases.runtime import RuntimeSettings
+from pyflightstream.cases._runtime_settings import RuntimeSettings
 from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.run import LocalExecutor, _runtime
 from pyflightstream.run._runtime import resolve_runtime
@@ -251,7 +251,7 @@ class RuntimeTopologyParserTests(unittest.TestCase):
             )
 
 
-class RuntimeTests(unittest.TestCase):
+class TestRuntime(unittest.TestCase):
     def test_linux_non_integer_core_type_falls_back_to_zero(self):
         # Raw sysfs text reaches the real detector; no normalized topology is mocked.
         with tempfile.TemporaryDirectory() as folder:
@@ -276,6 +276,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(detected["numa_nodes"], [{"id": 0, "logical_processors": [0]}])
 
     def test_fixture_emission_environment_and_record(self):
+        """FR-3770: launch settings, environment and recorded topology agree."""
         with tempfile.TemporaryDirectory() as folder:
             exe = Path(folder) / "solver.exe"
             exe.touch()
@@ -356,6 +357,11 @@ class RuntimeTests(unittest.TestCase):
             legacy_script = Script("26.124")
             _settings(legacy, legacy_script)
             self.assertNotIn("SET_MAX_PARALLEL_THREADS", legacy_script.render())
+            self.assertNotIn("runtime", legacy.solver.model_dump())
+            self.assertNotIn("runtime", legacy_script.solver_setup.model_dump())
+            self.assertNotIn("step_wall_times_s", record.model_dump())
+            self.assertNotIn("step_wall_timestamps_s", record.model_dump())
+            self.assertNotIn("step_wall_time_last20_mean_s", record.model_dump())
 
     def test_integer_unset_and_input_validation(self):
         for topology, _, _ in TOPOLOGIES:

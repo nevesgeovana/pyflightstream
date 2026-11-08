@@ -847,6 +847,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "package_version",
     }
     structured_run_and_product_provenance = {
+        # Callback timing describes launch cost, retained together in the run
+        # record and cost evidence rather than the simulation's superfile row.
+        "step_wall_timestamps_s",
+        "step_wall_times_s",
+        "step_wall_time_last20_mean_s",
         # Per-sample IDs, coordinates and output formats, retained in the run
         # manifest and sampled-field provenance beside the derived arrays.
         "probe_field_layout",

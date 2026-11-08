@@ -3761,6 +3761,20 @@
       "status": "implemented"
     },
     {
+      "id": "FR-3769",
+      "parent": "FR-3071",
+      "area": "RECS",
+      "hid": "RECS-1.5",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3770",
+      "parent": "FR-3039",
+      "area": "PHYS",
+      "hid": "PHYS-3.9",
+      "status": "implemented"
+    },
+    {
       "id": "NFR-02",
       "parent": "FR-3146",
       "area": "QMNT",

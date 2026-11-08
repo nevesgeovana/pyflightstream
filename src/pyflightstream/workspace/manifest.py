@@ -804,7 +804,8 @@ class RunRecord(BaseModel):
             " marked restart discarded_by"
             " iterations_requested skipped_names settings_sources farfield_layout"
             " probe_field_layout surface_probe_layout frame_motions custom_field_coverage"
-            " freestream_units"
+            " freestream_units step_wall_timestamps_s step_wall_times_s"
+            " step_wall_time_last20_mean_s"
         ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 

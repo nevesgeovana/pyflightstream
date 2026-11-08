@@ -356,6 +356,7 @@ class TestRun1ReviewWindows:
         monkeypatch.setattr(
             ctypes, "WINFUNCTYPE", lambda *args: lambda callback: callback, raising=False
         )
+        monkeypatch.setattr(ctypes, "set_last_error", lambda error: None, raising=False)
         snapshots = windows._native_windows(pid)
         assert len(snapshots) == 1
         assert windows.select_owned_dialogs(pid, snapshots) == ()

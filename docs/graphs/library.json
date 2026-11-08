@@ -156,6 +156,11 @@
       "path": "cases/_matrix_upgrade.py"
     },
     {
+      "id": "pyflightstream.cases._runtime_settings",
+      "layer": 3,
+      "path": "cases/_runtime_settings.py"
+    },
+    {
       "id": "pyflightstream.cases._setup_keys",
       "layer": 3,
       "path": "cases/_setup_keys.py"
@@ -1341,6 +1346,11 @@
       "path": "run/_record_files.py"
     },
     {
+      "id": "pyflightstream.run._runtime",
+      "layer": 1,
+      "path": "run/_runtime.py"
+    },
+    {
       "id": "pyflightstream.run._solver_windows",
       "layer": 1,
       "path": "run/_solver_windows.py"
@@ -1349,6 +1359,11 @@
       "id": "pyflightstream.run._step_exports",
       "layer": 1,
       "path": "run/_step_exports.py"
+    },
+    {
+      "id": "pyflightstream.run._step_timing",
+      "layer": 1,
+      "path": "run/_step_timing.py"
     },
     {
       "id": "pyflightstream.run._sweep",
@@ -2910,6 +2925,11 @@
     {
       "source": "pyflightstream.cases.settings",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.settings",
+      "target": "pyflightstream.cases._runtime_settings",
       "kind": "module"
     },
     {
@@ -11219,6 +11239,11 @@
     },
     {
       "source": "pyflightstream.run._executors",
+      "target": "pyflightstream.run._runtime",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._executors",
       "target": "pyflightstream.run._solver_windows",
       "kind": "module"
     },
@@ -11909,6 +11934,11 @@
     },
     {
       "source": "pyflightstream.run._points",
+      "target": "pyflightstream.run._step_timing",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._points",
       "target": "pyflightstream.run._wake_edge_verdict",
       "kind": "module"
     },
@@ -12185,6 +12215,16 @@
     {
       "source": "pyflightstream.run._record_files",
       "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._runtime",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._runtime",
+      "target": "pyflightstream.cases._runtime_settings",
       "kind": "module"
     },
     {
@@ -12546,6 +12586,11 @@
       "source": "pyflightstream.run.collect",
       "target": "pyflightstream.run._step_exports",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.collect",
+      "target": "pyflightstream.run._step_timing",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run.collect",

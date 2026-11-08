@@ -145,6 +145,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("matrix", "The row keys, by run type"): row_keys | {RAW_VARIABLE, IDENTIFIERS_VARIABLE},
         # --- the setup artifact ---------------------------------------------
         ("setup", "Solver settings"): _fields(SolverSettings),
+        ("setup", "`[runtime]`"): {"max_threads", "affinity"},
         ("setup", "`[[ports]]`"): _fields(PortBoundary),
         ("setup", "`[ports.remesh]`"): _fields(RadialBoundaryMesh),
         ("setup", "`[[actuator_operations]]`"): {"op", "actuator", "name"},

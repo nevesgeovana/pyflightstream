@@ -591,7 +591,7 @@ class SolverSetup(BaseModel):
         # record and every product written from one keeps its bytes; an old
         # record, which carries neither key, validates to the empty defaults.
         dumped = handler(self)
-        for name in ("from_row", "derived"):
+        for name in ("from_row", "derived", "runtime"):
             if not dumped.get(name):
                 dumped.pop(name, None)
         return dumped

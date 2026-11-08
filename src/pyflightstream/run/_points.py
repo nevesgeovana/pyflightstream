@@ -903,9 +903,9 @@ def start_the_wall_clock(job: _PointJob) -> None:
     first-invocation origin, and its margin must also cover the time before
     the first step.
     """
-    if job.counter is not None and isinstance(job.executor, LocalExecutor):
+    if getattr(job, "counter", None) is not None and isinstance(job.executor, LocalExecutor):
         _textio.write_text(
-            job.work_dir / UNSTEADY_ACTION_COUNT,
+            (job.work_dir / UNSTEADY_ACTION_COUNT).with_name("step-cost.json"),
             json.dumps(
                 {
                     "count": 0,

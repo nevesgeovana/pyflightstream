@@ -148,13 +148,14 @@ failed or converged after review when its recorded status needs correction.
 ## Per-step wall time
 
 Unsteady records and detailed cost rows carry `step_wall_times_s` and
-`step_wall_time_last20_mean_s`. The counter also retains Unix wall timestamps
+`step_wall_time_last20_mean_s`. The callback launcher also retains Unix wall timestamps
 in `step_wall_timestamps_s`, one per completed step. Intervals use the monotonic
 performance clock so wall-clock adjustments do not change elapsed measurements. The first local interval
 starts at launch and includes initialization. Without a launch origin (for
 example a submitted job), that first interval is null. The mean uses available
 intervals among the last 20 steps. Old records keep these fields absent.
 
-The counter also writes `actions/step-cost.json` beside the counter, preserving
+The callback launcher writes `actions/step-cost.json` beside the counter, preserving
 the step count, timestamps, intervals and mean as measured cost evidence.
-The user-maintained machine calibration files in `inputs/costs/` are unchanged.
+The count-only program keeps its state as `{"count": N}`; its launch wrapper
+records timing separately. The user-maintained machine calibration files in `inputs/costs/` are unchanged.

@@ -511,6 +511,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
     grids = [g for f in data for p in f.get("probes", []) for g in p.get("grids", [])]
     tables = {
         "`[noise]`": [f.get("noise", {}) for f in data],
+        "`[runtime]`": [f.get("runtime", {}) for f in data],
         "`[[probes.grids]]`": grids,
         "`[probes.grids.frame]`": [g.get("frame", {}) for g in grids],
         "`[probes.grids.u]`": [g.get("u", {}) for g in grids],

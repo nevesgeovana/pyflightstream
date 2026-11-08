@@ -20,10 +20,20 @@ import re
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._errors import InputValueError
+from pyflightstream.cases._runtime_settings import RuntimeSettings
 
 # The setup keys' command table and the tables FR-319 added; its module imports
 # only pydantic and the command database, so the package may import it while it loads.
@@ -33,7 +43,6 @@ from pyflightstream.cases.mesh import (
     PortBoundary,
 )
 from pyflightstream.cases.reference_blocks import ActuatorOperation
-from pyflightstream.cases.runtime import RuntimeSettings
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script.solver_setup import (
     AirfoilSeparation,
@@ -557,6 +566,15 @@ class SolverSettings(BaseModel):
     physics_auto_wake_nodes: bool | None = None
     max_threads: int | None = Field(default=None, ge=1)
     runtime: RuntimeSettings | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_runtime(self, handler: SerializerFunctionWrapHandler) -> dict:
+        """Preserve the resolved setup shape when no runtime block was supplied."""
+        data = handler(self)
+        if self.runtime is None:
+            data.pop("runtime", None)
+        return data
+
     timeout_s: float | None = Field(default=None, gt=0.0)
     #: How much wall time to reserve for exports, in seconds. Defaults to twenty minutes. This is
     #: a setup setting because export duration is shared across the row's platforms. It emits
