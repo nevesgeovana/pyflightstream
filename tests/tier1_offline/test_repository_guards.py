@@ -72,8 +72,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: Runtime and timing files and the scripts marker bring the tree to 2154 (two SRS pages folded).
 #: then the IGES decisions (R1-IGES-008 worker, R1-IGES-010, R2-006, R3-006): four changelog
 #: fragments, workspace/_gmsh_worker.py and test_p0570_iges_decisions.py: 2160, measured (+6).
+#: then the L1 merge (+15 files, RL57B-5) and the lane-057-debt commits: 2175, measured.
 LEAN_CAPS = {
-    "tracked_files": 2160,
+    "tracked_files": 2175,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
