@@ -28,7 +28,6 @@ Examples
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -36,6 +35,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import InputValueError
 
 __all__ = [
@@ -266,7 +266,7 @@ class ComponentRecord(_Strict):
         self._construction_problems(problems)
         self._deviation_problems(problems)
         if problems:
-            raise ValueError("; ".join(problems))
+            raise InputValueError("; ".join(problems))
         return self
 
     def _station_problems(self, problems: list[str], lifting: bool) -> None:
@@ -433,11 +433,7 @@ class ComponentRecord(_Strict):
 
 def sha256_file(path: str | Path) -> str:
     """Return the SHA-256 of the exact bytes of a file as lowercase hex."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    return file_sha256(path)
 
 
 def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:
@@ -470,4 +466,4 @@ def export_schema() -> dict:
 def schema_digest() -> str:
     """Return the SHA-256 of the exported schema in its canonical JSON form."""
     text = json.dumps(export_schema(), sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return text_sha256(text)
