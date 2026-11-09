@@ -5,8 +5,10 @@ violation), and a Python ``except`` cannot establish that the kernel is usable a
 each conversion that needs the kernel runs in a worker process of its own: the parent never
 initializes gmsh for it, a fault ends only the worker, and the parent reports the failure with
 its cause and goes on. A failed conversion is fatal for that conversion: no kernel state is
-reused, no retry is made in the same process, and nothing is published, because the operations
-write their outputs only after the last kernel call returns.
+reused, no retry is made in the same process, and nothing is published: an operation that
+names an output (``out``) writes it, and everything beside it, to a staging folder, and the
+parent moves the files to their place only after the worker has answered without an error,
+so a worker that is killed, times out or refuses part way leaves nothing behind.
 
 The request and the answer travel as JSON files named on the worker's command line, never
 through the standard streams, which the kernel writes to.
@@ -19,6 +21,7 @@ import importlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -84,7 +87,9 @@ def run_isolated(
 
     ``operation`` is ``"<module>:<function>"``, a function of this package that takes
     ``arguments`` as keywords and returns a JSON-serializable record. ``direct`` is the same
-    function, called here when :data:`ISOLATE` is off.
+    function, called here when :data:`ISOLATE` is off. When ``arguments`` holds ``out``, the
+    worker writes there under a staging folder and the files are moved beside ``out`` after a
+    successful answer.
 
     Raises
     ------
@@ -96,7 +101,10 @@ def run_isolated(
         return direct(**arguments)
     with tempfile.TemporaryDirectory(prefix="pyfs-gmsh-") as folder:
         request, answer = Path(folder) / "request.json", Path(folder) / "answer.json"
-        write_text(request, json.dumps({"operation": operation, "arguments": arguments}))
+        requested = Path(arguments["out"]) if "out" in arguments else None
+        stage = Path(folder) / "publish"
+        sent = arguments if requested is None else {**arguments, "out": str(stage / requested.name)}
+        write_text(request, json.dumps({"operation": operation, "arguments": sent}))
         limit = _timeout()
         flags = _NO_WINDOW if os.name == "nt" else 0
         env = {**os.environ, _ENV: "1"}
@@ -118,12 +126,35 @@ def run_isolated(
             tail = "\n".join((done.stderr or "").strip().splitlines()[-_TAIL_LINES:])
             raise _failed(f"its worker process ended with {_describe(done.returncode)}", tail)
         reply = json.loads(answer.read_text(encoding="utf-8"))
+        if requested is not None:
+            reply = json.loads(
+                json.dumps(reply).replace(
+                    json.dumps(str(stage))[1:-1], json.dumps(str(requested.parent))[1:-1]
+                )
+            )
+            if "error" not in reply:
+                _publish(stage, requested.parent)
     for category, message in reply.get("warnings", []):
         warn_by_name(message, category, 2)
     if "error" in reply:
         raise _rebuilt(reply["error"])
     result: dict[str, Any] = reply["result"]
     return result
+
+
+def _publish(stage: Path, folder: Path) -> None:
+    """Move the files of a finished worker from its staging folder to ``folder``.
+
+    The JSON record goes last, so a folder that holds it holds the whole set.
+    """
+    files = sorted(stage.iterdir()) if stage.is_dir() else []
+    folder.mkdir(parents=True, exist_ok=True)
+    for path in sorted(files, key=lambda item: item.name.endswith(".json")):
+        destination = folder / path.name
+        try:
+            os.replace(path, destination)
+        except OSError:
+            shutil.move(str(path), str(destination))
 
 
 def _failed(cause: str, tail: str) -> InputArtifactError:
