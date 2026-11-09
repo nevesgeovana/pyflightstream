@@ -285,10 +285,16 @@ export's `Moment` about the simulation's moment reference point (MRP), the
 point the model's reference moment is taken about, and not about the local
 quarter chord `(X_QC, Z_QC)`. The measurement behind this sentence integrates
 the section's surface pressure about each candidate point and compares it with
-the exported `Moment`: about the MRP the residual is the small friction part
-and does not follow angle of attack, about the local quarter chord it is
-several times larger and varies with angle of attack (build 26.127, wing
-sections at two spans). FSM-26.123, the registered 26.123 manual, p.253
+the exported `Moment`, on build 26.127, on one wing with one MRP, at sections at
+two spans. Over most of its angles of attack the residual about the MRP is
+small, though it does change with angle of attack, and the residual about the
+local quarter chord is larger, with the opposite sign. At the highest angles of
+attack of some polars the residual about the MRP is large, the quarter chord
+leaves the smaller one, and the integrated pressure force also departs from the
+exported force, so the measurement does not separate the two points there. It
+integrates pressure only: friction is the expected share of the residual, not
+a measured one. A rotating blade, another MRP position and a cut plane other
+than XZ are not measured. FSM-26.123, the registered 26.123 manual, p.253
 (Sectional Load Distributions), identifies Xqc and Zqc as the 25% chord
 coordinates used for the CM reference; the measurement does not support reading
 that as the point of the exported `Moment`, and whether the 26.123 build
@@ -302,8 +308,9 @@ by the strip length preserves that moment point and the export's sign and
 section-plane axes. For an XZ cut in a blade's own frame this is its My.
 For another cut plane it retains the export's plane-normal moment component
 under the same column name. No transfer to an elastic axis, hub or the quarter
-chord is applied. Every station's `My_int` is about the same point, the MRP, so
-their sum is a moment about that one point.
+chord is applied. Read this way, every station's `My_int` is about the same
+point, the MRP, so their sum is a moment about that one point; a summed moment
+was not itself compared with anything.
 
 **Integration never blocks post.** A block with fewer than two stations,
 non-monotonic or repeated Offset, or a non-finite sectional value cannot be
