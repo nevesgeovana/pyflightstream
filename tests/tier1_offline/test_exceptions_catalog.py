@@ -167,6 +167,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "InputArtifactError": RuntimeError,
         "InputTypeError": TypeError,
         "InputValueError": ValueError,
+        "KernelUnavailableError": ImportError,
         "LoadsNotFoundError": ValueError,
         "MalformedOutputError": ValueError,
         "ManualCallError": TypeError,

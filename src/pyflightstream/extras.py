@@ -9,9 +9,17 @@ the distributions the gated code needs.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pyflightstream._errors import PyflightstreamError
 
-__all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
+__all__ = [
+    "EXTRAS",
+    "KernelUnavailableError",
+    "MissingExtraError",
+    "UnknownExtraError",
+    "missing_extra",
+]
 
 #: Optional runtime extras, checked against pyproject.toml by test_extras.py.
 #: dev gates no runtime path and is absent. trimesh, matplotlib, rtree and
@@ -86,6 +94,43 @@ class MissingExtraError(PyflightstreamError, ImportError):
 def _rebuild_missing_extra(extra: str, package: str, purpose: str) -> MissingExtraError:
     """Rebuild a :class:`MissingExtraError` from its fields, for unpickling."""
     return MissingExtraError(extra=extra, package=package, purpose=purpose)
+
+
+class KernelUnavailableError(MissingExtraError):
+    """The CAD kernel library is not installed or cannot load in this environment.
+
+    A :class:`MissingExtraError`, so a handler written for the missing extra still catches it.
+    It is raised for an ``ImportError`` and for an ``OSError`` (a shared library the kernel needs
+    failed to load, which ``import`` reports as ``OSError``). The message names the library that
+    failed, from the original error, the Linux package line, and that the stages that build
+    surfaces without the kernel (S0 to S9) still run.
+    """
+
+    #: The Linux packages the kernel library links against.
+    LINUX_PACKAGES = "libglu1-mesa libxcursor1 libxft2 libxinerama1"
+
+    def __init__(self, *, purpose: str, reason: str) -> None:
+        self.extra = "gmsh"
+        self.package = "gmsh"
+        self.purpose = purpose
+        self.reason = reason
+        self.remedy = "pip install gmsh"
+        Exception.__init__(
+            self,
+            f"{purpose} needs the CAD kernel library gmsh, which could not be loaded: {reason}. "
+            f"Install it with: {self.remedy}. On Linux the library also needs "
+            f"{self.LINUX_PACKAGES}. The stages that do not use the kernel (S0 to S9) still run "
+            "without it.",
+        )
+
+    def __reduce__(self) -> Any:
+        """Pickle by the keyword fields, since ``__init__`` takes no positional message."""
+        return (_rebuild_kernel_unavailable, (self.purpose, self.reason))
+
+
+def _rebuild_kernel_unavailable(purpose: str, reason: str) -> KernelUnavailableError:
+    """Rebuild a :class:`KernelUnavailableError` from its fields, for unpickling."""
+    return KernelUnavailableError(purpose=purpose, reason=reason)
 
 
 def missing_extra(extra: str, *, package: str, purpose: str) -> MissingExtraError:
