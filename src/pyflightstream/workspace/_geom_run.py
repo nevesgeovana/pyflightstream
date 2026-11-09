@@ -18,6 +18,8 @@ not read as a verified model.
 from __future__ import annotations
 
 import copy
+import json
+import os
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -43,6 +45,7 @@ from pyflightstream.geometry._records import (
     write_record,
 )
 from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
+from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
 __all__ = [
@@ -108,16 +111,36 @@ def _definition(context: RunContext) -> StageOutcome:
     )
 
 
+def _generate(resolved: dict[str, Any], target: Path, configuration: str | None):
+    """Write the IGES with the kernel in a worker process, unless this already is one.
+
+    gmsh state is a process singleton and the kernel can fault natively (design B.5), so a
+    caller's own loop of :func:`run_geometry` keeps running after a fault: the fault returns as
+    an ``InputArtifactError`` and the stage fails. Inside a :func:`run_doe` worker the set
+    already has a process of its own.
+    """
+    arguments = {"config": resolved, "path": str(target), "configuration": configuration}
+    if os.environ.get(WORKER_ENV) == "1":
+        return _generate_record(**arguments)
+    return run_isolated(f"{__name__}:_generate_record", arguments, _generate_record)
+
+
+def _generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
+    """Write the IGES and return the record of ``generate_iges`` as JSON values (a worker's)."""
+    from pyflightstream.workspace import _geometry_generate
+
+    written = _geometry_generate.generate_iges(config, path, configuration=configuration)
+    return json.loads(json.dumps(written, default=str))
+
+
 def _export(context: RunContext) -> StageOutcome:
     """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
-    from pyflightstream.workspace._geometry_generate import generate_iges
-
     name = context.configuration or str(
         unpack(context.resolved["aircraft"]).get("name", "geometry")
     )
     target = context.out / f"{name}.igs"
     try:
-        written = generate_iges(context.resolved, target, configuration=context.configuration)
+        written = _generate(context.resolved, target, context.configuration)
     except InputArtifactError as error:
         if "solid entities" not in str(error):
             raise

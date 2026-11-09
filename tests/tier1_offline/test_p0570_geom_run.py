@@ -214,6 +214,46 @@ def test_p0570_g3_unbuilt_geometry_entries_refuse_and_write_nothing(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
+def test_p0570_r18_003_a_single_run_writes_the_iges_in_a_worker_and_a_fault_fails_s11(
+    tmp_path, monkeypatch
+):
+    """B.5 and C3: the kernel stage of run_geometry runs in a worker; a fault fails the set."""
+    from pyflightstream._errors import InputArtifactError
+
+    monkeypatch.delenv("PYFLIGHTSTREAM_GMSH_WORKER", raising=False)
+    calls = []
+
+    def worker(operation, arguments, direct):
+        calls.append(operation)
+        if len(calls) == 2:
+            raise InputArtifactError("the geometry kernel failed on this input: exit code 3")
+        return {"path": arguments["path"], "faces": {"FUS": 4}, "audit": {}, "warnings": []}
+
+    monkeypatch.setattr(_geom_run, "run_isolated", worker)
+    first = _geom_run.run_geometry(BODY, out=tmp_path / "a", until="S11")
+    assert calls == ["pyflightstream.workspace._geom_run:_generate_record"]
+    assert first["outputs"]["faces"] == {"FUS": 4} and first["status"] == "incomplete"
+    second = _geom_run.run_geometry(BODY, out=tmp_path / "b", until="S11")
+    assert (second["status"], second["stage"], second["check"]) == ("failed", "S11", "stage.raised")
+    assert "kernel failed" in second["message"]
+
+
+def test_p0570_r18_003_inside_a_doe_worker_the_kernel_stage_is_not_isolated_again(
+    tmp_path, monkeypatch
+):
+    from pyflightstream.workspace import _geometry_generate
+
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_WORKER", "1")
+    monkeypatch.setattr(_geom_run, "run_isolated", lambda *a: pytest.fail("isolated twice"))
+    monkeypatch.setattr(
+        _geometry_generate,
+        "generate_iges",
+        lambda config, path, configuration=None: {"faces": {}, "audit": {}, "warnings": []},
+    )
+    report = _geom_run.run_geometry(BODY, out=tmp_path, until="S11")
+    assert report["status"] == "incomplete" and report["outputs"]["iges"].endswith(".igs")
+
+
 #: The release that owns PFS-2220. Its preparation commit sets this version in pyproject.toml,
 #: and from then on no geometry entry may refuse as not built. Deferring an entry to a later
 #: release is a decision that edits this line.

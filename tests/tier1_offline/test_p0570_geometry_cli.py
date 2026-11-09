@@ -238,6 +238,8 @@ def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, ca
     gmsh = kernel_or_skip()
     import re
 
+    # The plant patches the kernel in this process, so S11 runs here, not in a worker (R18-003).
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
     code, report, err, _ = generated(config, tmp_path / "clean", capsys)
