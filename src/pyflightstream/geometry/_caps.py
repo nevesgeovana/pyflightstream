@@ -29,6 +29,7 @@ __all__ = [
     "cap_rates",
     "cap_taper",
     "cap_to_space",
+    "exact_loft_grids",
     "contour_segment",
     "coons_grid",
     "fillet_arc",
@@ -181,6 +182,41 @@ def rounded_cap_grids(component, section, maximum, chord_count=49, across_count=
     return grids
 
 
+def exact_loft_grids(component, section, maximum):
+    """Return the tip cap as an exact loft of ``tip_cap.sections`` sections, two grids.
+
+    Section k lies at the extension L k / N, where L is the half thickness at the
+    maximum-thickness station times ``tip_cap.length`` and N the section count. It is the tip
+    section with its thickness about the camber line scaled by sqrt(1 - (s / L)^(2 / e)), for the
+    shape exponent e: the first section is the tip section itself and the last collapses on the
+    camber line. Each surface is sampled at ``tip_cap.control_points`` chord stations; the upper
+    and lower grids meet on the collapsed section, which also closes the finite trailing-edge
+    base. The planform rates carry the sections along the extended planform.
+    """
+    cap = component["tip_cap"]
+    upper_max, lower_max = cst_airfoil(
+        maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
+    )
+    length = float((upper_max[1] - lower_max[1]) / 2 * cap["length"])
+    x = chord_spacing(0.0, 1.0, np.linspace(0, 1, cap["control_points"]))
+    upper, lower = cst_airfoil(
+        x, section["upper"], section["lower"], section["trailing_edge_thickness"]
+    )
+    middle, half = (upper[:, 1] + lower[:, 1]) / 2, (upper[:, 1] - lower[:, 1]) / 2
+    fraction = np.linspace(0, 1, cap["sections"] + 1)
+    scale = np.sqrt(np.clip(1 - fraction ** (2 / cap["exponent"]), 0, 1))
+    taper, sweep, rise = cap_rates(component)
+    extension = np.broadcast_to(length * fraction, (len(x), len(fraction)))
+    chord_x = x[:, None] * (1 - taper * extension)
+    return [
+        cap_to_space(
+            component, chord_x, middle[:, None] + side * half[:, None] * scale[None, :],
+            extension, (sweep, rise),
+        )
+        for side in (1, -1)
+    ]  # fmt: skip
+
+
 def cap_rates(component):
     """Planform rates at the tip per unit of spanwise extension.
 
@@ -309,6 +345,8 @@ def cap_patch_grids(component, section, maximum):
         return []
     if kind == "ridged":
         return ridged_cap_grids(component, section, maximum)
+    if kind == "exact_loft":
+        return [("tip_cap", grid) for grid in exact_loft_grids(component, section, maximum)]
     if kind == "rounded":
         return [("tip_cap", grid) for grid in rounded_cap_grids(component, section, maximum)]
     return [

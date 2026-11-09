@@ -23,6 +23,7 @@ from ._patch import Patch, interpolate_patch, patch_layout
 from ._sections import fit_or_read
 
 __all__ = [
+    "bound_stations",
     "lifting_patch_grid",
     "lifting_surface",
     "planform_metrics",
@@ -98,6 +99,17 @@ def lifting_patch_grid(component, models, layout, chord_count=49, span_count=9):
     return np.stack(grid, axis=1)
 
 
+def bound_stations(component):
+    """Return the span stations of the control sections that bound a nacelle, sorted.
+
+    Each kept ``sections.nacelle_bounds`` entry adds its two stations as patch edges, so a
+    nacelle trim lies between two section lines and the section count rises by two. The blended
+    section shape does not change.
+    """
+    bounds = component["sections"].get("nacelle_bounds") or []
+    return sorted({float(eta) for b in bounds for eta in (b["eta_in"], b["eta_out"])})
+
+
 def lifting_surface(component) -> list[Patch]:
     """Return the skin of a lifting-surface component as bicubic patches.
 
@@ -114,7 +126,8 @@ def lifting_surface(component) -> list[Patch]:
     models = section_models(component["sections"])
     plan = component["planform"]
     layout = patch_layout(
-        component["sections"]["eta"], [*plan["breaks"], *plan.get("slope_breaks", [])]
+        [*component["sections"]["eta"], *bound_stations(component)],
+        [*plan["breaks"], *plan.get("slope_breaks", [])],
     )
     return [
         interpolate_patch(
