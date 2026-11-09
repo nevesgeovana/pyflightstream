@@ -48,7 +48,6 @@ from pyflightstream.workspace._geometry_reverse import (
     CUTS,
     PURPOSE,
     ROOTS,
-    boundary_extent,
     convergence,
     identify_pass,
     resolve_hosts,
@@ -246,7 +245,7 @@ def identify_lifting_surface(
             "host_tolerance": host_tolerance,
         }
         if resolved == "boundary":
-            spec["extent"] = boundary_extent(faces, axis)
+            spec["faces"] = faces
         grids = [surface_grid(t, grid) for t in faces]
         agreement = None
         if converge:

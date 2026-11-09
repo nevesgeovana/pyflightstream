@@ -292,7 +292,7 @@ def identify_pass(grids, samples, hosts, spec, count):
     mirrored = spec["mirrored"]
     root = spec["root"]
     if root == "boundary":
-        lo, hi = spec["extent"]
+        lo, hi = boundary_extent(spec["faces"], span)  # along the settled axis, as the stations
         result = reference_planform(
             stations, features, band, span, root_station=lo, tip_station=hi,
             hold_incidence=True, mirrored=mirrored,

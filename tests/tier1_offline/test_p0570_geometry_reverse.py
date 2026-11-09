@@ -386,6 +386,25 @@ def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_
     assert f"{outermost:.6g}" in found.scan["rejected"]
 
 
+def test_r6_a_boundary_root_measures_its_extent_along_the_settled_span_axis(tmp_path):
+    """R6-006: the extent was taken along the first estimate and read against the settled axis."""
+    gmsh_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import generate_iges, identify_lifting_surface
+
+    wing = {
+        "type": "lifting_surface",
+        "sections": {"airfoils": ["NACA0012"]},
+        "planform": {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "dihedral": 6.0},
+    }
+    path = tmp_path / "dihedral.igs"
+    generate_iges({"components": {"WING": wing}}, path)
+    found = identify_lifting_surface(
+        path, "WING", root="boundary", stations=41, grid=65, converge=False
+    )
+    assert found.planform["dihedral_deg"] == pytest.approx(6.0, abs=0.05)
+    assert found.planform["semi_span_m"] >= 0.6 / math.cos(math.radians(6.0)) - 5e-4
+
+
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
