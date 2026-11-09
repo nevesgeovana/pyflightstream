@@ -4,9 +4,11 @@ Pipeline role: pure helper of the geometry package. Each identity is a SHA-256 o
 canonical form, stored whole and truncated to 16 hex digits where it names a file.
 
 * ``parameter_id`` covers the resolved values only: the source of a value (``given`` or
-  ``default``), file paths, comments and warnings are left out, so stating a default
-  explicitly does not change it. A data file a component names enters by its SHA-256, not
-  its path. Every number is written by ``float.hex``, so ``9`` and ``9.0`` agree.
+  ``default``), file paths, comments, open findings and warnings are left out, so stating a
+  default explicitly does not change it. A data file a component names enters by its SHA-256, not
+  its path. Every number is written by ``float.hex``, so ``9`` and ``9.0`` agree, and so do
+  ``0.0`` and ``-0.0``. The order of a configuration's members and of a dominance row's names
+  carries no meaning and is sorted.
 * ``surface_id`` covers the control nets, knots and degrees of every patch, ordered by
   component name and patch index. It is compared exactly on one platform; across platforms a
   small committed golden is compared to a tolerance.
@@ -30,7 +32,7 @@ from pyflightstream.geometry._patch import Patch
 __all__ = ["SCHEMA_MAJOR", "build_id", "canonical", "parameter_id", "short", "surface_id"]
 
 SCHEMA_MAJOR = 1
-_PATH_KEYS = frozenset({"rings_file", "sections_file", "original", "file"})
+_PATH_KEYS = frozenset({"rings_file", "sections_file", "original", "file", "open_findings"})
 _DROPPED = ("aircraft", "warnings", "findings", "derived", "configurations", "format")
 
 
@@ -45,7 +47,7 @@ def canonical(value) -> str:
         if isinstance(node, (bool, str)) or node is None:
             return node
         if isinstance(node, (int, float, np.integer, np.floating)):
-            return "f:" + float(node).hex()
+            return "f:" + (float(node) + 0.0).hex()
         raise TypeError(f"not plain data: {type(node).__name__}")
 
     return json.dumps(convert(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -74,6 +76,10 @@ def parameter_id(resolved: Mapping) -> str:
     for key in _DROPPED:
         values.pop(key, None)
     values = _strip_paths(values)
+    for row in values.get("registry", {}).values():
+        row["members"] = sorted(row["members"], key=lambda member: member["component"])
+    for row in values.get("dominance", []):
+        row["dominant"], row["dominated"] = sorted(row["dominant"]), sorted(row["dominated"])
     values["schema"] = SCHEMA_MAJOR
     return _digest(canonical(values))
 

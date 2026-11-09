@@ -829,3 +829,52 @@ def test_r9_014_a_known_law_is_silent_and_an_unknown_one_is_named_and_gone():
     )
     assert resolved["warnings"] == ["f.laws.foo: unknown key, skipped"]
     assert unpack(resolved)["components"]["f"]["laws"] == {"radius": 1.0}
+
+
+# R9-015: one geometry has one parameter_id.
+
+
+def _id_of(data):
+    from pyflightstream.geometry._identity import parameter_id
+    from pyflightstream.geometry.config import resolve_config
+
+    return parameter_id(resolve_config(data))
+
+
+def _two_bodies(**top):
+    return {"components": {"a": {"type": "body"}, "b": {"type": "body"}}, **top}
+
+
+def test_r9_015_a_negative_zero_is_zero():
+    def at(y):
+        return {"components": {"a": {"type": "body", "placement": {"translation": [0.0, y, 0.0]}}}}
+
+    assert _id_of(at(0.0)) == _id_of(at(-0.0))
+
+
+def test_r9_015_the_order_of_members_and_of_names_carries_no_meaning():
+    assert _id_of(_two_bodies(configurations={"c": ["a", "b"]})) == _id_of(
+        _two_bodies(configurations={"c": ["b", "a"]})
+    )
+    c = {"type": "body"}
+
+    def rows(names):
+        return {
+            "components": {"a": c, "b": c, "c": c},
+            "dominance": [{"dominant": names, "dominated": "c"}],
+        }
+
+    assert _id_of(rows(["a", "b"])) == _id_of(rows(["b", "a"]))
+
+
+def test_r9_015_an_open_finding_is_a_note_not_a_parameter():
+    def body(findings):
+        return {"components": {"a": {"type": "body", "open_findings": findings}}}
+
+    assert _id_of(body(["x"])) == _id_of(body([]))
+
+
+def test_r9_015_a_different_set_of_members_is_a_different_id():
+    assert _id_of(_two_bodies(configurations={"c": ["a"]})) != _id_of(
+        _two_bodies(configurations={"c": ["a", "b"]})
+    )
