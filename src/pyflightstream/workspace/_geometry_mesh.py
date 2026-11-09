@@ -8,8 +8,8 @@ meshes the planar flat tip cap apart from its rim, meshes the wing-fuselage tran
 quad-dominant, orients the skin outward, measures the spacing rules and the mesh checks, and
 returns the mesh with one record.
 
-gmsh ships with the optional ``gmsh`` extra; :func:`mesh_generated` refuses with the package's
-missing-extra refusal, with the install command, when it is absent.
+gmsh is a dependency of the package; :func:`mesh_generated` raises ``KernelUnavailableError``,
+naming the library, when it cannot load.
 
 Patch roles. A body band carries its axial station interval in ``Patch.bay`` and a pole patch
 carries none. The wing patches of a configuration with a fairing are listed family by family, six
@@ -574,7 +574,7 @@ def mesh_generated(
         For an unknown component, an unsupported assembly or controls, a topology gate that
         fails, or a mesh that cannot be built all-quad.
     pyflightstream.extras.MissingExtraError
-        When the optional gmsh extra is not installed.
+        When the gmsh library cannot load (``KernelUnavailableError``).
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     values = load_mesh_controls(controls)

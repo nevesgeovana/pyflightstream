@@ -447,6 +447,69 @@ class GmshKernel:
         """Return whether ``uv`` lies inside the trimmed face, not only inside its bounds."""
         return bool(self._model().isInside(2, face.tag, list(uv), parametric=True))
 
+    # Batched surface and curve queries
+    def values(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
+        """Return the point of ``face`` at each ``uv``, as an n by 3 array."""
+        flat = np.asarray(uvs, float).ravel()
+        return np.asarray(self._model().getValue(2, face.tag, flat)).reshape(-1, 3)
+
+    def derivatives(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
+        """Return ``(d/du, d/dv)`` at each ``uv``, as an n by 2 by 3 array."""
+        flat = np.asarray(uvs, float).ravel()
+        return np.asarray(self._model().getDerivative(2, face.tag, flat)).reshape(-1, 2, 3)
+
+    def inside(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
+        """Return whether each ``uv`` lies inside the trimmed face."""
+        model = self._model()
+        return np.array(
+            [bool(model.isInside(2, face.tag, p, parametric=True)) for p in np.asarray(uvs, float)]
+        )
+
+    def project(self, face: Face, points: Sequence[Point]) -> tuple[np.ndarray, np.ndarray]:
+        """Return the closest point of ``face`` to each point and its ``uv`` (arrays)."""
+        return closest_on_face(self._model(), face.tag, np.asarray(points, float))
+
+    def parametrize(self, face: Face, points: Sequence[Point]) -> np.ndarray:
+        """Return the ``uv`` of each point lying on ``face``, as an n by 2 array."""
+        flat = np.asarray(points, float).ravel()
+        return np.asarray(self._model().getParametrization(2, face.tag, flat)).reshape(-1, 2)
+
+    def edge_bounds(self, edge: int) -> tuple[float, float]:
+        """Return the parameter range of ``edge``."""
+        low, high = self._model().getParametrizationBounds(1, abs(edge))
+        return float(low[0]), float(high[0])
+
+    def edge_values(self, edge: int, parameters: Sequence[float]) -> np.ndarray:
+        """Return the point of ``edge`` at each parameter, as an n by 3 array."""
+        values = np.asarray(parameters, float)
+        return np.asarray(self._model().getValue(1, abs(edge), values)).reshape(-1, 3)
+
+    def edge_project(self, edge: int, points: Sequence[Point]) -> np.ndarray:
+        """Return the closest point of the curve to each point.
+
+        The batched parameters of the projection are unreliable, so they are recovered from the
+        projected points.
+        """
+        model = self._model()
+        low, high = self.edge_bounds(edge)
+        xyz, _ = model.getClosestPoint(1, abs(edge), np.asarray(points, float).ravel())
+        parameter = model.getParametrization(1, abs(edge), xyz)
+        return self.edge_values(edge, np.clip(parameter, low, high))
+
+    def edge_ends(self, edge: int) -> tuple[Point, ...]:
+        """Return the end vertices of ``edge``."""
+        model = self._model()
+        vertices = model.getBoundary([(1, abs(edge))], oriented=False)
+        return tuple(
+            (float(p[0]), float(p[1]), float(p[2]))
+            for p in (model.getValue(0, abs(v), []) for _, v in vertices)
+        )
+
+    def edge_bbox(self, edge: int) -> tuple[Point, Point]:
+        """Return the axis-aligned bounding box of ``edge`` as ``(minimum, maximum)``."""
+        b = self._model().getBoundingBox(1, abs(edge))
+        return (b[0], b[1], b[2]), (b[3], b[4], b[5])
+
     # Hull
     def triangulate(
         self, faces: Sequence[Face], size: float

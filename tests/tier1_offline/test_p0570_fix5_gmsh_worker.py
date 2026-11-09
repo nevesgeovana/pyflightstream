@@ -36,7 +36,13 @@ def worker_odd():
 def worker_missing_extra():
     from pyflightstream.extras import MissingExtraError
 
-    raise MissingExtraError(extra="gmsh", package="gmsh", purpose="the test")
+    raise MissingExtraError(extra="fsi", package="PyNiteFEA", purpose="the test")
+
+
+def worker_kernel_unavailable():
+    from pyflightstream.extras import KernelUnavailableError
+
+    raise KernelUnavailableError(purpose="the test", reason="libGLU.so.1: cannot open")
 
 
 def worker_input_artifact():
@@ -98,9 +104,22 @@ def test_p0570_fix5_a_missing_extra_in_the_worker_keeps_its_fields():
 
     with pytest.raises(MissingExtraError) as raised:
         run_isolated(f"{_HERE}:worker_missing_extra", {}, _direct)
-    assert raised.value.extra == "gmsh"
-    assert raised.value.package == "gmsh"
-    assert raised.value.remedy == 'pip install "pyflightstream[gmsh]"'
+    assert raised.value.extra == "fsi"
+    assert raised.value.package == "PyNiteFEA"
+    assert raised.value.remedy == 'pip install "pyflightstream[fsi]"'
+
+
+def test_p0570_gm15_a_kernel_unavailable_error_in_the_worker_keeps_its_type_and_message():
+    """Route A: a library that fails to load inside the worker reaches the verb as itself."""
+    from pyflightstream.extras import KernelUnavailableError, MissingExtraError
+
+    with pytest.raises(KernelUnavailableError) as raised:
+        run_isolated(f"{_HERE}:worker_kernel_unavailable", {}, _direct)
+    assert isinstance(raised.value, MissingExtraError)
+    assert raised.value.reason == "libGLU.so.1: cannot open"
+    assert raised.value.remedy == 'pip install "gmsh>=4.13,<5"'
+    assert "libGLU.so.1: cannot open" in str(raised.value)
+    assert "libglu1-mesa" in str(raised.value)
 
 
 # ------------------------------------------------ PFS-2208: nothing is published on a failure

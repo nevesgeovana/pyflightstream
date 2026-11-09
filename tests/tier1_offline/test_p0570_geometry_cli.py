@@ -16,6 +16,7 @@ from pyflightstream._errors import NotApplicableWarning
 from pyflightstream.geometry._boundary import export_schema
 from pyflightstream.run._cli_geometry import GEOMETRY_VERBS
 from pyflightstream.workspace.cli import main
+from tests.tier1_offline._kernel_support import kernel_or_skip
 from tests.tier1_offline.test_p0570_geometry_component import lifting
 
 WING = """
@@ -115,7 +116,7 @@ def test_p0570_check_refuses_a_missing_chord_before_any_kernel_work(tmp_path, ca
 
 def test_r6_check_refuses_a_count_below_one_and_a_face_it_does_not_have(tmp_path, capsys):
     """R6-007: a count of 0 and a face past the end were tracebacks, -1 was reported excluded."""
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
     igs = tmp_path / "wing.igs"
@@ -152,7 +153,7 @@ def test_p0570_generate_refuses_a_configuration_with_an_unknown_tip_cap_kind(tmp
 
 
 def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_path, capsys):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
@@ -212,7 +213,7 @@ def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
 
     The defects are planted in the file the kernel writes, so the real gate reads a real file.
     """
-    gmsh = pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    gmsh = kernel_or_skip()
     import re
 
     config = tmp_path / "wing.toml"

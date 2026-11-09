@@ -1,7 +1,7 @@
 """The geometry pipeline of a parametric aircraft: generate, check, mesh and identify.
 
-Pipeline role: the public entry points of the stages that need the geometry kernel, behind the
-optional ``gmsh`` extra. :func:`generate_iges` writes the exposed skin of a parametric
+Pipeline role: the public entry points of the stages that need the geometry kernel, on the gmsh
+kernel. :func:`generate_iges` writes the exposed skin of a parametric
 configuration (:func:`pyflightstream.geometry.load_config`) as a named IGES file, one NAME per
 component; :func:`check_against_original` measures a rebuilt surface against an original under a
 named deviation profile; :func:`mesh_generated` meshes a configuration into an all-quad surface
@@ -15,9 +15,9 @@ A planform is reported with ``accepted`` set only when a coarse and a fine pass 
 the tolerances of the result (``convergence``); sections carry their own ``accepted`` against
 their residual tolerance.
 
-Each function refuses with the install command (``pip install pyflightstream[gmsh]``) when the
-extra is missing. The command line is ``pyfs-workspace geometry generate | identify | check |
-mesh-generated | schema``.
+Each function raises ``KernelUnavailableError`` (gmsh is a dependency of the package) when the
+kernel library cannot load, and the message names the library that failed. The command line is
+``pyfs-workspace geometry generate | identify | check | mesh-generated | schema``.
 
 Examples
 --------
@@ -55,7 +55,7 @@ from pyflightstream.workspace._geometry_reverse import (
     span_direction,
     surface_grid,
 )
-from pyflightstream.workspace._gmsh import gmsh_module, session
+from pyflightstream.workspace._gmsh import gmsh_module, open_kernel
 
 __all__ = [
     "GeneratedMesh",
@@ -218,7 +218,7 @@ def identify_lifting_surface(
     Raises
     ------
     MissingExtraError
-        gmsh is not installed.
+        The gmsh library cannot load (``KernelUnavailableError``).
     InputValueError
         An argument is refused, the component is unknown, or no clean band exists.
     """
@@ -233,11 +233,11 @@ def identify_lifting_surface(
         raise InputValueError("root: 'host' needs hosts")
     gmsh_module(PURPOSE)
     resolved = ("host" if hosts else "plane") if root == "auto" else root
-    with session(PURPOSE) as gmsh:
-        gmsh.model.add("identify")
-        faces = resolve_faces(f"{source}#{component}")
-        host_faces = resolve_hosts(hosts, source) if resolved == "host" or hosts else []
-        samples, _ = sample_surfaces(faces, 65, 257)
+    kernel = open_kernel(PURPOSE)
+    try:
+        faces = resolve_faces(kernel, f"{source}#{component}")
+        host_faces = resolve_hosts(kernel, hosts, source) if resolved == "host" or hosts else []
+        samples, _ = sample_surfaces(kernel, faces, 65, 257)
         axis = span_direction(samples, span_axis)
         spec = {
             "span": axis,
@@ -248,13 +248,15 @@ def identify_lifting_surface(
         }
         if resolved == "boundary":
             spec["faces"] = faces
-        grids = [surface_grid(t, grid) for t in faces]
+        grids = [surface_grid(kernel, t, grid) for t in faces]
         agreement = None
         if converge:
-            small = [surface_grid(t, COARSE[1]) for t in faces]
-            coarse = identify_pass(small, samples, host_faces, spec, min(stations, COARSE[0]))[0]
+            small = [surface_grid(kernel, t, COARSE[1]) for t in faces]
+            coarse = identify_pass(
+                kernel, small, samples, host_faces, spec, count=min(stations, COARSE[0])
+            )[0]
         planform, band, features, stations_m, span, diagnostics = identify_pass(
-            grids, samples, host_faces, spec, stations
+            kernel, grids, samples, host_faces, spec, count=stations
         )
         if converge:
             agreement = convergence(coarse, planform)
@@ -269,6 +271,8 @@ def identify_lifting_surface(
             fit["role"], fit["station_m"] = role, float(stations_m[index])
             fit["eta"] = (fit["station_m"] - planform["root_station_m"]) / planform["semi_span_m"]
             fits.append(fit)
+    finally:
+        kernel.close()
     accepted = all(f["accepted"] for f in fits) and (agreement is None or agreement["accepted"])
     return LiftingIdentification(
         component=component,

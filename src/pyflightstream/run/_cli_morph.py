@@ -3,13 +3,13 @@
 Pipeline role: the run layer's parsers and handlers for the verbs a morphing control file
 drives, ``repitch``, ``collapse-te``, ``hub-rings`` and ``morph`` (PFS-2189, PFS-2193), and for
 the verbs that read named IGES files, ``iges-grid`` and ``iges-convert`` (PFS-2198, PFS-2199,
-on the optional ``gmsh`` extra). The work is the workspace layer's
+on the gmsh kernel). The work is the workspace layer's
 (:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
 :mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`,
 :mod:`pyflightstream.workspace.iges_grid`, :mod:`pyflightstream.workspace.iges_convert`); this
 module only reads the command line, calls it, prints the checks or the record it returns and
 gives the exit code: 0 when the output was written, 2 when the input is refused or the gmsh
-extra is missing, with the message on standard error and nothing written. Each parser names its
+library cannot load, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
 :data:`MORPH_VERBS`, which also carries the verbs of :mod:`pyflightstream.run._cli_parametric`
@@ -171,7 +171,7 @@ def add_iges_grid_parser(subparsers: Any) -> None:
     """Add the verb that grids named IGES components into one OBJ."""
     parser = subparsers.add_parser(
         "iges-grid",
-        help="grid the named components of IGES files into one OBJ (needs the gmsh extra)",
+        help="grid the named components of IGES files into one OBJ (uses the gmsh kernel)",
         description=(
             "Each component the IGES files name (the NAME of a level) becomes one family of the "
             "OBJ. Faces are joined so shared edges are conformal; four-sided patches follow the "
@@ -219,7 +219,7 @@ def add_iges_convert_parser(subparsers: Any) -> None:
     """Add the verb that rewrites named IGES files as one IGES of B-spline faces."""
     parser = subparsers.add_parser(
         "iges-convert",
-        help="rewrite IGES files as one IGES of B-spline faces, names kept (needs the gmsh extra)",
+        help="rewrite IGES files as one IGES of B-spline faces, names kept (uses the gmsh kernel)",
         description=(
             "Every face of the IGES files is converted to a B-spline surface and written to one "
             "IGES, each component on its own level with one NAME, so the solver's CAD import "

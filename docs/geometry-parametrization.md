@@ -5,12 +5,8 @@ revolution or a superellipse body, a lifting surface with its sections, and the 
 a wing and its body. Five `pyfs-workspace geometry` verbs generate an IGES from it, check a
 rebuilt surface against an original, mesh it into quads, identify a lifting surface of an
 original IGES and print the schema of the parameter record. Everything that needs the geometry
-kernel is on the optional `gmsh` extra; without it each verb stops with the install line and
-writes nothing. The schema verb needs no kernel.
-
-```text
-pip install "pyflightstream[gmsh]"
-```
+kernel uses gmsh, which installs with the package; where the library cannot load, each verb stops
+with a message naming it and writes nothing. The schema verb needs no kernel.
 
 ## The configuration
 

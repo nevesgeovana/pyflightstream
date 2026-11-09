@@ -72,6 +72,9 @@ jobs:
       - name: Tier 1 tests
         env:
           PYFS_SHARD: ${{ matrix.shard }}/3
+          # gmsh is a base dependency (route A): the kernel tests run on every
+          # push, and a kernel that cannot load FAILS them instead of skipping.
+          PYFS_REQUIRE_KERNEL: "1"
         run: pytest -n auto
       - name: Nested pytest runs, fully traced
         # FR-399. tests/tier1_offline/test_examples.py starts pytest inside
@@ -149,16 +152,18 @@ jobs:
         with:
           python-version: "3.12"
       - name: System libraries the gmsh wheel loads
-        # The gmsh extra's Linux wheel links the X11 and GLU libraries; the
-        # IGES tests import it, and without these the import fails instead of
+        # gmsh's Linux wheel links the X11 and GLU libraries; the kernel
+        # tests import it, and without these the import fails instead of
         # running them. The floors and ceilings legs install every user extra
         # too, so they take the same step.
         run: &gmsh-system-libraries sudo apt-get update && sudo apt-get install -y libglu1-mesa libxcursor1 libxft2 libxinerama1
       - name: Install package with every declared extra
-        run: pip install -e .[dev,fsi,excel,manual,pandas,gmsh]
+        run: pip install -e .[dev,fsi,excel,manual,pandas]
       - name: Tier 1 with nothing skipped for a missing extra
         env:
           PYFS_SHARD: ${{ matrix.shard }}/3
+          # The every-push Linux leg: a kernel that cannot load fails here too.
+          PYFS_REQUIRE_KERNEL: "1"
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
         # absent fixture). What this leg buys is that the extra-gated
@@ -217,10 +222,36 @@ jobs:
         # fail too, at collection, but a failing import inside a suite
         # reads as a broken test rather than as a broken dependency set.
         run: python -c "import trimesh; print('trimesh', trimesh.__version__)"
+      - name: The geometry path on a base install, before any system library
+        if: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')) && matrix.shard == 1 }}
+        # The only headless measurement of the kernel on a machine with no
+        # system library installed: this step runs BEFORE the apt step below.
+        # The package must import without loading gmsh, the schema (no kernel)
+        # must print, and a kernel stage must either pass or stop with the one
+        # message of KernelUnavailableError; a traceback, or any other exit,
+        # fails the step.
+        shell: bash
+        run: |
+          python -c "import sys, pyflightstream; assert 'gmsh' not in sys.modules"
+          python -c "import sys; from pyflightstream.workspace.cli import main; sys.exit(main(['geometry', 'schema']))" > /dev/null
+          set +e
+          python -c "import sys; from pyflightstream.workspace.cli import main; sys.exit(main(['geometry', 'generate', 'tests/tier1_offline/fixtures/p0570_geometry_config.toml', '--out', '$RUNNER_TEMP/demo.igs']))" 2> "$RUNNER_TEMP/kernel.err"
+          code=$?
+          set -e
+          if grep -q Traceback "$RUNNER_TEMP/kernel.err"; then cat "$RUNNER_TEMP/kernel.err"; exit 1; fi
+          if [ "$code" = 0 ]; then echo "kernel stage passed"; exit 0; fi
+          if [ "$code" = 2 ] && grep -q "needs the CAD kernel library gmsh" "$RUNNER_TEMP/kernel.err"; then
+            echo "kernel unavailable on this machine, as the message says"; exit 0
+          fi
+          cat "$RUNNER_TEMP/kernel.err"; exit 1
+      - name: System libraries the gmsh wheel loads
+        if: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')) }}
+        run: *gmsh-system-libraries
       - name: Tier 1 with no user-facing extras present
         if: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')) }}
         env:
           PYFS_SHARD: ${{ matrix.shard }}/2
+          PYFS_REQUIRE_KERNEL: "1"
         run: pytest -n auto tests/tier1_offline
 
   test-floors:

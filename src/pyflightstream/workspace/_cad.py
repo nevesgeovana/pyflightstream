@@ -67,7 +67,7 @@ class NamedFaces:
 
 @runtime_checkable
 class CadKernel(Protocol):
-    """What a geometry stage may ask of a CAD kernel: 25 members in seven groups."""
+    """What a geometry stage may ask of a CAD kernel: 35 members in eight groups."""
 
     # Life
     @property
@@ -172,6 +172,47 @@ class CadKernel(Protocol):
 
     def is_inside(self, face: Face, uv: UV) -> bool:
         """Whether ``uv`` lies inside the trimmed face, not only inside its bounds."""
+        ...
+
+    # Batched surface and curve queries (a distance measure samples thousands of points)
+    def values(self, face: Face, uvs: Sequence[UV]) -> Sequence[Point]:
+        """Return the point of ``face`` at each ``uv``."""
+        ...
+
+    def derivatives(self, face: Face, uvs: Sequence[UV]) -> Sequence[tuple[Point, Point]]:
+        """Return ``(d/du, d/dv)`` of ``face`` at each ``uv``."""
+        ...
+
+    def inside(self, face: Face, uvs: Sequence[UV]) -> Sequence[bool]:
+        """Whether each ``uv`` lies inside the trimmed face."""
+        ...
+
+    def project(self, face: Face, points: Sequence[Point]) -> tuple[Sequence[Point], Sequence[UV]]:
+        """Return the closest point of ``face`` to each point, and its ``uv`` (see ``closest``)."""
+        ...
+
+    def parametrize(self, face: Face, points: Sequence[Point]) -> Sequence[UV]:
+        """Return the ``uv`` of each point lying on ``face``."""
+        ...
+
+    def edge_bounds(self, edge: int) -> tuple[float, float]:
+        """Return the parameter range of ``edge``."""
+        ...
+
+    def edge_values(self, edge: int, parameters: Sequence[float]) -> Sequence[Point]:
+        """Return the point of ``edge`` at each parameter."""
+        ...
+
+    def edge_project(self, edge: int, points: Sequence[Point]) -> Sequence[Point]:
+        """Return the closest point of the curve ``edge`` to each point; refuse a curveless edge."""
+        ...
+
+    def edge_ends(self, edge: int) -> tuple[Point, ...]:
+        """Return the end vertices of ``edge``."""
+        ...
+
+    def edge_bbox(self, edge: int) -> tuple[Point, Point]:
+        """Return the axis-aligned bounding box of ``edge`` as ``(minimum, maximum)``."""
         ...
 
     # Hull

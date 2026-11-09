@@ -29,7 +29,6 @@ EXTRAS: dict[str, tuple[str, ...]] = {
     "excel": ("XlsxWriter",),
     "fsi": ("PyNiteFEA",),
     "manual": ("pypdf",),
-    "gmsh": ("gmsh",),
 }
 
 
@@ -114,11 +113,12 @@ class KernelUnavailableError(MissingExtraError):
         self.package = "gmsh"
         self.purpose = purpose
         self.reason = reason
-        self.remedy = 'pip install "pyflightstream[gmsh]"'
+        self.remedy = 'pip install "gmsh>=4.13,<5"'
         Exception.__init__(
             self,
             f"{purpose} needs the CAD kernel library gmsh, which could not be loaded: {reason}. "
-            f"Install it with: {self.remedy}. On Linux the library also needs "
+            f"gmsh is a dependency of pyflightstream; install it with: {self.remedy}. "
+            "On Linux the library also needs "
             f"{self.LINUX_PACKAGES}. The stages that do not use the kernel (S0 to S9) still run "
             "without it.",
         )
