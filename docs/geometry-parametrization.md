@@ -15,7 +15,8 @@ pip install "pyflightstream[gmsh]"
 ## The configuration
 
 A TOML file with one table per component under `[components]`. Every value is resolved with
-its source (`given`, `default` or `derived`), so a result can say which numbers you stated.
+its source (`given` or `default`), so a result can say which numbers you stated; the quantities
+computed from them (area, mean chord) are kept apart under `derived`.
 A parameter this release does not know is refused, never skipped. Python reads it with
 `pyflightstream.geometry.load_config` and `resolve_config`.
 
@@ -70,7 +71,9 @@ along the chord from the leading edge, a constant azimuth and axial step on a bo
 all-quad flat tip cap and, for a wing on a body, the fairing as one quad-dominant transition
 ring (the only triangles). The orientation is outward and the record carries the acceptance
 checks: inverted and degenerate cells, non-manifold edges, free edges off the symmetry plane and
-the spacing rules measured on the realized nodes. The OBJ has one group per component. Python:
+the spacing rules measured on the realized nodes. The OBJ has one group per component. The OBJ
+is written and the exit is 0 even when a check fails, so read `accepted` and
+`spacing_rules.passed` in the record. Python:
 `mesh_generated`.
 
 ## Identify a lifting surface
@@ -87,7 +90,9 @@ where the extended leading edge meets a host (`--host`) or the span extent of th
 boundary curves (`--root boundary`). A coarse and a fine pass must agree within stated
 tolerances for the result to be `accepted`, and each section states whether its residual met its
 tolerance; a station that is not one airfoil is recorded with its reason and left out, never
-repaired. `--config-out` writes a configuration that `generate` reads back. This release
+repaired. The exit is 0 whether or not the result is accepted, so read `accepted` in the record;
+2 is a refusal. `--config-out` writes a configuration that `generate` reads back, with the seed's
+section, not the fitted one. This release
 identifies lifting surfaces only; bodies, rings and propellers are not identified. Python:
 `identify_lifting_surface`.
 
