@@ -84,6 +84,7 @@ from pyflightstream.cases.qsteady import QsteadyRecordError
 from pyflightstream.cases.workflows import BuildCapabilityError, WorkflowCoverageError
 from pyflightstream.commands import CommandDatabaseError, CommandNotInVersionError
 from pyflightstream.extras import (
+    KernelUnavailableError,
     MissingExtraError,
     UnknownExtraError,
 )
@@ -180,6 +181,7 @@ __all__ = [
     "InputArtifactError",
     "InputTypeError",
     "InputValueError",
+    "KernelUnavailableError",
     "LoadsNotFoundError",
     "MalformedOutputError",
     "ManualCallError",
