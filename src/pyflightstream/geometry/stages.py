@@ -4,7 +4,6 @@ Pipeline role: the one public home of the numerical building blocks that the ker
 (:mod:`pyflightstream.workspace.geometry_pipeline`) and the ``geometry`` verbs of the command
 line call: the B-spline :class:`Patch`, the generation of the components of a resolved
 configuration and their regions, the body and lifting-surface skins and the flat tip cap, the
-whole lifting surface as one skin with its faces as :class:`Trim` loops and its mesh layout, the
 placement of a wing in the frame of its body, the mesh spacing rules and the mesh checks, the
 OBJ writer, the mathematics of reading a lifting surface back from sections, and the record
 boundary (schema export, pin verification, configuration writing).
@@ -34,14 +33,9 @@ from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
-from pyflightstream.geometry._caps import lifting_model, tip_cap
+from pyflightstream.geometry._caps import tip_cap
 from pyflightstream.geometry._generation import assembly_regions, generate_components
-from pyflightstream.geometry._lifting import (
-    LiftingModel,
-    layout_blocks,
-    layout_record,
-    lifting_surface,
-)
+from pyflightstream.geometry._lifting import lifting_surface
 from pyflightstream.geometry._mesh_rules import (
     check_body,
     check_lifting,
@@ -73,14 +67,11 @@ from pyflightstream.geometry._reverse import (
     reference_planform,
     refine_tip,
 )
-from pyflightstream.geometry._trims import Trim
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
-    "LiftingModel",
     "Mesh",
     "Patch",
-    "Trim",
     "assembly_regions",
     "body",
     "check_body",
@@ -98,10 +89,7 @@ __all__ = [
     "fit_section",
     "generate_components",
     "insert_seed",
-    "layout_blocks",
-    "layout_record",
     "leading_extension",
-    "lifting_model",
     "lifting_surface",
     "load_mesh_controls",
     "orient_mesh",

@@ -152,7 +152,10 @@ def test_g5b_twist_axis_is_the_fixed_point_of_the_section_rotation(tmp_path, axi
             ]
         )
         # The camber of a symmetric default section is zero, so its mid-thickness is the chord line.
-        assert mid == pytest.approx(fixed, abs=1e-9)
+        # G5Rb: the section is the stored B-spline; at the nose (axis 0) its leading-edge point
+        # lies within the conversion limit (2e-5 chords) of the analytic one, elsewhere to 1e-9.
+        limit = 2e-5 * float(values["chord"]) if axis == 0.0 else 1e-9
+        assert mid == pytest.approx(fixed, abs=limit)
 
 
 def test_g5b_twist_axis_zero_keeps_the_true_leading_edge_where_the_input_puts_it(tmp_path):
@@ -167,8 +170,11 @@ def test_g5b_twist_axis_zero_keeps_the_true_leading_edge_where_the_input_puts_it
         quarter, section_models(quarter["sections"]), 0.5, np.array([0.0]), "upper"
     )[0]
     values = planform_values(lifting_with_twist(0.0, tmp_path), np.array(0.5))
-    assert nose[0] == pytest.approx(float(values["leading_edge_x"]), abs=1e-12)
-    assert nose[2] == pytest.approx(float(values["leading_edge_z"]), abs=1e-12)
+    # G5Rb: the nose is the stored B-spline's leading edge, within the conversion limit of 2e-5
+    # chords of the analytic nose (it was the CST nose, exact to 1e-12).
+    limit = 2e-5 * float(values["chord"])
+    assert nose[0] == pytest.approx(float(values["leading_edge_x"]), abs=limit)
+    assert nose[2] == pytest.approx(float(values["leading_edge_z"]), abs=limit)
     assert abs(moved[2] - float(values["leading_edge_z"])) > 1e-3
 
 
