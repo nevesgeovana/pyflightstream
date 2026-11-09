@@ -14,15 +14,21 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import numpy as np
+from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
 from ._airfoils import cst_airfoil, naca_to_cst, ordinates_to_cst
+from ._distributions import elevate_coefficients
 
 __all__ = [
     "CstSection",
     "SectionForm",
+    "fit_or_read",
     "read_ordinates",
+    "section_checks",
+    "section_from_physical",
+    "shape_unchanged",
     "section_from_item",
     "section_from_ordinates",
     "section_from_stored",
@@ -204,3 +210,131 @@ def section_from_item(item, *, degree=5, trailing_edge_thickness=None) -> CstSec
         degree=degree,
         trailing_edge_thickness=trailing_edge_thickness,
     )
+
+
+def section_from_physical(physical, *, degree=5, trailing_edge_thickness=0.0) -> CstSection:
+    """Return the symmetric section whose nose radius, boat-tail angle and thickness are given.
+
+    ``nose_radius`` is the leading-edge radius in chord lengths, ``boat_tail_deg`` the angle
+    between each surface and the chord at the trailing edge, ``thickness_at`` the maximum
+    thickness in chord lengths and ``te_thickness`` the blunt base (the section default when
+    absent). The nose and trailing-edge coefficients follow from the first two, the others
+    are one smooth ramp between them scaled until the maximum thickness is the given one.
+    """
+    te = float(physical.get("te_thickness", trailing_edge_thickness))
+    first = math.sqrt(2.0 * float(physical["nose_radius"]))
+    last = math.tan(math.radians(float(physical["boat_tail_deg"]))) + te / 2
+    wanted = float(physical["thickness_at"])
+    grid = np.linspace(0.0, 1.0, 801)
+    ramp = np.linspace(first, last, degree + 1)
+
+    def coefficients(scale):
+        values = ramp.copy()
+        values[1:-1] *= scale
+        return values
+
+    def excess(scale):
+        values = coefficients(scale)
+        upper, lower = cst_airfoil(grid, values, -values, te)
+        return float(np.max(upper[:, 1] - lower[:, 1])) - wanted
+
+    if excess(1e-3) > 0 or excess(1e3) < 0:
+        raise InputValueError(
+            "sections.physical: no section has this nose radius, boat-tail angle and thickness"
+        )
+    values = coefficients(brentq(excess, 1e-3, 1e3, xtol=1e-13))
+    return CstSection(
+        upper=tuple(float(v) for v in values),
+        lower=tuple(float(-v) for v in values),
+        trailing_edge_thickness=te,
+    )
+
+
+def fit_or_read(sections) -> list[CstSection]:
+    """Return the section of every station of a resolved ``sections`` table (stage S1).
+
+    A ``physical`` entry gives one section for all stations, ``items`` rows are read from a
+    designation, coefficients or a file of ordinates, and a plain airfoil list is fitted.
+    """
+    degree, te = sections["degree"], sections["trailing_edge_thickness"]
+    if sections.get("physical"):
+        one = section_from_physical(sections["physical"], degree=degree, trailing_edge_thickness=te)
+        return [one for _ in sections["eta"]]
+    if sections.get("items"):
+        return [
+            section_from_item(item, degree=degree, trailing_edge_thickness=te)
+            for item in sections["items"]
+        ]
+    return [
+        section_from_stored(naca_to_cst(name, degree=degree, trailing_edge_thickness=te))
+        for name in sections["airfoils"]
+    ]
+
+
+def _inflections(z):
+    """Count the sign changes of the second difference of one surface."""
+    curvature = np.diff(z, 2)
+    curvature = curvature[np.abs(curvature) > 1e-9]
+    return int(np.count_nonzero(np.diff(np.sign(curvature))))
+
+
+def section_checks(section, *, residual_limit=1e-4) -> list[dict]:
+    """Return the S1 check records of one section: residual, nose radius, base, inflections.
+
+    Each record has ``id``, ``status`` (``pass``, ``fail``, ``report`` or ``skipped``),
+    ``value`` and ``note``. The residual is skipped when the section was given as coefficients,
+    which have no ordinates to compare with. One nose radius is reported, never failed, until
+    the stored form is decided.
+    """
+    x = (1 - np.cos(np.linspace(0, np.pi, 801))) / 2
+    upper, lower = section.evaluate(x)
+    residual = section.max_residual
+    if residual == 0.0:
+        status, note = "skipped", "no ordinates to compare"
+    else:
+        status = "pass" if residual <= residual_limit else "fail"
+        note = f"limit {residual_limit} chord lengths"
+    return [
+        {"id": "section.residual", "status": status, "value": residual, "note": note},
+        {
+            "id": "section.one_nose_radius",
+            "status": "report",
+            "value": [section.upper[0] ** 2 / 2, section.lower[0] ** 2 / 2],
+            "note": "upper and lower nose radius, chord lengths",
+        },
+        {
+            "id": "section.te_thickness",
+            "status": "pass" if section.te_thickness() >= 0 else "fail",
+            "value": section.te_thickness(),
+            "note": "blunt base, chord lengths",
+        },
+        {
+            "id": "section.inflection",
+            "status": "report",
+            "value": [_inflections(upper[:, 1]), _inflections(lower[:, 1])],
+            "note": "curvature sign changes, upper and lower",
+        },
+    ]
+
+
+def shape_unchanged(sections, limit=1e-9) -> dict:
+    """Return the S3 record: degree elevation to the common degree must not move any section."""
+    forms = fit_or_read(sections)
+    degree = max(form.degree for form in forms)
+    worst = 0.0
+    for form in forms:
+        stored = form.to_stored()
+        raised = section_from_stored(
+            {
+                **stored,
+                "upper": elevate_coefficients(stored["upper"], degree).tolist(),
+                "lower": elevate_coefficients(stored["lower"], degree).tolist(),
+            }
+        )
+        worst = max(worst, form.compat([raised]))
+    return {
+        "id": "compat.shape_unchanged",
+        "status": "pass" if worst <= limit else "fail",
+        "value": worst,
+        "note": f"limit {limit} chord lengths, common degree {degree}",
+    }

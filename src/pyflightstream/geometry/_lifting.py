@@ -12,7 +12,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import minimize_scalar
 
-from ._airfoils import cst_airfoil, naca_to_cst
+from ._airfoils import cst_airfoil
 from ._distributions import (
     blended_section,
     chord_spacing,
@@ -20,7 +20,7 @@ from ._distributions import (
     planform_values,
 )
 from ._patch import Patch, interpolate_patch, patch_layout
-from ._sections import section_from_item
+from ._sections import fit_or_read
 
 __all__ = [
     "lifting_patch_grid",
@@ -34,24 +34,7 @@ __all__ = [
 
 def section_models(sections):
     """Fit a CST model to each section airfoil of a lifting surface at one common degree."""
-    if sections.get("items"):
-        models = [
-            section_from_item(
-                item,
-                degree=sections["degree"],
-                trailing_edge_thickness=sections["trailing_edge_thickness"],
-            ).to_stored()
-            for item in sections["items"]
-        ]
-    else:
-        models = [
-            naca_to_cst(
-                name,
-                degree=sections["degree"],
-                trailing_edge_thickness=sections["trailing_edge_thickness"],
-            )
-            for name in sections["airfoils"]
-        ]
+    models = [form.to_stored() for form in fit_or_read(sections)]
     degree = max(model["degree"] for model in models)
     return [
         {
