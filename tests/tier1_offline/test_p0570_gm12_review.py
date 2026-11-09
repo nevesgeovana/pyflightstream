@@ -742,3 +742,52 @@ def test_r9_011_a_missing_original_warns_and_is_not_refused(tmp_path):
         {"components": {"h": {"type": "body", "original": "nope.igs#h"}}}, base=tmp_path
     )
     assert any("h.original" in text for text in resolved["warnings"])
+
+
+# R9-012: a reference to no component warns and is skipped, as section C says.
+
+
+def _reference_case():
+    from pyflightstream.geometry._boundary import unpack
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config(
+        {
+            "components": {
+                "h": {"type": "body"},
+                "w": {
+                    "type": "lifting_surface",
+                    "sections": {
+                        "nacelle_bounds": [
+                            {"component": "pod", "eta_in": 0.1, "eta_out": 0.2},
+                            {"component": "h", "eta_in": 0.3, "eta_out": 0.4},
+                        ]
+                    },
+                    "control_surfaces": [
+                        {"name": "f", "eta_in": 0.1, "eta_out": 0.5, "split_around": ["pod", "h"]}
+                    ],
+                },
+            },
+            "variants": {"cs": ["w.f", "w.nothing"]},
+        }
+    )
+    return resolved["warnings"], unpack(resolved)
+
+
+def test_r9_012_a_bound_on_no_component_warns_and_is_skipped():
+    warnings, plain = _reference_case()
+    assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
+    bounds = plain["components"]["w"]["sections"]["nacelle_bounds"]
+    assert [b["component"] for b in bounds] == ["h"]
+
+
+def test_r9_012_a_split_around_no_component_warns_and_is_skipped():
+    warnings, plain = _reference_case()
+    assert any("split_around" in text and "pod" in text for text in warnings)
+    assert plain["components"]["w"]["control_surfaces"][0]["split_around"] == ["h"]
+
+
+def test_r9_012_a_variant_entry_it_says_it_skipped_is_gone():
+    warnings, plain = _reference_case()
+    assert any("w.nothing" in text for text in warnings)
+    assert plain["variants"]["cs"] == ["w.f"]

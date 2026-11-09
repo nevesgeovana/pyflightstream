@@ -267,6 +267,7 @@ def read_variants_and_registry(variants, configurations, components, warnings):
         for entry in entries:
             if entry not in surfaces:
                 warnings.append(f"variants.{variant}: {entry!r} names no control surface, skipped")
+        entries[:] = [entry for entry in entries if entry in surfaces]
     raw = {k: ({"members": v} if isinstance(v, list) else v) for k, v in configurations.items()}
     registry = {}
     for name, table in raw.items():

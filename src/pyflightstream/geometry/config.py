@@ -464,6 +464,29 @@ def validate_relationships(components):
                 raise InputValueError(f"{name}.hosts: missing host {host!r}")
 
 
+def _skip_absent_references(components, warnings):
+    """Warn about and skip a nacelle bound or a split that names no component of the file."""
+    for name, component in components.items():
+        section = component.get("sections")
+        if isinstance(section, dict) and section.get("nacelle_bounds"):
+            kept = [b for b in section["nacelle_bounds"] if b["component"] in components]
+            for bound in section["nacelle_bounds"]:
+                if bound not in kept:
+                    warnings.append(
+                        f"{name}.sections.nacelle_bounds: {bound['component']!r} is no component, "
+                        "skipped"
+                    )
+            section["nacelle_bounds"] = kept
+        for surface in component.get("control_surfaces", []):
+            for other in surface["split_around"]:
+                if other not in components:
+                    warnings.append(
+                        f"{name}.control_surfaces.{surface['name']}.split_around: {other!r} is no "
+                        "component, the piece stays continuous"
+                    )
+            surface["split_around"] = [o for o in surface["split_around"] if o in components]
+
+
 def assembly_defaults(components, supplied):
     """Seed the generic blend radius of a fairing, 0.4 of its wing host's root chord.
 
@@ -634,6 +657,7 @@ def _resolve(data, stem, base):
         )
     assembly_defaults(components, raws)
     validate_relationships(components)
+    _skip_absent_references(components, notes["warnings"])
     aircraft = fill_aircraft(source.get("aircraft", {}), stem, notes["warnings"])
     registry_input = _registry_input(source, resolved)
     variants, registry = read_variants_and_registry(
