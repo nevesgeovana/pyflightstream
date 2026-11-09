@@ -1000,10 +1000,8 @@ def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
 
     The folder it lands in is resolved: a linked folder leaves it as surely as ``..`` does.
     """
-    named = folder / name
-    if ".." in Path(name).parts or not _textio.resolved_plain(named.parent).is_relative_to(
-        _textio.resolved_plain(folder)
-    ):
+    parent = _textio.resolved_plain((folder / name).parent)
+    if ".." in Path(name).parts or not parent.is_relative_to(_textio.resolved_plain(folder)):
         raise StorageError(
             f"{manifest} names the product {name!r}, which is not inside {folder}; "
             "delete-sims removes only files of the post folder, so nothing is deleted. "
