@@ -156,6 +156,19 @@ def test_p0570_r18_001_run_through_unbuilt_stages_exits_3_and_doe_ranks_failed_o
     assert code == 3 and printed(out)["accepted"] is False
 
 
+def test_p0570_r18_004_doe_reads_an_unquoted_dotted_key_as_its_override(demo, tmp_path, capsys):
+    """``FUS.length = 3.0`` unquoted is a nested table in TOML; it is the same override."""
+    sets = tmp_path / "sets.toml"
+    sets.write_text("[[sets]]\nFUS.length = 3.0\n[[sets]]\n'FUS.length' = 3.0\n", "utf-8")
+    code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S0"], capsys)
+    reports = [r["report"] for r in printed(out)["sets"]]
+    assert code == 0 and [r["status"] for r in reports] == ["accepted", "accepted"]
+    assert reports[0]["parameter_id"] == reports[1]["parameter_id"]
+    sets.write_text("[[sets]]\nFUS.length = 3.0\n'FUS.length' = 3.5\n", "utf-8")
+    code, _, err = geom(["doe", demo, sets, "--out", tmp_path / "e", "--until", "S0"], capsys)
+    assert code == 2 and "FUS.length given twice" in err
+
+
 def test_p0570_g3_validate_prints_every_value_with_its_source(demo, tmp_path, capsys):
     code, out, _ = geom(["validate", demo], capsys)
     values = {v["path"]: v for v in printed(out)["values"]}

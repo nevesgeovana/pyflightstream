@@ -69,7 +69,24 @@ def _read_sets(path: str) -> list[dict[str, Any]]:
             f"{path}: expected one or more [[sets]] tables and nothing else "
             f"(other keys: {extra or 'none'})"
         )
-    return [dict(row) for row in data["sets"]]
+    return [_flat(row) for row in data["sets"]]
+
+
+def _flat(row: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    """Return the overrides of one set with a nested table read as its dotted paths.
+
+    ``FUS.length = 2.5`` written unquoted is the table ``{"FUS": {"length": 2.5}}`` in TOML,
+    and means the same override as ``"FUS.length" = 2.5``.
+    """
+    found: dict[str, Any] = {}
+    for key, value in row.items():
+        path = f"{prefix}{key}"
+        pairs = _flat(value, f"{path}.") if isinstance(value, dict) else {path: value}
+        for leaf, item in pairs.items():
+            if leaf in found:
+                raise InputValueError(f"[[sets]]: {leaf} given twice")
+            found[leaf] = item
+    return found
 
 
 #: The order of the exit codes from best to worst, for the code of a loop of sets.
