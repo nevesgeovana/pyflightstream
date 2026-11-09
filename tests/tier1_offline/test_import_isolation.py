@@ -218,6 +218,19 @@ def test_a_missing_submodule_of_a_declared_extra_is_a_failure_not_a_skip(tmp_pat
     assert _MISSING not in output, output
 
 
+@pytest.fixture
+def _own_hang_guard():
+    """This test starts one interpreter per module (about 450): 232 s on a developer
+    machine and over the global 600 s on a Windows runner, where it was alive in
+    ``_run_child``, not hung. Re-arm pytest's single faulthandler timer with a bound
+    above the slow runner for THIS test; every other test keeps the global guard."""
+    import faulthandler
+
+    faulthandler.dump_traceback_later(1800, exit=False)
+    yield
+
+
+@pytest.mark.usefixtures("_own_hang_guard")
 def test_every_module_imports_alone():
     names = _module_names()
     # Non-vacuity: a walk that reached nothing would report green.
