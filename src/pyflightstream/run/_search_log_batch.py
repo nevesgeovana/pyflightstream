@@ -130,56 +130,68 @@ def search_log_batch(
     outcome: dict[str, list[str]] = defaultdict(list)
     for members in jobs.values():
         entry = job_of(members[0])
-        if entry is None:
-            continue
-        found, why = _master_log(_job_dir(workspace, entry), entry, members, master, native)
-        segments = None
-        for record in members:
-            job = job_of(record)
-            if job is None or (wanted is not None and str(record.sim_id) not in wanted):
-                continue
-            point = _point(workspace, record, job, in_batch=job["kind"] == "batch")
-            if point.log_name is None:
-                if record.status is RunStatus.SUBMITTED:
-                    outcome["declares no log, left alone"].append(record.run_id)
-                continue
-            names = [point.log_name, point.log_name[: -len(_LOG_SUFFIX)] + CUMULATIVE_LOG_SUFFIX]
-            if any((at / name).exists() for at in (point.work, point.target) for name in names):
-                continue
-            if record.status is not RunStatus.SUBMITTED:
-                outcome[f"already {record.status}, left alone"].append(record.run_id)
-                continue
-            if not _has_other_outputs(point):
-                outcome["other outputs missing, left alone"].append(record.run_id)
-                continue
-            if found is None:
-                outcome[why].append(record.run_id)
-                continue
-            if segments is None:
-                segments = split_job_log(found.read_bytes().decode("utf-8", errors="replace"))
-            if job["order"] > len(segments):
-                outcome[f"master log {found.name} has only {len(segments)} points"].append(
-                    record.run_id
-                )
-                continue
-            if not apply:
-                outcome["would write"].append(record.run_id)
-                continue
-            point.target.mkdir(parents=True, exist_ok=True)
-            holder = _Job(
-                job=job,
-                members=list(members),
-                profile=None,
-                watch=None,  # type: ignore[arg-type]
-                opening=_opening_orders(workspace, job),
-            )
-            _write_log(point, found, complete=True, start=holder.polar_start(record))
-            outcome["written"].append(record.run_id)
+        if entry is not None:
+            found = _master_log(_job_dir(workspace, entry), entry, members, master, native)
+            _fill_job(workspace, members, found, wanted, apply=apply, outcome=outcome)
     known = {str(record.sim_id) for members in jobs.values() for record in members}
     unknown = sorted((wanted or set()) - known)
     if unknown:
         outcome["not a simulation of a batch, left alone"] = unknown
     return dict(outcome)
+
+
+def _left_alone(point: _Point) -> str | None:
+    """Return why a point gets no log, an empty label when it already has one, else None."""
+    record = point.record
+    if point.log_name is None:
+        return "declares no log, left alone" if record.status is RunStatus.SUBMITTED else ""
+    names = [point.log_name, point.log_name[: -len(_LOG_SUFFIX)] + CUMULATIVE_LOG_SUFFIX]
+    if any((at / name).exists() for at in (point.work, point.target) for name in names):
+        return ""
+    if record.status is not RunStatus.SUBMITTED:
+        return f"already {record.status}, left alone"
+    return None if _has_other_outputs(point) else "other outputs missing, left alone"
+
+
+def _fill_job(
+    workspace: CampaignWorkspace,
+    members: list[RunRecord],
+    found: tuple[Path | None, str],
+    wanted: set[str] | None,
+    *,
+    apply: bool,
+    outcome: dict[str, list[str]],
+) -> None:
+    """Write or preview the logs of one job's points, adding each run id to its outcome."""
+    source, why = found
+    segments = None
+    for record in members:
+        job = job_of(record)
+        if job is None or (wanted is not None and str(record.sim_id) not in wanted):
+            continue
+        point = _point(workspace, record, job, in_batch=job["kind"] == "batch")
+        label = _left_alone(point)
+        if label is None and source is None:
+            label = why
+        if label is None and source is not None:
+            if segments is None:
+                segments = split_job_log(source.read_bytes().decode("utf-8", errors="replace"))
+            if job["order"] > len(segments):
+                label = f"master log {source.name} has only {len(segments)} points"
+        if label is None and source is not None:
+            label = "written" if apply else "would write"
+            if apply:
+                point.target.mkdir(parents=True, exist_ok=True)
+                holder = _Job(
+                    job=job,
+                    members=list(members),
+                    profile=None,
+                    watch=None,  # type: ignore[arg-type]
+                    opening=_opening_orders(workspace, job),
+                )
+                _write_log(point, source, complete=True, start=holder.polar_start(record))
+        if label:
+            outcome[label].append(record.run_id)
 
 
 def add_search_log_batch_parser(subparsers: Any) -> None:

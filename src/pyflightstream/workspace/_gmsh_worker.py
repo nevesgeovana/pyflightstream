@@ -133,7 +133,7 @@ def run_isolated(
                 )
             )
             if "error" not in reply:
-                _publish(stage, requested.parent)
+                publish_stage(stage, requested.parent)
     for category, message in reply.get("warnings", []):
         warn_by_name(message, category, 2)
     if "error" in reply:
@@ -142,7 +142,7 @@ def run_isolated(
     return result
 
 
-def _publish(stage: Path, folder: Path) -> None:
+def publish_stage(stage: Path, folder: Path) -> None:
     """Move the files of a finished worker from its staging folder to ``folder``.
 
     An earlier record of these outputs goes first and the new one last, so a folder that holds

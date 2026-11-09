@@ -30,7 +30,7 @@ from pyflightstream.run._cli_parametric import PARAMETRIC_VERBS, add_parametric_
 __all__ = ["MORPH_VERBS", "add_morph_verbs"]
 
 
-def _print_checks(work: Callable[[], dict[str, Any]]) -> int:
+def print_checks(work: Callable[[], dict[str, Any]]) -> int:
     """Run one verb, print the checks it returns and return the exit code."""
     try:
         report = work()
@@ -67,7 +67,7 @@ def run_repitch(args: argparse.Namespace) -> int:
     """Run repitch and print the checks written beside its output."""
     from pyflightstream.workspace.repitch import repitch_mesh
 
-    return _print_checks(lambda: repitch_mesh(args.mesh, args.morphing, args.out))
+    return print_checks(lambda: repitch_mesh(args.mesh, args.morphing, args.out))
 
 
 def add_collapse_te_parser(subparsers: Any) -> None:
@@ -95,7 +95,7 @@ def run_collapse_te(args: argparse.Namespace) -> int:
     """Run collapse-te and print the checks written beside its output."""
     from pyflightstream.workspace.collapse_te import collapse_trailing_edge
 
-    return _print_checks(lambda: collapse_trailing_edge(args.mesh, args.morphing, args.out))
+    return print_checks(lambda: collapse_trailing_edge(args.mesh, args.morphing, args.out))
 
 
 def add_hub_rings_parser(subparsers: Any) -> None:
@@ -124,7 +124,7 @@ def run_hub_rings(args: argparse.Namespace) -> int:
     """Run hub-rings and print the checks written beside its output."""
     from pyflightstream.workspace.hub_rings import hub_rings_mesh
 
-    return _print_checks(lambda: hub_rings_mesh(args.mesh, args.morphing, args.out))
+    return print_checks(lambda: hub_rings_mesh(args.mesh, args.morphing, args.out))
 
 
 def add_morph_parser(subparsers: Any) -> None:
@@ -152,7 +152,7 @@ def run_morph(args: argparse.Namespace) -> int:
     """Run the morphing chain and print the record written beside its output."""
     from pyflightstream.workspace.morph import morph_mesh
 
-    return _print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
+    return print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
 
 
 def _add_name_encoding(parser: Any) -> None:
@@ -204,7 +204,7 @@ def run_iges_grid(args: argparse.Namespace) -> int:
     """Run iges-grid and print the record written beside its output."""
     from pyflightstream.workspace.iges_grid import grid_iges
 
-    return _print_checks(
+    return print_checks(
         lambda: grid_iges(
             args.iges,
             args.grid,
@@ -237,9 +237,7 @@ def run_iges_convert(args: argparse.Namespace) -> int:
     """Run iges-convert and print the record written beside its output."""
     from pyflightstream.workspace.iges_convert import convert_iges
 
-    return _print_checks(
-        lambda: convert_iges(args.iges, args.out, name_encoding=args.name_encoding)
-    )
+    return print_checks(lambda: convert_iges(args.iges, args.out, name_encoding=args.name_encoding))
 
 
 #: The parser of each verb this module adds, by its name in the group.

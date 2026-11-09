@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._gmsh_worker import _publish, run_isolated
+from pyflightstream.workspace._gmsh_worker import publish_stage, run_isolated
 
 _HERE = "tests.tier1_offline.test_p0570_fix5_gmsh_worker"
 
@@ -76,12 +76,12 @@ def test_p0570_fix5_a_kernel_failure_stays_the_documented_refusal(capsys):
     convert_iges and grid_iges document a kernel failure as InputArtifactError, and the command
     line catches the package's errors, so it must not reach the person as a traceback.
     """
-    from pyflightstream.run._cli_morph import _print_checks
+    from pyflightstream.run._cli_morph import print_checks
 
     with pytest.raises(InputArtifactError, match="kernel failed.*Could not read") as raised:
         run_isolated(f"{_HERE}:worker_kernel_failure", {}, _direct)
     assert "worker_kernel_failure" in "\n".join(raised.value.__notes__)
-    code = _print_checks(lambda: run_isolated(f"{_HERE}:worker_kernel_failure", {}, _direct))
+    code = print_checks(lambda: run_isolated(f"{_HERE}:worker_kernel_failure", {}, _direct))
     assert code == 2 and "Could not read" in capsys.readouterr().err
 
 
@@ -222,7 +222,7 @@ def test_p0570_fix5_a_publish_that_fails_keeps_no_torn_file_and_no_old_record(
     monkeypatch.setattr(shutil, "copy2", torn)
     monkeypatch.setattr(shutil, "move", torn)
     with pytest.raises(OSError, match="no space"):
-        _publish(stage, folder)
+        publish_stage(stage, folder)
     assert (folder / "wing.obj").read_text(encoding="utf-8") == "older\n"
     assert sorted(path.name for path in folder.iterdir()) == ["wing.obj"]
 
@@ -231,7 +231,7 @@ def test_p0570_fix5_a_publish_across_file_systems_arrives_whole(tmp_path, monkey
     """PFS-2208: when a move cannot be a rename, every file still arrives, the record with them."""
     stage, folder = _staged(tmp_path)
     _other_file_system(monkeypatch, stage)
-    _publish(stage, folder)
+    publish_stage(stage, folder)
     assert sorted(path.name for path in folder.iterdir()) == ["wing.obj", "wing.obj.json"]
     assert (folder / "wing.obj").read_text(encoding="utf-8") == "new\n"
     assert (folder / "wing.obj.json").read_text(encoding="utf-8") == "new\n"
