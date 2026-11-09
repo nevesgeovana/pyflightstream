@@ -163,10 +163,34 @@ def test_p0570_fix5_the_verb_previews_and_applies_then_collect_judges_the_point(
     collect_once(workspace, interval=0.0, sleep=no_sleep)
     for run_id in lasts:
         record = _rows(workspace)[run_id]
-        assert "RAN_MISSING_LOG" not in str(record.status), record.status
+        assert record.status is not RunStatus.SUBMITTED, record.status
+        assert record.status is not RunStatus.RAN_MISSING_LOG, record.status
         logs = [name for name in record.outputs if name.endswith("_log.txt")]
         assert logs
         body = (workspace.sim_dir(record.sim_id) / logs[0]).read_text(encoding="utf-8")
+        assert SENTINEL in body
+
+
+def test_p0570_fix5_the_first_sims_scheduler_log_beats_another_one(tmp_path):
+    """PFS-2218: FTS<first sim>.l* is taken before the only-one search, which would name two."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    for job in lasts.values():
+        (workspace.root / job["dir"] / "FTS9999.l1").write_text("another\n", encoding="utf-8")
+    out = search_log_batch(workspace.root, apply=True)
+    assert set(out["written"]) == set(lasts), out
+
+
+def test_p0570_fix5_the_job_log_beats_a_scheduler_log(tmp_path):
+    """PFS-2218: the job's own log is read before any scheduler log."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace)
+    for job in lasts.values():
+        (workspace.root / job["dir"] / _scheduler_name(job)).write_text("x\n", encoding="utf-8")
+    out = search_log_batch(workspace.root, apply=True)
+    assert set(out["written"]) == set(lasts), out
+    for run_id in lasts:
+        body = _point_log(workspace, _rows(workspace)[run_id])[0].read_text(encoding="utf-8")
         assert SENTINEL in body
 
 
