@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from pyflightstream.fsi.config import FixedWing, FsiConfig
-from pyflightstream.fsi.loads import SectionBlock, to_elastic_axis
+from pyflightstream.fsi.loads import SectionBlock, project_wing_frame_loads, to_elastic_axis
 from tests.tier1_offline.conftest import make_uniform_blade_config
 
 _SPAN = np.linspace(0.25, 1.85, 9)
@@ -173,3 +173,22 @@ def test_p0570_r8_004_a_wing_cut_off_the_loads_frame_is_warned(tmp_path, monkeyp
     with pytest.warns(match="torsion load may carry the lever") as found:
         _steady._warn_of_a_wing_cut_off_the_loads_frame(case, script)
     assert "frame 2" in str(found[0].message)
+
+
+def test_p0570_r8_008_the_transfer_reproduces_a_measured_row():
+    """A row measured on 26.127, in dynamic pressures: the sign and the arm are not this file's.
+
+    Polar 6911, alpha -4, the section at y = 0.05 m (moment_ref_check.csv of the CR-3687 study).
+    The exported moment plus the transfer must land on the section-pressure moment about the
+    quarter chord, within the largest such residual over the 132 rows without separation (0.0166).
+    A flipped sign misses by 0.31.
+    """
+    _, _, moment = project_wing_frame_loads(
+        fx_n_per_m=0.209177,
+        fz_n_per_m=2.43064,
+        moment_qc_nm_per_m=-0.863818,
+        section_pitch_rad=0.0,
+        x_qc_m=0.0606,
+        z_qc_m=-0.04681,
+    )
+    assert abs(float(moment) - -0.711736) < 0.0166
