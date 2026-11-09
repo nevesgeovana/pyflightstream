@@ -193,3 +193,24 @@ def test_r9_004_a_renamed_section_file_is_one_geometry(tmp_path):
     one = parameter_id(resolve_config(_wing_of_files("a.dat", "b.dat"), base=tmp_path))
     two = parameter_id(resolve_config(_wing_of_files("c.dat", "b.dat"), base=tmp_path))
     assert one == two
+
+
+# R9-005: a resolved file read again measures its data files again.
+
+
+def test_r9_005_a_resolved_file_follows_a_data_file_that_changed(tmp_path):
+    from pyflightstream.geometry._identity import parameter_id
+    from pyflightstream.geometry.config import load_config, resolve_config
+    from pyflightstream.geometry.stages import write_config
+
+    rings = tmp_path / "rings.txt"
+    rings.write_text("one", encoding="ascii")
+    source = {"components": {"h": {"type": "body", "rings_file": "rings.txt"}}}
+    first = resolve_config(source, base=tmp_path)
+    write_config(first, tmp_path / "x.toml")
+    assert load_config(tmp_path / "x.toml") == first
+    rings.write_text("two", encoding="ascii")
+    again = load_config(tmp_path / "x.toml")
+    assert parameter_id(again) != parameter_id(first)
+    assert parameter_id(again) == parameter_id(resolve_config(source, base=tmp_path))
+    assert any("differs" in text for text in again["warnings"])

@@ -637,16 +637,31 @@ def resolve_config(data, stem=None, base=None):
         "warnings": notes["warnings"],
         "findings": notes["findings"],
     }
-    if resolved:
-        for name, quantities in derived.items():
-            for key, expected in quantities.items():
-                supplied = source.get("derived", {}).get(name, {}).get(key)
-                if supplied is None or not math.isclose(
-                    supplied, expected, rel_tol=1e-12, abs_tol=1e-14
-                ):
-                    raise InputValueError(f"derived.{name}.{key}: inconsistent quantity")
-        return deepcopy(data)
-    return result
+    return _checked_resolved(data, source, result) if resolved else result
+
+
+def _checked_resolved(data, source, result):
+    """Return a copy of a resolved input whose derived quantities check out.
+
+    The digests of its data files are measured again, so a file that changed after the input was
+    resolved moves the identity and is reported, instead of keeping the identity it had.
+    """
+    for name, quantities in result["derived"].items():
+        for key, expected in quantities.items():
+            supplied = source.get("derived", {}).get(name, {}).get(key)
+            if supplied is None or not math.isclose(
+                supplied, expected, rel_tol=1e-12, abs_tol=1e-14
+            ):
+                raise InputValueError(f"derived.{name}.{key}: inconsistent quantity")
+    checked = deepcopy(data)
+    if source.get("files", []) != result["files"]:
+        checked["files"] = result["files"]
+        checked["warnings"] = [
+            *source.get("warnings", []),
+            "files: a data file differs from the one this input was resolved with; the "
+            "identity follows the file on disk",
+        ]
+    return checked
 
 
 def _registry_input(source, resolved):
