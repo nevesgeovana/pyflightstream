@@ -14,6 +14,7 @@ from pyflightstream.cases import SimCase
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz, PprocArtifact
 from pyflightstream.workspace.manifest import WorkspaceError
+from pyflightstream.workspace.naming import resolved_plain
 
 #: The library kinds whose id is a file-name STEM with any extension,
 #: which is what makes an ambiguity possible: two files sharing a stem
@@ -628,8 +629,8 @@ def datapoint_folder_inside(sim: Path, folder: str) -> Path:
     A datapoint folder that is a link out of the simulation would make another simulation's
     output count as this point's own evidence.
     """
-    own = (sim / folder).resolve()
-    if not own.is_relative_to(sim.resolve()):
+    own = resolved_plain(sim / folder)
+    if not own.is_relative_to(resolved_plain(sim)):
         raise WorkspaceError(
             f"the datapoint folder {sim / folder} resolves to {own}, outside this "
             f"simulation's own folder {sim.resolve()}. Collecting there would file "

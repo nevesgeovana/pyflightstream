@@ -35,7 +35,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace.inputs import resolve_hpc_profile
-from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.naming import ARCHIVE_DIR, resolved_plain
 
 if TYPE_CHECKING:
     from pyflightstream.script import Script
@@ -178,7 +178,7 @@ def extraction_context(workspace, record):
     if (
         not names
         or not record.reopened_copy
-        or any(not path.resolve().is_relative_to(root) for path in paths)
+        or any(not resolved_plain(path).is_relative_to(resolved_plain(root)) for path in paths)
     ):
         raise WorkspaceError("submitted extraction has no safe declared outputs or private copy")
     changed = [
