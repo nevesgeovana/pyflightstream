@@ -265,7 +265,7 @@ def span_direction(samples, span_axis):
     return axis
 
 
-def _end_plane_station(stations, features, band, span, samples, axis):
+def _end_plane_station(stations, features, band, span, *, samples, axis):
     """Return the span station where the leading edge reaches the tip end plane, or None.
 
     The cuts are normal to the span axis. When the axis is tilted from a coordinate axis (a
@@ -327,7 +327,9 @@ def identify_pass(grids, samples, hosts, spec, count):
         result = reference_planform(
             stations, features, band, span,
             boundary=lambda p: p[axis], root_bracket=(stations[0] - 1.0, stations[band[0]] + 1e-4),
-            tip_station=_end_plane_station(stations, features, band, span, samples, axis),
+            tip_station=_end_plane_station(
+                stations, features, band, span, samples=samples, axis=axis
+            ),
             mirrored=mirrored,
         )  # fmt: skip
         result["root_kind"] = f"symmetry plane {'xyz'[axis]} = 0"

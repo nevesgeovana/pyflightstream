@@ -199,6 +199,7 @@ def ordinates_to_cst(
     lower,
     transform,
     label,
+    *,
     degree=5,
     tolerance=5e-4,
     max_degree=20,
