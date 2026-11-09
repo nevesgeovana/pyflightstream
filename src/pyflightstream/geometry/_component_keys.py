@@ -37,8 +37,17 @@ _ITEM_KEYS_BY_FORM = {
 }
 _PHYSICAL_KEYS = ("nose_radius", "boat_tail_deg", "te_thickness", "thickness_at")
 _BOUND_KEYS = ("component", "eta_in", "eta_out")
-_BODY_SECTION_KEYS = ("at", "shape", "radius", "width", "height", "centre_height", "z_c")
-_BODY_SECTION_KEYS += ("n_top", "n_bottom")
+_BODY_SECTION_KEYS = (
+    "at",
+    "shape",
+    "radius",
+    "width",
+    "height",
+    "centre_height",
+    "z_c",
+    "n_top",
+    "n_bottom",
+)
 _BOAT_TAIL_KEYS = ("x_cut", "base_height", "angle_limit_deg")
 _MESH_ZONE_KEYS = ("across", "across_min", "ratio", "le_cell", "end_cell", "growth", "max_cell")
 _KINEMATICS_KEYS = ("deflection_deg", "pivot_x", "pivot_z", "gap_pct", "overlap_pct")
