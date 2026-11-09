@@ -239,7 +239,7 @@ def rounded_cap_grids(component, section, maximum, chord_count=49, across_count=
         phi = np.pi / 2 * (v if side > 0 else 1 - v)
         z = middle[:, None] + side * half[:, None] * np.cos(phi)[None, :]
         extension = ridge[:, None] * np.sin(phi)[None, :] ** exponent
-        grids.append(cap_to_space(component, np.repeat(x[:, None], len(v), 1), z, extension))
+        grids.append(cap_to_space(component, np.repeat(upper[:, :1], len(v), 1), z, extension))
     return grids
 
 
@@ -264,7 +264,7 @@ def exact_loft_grids(component, section, maximum):
     scale = np.sqrt(np.clip(1 - fraction ** (2 / cap["exponent"]), 0, 1))
     taper, sweep, rise = cap_rates(component)
     extension = np.broadcast_to(length * fraction, (len(x), len(fraction)))
-    chord_x = x[:, None] * (1 - taper * extension)
+    chord_x = upper[:, :1] * (1 - taper * extension)
     return [
         cap_to_space(
             component, chord_x, middle[:, None] + side * half[:, None] * scale[None, :],
@@ -367,7 +367,7 @@ def ridged_cap_grids(component, section, maximum, chord_count=49, across_count=6
                 "tip_cap",
                 cap_to_space(
                     component,
-                    np.repeat(x[:, None], across_count, 1) * (1 - taper * cross[..., 0]),
+                    np.repeat(upper[:, :1], across_count, 1) * (1 - taper * cross[..., 0]),
                     z,
                     cross[..., 0],
                     (sweep, rise),

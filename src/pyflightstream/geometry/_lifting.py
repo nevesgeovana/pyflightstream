@@ -740,6 +740,8 @@ def lifting_surface(component) -> list[Patch]:
     the nose-clustered chord fractions the mesh spacing rules read and written as bicubic faces,
     six families per bay. This is the generator's face set until the export writes the skin with
     its trims; the trims and the exact layout are in :func:`skin_model` and :func:`layout_blocks`.
+    A bay ends only at a defining section: section lines that do not define shape (nacelle
+    bounds, control-surface ends, ``spanwise.lines``) are iso lines of the skin, not face edges.
 
     Parameters
     ----------
@@ -753,8 +755,8 @@ def lifting_surface(component) -> list[Patch]:
     """
     model = skin_model(component)
     law = section_law(component, None, model.fraction)
-    vs = sorted({0.0, 1.0, *model.lines["v"].values()})
-    families = ("upper_fore", "upper_aft", "lower_fore", "lower_aft", "trailing_upper",
+    vs = sorted({0.0, 1.0, *model.stations})
+    families =("upper_fore", "upper_aft", "lower_fore", "lower_aft", "trailing_upper",
                 "trailing_lower")  # fmt: skip
     return [
         interpolate_patch(

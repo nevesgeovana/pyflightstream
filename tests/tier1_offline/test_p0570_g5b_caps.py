@@ -17,6 +17,7 @@ from pyflightstream.geometry._caps import cap_patch_grids, tip_cap
 from pyflightstream.geometry._distributions import blended_section, planform_values
 from pyflightstream.geometry._lifting import (
     bound_stations,
+    cap_fraction,
     lifting_surface,
     section_models,
     thickness_station,
@@ -39,13 +40,20 @@ def bays(component):
 
 
 def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
+    # G5Rb: the two bounds are iso-v lines of the one skin and cut lines of its faces' trims,
+    # no longer edges of the generated faces (design delta C.1.2 and C.1.3).
+    from pyflightstream.geometry._caps import lifting_model
+
     _, plain = configuration()
     bound = {"component": "N", "eta_in": 0.3, "eta_out": 0.55}
     warnings, bounded = configuration(sections={"nacelle_bounds": [bound]})
     assert not [w for w in warnings if "nacelle_bounds" in w]
     assert bound_stations(bounded) == [0.3, 0.55]
-    assert len(bays(bounded)) == len(bays(plain)) + 2
-    assert (0.3, 0.55) in bays(bounded)
+    assert bays(bounded) == bays(plain)
+    model = lifting_model(bounded)
+    assert {model.lines["v"]["nacelle_N_in"], model.lines["v"]["nacelle_N_out"]} == {0.3, 0.55}
+    cuts = {p[1] for t in model.trims if t.base == "skin" for piece in t.loop for p in piece}
+    assert cuts == {0.0, 0.3, 0.55, 1.0}
     eta = np.linspace(0, 1, 9)
     for key in ("chord", "leading_edge_x"):
         assert planform_values(bounded, eta)[key] == pytest.approx(planform_values(plain, eta)[key])
@@ -92,7 +100,9 @@ def test_g5b_exact_loft_matches_its_closed_form():
     assert len(grids) == 2
     upper, lower = grids
     assert upper.shape == (15, 9, 3)
-    p = planform_values(component, 1.0)
+    # G5Rb: the published span includes the cap, so the cap starts at the skin's tip station.
+    start = cap_fraction(component)
+    p = planform_values(component, start)
     chord = float(p["chord"])
     top, bottom = cst_airfoil(
         maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
@@ -107,7 +117,7 @@ def test_g5b_exact_loft_matches_its_closed_form():
     assert ratio[:, 0] == pytest.approx(tip_up[:, 1] - tip_low[:, 1], abs=1e-9)
     for k in range(1, 9):
         assert ratio[:, k] == pytest.approx(ratio[:, 0] * np.sqrt(1 - fraction[k] ** 2), abs=1e-9)
-    extension = (upper[:, :, 1] - 1.2 / 2) / chord
+    extension = (upper[:, :, 1] - 1.2 / 2 * start) / chord
     assert extension[0] == pytest.approx(length * fraction, abs=1e-12)
     assert upper[:, -1] == pytest.approx(lower[:, -1], abs=1e-12)
 
@@ -160,8 +170,10 @@ def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
         section = blended_section(component["sections"], models, 1.0)
         maximum = thickness_station(component, models, 1.0)
         grids = [g for _, g in cap_patch_grids(component, section, maximum)]
-        reach = max(float(np.max(g[..., 1])) for g in grids) - 1.2 / 2
-        assert reach == pytest.approx(0.08, abs=1e-6)
+        # G5Rb: the published span includes the cap: it reaches 0.08 from its start to b / 2.
+        top = max(float(np.max(g[..., 1])) for g in grids)
+        assert top == pytest.approx(1.2 / 2, abs=1e-6)
+        assert top - 1.2 / 2 * cap_fraction(component) == pytest.approx(0.08, abs=1e-6)
 
 
 def test_g5b_tip_cap_extent_bad_input():

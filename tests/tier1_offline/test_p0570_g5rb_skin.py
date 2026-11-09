@@ -260,3 +260,29 @@ def test_g5rb_smooth_law_interpolates_its_sections():
     model = lifting_model(component)
     assert model.skin.degree_v == 3
     assert records(model)["skin.section_exact"]["value"] <= 1e-12
+
+
+def test_g5rb_section_lines_are_not_face_edges_of_the_generated_faces():
+    from pyflightstream.geometry._lifting import lifting_surface
+
+    patches = lifting_surface(wing(**ACCEPTANCE))
+    assert len(patches) == 6  # one bay: the two defining sections, no split at the lines
+    assert {p.bay for p in patches} == {(0.0, 1.0)}
+
+
+def test_g5rb_acceptance_wing_meshes_and_passes_the_tier1_spacing_rules():
+    from pyflightstream.workspace._geometry_mesh import mesh_generated
+    from tests.tier1_offline._kernel_support import kernel_or_skip
+
+    kernel_or_skip()
+    surface = {
+        "type": "lifting_surface",
+        "planform": {"span": SPAN, "aspect_ratio": AR, "taper": TAPER},
+        **ACCEPTANCE,
+    }
+    config = {"components": {"W": surface, "N": {"type": "body"}}}
+    record = mesh_generated(config, component="W").record
+    assert record["accepted"] is True
+    assert record["non_quad_count"] == 0 and record["cap_cells"] > 0
+    rules = record["spacing_rules"]
+    assert rules["passed"] is True and rules["checked_edges"] > 0, rules["failures"]
