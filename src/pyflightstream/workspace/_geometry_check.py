@@ -344,6 +344,9 @@ def check_against_original(
         When the optional gmsh extra is not installed.
     """
     constants = _profile(profile)
+    for key in ("forward_count", "reverse_count", "edge_count"):
+        if key in limits and limits[key] < 1:
+            raise InputValueError(f"limits.{key}: at least one sample required")
     gmsh = gmsh_module(_PURPOSE)
     own_session = not gmsh.isInitialized()
     if own_session:
@@ -353,6 +356,12 @@ def check_against_original(
     try:
         new_faces = resolve_faces(rebuilt, limits.get("component"))
         old_faces = resolve_faces(original, limits.get("component"))
+        for i in limits.get("exclude_faces") or []:
+            if not 0 <= i < len(old_faces):
+                raise InputValueError(
+                    f"limits.exclude_faces: face {i} does not exist; the original has faces 0 to "
+                    f"{len(old_faces) - 1}"
+                )
         excluded = [
             {"index": int(i), "tag": int(old_faces[i])} for i in (limits.get("exclude_faces") or [])
         ]

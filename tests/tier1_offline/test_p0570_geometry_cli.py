@@ -112,6 +112,23 @@ def test_p0570_check_refuses_a_missing_chord_before_any_kernel_work(tmp_path, ca
     assert "both" in err
 
 
+def test_r6_check_refuses_a_count_below_one_and_a_face_it_does_not_have(tmp_path, capsys):
+    """R6-007: a count of 0 and a face past the end were tracebacks, -1 was reported excluded."""
+    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    config = tmp_path / "wing.toml"
+    config.write_text(WING, encoding="utf-8")
+    igs = tmp_path / "wing.igs"
+    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    base = ["check", igs, igs, "--chord-m", 0.27, "--reverse-count", 5, "--edge-count", 11]
+    code, _, err = cli([*base, "--forward-count", 0], capsys)
+    assert code == 2
+    assert "forward_count" in err
+    for face in (999, -1):
+        code, _, err = cli([*base, "--forward-count", 5, "--exclude-face", face], capsys)
+        assert code == 2
+        assert f"face {face} does not exist" in err
+
+
 def test_p0570_generate_refuses_a_configuration_with_an_unknown_parameter(tmp_path, capsys):
     config = tmp_path / "bad.toml"
     config.write_text(WING + "[components.WING.planform.nonsense]\nvalue = 1\n", encoding="utf-8")
