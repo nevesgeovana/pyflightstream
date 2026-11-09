@@ -67,11 +67,12 @@ def test_g5b_physical_section_reaches_the_skin_end_to_end(tmp_path):
 
 
 @pytest.mark.parametrize("missing", ["nose_radius", "boat_tail_deg", "thickness_at"])
-def test_g5b_physical_section_without_a_number_is_refused(tmp_path, missing):
+def test_r14_003_physical_section_without_a_number_is_refused_with_the_input(tmp_path, missing):
     physical = {k: v for k, v in PHYSICAL.items() if k != missing}
-    component = resolved({"physical": physical}, tmp_path)
-    with pytest.raises(InputValueError, match=missing):
-        lifting_surface(component)
+    with pytest.raises(InputValueError, match=f"sections.physical: .*{missing}"):
+        resolved({"physical": physical}, tmp_path)
+    with pytest.raises(InputValueError, match=missing):  # the section law refuses it alike
+        section_from_physical(physical)
 
 
 def test_g5b_physical_section_impossible_and_conflicting_inputs_are_refused(tmp_path):

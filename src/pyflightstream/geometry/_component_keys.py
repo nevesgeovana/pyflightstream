@@ -105,6 +105,9 @@ def _check_physical(name, physical, raw, warnings):
     for key, high in (("nose_radius", 0.5), ("thickness_at", 0.5), ("boat_tail_deg", 89)):
         if key in physical:
             number(physical[key], f"{name}.sections.physical.{key}", 0, high, strict=True)
+    missing = [k for k in ("nose_radius", "boat_tail_deg", "thickness_at") if k not in physical]
+    if missing:  # refused with the input, not when the skin is built
+        raise InputValueError(f"{name}.sections.physical: {', '.join(missing)} required")
 
 
 def _check_sections(name, component, raw, warnings):
