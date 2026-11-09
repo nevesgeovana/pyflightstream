@@ -631,12 +631,35 @@ def _axial_map(component, table, region, plan):
     return lambda v: x0 + v * (x1 - x0)
 
 
+def _polar_points(component, table, axial, psi):
+    """Return the surface points at axial fractions and polar angles ``psi`` of the section.
+
+    :func:`body_points` reads its azimuth as the angle of a superellipse, whose points move as
+    ``|sin|`` to the power ``2 / n``: for an exponent above 2 the derivative is infinite on the
+    symmetry plane and the side line, which no polynomial face follows. The region faces are
+    parametrized instead by the polar angle of the point in the section scaled to a unit square,
+    ``(y / width, (z - centre) / height) = rho (sin psi, cos psi)``, whose point is smooth in
+    ``psi`` for an even exponent and C2 or better for any exponent of at least 3. ``psi`` and the
+    superellipse angle agree at 0, a half and a whole turn, so the face edges stay where they were.
+    """
+    axial, psi = np.broadcast_arrays(np.asarray(axial, float), np.asarray(psi, float))
+    values = body_profile(component, table, axial)
+    sine, cosine = np.sin(psi), np.cos(psi)
+    n = np.where(cosine >= 0, values[..., 3], values[..., 4])
+    rho = (np.abs(sine) ** n + np.abs(cosine) ** n) ** (-1.0 / n)
+    theta = np.arctan2(
+        np.sign(sine) * (rho * np.abs(sine)) ** (n / 2),
+        np.sign(cosine) * (rho * np.abs(cosine)) ** (n / 2),
+    )
+    return body_points(component, table, axial, theta)
+
+
 def _band_function(component, table, theta, axial):
     """Return the surface function ``(u, v)`` of a band face: ``u`` azimuth, ``v`` axial."""
     low, high = theta
 
     def point(u, v):
-        return body_points(component, table, axial(v), low + u * (high - low))
+        return _polar_points(component, table, axial(v), low + u * (high - low))
 
     return point
 
@@ -672,14 +695,14 @@ def _cap_function(component, table, angles, corners, *, ring, end):
         w = (1 - u) * (1 - v) * p[0] + u * (1 - v) * p[1] + u * v * p[2] + (1 - u) * v * p[3]
         theta, radius = _disc_polar(w, angles)
         if end == "base":
-            rim = body_points(component, table, last, theta)
+            rim = _polar_points(component, table, last, theta)
             centre = np.array([last * component["length"], 0.0, centre_height])
             return centre + radius[..., None] * (rim - centre)
         if end == "nose":
             axial = ring * radius ** (1.0 / exponent)
         else:
             axial = 1.0 - (1.0 - ring) * radius ** (1.0 / exponent)
-        return body_points(component, table, axial, theta)
+        return _polar_points(component, table, axial, theta)
 
     return point
 

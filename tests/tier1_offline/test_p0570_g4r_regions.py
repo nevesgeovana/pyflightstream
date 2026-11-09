@@ -128,3 +128,36 @@ def test_listed_stations_cut_a_region_and_bad_input_is_refused():
 def make_body(**extra):
     raw = {"type": "body", "length": 20.0, "sections": [{"at": "middle", **CIRCLE}], **extra}
     return unpack(resolve_config(raw))["components"]["COMPONENT"]
+
+
+@pytest.mark.parametrize(("top", "bottom"), [(4.0, 3.0), (6.0, 2.0)])
+def test_r19_006_a_squarish_superellipse_body_is_fitted_within_its_tolerance(top, bottom):
+    """R19-006: an exponent above 2 has an infinite slope in the superellipse angle.
+
+    The faces follow the polar angle instead, so the fit converges and every face point lies on
+    the section's superellipse within the tolerance.
+    """
+    from pyflightstream.geometry._bodies import body_profile, body_station_table
+
+    section = {"shape": "superellipse", "width": 0.25, "height": 0.2, "n_top": top,
+               "n_bottom": bottom}  # fmt: skip
+    component = make_body(
+        length=12.0,
+        sections=[{"at": at, **section} for at in (0.2, 0.5, 0.8)],
+        stations=[0.2, 0.5, 0.8],
+        rear={"boat_tail": {"x_cut": 0.97, "base_height": 0.1, "angle_limit_deg": 25.0}},
+        nose_exponent=0.5,
+    )
+    tolerance = 1e-4 * 12.0
+    patches = body_regions(component, tolerance=tolerance)
+    table = body_station_table(component)
+    for patch in (p for p in patches if p.role == "band"):
+        points = evaluate_patch(patch, 9).reshape(-1, 3)
+        width, height, centre, n_top, n_bottom = np.moveaxis(
+            body_profile(component, table, points[:, 0] / 12.0), -1, 0
+        )
+        dz = points[:, 2] - centre
+        n = np.where(dz >= 0, n_top, n_bottom)
+        level = np.abs(points[:, 1] / width) ** n + np.abs(dz / height) ** n
+        # a distance d off the curve moves the level by about n d / (half size)
+        assert np.max(np.abs(level - 1.0)) < 4 * top * tolerance / 0.1
