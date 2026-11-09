@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from pyflightstream._errors import NotApplicableWarning
 from pyflightstream.geometry._boundary import export_schema
 from pyflightstream.run._cli_geometry import GEOMETRY_VERBS
 from pyflightstream.workspace.cli import main
@@ -127,6 +128,17 @@ def test_r6_check_refuses_a_count_below_one_and_a_face_it_does_not_have(tmp_path
         code, _, err = cli([*base, "--forward-count", 5, "--exclude-face", face], capsys)
         assert code == 2
         assert f"face {face} does not exist" in err
+
+
+def test_r6_a_flag_the_verb_will_not_use_is_warned(tmp_path, capsys):
+    """R6-010: --chord-m beside the stations and --out beside --validate were silently dropped."""
+    missing = tmp_path / "none.json"
+    with pytest.warns(NotApplicableWarning, match="--out"):
+        assert cli(["schema", "--validate", missing, "--out", tmp_path / "s.json"], capsys)[0] == 2
+    a, b = tmp_path / "a.igs", tmp_path / "b.igs"
+    flags = ["--chord-m", 1.0, "--stations-m", 0, 1, "--chords-m", 1.0, 0.5]
+    with pytest.warns(NotApplicableWarning, match="--chord-m"):
+        assert cli(["check", a, b, *flags], capsys)[0] == 2
 
 
 def test_p0570_generate_refuses_a_configuration_with_an_unknown_parameter(tmp_path, capsys):

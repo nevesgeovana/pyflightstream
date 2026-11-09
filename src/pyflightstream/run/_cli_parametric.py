@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import NotApplicableWarning, PyflightstreamError, warn
 
 __all__ = ["PARAMETRIC_VERBS", "add_parametric_verbs"]
 
@@ -329,6 +329,8 @@ def run_check(args: argparse.Namespace) -> int:
             if args.stations_m is None or args.chords_m is None:
                 raise InputValueError("--stations-m and --chords-m: give both")
             limits.update(stations_m=args.stations_m, chords_m=args.chords_m)
+            if args.chord_m is not None:
+                warn("--chord-m: not used, --stations-m and --chords-m give", NotApplicableWarning)
         elif args.chord_m is not None:
             limits["chord_m"] = args.chord_m
         else:
@@ -430,6 +432,8 @@ def run_schema(args: argparse.Namespace) -> int:
             schema = export_schema()
             _write_json(args.out, schema)
             return schema
+        if args.out is not None:
+            warn("--out: not used with --validate, which writes nothing", NotApplicableWarning)
         record = ComponentRecord.from_json(Path(args.validate).read_text(encoding="utf-8"))
         problems = verify_pins(record, args.asset_root) if args.asset_root is not None else []
         return {
