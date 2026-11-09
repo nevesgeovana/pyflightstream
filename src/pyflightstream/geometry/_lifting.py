@@ -164,9 +164,9 @@ def hinge_fractions(component) -> dict[str, float]:
 def _sections_with_pins(component):
     """Return the ``sections`` table with every stated pin and hinge pinned."""
     sections = dict(component["sections"])
-    pins = [*(sections.get("pin") or []), *(sections.get("pins") or [])]
+    pins = list(sections.get("pin") or [])
     pins += list(hinge_fractions(component).values())
-    sections["pins"] = sorted({round(float(p), 15) for p in pins})
+    sections["pin"] = sorted({round(float(p), 15) for p in pins})
     return sections
 
 

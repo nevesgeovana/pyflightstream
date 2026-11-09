@@ -113,7 +113,7 @@ def test_g5ra_the_leading_edge_is_parameter_one_half_and_the_ends_are_the_base(c
 
 def test_g5ra_a_pinned_chordwise_line_is_a_knot_at_its_own_parameter():
     pins = [0.25, 0.7]
-    sections = bspline_sections(table([{"naca": "0012"}, {"naca": "2412"}], pins=pins))
+    sections = bspline_sections(table([{"naca": "0012"}, {"naca": "2412"}], pin=pins))
     knots = np.asarray(sections[0].knots)
     for x in pins:
         for u in (0.5 - 0.5 * np.sqrt(x), 0.5 + 0.5 * np.sqrt(x)):
@@ -224,8 +224,8 @@ def test_g5ra_an_empty_or_missing_bspline_file_is_refused(tmp_path):
 
 def test_g5ra_a_misplaced_pin_is_refused():
     for pins in ([0.0], [1.0], [0.5, 0.4], [float("nan")]):
-        with pytest.raises(InputValueError, match="sections.pins"):
-            bspline_sections(table([{"naca": "0012"}], pins=pins))
+        with pytest.raises(InputValueError, match="sections.pin:"):
+            bspline_sections(table([{"naca": "0012"}], pin=pins))
 
 
 def test_g5ra_shape_unchanged_holds_for_the_bspline_form():

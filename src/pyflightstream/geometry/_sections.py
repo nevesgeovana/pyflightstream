@@ -714,9 +714,9 @@ def _side_parameter(side, pins):
 def _check_pins(pins):
     values = np.asarray(pins if pins is not None else [], float)
     if values.ndim != 1 or np.any(~np.isfinite(values)) or np.any((values <= 0) | (values >= 1)):
-        raise InputValueError("sections.pins: expected chord fractions strictly inside (0, 1)")
+        raise InputValueError("sections.pin: expected chord fractions strictly inside (0, 1)")
     if np.any(np.diff(values) <= 0):
-        raise InputValueError("sections.pins: expected strictly increasing chord fractions")
+        raise InputValueError("sections.pin: expected strictly increasing chord fractions")
     return values
 
 
@@ -743,7 +743,7 @@ def _interior_knots(spans, pins):
     """
     knots = _required_knots(pins)
     if len(knots) > spans - 1:
-        raise InputValueError("sections.pins: more pinned parameters than interior knots")
+        raise InputValueError("sections.pin: more pinned parameters than interior knots")
     while len(knots) < spans - 1:
         edges = np.r_[0.0, _warp(knots), 1.0]
         at = int(np.argmax(np.diff(edges)))
@@ -892,7 +892,7 @@ def bspline_sections(sections, warnings=None) -> list[BSplineSection]:
     ``sections.trailing_edge_thickness`` and adds a warning to ``warnings``.
     """
     warnings = [] if warnings is None else warnings
-    te, pins = sections["trailing_edge_thickness"], _check_pins(sections.get("pins"))
+    te, pins = sections["trailing_edge_thickness"], _check_pins(sections.get("pin"))
     rows = _items_of(sections, te, warnings)
     preps = [_prepared(row, te, f"sections.items[{i}]", warnings) for i, row in enumerate(rows)]
     fitted = [p for p in preps if p.exact is None]
