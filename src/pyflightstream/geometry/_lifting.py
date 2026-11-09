@@ -20,6 +20,7 @@ from ._distributions import (
     planform_values,
 )
 from ._patch import Patch, interpolate_patch, patch_layout
+from ._sections import section_from_item
 
 __all__ = [
     "lifting_patch_grid",
@@ -33,14 +34,24 @@ __all__ = [
 
 def section_models(sections):
     """Fit a CST model to each section airfoil of a lifting surface at one common degree."""
-    models = [
-        naca_to_cst(
-            name,
-            degree=sections["degree"],
-            trailing_edge_thickness=sections["trailing_edge_thickness"],
-        )
-        for name in sections["airfoils"]
-    ]
+    if sections.get("items"):
+        models = [
+            section_from_item(
+                item,
+                degree=sections["degree"],
+                trailing_edge_thickness=sections["trailing_edge_thickness"],
+            ).to_stored()
+            for item in sections["items"]
+        ]
+    else:
+        models = [
+            naca_to_cst(
+                name,
+                degree=sections["degree"],
+                trailing_edge_thickness=sections["trailing_edge_thickness"],
+            )
+            for name in sections["airfoils"]
+        ]
     degree = max(model["degree"] for model in models)
     return [
         {

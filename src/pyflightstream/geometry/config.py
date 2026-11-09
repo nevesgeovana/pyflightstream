@@ -562,6 +562,9 @@ def _check_data_files(name, component, base, warnings):
     for key, path in needed.items():
         if path and not (base / path).is_file():
             raise InputValueError(f"{name}.{key}: file not found")
+    for item in items:
+        if item.get("file"):  # the generator reads it from wherever the input was read
+            item["file"] = str((base / item["file"]).resolve())
     original = component.get("original", "").split("#")[0]
     if original and not (base / original).is_file():
         warnings.append(f"{name}.original: file not found; the distance checks are skipped")

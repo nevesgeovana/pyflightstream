@@ -187,6 +187,7 @@
       "tests/tier1_offline/test_p0570_geometry_check.py",
       "tests/tier1_offline/test_p0570_geometry_cli.py",
       "tests/tier1_offline/test_p0570_g5_dihedral_identify.py",
+      "tests/tier1_offline/test_p0570_g5_sections.py",
       "tests/tier1_offline/test_p0570_geometry_component.py",
       "tests/tier1_offline/test_p0570_geometry_config.py",
       "tests/tier1_offline/test_p0570_geometry_generate.py",
