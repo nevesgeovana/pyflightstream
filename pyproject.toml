@@ -224,6 +224,11 @@ markers = [
     "requirement(identifier): the SRS requirement this test falsifies",
 ]
 addopts = "-m 'not needs_flightstream'"
+# A test still running after this many seconds prints the stack of every
+# thread of its worker to the job log; nothing fails because of it. It names
+# the frame a shard waits in, so a job cut by its timeout-minutes is not an
+# anonymous hang (2026-11-09: two shards were cancelled with no frame named).
+faulthandler_timeout = 600
 
 # The test-coverage floor, enforced by the release's frozen full suite.
 # The suite-full receipt passes --cov; push CI does not measure coverage.

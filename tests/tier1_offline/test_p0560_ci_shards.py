@@ -107,6 +107,25 @@ def test_p0560_ci_workflow_shards():
                 assert "PYFS_SHARD" not in step.get("env", {})
 
 
+def test_p0570_a_shard_that_stops_answering_fails_fast_and_names_its_frame():
+    """A sharded test job ends at its own time limit, and a waiting test prints its stack first.
+
+    On 2026-11-09 two shard-3 jobs were cancelled by hand with no frame named and nothing
+    bounding them but the platform's six hours. Each sharded job now declares
+    ``timeout-minutes``, and pytest's ``faulthandler_timeout`` dumps the stack of a test that
+    runs longer, well before the job limit, so a real hang fails fast and names where it waits.
+    """
+    import tomllib
+
+    jobs = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    dump_after = int(pyproject["tool"]["pytest"]["ini_options"]["faulthandler_timeout"])
+    for name in ("test", "test-all-extras", "test-floors", "test-lean", "test-ceilings"):
+        limit = jobs[name].get("timeout-minutes")
+        assert isinstance(limit, int) and 0 < limit < 360, name
+        assert 0 < dump_after < limit * 60, name
+
+
 def test_p0560_ci_unset_preserves_collection(monkeypatch):
     monkeypatch.delenv("PYFS_SHARD", raising=False)
     items = [SimpleNamespace(nodeid="z"), SimpleNamespace(nodeid="a")]
