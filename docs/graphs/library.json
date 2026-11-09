@@ -676,6 +676,11 @@
       "path": "geometry/_regions.py"
     },
     {
+      "id": "pyflightstream.geometry._reverse",
+      "layer": 3.25,
+      "path": "geometry/_reverse.py"
+    },
+    {
       "id": "pyflightstream.geometry.component",
       "layer": 3.25,
       "path": "geometry/component.py"
@@ -684,6 +689,11 @@
       "id": "pyflightstream.geometry.config",
       "layer": 3.25,
       "path": "geometry/config.py"
+    },
+    {
+      "id": "pyflightstream.geometry.stages",
+      "layer": 3.25,
+      "path": "geometry/stages.py"
     },
     {
       "id": "pyflightstream.options",
@@ -1286,6 +1296,11 @@
       "path": "run/_cli_morph.py"
     },
     {
+      "id": "pyflightstream.run._cli_parametric",
+      "layer": 1,
+      "path": "run/_cli_parametric.py"
+    },
+    {
       "id": "pyflightstream.run._cli_parsers",
       "layer": 1,
       "path": "run/_cli_parsers.py"
@@ -1676,6 +1691,11 @@
       "path": "workspace/_geometry_record.py"
     },
     {
+      "id": "pyflightstream.workspace._geometry_reverse",
+      "layer": 2,
+      "path": "workspace/_geometry_reverse.py"
+    },
+    {
       "id": "pyflightstream.workspace._geometry_sidecar",
       "layer": 2,
       "path": "workspace/_geometry_sidecar.py"
@@ -2034,6 +2054,11 @@
       "id": "pyflightstream.workspace.fsi_setup",
       "layer": 2,
       "path": "workspace/fsi_setup.py"
+    },
+    {
+      "id": "pyflightstream.workspace.geometry_pipeline",
+      "layer": 2,
+      "path": "workspace/geometry_pipeline.py"
     },
     {
       "id": "pyflightstream.workspace.hpc",
@@ -5978,6 +6003,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._mesh_topology",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._patch",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6023,6 +6053,16 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._reverse",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._reverse",
+      "target": "pyflightstream.geometry._airfoils",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry.component",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6035,6 +6075,56 @@
     {
       "source": "pyflightstream.geometry.config",
       "target": "pyflightstream.geometry._boundary",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._bodies",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._boundary",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._caps",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._generation",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._lifting",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._mesh_rules",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._mesh_topology",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._placement",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._reverse",
       "kind": "module"
     },
     {
@@ -11109,6 +11199,11 @@
     },
     {
       "source": "pyflightstream.run._cli_morph",
+      "target": "pyflightstream.run._cli_parametric",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_morph",
       "target": "pyflightstream.workspace.collapse_te",
       "kind": "deferred"
     },
@@ -11135,6 +11230,36 @@
     {
       "source": "pyflightstream.run._cli_morph",
       "target": "pyflightstream.workspace.repitch",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream._errors",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream.geometry",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_parametric",
+      "target": "pyflightstream.workspace.geometry_pipeline",
       "kind": "deferred"
     },
     {
@@ -14209,17 +14334,17 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_generate",
-      "target": "pyflightstream.geometry._generation",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_generate",
-      "target": "pyflightstream.geometry._patch",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._geometry_generate",
       "target": "pyflightstream.geometry.config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_generate",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
     {
@@ -14264,52 +14389,12 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._bodies",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._boundary",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._caps",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._generation",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._lifting",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._mesh_rules",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._mesh_topology",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._patch",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
-      "target": "pyflightstream.geometry._placement",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_mesh",
       "target": "pyflightstream.geometry.config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
     {
@@ -14334,7 +14419,7 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_mesh_occ",
-      "target": "pyflightstream.geometry._mesh_topology",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
     {
@@ -14365,6 +14450,26 @@
     {
       "source": "pyflightstream.workspace._geometry_record",
       "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_reverse",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_reverse",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_reverse",
+      "target": "pyflightstream.workspace._geometry_check",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_reverse",
+      "target": "pyflightstream.workspace._gmsh",
       "kind": "module"
     },
     {
@@ -16156,6 +16261,26 @@
       "source": "pyflightstream.workspace.fsi_setup",
       "target": "pyflightstream.workspace.sidecars",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.geometry_pipeline",
+      "target": "pyflightstream.workspace._geometry_check",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.geometry_pipeline",
+      "target": "pyflightstream.workspace._geometry_generate",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.geometry_pipeline",
+      "target": "pyflightstream.workspace._geometry_mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.geometry_pipeline",
+      "target": "pyflightstream.workspace._geometry_reverse",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.workspace.hpc",

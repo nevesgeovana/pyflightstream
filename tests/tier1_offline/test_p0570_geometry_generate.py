@@ -304,16 +304,16 @@ def test_p0570_importing_the_geometry_math_does_not_import_gmsh():
 
 
 def test_p0570_iges_records_break_between_parameters_never_inside_one():
-    from pyflightstream.workspace._geometry_generate import _records, tokens
+    from pyflightstream.workspace._geometry_generate import pack_records, tokens
 
     values = [repr(-123.456789012345678 * k) for k in range(1, 40)] + ["4HNAME", "7"]
     for width in (64, 72):
-        records = _records(values, width)
+        records = pack_records(values, width)
         assert all(len(record) <= width for record in records)
         assert all(record.endswith(",") or record.endswith(";") for record in records)
         assert tokens("".join(records)) == values
     long_name = ["406", "1", "100H" + "a" * 100]
-    assert tokens("".join(_records(long_name, 64))) == long_name
+    assert tokens("".join(pack_records(long_name, 64))) == long_name
 
 
 def test_p0570_a_generated_body_reimports_with_every_face(tmp_path):

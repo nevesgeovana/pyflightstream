@@ -343,7 +343,7 @@ def name_properties(document, groups, keys):
     return result
 
 
-def _records(values, width):
+def pack_records(values, width):
     """Pack ``values`` into records of at most ``width`` columns, breaking only between values.
 
     A parameter is never split across records, which the OpenCASCADE reader does not accept for
@@ -364,11 +364,11 @@ def _records(values, width):
 
 def serialize_iges(document):
     lines = [f"{payload:<72}S{i + 1:07d}" for i, payload in enumerate(document["start"])]
-    global_lines = _records(document["global"], 72)
+    global_lines = pack_records(document["global"], 72)
     lines += [f"{payload:<72}G{i + 1:07d}" for i, payload in enumerate(global_lines)]
     directory, parameters = [], []
     for entity in document["entities"]:
-        chunks = _records(entity["parameters"], 64)
+        chunks = pack_records(entity["parameters"], 64)
         d1, d2 = list(entity["d1"]), list(entity["d2"])
         d1[1], d2[3] = f"{len(parameters) + 1:8d}", f"{len(chunks):8d}"
         directory.extend(
