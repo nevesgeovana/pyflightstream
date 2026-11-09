@@ -180,7 +180,13 @@ def check_body_symmetry(raw, component) -> None:
 
 
 def _hermite(form, table):
-    """Return the boat-tail ratio law of the axial fraction and the height it scales."""
+    """Return the boat-tail law of width, height and centre height along the axial fraction.
+
+    Each of the three runs on its own cubic from its value and its own slope at the last station,
+    so the profile is tangent to the run in every direction, to the base: the value at the last
+    station scaled by ``base_height / height``, with the slope of the straight closure there.
+    The law returns the three values and their derivatives in the axial fraction, last axis.
+    """
     last = float(table["stations"][-1])
     x_cut = float(form["x_cut"])
     values, slope = spline_distribution(table["stations"], table["values"], last)
@@ -189,25 +195,26 @@ def _hermite(form, table):
         raise InputValueError("rear.boat_tail: x_cut must lie beyond the last station of a body")
     span = x_cut - last
     end = float(form["base_height"]) / height
-    m0, m1 = float(slope[1]) / height, (end - 1.0) / span
+    start, start_slope = np.asarray(values[:3], float), np.asarray(slope[:3], float)
+    stop, stop_slope = start * end, start * (end - 1.0) / span
 
     def law(axial):
-        t = np.clip((np.asarray(axial, float) - last) / span, 0.0, 1.0)
-        ratio = (
-            (2 * t**3 - 3 * t**2 + 1)
-            + (t**3 - 2 * t**2 + t) * span * m0
-            + (-2 * t**3 + 3 * t**2) * end
-            + (t**3 - t**2) * span * m1
+        t = np.clip((np.asarray(axial, float) - last) / span, 0.0, 1.0)[..., None]
+        value = (
+            (2 * t**3 - 3 * t**2 + 1) * start
+            + (t**3 - 2 * t**2 + t) * span * start_slope
+            + (-2 * t**3 + 3 * t**2) * stop
+            + (t**3 - t**2) * span * stop_slope
         )
         derivative = (
-            (6 * t**2 - 6 * t) / span
-            + (3 * t**2 - 4 * t + 1) * m0
-            + (-6 * t**2 + 6 * t) * end / span
-            + (3 * t**2 - 2 * t) * m1
+            (6 * t**2 - 6 * t) * start / span
+            + (3 * t**2 - 4 * t + 1) * start_slope
+            + (-6 * t**2 + 6 * t) * stop / span
+            + (3 * t**2 - 2 * t) * stop_slope
         )
-        return ratio, derivative
+        return value, derivative
 
-    return law, height
+    return law
 
 
 def check_boat_tail(component) -> None:
@@ -224,9 +231,9 @@ def check_boat_tail(component) -> None:
     if rear_kind(component) != "boat_tail":
         return
     form = component["rear"]["boat_tail"]
-    law, height = _hermite(form, body_station_table(component))
+    law = _hermite(form, body_station_table(component))
     _, derivative = law(np.linspace(float(component["stations"][-1]), form["x_cut"], 401))
-    steepest = np.max(np.abs(derivative)) * height / component["length"]
+    steepest = np.max(np.abs(derivative[..., 1])) / component["length"]
     angle = float(np.degrees(np.arctan(steepest)))
     if angle > form["angle_limit_deg"] + 1e-9:
         raise InputValueError(
@@ -253,11 +260,10 @@ def _closed_end(component, table, axial, values, nose):
 
 def _boat_tail(component, table, axial, values):
     """Return ``values`` with the rear closed by the boat-tail law from the last station."""
-    law, _ = _hermite(component["rear"]["boat_tail"], table)
-    ratio, _ = law(axial)
+    shape, _ = _hermite(component["rear"]["boat_tail"], table)(axial)
     last = spline_distribution(table["stations"], table["values"], float(table["stations"][-1]))[0]
     scaled = np.array(last, float) * np.ones((*axial.shape, 1))
-    scaled[..., :3] *= ratio[..., None]
+    scaled[..., :3] = shape
     return np.where((axial > table["stations"][-1])[..., None], scaled, values)
 
 

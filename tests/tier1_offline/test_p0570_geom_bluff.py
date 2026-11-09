@@ -10,7 +10,7 @@ import pytest
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry import resolve_config
-from pyflightstream.geometry._bodies import body, body_points, body_station_table
+from pyflightstream.geometry._bodies import body, body_points, body_profile, body_station_table
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._continuity import audit_jumps, bluff_jump_check, edge_jumps
 from pyflightstream.geometry._patch import Patch, evaluate_patch, interpolate_patch
@@ -456,3 +456,24 @@ def test_a_boat_tail_after_a_sloping_run_has_no_kink_at_the_join():
     before = np.diff(height_at(component, np.array([0.75 - 2e-5, 0.75])))[0]
     after = np.diff(height_at(component, np.array([0.75, 0.75 + 2e-5])))[0]
     assert abs(after - before) < 1e-4 * abs(before)
+
+
+def test_r12_003_a_boat_tail_is_tangent_in_width_and_centre_too():
+    # the run narrows and drops at the last station while its height holds: a law that scales
+    # width and centre by the height ratio starts them flat and kinks the side and the crown
+    section = {"shape": "superellipse", "height": 1.0, "n_top": 2.0, "n_bottom": 2.0}
+    sections = [
+        {"at": 0.2, **section, "width": 1.0, "centre_height": 0.0},
+        {"at": 0.5, **section, "width": 1.0, "centre_height": 0.0},
+        {"at": 0.8, **section, "width": 0.6, "centre_height": -0.3},
+    ]
+    tail = {"boat_tail": {"x_cut": 0.97, "base_height": 0.2, "angle_limit_deg": 45.0}}
+    component = make_body(length=10.0, sections=sections, stations=[0.2, 0.5, 0.8], rear=tail)
+    table = body_station_table(component)
+    step = 2e-6
+    left = body_profile(component, table, np.array([0.8 - step, 0.8]))
+    right = body_profile(component, table, np.array([0.8, 0.8 + step]))
+    before, after = np.diff(left, axis=0)[0] / step, np.diff(right, axis=0)[0] / step
+    for index in (0, 1, 2):  # width, height, centre height
+        assert abs(after[index] - before[index]) < 1e-3, (index, before, after)
+    assert abs(before[0]) > 0.1 and abs(before[2]) > 0.1  # a real slope, so flat would be a kink
