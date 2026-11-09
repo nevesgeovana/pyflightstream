@@ -181,6 +181,34 @@ def test_r11_002_the_scan_finds_both_spellings(tmp_path):
     assert _gmsh_skips_outside_the_helper(tmp_path) == ["a.py", "b.py"]
 
 
+#: A sentence that sends the reader to the extra for the kernel, in any markup of the tree.
+_NEEDS_THE_EXTRA = (
+    r"(optional|needs the|behind the)\s+(``|`|\\texttt\{)?gmsh(``|`|\})?\s+extra"
+    r"|gmsh\s+extra\s+is\s+missing|gmsh\s+is\s+not\s+installed"
+)
+
+
+def _sentences_naming_the_extra(folders):
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    found = []
+    for folder in folders:
+        for path in sorted((root / folder).rglob("*")):
+            if path.suffix not in {".md", ".tex", ".py", ".rst"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            if re.search(_NEEDS_THE_EXTRA, text):
+                found.append(path.relative_to(root).as_posix())
+    return found
+
+
+def test_r11_003_no_user_page_sends_the_reader_to_the_gmsh_extra():
+    """gmsh installs with the package; the guide and the changelog of 0.57.0 say so."""
+    assert _sentences_naming_the_extra(["guide/latex-sources", "changelog.d", "docs"]) == []
+
+
 def _wheel_check_outcome(tmp_path, files):
     """Run the wheel check of release.yml, as written, on a wheel holding ``files``."""
     import subprocess
