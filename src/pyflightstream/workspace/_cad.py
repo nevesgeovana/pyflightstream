@@ -67,7 +67,7 @@ class NamedFaces:
 
 @runtime_checkable
 class CadKernel(Protocol):
-    """What a geometry stage may ask of a CAD kernel: 22 methods in seven groups."""
+    """What a geometry stage may ask of a CAD kernel: 25 members in seven groups."""
 
     # Life
     @property
