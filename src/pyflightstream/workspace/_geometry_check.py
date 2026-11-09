@@ -28,7 +28,7 @@ from scipy.spatial import cKDTree
 from pyflightstream._errors import InputValueError
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.geometry.component import DEVIATION_PROFILES
-from pyflightstream.workspace._gmsh import gmsh_module, import_named
+from pyflightstream.workspace._gmsh import closest_on_face, gmsh_module, import_named
 
 __all__ = ["check_against_original", "local_limits"]
 
@@ -170,9 +170,7 @@ def edge_distance(points, edge):
 def surface_distance(points, face, seed_xyz, seed_uv, bounds):
     gmsh = gmsh_module(_PURPOSE)
     low, high = bounds
-    xyz, uv = gmsh.model.getClosestPoint(2, face, points.ravel())
-    uv = np.asarray(uv).reshape(-1, 2)
-    xyz = np.asarray(xyz).reshape(-1, 3)
+    xyz, uv = closest_on_face(gmsh.model, face, points)
     valid = np.array([bool(gmsh.model.isInside(2, face, p, parametric=True)) for p in uv])
     distance = np.where(valid, np.linalg.norm(points - xyz, axis=1), np.inf)
     uv = seed_uv[cKDTree(seed_xyz).query(points)[1]].copy()

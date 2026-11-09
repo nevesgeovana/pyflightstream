@@ -18,7 +18,7 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.stages import Mesh
-from pyflightstream.workspace._gmsh import gmsh_module
+from pyflightstream.workspace._gmsh import closest_on_face, gmsh_module
 
 __all__ = [
     "CAP_SURFACE",
@@ -289,8 +289,8 @@ def source_metrics(model, mesh, planes=None):
         d = np.linalg.norm(mesh.xyz[nodes] - np.asarray(projected).reshape(-1, 3), axis=1)
         distances[nodes] = np.maximum(distances[nodes], d)
         centers = np.array([mesh.xyz[list(mesh.cells[f])].mean(axis=0) for f in faces])
-        _, uv = model.getClosestPoint(2, surface, centers.ravel())
-        normals[faces] = np.asarray(model.getNormal(surface, uv)).reshape(-1, 3)
+        _, uv = closest_on_face(model, surface, centers)
+        normals[faces] = np.asarray(model.getNormal(surface, uv.ravel())).reshape(-1, 3)
     return normals, distances
 
 

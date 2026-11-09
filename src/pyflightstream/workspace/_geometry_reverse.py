@@ -35,7 +35,7 @@ from pyflightstream.workspace._geometry_check import (
     edges_of,
     resolve_faces,
 )
-from pyflightstream.workspace._gmsh import gmsh_module
+from pyflightstream.workspace._gmsh import closest_on_face, gmsh_module
 
 __all__ = [
     "COARSE",
@@ -184,11 +184,11 @@ def host_intersection(curve, faces, bracket, tolerance=5e-5):
         p = curve(station)
         candidates = []
         for face in faces:
-            xyz, uv = gmsh.model.getClosestPoint(2, face, p.tolist())
-            if trimmed and not gmsh.model.isInside(2, face, uv, parametric=True):
+            xyz, uv = closest_on_face(gmsh.model, face, p.reshape(1, 3))
+            if trimmed and not gmsh.model.isInside(2, face, uv[0], parametric=True):
                 continue
-            gap = float(np.linalg.norm(np.asarray(xyz) - p))
-            candidates.append((gap, face, np.asarray(xyz)))
+            gap = float(np.linalg.norm(xyz[0] - p))
+            candidates.append((gap, face, xyz[0]))
         if not candidates:
             return float("inf"), None, None
         return min(candidates, key=lambda row: row[0])

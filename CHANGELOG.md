@@ -24,6 +24,8 @@ FlightStream versions.
 - IGES component names retain embedded Latin-1 control bytes when records are read.
 - IGES guidance clarifies the node-number tie-break and the limit for a blunt base
   with multiple cells across its thickness; marking probe descriptions cover supported builds.
+- At gmsh 4.13, the geometry check, the trimmed host intersection and the mesh normals read
+  correct surface parameters; the check no longer accepts a projection beyond a trim.
 - An IGES read stays in millimetres when an earlier gmsh session in the same process asked for
   another target unit, which scaled the geometry by that unit's factor.
 

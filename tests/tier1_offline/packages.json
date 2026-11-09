@@ -193,6 +193,7 @@
       "tests/tier1_offline/test_p0570_geometry_mesh.py",
       "tests/tier1_offline/test_p0570_geometry_mesh_rules.py",
       "tests/tier1_offline/test_p0570_geometry_reverse.py",
+      "tests/tier1_offline/test_p0570_gmsh_projection.py",
       "tests/tier1_offline/test_p0570_gmsh_state.py",
       "tests/tier1_offline/test_p0570_iges_decisions.py",
       "tests/tier1_offline/test_p0570_iges_select.py",

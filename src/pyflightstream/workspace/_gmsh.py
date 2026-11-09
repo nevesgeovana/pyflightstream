@@ -18,6 +18,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import numpy as np
+
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT
@@ -30,6 +32,7 @@ from pyflightstream.workspace._iges_names import (
 
 __all__ = [
     "NamedModel",
+    "closest_on_face",
     "gmsh_module",
     "import_iges",
     "import_named",
@@ -41,6 +44,8 @@ __all__ = [
 IMPORT_UNIT = "MILLIMETER"
 #: The same unit as gmsh's target unit option names it.
 _OCC_IMPORT_UNIT = "MM"
+#: A parameter pair is trusted when it reproduces the projected point to this fraction of its size.
+_PARAMETER_TOLERANCE = 1e-9
 
 
 def gmsh_module(purpose: str) -> ModuleType:
@@ -93,6 +98,28 @@ def import_iges(gmsh: Any, path: str | Path) -> list[int]:
     finally:
         gmsh.option.setString("Geometry.OCCTargetUnit", held)
     return [tag for dim, tag in out if dim == 2]
+
+
+def closest_on_face(model: Any, face: int, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Project ``points`` (n by 3) on a surface; return points on it and their parameters.
+
+    gmsh 4.13 returns zeros for the parameters of a surface projection, and later versions return
+    the true ones. Parameters that do not reproduce the projected point are recovered from the
+    point. Where the projection lies outside the surface's bounds that recovery stops at them, so
+    the returned point is the one at the returned parameters, never the projection beyond them.
+    """
+    xyz, uv = model.getClosestPoint(2, face, points.ravel())
+    xyz = np.array(xyz, dtype=float).reshape(-1, 3)
+    uv = np.array(uv, dtype=float).reshape(-1, 2)
+    at_uv = np.asarray(model.getValue(2, face, uv.ravel())).reshape(-1, 3)
+    wrong = np.linalg.norm(at_uv - xyz, axis=1) > _PARAMETER_TOLERANCE * (
+        1.0 + np.linalg.norm(xyz, axis=1)
+    )
+    if wrong.any():
+        recovered = np.asarray(model.getParametrization(2, face, xyz[wrong].ravel())).reshape(-1, 2)
+        uv[wrong] = recovered
+        xyz[wrong] = np.asarray(model.getValue(2, face, recovered.ravel())).reshape(-1, 3)
+    return xyz, uv
 
 
 @contextlib.contextmanager
