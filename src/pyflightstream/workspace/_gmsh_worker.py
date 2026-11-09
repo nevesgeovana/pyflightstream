@@ -145,16 +145,29 @@ def run_isolated(
 def _publish(stage: Path, folder: Path) -> None:
     """Move the files of a finished worker from its staging folder to ``folder``.
 
-    The JSON record goes last, so a folder that holds it holds the whole set.
+    An earlier record of these outputs goes first and the new one last, so a folder that holds
+    a record holds its whole set, and each file arrives whole or not at all.
     """
     files = sorted(stage.iterdir()) if stage.is_dir() else []
     folder.mkdir(parents=True, exist_ok=True)
-    for path in sorted(files, key=lambda item: item.name.endswith(".json")):
-        destination = folder / path.name
+    records = [path for path in files if path.name.endswith(".json")]
+    for path in records:
+        (folder / path.name).unlink(missing_ok=True)
+    for path in [*(path for path in files if path not in records), *records]:
+        _arrive_whole(path, folder / path.name)
+
+
+def _arrive_whole(path: Path, destination: Path) -> None:
+    """Move one file; across file systems, copy beside the destination and rename it there."""
+    try:
+        os.replace(path, destination)
+    except OSError:
+        partial = destination.with_name(destination.name + ".partial")
         try:
-            os.replace(path, destination)
-        except OSError:
-            shutil.move(str(path), str(destination))
+            shutil.copy2(path, partial)
+            os.replace(partial, destination)
+        finally:
+            partial.unlink(missing_ok=True)
 
 
 def _failed(cause: str, tail: str) -> InputArtifactError:

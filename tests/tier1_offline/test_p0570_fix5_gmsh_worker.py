@@ -7,14 +7,16 @@ worker's traceback.
 
 from __future__ import annotations
 
+import errno
 import os
+import shutil
 import signal
 from pathlib import Path
 
 import pytest
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._gmsh_worker import run_isolated
+from pyflightstream.workspace._gmsh_worker import _publish, run_isolated
 
 _HERE = "tests.tier1_offline.test_p0570_fix5_gmsh_worker"
 
@@ -180,6 +182,59 @@ def test_p0570_fix5_an_answered_worker_publishes_every_output_at_its_place(tmp_p
     out.write_text("older\n", encoding="utf-8")
     run_isolated(f"{_HERE}:worker_writes", {"out": str(out)}, _direct)
     assert out.read_text(encoding="utf-8") == "written\n"
+
+
+def _staged(tmp_path):
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    for name in ("wing.obj", "wing.obj.json"):
+        (stage / name).write_text("new\n", encoding="utf-8")
+    folder = tmp_path / "out"
+    folder.mkdir()
+    for name in ("wing.obj", "wing.obj.json"):
+        (folder / name).write_text("older\n", encoding="utf-8")
+    return stage, folder
+
+
+def _other_file_system(monkeypatch, stage):
+    """``os.replace`` out of the staging folder fails, as across two file systems."""
+    real = os.replace
+
+    def replace(src, dst):
+        if Path(src).parent == stage:
+            raise OSError(errno.EXDEV, "cross-device link", str(src))
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+
+
+def test_p0570_fix5_a_publish_that_fails_keeps_no_torn_file_and_no_old_record(
+    tmp_path, monkeypatch
+):
+    """PFS-2208: a copy that fails leaves the old mesh whole, with no record to vouch for it."""
+    stage, folder = _staged(tmp_path)
+    _other_file_system(monkeypatch, stage)
+
+    def torn(_src, dst, **_kwargs):
+        Path(dst).write_text("ne", encoding="utf-8")
+        raise OSError(errno.ENOSPC, "no space left on device")
+
+    monkeypatch.setattr(shutil, "copy2", torn)
+    monkeypatch.setattr(shutil, "move", torn)
+    with pytest.raises(OSError, match="no space"):
+        _publish(stage, folder)
+    assert (folder / "wing.obj").read_text(encoding="utf-8") == "older\n"
+    assert sorted(path.name for path in folder.iterdir()) == ["wing.obj"]
+
+
+def test_p0570_fix5_a_publish_across_file_systems_arrives_whole(tmp_path, monkeypatch):
+    """PFS-2208: when a move cannot be a rename, every file still arrives, the record with them."""
+    stage, folder = _staged(tmp_path)
+    _other_file_system(monkeypatch, stage)
+    _publish(stage, folder)
+    assert sorted(path.name for path in folder.iterdir()) == ["wing.obj", "wing.obj.json"]
+    assert (folder / "wing.obj").read_text(encoding="utf-8") == "new\n"
+    assert (folder / "wing.obj.json").read_text(encoding="utf-8") == "new\n"
 
 
 def worker_refuses_naming_its_output(out):
