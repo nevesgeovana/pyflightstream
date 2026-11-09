@@ -153,7 +153,7 @@ def trim_areas(bases: dict, trims) -> dict:
     dict
         ``{"bases": {name: area}, "faces": {face: area}, "covered": {name: cell count array}}``.
     """
-    out = {"bases": {}, "faces": {}, "covered": {}}
+    out: dict[str, dict] = {"bases": {}, "faces": {}, "covered": {}}
     for name, patch in bases.items():
         mine = [t for t in trims if t.base == name]
         rects = [_rectangle(t) for t in mine]
@@ -208,7 +208,7 @@ def trim_checks(bases: dict, trims) -> list[dict]:
     worst, holes, twice = 0.0, 0, 0
     for name, base_area in areas["bases"].items():
         summed = sum(areas["faces"][t.face] for t in trims if t.base == name)
-        worst = max(worst, abs(summed - base_area) / base_area)
+        worst = max(worst, abs(summed - base_area) / base_area if base_area > 0 else summed)
         holes += int(np.count_nonzero(areas["covered"][name] == 0))
         twice += int(np.count_nonzero(areas["covered"][name] > 1))
     inner = sum(len(t.inner) for t in trims)
