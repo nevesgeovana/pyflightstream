@@ -95,3 +95,29 @@ def test_p0570_fix6_the_definitions_page_says_so():
     assert "**Section Cp with separation on.**" in text
     assert "attached-flow Cp" in text
     assert "_cp.txt" in text
+
+
+def test_p0570_r8_005_a_coupled_row_exporting_from_its_post_is_warned(tmp_path):
+    """R8-005: a steady coupled row's exports are in the post script, not the main one."""
+    from pyflightstream.cases.fsi_workspace import POST_FILE
+    from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+
+    case = steady_wing_case(tmp_path)
+    spec = case.pproc.model_dump(exclude_none=True)
+    spec["exports"] = {"sections": True}
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(spec),
+            "outputs": [*case.outputs, "loads_a+00.0_cp.txt"],
+            "solver": case.solver.model_copy(
+                update={"airfoil_separation": [AirfoilSeparation(name="W", boundaries=[1])]}
+            ),
+        }
+    )
+    script = Script("26.124")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        build_script(case, script)
+    assert "EXPORT_ALL_SURFACE_SECTIONS" not in script.render()
+    assert "EXPORT_ALL_SURFACE_SECTIONS" in script.pending_input_files[POST_FILE]
+    assert len(_cp_warnings([str(w.message) for w in caught])) == 1

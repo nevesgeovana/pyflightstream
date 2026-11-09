@@ -396,10 +396,14 @@ def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
 
     The ``_cp.txt`` export stays the attached-flow Cp while the exported loads do not,
     so integrating it misleads (docs/definitions/the-sections-table-and-which-row-is-which.md).
-    Read from the finished script, so a model the build dropped is not warned of. No
-    value is altered.
+    Read from the finished script and, on a coupled row whose exports run there, from its
+    post-processing script, so a model the build dropped is not warned of. No value is altered.
     """
-    commands = {line.split(" ", 1)[0].strip() for line in script.render().splitlines()}
+    from pyflightstream.cases.fsi_workspace import POST_FILE
+
+    post = script.pending_input_files.get(POST_FILE, "")
+    text = script.render() + (post if isinstance(post, str) else "")
+    commands = {line.split(" ", 1)[0].strip() for line in text.splitlines()}
     if {"CREATE_AIRFOIL_SEPARATION", "EXPORT_ALL_SURFACE_SECTIONS"} <= commands:
         warn(
             f"case {case.sim_id!r}: airfoil separation is on and the row exports the section "
