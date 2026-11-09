@@ -15,7 +15,15 @@ import math
 import re
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._schema import known_keys, number, stations
+from pyflightstream.geometry._schema import (
+    check_body_law,
+    check_bspline_item,
+    check_lifting_layout,
+    check_section_law,
+    known_keys,
+    number,
+    stations,
+)
 
 __all__ = [
     "body_sections",
@@ -29,11 +37,12 @@ __all__ = [
 SURFACE_KINDS = ("aileron", "elevator", "rudder", "plain_flap", "fowler")
 _CAP_KINDS = ("flat", "rounded", "ridged", "exact_loft", "none")
 _NACA = re.compile(r"NACA(?:\d{4}|\d{5})")
-_ITEM_KEYS = ("eta", "naca", "cst_upper", "cst_lower", "te", "file")
+_ITEM_KEYS = ("eta", "naca", "cst_upper", "cst_lower", "te", "file", "bspline")
 _ITEM_KEYS_BY_FORM = {
     "naca": ("eta", "naca"),
     "cst_upper": ("eta", "cst_upper", "cst_lower", "te"),
     "file": ("eta", "file"),
+    "bspline": ("eta", "bspline"),
 }
 _PHYSICAL_KEYS = ("nose_radius", "boat_tail_deg", "te_thickness", "thickness_at")
 _BOUND_KEYS = ("component", "eta_in", "eta_out")
@@ -72,9 +81,11 @@ def check_common(name, component, warnings):
 def _item_form(name, i, item):
     """Return which form a section item takes: ``naca``, ``cst`` or ``file``."""
     path = f"{name}.sections.items[{i}]"
-    forms = [k for k in ("naca", "cst_upper", "file") if k in item]
+    forms = [k for k in ("naca", "cst_upper", "file", "bspline") if k in item]
     if len(forms) != 1:
-        raise InputValueError(f"{path}: expected one of naca, cst_upper with cst_lower, file")
+        raise InputValueError(
+            f"{path}: expected one of naca, cst_upper with cst_lower, file, bspline"
+        )
     number(item.get("eta"), f"{path}.eta", 0, 1)
     if forms[0] == "naca":
         if not isinstance(item["naca"], str) or not _NACA.fullmatch(f"NACA{item['naca']}"):
@@ -87,6 +98,8 @@ def _item_form(name, i, item):
             for v in values:
                 number(v, f"{path}.{key}")
         number(item.get("te", 0.0), f"{path}.te", 0, 0.1)
+    elif forms[0] == "bspline":
+        check_bspline_item(f"{path}.bspline", item["bspline"])
     elif not isinstance(item["file"], str) or not item["file"]:
         raise InputValueError(f"{path}.file: expected a path")
     return forms[0]
@@ -113,10 +126,7 @@ def _check_physical(name, physical, raw, warnings):
 def _check_sections(name, component, raw, warnings):
     """Resolve ``sections.items`` into the legacy airfoil and station lists, check the rest."""
     section = component["sections"]
-    if section["form"] != "cst":
-        raise InputValueError(
-            f"{name}.sections.form: only the cst section form is accepted, got {section['form']!r}"
-        )
+    check_section_law(name, section, warnings)
     _check_physical(name, section.get("physical"), raw, warnings)
     items = section["items"]
     if not items:
@@ -325,8 +335,7 @@ def check_lifting_extras(name, component, raw, warnings, findings):
         component["trailing_edge"] = "blunt"
     if component["trailing_edge"] != "blunt":
         raise InputValueError(f"{name}.trailing_edge: expected blunt")
-    if component["base_strip"] not in ("bicubic", "linear"):
-        raise InputValueError(f"{name}.base_strip: expected bicubic or linear")
+    check_lifting_layout(name, component)
     _check_tip_cap(component["tip_cap"])
     _check_tip_extent(name, component["tip_cap"], raw.get("tip_cap", {}), warnings)
     _check_nacelle_bounds(name, component, warnings)
@@ -361,6 +370,7 @@ def body_sections(name, sections, warnings):
 def check_body_extras(name, component, warnings, findings):
     """Check ``rings_file``, the rear forms and ``continuity`` of a body."""
     check_common(name, component, warnings)
+    check_body_law(name, component)
     findings.extend(f"{name}: {text}" for text in component["open_findings"])
     if component["continuity"] != "G1":
         raise InputValueError(
