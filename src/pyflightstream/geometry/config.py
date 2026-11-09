@@ -31,6 +31,7 @@ from pyflightstream.geometry._component_keys import (
     check_fillet,
     check_lifting_extras,
 )
+from pyflightstream.geometry._identity import SCHEMA_MAJOR
 from pyflightstream.geometry._schema import (
     TYPES,
     number,
@@ -46,9 +47,10 @@ from pyflightstream.geometry._schema import (
 __all__ = ["load_config", "resolve_config"]
 
 RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
-SCHEMA_MAJOR = 1
+
 FREE = frozenset(
     {"distributions", "root_chord", "tip_chord", "area", "physical", "laws", "mesh_zone", "spine"}
+    | {"nacelle_bounds"}
 )
 FREE_BY_TYPE = {
     "blister": frozenset({"stations", "profile", "sections"}),

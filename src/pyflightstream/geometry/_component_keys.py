@@ -94,6 +94,36 @@ def _check_sections(name, component, raw):
     ]
 
 
+_SURFACE_DEFAULTS = {
+    "kind": "plain_flap",
+    "span_basis": "semi_span",
+    "exposed_root_m": "host",
+    "chord_ratio": 0.25,
+    "gap_span": 0.005,
+    "gap_chord": 0.0,
+    "gap_closure": "end_faces",
+    "deflection_deg": [0],
+    "split_around": [],
+}
+_SURFACE_FREE = frozenset(
+    {"name", "eta_in", "eta_out", "hinge", "hinge_axis", "nose", "cove"}
+    | {"nested_dz_pct", "clearance_pct", "kinematics"}
+)
+
+
+def _fill_surface(name, i, raw, warnings):
+    """Overlay one control surface table on its defaults; an unknown key warns and is skipped."""
+    if not isinstance(raw, dict):
+        raise InputValueError(f"{name}.control_surfaces[{i}]: expected a table")
+    surface = {k: (list(v) if isinstance(v, list) else v) for k, v in _SURFACE_DEFAULTS.items()}
+    for key, value in raw.items():
+        if key in _SURFACE_DEFAULTS or key in _SURFACE_FREE:
+            surface[key] = value
+        else:
+            warnings.append(f"{name}.control_surfaces[{i}].{key}: unknown key, skipped")
+    return surface
+
+
 def _check_surface(name, i, surface, span):
     """Check one control surface table of a lifting surface (C.7)."""
     path = f"{name}.control_surfaces[{i}]"
@@ -181,6 +211,9 @@ def check_lifting_extras(name, component, raw, warnings, findings):
             raise InputValueError(f"{path}.eta_in: expected below eta_out")
         if not isinstance(bound.get("component"), str):
             raise InputValueError(f"{path}.component: required")
+    component["control_surfaces"] = [
+        _fill_surface(name, i, raw, warnings) for i, raw in enumerate(component["control_surfaces"])
+    ]
     names = [s.get("name") for s in component["control_surfaces"]]
     if len(set(names)) != len(names):
         raise InputValueError(f"{name}.control_surfaces.name: duplicate")
