@@ -35,7 +35,7 @@ from pyflightstream.workspace._iges_write import read_iges
 __all__ = ["GateFinding", "GateReport", "check_profile"]
 
 #: Points taken along each curve of a boundary when it is measured.
-_SAMPLES = 9
+_BOUNDARY_SAMPLES = 9
 #: Starting grid, per direction, of the search for the closest point of a surface.
 _GRID = 21
 #: Newton steps of that search; the surface is smooth, so a handful reach the resolution.
@@ -189,8 +189,10 @@ def _pieces(entity: dict[str, Any], by_id: dict[int, dict[str, Any]]) -> list[_S
 
 
 def _samples(pieces: list[_Spline]) -> np.ndarray:
-    """Return ``_SAMPLES`` points along each piece, the two ends included."""
-    return np.array([p.at(t) for p in pieces for t in np.linspace(p.low, p.high, _SAMPLES)])
+    """Return ``_BOUNDARY_SAMPLES`` points along each piece, the two ends included."""
+    return np.array(
+        [p.at(t) for p in pieces for t in np.linspace(p.low, p.high, _BOUNDARY_SAMPLES)]
+    )
 
 
 class _Surface:
@@ -295,6 +297,7 @@ def _loop_findings(
     surface: _Surface,
     by_id: dict[int, dict[str, Any]],
     profile: ReaderProfile,
+    *,
     resolution: float,
 ) -> list[GateFinding]:
     """Measure one outer boundary: closed in (u, v), inside the domain, and on the surface."""
@@ -365,7 +368,7 @@ def face_findings(
         and boundary["type"] == 142
     ):
         found += _loop_findings(
-            ident, boundary, _Surface(surface["parameters"]), by_id, profile, resolution
+            ident, boundary, _Surface(surface["parameters"]), by_id, profile, resolution=resolution
         )
     return found
 
