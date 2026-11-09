@@ -148,3 +148,28 @@ def test_p0570_fix6_the_rotor_route_is_left_as_read():
     block = _block(0.31, -0.05, fx=20.0, fz=400.0, about_qc=-30.0)
     loads = to_elastic_axis(block, cfg)
     assert np.array_equal(loads.moment_pa_nm_per_m, -block.moment_qc_nm_per_m)
+
+
+def test_p0570_r8_004_a_wing_cut_off_the_loads_frame_is_warned(tmp_path, monkeypatch):
+    """R8-004: one frame says nothing; a loads frame at another origin is named."""
+    import warnings
+
+    from pyflightstream.cases.workflows import _steady, build_script
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+
+    case = steady_wing_case(tmp_path)
+    moved = case.reference.model_copy(update={"moment_point_m": (0.25, 0.0, 0.0)})
+    case = case.model_copy(update={"reference": moved})
+    script = Script("26.124")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        build_script(case, script)
+    assert not [w for w in caught if "torsion load may carry" in str(w.message)]
+
+    # After the analysis the line cannot be emitted, so the loads frame is stated here.
+    other = {"frame": 1, "origin": [0.0, 0.0, 0.0], "axes": None}
+    monkeypatch.setattr(script, "loads_frame_record", lambda: other)
+    with pytest.warns(match="torsion load may carry the lever") as found:
+        _steady._warn_of_a_wing_cut_off_the_loads_frame(case, script)
+    assert "frame 2" in str(found[0].message)
