@@ -207,7 +207,9 @@ def trim_checks(bases: dict, trims) -> list[dict]:
     areas = trim_areas(bases, trims)
     worst, holes, twice = 0.0, 0, 0
     for name, base_area in areas["bases"].items():
-        summed = sum(areas["faces"][t.face] for t in trims if t.base == name)
+        # A loop that is not an iso rectangle is not measured here; its base then fails the
+        # partition, which this pure stage can only prove for iso faces.
+        summed = sum(areas["faces"].get(t.face, 0.0) for t in trims if t.base == name)
         worst = max(worst, abs(summed - base_area) / base_area if base_area > 0 else summed)
         holes += int(np.count_nonzero(areas["covered"][name] == 0))
         twice += int(np.count_nonzero(areas["covered"][name] > 1))
