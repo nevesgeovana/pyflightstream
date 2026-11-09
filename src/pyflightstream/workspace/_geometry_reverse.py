@@ -262,19 +262,22 @@ def span_direction(samples, span_axis):
 def _end_plane_station(stations, features, band, span, *, samples, axis):
     """Return the span station where the leading edge reaches the tip end plane, or None.
 
-    The cuts are normal to the span axis. When the axis is tilted from a coordinate axis (a
-    wing with dihedral) the end planes of the original stay normal to that coordinate axis, so
-    the outermost clean cut stops short of the plane the leading edge reaches. A surface whose
-    span axis lies on a coordinate axis keeps the outermost clean station.
+    The cuts are normal to the span axis, and the end plane of the original is normal to the
+    coordinate axis ``axis`` at the extreme sample along it. The published span includes the
+    tip cap (the skin ends one cap reach inboard), so the extreme sample lies on the end plane
+    whatever the cap. Two reasons put the outermost clean cut short of that plane, and the
+    leading edge is extended to it in both:
 
-    The tilt alone explains a short reach: a cut stops being clean when the far side of the
-    section crosses the end plane, at most the section's height across the chord times the
-    tangent of the tilt before the leading edge does. A longer reach means the extreme sample
-    is not on the end plane of the wing (a rounded or lofted tip cap reaches beyond it), and
-    the outermost clean station is kept.
+    - a tilted span axis (dihedral): a cut stops being clean when the far side of the section
+      crosses the end plane, at most the section's height across the chord times the tangent
+      of the tilt before the leading edge does;
+    - a rounded, ridged or lofted tip cap: the skin, and so the clean band, ends one cap reach
+      inboard of the end plane. That reach is added back on any tilt (R14-001 measured the
+      case of a dihedral wing).
+
+    Returns None when the extended leading edge does not reach the plane within one band
+    length of the outermost clean cut; the outermost clean station is then kept.
     """
-    if abs(span[axis]) > 1.0 - 1e-9:
-        return None
     side = 1.0 if span[axis] > 0 else -1.0
     end = float(samples[:, axis].max() if side > 0 else samples[:, axis].min())
     curve = leading_extension(stations, features, band)
@@ -286,11 +289,7 @@ def _end_plane_station(stations, features, band, span, *, samples, axis):
         )
     except ValueError:
         return None
-    tip = features[band[-1]]
-    up = 3 - axis if axis in (1, 2) else 2
-    height = tip["chord"] * tip["thickness_ratio"] + abs(tip["te"][up] - tip["le"][up])
-    tilt = float(np.sqrt(max(0.0, 1.0 - span[axis] ** 2)) / abs(span[axis]))
-    return station if station - last <= 1.5 * height * tilt + 1e-9 else None
+    return station
 
 
 def identify_pass(kernel, grids, samples, hosts, spec, *, count):

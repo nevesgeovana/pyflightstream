@@ -98,12 +98,20 @@ def test_p0570_pfs2221_the_rebuilt_dihedral_wing_passes_check(tmp_path, capsys):
     assert code == 0, err
 
 
-def test_r14_001_a_rounded_tip_cap_does_not_move_the_tip_of_a_dihedral_wing(tmp_path, capsys):
-    """The extreme sample of a rounded cap is not the end plane: the span stays the wing's."""
+@pytest.mark.parametrize("dihedral", [6.0, 0.0])
+def test_r14_001_a_rounded_tip_cap_does_not_move_the_tip_of_a_dihedral_wing(
+    tmp_path, capsys, dihedral
+):
+    """The published span includes the cap: identify adds the cap's reach back to the skin's.
+
+    R19-001: with the skin ending one cap reach inboard, identify returned the skin's span
+    (1.182 for 1.2); a wing without dihedral took the same shortfall through the branch that
+    kept the outermost clean station.
+    """
     kernel_or_skip()
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
-    text = WING.format(dihedral=6.0) + '[components.WING.tip_cap]\nkind = "rounded"\n'
+    text = WING.format(dihedral=dihedral) + '[components.WING.tip_cap]\nkind = "rounded"\n'
     config.write_text(text, encoding="utf-8")
     igs = tmp_path / "wing.igs"
     assert cli(["generate", config, "--out", igs], capsys)[0] == 0
