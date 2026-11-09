@@ -35,6 +35,7 @@ from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
     PyflightstreamError,
+    PyflightstreamWarning,
     warn_by_name,
 )
 from pyflightstream._textio import write_text
@@ -230,6 +231,18 @@ def _errors_missing(message: str, attrs: dict[str, str]) -> Exception:
 _ENV = "PYFLIGHTSTREAM_GMSH_WORKER"
 
 
+def _warning_text(caught: warnings.WarningMessage) -> str:
+    """Return a worker warning's text, naming its category where the replay cannot keep it.
+
+    The parent raises every warning as a category of this package, so a builtin one such as
+    numpy's RuntimeWarning arrives as PyflightstreamWarning with its own category in the text.
+    """
+    text = str(caught.message)
+    if issubclass(caught.category, PyflightstreamWarning):
+        return text
+    return f"{caught.category.__name__}: {text}"
+
+
 def _main(request: Path, answer: Path) -> int:
     """Run the requested operation and write its answer; a native fault writes none."""
     body = json.loads(request.read_text(encoding="utf-8"))
@@ -253,7 +266,7 @@ def _main(request: Path, answer: Path) -> int:
                 },
                 "traceback": traceback.format_exc(),
             }
-    reply["warnings"] = [(w.category.__name__, str(w.message)) for w in caught]
+    reply["warnings"] = [(w.category.__name__, _warning_text(w)) for w in caught]
     write_text(answer, json.dumps(reply))
     return 0
 

@@ -285,7 +285,12 @@ from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR as SIM_DATAPOINTS
 from pyflightstream.workspace.naming import NamingTemplate as NamingTemplate
 from pyflightstream.workspace.naming import NamingTemplateError as NamingTemplateError
 from pyflightstream.workspace.naming import PointName as PointName
-from pyflightstream.workspace.naming import archive_previous, sim_dir_name, sim_id_of_folder
+from pyflightstream.workspace.naming import (
+    archive_previous,
+    resolved_plain,
+    sim_dir_name,
+    sim_id_of_folder,
+)
 from pyflightstream.workspace.naming import datapoint_dir_name as datapoint_dir_name
 from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_of
 from pyflightstream.workspace.sixdof_setup import SixDofSetupError  # noqa: F401
@@ -1377,12 +1382,12 @@ class CampaignWorkspace:
         it destroys no record.
         """
         try:
-            resolved = origin.resolve()
+            resolved = resolved_plain(origin)
             # `self.root` is resolved at construction, so it is used as
             # it stands. `origin` and `sim` still need it: the first is
             # caller-supplied and the second may descend through a link.
             root = self.root
-            simulation = sim.resolve()
+            simulation = resolved_plain(sim)
         except OSError:
             # A path this process cannot resolve is a problem for the
             # move to report with its own diagnosis, not for a
@@ -1566,7 +1571,7 @@ class CampaignWorkspace:
         beneath: set[str] = set()
         if ran_in_datapoint:
             for path in produced:
-                resolved = Path(path).resolve()
+                resolved = resolved_plain(path)
                 if resolved.parent == own:
                     kept.add(str(path))
                 elif (

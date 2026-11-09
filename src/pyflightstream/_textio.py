@@ -327,6 +327,33 @@ def long_path(path: str | os.PathLike[str]) -> Path:
     return Path(extended_length(path))
 
 
+def without_extended_prefix(path: str) -> str:
+    r"""Return a Windows path without its extended-length prefix.
+
+    ``Path.resolve`` answers ``\\?\C:\...`` once a resolved path reaches the Windows limit
+    of 260 characters, and the plain form below it. So a file reached through a junction
+    with a short name can resolve to a prefixed path while its folder resolves to a plain
+    one, and the two no longer compare as parent and child.
+
+    Examples
+    --------
+    >>> without_extended_prefix("\\\\?\\C:\\a\\b.txt")
+    'C:\\a\\b.txt'
+    >>> without_extended_prefix("\\\\?\\UNC\\host\\share\\b.txt")
+    '\\\\host\\share\\b.txt'
+    >>> without_extended_prefix("C:\\a\\b.txt")
+    'C:\\a\\b.txt'
+    """
+    if path.startswith(_EXTENDED_PREFIX + "UNC\\"):
+        return "\\\\" + path[8:]
+    return path[4:] if path.startswith(_EXTENDED_PREFIX) else path
+
+
+def resolved_plain(path: str | Path) -> Path:
+    """Return ``path`` resolved, in the plain form whatever its resolved length."""
+    return Path(without_extended_prefix(str(Path(path).resolve())))
+
+
 #: The byte the Windows lock holds: past the end of any file the package
 #: writes, so a reader of the content is never blocked by a held lock.
 _LOCK_BYTE = 0x7FFFFFF0

@@ -46,6 +46,8 @@ from string import Formatter
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from pyflightstream._errors import ProductError, PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._textio import resolved_plain as resolved_plain
+from pyflightstream._textio import without_extended_prefix as without_extended_prefix
 
 __all__ = [
     "ADDITIONAL_DIR",

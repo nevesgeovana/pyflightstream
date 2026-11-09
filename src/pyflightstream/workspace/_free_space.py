@@ -240,7 +240,7 @@ def _relative_to(root: str | Path):
 
     def label(path: Path) -> str:
         try:
-            return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
+            return _textio.resolved_plain(path).relative_to(_textio.resolved_plain(root)).as_posix()
         except ValueError:
             return str(path)
 

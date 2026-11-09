@@ -35,7 +35,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace.inputs import resolve_hpc_profile
-from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.naming import ARCHIVE_DIR, resolved_plain
 
 if TYPE_CHECKING:
     from pyflightstream.script import Script
@@ -178,7 +178,7 @@ def extraction_context(workspace, record):
     if (
         not names
         or not record.reopened_copy
-        or any(not path.resolve().is_relative_to(root) for path in paths)
+        or any(not resolved_plain(path).is_relative_to(resolved_plain(root)) for path in paths)
     ):
         raise WorkspaceError("submitted extraction has no safe declared outputs or private copy")
     changed = [
@@ -349,7 +349,7 @@ def _write_extraction_script(workspace, sim_id, name, text, *, stamp):
     """
     scripts = workspace.create_sim(sim_id) / "scripts"
     target = scripts / name
-    if not target.resolve().is_relative_to(scripts.resolve()):
+    if not resolved_plain(target).is_relative_to(resolved_plain(scripts)):
         raise WorkspaceError(f"script name {name!r} leaves the simulation's scripts folder.")
     target.parent.mkdir(parents=True, exist_ok=True)
     _archive_extraction_script(target, stamp)

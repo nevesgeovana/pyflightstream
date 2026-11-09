@@ -12,6 +12,7 @@ from collections.abc import (
 )
 
 import pyflightstream.cases._setup_link as _setup_link
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
@@ -390,6 +391,58 @@ def _before_the_build(
     return workflow
 
 
+def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
+    """Warn where a row with airfoil separation on exports the section Cp (PFS-2217).
+
+    The ``_cp.txt`` export stays the attached-flow Cp while the exported loads do not,
+    so integrating it misleads (docs/definitions/the-sections-table-and-which-row-is-which.md).
+    Read from the finished script and, on a coupled row whose exports run there, from its
+    post-processing script, so a model the build dropped is not warned of. No value is altered.
+    """
+    from pyflightstream.cases.fsi_workspace import POST_FILE
+
+    post = script.pending_input_files.get(POST_FILE, "")
+    text = script.render() + (post if isinstance(post, str) else "")
+    commands = {line.split(" ", 1)[0].strip() for line in text.splitlines()}
+    if {"CREATE_AIRFOIL_SEPARATION", "EXPORT_ALL_SURFACE_SECTIONS"} <= commands:
+        warn(
+            f"case {case.sim_id!r}: airfoil separation is on and the row exports the section "
+            "Cp (_cp.txt). As measured with the HIGH_LIFT model, that Cp is the attached-flow "
+            "Cp and does not match the exported loads; the other leading edge types are not "
+            "measured. Do not integrate it for loads or read it as the separated pressure.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _warn_of_a_wing_cut_off_the_loads_frame(case: SimCase, script: Script) -> None:
+    """Warn where a coupled wing's cut frame and loads frame have different origins (R8-004).
+
+    The wing's route reads the export's moment as about the origin of the frame its ``X_QC``
+    and ``Z_QC`` are in. That was measured with the cut and the loads in one frame only, so
+    with two origins the moment may carry the lever between them. No value is altered.
+    """
+    if case.fsi is None or case.fsi.wing is None or not script.section_blocks:
+        return
+    cut = script.section_blocks[0].get("frame_index")
+    record = script.loads_frame_record()
+    if cut == record["frame"] or not isinstance(cut, int):
+        return
+    placed = script.frame_placements.get(cut)
+    origin = None if placed is None or placed.origin is None else list(map(float, placed.origin))
+    if origin is not None and origin == record["origin"]:
+        return
+    warn(
+        f"case {case.sim_id!r}: the wing's sections are cut in frame {cut} (origin {origin}) and "
+        f"the loads are in frame {record['frame']} (origin {record['origin']}). The beam's moment "
+        "reads the export as about the cut frame's origin, which is measured only with the two "
+        "in one frame, so its torsion load may carry the lever between them. State the moment "
+        "point in the frame the sections are cut in.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def _after_the_build(case: SimCase, script: Script) -> None:
     """Stamp and check the finished script: the steps build_script runs after the builder.
 
@@ -399,6 +452,8 @@ def _after_the_build(case: SimCase, script: Script) -> None:
     untranslatable surface and the march label.
     """
     _setup_surfaces.refuse_setup_keys_that_reached_nothing(script, case)
+    _warn_of_an_attached_flow_cp(case, script)
+    _warn_of_a_wing_cut_off_the_loads_frame(case, script)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:
             block["loads_frame_index"] = script.loads_frame

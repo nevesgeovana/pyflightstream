@@ -218,7 +218,7 @@ def write_reduction(
             "history beside it. The time series keeps its own dedicated file: "
             "write it with write_series first, then the reduction."
         )
-    if series_path.resolve().parent != destination.resolve().parent:
+    if _textio.resolved_plain(series_path).parent != _textio.resolved_plain(destination).parent:
         raise WorkspaceError(
             f"{series_path} is not beside {destination}: the series sits in "
             f"{series_path.resolve().parent} and the reduction would go to "

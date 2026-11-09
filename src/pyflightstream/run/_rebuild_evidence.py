@@ -39,7 +39,7 @@ from pyflightstream.workspace._script_comparison import (
 from pyflightstream.workspace._script_comparison import (
     slashes as slashes,
 )
-from pyflightstream.workspace.naming import DEFAULT_MANIFEST, sim_id_of_folder
+from pyflightstream.workspace.naming import DEFAULT_MANIFEST, resolved_plain, sim_id_of_folder
 from pyflightstream.workspace.record_document import encode_rows, read_rows
 
 
@@ -165,7 +165,7 @@ def collect_without_writing(
                 path = Path(item)
                 if not path.is_file() and (own / path.name).is_file():
                     path = own / path.name
-                if path.is_file() and path.resolve().parent != own.resolve():
+                if path.is_file() and resolved_plain(path).parent != resolved_plain(own):
                     raise _WouldWriteError(f"collection would move {path} into {own}")
                 placed.append(path)
             return super().collect_outputs(

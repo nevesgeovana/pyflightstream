@@ -77,7 +77,7 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then item 3 lanes L2 and L4 (seven private geometry modules, four workspace modules,
 #: five test files, two changelog fragments): 2194, measured (+18).
 LEAN_CAPS = {
-    "tracked_files": 2212,
+    "tracked_files": 2217,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,

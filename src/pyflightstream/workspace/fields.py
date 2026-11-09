@@ -1006,9 +1006,9 @@ def _recorded_path(root: str | Path, path: str | Path) -> str:
     The path relative to the workspace root, in POSIX form, when the file lies under it, and
     the file name alone otherwise; the recorded sha256 identifies the content.
     """
-    resolved = Path(path).resolve()
+    resolved = _textio.resolved_plain(path)
     try:
-        return resolved.relative_to(Path(root).resolve()).as_posix()
+        return resolved.relative_to(_textio.resolved_plain(root)).as_posix()
     except ValueError:
         return resolved.name
 

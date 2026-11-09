@@ -32,7 +32,12 @@ from pyflightstream.run._executors import ExecutionResult, Executor, ExecutorCon
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, JobEntry
 from pyflightstream.workspace.hpc import HpcProfile
-from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, NamingTemplate, sim_id_of_folder
+from pyflightstream.workspace.naming import (
+    SIM_DATAPOINTS_DIR,
+    NamingTemplate,
+    resolved_plain,
+    sim_id_of_folder,
+)
 
 
 @dataclass(frozen=True)
@@ -294,7 +299,7 @@ class GroupingExecutor:
         sim = _sim_of(Path(working_dir))
         job = self.collector.job_for(sim) if sim is not None else None
         if sim is None or job is None:
-            if Path(working_dir).resolve().is_relative_to(self.collector.root.resolve()):
+            if resolved_plain(working_dir).is_relative_to(resolved_plain(self.collector.root)):
                 raise ExecutorConfigurationError(
                     f"cannot recognise grouped staging point {working_dir}; "
                     "refusing to delegate it to the real executor"

@@ -248,3 +248,33 @@ def test_p0570_fix5_a_refusal_names_the_requested_path_not_the_staging_folder(tm
     with pytest.raises(InputArtifactError) as raised:
         run_isolated(f"{_HERE}:worker_refuses_naming_its_output", {"out": str(out)}, _direct)
     assert str(out.parent) in str(raised.value) and "pyfs-gmsh-" not in str(raised.value)
+
+
+def worker_warns_builtin():
+    import warnings
+
+    warnings.warn("overflow in a kernel array", RuntimeWarning, stacklevel=1)
+    return {}
+
+
+def worker_warns_package():
+    from pyflightstream._errors import warn
+
+    warn("the package's own warning")
+    return {}
+
+
+def test_p0570_r7_011_a_builtin_worker_warning_carries_its_category_in_the_text():
+    """PFS-2207: it stays PyflightstreamWarning (the guard, R4-002) and says what it was."""
+    from pyflightstream._errors import PyflightstreamWarning
+
+    with pytest.warns(PyflightstreamWarning, match="RuntimeWarning: overflow in a kernel array"):
+        run_isolated(f"{_HERE}:worker_warns_builtin", {}, _direct)
+
+
+def test_p0570_r7_011_a_package_worker_warning_keeps_its_text():
+    from pyflightstream._errors import PyflightstreamWarning
+
+    with pytest.warns(PyflightstreamWarning) as found:
+        run_isolated(f"{_HERE}:worker_warns_package", {}, _direct)
+    assert str(found[0].message) == "the package's own warning"
