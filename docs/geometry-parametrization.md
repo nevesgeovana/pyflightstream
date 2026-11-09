@@ -17,7 +17,8 @@ pip install "pyflightstream[gmsh]"
 A TOML file with one table per component under `[components]`. Every value is resolved with
 its source (`given` or `default`), so a result can say which numbers you stated; the quantities
 computed from them (area, mean chord) are kept apart under `derived`.
-A parameter this release does not know is refused, never skipped. Python reads it with
+A parameter this release does not know warns and is skipped: it appears under `warnings` in what
+`generate` and `mesh-generated` print and in the resolved configuration. Python reads the file with
 `pyflightstream.geometry.load_config` and `resolve_config`.
 
 ```toml
