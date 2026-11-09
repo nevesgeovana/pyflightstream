@@ -76,6 +76,23 @@ def test_the_file_states_parameter_space_as_the_preference(kernel, tmp_path):
         kernel.export_iges({"WING": [lower]}, path, preference=4)
 
 
+def test_r16_005_parameter_space_is_preferred_only_where_the_file_has_that_curve():
+    """A 142 with no parameter-space curve (BPTR 0, the kernel's planar faces) states model space.
+
+    PREF 1 on such a boundary names a curve the file does not carry.
+    """
+    from pyflightstream.workspace._iges_write import set_preference
+
+    def boundary(bptr):
+        return {"type": 142, "parameters": ["142", "0", "5", str(bptr), "19", "3"]}
+
+    document = {"entities": [boundary(9), boundary(0), {"type": 126, "parameters": ["126"]}]}
+    set_preference(document, 1)
+    assert [e["parameters"][5] for e in document["entities"][:2]] == ["1", "2"]
+    set_preference(document, 2)
+    assert [e["parameters"][5] for e in document["entities"][:2]] == ["2", "2"]
+
+
 def test_an_open_loop_is_refused_and_a_hole_is_a_second_loop(kernel):
     base = _skin(kernel)
     open_loop = [[[(0.1, 0.1), (0.9, 0.1)], [(0.9, 0.1), (0.9, 0.9)], [(0.9, 0.9), (0.1, 0.5)]]]

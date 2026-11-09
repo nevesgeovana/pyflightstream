@@ -240,12 +240,17 @@ def serialize_iges(document):
 
 
 def set_preference(document, preference):
-    """Set PREF (parameter 5) of every composite-curve-on-surface (142) of the document."""
+    """Set PREF (parameter 5) of every composite-curve-on-surface (142) of the document.
+
+    A boundary with no parameter-space curve (BPTR, parameter 3, is 0) can only be read in model
+    space, so it states 2 whatever ``preference`` asks.
+    """
     for entity in document["entities"]:
         if entity["type"] == 142:
             if len(entity["parameters"]) < 6:
                 raise InputValueError("IGES.PREF: a 142 entity without its PREF parameter")
-            entity["parameters"][5] = str(preference)
+            curveless = int(entity["parameters"][3] or 0) == 0
+            entity["parameters"][5] = str(2 if curveless else preference)
     return document
 
 
