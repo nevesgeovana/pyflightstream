@@ -5,8 +5,10 @@ violation), and a Python ``except`` cannot establish that the kernel is usable a
 each conversion that needs the kernel runs in a worker process of its own: the parent never
 initializes gmsh for it, a fault ends only the worker, and the parent reports the failure with
 its cause and goes on. A failed conversion is fatal for that conversion: no kernel state is
-reused, no retry is made in the same process, and nothing is published, because the operations
-write their outputs only after the last kernel call returns.
+reused, no retry is made in the same process, and nothing is published: an operation that
+names an output (``out``) writes it, and everything beside it, to a staging folder, and the
+parent moves the files to their place only after the worker has answered without an error,
+so a worker that is killed, times out or refuses part way leaves nothing behind.
 
 The request and the answer travel as JSON files named on the worker's command line, never
 through the standard streams, which the kernel writes to.
@@ -14,19 +16,27 @@ through the standard streams, which the kernel writes to.
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError, InputValueError, warn_by_name
+from pyflightstream._errors import (
+    InputArtifactError,
+    InputValueError,
+    PyflightstreamError,
+    warn_by_name,
+)
 from pyflightstream._textio import write_text
 
 __all__ = ["run_isolated"]
@@ -77,7 +87,9 @@ def run_isolated(
 
     ``operation`` is ``"<module>:<function>"``, a function of this package that takes
     ``arguments`` as keywords and returns a JSON-serializable record. ``direct`` is the same
-    function, called here when :data:`ISOLATE` is off.
+    function, called here when :data:`ISOLATE` is off. When ``arguments`` holds ``out``, the
+    worker writes there under a staging folder and the files are moved beside ``out`` after a
+    successful answer.
 
     Raises
     ------
@@ -89,7 +101,10 @@ def run_isolated(
         return direct(**arguments)
     with tempfile.TemporaryDirectory(prefix="pyfs-gmsh-") as folder:
         request, answer = Path(folder) / "request.json", Path(folder) / "answer.json"
-        write_text(request, json.dumps({"operation": operation, "arguments": arguments}))
+        requested = Path(arguments["out"]) if "out" in arguments else None
+        stage = Path(folder) / "publish"
+        sent = arguments if requested is None else {**arguments, "out": str(stage / requested.name)}
+        write_text(request, json.dumps({"operation": operation, "arguments": sent}))
         limit = _timeout()
         flags = _NO_WINDOW if os.name == "nt" else 0
         env = {**os.environ, _ENV: "1"}
@@ -111,12 +126,48 @@ def run_isolated(
             tail = "\n".join((done.stderr or "").strip().splitlines()[-_TAIL_LINES:])
             raise _failed(f"its worker process ended with {_describe(done.returncode)}", tail)
         reply = json.loads(answer.read_text(encoding="utf-8"))
+        if requested is not None:
+            reply = json.loads(
+                json.dumps(reply).replace(
+                    json.dumps(str(stage))[1:-1], json.dumps(str(requested.parent))[1:-1]
+                )
+            )
+            if "error" not in reply:
+                _publish(stage, requested.parent)
     for category, message in reply.get("warnings", []):
         warn_by_name(message, category, 2)
     if "error" in reply:
         raise _rebuilt(reply["error"])
     result: dict[str, Any] = reply["result"]
     return result
+
+
+def _publish(stage: Path, folder: Path) -> None:
+    """Move the files of a finished worker from its staging folder to ``folder``.
+
+    An earlier record of these outputs goes first and the new one last, so a folder that holds
+    a record holds its whole set, and each file arrives whole or not at all.
+    """
+    files = sorted(stage.iterdir()) if stage.is_dir() else []
+    folder.mkdir(parents=True, exist_ok=True)
+    records = [path for path in files if path.name.endswith(".json")]
+    for path in records:
+        (folder / path.name).unlink(missing_ok=True)
+    for path in [*(path for path in files if path not in records), *records]:
+        _arrive_whole(path, folder / path.name)
+
+
+def _arrive_whole(path: Path, destination: Path) -> None:
+    """Move one file; across file systems, copy beside the destination and rename it there."""
+    try:
+        os.replace(path, destination)
+    except OSError:
+        partial = destination.with_name(destination.name + ".partial")
+        try:
+            shutil.copy2(path, partial)
+            os.replace(partial, destination)
+        finally:
+            partial.unlink(missing_ok=True)
 
 
 def _failed(cause: str, tail: str) -> InputArtifactError:
@@ -130,21 +181,49 @@ def _failed(cause: str, tail: str) -> InputArtifactError:
     )
 
 
-def _rebuilt(error: dict[str, str | None]) -> Exception:
-    """Return the exception the worker raised, as the parent's own type and message."""
+def _rebuilt(error: dict[str, Any]) -> Exception:
+    """Return the exception the worker raised, as the parent's own type and message.
+
+    ``MissingExtraError`` and ``InputValueError`` keep their type, and any other error of this
+    package returns as ``InputArtifactError``. A bare ``Exception`` is how the kernel's binding
+    reports a failure, so it returns as the ``InputArtifactError`` the public functions document,
+    saying the kernel failed. Anything else is a defect, not a refusal of the input: it returns
+    as the same builtin type where there is one, else as a ``RuntimeError`` naming the type.
+    Both carry the worker's traceback as a note.
+    """
     name, message = str(error["type"]), str(error["message"])
     if name == "MissingExtraError":
-        return _errors_missing(message)
+        return _errors_missing(message, error.get("attrs") or {})
     if name == "InputValueError":
         return InputValueError(message)
-    return InputArtifactError(message, kind=error.get("kind") or "geometry")
+    if error.get("package"):
+        return InputArtifactError(message, kind=error.get("kind") or "geometry")
+    found = getattr(builtins, name, None)
+    rebuilt: Exception
+    try:
+        if found is Exception:
+            rebuilt = InputArtifactError(
+                f"the geometry kernel failed: {message}. Nothing was written.", kind="geometry"
+            )
+        elif isinstance(found, type) and issubclass(found, Exception):
+            rebuilt = found(message)
+        else:
+            raise TypeError(name)
+    except Exception:
+        rebuilt = RuntimeError(f"the geometry worker raised {name}: {message}")
+    trace = str(error.get("traceback") or "").strip()
+    if trace:
+        rebuilt.add_note(f"worker traceback:\n{trace}")
+    return rebuilt
 
 
-def _errors_missing(message: str) -> Exception:
+def _errors_missing(message: str, attrs: dict[str, str]) -> Exception:
     from pyflightstream.extras import MissingExtraError
 
     error = MissingExtraError.__new__(MissingExtraError)
     Exception.__init__(error, message)
+    for key, value in attrs.items():
+        setattr(error, key, value)
     return error
 
 
@@ -166,6 +245,13 @@ def _main(request: Path, answer: Path) -> int:
                 "type": type(error).__name__,
                 "message": str(error),
                 "kind": getattr(error, "kind", None),
+                "package": isinstance(error, PyflightstreamError),
+                "attrs": {
+                    key: str(getattr(error, key))
+                    for key in ("extra", "package", "purpose", "remedy")
+                    if hasattr(error, key)
+                },
+                "traceback": traceback.format_exc(),
             }
     reply["warnings"] = [(w.category.__name__, str(w.message)) for w in caught]
     write_text(answer, json.dumps(reply))

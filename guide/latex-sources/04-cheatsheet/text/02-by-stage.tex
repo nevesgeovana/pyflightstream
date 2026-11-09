@@ -729,6 +729,11 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \opt{--reason TEXT}{required, recorded as given.}
 \opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
 \end{cmdblock}
+\begin{cmdblock}{pyfs-matrix search-log-batch}{}{Writes the log of a batch point that has every other file, cut from the job's master log; then collect judges it.}
+\opt{--sims IDS}{only these simulations (default: all).}
+\opt{--master FILE}{the master log in the job folder, when several candidates exist.}
+\opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
+\end{cmdblock}
 \begin{cmdblock}{pyfs-matrix restore}{{runs|storage|products|plan|additional}}{Bring a records file back from the archive, byte for byte.}
 \opt{--apply}{write (default: preview); the current file is archived first.}
 \opt{--stamp STAMP}{the copy to restore (default: the newest).}

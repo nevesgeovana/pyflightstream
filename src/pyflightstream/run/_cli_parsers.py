@@ -54,6 +54,8 @@ from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.run._plan_report import add_visual_inspect_parser
+from pyflightstream.run._search_log_batch import add_search_log_batch_parser
+from pyflightstream.run._search_log_batch import cmd_search_log_batch as cmd_search_log_batch
 from pyflightstream.workspace.cli import add_console_arguments, take_settings, withhold_defaults
 
 # Re-exported through this public import path.
@@ -401,6 +403,7 @@ def _build_parser() -> argparse.ArgumentParser:
     add_mark_converged_parser(subparsers)  # FR-414
     add_mesh_parsers(subparsers)  # FR-426
     add_visual_inspect_parser(subparsers)  # FR-3440
+    add_search_log_batch_parser(subparsers)
     from pyflightstream._console import add_warning_option
 
     add_warning_option(parser)

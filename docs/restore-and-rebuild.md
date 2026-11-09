@@ -256,6 +256,26 @@ rebuild keeps the person's status and says which status the files support, and
 a `sync` that prefers the other workspace names a marked record as a conflict
 and leaves it.
 
+## Write a batch point's log from the master log
+
+A point of a batch can have every other output and no log, while its log is
+the last segment of the job's master log. It stays `SUBMITTED`, and `collect`
+waits for it. `search-log-batch` cuts that segment as `collect` cuts it, and
+leaves `runs.json` alone; `collect` then judges the point from its log:
+
+```text
+pyfs-matrix search-log-batch                      # preview: what would be written
+pyfs-matrix search-log-batch --apply
+pyfs-matrix collect
+```
+
+The master log is looked for in the job's folder: a profile's `native_log`,
+then `<job stem>.job-log.txt`, then the scheduler's `FTS<first sim>.l*`, then
+the only `FTS*.l*`. `--master FILE` names it instead, and `--sims` limits the
+points. A point with another output missing is left alone. Several candidates,
+no master log, or a master log with fewer points than the job are named, and
+nothing is written for those points.
+
 ## From Python
 
 `pyflightstream.run.records.restore`, `pyflightstream.run.records.rebuild`,

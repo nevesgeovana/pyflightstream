@@ -375,6 +375,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.33.0 (FR-309): why THIS call marks these runs failed, recorded in
     # each record as given; a default would put one sentence on every mark.
     ("pyfs-matrix", "reason"): RECORD,
+    # 0.57.0 (PFS-2218): the master log THIS job's points are cut from, chosen when the
+    # search finds several candidates; a default would pick one silently.
+    ("pyfs-matrix", "master"): RECORD,
     # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
     # both on `post` alone: explicit no-archive rebuilding still asks for
     # confirmation, and `--yes` answers it. `inventory` keeps the plain
@@ -820,6 +823,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "post",
             "rebuild",
             "run",
+            "search-log-batch",
             "status",
         }
     ),
@@ -854,6 +858,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "rebuild",
             "restore",
             "run",
+            "search-log-batch",
             "space-in-use",
             "status",
             "sync",
@@ -864,9 +869,19 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "params"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "finished_by"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "apply"): frozenset(
-        {"delete-sims", "free-space", "mark-converged", "mark-failed", "rebuild", "restore", "sync"}
+        {
+            "delete-sims",
+            "free-space",
+            "mark-converged",
+            "mark-failed",
+            "rebuild",
+            "restore",
+            "search-log-batch",
+            "sync",
+        }
     ),
     ("pyfs-matrix", "reason"): frozenset({"mark-converged", "mark-failed"}),
+    ("pyfs-matrix", "master"): frozenset({"search-log-batch"}),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
     ("pyfs-matrix", "force"): frozenset({"delete-sims"}),

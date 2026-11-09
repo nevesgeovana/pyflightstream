@@ -90,6 +90,7 @@ from pyflightstream.run._cli_parsers import (
     _build_parser,
     cmd_geometry,
     cmd_mark_converged,
+    cmd_search_log_batch,
     collect_interval_error,
     parsed,
     resume_hint,
@@ -513,7 +514,14 @@ def _cmd_storage(args: argparse.Namespace) -> int:
 
 #: The records commands (:mod:`pyflightstream.run.records`, package B1),
 #: and the read-only query verbs (:mod:`pyflightstream.run._cli_query`).
-_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed", "mark-converged", *QUERY_COMMANDS)
+_RECORDS_COMMANDS = (
+    "restore",
+    "rebuild",
+    "mark-failed",
+    "mark-converged",
+    "search-log-batch",
+    *QUERY_COMMANDS,
+)
 
 
 def _cmd_records(args: argparse.Namespace) -> int:
@@ -524,6 +532,8 @@ def _cmd_records(args: argparse.Namespace) -> int:
         return _cmd_mark_failed(args)
     if args.subcommand == "mark-converged":
         return cmd_mark_converged(args)  # FR-414
+    if args.subcommand == "search-log-batch":
+        return cmd_search_log_batch(args)
     try:
         if args.subcommand == "restore":
             entry = run_records.restore(
