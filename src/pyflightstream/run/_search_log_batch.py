@@ -24,7 +24,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases.workflows._vocabulary import CUMULATIVE_LOG_SUFFIX, JOB_LOG_SUFFIX
+from pyflightstream.cases.workflows import CUMULATIVE_LOG_SUFFIX, JOB_LOG_SUFFIX
 from pyflightstream.results.log import split_job_log
 from pyflightstream.run._batch_collect import (
     _LOG_SUFFIX,
