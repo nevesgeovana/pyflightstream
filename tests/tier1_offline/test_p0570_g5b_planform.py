@@ -125,3 +125,111 @@ def test_g5b_slope_break_on_a_linear_planform_changes_nothing(tmp_path):
         assert planform_values(kinked, eta)[key] == pytest.approx(
             planform_values(plain, eta)[key], abs=1e-12
         )
+
+
+def lifting_with_twist(axis, tmp_path):
+    return resolved(
+        wing({"incidence": 6.0, "tip_twist": -3.0, "twist_axis": axis, "dihedral": 4.0}), tmp_path
+    )
+
+
+@pytest.mark.parametrize("axis", [0.0, 0.25, 0.5, 1.0])
+def test_g5b_twist_axis_is_the_fixed_point_of_the_section_rotation(tmp_path, axis):
+    from pyflightstream.geometry._lifting import section_models, section_points
+
+    component = lifting_with_twist(axis, tmp_path)
+    models = section_models(component["sections"])
+    for eta in (0.0, 0.4, 1.0):
+        values = planform_values(component, np.array(eta))
+        # The point of the chord line at the axis does not move with the twist.
+        pivot = section_points(component, models, eta, np.array([axis]), "upper")[0]
+        mid = (pivot + section_points(component, models, eta, np.array([axis]), "lower")[0]) / 2
+        fixed = np.array(
+            [
+                float(values["leading_edge_x"]) + axis * float(values["chord"]),
+                0.6 * eta,
+                float(values["leading_edge_z"]),
+            ]
+        )
+        # The camber of a symmetric default section is zero, so its mid-thickness is the chord line.
+        assert mid == pytest.approx(fixed, abs=1e-9)
+
+
+def test_g5b_twist_axis_zero_keeps_the_true_leading_edge_where_the_input_puts_it(tmp_path):
+    from pyflightstream.geometry._lifting import section_models, section_points
+
+    models = section_models(lifting_with_twist(0.0, tmp_path)["sections"])
+    nose = section_points(lifting_with_twist(0.0, tmp_path), models, 0.5, np.array([0.0]), "upper")[
+        0
+    ]
+    quarter = lifting_with_twist(0.25, tmp_path)
+    moved = section_points(
+        quarter, section_models(quarter["sections"]), 0.5, np.array([0.0]), "upper"
+    )[0]
+    values = planform_values(lifting_with_twist(0.0, tmp_path), np.array(0.5))
+    assert nose[0] == pytest.approx(float(values["leading_edge_x"]), abs=1e-12)
+    assert nose[2] == pytest.approx(float(values["leading_edge_z"]), abs=1e-12)
+    assert abs(moved[2] - float(values["leading_edge_z"])) > 1e-3
+
+
+@pytest.mark.parametrize("axis", [0.0, 0.5])
+def test_g5b_twist_axis_inverse_readers_agree_with_the_forward_map(tmp_path, axis):
+    from pyflightstream.geometry._lifting import section_models, section_points
+    from pyflightstream.geometry._mesh_rules import chord_fraction
+    from pyflightstream.geometry._regions import lifting_region
+
+    component = lifting_with_twist(axis, tmp_path)
+    models = section_models(component["sections"])
+    x = np.array([0.1, 0.4, 0.8])
+    points = section_points(component, models, 0.5, x, "upper")
+    assert chord_fraction(component, points) == pytest.approx(x, abs=1e-9)
+    inside = lifting_region(component)
+    assert inside(tuple((points[1] + section_points(component, models, 0.5, x, "lower")[1]) / 2))
+
+
+def test_g5b_twist_axis_outside_the_chord_is_refused(tmp_path):
+    with pytest.raises(InputValueError, match="twist_axis"):
+        lifting_with_twist(1.5, tmp_path)
+    with pytest.raises(InputValueError, match="twist_axis"):
+        lifting_with_twist(-0.1, tmp_path)
+
+
+def test_g5b_height_is_half_the_span_and_vertical_sets_the_rotation(tmp_path):
+    fin = resolved(
+        {
+            "type": "lifting_surface",
+            "planform": {"height": 0.5, "taper": 0.5, "orientation": "vertical"},
+        },
+        tmp_path,
+    )
+    assert fin["planform"]["span"] == pytest.approx(1.0)
+    assert fin["placement"]["rotation"] == [90.0, 0.0, 0.0]
+    # The tip of a vertical fin lies one height above the root, rotated out of the y axis.
+    from pyflightstream.geometry._placement import rotation_matrix
+
+    tip = rotation_matrix(fin["placement"]["rotation"]) @ np.array([0.0, 0.5, 0.0])
+    assert tip == pytest.approx([0.0, 0.0, 0.5], abs=1e-12)
+    own = resolved(
+        {
+            "type": "lifting_surface",
+            "planform": {"height": 0.5, "orientation": "vertical"},
+            "placement": {"rotation": [0.0, 0.0, 30.0]},
+        },
+        tmp_path,
+    )
+    assert own["placement"]["rotation"] == [0.0, 0.0, 30.0]
+
+
+def test_g5b_height_with_aspect_ratio_and_bad_input(tmp_path):
+    by_area = resolved(
+        {"type": "lifting_surface", "planform": {"height": 0.5, "area": 0.4, "taper": 1.0}},
+        tmp_path,
+    )
+    assert by_area["planform"]["span"] == pytest.approx(1.0)
+    assert by_area["planform"]["root_chord"] == pytest.approx(0.4)
+    with pytest.raises(InputValueError, match="height"):
+        resolved({"type": "lifting_surface", "planform": {"height": 0.5, "span": 1.0}}, tmp_path)
+    with pytest.raises(InputValueError, match="height"):
+        resolved({"type": "lifting_surface", "planform": {"height": -1.0}}, tmp_path)
+    with pytest.raises(InputValueError, match="orientation"):
+        resolved({"type": "lifting_surface", "planform": {"orientation": "up"}}, tmp_path)

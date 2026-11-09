@@ -58,8 +58,9 @@ def section_points(component, models, eta, x, side):
     p = planform_values(component, eta)
     angle = np.deg2rad(p["twist"])
     chord = p["chord"]
-    dx, dz = (local[..., 0] - 0.25) * chord, local[..., 1] * chord
-    xx = p["leading_edge_x"] + 0.25 * chord + dx * np.cos(angle) + dz * np.sin(angle)
+    axis = component["planform"]["twist_axis"]
+    dx, dz = (local[..., 0] - axis) * chord, local[..., 1] * chord
+    xx = p["leading_edge_x"] + axis * chord + dx * np.cos(angle) + dz * np.sin(angle)
     zz = p["leading_edge_z"] - dx * np.sin(angle) + dz * np.cos(angle)
     yy = np.full_like(xx, component["planform"]["span"] / 2 * eta)
     return np.stack((xx, yy, zz), axis=-1)

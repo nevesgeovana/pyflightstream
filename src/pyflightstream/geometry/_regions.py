@@ -49,8 +49,9 @@ def lifting_region(component):
             return False
         p = planform_values(component, eta)
         angle = np.deg2rad(p["twist"])
-        dx, dz = x - p["leading_edge_x"] - 0.25 * p["chord"], z - p["leading_edge_z"]
-        xx = (dx * np.cos(angle) - dz * np.sin(angle)) / p["chord"] + 0.25
+        axis = component["planform"]["twist_axis"]
+        dx, dz = x - p["leading_edge_x"] - axis * p["chord"], z - p["leading_edge_z"]
+        xx = (dx * np.cos(angle) - dz * np.sin(angle)) / p["chord"] + axis
         zz = (dx * np.sin(angle) + dz * np.cos(angle)) / p["chord"]
         if not 1e-7 < xx < 1 - 1e-7:
             return False

@@ -164,3 +164,26 @@ def test_g5b_base_strip_bad_input_is_refused_or_reported():
         configuration(base_strip="quadratic")
     warnings, _ = configuration(base_strips="linear")
     assert any("base_strips" in text for text in warnings)
+
+
+def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
+    from pyflightstream.geometry._boundary import unpack  # noqa: F401
+
+    for kind in ("rounded", "exact_loft"):
+        _, component = configuration(tip_cap={"kind": kind, "extent": 0.08})
+        models = section_models(component["sections"])
+        section = blended_section(component["sections"], models, 1.0)
+        maximum = thickness_station(component, models, 1.0)
+        grids = [g for _, g in cap_patch_grids(component, section, maximum)]
+        reach = max(float(np.max(g[..., 1])) for g in grids) - 1.2 / 2
+        assert reach == pytest.approx(0.08, abs=1e-6)
+
+
+def test_g5b_tip_cap_extent_bad_input():
+    with pytest.raises(InputValueError, match="together with tip_cap.length"):
+        configuration(tip_cap={"kind": "rounded", "extent": 0.08, "length": 2.0})
+    with pytest.raises(InputValueError, match="extent"):
+        configuration(tip_cap={"kind": "rounded", "extent": -0.1})
+    warnings, component = configuration(tip_cap={"kind": "flat", "extent": 0.08})
+    assert any("tip_cap.extent" in text for text in warnings)
+    assert "extent" not in component["tip_cap"]

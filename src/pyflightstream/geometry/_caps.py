@@ -24,6 +24,7 @@ __all__ = [
     "CAP_NOSE_LENGTH",
     "CAP_NOSE_RATIO",
     "CAP_TE_TAPER",
+    "cap_length",
     "cap_patch_grids",
     "cap_plane_grids",
     "cap_rates",
@@ -123,15 +124,28 @@ CAP_NOSE_LENGTH = (
 )
 
 
+def cap_length(component, upper, lower):
+    """Return the reach of a rounded or lofted cap in tip chords.
+
+    ``tip_cap.extent`` gives it in model units, the printed tip station; otherwise it is
+    ``tip_cap.length`` times the half thickness of the section between ``upper`` and ``lower``.
+    """
+    cap = component["tip_cap"]
+    if "extent" in cap:
+        return float(cap["extent"] / planform_values(component, 1.0)["chord"])
+    return float((upper[1] - lower[1]) / 2 * cap["length"])
+
+
 def cap_to_space(component, x, z, extension, rates=(0.0, 0.0)):
     """Map section (x, z) and a spanwise extension, all in unit chord, to model space."""
     p = planform_values(component, 1.0)
     angle, chord = np.deg2rad(p["twist"]), p["chord"]
-    dx, dz = (x - 0.25) * chord, z * chord
+    axis = component["planform"]["twist_axis"]
+    dx, dz = (x - axis) * chord, z * chord
     return np.stack(
         (
             p["leading_edge_x"]
-            + 0.25 * chord
+            + axis * chord
             + dx * np.cos(angle)
             + dz * np.sin(angle)
             + rates[0] * chord * extension,
@@ -162,7 +176,7 @@ def rounded_cap_grids(component, section, maximum, chord_count=49, across_count=
     upper_max, lower_max = cst_airfoil(
         maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
     )
-    length = (upper_max[1] - lower_max[1]) / 2 * component["tip_cap"]["length"]
+    length = cap_length(component, upper_max, lower_max)
     exponent = component["tip_cap"]["exponent"]
     u, v = np.linspace(0, 1, chord_count), np.linspace(0, 1, across_count)
     grids = []
@@ -197,7 +211,7 @@ def exact_loft_grids(component, section, maximum):
     upper_max, lower_max = cst_airfoil(
         maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
     )
-    length = float((upper_max[1] - lower_max[1]) / 2 * cap["length"])
+    length = cap_length(component, upper_max, lower_max)
     x = chord_spacing(0.0, 1.0, np.linspace(0, 1, cap["control_points"]))
     upper, lower = cst_airfoil(
         x, section["upper"], section["lower"], section["trailing_edge_thickness"]
@@ -386,10 +400,11 @@ def wing_contour_point(component, models, maximum, index, u, eta):
     point = contour_segment(section, maximum, index, np.asarray(u))
     p = planform_values(component, eta)
     angle, chord = np.deg2rad(p["twist"]), p["chord"]
-    dx, dz = (point[0] - 0.25) * chord, point[1] * chord
+    axis = component["planform"]["twist_axis"]
+    dx, dz = (point[0] - axis) * chord, point[1] * chord
     return np.array(
         [
-            p["leading_edge_x"] + 0.25 * chord + dx * np.cos(angle) + dz * np.sin(angle),
+            p["leading_edge_x"] + axis * chord + dx * np.cos(angle) + dz * np.sin(angle),
             component["planform"]["span"] / 2 * eta,
             p["leading_edge_z"] - dx * np.sin(angle) + dz * np.cos(angle),
         ]

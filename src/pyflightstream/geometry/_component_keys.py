@@ -257,6 +257,18 @@ def _check_tip_cap(cap):
             raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
 
 
+def _check_tip_extent(name, cap, raw, warnings):
+    """Check ``tip_cap.extent``, the reach of a rounded or lofted cap in model units."""
+    if "extent" not in cap:
+        return
+    number(cap["extent"], f"{name}.tip_cap.extent", 0, strict=True)
+    if "length" in raw:
+        raise InputValueError(f"{name}.tip_cap.extent: given together with tip_cap.length")
+    if cap["kind"] not in ("rounded", "exact_loft"):
+        warnings.append(f"{name}.tip_cap.extent: a {cap['kind']} cap has no reach, skipped")
+        cap.pop("extent")
+
+
 def _surface_tables(path, surface, warnings):
     """Warn about and skip the unknown keys of the tables inside a control surface."""
     if "cove" in surface:
@@ -302,6 +314,7 @@ def check_lifting_extras(name, component, raw, warnings, findings):
     if component["base_strip"] not in ("bicubic", "linear"):
         raise InputValueError(f"{name}.base_strip: expected bicubic or linear")
     _check_tip_cap(component["tip_cap"])
+    _check_tip_extent(name, component["tip_cap"], raw.get("tip_cap", {}), warnings)
     _check_nacelle_bounds(name, component, warnings)
     component["control_surfaces"] = [
         _fill_surface(name, i, raw, warnings) for i, raw in enumerate(component["control_surfaces"])
