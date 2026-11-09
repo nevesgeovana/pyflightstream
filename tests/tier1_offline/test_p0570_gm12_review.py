@@ -332,3 +332,64 @@ def test_r9_006_z_c_of_the_design_reaches_the_body():
     assert plain["centre_height"] == 0.3 and "z_c" not in plain
     wrapped = resolved["components"]["h"]["sections"][0]["centre_height"]
     assert wrapped["source"] == "given"
+
+
+# R9-007: no stage record says passed without a limit, or against its own numbers.
+
+
+def _stage(**override):
+    from pyflightstream.geometry._records import check_entry, stage_record
+
+    fields = {
+        "package_version": "0.57.0",
+        "inputs_id": "abc",
+        "parameter_id": "abc",
+        "checks": [check_entry("a.b", "passed", 1.0, 2.0)],
+    }
+    return stage_record("S7", "split", **{**fields, **override})
+
+
+def test_r9_007_a_raw_check_cannot_pass_with_no_limit():
+    from pyflightstream._errors import InputValueError
+
+    with pytest.raises(InputValueError, match="measured and limit"):
+        _stage(checks=[{"id": "a.b", "status": "passed"}])
+
+
+def test_r9_007_passed_above_a_maximum_is_refused_and_a_minimum_is_stated():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry._records import check_entry
+
+    with pytest.raises(InputValueError, match="contradicts"):
+        check_entry("a.b", "passed", 5.0, 1.0)
+    with pytest.raises(InputValueError, match="contradicts"):
+        check_entry("a.b", "failed", 0.5, 1.0)
+    assert check_entry("a.b", "passed", 5.0, 1.0, bound="min")["bound"] == "min"
+    with pytest.raises(InputValueError, match="contradicts"):
+        check_entry("a.b", "passed", 0.5, 1.0, bound="min")
+
+
+@pytest.mark.parametrize(
+    ("change", "word"),
+    [
+        ({"status": "passed", "checks": []}, "status"),
+        ({"package_version": ""}, "package_version"),
+        ({"inputs_id": None}, "inputs_id"),
+    ],
+)
+def test_r9_007_validation_refuses_a_record_that_contradicts_itself(change, word):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry._records import validate_stage_record
+
+    with pytest.raises(InputValueError, match=word):
+        validate_stage_record({**_stage(), **change})
+
+
+def test_r9_007_a_failed_stage_cannot_be_written_as_passed(tmp_path):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry._records import check_entry, write_record
+
+    record = _stage(checks=[check_entry("a.b", "failed", 3.0, 2.0)])
+    with pytest.raises(InputValueError, match="status"):
+        write_record(tmp_path / "s.json", {**record, "status": "passed"})
+    assert not (tmp_path / "s.json").exists()

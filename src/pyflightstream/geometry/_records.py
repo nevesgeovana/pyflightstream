@@ -36,17 +36,34 @@ REPORT_FORMAT = "pyflightstream-geom-report/1"
 _STATUSES = ("passed", "failed", "skipped")
 _OUTCOMES = {"accepted": 0, "failed": 1, "refused": 2}
 _VOLATILE = ("started", "wall_s")
+_BOUNDS = ("max", "min")
 
 
 def _finite(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def check_entry(check_id, status, measured=None, limit=None, *, unit="", where=None, note=""):
+def _agrees(check_id, status, measured, limit, bound):
+    """Refuse a status its own two numbers contradict; ``bound`` says which side is good."""
+    if bound not in _BOUNDS:
+        raise InputValueError(f"check {check_id}: bound expected one of {_BOUNDS}")
+    within = measured <= limit if bound == "max" else measured >= limit
+    if within != (status == "passed"):
+        raise InputValueError(
+            f"check {check_id}: status {status} contradicts measured {measured} "
+            f"against the {bound} {limit}"
+        )
+
+
+def check_entry(
+    check_id, status, measured=None, limit=None, *, unit="", where=None, note="", bound="max"
+):
     """Return one check of a stage record.
 
     A check that ran (``passed`` or ``failed``) carries a finite measured value and a finite
-    limit, so a paper can cite both; a ``skipped`` check carries a note that says why.
+    limit, so a paper can cite both, and its status must follow from them: ``bound`` says whether
+    the limit is a maximum, the default, or a minimum. A ``skipped`` check carries a note that says
+    why.
     """
     if status not in _STATUSES:
         raise InputValueError(f"check {check_id}: status expected one of {_STATUSES}")
@@ -55,11 +72,14 @@ def check_entry(check_id, status, measured=None, limit=None, *, unit="", where=N
             raise InputValueError(f"check {check_id}: a skipped check names its reason in note")
     elif not (_finite(measured) and _finite(limit)):
         raise InputValueError(f"check {check_id}: measured and limit are required numbers")
+    else:
+        _agrees(check_id, status, measured, limit, bound)
     return {
         "id": check_id,
         "status": status,
         "measured": measured,
         "limit": limit,
+        "bound": bound,
         "unit": unit,
         "where": dict(where or {}),
         "note": note,
@@ -84,13 +104,11 @@ def stage_record(
     """Return the record of one stage; its status follows from its checks.
 
     ``failed`` when any check failed, ``skipped`` when none ran, else ``passed``. The record
-    names ``package_version`` and ``inputs_id`` (the identity of what the stage read).
+    names ``package_version`` and ``inputs_id`` (the identity of what the stage read). A check
+    :func:`check_entry` would refuse is refused here too, whoever built it.
     """
-    checks = [dict(c) for c in checks]
-    ran = [c for c in checks if c["status"] != "skipped"]
-    status = "failed" if any(c["status"] == "failed" for c in checks) else "passed"
-    if not ran:
-        status = "skipped"
+    checks = [_rechecked(c) for c in checks]
+    status = _status_of(checks)
     return {
         "format": STAGE_FORMAT,
         "stage": stage,
@@ -109,23 +127,44 @@ def stage_record(
     }
 
 
+def _rechecked(check: Mapping) -> dict:
+    """Return ``check`` through :func:`check_entry`, so no route around it exists."""
+    return check_entry(
+        check.get("id"),
+        check.get("status"),
+        check.get("measured"),
+        check.get("limit"),
+        unit=check.get("unit", ""),
+        where=check.get("where"),
+        note=check.get("note", ""),
+        bound=check.get("bound", "max"),
+    )
+
+
+def _status_of(checks) -> str:
+    """Return the status of a stage from its checks."""
+    if any(c["status"] == "failed" for c in checks):
+        return "failed"
+    return "passed" if any(c["status"] != "skipped" for c in checks) else "skipped"
+
+
 def validate_stage_record(record: Mapping) -> None:
-    """Refuse a stage record a paper could not cite: a missing field or a check without a value."""
+    """Refuse a stage record a paper could not cite.
+
+    A missing or empty field, a check without a value or whose status contradicts its numbers, or
+    a stage status its checks do not give.
+    """
     required = ("format", "stage", "name", "status", "package_version", "inputs_id", "checks")
     for key in required:
-        if key not in record:
+        if key not in record or record[key] in ("", None):
             raise InputValueError(f"stage record: {key} is required")
     if record["format"] != STAGE_FORMAT:
         raise InputValueError(f"stage record: format expected {STAGE_FORMAT}")
-    for check in record["checks"]:
-        check_entry(
-            check.get("id"),
-            check.get("status"),
-            check.get("measured"),
-            check.get("limit"),
-            unit=check.get("unit", ""),
-            where=check.get("where"),
-            note=check.get("note", ""),
+    checks = [_rechecked(check) for check in record["checks"]]
+    if record["status"] != _status_of(checks):
+        raise InputValueError(
+            f"stage record: status {record['status']} is not what its checks give, "
+            f"{_status_of(checks)}"
         )
 
 
@@ -179,5 +218,7 @@ def exit_code(report: Mapping) -> int:
 
 
 def write_record(path, record: Mapping) -> None:
-    """Write a record or report as sorted, indented JSON."""
+    """Write a record or report as sorted, indented JSON; a stage record is validated first."""
+    if record.get("format") == STAGE_FORMAT:
+        validate_stage_record(record)
     write_text(Path(path), json.dumps(record, indent=2, sort_keys=True) + "\n")
