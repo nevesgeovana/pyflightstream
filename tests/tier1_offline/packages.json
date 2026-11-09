@@ -182,6 +182,8 @@
       "tests/tier1_offline/test_p0570_fix6_attached_flow_cp.py",
       "tests/tier1_offline/test_p0570_fix6_long_resolved_output.py",
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
+      "tests/tier1_offline/test_p0570_geom_bluff.py",
+      "tests/tier1_offline/test_p0570_geom_bspline.py",
       "tests/tier1_offline/test_p0570_geom_schema.py",
       "tests/tier1_offline/test_p0570_geometry_bodies.py",
       "tests/tier1_offline/test_p0570_geometry_check.py",

@@ -44,6 +44,12 @@ class Patch:
         Polynomial degree of each direction.
     bay : tuple of float or None
         Normalized span interval ``(eta_min, eta_max)`` a skin patch covers.
+    role : str
+        What the patch is for in its component (``"band"``, ``"cap"``, ``"base"``, ...);
+        empty when no stage has said. A mesher or an assembly reads it instead of list order.
+    edge_ids : tuple of str
+        Names of the four boundary edges ``(u0, u1, v0, v1)``; empty when no stage has named them.
+        Two patches that share an edge carry the same name for it.
     """
 
     family: str
@@ -55,6 +61,8 @@ class Patch:
     degree_u: int
     degree_v: int
     bay: tuple[float, float] | None = None
+    role: str = ""
+    edge_ids: tuple[str, ...] = ()
 
     def evaluate(self, count: int = 41) -> np.ndarray:
         """Sample the patch on a ``count`` by ``count`` lattice, shape ``(count, count, 3)``."""
@@ -72,6 +80,8 @@ class Patch:
             "multiplicities_v": list(self.multiplicities_v),
             "degree_u": self.degree_u,
             "degree_v": self.degree_v,
+            "role": self.role,
+            "edge_ids": list(self.edge_ids),
         }
 
     @classmethod
@@ -88,6 +98,8 @@ class Patch:
             degree_u=int(data["degree_u"]),
             degree_v=int(data["degree_v"]),
             bay=None if bay is None else (float(bay[0]), float(bay[1])),
+            role=str(data.get("role", "")),
+            edge_ids=tuple(str(e) for e in data.get("edge_ids", ())),
         )
 
 
