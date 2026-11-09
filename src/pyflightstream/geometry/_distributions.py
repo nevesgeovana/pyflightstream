@@ -16,6 +16,7 @@ __all__ = [
     "blended_section",
     "chord_spacing",
     "elevate_coefficients",
+    "insert_knot",
     "planform_values",
     "spline_distribution",
 ]
@@ -59,6 +60,31 @@ def elevate_coefficients(coefficients, degree):
         q = np.arange(1, n) / n
         a = np.r_[a[0], q * a[:-1] + (1 - q) * a[1:], a[-1]]
     return a
+
+
+def insert_knot(knots, degree, points, t):
+    """Insert the knot ``t`` once into a B-spline curve (Boehm); the curve does not change.
+
+    ``knots`` is the full clamped knot vector, ``points`` the control points of shape (n, d).
+    Returns the new knot vector and control points.
+    """
+    k, p = np.asarray(knots, float), np.asarray(points, float)
+    if len(k) != len(p) + degree + 1:
+        raise InputValueError("knots/points: knot count must be points + degree + 1")
+    if not k[degree] < t < k[len(p)]:
+        raise InputValueError("t: must lie strictly inside the parameter range")
+    span = int(np.searchsorted(k, t, side="right")) - 1
+    new = [p[0]]
+    for i in range(1, len(p)):
+        if i <= span - degree:
+            new.append(p[i])
+        elif i > span:
+            new.append(p[i - 1])
+        else:
+            a = (t - k[i]) / (k[i + degree] - k[i])
+            new.append(a * p[i] + (1 - a) * p[i - 1])
+    new.append(p[-1])
+    return np.insert(k, span + 1, t), np.array(new)
 
 
 def planform_values(component, eta):
