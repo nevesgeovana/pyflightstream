@@ -59,3 +59,64 @@ def test_p0570_gm15_a_value_other_than_one_does_not_require_the_kernel(library_a
 
 def test_p0570_gm15_a_loadable_kernel_is_returned():
     assert kernel_or_skip().__name__ == "gmsh"
+
+
+# ---------------------------------------------------------------- the jobs that prove the kernel
+
+
+def _workflow(name):
+    from pathlib import Path
+
+    import yaml
+
+    path = Path(__file__).resolve().parents[2] / ".github" / "workflows" / name
+    return yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
+
+
+def _steps(job):
+    return job["steps"]
+
+
+def _index(steps, fragment):
+    found = [i for i, step in enumerate(steps) if fragment in step.get("name", "")]
+    assert found, f"no step named like {fragment!r}"
+    return found[0]
+
+
+@pytest.mark.parametrize("job", ["test", "test-lean"])
+def test_p0570_gm15_the_jobs_that_prove_the_kernel_require_it(job):
+    steps = _steps(_workflow("ci.yml")[job])
+    required = [s for s in steps if s.get("env", {}).get("PYFS_REQUIRE_KERNEL") == "1"]
+    assert required, f"job {job} never sets PYFS_REQUIRE_KERNEL=1 on a pytest step"
+    assert all("pytest" in s["run"] for s in required)
+
+
+def test_p0570_gm15_no_install_line_names_the_retired_extra():
+    for workflow in ("ci.yml", "release.yml"):
+        for name, job in _workflow(workflow).items():
+            for step in _steps(job):
+                assert "gmsh]" not in step.get("run", "") and ",gmsh" not in step.get("run", ""), (
+                    workflow,
+                    name,
+                )
+
+
+def test_p0570_gm15_the_lean_probe_runs_before_the_system_libraries():
+    steps = _steps(_workflow("ci.yml")["test-lean"])
+    probe = _index(steps, "geometry path on a base install")
+    libraries = _index(steps, "System libraries")
+    tier1 = _index(steps, "Tier 1 with no user-facing extras")
+    assert _index(steps, "Install the package") < probe < libraries < tier1
+    text = steps[probe]["run"]
+    assert "'gmsh' not in sys.modules" in text and "kernel.err" in text
+    assert "Traceback" in text and "needs the CAD kernel library gmsh" in text
+
+
+def test_p0570_gm15_the_wheel_job_installs_the_libraries_and_checks_the_wheel():
+    steps = _steps(_workflow("release.yml")["test-artifact"])
+    check = _index(steps, "names gmsh as a dependency")
+    libraries = _index(steps, "System libraries")
+    install = _index(steps, "Install the built wheel")
+    assert check < install and libraries < install
+    assert steps[libraries]["if"] == "runner.os == 'Linux'"
+    assert "Requires-Dist: gmsh" in steps[check]["run"]

@@ -131,6 +131,32 @@ jobs:
             echo "wheel digest changed between build and test: $ACTUAL" >&2
             exit 1
           fi
+      - name: The wheel names gmsh as a dependency and does not embed it
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob
+          import zipfile
+
+          wheel = glob.glob("dist/*.whl")[0]
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              metadata = next(n for n in names if n.endswith(".dist-info/METADATA"))
+              text = archive.read(metadata).decode("utf-8")
+          embedded = [
+              n for n in names if n.split("/")[0].lower().startswith("gmsh") or n.lower().endswith(("gmsh.py", "gmsh.dll", "libgmsh.so"))
+          ]
+          assert not embedded, f"the wheel embeds gmsh files: {embedded[:5]}"
+          requires = [line for line in text.splitlines() if line.startswith("Requires-Dist: gmsh")]
+          extra_free = [line for line in requires if "extra ==" not in line]
+          assert extra_free, f"the wheel metadata does not require gmsh in the base set: {requires}"
+          print("wheel requires:", extra_free)
+          PY
+      - name: System libraries the gmsh wheel loads
+        if: runner.os == 'Linux'
+        # gmsh is a base dependency, so the kernel tests run against the wheel
+        # and its Linux build links these libraries.
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa libxcursor1 libxft2 libxinerama1
       - name: Install the built wheel, not the source
         shell: bash
         run: |
