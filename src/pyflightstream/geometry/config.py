@@ -24,6 +24,7 @@ from pathlib import Path
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._airfoils import naca_camber
+from pyflightstream.geometry._bodies import apply_rings, check_boat_tail, check_body_symmetry
 from pyflightstream.geometry._boundary import unit_for, unpack
 from pyflightstream.geometry._component_keys import (
     body_sections,
@@ -125,6 +126,8 @@ def default_component(kind):
             azimuths=[0.0, 60.0, 120.0, 180.0],
             rear="pole",
             rings_file="",
+            nose="pole",
+            symmetry="half_y0",
             base_radius=0.05,
             nose_exponent=0.5,
             rear_exponent=1.0,
@@ -345,9 +348,7 @@ def resolve_body(raw, component, notes):
     stations(component["stations"], "stations", 3)
     if component["stations"][0] <= 0 or component["stations"][-1] >= 1:
         raise InputValueError("stations: body transitions must be inside (0, 1)")
-    stations(component["azimuths"], "azimuths", 4, 0, 180)
-    if component["azimuths"][0] != 0 or component["azimuths"][-1] != 180:
-        raise InputValueError("azimuths: half body requires top and bottom")
+    check_body_symmetry(raw, component)
     check_body_extras(notes["name"], component, notes["warnings"], notes["findings"])
     if not component["sections"]:
         raise InputValueError("sections: requires a section")
@@ -365,6 +366,7 @@ def resolve_body(raw, component, notes):
             raise InputValueError(name + ".shape: unsupported shape")
     for key in ("base_radius", "nose_exponent", "rear_exponent"):
         number(component[key], key, 0, strict=True)
+    check_boat_tail(component)
     return {}
 
 
@@ -531,6 +533,8 @@ def _resolve_component(name, raw, notes, base):
         default_component(raw["type"]), raw, f"components.{name}", notes["warnings"], free
     )
     notes["name"] = name
+    if raw["type"] == "body":
+        apply_rings(component, base, notes["warnings"])
     resolvers = {
         "lifting_surface": resolve_lifting,
         "body": resolve_body,

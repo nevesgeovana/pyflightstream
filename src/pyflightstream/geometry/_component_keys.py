@@ -336,7 +336,7 @@ def check_body_extras(name, component, warnings, findings):
     if isinstance(rear, dict):
         form = rear.get("boat_tail")
         if set(rear) != {"boat_tail"} or not isinstance(form, dict):
-            raise InputValueError(f"{name}.rear: expected pole, base or a boat_tail table")
+            raise InputValueError(f"{name}.rear: expected pole, base, open or a boat_tail table")
         known_keys(form, _BOAT_TAIL_KEYS, f"{name}.rear.boat_tail", warnings)
         number(form.get("x_cut"), f"{name}.rear.boat_tail.x_cut", 0, 1, strict=True)
         number(form.get("base_height"), f"{name}.rear.boat_tail.base_height", 0)
@@ -347,8 +347,8 @@ def check_body_extras(name, component, warnings, findings):
             90,
             strict=True,
         )
-    elif rear not in ("base", "pole"):
-        raise InputValueError(f"{name}.rear: expected pole, base or a boat_tail table")
+    elif rear not in ("base", "pole", "open"):
+        raise InputValueError(f"{name}.rear: expected pole, base, open or a boat_tail table")
     if not isinstance(component["rings_file"], str):
         raise InputValueError(f"{name}.rings_file: expected a path")
 

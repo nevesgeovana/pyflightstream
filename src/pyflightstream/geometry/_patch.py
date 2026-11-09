@@ -44,6 +44,12 @@ class Patch:
         Polynomial degree of each direction.
     bay : tuple of float or None
         Normalized span interval ``(eta_min, eta_max)`` a skin patch covers.
+    role : str
+        What the patch is for in its component (``"band"``, ``"cap"``, ``"base"``, ...);
+        empty when no stage has said. A mesher or an assembly reads it instead of list order.
+    edge_ids : tuple of str
+        Names of the four boundary edges ``(u0, u1, v0, v1)``; empty when no stage has named them.
+        Two patches that share an edge carry the same name for it.
     """
 
     family: str
@@ -55,6 +61,8 @@ class Patch:
     degree_u: int
     degree_v: int
     bay: tuple[float, float] | None = None
+    role: str = ""
+    edge_ids: tuple[str, ...] = ()
 
     def evaluate(self, count: int = 41) -> np.ndarray:
         """Sample the patch on a ``count`` by ``count`` lattice, shape ``(count, count, 3)``."""
@@ -72,6 +80,8 @@ class Patch:
             "multiplicities_v": list(self.multiplicities_v),
             "degree_u": self.degree_u,
             "degree_v": self.degree_v,
+            "role": self.role,
+            "edge_ids": list(self.edge_ids),
         }
 
     @classmethod
@@ -88,15 +98,46 @@ class Patch:
             degree_u=int(data["degree_u"]),
             degree_v=int(data["degree_v"]),
             bay=None if bay is None else (float(bay[0]), float(bay[1])),
+            role=str(data.get("role", "")),
+            edge_ids=tuple(str(e) for e in data.get("edge_ids", ())),
         )
 
 
-def interpolate_patch(points, family: str = "", bay: tuple[float, float] | None = None) -> Patch:
-    """Interpolate a rectangular grid of samples ``[u, v, xyz]`` with a bicubic B-spline."""
+def _checked_parameters(values, count, name):
+    """Return ``values`` as an array of ``count`` increasing numbers from 0 to 1, or refuse."""
+    values = np.asarray(values, float)
+    if (
+        values.shape != (count,)
+        or values[0] != 0
+        or values[-1] != 1
+        or np.any(np.diff(values) <= 0)
+    ):
+        raise InputValueError(f"{name}: one increasing value per sample, from 0 to 1")
+    return values
+
+
+def interpolate_patch(
+    points,
+    family: str = "",
+    bay: tuple[float, float] | None = None,
+    parameters_v=None,
+    parameters_u=None,
+) -> Patch:
+    """Interpolate a grid of samples ``[u, v, xyz]`` with a bicubic B-spline.
+
+    The samples are uniform in each parameter by default. ``parameters_u`` and ``parameters_v``,
+    when given, are the parameter values of the samples, increasing from 0 to 1, so a patch can be
+    uniform in a coordinate other than the sample index, with the samples clustered where the
+    surface needs them.
+    """
     grid = np.asarray(points, float)
     if grid.ndim != 3 or grid.shape[2] != 3 or min(grid.shape[:2]) < 4:
         raise InputValueError("points: at least four by four XYZ samples required")
     u, v = np.linspace(0, 1, grid.shape[0]), np.linspace(0, 1, grid.shape[1])
+    if parameters_u is not None:
+        u = _checked_parameters(parameters_u, grid.shape[0], "parameters_u")
+    if parameters_v is not None:
+        v = _checked_parameters(parameters_v, grid.shape[1], "parameters_v")
     first = make_interp_spline(u, grid, axis=0)
     second = make_interp_spline(v, first.c, axis=1)
     knots_u, mult_u = np.unique(first.t, return_counts=True)
