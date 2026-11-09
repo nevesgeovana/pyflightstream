@@ -237,12 +237,27 @@ class _Surface:
 # --- the findings of one trimmed face --------------------------------------------------------
 
 
-def _closed(ident: int, pieces: list[_Spline], profile: ReaderProfile) -> list[GateFinding]:
+def _closed(
+    ident: int,
+    pieces: list[_Spline],
+    profile: ReaderProfile,
+    *,
+    surface: _Surface,
+    resolution: float,
+) -> list[GateFinding]:
+    """Find the joints of a loop that are open in (u, v) and also apart on the surface.
+
+    A writer's pcurves meet only to its own tolerance (6e-7 in (u, v) after a kernel fragment), so
+    a joint is open when its parameter gap exceeds ``loop_gap`` and its two ends, mapped on the
+    surface, are farther apart than the resolution the file states.
+    """
     found = []
     for k, piece in enumerate(pieces):
         following = pieces[(k + 1) % len(pieces)]
-        gap = float(np.abs(piece.at(piece.high)[:2] - following.at(following.low)[:2]).max())
-        if gap > profile.loop_gap:
+        end, start = piece.at(piece.high)[:2], following.at(following.low)[:2]
+        gap = float(np.abs(end - start).max())
+        apart = float(np.linalg.norm(surface.at(*end) - surface.at(*start)))
+        if gap > profile.loop_gap and apart > resolution:
             found.append(
                 GateFinding(
                     "profile.loop_open",
@@ -312,7 +327,9 @@ def _loop_findings(
                 "its parameter-space boundary is not a 126, 110 or composite of them",
             )
         ]
-    found = _closed(ident, pieces, profile) if pieces else []
+    found = (
+        _closed(ident, pieces, profile, surface=surface, resolution=resolution) if pieces else []
+    )
     found += _in_domain(ident, pieces, surface.domain, profile.loop_gap) if pieces else []
     model = _pieces(by_id[spatial], by_id) if spatial in by_id else None
     return found + (_on_surface(ident, model, surface, resolution) if model else [])

@@ -262,6 +262,22 @@ def test_each_planted_loop_defect_is_caught_and_named(written, tmp_path):
     assert _checks(_gate(path)) == []  # the control: the unplanted file has none of the three
 
 
+def test_r16_006_a_parameter_gap_inside_the_file_resolution_is_not_an_open_loop(written, tmp_path):
+    """The kernel's own fragment writes pcurves that meet to 6e-7 in (u, v) (probe P7).
+
+    A gap counts as open only when the two ends are also apart in model space by more than the
+    resolution the file states; a gap a user would see still fails.
+    """
+    path, _ = written
+    document = read_iges(path)
+    document["global"][18] = "1E-05"
+    interior = next(c for c in _curves(document, "uv") if 0.1 < float(c["parameters"][1]) < 0.9)
+    _move(interior, 0, -5e-7)  # 5e-7 in u is about 1e-6 m on this 2 m skin
+    assert _checks(_gate(_rewrite(tmp_path, document, "near.igs"))) == []
+    _move(interior, 0, -1e-4)  # about 2e-4 m: open
+    assert _checks(_gate(_rewrite(tmp_path, document, "far.igs"))) == ["profile.loop_open"]
+
+
 def test_the_gate_reads_the_property_pointers_of_the_144_not_a_fixed_layout(written, tmp_path):
     path, document = written
     faces = [e for e in document["entities"] if e["type"] == 144]
