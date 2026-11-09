@@ -32,7 +32,9 @@ from pyflightstream.run._batch_collect import (
     _job_dir,
     _matches,
     _opening_orders,
+    _Point,
     _point,
+    _waited,
     _write_log,
     job_of,
 )
@@ -81,6 +83,14 @@ def _master_log(
 def _several(folder: Path, found: Sequence[Path]) -> str:
     names = ", ".join(path.name for path in found)
     return f"several master logs in {folder} ({names}): choose one with --master"
+
+
+def _has_other_outputs(point: _Point) -> bool:
+    """Whether every declared output but the log is there, in the job's folder or already home."""
+    return all(
+        path.exists() or (point.target / path.relative_to(point.work)).exists()
+        for path in _waited(point, None)
+    )
 
 
 def search_log_batch(
@@ -139,6 +149,9 @@ def search_log_batch(
             if record.status is not RunStatus.SUBMITTED:
                 outcome[f"already {record.status}, left alone"].append(record.run_id)
                 continue
+            if not _has_other_outputs(point):
+                outcome["other outputs missing, left alone"].append(record.run_id)
+                continue
             if found is None:
                 outcome[why].append(record.run_id)
                 continue
@@ -177,8 +190,9 @@ def add_search_log_batch_parser(subparsers: Any) -> None:
             "<job stem>.job-log.txt, the scheduler's FTS<first sim>.l*, or the only "
             "FTS*.l* of the job's folder (a profile's native_log is read first). The "
             "segment is cut as collect cuts it; runs.json is not changed, and "
-            "pyfs-matrix collect then judges the point from its log. Several candidate "
-            "master logs, none, or too few points are named and nothing is written."
+            "pyfs-matrix collect then judges the point from its log. A point with another "
+            "output missing is left alone. Several candidate master logs, none, or too few "
+            "points are named and nothing is written."
         ),
     )
     _add_sim_ids(parser, help=SIMS_IDS_HELP + "; every simulation without it")

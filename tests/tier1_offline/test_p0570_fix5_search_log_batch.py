@@ -13,9 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.results.log import split_job_log
+from pyflightstream.results.log import RESTART_MARKER, split_job_log
 from pyflightstream.run._search_log_batch import search_log_batch
 from pyflightstream.run.collect import collect_once
+from pyflightstream.workspace import RunStatus
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_p0370_s1_matrix_home as home
 
@@ -167,6 +168,48 @@ def test_p0570_fix5_the_verb_previews_and_applies_then_collect_judges_the_point(
         assert logs
         body = (workspace.sim_dir(record.sim_id) / logs[0]).read_text(encoding="utf-8")
         assert SENTINEL in body
+
+
+def _other_outputs(workspace, record, job):
+    folder = (
+        workspace.root / job["dir"] / workspace.sim_dir(record.sim_id).name
+    ) / record.submission["working_dir"]
+    return [
+        folder / name
+        for name in record.submission["declared_outputs"]
+        if not name.endswith("_log.txt")
+    ]
+
+
+def test_p0570_fix5_a_point_missing_another_output_is_left_alone(tmp_path):
+    """PFS-2218: only a point that has every other file gets a log; a running one does not."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    for run_id, job in lasts.items():
+        _other_outputs(workspace, _rows(workspace)[run_id], job)[0].unlink()
+    for apply in (False, True):
+        out = search_log_batch(workspace.root, apply=apply)
+        assert set(out["other outputs missing, left alone"]) == set(lasts), out
+        assert "written" not in out and "would write" not in out, out
+    for run_id in lasts:
+        assert not _point_log(workspace, _rows(workspace)[run_id])
+
+
+def test_p0570_fix5_a_point_already_moved_home_counts_its_outputs_there(tmp_path):
+    """PFS-2218: after collect moved an ended batch home, the outputs are read at home."""
+    workspace = _workspace(tmp_path, profile_tail=NATIVE)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    for job in lasts.values():
+        master = workspace.root / job["dir"] / _scheduler_name(job)
+        complete = master.read_text(encoding="utf-8")
+        master.write_text(complete.rsplit(RESTART_MARKER, 1)[0], encoding="utf-8")
+    collect_once(workspace, interval=0.0, sleep=no_sleep)
+    for run_id, job in lasts.items():
+        record = _rows(workspace)[run_id]
+        assert record.status is RunStatus.SUBMITTED, record.status
+        assert not _other_outputs(workspace, record, job)[0].exists()
+        (workspace.root / job["dir"] / _scheduler_name(job)).write_text(complete, encoding="utf-8")
+    assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
 
 
 def test_p0570_fix5_a_point_that_has_its_log_is_left_alone(tmp_path, capsys):
