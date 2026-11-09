@@ -393,3 +393,92 @@ def test_r9_007_a_failed_stage_cannot_be_written_as_passed(tmp_path):
     with pytest.raises(InputValueError, match="status"):
         write_record(tmp_path / "s.json", {**record, "status": "passed"})
     assert not (tmp_path / "s.json").exists()
+
+
+# R9-008: the gate fails a file it could measure nothing in, and every arm can say no.
+
+
+def _bicubic_file(path):
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    net = [[(3.0 * i / 3, 3.0 * j / 3, 0.0) for j in range(4)] for i in range(4)]
+    k = open_kernel("gate")
+    try:
+        face = k.add_bspline_surface(
+            net,
+            knots_u=[0.0, 1.0],
+            knots_v=[0.0, 1.0],
+            mult_u=[4, 4],
+            mult_v=[4, 4],
+            deg_u=3,
+            deg_v=3,
+        )
+        k.export_iges({"PANEL": [face]}, path)
+    finally:
+        k.close()
+    return path
+
+
+def test_r9_008_text_that_is_not_iges_fails_the_gate(tmp_path):
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    path = tmp_path / "notes.igs"
+    path.write_text("not an iges file\n", encoding="ascii")
+    report = check_profile(path)
+    assert not report.passed and report.failed[0].check == "profile.surfaces"
+
+
+def test_r9_008_bytes_that_are_not_text_are_refused(tmp_path):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    path = tmp_path / "binary.igs"
+    path.write_bytes(bytes(range(128, 255)))
+    with pytest.raises(InputArtifactError, match="cannot be read"):
+        check_profile(path)
+
+
+def test_r9_008_a_surface_no_face_names_fails_the_gate(tmp_path):
+    _need_gmsh()
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
+
+    document = read_iges(_bicubic_file(tmp_path / "c.igs"))
+    document["entities"] = [e for e in document["entities"] if e["type"] == 128]
+    write_text(tmp_path / "bare.igs", serialize_iges(document), encoding="ascii")
+    assert {f.check for f in check_profile(tmp_path / "bare.igs").failed} >= {"profile.surfaces"}
+
+
+def test_r9_008_a_planar_face_is_warned_as_not_observed(tmp_path):
+    _need_gmsh()
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    k = open_kernel("gate")
+    try:
+        face = k.add_planar_face([(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)])
+        k.export_iges({"CAP": [face]}, tmp_path / "cap.igs")
+    finally:
+        k.close()
+    report = check_profile(tmp_path / "cap.igs")
+    assert report.passed
+    assert [f.check for f in report.findings if f.severity == "warn"] == ["profile.entity"]
+
+
+@pytest.mark.parametrize("planted", ["u_start", "u_end", "v_start", "v_end"])
+def test_r9_008_the_unclamped_arm_reads_all_four_knot_ends(tmp_path, planted):
+    """The G2 arm had one planted defect, at the start of u; the other three ends were unread."""
+    _need_gmsh()
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
+
+    document = read_iges(_bicubic_file(tmp_path / "c.igs"))
+    surface = next(e for e in document["entities"] if e["type"] == 128)
+    index = {"u_start": 11, "u_end": 16, "v_start": 19, "v_end": 24}[planted]
+    surface["parameters"][index] = "0.5"
+    write_text(tmp_path / "bad.igs", serialize_iges(document), encoding="ascii")
+    found = check_profile(tmp_path / "bad.igs").failed
+    assert [f.check for f in found] == ["profile.unclamped"]
+    assert found[0].detail.startswith(planted[0])

@@ -66,6 +66,17 @@ def face_findings(
     found: list[GateFinding] = []
     inner = int(values[3])
     named = False
+    surface = by_id.get(int(values[1]))
+    if surface is not None and surface["type"] != 128:
+        found.append(
+            GateFinding(
+                "profile.entity",
+                "warn",
+                ident,
+                f"the surface is entity {surface['type']}; only 128 was observed read and no "
+                "source states the rest",
+            )
+        )
     if len(values) >= 8 + inner:
         prop = by_id.get(int(values[7 + inner]))
         named = prop is not None and prop["type"] == 406 and int(prop["d2"][4]) == 15
@@ -82,10 +93,18 @@ def face_findings(
 def check_profile(path: str | Path, profile: ReaderProfile = OBSERVED) -> GateReport:
     """Measure the IGES file at ``path`` against ``profile``.
 
-    Raises :class:`InputArtifactError` for a solid entity (surfaces only). Every other defect is a
-    finding of the returned report.
+    Raises :class:`InputArtifactError` for a solid entity (surfaces only) and for a file that
+    cannot be read as IGES. Every other defect is a finding of the returned report, and a file with
+    no trimmed surface fails: it holds nothing the gate could have measured.
     """
-    document = read_iges(path)
+    try:
+        document = read_iges(path)
+    except (UnicodeDecodeError, ValueError, IndexError) as error:
+        raise InputArtifactError(
+            f"{path}: this cannot be read as an IGES file ({error}). Write the file again and "
+            "run again. Nothing was written.",
+            kind="geometry",
+        ) from error
     entities = document["entities"]
     solids = sorted({e["type"] for e in entities if e["type"] in SOLID_ENTITIES})
     if solids:
@@ -97,9 +116,16 @@ def check_profile(path: str | Path, profile: ReaderProfile = OBSERVED) -> GateRe
     by_id = {e["id"]: e for e in entities}
     findings: list[GateFinding] = []
     faces = [e for e in entities if e["type"] == 144]
+    if not faces:
+        findings.append(GateFinding("profile.surfaces", "fail", None, "no trimmed surface (144)"))
+    trimmed = {int(e["parameters"][1]) for e in faces}
     for entity in entities:
         if entity["type"] == 128:
             findings += surface_findings(entity, profile)
+            if entity["id"] not in trimmed:
+                findings.append(
+                    GateFinding("profile.name", "fail", entity["id"], "a surface no face names")
+                )
     for entity in faces:
         findings += face_findings(entity, by_id, profile)
     return GateReport(path=Path(path), surfaces=len(faces), findings=tuple(findings))
