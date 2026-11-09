@@ -902,3 +902,20 @@ def test_r9_017_a_six_series_number_does_not_pass_as_five_digits():
     with pytest.raises(InputValueError, match="NACA64215"):
         resolve_config(_plain(sections={"items": items}))
     resolve_config(_plain(sections={"items": [{"eta": 0.0, "naca": "23012"}, items[1]]}))
+
+
+# R9-018: two statements of the sections, one of which is ignored.
+
+
+def test_r9_018_airfoils_beside_items_warn():
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config(
+        _plain(
+            sections={
+                "airfoils": ["NACA2412", "NACA2412"],
+                "items": [{"eta": 0.0, "naca": "0012"}, {"eta": 1.0, "naca": "0012"}],
+            }
+        )
+    )
+    assert any("sections.airfoils" in text for text in resolved["warnings"])

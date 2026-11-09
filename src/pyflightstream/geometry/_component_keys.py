@@ -103,6 +103,9 @@ def _check_sections(name, component, raw, warnings):
         return
     if not isinstance(items, list):
         raise InputValueError(f"{name}.sections.items: expected a list of tables")
+    for key in ("airfoils", "eta"):
+        if key in raw:
+            warnings.append(f"{name}.sections.{key}: sections.items takes its place, skipped")
     for i, item in enumerate(items):
         known_keys(item, _ITEM_KEYS, f"{name}.sections.items[{i}]", warnings)
     forms = [_item_form(name, i, item) for i, item in enumerate(items)]
