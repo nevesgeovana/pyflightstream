@@ -291,8 +291,7 @@ def airfoil_section_contour(
         Local chord [m].
     pitch_axis_chord_fraction : float
         Chordwise position of the pitch axis as a fraction of chord
-        from the leading edge; 0.25 is the quarter chord, about which
-        the sectional loads are exported.
+        from the leading edge; 0.25 is the quarter chord.
 
     Returns
     -------

@@ -290,8 +290,11 @@ densities along the span ([N/m], [N m/m]) despite the footer naming
 the computation unit, so the fields are named `*_per_m`, the beam
 consumes them directly, and `cross_check_totals` integrates them over
 the tributary widths against the integrated loads of the same run
-(the pilot closed to a few percent on the axial component). Moments
-arrive about the quarter chord, the pitch axis reference;
+(the pilot closed to a few percent on the axial component). A wing's
+XZ cut moment is moved to the section's quarter chord with `X_QC`,
+`Z_QC` and the section forces; a rotating blade's is read about the
+pitch axis, its point not measured
+(docs/definitions/the-sections-table-and-which-row-is-which.md);
 `to_elastic_axis` transfers them with the configured e(r)
 (M_EA = M_PA - e_c F_n + e_n F_c, FSI-R04), so refining the elastic axis estimate
 never touches the FlightStream setup. Axes: the export columns are
@@ -429,8 +432,7 @@ case over half a revolution; full evidence in
   Fresh content each step (advancing solver iteration counter in the
   header); standard header with units in the labels, so the WP2 SI
   assertion anchors on labeled values; data rows carry per-section
-  offset, chord, quarter-chord position, Fx, Fz, and the moment
-  about the quarter chord (the pitch axis reference).
+  offset, chord, quarter-chord position, Fx, Fz, and the moment.
 * File formats: structural node import and `FSIDisp.txt` are both
   comma separated three-column files, displacement order equal to
   node import order (FSM-26.120 pp.273-274).

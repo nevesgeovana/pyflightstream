@@ -124,8 +124,10 @@ class SectionBlock:
         the distribution's cut plane, in plane-name order (for the
         blade-frame XY distribution: axial, then in-plane).
     moment_qc_nm_per_m : numpy.ndarray
-        Sectional moment density about the quarter chord [N m / m],
-        the pitch axis reference (DLV-007 Section 4.3).
+        The export's sectional moment density ``Moment`` [N m / m]. Despite
+        the name it is not about the quarter chord where its point was
+        measured; see
+        docs/definitions/the-sections-table-and-which-row-is-which.md.
     """
 
     family: str
@@ -209,7 +211,7 @@ class SectionalLoadsReport:
 
     @property
     def moment_qc_nm_per_m(self) -> np.ndarray:
-        """Sectional quarter-chord moment densities [N m / m]."""
+        """The export's sectional moment densities ``Moment`` [N m / m]."""
         return self.values[:, 6]
 
     def split(self, family_map: FamilyMap) -> dict[str, SectionBlock]:

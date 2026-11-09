@@ -2,7 +2,7 @@
 
 Pipeline role: per coupling call FlightStream's post-processing script
 exports ``FS_SurfaceSection_Loads.txt`` (sectional forces in Newtons
-and moments about the quarter chord); this module parses that file
+and moments); this module parses that file
 (through :mod:`pyflightstream.results.sectional_loads`, where the parser
 is defined and which this module re-exports), splits the
 flat table into per-blade blocks, and transfers the moments
@@ -19,8 +19,11 @@ Everything here is anchored on the WP1 dry-run evidence
   and Newton-Meter because the post-processing script computes the
   loads with ``COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS``.
 * The data table is ``Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`` per
-  section; the moment is about the quarter chord, the pitch axis
-  reference of DLV-007 Section 4.3. The rows are line densities along
+  section. The moment's point is stated in
+  docs/definitions/the-sections-table-and-which-row-is-which.md: not the
+  section's quarter chord where it was measured, a wing's XZ cut, so that
+  route moves it there (:func:`project_wing_frame_loads`); a rotating
+  blade is not measured. The rows are line densities along
   the span: despite the footer naming the computation unit (Newtons
   versus coefficients), integrating the force columns over the
   tributary widths reproduces the integrated axial force of the same
@@ -227,9 +230,7 @@ def transfer_moment_to_elastic_axis(
     pitch axis ahead of the elastic axis (e_c > 0 from the elastic
     axis to it) twists the section nose up.
 
-    Source: DLV-007 Section 4.3 (FSI-R04); pitch-axis moment reference
-    confirmed by the WP1 dry run (reports/RPT-005 finding 4);
-    elementary statics, M_EA = M_P + (r_P - r_EA) x F.
+    Source: DLV-007 Section 4.3 (FSI-R04); elementary statics, M_EA = M_P + (r_P - r_EA) x F.
 
     Parameters
     ----------
@@ -287,7 +288,9 @@ def project_rotor_frame_loads(
     fz_n_per_m : numpy.ndarray
         The cut-plane Fz force density [N/m].
     moment_qc_nm_per_m : numpy.ndarray
-        The export's quarter-chord moment density [N m / m], positive about +Z.
+        The export's moment density [N m / m], positive about +Z, read as the moment about
+        the pitch axis: the blade's frame holds that axis, and whether the export's point is
+        on it is not measured for a rotating blade.
     blade_angle_rad : numpy.ndarray
         The local blade angle b [rad].
 
@@ -309,12 +312,15 @@ def project_wing_frame_loads(
     fz_n_per_m: np.ndarray,
     moment_qc_nm_per_m: np.ndarray,
     section_pitch_rad: np.ndarray,
+    x_qc_m: np.ndarray | float = 0.0,
+    z_qc_m: np.ndarray | float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Project a wing's XZ-cut load densities onto its section axes (FSI-G).
 
     f_chordwise = -Fx cos b + Fz sin b (toward the leading edge),
     f_normal = Fx sin b + Fz cos b (toward the suction side), and
-    m_nose_up = +Moment. The cut is the reference XZ plane in a frame with
+    m_nose_up = +Moment + X_QC Fz - Z_QC Fx, the moment about the section's
+    quarter chord. The cut is the reference XZ plane in a frame with
     the reference axes (x aft, y right, z up; the wiring refuses any other),
     so ``Fx`` and ``Fz`` are the x and z force densities, and the section
     axes at nose-up pitch b are (-cos b, sin b) and (sin b, cos b) in (x, z)
@@ -324,7 +330,12 @@ def project_wing_frame_loads(
     wing, so it is nose up. THAT SIGN IS THE ONE READING HERE NOT YET
     CORROBORATED ON THIS CUT: the rotor's was, by the soft-blade pilot
     (RPT-007); the wing's agrees in sign at the integral on 26.124 and
-    not in magnitude (+7.49 against +17.13 N m, 44 %, RPT-092).
+    not in magnitude (+7.49 against +17.13 N m, 44 %, RPT-092). The export's
+    moment is not about the quarter chord on this cut: it is about the origin
+    of the frame the cut and the loads share where that was measured, no
+    separation model on, and ``X_QC`` and ``Z_QC`` are in that frame, so the
+    transfer is the lever of the section's forces. It is zero for a frame on
+    the section, and a cut frame other than the loads frame is not measured.
     Inputs broadcast; densities in N/m and N m / m, angles in rad.
 
     Source: rigid-section geometry of the wing-frame embedding; the moment
@@ -337,9 +348,11 @@ def project_wing_frame_loads(
     fz_n_per_m : numpy.ndarray
         The z force density of the XZ cut [N/m].
     moment_qc_nm_per_m : numpy.ndarray
-        The export's quarter-chord moment density [N m / m], read as positive about +y.
+        The export's moment density [N m / m], read as positive about +y.
     section_pitch_rad : numpy.ndarray
         The section's nose-up pitch b [rad].
+    x_qc_m, z_qc_m : numpy.ndarray or float
+        The section's quarter chord in the cut's frame [m]; zero keeps the export's moment.
 
     Returns
     -------
@@ -351,7 +364,8 @@ def project_wing_frame_loads(
     beta = np.asarray(section_pitch_rad, dtype=float)
     chordwise = -fx * np.cos(beta) + fz * np.sin(beta)
     normal = fx * np.sin(beta) + fz * np.cos(beta)
-    return chordwise, normal, np.asarray(moment_qc_nm_per_m, dtype=float)
+    moment = np.asarray(moment_qc_nm_per_m, dtype=float)
+    return chordwise, normal, moment + np.asarray(x_qc_m) * fz - np.asarray(z_qc_m) * fx
 
 
 @dataclass(frozen=True)
@@ -532,7 +546,12 @@ def to_elastic_axis(
     elif embedding == "wing_frame":
         beta = np.radians(np.interp(radii, stations, cfg.blade.geometric_pitch_deg))
         chordwise, normal, moment_pa = project_wing_frame_loads(
-            block.fx_n_per_m, block.fz_n_per_m, block.moment_qc_nm_per_m, beta
+            block.fx_n_per_m,
+            block.fz_n_per_m,
+            block.moment_qc_nm_per_m,
+            beta,
+            block.x_qc_m,
+            block.z_qc_m,
         )
     else:
         chordwise, normal = block.fx_n_per_m, block.fz_n_per_m

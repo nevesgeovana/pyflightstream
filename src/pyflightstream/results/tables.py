@@ -511,7 +511,8 @@ def to_table(result: object) -> Table:
     - ``SectionalLoadsReport`` (:mod:`pyflightstream.results.sectional_loads`,
       re-exported by :mod:`pyflightstream.fsi.loads`): unit-suffixed columns ``offset_m``,
       ``chord_m``, ``x_qc_m``, ``z_qc_m`` [m], ``fx_n_per_m``,
-      ``fz_n_per_m`` [N/m], ``moment_qc_nm_per_m`` [N m / m], in the
+      ``fz_n_per_m`` [N/m], ``moment_qc_nm_per_m`` [N m / m, the export's
+      ``Moment``, whose point the definitions page states], in the
       cut-plane axes the FSI parser documents.
 
     Every one of them also carries the three provenance columns

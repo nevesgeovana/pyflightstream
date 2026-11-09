@@ -629,7 +629,7 @@ ROTOR_TABLE_LEAD_LINES = 0
 
 
 def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
-    """Integrate one instant/block in its export axes about each quarter chord.
+    """Integrate one instant/block in its export axes, at the export's moment point.
 
     Strip edges are the midpoints between stations and, at each end, half a
     spacing beyond the end station (the extended rule, PFS-2081.40): the
