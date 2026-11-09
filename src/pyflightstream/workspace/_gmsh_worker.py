@@ -14,6 +14,7 @@ through the standard streams, which the kernel writes to.
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import json
 import math
@@ -21,12 +22,18 @@ import os
 import subprocess
 import sys
 import tempfile
+import traceback
 import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError, InputValueError, warn_by_name
+from pyflightstream._errors import (
+    InputArtifactError,
+    InputValueError,
+    PyflightstreamError,
+    warn_by_name,
+)
 from pyflightstream._textio import write_text
 
 __all__ = ["run_isolated"]
@@ -130,21 +137,42 @@ def _failed(cause: str, tail: str) -> InputArtifactError:
     )
 
 
-def _rebuilt(error: dict[str, str | None]) -> Exception:
-    """Return the exception the worker raised, as the parent's own type and message."""
+def _rebuilt(error: dict[str, Any]) -> Exception:
+    """Return the exception the worker raised, as the parent's own type and message.
+
+    A refusal of this package keeps its own type. Anything else is a defect or a fault of
+    the kernel's own, not a refusal of the input: it returns as the same builtin type where
+    there is one, else as a ``RuntimeError`` naming the type, and carries the worker's
+    traceback as a note, so it reads as it does with ``PYFLIGHTSTREAM_GMSH_ISOLATE=0``.
+    """
     name, message = str(error["type"]), str(error["message"])
     if name == "MissingExtraError":
-        return _errors_missing(message)
+        return _errors_missing(message, error.get("attrs") or {})
     if name == "InputValueError":
         return InputValueError(message)
-    return InputArtifactError(message, kind=error.get("kind") or "geometry")
+    if error.get("package"):
+        return InputArtifactError(message, kind=error.get("kind") or "geometry")
+    found = getattr(builtins, name, None)
+    rebuilt: Exception
+    try:
+        if not (isinstance(found, type) and issubclass(found, Exception)):
+            raise TypeError(name)
+        rebuilt = found(message)
+    except Exception:
+        rebuilt = RuntimeError(f"the geometry worker raised {name}: {message}")
+    trace = str(error.get("traceback") or "").strip()
+    if trace:
+        rebuilt.add_note(f"worker traceback:\n{trace}")
+    return rebuilt
 
 
-def _errors_missing(message: str) -> Exception:
+def _errors_missing(message: str, attrs: dict[str, str]) -> Exception:
     from pyflightstream.extras import MissingExtraError
 
     error = MissingExtraError.__new__(MissingExtraError)
     Exception.__init__(error, message)
+    for key, value in attrs.items():
+        setattr(error, key, value)
     return error
 
 
@@ -166,6 +194,13 @@ def _main(request: Path, answer: Path) -> int:
                 "type": type(error).__name__,
                 "message": str(error),
                 "kind": getattr(error, "kind", None),
+                "package": isinstance(error, PyflightstreamError),
+                "attrs": {
+                    key: str(getattr(error, key))
+                    for key in ("extra", "package", "purpose", "remedy")
+                    if hasattr(error, key)
+                },
+                "traceback": traceback.format_exc(),
             }
     reply["warnings"] = [(w.category.__name__, str(w.message)) for w in caught]
     write_text(answer, json.dumps(reply))
