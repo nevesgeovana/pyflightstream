@@ -234,7 +234,7 @@ _FOWLER = {
             {
                 "type": "body",
                 "rear": {
-                    "boat_tail": {"x_cut": 0.5, "base_height": 0.1, "angle_limit_deg": 9, "foo": 1}
+                    "boat_tail": {"x_cut": 1.0, "base_height": 0.1, "angle_limit_deg": 9, "foo": 1}
                 },
             },
             "foo",
@@ -646,7 +646,7 @@ _FULL = {
         "H": {
             "type": "body",
             "length": 3.0,
-            "rear": {"boat_tail": {"x_cut": 0.5, "base_height": 0.1, "angle_limit_deg": 10.0}},
+            "rear": {"boat_tail": {"x_cut": 1.0, "base_height": 0.1, "angle_limit_deg": 25.0}},
             "sections": [{"at": "middle", "shape": "circle", "radius": 0.3}],
         },
         "F": {"type": "fillet", "hosts": ["W", "H"], "patches": 5, "laws": {"radius": 1.0}},
