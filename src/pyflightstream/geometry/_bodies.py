@@ -422,10 +422,15 @@ def body(component, junctions=()) -> list[Patch]:
     >>> len(patches) > 0
     True
     """
+    best, last = None, float("inf")
     for samples in SAMPLE_LADDER:
         patches = _build(component, junctions, samples)
-        if _pole_turn(patches) <= POLE_TARGET_DEG:
-            break
+        turn = _pole_turn(patches)
+        if turn <= POLE_TARGET_DEG:
+            return patches
+        if best is not None and turn > 0.8 * last:
+            return best  # no convergence: a true apex, which more samples cannot smooth
+        best, last = patches, turn
     return patches
 
 
