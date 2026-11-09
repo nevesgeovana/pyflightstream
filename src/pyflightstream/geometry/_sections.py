@@ -841,6 +841,30 @@ def _assembled(prep, poles, knots, residual) -> BSplineSection:
     )
 
 
+def _row_of(item):
+    """Return an items row in the internal keys, reading a ``section = {kind = ...}`` table too.
+
+    The proposed input names a section ``kind`` (``bspline``, ``naca``, ``cst`` or ``coords``)
+    with ``degree``, ``knots``, ``poles`` or ``file`` beside it; the other keys of the row stay.
+    """
+    table = item.get("section")
+    if not isinstance(table, dict):
+        return dict(item)
+    row = {k: v for k, v in item.items() if k != "section"}
+    kind = table.get("kind")
+    body = {k: v for k, v in table.items() if k != "kind"}
+    if kind == "bspline":
+        row["bspline"] = body.pop("file") if "file" in body else body
+    elif kind == "coords":
+        row["file"] = body.pop("file", "")
+        row.update(body)
+    elif kind in ("naca", "cst"):
+        row.update(body)
+    else:
+        raise InputValueError("sections.items.section.kind: expected bspline, naca, cst or coords")
+    return row
+
+
 def _items_of(sections, te, warnings):
     """Return the ``sections.items``-style rows of a resolved table, whatever its form."""
     if sections.get("physical"):
@@ -849,7 +873,7 @@ def _items_of(sections, te, warnings):
         row = {"cst_upper": list(one.upper), "cst_lower": list(one.lower), "te": one.te_thickness()}
         return [dict(row) for _ in sections["eta"]]
     if sections.get("items"):
-        return [dict(item) for item in sections["items"]]
+        return [_row_of(item) for item in sections["items"]]
     return [{"naca": name.upper().replace("NACA", "")} for name in sections["airfoils"]]
 
 

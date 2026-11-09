@@ -302,3 +302,15 @@ def test_g5ra_a_bspline_row_in_the_cst_form_is_refused_with_the_reason():
     sections = {**table([{"bspline": stored}]), "form": "cst"}
     with pytest.raises(InputValueError, match="bspline form"):
         fit_or_read(sections)
+
+
+def test_g5ra_the_proposed_section_table_is_read_like_the_row_keys():
+    stored = bspline_sections(table([{"naca": "2412"}]))[0].to_stored()
+    body = {"degree": 5, "knots": stored["knots"], "poles": stored["poles"]}
+    (via,) = bspline_sections(table([{"section": {"kind": "bspline", **body}}]))
+    (plain,) = bspline_sections(table([{"bspline": body}]))
+    assert via.poles == plain.poles
+    (naca,) = bspline_sections(table([{"section": {"kind": "naca", "naca": "0012"}}]))
+    assert naca.nose_radius() == pytest.approx(1.1019 * 0.12**2, rel=0.02)
+    with pytest.raises(InputValueError, match="section.kind"):
+        bspline_sections(table([{"section": {"kind": "nope"}}]))
