@@ -137,8 +137,8 @@ def edge_jumps(patches, tolerance: float | None = None, count: int = _SAMPLES) -
     return records
 
 
-def _crease_allowance(record, patches, creases):
-    """Return the angle a declared crease allows on this edge, and the entries that matched."""
+def _crease_angles(record, patches, creases):
+    """Return the crease angles declared for this edge, and the entries that matched."""
     names = {
         record["kind"],
         patches[record["a"]].edge_ids[EDGES.index(record["edge_a"])]
@@ -149,7 +149,7 @@ def _crease_allowance(record, patches, creases):
         else "",
     }
     hits = [i for i, c in enumerate(creases) if c["at"] in names]
-    return max((creases[i]["deg"] for i in hits), default=0.0), hits
+    return [float(creases[i]["deg"]) for i in hits], hits
 
 
 def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | None = None):
@@ -162,8 +162,10 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
     limit_deg : float, optional
         Largest jump allowed on an edge with no declared crease; default 1 degree.
     creases : sequence of dict, optional
-        Declared creases, each ``{"at": <edge name or "roleA|roleB">, "deg": <angle>}``; an edge
-        that matches may turn by that angle instead of the limit.
+        Declared creases, each ``{"at": <edge name or "roleA|roleB">, "deg": <angle>}``. The
+        angle is the turn the crease has, not a ceiling: an edge that matches passes when its
+        turn lies within ``limit_deg`` of a declared angle, so a declaration cannot hide a smooth
+        seam that kinked or a fold larger than the crease.
     tolerance : float, optional
         Shared-edge distance, as :func:`edge_jumps`.
 
@@ -171,9 +173,11 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
     -------
     dict
         ``max_jump_deg`` over edges that no crease covers, ``edges`` (the records, each with an
-        ``allowed_deg``), ``failed`` (indices into ``edges``), ``by_kind`` (largest jump per edge
-        kind), ``unmatched_creases`` (entries that matched no edge) and ``free_edges`` (edges of
-        no pair, for example on a symmetry plane).
+        ``allowed_deg``: the declared crease angle it is held to, or ``limit_deg``; and a
+        ``deviation_deg``: its distance from that crease angle, or its turn), ``failed``
+        (indices into ``edges``), ``by_kind`` (largest jump per edge kind), ``unmatched_creases``
+        (entries that matched no edge) and ``free_edges`` (edges of no pair, for example on a
+        symmetry plane).
 
     Raises
     ------
@@ -192,11 +196,18 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
     worst, failed = 0.0, []
     by_kind: dict[str, float] = {}
     for i, record in enumerate(records):
-        allowed, hits = _crease_allowance(record, patches, creases)
+        angles, hits = _crease_angles(record, patches, creases)
         used.update(hits)
-        record["allowed_deg"] = max(limit_deg, allowed)
-        by_kind[record["kind"]] = max(by_kind.get(record["kind"], 0.0), record["jump_deg"])
-        if record["jump_deg"] > record["allowed_deg"]:
+        jump = record["jump_deg"]
+        if angles:
+            # the declared angle nearest the measured turn; the turn must reproduce it
+            record["allowed_deg"] = min(angles, key=lambda a: abs(a - jump))
+            record["deviation_deg"] = abs(jump - record["allowed_deg"])
+        else:
+            record["allowed_deg"] = limit_deg
+            record["deviation_deg"] = jump
+        by_kind[record["kind"]] = max(by_kind.get(record["kind"], 0.0), jump)
+        if record["deviation_deg"] > limit_deg:
             failed.append(i)
         if not hits:
             worst = max(worst, record["jump_deg"])
@@ -211,14 +222,17 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
 
 
 def bluff_jump_check(result, limit_deg: float = 1.0) -> dict:
-    """Return the ``continuity.bluff_jump`` check entry of an :func:`audit_jumps` result."""
-    worst = max((r["jump_deg"] for r in result["edges"]), default=0.0)
+    """Return the ``continuity.bluff_jump`` check entry of an :func:`audit_jumps` result.
+
+    A failed edge reports its deviation: its turn, or its distance from its declared crease.
+    """
+    worst = 0.0
     where = {}
     if result["failed"]:
         record = result["edges"][
-            max(result["failed"], key=lambda i: result["edges"][i]["jump_deg"])
+            max(result["failed"], key=lambda i: result["edges"][i]["deviation_deg"])
         ]
-        worst = record["jump_deg"]
+        worst = record["deviation_deg"]
         where = {k: record[k] for k in ("a", "b", "edge_a", "edge_b", "kind")}
     return check_entry(
         "continuity.bluff_jump",

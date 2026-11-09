@@ -17,7 +17,8 @@ from pyflightstream.geometry._patch import Patch, evaluate_patch, interpolate_pa
 from pyflightstream.geometry._skin import bay_cuts, skin, split_along
 
 CIRCLE = {"at": "middle", "shape": "circle", "radius": 1.2}
-BASE_CREASE = [{"at": "band|base", "deg": 180.0}]
+#: The turn at the rim of the flat base of ``boom_like``, as the audit measures it, declared.
+BASE_CREASE = [{"at": "band|base", "deg": 87.0}]
 
 
 def resolved(raw, base=None):
@@ -155,7 +156,7 @@ def make_planes(angle_deg):
 
 @pytest.mark.parametrize("angle", [0.0, 10.0, 30.0, 90.0, 150.0])
 def test_the_audit_measures_a_fold_of_known_angle(angle):
-    result = audit_jumps(make_planes(angle), limit_deg=1.0, creases=[{"at": "x|y", "deg": 180}])
+    result = audit_jumps(make_planes(angle), limit_deg=1.0, creases=[{"at": "x|y", "deg": angle}])
     assert len(result["edges"]) == 1
     assert result["edges"][0]["jump_deg"] == pytest.approx(angle, abs=1e-6)
     assert result["failed"] == []
@@ -164,10 +165,26 @@ def test_the_audit_measures_a_fold_of_known_angle(angle):
 def test_a_fold_over_the_limit_fails_and_a_crease_at_the_right_angle_allows_it():
     planes = make_planes(30.0)
     assert audit_jumps(planes)["failed"] == [0]
-    assert audit_jumps(planes, creases=[{"at": "x|y", "deg": 29.0}])["failed"] == [0]
+    assert audit_jumps(planes, creases=[{"at": "x|y", "deg": 28.5}])["failed"] == [0]
     allowed = audit_jumps(planes, creases=[{"at": "x|y", "deg": 31.0}])
     assert allowed["failed"] == []
     assert allowed["edges"][0]["allowed_deg"] == 31.0
+
+
+@pytest.mark.parametrize("declared", [180.0, 90.0])
+def test_r12_001_a_crease_cannot_declare_away_a_larger_or_smaller_fold(declared):
+    # a crease states the turn it has: a 60 degree fold under a 180 or 90 degree crease fails
+    result = audit_jumps(make_planes(60.0), limit_deg=1.0, creases=[{"at": "x|y", "deg": declared}])
+    assert result["failed"] == [0]
+    assert bluff_jump_check(result)["status"] == "failed"
+
+
+def test_r12_001_a_crease_on_smooth_seams_does_not_hide_them():
+    # declaring every band seam a fold must not pass a body: its smooth seams are not folds
+    result = audit_jumps(body(three_stations()), creases=[{"at": "band|band", "deg": 180.0}])
+    assert result["failed"]
+    check = bluff_jump_check(result)
+    assert check["status"] == "failed" and check["measured"] > 179.0
 
 
 def test_a_crease_that_matches_no_edge_is_reported():
@@ -408,7 +425,8 @@ def test_an_open_front_shares_one_rim_with_its_parent():
 def test_a_boat_tail_after_a_sloping_run_has_no_kink_at_the_join():
     tail = {"boat_tail": {"x_cut": 0.95, "base_height": 0.3, "angle_limit_deg": 40.0}}
     component = three_stations(rear=tail)
-    result = audit_jumps(body(component), limit_deg=1.0, creases=BASE_CREASE)
+    rim = [{"at": "band|base", "deg": 81.5}]
+    result = audit_jumps(body(component), limit_deg=1.0, creases=rim)
     assert result["failed"] == []
     assert result["by_kind"]["band|band"] < 0.5
     run = height_at(component, np.array([0.75 - 1e-5, 0.75]))
