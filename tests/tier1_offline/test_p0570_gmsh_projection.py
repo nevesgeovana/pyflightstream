@@ -72,3 +72,19 @@ def test_p0570_reverse_sees_the_extension_when_the_kernel_returns_zero_parameter
     assert result["unrestricted_reverse"]["max_m"] > 1
     assert result["restricted_reverse"]["max_m"] < 1e-12
     assert result["reverse_excluded_boundary_samples"] > 0
+
+
+def test_p0570_r10_001_a_projection_beyond_the_bounds_is_never_read_closer(kernel, monkeypatch):
+    """R10-001: past the bounds the recovered point is a point of the face, never a nearer one."""
+    from pyflightstream.workspace._gmsh import closest_on_face
+
+    face = kernel.model.occ.addRectangle(0, 0, 0, 1, 1)
+    kernel.model.occ.synchronize()
+    asked = np.array([[1.0 + d, 0.5, 0.1] for d in (1e-3, 0.1, 1.0, 3.0)])
+    true_gap = np.linalg.norm(asked - np.clip(asked, [0, 0, 0], [1, 1, 0]), axis=1)
+    _zero_surface_parameters(monkeypatch, kernel)
+    xyz, uv = closest_on_face(kernel.model, face, asked)
+    at_uv = np.asarray(kernel.model.getValue(2, face, uv.ravel())).reshape(-1, 3)
+    assert at_uv == pytest.approx(xyz, abs=1e-12)
+    assert all(kernel.model.isInside(2, face, p, parametric=True) for p in uv)
+    assert np.all(np.linalg.norm(asked - xyz, axis=1) >= true_gap - 1e-12)

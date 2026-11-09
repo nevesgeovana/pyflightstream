@@ -123,8 +123,11 @@ def closest_on_face(model: Any, face: int, points: np.ndarray) -> tuple[np.ndarr
 
     gmsh 4.13 returns zeros for the parameters of a surface projection, and later versions return
     the true ones. Parameters that do not reproduce the projected point are recovered from the
-    point. Where the projection lies outside the surface's bounds that recovery stops at them, so
-    the returned point is the one at the returned parameters, never the projection beyond them.
+    point. Where the projection lies outside the surface's bounds, the recovered parameters are a
+    point of the surface inside its bounds but not the nearest one: it can lie far from the
+    projection (measured on 4.13, a plate). The returned point is always the one at the returned
+    parameters, never the projection beyond the bounds, so a distance to it is never shorter than
+    the distance to the surface; read it as an upper bound there.
     """
     xyz, uv = model.getClosestPoint(2, face, points.ravel())
     xyz = np.array(xyz, dtype=float).reshape(-1, 3)
