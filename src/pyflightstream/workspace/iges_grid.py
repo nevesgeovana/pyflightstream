@@ -38,7 +38,7 @@ from pyflightstream.versions import known_versions
 from pyflightstream.workspace._gmsh import gmsh_module, import_named, keep_components, session
 from pyflightstream.workspace._gmsh_worker import run_isolated
 from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
-from pyflightstream.workspace._iges_mesh import mesh_model
+from pyflightstream.workspace._iges_mesh import junction_checks, junction_warnings, mesh_model
 from pyflightstream.workspace._iges_names import (
     DEFAULT_NAME_ENCODING,
     named_curves,
@@ -72,8 +72,6 @@ _ON_CURVE_SHARE = 0.01
 _RIM_TURN_DEG = 60.0
 
 Faces = list[list[int]]
-#: The junction nodes whose distance to the original faces is measured, at most per pair.
-_JUNCTION_SAMPLES = 200
 
 
 def _order(config: GridConfig, found: list[str], known: list[str] | None = None) -> list[str]:
@@ -398,55 +396,6 @@ def _inner(
     return families, removed, skin
 
 
-def _junctions(
-    verts: NDArray[np.float64],
-    families: dict[str, Faces],
-    distance: Callable[[str, NDArray[np.float64]], float],
-    tolerance: float,
-) -> list[dict[str, Any]]:
-    """Check each junction, the nodes two components share, against both original components.
-
-    A node of the junction of ``a`` and ``b`` lies on the curve where the two surfaces cross,
-    so it must lie on the original face set of each. The distance of at most
-    :data:`_JUNCTION_SAMPLES` nodes (evenly spaced in node order) to each component is
-    measured with the geometry kernel; ``within_tolerance`` compares the larger one with the
-    join tolerance. The nodes are counted whole.
-    """
-    names = [n for n in families if families[n]]
-    nodes = {n: {v for f in families[n] for v in f} for n in names}
-    out: list[dict[str, Any]] = []
-    for i, a in enumerate(names):
-        for b in names[i + 1 :]:
-            common = sorted(nodes[a] & nodes[b])
-            if not common:
-                continue
-            step = max(1, len(common) // _JUNCTION_SAMPLES)
-            points = verts[common[::step]]
-            gaps = {a: distance(a, points), b: distance(b, points)}
-            out.append(
-                {
-                    "components": [a, b],
-                    "nodes": len(common),
-                    "checked": len(points),
-                    "distance": gaps,
-                    "tolerance": tolerance,
-                    "within_tolerance": max(gaps.values()) <= tolerance,
-                }
-            )
-    return out
-
-
-def _junction_warnings(junctions: list[dict[str, Any]]) -> list[str]:
-    """Return one warning for each junction whose nodes lie past the join tolerance."""
-    return [
-        f"junction of {' and '.join(entry['components'])}: {entry['nodes']} node(s) lie "
-        f"up to {max(entry['distance'].values()):.4g} from the original faces of the "
-        f"components, past the join tolerance {entry['tolerance']:.4g}"
-        for entry in junctions
-        if not entry["within_tolerance"]
-    ]
-
-
 def _toml_key(name: str) -> str:
     return json.dumps(name, ensure_ascii=False)
 
@@ -717,7 +666,7 @@ def _write(
         families[name], flips[name] = orient(verts, families[name])
     every = [f for faces in families.values() for f in faces]
     check = conformal(every, boundary)
-    junctions = [] if junction is None else _junctions(verts, families, *junction)
+    junctions = [] if junction is None else junction_checks(verts, families, *junction)
     per: dict[str, Any] = {}
     te: dict[str, set[tuple[int, int]]] = {}
     rims: dict[str, int] = {}
@@ -738,7 +687,7 @@ def _write(
             warnings += said
             if found:
                 te[name] = found
-    warnings += _junction_warnings(junctions)
+    warnings += junction_warnings(junctions)
     if check["conformal_mismatches"]:
         warnings.append(
             f"{check['conformal_mismatches']} open edge(s) are not boundaries of the body: two "

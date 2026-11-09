@@ -53,6 +53,34 @@ def test_p0570_select_nothing_is_refused():
         resolve_components(["Flap"], [])
 
 
+def test_r6_a_junction_checks_at_most_its_limit_and_warns_past_the_tolerance():
+    """R6-011: 399 shared nodes were all checked, and no test reached the warning."""
+    import numpy as np
+
+    from pyflightstream.workspace._iges_mesh import (
+        JUNCTION_SAMPLES,
+        junction_checks,
+        junction_warnings,
+    )
+
+    assert JUNCTION_SAMPLES == 200
+    verts = np.zeros((500, 3))
+    for shared in (399, 200, 201, 450):
+        families = {"A": [list(range(shared))], "B": [list(range(shared))], "C": [[499]]}
+        (entry,) = junction_checks(verts, families, lambda name, points: 0.5, 0.1)
+        assert entry["components"] == ["A", "B"]
+        assert entry["nodes"] == shared
+        assert entry["checked"] <= JUNCTION_SAMPLES
+        assert entry["checked"] >= JUNCTION_SAMPLES // 2
+        assert entry["within_tolerance"] is False
+        (message,) = junction_warnings([entry])
+        assert "junction of A and B" in message
+        assert "past the join tolerance" in message
+    (entry,) = junction_checks(verts, families, lambda name, points: 0.1, 0.1)
+    assert entry["within_tolerance"] is True
+    assert junction_warnings([entry]) == []
+
+
 def grid_with(tmp_path, capsys, *flags, text=PLATE_GRID):
     gmsh_or_skip()
     grid = grid_file(tmp_path, text)
