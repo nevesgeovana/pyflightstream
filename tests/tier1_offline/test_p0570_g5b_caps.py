@@ -140,28 +140,13 @@ def trailing(component):
     return [p for p in lifting_surface(component) if p.family.startswith("trailing_")]
 
 
-def test_g5b_linear_base_strip_is_degree_one_and_straight_across():
+def test_g5r_base_strip_is_removed_warns_and_leaves_the_bicubic_strips():
     _, plain = configuration()
-    _, linear = configuration(base_strip="linear")
-    assert {p.degree_u for p in trailing(plain)} == {3}
-    strips = trailing(linear)
-    assert len(strips) == len(trailing(plain))
-    for strip in strips:
-        assert (strip.degree_u, strip.degree_v) == (1, 3)
-        assert np.asarray(strip.controls).shape[0] == 2
-        lattice = strip.evaluate(9)
-        assert lattice[4] == pytest.approx((lattice[0] + lattice[-1]) / 2, abs=1e-12)
-    # The same surface as the bicubic strip, within the interpolation error.
-    for new, old in zip(strips, trailing(plain), strict=True):
-        assert new.evaluate(9) == pytest.approx(old.evaluate(9), abs=1e-9)
-    # The skin patches stay bicubic.
-    skin = [p for p in lifting_surface(linear) if not p.family.startswith("trailing_")]
-    assert {p.degree_u for p in skin} == {3}
-
-
-def test_g5b_base_strip_bad_input_is_refused_or_reported():
-    with pytest.raises(InputValueError, match="base_strip"):
-        configuration(base_strip="quadratic")
+    warnings, stated = configuration(base_strip="linear")
+    assert any(text.startswith("components.W.base_strip:") for text in warnings)
+    assert "base_strip" not in stated
+    assert {p.degree_u for p in trailing(stated)} == {3}
+    assert len(trailing(stated)) == len(trailing(plain))
     warnings, _ = configuration(base_strips="linear")
     assert any("base_strips" in text for text in warnings)
 

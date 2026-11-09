@@ -590,3 +590,243 @@ def test_tip_cap_shape_warns_is_skipped_and_is_listed_in_the_record():
         warnings=cfg["warnings"],
     )
     assert record["findings"] == cfg["findings"]
+
+
+# PFS-2220 G1R: the schema delta of the one-skin parametrization (key names provisional).
+
+KNOTS = [0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0]
+BSPLINE = {
+    "degree": 2,
+    "knots": KNOTS,
+    "poles": [[1.0, 0.0], [0.5, 0.1], [0.0, 0.0], [0.5, -0.1], [1.0, 0.0]],
+}
+
+
+def plain_wing(tmp_path, text):
+    path = tmp_path / "geometry.toml"
+    path.write_text(text, encoding="utf-8")
+    cfg = load_config(path)
+    return cfg, unpack(cfg)["components"]["w"]
+
+
+def test_g1r_minimal_wing_resolves_with_the_new_defaults_and_their_source(tmp_path):
+    cfg, w = plain_wing(
+        tmp_path,
+        """
+[aircraft]
+name = "t"
+
+[components.w]
+type = "lifting_surface"
+planform = {span = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral = 3.0}
+spanwise = {law = "ruled"}
+sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
+tip_cap = {kind = "rounded"}
+""",
+    )
+    s = w["sections"]
+    assert (s["form"], s["degree"], s["continuity"], s["pin"]) == ("bspline", 5, "C2", [])
+    assert s["tolerance"] == {"analytic": 2e-5, "file": 1e-4}
+    assert (w["spanwise"], w["root"]) == ({"law": "ruled", "lines": []}, "open")
+    assert "base_strip" not in w
+    sources = cfg["components"]["w"]
+    assert sources["spanwise"]["law"]["source"] == "given"
+    assert sources["spanwise"]["lines"]["source"] == "default"
+    assert sources["sections"]["continuity"]["source"] == "default"
+    assert cfg["warnings"] == []
+
+
+def test_g1r_every_new_key_given_keeps_its_value_and_source(tmp_path):
+    cfg, w = plain_wing(
+        tmp_path,
+        """
+[components.w]
+type = "lifting_surface"
+spanwise = {law = "smooth", lines = [0.3, 0.6]}
+root = "flat"
+sections.degree = 3
+sections.continuity = "C1"
+sections.tolerance = {analytic = 1e-5, file = 5e-5}
+sections.pin = [0.25, 0.7]
+""",
+    )
+    assert w["spanwise"] == {"law": "smooth", "lines": [0.3, 0.6]}
+    assert (w["root"], w["sections"]["degree"], w["sections"]["continuity"]) == ("flat", 3, "C1")
+    assert w["sections"]["tolerance"] == {"analytic": 1e-5, "file": 5e-5}
+    assert w["sections"]["pin"] == [0.25, 0.7]
+    src = cfg["components"]["w"]
+    assert src["spanwise"]["lines"]["source"] == "given"
+    assert src["sections"]["pin"]["source"] == "given"
+    assert src["root"]["source"] == "given"
+    assert src["sections"]["tolerance"]["file"]["source"] == "given"
+
+
+def test_g1r_bspline_section_item_resolves_and_gives_no_designation():
+    items = [{"eta": 0.0, "bspline": BSPLINE}, {"eta": 1.0, "naca": "0012"}]
+    w = unpack(resolve_config(lifting(sections={"items": items})))["components"]["w"]["sections"]
+    assert w["eta"] == [0.0, 1.0]
+    assert w["airfoils"] == ["", "NACA0012"]
+    assert w["items"][0]["bspline"]["knots"] == KNOTS
+
+
+@pytest.mark.parametrize(
+    ("mutate", "word"),
+    [
+        (lambda b: b.update(degree=0), "degree"),
+        (lambda b: b.update(knots=KNOTS[:-1]), "knots"),
+        (lambda b: b.update(knots=[0.0, 0.1, 0.2, 0.3, 0.7, 1.0, 1.0, 1.0]), "clamped"),
+        (lambda b: b.update(knots=[0.0, 0.0, 0.0, 0.9, 0.5, 1.0, 1.0, 1.0]), "nondecreasing"),
+        (lambda b: b.update(poles=[[1.0, 0.0, 0.0]] * 5), "poles"),
+        (lambda b: b.pop("poles"), "poles"),
+        (lambda b: b.update(knots=[0.0] * 8), "knots"),
+    ],
+)
+def test_g1r_bad_bspline_item_is_refused_naming_the_key(mutate, word):
+    spec = copy.deepcopy(BSPLINE)
+    mutate(spec)
+    items = [{"eta": 0.0, "bspline": spec}, {"eta": 1.0, "naca": "0012"}]
+    with pytest.raises(InputValueError, match=rf"items\[0\]\.bspline.*{word}"):
+        resolve_config(lifting(sections={"items": items}))
+
+
+def test_g1r_item_with_two_forms_or_a_misspelt_key_is_handled():
+    both = {"eta": 0.0, "naca": "0012", "bspline": BSPLINE}
+    with pytest.raises(InputValueError, match="bspline"):
+        resolve_config(lifting(sections={"items": [both, {"eta": 1.0, "naca": "0012"}]}))
+    typo = {"eta": 0.0, "bspline": BSPLINE, "bsplines": 1}
+    cfg = resolve_config(lifting(sections={"items": [typo, {"eta": 1.0, "naca": "0012"}]}))
+    assert any("items[0].bsplines: unknown key" in w for w in cfg["warnings"])
+
+
+def test_g1r_cst_form_is_an_input_route_with_a_warning_and_cubic_stays_refused():
+    cfg = resolve_config(lifting(sections={"form": "cst"}))
+    assert any("sections.form" in w and "bspline" in w for w in cfg["warnings"])
+    assert unpack(cfg)["components"]["w"]["sections"]["form"] == "bspline"
+    with pytest.raises(InputValueError, match="sections.form.*cubic"):
+        resolve_config(lifting(sections={"form": "cubic"}))
+
+
+@pytest.mark.parametrize(
+    ("extra", "word"),
+    [
+        ({"sections": {"continuity": "C3"}}, "sections.continuity"),
+        ({"sections": {"tolerance": {"file": 0}}}, "sections.tolerance.file"),
+        ({"sections": {"tolerance": {"analytic": "1e-5"}}}, "sections.tolerance.analytic"),
+        ({"sections": {"pin": [0.5, 0.25]}}, "sections.pin"),
+        ({"sections": {"pin": [0.0]}}, "sections.pin"),
+        ({"sections": {"pin": 0.25}}, "sections.pin"),
+        ({"spanwise": {"law": "ruledd"}}, "spanwise.law"),
+        ({"spanwise": {"lines": [0.0]}}, "spanwise.lines"),
+        ({"spanwise": {"lines": [0.6, 0.3]}}, "spanwise.lines"),
+        ({"spanwise": {"lines": 0.5}}, "spanwise.lines"),
+        ({"root": "closed"}, "root"),
+    ],
+)
+def test_g1r_bad_lifting_values_are_refused_naming_the_key(extra, word):
+    with pytest.raises(InputValueError, match=word):
+        resolve_config(lifting(**extra))
+
+
+def test_g1r_misspelt_keys_at_every_nesting_level_warn_and_are_skipped():
+    cfg = resolve_config(
+        lifting(
+            spanwise={"law": "ruled", "line": [0.5]},
+            sections={"tolerances": {"file": 1e-3}, "tolerance": {"files": 1e-3}},
+            roots="flat",
+        )
+    )
+    for key in (
+        "components.w.spanwise.line",
+        "components.w.sections.tolerances",
+        "components.w.sections.tolerance.files",
+        "components.w.roots",
+    ):
+        assert any(w.startswith(key + ":") for w in cfg["warnings"]), key
+    w = unpack(cfg)["components"]["w"]
+    assert w["spanwise"]["lines"] == [] and w["root"] == "open"
+
+
+def test_g1r_base_strip_warns_and_is_skipped_at_the_load_verb(tmp_path):
+    cfg, w = plain_wing(
+        tmp_path,
+        '[components.w]\ntype = "lifting_surface"\nbase_strip = "linear"\n',
+    )
+    assert any(text.startswith("components.w.base_strip:") for text in cfg["warnings"])
+    assert "base_strip" not in w
+
+
+def test_g1r_body_keys_resolve_with_defaults_and_are_checked():
+    w = unpack(resolve_config({"components": {"b": {"type": "body"}}}))["components"]["b"]
+    assert (w["regions"], w["nose_cap_fraction"], w["tolerance"], w["degree"]) == (
+        [],
+        0.004,
+        1e-4,
+        3,
+    )
+    given = {"regions": [0.3, 0.6], "nose_cap_fraction": 0.01, "tolerance": 2e-4, "degree": 5}
+    cfg = resolve_config({"components": {"b": {"type": "body", **given}}})
+    assert {k: unpack(cfg)["components"]["b"][k] for k in given} == given
+    assert cfg["components"]["b"]["degree"]["source"] == "given"
+    assert cfg["components"]["b"]["regions"]["source"] == "given"
+    assert cfg["components"]["b"]["tolerance"]["source"] == "given"
+
+
+@pytest.mark.parametrize(
+    ("extra", "word"),
+    [
+        ({"regions": [0.0]}, "regions"),
+        ({"regions": [0.6, 0.3]}, "regions"),
+        ({"regions": [1.0]}, "regions"),
+        ({"regions": "0.5"}, "regions"),
+        ({"nose_cap_fraction": 0}, "nose_cap_fraction"),
+        ({"nose_cap_fraction": 0.5}, "nose_cap_fraction"),
+        ({"tolerance": -1e-4}, "tolerance"),
+        ({"degree": 4}, "degree"),
+        ({"degree": True}, "degree"),
+    ],
+)
+def test_g1r_bad_body_values_are_refused_naming_the_key(extra, word):
+    with pytest.raises(InputValueError, match=word):
+        resolve_config({"components": {"b": {"type": "body", **extra}}})
+
+
+def test_g1r_c7_flap_aileron_and_engine_are_planform_relative_inputs(tmp_path):
+    cfg, w = plain_wing(
+        tmp_path,
+        """
+[aircraft]
+name = "t"
+
+[components.w]
+type = "lifting_surface"
+planform = {span = 12.0, aspect_ratio = 9.0, taper = 0.5}
+sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
+control_surfaces = [
+  {name = "flap", kind = "plain_flap", eta_in = 0.1, eta_out = 0.55},
+  {name = "aileron", kind = "aileron", eta_in = 0.55, eta_out = 0.95},
+]
+sections.nacelle_bounds = [{component = "engine", eta_in = 0.28, eta_out = 0.34}]
+
+[components.engine]
+type = "body"
+attach = {parent = "w", station = 0.31}
+""",
+    )
+    flap, aileron = w["control_surfaces"]
+    assert (flap["eta_in"], flap["eta_out"], aileron["eta_in"], aileron["eta_out"]) == (
+        0.1,
+        0.55,
+        0.55,
+        0.95,
+    )
+    assert w["sections"]["nacelle_bounds"][0]["eta_out"] == 0.34
+    assert cfg["warnings"] == []
+    again = tmp_path / "geometry.toml"
+    again.write_text(again.read_text().replace("span = 12.0", "span = 14.0"), encoding="utf-8")
+    other = unpack(load_config(again))["components"]["w"]
+    assert other["control_surfaces"] == w["control_surfaces"] and other["planform"]["span"] == 14.0
+    for eta in (1.2, -0.1):
+        bad = copy.deepcopy(w["control_surfaces"][0])
+        bad["eta_out"] = eta
+        with pytest.raises(InputValueError, match="eta_out"):
+            resolve_config(lifting(control_surfaces=[bad]))
