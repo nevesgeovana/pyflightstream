@@ -830,3 +830,26 @@ attach = {parent = "w", station = 0.31}
         bad["eta_out"] = eta
         with pytest.raises(InputValueError, match="eta_out"):
             resolve_config(lifting(control_surfaces=[bad]))
+
+
+@pytest.mark.parametrize(
+    ("kind", "given", "path"),
+    [
+        ("lifting_surface", {"spanwise": {"law": "smooth"}}, "w.spanwise.law"),
+        ("lifting_surface", {"spanwise": {"lines": [0.4]}}, "w.spanwise.lines"),
+        ("lifting_surface", {"root": "flat"}, "w.root"),
+        ("lifting_surface", {"sections": {"pin": [0.3]}}, "w.sections.pin"),
+        ("lifting_surface", {"sections": {"continuity": "C1"}}, "w.sections.continuity"),
+        ("lifting_surface", {"sections": {"tolerance": {"file": 5e-5}}}, "w.sections.tolerance"),
+        ("body", {"regions": [0.5]}, "w.regions"),
+        ("body", {"nose_cap_fraction": 0.01}, "w.nose_cap_fraction"),
+        ("body", {"tolerance": 2e-4}, "w.tolerance"),
+        ("body", {"degree": 5}, "w.degree"),
+    ],
+)
+def test_r16_002_a_new_key_the_generator_does_not_apply_yet_is_warned(kind, given, path):
+    """A value that resolves but changes no surface of this version says so (round 9's lesson)."""
+    warnings = resolve_config({"components": {"w": {"type": kind, **given}}})["warnings"]
+    assert [w for w in warnings if w.startswith(f"{path}:") and "does not apply" in w]
+    quiet = resolve_config({"components": {"w": {"type": kind}}})["warnings"]
+    assert not [w for w in quiet if "does not apply" in w]
