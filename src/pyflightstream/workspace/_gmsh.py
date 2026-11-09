@@ -28,10 +28,19 @@ from pyflightstream.workspace._iges_names import (
     read_iges_names,
 )
 
-__all__ = ["NamedModel", "gmsh_module", "import_iges", "import_named", "keep_components", "session"]
+__all__ = [
+    "NamedModel",
+    "gmsh_module",
+    "import_iges",
+    "import_named",
+    "keep_components",
+    "session",
+]
 
 #: The unit an OpenCASCADE IGES import returns its coordinates in, whatever the file states.
 IMPORT_UNIT = "MILLIMETER"
+#: The same unit as gmsh's target unit option names it.
+_OCC_IMPORT_UNIT = "MM"
 
 
 def gmsh_module(purpose: str) -> ModuleType:
@@ -69,9 +78,20 @@ def _quiet_stdout() -> Iterator[None]:
 
 
 def import_iges(gmsh: Any, path: str | Path) -> list[int]:
-    """Import one IGES file into the open model and return its faces, in import order."""
-    with _quiet_stdout():
-        out = gmsh.model.occ.importShapes(str(path), highestDimOnly=True)
+    """Import one IGES file into the open model and return its faces, in import order.
+
+    OpenCASCADE keeps the target unit of its last import in a process-wide static that an empty
+    gmsh option leaves alone and ``gmsh.finalize`` does not reset, so a session that once asked
+    for metres would change every later read in the process. The unit is named on every read and
+    the option the caller's session held is put back.
+    """
+    held = gmsh.option.getString("Geometry.OCCTargetUnit")
+    gmsh.option.setString("Geometry.OCCTargetUnit", _OCC_IMPORT_UNIT)
+    try:
+        with _quiet_stdout():
+            out = gmsh.model.occ.importShapes(str(path), highestDimOnly=True)
+    finally:
+        gmsh.option.setString("Geometry.OCCTargetUnit", held)
     return [tag for dim, tag in out if dim == 2]
 
 

@@ -24,6 +24,8 @@ FlightStream versions.
 - IGES component names retain embedded Latin-1 control bytes when records are read.
 - IGES guidance clarifies the node-number tie-break and the limit for a blunt base
   with multiple cells across its thickness; marking probe descriptions cover supported builds.
+- An IGES read stays in millimetres when an earlier gmsh session in the same process asked for
+  another target unit, which scaled the geometry by that unit's factor.
 
 ## [0.56.0] - 2026-11-06
 
