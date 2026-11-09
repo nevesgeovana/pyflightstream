@@ -521,10 +521,22 @@ def _resolve_component(name, raw, notes, base):
         for value in values:
             number(value, f"{name}.placement.{key}")
     number(component["attach"]["station"], f"{name}.attach.station", 0, 1)
-    if component.get("rings_file"):
-        if not (base / component["rings_file"]).is_file():
-            raise InputValueError(f"{name}.rings_file: file not found")
+    _check_data_files(name, component, base, notes["warnings"])
     return component, derived, raw
+
+
+def _check_data_files(name, component, base, warnings):
+    """Refuse a data file that holds geometry and is missing; warn about a missing original."""
+    needed = {key: component.get(key, "") for key in ("rings_file", "sections_file")}
+    sections = component.get("sections")
+    items = sections.get("items", []) if isinstance(sections, dict) else []
+    needed |= {f"sections.items[{i}].file": item.get("file", "") for i, item in enumerate(items)}
+    for key, path in needed.items():
+        if path and not (base / path).is_file():
+            raise InputValueError(f"{name}.{key}: file not found")
+    original = component.get("original", "").split("#")[0]
+    if original and not (base / original).is_file():
+        warnings.append(f"{name}.original: file not found; the distance checks are skipped")
 
 
 def _file_digests(components, base):

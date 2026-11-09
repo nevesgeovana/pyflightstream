@@ -713,3 +713,32 @@ def test_r9_010_fairing_hosts_in_the_wrong_order_are_refused_by_name():
                 }
             }
         )
+
+
+# R9-011: a data file that holds geometry and is missing refuses; a missing original warns.
+
+
+@pytest.mark.parametrize(
+    "piece",
+    [
+        {"type": "blister", "host": "h", "sections_file": "nope.csv"}
+        | {"stations": {"x": [0.0, 1.0]}, "profile": {"depth": 0.1}},
+        {"type": "lifting_surface"}
+        | {"sections": {"items": [{"eta": 0.0, "file": "nope.dat"}, {"eta": 1.0, "naca": "0012"}]}},
+    ],
+)
+def test_r9_011_a_missing_geometry_file_is_refused_by_name(piece, tmp_path):
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    with pytest.raises(InputValueError, match="file not found"):
+        resolve_config({"components": {"h": {"type": "body"}, "p": piece}}, base=tmp_path)
+
+
+def test_r9_011_a_missing_original_warns_and_is_not_refused(tmp_path):
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config(
+        {"components": {"h": {"type": "body", "original": "nope.igs#h"}}}, base=tmp_path
+    )
+    assert any("h.original" in text for text in resolved["warnings"])
