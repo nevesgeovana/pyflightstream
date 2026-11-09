@@ -209,7 +209,7 @@ def _rebuilt(error: dict[str, Any]) -> Exception:
         elif isinstance(found, type) and issubclass(found, Exception):
             rebuilt = found(message)
         else:
-            raise TypeError(name)
+            rebuilt = RuntimeError(f"the geometry worker raised {name}: {message}")
     except Exception:
         rebuilt = RuntimeError(f"the geometry worker raised {name}: {message}")
     trace = str(error.get("traceback") or "").strip()
