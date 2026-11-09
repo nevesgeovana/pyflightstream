@@ -81,6 +81,18 @@ def test_r6_a_junction_checks_at_most_its_limit_and_warns_past_the_tolerance():
     assert junction_warnings([entry]) == []
 
 
+def test_r6_each_healed_face_keeps_its_component(tmp_path, capsys):
+    """R6-013: the model follows the healed tags by position; the plate must stay the plate."""
+    target, _, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    mesh = read_obj(target)
+    reach = {
+        name: mesh.verts[sorted({v for face in faces for v in face})].max(axis=0)
+        for name, faces in mesh.families.items()
+    }
+    assert reach["Flap"][1] == pytest.approx(2 * reach["Plate"][1])  # the flap is the upper one
+    assert reach["Plate"][0] == pytest.approx(2 * reach["Flap"][0])  # the plate is the wide one
+
+
 def grid_with(tmp_path, capsys, *flags, text=PLATE_GRID):
     gmsh_or_skip()
     grid = grid_file(tmp_path, text)
