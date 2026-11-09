@@ -123,6 +123,16 @@ def _check_physical(name, physical, raw, warnings):
         raise InputValueError(f"{name}.sections.physical: {', '.join(missing)} required")
 
 
+def _check_item_degree(path, item, degree):
+    """Refuse a ``bspline`` item of a degree above the surface's: it cannot be lowered exactly."""
+    spec = item.get("bspline")
+    if isinstance(spec, dict) and isinstance(degree, int) and spec["degree"] > degree:
+        raise InputValueError(
+            f"{path}.bspline.degree: {spec['degree']} is above sections.degree {degree}; a "
+            "section is read exactly and its degree can be raised to the surface's, not lowered"
+        )
+
+
 def _check_sections(name, component, raw, warnings):
     """Resolve ``sections.items`` into the legacy airfoil and station lists, check the rest."""
     section = component["sections"]
@@ -141,6 +151,7 @@ def _check_sections(name, component, raw, warnings):
     forms = [_item_form(name, i, item) for i, item in enumerate(items)]
     for i, (item, form) in enumerate(zip(items, forms, strict=True)):
         known_keys(item, _ITEM_KEYS_BY_FORM[form], f"{name}.sections.items[{i}]", warnings)
+        _check_item_degree(f"{name}.sections.items[{i}]", item, section["degree"])
     stations([item["eta"] for item in items], f"{name}.sections.items", 1)
     section["eta"] = [item["eta"] for item in items]
     section["airfoils"] = [

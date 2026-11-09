@@ -360,6 +360,17 @@ def _check_knots(path, knots, count, degree):
         raise InputValueError(f"{path}.knots: expected a nondecreasing vector that spans")
     if len(set(knots[: degree + 1])) != 1 or len(set(knots[-degree - 1 :])) != 1:
         raise InputValueError(f"{path}.knots: expected a clamped vector")
+    _check_interior(path, knots[degree + 1 : -degree - 1], degree)
+
+
+def _check_interior(path, interior, degree):
+    """Refuse an interior knot repeated more than ``degree`` times: the curve would break there."""
+    for value in set(interior):
+        if interior.count(value) > degree:
+            raise InputValueError(
+                f"{path}.knots: interior knot {value} repeated {interior.count(value)} times, "
+                f"more than the degree {degree}, so the section is not one curve"
+            )
 
 
 def check_section_law(name, section, warnings):

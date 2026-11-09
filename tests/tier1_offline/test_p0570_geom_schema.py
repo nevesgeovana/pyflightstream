@@ -832,6 +832,22 @@ attach = {parent = "w", station = 0.31}
             resolve_config(lifting(control_surfaces=[bad]))
 
 
+@pytest.mark.parametrize(
+    ("spec", "section_degree", "word"),
+    [
+        ({"degree": 1, "knots": [0.0, 0.0, 0.5, 0.5, 0.7, 1.0, 1.0]}, 5, "interior knot"),
+        ({}, 1, "degree"),
+    ],
+)
+def test_r16_004_a_bspline_item_the_section_form_cannot_hold_is_refused(spec, section_degree, word):
+    """A repeated interior knot breaks the curve; a degree above the surface's cannot be lowered."""
+    item = {**copy.deepcopy(BSPLINE), **spec}
+    items = [{"eta": 0.0, "bspline": item}, {"eta": 1.0, "naca": "0012"}]
+    raw = lifting(sections={"items": items, "degree": section_degree})
+    with pytest.raises(InputValueError, match=rf"items\[0\]\.bspline.*{word}"):
+        resolve_config(raw)
+
+
 def test_r16_003_c7_area_at_fixed_aspect_ratio_and_an_over_determined_planform_named():
     """C7: SREF varies at fixed AR from the area form; a third primary key names the rule."""
 
