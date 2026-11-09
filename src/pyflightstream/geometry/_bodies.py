@@ -221,7 +221,7 @@ def check_boat_tail(component) -> None:
     """Refuse a boat-tail closure whose steepest slope exceeds ``angle_limit_deg``.
 
     The slope is the angle of the profile to the axis, over the closure from the last station to
-    ``x_cut``. Does nothing for another rear.
+    ``x_cut``, on the side, the crown and the keel alike. Does nothing for another rear.
 
     Raises
     ------
@@ -233,7 +233,10 @@ def check_boat_tail(component) -> None:
     form = component["rear"]["boat_tail"]
     law = _hermite(form, body_station_table(component))
     _, derivative = law(np.linspace(float(component["stations"][-1]), form["x_cut"], 401))
-    steepest = np.max(np.abs(derivative[..., 1])) / component["length"]
+    # the side runs with the width; the crown and the keel with the centre plus or minus height
+    width, height, centre = np.moveaxis(derivative, -1, 0)
+    lines = np.stack([width, centre + height, centre - height])
+    steepest = np.max(np.abs(lines)) / component["length"]
     angle = float(np.degrees(np.arctan(steepest)))
     if angle > form["angle_limit_deg"] + 1e-9:
         raise InputValueError(

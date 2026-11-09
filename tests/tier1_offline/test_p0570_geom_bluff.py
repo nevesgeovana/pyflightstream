@@ -296,6 +296,22 @@ def test_a_boat_tail_angle_limit_too_small_is_refused_at_resolve():
         resolved({"rear": tail, "length": 12.0})
 
 
+def test_r12_004_the_angle_limit_holds_on_the_side_of_a_wide_body():
+    # width 1.0 over height 0.3: the crown closes at about 12.5 degrees, the side at about 36.5
+    flat = {"shape": "superellipse", "width": 1.0, "height": 0.3, "n_top": 2.0, "n_bottom": 2.0}
+    sections = [{"at": x, **flat} for x in (0.2, 0.5, 0.8)]
+    tail = {"boat_tail": {"x_cut": 0.95, "base_height": 0.05, "angle_limit_deg": 20.0}}
+    raw = {"length": 10.0, "sections": sections, "stations": [0.2, 0.5, 0.8], "rear": tail}
+    with pytest.raises(InputValueError, match="angle_limit_deg"):
+        resolved(raw)
+    tail["boat_tail"]["angle_limit_deg"] = 40.0
+    component = unpack(resolved(raw))["components"]["COMPONENT"]
+    x = np.linspace(0.8, 0.95, 3001)
+    side = body_points(component, body_station_table(component), x, np.pi / 2)[..., 1]
+    slope = np.max(np.abs(np.diff(side) / np.diff(x * 10.0)))
+    assert 30.0 < np.degrees(np.arctan(slope)) <= 40.0 + 1e-6
+
+
 @pytest.mark.parametrize("x_cut", [0.5, 0.75])
 def test_a_boat_tail_must_start_beyond_the_last_station(x_cut):
     tail = {"boat_tail": {"x_cut": x_cut, "base_height": 0.1, "angle_limit_deg": 80.0}}
