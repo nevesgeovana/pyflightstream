@@ -212,6 +212,37 @@ def test_p0570_fix5_a_point_already_moved_home_counts_its_outputs_there(tmp_path
     assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
 
 
+def test_p0570_fix5_a_job_with_no_end_evidence_keeps_its_last_point_until_the_verb(tmp_path):
+    """PFS-2219 (open): on export_log = false with no job_end_files, the last point waits.
+
+    The package cannot tell this finished job from a running one: no ``.end.json`` (written
+    under ``--local`` only), no job log (the script exports one only when its points export
+    theirs) and no end files. Every earlier point is judged; the last has no later marker, so
+    it stays SUBMITTED with no log and no RAN_MISSING_LOG, which is what was reported. This
+    pins the state until PFS-2219 decides it, and pins that the verb gets the point out of it.
+    """
+    workspace = home.grouped_workspace(
+        tmp_path / "w", mode="batch", collect=False, logs=False, ended=False, profile_tail=NATIVE
+    )
+    job = workspace.read_manifest()[0].submission["job"]
+    master = workspace.root / job["dir"] / _scheduler_name(job)
+    master.write_text(_master_text(job), encoding="utf-8")
+    assert not list(master.parent.glob("*.end.json")) and not list(master.parent.glob("*job-log*"))
+    collect_once(workspace, interval=0.0, sleep=no_sleep)
+    last = next(r for r in workspace.read_manifest() if r.submission["job"]["order"] == 3)
+    assert last.status is RunStatus.SUBMITTED and not _point_log(workspace, last)
+    for record in workspace.read_manifest():
+        if record.run_id != last.run_id:
+            assert record.status is not RunStatus.SUBMITTED, record.run_id
+    assert search_log_batch(workspace.root, apply=True)["written"] == [last.run_id]
+    collect_once(workspace, interval=0.0, sleep=no_sleep)
+    judged = _rows(workspace)[last.run_id]
+    assert (
+        judged.status is not RunStatus.SUBMITTED and judged.status is not RunStatus.RAN_MISSING_LOG
+    )
+    assert SENTINEL in _point_log(workspace, judged)[0].read_text(encoding="utf-8")
+
+
 def test_p0570_fix5_a_simulation_no_batch_holds_is_named(tmp_path, capsys):
     """PFS-2218: --sims with an id no batch holds says so, not that nothing is missing a log."""
     workspace = _workspace(tmp_path)
