@@ -26,26 +26,21 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from pyflightstream._errors import InputValueError
-from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.geometry.component import DEVIATION_PROFILES
-from pyflightstream.workspace._gmsh import closest_on_face, gmsh_module, import_named
+from pyflightstream.workspace._cad import CadKernel, Face
+from pyflightstream.workspace._gmsh import GmshKernel, gmsh_module, open_kernel
 
 __all__ = ["check_against_original", "local_limits"]
 
 _PURPOSE = "checking a rebuilt surface against an original"
 
 
-def import_component(path, name=None):
+def import_component(kernel, path, name=None):
     """Import an IGES file at metre scale and return the faces of one component, or all of them."""
-    gmsh = gmsh_module(_PURPOSE)
-    named = import_named(gmsh, [path])
-    factor = float(METRES_PER_UNIT[named.unit])
-    if factor != 1.0:
-        gmsh.model.occ.dilate([(2, t) for t in named.faces], 0, 0, 0, factor, factor, factor)
-        gmsh.model.occ.synchronize()
+    named = kernel.import_iges(path)
     selected = [
-        tag
-        for tag, label in zip(named.faces, named.names, strict=True)
+        face
+        for face, label in zip(named.faces, named.names, strict=True)
         if name is None or label == name
     ]
     if not selected:
@@ -54,7 +49,7 @@ def import_component(path, name=None):
 
 
 def surface_tags(surfaces):
-    """Return the OCC surface tags of ``surfaces``, given as tags or ``(2, tag)`` pairs."""
+    """Return the faces of ``surfaces``, given as OCC tags or ``(2, tag)`` pairs."""
     tags = [
         int(item[1])
         if isinstance(item, (tuple, list)) and len(item) == 2 and item[0] == 2
@@ -63,32 +58,23 @@ def surface_tags(surfaces):
     ]
     if not tags or len(set(tags)) != len(tags):
         raise InputValueError("component_surfaces: nonempty unique OCC surface tags required")
-    return tags
+    return [Face(tag) for tag in tags]
 
 
-def resolve_faces(value, name=None):
-    """Return face tags for an IGES path (optionally ``path#component``) or a list of tags."""
+def resolve_faces(kernel, value, name=None):
+    """Return faces for an IGES path (optionally ``path#component``) or a list of tags."""
     if isinstance(value, (str, Path)):
         path, separator, component = str(value).partition("#")
-        return import_component(path, component if separator else name)
+        return import_component(kernel, path, component if separator else name)
     return surface_tags(value)
 
 
-def edges_of(faces):
-    gmsh = gmsh_module(_PURPOSE)
-    return sorted(
-        {
-            abs(tag)
-            for face in faces
-            for dim, tag in gmsh.model.getBoundary([(2, face)], combined=False, oriented=False)
-            if dim == 1
-        }
-    )
+def edges_of(kernel, faces):
+    return sorted({abs(edge) for face in faces for edge in kernel.boundary(face)})
 
 
-def face_samples(face, count):
-    gmsh = gmsh_module(_PURPOSE)
-    low, high = map(np.asarray, gmsh.model.getParametrizationBounds(2, face))
+def face_samples(kernel, face, count):
+    low, high = map(np.asarray, kernel.uv_bounds(face))
     axis = (np.arange(count) + 0.5) / count
     uv = np.stack(
         np.meshgrid(
@@ -96,91 +82,72 @@ def face_samples(face, count):
         ),
         axis=-1,
     ).reshape(-1, 2)
-    inside = np.array([bool(gmsh.model.isInside(2, face, point, parametric=True)) for point in uv])
-    uv = uv[inside]
-    xyz = (
-        np.asarray(gmsh.model.getValue(2, face, uv.ravel())).reshape(-1, 3)
-        if len(uv)
-        else np.empty((0, 3))
-    )
+    uv = uv[kernel.inside(face, uv)]
+    xyz = np.asarray(kernel.values(face, uv)) if len(uv) else np.empty((0, 3))
     return xyz, uv, (low, high)
 
 
-def edge_samples(edge, count):
-    gmsh = gmsh_module(_PURPOSE)
-    low, high = gmsh.model.getParametrizationBounds(1, edge)
+def edge_samples(kernel, edge, count):
+    low, high = kernel.edge_bounds(edge)
     try:
-        return np.asarray(
-            gmsh.model.getValue(1, edge, np.linspace(low[0], high[0], count))
-        ).reshape(-1, 3)
+        return np.asarray(kernel.edge_values(edge, np.linspace(low, high, count)))
     except Exception:
-        vertices = gmsh.model.getBoundary([(1, edge)], oriented=False)
-        return np.asarray([gmsh.model.getValue(0, abs(v), []) for _, v in vertices]).reshape(-1, 3)
+        return np.asarray(kernel.edge_ends(edge)).reshape(-1, 3)
 
 
-def sample_surfaces(faces, count, edge_count):
+def sample_surfaces(kernel, faces, count, edge_count):
     points, coverage = [], []
     for face in faces:
-        xyz, _, _ = face_samples(face, count)
+        xyz, _, _ = face_samples(kernel, face, count)
         used = count
         while not len(xyz) and used < 257:
             used = used * 2 + 1
-            xyz, _, _ = face_samples(face, used)
+            xyz, _, _ = face_samples(kernel, face, used)
         if not len(xyz):
-            raise InputValueError(f"sampling: face {face} has no sampled trimmed interior")
+            raise InputValueError(f"sampling: face {face.tag} has no sampled trimmed interior")
         points.append(xyz)
-        coverage.append(dict(face=int(face), interior_samples=len(xyz), lattice=used))
-    for edge in edges_of(faces):
-        points.append(edge_samples(edge, edge_count))
+        coverage.append(dict(face=face.tag, interior_samples=len(xyz), lattice=used))
+    for edge in edges_of(kernel, faces):
+        points.append(edge_samples(kernel, edge, edge_count))
     result = np.concatenate(points)
     if not np.all(np.isfinite(result)):
         raise InputValueError("sampling: nonfinite coordinates")
     return result, coverage
 
 
-def box_lower_bound(points, dim, tag):
-    gmsh = gmsh_module(_PURPOSE)
-    box = np.asarray(gmsh.model.getBoundingBox(dim, tag))
-    return np.linalg.norm(np.maximum(np.maximum(box[:3] - points, points - box[3:]), 0), axis=1)
+def box_lower_bound(points, box):
+    low, high = (np.asarray(corner) for corner in box)
+    return np.linalg.norm(np.maximum(np.maximum(low - points, points - high), 0), axis=1)
 
 
-def edge_distance(points, edge):
+def edge_distance(kernel, points, edge):
     """Recover curve parameters from XYZ; batched OCC returned parameters are unreliable."""
-    gmsh = gmsh_module(_PURPOSE)
-    low, high = gmsh.model.getParametrizationBounds(1, edge)
     try:
-        xyz, _ = gmsh.model.getClosestPoint(1, edge, points.ravel())
-        parameter = gmsh.model.getParametrization(1, edge, xyz)
-        projected = np.asarray(
-            gmsh.model.getValue(1, edge, np.clip(parameter, low[0], high[0]))
-        ).reshape(-1, 3)
+        projected = np.asarray(kernel.edge_project(edge, points))
         distance = np.linalg.norm(points - projected, axis=1)
-        endpoints = edge_samples(edge, 2)
+        endpoints = edge_samples(kernel, edge, 2)
         return np.minimum(distance, cKDTree(endpoints).query(points)[0])
     except Exception:
-        vertices = gmsh.model.getBoundary([(1, edge)], oriented=False)
-        if not vertices:
+        xyz = np.asarray(kernel.edge_ends(edge)).reshape(-1, 3)
+        if not len(xyz):
             raise InputValueError(
                 f"projection: edge {edge} has neither curve nor vertex witness"
             ) from None
-        xyz = np.asarray([gmsh.model.getValue(0, abs(v), []) for _, v in vertices])
         return cKDTree(xyz).query(points)[0]
 
 
-def surface_distance(points, face, seed_xyz, seed_uv, bounds):
-    gmsh = gmsh_module(_PURPOSE)
+def surface_distance(kernel, points, face, seed_xyz, seed_uv, bounds):
     low, high = bounds
-    xyz, uv = closest_on_face(gmsh.model, face, points)
-    valid = np.array([bool(gmsh.model.isInside(2, face, p, parametric=True)) for p in uv])
-    distance = np.where(valid, np.linalg.norm(points - xyz, axis=1), np.inf)
+    xyz, uv = kernel.project(face, points)
+    distance = np.where(kernel.inside(face, uv), np.linalg.norm(points - xyz, axis=1), np.inf)
     uv = seed_uv[cKDTree(seed_xyz).query(points)[1]].copy()
     moving = np.arange(len(points))
     for _ in range(20):
         if not len(moving):
             break
         here = uv[moving]
-        xyz = np.asarray(gmsh.model.getValue(2, face, here.ravel())).reshape(-1, 3)
-        derivative = np.asarray(gmsh.model.getDerivative(2, face, here.ravel())).reshape(-1, 2, 3)
+        xyz = np.asarray(kernel.values(face, here))
+        derivative = np.asarray(kernel.derivatives(face, here))
         residual = xyz - points[moving]
         a = np.sum(derivative[:, 0] ** 2, axis=1)
         b = np.sum(derivative[:, 0] * derivative[:, 1], axis=1)
@@ -194,31 +161,32 @@ def surface_distance(points, face, seed_xyz, seed_uv, bounds):
         )
         uv[moving] = updated
         moving = moving[np.max(abs(updated - here) / np.maximum(high - low, 1e-30), axis=1) > 1e-11]
-    xyz = np.asarray(gmsh.model.getValue(2, face, uv.ravel())).reshape(-1, 3)
-    valid = np.array([bool(gmsh.model.isInside(2, face, p, parametric=True)) for p in uv])
+    xyz = np.asarray(kernel.values(face, uv))
+    valid = kernel.inside(face, uv)
     return np.minimum(distance, np.where(valid, np.linalg.norm(points - xyz, axis=1), np.inf))
 
 
-def nearest(points, faces, boundary_tolerance=1e-8):
+def nearest(kernel, points, faces, boundary_tolerance=1e-8):
     """Reuse SMIGEOM4's bounded candidate selection and seeded projection algorithm."""
-    gmsh = gmsh_module(_PURPOSE)
     seeds = {}
     for face in faces:
-        xyz, uv, bounds = face_samples(face, 17)
+        xyz, uv, bounds = face_samples(kernel, face, 17)
         if not len(xyz):
-            xyz = np.concatenate([edge_samples(e, 17) for e in edges_of([face])])
-            uv = np.asarray(gmsh.model.getParametrization(2, face, xyz.ravel())).reshape(-1, 2)
+            xyz = np.concatenate([edge_samples(kernel, e, 17) for e in edges_of(kernel, [face])])
+            uv = np.asarray(kernel.parametrize(face, xyz))
         seeds[face] = xyz, uv, bounds
     best = cKDTree(np.concatenate([entry[0] for entry in seeds.values()])).query(points)[0]
     for face, seed in seeds.items():
-        ids = np.flatnonzero(box_lower_bound(points, 2, face) <= best + boundary_tolerance)
+        near = box_lower_bound(points, kernel.bbox(face)) <= best + boundary_tolerance
+        ids = np.flatnonzero(near)
         if len(ids):
-            best[ids] = np.minimum(best[ids], surface_distance(points[ids], face, *seed))
+            best[ids] = np.minimum(best[ids], surface_distance(kernel, points[ids], face, *seed))
     boundary = np.full(len(points), np.inf)
-    for edge in edges_of(faces):
-        ids = np.flatnonzero(box_lower_bound(points, 1, edge) <= best + boundary_tolerance)
+    for edge in edges_of(kernel, faces):
+        near = box_lower_bound(points, kernel.edge_bbox(edge)) <= best + boundary_tolerance
+        ids = np.flatnonzero(near)
         if len(ids):
-            boundary[ids] = np.minimum(boundary[ids], edge_distance(points[ids], edge))
+            boundary[ids] = np.minimum(boundary[ids], edge_distance(kernel, points[ids], edge))
     distance = np.minimum(best, boundary)
     if not np.all(np.isfinite(distance)):
         raise InputValueError("projection: no finite valid witness")
@@ -250,6 +218,14 @@ def local_limits(points, limits, profile="study_default"):
     if np.any(~np.isfinite(chord)) or np.any(chord <= 0):
         raise InputValueError("limits: positive finite local chord required")
     return np.maximum(constants["floor_mm"] / 1000, constants["local_fraction"] * chord)
+
+
+def _kernel() -> tuple[CadKernel, bool]:
+    """Return the kernel of the model already open, or a new one the caller closes."""
+    gmsh = gmsh_module(_PURPOSE)
+    if gmsh.isInitialized():
+        return GmshKernel(gmsh), False
+    return open_kernel(_PURPOSE), True
 
 
 def _profile(profile):
@@ -345,15 +321,10 @@ def check_against_original(
     for key in ("forward_count", "reverse_count", "edge_count"):
         if key in limits and limits[key] < 1:
             raise InputValueError(f"limits.{key}: at least one sample required")
-    gmsh = gmsh_module(_PURPOSE)
-    own_session = not gmsh.isInitialized()
-    if own_session:
-        gmsh.initialize(readConfigFiles=False)
-        gmsh.option.setNumber("General.Terminal", 0)
-        gmsh.model.add("geometry-check")
+    kernel, own_session = _kernel()
     try:
-        new_faces = resolve_faces(rebuilt, limits.get("component"))
-        old_faces = resolve_faces(original, limits.get("component"))
+        new_faces = resolve_faces(kernel, rebuilt, limits.get("component"))
+        old_faces = resolve_faces(kernel, original, limits.get("component"))
         for i in limits.get("exclude_faces") or []:
             if not 0 <= i < len(old_faces):
                 raise InputValueError(
@@ -361,19 +332,23 @@ def check_against_original(
                     f"{len(old_faces) - 1}"
                 )
         excluded = [
-            {"index": int(i), "tag": int(old_faces[i])} for i in (limits.get("exclude_faces") or [])
+            {"index": int(i), "tag": old_faces[i].tag} for i in (limits.get("exclude_faces") or [])
         ]
         drop = {e["index"] for e in excluded}
         old_faces = [f for i, f in enumerate(old_faces) if i not in drop]
         edge_count = limits.get("edge_count", 101)
-        old, old_coverage = sample_surfaces(old_faces, limits.get("forward_count", 45), edge_count)
-        new, new_coverage = sample_surfaces(new_faces, limits.get("reverse_count", 31), edge_count)
+        old, old_coverage = sample_surfaces(
+            kernel, old_faces, limits.get("forward_count", 45), edge_count
+        )
+        new, new_coverage = sample_surfaces(
+            kernel, new_faces, limits.get("reverse_count", 31), edge_count
+        )
         if limits.get(
             "fold_y"
         ):  # half-body original: the rebuilt mirror half folds onto the modelled side
             new = np.c_[new[:, 0], -np.abs(new[:, 1]), new[:, 2]]
-        forward, _ = nearest(old, new_faces)
-        reverse, interior = nearest(new, old_faces)
+        forward, _ = nearest(kernel, old, new_faces)
+        reverse, interior = nearest(kernel, new, old_faces)
         f = statistics(old, forward, limits, profile)
         r = statistics(new[interior], reverse[interior], limits, profile)
         return {
@@ -402,4 +377,4 @@ def check_against_original(
         }
     finally:
         if own_session:
-            gmsh.finalize()
+            kernel.close()
