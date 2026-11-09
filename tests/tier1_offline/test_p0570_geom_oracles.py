@@ -33,9 +33,11 @@ def test_degree_eight_cst_of_naca0012_matches_the_thickness_equation():
     )
     wrong_class = cst_airfoil(x, fit["upper"], fit["lower"], fit["trailing_edge_thickness"], n1=0.4)
     wrong = (wrong_class[0][:, 1] - wrong_class[1][:, 1]) / 2
-    assert right < 2e-3
+    # R14-007: the bound is the fit tolerance, so the closed-trailing-edge constant (up to
+    # 1.2e-3 away near the trailing edge) cannot pass where the published one does.
+    assert right < 5e-4
     assert float(np.max(np.abs(wrong - _naca0012_half_thickness(x)))) > 10 * right
-    assert float(np.max(np.abs(wrong_constant - _naca0012_half_thickness(x)))) > 0
+    assert float(np.max(np.abs(wrong_constant - _naca0012_half_thickness(x)))) > 5e-4
 
 
 def _curve(knots, degree, points, t):
