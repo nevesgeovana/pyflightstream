@@ -14,8 +14,10 @@ source; ``configurations`` and ``stages`` list what a configuration and the pipe
 ``add-control-surface`` and ``split-symmetry`` edit a written IGES.
 
 Exit codes: 0 accepted, 1 a run failed at a stage (the report names the stage and the check),
-2 an input is refused or the gmsh library cannot load, with the message on standard error.
-For ``doe`` the code is the worst of its sets.
+2 an input is refused or the gmsh library cannot load, with the message on standard error,
+3 incomplete: no check failed but a check of the stage table was not measured (a stage not
+built), and the report lists each one in ``not_run``. For ``doe`` the code is the worst of its
+sets, refused over failed over incomplete over accepted.
 """
 
 from __future__ import annotations
@@ -70,6 +72,10 @@ def _read_sets(path: str) -> list[dict[str, Any]]:
     return [dict(row) for row in data["sets"]]
 
 
+#: The order of the exit codes from best to worst, for the code of a loop of sets.
+_RANK = (0, 3, 1, 2)
+
+
 def _print_report(report: dict[str, Any]) -> int:
     print(json.dumps(report, indent=2, default=str))
     return exit_code(report)
@@ -113,7 +119,7 @@ def _doe(args: argparse.Namespace) -> int:
                 workers=args.workers,
             )
         )
-        worst = max(exit_code(r) for r in reports)
+        worst = max((exit_code(r) for r in reports), key=_RANK.index)
         return {
             "sets": [{"name": n, "report": r} for n, r in zip(names, reports, strict=True)],
             "accepted": worst == 0,
@@ -248,7 +254,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Run ``pyfs-geom``; returns the process exit code (0 accepted, 1 failed, 2 refused)."""
+    """Run ``pyfs-geom``; returns the exit code (0 accepted, 1 failed, 2 refused, 3 incomplete)."""
     args = _build_parser().parse_args(argv)
     handler = getattr(args, "handler", None) or args.mesh_command
     try:

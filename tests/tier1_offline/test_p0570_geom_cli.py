@@ -116,7 +116,7 @@ def test_p0570_g3_doe_continues_after_a_failed_set_and_names_each_set(
     assert code == 1 and result["accepted"] is False
     rows = result["sets"]
     assert [r["name"] for r in rows] == ["low", "mid", "set-0003"]
-    assert [r["report"]["status"] for r in rows] == ["accepted", "failed", "accepted"]
+    assert [r["report"]["status"] for r in rows] == ["incomplete", "failed", "incomplete"]
     assert (rows[1]["report"]["stage"], rows[1]["report"]["check"]) == ("S4", "law.monotonic")
 
 
@@ -135,7 +135,25 @@ def test_p0570_g3_doe_reports_a_refused_set_and_still_runs_the_next(demo, tmp_pa
     sets.write_text("[[sets]]\n'FUS.nope' = 1\n[[sets]]\n'FUS.length' = 3.5\n", encoding="utf-8")
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S2"], capsys)
     statuses = [r["report"]["status"] for r in printed(out)["sets"]]
-    assert code == 2 and statuses == ["refused", "accepted"]
+    assert code == 2 and statuses == ["refused", "incomplete"]
+
+
+def test_p0570_r18_001_run_through_unbuilt_stages_exits_3_and_doe_ranks_failed_over_it(
+    demo, tmp_path, capsys, monkeypatch
+):
+    code, out, _ = geom(["run", demo, "--out", tmp_path / "o", "--until", "S3"], capsys)
+    report = printed(out)
+    assert code == 3 and report["status"] == "incomplete"
+    assert "S2 identity.listed" in report["not_run"]
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
+    _plant(monkeypatch, when_length=3.0)
+    sets = tmp_path / "sets.toml"
+    sets.write_text("[[sets]]\n'FUS.length' = 2.5\n[[sets]]\n'FUS.length' = 3.0\n", "utf-8")
+    code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S9"], capsys)
+    assert code == 1 and printed(out)["accepted"] is False
+    sets.write_text("[[sets]]\n'FUS.length' = 2.5\n", "utf-8")
+    code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "e", "--until", "S9"], capsys)
+    assert code == 3 and printed(out)["accepted"] is False
 
 
 def test_p0570_g3_validate_prints_every_value_with_its_source(demo, tmp_path, capsys):

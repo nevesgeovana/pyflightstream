@@ -46,7 +46,10 @@ the components back. `--configuration NAME` generates only the components of an 
 `run` executes the stages S0 to S13 in order (`--until` ends earlier; a run to S9 needs no
 kernel), writes one record per stage and `report.json`, and stops at the first failed check: the
 report names that stage and check with the value measured and the limit, and the exit code is 1.
-An input the pipeline refuses exits 2 with the reason. `--set component.key=value` overrides one
+An input the pipeline refuses exits 2 with the reason. A run where no check failed but a check
+of the stage table was not measured (a stage this version does not build yet) is `incomplete`,
+exit 3, and its report lists each such check under `not_run`; only a run that measured every
+check is `accepted`, exit 0. `--set component.key=value` overrides one
 value (an unknown name is refused). `pyfs-geom doe wing.toml sets.toml --out out` runs one report
 per `[[sets]]` table of the second file and continues after a failed set, each in a worker
 process of its own. `pyfs-geom stages` lists the stages and their checks, `validate` prints every

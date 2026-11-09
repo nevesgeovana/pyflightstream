@@ -9,7 +9,9 @@ of parameter sets continues after a failed one (:func:`run_doe`, each set in a w
 its own, so a fault of the kernel ends that set only).
 
 A stage with no function in this tree is recorded with every check ``skipped`` and the reason,
-and the report says so in its warnings: a run that reaches ``S13`` through unbuilt stages is
+and a check of the table that a built stage did not return is added to its record as
+``skipped``. The report lists each such check in ``not_run`` and its status is ``incomplete``
+(exit code 3), never ``accepted``: a run that reaches ``S13`` through checks it never measured is
 not read as a verified model.
 """
 
@@ -265,12 +267,38 @@ def built_stages() -> set[str]:
     return set(STAGE_FUNCTIONS)
 
 
+#: The note of a check of the stage table that a built stage did not return.
+_OMITTED = "not measured by this stage in this tree"
+
+
 def _skipped(row: StageRow) -> StageOutcome:
     note = "stage not built in this tree"
     return StageOutcome(
         checks=[check_entry(cid, "skipped", note=note) for cid, _ in row.checks],
         warnings=[f"{row.stage} {row.name}: {note}"],
     )
+
+
+def _with_table_checks(row: StageRow, outcome: StageOutcome) -> list[dict[str, Any]]:
+    """Return the stage's checks plus a ``skipped`` entry for each check of its row it omitted."""
+    given = {check["id"] for check in outcome.checks}
+    missing = [
+        check_entry(cid, "skipped", note=_OMITTED) for cid, _ in row.checks if cid not in given
+    ]
+    return [*outcome.checks, *missing]
+
+
+def _not_measured(record: Mapping[str, Any], built: bool) -> list[str]:
+    """Return ``"<stage> <check>"`` for each check of a record the stage did not measure.
+
+    Every check of a stage that is not built, and each check a built stage omitted; a check a
+    built stage itself reports skipped (it does not apply, with its reason) is not listed.
+    """
+    return [
+        f"{record['stage']} {check['id']}"
+        for check in record["checks"]
+        if check["status"] == "skipped" and (not built or check["note"] == _OMITTED)
+    ]
 
 
 def _refused(message, *, parameter="", stage="S0", check="input.valid"):
@@ -313,9 +341,11 @@ def run_geometry(
     Returns
     -------
     dict
-        The report: ``status`` accepted, failed (its ``stage``, ``check``, ``measured`` and
-        ``limit`` name the first failed check) or refused (the input, or the kernel, is not
-        usable). Never raised for a failed or a refused run.
+        The report: ``status`` accepted (every check of the stages run was measured and none
+        failed), incomplete (none failed, and ``not_run`` names each check of the stage table
+        that was not measured), failed (its ``stage``, ``check``, ``measured`` and ``limit``
+        name the first failed check) or refused (the input, or the kernel, is not usable).
+        Never raised for a failed or a refused run.
     """
     last = stage_index(until)
     folder = Path(out)
@@ -329,6 +359,7 @@ def run_geometry(
     context = RunContext(resolved, configuration, variant, folder, parameter, members)
     records: list[dict[str, Any]] = []
     warnings: list[str] = []
+    not_run: list[str] = []
     for stage in list(stages if stages is not None else default_stages())[: last + 1]:
         began = _now()
         try:
@@ -348,7 +379,7 @@ def run_geometry(
             package_version=_package_version(),
             inputs_id=parameter,
             parameter_id=parameter,
-            checks=outcome.checks,
+            checks=_with_table_checks(stage.row, outcome),
             findings=outcome.findings,
             warnings=outcome.warnings,
             outputs=outcome.outputs,
@@ -357,15 +388,25 @@ def run_geometry(
         write_record(folder / f"{stage.row.stage}.json", record)
         records.append(record)
         warnings.extend(outcome.warnings)
+        not_run.extend(_not_measured(record, stage.run is not None))
         failed = _first_failure(record["checks"])
         if failed is not None:
             return _finish(
-                "failed", parameter, folder, records, warnings=warnings, failure=(stage.row, failed)
+                "failed",
+                parameter,
+                folder,
+                records,
+                warnings=warnings,
+                failure=(stage.row, failed),
+                not_run=not_run,
             )
-    return _finish("accepted", parameter, folder, records, warnings=warnings, failure=None)
+    status = "incomplete" if not_run else "accepted"
+    return _finish(
+        status, parameter, folder, records, warnings=warnings, failure=None, not_run=not_run
+    )
 
 
-def _finish(status, parameter, folder, records, *, warnings, failure):
+def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
     row, failed = failure or (None, None)
     summary = [
         {
@@ -388,6 +429,7 @@ def _finish(status, parameter, folder, records, *, warnings, failure):
         stages=summary,
         outputs={k: v for r in records for k, v in r["outputs"].items()},
         warnings=warnings,
+        not_run=not_run,
     )
     write_record(folder / "report.json", report)
     return report

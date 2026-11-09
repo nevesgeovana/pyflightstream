@@ -30,6 +30,11 @@ dihedral = {dihedral}
 """
 
 
+#: The exit codes of a run that wrote its IGES with no check failed: accepted, or
+#: incomplete while stages of the table are not built (R18-001).
+WRITTEN = (0, 3)
+
+
 def cli(args, capsys):
     capsys.readouterr()
     try:
@@ -43,7 +48,7 @@ def cli(args, capsys):
 def generate(config, folder, capsys):
     """Run the pipeline to the export stage and return the IGES it wrote."""
     code, out, err = cli(["run", config, "--out", folder, "--until", "S11"], capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
     return record_of(out)["outputs"]["iges"]
 
 

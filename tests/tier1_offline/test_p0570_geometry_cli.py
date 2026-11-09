@@ -33,6 +33,11 @@ sweep = 15.0
 """
 
 
+#: The exit codes of a run that wrote its IGES with no check failed: accepted, or
+#: incomplete while stages of the table are not built (R18-001).
+WRITTEN = (0, 3)
+
+
 def cli(args, capsys):
     capsys.readouterr()
     try:
@@ -141,7 +146,7 @@ def test_r6_check_refuses_a_count_below_one_and_a_face_it_does_not_have(tmp_path
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
     code, _, err, igs = generated(config, tmp_path / "gen", capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
     base = ["check", igs, igs, "--chord-m", 0.27, "--reverse-count", 5, "--edge-count", 11]
     code, _, err = geom([*base, "--forward-count", 0], capsys)
     assert code == 2
@@ -178,7 +183,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
     code, report, err, igs = generated(config, tmp_path / "gen", capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
     assert report["outputs"]["faces"] == {"WING": 15}
 
     rebuilt = tmp_path / "found.toml"
@@ -198,7 +203,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
 
     # the configuration identify wrote is one the run verb reads
     code, _, err, again = generated(rebuilt, tmp_path / "again", capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
 
     code, out, err = geom(
         [
@@ -236,7 +241,7 @@ def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, ca
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
     code, report, err, _ = generated(config, tmp_path / "clean", capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
     assert not [w for w in report["warnings"] if "reader profile" in w]
 
     real_write = gmsh.write
@@ -259,7 +264,7 @@ def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, ca
 
     monkeypatch.setattr(gmsh, "write", planting(quadratic))
     code, report, err, _ = generated(config, tmp_path / "planted", capsys)
-    assert code == 0, err
+    assert code in WRITTEN, err
     assert any("reader profile, profile.degree" in w for w in report["warnings"])
 
     monkeypatch.setattr(gmsh, "write", planting(solid))
