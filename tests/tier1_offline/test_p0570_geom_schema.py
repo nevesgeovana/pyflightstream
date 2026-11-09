@@ -832,6 +832,23 @@ attach = {parent = "w", station = 0.31}
             resolve_config(lifting(control_surfaces=[bad]))
 
 
+def test_r16_003_c7_area_at_fixed_aspect_ratio_and_an_over_determined_planform_named():
+    """C7: SREF varies at fixed AR from the area form; a third primary key names the rule."""
+
+    def planform(**given):
+        raw = {"components": {"w": {"type": "lifting_surface", "planform": given}}}
+        return unpack(resolve_config(raw))["components"]["w"]["planform"]
+
+    for area in (9.0, 12.0):
+        p = planform(area=area, aspect_ratio=9.0, taper=0.6)
+        assert p["area"] == pytest.approx(area) and p["aspect_ratio"] == pytest.approx(9.0)
+    with pytest.raises(InputValueError) as refused:
+        planform(span=9.0, aspect_ratio=9.0, taper=0.6, area=12.0)
+    text = str(refused.value)
+    assert "given span, area, aspect_ratio, taper" in text
+    assert "leave span out" in text
+
+
 @pytest.mark.parametrize(
     ("kind", "given", "path"),
     [

@@ -311,8 +311,12 @@ def resolve_planform(supplied, defaults):
     for key, value in expected.items():
         number(value, f"planform.{key}", 0, strict=True)
         if key in supplied and not math.isclose(supplied[key], value, rel_tol=1e-10, abs_tol=1e-12):
+            given = [k for k in (*expected, "height") if k in supplied]
             raise InputValueError(
-                f"planform.root_chord/planform.{key}: inconsistent independent set"
+                f"planform.{key}: inconsistent independent set; given {', '.join(given)}, and "
+                "a trapezoidal planform is fixed by taper plus two of span (or height), area "
+                "and aspect_ratio, or by root_chord with span; to vary the area at a fixed "
+                "aspect ratio, state area and aspect_ratio and leave span out"
             )
     p.update(expected)
     return p
