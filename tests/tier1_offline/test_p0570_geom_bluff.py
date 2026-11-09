@@ -13,7 +13,12 @@ from pyflightstream.geometry import resolve_config
 from pyflightstream.geometry._bodies import body, body_points, body_profile, body_station_table
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._continuity import audit_jumps, bluff_jump_check, edge_jumps
-from pyflightstream.geometry._patch import Patch, evaluate_patch, interpolate_patch
+from pyflightstream.geometry._patch import (
+    Patch,
+    evaluate_patch,
+    interpolate_patch,
+    interpolate_polynomial_strip,
+)
 from pyflightstream.geometry._skin import bay_cuts, skin, split_along
 
 CIRCLE = {"at": "middle", "shape": "circle", "radius": 1.2}
@@ -207,6 +212,26 @@ def test_r12_002_a_named_shared_edge_the_audit_cannot_pair_fails():
     # the same pair with matching speeds is measured and fails on its turn
     measured = audit_jumps(make_planes(60.0), limit_deg=1.0)
     assert measured["unpaired_edges"] == [] and measured["failed"] == [0]
+
+
+@pytest.mark.parametrize("samples", [3, 5, 6])
+def test_r12_005_the_audit_reads_the_degree_of_each_patch(samples):
+    # a trailing-edge strip is cubic across and of degree samples - 1 along: a fold of 30
+    # degrees between two such strips reads 30, whatever the degree
+    s, t = np.linspace(0, 1, 6), np.linspace(0, 1, samples)
+    across, along = np.meshgrid(s, t, indexing="ij")
+    a = np.radians(30.0)
+    grids = [
+        np.stack([across, along, 0 * across], -1),
+        np.stack([1 + across * np.cos(a), along, across * np.sin(a)], -1),
+    ]
+    strips = [
+        Patch.from_dict({**interpolate_polynomial_strip(g).to_dict(), "role": r})
+        for g, r in zip(grids, "xy", strict=True)
+    ]
+    assert strips[0].degree_v == samples - 1
+    result = audit_jumps(strips, limit_deg=1.0)
+    assert [round(e["jump_deg"], 6) for e in result["edges"]] == [30.0]
 
 
 def test_a_crease_that_matches_no_edge_is_reported():

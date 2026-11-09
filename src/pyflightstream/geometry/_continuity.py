@@ -29,33 +29,23 @@ _SAMPLES = 17
 def _edge_data(patch: Patch, edge: str, count: int = _SAMPLES):
     """Return points and inward cross-edge tangents along one edge of a patch."""
     controls = np.asarray(patch.controls, float)
+    u = (patch.knots_u, patch.multiplicities_u, patch.degree_u)
+    v = (patch.knots_v, patch.multiplicities_v, patch.degree_v)
     if edge in ("v0", "v1"):
         controls = controls.transpose(1, 0, 2)
-        across, along = (
-            (patch.knots_v, patch.multiplicities_v),
-            (
-                patch.knots_u,
-                patch.multiplicities_u,
-            ),
-        )
+        across, along = v, u
     else:
-        across, along = (
-            (patch.knots_u, patch.multiplicities_u),
-            (
-                patch.knots_v,
-                patch.multiplicities_v,
-            ),
-        )
-    t_across, t_along = full_knots(*across), full_knots(*along)
-    curve = BSpline(t_across, controls, 3)
+        across, along = u, v
+    t_across, t_along = full_knots(*across[:2]), full_knots(*along[:2])
+    curve = BSpline(t_across, controls, across[2])
     at = 0.0 if edge.endswith("0") else 1.0
     sign = 1.0 if at == 0.0 else -1.0
     base, slope = curve(at), curve.derivative()(at) * sign
     s = np.linspace(0.0, 1.0, count)
-    along_base = BSpline(t_along, base, 3, axis=0)
+    along_base = BSpline(t_along, base, along[2], axis=0)
     points = along_base(s)
     tangent = along_base.derivative()(s)
-    inward = BSpline(t_along, slope, 3, axis=0)(s)
+    inward = BSpline(t_along, slope, along[2], axis=0)(s)
     return points, tangent, inward
 
 
