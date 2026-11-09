@@ -101,6 +101,7 @@ def default_component(kind):
                 "form": "cst",
             },
             trailing_edge="blunt",
+            base_strip="bicubic",
             control_surfaces=[],
             tip_cap={
                 "kind": "flat",

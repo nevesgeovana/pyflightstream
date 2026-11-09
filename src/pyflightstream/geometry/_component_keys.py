@@ -299,6 +299,8 @@ def check_lifting_extras(name, component, raw, warnings, findings):
         component["trailing_edge"] = "blunt"
     if component["trailing_edge"] != "blunt":
         raise InputValueError(f"{name}.trailing_edge: expected blunt")
+    if component["base_strip"] not in ("bicubic", "linear"):
+        raise InputValueError(f"{name}.base_strip: expected bicubic or linear")
     _check_tip_cap(component["tip_cap"])
     _check_nacelle_bounds(name, component, warnings)
     component["control_surfaces"] = [

@@ -19,7 +19,7 @@ from ._distributions import (
     elevate_coefficients,
     planform_values,
 )
-from ._patch import Patch, interpolate_patch, patch_layout
+from ._patch import Patch, interpolate_base_strip, interpolate_patch, patch_layout
 from ._sections import fit_or_read
 
 __all__ = [
@@ -129,8 +129,13 @@ def lifting_surface(component) -> list[Patch]:
         [*component["sections"]["eta"], *bound_stations(component)],
         [*plan["breaks"], *plan.get("slope_breaks", [])],
     )
+    straight = component.get("base_strip") == "linear"
     return [
-        interpolate_patch(
+        (
+            interpolate_base_strip
+            if straight and entry["family"].startswith("trailing_")
+            else interpolate_patch
+        )(
             lifting_patch_grid(component, models, entry),
             family=entry["family"],
             bay=(entry["bay"][0], entry["bay"][1]),
