@@ -141,9 +141,9 @@ def test_r6_a_flag_the_verb_will_not_use_is_warned(tmp_path, capsys):
         assert cli(["check", a, b, *flags], capsys)[0] == 2
 
 
-def test_p0570_generate_refuses_a_configuration_with_an_unknown_parameter(tmp_path, capsys):
+def test_p0570_generate_refuses_a_configuration_with_an_unknown_tip_cap_kind(tmp_path, capsys):
     config = tmp_path / "bad.toml"
-    config.write_text(WING + "[components.WING.planform.nonsense]\nvalue = 1\n", encoding="utf-8")
+    config.write_text(WING + '[components.WING.tip_cap]\nkind = "spiky"\n', encoding="utf-8")
     out = tmp_path / "bad.igs"
     code, _, err = cli(["generate", config, "--out", out], capsys)
     assert code == 2

@@ -19,11 +19,8 @@ from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.component import DEVIATION_PROFILES, ComponentRecord
 
-
-def unit_for(path):
-    """Return the unit of the parameter at a dotted path: ``deg``, ``m``, ``m2`` or ``1``."""
-    key = path.split(".")[-1]
-    if key in (
+_DEG_KEYS = frozenset(
+    {
         "sweep",
         "dihedral",
         "incidence",
@@ -34,11 +31,11 @@ def unit_for(path):
         "setting_angle",
         "footprint_upper",
         "footprint_lower",
-    ):
-        return "deg"
-    if key in ("area",):
-        return "m2"
-    if key in (
+        "boat_tail_deg",
+    }
+)
+_M_KEYS = frozenset(
+    {
         "span",
         "root_chord",
         "tip_chord",
@@ -51,7 +48,53 @@ def unit_for(path):
         "centre_height",
         "body_blend_radius",
         "wing_blend_radius",
+        "base_height",
+    }
+)
+#: Keys whose unit depends on the table that holds them: the values of a spanwise law, and the
+#: station and depth of a blister. A section of a body holds lengths; a fairing's width is a ratio.
+_UNIT_BY_TABLE = {
+    ("chord", "values"): "m",
+    ("leading_edge_x", "values"): "m",
+    ("leading_edge_z", "values"): "m",
+    ("twist", "values"): "deg",
+    ("stations", "x"): "m",
+    ("profile", "depth"): "m",
+    ("profile", "plateau"): "m",
+    ("profile", "mirror_x"): "m",
+    ("nose", "radius"): "1",
+}
+_BODY_SECTION_LENGTHS = frozenset({"width", "height", "z_c"})
+
+
+def _unit_from_table(parts):
+    """Return the unit a key takes from its table, or ``None`` when its name alone decides."""
+    if len(parts) < 2:
+        return None
+    if (
+        parts[-1] in _BODY_SECTION_LENGTHS
+        and parts[-2] == "sections"
+        and len(parts) >= 3
+        and parts[-3] != "components"
     ):
+        return "m"
+    return _UNIT_BY_TABLE.get((parts[-2], parts[-1]))
+
+
+def unit_for(path):
+    """Return the unit at a dotted path: ``deg``, ``mm``, ``m``, ``m2`` or ``1``."""
+    parts = path.split(".")
+    key = parts[-1]
+    by_table = _unit_from_table(parts)
+    if by_table is not None:
+        return by_table
+    if key in _DEG_KEYS or key.endswith("_deg"):
+        return "deg"
+    if key == "area":
+        return "m2"
+    if key.endswith("_mm"):
+        return "mm"
+    if key in _M_KEYS or key.endswith("_m"):
         return "m"
     if key == "length" and "tip_cap" not in path:
         return "m"

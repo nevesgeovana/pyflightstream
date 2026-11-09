@@ -138,7 +138,8 @@ def fairing_model(occ):
         "FUS": {"type": "body"},
         "WING": {"type": "lifting_surface", "sections": {"airfoils": ["NACA0012"]},
                  "distributions": {"leading_edge_x": {"stations": [0, 1.0], "values": [0.4, 0.4]}}},
-        "FAIRING": {"type": "wing_fuselage_fairing"}}}))["components"]  # fmt: skip
+        "FAIRING": {"type": "wing_fuselage_fairing", "hosts": ["FUS", "WING"]},
+    }}))["components"]  # fmt: skip
     add_all(occ, body(data["FUS"]) + lifting_surface(data["WING"]))
     patches = wing_fuselage_fairing(data["FAIRING"], data["FUS"], data["WING"])
     tags = add_all(occ, patches)
@@ -177,7 +178,7 @@ def test_p0570_fairing_tangency_and_host_contact(fairing_model):
 
 
 def test_p0570_iges_names_and_metres(occ, tmp_path):
-    from pyflightstream.workspace._geometry_generate import read_iges, write_iges
+    from pyflightstream.workspace._iges_write import read_iges, write_iges
 
     surface = occ.model.occ.addRectangle(0, 0, 0, 2, 3)
     occ.model.occ.synchronize()
@@ -198,7 +199,7 @@ def test_p0570_iges_names_and_metres(occ, tmp_path):
 
 
 def test_p0570_iges_refuses_a_name_the_format_cannot_carry(occ, tmp_path):
-    from pyflightstream.workspace._geometry_generate import write_iges
+    from pyflightstream.workspace._iges_write import write_iges
 
     surface = occ.model.occ.addRectangle(0, 0, 0, 2, 3)
     occ.model.occ.synchronize()
@@ -208,7 +209,8 @@ def test_p0570_iges_refuses_a_name_the_format_cannot_carry(occ, tmp_path):
 
 def test_p0570_generate_iges_writes_one_name_per_component_and_a_clean_skin(tmp_path):
     gmsh_or_skip()
-    from pyflightstream.workspace._geometry_generate import generate_iges, read_iges
+    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace._iges_write import read_iges
 
     path = tmp_path / "WB.igs"
     result = generate_iges(WB, path, configuration="WB")
@@ -304,7 +306,7 @@ def test_p0570_importing_the_geometry_math_does_not_import_gmsh():
 
 
 def test_p0570_iges_records_break_between_parameters_never_inside_one():
-    from pyflightstream.workspace._geometry_generate import pack_records, tokens
+    from pyflightstream.workspace._iges_write import pack_records, tokens
 
     values = [repr(-123.456789012345678 * k) for k in range(1, 40)] + ["4HNAME", "7"]
     for width in (64, 72):

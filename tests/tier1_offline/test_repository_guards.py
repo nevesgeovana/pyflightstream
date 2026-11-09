@@ -76,8 +76,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then geometry._boundary, the private home of the L1 boundary helpers: 2176, measured (+1).
 #: then item 3 lanes L2 and L4 (seven private geometry modules, four workspace modules,
 #: five test files, two changelog fragments): 2194, measured (+18).
+#: then the merge of G1 and G2 after review round 9 into land/0.57.0: 2232, measured.
 LEAN_CAPS = {
-    "tracked_files": 2217,
+    "tracked_files": 2232,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,

@@ -306,29 +306,11 @@
    "positional": 2,
    "statements": 23
   },
-  "geometry/config.py:resolve_body": {
-   "branches": 11,
-   "complexity": 11,
-   "positional": 2,
-   "statements": 23
-  },
-  "geometry/config.py:resolve_config": {
+  "geometry/config.py:resolve_lifting": {
    "branches": 13,
    "complexity": 14,
-   "positional": 1,
-   "statements": 33
-  },
-  "geometry/config.py:resolve_lifting": {
-   "branches": 14,
-   "complexity": 15,
    "positional": 2,
    "statements": 33
-  },
-  "geometry/config.py:validate_relationships": {
-   "branches": 10,
-   "complexity": 11,
-   "positional": 2,
-   "statements": 15
   },
   "post/_additional.py:_additional_products": {
    "complexity": 16,

@@ -8,7 +8,9 @@ written back and read again without change.
 
 Generation defaults that the supplied values do not fix are explicit in
 ``default_component``; they are generic examples, never inferred from any
-particular aircraft.
+particular aircraft, and no component name is known to the library. A key a
+table does not know is skipped and reported in ``warnings``; the refusals are
+listed in :mod:`pyflightstream.geometry._schema`.
 """
 
 from __future__ import annotations
@@ -19,21 +21,57 @@ import tomllib
 from copy import deepcopy
 from pathlib import Path
 
+from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._airfoils import naca_camber
 from pyflightstream.geometry._boundary import unit_for, unpack
+from pyflightstream.geometry._component_keys import (
+    body_sections,
+    check_blister,
+    check_body_extras,
+    check_common,
+    check_fillet,
+    check_lifting_extras,
+)
+from pyflightstream.geometry._identity import SCHEMA_MAJOR
+from pyflightstream.geometry._schema import (
+    TYPES,
+    number,
+    read_acceptance,
+    read_dominance,
+    read_reader,
+    read_units,
+    read_variants_and_registry,
+    scale_units,
+    stations,
+)
 
 __all__ = ["load_config", "resolve_config"]
 
 RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
+
+#: The optional tables and keys with no default, by component type and dotted place. Anywhere else
+#: the same name is an unknown key.
+FREE_BY_TYPE = {
+    "lifting_surface": frozenset(
+        {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
+        | {"sections.physical", "sections.nacelle_bounds"}
+    ),
+    "fillet": frozenset({"laws", "mesh_zone", "spine"}),
+    "blister": frozenset({"stations", "profile", "sections"}),
+}
 
 
 def default_component(kind):
     """Return fresh plain data, with no shared mutable defaults."""
     common = {
         "type": kind,
-        "version": "1.1.0",
+        "version": "1.0.0",
         "placement": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]},
         "attach": {"parent": "", "station": 0.0},
+        "original": "",
+        "creases": [],
+        "open_findings": [],
     }
     if kind == "lifting_surface":
         common.update(
@@ -58,11 +96,17 @@ def default_component(kind):
                 "n2": 1.0,
                 "trailing_edge_thickness": 0.00252,
                 "blend": "spline",
+                "items": [],
+                "form": "cst",
             },
+            trailing_edge="blunt",
+            control_surfaces=[],
             tip_cap={
                 "kind": "flat",
                 "length": 1.0,
                 "exponent": 1.0,
+                "sections": 30,
+                "control_points": 31,
                 "profile": {
                     "stations": [0.0, 0.25, 1.0],
                     "start": [0.0, 0.01, 0.015],
@@ -80,14 +124,25 @@ def default_component(kind):
             sections=[{"at": "middle", "shape": "circle", "radius": 0.1}],
             azimuths=[0.0, 60.0, 120.0, 180.0],
             rear="pole",
+            rings_file="",
             base_radius=0.05,
             nose_exponent=0.5,
             rear_exponent=1.0,
             continuity="G1",
         )
+    elif kind == "fillet":
+        common.update(
+            hosts=[],
+            extend_lower_to_te=True,
+            patches=20,
+            wing_band=0.02,
+            host_band=0.02,
+        )
+    elif kind == "blister":
+        common.update(host="", sections_file="", tips="pole")
     elif kind == "wing_fuselage_fairing":
         common.update(
-            hosts=["FUS", "WING"],
+            hosts=[],
             start=-0.25,
             end=1.25,
             stations=[-0.25, 0.0, 0.3, 1.0, 1.25],
@@ -127,47 +182,24 @@ def default_component(kind):
     return common
 
 
-def merge_values(defaults, supplied, path=""):
-    """Overlay supplied values on defaults, refusing any parameter the defaults do not know."""
+def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), *, place=""):
+    """Overlay supplied values on defaults; a key the defaults do not know warns and is skipped."""
     result = deepcopy(defaults)
     for key, value in supplied.items():
         label = f"{path}.{key}".strip(".")
-        if key not in defaults and key not in {
-            "original",
-            "distributions",
-            "root_chord",
-            "tip_chord",
-            "area",
-        }:
-            raise InputValueError(f"{label}: unknown parameter")
+        inner = f"{place}.{key}".strip(".")
+        if key not in defaults and inner not in free:
+            if warnings is None:
+                raise InputValueError(f"{label}: unknown parameter")
+            warnings.append(f"{label}: unknown key, skipped")
+            continue
         if isinstance(result.get(key), dict):
             if not isinstance(value, dict):
                 raise InputValueError(f"{label}: expected a table")
-            result[key] = merge_values(result[key], value, label)
+            result[key] = merge_values(result[key], value, label, warnings, free, place=inner)
         else:
             result[key] = deepcopy(value)
     return result
-
-
-def number(value, name, lower=None, upper=None, strict=False):
-    """Return ``value`` if it is a finite number inside the bounds, else refuse naming ``name``."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise InputValueError(f"{name}: expected finite number")
-    if lower is not None and (value <= lower if strict else value < lower):
-        raise InputValueError(f"{name}: below permitted range")
-    if upper is not None and value > upper:
-        raise InputValueError(f"{name}: above permitted range")
-    return value
-
-
-def stations(values, name, count=2, lower=0.0, upper=1.0):
-    """Refuse unless ``values`` holds ``count`` or more strictly increasing numbers in bounds."""
-    if not isinstance(values, list) or len(values) < count:
-        raise InputValueError(f"{name}: requires at least {count} stations")
-    for value in values:
-        number(value, name, lower, upper)
-    if any(a >= b for a, b in zip(values, values[1:], strict=False)):
-        raise InputValueError(f"{name}: stations must be strictly increasing")
 
 
 def validate_ridge_profile(profile):
@@ -233,11 +265,11 @@ def resolve_planform(supplied, defaults):
     return p
 
 
-def resolve_lifting(raw, component):
+def resolve_lifting(raw, component, notes):
     """Complete and validate a lifting-surface component; return its derived area and mean chord."""
     component["planform"] = resolve_planform(raw.get("planform", {}), component["planform"])
     p, section = component["planform"], component["sections"]
-    if "eta" not in raw.get("sections", {}):
+    if "eta" not in raw.get("sections", {}) and not section["items"]:
         count = len(section["airfoils"])
         section["eta"] = [i / max(1, count - 1) for i in range(count)]
     stations(p["control_stations"], "planform.control_stations")
@@ -264,8 +296,7 @@ def resolve_lifting(raw, component):
                 0 if key == "chord" else None,
                 strict=key == "chord",
             )
-    if component["tip_cap"]["kind"] not in ("flat", "rounded", "ridged", "none"):
-        raise InputValueError("tip_cap.kind: expected flat, rounded, ridged or none")
+    check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])
     number(component["tip_cap"]["length"], "tip_cap.length", 0, strict=True)
@@ -289,8 +320,14 @@ def validate_sections(section):
     if len(section["airfoils"]) != len(section["eta"]):
         raise InputValueError("sections.airfoils: count differs from sections.eta")
     for name in section["airfoils"]:
+        if section.get("items") and name == "":
+            continue
         if not isinstance(name, str) or not re.fullmatch(r"NACA(?:\d{4}|\d{5})", name):
             raise InputValueError("sections.airfoils: expected NACA designation")
+        try:
+            naca_camber(name, [0.5])
+        except InputValueError as error:
+            raise InputValueError(f"sections.airfoils: {name}: {error}") from error
     if not isinstance(section["degree"], int) or section["degree"] < 1:
         raise InputValueError("sections.degree: expected positive integer")
     for key in ("n1", "n2"):
@@ -300,8 +337,10 @@ def validate_sections(section):
         raise InputValueError("sections.blend: must be spline")
 
 
-def resolve_body(raw, component):
+def resolve_body(raw, component, notes):
     """Validate a body component and return its (empty) derived quantities."""
+    body_sections(notes["name"], component["sections"], notes["warnings"])
+    body_sections(notes["name"], raw.get("sections", []), [])
     number(component["length"], "length", 0, strict=True)
     stations(component["stations"], "stations", 3)
     if component["stations"][0] <= 0 or component["stations"][-1] >= 1:
@@ -309,8 +348,7 @@ def resolve_body(raw, component):
     stations(component["azimuths"], "azimuths", 4, 0, 180)
     if component["azimuths"][0] != 0 or component["azimuths"][-1] != 180:
         raise InputValueError("azimuths: half body requires top and bottom")
-    if component["rear"] not in ("base", "pole"):
-        raise InputValueError("rear: expected base or pole")
+    check_body_extras(notes["name"], component, notes["warnings"], notes["findings"])
     if not component["sections"]:
         raise InputValueError("sections: requires a section")
     for i, section in enumerate(component["sections"]):
@@ -330,10 +368,11 @@ def resolve_body(raw, component):
     return {}
 
 
-def resolve_fairing(raw, component):
+def resolve_fairing(raw, component, notes):
     """Validate a wing-fuselage fairing component and return its (empty) derived quantities."""
     if len(component["hosts"]) != 2 or len(set(component["hosts"])) != 2:
         raise InputValueError("hosts: requires distinct body and lifting surface")
+    check_common(notes["name"], component, notes["warnings"])
     stations(component["stations"], "stations", 5, component["start"], component["end"])
     if len(component["width"]) != len(component["stations"]):
         raise InputValueError("width: count differs from stations")
@@ -346,7 +385,19 @@ def resolve_fairing(raw, component):
     return {}
 
 
-def resolve_propeller(raw, component):
+def resolve_fillet(raw, component, notes):
+    """Validate a fillet component and return its (empty) derived quantities."""
+    check_fillet(notes["name"], component, notes["warnings"], notes["findings"])
+    return {}
+
+
+def resolve_blister(raw, component, notes):
+    """Validate a blister component and return its (empty) derived quantities."""
+    check_blister(notes["name"], component, notes["warnings"], notes["findings"])
+    return {}
+
+
+def resolve_propeller(raw, component, notes):
     """Validate a propeller component and return its (empty) derived quantities."""
     number(component["radius"], "radius", 0, strict=True)
     number(component["hub_radius"], "hub_radius", 0, component["radius"], strict=True)
@@ -365,6 +416,8 @@ def resolve_propeller(raw, component):
     number(component["setting_angle"], "setting_angle", -180, 180)
     number(component["pitch_reference"], "pitch_reference", 0, 1)
     validate_sections(component["sections"])
+    check_common(notes["name"], component, notes["warnings"])
+    notes["warnings"].append("propeller: generation is deferred to 0.58.0, the values are kept")
     return {}
 
 
@@ -376,7 +429,10 @@ def provenance(value, supplied, path=""):
             k: provenance(v, provided.get(k), f"{path}.{k}".strip(".")) for k, v in value.items()
         }
     if isinstance(value, list) and value and isinstance(value[0], dict):
-        return [provenance(v, supplied[i] if supplied else None, path) for i, v in enumerate(value)]
+        given = supplied if isinstance(supplied, list) else []
+        return [
+            provenance(v, given[i] if i < len(given) else None, path) for i, v in enumerate(value)
+        ]
     return {
         "value": value,
         "unit": unit_for(path),
@@ -384,8 +440,8 @@ def provenance(value, supplied, path=""):
     }
 
 
-def validate_relationships(components, configurations):
-    """Refuse attachment cycles, missing parents, wrong fairing hosts and bad members."""
+def validate_relationships(components):
+    """Refuse attachment cycles, missing parents and missing or wrong hosts."""
     for name, component in components.items():
         parent = component["attach"]["parent"]
         seen = {name}
@@ -394,36 +450,60 @@ def validate_relationships(components, configurations):
                 raise InputValueError(f"{name}.attach.parent: missing parent or cycle")
             seen.add(parent)
             parent = components[parent]["attach"]["parent"]
-        if component["type"] == "wing_fuselage_fairing" and len(components) > 1:
-            for host, kind in zip(component["hosts"], ("body", "lifting_surface"), strict=True):
-                if host not in components or components[host]["type"] != kind:
-                    raise InputValueError(f"{name}.hosts: expected {kind} host {host}")
-    for name, members in configurations.items():
-        if not isinstance(members, list) or not members or len(members) != len(set(members)):
-            raise InputValueError(f"configurations.{name}: expected unique nonempty members")
-        for member in members:
-            if member not in components:
-                raise InputValueError(f"configurations.{name}: unknown component {member}")
+        kind = component["type"]
+        if kind == "wing_fuselage_fairing" and len(components) > 1:
+            for host, host_kind in zip(
+                component["hosts"], ("body", "lifting_surface"), strict=True
+            ):
+                if host not in components or components[host]["type"] != host_kind:
+                    raise InputValueError(f"{name}.hosts: expected {host_kind} host {host}")
+        hosts = (
+            component["hosts"]
+            if kind == "fillet"
+            else [component["host"]]
+            if kind == "blister"
+            else []
+        )
+        for host in hosts:
+            if host not in components or host == name:
+                raise InputValueError(f"{name}.hosts: missing host {host!r}")
+
+
+def _skip_absent_references(components, warnings):
+    """Warn about and skip a nacelle bound or a split that names no component of the file."""
+    for name, component in components.items():
+        section = component.get("sections")
+        if isinstance(section, dict) and section.get("nacelle_bounds"):
+            kept = [b for b in section["nacelle_bounds"] if b["component"] in components]
+            for bound in section["nacelle_bounds"]:
+                if bound not in kept:
+                    warnings.append(
+                        f"{name}.sections.nacelle_bounds: {bound['component']!r} is no component, "
+                        "skipped"
+                    )
+            section["nacelle_bounds"] = kept
+        for surface in component.get("control_surfaces", []):
+            for other in surface["split_around"]:
+                if other not in components:
+                    warnings.append(
+                        f"{name}.control_surfaces.{surface['name']}.split_around: {other!r} is no "
+                        "component, the piece stays continuous"
+                    )
+            surface["split_around"] = [o for o in surface["split_around"] if o in components]
 
 
 def assembly_defaults(components, supplied):
-    """Seed generic layout defaults, not measurements: WING at .4L, HTP at .95L.
+    """Seed the generic blend radius of a fairing, 0.4 of its wing host's root chord.
 
-    Fairing blend radii default to .4 root chord when its hosts are available.
-    Explicit inputs always win. Standalone primitive defaults are unchanged.
+    Explicit inputs always win. No component is known by name: the hosts are the ones the
+    fairing itself lists.
     """
     for name, component in components.items():
         raw = supplied[name]
-        if (
-            name in ("WING", "HTP")
-            and component["attach"]["parent"]
-            and components.get(component["attach"]["parent"], {}).get("type") == "body"
-            and "station" not in raw.get("attach", {})
-        ):
-            component["attach"]["station"] = 0.4 if name == "WING" else 0.95
         if component["type"] == "wing_fuselage_fairing":
             body_name, wing_name = component["hosts"]
-            if wing_name in components and body_name in components:
+            kinds = [components[n]["type"] if n in components else "" for n in component["hosts"]]
+            if kinds == ["body", "lifting_surface"]:
                 chord = components[wing_name]["planform"]["root_chord"]
                 for key in ("body_blend_radius", "wing_blend_radius"):
                     if key not in raw:
@@ -432,7 +512,93 @@ def assembly_defaults(components, supplied):
                     component["attach"]["parent"] = body_name
 
 
-def resolve_config(data):
+def _resolve_component(name, raw, notes, base):
+    """Merge, validate and return one component and its derived quantities."""
+    if "type" not in raw:
+        raise InputValueError(f"components.{name}.type: required")
+    if raw["type"] not in TYPES:
+        raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
+    raw = deepcopy(raw)
+    cap = raw.get("tip_cap")
+    if isinstance(cap, dict) and "shape" in cap:
+        cap.pop("shape")
+        notes["warnings"].append(f"{name}.tip_cap.shape: parameter not yet defined, skipped")
+        notes["findings"].append(
+            f"{name}.tip_cap.shape: given and skipped until the parameter is defined"
+        )
+    free = FREE_BY_TYPE.get(raw["type"], frozenset())
+    component = merge_values(
+        default_component(raw["type"]), raw, f"components.{name}", notes["warnings"], free
+    )
+    notes["name"] = name
+    resolvers = {
+        "lifting_surface": resolve_lifting,
+        "body": resolve_body,
+        "fillet": resolve_fillet,
+        "blister": resolve_blister,
+        "wing_fuselage_fairing": resolve_fairing,
+        "propeller": resolve_propeller,
+    }
+    derived = resolvers[raw["type"]](raw, component, notes)
+    if not re.fullmatch(r"\d+\.\d+\.\d+", component["version"]):
+        raise InputValueError(f"{name}.version: expected X.Y.Z")
+    for key in ("translation", "rotation"):
+        values = component["placement"][key]
+        if len(values) != 3:
+            raise InputValueError(f"{name}.placement.{key}: requires three values")
+        for value in values:
+            number(value, f"{name}.placement.{key}")
+    number(component["attach"]["station"], f"{name}.attach.station", 0, 1)
+    _check_data_files(name, component, base, notes["warnings"])
+    return component, derived, raw
+
+
+def _check_data_files(name, component, base, warnings):
+    """Refuse a data file that holds geometry and is missing; warn about a missing original."""
+    needed = {key: component.get(key, "") for key in ("rings_file", "sections_file")}
+    sections = component.get("sections")
+    items = sections.get("items", []) if isinstance(sections, dict) else []
+    needed |= {f"sections.items[{i}].file": item.get("file", "") for i, item in enumerate(items)}
+    for key, path in needed.items():
+        if path and not (base / path).is_file():
+            raise InputValueError(f"{name}.{key}: file not found")
+    original = component.get("original", "").split("#")[0]
+    if original and not (base / original).is_file():
+        warnings.append(f"{name}.original: file not found; the distance checks are skipped")
+
+
+def _file_digests(components, base):
+    """Return the identity of every data file a component names: its role and its SHA-256."""
+    rows = []
+    for name, component in sorted(components.items()):
+        paths = {
+            "rings_file": component.get("rings_file", ""),
+            "sections_file": component.get("sections_file", ""),
+            "original": component.get("original", "").split("#")[0],
+        }
+        for i, item in enumerate(
+            component.get("sections", {}).get("items", [])
+            if isinstance(component.get("sections"), dict)
+            else []
+        ):
+            if "file" in item:
+                paths[f"sections.items[{i}].file"] = item["file"]
+        for role, path in sorted(paths.items()):
+            if path:
+                digest = optional_file_sha256(base / path)
+                rows.append({"role": f"{name}.{role}", "sha256": digest or ""})
+    return rows
+
+
+def _guarded(label, work, *args):
+    """Run ``work``; a value of the wrong form is a refusal naming ``label``, not a crash."""
+    try:
+        return work(*args)
+    except (TypeError, AttributeError, KeyError) as error:
+        raise InputValueError(f"{label}: a value has the wrong form ({error!r})") from error
+
+
+def resolve_config(data, stem=None, base=None):
     """Validate a geometry configuration and resolve it with the source of every value.
 
     Parameters
@@ -442,78 +608,145 @@ def resolve_config(data):
         table, or a single component carrying ``type``) or a previously
         resolved configuration (``format = "pyflightstream-geometry-resolved"``),
         whose derived quantities are recomputed and compared.
+    stem : str, optional
+        File stem, the default of ``aircraft.name``.
+    base : str or os.PathLike, optional
+        Directory that the data files named in the input (``rings_file``,
+        ``sections_file``, ``original``) are read from; the working directory when absent.
 
     Returns
     -------
     dict
         The resolved configuration: ``format``, ``units`` (m and deg),
-        ``components`` with each leaf wrapped as ``{value, unit, source}``
-        (source ``given`` or ``default``), ``derived`` quantities and
-        ``configurations``. A resolved input that checks out is returned as a
-        copy of itself.
+        ``aircraft``, ``acceptance``, ``reader``, ``components`` with each leaf wrapped as
+        ``{value, unit, source}`` (source ``given`` or ``default``), ``derived`` quantities,
+        ``dominance``, ``variants``, ``configurations`` (the effective member names) and
+        ``registry`` (members with their versions, ``extends`` and variants), ``files`` (the
+        SHA-256 of each data file), ``warnings`` and ``findings``. A resolved input that
+        checks out is returned as a copy of itself.
 
     Raises
     ------
     InputValueError
-        When the units are not m and deg, no component is given, a component
-        lacks its type or an X.Y.Z version, a value or relationship is out of
-        range, or a resolved input's derived quantity is inconsistent.
+        When the units are unknown, no component is given, a component lacks its type or an
+        X.Y.Z version, a value or relationship is out of range, a dominance or extends cycle
+        exists, a value has the wrong form, or a resolved input's derived quantity is
+        inconsistent. Unknown keys do not raise: they are skipped and listed in ``warnings``.
     """
+    return _guarded("configuration", _resolve, data, stem, base)
+
+
+def _resolve(data, stem, base):
+    """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
     source = unpack(data)
     if "type" in source:
         source = {"components": {"COMPONENT": source}}
-    if source.get("units", {"length": "m", "angle": "deg"}) != {"length": "m", "angle": "deg"}:
-        raise InputValueError("units: supported length=m, angle=deg")
-    components, annotated, derived = {}, {}, {}
+    notes = {"warnings": [], "findings": [], "name": ""}
+    known = {"aircraft", "units", "acceptance", "reader", "components", "dominance"}
+    known |= {"configurations", "variants"}
+    if resolved:
+        known |= {"format", "derived", "warnings", "findings", "files", "registry", "schema"}
+    for key in sorted(set(source) - known):
+        notes["warnings"].append(f"{key}: unknown key, skipped")
+    length_scale, angle_scale = read_units(source.get("units", {}), notes["warnings"])
+    if not resolved:
+        source = scale_units(source, "", length_scale, angle_scale)
     if not source.get("components"):
         raise InputValueError("components: requires at least one component")
-    resolvers = {
-        "lifting_surface": resolve_lifting,
-        "body": resolve_body,
-        "wing_fuselage_fairing": resolve_fairing,
-        "propeller": resolve_propeller,
-    }
+    base = Path(base) if base is not None else Path()
+    components, derived, raws = {}, {}, {}
     for name, raw in source["components"].items():
-        if "type" not in raw:
-            raise InputValueError(f"components.{name}.type: required")
-        component = merge_values(default_component(raw["type"]), raw)
-        derived[name] = resolvers[raw["type"]](raw, component)
-        if not re.fullmatch(r"\d+\.\d+\.\d+", component["version"]):
-            raise InputValueError(f"{name}.version: expected X.Y.Z")
-        for key in ("translation", "rotation"):
-            values = component["placement"][key]
-            if len(values) != 3:
-                raise InputValueError(f"{name}.placement.{key}: requires three values")
-            for value in values:
-                number(value, f"{name}.placement.{key}")
-        number(component["attach"]["station"], f"{name}.attach.station", 0, 1)
-        components[name] = component
-        annotated[name] = provenance(component, raw)
-    assembly_defaults(components, source["components"])
-    annotated = {
-        name: provenance(component, source["components"][name])
-        for name, component in components.items()
-    }
-    configurations = source.get("configurations", {})
-    validate_relationships(components, configurations)
+        components[name], derived[name], raws[name] = _guarded(
+            f"components.{name}", _resolve_component, name, raw, notes, base
+        )
+    assembly_defaults(components, raws)
+    validate_relationships(components)
+    _skip_absent_references(components, notes["warnings"])
+    aircraft = fill_aircraft(source.get("aircraft", {}), stem, notes["warnings"])
+    registry_input = _registry_input(source, resolved)
+    variants, registry = read_variants_and_registry(
+        source.get("variants", {}), registry_input, components, notes["warnings"]
+    )
     result = {
         "format": RESOLVED_FORMAT,
+        "schema": SCHEMA_MAJOR,
         "units": {"length": "m", "angle": "deg"},
-        "components": annotated,
+        "aircraft": provenance(aircraft, source.get("aircraft", {}), "aircraft"),
+        "acceptance": provenance(
+            read_acceptance(source.get("acceptance", {}), notes["warnings"]),
+            source.get("acceptance", {}),
+            "acceptance",
+        ),
+        "reader": provenance(
+            read_reader(source.get("reader", {}), notes["warnings"]),
+            source.get("reader", {}),
+            "reader",
+        ),
+        "components": {
+            name: provenance(component, raws[name], name) for name, component in components.items()
+        },
         "derived": derived,
-        "configurations": configurations,
+        "dominance": provenance(
+            read_dominance(source.get("dominance", []), components, notes["warnings"]),
+            source.get("dominance", []),
+            "dominance",
+        ),
+        "variants": provenance(variants, source.get("variants", {}), "variants"),
+        "configurations": {
+            name: [m["component"] for m in row["members"]] for name, row in registry.items()
+        },
+        "registry": provenance(registry, registry_input, "registry"),
+        "files": _file_digests(components, base),
+        "warnings": notes["warnings"],
+        "findings": notes["findings"],
     }
-    if resolved:
-        for name, quantities in derived.items():
-            for key, expected in quantities.items():
-                supplied = source.get("derived", {}).get(name, {}).get(key)
-                if supplied is None or not math.isclose(
-                    supplied, expected, rel_tol=1e-12, abs_tol=1e-14
-                ):
-                    raise InputValueError(f"derived.{name}.{key}: inconsistent quantity")
-        return deepcopy(data)
-    return result
+    return _checked_resolved(data, source, result) if resolved else result
+
+
+def _checked_resolved(data, source, result):
+    """Return a copy of a resolved input whose derived quantities check out.
+
+    The digests of its data files are measured again, so a file that changed after the input was
+    resolved moves the identity and is reported, instead of keeping the identity it had.
+    """
+    for name, quantities in result["derived"].items():
+        for key, expected in quantities.items():
+            supplied = source.get("derived", {}).get(name, {}).get(key)
+            if supplied is None or not math.isclose(
+                supplied, expected, rel_tol=1e-12, abs_tol=1e-14
+            ):
+                raise InputValueError(f"derived.{name}.{key}: inconsistent quantity")
+    checked = deepcopy(data)
+    if source.get("files", []) != result["files"]:
+        checked["files"] = result["files"]
+        checked["warnings"] = [
+            *source.get("warnings", []),
+            "files: a data file differs from the one this input was resolved with; the "
+            "identity follows the file on disk",
+        ]
+    return checked
+
+
+def _registry_input(source, resolved):
+    """Return the configuration table of an input: the resolved registry, or the configurations."""
+    table = source.get("registry" if resolved else "configurations", {})
+    return {k: ({"members": v} if isinstance(v, list) else v) for k, v in table.items()}
+
+
+def fill_aircraft(supplied, stem, warnings):
+    """Resolve ``[aircraft]``; a missing name warns and the file stem is used."""
+    table = {"name": stem or "unnamed"}
+    if "name" not in supplied:
+        warnings.append("aircraft.name: absent, the file stem is used")
+    for key, value in supplied.items():
+        if key == "name":
+            table["name"] = value
+        else:
+            warnings.append(f"aircraft.{key}: unknown key, skipped")
+    if not isinstance(table["name"], str) or not table["name"]:
+        raise InputValueError("aircraft.name: expected text")
+    return table
 
 
 def load_config(path):
@@ -522,12 +755,13 @@ def load_config(path):
     Parameters
     ----------
     path : str or os.PathLike
-        The TOML file to read.
+        The TOML file to read; the data files it names are read relative to its folder.
 
     Returns
     -------
     dict
         The resolved configuration, as returned by :func:`resolve_config`.
     """
-    with Path(path).open("rb") as stream:
-        return resolve_config(tomllib.load(stream))
+    path = Path(path)
+    with path.open("rb") as stream:
+        return resolve_config(tomllib.load(stream), stem=path.stem, base=path.parent)

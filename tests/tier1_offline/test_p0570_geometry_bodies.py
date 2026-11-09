@@ -63,7 +63,7 @@ def wing_body():
                             "leading_edge_x": {"stations": [0.0, 1.0], "values": [0.4, 0.4]}
                         },
                     },
-                    "FAIRING": {"type": "wing_fuselage_fairing"},
+                    "FAIRING": {"type": "wing_fuselage_fairing", "hosts": ["FUS", "WING"]},
                 }
             }
         )
