@@ -426,6 +426,19 @@ def test_r6_a_boundary_root_measures_its_extent_along_the_settled_span_axis(tmp_
     assert found.planform["semi_span_m"] >= 0.6 / math.cos(math.radians(6.0)) - 5e-4
 
 
+def test_r6_one_quantity_past_its_tolerance_breaks_the_agreement_of_the_passes():
+    """R6-015: no test had the passes disagree, so the guard was never seen to say no."""
+    from pyflightstream.workspace._geometry_reverse import CONVERGENCE_TOLERANCES, convergence
+
+    fine = dict.fromkeys(CONVERGENCE_TOLERANCES, 1.0)
+    assert convergence(dict(fine), fine)["accepted"] is True
+    for key, tolerance in CONVERGENCE_TOLERANCES.items():
+        coarse = dict(fine, **{key: 1.0 + 2 * tolerance})
+        result = convergence(coarse, fine)
+        assert result["accepted"] is False
+        assert result["checks"][key]["passed"] is False
+
+
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
