@@ -17,7 +17,7 @@ Examples
 --------
 >>> import numpy as np
 >>> from pyflightstream.geometry._reverse import cosine
->>> cosine(3).tolist()
+>>> np.round(cosine(3), 12).tolist()
 [0.0, 0.5, 1.0]
 """
 
