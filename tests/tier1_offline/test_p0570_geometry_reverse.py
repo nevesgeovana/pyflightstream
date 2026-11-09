@@ -230,6 +230,36 @@ def test_p0570_fit_section_says_when_a_section_missed_its_tolerance():
     assert fit["degree"] == 2
 
 
+def test_r6_a_left_half_measures_as_its_mirror_image():
+    """R6-002: a span axis toward -y keeps the incidence sign, the upper side and the dihedral."""
+    tilt = math.radians(3.0)
+    right_span = np.array([0.0, math.cos(tilt), math.sin(tilt)])
+    left_span = right_span * [1.0, -1.0, 1.0]
+    angle = math.radians(3.0)
+    ring = cut(0.6, "NACA4412")
+    x, z = ring[:, 0], ring[:, 2]
+    turned = np.column_stack(
+        [
+            x * math.cos(angle) + z * math.sin(angle),
+            ring[:, 1],
+            -x * math.sin(angle) + z * math.cos(angle),
+        ]
+    )
+    right = contour_features(closed_contour([turned]), right_span)
+    left = contour_features(closed_contour([turned * [1.0, -1.0, 1.0]]), left_span)
+    assert right["incidence"] > 0
+    assert left["incidence"] == pytest.approx(right["incidence"], abs=1e-9)
+    assert left["unit_contour"][:, 1] == pytest.approx(right["unit_contour"][:, 1], abs=1e-9)
+    fit_right = fit_section(right["contour"], right_span, "NACA4412")
+    fit_left = fit_section(left["contour"], left_span, "NACA4412")
+    assert fit_left["upper"] == pytest.approx(fit_right["upper"], abs=1e-6)
+    s = stations()
+    for span, sign in ((right_span, 1.0), (left_span, -1.0)):
+        features = [contour_features(closed_contour([cut(y) * [1.0, sign, 1.0]]), span) for y in s]
+        planform = reference_planform(s, features, np.arange(len(s)), span, root_station=0.0)
+        assert planform["dihedral_deg"] == pytest.approx(3.0)
+
+
 # --- the workspace half, on a generated IGES -------------------------------------------------
 
 WING = {

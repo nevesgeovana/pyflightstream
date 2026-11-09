@@ -140,6 +140,10 @@ def contour_features(contour, span):
         p = np.vstack([p, p[0]])
     normal = np.cross([1.0, 0.0, 0.0], span)
     normal /= np.linalg.norm(normal)
+    # A span axis toward -y turns the cross product down. "Up" stays +z on either side, so a
+    # left half measures the incidence and the upper surface of its mirror image.
+    side = -1.0 if normal[2] < 0 else 1.0
+    normal = side * normal
     # TE base midpoint, then geometric nose farthest from that midpoint.
     xmax, xmin = p[:, 0].max(), p[:, 0].min()
     aft = p[p[:, 0] > xmax - max(1e-9, (xmax - xmin) * 0.000002)]
@@ -173,7 +177,7 @@ def contour_features(contour, span):
     if chord < 1e-6:
         raise StationRejectedError("collapsed chord")
     axis = (te - le) / chord
-    up = np.cross(axis, span)
+    up = side * np.cross(axis, span)
     up /= np.linalg.norm(up)
     q = np.column_stack(((p - le) @ axis / chord, (p - le) @ up / chord))
     # A valid airfoil has one forward and one backward chordwise traversal.
@@ -480,7 +484,7 @@ def reference_planform(
         "mac_le_position_m": (simpson(a * chord[:, None], x=q, axis=0) / half_area).tolist(),
         "incidence_deg": float(incidence[0]),
         "tip_twist_deg": float(incidence[-1] - incidence[0]),
-        "dihedral_deg": float(np.degrees(np.arctan2(span[2], span[1]))),
+        "dihedral_deg": float(np.degrees(np.arctan2(span[2], abs(span[1])))),
         "mirrored": mirrored,
         "reference_plane": {
             "origin_m": a[0].tolist(),
