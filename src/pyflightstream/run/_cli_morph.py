@@ -9,7 +9,7 @@ on the gmsh kernel). The work is the workspace layer's
 :mod:`pyflightstream.workspace.iges_grid`, :mod:`pyflightstream.workspace.iges_convert`); this
 module only reads the command line, calls it, prints the checks or the record it returns and
 gives the exit code: 0 when the output was written, 2 when the input is refused or the gmsh
-extra is missing, with the message on standard error and nothing written. Each parser names its
+library cannot load, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
 :data:`MORPH_VERBS`, which also carries the verbs of :mod:`pyflightstream.run._cli_parametric`

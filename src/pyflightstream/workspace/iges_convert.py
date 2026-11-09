@@ -1,6 +1,6 @@
 """Rewrite one or more named IGES files as one IGES of B-spline faces, names kept (PFS-2199).
 
-Each file is imported into one OpenCASCADE model (optional ``gmsh`` extra), every face is
+Each file is imported into one OpenCASCADE model (the gmsh kernel), every face is
 converted to a NURBS surface, and one IGES is written holding only B-spline surfaces and curves,
 the form the solver's CAD import reads. Each component keeps its name: its faces sit on one level
 and one 406 form 15 NAME names that level, so the solver and

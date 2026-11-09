@@ -8,8 +8,8 @@ each other, drops the faces buried in another component, audits the edges
 components cross) and writes one IGES file whose faces carry one 406 form 15 NAME
 per component. Coordinates are metres and the file declares them so.
 
-gmsh ships with the optional ``gmsh`` extra; :func:`generate_iges` refuses with
-the package's missing-extra refusal, with the install command, when it is absent.
+gmsh is a dependency of the package; :func:`generate_iges` raises
+``KernelUnavailableError``, naming the library, when it cannot load.
 The pure geometry package never imports this module.
 """
 

@@ -12,8 +12,8 @@ acceptance. The limit is a named profile of
 the larger of 0.5 mm and 0.1 percent of the local chord). Distances are sampled
 upper bounds, not continuous Hausdorff distances.
 
-gmsh ships with the optional ``gmsh`` extra; the functions refuse with the
-package's missing-extra refusal, with the install command, when it is absent.
+gmsh is a dependency of the package; the functions raise ``KernelUnavailableError``,
+naming the library, when it cannot load.
 """
 
 from __future__ import annotations

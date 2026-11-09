@@ -7,7 +7,7 @@ workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the gmsh
 kernel); this module only reads the command line, calls it, prints the record it returns as
 JSON and gives the exit code: 0 when the work was done (and, for ``check``, accepted), 1 when
 ``check`` measured the rebuilt surface and rejected it, 2 when an input is refused or the gmsh
-extra is missing, with the message on standard error and nothing written. Each parser names its
+library cannot load, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls,
 so the group adds every verb of this module through :func:`add_parametric_verbs` and lists
 them by :data:`PARAMETRIC_VERBS`.

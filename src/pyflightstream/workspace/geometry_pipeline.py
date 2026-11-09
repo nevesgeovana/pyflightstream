@@ -1,7 +1,7 @@
 """The geometry pipeline of a parametric aircraft: generate, check, mesh and identify.
 
-Pipeline role: the public entry points of the stages that need the geometry kernel, behind the
-optional ``gmsh`` extra. :func:`generate_iges` writes the exposed skin of a parametric
+Pipeline role: the public entry points of the stages that need the geometry kernel, on the gmsh
+kernel. :func:`generate_iges` writes the exposed skin of a parametric
 configuration (:func:`pyflightstream.geometry.load_config`) as a named IGES file, one NAME per
 component; :func:`check_against_original` measures a rebuilt surface against an original under a
 named deviation profile; :func:`mesh_generated` meshes a configuration into an all-quad surface
@@ -218,7 +218,7 @@ def identify_lifting_surface(
     Raises
     ------
     MissingExtraError
-        gmsh is not installed.
+        The gmsh library cannot load (``KernelUnavailableError``).
     InputValueError
         An argument is refused, the component is unknown, or no clean band exists.
     """

@@ -1,6 +1,6 @@
 """Grid a named IGES assembly into one OBJ, one family per component (PFS-2198).
 
-Each IGES file is imported into one OpenCASCADE model (optional ``gmsh`` extra) with every face
+Each IGES file is imported into one OpenCASCADE model (the gmsh kernel) with every face
 named by the NAME of its level (:mod:`pyflightstream.workspace._iges_names`). The faces are
 healed and fragmented together so the edges two components share are conformal, four-sided
 patches are meshed transfinite with the laws of the grid control file and recombined into quads,

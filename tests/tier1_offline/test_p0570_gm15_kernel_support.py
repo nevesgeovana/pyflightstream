@@ -209,6 +209,11 @@ def test_r11_003_no_user_page_sends_the_reader_to_the_gmsh_extra():
     assert _sentences_naming_the_extra(["guide/latex-sources", "changelog.d", "docs"]) == []
 
 
+def test_r11_004_no_module_docstring_calls_the_kernel_an_optional_extra():
+    """The rendered API pages read the module docstrings; they follow route A too."""
+    assert _sentences_naming_the_extra(["src"]) == []
+
+
 def _wheel_check_outcome(tmp_path, files):
     """Run the wheel check of release.yml, as written, on a wheel holding ``files``."""
     import subprocess
