@@ -95,3 +95,24 @@ def test_p0570_pfs2221_the_rebuilt_dihedral_wing_passes_check(tmp_path, capsys):
     )  # fmt: skip
     assert record_of(out)["accepted"] is True, out[-600:]
     assert code == 0, err
+
+
+def test_r14_001_a_rounded_tip_cap_does_not_move_the_tip_of_a_dihedral_wing(tmp_path, capsys):
+    """The extreme sample of a rounded cap is not the end plane: the span stays the wing's."""
+    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    pytest.importorskip("contourpy")
+    config = tmp_path / "wing.toml"
+    text = WING.format(dihedral=6.0) + '[components.WING.tip_cap]\nkind = "rounded"\n'
+    config.write_text(text, encoding="utf-8")
+    igs = tmp_path / "wing.igs"
+    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    rebuilt = tmp_path / "found.toml"
+    code, _, err = cli(
+        ["identify", igs, "WING", "--stations", 41, "--grid", 97, "--config-out", rebuilt], capsys
+    )
+    assert code == 0, err
+    import tomllib
+
+    comp = tomllib.loads(rebuilt.read_text(encoding="utf-8"))["components"]["WING"]
+    assert comp["placement"]["translation"]["value"][1] == pytest.approx(0.0, abs=2e-4)
+    assert comp["planform"]["span"]["value"] == pytest.approx(1.2, abs=4e-3)

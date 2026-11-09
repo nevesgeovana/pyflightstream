@@ -272,6 +272,12 @@ def _end_plane_station(stations, features, band, span, *, samples, axis):
     wing with dihedral) the end planes of the original stay normal to that coordinate axis, so
     the outermost clean cut stops short of the plane the leading edge reaches. A surface whose
     span axis lies on a coordinate axis keeps the outermost clean station.
+
+    The tilt alone explains a short reach: a cut stops being clean when the far side of the
+    section crosses the end plane, at most the section's height across the chord times the
+    tangent of the tilt before the leading edge does. A longer reach means the extreme sample
+    is not on the end plane of the wing (a rounded or lofted tip cap reaches beyond it), and
+    the outermost clean station is kept.
     """
     if abs(span[axis]) > 1.0 - 1e-9:
         return None
@@ -281,11 +287,16 @@ def _end_plane_station(stations, features, band, span, *, samples, axis):
     last = float(stations[band[-1]])
     reach = float(np.ptp(np.asarray(stations)))
     try:
-        return float(
+        station = float(
             brentq(lambda s: (curve(s)[axis] - end) * side, last, last + reach, xtol=1e-10)
         )
     except ValueError:
         return None
+    tip = features[band[-1]]
+    up = 3 - axis if axis in (1, 2) else 2
+    height = tip["chord"] * tip["thickness_ratio"] + abs(tip["te"][up] - tip["le"][up])
+    tilt = float(np.sqrt(max(0.0, 1.0 - span[axis] ** 2)) / abs(span[axis]))
+    return station if station - last <= 1.5 * height * tilt + 1e-9 else None
 
 
 def identify_pass(grids, samples, hosts, spec, count):
