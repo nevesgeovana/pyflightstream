@@ -187,6 +187,28 @@ def test_r12_001_a_crease_on_smooth_seams_does_not_hide_them():
     assert check["status"] == "failed" and check["measured"] > 179.0
 
 
+def test_r12_002_a_named_shared_edge_the_audit_cannot_pair_fails():
+    # the second plane runs along the shared edge at another parameter speed: same curve, a
+    # 60 degree fold, and no sample of one side meets the other at an equal parameter
+    first = make_planes(60.0)[0]
+    s = np.linspace(0, 1, 6)
+    a = np.radians(60.0)
+    across, along = np.meshgrid(s, s**2, indexing="ij")
+    grid = np.stack([1 + across * np.cos(a), along, across * np.sin(a)], -1)
+    warped = Patch.from_dict(
+        {**interpolate_patch(grid).to_dict(), "role": "y", "edge_ids": ["seam", "e1", "e2", "e3"]}
+    )
+    named = Patch.from_dict({**first.to_dict(), "edge_ids": ["f0", "seam", "f2", "f3"]})
+    result = audit_jumps([named, warped], limit_deg=1.0)
+    assert result["edges"] == []
+    assert result["unpaired_edges"] == ["seam"]
+    check = bluff_jump_check(result)
+    assert check["status"] == "failed" and check["where"] == {"edge": "seam"}
+    # the same pair with matching speeds is measured and fails on its turn
+    measured = audit_jumps(make_planes(60.0), limit_deg=1.0)
+    assert measured["unpaired_edges"] == [] and measured["failed"] == [0]
+
+
 def test_a_crease_that_matches_no_edge_is_reported():
     result = audit_jumps(make_planes(0.0), creases=[{"at": "nowhere", "deg": 5.0}])
     assert result["unmatched_creases"] == [{"at": "nowhere", "deg": 5.0}]

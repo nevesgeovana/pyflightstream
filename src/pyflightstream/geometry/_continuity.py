@@ -176,8 +176,9 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
         ``allowed_deg``: the declared crease angle it is held to, or ``limit_deg``; and a
         ``deviation_deg``: its distance from that crease angle, or its turn), ``failed``
         (indices into ``edges``), ``by_kind`` (largest jump per edge kind), ``unmatched_creases``
-        (entries that matched no edge) and ``free_edges`` (edges of no pair, for example on a
-        symmetry plane).
+        (entries that matched no edge), ``free_edges`` (edges of no pair, for example on a
+        symmetry plane) and ``unpaired_edges`` (edge names two patches declare shared whose
+        curves do not coincide at equal parameters: unmeasured, so the check fails them).
 
     Raises
     ------
@@ -218,16 +219,49 @@ def audit_jumps(patches, limit_deg: float = 1.0, creases=(), tolerance: float | 
         "by_kind": by_kind,
         "unmatched_creases": [c for i, c in enumerate(creases) if i not in used],
         "free_edges": 4 * len(patches) - 2 * len(records),
+        "unpaired_edges": _unpaired_names(patches, records),
     }
+
+
+def _unpaired_names(patches, records):
+    """Return the edge names two patches share that the geometric pairing did not join.
+
+    Pairing compares samples at equal parameters, so two patches that meet along an edge with a
+    different parameter speed, or that leave a gap there, form no pair and their turn is never
+    measured. A name the patches declare shared is the statement that they meet, so it is held to.
+    """
+    owners: dict[str, list[tuple[int, str]]] = {}
+    for index, patch in enumerate(patches):
+        for edge, name in zip(EDGES, patch.edge_ids, strict=False):
+            owners.setdefault(name, []).append((index, edge))
+    paired = {frozenset({(r["a"], r["edge_a"]), (r["b"], r["edge_b"])}) for r in records}
+    return sorted(
+        name
+        for name, sides in owners.items()
+        if len(sides) == 2 and sides[0][0] != sides[1][0] and frozenset(sides) not in paired
+    )
 
 
 def bluff_jump_check(result, limit_deg: float = 1.0) -> dict:
     """Return the ``continuity.bluff_jump`` check entry of an :func:`audit_jumps` result.
 
-    A failed edge reports its deviation: its turn, or its distance from its declared crease.
+    A failed edge reports its deviation: its turn, or its distance from its declared crease. An
+    edge two patches name as shared but that the audit could not measure fails at 180 degrees,
+    the turn nothing bounds.
     """
     worst = 0.0
     where = {}
+    unpaired = result.get("unpaired_edges", [])
+    if unpaired and not result["failed"]:
+        return check_entry(
+            "continuity.bluff_jump",
+            "failed",
+            180.0,
+            limit_deg,
+            unit="deg",
+            where={"edge": unpaired[0]},
+            note=f"{len(unpaired)} shared edge names do not coincide: " + ", ".join(unpaired[:5]),
+        )
     if result["failed"]:
         record = result["edges"][
             max(result["failed"], key=lambda i: result["edges"][i]["deviation_deg"])
