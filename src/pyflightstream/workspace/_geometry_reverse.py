@@ -45,6 +45,7 @@ __all__ = [
     "boundary_extent",
     "convergence",
     "identify_pass",
+    "refuse_tolerances",
     "resolve_hosts",
     "span_direction",
     "surface_grid",
@@ -355,6 +356,16 @@ def convergence(coarse, fine):
         for key, tolerance in CONVERGENCE_TOLERANCES.items()
     }
     return {"accepted": all(c["passed"] for c in checks.values()), "checks": checks}
+
+
+def refuse_tolerances(section_tolerance_mm, host_tolerance):
+    """Refuse a section tolerance no fit can meet and a host gap no meeting can have."""
+    if section_tolerance_mm is not None and not section_tolerance_mm > 0:
+        raise InputValueError(
+            f"section_tolerance_mm: positive required, got {section_tolerance_mm}"
+        )
+    if not host_tolerance >= 0:
+        raise InputValueError(f"host_tolerance: zero or positive required, got {host_tolerance}")
 
 
 def resolve_hosts(hosts, source):

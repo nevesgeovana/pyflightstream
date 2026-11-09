@@ -580,6 +580,11 @@ def fit_section(contour, span, seed, *, degree=5, max_degree=20, tolerance_m=Non
     -------
     dict
         The fit: ``accepted``, ``seed``, ``degree``, the CST coefficients and the residual.
+
+    Raises
+    ------
+    InputValueError
+        If ``max_degree`` is below ``degree``.
     """
     if max_degree < degree:
         raise InputValueError(f"max_degree: {max_degree} is below the first degree {degree}")
