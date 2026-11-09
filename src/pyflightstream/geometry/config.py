@@ -198,14 +198,15 @@ def default_component(kind):
     return common
 
 
-#: Keys of the one-skin parametrization that resolve and are checked but that the generator of
-#: this version does not read yet (lanes G4R and G5Rb apply them), by component type.
+#: Keys of the one-skin parametrization that resolve and are checked but that the generated
+#: surface of this version does not depend on, by component type. ``spanwise.law`` and
+#: ``sections.pin`` shape the skin the generator writes, so they are not listed;
+#: ``spanwise.lines`` and ``root`` reach only the layout model (iso lines and root caps),
+#: which no verb writes yet.
 _NOT_GENERATED = {
     "lifting_surface": (
-        ("spanwise", "law"),
         ("spanwise", "lines"),
         ("root",),
-        ("sections", "pin"),
         ("sections", "continuity"),
         ("sections", "tolerance"),
     ),
