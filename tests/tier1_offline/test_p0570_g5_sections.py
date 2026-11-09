@@ -98,7 +98,8 @@ def test_g5_a_surface_with_items_follows_the_cst_and_the_file(tmp_path):
     chord_root = comp["planform"]["root_chord"]
     chord_tip = comp["planform"]["tip_chord"]
     assert root[2] - 0.0 == pytest.approx(thickness_0012(0.3) * chord_root, abs=1e-3 * chord_root)
-    assert tip[2] == pytest.approx(0.2 * np.sqrt(0.3) * 0.7 * chord_tip, abs=1e-9)
+    # The skin's section is the stored B-spline, within the CST conversion limit of 2e-5 chords.
+    assert tip[2] == pytest.approx(0.2 * np.sqrt(0.3) * 0.7 * chord_tip, abs=2e-5 * chord_tip)
     assert len(lifting_surface(comp)) > 0
 
 

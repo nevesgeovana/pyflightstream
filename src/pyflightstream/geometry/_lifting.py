@@ -21,14 +21,11 @@ from pathlib import Path
 import numpy as np
 from scipy.integrate import quad
 from scipy.interpolate import BSpline, make_interp_spline
-from scipy.optimize import minimize_scalar
 
 from pyflightstream._errors import InputValueError
 
-from ._airfoils import cst_airfoil
 from ._bspline import full_knots, split_patch
 from ._distributions import (
-    blended_section,
     chord_spacing,
     elevate_coefficients,
     planform_values,
@@ -46,15 +43,19 @@ __all__ = [
     "bound_stations",
     "cap_fraction",
     "hinge_fractions",
+    "law_and_fraction",
     "layout_blocks",
     "layout_record",
     "lifting_surface",
     "max_thickness_x",
     "planform_metrics",
     "place_points",
+    "section_at",
     "section_law",
     "section_models",
     "section_points",
+    "section_sides",
+    "side_parameters",
     "skin_model",
     "thickness_station",
     "tip_section",
@@ -87,27 +88,42 @@ def section_models(sections):
     ]
 
 
+#: Section laws and skin fractions already built, by the text of the tables they read.
+_LAWS: dict[str, tuple] = {}
+
+
+def law_and_fraction(component):
+    """Return the section law (chord-weighted) and the skin's span fraction of a surface."""
+    keys = ("planform", "sections", "tip_cap", "spanwise", "control_surfaces", "distributions")
+    key = repr([(k, component.get(k)) for k in keys])
+    if key not in _LAWS:
+        fraction = cap_fraction(component, section_at(section_law(component), 1.0))
+        if len(_LAWS) >= _FITS_KEPT:
+            _LAWS.pop(next(iter(_LAWS)))
+        _LAWS[key] = (section_law(component, None, fraction), fraction)
+    return _LAWS[key]
+
+
 def section_points(component, models, eta, x, side):
-    """Return model-space points of the blended CST section at ``eta`` for chord fractions ``x``."""
-    section = blended_section(component["sections"], models, eta)
-    upper, lower = cst_airfoil(
-        x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
-    local = upper if side == "upper" else lower
-    return place_points(component, local, eta, 1.0)
+    """Return model-space points of the stored section at ``eta`` for chord fractions ``x``.
+
+    The section is the one the skin is built from (``models`` is no longer read and is kept
+    for the callers' signature); ``eta`` is a station of the skin, so the points at a defining
+    section lie on the skin.
+    """
+    law, fraction = law_and_fraction(component)
+    poles = law.at(eta)
+    curve = BSpline(law.knots, poles, len(law.knots) - len(poles) - 1)
+    local = curve(side_parameters(poles, law.knots, x, side == "upper"))
+    if np.ndim(x) == 0:
+        local = local[0]
+    return place_points(component, local, eta, fraction)
 
 
 def thickness_station(component, models, eta):
-    """Return the chord fraction of maximum thickness of the blended CST section at ``eta``."""
-    section = blended_section(component["sections"], models, eta)
-
-    def objective(x):
-        upper, lower = cst_airfoil(
-            x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-        )
-        return float(lower[1] - upper[1])
-
-    return float(minimize_scalar(objective, bounds=(0.01, 0.9), method="bounded").x)
+    """Return the chord fraction of maximum thickness of the stored section at ``eta``."""
+    law, _ = law_and_fraction(component)
+    return max_thickness_x(section_at(law, eta))
 
 
 # -- placement and the section law ------------------------------------------------------------
@@ -248,7 +264,7 @@ def section_law(component, warnings=None, fraction=None) -> _Law:
     )
 
 
-def _section_at(law, eta) -> BSplineSection:
+def section_at(law, eta) -> BSplineSection:
     poles = law.at(eta)
     return BSplineSection(
         poles=tuple((float(p[0]), float(p[1])) for p in poles),
@@ -258,7 +274,7 @@ def _section_at(law, eta) -> BSplineSection:
 
 def tip_section(component, warnings=None) -> BSplineSection:
     """Return the stored section at the skin's tip station, in the chord frame."""
-    return _section_at(section_law(component, warnings), 1.0)
+    return section_at(section_law(component, warnings), 1.0)
 
 
 def max_thickness_x(section) -> float:
@@ -421,22 +437,45 @@ def trailing_edge_face(skin: Patch) -> Patch:
     )
 
 
+def side_parameters(poles, knots, x, upper: bool) -> np.ndarray:
+    """Return the section parameters where a chord-frame curve reaches chord fractions ``x``.
+
+    The leading edge is the parameter 0.5 itself (``x <= 0``) and the trailing edge the end of
+    the side (``x >= 1``), so faces sampled on either side meet on the skin's own edge curves.
+    """
+    x = np.atleast_1d(np.asarray(x, float))
+    poles = np.asarray(poles, float)
+    curve = BSpline(np.asarray(knots, float), poles, len(knots) - len(poles) - 1)
+    lo = np.full(x.shape, 0.5 if upper else 0.0)
+    hi = np.full(x.shape, 1.0 if upper else 0.5)
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        ahead = (curve(mid)[..., 0] < x) == upper
+        lo, hi = np.where(ahead, mid, lo), np.where(ahead, hi, mid)
+    u = (lo + hi) / 2
+    u[x <= 0.0] = 0.5
+    u[x >= 1.0] = 1.0 if upper else 0.0
+    return u
+
+
+def section_sides(section, x):
+    """Return the upper and lower (x, z) points of a stored section at chord fractions ``x``.
+
+    Unlike ``BSplineSection.evaluate``, which finds where each side crosses ``x``, the point at
+    ``x = 0`` is the curve's own leading edge (parameter 0.5) on both sides.
+    """
+    poles, knots = np.asarray(section.poles, float), np.asarray(section.knots, float)
+    curve = BSpline(knots, poles, len(knots) - len(poles) - 1)
+    return tuple(curve(side_parameters(poles, knots, x, upper)) for upper in (True, False))
+
+
 def _u_on_side(law_poles, knots, x, upper: bool) -> float:
     """Return the section parameter where the chord-frame curve reaches ``x`` on one side."""
-    curve = BSpline(knots, law_poles, len(knots) - len(law_poles) - 1)
-    lo, hi = (0.5, 1.0) if upper else (0.0, 0.5)
-    for _ in range(80):
-        mid = (lo + hi) / 2
-        ahead = curve(mid)[0] < x
-        if ahead == upper:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2
+    return float(side_parameters(law_poles, knots, [x], upper)[0])
 
 
 def _lines(component, law, stations):
-    root = _section_at(law, 0.0)
+    root = section_at(law, 0.0)
     x_max = max_thickness_x(root)
     u_lines = {
         "lower_te": 0.0,
@@ -565,7 +604,7 @@ def skin_model(component, warnings=None) -> LiftingModel:
     The caps are added by :func:`pyflightstream.geometry._caps.lifting_model`, which is the
     entry point that builds the whole surface.
     """
-    fraction = cap_fraction(component, _section_at(section_law(component, warnings), 1.0))
+    fraction = cap_fraction(component, section_at(section_law(component, warnings), 1.0))
     law = section_law(component, None, fraction)
     stations, twist = _defining_stations(component, law, fraction)
     rows = _place_rows(component, law, stations, fraction)
@@ -582,7 +621,7 @@ def skin_model(component, warnings=None) -> LiftingModel:
         stations=tuple(float(s) for s in stations),
         fraction=fraction,
         records=tuple(records),
-        ends={"root": _section_at(law, 0.0), "tip": _section_at(law, 1.0)},
+        ends={"root": section_at(law, 0.0), "tip": section_at(law, 1.0)},
     )
 
 
@@ -668,11 +707,7 @@ def _skin_point(skin, u, v):
 
 
 def _side_grid(model, law, eta, x, upper):
-    poles = law.at(eta)
-    u = np.array([_u_on_side(poles, law.knots, xi, upper) for xi in x])
-    u[x <= 0.0] = 0.5
-    u[x >= 1.0] = 1.0 if upper else 0.0
-    return _skin_point(model.skin, u, eta)
+    return _skin_point(model.skin, side_parameters(law.at(eta), law.knots, x, upper), eta)
 
 
 def _interim_grid(model, law, entry, chord_count=49, span_count=9):
@@ -691,7 +726,7 @@ def _interim_grid(model, law, entry, chord_count=49, span_count=9):
             points = (1 - fraction[:, None]) * upper + fraction[:, None] * lower
         else:
             side, region = family.split("_")
-            mid = max_thickness_x(_section_at(law, eta))
+            mid = max_thickness_x(section_at(law, eta))
             a, b = (0, mid) if region == "fore" else (mid, 1)
             points = _side_grid(model, law, eta, chord_spacing(a, b, s), side == "upper")
         grid.append(points)

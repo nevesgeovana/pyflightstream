@@ -24,8 +24,12 @@ from ._lifting import (
     LiftingModel,
     cap_fraction,
     continuity_internal,
+    law_and_fraction,
     max_thickness_x,
+    place_points,
+    section_at,
     section_models,
+    section_sides,
     skin_model,
     thickness_station,
     tip_section,
@@ -94,8 +98,9 @@ def _sides(section, x):
 
     ``section`` is a stored B-spline section or a blended CST table.
     """
-    if hasattr(section, "evaluate"):
-        return section.evaluate(np.clip(np.asarray(x, float), 0.0, 1.0))
+    if hasattr(section, "poles"):
+        upper, lower = section_sides(section, np.clip(np.asarray(x, float), 0.0, 1.0))
+        return (upper[0], lower[0]) if np.ndim(x) == 0 else (upper, lower)
     return cst_airfoil(x, section["upper"], section["lower"], section["trailing_edge_thickness"])
 
 
@@ -429,20 +434,15 @@ def tip_cap(component) -> list[Patch]:
 
 
 def wing_contour_point(component, models, maximum, index, u, eta):
-    """Return the model-space point of a contour segment at parameter ``u`` and span ``eta``."""
-    section = blended_section(component["sections"], models, eta)
+    """Return the model-space point of a contour segment at parameter ``u`` and span ``eta``.
+
+    The section is the stored one the skin is built from (``models`` is no longer read), so a
+    contour point at the tip lies on the cap's rim.
+    """
+    law, fraction = law_and_fraction(component)
+    section = section_at(law, eta)
     point = contour_segment(section, maximum, index, np.asarray(u))
-    p = planform_values(component, eta)
-    angle, chord = np.deg2rad(p["twist"]), p["chord"]
-    axis = component["planform"]["twist_axis"]
-    dx, dz = (point[0] - axis) * chord, point[1] * chord
-    return np.array(
-        [
-            p["leading_edge_x"] + axis * chord + dx * np.cos(angle) + dz * np.sin(angle),
-            component["planform"]["span"] / 2 * eta,
-            p["leading_edge_z"] - dx * np.sin(angle) + dz * np.cos(angle),
-        ]
-    )
+    return np.asarray(place_points(component, point, eta, fraction), float)
 
 
 def wing_contour_normal(component, models, maximum, index, u, eta):
