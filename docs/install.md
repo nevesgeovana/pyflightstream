@@ -51,8 +51,8 @@ The `pandas` extra provides `Table.to_pandas()` for dataframe workflows:
 `pip install "pyflightstream[pandas]"`. Parsing, NumPy tables and CSV products
 work with the core install alone. See [upgrading](upgrading.md#numpy-tables-and-optional-pandas).
 gmsh, the geometry kernel of the IGES commands `geometry iges-grid` and
-`geometry iges-convert`, installs with the package. The `gmsh` extra is retired and empty; it is
-removed at 0.60.0. See [IGES](mesh/iges.md).
+`geometry iges-convert`, installs with the package. The `gmsh` extra is retired and empty; it stays only so that
+existing install lines still resolve. See [IGES](mesh/iges.md).
 
 ## Choose the FlightStream build
 
