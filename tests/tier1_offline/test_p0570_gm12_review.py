@@ -889,3 +889,16 @@ def test_r9_016_the_default_component_version_is_the_design_s():
 
     plain = unpack(resolve_config({"components": {"a": {"type": "body"}}}))
     assert plain["components"]["a"]["version"] == "1.0.0"
+
+
+# R9-017: a designation the generator cannot build is refused where it is read.
+
+
+def test_r9_017_a_six_series_number_does_not_pass_as_five_digits():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    items = [{"eta": 0.0, "naca": "64215"}, {"eta": 1.0, "naca": "0012"}]
+    with pytest.raises(InputValueError, match="NACA64215"):
+        resolve_config(_plain(sections={"items": items}))
+    resolve_config(_plain(sections={"items": [{"eta": 0.0, "naca": "23012"}, items[1]]}))

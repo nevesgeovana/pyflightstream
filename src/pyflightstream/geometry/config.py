@@ -23,6 +23,7 @@ from pathlib import Path
 
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._airfoils import naca_camber
 from pyflightstream.geometry._boundary import unit_for, unpack
 from pyflightstream.geometry._component_keys import (
     body_sections,
@@ -323,6 +324,10 @@ def validate_sections(section):
             continue
         if not isinstance(name, str) or not re.fullmatch(r"NACA(?:\d{4}|\d{5})", name):
             raise InputValueError("sections.airfoils: expected NACA designation")
+        try:
+            naca_camber(name, [0.5])
+        except InputValueError as error:
+            raise InputValueError(f"sections.airfoils: {name}: {error}") from error
     if not isinstance(section["degree"], int) or section["degree"] < 1:
         raise InputValueError("sections.degree: expected positive integer")
     for key in ("n1", "n2"):
