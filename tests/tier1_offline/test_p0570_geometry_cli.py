@@ -253,3 +253,25 @@ def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
     assert code == 2
     assert "186" in err
     assert not refused.exists()
+
+
+BSPLINE_ITEM = (
+    "{eta = 0.0, bspline = {degree = 1, knots = [0.0, 0.0, 0.5, 1.0, 1.0], "
+    "poles = [[1.0, -0.001], [0.0, 0.0], [1.0, 0.001]]}}"
+)
+
+
+def test_r16_001_generate_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path, capsys):
+    """The schema accepts ``{eta, bspline}``; the generator of this version names it, no crash."""
+    config = tmp_path / "bspline.toml"
+    config.write_text(
+        '[components.W]\ntype = "lifting_surface"\n'
+        "planform = {span = 9.0, aspect_ratio = 9.0, taper = 0.6}\n"
+        f'sections.items = [{BSPLINE_ITEM}, {{eta = 1.0, naca = "0012"}}]\n',
+        encoding="utf-8",
+    )
+    out = tmp_path / "bspline.igs"
+    code, _, err = cli(["generate", config, "--out", out], capsys)
+    assert code == 2
+    assert "sections.items" in err and "bspline" in err
+    assert not out.exists()
