@@ -498,7 +498,7 @@ def _inside(folder: Path, key: str) -> bool:
     named = Path(key)
     if named.is_absolute() or ".." in named.parts or named.drive:
         return False
-    return (folder / named).resolve().is_relative_to(folder.resolve())
+    return _textio.resolved_plain(folder / named).is_relative_to(_textio.resolved_plain(folder))
 
 
 def _families(stated: object) -> list[str]:

@@ -1100,7 +1100,7 @@ def _frozen_replay(
         from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp
 
         frozen = (source.parent / spec.frozen_displacements_file).resolve()
-        if not frozen.is_relative_to(source.parent.resolve()):
+        if not _textio.resolved_plain(frozen).is_relative_to(_textio.resolved_plain(source.parent)):
             raise FsiSetupError(
                 f"{source}: frozen_displacements_file {spec.frozen_displacements_file!r} leaves "
                 "the folder of the input; name a file beside it or below it."

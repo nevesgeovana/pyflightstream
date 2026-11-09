@@ -349,7 +349,7 @@ def _write_extraction_script(workspace, sim_id, name, text, *, stamp):
     """
     scripts = workspace.create_sim(sim_id) / "scripts"
     target = scripts / name
-    if not target.resolve().is_relative_to(scripts.resolve()):
+    if not resolved_plain(target).is_relative_to(resolved_plain(scripts)):
         raise WorkspaceError(f"script name {name!r} leaves the simulation's scripts folder.")
     target.parent.mkdir(parents=True, exist_ok=True)
     _archive_extraction_script(target, stamp)

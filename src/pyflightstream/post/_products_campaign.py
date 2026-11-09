@@ -42,7 +42,7 @@ from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
 from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
-from pyflightstream.workspace.naming import ADDITIONAL_DIR
+from pyflightstream.workspace.naming import ADDITIONAL_DIR, resolved_plain
 from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED
 
 if TYPE_CHECKING:
@@ -418,7 +418,7 @@ def _retire_campaign_products(
                 name, "retired previous product; its inputs no longer supply this file"
             )
         path = out / name
-        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
+        if resolved_plain(path).is_relative_to(resolved_plain(out)) and path.is_file():
             refuse_an_existing_product(path, archive=move, stamp=archive_stamp)
             if not move:
                 path.unlink()

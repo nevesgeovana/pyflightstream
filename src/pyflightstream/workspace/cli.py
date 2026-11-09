@@ -88,6 +88,7 @@ from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
+from pyflightstream._textio import resolved_plain
 from pyflightstream.options import get_option, option_context
 from pyflightstream.workspace import (
     INPUT_KINDS,
@@ -1279,7 +1280,7 @@ def _profile_shape(
 def _table_input(table: Path, root: Path) -> dict[str, object]:
     """Return the record of a table read: workspace-relative inside the workspace, else as named."""
     try:
-        path = table.resolve().relative_to(root.resolve()).as_posix()
+        path = resolved_plain(table).relative_to(resolved_plain(root)).as_posix()
     except ValueError:
         path = str(table)
     return {"path": path, "sha256": file_sha256(table)}

@@ -7,6 +7,7 @@ file the run wrote in its own folder read as evidence of an earlier run.
 
 from __future__ import annotations
 
+import importlib
 import os
 import subprocess
 from pathlib import Path
@@ -74,6 +75,77 @@ def test_p0570_r8_002_a_collected_output_past_the_limit_is_read(junction_folder)
     path = _past_the_limit(junction_folder)
     record = SimpleNamespace(run_id="r")
     assert _read_output(junction_folder, path.name, record) == "x"
+
+
+def test_p0570_r8_003_a_series_past_the_limit_stays_beside_its_reduction(junction_folder):
+    """R8-003: the file rule compared a prefixed series with a plain destination's folder."""
+    import numpy as np
+
+    from pyflightstream.post.reductions import write_reduction
+    from pyflightstream.post.unsteady import FrameAverage
+
+    series = _past_the_limit(junction_folder)
+    average = FrameAverage(
+        window=(1, 2),
+        n_frames=2,
+        points=np.zeros((1, 3)),
+        fields={"p": np.zeros(1)},
+        sources=(),
+    )
+    written = write_reduction(junction_folder / "r.csv", average, series_file=series)
+    assert written.is_file()
+
+
+def test_p0570_r8_003_an_extraction_script_past_the_limit_stays_in_scripts(tmp_path):
+    """R8-003: the name check read a long script as leaving the scripts folder."""
+    if os.name != "nt":
+        pytest.skip("a junction and the 260 limit are Windows")
+    from pyflightstream.run._additional import _write_extraction_script
+
+    root = tmp_path / "w"
+    root.mkdir()
+    target_folder = tmp_path / "t"
+    target_folder.mkdir()
+    while len(str(target_folder)) < 150:
+        target_folder = target_folder / ("d" * 20)
+        target_folder.mkdir()
+    link = root / "sims"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target_folder)],
+        check=True,
+        capture_output=True,
+        creationflags=_CREATE_NO_WINDOW,
+    )
+    try:
+        workspace = CampaignWorkspace(root)
+        scripts = workspace.create_sim("7001") / "scripts"
+        size = 260 - len(str(scripts.resolve())) - 1
+        target, _digest = _write_extraction_script(
+            workspace, "7001", f"{'s' * (size - 4)}.txt", "text", stamp="s"
+        )
+        assert target.parent == scripts
+        assert target.is_file()
+    finally:
+        os.rmdir(link)
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "pyflightstream.post._products_campaign",
+        "pyflightstream.run._batch_exec",
+        "pyflightstream.workspace.actuator_profiles",
+        "pyflightstream.workspace.storage",
+        "pyflightstream.workspace.fsi_setup",
+        "pyflightstream.workspace.fields",
+        "pyflightstream.workspace.cli",
+        "pyflightstream.workspace._free_space",
+    ],
+)
+def test_p0570_r8_003_each_site_compares_plain_paths(module):
+    """Sites with no cheap junction route: each module still holds the plain comparison."""
+    source = Path(importlib.import_module(module).__file__)
+    assert "resolved_plain(" in source.read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(os.name != "nt", reason="a junction and the 260 limit are Windows")
