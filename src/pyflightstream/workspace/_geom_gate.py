@@ -5,7 +5,7 @@ reports one finding per defect. A solid entity is refused with an error, because
 builds surfaces only. Every other defect is a ``fail`` finding that names its check and entity,
 so a loop of parameter sets keeps its report. A degree beyond the observed ones, which no source
 limits yet, is a ``warn``. The profile itself is
-:mod:`pyflightstream.geometry._iges_profile`.
+:mod:`pyflightstream.geometry.iges_profile`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.geometry._iges_profile import (
+from pyflightstream.geometry.iges_profile import (
     OBSERVED,
     SOLID_ENTITIES,
     GateFinding,

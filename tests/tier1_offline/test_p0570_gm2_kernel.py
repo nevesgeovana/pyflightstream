@@ -347,7 +347,7 @@ def test_a_three_sided_face_fails(control):
 
 
 def test_an_unobserved_degree_warns_and_does_not_fail(control):
-    from pyflightstream.geometry._iges_profile import ReaderProfile
+    from pyflightstream.geometry.iges_profile import ReaderProfile
     from pyflightstream.workspace._geom_gate import check_profile
 
     directory, document = control

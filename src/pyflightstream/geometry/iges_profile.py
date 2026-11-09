@@ -84,6 +84,7 @@ def _number(text: str) -> float:
 
 
 def surface_findings(entity: dict[str, Any], profile: ReaderProfile) -> list[GateFinding]:
+    """Return the findings of one surface entity (128) measured against ``profile``."""
     values = entity["parameters"]
     ident = entity["id"]
     k1, k2, m1, m2 = (int(values[i]) for i in range(1, 5))
