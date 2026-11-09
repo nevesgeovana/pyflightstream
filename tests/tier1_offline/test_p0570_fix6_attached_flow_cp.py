@@ -65,6 +65,7 @@ def test_p0570_fix6_separation_on_with_the_cp_export_warns():
     found = _cp_warnings(messages)
     assert len(found) == 1
     assert "_cp.txt" in found[0]
+    assert "HIGH_LIFT" in found[0]  # R8-006: only that model was measured
 
 
 def test_p0570_fix6_separation_off_says_nothing():
@@ -121,3 +122,11 @@ def test_p0570_r8_005_a_coupled_row_exporting_from_its_post_is_warned(tmp_path):
     assert "EXPORT_ALL_SURFACE_SECTIONS" not in script.render()
     assert "EXPORT_ALL_SURFACE_SECTIONS" in script.pending_input_files[POST_FILE]
     assert len(_cp_warnings([str(w.message) for w in caught])) == 1
+
+
+def test_p0570_r8_006_a_model_the_build_dropped_is_not_warned_of():
+    """The warning reads the script, so 26.100, which skips the model, says nothing of the Cp."""
+    text, messages = _built(_case(separation=True, sections=True), "26.100")
+    assert "CREATE_AIRFOIL_SEPARATION" not in text
+    assert "EXPORT_ALL_SURFACE_SECTIONS" in text
+    assert _cp_warnings(messages) == []

@@ -407,8 +407,9 @@ def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
     if {"CREATE_AIRFOIL_SEPARATION", "EXPORT_ALL_SURFACE_SECTIONS"} <= commands:
         warn(
             f"case {case.sim_id!r}: airfoil separation is on and the row exports the section "
-            "Cp (_cp.txt). That Cp is the attached-flow Cp and does not match the exported "
-            "loads, so do not integrate it for loads or read it as the separated pressure.",
+            "Cp (_cp.txt). As measured with the HIGH_LIFT model, that Cp is the attached-flow "
+            "Cp and does not match the exported loads; the other leading edge types are not "
+            "measured. Do not integrate it for loads or read it as the separated pressure.",
             PyflightstreamWarning,
             stacklevel=3,
         )
