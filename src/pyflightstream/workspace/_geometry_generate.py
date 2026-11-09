@@ -22,6 +22,7 @@ from typing import Any
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._generation import assembly_regions, generate_components
 from pyflightstream.geometry._patch import Patch
@@ -407,7 +408,7 @@ def write_iges(gmsh, groups, path):
             raise InputValueError("IGES.NAME: temporary folder left the output folder")
         keys = component_keys(gmsh, groups, directory)
     document = name_properties(document, groups, keys)
-    path.write_text(serialize_iges(document), encoding="ascii")
+    _textio.write_text(path, serialize_iges(document), encoding="ascii")
 
 
 def generate_iges(

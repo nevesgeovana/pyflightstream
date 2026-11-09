@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError
 
 __all__ = [
@@ -292,7 +293,7 @@ def write_record(path, record):
     """Write a check record as indented JSON."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(path, json.dumps(record, indent=2) + "\n")
 
 
 def _quality(p):
@@ -429,7 +430,7 @@ def write_obj(path, mesh):
             for c, owner in zip(mesh.cells, mesh.components, strict=True)
             if owner == name
         ]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="ascii")
+    _textio.write_text(path, "\n".join(lines) + "\n", encoding="ascii")
 
 
 def read_obj(path):
