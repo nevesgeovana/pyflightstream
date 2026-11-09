@@ -136,6 +136,54 @@ def test_a_bicubic_face_answers_the_geometric_queries(kernel):
     assert kernel.faces() == (face,)
 
 
+def test_the_batched_queries_agree_with_the_single_ones_on_a_curved_face(kernel):
+    net = [[(3.0 * i / 3, 3.0 * j / 3, 0.4 * (i - 1.5) ** 2) for j in range(4)] for i in range(4)]
+    face = _bicubic(kernel, net)
+    (u0, v0), (u1, v1) = kernel.uv_bounds(face)
+    uvs = [
+        (u0 + (u1 - u0) * a, v0 + (v1 - v0) * b) for a, b in ((0.2, 0.3), (0.5, 0.5), (0.9, 0.1))
+    ]
+    points = kernel.values(face, uvs)
+    slopes = kernel.derivatives(face, uvs)
+    for uv, point, slope in zip(uvs, points, slopes, strict=True):
+        assert tuple(point) == pytest.approx(kernel.value(face, uv), abs=1e-12)
+        single = [c for row in kernel.derivative(face, uv) for c in row]
+        assert [c for row in slope for c in row] == pytest.approx(single, abs=1e-12)
+    assert all(kernel.inside(face, uvs))
+    assert not kernel.inside(face, [(u1 + 1.0, v1 + 1.0)])[0]
+    off = [(0.7, 1.1, 3.0), (2.2, 0.4, -2.0)]
+    xyz, uv = kernel.project(face, off)
+    for point, target, parameters in zip(xyz, off, uv, strict=True):
+        assert tuple(point) == pytest.approx(kernel.value(face, tuple(parameters)), abs=1e-9)
+        assert point[2] != pytest.approx(target[2], abs=0.5)  # moved onto the surface
+    back = kernel.parametrize(face, list(points))
+    assert [c for row in back for c in row] == pytest.approx(
+        [c for uv in uvs for c in uv], abs=1e-6
+    )
+
+
+def test_the_curve_queries_of_an_edge_agree_with_its_geometry(kernel):
+    face = _bicubic(kernel, _flat_net(3.0))
+    lengths = []
+    for edge in kernel.boundary(face):
+        low, high = kernel.edge_bounds(edge)
+        ends = kernel.edge_ends(edge)
+        a, b = kernel.edge_values(edge, [low, high])
+        assert {tuple(round(c, 9) for c in p) for p in (a, b)} == {
+            tuple(round(c, 9) for c in p) for p in ends
+        }
+        lengths.append(float(((a - b) ** 2).sum() ** 0.5))
+        box_low, box_high = kernel.edge_bbox(edge)
+        assert all(
+            lo <= c + 1e-9 and c <= hi + 1e-9
+            for lo, c, hi in zip(box_low, a, box_high, strict=True)
+        )
+        mid = kernel.edge_values(edge, [(low + high) / 2])[0]
+        (projected,) = kernel.edge_project(edge, [tuple(mid + (0.0, 0.0, 0.5))])
+        assert tuple(projected) == pytest.approx(tuple(mid), abs=1e-6)
+    assert lengths == pytest.approx([3.0] * 4, abs=1e-9)
+
+
 def test_fragment_imprints_a_crossing_pair_and_reports_what_each_became(kernel):
     a = _bicubic(kernel, _flat_net(3.0))
     corners = [(1.5, -1.0, -1.0), (1.5, 4.0, -1.0), (1.5, 4.0, 1.0), (1.5, -1.0, 1.0)]
@@ -315,6 +363,14 @@ def _unclamped(document):
     surface["parameters"][10 + 1] = "0.1"
 
 
+def _unclamped_at(position):
+    def plant(document):
+        surface = next(e for e in document["entities"] if e["type"] == 128)
+        surface["parameters"][position] = "0.1" if position in (11, 19) else "0.9"
+
+    return plant
+
+
 def _no_name(document):
     face = next(e for e in document["entities"] if e["type"] == 144)
     del face["parameters"][5:]
@@ -325,6 +381,9 @@ def _no_name(document):
     [
         (_rational, "profile.rational"),
         (_unclamped, "profile.unclamped"),
+        (_unclamped_at(16), "profile.unclamped"),
+        (_unclamped_at(19), "profile.unclamped"),
+        (_unclamped_at(24), "profile.unclamped"),
         (_no_name, "profile.name"),
     ],
 )
