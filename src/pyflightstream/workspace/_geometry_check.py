@@ -27,7 +27,7 @@ from scipy.spatial import cKDTree
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.component import DEVIATION_PROFILES
-from pyflightstream.workspace._cad import CadKernel, Face
+from pyflightstream.workspace._cad import Face
 from pyflightstream.workspace._gmsh import GmshKernel, gmsh_module, open_kernel
 
 __all__ = ["check_against_original", "local_limits"]
@@ -222,7 +222,7 @@ def local_limits(points, limits, profile="study_default"):
     return np.maximum(constants["floor_mm"] / 1000, constants["local_fraction"] * chord)
 
 
-def _kernel() -> tuple[CadKernel, bool]:
+def _kernel() -> tuple[GmshKernel, bool]:
     """Return the kernel of the model already open, or a new one the caller closes."""
     gmsh = gmsh_module(_PURPOSE)
     if gmsh.isInitialized():
