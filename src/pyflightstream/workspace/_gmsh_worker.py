@@ -171,10 +171,12 @@ def _failed(cause: str, tail: str) -> InputArtifactError:
 def _rebuilt(error: dict[str, Any]) -> Exception:
     """Return the exception the worker raised, as the parent's own type and message.
 
-    A refusal of this package keeps its own type. Anything else is a defect or a fault of
-    the kernel's own, not a refusal of the input: it returns as the same builtin type where
-    there is one, else as a ``RuntimeError`` naming the type, and carries the worker's
-    traceback as a note, so it reads as it does with ``PYFLIGHTSTREAM_GMSH_ISOLATE=0``.
+    ``MissingExtraError`` and ``InputValueError`` keep their type, and any other error of this
+    package returns as ``InputArtifactError``. A bare ``Exception`` is how the kernel's binding
+    reports a failure, so it returns as the ``InputArtifactError`` the public functions document,
+    saying the kernel failed. Anything else is a defect, not a refusal of the input: it returns
+    as the same builtin type where there is one, else as a ``RuntimeError`` naming the type.
+    Both carry the worker's traceback as a note.
     """
     name, message = str(error["type"]), str(error["message"])
     if name == "MissingExtraError":
@@ -186,9 +188,14 @@ def _rebuilt(error: dict[str, Any]) -> Exception:
     found = getattr(builtins, name, None)
     rebuilt: Exception
     try:
-        if not (isinstance(found, type) and issubclass(found, Exception)):
+        if found is Exception:
+            rebuilt = InputArtifactError(
+                f"the geometry kernel failed: {message}. Nothing was written.", kind="geometry"
+            )
+        elif isinstance(found, type) and issubclass(found, Exception):
+            rebuilt = found(message)
+        else:
             raise TypeError(name)
-        rebuilt = found(message)
     except Exception:
         rebuilt = RuntimeError(f"the geometry worker raised {name}: {message}")
     trace = str(error.get("traceback") or "").strip()

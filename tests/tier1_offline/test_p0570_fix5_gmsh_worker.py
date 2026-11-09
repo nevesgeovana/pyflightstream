@@ -64,6 +64,25 @@ def test_p0570_fix5_an_unknown_worker_exception_names_its_type():
     assert "worker_odd" in "\n".join(raised.value.__notes__)
 
 
+def worker_kernel_failure():
+    raise Exception("Could not read the surfaces")  # noqa: TRY002, the binding's own form
+
+
+def test_p0570_fix5_a_kernel_failure_stays_the_documented_refusal(capsys):
+    """PFS-2207: the kernel binding raises a bare Exception; the verb reports it, exit 2.
+
+    convert_iges and grid_iges document a kernel failure as InputArtifactError, and the command
+    line catches the package's errors, so it must not reach the person as a traceback.
+    """
+    from pyflightstream.run._cli_morph import _print_checks
+
+    with pytest.raises(InputArtifactError, match="kernel failed.*Could not read") as raised:
+        run_isolated(f"{_HERE}:worker_kernel_failure", {}, _direct)
+    assert "worker_kernel_failure" in "\n".join(raised.value.__notes__)
+    code = _print_checks(lambda: run_isolated(f"{_HERE}:worker_kernel_failure", {}, _direct))
+    assert code == 2 and "Could not read" in capsys.readouterr().err
+
+
 def test_p0570_fix5_a_refusal_of_the_package_keeps_its_type_and_kind():
     """PFS-2207: the package's own refusal is still the same type and message."""
     with pytest.raises(InputArtifactError, match="bad surface. Nothing was written.") as raised:
