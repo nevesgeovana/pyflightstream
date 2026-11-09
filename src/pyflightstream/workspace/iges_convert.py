@@ -77,7 +77,7 @@ def convert_iges(
     Raises
     ------
     MissingExtraError
-        gmsh is not installed (``pip install "pyflightstream[gmsh]"``).
+        The gmsh library cannot load (``KernelUnavailableError``).
     InputArtifactError
         A source cannot be named face by face, the written file does not read back with the
         same components, or the geometry kernel failed (it runs in a worker process of its

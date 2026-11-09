@@ -1,4 +1,4 @@
-"""P0570 geometry: generating a named IGES file from a configuration (needs the gmsh extra).
+"""P0570 geometry: generating a named IGES file from a configuration (uses the gmsh kernel).
 
 Ported from the research tests of the bodies, fairings and assembly. The tests that need the
 geometry kernel skip where the optional extra is absent; the refusal and the import isolation

@@ -195,6 +195,14 @@ def _rebuilt(error: dict[str, Any]) -> Exception:
     name, message = str(error["type"]), str(error["message"])
     if name == "MissingExtraError":
         return _errors_missing(message, error.get("attrs") or {})
+    if name == "KernelUnavailableError":
+        from pyflightstream.extras import KernelUnavailableError
+
+        attrs = error.get("attrs") or {}
+        return KernelUnavailableError(
+            purpose=attrs.get("purpose", "the geometry kernel"),
+            reason=attrs.get("reason", message),
+        )
     if name == "InputValueError":
         return InputValueError(message)
     if error.get("package"):
@@ -261,7 +269,7 @@ def _main(request: Path, answer: Path) -> int:
                 "package": isinstance(error, PyflightstreamError),
                 "attrs": {
                     key: str(getattr(error, key))
-                    for key in ("extra", "package", "purpose", "remedy")
+                    for key in ("extra", "package", "purpose", "remedy", "reason")
                     if hasattr(error, key)
                 },
                 "traceback": traceback.format_exc(),

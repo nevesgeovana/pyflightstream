@@ -574,7 +574,7 @@ def mesh_generated(
         For an unknown component, an unsupported assembly or controls, a topology gate that
         fails, or a mesh that cannot be built all-quad.
     pyflightstream.extras.MissingExtraError
-        When the optional gmsh extra is not installed.
+        When the gmsh library cannot load (``KernelUnavailableError``).
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     values = load_mesh_controls(controls)

@@ -260,7 +260,7 @@ def test_p0560_without_gmsh_each_verb_gives_one_install_message(
     )
     code, stdout, stderr = cli(["geometry", verb, str(source), *extra, "--out", str(out)], capsys)
     assert code == 2
-    assert stderr.count('pip install "pyflightstream[gmsh]"') == 1, stderr
+    assert stderr.count('pip install "gmsh>=4.13,<5"') == 1, stderr
     assert "gmsh" in stderr
     assert not out.exists()
     assert sorted(p.name for p in tmp_path.iterdir()) == sorted(

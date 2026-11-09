@@ -3,8 +3,8 @@
 Pipeline role: the run layer's parsers and handlers for ``generate``, ``identify``, ``check``,
 ``mesh-generated`` and ``schema`` (0.57.0 item 3). The work is the geometry package's
 (:mod:`pyflightstream.geometry`, the configuration boundary and the component record) and the
-workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the optional ``gmsh``
-extra); this module only reads the command line, calls it, prints the record it returns as
+workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the gmsh
+kernel); this module only reads the command line, calls it, prints the record it returns as
 JSON and gives the exit code: 0 when the work was done (and, for ``check``, accepted), 1 when
 ``check`` measured the rebuilt surface and rejected it, 2 when an input is refused or the gmsh
 extra is missing, with the message on standard error and nothing written. Each parser names its
@@ -50,7 +50,7 @@ def add_generate_parser(subparsers: Any) -> None:
     """Add the verb that writes a named IGES from a parametric configuration."""
     parser = subparsers.add_parser(
         "generate",
-        help="write a named IGES from a parametric configuration (needs the gmsh extra)",
+        help="write a named IGES from a parametric configuration (uses the gmsh kernel)",
         description=(
             "Reads a TOML configuration of bodies, lifting surfaces and the wing-fuselage "
             "fairing, resolves it (every value carries its source), generates the exposed skin "
@@ -86,7 +86,7 @@ def add_identify_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "identify",
         help="identify a lifting surface of an original IGES: planform and sections "
-        "(needs the gmsh extra)",
+        "(uses the gmsh kernel)",
         description=(
             "Cuts the trimmed faces of one component of an IGES file (named on its level) by "
             "planes normal to its span axis, finds the clean band of sections, builds the "
@@ -239,7 +239,7 @@ def add_check_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "check",
         help="measure a rebuilt IGES against the original: forward and restricted reverse "
-        "distance (needs the gmsh extra)",
+        "distance (uses the gmsh kernel)",
         description=(
             "Samples the original and the rebuilt faces and measures the distance of each to "
             "the other: forward (the original to the rebuilt, everywhere) and reverse (the "
@@ -352,7 +352,7 @@ def add_mesh_generated_parser(subparsers: Any) -> None:
     """Add the verb that meshes a parametric configuration into an all-quad OBJ."""
     parser = subparsers.add_parser(
         "mesh-generated",
-        help="mesh a parametric configuration into an all-quad OBJ (needs the gmsh extra)",
+        help="mesh a parametric configuration into an all-quad OBJ (uses the gmsh kernel)",
         description=(
             "Resolves the configuration and meshes its patches from their role: constant "
             "spanwise width with a refined tip, chordwise growth from the leading edge, "

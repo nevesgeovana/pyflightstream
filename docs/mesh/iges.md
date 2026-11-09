@@ -3,13 +3,9 @@
 Two commands read IGES files whose components are named, as a CAD or meshing system writes
 them: `geometry iges-grid` builds one surface grid for the solver, one family per component,
 and `geometry iges-convert` rewrites the files as one IGES of B-spline faces that the solver's
-CAD import reads. Both need the optional `gmsh` extra:
-
-```text
-pip install "pyflightstream[gmsh]"
-```
-
-Without it, either command stops with that install line and writes nothing.
+CAD import reads. Both use gmsh, which installs with the package. Where the library cannot load, for example on
+Linux without its system libraries, either command stops with a message naming the library that
+failed and writes nothing.
 
 ## Component names
 
@@ -270,7 +266,7 @@ surface, and run again. `PYFLIGHTSTREAM_GMSH_TIMEOUT` sets the seconds a worker 
 
 ## License of the extra
 
-gmsh is licensed under the GNU General Public License, version 2 or later. The base install
-never installs or imports it, and the package does not redistribute it: it comes from its own
-distribution when the `gmsh` extra is installed, and only these two commands call it. See
+gmsh is licensed under the GNU General Public License, version 2 or later. The package
+does not embed or redistribute it: it comes from its own distribution as a dependency, and
+it is imported only when a kernel stage runs. See
 [install](../install.md#dependency-licenses).
