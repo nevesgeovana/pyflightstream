@@ -1,19 +1,54 @@
 """Bodies of revolution and superellipse bodies as a quadrilateral curve network.
 
-Pipeline role: pure numerical stage of the geometry package. A resolved body
-component (plain values, metres) becomes bicubic patches: a pole or flat-base
-cap at each end, built from three true quadrilaterals per azimuth sector, and
-front, middle and rear bands between the stations and junction stations.
+Pipeline role: pure numerical stage of the geometry package. A resolved body component (plain
+values, metres) becomes bicubic patches: a pole or flat-base cap at each closed end, built from
+three true quadrilaterals per azimuth sector, and one skinned band between the first and the last
+station, cut at the stations and junctions by knot insertion. An end may also be open, so a
+parent and a child can share its rim; a boat-tail rear closes on a flat base by a law limited in
+slope.
 """
 
 from __future__ import annotations
+
+import csv
+from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 
 from pyflightstream._errors import InputValueError
 
+from ._continuity import edge_jumps
 from ._distributions import spline_distribution
 from ._patch import Patch, interpolate_patch
+from ._schema import stations as check_stations
+from ._skin import (
+    POLE_TARGET_DEG,
+    SAMPLE_LADDER,
+    band_axial,
+    cap_edge_ids,
+    clustered,
+    pole_parameter_grids,
+    skin_band,
+)
+
+
+def rear_kind(component) -> str:
+    """Return ``pole``, ``base``, ``open`` or ``boat_tail``, the form of the rear end."""
+    rear = component["rear"]
+    return "boat_tail" if isinstance(rear, dict) else rear
+
+
+def rear_end(component) -> float:
+    """Return the axial fraction where the rear of the body ends."""
+    if rear_kind(component) == "boat_tail":
+        return float(component["rear"]["boat_tail"]["x_cut"])
+    return 1.0
+
+
+def is_full(component) -> bool:
+    """Whether the body is a whole body about its axis rather than the half at y >= 0."""
+    return component.get("symmetry", "half_y0") == "full"
 
 
 def body_station_table(component):
@@ -62,24 +97,183 @@ def body_station_table(component):
     }
 
 
+def _ring_row(number, row):
+    """Return one rings-file row as numbers, or refuse it naming its line."""
+    defaults = {"centre_height": 0.0, "n_top": 2.0, "n_bottom": 2.0}
+    try:
+        values = {key: float(row[key]) for key in ("x", "width", "height")}
+        values |= {key: float(row.get(key) or default) for key, default in defaults.items()}
+    except (TypeError, ValueError) as error:
+        raise InputValueError(
+            f"rings_file: line {number} holds a value that is no number"
+        ) from error
+    return values
+
+
+def read_rings(path) -> tuple[list[float], list[dict]]:
+    """Read a rings file: sections measured elsewhere, one row per station.
+
+    The file is CSV with the header ``x`` (axial fraction), ``width``, ``height`` and optionally
+    ``centre_height``, ``n_top`` and ``n_bottom`` (defaults 0, 2 and 2). Returns the stations and
+    the superellipse sections, in the form ``sections`` takes.
+
+    Raises
+    ------
+    InputValueError
+        When the file is empty, lacks a column, holds a value that is not a number, has fewer
+        than three rows, or its stations are not strictly increasing inside (0, 1).
+    """
+    try:
+        with Path(path).open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+    except OSError as error:
+        raise InputValueError(f"rings_file: cannot read {path}") from error
+    if not rows or not {"x", "width", "height"} <= set(rows[0]):
+        raise InputValueError("rings_file: a header with x, width and height is required")
+    values = [_ring_row(number, row) for number, row in enumerate(rows, start=2)]
+    stations = [v.pop("x") for v in values]
+    if len(rows) < 3 or any(b <= a for a, b in zip(stations, stations[1:], strict=False)):
+        raise InputValueError("rings_file: at least three rows with increasing x are required")
+    if stations[0] <= 0 or stations[-1] >= 1:
+        raise InputValueError("rings_file: x must lie inside (0, 1)")
+    sections = [
+        {"shape": "superellipse", "at": x, **v} for x, v in zip(stations, values, strict=True)
+    ]
+    return stations, sections
+
+
+def apply_rings(component, base, warnings) -> None:
+    """Replace the sections and stations of a body by those of its ``rings_file``.
+
+    A missing file is left for the data-file check to refuse; a file that is not a rings table
+    is warned about and skipped. Given sections are replaced, and that is warned, so a file and a
+    table never disagree silently.
+    """
+    path = component.get("rings_file", "")
+    if not path or not (Path(base) / path).is_file():
+        return
+    try:
+        stations, sections = read_rings(Path(base) / path)
+    except InputValueError as error:
+        warnings.append(f"{error}; skipped, the sections of the table are used")
+        return
+    if component["sections"] != [{"at": "middle", "shape": "circle", "radius": 0.1}]:
+        warnings.append("sections: replaced by rings_file")
+    component["stations"], component["sections"] = stations, sections
+
+
+def check_body_symmetry(raw, component) -> None:
+    """Check ``symmetry``, ``nose`` and the azimuths of a body; a whole body spans 0 to 360."""
+    if component["symmetry"] not in ("full", "half_y0"):
+        raise InputValueError("symmetry: expected full or half_y0")
+    if component["nose"] not in ("pole", "open"):
+        raise InputValueError("nose: expected pole or open")
+    top = 360 if component["symmetry"] == "full" else 180
+    if "azimuths" not in raw and top == 360:
+        component["azimuths"] = [0.0, 60.0, 120.0, 180.0, 240.0, 300.0, 360.0]
+    check_stations(component["azimuths"], "azimuths", 4, 0, top)
+    if component["azimuths"][0] != 0 or component["azimuths"][-1] != top:
+        what = (
+            "whole body requires 0 and 360" if top == 360 else "half body requires top and bottom"
+        )
+        raise InputValueError(f"azimuths: {what}")
+
+
+def _hermite(form, table):
+    """Return the boat-tail ratio law of the axial fraction and the height it scales."""
+    last = float(table["stations"][-1])
+    x_cut = float(form["x_cut"])
+    values, slope = spline_distribution(table["stations"], table["values"], last)
+    height = float(values[1])
+    if not height > 0 or not x_cut > last:
+        raise InputValueError("rear.boat_tail: x_cut must lie beyond the last station of a body")
+    span = x_cut - last
+    end = float(form["base_height"]) / height
+    m0, m1 = float(slope[1]) / height, (end - 1.0) / span
+
+    def law(axial):
+        t = np.clip((np.asarray(axial, float) - last) / span, 0.0, 1.0)
+        ratio = (
+            (2 * t**3 - 3 * t**2 + 1)
+            + (t**3 - 2 * t**2 + t) * span * m0
+            + (-2 * t**3 + 3 * t**2) * end
+            + (t**3 - t**2) * span * m1
+        )
+        derivative = (
+            (6 * t**2 - 6 * t) / span
+            + (3 * t**2 - 4 * t + 1) * m0
+            + (-6 * t**2 + 6 * t) * end / span
+            + (3 * t**2 - 2 * t) * m1
+        )
+        return ratio, derivative
+
+    return law, height
+
+
+def check_boat_tail(component) -> None:
+    """Refuse a boat-tail closure whose steepest slope exceeds ``angle_limit_deg``.
+
+    The slope is the angle of the profile to the axis, over the closure from the last station to
+    ``x_cut``. Does nothing for another rear.
+
+    Raises
+    ------
+    InputValueError
+        When ``x_cut`` is not beyond the last station, or the law needs more than the limit.
+    """
+    if rear_kind(component) != "boat_tail":
+        return
+    form = component["rear"]["boat_tail"]
+    law, height = _hermite(form, body_station_table(component))
+    _, derivative = law(np.linspace(float(component["stations"][-1]), form["x_cut"], 401))
+    steepest = np.max(np.abs(derivative)) * height / component["length"]
+    angle = float(np.degrees(np.arctan(steepest)))
+    if angle > form["angle_limit_deg"] + 1e-9:
+        raise InputValueError(
+            f"rear.boat_tail: the closure needs {angle:.3g} degrees, above angle_limit_deg "
+            f"{form['angle_limit_deg']:.3g}; move x_cut aft or raise base_height"
+        )
+
+
+def _closed_end(component, table, axial, values, nose):
+    """Return ``values`` with the nose or the rear closed by its exponent."""
+    first, last = table["stations"][[0, -1]]
+    end = first if nose else last
+    mask = axial < first if nose else axial > last
+    exponent = component["nose_exponent" if nose else "rear_exponent"]
+    endpoint, slope = spline_distribution(table["stations"], table["values"], end)
+    linear = endpoint + (axial[..., None] - end) * slope
+    s = axial / first if nose else (1 - axial) / (1 - last)
+    s = np.clip(s, 0, 1)
+    closure = s**exponent * (1 + exponent * (1 - s))
+    base = 0.0 if nose or component["rear"] == "pole" else component["base_radius"]
+    linear[..., :2] = base + (linear[..., :2] - base) * closure[..., None]
+    return np.where(mask[..., None], linear, values)
+
+
+def _boat_tail(component, table, axial, values):
+    """Return ``values`` with the rear closed by the boat-tail law from the last station."""
+    law, _ = _hermite(component["rear"]["boat_tail"], table)
+    ratio, _ = law(axial)
+    last = spline_distribution(table["stations"], table["values"], float(table["stations"][-1]))[0]
+    scaled = np.array(last, float) * np.ones((*axial.shape, 1))
+    scaled[..., :3] *= ratio[..., None]
+    return np.where((axial > table["stations"][-1])[..., None], scaled, values)
+
+
 def body_profile(component, table, axial):
     """Return the shape values at axial fractions, closing nose and rear by their exponents."""
     axial = np.asarray(axial, float)
     first, last = table["stations"][[0, -1]]
     query = np.clip(axial, first, last)
     values, _ = spline_distribution(table["stations"], table["values"], query)
-    for end, mask, exponent, is_nose in [
-        (first, axial < first, component["nose_exponent"], True),
-        (last, axial > last, component["rear_exponent"], False),
-    ]:
-        endpoint, slope = spline_distribution(table["stations"], table["values"], end)
-        linear = endpoint + (axial[..., None] - end) * slope
-        s = axial / first if is_nose else (1 - axial) / (1 - last)
-        s = np.clip(s, 0, 1)
-        closure = s**exponent * (1 + exponent * (1 - s))
-        base = 0.0 if is_nose or component["rear"] == "pole" else component["base_radius"]
-        linear[..., :2] = base + (linear[..., :2] - base) * closure[..., None]
-        values = np.where(mask[..., None], linear, values)
+    if component.get("nose", "pole") == "pole":
+        values = _closed_end(component, table, axial, values, True)
+    kind = rear_kind(component)
+    if kind == "boat_tail":
+        values = _boat_tail(component, table, axial, values)
+    elif kind != "open":
+        values = _closed_end(component, table, axial, values, False)
     if np.any(values[..., :2] < -1e-12) or np.any(values[..., 3:] <= 0):
         raise InputValueError(
             "sections: profile interpolation makes width, height or exponent invalid"
@@ -96,25 +290,11 @@ def body_points(component, table, axial, azimuth):
     width, height, centre, top, bottom = np.moveaxis(parameters, -1, 0)
     cosine = np.cos(azimuth)
     exponent = np.where(cosine >= 0, top, bottom)
-    y = width * np.maximum(0, np.sin(azimuth)) ** (2 / exponent)
+    sine = np.sin(azimuth)
+    side = sine if is_full(component) else np.maximum(0, sine)
+    y = width * np.sign(side) * np.abs(side) ** (2 / exponent)
     z = centre + height * np.sign(cosine) * np.abs(cosine) ** (2 / exponent)
     return np.stack((component["length"] * axial, y, z), axis=-1)
-
-
-def pole_parameter_grids():
-    """Split a triangular network cell into three true quadrilaterals.
-
-    Coordinates are barycentric weights of the two station-arc vertices;
-    the remaining weight belongs to the pole. Outer arc halves are inherited
-    by the adjoining axial bays, so no hanging node is introduced.
-    """
-    a, b, c = np.array([0.0, 0.0]), np.array([1.0, 0.0]), np.array([0.0, 1.0])
-    ab, bc, ca, centre = (a + b) / 2, (b + c) / 2, (c + a) / 2, (a + b + c) / 3
-    u, v = np.linspace(0, 1, 17)[:, None, None], np.linspace(0, 1, 17)[None, :, None]
-    return [
-        (1 - u) * (1 - v) * p0 + u * (1 - v) * p1 + u * v * p2 + (1 - u) * v * p3
-        for p0, p1, p2, p3 in [(a, ab, centre, ca), (ab, b, bc, centre), (centre, bc, c, ca)]
-    ]
 
 
 def pole_patch_grid(component, table, angles, barycentric, nose):
@@ -134,11 +314,84 @@ def base_patch_grid(component, table, angles, barycentric):
     radius = np.sum(barycentric, axis=-1)
     fraction = np.divide(barycentric[..., 1], radius, out=np.zeros_like(radius), where=radius > 0)
     theta = angles[0] + (angles[1] - angles[0]) * fraction
-    rim = body_points(component, table, 1.0, theta)
+    end = rear_end(component)
+    rim = body_points(component, table, end, theta)
     centre = np.array(
-        [component["length"], 0.0, body_profile(component, table, np.asarray(1.0))[2]]
+        [end * component["length"], 0.0, body_profile(component, table, np.asarray(end))[2]]
     )
     return centre + radius[..., None] * (rim - centre)
+
+
+def _with_ids(patch, role, ids, family=None, bay=None):
+    return replace(patch, role=role, edge_ids=tuple(ids), family=family or patch.family, bay=bay)
+
+
+def _cap_patches(component, table, angles, sector, plan):
+    """Return the nose and rear cap patches of one azimuth sector, quad by quad."""
+    kind = rear_kind(component)
+    ends = []
+    if component.get("nose", "pole") == "pole":
+        ends.append((True, "nose", "nose_cap", "ring0"))
+    if kind != "open":
+        ends.append(
+            (False, "rear" if kind == "pole" else "base", "rear_cap", f"ring{plan['rings']}")
+        )
+    patches = []
+    s = clustered(plan["samples"])
+    for q, barycentric in enumerate(pole_parameter_grids(plan["samples"])):
+        for is_nose, family, role, ring in ends:
+            if is_nose or kind == "pole":
+                grid = pole_patch_grid(component, table, angles, barycentric, is_nose)
+            else:
+                grid = base_patch_grid(component, table, angles, barycentric)
+            name = "nose" if is_nose else "rear"
+            ids = cap_edge_ids(name, sector, plan["sectors"], ring, plan["full"])[q]
+            role = "base" if family == "base" else role
+            patches.append(_with_ids(interpolate_patch(grid, family, None, s, s), role, ids))
+    return patches
+
+
+def _transitions(component, table, junctions):
+    """Return the axial fractions where a band is cut: stations, junctions and a flat rear."""
+    stations = table["stations"]
+    inside = (float(x) for x in junctions if stations[0] < x < stations[-1])
+    transitions = sorted({*(float(s) for s in stations), *inside})
+    if rear_kind(component) in ("base", "boat_tail"):
+        transitions.append(rear_end(component))
+    return transitions
+
+
+def _half_edges(half, plan):
+    """Return the names of the two side edges of an azimuth half, without the bay suffix."""
+    halves, full = plan["halves"], plan["full"]
+    low = "sym0" if half == 0 and not full else f"hseam{half}"
+    high_half = (half + 1) % halves if full else half + 1
+    high = "sym1" if half == halves - 1 and not full else f"hseam{high_half}"
+    return low, high
+
+
+def _band_patches(component, theta, half, plan):
+    """Return the patches of one azimuth half: one skin through every ring, cut at the stations."""
+    transitions = plan["transitions"]
+    s = clustered(plan["samples"])
+    axial = band_axial(transitions, plan["samples"])
+    azimuth = theta[0] + s * (theta[1] - theta[0])
+    # Native u is azimuth and v is axial in a band; the mesher reads that order.
+    points = body_points(component, plan["table"], axial[None, :], azimuth[:, None])
+    pieces = skin_band(points, s, axial, transitions)
+    low, high = _half_edges(half, plan)
+    patches = []
+    for index, piece in enumerate(pieces):
+        x0, x1 = transitions[index], transitions[index + 1]
+        family = "rear" if x1 == 1 else ("front" if index == 0 else "middle")
+        ids = (
+            f"{low}.b{index}",
+            f"{high}.b{index}",
+            f"ring{index}.h{half}",
+            f"ring{index + 1}.h{half}",
+        )
+        patches.append(_with_ids(piece, "band", ids, family, (float(x0), float(x1))))
+    return patches
 
 
 def body(component, junctions=()) -> list[Patch]:
@@ -154,7 +407,10 @@ def body(component, junctions=()) -> list[Patch]:
     Returns
     -------
     list of Patch
-        The nose, band, rear or base patches of the body, in the body frame.
+        The cap and band patches of the body, in the body frame. Each carries a ``role``
+        (``nose_cap``, ``rear_cap``, ``base`` or ``band``) and the names of its four edges, so
+        two patches that share an edge carry the same name for it. A closed end is a cap at the
+        pole or a flat base; an open end has no patch and its rim edges are the band's.
 
     Examples
     --------
@@ -166,55 +422,40 @@ def body(component, junctions=()) -> list[Patch]:
     >>> len(patches) > 0
     True
     """
+    for samples in SAMPLE_LADDER:
+        patches = _build(component, junctions, samples)
+        if _pole_turn(patches) <= POLE_TARGET_DEG:
+            break
+    return patches
+
+
+def _pole_turn(patches) -> float:
+    """Return the largest turn, in degrees, across a seam between two cap patches of one end."""
+    caps = [p for p in patches if p.role in ("nose_cap", "rear_cap")]
+    found = edge_jumps(caps)
+    return max((r["jump_deg"] for r in found), default=0.0)
+
+
+def _build(component, junctions, samples):
+    """Return the patches of a body sampled with ``samples`` points along every edge."""
     table = body_station_table(component)
     angles = np.deg2rad(component["azimuths"])
+    transitions = _transitions(component, table, junctions)
+    pairs = list(zip(angles, angles[1:], strict=False))
+    plan = {
+        "sectors": len(pairs),
+        "halves": 2 * len(pairs),
+        "full": is_full(component),
+        "rings": len(transitions) - 1,
+        "samples": samples,
+        "table": table,
+        "transitions": transitions,
+    }
     patches = []
-    for a, b in zip(angles, angles[1:], strict=False):
-        for barycentric in pole_parameter_grids():
-            patches.append(
-                interpolate_patch(
-                    pole_patch_grid(component, table, (a, b), barycentric, True), family="nose"
-                )
-            )
-            if component["rear"] == "pole":
-                patches.append(
-                    interpolate_patch(
-                        pole_patch_grid(component, table, (a, b), barycentric, False), family="rear"
-                    )
-                )
-            else:
-                patches.append(
-                    interpolate_patch(
-                        base_patch_grid(component, table, (a, b), barycentric), family="base"
-                    )
-                )
-        for low, high in [(a, (a + b) / 2), ((a + b) / 2, b)]:
-            transitions = sorted(
-                set(
-                    [
-                        *table["stations"],
-                        *(
-                            float(x)
-                            for x in junctions
-                            if table["stations"][0] < x < table["stations"][-1]
-                        ),
-                    ]
-                )
-            )
-            if component["rear"] == "base":
-                transitions.append(1.0)
-            for index, (x0, x1) in enumerate(zip(transitions, transitions[1:], strict=False)):
-                axial, theta = np.meshgrid(np.linspace(x0, x1, 17), np.linspace(low, high, 17))
-                family = "front" if index == 0 else "middle"
-                if x1 == 1:
-                    family = "rear"
-                patches.append(
-                    interpolate_patch(
-                        body_points(component, table, axial, theta),
-                        family=family,
-                        bay=(float(x0), float(x1)),
-                    )
-                )
+    for sector, (a, b) in enumerate(pairs):
+        patches += _cap_patches(component, table, (a, b), sector, plan)
+        for offset, (low, high) in enumerate([(a, (a + b) / 2), ((a + b) / 2, b)]):
+            patches += _band_patches(component, (low, high), 2 * sector + offset, plan)
     return patches
 
 

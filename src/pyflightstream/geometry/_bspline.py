@@ -143,6 +143,7 @@ def split_patch(patch: Patch, direction: str, x: float) -> tuple[Patch, Patch]:
     >>> bool(np.allclose(low.evaluate(5)[-1], high.evaluate(5)[0]))
     True
     """
+    x = _snapped(patch, direction, x)
     refined = _complete(patch, direction, x)
     controls, knots, degree = _along(refined, direction)
     first = int(np.flatnonzero(knots == x)[0])
@@ -163,3 +164,10 @@ def _complete(patch, direction, x):
     """Raise the multiplicity of an existing knot to the degree."""
     degree = patch.degree_u if direction == "u" else patch.degree_v
     return insert_knot(patch, direction, x, times=degree - _multiplicity(patch, direction, x))
+
+
+def _snapped(patch, direction, x):
+    """Return the knot of the direction that ``x`` equals to rounding, or ``x``."""
+    _, knots, _ = _along(patch, direction)
+    nearest = knots[int(np.argmin(np.abs(knots - x)))]
+    return float(nearest) if 0.0 < nearest < 1.0 and abs(nearest - x) < 1e-12 else x
