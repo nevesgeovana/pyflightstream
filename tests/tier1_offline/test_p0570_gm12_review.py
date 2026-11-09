@@ -582,3 +582,134 @@ def test_r9_009_a_size_far_from_the_stated_coordinate_is_refused(tmp_path):
             k.import_iges(tmp_path / "off.igs")
     finally:
         k.close()
+
+
+# R9-010: a value of the wrong form is a refusal, so a loop keeps its report.
+
+
+_FULL = {
+    "units": {"length": "m", "angle": "deg"},
+    "aircraft": {"name": "a"},
+    "acceptance": {"floor_mm": 0.5},
+    "reader": {"profile": "flightstream"},
+    "components": {
+        "W": {
+            "type": "lifting_surface",
+            "version": "1.0.0",
+            "attach": {"parent": "H", "station": 0.1},
+            "placement": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]},
+            "creases": [{"at": "x", "deg": 3.0}],
+            "open_findings": ["a"],
+            "planform": {"span": 2.0, "root_chord": 1.0, "tip_chord": 0.5, "breaks": [0.5]},
+            "distributions": {"chord": {"stations": [0.0, 1.0], "values": [1.0, 0.5]}},
+            "sections": {
+                "items": [
+                    {"eta": 0.0, "naca": "2412"},
+                    {"eta": 1.0, "cst_upper": [0.1, 0.1], "cst_lower": [-0.1, -0.1], "te": 0.0},
+                ],
+                "nacelle_bounds": [{"component": "H", "eta_in": 0.1, "eta_out": 0.2}],
+            },
+            "tip_cap": {"kind": "flat", "shape": {"a": 1}},
+            "control_surfaces": [
+                {
+                    "name": "f",
+                    "kind": "fowler",
+                    "eta_in": 0.1,
+                    "eta_out": 0.5,
+                    "deflection_deg": [10.0],
+                    "split_around": ["H"],
+                    "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
+                    "kinematics": [
+                        {
+                            "deflection_deg": 10.0,
+                            "pivot_x": 0.1,
+                            "pivot_z": 0.1,
+                            "gap_pct": 1.0,
+                            "overlap_pct": 1.0,
+                        }
+                    ],
+                }
+            ],
+        },
+        "H": {
+            "type": "body",
+            "length": 3.0,
+            "rear": {"boat_tail": {"x_cut": 0.5, "base_height": 0.1, "angle_limit_deg": 10.0}},
+            "sections": [{"at": "middle", "shape": "circle", "radius": 0.3}],
+        },
+        "F": {"type": "fillet", "hosts": ["W", "H"], "patches": 5, "laws": {"radius": 1.0}},
+        "B": {
+            "type": "blister",
+            "host": "H",
+            "stations": {"x": [0.0, 1.0]},
+            "profile": {"depth": 1},
+        },
+        "P": {"type": "propeller"},
+        "Z": {"type": "wing_fuselage_fairing", "hosts": ["H", "W"]},
+    },
+    "dominance": [{"dominant": "W", "dominated": ["H"], "operation": "cut"}],
+    "variants": {"clean": [], "cs": ["W.f"]},
+    "configurations": {
+        "c": {"members": ["H", {"component": "W", "version": "1.0.0"}], "variants": ["clean"]},
+        "d": {"members": ["F"], "extends": "c"},
+    },
+}
+
+
+def _places(node, path=()):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield (*path, key)
+            yield from _places(value, (*path, key))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield (*path, index)
+            yield from _places(value, (*path, index))
+
+
+def test_r9_010_every_wrong_form_is_a_refusal_or_is_read():
+    import copy
+
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    resolve_config(copy.deepcopy(_FULL))
+    crashes = []
+    for place in _places(_FULL):
+        for wrong in (3, "x", [1], {"a": 1}, True, None):
+            data = copy.deepcopy(_FULL)
+            node = data
+            for key in place[:-1]:
+                node = node[key]
+            node[place[-1]] = wrong
+            try:
+                resolve_config(data)
+            except InputValueError:
+                pass
+            except Exception as error:
+                crashes.append((place, wrong, type(error).__name__))
+    assert crashes == []
+
+
+def test_r9_010_the_wrong_form_names_the_component():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    with pytest.raises(InputValueError, match="components.w"):
+        resolve_config({"components": {"w": {"type": "body", "creases": 3}}})
+
+
+def test_r9_010_fairing_hosts_in_the_wrong_order_are_refused_by_name():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    with pytest.raises(InputValueError, match="hosts"):
+        resolve_config(
+            {
+                "components": {
+                    "b": {"type": "body"},
+                    "w": {"type": "lifting_surface"},
+                    "z": {"type": "wing_fuselage_fairing", "hosts": ["w", "b"]},
+                }
+            }
+        )

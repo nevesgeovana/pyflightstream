@@ -474,7 +474,8 @@ def assembly_defaults(components, supplied):
         raw = supplied[name]
         if component["type"] == "wing_fuselage_fairing":
             body_name, wing_name = component["hosts"]
-            if wing_name in components and body_name in components:
+            kinds = [components[n]["type"] if n in components else "" for n in component["hosts"]]
+            if kinds == ["body", "lifting_surface"]:
                 chord = components[wing_name]["planform"]["root_chord"]
                 for key in ("body_blend_radius", "wing_blend_radius"):
                     if key not in raw:
@@ -549,6 +550,14 @@ def _file_digests(components, base):
     return rows
 
 
+def _guarded(label, work, *args):
+    """Run ``work``; a value of the wrong form is a refusal naming ``label``, not a crash."""
+    try:
+        return work(*args)
+    except (TypeError, AttributeError, KeyError) as error:
+        raise InputValueError(f"{label}: a value has the wrong form ({error!r})") from error
+
+
 def resolve_config(data, stem=None, base=None):
     """Validate a geometry configuration and resolve it with the source of every value.
 
@@ -581,9 +590,14 @@ def resolve_config(data, stem=None, base=None):
     InputValueError
         When the units are unknown, no component is given, a component lacks its type or an
         X.Y.Z version, a value or relationship is out of range, a dominance or extends cycle
-        exists, or a resolved input's derived quantity is inconsistent. Unknown keys do not
-        raise: they are skipped and listed in ``warnings``.
+        exists, a value has the wrong form, or a resolved input's derived quantity is
+        inconsistent. Unknown keys do not raise: they are skipped and listed in ``warnings``.
     """
+    return _guarded("configuration", _resolve, data, stem, base)
+
+
+def _resolve(data, stem, base):
+    """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
     source = unpack(data)
     if "type" in source:
@@ -603,7 +617,9 @@ def resolve_config(data, stem=None, base=None):
     base = Path(base) if base is not None else Path()
     components, derived, raws = {}, {}, {}
     for name, raw in source["components"].items():
-        components[name], derived[name], raws[name] = _resolve_component(name, raw, notes, base)
+        components[name], derived[name], raws[name] = _guarded(
+            f"components.{name}", _resolve_component, name, raw, notes, base
+        )
     assembly_defaults(components, raws)
     validate_relationships(components)
     aircraft = fill_aircraft(source.get("aircraft", {}), stem, notes["warnings"])
