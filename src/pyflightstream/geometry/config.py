@@ -47,6 +47,7 @@ from pyflightstream.geometry._schema import (
     stations,
 )
 from pyflightstream.geometry._sections import trailing_edge_notes
+from pyflightstream.geometry._toml_keys import adopt_surface_file, apply_engines, translate_lifting
 
 __all__ = ["load_config", "resolve_config"]
 
@@ -58,7 +59,7 @@ FREE_BY_TYPE = {
     "lifting_surface": frozenset(
         {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
         | {"planform.height", "tip_cap.extent"}
-        | {"sections.physical", "sections.nacelle_bounds"}
+        | {"sections.physical", "sections.nacelle_bounds", "engine"}
     ),
     "fillet": frozenset({"laws", "mesh_zone", "spine"}),
     "blister": frozenset({"stations", "profile", "sections"}),
@@ -316,9 +317,8 @@ def resolve_planform(supplied, defaults):
             given = [k for k in (*expected, "height") if k in supplied]
             raise InputValueError(
                 f"planform.{key}: inconsistent independent set; given {', '.join(given)}, and "
-                "a trapezoidal planform is fixed by taper plus two of span (or height), area "
-                "and aspect_ratio, or by root_chord with span; to vary the area at a fixed "
-                "aspect ratio, state area and aspect_ratio and leave span out"
+                "a trapezoidal planform is fixed by sref_m2, aspect_ratio and taper, or by "
+                "semispan_mm with root_chord_mm and tip_chord_mm"
             )
     p.update(expected)
     return p
@@ -379,6 +379,7 @@ def resolve_lifting(raw, component, notes):
                 strict=key == "chord",
             )
     check_slope_breaks(component)
+    apply_engines(notes["name"], component, notes["warnings"])
     check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
     warn_not_generated(notes["name"], component, notes["warnings"])
     if component["tip_cap"]["kind"] == "ridged":
@@ -603,6 +604,8 @@ def _resolve_component(name, raw, notes, base):
     if raw["type"] not in TYPES:
         raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
     raw = deepcopy(raw)
+    if raw["type"] == "lifting_surface":
+        translate_lifting(name, raw, notes["warnings"], notes["resolved"])
     cap = raw.get("tip_cap")
     if isinstance(cap, dict) and "shape" in cap:
         cap.pop("shape")
@@ -730,10 +733,10 @@ def resolve_config(data, stem=None, base=None):
 def _resolve(data, stem, base):
     """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
-    source = unpack(data)
+    source = adopt_surface_file(unpack(data))
     if "type" in source:
         source = {"components": {"COMPONENT": source}}
-    notes = {"warnings": [], "findings": [], "name": ""}
+    notes = {"warnings": [], "findings": [], "name": "", "resolved": resolved}
     known = {"aircraft", "units", "acceptance", "reader", "components", "dominance"}
     known |= {"configurations", "variants"}
     if resolved:
