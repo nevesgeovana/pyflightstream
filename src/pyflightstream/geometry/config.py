@@ -87,6 +87,7 @@ def default_component(kind):
                 "twist_axis": 0.25,
                 "control_stations": [0.0, 1 / 3, 2 / 3, 1.0],
                 "breaks": [],
+                "slope_breaks": [],
             },
             sections={
                 "airfoils": ["NACA0012", "NACA0012"],
@@ -265,6 +266,20 @@ def resolve_planform(supplied, defaults):
     return p
 
 
+def check_slope_breaks(component):
+    """Refuse slope breaks outside (0, 1) or missing from a supplied distribution's stations."""
+    breaks = component["planform"]["slope_breaks"]
+    if not breaks:
+        return
+    stations(breaks, "planform.slope_breaks", 1)
+    if breaks[0] <= 0 or breaks[-1] >= 1:
+        raise InputValueError("planform.slope_breaks: must lie strictly inside (0, 1)")
+    for key, law in component.get("distributions", {}).items():
+        missing = [b for b in breaks if b not in law["stations"]]
+        if missing:
+            raise InputValueError(f"distributions.{key}.stations: slope breaks {missing} missing")
+
+
 def resolve_lifting(raw, component, notes):
     """Complete and validate a lifting-surface component; return its derived area and mean chord."""
     component["planform"] = resolve_planform(raw.get("planform", {}), component["planform"])
@@ -296,6 +311,7 @@ def resolve_lifting(raw, component, notes):
                 0 if key == "chord" else None,
                 strict=key == "chord",
             )
+    check_slope_breaks(component)
     check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])

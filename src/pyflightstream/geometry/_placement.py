@@ -108,7 +108,8 @@ def wing_in_body_frame(components, body_name, wing_name):
                 v + offset / wing["planform"]["span"] for v in distributions[key]["values"]
             ]
         else:
-            stations = wing["planform"]["control_stations"]
+            plan = wing["planform"]
+            stations = sorted({*plan["control_stations"], *plan.get("slope_breaks", [])})
             values = planform_values(components[wing_name], np.asarray(stations))[key]
             distributions[key] = {
                 "stations": stations,

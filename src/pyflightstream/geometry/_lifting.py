@@ -112,7 +112,10 @@ def lifting_surface(component) -> list[Patch]:
         The skin patches, six families per spanwise bay.
     """
     models = section_models(component["sections"])
-    layout = patch_layout(component["sections"]["eta"], component["planform"]["breaks"])
+    plan = component["planform"]
+    layout = patch_layout(
+        component["sections"]["eta"], [*plan["breaks"], *plan.get("slope_breaks", [])]
+    )
     return [
         interpolate_patch(
             lifting_patch_grid(component, models, entry),
