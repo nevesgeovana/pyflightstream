@@ -1446,6 +1446,11 @@
       "path": "run/_runtime.py"
     },
     {
+      "id": "pyflightstream.run._search_log_batch",
+      "layer": 1,
+      "path": "run/_search_log_batch.py"
+    },
+    {
       "id": "pyflightstream.run._solver_windows",
       "layer": 1,
       "path": "run/_solver_windows.py"
@@ -4779,6 +4784,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._steady",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._steady",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -4791,6 +4801,11 @@
       "source": "pyflightstream.cases.workflows._steady",
       "target": "pyflightstream.cases._unsteady_actions",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._steady",
+      "target": "pyflightstream.cases.fsi_workspace",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.cases.workflows._steady",
@@ -11344,6 +11359,11 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
+      "target": "pyflightstream.run._search_log_batch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.run.records",
       "kind": "module"
     },
@@ -12720,6 +12740,56 @@
     {
       "source": "pyflightstream.run._runtime",
       "target": "pyflightstream.cases.settings",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.results.log",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.run._alias",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.run._batch_collect",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.run._ids",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.workspace",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.workspace.hpc",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.workspace.ledger",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._search_log_batch",
+      "target": "pyflightstream.workspace.manifest",
       "kind": "module"
     },
     {
@@ -14668,6 +14738,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._layout",
+      "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._ledger_api",
       "target": "pyflightstream.workspace",
       "kind": "module"
@@ -15939,6 +16014,11 @@
     },
     {
       "source": "pyflightstream.workspace.cli",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.cli",
       "target": "pyflightstream.options",
       "kind": "module"
     },
@@ -16810,6 +16890,11 @@
     {
       "source": "pyflightstream.workspace.naming",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.naming",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
