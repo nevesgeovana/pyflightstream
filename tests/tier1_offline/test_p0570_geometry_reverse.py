@@ -30,6 +30,7 @@ from pyflightstream.geometry._reverse import (
     reference_planform,
     refine_tip,
 )
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 SPAN = np.array([0.0, 1.0, 0.0])
 ROOT_CHORD, TIP_CHORD, SEMI, SWEEP = 0.4, 0.2, 1.5, 20.0
@@ -302,7 +303,7 @@ WING = {
 
 
 def gmsh_or_skip():
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     pytest.importorskip("contourpy")
 
 
@@ -502,7 +503,7 @@ def test_p0570_reverse_equals_the_research_reference_to_the_last_bit(monkeypatch
     folder = os.environ.get("PYFS_RESEARCH_GEOMREV")
     if not folder:
         pytest.skip("needs PYFS_RESEARCH_GEOMREV, the folder of the research geomrev package")
-    pytest.importorskip("gmsh", reason="the research loader imports gmsh")
+    kernel_or_skip()
     monkeypatch.syspath_prepend(str(Path(folder).parent / "geomgen"))
     monkeypatch.syspath_prepend(folder)
     from geomrev import junctions, reference, sections

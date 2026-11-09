@@ -10,6 +10,8 @@ import sys
 
 import pytest
 
+from tests.tier1_offline._kernel_support import kernel_or_skip
+
 
 def _leave_a_stale_unit(path):
     """Read ``path`` in metres in a session of its own, which outlives that session."""
@@ -29,7 +31,7 @@ def _write_plate(gmsh, path):
 
 
 def test_p0570_a_read_after_a_session_that_asked_for_metres_stays_in_millimetres(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._gmsh import import_iges, session
 
     path = tmp_path / "plate.igs"
@@ -44,7 +46,7 @@ def test_p0570_a_read_after_a_session_that_asked_for_metres_stays_in_millimetres
 
 
 def test_p0570_the_first_read_of_a_process_succeeds_in_millimetres(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._gmsh import session
 
     path = tmp_path / "plate.igs"
@@ -74,7 +76,7 @@ def test_p0570_the_first_read_of_a_process_succeeds_in_millimetres(tmp_path):
 
 
 def test_p0570_a_read_keeps_the_unit_the_session_asked_for(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._gmsh import import_iges, session
 
     path = tmp_path / "plate.igs"
@@ -86,7 +88,7 @@ def test_p0570_a_read_keeps_the_unit_the_session_asked_for(tmp_path):
 
 
 def test_p0570_a_generated_wing_identifies_at_its_span_after_a_stale_unit(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     pytest.importorskip("contourpy")
     from pyflightstream.workspace._geometry_generate import generate_iges
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface

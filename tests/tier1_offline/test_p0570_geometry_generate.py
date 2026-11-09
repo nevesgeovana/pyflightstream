@@ -22,6 +22,7 @@ from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._caps import wing_contour_normal
 from pyflightstream.geometry._fairings import wing_fuselage_fairing
 from pyflightstream.geometry._lifting import lifting_surface, section_models, thickness_station
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 WB = {
     "components": {
@@ -42,7 +43,7 @@ WB = {
 
 
 def gmsh_or_skip():
-    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    return kernel_or_skip()
 
 
 @pytest.fixture

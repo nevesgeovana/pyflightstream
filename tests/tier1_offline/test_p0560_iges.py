@@ -22,6 +22,7 @@ import pytest
 from pyflightstream._errors import NotApplicableWarning, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import read_obj, read_te
 from pyflightstream.workspace.cli import main
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 UNIT_FLAG = {"MM": 2, "IN": 1, "M": 6}
 
@@ -148,7 +149,7 @@ def cli(args, capsys):
 
 
 def gmsh_or_skip():
-    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    return kernel_or_skip()
 
 
 # ---------------------------------------------------------------- names, without gmsh
