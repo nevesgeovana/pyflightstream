@@ -230,3 +230,128 @@ def test_the_unavailable_error_pickles_and_is_catalogued():
     error = KernelUnavailableError(purpose="p", reason="r")
     clone = pickle.loads(pickle.dumps(error))
     assert str(clone) == str(error) and clone.reason == "r"
+
+
+# --- the reader profile gate -----------------------------------------------------------------
+
+
+def _entity(ident, kind, parameters, form=0):
+    d1 = [f"{kind:8d}"] + [f"{0:8d}"] * 7 + ["00000000"]
+    d2 = [f"{kind:8d}", f"{0:8d}", f"{0:8d}", f"{0:8d}", f"{form:8d}"] + [" " * 8] * 4
+    return {"id": ident, "type": kind, "d1": d1, "d2": d2, "parameters": parameters}
+
+
+@pytest.fixture
+def control(tmp_path):
+    """A written file with one named, trimmed, clamped, non-rational bicubic face of four sides."""
+    _need_gmsh()
+    from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_write import read_iges
+
+    k = open_kernel("gate")
+    try:
+        face = _bicubic(k, _flat_net(3.0))
+        k.export_iges({"PANEL": [face]}, tmp_path / "c.igs")
+    finally:
+        k.close()
+    document = read_iges(tmp_path / "c.igs")
+    return tmp_path, _with_boundary(document, 4)
+
+
+def _with_boundary(document, sides):
+    face = next(e for e in document["entities"] if e["type"] == 144)
+    surface = next(e for e in document["entities"] if e["type"] == 128)
+    top = max(e["id"] for e in document["entities"]) + 2
+    curve, trim = top, top + 2
+    document["entities"] += [
+        _entity(curve, 102, ["102", str(sides), *["0"] * sides]),
+        _entity(trim, 142, ["142", "1", str(surface["id"]), "0", str(curve), "1"]),
+    ]
+    face["parameters"][4] = str(trim)
+    return document
+
+
+def _write(directory, document, name):
+    from pyflightstream._textio import write_text
+
+    path = directory / name
+    write_text(path, serialize_iges(document), encoding="ascii")
+    return path
+
+
+def _checks(report):
+    return sorted({f.check for f in report.findings})
+
+
+def test_the_control_file_passes_the_gate_with_no_finding(control):
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    directory, document = control
+    report = check_profile(_write(directory, document, "ok.igs"))
+    assert report.findings == () and report.passed and report.surfaces == 1
+
+
+def _rational(document):
+    surface = next(e for e in document["entities"] if e["type"] == 128)
+    weights_at = 10 + 8 + 8
+    surface["parameters"][weights_at + 5] = "2."
+
+
+def _unclamped(document):
+    surface = next(e for e in document["entities"] if e["type"] == 128)
+    surface["parameters"][10 + 1] = "0.1"
+
+
+def _no_name(document):
+    face = next(e for e in document["entities"] if e["type"] == 144)
+    del face["parameters"][5:]
+
+
+@pytest.mark.parametrize(
+    ("plant", "check"),
+    [
+        (_rational, "profile.rational"),
+        (_unclamped, "profile.unclamped"),
+        (_no_name, "profile.name"),
+    ],
+)
+def test_each_planted_property_is_caught_and_named(control, plant, check):
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    directory, document = control
+    plant(document)
+    report = check_profile(_write(directory, document, "bad.igs"))
+    assert _checks(report) == [check] and not report.passed
+
+
+def test_a_three_sided_face_fails(control):
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._iges_write import read_iges
+
+    directory, document = control
+    path = _write(directory, _with_boundary(read_iges(directory / "c.igs"), 3), "tri.igs")
+    assert _checks(check_profile(path)) == ["profile.sides"]
+
+
+def test_an_unobserved_degree_warns_and_does_not_fail(control):
+    from pyflightstream.geometry._iges_profile import ReaderProfile
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    directory, document = control
+    path = _write(directory, document, "deg.igs")
+    report = check_profile(path, ReaderProfile(degrees=(5,)))
+    assert _checks(report) == ["profile.degree"] and report.passed
+    assert {f.severity for f in report.findings} == {"warn"}
+    limited = check_profile(path, ReaderProfile(degrees=(5,), max_degree=2))
+    assert not limited.passed
+
+
+def test_solid_entity_refuses(control):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    directory, document = control
+    document["entities"].append(_entity(99, 186, ["186", "0"]))
+    path = _write(directory, document, "solid.igs")
+    with pytest.raises(InputArtifactError, match="surfaces only"):
+        check_profile(path)
