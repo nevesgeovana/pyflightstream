@@ -212,6 +212,15 @@ def test_p0570_fix5_a_point_already_moved_home_counts_its_outputs_there(tmp_path
     assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
 
 
+def test_p0570_fix5_a_simulation_no_batch_holds_is_named(tmp_path, capsys):
+    """PFS-2218: --sims with an id no batch holds says so, not that nothing is missing a log."""
+    workspace = _workspace(tmp_path)
+    code, said = home.pyfs(["search-log-batch", "--sims", "9999"], workspace.root, capsys)
+    assert code == 0, said
+    assert "not a simulation of a batch, left alone: 1" in said and "9999" in said, said
+    assert "no SUBMITTED point" not in said, said
+
+
 def test_p0570_fix5_a_point_that_has_its_log_is_left_alone(tmp_path, capsys):
     """PFS-2218: nothing is missing a log, so the verb says so and writes nothing."""
     workspace = _workspace(tmp_path)

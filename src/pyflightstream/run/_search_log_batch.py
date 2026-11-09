@@ -175,6 +175,10 @@ def search_log_batch(
             )
             _write_log(point, found, complete=True, start=holder.polar_start(record))
             outcome["written"].append(record.run_id)
+    known = {str(record.sim_id) for members in jobs.values() for record in members}
+    unknown = sorted((wanted or set()) - known)
+    if unknown:
+        outcome["not a simulation of a batch, left alone"] = unknown
     return dict(outcome)
 
 
