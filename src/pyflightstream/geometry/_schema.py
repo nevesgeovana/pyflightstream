@@ -337,7 +337,7 @@ def check_bspline_item(path, spec):
     missing = [k for k in _BSPLINE_KEYS if k not in spec]
     if missing:
         raise InputValueError(f"{path}: {', '.join(missing)} required")
-    degree, knots, poles = spec["degree"], spec["knots"], spec["poles"]
+    degree, poles = spec["degree"], spec["poles"]
     if isinstance(degree, bool) or not isinstance(degree, int) or degree < 1:
         raise InputValueError(f"{path}.degree: expected a positive integer")
     if not isinstance(poles, list) or len(poles) <= degree:
@@ -347,7 +347,12 @@ def check_bspline_item(path, spec):
             raise InputValueError(f"{path}.poles: each pole is an x/c and y/c pair")
         for value in pole:
             number(value, f"{path}.poles")
-    if not isinstance(knots, list) or len(knots) != len(poles) + degree + 1:
+    _check_knots(path, spec["knots"], len(poles), degree)
+
+
+def _check_knots(path, knots, count, degree):
+    """Check a clamped, nondecreasing knot vector of ``count + degree + 1`` values."""
+    if not isinstance(knots, list) or len(knots) != count + degree + 1:
         raise InputValueError(f"{path}.knots: expected poles + degree + 1 values")
     for value in knots:
         number(value, f"{path}.knots")
