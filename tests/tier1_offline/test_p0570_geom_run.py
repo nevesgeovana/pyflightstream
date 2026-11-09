@@ -214,6 +214,45 @@ def test_p0570_g3_unbuilt_geometry_entries_refuse_and_write_nothing(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
+#: The release that owns PFS-2220. Its preparation commit sets this version in pyproject.toml,
+#: and from then on no geometry entry may refuse as not built. Deferring an entry to a later
+#: release is a decision that edits this line.
+_RELEASE = "0.57.0"
+
+
+def _tree_version():
+    import tomllib
+
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    return tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
+
+
+def _not_built_entries(folder):
+    """Return the geometry entries that refuse as not built yet in this tree."""
+    calls = {
+        "add_control_surfaces": lambda: _geom_run.add_control_surfaces(
+            folder / "a.igs", "WING", [{}], folder / "o"
+        ),
+        "split_symmetry": lambda: _geom_run.split_symmetry(folder / "a.igs", folder / "h.igs"),
+    }
+    found = []
+    for name, call in calls.items():
+        try:
+            call()
+        except Exception as error:  # any refusal but "not built" is a built entry's own
+            if "not built yet" in str(error):
+                found.append(name)
+    return found
+
+
+def test_p0570_r18_002_a_not_built_entry_cannot_reach_the_release(tmp_path):
+    """C8: split-symmetry and add-control-surface ship built, or the release commit is red."""
+    from packaging.version import Version
+
+    if Version(_tree_version()) >= Version(_RELEASE):
+        assert _not_built_entries(tmp_path) == []
+
+
 def test_p0570_g3_the_export_stage_writes_an_iges_the_report_names(tmp_path):
     from tests.tier1_offline._kernel_support import kernel_or_skip
 
