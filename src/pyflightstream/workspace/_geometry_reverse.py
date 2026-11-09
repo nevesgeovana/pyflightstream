@@ -227,7 +227,7 @@ def boundary_extent(kernel, faces, span, count=400):
 # --- the driver -------------------------------------------------------------------------
 
 
-def scan(kernel, grids, samples, span, count, cutter):
+def scan(kernel, grids, samples, span, count, *, cutter):
     """Cut the component at ``count`` cosine-spaced stations; return stations, features, reasons."""
     bounds = samples @ span
     lo, hi = float(bounds.min()), float(bounds.max())
@@ -259,13 +259,13 @@ def span_direction(samples, span_axis):
     return axis
 
 
-def identify_pass(kernel, grids, samples, hosts, spec, count):
+def identify_pass(kernel, grids, samples, hosts, spec, *, count):
     """One pass: scan, band, planform. Returns the planform, band and scan diagnostics."""
     cutter = {"plain": cut_surfaces, "bridge_te": bridged_cut, "mirror": mirrored_cut}[spec["cut"]]
     span = spec["span"].copy()
     for iteration in range(2):
         stations, features, failures = scan(
-            kernel, grids, samples, span, min(count, 81) if iteration == 0 else count, cutter
+            kernel, grids, samples, span, min(count, 81) if iteration == 0 else count, cutter=cutter
         )
         band, _, _ = clean_band(stations, features)
         if iteration == 0:

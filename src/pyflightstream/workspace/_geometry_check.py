@@ -136,7 +136,9 @@ def edge_distance(kernel, points, edge):
         return cKDTree(xyz).query(points)[0]
 
 
-def surface_distance(kernel, points, face, seed_xyz, seed_uv, bounds):
+def surface_distance(kernel, points, face, seed):
+    """Return the distance of each point to ``face``; ``seed`` is ``(xyz, uv, bounds)``."""
+    seed_xyz, seed_uv, bounds = seed
     low, high = bounds
     xyz, uv = kernel.project(face, points)
     distance = np.where(kernel.inside(face, uv), np.linalg.norm(points - xyz, axis=1), np.inf)
@@ -180,7 +182,7 @@ def nearest(kernel, points, faces, boundary_tolerance=1e-8):
         near = box_lower_bound(points, kernel.bbox(face)) <= best + boundary_tolerance
         ids = np.flatnonzero(near)
         if len(ids):
-            best[ids] = np.minimum(best[ids], surface_distance(kernel, points[ids], face, *seed))
+            best[ids] = np.minimum(best[ids], surface_distance(kernel, points[ids], face, seed))
     boundary = np.full(len(points), np.inf)
     for edge in edges_of(kernel, faces):
         near = box_lower_bound(points, kernel.edge_bbox(edge)) <= best + boundary_tolerance

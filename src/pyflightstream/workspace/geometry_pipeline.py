@@ -253,10 +253,10 @@ def identify_lifting_surface(
         if converge:
             small = [surface_grid(kernel, t, COARSE[1]) for t in faces]
             coarse = identify_pass(
-                kernel, small, samples, host_faces, spec, min(stations, COARSE[0])
+                kernel, small, samples, host_faces, spec, count=min(stations, COARSE[0])
             )[0]
         planform, band, features, stations_m, span, diagnostics = identify_pass(
-            kernel, grids, samples, host_faces, spec, stations
+            kernel, grids, samples, host_faces, spec, count=stations
         )
         if converge:
             agreement = convergence(coarse, planform)
