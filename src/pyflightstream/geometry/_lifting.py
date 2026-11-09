@@ -12,16 +12,18 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import minimize_scalar
 
-from ._airfoils import cst_airfoil, naca_to_cst
+from ._airfoils import cst_airfoil
 from ._distributions import (
     blended_section,
     chord_spacing,
     elevate_coefficients,
     planform_values,
 )
-from ._patch import Patch, interpolate_patch, patch_layout
+from ._patch import Patch, interpolate_base_strip, interpolate_patch, patch_layout
+from ._sections import fit_or_read
 
 __all__ = [
+    "bound_stations",
     "lifting_patch_grid",
     "lifting_surface",
     "planform_metrics",
@@ -33,14 +35,7 @@ __all__ = [
 
 def section_models(sections):
     """Fit a CST model to each section airfoil of a lifting surface at one common degree."""
-    models = [
-        naca_to_cst(
-            name,
-            degree=sections["degree"],
-            trailing_edge_thickness=sections["trailing_edge_thickness"],
-        )
-        for name in sections["airfoils"]
-    ]
+    models = [form.to_stored() for form in fit_or_read(sections)]
     degree = max(model["degree"] for model in models)
     return [
         {
@@ -63,8 +58,9 @@ def section_points(component, models, eta, x, side):
     p = planform_values(component, eta)
     angle = np.deg2rad(p["twist"])
     chord = p["chord"]
-    dx, dz = (local[..., 0] - 0.25) * chord, local[..., 1] * chord
-    xx = p["leading_edge_x"] + 0.25 * chord + dx * np.cos(angle) + dz * np.sin(angle)
+    axis = component["planform"]["twist_axis"]
+    dx, dz = (local[..., 0] - axis) * chord, local[..., 1] * chord
+    xx = p["leading_edge_x"] + axis * chord + dx * np.cos(angle) + dz * np.sin(angle)
     zz = p["leading_edge_z"] - dx * np.sin(angle) + dz * np.cos(angle)
     yy = np.full_like(xx, component["planform"]["span"] / 2 * eta)
     return np.stack((xx, yy, zz), axis=-1)
@@ -104,6 +100,17 @@ def lifting_patch_grid(component, models, layout, chord_count=49, span_count=9):
     return np.stack(grid, axis=1)
 
 
+def bound_stations(component):
+    """Return the span stations of the control sections that bound a nacelle, sorted.
+
+    Each kept ``sections.nacelle_bounds`` entry adds its two stations as patch edges, so a
+    nacelle trim lies between two section lines and the section count rises by two. The blended
+    section shape does not change.
+    """
+    bounds = component["sections"].get("nacelle_bounds") or []
+    return sorted({float(eta) for b in bounds for eta in (b["eta_in"], b["eta_out"])})
+
+
 def lifting_surface(component) -> list[Patch]:
     """Return the skin of a lifting-surface component as bicubic patches.
 
@@ -118,9 +125,18 @@ def lifting_surface(component) -> list[Patch]:
         The skin patches, six families per spanwise bay.
     """
     models = section_models(component["sections"])
-    layout = patch_layout(component["sections"]["eta"], component["planform"]["breaks"])
+    plan = component["planform"]
+    layout = patch_layout(
+        [*component["sections"]["eta"], *bound_stations(component)],
+        [*plan["breaks"], *plan.get("slope_breaks", [])],
+    )
+    straight = component.get("base_strip") == "linear"
     return [
-        interpolate_patch(
+        (
+            interpolate_base_strip
+            if straight and entry["family"].startswith("trailing_")
+            else interpolate_patch
+        )(
             lifting_patch_grid(component, models, entry),
             family=entry["family"],
             bay=(entry["bay"][0], entry["bay"][1]),

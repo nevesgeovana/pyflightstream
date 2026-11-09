@@ -19,6 +19,7 @@ from pyflightstream._errors import InputValueError
 __all__ = [
     "Patch",
     "evaluate_patch",
+    "interpolate_base_strip",
     "interpolate_patch",
     "interpolate_polynomial_strip",
     "patch_layout",
@@ -195,6 +196,31 @@ def interpolate_polynomial_strip(points, family: str = "", bay=None) -> Patch:
         multiplicities_v=(degree + 1, degree + 1),
         degree_u=3,
         degree_v=degree,
+        bay=bay,
+    )
+
+
+def interpolate_base_strip(points, family: str = "", bay=None) -> Patch:
+    """Interpolate a straight base strip: degree 1 across it, cubic along the span.
+
+    ``points`` has axis 0 across the strip and axis 1 along the span. The strip is straight
+    across, so its first and last rows, joined linearly, are the strip itself; the span
+    direction interpolates every column with a cubic spline.
+    """
+    grid = np.asarray(points, float)
+    if grid.ndim != 3 or grid.shape[2] != 3 or grid.shape[0] < 2 or grid.shape[1] < 4:
+        raise InputValueError("points: two rows and at least four spanwise XYZ samples required")
+    along = make_interp_spline(np.linspace(0, 1, grid.shape[1]), grid[[0, -1]], axis=1)
+    knots, mult = np.unique(along.t, return_counts=True)
+    return Patch(
+        family=family,
+        controls=along.c.transpose(1, 0, 2),
+        knots_u=(0.0, 1.0),
+        knots_v=tuple(float(k) for k in knots),
+        multiplicities_u=(2, 2),
+        multiplicities_v=tuple(int(m) for m in mult),
+        degree_u=1,
+        degree_v=3,
         bay=bay,
     )
 

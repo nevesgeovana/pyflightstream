@@ -102,6 +102,12 @@ def _check_physical(name, physical, raw, warnings):
     for key in _PHYSICAL_KEYS:
         if key in physical:
             number(physical[key], f"{name}.sections.physical.{key}", 0)
+    for key, high in (("nose_radius", 0.5), ("thickness_at", 0.5), ("boat_tail_deg", 89)):
+        if key in physical:
+            number(physical[key], f"{name}.sections.physical.{key}", 0, high, strict=True)
+    missing = [k for k in ("nose_radius", "boat_tail_deg", "thickness_at") if k not in physical]
+    if missing:  # refused with the input, not when the skin is built
+        raise InputValueError(f"{name}.sections.physical: {', '.join(missing)} required")
 
 
 def _check_sections(name, component, raw, warnings):
@@ -252,6 +258,31 @@ def _check_tip_cap(cap):
             raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
 
 
+def _warn_loft_counts(name, cap, raw, warnings):
+    """Warn that the exact-loft counts given to another kind of cap are not read."""
+    if cap["kind"] == "exact_loft":
+        return
+    for key in ("sections", "control_points"):
+        if key in raw:
+            warnings.append(
+                f"{name}.tip_cap.{key}: read by an exact_loft cap only, a {cap['kind']} cap "
+                "skips it"
+            )
+
+
+def _check_tip_extent(name, cap, raw, warnings):
+    """Check ``tip_cap.extent``, the reach of a rounded or lofted cap in model units."""
+    _warn_loft_counts(name, cap, raw, warnings)
+    if "extent" not in cap:
+        return
+    number(cap["extent"], f"{name}.tip_cap.extent", 0, strict=True)
+    if "length" in raw:
+        raise InputValueError(f"{name}.tip_cap.extent: given together with tip_cap.length")
+    if cap["kind"] not in ("rounded", "exact_loft"):
+        warnings.append(f"{name}.tip_cap.extent: a {cap['kind']} cap has no reach, skipped")
+        cap.pop("extent")
+
+
 def _surface_tables(path, surface, warnings):
     """Warn about and skip the unknown keys of the tables inside a control surface."""
     if "cove" in surface:
@@ -294,7 +325,10 @@ def check_lifting_extras(name, component, raw, warnings, findings):
         component["trailing_edge"] = "blunt"
     if component["trailing_edge"] != "blunt":
         raise InputValueError(f"{name}.trailing_edge: expected blunt")
+    if component["base_strip"] not in ("bicubic", "linear"):
+        raise InputValueError(f"{name}.base_strip: expected bicubic or linear")
     _check_tip_cap(component["tip_cap"])
+    _check_tip_extent(name, component["tip_cap"], raw.get("tip_cap", {}), warnings)
     _check_nacelle_bounds(name, component, warnings)
     component["control_surfaces"] = [
         _fill_surface(name, i, raw, warnings) for i, raw in enumerate(component["control_surfaces"])

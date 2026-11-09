@@ -56,6 +56,7 @@ RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
 FREE_BY_TYPE = {
     "lifting_surface": frozenset(
         {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
+        | {"planform.height", "tip_cap.extent"}
         | {"sections.physical", "sections.nacelle_bounds"}
     ),
     "fillet": frozenset({"laws", "mesh_zone", "spine"}),
@@ -81,6 +82,7 @@ def default_component(kind):
                 "aspect_ratio": 8.0,
                 "taper": 1.0,
                 "sweep": 0.0,
+                "orientation": "horizontal",
                 "sweep_reference": "leading_edge",
                 "dihedral": 0.0,
                 "incidence": 0.0,
@@ -88,6 +90,7 @@ def default_component(kind):
                 "twist_axis": 0.25,
                 "control_stations": [0.0, 1 / 3, 2 / 3, 1.0],
                 "breaks": [],
+                "slope_breaks": [],
             },
             sections={
                 "airfoils": ["NACA0012", "NACA0012"],
@@ -101,6 +104,7 @@ def default_component(kind):
                 "form": "cst",
             },
             trailing_edge="blunt",
+            base_strip="bicubic",
             control_surfaces=[],
             tip_cap={
                 "kind": "flat",
@@ -228,6 +232,10 @@ def validate_ridge_profile(profile):
 def resolve_planform(supplied, defaults):
     """Complete an independent trapezoidal set, rejecting redundant disagreement."""
     p = deepcopy(defaults)
+    if "height" in supplied:
+        if "span" in supplied:
+            raise InputValueError("planform.height: given together with planform.span")
+        p["span"] = 2 * number(supplied["height"], "planform.height", 0, strict=True)
     span = number(p["span"], "planform.span", 0, strict=True)
     if "root_chord" in supplied:
         root = number(supplied["root_chord"], "planform.root_chord", 0, strict=True)
@@ -238,7 +246,7 @@ def resolve_planform(supplied, defaults):
     elif "area" in supplied:
         area = number(supplied["area"], "planform.area", 0, strict=True)
         ar = supplied.get("aspect_ratio", span**2 / area)
-        if "span" not in supplied and "aspect_ratio" in supplied:
+        if "span" not in supplied and "height" not in supplied and "aspect_ratio" in supplied:
             span = math.sqrt(area * ar)
         taper = p["taper"]
         root = 2 * area / (span * (1 + taper))
@@ -268,10 +276,34 @@ def resolve_planform(supplied, defaults):
     return p
 
 
+def check_slope_breaks(component):
+    """Refuse slope breaks outside (0, 1) or missing from a supplied distribution's stations."""
+    breaks = component["planform"]["slope_breaks"]
+    if not breaks:
+        return
+    stations(breaks, "planform.slope_breaks", 1)
+    if breaks[0] <= 0 or breaks[-1] >= 1:
+        raise InputValueError("planform.slope_breaks: must lie strictly inside (0, 1)")
+    for key, law in component.get("distributions", {}).items():
+        missing = [b for b in breaks if b not in law["stations"]]
+        if missing:
+            raise InputValueError(f"distributions.{key}.stations: slope breaks {missing} missing")
+
+
+def apply_orientation(raw, component):
+    """Check ``planform.orientation``; a vertical surface is rolled 90 degrees unless placed."""
+    orientation = component["planform"]["orientation"]
+    if orientation not in ("horizontal", "vertical"):
+        raise InputValueError("planform.orientation: expected horizontal or vertical")
+    if orientation == "vertical" and "rotation" not in raw.get("placement", {}):
+        component["placement"]["rotation"] = [90.0, 0.0, 0.0]
+
+
 def resolve_lifting(raw, component, notes):
     """Complete and validate a lifting-surface component; return its derived area and mean chord."""
     component["planform"] = resolve_planform(raw.get("planform", {}), component["planform"])
     p, section = component["planform"], component["sections"]
+    apply_orientation(raw, component)
     if "eta" not in raw.get("sections", {}) and not section["items"]:
         count = len(section["airfoils"])
         section["eta"] = [i / max(1, count - 1) for i in range(count)]
@@ -282,8 +314,7 @@ def resolve_lifting(raw, component, notes):
         stations(p["breaks"], "planform.breaks", 1)
     if p["sweep_reference"] not in ("leading_edge", "quarter_chord"):
         raise InputValueError("planform.sweep_reference: unsupported reference")
-    if p["twist_axis"] != 0.25:
-        raise InputValueError("planform.twist_axis: must be 0.25")
+    number(p["twist_axis"], "planform.twist_axis", 0, 1)
     for key in ("sweep", "dihedral", "incidence", "tip_twist"):
         number(p[key], f"planform.{key}", -89, 89)
     for key, distribution in component.get("distributions", {}).items():
@@ -299,6 +330,7 @@ def resolve_lifting(raw, component, notes):
                 0 if key == "chord" else None,
                 strict=key == "chord",
             )
+    check_slope_breaks(component)
     check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])
@@ -566,6 +598,9 @@ def _check_data_files(name, component, base, warnings):
     for key, path in needed.items():
         if path and not (base / path).is_file():
             raise InputValueError(f"{name}.{key}: file not found")
+    for item in items:
+        if item.get("file"):  # the generator reads it from wherever the input was read
+            item["file"] = str((base / item["file"]).resolve())
     original = component.get("original", "").split("#")[0]
     if original and not (base / original).is_file():
         warnings.append(f"{name}.original: file not found; the distance checks are skipped")

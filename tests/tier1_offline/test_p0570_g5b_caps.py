@@ -1,0 +1,198 @@
+"""0.57.0 G5b: nacelle bounding sections (requirement 4) and the exact_loft tip cap.
+
+The loft is checked against the closed form it is built from: section k is the tip section with
+its thickness scaled by sqrt(1 - f^(2/e)) at the extension f of the cap length.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from pyflightstream._errors import InputValueError
+from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._airfoils import cst_airfoil
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._caps import cap_patch_grids, tip_cap
+from pyflightstream.geometry._distributions import blended_section, planform_values
+from pyflightstream.geometry._lifting import (
+    bound_stations,
+    lifting_surface,
+    section_models,
+    thickness_station,
+)
+
+
+def configuration(**wing):
+    data = {
+        "components": {
+            "N": {"type": "body"},
+            "W": {"type": "lifting_surface", "planform": {"span": 1.2, "taper": 0.5}, **wing},
+        }
+    }
+    resolved = resolve_config(data)
+    return resolved["warnings"], unpack(resolved)["components"]["W"]
+
+
+def bays(component):
+    return sorted({tuple(patch.bay) for patch in lifting_surface(component)})
+
+
+def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
+    _, plain = configuration()
+    bound = {"component": "N", "eta_in": 0.3, "eta_out": 0.55}
+    warnings, bounded = configuration(sections={"nacelle_bounds": [bound]})
+    assert not [w for w in warnings if "nacelle_bounds" in w]
+    assert bound_stations(bounded) == [0.3, 0.55]
+    assert len(bays(bounded)) == len(bays(plain)) + 2
+    assert (0.3, 0.55) in bays(bounded)
+    eta = np.linspace(0, 1, 9)
+    for key in ("chord", "leading_edge_x"):
+        assert planform_values(bounded, eta)[key] == pytest.approx(planform_values(plain, eta)[key])
+    assert section_models(bounded["sections"]) == section_models(plain["sections"])
+
+
+def test_g5b_nacelle_bound_on_no_component_is_reported_by_the_verb_and_skipped():
+    bound = {"component": "pod", "eta_in": 0.3, "eta_out": 0.55}
+    warnings, component = configuration(sections={"nacelle_bounds": [bound]})
+    assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
+    assert bound_stations(component) == []
+
+
+def test_g5b_nacelle_bounds_bad_input_is_refused():
+    for bad in (
+        {"component": "N", "eta_in": 0.6, "eta_out": 0.5},
+        {"component": "N", "eta_in": -0.1, "eta_out": 0.5},
+        {"component": "N", "eta_in": 0.2, "eta_out": 1.5},
+    ):
+        with pytest.raises(InputValueError, match="nacelle_bounds"):
+            configuration(sections={"nacelle_bounds": [bad]})
+
+
+def test_g5b_nacelle_bounds_given_twice_share_a_station():
+    pair = [
+        {"component": "N", "eta_in": 0.3, "eta_out": 0.5},
+        {"component": "N", "eta_in": 0.5, "eta_out": 0.7},
+    ]
+    _, component = configuration(sections={"nacelle_bounds": pair})
+    assert bound_stations(component) == [0.3, 0.5, 0.7]
+
+
+def loft_component(exponent=1.0):
+    cap = {"kind": "exact_loft", "length": 1.0, "exponent": exponent}
+    return configuration(tip_cap={**cap, "sections": 8, "control_points": 15})[1]
+
+
+def test_g5b_exact_loft_matches_its_closed_form():
+    component = loft_component()
+    models = section_models(component["sections"])
+    section = blended_section(component["sections"], models, 1.0)
+    maximum = thickness_station(component, models, 1.0)
+    grids = [g for _, g in cap_patch_grids(component, section, maximum)]
+    assert len(grids) == 2
+    upper, lower = grids
+    assert upper.shape == (15, 9, 3)
+    p = planform_values(component, 1.0)
+    chord = float(p["chord"])
+    top, bottom = cst_airfoil(
+        maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
+    )
+    length = float((top[1] - bottom[1]) / 2)
+    fraction = np.linspace(0, 1, 9)
+    ratio = (upper[:, :, 2] - lower[:, :, 2]) / chord
+    x = (upper[:, 0, 0] - float(p["leading_edge_x"])) / chord
+    tip_up, tip_low = cst_airfoil(
+        x, section["upper"], section["lower"], section["trailing_edge_thickness"]
+    )
+    assert ratio[:, 0] == pytest.approx(tip_up[:, 1] - tip_low[:, 1], abs=1e-9)
+    for k in range(1, 9):
+        assert ratio[:, k] == pytest.approx(ratio[:, 0] * np.sqrt(1 - fraction[k] ** 2), abs=1e-9)
+    extension = (upper[:, :, 1] - 1.2 / 2) / chord
+    assert extension[0] == pytest.approx(length * fraction, abs=1e-12)
+    assert upper[:, -1] == pytest.approx(lower[:, -1], abs=1e-12)
+
+
+def test_g5b_exact_loft_cap_is_two_patches_and_a_wrong_exponent_changes_it():
+    component = loft_component()
+    patches = tip_cap(component)
+    assert len(patches) == 2
+    assert {p.family for p in patches} == {"tip_cap"}
+    other = loft_component(exponent=2.0)
+    models = section_models(component["sections"])
+    section = blended_section(component["sections"], models, 1.0)
+    maximum = thickness_station(component, models, 1.0)
+    one = cap_patch_grids(component, section, maximum)[0][1]
+    two = cap_patch_grids(other, section, maximum)[0][1]
+    assert float(np.max(np.abs(one[:, 4] - two[:, 4]))) > 1e-4
+    assert one[:, 0] == pytest.approx(two[:, 0], abs=1e-12)
+
+
+def test_g5b_exact_loft_counts_come_from_the_input_and_bad_counts_are_refused():
+    component = loft_component()
+    assert component["tip_cap"]["sections"] == 8
+    with pytest.raises(InputValueError, match="tip_cap.sections"):
+        configuration(tip_cap={"kind": "exact_loft", "sections": 1})
+    with pytest.raises(InputValueError, match="tip_cap.kind"):
+        configuration(tip_cap={"kind": "exact-loft"})
+
+
+def trailing(component):
+    return [p for p in lifting_surface(component) if p.family.startswith("trailing_")]
+
+
+def test_g5b_linear_base_strip_is_degree_one_and_straight_across():
+    _, plain = configuration()
+    _, linear = configuration(base_strip="linear")
+    assert {p.degree_u for p in trailing(plain)} == {3}
+    strips = trailing(linear)
+    assert len(strips) == len(trailing(plain))
+    for strip in strips:
+        assert (strip.degree_u, strip.degree_v) == (1, 3)
+        assert np.asarray(strip.controls).shape[0] == 2
+        lattice = strip.evaluate(9)
+        assert lattice[4] == pytest.approx((lattice[0] + lattice[-1]) / 2, abs=1e-12)
+    # The same surface as the bicubic strip, within the interpolation error.
+    for new, old in zip(strips, trailing(plain), strict=True):
+        assert new.evaluate(9) == pytest.approx(old.evaluate(9), abs=1e-9)
+    # The skin patches stay bicubic.
+    skin = [p for p in lifting_surface(linear) if not p.family.startswith("trailing_")]
+    assert {p.degree_u for p in skin} == {3}
+
+
+def test_g5b_base_strip_bad_input_is_refused_or_reported():
+    with pytest.raises(InputValueError, match="base_strip"):
+        configuration(base_strip="quadratic")
+    warnings, _ = configuration(base_strips="linear")
+    assert any("base_strips" in text for text in warnings)
+
+
+def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
+    from pyflightstream.geometry._boundary import unpack  # noqa: F401
+
+    for kind in ("rounded", "exact_loft"):
+        _, component = configuration(tip_cap={"kind": kind, "extent": 0.08})
+        models = section_models(component["sections"])
+        section = blended_section(component["sections"], models, 1.0)
+        maximum = thickness_station(component, models, 1.0)
+        grids = [g for _, g in cap_patch_grids(component, section, maximum)]
+        reach = max(float(np.max(g[..., 1])) for g in grids) - 1.2 / 2
+        assert reach == pytest.approx(0.08, abs=1e-6)
+
+
+def test_g5b_tip_cap_extent_bad_input():
+    with pytest.raises(InputValueError, match="together with tip_cap.length"):
+        configuration(tip_cap={"kind": "rounded", "extent": 0.08, "length": 2.0})
+    with pytest.raises(InputValueError, match="extent"):
+        configuration(tip_cap={"kind": "rounded", "extent": -0.1})
+    warnings, component = configuration(tip_cap={"kind": "flat", "extent": 0.08})
+    assert any("tip_cap.extent" in text for text in warnings)
+    assert "extent" not in component["tip_cap"]
+
+
+@pytest.mark.parametrize("kind", ["flat", "rounded", "ridged", "none"])
+def test_r14_004_loft_counts_on_another_cap_are_warned_and_skipped(kind):
+    warnings, _ = configuration(tip_cap={"kind": kind, "sections": 12, "control_points": 9})
+    assert any("tip_cap.sections" in text and kind in text for text in warnings)
+    assert any("tip_cap.control_points" in text for text in warnings)
+    warnings, _ = configuration(tip_cap={"kind": "exact_loft", "sections": 12})
+    assert not [text for text in warnings if "tip_cap.sections" in text]

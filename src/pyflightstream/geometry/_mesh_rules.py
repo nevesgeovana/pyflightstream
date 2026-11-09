@@ -365,10 +365,11 @@ def chord_fraction(component, points):
     values = planform_values(component, eta)
     theta = np.deg2rad(values["twist"])
     chord = values["chord"]
-    dx = (points[:, 0] - values["leading_edge_x"] - 0.25 * chord) * np.cos(theta) - (
+    axis = component["planform"]["twist_axis"]
+    dx = (points[:, 0] - values["leading_edge_x"] - axis * chord) * np.cos(theta) - (
         points[:, 2] - values["leading_edge_z"]
     ) * np.sin(theta)
-    return dx / chord + 0.25
+    return dx / chord + axis
 
 
 def spanwise(points, controls, half):

@@ -253,7 +253,20 @@ _FOWLER = {
             },
             "te",
         ),
-        ({"type": "lifting_surface", "sections": {"physical": {"nose_radiuss": 0.1}}}, "radiuss"),
+        (
+            {
+                "type": "lifting_surface",
+                "sections": {
+                    "physical": {
+                        "nose_radiuss": 0.1,
+                        "nose_radius": 0.0158,
+                        "boat_tail_deg": 7.0,
+                        "thickness_at": 0.12,
+                    }
+                },
+            },
+            "radiuss",
+        ),
         (
             {
                 "type": "lifting_surface",

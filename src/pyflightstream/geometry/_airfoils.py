@@ -28,6 +28,7 @@ __all__ = [
     "naca_digits",
     "naca_to_cst",
     "normalized_naca",
+    "ordinates_to_cst",
 ]
 
 
@@ -186,6 +187,29 @@ def naca_to_cst(designation, degree=5, tolerance=5e-4, max_degree=20, trailing_e
     Specifying TE thickness deliberately changes the target by a linear wedge.
     """
     upper, lower, transform = normalized_naca(designation)
+    return ordinates_to_cst(
+        upper, lower, transform, f"naca_to_cst.{designation}",
+        degree=degree, tolerance=tolerance, max_degree=max_degree,
+        trailing_edge_thickness=trailing_edge_thickness,
+    )  # fmt: skip
+
+
+def ordinates_to_cst(
+    upper,
+    lower,
+    transform,
+    label,
+    *,
+    degree=5,
+    tolerance=5e-4,
+    max_degree=20,
+    trailing_edge_thickness=None,
+):
+    """Fit CST coefficients to unit-chord ordinates, raising the degree only as the residual needs.
+
+    ``upper`` and ``lower`` are (x, z) arrays running from the leading edge (0, 0) to the
+    trailing edge at x = 1, strictly increasing in x. ``label`` names the section in a refusal.
+    """
     fu, fl = (
         PchipInterpolator(upper[:, 0], upper[:, 1]),
         PchipInterpolator(lower[:, 0], lower[:, 1]),
@@ -220,5 +244,5 @@ def naca_to_cst(designation, degree=5, tolerance=5e-4, max_degree=20, trailing_e
                 "chord_transform": transform,
             }
     raise InputValueError(
-        f"naca_to_cst.{designation}: residual {residual} exceeds {tolerance} at degree {max_degree}"
+        f"{label}: residual {residual} exceeds {tolerance} at degree {max_degree}"
     )
