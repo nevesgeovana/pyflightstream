@@ -114,6 +114,14 @@ EXCLUDED_EXTERNAL_METADATA = (
 #: package for every ``hashlib`` call and fails on a module absent here,
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {
+    "geometry/_identity.py": (
+        "the ASCII encoding of canonical JSON: sorted keys, compact separators, ensure_ascii, "
+        "every number written by float.hex with a positive zero. parameter_id hashes the resolved "
+        "configuration without file paths, source markers, comments and findings, with member and "
+        "dominance names sorted; surface_id hashes the control nets, knots, multiplicities and "
+        "degrees of every patch ordered by component name and patch index; build_id hashes the "
+        "parameter identity with the package version and the kernel name and version."
+    ),
     "workspace/_repitch_io.py": (
         "the exact output OBJ payload bytes prepared by repitch, collapse-te or hub-rings, "
         "before writing; "
