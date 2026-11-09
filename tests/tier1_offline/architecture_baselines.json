@@ -307,8 +307,8 @@
    "statements": 23
   },
   "geometry/config.py:resolve_lifting": {
-   "branches": 13,
-   "complexity": 14,
+   "branches": 12,
+   "complexity": 13,
    "positional": 2,
    "statements": 33
   },
