@@ -108,7 +108,9 @@ def _check_sections(name, component, raw, warnings):
     """Resolve ``sections.items`` into the legacy airfoil and station lists, check the rest."""
     section = component["sections"]
     if section["form"] != "cst":
-        raise InputValueError(f"{name}.sections.form: only the cst section form is accepted")
+        raise InputValueError(
+            f"{name}.sections.form: only the cst section form is accepted, got {section['form']!r}"
+        )
     _check_physical(name, section.get("physical"), raw, warnings)
     items = section["items"]
     if not items:
