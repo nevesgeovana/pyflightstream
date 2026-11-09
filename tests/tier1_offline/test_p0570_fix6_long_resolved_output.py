@@ -50,6 +50,7 @@ def junction_folder(tmp_path):
         check=True,
         capture_output=True,
         creationflags=_CREATE_NO_WINDOW,
+        env=dict(os.environ),
     )
     yield link
     os.rmdir(link)
@@ -115,6 +116,7 @@ def test_p0570_r8_003_an_extraction_script_past_the_limit_stays_in_scripts(tmp_p
         check=True,
         capture_output=True,
         creationflags=_CREATE_NO_WINDOW,
+        env=dict(os.environ),
     )
     try:
         workspace = CampaignWorkspace(root)
@@ -164,6 +166,7 @@ def test_p0570_fix6_an_output_resolving_past_the_limit_is_collected(tmp_path):
         check=True,
         capture_output=True,
         creationflags=_CREATE_NO_WINDOW,
+        env=dict(os.environ),
     )
     try:
         workspace = CampaignWorkspace(root)
