@@ -152,7 +152,8 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     FX_INT: "N. Fx times Strip_length, in the recorded section axes at this row's STEP and azimuth",
     FZ_INT: "N. Fz times Strip_length, in the recorded section axes at this row's STEP and azimuth",
     MY_INT: (
-        "N m. Moment times Strip_length, about this station's quarter chord (X_QC, Z_QC), "
+        "N m. Moment times Strip_length, about the simulation's moment reference point (MRP), "
+        "not the station's quarter chord (X_QC, Z_QC), "
         "retaining the export's section-plane moment sense at this STEP and azimuth"
     ),
     "ALPHA": "deg. The angle of attack the solver reports it ran at, as the row wrote it",

@@ -265,7 +265,7 @@ immediately after `Moment`:
 | `Strip_length` | `STRIP_LENGTH` | m | positive length of this station's strip |
 | `Fx_int` | `FX_INT` | N | `Fx * Strip_length` |
 | `Fz_int` | `FZ_INT` | N | `Fz * Strip_length` |
-| `My_int` | `MY_INT` | N m | `Moment * Strip_length`, about this station's quarter chord |
+| `My_int` | `MY_INT` | N m | `Moment * Strip_length`, about the simulation's moment reference point (MRP), not this station's quarter chord |
 
 **Strip rule.** For strictly monotonic exported offsets `s[0]... s[n-1]`,
 the interior boundaries are `(s[i-1] + s[i]) / 2`. The outer boundaries extend
@@ -281,11 +281,19 @@ file. Original rows, axes, STEP and AZIMUTH are preserved. These are instants,
 with no temporal average or revolution envelope.
 
 **Moment point.** `My_int` reports the integral of the
-export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. FSM-26.123,
-the registered 26.123 manual, p.253 (Sectional Load Distributions), explicitly
-identifies Xqc and Zqc as the 25% chord coordinates used for the CM reference.
-Its pp.370-371 document computing and exporting the same sectional loads.
-The recorded export
+export's `Moment` about the simulation's moment reference point (MRP), the
+point the model's reference moment is taken about, and not about the local
+quarter chord `(X_QC, Z_QC)`. The measurement behind this sentence integrates
+the section's surface pressure about each candidate point and compares it with
+the exported `Moment`: about the MRP the residual is the small friction part
+and does not follow angle of attack, about the local quarter chord it is
+several times larger and varies with angle of attack (build 26.127, wing
+sections at two spans). FSM-26.123, the registered 26.123 manual, p.253
+(Sectional Load Distributions), identifies Xqc and Zqc as the 25% chord
+coordinates used for the CM reference; the measurement does not support reading
+that as the point of the exported `Moment`, and whether the 26.123 build
+differs from 26.127 here is not measured. Its pp.370-371 document computing and
+exporting the same sectional loads. The recorded export
 `tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt` carries
 `Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`; its Newtons/Newton-Meter footer
 states the computation units. The line-density interpretation is supported
@@ -293,8 +301,9 @@ by the recorded force-integral comparison. Multiplying the moment density
 by the strip length preserves that moment point and the export's sign and
 section-plane axes. For an XZ cut in a blade's own frame this is its My.
 For another cut plane it retains the export's plane-normal moment component
-under the same column name. No transfer to an elastic axis, hub or global MRP
-is applied. A sum of these local moments is not a moment about one common point.
+under the same column name. No transfer to an elastic axis, hub or the quarter
+chord is applied. Every station's `My_int` is about the same point, the MRP, so
+their sum is a moment about that one point.
 
 **Integration never blocks post.** A block with fewer than two stations,
 non-monotonic or repeated Offset, or a non-finite sectional value cannot be
