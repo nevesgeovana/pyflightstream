@@ -191,6 +191,7 @@
       "tests/tier1_offline/test_p0570_g5b_planform.py",
       "tests/tier1_offline/test_p0570_geom_bluff.py",
       "tests/tier1_offline/test_p0570_geom_bspline.py",
+      "tests/tier1_offline/test_p0570_geom_cli.py",
       "tests/tier1_offline/test_p0570_geom_oracles.py",
       "tests/tier1_offline/test_p0570_geom_run.py",
       "tests/tier1_offline/test_p0570_geom_schema.py",

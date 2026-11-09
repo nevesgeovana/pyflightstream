@@ -32,7 +32,7 @@ sweep = 15.0
 ## Generate
 
 ```text
-pyfs-workspace geometry generate wing.toml --out wing.igs
+pyfs-geom run wing.toml --out out --until S11
 ```
 
 The exposed skin of every component is generated as B-spline patches, assembled by surface
@@ -41,12 +41,21 @@ wing meets a body), audited for free and non-manifold edges and written as one I
 NAME per component on its own level, in metres, so `iges-grid` and the solver's CAD import read
 the components back. `--configuration NAME` generates only the components of an entry of the
 `[configurations]` table. A wing and body assembly takes about a minute. Python:
-`pyflightstream.workspace.geometry_pipeline.generate_iges`.
+`pyflightstream.workspace.geometry_pipeline.run_geometry` with `until="S11"`.
+
+`run` executes the stages S0 to S13 in order (`--until` ends earlier; a run to S9 needs no
+kernel), writes one record per stage and `report.json`, and stops at the first failed check: the
+report names that stage and check with the value measured and the limit, and the exit code is 1.
+An input the pipeline refuses exits 2 with the reason. `--set component.key=value` overrides one
+value (an unknown name is refused). `pyfs-geom doe wing.toml sets.toml --out out` runs one report
+per `[[sets]]` table of the second file and continues after a failed set, each in a worker
+process of its own. `pyfs-geom stages` lists the stages and their checks, `validate` prints every
+resolved value with its source and `configurations` lists the registry.
 
 ## Check against an original
 
 ```text
-pyfs-workspace geometry check rebuilt.igs original.igs --chord-m 0.27
+pyfs-geom check rebuilt.igs original.igs --chord-m 0.27
 ```
 
 The distance is measured in two directions on sampled points: forward, from the original to the
@@ -76,7 +85,7 @@ is written and the exit is 0 even when a check fails, so read `accepted` and
 ## Identify a lifting surface
 
 ```text
-pyfs-workspace geometry identify original.igs WING --config-out wing-found.toml
+pyfs-geom identify original.igs WING --config-out wing-found.toml
 ```
 
 The trimmed faces of the component are cut by planes normal to the span axis. The clean
@@ -98,6 +107,6 @@ identifies lifting surfaces only; bodies, rings and propellers are not identifie
 `pyflightstream.geometry.ComponentRecord` is the contract between a reconstruction and this
 library: stations, the split points of each section curve (IGES type 126 curves pinned by file,
 SHA-256 and entry number), the construction method, the trailing-edge base and the measured
-deviation. `pyfs-workspace geometry schema` prints its JSON Schema, and
-`geometry schema --validate RECORD --asset-root DIR` checks a record and re-reads every file it
+deviation. `pyfs-geom schema` prints its JSON Schema, and
+`pyfs-geom schema --validate RECORD --asset-root DIR` checks a record and re-reads every file it
 pins against its SHA-256 (exit 1 when a pin fails).

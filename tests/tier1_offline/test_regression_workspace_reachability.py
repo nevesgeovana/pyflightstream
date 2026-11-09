@@ -31,6 +31,7 @@ _REACH_GUARD__REGISTER_PATH = Path(__file__).with_name("reachability_exceptions.
 _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
     ("pyflightstream.run.cli", "main"),
     ("pyflightstream.workspace.cli", "main"),
+    ("pyflightstream.run.geom_cli", "main"),
     # The workbook adapter of the matrix: ``python -m
     # pyflightstream.workspace.excel`` (docs/excel-matrices.md) and the text
     # bridge the workbook's embedded controls call.

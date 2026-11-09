@@ -176,6 +176,7 @@ pyfs-qa = "pyflightstream.qa.cli:main"
 pyfs-fsi = "pyflightstream.fsi.cli:main"
 pyfs-workspace = "pyflightstream.workspace.cli:main"
 pyfs-matrix = "pyflightstream.run.cli:main"
+pyfs-geom = "pyflightstream.run.geom_cli:main"
 # Maintainer tool, needs the [manual] extra. Compares a vendor manual
 # against the command database; writes only with --write.
 pyfs-manual = "pyflightstream.utils.cli:main"

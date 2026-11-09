@@ -21,12 +21,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-import pyflightstream
 from pyflightstream._errors import (
-    ContractNotImplementedError,
+    InputArtifactError,
     InputValueError,
     PyflightstreamError,
 )
@@ -114,7 +114,14 @@ def _export(context: RunContext) -> StageOutcome:
         unpack(context.resolved["aircraft"]).get("name", "geometry")
     )
     target = context.out / f"{name}.igs"
-    written = generate_iges(context.resolved, target, configuration=context.configuration)
+    try:
+        written = generate_iges(context.resolved, target, configuration=context.configuration)
+    except InputArtifactError as error:
+        if "solid entities" not in str(error):
+            raise
+        return StageOutcome(
+            checks=[check_entry("profile.surfaces_only", "failed", 1, 0, note=str(error))]
+        )
     warnings = [
         str(item) for item in written["warnings"] if item not in context.resolved["warnings"]
     ]
@@ -128,12 +135,19 @@ def _export(context: RunContext) -> StageOutcome:
 
 
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
-_STAGE_FUNCTIONS: dict[str, StageFn] = {"S0": _definition, "S11": _export}
+STAGE_FUNCTIONS: dict[str, StageFn] = {"S0": _definition, "S11": _export}
 
 
 def default_stages() -> list[Stage]:
     """Return every stage of the table with the function this tree holds for it, if any."""
-    return [Stage(row, _STAGE_FUNCTIONS.get(row.stage)) for row in STAGE_ROWS]
+    return [Stage(row, STAGE_FUNCTIONS.get(row.stage)) for row in STAGE_ROWS]
+
+
+def _package_version() -> str:
+    try:
+        return metadata.version("pyflightstream")
+    except metadata.PackageNotFoundError:
+        return "0.0.0+uninstalled"
 
 
 def _now() -> str:
@@ -202,6 +216,53 @@ def _members(resolved, configuration, variant):
             f"variant {variant!r}: unknown; available: {sorted(unpack(resolved['variants']))}"
         )
     return members
+
+
+def _leaves(node: Any, path: str) -> Iterator[dict[str, Any]]:
+    """Yield ``{path, value, unit, source}`` for every wrapped value under ``node``."""
+    if isinstance(node, dict) and {"value", "unit", "source"} <= set(node):
+        yield {"path": path, **node}
+    elif isinstance(node, dict):
+        for key, child in node.items():
+            yield from _leaves(child, f"{path}.{key}" if path else str(key))
+    elif isinstance(node, list):
+        for index, child in enumerate(node):
+            yield from _leaves(child, f"{path}[{index}]")
+
+
+def describe_config(config: Any, overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Resolve a configuration (S0 only) and return every value with its unit and source."""
+    resolved = _resolve(config, overrides)
+    values = [
+        leaf
+        for section in ("aircraft", "acceptance", "reader", "components")
+        for leaf in _leaves(resolved[section], section)
+    ]
+    return {
+        "status": "valid",
+        "parameter_id": parameter_id(resolved),
+        "values": values,
+        "warnings": list(resolved["warnings"]),
+        "findings": list(resolved["findings"]),
+    }
+
+
+def list_configurations(config: Any) -> dict[str, Any]:
+    """Return the configurations of a configuration file with their members and variants."""
+    resolved = unpack(dict(_resolve(config, None)))
+    return {
+        "components": list(resolved["components"]),
+        "variants": sorted(resolved["variants"]),
+        "configurations": {
+            name: {"members": members, "variants": resolved["registry"][name].get("variants")}
+            for name, members in resolved["configurations"].items()
+        },
+    }
+
+
+def built_stages() -> set[str]:
+    """Return the ids of the stages this tree has a function for."""
+    return set(STAGE_FUNCTIONS)
 
 
 def _skipped(row: StageRow) -> StageOutcome:
@@ -274,8 +335,9 @@ def run_geometry(
             outcome = stage.run(context) if stage.run else _skipped(stage.row)
         except MissingExtraError as error:
             return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="kernel")
-        except ContractNotImplementedError as error:
-            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="built")
+        except InputValueError as error:
+            # An input a stage cannot build is refused, not failed: nothing was measured.
+            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="input")
         except (PyflightstreamError, ValueError, OSError) as error:
             outcome = StageOutcome(
                 checks=[check_entry("stage.raised", "failed", 1, 0, note=str(error))]
@@ -283,7 +345,7 @@ def run_geometry(
         record = stage_record(
             stage.row.stage,
             stage.row.name,
-            package_version=pyflightstream.__version__,
+            package_version=_package_version(),
             inputs_id=parameter,
             parameter_id=parameter,
             checks=outcome.checks,
@@ -297,11 +359,14 @@ def run_geometry(
         warnings.extend(outcome.warnings)
         failed = _first_failure(record["checks"])
         if failed is not None:
-            return _finish("failed", parameter, folder, records, warnings, stage.row, failed)
-    return _finish("accepted", parameter, folder, records, warnings, None, None)
+            return _finish(
+                "failed", parameter, folder, records, warnings=warnings, failure=(stage.row, failed)
+            )
+    return _finish("accepted", parameter, folder, records, warnings=warnings, failure=None)
 
 
-def _finish(status, parameter, folder, records, warnings, row, failed):
+def _finish(status, parameter, folder, records, *, warnings, failure):
+    row, failed = failure or (None, None)
     summary = [
         {
             "stage": r["stage"],
@@ -331,6 +396,7 @@ def _finish(status, parameter, folder, records, warnings, row, failed):
 def run_set(
     config: Any,
     out: str | Path,
+    *,
     overrides: Mapping[str, Any] | None = None,
     configuration: str | None = None,
     variant: str = "clean",
@@ -347,15 +413,13 @@ def run_set(
     )
 
 
-def _one_set(index, config, params, out, configuration, variant, until):
-    folder = Path(out) / f"set-{index + 1:04d}"
+def _one_set(job):
+    """Run one parameter set of :func:`run_doe` in a worker; ``job`` is its index and arguments."""
+    index, params, common = job
     arguments = {
-        "config": config if isinstance(config, Mapping) else str(config),
-        "out": str(folder / "report.json"),
+        **common,
+        "out": str(Path(common["out"]) / f"set-{index + 1:04d}" / "report.json"),
         "overrides": dict(params),
-        "configuration": configuration,
-        "variant": variant,
-        "until": until,
     }
     try:
         return run_isolated(f"{__name__}:run_set", arguments, run_set)
@@ -388,20 +452,24 @@ def run_doe(
     if workers < 1:
         raise InputValueError("workers: at least 1 required")
     stage_index(until)
-    jobs = [
-        (i, config, params, out, configuration, variant, until)
-        for i, params in enumerate(parameter_sets)
-    ]
+    common = {
+        "config": config if isinstance(config, Mapping) else str(config),
+        "out": str(out),
+        "configuration": configuration,
+        "variant": variant,
+        "until": until,
+    }
+    jobs = [(i, params, common) for i, params in enumerate(parameter_sets)]
     if workers == 1:
         for job in jobs:
-            yield _one_set(*job)
+            yield _one_set(job)
         return
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        yield from pool.map(lambda job: _one_set(*job), jobs)
+        yield from pool.map(_one_set, jobs)
 
 
-def _not_built(what: str) -> ContractNotImplementedError:
-    return ContractNotImplementedError(f"{what}: not built yet in this tree; nothing was written")
+def _not_built(what: str) -> InputValueError:
+    return InputValueError(f"{what}: not built yet in this tree; nothing was written")
 
 
 def add_control_surfaces(

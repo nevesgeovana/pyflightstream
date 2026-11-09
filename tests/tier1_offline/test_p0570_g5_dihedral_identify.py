@@ -13,7 +13,7 @@ import math
 
 import pytest
 
-from pyflightstream.workspace.cli import main
+from pyflightstream.run.geom_cli import main
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 WING = """
@@ -33,11 +33,18 @@ dihedral = {dihedral}
 def cli(args, capsys):
     capsys.readouterr()
     try:
-        code = main(["geometry", *map(str, args)])
+        code = main(list(map(str, args)))
     except SystemExit as error:
         code = error.code
     out = capsys.readouterr()
     return code, out.out, out.err
+
+
+def generate(config, folder, capsys):
+    """Run the pipeline to the export stage and return the IGES it wrote."""
+    code, out, err = cli(["run", config, "--out", folder, "--until", "S11"], capsys)
+    assert code == 0, err
+    return record_of(out)["outputs"]["iges"]
 
 
 def record_of(stdout):
@@ -52,8 +59,7 @@ def test_p0570_pfs2221_identify_places_the_root_and_tip_on_the_end_planes(
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
     config.write_text(WING.format(dihedral=dihedral), encoding="utf-8")
-    igs = tmp_path / "wing.igs"
-    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    igs = generate(config, tmp_path / "gen", capsys)
     rebuilt = tmp_path / "found.toml"
     result = tmp_path / "found.json"
     code, _, err = cli(
@@ -80,15 +86,13 @@ def test_p0570_pfs2221_the_rebuilt_dihedral_wing_passes_check(tmp_path, capsys):
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
     config.write_text(WING.format(dihedral=6.0), encoding="utf-8")
-    igs = tmp_path / "wing.igs"
-    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    igs = generate(config, tmp_path / "gen", capsys)
     rebuilt = tmp_path / "found.toml"
     code, _, err = cli(
         ["identify", igs, "WING", "--stations", 41, "--grid", 97, "--config-out", rebuilt], capsys
     )
     assert code == 0, err
-    again = tmp_path / "again.igs"
-    assert cli(["generate", rebuilt, "--out", again], capsys)[0] == 0
+    again = generate(rebuilt, tmp_path / "again", capsys)
     code, out, err = cli(
         ["check", again, igs, "--chord-m", 0.27, "--forward-count", 21,
          "--reverse-count", 21, "--edge-count", 21],
@@ -105,8 +109,7 @@ def test_r14_001_a_rounded_tip_cap_does_not_move_the_tip_of_a_dihedral_wing(tmp_
     config = tmp_path / "wing.toml"
     text = WING.format(dihedral=6.0) + '[components.WING.tip_cap]\nkind = "rounded"\n'
     config.write_text(text, encoding="utf-8")
-    igs = tmp_path / "wing.igs"
-    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    igs = generate(config, tmp_path / "gen", capsys)
     rebuilt = tmp_path / "found.toml"
     code, _, err = cli(
         ["identify", igs, "WING", "--stations", 41, "--grid", 97, "--config-out", rebuilt], capsys

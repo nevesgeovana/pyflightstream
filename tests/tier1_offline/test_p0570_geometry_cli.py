@@ -1,8 +1,8 @@
-"""0.57.0 item 3 (L3): the ``pyfs-workspace geometry`` verbs of the parametric pipeline.
+"""0.57.0 item 3 (L3, G3): the verbs of the parametric pipeline.
 
-``generate``, ``identify``, ``check``, ``mesh-generated`` and ``schema`` are driven through the
-real entry point. The refusals and the schema need no kernel; the pipeline run skips where the
-optional ``gmsh`` extra is absent.
+``run``, ``identify``, ``check`` and ``schema`` are driven through the ``pyfs-geom`` entry point
+and ``mesh-generated`` through ``pyfs-workspace geometry``. The refusals and the schema need no
+kernel; the pipeline run skips where the optional ``gmsh`` extra is absent.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import pytest
 from pyflightstream._errors import NotApplicableWarning
 from pyflightstream.geometry._boundary import export_schema
 from pyflightstream.run._cli_geometry import GEOMETRY_VERBS
+from pyflightstream.run.geom_cli import main as geom_main
 from pyflightstream.workspace.cli import main
 from tests.tier1_offline._kernel_support import kernel_or_skip
 from tests.tier1_offline.test_p0570_geometry_component import lifting
@@ -42,13 +43,33 @@ def cli(args, capsys):
     return code, out.out, out.err
 
 
+def geom(args, capsys):
+    """Run ``pyfs-geom`` and return the exit code, standard output and standard error."""
+    capsys.readouterr()
+    try:
+        code = geom_main(list(map(str, args)))
+    except SystemExit as error:
+        code = error.code
+    out = capsys.readouterr()
+    return code, out.out, out.err
+
+
+def generated(config, folder, capsys, *, until="S11"):
+    """Run the pipeline to the export stage; return the code, the report, stderr and the IGES."""
+    code, out, err = geom(["run", config, "--out", folder, "--until", until], capsys)
+    report = record_of(out) if "{" in out else {}
+    return code, report, err, report.get("outputs", {}).get("iges")
+
+
 def record_of(stdout):
     """The JSON record the verb printed on standard output."""
     return json.JSONDecoder().raw_decode(stdout[stdout.index("{") :])[0]
 
 
-def test_p0570_the_group_lists_every_parametric_verb():
-    assert {"generate", "identify", "check", "mesh-generated", "schema"} <= set(GEOMETRY_VERBS)
+def test_p0570_the_group_lists_mesh_generated_and_the_moved_verbs_left_it(capsys):
+    assert "mesh-generated" in GEOMETRY_VERBS
+    assert not {"generate", "identify", "check", "schema"} & set(GEOMETRY_VERBS)
+    assert geom(["generate", "x.toml", "--out", "y"], capsys)[0] == 2
 
 
 def test_p0570_the_public_stage_modules_define_what_they_export():
@@ -64,7 +85,7 @@ def test_p0570_the_public_stage_modules_define_what_they_export():
 
 def test_p0570_schema_prints_the_exported_schema_and_writes_it(tmp_path, capsys):
     target = tmp_path / "schema.json"
-    code, out, _ = cli(["schema", "--out", target], capsys)
+    code, out, _ = geom(["schema", "--out", target], capsys)
     assert code == 0
     assert record_of(out) == export_schema()
     assert json.loads(target.read_text(encoding="utf-8")) == export_schema()
@@ -74,12 +95,12 @@ def test_p0570_schema_validates_a_record_and_checks_its_pins(tmp_path, capsys):
     data = lifting()
     path = tmp_path / "wing.record.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    code, out, _ = cli(["schema", "--validate", path], capsys)
+    code, out, _ = geom(["schema", "--validate", path], capsys)
     assert code == 0
     result = record_of(out)
     assert result["component"] == "WING_A"
     assert result["pins_checked"] is False
-    code, out, _ = cli(["schema", "--validate", path, "--asset-root", tmp_path], capsys)
+    code, out, _ = geom(["schema", "--validate", path, "--asset-root", tmp_path], capsys)
     assert code == 1  # the pinned files are not there
     problems = record_of(out)["pin_problems"]
     assert "original/wing.igs: missing" in problems
@@ -87,7 +108,7 @@ def test_p0570_schema_validates_a_record_and_checks_its_pins(tmp_path, capsys):
     payload = b"source"
     (tmp_path / "original" / "wing.igs").write_bytes(payload)
     assert hashlib.sha256(payload).hexdigest() != data["source_iges"]["sha256"]
-    code, out, _ = cli(["schema", "--validate", path, "--asset-root", tmp_path], capsys)
+    code, out, _ = geom(["schema", "--validate", path, "--asset-root", tmp_path], capsys)
     assert code == 1
     assert "original/wing.igs: SHA-256 differs from the pin" in record_of(out)["pin_problems"]
 
@@ -95,19 +116,19 @@ def test_p0570_schema_validates_a_record_and_checks_its_pins(tmp_path, capsys):
 def test_p0570_schema_refuses_a_record_that_breaks_the_contract(tmp_path, capsys):
     path = tmp_path / "bad.json"
     path.write_text("{}", encoding="utf-8")
-    code, out, err = cli(["schema", "--validate", path], capsys)
+    code, out, err = geom(["schema", "--validate", path], capsys)
     assert code == 2
     assert "component record" in err
-    code, _, err = cli(["schema", "--asset-root", tmp_path], capsys)
+    code, _, err = geom(["schema", "--asset-root", tmp_path], capsys)
     assert code == 2
     assert "--validate" in err
 
 
 def test_p0570_check_refuses_a_missing_chord_before_any_kernel_work(tmp_path, capsys):
-    code, _, err = cli(["check", tmp_path / "a.igs", tmp_path / "b.igs"], capsys)
+    code, _, err = geom(["check", tmp_path / "a.igs", tmp_path / "b.igs"], capsys)
     assert code == 2
     assert "--chord-m" in err
-    code, _, err = cli(
+    code, _, err = geom(
         ["check", tmp_path / "a.igs", tmp_path / "b.igs", "--stations-m", "0", "1"], capsys
     )
     assert code == 2
@@ -119,14 +140,14 @@ def test_r6_check_refuses_a_count_below_one_and_a_face_it_does_not_have(tmp_path
     kernel_or_skip()
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
-    igs = tmp_path / "wing.igs"
-    assert cli(["generate", config, "--out", igs], capsys)[0] == 0
+    code, _, err, igs = generated(config, tmp_path / "gen", capsys)
+    assert code == 0, err
     base = ["check", igs, igs, "--chord-m", 0.27, "--reverse-count", 5, "--edge-count", 11]
-    code, _, err = cli([*base, "--forward-count", 0], capsys)
+    code, _, err = geom([*base, "--forward-count", 0], capsys)
     assert code == 2
     assert "forward_count" in err
     for face in (999, -1):
-        code, _, err = cli([*base, "--forward-count", 5, "--exclude-face", face], capsys)
+        code, _, err = geom([*base, "--forward-count", 5, "--exclude-face", face], capsys)
         assert code == 2
         assert f"face {face} does not exist" in err
 
@@ -135,21 +156,20 @@ def test_r6_a_flag_the_verb_will_not_use_is_warned(tmp_path, capsys):
     """R6-010: --chord-m beside the stations and --out beside --validate were silently dropped."""
     missing = tmp_path / "none.json"
     with pytest.warns(NotApplicableWarning, match="--out"):
-        assert cli(["schema", "--validate", missing, "--out", tmp_path / "s.json"], capsys)[0] == 2
+        assert geom(["schema", "--validate", missing, "--out", tmp_path / "s.json"], capsys)[0] == 2
     a, b = tmp_path / "a.igs", tmp_path / "b.igs"
     flags = ["--chord-m", 1.0, "--stations-m", 0, 1, "--chords-m", 1.0, 0.5]
     with pytest.warns(NotApplicableWarning, match="--chord-m"):
-        assert cli(["check", a, b, *flags], capsys)[0] == 2
+        assert geom(["check", a, b, *flags], capsys)[0] == 2
 
 
-def test_p0570_generate_refuses_a_configuration_with_an_unknown_tip_cap_kind(tmp_path, capsys):
+def test_p0570_run_refuses_a_configuration_with_an_unknown_tip_cap_kind(tmp_path, capsys):
     config = tmp_path / "bad.toml"
     config.write_text(WING + '[components.WING.tip_cap]\nkind = "spiky"\n', encoding="utf-8")
-    out = tmp_path / "bad.igs"
-    code, _, err = cli(["generate", config, "--out", out], capsys)
+    code, report, err, igs = generated(config, tmp_path / "bad", capsys)
     assert code == 2
-    assert err.strip()
-    assert not out.exists()
+    assert err.strip() and report["status"] == "refused" and igs is None
+    assert not list((tmp_path / "bad").glob("*.igs"))
 
 
 def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_path, capsys):
@@ -157,14 +177,13 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
-    igs = tmp_path / "wing.igs"
-    code, out, err = cli(["generate", config, "--out", igs], capsys)
+    code, report, err, igs = generated(config, tmp_path / "gen", capsys)
     assert code == 0, err
-    assert record_of(out)["faces"] == {"WING": 15}
+    assert report["outputs"]["faces"] == {"WING": 15}
 
     rebuilt = tmp_path / "found.toml"
     result = tmp_path / "found.json"
-    code, out, err = cli(
+    code, out, err = geom(
         [
             "identify", igs, "WING", "--stations", 41, "--grid", 97,
             "--config-out", rebuilt, "--out", result,
@@ -177,11 +196,11 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     assert found["planform"]["span_m"] == pytest.approx(1.2, abs=2e-3)
     assert json.loads(result.read_text(encoding="utf-8"))["component"] == "WING"
 
-    again = tmp_path / "again.igs"  # the configuration identify wrote is one generate reads
-    code, out, err = cli(["generate", rebuilt, "--out", again], capsys)
+    # the configuration identify wrote is one the run verb reads
+    code, _, err, again = generated(rebuilt, tmp_path / "again", capsys)
     assert code == 0, err
 
-    code, out, err = cli(
+    code, out, err = geom(
         [
             "check", again, igs, "--chord-m", 0.27, "--forward-count", 9,
             "--reverse-count", 9, "--edge-count", 21,
@@ -190,7 +209,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     )  # fmt: skip
     assert code == 0, err
     assert record_of(out)["accepted"] is True
-    code, out, _ = cli(
+    code, out, _ = geom(
         [
             "check", again, igs, "--chord-m", 0.27, "--forward-count", 9,
             "--reverse-count", 9, "--edge-count", 21, "--profile", "nobody",
@@ -206,10 +225,8 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     assert "WING" in obj.read_text(encoding="utf-8")
 
 
-def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
-    tmp_path, capsys, monkeypatch
-):
-    """A clean file prints no finding; a planted one is a warning; a solid refuses, no file.
+def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, capsys, monkeypatch):
+    """A clean file prints no finding; a planted one is a warning; a solid fails S11, no file.
 
     The defects are planted in the file the kernel writes, so the real gate reads a real file.
     """
@@ -218,10 +235,9 @@ def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
 
     config = tmp_path / "wing.toml"
     config.write_text(WING, encoding="utf-8")
-    clean = tmp_path / "clean.igs"
-    code, out, err = cli(["generate", config, "--out", clean], capsys)
+    code, report, err, _ = generated(config, tmp_path / "clean", capsys)
     assert code == 0, err
-    assert not [w for w in record_of(out)["warnings"] if "reader profile" in w]
+    assert not [w for w in report["warnings"] if "reader profile" in w]
 
     real_write = gmsh.write
 
@@ -242,17 +258,16 @@ def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
         return re.sub(r"(?m)^( {5})128 ", r"\g<1>186 ", text, count=1)
 
     monkeypatch.setattr(gmsh, "write", planting(quadratic))
-    planted = tmp_path / "planted.igs"
-    code, out, err = cli(["generate", config, "--out", planted], capsys)
+    code, report, err, _ = generated(config, tmp_path / "planted", capsys)
     assert code == 0, err
-    assert any("reader profile, profile.degree" in w for w in record_of(out)["warnings"])
+    assert any("reader profile, profile.degree" in w for w in report["warnings"])
 
     monkeypatch.setattr(gmsh, "write", planting(solid))
-    refused = tmp_path / "solid.igs"
-    code, _, err = cli(["generate", config, "--out", refused], capsys)
-    assert code == 2
-    assert "186" in err
-    assert not refused.exists()
+    code, report, _, igs = generated(config, tmp_path / "solid", capsys)
+    assert code == 1
+    assert (report["stage"], report["check"]) == ("S11", "profile.surfaces_only")
+    assert "186" in report["message"] and igs is None
+    assert not list((tmp_path / "solid").glob("*.igs"))
 
 
 BSPLINE_ITEM = (
@@ -261,7 +276,7 @@ BSPLINE_ITEM = (
 )
 
 
-def test_r16_001_generate_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path, capsys):
+def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path, capsys):
     """The schema accepts ``{eta, bspline}``; the generator of this version names it, no crash."""
     config = tmp_path / "bspline.toml"
     config.write_text(
@@ -270,8 +285,7 @@ def test_r16_001_generate_refuses_a_bspline_section_item_it_cannot_build_yet(tmp
         f'sections.items = [{BSPLINE_ITEM}, {{eta = 1.0, naca = "0012"}}]\n',
         encoding="utf-8",
     )
-    out = tmp_path / "bspline.igs"
-    code, _, err = cli(["generate", config, "--out", out], capsys)
+    code, report, err, igs = generated(config, tmp_path / "bspline", capsys)
     assert code == 2
     assert "sections.items" in err and "bspline" in err
-    assert not out.exists()
+    assert igs is None and not list((tmp_path / "bspline").glob("*.igs"))

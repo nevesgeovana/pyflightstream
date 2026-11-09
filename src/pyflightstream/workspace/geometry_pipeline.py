@@ -1,9 +1,12 @@
 """The geometry pipeline of a parametric aircraft: generate, check, mesh and identify.
 
 Pipeline role: the public entry points of the stages that need the geometry kernel, on the gmsh
-kernel. :func:`generate_iges` writes the exposed skin of a parametric
-configuration (:func:`pyflightstream.geometry.load_config`) as a named IGES file, one NAME per
-component; :func:`check_against_original` measures a rebuilt surface against an original under a
+kernel. :func:`run_geometry` runs the stages S0 to S13 for a configuration
+(:func:`pyflightstream.geometry.load_config`), stops at the first failed check and returns a
+report that names its stage and check, with the exposed skin as a named IGES file (one NAME per
+component) from stage S11; :func:`run_doe` runs a loop of parameter sets and continues after a
+failed one; :func:`add_control_surfaces` and :func:`split_symmetry` edit a written IGES;
+:func:`check_against_original` measures a rebuilt surface against an original under a
 named deviation profile; :func:`mesh_generated` meshes a configuration into an all-quad surface
 mesh with its acceptance checks; and :func:`identify_lifting_surface` reads the planform and the
 sections of a lifting surface back from an original IGES, in the form a configuration takes
@@ -17,7 +20,8 @@ their residual tolerance.
 
 Each function raises ``KernelUnavailableError`` (gmsh is a dependency of the package) when the
 kernel library cannot load, and the message names the library that failed. The command line is
-``pyfs-workspace geometry generate | identify | check | mesh-generated | schema``.
+``pyfs-geom run | doe | validate | schema | configurations | stages | identify | check |
+add-control-surface | split-symmetry`` and ``pyfs-workspace geometry mesh-generated``.
 
 Examples
 --------
@@ -47,7 +51,6 @@ from pyflightstream.workspace._geometry_check import (
     resolve_faces,
     sample_surfaces,
 )
-from pyflightstream.workspace._geometry_generate import generate_iges
 from pyflightstream.workspace._geometry_mesh import GeneratedMesh, mesh_generated
 from pyflightstream.workspace._geometry_reverse import (
     COARSE,
@@ -68,7 +71,6 @@ __all__ = [
     "LiftingIdentification",
     "add_control_surfaces",
     "check_against_original",
-    "generate_iges",
     "identify_lifting_surface",
     "mesh_generated",
     "run_doe",

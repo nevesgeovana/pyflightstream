@@ -39,6 +39,7 @@ PARSER_BUILDERS = {
     "pyflightstream.fsi.cli": "_build_parser",
     "pyflightstream.workspace.cli": "_build_parser",
     "pyflightstream.run.cli": "_build_parser",
+    "pyflightstream.run.geom_cli": "_build_parser",
     "pyflightstream.utils.cli": "_parser",
 }
 
@@ -56,6 +57,20 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    # 0.57.0 (G3): `pyfs-geom`. The files, the folder and the stage name what the call works on or
+    # where it writes; an override, a variant and a plane are part of the case the report records.
+    ("pyfs-geom", "config"): SUBJECT,
+    ("pyfs-geom", "component"): SUBJECT,
+    ("pyfs-geom", "iges"): SUBJECT,
+    ("pyfs-geom", "entry"): SUBJECT,
+    ("pyfs-geom", "sets"): SUBJECT,
+    ("pyfs-geom", "out"): OUTPUT,
+    ("pyfs-geom", "set"): CASE,
+    ("pyfs-geom", "variant"): CASE,
+    ("pyfs-geom", "plane"): CASE,
+    ("pyfs-geom", "stations"): SWITCH,
+    ("pyfs-geom", "until"): SWITCH,
+    ("pyfs-geom", "workers"): SWITCH,
     ("pyfs-workspace", "fsi_id"): SUBJECT,
     ("pyfs-workspace", "modes"): CASE,
     # 0.43.0 (FR-44): `pyfs-workspace excel create|preview|apply|cancel|check`. The
@@ -241,36 +256,36 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "iges"): SUBJECT,  # The IGES files iges-grid and iges-convert read.
     ("pyfs-workspace", "grid"): SUBJECT,  # Control input of iges-grid.
     ("pyfs-workspace", "components"): SUBJECT,  # The components of the IGES iges-grid grids.
-    ("pyfs-workspace", "asset_root"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "chord_axis"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "chord_m"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "chords_m"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "config_out"): OUTPUT,  # geometry parametric verb.
-    ("pyfs-workspace", "configuration"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "asset_root"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "chord_axis"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "chord_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "chords_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "config_out"): OUTPUT,  # geometry parametric verb.
+    ("pyfs-geom", "configuration"): SUBJECT,  # geometry parametric verb.
     ("pyfs-workspace", "controls"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "converge"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "cut"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "edge_count"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "exclude_faces"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "fold_y"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "forward_count"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "grid_points"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "host_tolerance"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "hosts"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "mirrored"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "converge"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "cut"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "edge_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "exclude_faces"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "fold_y"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "forward_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "grid_points"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "host_tolerance"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "hosts"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "mirrored"): SWITCH,  # geometry parametric verb.
     ("pyfs-workspace", "obj"): OUTPUT,  # geometry parametric verb.
-    ("pyfs-workspace", "original"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "profile"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "rebuilt"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "reverse_count"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "root_from"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "section_degree"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "section_max_degree"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "section_tolerance_mm"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "seed"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "span_axis"): SWITCH,  # geometry parametric verb.
-    ("pyfs-workspace", "stations_m"): SUBJECT,  # geometry parametric verb.
-    ("pyfs-workspace", "validate"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "original"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "profile"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "rebuilt"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "reverse_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "root_from"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "section_degree"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "section_max_degree"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "section_tolerance_mm"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "seed"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "span_axis"): SWITCH,  # geometry parametric verb.
+    ("pyfs-geom", "stations_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-geom", "validate"): SUBJECT,  # geometry parametric verb.
     ("pyfs-workspace", "against"): SUBJECT,
     ("pyfs-workspace", "kind"): SUBJECT,
     ("pyfs-workspace", "boundary"): SUBJECT,
@@ -671,6 +686,22 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: directions: a dest that spreads to a new subcommand, and one that
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-geom", "config"): frozenset({"configurations", "doe", "run", "validate"}),
+    ("pyfs-geom", "component"): frozenset(
+        {"add-control-surface", "check", "identify", "split-symmetry"}
+    ),
+    ("pyfs-geom", "iges"): frozenset({"add-control-surface", "identify", "split-symmetry"}),
+    ("pyfs-geom", "entry"): frozenset({"add-control-surface"}),
+    ("pyfs-geom", "sets"): frozenset({"doe"}),
+    ("pyfs-geom", "out"): frozenset(
+        {"add-control-surface", "check", "doe", "identify", "run", "schema", "split-symmetry"}
+    ),
+    ("pyfs-geom", "set"): frozenset({"run"}),
+    ("pyfs-geom", "variant"): frozenset({"doe", "run"}),
+    ("pyfs-geom", "plane"): frozenset({"split-symmetry"}),
+    ("pyfs-geom", "stations"): frozenset({"identify"}),
+    ("pyfs-geom", "until"): frozenset({"doe", "run"}),
+    ("pyfs-geom", "workers"): frozenset({"doe"}),
     ("pyfs-matrix", "console_warnings"): frozenset({""}),
     ("pyfs-workspace", "console_warnings"): frozenset({""}),
     ("pyfs-qa", "console_warnings"): frozenset({""}),
@@ -1037,8 +1068,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
         "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
-        "visual-inspect iges-grid iges-convert check generate identify mesh-generated "
-        "schema".split()
+        "visual-inspect iges-grid iges-convert mesh-generated".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -1091,9 +1121,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "table"): frozenset({"profile"}),
     ("pyfs-workspace", "pol"): frozenset({"profile"}),
     ("pyfs-workspace", "family"): frozenset({"profile"}),
-    ("pyfs-workspace", "component"): frozenset({"check", "identify", "mesh-generated", "profile"}),
+    ("pyfs-workspace", "component"): frozenset({"mesh-generated", "profile"}),
     ("pyfs-workspace", "sign"): frozenset({"profile"}),
-    ("pyfs-workspace", "stations"): frozenset({"beam", "identify", "profile"}),
+    ("pyfs-workspace", "stations"): frozenset({"beam", "profile"}),
     ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
     ("pyfs-workspace", "ref"): frozenset({"profile"}),
     ("pyfs-workspace", "disc"): frozenset({"profile"}),
@@ -1164,39 +1194,39 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te", "hub-rings", "morph"}),
-    ("pyfs-workspace", "iges"): frozenset({"identify", "iges-convert", "iges-grid"}),
+    ("pyfs-workspace", "iges"): frozenset({"iges-convert", "iges-grid"}),
     ("pyfs-workspace", "grid"): frozenset({"iges-grid"}),
     ("pyfs-workspace", "components"): frozenset({"iges-grid"}),
-    ("pyfs-workspace", "asset_root"): frozenset({"schema"}),
-    ("pyfs-workspace", "chord_axis"): frozenset({"check"}),
-    ("pyfs-workspace", "chord_m"): frozenset({"check"}),
-    ("pyfs-workspace", "chords_m"): frozenset({"check"}),
-    ("pyfs-workspace", "config_out"): frozenset({"identify"}),
-    ("pyfs-workspace", "configuration"): frozenset({"generate"}),
+    ("pyfs-geom", "asset_root"): frozenset({"schema"}),
+    ("pyfs-geom", "chord_axis"): frozenset({"check"}),
+    ("pyfs-geom", "chord_m"): frozenset({"check"}),
+    ("pyfs-geom", "chords_m"): frozenset({"check"}),
+    ("pyfs-geom", "config_out"): frozenset({"identify"}),
+    ("pyfs-geom", "configuration"): frozenset({"doe", "run"}),
     ("pyfs-workspace", "controls"): frozenset({"mesh-generated"}),
-    ("pyfs-workspace", "converge"): frozenset({"identify"}),
-    ("pyfs-workspace", "cut"): frozenset({"identify"}),
-    ("pyfs-workspace", "edge_count"): frozenset({"check"}),
-    ("pyfs-workspace", "exclude_faces"): frozenset({"check"}),
-    ("pyfs-workspace", "fold_y"): frozenset({"check"}),
-    ("pyfs-workspace", "forward_count"): frozenset({"check"}),
-    ("pyfs-workspace", "grid_points"): frozenset({"identify"}),
-    ("pyfs-workspace", "host_tolerance"): frozenset({"identify"}),
-    ("pyfs-workspace", "hosts"): frozenset({"identify"}),
-    ("pyfs-workspace", "mirrored"): frozenset({"identify"}),
+    ("pyfs-geom", "converge"): frozenset({"identify"}),
+    ("pyfs-geom", "cut"): frozenset({"identify"}),
+    ("pyfs-geom", "edge_count"): frozenset({"check"}),
+    ("pyfs-geom", "exclude_faces"): frozenset({"check"}),
+    ("pyfs-geom", "fold_y"): frozenset({"check"}),
+    ("pyfs-geom", "forward_count"): frozenset({"check"}),
+    ("pyfs-geom", "grid_points"): frozenset({"identify"}),
+    ("pyfs-geom", "host_tolerance"): frozenset({"identify"}),
+    ("pyfs-geom", "hosts"): frozenset({"identify"}),
+    ("pyfs-geom", "mirrored"): frozenset({"identify"}),
     ("pyfs-workspace", "obj"): frozenset({"mesh-generated"}),
-    ("pyfs-workspace", "original"): frozenset({"check"}),
-    ("pyfs-workspace", "profile"): frozenset({"check"}),
-    ("pyfs-workspace", "rebuilt"): frozenset({"check"}),
-    ("pyfs-workspace", "reverse_count"): frozenset({"check"}),
-    ("pyfs-workspace", "root_from"): frozenset({"identify"}),
-    ("pyfs-workspace", "section_degree"): frozenset({"identify"}),
-    ("pyfs-workspace", "section_max_degree"): frozenset({"identify"}),
-    ("pyfs-workspace", "section_tolerance_mm"): frozenset({"identify"}),
-    ("pyfs-workspace", "seed"): frozenset({"identify"}),
-    ("pyfs-workspace", "span_axis"): frozenset({"identify"}),
-    ("pyfs-workspace", "stations_m"): frozenset({"check"}),
-    ("pyfs-workspace", "validate"): frozenset({"schema"}),
+    ("pyfs-geom", "original"): frozenset({"check"}),
+    ("pyfs-geom", "profile"): frozenset({"check"}),
+    ("pyfs-geom", "rebuilt"): frozenset({"check"}),
+    ("pyfs-geom", "reverse_count"): frozenset({"check"}),
+    ("pyfs-geom", "root_from"): frozenset({"identify"}),
+    ("pyfs-geom", "section_degree"): frozenset({"identify"}),
+    ("pyfs-geom", "section_max_degree"): frozenset({"identify"}),
+    ("pyfs-geom", "section_tolerance_mm"): frozenset({"identify"}),
+    ("pyfs-geom", "seed"): frozenset({"identify"}),
+    ("pyfs-geom", "span_axis"): frozenset({"identify"}),
+    ("pyfs-geom", "stations_m"): frozenset({"check"}),
+    ("pyfs-geom", "validate"): frozenset({"schema"}),
     ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),
@@ -1223,7 +1253,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "simulation_unit"): frozenset({"identify-te"}),
     ("pyfs-workspace", "per_family"): frozenset({"convert2midnodes"}),
     ("pyfs-workspace", "keep_first_row"): frozenset({"refine"}),
-    ("pyfs-workspace", "config"): frozenset({"generate", "mesh-generated", "refine"}),
+    ("pyfs-workspace", "config"): frozenset({"mesh-generated", "refine"}),
     ("pyfs-workspace", "out_dir"): frozenset({"refine"}),
     ("pyfs-workspace", "against"): frozenset({"audit"}),
     ("pyfs-workspace", "csv_file"): frozenset({"audit"}),

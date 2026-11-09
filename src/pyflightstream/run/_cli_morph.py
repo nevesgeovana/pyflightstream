@@ -12,8 +12,7 @@ gives the exit code: 0 when the output was written, 2 when the input is refused 
 library cannot load, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
-:data:`MORPH_VERBS`, which also carries the verbs of :mod:`pyflightstream.run._cli_parametric`
-(``generate``, ``identify``, ``check``, ``mesh-generated`` and ``schema``).
+:data:`MORPH_VERBS`, which also carries ``mesh-generated``.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from collections.abc import Callable
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.run._cli_parametric import PARAMETRIC_VERBS, add_parametric_verbs
+from pyflightstream.run._geom_cli_moved import report_of, write_json
 
 __all__ = ["MORPH_VERBS", "add_morph_verbs"]
 
@@ -240,6 +239,54 @@ def run_iges_convert(args: argparse.Namespace) -> int:
     return print_checks(lambda: convert_iges(args.iges, args.out, name_encoding=args.name_encoding))
 
 
+def add_mesh_generated_parser(subparsers: Any) -> None:
+    """Add the verb that meshes a parametric configuration into an all-quad OBJ."""
+    parser = subparsers.add_parser(
+        "mesh-generated",
+        help="mesh a parametric configuration into an all-quad OBJ (uses the gmsh kernel)",
+        description=(
+            "Resolves the configuration and meshes its patches from their role: constant "
+            "spanwise width with a refined tip, chordwise growth from the leading edge, "
+            "constant azimuth and axial step on a body, a planar all-quad flat tip cap and, "
+            "for a wing on a body, the fairing as one quad-dominant transition ring. The "
+            "orientation is outward. The record (counts, the acceptance checks, the spacing "
+            "rules) is printed; the OBJ holds one group per component."
+        ),
+    )
+    parser.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
+    parser.add_argument("--obj", required=True, help="new .obj")
+    parser.add_argument(
+        "--component",
+        metavar="NAME",
+        help="mesh this body or lifting surface alone, in its own frame (default: the assembly)",
+    )
+    parser.add_argument(
+        "--controls",
+        metavar="TOML",
+        help="mesh controls overriding the defaults, by table: lifting_surface, body, checks, "
+        "assembly",
+    )
+    parser.add_argument("--out", metavar="JSON", help="also write the record to this file")
+    parser.set_defaults(mesh_command=run_mesh_generated)
+
+
+def run_mesh_generated(args: argparse.Namespace) -> int:
+    """Run mesh-generated: write the OBJ and print the record of its checks."""
+    from pyflightstream.geometry import load_config
+    from pyflightstream.workspace.geometry_pipeline import mesh_generated
+
+    def work() -> dict[str, Any]:
+        resolved = load_config(args.config)
+        result = mesh_generated(
+            resolved, component=args.component, controls=args.controls, obj=args.obj
+        )
+        record = {"obj": args.obj, **result.record}
+        write_json(args.out, record)
+        return record
+
+    return report_of(work)
+
+
 #: The parser of each verb this module adds, by its name in the group.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
@@ -248,14 +295,14 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
     "morph": add_morph_parser,
     "iges-grid": add_iges_grid_parser,
     "iges-convert": add_iges_convert_parser,
+    "mesh-generated": add_mesh_generated_parser,
 }
 
 #: The verbs this module adds to the group.
-MORPH_VERBS = (*_PARSERS, *PARAMETRIC_VERBS)
+MORPH_VERBS = tuple(_PARSERS)
 
 
 def add_morph_verbs(verbs: Any) -> None:
-    """Add this module's verbs, and those of the parametric pipeline, to the ``geometry`` group."""
+    """Add this module's verbs to the ``geometry`` group."""
     for add in _PARSERS.values():
         add(verbs)
-    add_parametric_verbs(verbs)

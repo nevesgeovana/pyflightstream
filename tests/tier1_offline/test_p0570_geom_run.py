@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import ContractNotImplementedError, InputValueError
+from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._records import check_entry
 from pyflightstream.workspace import _geom_run
 from pyflightstream.workspace._geom_run import StageOutcome
@@ -41,7 +41,7 @@ def isolated_off(monkeypatch):
 
 
 def test_p0570_g3_a_planted_failure_stops_the_run_and_names_stage_and_check(tmp_path, monkeypatch):
-    monkeypatch.setitem(_geom_run._STAGE_FUNCTIONS, "S4", _failing_at("S4"))
+    monkeypatch.setitem(_geom_run.STAGE_FUNCTIONS, "S4", _failing_at("S4"))
     report = _geom_run.run_geometry(BODY, out=tmp_path, until="S9")
     assert report["status"] == "failed"
     assert (report["stage"], report["check"]) == ("S4", "law.monotonic")
@@ -58,13 +58,13 @@ def test_p0570_g3_the_first_failed_check_of_a_stage_is_the_one_named(tmp_path, m
         check_entry("law.ruled_twist", "failed", 9.0, 1.0),
         check_entry("law.monotonic", "failed", 5.0, 1.0),
     ]
-    monkeypatch.setitem(_geom_run._STAGE_FUNCTIONS, "S4", _failing_at("S4", checks=checks))
+    monkeypatch.setitem(_geom_run.STAGE_FUNCTIONS, "S4", _failing_at("S4", checks=checks))
     report = _geom_run.run_geometry(BODY, out=tmp_path, until="S9")
     assert report["check"] == "law.ruled_twist"
 
 
 def test_p0570_g3_until_ends_the_run_and_a_clean_run_is_accepted(tmp_path, monkeypatch):
-    monkeypatch.setitem(_geom_run._STAGE_FUNCTIONS, "S6", _failing_at("S6"))
+    monkeypatch.setitem(_geom_run.STAGE_FUNCTIONS, "S6", _failing_at("S6"))
     report = _geom_run.run_geometry(BODY, out=tmp_path, until="S5")
     assert report["status"] == "accepted" and len(report["stages"]) == 6
     assert not (tmp_path / "S6.json").exists()
@@ -111,7 +111,7 @@ def test_p0570_g3_an_override_changes_the_identity_and_a_repeat_keeps_it(tmp_pat
 
 
 def test_p0570_g3_a_loop_continues_after_a_failed_set(tmp_path, monkeypatch, isolated_off):
-    monkeypatch.setitem(_geom_run._STAGE_FUNCTIONS, "S4", _failing_at("S4", when_length=3.0))
+    monkeypatch.setitem(_geom_run.STAGE_FUNCTIONS, "S4", _failing_at("S4", when_length=3.0))
     sets = [{"FUS.length": 2.5}, {"FUS.length": 3.0}, {"FUS.length": 3.5}]
     reports = list(_geom_run.run_doe(BODY, sets, out=tmp_path, until="S9"))
     assert [r["status"] for r in reports] == ["accepted", "failed", "accepted"]
@@ -130,21 +130,20 @@ def test_p0570_g3_a_loop_continues_after_a_refused_set_through_real_workers(tmp_
     assert (folder / "S9.json").is_file()
 
 
-def test_p0570_g3_a_dead_worker_is_a_failed_set_and_the_loop_goes_on(tmp_path, monkeypatch):
-    calls = []
-
-    def die_once(operation, arguments, direct):
-        calls.append(arguments["overrides"])
-        if len(calls) == 1:
-            raise RuntimeError("its worker process ended with exit code 3")
-        return direct(**arguments)
-
-    monkeypatch.setattr(_geom_run, "run_isolated", die_once)
+def test_p0570_g3_a_worker_that_does_not_answer_is_a_failed_set_and_the_loop_goes_on(
+    tmp_path, monkeypatch
+):
+    """A real worker ended by its time limit: that set fails at ``worker``, the next one runs."""
     sets = [{"FUS.length": 2.5}, {"FUS.length": 3.5}]
-    reports = list(_geom_run.run_doe(BODY, sets, out=tmp_path, until="S2", workers=2))
-    assert [r["status"] for r in reports] == ["failed", "accepted"]
-    assert (reports[0]["stage"], reports[0]["check"]) == ("worker", "worker.completed")
-    assert "exit code 3" in reports[0]["message"]
+    loop = _geom_run.run_doe(BODY, sets, out=tmp_path, until="S2")
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", "0.01")
+    first = next(loop)
+    monkeypatch.delenv("PYFLIGHTSTREAM_GMSH_TIMEOUT")
+    second = next(loop)
+    assert first["status"] == "failed"
+    assert (first["stage"], first["check"]) == ("worker", "worker.completed")
+    assert "ran longer than 0.01 s" in first["message"]
+    assert second["status"] == "accepted"
 
 
 def test_p0570_g3_workers_below_one_and_an_unknown_until_are_refused(tmp_path):
@@ -155,9 +154,9 @@ def test_p0570_g3_workers_below_one_and_an_unknown_until_are_refused(tmp_path):
 
 
 def test_p0570_g3_unbuilt_geometry_entries_refuse_and_write_nothing(tmp_path):
-    with pytest.raises(ContractNotImplementedError, match="not built yet"):
+    with pytest.raises(InputValueError, match="not built yet"):
         _geom_run.add_control_surfaces(tmp_path / "a.igs", "WING", [{}], tmp_path / "o")
-    with pytest.raises(ContractNotImplementedError, match="not built yet"):
+    with pytest.raises(InputValueError, match="not built yet"):
         _geom_run.split_symmetry(tmp_path / "a.igs", tmp_path / "half.igs")
     with pytest.raises(InputValueError, match="plane"):
         _geom_run.split_symmetry(tmp_path / "a.igs", tmp_path / "half.igs", plane="q")
