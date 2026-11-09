@@ -93,6 +93,28 @@ def test_r16_005_parameter_space_is_preferred_only_where_the_file_has_that_curve
     assert [e["parameters"][5] for e in document["entities"][:2]] == ["2", "2"]
 
 
+@pytest.mark.parametrize(
+    ("loop", "word"),
+    [
+        (_box(0.5, 1.5), "domain"),  # the reviewed code extrapolated the base: area above half
+        ([[[(0.2, 0.2), (0.8, 0.8)], [(0.8, 0.8), (0.2, 0.2)]]], "no area"),
+        (
+            [[[(0.1, 0.5), (0.5, 0.5)], [(0.5, 0.5), (0.9, 0.5)], [(0.9, 0.5), (0.1, 0.5)]]],
+            "no area",
+        ),
+        ([[[(0.0, 0.0), (0.0, 0.0)], *_box(0.0, 1.0)[0]]], "zero length"),
+    ],
+)
+def test_r16_008_a_loop_off_the_domain_or_of_no_area_is_refused(kernel, loop, word):
+    base = _skin(kernel)
+    before = len(kernel.faces())
+    with pytest.raises(InputValueError, match=word):
+        kernel.add_trimmed_face(base, loop)
+    assert len(kernel.faces()) == before
+    edge = kernel.add_trimmed_face(base, _box(0.0, 1.0))  # exactly on the domain's edge: kept
+    assert kernel.area(edge) == pytest.approx(kernel.area(base), rel=1e-9)
+
+
 def test_an_open_loop_is_refused_and_a_hole_is_a_second_loop(kernel):
     base = _skin(kernel)
     open_loop = [[[(0.1, 0.1), (0.9, 0.1)], [(0.9, 0.1), (0.9, 0.9)], [(0.9, 0.9), (0.1, 0.5)]]]

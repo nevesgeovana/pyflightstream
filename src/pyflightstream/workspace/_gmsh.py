@@ -190,6 +190,30 @@ def _oriented(loop: Sequence[UVCurve], *, outer: bool) -> list[list[UV]]:
     return [c[::-1] for c in curves[::-1]]
 
 
+def _check_loop_shape(loop: Sequence[UVCurve], low: UV, high: UV) -> None:
+    """Refuse a trim loop that leaves the base's domain or encloses no area.
+
+    Outside its domain a B-spline base is extrapolated, so such a loop builds a face that is not on
+    the surface; a loop of zero area, or a curve of zero length, builds no face a reader can use.
+    """
+    points = [(float(u), float(v)) for c in loop for u, v in c]
+    for u, v in points:
+        if not (
+            low[0] - _LOOP_GAP <= u <= high[0] + _LOOP_GAP
+            and low[1] - _LOOP_GAP <= v <= high[1] + _LOOP_GAP
+        ):
+            raise InputValueError(
+                f"a trim loop leaves the base's domain {low} to {high} at {(u, v)}"
+            )
+    if any(len(set(map(tuple, c))) < 2 for c in loop):
+        raise InputValueError("a trim loop holds a curve of zero length")
+    ring = [(float(u), float(v)) for c in loop for u, v in c[:-1]]
+    twice = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, [*ring[1:], ring[0]], strict=True))
+    size = (high[0] - low[0]) * (high[1] - low[1])
+    if abs(twice) <= _LOOP_GAP * size:
+        raise InputValueError("a trim loop encloses no area")
+
+
 @dataclass
 class NamedModel:
     """The faces of the imported files, each with its component, in import order."""
@@ -371,6 +395,9 @@ class GmshKernel:
         """Add the part of ``base`` inside the outer loop of ``loops_uv`` (see the protocol)."""
         if not loops_uv:
             raise InputValueError("a trimmed face needs at least its outer loop of (u, v) curves")
+        low, high = self.uv_bounds(base)
+        for loop in loops_uv:
+            _check_loop_shape(loop, low, high)
         wires = [self._uv_wire(_oriented(loop, outer=k == 0)) for k, loop in enumerate(loops_uv)]
         tag = self._g.model.occ.addTrimmedSurface(base.tag, wires, False)
         self._dirty = True
