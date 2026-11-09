@@ -250,7 +250,7 @@ def test_the_gate_reads_the_property_pointers_of_the_144_not_a_fixed_layout(writ
     faces = [e for e in document["entities"] if e["type"] == 144]
     for face in faces:
         name = face["parameters"][-1]
-        face["parameters"][5:] = ["1", face["parameters"][1], "1", name]  # one association first
+        face["parameters"][5:] = ["1", "0", "1", name]  # one association (pointer 0) first
     report = _gate(_rewrite(tmp_path, document, "assoc.igs"))
     assert report.findings == ()
     for face in faces:
