@@ -313,6 +313,7 @@ def project_wing_frame_loads(
     fz_n_per_m: np.ndarray,
     moment_qc_nm_per_m: np.ndarray,
     section_pitch_rad: np.ndarray,
+    *,
     x_qc_m: np.ndarray | float = 0.0,
     z_qc_m: np.ndarray | float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -457,6 +458,49 @@ def _quarter_chord_from_pitch_axis(cfg: FsiConfig, radii: np.ndarray) -> tuple[A
     return np.interp(radii, stations, table[:, 0]), np.interp(radii, stations, table[:, 1])
 
 
+def _require_span_coverage(block: SectionBlock, radii: np.ndarray, stations: np.ndarray) -> None:
+    """Refuse sections beyond the configured blade or covering too little of it."""
+    span = stations[-1] - stations[0]
+    tolerance = _SPAN_TOLERANCE * span
+    if radii.min() < stations[0] - tolerance or radii.max() > stations[-1] + tolerance:
+        raise FsiInputError(
+            f"the sections of family {block.family!r} span "
+            f"[{radii.min():.4g}, {radii.max():.4g}] m but the configured blade "
+            f"spans [{stations[0]:.4g}, {stations[-1]:.4g}] m; this configuration "
+            "does not describe the blade these sections were cut on"
+        )
+    # REV010-008, the other side of the same interval. The check above
+    # refuses sections that reach BEYOND the blade and said nothing about
+    # sections that cover only part of it. Downstream, _blade_densities
+    # resamples with numpy.interp, whose default is constant endpoint
+    # extrapolation, so sections covering [0.8, 1.2] m were spread across a
+    # blade spanning [0.25, 1.85] m: loads [10, 20] became
+    # [10, 10, 16.25, 20, 20] and the structural model received an applied
+    # load over a domain the evidence never covered. The logged total,
+    # meanwhile, integrates only the covered interval, so the two describe
+    # different fields.
+    #
+    # The same named tolerance bounds both directions. Constant
+    # extrapolation is legitimate for the small root and tip margins a
+    # section cut does not reach, which is what the resampler's docstring
+    # already claimed; this is what makes the claim true.
+    margin = _COVERAGE_MARGIN * span
+    if radii.min() > stations[0] + margin or radii.max() < stations[-1] - margin:
+        covered = (radii.max() - radii.min()) / span
+        raise FsiInputError(
+            f"the sections of family {block.family!r} cover "
+            f"[{radii.min():.4g}, {radii.max():.4g}] m, which is {covered:.1%} of the "
+            f"configured blade span [{stations[0]:.4g}, {stations[-1]:.4g}] m. The "
+            "uncovered root or tip would be filled by constant extrapolation from "
+            "the nearest section, so the structural model would receive an applied "
+            "load over a domain these loads never measured, while the logged "
+            "integral covers only the measured interval: the two would describe "
+            "different fields. Export sections over the whole blade, or configure "
+            "the blade these sections were cut on (the margin allowed at each end "
+            f"is {_COVERAGE_MARGIN:.0%} of span)"
+        )
+
+
 def to_elastic_axis(
     block: SectionBlock,
     cfg: FsiConfig,
@@ -518,45 +562,7 @@ def to_elastic_axis(
         if embedding == "wing_frame" and cfg.wing is not None
         else block.offset_m
     )
-    span = stations[-1] - stations[0]
-    tolerance = _SPAN_TOLERANCE * span
-    if radii.min() < stations[0] - tolerance or radii.max() > stations[-1] + tolerance:
-        raise FsiInputError(
-            f"the sections of family {block.family!r} span "
-            f"[{radii.min():.4g}, {radii.max():.4g}] m but the configured blade "
-            f"spans [{stations[0]:.4g}, {stations[-1]:.4g}] m; this configuration "
-            "does not describe the blade these sections were cut on"
-        )
-    # REV010-008, the other side of the same interval. The check above
-    # refuses sections that reach BEYOND the blade and said nothing about
-    # sections that cover only part of it. Downstream, _blade_densities
-    # resamples with numpy.interp, whose default is constant endpoint
-    # extrapolation, so sections covering [0.8, 1.2] m were spread across a
-    # blade spanning [0.25, 1.85] m: loads [10, 20] became
-    # [10, 10, 16.25, 20, 20] and the structural model received an applied
-    # load over a domain the evidence never covered. The logged total,
-    # meanwhile, integrates only the covered interval, so the two describe
-    # different fields.
-    #
-    # The same named tolerance bounds both directions. Constant
-    # extrapolation is legitimate for the small root and tip margins a
-    # section cut does not reach, which is what the resampler's docstring
-    # already claimed; this is what makes the claim true.
-    margin = _COVERAGE_MARGIN * span
-    if radii.min() > stations[0] + margin or radii.max() < stations[-1] - margin:
-        covered = (radii.max() - radii.min()) / span
-        raise FsiInputError(
-            f"the sections of family {block.family!r} cover "
-            f"[{radii.min():.4g}, {radii.max():.4g}] m, which is {covered:.1%} of the "
-            f"configured blade span [{stations[0]:.4g}, {stations[-1]:.4g}] m. The "
-            "uncovered root or tip would be filled by constant extrapolation from "
-            "the nearest section, so the structural model would receive an applied "
-            "load over a domain these loads never measured, while the logged "
-            "integral covers only the measured interval: the two would describe "
-            "different fields. Export sections over the whole blade, or configure "
-            "the blade these sections were cut on (the margin allowed at each end "
-            f"is {_COVERAGE_MARGIN:.0%} of span)"
-        )
+    _require_span_coverage(block, radii, stations)
     e_chordwise = np.interp(radii, stations, cfg.blade.elastic_axis_offset_chordwise_m)
     e_normal = np.interp(radii, stations, cfg.blade.elastic_axis_offset_normal_m)
     ascending = radii if radii[0] <= radii[-1] else radii[::-1]
@@ -575,8 +581,8 @@ def to_elastic_axis(
             block.fz_n_per_m,
             block.moment_qc_nm_per_m,
             beta,
-            block.x_qc_m,
-            block.z_qc_m,
+            x_qc_m=block.x_qc_m,
+            z_qc_m=block.z_qc_m,
         )
     else:
         chordwise, normal = block.fx_n_per_m, block.fz_n_per_m
