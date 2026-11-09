@@ -326,6 +326,24 @@ def test_p0570_identify_result_rebuilds_through_load_config(identified):
     assert identified.to_dict()["component"] == "WING"
 
 
+def test_r6_the_configuration_rebuilds_a_twisted_wing_inside_the_limit(identified, generated_wing):
+    """R6-003: incidence and twist turn about c/4, so the measured leading edge moved."""
+    from pyflightstream.workspace.geometry_pipeline import check_against_original, generate_iges
+
+    entry = identified.to_component()
+    assert entry["placement"]["translation"] == pytest.approx([0.0, 0.0, 0.0], abs=2e-4)
+    assert entry["planform"]["sweep"] == pytest.approx(15.0, abs=0.05)
+    assert entry["planform"]["dihedral"] == pytest.approx(0.0, abs=0.02)
+    again = generated_wing.parent / "again.igs"
+    generate_iges({"components": {"WING": entry}}, again)
+    record = check_against_original(
+        again,
+        generated_wing,
+        {"chord_m": 0.27, "forward_count": 9, "reverse_count": 9, "edge_count": 21},
+    )
+    assert record["accepted"], record["forward"]
+
+
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 

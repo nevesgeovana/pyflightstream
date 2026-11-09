@@ -93,33 +93,49 @@ class LiftingIdentification:
         """Return a ``lifting_surface`` component of a configuration that rebuilds this planform.
 
         The configuration describes sections by NACA designation, so the seed designation
-        stands for the section shape and the measured CST fits stay in ``sections``. The
-        placement carries the leading edge at the root. A span axis tilted 89 degrees or more
-        from the y axis (a fin) is refused: place such a surface by rotation instead.
+        stands for the section shape and the measured CST fits stay in ``sections``. A
+        configuration twists each section about its quarter chord, so the placement, the sweep
+        and the dihedral come from the quarter-chord line, which incidence and twist leave in
+        place, not from the measured leading edge, which they move. A left half is described by
+        its mirror image. A span axis tilted 89 degrees or more from the y axis (a fin) is
+        refused: place such a surface by rotation instead.
         """
         p = self.planform
-        dihedral = p["dihedral_deg"]
-        if abs(dihedral) >= 89.0:
+        if abs(p["dihedral_deg"]) >= 89.0:
             raise InputValueError(
-                f"to_component: dihedral {dihedral:.3g} degrees is outside the configuration's "
-                "range of +-89; describe this surface with a placement rotation"
+                f"to_component: dihedral {p['dihedral_deg']:.3g} degrees is outside the "
+                "configuration's range of +-89; describe this surface with a placement rotation"
             )
-        tilt = math.cos(math.radians(dihedral))
-        semi_y = p["semi_span_m"] * tilt
-        sweep_x = math.tan(math.radians(p["sweep_le_deg"])) * p["semi_span_m"]
+        span = p["reference_plane"]["span_direction"]
+        side = math.copysign(1.0, span[1])
+        rows = p["distributions"]
+
+        def untwisted_leading_edge(at: int) -> tuple[float, float, float]:
+            """Return the root (0) or tip (-1) leading edge before the section turned about c/4."""
+            chord, angle = rows["chord_m"][at], math.radians(rows["incidence_deg"][at])
+            # The chord lies in the cut plane: along x and along the upward normal of the span.
+            down = 0.25 * chord * math.sin(angle)
+            return (
+                rows["le_x_m"][at] + 0.25 * chord * (math.cos(angle) - 1.0),
+                side * rows["le_y_m"][at] + down * span[2],
+                rows["le_z_m"][at] - down * abs(span[1]),
+            )
+
+        root, tip = untwisted_leading_edge(0), untwisted_leading_edge(-1)
+        semi_y = tip[1] - root[1]
         return {
             "type": "lifting_surface",
             "planform": {
                 "span": 2.0 * semi_y,
                 "root_chord": p["root_chord_m"],
                 "tip_chord": p["tip_chord_m"],
-                "sweep": math.degrees(math.atan2(sweep_x, semi_y)),
-                "dihedral": dihedral,
+                "sweep": math.degrees(math.atan2(tip[0] - root[0], semi_y)),
+                "dihedral": math.degrees(math.atan2(tip[2] - root[2], semi_y)),
                 "incidence": p["incidence_deg"],
                 "tip_twist": p["tip_twist_deg"],
             },
             "sections": {"airfoils": [self.seed]},
-            "placement": {"translation": list(p["reference_plane"]["origin_m"])},
+            "placement": {"translation": list(root)},
         }
 
     def to_dict(self) -> dict[str, Any]:
