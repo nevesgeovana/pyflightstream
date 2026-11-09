@@ -1,4 +1,4 @@
-"""Identifying a lifting surface from an original IGES skin (needs the gmsh extra).
+"""Identifying a lifting surface from an original IGES skin (uses the gmsh kernel).
 
 Pipeline role: the workspace row of the reverse step. A component of an IGES file (named on
 its level, the 406 NAME index) is cut by planes normal to its span axis on the trimmed faces

@@ -315,7 +315,7 @@ def check_against_original(
     InputValueError
         For an unknown profile, limits that name no chord, or a surface that cannot be resolved.
     pyflightstream.extras.MissingExtraError
-        When the optional gmsh extra is not installed.
+        When the gmsh library cannot load (``KernelUnavailableError``).
     """
     constants = _profile(profile)
     for key in ("forward_count", "reverse_count", "edge_count"):

@@ -5,7 +5,7 @@
 `geometry iges-grid` builds one surface grid from IGES files whose components are named, one
 family per component, with conformal junctions and the spacing laws of a grid control file;
 `geometry iges-convert` rewrites IGES files as one IGES of B-spline faces the solver's CAD
-import reads, names kept. Both need the optional `gmsh` extra.
+import reads, names kept. Both use the gmsh kernel, which installs with the package.
 
 ```text
 pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out model.obj

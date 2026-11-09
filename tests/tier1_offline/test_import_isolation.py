@@ -63,7 +63,6 @@ _EXTRA_IMPORT_ROOTS = {
     "XlsxWriter": "xlsxwriter",  # excel
     "pandas": "pandas",  # pandas
     "pypdf": "pypdf",  # manual
-    "gmsh": "gmsh",  # gmsh
 }
 
 
@@ -252,3 +251,64 @@ def test_every_module_imports_alone():
         f"{len(skipped)} of {len(names)} modules were skipped for a missing optional "
         f"extra, too many for this test to have measured the tree: {skipped}"
     )
+
+
+def _modules_importing_gmsh(package: Path = _PACKAGE, base: Path = _SRC) -> list[str]:
+    """Every file under ``package`` that imports gmsh by any spelling, from the syntax tree."""
+    import ast
+
+    found = []
+    for path in sorted(package.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module]
+            elif (
+                isinstance(node, ast.Call)
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+                and getattr(node.func, "attr", getattr(node.func, "id", ""))
+                in {"import_module", "__import__"}
+            ):
+                names = [node.args[0].value]
+            if any(name.split(".")[0] == "gmsh" for name in names):
+                found.append(path.relative_to(base).as_posix())
+                break
+    return found
+
+
+def test_only_the_kernel_module_imports_gmsh():
+    """Route A: gmsh is a base dependency, so its one import stays behind one module."""
+    assert _modules_importing_gmsh() == ["pyflightstream/workspace/_gmsh.py"]
+
+
+def test_the_scan_for_a_gmsh_import_sees_every_spelling(tmp_path):
+    """The scan above can say yes: each spelling of an import is found in a probe tree."""
+    spellings = {
+        "a.py": "import gmsh",
+        "b.py": "import gmsh.model",
+        "c.py": "from gmsh import model",
+        "d.py": "__import__('gmsh')",
+        "e.py": "import importlib\nimportlib.import_module('gmsh')",
+        "f.py": "import numpy",
+    }
+    for name, text in spellings.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    assert _modules_importing_gmsh(tmp_path, tmp_path) == ["a.py", "b.py", "c.py", "d.py", "e.py"]
+
+
+def test_importing_the_package_does_not_load_gmsh():
+    """Lazy kernel: pure stages run where the library cannot load."""
+    code = (
+        "import sys, pyflightstream, pyflightstream.workspace, pyflightstream.run; "
+        "assert 'gmsh' not in sys.modules, 'gmsh was imported with the package'"
+    )
+    env = {**os.environ, "PYTHONPATH": str(_SRC)}
+    done = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=False
+    )
+    assert done.returncode == 0, done.stderr[-600:]

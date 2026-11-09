@@ -95,6 +95,12 @@ dependencies = [
     "matplotlib>=3.10,<4",
     "rtree>=1.1,<2",
     "scipy>=1.15,<2",
+    # The CAD kernel of the geometry stages S10 to S13 and the IGES commands.
+    # gmsh is GPL-2.0-or-later: installed from its own distribution, not
+    # embedded in this wheel, and imported only by workspace/_gmsh.py, only
+    # when a kernel stage runs. This package stays MIT (NFR-02; license
+    # evidence in docs/install.md). Measured on 4.15.2.
+    "gmsh>=4.13,<5",
 ]
 
 [project.optional-dependencies]
@@ -112,11 +118,10 @@ excel = ["XlsxWriter>=3.2.9,<4"]
 # MIT-compatible (NFR-02). The floor is 4.0.0, the first release whose extract_text takes
 # extraction_mode="layout"; 3.17.4, the last 3.x, does not.
 manual = ["pypdf>=4.0.0"]
-# The IGES commands geometry iges-grid and iges-convert (PFS-2198, PFS-2199).
-# gmsh is GPL-2.0-or-later: optional, never imported by the base install and
-# never redistributed with the package, used only where the user installs this
-# extra; license evidence in docs/install.md (NFR-02). Measured on 4.15.2.
-gmsh = ["gmsh>=4.13,<5"]
+# Retired: gmsh is a base dependency since 0.57.0, so this extra installs
+# nothing more. It stays so that `pip install "pyflightstream[gmsh]"` in
+# existing notes still resolves; it is removed at 0.60.0.
+gmsh = []
 dev = [
     # Licence evidence for every distribution in this block:
     # reports/RPT-033_development-tool-licences_2026-08-19.md, one card

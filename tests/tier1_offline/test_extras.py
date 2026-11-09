@@ -35,6 +35,9 @@ REPO = Path(__file__).resolve().parents[2]
 #: be a deliberate entry rather than an omission nobody notices.
 NOT_USER_FACING = {"dev"}
 
+#: Extras kept only so an install line in existing notes still resolves; each is empty.
+RETIRED = {"gmsh"}
+
 
 def _declared_extras() -> dict[str, list[str]]:
     with open(REPO / "pyproject.toml", "rb") as handle:
@@ -54,7 +57,7 @@ def test_the_extras_table_matches_the_packaging():
     command that fails, which is worse than no message: it sends the
     reader away confident.
     """
-    declared = set(_declared_extras()) - NOT_USER_FACING
+    declared = set(_declared_extras()) - NOT_USER_FACING - RETIRED
     assert declared, (
         "pyproject declares no user-facing extra, so the three parametrized "
         "tests below would run over nothing and pass"
@@ -63,6 +66,19 @@ def test_the_extras_table_matches_the_packaging():
         f"pyflightstream.extras.EXTRAS names {sorted(EXTRAS)} and pyproject "
         f"declares {sorted(declared)} (ignoring {sorted(NOT_USER_FACING)})"
     )
+
+
+def test_a_retired_extra_installs_nothing_and_its_distribution_is_a_base_dependency():
+    """Route A: gmsh moved to the base install; its extra stays, empty, until 0.60.0."""
+    declared = _declared_extras()
+    runtime = {
+        re.split(r"[<>=!~\[]", spec)[0].strip().lower()
+        for spec in _pyproject_runtime_dependencies()
+    }
+    for name in RETIRED:
+        assert declared.get(name) == [], f"the retired extra [{name}] must stay and be empty"
+        assert name not in EXTRAS, f"EXTRAS still names the retired extra {name}"
+        assert name in runtime, f"{name} left the base dependencies"
 
 
 @pytest.mark.parametrize("extra", sorted(EXTRAS))

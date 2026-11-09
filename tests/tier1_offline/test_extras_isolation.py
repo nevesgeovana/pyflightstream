@@ -534,7 +534,8 @@ def test_one_job_installs_every_declared_extra():
     this fails; before this assertion existed, deleting it was silent.
     """
     installed = workflow_install_sets()
-    declared = set(declared_extras())
+    # An extra that installs nothing (the retired gmsh extra) has nothing to run.
+    declared = {name for name, packages in declared_extras().items() if packages}
     fullest = max(installed.values(), key=len, default=set())
     assert any(extras >= declared for extras in installed.values()), (
         f"no CI job installs every declared extra {sorted(declared)}; the fullest "

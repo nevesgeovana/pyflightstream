@@ -1,5 +1,16 @@
 # Upgrading
 
+## gmsh is a dependency of the package (0.57)
+
+`pip install pyflightstream` now installs gmsh, the geometry kernel, so the whole geometry
+path runs from a default install. Nothing changes in your commands. The `gmsh` extra still
+resolves, installs nothing more, and is removed at 0.60.0; replace
+`pip install "pyflightstream[gmsh]"` with `pip install pyflightstream`. gmsh is licensed
+GPL-2.0-or-later and comes from its own distribution; the package code stays MIT and the
+wheel does not embed gmsh. On Linux, gmsh needs the system libraries `libglu1-mesa`,
+`libxcursor1`, `libxft2` and `libxinerama1`; without them the kernel stages stop with a
+message naming the library that failed, and the stages before the kernel still run.
+
 ## IGES kernel runs in a worker (0.57)
 
 `iges-grid` and `iges-convert` run the geometry kernel in a worker process. Results and

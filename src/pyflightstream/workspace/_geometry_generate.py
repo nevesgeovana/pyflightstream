@@ -217,7 +217,7 @@ def generate_iges(
         For a refused configuration, an unknown ``configuration`` or a name the IGES format
         cannot carry; nothing is written.
     pyflightstream.extras.MissingExtraError
-        When the optional gmsh extra is not installed.
+        When the gmsh library cannot load (``KernelUnavailableError``).
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     every = generate_components(resolved)

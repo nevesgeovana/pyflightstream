@@ -22,6 +22,7 @@ import pytest
 from pyflightstream._errors import NotApplicableWarning, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import read_obj, read_te
 from pyflightstream.workspace.cli import main
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 UNIT_FLAG = {"MM": 2, "IN": 1, "M": 6}
 
@@ -148,7 +149,7 @@ def cli(args, capsys):
 
 
 def gmsh_or_skip():
-    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    return kernel_or_skip()
 
 
 # ---------------------------------------------------------------- names, without gmsh
@@ -260,7 +261,7 @@ def test_p0560_without_gmsh_each_verb_gives_one_install_message(
     )
     code, stdout, stderr = cli(["geometry", verb, str(source), *extra, "--out", str(out)], capsys)
     assert code == 2
-    assert stderr.count('pip install "pyflightstream[gmsh]"') == 1, stderr
+    assert stderr.count('pip install "gmsh>=4.13,<5"') == 1, stderr
     assert "gmsh" in stderr
     assert not out.exists()
     assert sorted(p.name for p in tmp_path.iterdir()) == sorted(

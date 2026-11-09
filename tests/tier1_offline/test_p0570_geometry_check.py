@@ -8,13 +8,14 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 LIMITS = {"chord_m": 0.2, "forward_count": 13, "reverse_count": 13, "edge_count": 19}
 
 
 @pytest.fixture
 def occ():
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._gmsh import session
 
     with session("a test") as gmsh:
@@ -82,7 +83,7 @@ def test_p0570_check_names_its_profile_and_refuses_an_unknown_one(occ):
 
 
 def test_p0570_check_of_a_generated_iges_against_itself_is_accepted(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path / "fus.igs"
@@ -98,7 +99,7 @@ def test_p0570_check_of_a_generated_iges_against_itself_is_accepted(tmp_path):
 
 
 def test_p0570_check_refuses_an_unknown_component_name(tmp_path):
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path / "fus.igs"

@@ -15,9 +15,9 @@ A planform is reported with ``accepted`` set only when a coarse and a fine pass 
 the tolerances of the result (``convergence``); sections carry their own ``accepted`` against
 their residual tolerance.
 
-Each function refuses with the install command (``pip install pyflightstream[gmsh]``) when the
-extra is missing. The command line is ``pyfs-workspace geometry generate | identify | check |
-mesh-generated | schema``.
+Each function raises ``KernelUnavailableError`` (gmsh is a dependency of the package) when the
+kernel library cannot load, and the message names the library that failed. The command line is
+``pyfs-workspace geometry generate | identify | check | mesh-generated | schema``.
 
 Examples
 --------

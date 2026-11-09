@@ -1,4 +1,4 @@
-"""P0570 geometry: generating a named IGES file from a configuration (needs the gmsh extra).
+"""P0570 geometry: generating a named IGES file from a configuration (uses the gmsh kernel).
 
 Ported from the research tests of the bodies, fairings and assembly. The tests that need the
 geometry kernel skip where the optional extra is absent; the refusal and the import isolation
@@ -22,6 +22,7 @@ from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._caps import wing_contour_normal
 from pyflightstream.geometry._fairings import wing_fuselage_fairing
 from pyflightstream.geometry._lifting import lifting_surface, section_models, thickness_station
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 WB = {
     "components": {
@@ -42,7 +43,7 @@ WB = {
 
 
 def gmsh_or_skip():
-    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    return kernel_or_skip()
 
 
 @pytest.fixture
@@ -266,9 +267,9 @@ def test_p0570_the_generate_and_check_modules_refuse_without_gmsh(monkeypatch, t
         return real(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", no_gmsh)
-    with pytest.raises(MissingExtraError, match=r"pyflightstream\[gmsh\]"):
+    with pytest.raises(MissingExtraError, match=r"gmsh>=4\.13"):
         _geometry_generate.generate_iges(WB, tmp_path / "x.igs")
-    with pytest.raises(MissingExtraError, match=r"pyflightstream\[gmsh\]"):
+    with pytest.raises(MissingExtraError, match=r"gmsh>=4\.13"):
         _geometry_check.check_against_original([1], [2], {"chord_m": 1.0})
     assert not (tmp_path / "x.igs").exists()
 

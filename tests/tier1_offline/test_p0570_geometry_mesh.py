@@ -23,6 +23,7 @@ from pyflightstream.geometry import resolve_config
 from pyflightstream.geometry._mesh_topology import read_obj
 from pyflightstream.geometry.stages import write_config
 from pyflightstream.workspace._geometry_mesh import junction_bays, mesh_generated
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 WB = {
     "components": {
@@ -44,7 +45,7 @@ RESEARCH = os.environ.get("PYFS_RESEARCH_GEOMMESH")
 
 
 def need_gmsh():
-    return pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    return kernel_or_skip()
 
 
 def test_p0570_unknown_component_is_refused_with_the_names_found():

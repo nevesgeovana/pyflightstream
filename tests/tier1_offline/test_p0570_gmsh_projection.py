@@ -8,12 +8,14 @@ every installed version.
 import numpy as np
 import pytest
 
+from tests.tier1_offline._kernel_support import kernel_or_skip
+
 LIMITS = {"chord_m": 0.2, "forward_count": 13, "reverse_count": 13, "edge_count": 19}
 
 
 @pytest.fixture
 def kernel():
-    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    kernel_or_skip()
     from pyflightstream.workspace._gmsh import session
 
     with session("a test") as gmsh:

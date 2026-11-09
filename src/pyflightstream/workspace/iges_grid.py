@@ -438,7 +438,7 @@ def grid_iges(
     Raises
     ------
     MissingExtraError
-        gmsh is not installed (``pip install "pyflightstream[gmsh]"``).
+        The gmsh library cannot load (``KernelUnavailableError``).
     InputValueError, InputArtifactError
         The control file or an IGES file is refused, or the geometry kernel failed (it runs in
         a worker process of its own, so a native fault ends only that worker and is reported
