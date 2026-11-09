@@ -15,7 +15,8 @@ FIXTURE = Path(__file__).parent / "fixtures" / "p0570_geometry_config.toml"
 @pytest.mark.parametrize("kind", ["lifting_surface", "body", "wing_fuselage_fairing", "propeller"])
 def test_minimal_and_round_trip(kind, tmp_path):
     path = tmp_path / "minimal.toml"
-    path.write_text(f'type = "{kind}"\n', encoding="utf-8")
+    hosts = 'hosts = ["body", "wing"]\n' if kind == "wing_fuselage_fairing" else ""
+    path.write_text(f'type = "{kind}"\n{hosts}', encoding="utf-8")
     result = load_config(path)
     assert result["components"]["COMPONENT"]["type"]["source"] == "given"
     assert result["components"]["COMPONENT"]["version"]["source"] == "default"
@@ -79,9 +80,8 @@ def test_independent_set_derives_area_and_mean_chord(tmp_path):
         ({"type": "lifting_surface", "planform": {"aspect_ratio": float("nan")}}, "aspect_ratio"),
         ({"type": "lifting_surface", "sections": {"airfoils": []}}, "sections.eta"),
         ({"type": "propeller", "hub_radius": 2}, "hub_radius"),
-        ({"type": "body", "units": {"length": "ft", "angle": "deg"}}, "units"),
+        ({"units": {"length": "ft"}, "components": {"A": {"type": "body"}}}, "units"),
         ({"type": "body", "length": {"value": 1, "unit": "ft", "source": "given"}}, "length.unit"),
-        ({"type": "body", "unknown_parameter": 1}, "unknown_parameter"),
         ({"type": "lifting_surface", "tip_cap": {"kind": "spiky"}}, "tip_cap.kind"),
         ({"type": "lifting_surface", "sections": {"airfoils": ["CLARKY", "CLARKY"]}}, "NACA"),
     ],

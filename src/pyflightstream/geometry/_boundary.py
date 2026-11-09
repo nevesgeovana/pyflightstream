@@ -17,45 +17,13 @@ from pathlib import Path
 
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._schema import unit_of
 from pyflightstream.geometry.component import DEVIATION_PROFILES, ComponentRecord
 
 
 def unit_for(path):
-    """Return the unit of the parameter at a dotted path: ``deg``, ``m``, ``m2`` or ``1``."""
-    key = path.split(".")[-1]
-    if key in (
-        "sweep",
-        "dihedral",
-        "incidence",
-        "tip_twist",
-        "twist",
-        "rotation",
-        "azimuths",
-        "setting_angle",
-        "footprint_upper",
-        "footprint_lower",
-    ):
-        return "deg"
-    if key in ("area",):
-        return "m2"
-    if key in (
-        "span",
-        "root_chord",
-        "tip_chord",
-        "radius",
-        "hub_radius",
-        "base_radius",
-        "translation",
-        "radii",
-        "mac",
-        "centre_height",
-        "body_blend_radius",
-        "wing_blend_radius",
-    ):
-        return "m"
-    if key == "length" and "tip_cap" not in path:
-        return "m"
-    return "1"
+    """Return the unit of the parameter at a dotted path: deg, mm, m, m2 or 1."""
+    return unit_of(path)
 
 
 def unpack(value, path=""):
