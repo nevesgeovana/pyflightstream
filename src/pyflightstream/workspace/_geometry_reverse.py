@@ -265,6 +265,29 @@ def span_direction(samples, span_axis):
     return axis
 
 
+def _end_plane_station(stations, features, band, span, samples, axis):
+    """Return the span station where the leading edge reaches the tip end plane, or None.
+
+    The cuts are normal to the span axis. When the axis is tilted from a coordinate axis (a
+    wing with dihedral) the end planes of the original stay normal to that coordinate axis, so
+    the outermost clean cut stops short of the plane the leading edge reaches. A surface whose
+    span axis lies on a coordinate axis keeps the outermost clean station.
+    """
+    if abs(span[axis]) > 1.0 - 1e-9:
+        return None
+    side = 1.0 if span[axis] > 0 else -1.0
+    end = float(samples[:, axis].max() if side > 0 else samples[:, axis].min())
+    curve = leading_extension(stations, features, band)
+    last = float(stations[band[-1]])
+    reach = float(np.ptp(np.asarray(stations)))
+    try:
+        return float(
+            brentq(lambda s: (curve(s)[axis] - end) * side, last, last + reach, xtol=1e-10)
+        )
+    except ValueError:
+        return None
+
+
 def identify_pass(grids, samples, hosts, spec, count):
     """One pass: scan, band, planform. Returns the planform, band and scan diagnostics."""
     cutter = {"plain": cut_surfaces, "bridge_te": bridged_cut, "mirror": mirrored_cut}[spec["cut"]]
@@ -304,17 +327,10 @@ def identify_pass(grids, samples, hosts, spec, count):
         result = reference_planform(
             stations, features, band, span,
             boundary=lambda p: p[axis], root_bracket=(stations[0] - 1.0, stations[band[0]] + 1e-4),
+            tip_station=_end_plane_station(stations, features, band, span, samples, axis),
             mirrored=mirrored,
         )  # fmt: skip
         result["root_kind"] = f"symmetry plane {'xyz'[axis]} = 0"
-        lowest = float((samples @ span).min()) - 1e-6
-        if lowest < result["root_station_m"] - 1e-4:  # a tilted span axis reaches below the plane
-            result = reference_planform(
-                stations, features, band, span, root_station=lowest, mirrored=mirrored
-            )
-            result["root_kind"] = (
-                "symmetry plane, root station lowered to the first original sample"
-            )
     else:
         curve = leading_extension(stations, features, band)
         try:
