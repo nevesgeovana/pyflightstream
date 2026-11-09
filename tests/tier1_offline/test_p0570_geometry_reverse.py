@@ -344,6 +344,29 @@ def test_r6_the_configuration_rebuilds_a_twisted_wing_inside_the_limit(identifie
     assert record["accepted"], record["forward"]
 
 
+@pytest.fixture(scope="module")
+def plain_wing(tmp_path_factory):
+    """A wing with no incidence or twist: its first span estimate is already right."""
+    gmsh_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import generate_iges
+
+    path = tmp_path_factory.mktemp("plain") / "wing.igs"
+    planform = {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "sweep": 15.0}
+    sections = {"airfoils": ["NACA0012"]}
+    wing = {"type": "lifting_surface", "sections": sections, "planform": planform}
+    generate_iges({"components": {"WING": wing}}, path)
+    return path
+
+
+def test_r6_the_fine_pass_takes_the_stations_asked_when_the_span_is_settled(plain_wing):
+    """R6-004: a settled first estimate stopped at the 81 stations of the first scan."""
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
+
+    found = identify_lifting_surface(plain_wing, "WING", stations=85, grid=65, converge=False)
+    assert found.scan["stations"] == 85
+    assert len(found.scan["station_m"]) >= 85
+
+
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 

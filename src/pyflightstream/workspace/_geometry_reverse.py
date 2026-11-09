@@ -277,9 +277,11 @@ def identify_pass(grids, samples, hosts, spec, count):
             le = np.array([features[i]["le"] for i in band])[:, 1:]
             slope = np.polyfit(stations[band], le, 1)[0]
             candidate = np.r_[0.0, slope] / np.linalg.norm(slope)
-            if np.linalg.norm(candidate - span) < 1e-6:
-                break
-            span = candidate
+            settled = np.linalg.norm(candidate - span) < 1e-6
+            if settled and count <= 81:
+                break  # this scan already holds every station asked for
+            if not settled:
+                span = candidate
 
     def evaluate(s):
         return contour_features(closed_contour(cutter(grids, span, s)), span)
