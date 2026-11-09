@@ -287,14 +287,20 @@ def check_slope_breaks(component):
             raise InputValueError(f"distributions.{key}.stations: slope breaks {missing} missing")
 
 
+def apply_orientation(raw, component):
+    """Check ``planform.orientation``; a vertical surface is rolled 90 degrees unless placed."""
+    orientation = component["planform"]["orientation"]
+    if orientation not in ("horizontal", "vertical"):
+        raise InputValueError("planform.orientation: expected horizontal or vertical")
+    if orientation == "vertical" and "rotation" not in raw.get("placement", {}):
+        component["placement"]["rotation"] = [90.0, 0.0, 0.0]
+
+
 def resolve_lifting(raw, component, notes):
     """Complete and validate a lifting-surface component; return its derived area and mean chord."""
     component["planform"] = resolve_planform(raw.get("planform", {}), component["planform"])
     p, section = component["planform"], component["sections"]
-    if p["orientation"] not in ("horizontal", "vertical"):
-        raise InputValueError("planform.orientation: expected horizontal or vertical")
-    if p["orientation"] == "vertical" and "rotation" not in raw.get("placement", {}):
-        component["placement"]["rotation"] = [90.0, 0.0, 0.0]
+    apply_orientation(raw, component)
     if "eta" not in raw.get("sections", {}) and not section["items"]:
         count = len(section["airfoils"])
         section["eta"] = [i / max(1, count - 1) for i in range(count)]

@@ -9,8 +9,12 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.geometry._airfoils import naca_to_cst
-from pyflightstream.geometry._identity_report import identity_report, thickness_profile
-from pyflightstream.geometry._sections import CstSection, section_from_stored
+from pyflightstream.geometry._sections import (
+    CstSection,
+    identity_report,
+    section_from_stored,
+    thickness_profile,
+)
 
 
 def naca(digits):

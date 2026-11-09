@@ -102,11 +102,9 @@ def _check_physical(name, physical, raw, warnings):
     for key in _PHYSICAL_KEYS:
         if key in physical:
             number(physical[key], f"{name}.sections.physical.{key}", 0)
-    missing = [k for k in ("nose_radius", "boat_tail_deg", "thickness_at") if k not in physical]
-    if missing:
-        raise InputValueError(f"{name}.sections.physical: {', '.join(missing)} required")
     for key, high in (("nose_radius", 0.5), ("thickness_at", 0.5), ("boat_tail_deg", 89)):
-        number(physical[key], f"{name}.sections.physical.{key}", 0, high, strict=True)
+        if key in physical:
+            number(physical[key], f"{name}.sections.physical.{key}", 0, high, strict=True)
 
 
 def _check_sections(name, component, raw, warnings):

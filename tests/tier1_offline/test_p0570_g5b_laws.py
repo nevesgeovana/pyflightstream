@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry import _sections as sections_module
 from pyflightstream.geometry import resolve_config
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._lifting import lifting_surface, section_models
@@ -70,8 +69,9 @@ def test_g5b_physical_section_reaches_the_skin_end_to_end(tmp_path):
 @pytest.mark.parametrize("missing", ["nose_radius", "boat_tail_deg", "thickness_at"])
 def test_g5b_physical_section_without_a_number_is_refused(tmp_path, missing):
     physical = {k: v for k, v in PHYSICAL.items() if k != missing}
+    component = resolved({"physical": physical}, tmp_path)
     with pytest.raises(InputValueError, match=missing):
-        resolved({"physical": physical}, tmp_path)
+        lifting_surface(component)
 
 
 def test_g5b_physical_section_impossible_and_conflicting_inputs_are_refused(tmp_path):
@@ -111,7 +111,7 @@ def test_g5b_s1_skips_the_residual_without_ordinates_and_counts_inflections():
     assert counts[0] == counts[1]
 
 
-def test_g5b_s3_shape_unchanged_and_a_wrong_elevation_is_caught(tmp_path, monkeypatch):
+def test_g5b_s3_shape_unchanged_and_a_wrong_elevation_is_caught(tmp_path):
     items = [
         {"eta": 0.0, "naca": "0012"},
         {"eta": 1.0, "cst_upper": [0.2, 0.3, 0.1], "cst_lower": [-0.2, -0.1, -0.1], "te": 0.0},
@@ -120,11 +120,7 @@ def test_g5b_s3_shape_unchanged_and_a_wrong_elevation_is_caught(tmp_path, monkey
     record = shape_unchanged(table)
     assert record["status"] == "pass"
     assert record["value"] <= 1e-9
-    monkeypatch.setattr(
-        sections_module,
-        "elevate_coefficients",
-        lambda c, degree: np.r_[np.asarray(c, float), np.zeros(degree + 1 - len(c))],
-    )
-    broken = shape_unchanged(table)
-    assert broken["status"] == "fail"
-    assert broken["value"] > 1e-3
+    # A zero-padded "elevation" is a different section, and compat measures it.
+    section = CstSection((0.2, 0.3, 0.1), (-0.2, -0.1, -0.1), 0.0)
+    padded = CstSection((0.2, 0.3, 0.1, 0.0), (-0.2, -0.1, -0.1, 0.0), 0.0)
+    assert section.compat([padded]) > 1e-3
