@@ -703,6 +703,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
         "refine",
         "restore",
         "run",
+        "search-log-batch",
         "space-in-use",
         "support",
         "status",
