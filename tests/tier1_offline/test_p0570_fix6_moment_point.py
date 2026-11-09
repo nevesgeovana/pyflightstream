@@ -79,6 +79,66 @@ def test_p0570_fix6_a_left_wing_takes_the_same_transfer():
     assert loads.moment_pa_nm_per_m == pytest.approx(np.full(len(_SPAN), -30.0))
 
 
+def _contoured(fraction: float, *, pitch_deg: float = 0.0, chord: float = 1.0) -> FsiConfig:
+    """A wing whose contours sit about a pitch axis at ``fraction`` of the chord."""
+    data = _wing().model_dump()
+    n = len(data["blade"]["station_radii_m"])
+    contour = [
+        [fraction * chord, 0.0],
+        [(fraction - 0.5) * chord, 0.06],
+        [(fraction - 1.0) * chord, 0.0],
+        [(fraction - 0.5) * chord, -0.06],
+    ]
+    data["blade"]["section_contours_m"] = [contour] * n
+    data["blade"]["chord_m"] = [chord] * n
+    data["blade"]["geometric_pitch_deg"] = [pitch_deg] * n
+    return FsiConfig.model_validate(data)
+
+
+@pytest.mark.parametrize("pitch_deg", [0.0, 7.0])
+def test_p0570_r8_001_a_frame_on_a_pitch_axis_off_the_quarter_chord_keeps_its_moment(pitch_deg):
+    """R8-001: the moment about the frame's origin IS the moment about the pitch axis there.
+
+    The pitch axis is at 35 percent of the chord and the cut's frame sits on it, so the quarter
+    chord is 0.10 chord toward the leading edge, along (-cos b, sin b) in (x, z).
+    """
+    beta = np.radians(pitch_deg)
+    block = _block(-0.10 * np.cos(beta), 0.10 * np.sin(beta), fx=20.0, fz=400.0, about_qc=0.0)
+    about_the_axis = np.full(len(_SPAN), -30.0)
+    block = SectionBlock(
+        **{
+            **{name: getattr(block, name) for name in block.__dataclass_fields__},
+            "moment_qc_nm_per_m": about_the_axis,
+        }
+    )
+    loads = to_elastic_axis(block, _contoured(0.35, pitch_deg=pitch_deg))
+    assert loads.moment_pa_nm_per_m == pytest.approx(about_the_axis)
+
+
+def test_p0570_r8_001_contours_about_the_quarter_chord_add_nothing():
+    block = _block(0.31, -0.05, fx=20.0, fz=400.0, about_qc=-30.0)
+    loads = to_elastic_axis(block, _contoured(0.25))
+    assert loads.moment_pa_nm_per_m == pytest.approx(np.full(len(_SPAN), -30.0))
+
+
+def test_p0570_r8_001_the_axis_moment_does_not_depend_on_the_cut_frame():
+    """Lift at the quarter chord, 0.10 chord ahead of the axis: nose up by 0.10 Fz about it."""
+    block = _block(0.31, -0.05, fx=0.0, fz=400.0, about_qc=-30.0)
+    loads = to_elastic_axis(block, _contoured(0.35))
+    assert loads.moment_pa_nm_per_m == pytest.approx(np.full(len(_SPAN), -30.0 + 0.10 * 400.0))
+
+
+def test_p0570_r8_001_a_bent_section_takes_the_arm_with_its_bent_forces():
+    """The arm is in section axes, so it multiplies the force the rotation left normal."""
+    block = _block(0.0, 0.0, fx=0.0, fz=400.0, about_qc=0.0)
+    cfg = _contoured(0.35)
+    stations = np.asarray(cfg.blade.station_radii_m)
+    loads = to_elastic_axis(
+        block, cfg, deflection_m=np.zeros_like(stations), twist_rad=np.full_like(stations, 0.1)
+    )
+    assert loads.moment_pa_nm_per_m == pytest.approx(0.10 * loads.force_normal_n_per_m)
+
+
 def test_p0570_fix6_the_rotor_route_is_left_as_read():
     """A rotating blade is not measured: its moment stays the export's, its sign flipped."""
     data = make_uniform_blade_config(root_radius_m=0.25, tip_radius_m=1.85).model_dump()

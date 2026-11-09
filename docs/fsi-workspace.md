@@ -380,10 +380,12 @@ cuts in its frame. The export's moment is not about the section's quarter
 chord when the frame is elsewhere
 ([the definitions page](definitions/the-sections-table-and-which-row-is-which.md)),
 so the wing's route adds `X_QC Fz - Z_QC Fx`, the lever of the section's forces
-in the cut's frame, and the beam receives the moment about the quarter chord
-wherever the frame sits. That is zero for a frame on the section. A section
-with a pitch axis at another chord fraction still takes the quarter-chord
-moment. The
+in the cut's frame, which gives the moment about the quarter chord wherever
+the frame sits. That is zero for a frame on the section. Where the blade carries
+its section contours, which are drawn about the pitch axis, the moment then
+moves from the quarter chord to that axis, so the beam receives the moment about
+its pitch axis at any chord fraction. A typed blade without contours states no
+pitch axis on the chord, and it is read as the quarter chord. The
 offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 

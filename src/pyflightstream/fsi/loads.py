@@ -60,6 +60,7 @@ returning a silently shorter table (FR-17).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -432,6 +433,29 @@ def _tributary_widths(radii: np.ndarray) -> np.ndarray:
     return np.diff(edges)
 
 
+def _quarter_chord_from_pitch_axis(cfg: FsiConfig, radii: np.ndarray) -> tuple[Any, Any]:
+    """Return the offset from the pitch axis to the quarter chord, in section axes [m].
+
+    ``BladeProperties.section_contours_m`` holds each section about the pitch axis, chordwise
+    toward the leading edge, so the most forward and most aft points are the chord's ends. A
+    blade without contours states no pitch axis on the chord: it reads as the quarter chord, and
+    the offset is zero.
+    """
+    contours = cfg.blade.section_contours_m
+    if contours is None:
+        return 0.0, 0.0
+    offsets = []
+    for contour in contours:
+        points = np.asarray(contour, dtype=float)
+        chordwise = points[:, 0]
+        leading = points[np.isclose(chordwise, chordwise.max())].mean(axis=0)
+        trailing = points[np.isclose(chordwise, chordwise.min())].mean(axis=0)
+        offsets.append(leading + 0.25 * (trailing - leading))
+    stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
+    table = np.asarray(offsets)
+    return np.interp(radii, stations, table[:, 0]), np.interp(radii, stations, table[:, 1])
+
+
 def to_elastic_axis(
     block: SectionBlock,
     cfg: FsiConfig,
@@ -573,6 +597,11 @@ def to_elastic_axis(
             -chordwise * np.sin(theta) + bent_normal * np.cos(theta),
         )
         moment_pa = moment_pa * cosine
+    if embedding == "wing_frame":
+        # The projection left the moment about the quarter chord, and the beam reads it about the
+        # pitch axis (R8-001). In the section's axes, so with the forces of the section as bent.
+        to_qc_chordwise, to_qc_normal = _quarter_chord_from_pitch_axis(cfg, radii)
+        moment_pa = moment_pa + to_qc_chordwise * normal - to_qc_normal * chordwise
     return ElasticAxisLoads(
         radius_m=radii,
         chord_m=block.chord_m,
