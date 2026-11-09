@@ -791,3 +791,20 @@ def test_r9_012_a_variant_entry_it_says_it_skipped_is_gone():
     warnings, plain = _reference_case()
     assert any("w.nothing" in text for text in warnings)
     assert plain["variants"]["cs"] == ["w.f"]
+
+
+# R9-013: section C.7 refuses control surfaces that overlap.
+
+
+def test_r9_013_two_surfaces_that_overlap_in_span_are_refused():
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry.config import resolve_config
+
+    surfaces = [
+        {"name": "f", "eta_in": 0.1, "eta_out": 0.5},
+        {"name": "a", "eta_in": 0.4, "eta_out": 0.9},
+    ]
+    with pytest.raises(InputValueError, match="f and a overlap"):
+        resolve_config(_plain(control_surfaces=surfaces))
+    surfaces[1]["eta_in"] = 0.5
+    resolve_config(_plain(control_surfaces=surfaces))

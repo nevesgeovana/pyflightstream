@@ -214,6 +214,18 @@ def _check_fowler(path, surface, deflections):
         )
 
 
+def _check_no_overlap(name, surfaces):
+    """Refuse two control surfaces of one host whose stated span intervals overlap."""
+    stated = sorted(
+        (s["eta_in"], s["eta_out"], s["name"])
+        for s in surfaces
+        if "host" not in (s["eta_in"], s["eta_out"])
+    )
+    for (_, end, left), (start, _, right) in zip(stated, stated[1:], strict=False):
+        if start < end:
+            raise InputValueError(f"{name}.control_surfaces: {left} and {right} overlap in span")
+
+
 def _check_tip_cap(cap):
     """Check the kind of a tip cap and the counts the exact loft reads."""
     if cap["kind"] not in _CAP_KINDS:
@@ -278,6 +290,7 @@ def check_lifting_extras(name, component, raw, warnings, findings):
         _check_surface(name, i, surface)
         for skipped in surface.pop("_skipped", []):
             warnings.append(f"{skipped}: used by fowler only, skipped")
+    _check_no_overlap(name, component["control_surfaces"])
     findings.extend(f"{name}: {text}" for text in component["open_findings"])
 
 
