@@ -235,6 +235,7 @@ class GmshKernel:
     def add_bspline_surface(
         self,
         net: Sequence[Sequence[Point]],
+        *,
         knots_u: Sequence[float],
         knots_v: Sequence[float],
         mult_u: Sequence[int],

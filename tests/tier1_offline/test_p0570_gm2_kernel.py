@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import getpass
 import hashlib
+import os
 import subprocess
 import sys
 import time
@@ -30,7 +31,11 @@ _WRITE = (
 
 def _write_in_fresh_process(path):
     done = subprocess.run(
-        [sys.executable, "-c", _WRITE, str(path)], capture_output=True, text=True, timeout=120
+        [sys.executable, "-c", _WRITE, str(path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=dict(os.environ),
     )
     assert done.returncode == 0, done.stderr[-400:]
     return path.read_bytes()
@@ -79,7 +84,15 @@ def _flat_net(size=3.0, z=0.0, x0=0.0):
 
 
 def _bicubic(kernel, net):
-    return kernel.add_bspline_surface(net, [0.0, 1.0], [0.0, 1.0], [4, 4], [4, 4], 3, 3)
+    return kernel.add_bspline_surface(
+        net,
+        knots_u=[0.0, 1.0],
+        knots_v=[0.0, 1.0],
+        mult_u=[4, 4],
+        mult_v=[4, 4],
+        deg_u=3,
+        deg_v=3,
+    )
 
 
 @pytest.fixture

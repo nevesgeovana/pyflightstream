@@ -114,7 +114,7 @@ class KernelUnavailableError(MissingExtraError):
         self.package = "gmsh"
         self.purpose = purpose
         self.reason = reason
-        self.remedy = "pip install gmsh"
+        self.remedy = 'pip install "pyflightstream[gmsh]"'
         Exception.__init__(
             self,
             f"{purpose} needs the CAD kernel library gmsh, which could not be loaded: {reason}. "

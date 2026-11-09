@@ -15,20 +15,16 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.geometry._iges_profile import OBSERVED, SOLID_ENTITIES, ReaderProfile
+from pyflightstream.geometry._iges_profile import (
+    OBSERVED,
+    SOLID_ENTITIES,
+    GateFinding,
+    ReaderProfile,
+    surface_findings,
+)
 from pyflightstream.workspace._iges_write import read_iges
 
 __all__ = ["GateFinding", "GateReport", "check_profile"]
-
-
-@dataclass(frozen=True)
-class GateFinding:
-    """One defect: the check that found it, ``fail`` or ``warn``, the entity and the detail."""
-
-    check: str
-    severity: str
-    entity: int | None
-    detail: str
 
 
 @dataclass(frozen=True)
@@ -50,49 +46,6 @@ class GateReport:
         return not self.failed
 
 
-def _number(text: str) -> float:
-    return float(text.replace("D", "E").replace("d", "e"))
-
-
-def _surface_findings(entity: dict[str, Any], profile: ReaderProfile) -> list[GateFinding]:
-    values = entity["parameters"]
-    ident = entity["id"]
-    k1, k2, m1, m2 = (int(values[i]) for i in range(1, 5))
-    start = 10
-    t1 = [_number(v) for v in values[start : start + k1 + m1 + 2]]
-    start += k1 + m1 + 2
-    t2 = [_number(v) for v in values[start : start + k2 + m2 + 2]]
-    start += k2 + m2 + 2
-    weights = [_number(v) for v in values[start : start + (k1 + 1) * (k2 + 1)]]
-    found: list[GateFinding] = []
-    if not profile.rational and max(weights) - min(weights) > 1e-12:
-        found.append(GateFinding("profile.rational", "fail", ident, "weights are not all one"))
-    if profile.clamped:
-        for label, knots, degree in (("u", t1, m1), ("v", t2, m2)):
-            ends = knots[: degree + 1] + knots[-(degree + 1) :]
-            if len(set(knots[: degree + 1])) != 1 or len(set(knots[-(degree + 1) :])) != 1:
-                found.append(
-                    GateFinding(
-                        "profile.unclamped", "fail", ident, f"{label} knots are not clamped: {ends}"
-                    )
-                )
-    for degree in (m1, m2):
-        if profile.max_degree is not None and degree > profile.max_degree:
-            found.append(
-                GateFinding("profile.degree", "fail", ident, f"degree {degree} above the limit")
-            )
-        elif degree not in profile.degrees:
-            found.append(
-                GateFinding(
-                    "profile.degree",
-                    "warn",
-                    ident,
-                    f"degree {degree} was not observed read and no limit is stated for it",
-                )
-            )
-    return found
-
-
 def _outer_sides(entity: dict[str, Any], by_id: dict[int, dict[str, Any]]) -> int | None:
     values = entity["parameters"]
     outer = by_id.get(int(values[4])) if len(values) > 4 and int(values[4]) else None
@@ -105,7 +58,7 @@ def _outer_sides(entity: dict[str, Any], by_id: dict[int, dict[str, Any]]) -> in
     return None
 
 
-def _face_findings(
+def face_findings(
     entity: dict[str, Any], by_id: dict[int, dict[str, Any]], profile: ReaderProfile
 ) -> list[GateFinding]:
     values = entity["parameters"]
@@ -146,7 +99,7 @@ def check_profile(path: str | Path, profile: ReaderProfile = OBSERVED) -> GateRe
     faces = [e for e in entities if e["type"] == 144]
     for entity in entities:
         if entity["type"] == 128:
-            findings += _surface_findings(entity, profile)
+            findings += surface_findings(entity, profile)
     for entity in faces:
-        findings += _face_findings(entity, by_id, profile)
+        findings += face_findings(entity, by_id, profile)
     return GateReport(path=Path(path), surfaces=len(faces), findings=tuple(findings))
