@@ -17,6 +17,7 @@ from pyflightstream.workspace._iges_write import (
     read_iges,
     serialize_iges,
 )
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 _WRITE = (
     "import sys\n"
@@ -56,10 +57,7 @@ def test_serialize_iges_without_stamp_positions_is_left_alone():
 
 
 def _need_gmsh():
-    try:
-        import gmsh  # noqa: F401
-    except (ImportError, OSError):
-        pytest.skip("gmsh is not usable here")
+    kernel_or_skip()
 
 
 def test_two_fresh_processes_write_byte_identical_iges_with_no_login(tmp_path):

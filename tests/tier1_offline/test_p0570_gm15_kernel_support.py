@@ -122,6 +122,65 @@ def test_p0570_gm15_the_wheel_job_installs_the_libraries_and_checks_the_wheel():
     assert "Requires-Dist: gmsh" in steps[check]["run"]
 
 
+def _gmsh_skips_outside_the_helper(root):
+    """Every test file under ``root`` that skips on gmsh by itself, not through the helper."""
+    import ast
+    from pathlib import Path
+
+    def imports_gmsh(node):
+        return any(
+            (isinstance(n, ast.Import) and any(a.name.split(".")[0] == "gmsh" for a in n.names))
+            or (isinstance(n, ast.ImportFrom) and (n.module or "").split(".")[0] == "gmsh")
+            for n in ast.walk(node)
+        )
+
+    def calls_skip(nodes):
+        return any(
+            isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "skip"
+            for node in nodes
+            for n in ast.walk(node)
+        )
+
+    found = []
+    for path in sorted(Path(root).rglob("*.py")):
+        if path.name == "_kernel_support.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            importorskip = (
+                isinstance(node, ast.Call)
+                and getattr(node.func, "attr", "") == "importorskip"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == "gmsh"
+            )
+            guarded = (
+                isinstance(node, ast.Try)
+                and any(imports_gmsh(n) for n in node.body)
+                and any(calls_skip(h.body) for h in node.handlers)
+            )
+            if importorskip or guarded:
+                found.append(path.name)
+                break
+    return found
+
+
+def test_r11_002_no_test_skips_on_gmsh_outside_the_helper():
+    """A skip of its own on gmsh would stay a skip where PYFS_REQUIRE_KERNEL=1."""
+    from pathlib import Path
+
+    assert _gmsh_skips_outside_the_helper(Path(__file__).resolve().parents[1]) == []
+
+
+def test_r11_002_the_scan_finds_both_spellings(tmp_path):
+    (tmp_path / "a.py").write_text("import pytest\npytest.importorskip('gmsh')\n")
+    (tmp_path / "b.py").write_text(
+        "import pytest\ntry:\n    import gmsh\nexcept OSError:\n    pytest.skip('no')\n"
+    )
+    (tmp_path / "c.py").write_text("from tests.k import kernel_or_skip\nkernel_or_skip()\n")
+    assert _gmsh_skips_outside_the_helper(tmp_path) == ["a.py", "b.py"]
+
+
 def _wheel_check_outcome(tmp_path, files):
     """Run the wheel check of release.yml, as written, on a wheel holding ``files``."""
     import subprocess

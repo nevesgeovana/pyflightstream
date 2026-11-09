@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import pytest
 
+from tests.tier1_offline._kernel_support import kernel_or_skip
+
 
 def _plain(**component):
     return {"components": {"w": {"type": "lifting_surface", **component}}}
 
 
 def _need_gmsh():
-    try:
-        import gmsh  # noqa: F401
-    except (ImportError, OSError):
-        pytest.skip("gmsh is not usable here")
+    kernel_or_skip()
 
 
 # R9-001: the warnings of a resolved configuration reach whoever ran the verb.
