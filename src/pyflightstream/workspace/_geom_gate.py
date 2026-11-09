@@ -155,7 +155,11 @@ def _spline_126(values: list[str]) -> _Spline:
     knots = np.array(numbers[: k + m + 2])
     weights = np.array(numbers[k + m + 2 : k + m + 3 + k])
     points = np.array(numbers[2 * k + m + 3 : 2 * k + m + 3 + 3 * (k + 1)]).reshape(-1, 3)
-    return _Spline(knots, m, weights, points)
+    curve = _Spline(knots, m, weights, points)
+    ends = numbers[5 * k + m + 6 : 5 * k + m + 8]  # V(0) and V(1), the range the curve uses
+    if len(ends) == 2 and curve.low <= ends[0] < ends[1] <= curve.high:
+        curve.low, curve.high = float(ends[0]), float(ends[1])
+    return curve
 
 
 def _spline_110(values: list[str]) -> _Spline:

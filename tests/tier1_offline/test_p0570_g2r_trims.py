@@ -278,6 +278,28 @@ def test_r16_006_a_parameter_gap_inside_the_file_resolution_is_not_an_open_loop(
     assert _checks(_gate(_rewrite(tmp_path, document, "far.igs"))) == ["profile.loop_open"]
 
 
+def test_r16_007_a_126_is_read_over_its_own_parameter_range_not_its_knots(written, tmp_path):
+    """IGES 126 states V(0) and V(1); another writer may use only part of the knot range.
+
+    The interior straight pcurve is rewritten as a 126 whose knots run past both ends and whose
+    V(0), V(1) select exactly the old segment: the same loop, which must stay clean.
+    """
+    path, document = written
+    interior = next(c for c in _curves(document, "uv") if 0.1 < float(c["parameters"][1]) < 0.9)
+    assert interior["type"] == 110
+    p0 = [float(v) for v in interior["parameters"][1:4]]
+    p1 = [float(v) for v in interior["parameters"][4:7]]
+    far0 = [a - (b - a) for a, b in zip(p0, p1, strict=True)]
+    far1 = [b + (b - a) for a, b in zip(p0, p1, strict=True)]
+    numbers = [0, 0, 1, 1, 1, 1, *far0, *far1, 1 / 3, 2 / 3, 0, 0, 1]
+    interior["type"] = 126
+    for line in (interior["d1"], interior["d2"]):
+        line[0] = f"{126:8d}"
+    interior["parameters"] = ["126", "1", "1", "0", "0", "1", "0", *(f"{x!r}" for x in numbers)]
+    report = _gate(_rewrite(tmp_path, document, "subrange.igs"))
+    assert _checks(report) == []
+
+
 def test_the_gate_reads_the_property_pointers_of_the_144_not_a_fixed_layout(written, tmp_path):
     path, document = written
     faces = [e for e in document["entities"] if e["type"] == 144]
