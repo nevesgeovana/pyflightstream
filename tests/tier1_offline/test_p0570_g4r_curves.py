@@ -100,3 +100,18 @@ def test_elevation_of_a_cubic_matches_the_bezier_formula():
         p[3],
     ]
     assert np.allclose(high, expect)
+
+
+def test_end_slopes_are_held_exactly_and_a_wrong_slope_shows_in_the_curve():
+    t = np.linspace(0, 1, 40)
+    knots = clamped_knots([0.5], 3)
+    q = poly(t)
+    slope = (
+        np.array([1.0, 0.0, 0.0]),
+        np.array([1.0, 4.0, -6.0]),
+    )  # the derivative of poly at 0, 1
+    controls, _ = fit_curve(q, t, knots, 3, slope)
+    assert np.allclose(controls[1] - controls[0], knots[4] / 3 * slope[0])
+    assert np.allclose(controls[-1] - controls[-2], (1 - knots[-5]) / 3 * slope[1])
+    _, wrong = fit_curve(q, t, knots, 3, (slope[0] * 3, slope[1]))
+    assert wrong > 1e-3

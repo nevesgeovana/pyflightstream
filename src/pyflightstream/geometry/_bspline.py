@@ -231,7 +231,7 @@ def curve_basis(knots, degree: int, parameters) -> np.ndarray:
     ).toarray()
 
 
-def fit_curve(points, parameters, knots, degree: int):
+def fit_curve(points, parameters, knots, degree: int, end_slopes=None):
     """Fit a B-spline curve on given knots by least squares, ends interpolated.
 
     Parameters
@@ -244,6 +244,10 @@ def fit_curve(points, parameters, knots, degree: int):
         Full clamped knot vector (see :func:`clamped_knots`).
     degree : int
         Polynomial degree of the curve.
+    end_slopes : pair of array_like, optional
+        Derivative with respect to the parameter at the first and the last end. When given, the
+        curve leaves each end with that slope exactly (degree 2 or more, at least four controls),
+        so two curves that meet at a point can share a tangent there.
 
     Returns
     -------
@@ -259,17 +263,26 @@ def fit_curve(points, parameters, knots, degree: int):
         When the samples are fewer than the controls or the parameters do not run from 0 to 1.
     """
     q, t = np.asarray(points, float), np.asarray(parameters, float)
+    knots = np.asarray(knots, float)
     basis = curve_basis(knots, degree, t)
     if basis.shape[0] < basis.shape[1]:
         raise InputValueError("points: fewer samples than control points")
     if abs(t[0]) > 1e-12 or abs(t[-1] - 1.0) > 1e-12 or np.any(np.diff(t) <= 0.0):
         raise InputValueError("parameters: expected increasing values from 0 to 1")
-    inner = basis[:, 1:-1]
-    rhs = q - np.outer(basis[:, 0], q[0]) - np.outer(basis[:, -1], q[-1])
-    middle = (
-        np.linalg.lstsq(inner, rhs, rcond=None)[0] if inner.shape[1] else np.empty((0, q.shape[1]))
-    )
-    controls = np.vstack([q[:1], middle, q[-1:]])
+    n = basis.shape[1]
+    controls = np.zeros((n, q.shape[1]))
+    controls[0], controls[-1] = q[0], q[-1]
+    fixed = np.zeros(n, bool)
+    fixed[[0, -1]] = True
+    if end_slopes is not None and degree >= 2 and n >= 4:
+        controls[1] = q[0] + knots[degree + 1] / degree * np.asarray(end_slopes[0], float)
+        controls[-2] = q[-1] - (1.0 - knots[-degree - 2]) / degree * np.asarray(
+            end_slopes[1], float
+        )
+        fixed[[1, -2]] = True
+    if not fixed.all():
+        rhs = q - basis[:, fixed] @ controls[fixed]
+        controls[~fixed] = np.linalg.lstsq(basis[:, ~fixed], rhs, rcond=None)[0]
     return controls, float(np.max(np.linalg.norm(basis @ controls - q, axis=1)))
 
 
