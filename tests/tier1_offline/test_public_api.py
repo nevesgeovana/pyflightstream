@@ -237,6 +237,7 @@ PUBLIC_MODULES = [
     # `collect_once` and schedules its own polling, which is half the point
     # of one-shot being the primitive.
     "pyflightstream.run.collect",
+    "pyflightstream.run.geom_cli",
     "pyflightstream.run.matrix",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.run.records",

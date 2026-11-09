@@ -350,7 +350,8 @@ def test_p0570_identify_result_rebuilds_through_load_config(identified):
 
 def test_r6_the_configuration_rebuilds_a_twisted_wing_inside_the_limit(identified, generated_wing):
     """R6-003: incidence and twist turn about c/4, so the measured leading edge moved."""
-    from pyflightstream.workspace.geometry_pipeline import check_against_original, generate_iges
+    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace.geometry_pipeline import check_against_original
 
     entry = identified.to_component()
     assert entry["placement"]["translation"] == pytest.approx([0.0, 0.0, 0.0], abs=2e-4)
@@ -370,7 +371,7 @@ def test_r6_the_configuration_rebuilds_a_twisted_wing_inside_the_limit(identifie
 def plain_wing(tmp_path_factory):
     """A wing with no incidence or twist: its first span estimate is already right."""
     gmsh_or_skip()
-    from pyflightstream.workspace.geometry_pipeline import generate_iges
+    from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path_factory.mktemp("plain") / "wing.igs"
     planform = {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "sweep": 15.0}
@@ -392,7 +393,8 @@ def test_r6_the_fine_pass_takes_the_stations_asked_when_the_span_is_settled(plai
 def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_path):
     """R6-005: the station refine_tip inserted shifted every rejected label after it."""
     gmsh_or_skip()
-    from pyflightstream.workspace.geometry_pipeline import generate_iges, identify_lifting_surface
+    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     wing = {
         "type": "lifting_surface",
@@ -411,7 +413,8 @@ def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_
 def test_r6_a_boundary_root_measures_its_extent_along_the_settled_span_axis(tmp_path):
     """R6-006: the extent was taken along the first estimate and read against the settled axis."""
     gmsh_or_skip()
-    from pyflightstream.workspace.geometry_pipeline import generate_iges, identify_lifting_surface
+    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     wing = {
         "type": "lifting_surface",

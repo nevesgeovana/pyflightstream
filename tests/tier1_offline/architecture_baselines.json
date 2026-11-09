@@ -1498,7 +1498,8 @@
     "_cli_wheel",
     "_cli_merge",
     "_cli_morph",
-    "_cli_parametric"
+    "_geom_cli_moved",
+    "geom_cli"
    ]
   }
  },

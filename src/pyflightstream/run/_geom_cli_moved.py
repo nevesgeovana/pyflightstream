@@ -1,16 +1,14 @@
-"""The ``pyfs-workspace geometry`` verbs of the parametric aircraft pipeline.
+"""The ``identify``, ``check`` and ``schema`` verbs of ``pyfs-geom``.
 
-Pipeline role: the run layer's parsers and handlers for ``generate``, ``identify``, ``check``,
-``mesh-generated`` and ``schema`` (0.57.0 item 3). The work is the geometry package's
-(:mod:`pyflightstream.geometry`, the configuration boundary and the component record) and the
-workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the gmsh
-kernel); this module only reads the command line, calls it, prints the record it returns as
-JSON and gives the exit code: 0 when the work was done (and, for ``check``, accepted), 1 when
-``check`` measured the rebuilt surface and rejected it, 2 when an input is refused or the gmsh
-library cannot load, with the message on standard error and nothing written. Each parser names its
-handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls,
-so the group adds every verb of this module through :func:`add_parametric_verbs` and lists
-them by :data:`PARAMETRIC_VERBS`.
+Pipeline role: the run layer's parsers and handlers for the verbs that read an original
+IGES or a component record, moved from ``pyfs-workspace geometry`` with their options
+unchanged. The work is the geometry package's (:mod:`pyflightstream.geometry`) and the
+workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the gmsh kernel); this module
+only reads the command line, calls it, prints the record it returns as JSON and gives the exit
+code: 0 when the work was done (and, for ``check`` and ``schema --validate``, accepted), 1 when
+the work measured the input and rejected it, 2 when an input is refused or the gmsh library
+cannot load, with the message on standard error and nothing written. Each parser names its
+handler as the ``mesh_command`` default, which :mod:`pyflightstream.run.geom_cli` calls.
 """
 
 from __future__ import annotations
@@ -25,12 +23,12 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._errors import NotApplicableWarning, PyflightstreamError, warn
 
-__all__ = ["PARAMETRIC_VERBS", "add_parametric_verbs"]
+__all__ = ["MOVED_VERBS", "add_moved_verbs", "report_of", "write_json"]
 
 _PROFILES_HELP = "named deviation profile (default: study_default, 0.5 mm or 0.1 percent of chord)"
 
 
-def _report(work: Callable[[], dict[str, Any]], *, rejects: bool = False) -> int:
+def report_of(work: Callable[[], dict[str, Any]], *, rejects: bool = False) -> int:
     """Run one verb and print its record; 2 when refused, 1 when ``rejects`` and not accepted."""
     try:
         record = work()
@@ -41,44 +39,10 @@ def _report(work: Callable[[], dict[str, Any]], *, rejects: bool = False) -> int
     return 1 if rejects and not record.get("accepted", True) else 0
 
 
-def _write_json(path: str | None, record: dict[str, Any]) -> None:
+def write_json(path: str | None, record: dict[str, Any]) -> None:
+    """Write ``record`` as JSON to ``path`` when one is given."""
     if path is not None:
         _textio.write_text(path, json.dumps(record, indent=2, default=str))
-
-
-def add_generate_parser(subparsers: Any) -> None:
-    """Add the verb that writes a named IGES from a parametric configuration."""
-    parser = subparsers.add_parser(
-        "generate",
-        help="write a named IGES from a parametric configuration (uses the gmsh kernel)",
-        description=(
-            "Reads a TOML configuration of bodies, lifting surfaces and the wing-fuselage "
-            "fairing, resolves it (every value carries its source), generates the exposed skin "
-            "with an edge audit and writes one IGES with one NAME per component on its own "
-            "level. The record (the IGES, the faces of each component and the audit) is "
-            "printed. Nothing is written when the configuration is refused."
-        ),
-    )
-    parser.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
-    parser.add_argument("--out", required=True, help="new .igs")
-    parser.add_argument(
-        "--configuration",
-        metavar="NAME",
-        help="generate only the components of this entry of the [configurations] table",
-    )
-    parser.set_defaults(mesh_command=run_generate)
-
-
-def run_generate(args: argparse.Namespace) -> int:
-    """Run generate: load and resolve the configuration, write the IGES, print the record."""
-    from pyflightstream.geometry import load_config
-    from pyflightstream.workspace.geometry_pipeline import generate_iges
-
-    def work() -> dict[str, Any]:
-        resolved = load_config(args.config)
-        return generate_iges(resolved, args.out, configuration=args.configuration)
-
-    return _report(work)
 
 
 def add_identify_parser(subparsers: Any) -> None:
@@ -228,10 +192,10 @@ def run_identify(args: argparse.Namespace) -> int:
             entry = found.to_component()
             write_config(resolve_config({"components": {args.component: entry}}), args.config_out)
             record["config_out"] = args.config_out
-        _write_json(args.out, record)
+        write_json(args.out, record)
         return record
 
-    return _report(work)
+    return report_of(work)
 
 
 def add_check_parser(subparsers: Any) -> None:
@@ -342,58 +306,10 @@ def run_check(args: argparse.Namespace) -> int:
         if args.fold_y:
             limits["fold_y"] = True
         record = check_against_original(args.rebuilt, args.original, limits, profile=args.profile)
-        _write_json(args.out, record)
+        write_json(args.out, record)
         return record
 
-    return _report(work, rejects=True)
-
-
-def add_mesh_generated_parser(subparsers: Any) -> None:
-    """Add the verb that meshes a parametric configuration into an all-quad OBJ."""
-    parser = subparsers.add_parser(
-        "mesh-generated",
-        help="mesh a parametric configuration into an all-quad OBJ (uses the gmsh kernel)",
-        description=(
-            "Resolves the configuration and meshes its patches from their role: constant "
-            "spanwise width with a refined tip, chordwise growth from the leading edge, "
-            "constant azimuth and axial step on a body, a planar all-quad flat tip cap and, "
-            "for a wing on a body, the fairing as one quad-dominant transition ring. The "
-            "orientation is outward. The record (counts, the acceptance checks, the spacing "
-            "rules) is printed; the OBJ holds one group per component."
-        ),
-    )
-    parser.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
-    parser.add_argument("--obj", required=True, help="new .obj")
-    parser.add_argument(
-        "--component",
-        metavar="NAME",
-        help="mesh this body or lifting surface alone, in its own frame (default: the assembly)",
-    )
-    parser.add_argument(
-        "--controls",
-        metavar="TOML",
-        help="mesh controls overriding the defaults, by table: lifting_surface, body, checks, "
-        "assembly",
-    )
-    parser.add_argument("--out", metavar="JSON", help="also write the record to this file")
-    parser.set_defaults(mesh_command=run_mesh_generated)
-
-
-def run_mesh_generated(args: argparse.Namespace) -> int:
-    """Run mesh-generated: write the OBJ and print the record of its checks."""
-    from pyflightstream.geometry import load_config
-    from pyflightstream.workspace.geometry_pipeline import mesh_generated
-
-    def work() -> dict[str, Any]:
-        resolved = load_config(args.config)
-        result = mesh_generated(
-            resolved, component=args.component, controls=args.controls, obj=args.obj
-        )
-        record = {"obj": args.obj, **result.record}
-        _write_json(args.out, record)
-        return record
-
-    return _report(work)
+    return report_of(work, rejects=True)
 
 
 def add_schema_parser(subparsers: Any) -> None:
@@ -430,7 +346,7 @@ def run_schema(args: argparse.Namespace) -> int:
             if args.asset_root is not None:
                 raise InputValueError("--asset-root: only with --validate")
             schema = export_schema()
-            _write_json(args.out, schema)
+            write_json(args.out, schema)
             return schema
         if args.out is not None:
             warn("--out: not used with --validate, which writes nothing", NotApplicableWarning)
@@ -446,23 +362,21 @@ def run_schema(args: argparse.Namespace) -> int:
             "accepted": not problems,
         }
 
-    return _report(work, rejects=True)
+    return report_of(work, rejects=True)
 
 
-#: The parser of each verb this module adds, by its name in the group.
+#: The parser of each verb this module adds, by its name.
 _PARSERS: dict[str, Callable[[Any], None]] = {
-    "generate": add_generate_parser,
     "identify": add_identify_parser,
     "check": add_check_parser,
-    "mesh-generated": add_mesh_generated_parser,
     "schema": add_schema_parser,
 }
 
-#: The verbs this module adds to the group.
-PARAMETRIC_VERBS = tuple(_PARSERS)
+#: The verbs this module adds.
+MOVED_VERBS = tuple(_PARSERS)
 
 
-def add_parametric_verbs(verbs: Any) -> None:
-    """Add this module's verbs to the ``geometry`` subparsers."""
+def add_moved_verbs(verbs: Any) -> None:
+    """Add this module's verbs to the ``pyfs-geom`` subparsers."""
     for add in _PARSERS.values():
         add(verbs)

@@ -34,7 +34,11 @@ __all__ = [
 STAGE_FORMAT = "pyflightstream-geom-stage/1"
 REPORT_FORMAT = "pyflightstream-geom-report/1"
 _STATUSES = ("passed", "failed", "skipped")
-_OUTCOMES = {"accepted": 0, "failed": 1, "refused": 2}
+#: The status of a run and its exit code. ``incomplete`` is a run that reached its last stage
+#: with a check of the stage table not measured (a stage not built, or a check its stage did
+#: not return): no check failed, and it is not ``accepted``. 3 is the package's code for a
+#: result with parts outstanding.
+_OUTCOMES = {"accepted": 0, "failed": 1, "refused": 2, "incomplete": 3}
 _VOLATILE = ("started", "wall_s")
 _BOUNDS = ("max", "min")
 
@@ -188,12 +192,20 @@ def geometry_report(
     stages=(),
     outputs=None,
     warnings=(),
+    not_run=(),
 ):
-    """Return the report of a run: ``accepted``, ``failed`` (a stage and a check) or ``refused``."""
+    """Return the report of a run: ``accepted``, ``incomplete``, ``failed`` or ``refused``.
+
+    ``failed`` names a stage and a check. ``not_run`` lists, as ``"<stage> <check>"``, every
+    check of the stage table up to the last stage run that was not measured; a run with one is
+    ``incomplete``, never ``accepted``.
+    """
     if status not in _OUTCOMES:
         raise InputValueError(f"report: status expected one of {sorted(_OUTCOMES)}")
     if status == "failed" and not (stage and check):
         raise InputValueError("report: a failed run names its stage and its check")
+    if status == "accepted" and not_run:
+        raise InputValueError("report: a run with checks not measured is not accepted")
     return {
         "format": REPORT_FORMAT,
         "status": status,
@@ -209,11 +221,12 @@ def geometry_report(
         "stages": list(stages),
         "outputs": dict(outputs or {}),
         "warnings": list(warnings),
+        "not_run": list(not_run),
     }
 
 
 def exit_code(report: Mapping) -> int:
-    """Return the exit code of a run: 0 accepted, 1 failed, 2 refused."""
+    """Return the exit code of a run: 0 accepted, 1 failed, 2 refused, 3 incomplete."""
     return _OUTCOMES[report["status"]]
 
 
