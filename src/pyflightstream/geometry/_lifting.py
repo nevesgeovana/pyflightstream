@@ -146,7 +146,11 @@ def lifting_surface(component) -> list[Patch]:
 
 
 def planform_metrics(component):
-    """Return the planform area and mean aerodynamic chord by quadrature of the chord."""
+    """Return the planform area and mean aerodynamic chord by quadrature of the chord.
+
+    The area is that of the whole span, the mirrored pair. Under ``planform.height`` the resolved
+    ``planform.area`` is that of one surface, so there it is half of the area returned here.
+    """
 
     def chord(eta):
         return float(planform_values(component, eta)["chord"])
