@@ -482,3 +482,103 @@ def test_r9_008_the_unclamped_arm_reads_all_four_knot_ends(tmp_path, planted):
     found = check_profile(tmp_path / "bad.igs").failed
     assert [f.check for f in found] == ["profile.unclamped"]
     assert found[0].detail.startswith(planted[0])
+
+
+# R9-009: a read-back through the kernel arrives in metres, whatever the file or the import says.
+
+
+def test_r9_009_a_file_in_millimetres_arrives_in_metres(tmp_path):
+    _need_gmsh()
+    from pyflightstream.workspace._gmsh import open_kernel, session
+
+    path = tmp_path / "mm.igs"
+    with session("raw") as gmsh:
+        gmsh.model.occ.addRectangle(0, 0, 0, 8000, 2000)
+        gmsh.model.occ.synchronize()
+        gmsh.write(str(path))
+    named = _bicubic_file(tmp_path / "m.igs")
+    k = open_kernel("read")
+    try:
+        first = k.import_iges(named)
+        second = k.import_iges(path)
+        assert first.unit == "METER" and second.unit == "MILLIMETER"
+        assert k.bbox(first.faces[0])[1][0] == pytest.approx(3.0, abs=1e-5)
+        assert k.bbox(second.faces[0])[1][0] == pytest.approx(8.0, abs=1e-5)
+    finally:
+        k.close()
+
+
+def test_r9_009_a_unit_with_no_scale_is_refused_as_the_other_reader_does(tmp_path):
+    _need_gmsh()
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
+
+    document = read_iges(_bicubic_file(tmp_path / "c.igs"))
+    document["global"][13:15] = ["3", "5HSPANS"]
+    write_text(tmp_path / "spans.igs", serialize_iges(document), encoding="ascii")
+    k = open_kernel("read")
+    try:
+        with pytest.raises(InputArtifactError, match="unit"):
+            k.import_iges(tmp_path / "spans.igs")
+    finally:
+        k.close()
+
+
+_OTHER_UNIT = (
+    "import sys\n"
+    "import gmsh\n"
+    "from pyflightstream.workspace._gmsh import open_kernel\n"
+    "gmsh.initialize(readConfigFiles=False)\n"
+    "gmsh.option.setNumber('General.Terminal', 0)\n"
+    "gmsh.option.setString('Geometry.OCCTargetUnit', 'M')\n"
+    "gmsh.model.occ.addRectangle(0, 0, 0, 1, 1)\n"
+    "gmsh.model.occ.synchronize()\n"
+    "gmsh.write(sys.argv[1] + '.scratch.igs')\n"
+    "gmsh.model.occ.importShapes(sys.argv[1])\n"
+    "gmsh.finalize()\n"
+    "k = open_kernel('read')\n"
+    "named = k.import_iges(sys.argv[1])\n"
+    "print(k.bbox(named.faces[0])[1][0])\n"
+    "k.close()\n"
+)
+
+
+def test_r9_009_an_import_left_in_another_unit_is_refused_not_scaled_wrong(tmp_path):
+    """The process-wide reader unit survives a finalize, so the import returns another unit.
+
+    This is how a model a thousand times off is made on this machine; the reviewed code printed
+    0.003 for a surface of 3 m and exited 0.
+    """
+    _need_gmsh()
+    import os
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, "-c", _OTHER_UNIT, str(_bicubic_file(tmp_path / "c.igs"))],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=dict(os.environ),
+    )
+    assert done.returncode != 0 and "largest coordinate" in done.stderr, done.stdout
+
+
+def test_r9_009_a_size_far_from_the_stated_coordinate_is_refused(tmp_path):
+    _need_gmsh()
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
+
+    document = read_iges(_bicubic_file(tmp_path / "c.igs"))
+    document["global"][19] = "3000."
+    write_text(tmp_path / "off.igs", serialize_iges(document), encoding="ascii")
+    k = open_kernel("read")
+    try:
+        with pytest.raises(InputArtifactError, match="largest coordinate"):
+            k.import_iges(tmp_path / "off.igs")
+    finally:
+        k.close()

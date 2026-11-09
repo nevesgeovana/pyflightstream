@@ -29,6 +29,7 @@ from pyflightstream.workspace._iges_names import (
     IgesNames,
     read_iges_names,
 )
+from pyflightstream.workspace._iges_write import read_iges, write_iges
 
 __all__ = [
     "GmshKernel",
@@ -130,6 +131,14 @@ def _unit_of(names: IgesNames) -> str:
             kind="geometry",
         )
     return names.unit
+
+
+def _stated_extent(path: str | Path) -> float | None:
+    """Return the largest coordinate the file's global section states, or ``None`` if unreadable."""
+    try:
+        return float(read_iges(path)["global"][19].replace("D", "E"))
+    except (IndexError, ValueError):
+        return None
 
 
 def import_named(
@@ -329,7 +338,7 @@ class GmshKernel:
         return tuple(Face(int(t)) for t in up)
 
     def area(self, face: Face) -> float:
-        """Return the exact area of ``face``, in the model's unit squared."""
+        """Return the exact area of ``face``, in square metres."""
         self._model()
         return float(self._g.model.occ.getMass(2, face.tag))
 
@@ -403,8 +412,14 @@ class GmshKernel:
 
     # IO
     def import_iges(self, path: str | Path) -> NamedFaces:
-        """Read one IGES file into the model and return its faces with the names the file gives."""
+        """Read one IGES file into the model, in metres, with the names the file gives.
+
+        Every file arrives in metres, like every face the kernel builds, so faces of two files
+        agree whatever unit each one states; the file's unit is returned as ``unit``. A file whose
+        unit has no scale, or whose size does not match what it states, is refused.
+        """
         listed = read_iges_names(path)
+        _unit_of(listed)
         tags = import_iges(self._g, path)
         self._g.model.occ.synchronize()
         if len(tags) != len(listed.faces):
@@ -414,20 +429,36 @@ class GmshKernel:
                 "read.",
                 kind="geometry",
             )
-        if listed.unit is not None:
-            factor = float(METRES_PER_UNIT[IMPORT_UNIT] / METRES_PER_UNIT[listed.unit])
-            if factor != 1.0:
-                occ = self._g.model.occ
-                occ.dilate([(2, t) for t in tags], 0.0, 0.0, 0.0, factor, factor, factor)
-                occ.synchronize()
-        return NamedFaces(
-            faces=tuple(Face(t) for t in tags), names=tuple(listed.faces), unit=listed.unit
-        )
+        factor = float(METRES_PER_UNIT[IMPORT_UNIT])
+        occ = self._g.model.occ
+        occ.dilate([(2, t) for t in tags], 0.0, 0.0, 0.0, factor, factor, factor)
+        occ.synchronize()
+        faces = tuple(Face(t) for t in tags)
+        self._check_extent(path, faces, listed.unit)
+        return NamedFaces(faces=faces, names=tuple(listed.faces), unit=listed.unit)
+
+    def _check_extent(self, path: str | Path, faces: Sequence[Face], unit: str | None) -> None:
+        """Refuse a read-back whose size is far from the largest coordinate the file states.
+
+        The scale above rests on what unit the import returns. A kernel that returned another one
+        would give a model off by a factor of a thousand with no sign, so the file's own number
+        (global parameter 20) is compared with what arrived.
+        """
+        stated = _stated_extent(path)
+        if stated is None or not faces or unit is None:
+            return
+        expected = stated * float(METRES_PER_UNIT[unit])
+        boxes = [self.bbox(face) for face in faces]
+        measured = max(abs(c) for box in boxes for corner in box for c in corner)
+        if expected > 0 and measured > 0 and not 0.01 < measured / expected < 100:
+            raise InputArtifactError(
+                f"{path}: the file states a largest coordinate of {expected} m and the import "
+                f"returned {measured} m, so its unit was not read as stated. Nothing was read.",
+                kind="geometry",
+            )
 
     def export_iges(self, groups: Mapping[str, Sequence[Face]], path: str | Path) -> None:
         """Write one IGES file, each group's faces carrying the group name as their NAME."""
-        from pyflightstream.workspace._iges_write import write_iges
-
         self._model()
         write_iges(self._g, {n: [f.tag for f in fs] for n, fs in groups.items()}, path)
 

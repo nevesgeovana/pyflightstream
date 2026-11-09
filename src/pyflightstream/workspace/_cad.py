@@ -5,9 +5,9 @@ never sees the library behind it. :mod:`pyflightstream.workspace._gmsh` is the o
 imports a kernel library and holds the adapter; a permissive kernel replaces it by adding an adapter
 that satisfies this protocol and changing :func:`pyflightstream.workspace._gmsh.open_kernel`.
 
-Everything here is a plain type: a face is an opaque handle, points are tuples of floats in the
-model's unit, and a result is a frozen dataclass. The interface is surfaces only: no method builds
-or returns a solid.
+Everything here is a plain type: a face is an opaque handle, points are tuples of floats in metres
+(a file read in another unit arrives in metres), and a result is a frozen dataclass. The interface
+is surfaces only: no method builds or returns a solid.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ __all__ = [
     "UV",
 ]
 
-#: A point in the model's length unit.
+#: A point, in metres.
 Point = tuple[float, float, float]
 #: A surface parameter pair.
 UV = tuple[float, float]
@@ -54,7 +54,10 @@ class FragmentMap:
 
 @dataclass(frozen=True)
 class NamedFaces:
-    """The faces of one imported IGES file, each with the name the file gives it."""
+    """The faces of one imported IGES file, each with the name the file gives it.
+
+    The faces are in metres; ``unit`` is the unit the file stated.
+    """
 
     faces: tuple[Face, ...]
     names: tuple[str, ...]
@@ -136,7 +139,7 @@ class CadKernel(Protocol):
         ...
 
     def area(self, face: Face) -> float:
-        """Return the exact area of ``face``, in the model's unit squared."""
+        """Return the exact area of ``face``, in square metres."""
         ...
 
     def centroid(self, face: Face) -> Point:
