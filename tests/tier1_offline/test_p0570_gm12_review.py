@@ -878,3 +878,14 @@ def test_r9_015_a_different_set_of_members_is_a_different_id():
     assert _id_of(_two_bodies(configurations={"c": ["a"]})) != _id_of(
         _two_bodies(configurations={"c": ["a", "b"]})
     )
+
+
+# R9-016: section C.2 states the default version, and C.5's example relies on it.
+
+
+def test_r9_016_the_default_component_version_is_the_design_s():
+    from pyflightstream.geometry._boundary import unpack
+    from pyflightstream.geometry.config import resolve_config
+
+    plain = unpack(resolve_config({"components": {"a": {"type": "body"}}}))
+    assert plain["components"]["a"]["version"] == "1.0.0"

@@ -65,7 +65,7 @@ def default_component(kind):
     """Return fresh plain data, with no shared mutable defaults."""
     common = {
         "type": kind,
-        "version": "1.1.0",
+        "version": "1.0.0",
         "placement": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]},
         "attach": {"parent": "", "station": 0.0},
         "original": "",
