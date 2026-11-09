@@ -1,0 +1,424 @@
+"""The runner of the geometry pipeline: stages in order, stop at the first failed check.
+
+Pipeline role: executes the stages of :mod:`pyflightstream.geometry._stage_table` for one
+resolved configuration and returns the report a design loop reads. A stage returns its checks,
+and the runner writes one stage record per stage and a report last. The first failed check
+stops the run and the report names its stage and its check, with the value measured and the
+limit; a refused input stops it as ``refused``. A report is returned, never raised, so a loop
+of parameter sets continues after a failed one (:func:`run_doe`, each set in a worker process of
+its own, so a fault of the kernel ends that set only).
+
+A stage with no function in this tree is recorded with every check ``skipped`` and the reason,
+and the report says so in its warnings: a run that reaches ``S13`` through unbuilt stages is
+not read as a verified model.
+"""
+
+from __future__ import annotations
+
+import copy
+import tomllib
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import pyflightstream
+from pyflightstream._errors import (
+    ContractNotImplementedError,
+    InputValueError,
+    PyflightstreamError,
+)
+from pyflightstream.extras import MissingExtraError
+from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._identity import parameter_id
+from pyflightstream.geometry._records import (
+    check_entry,
+    geometry_report,
+    stage_record,
+    write_record,
+)
+from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
+from pyflightstream.workspace._gmsh_worker import run_isolated
+
+__all__ = [
+    "RunContext",
+    "Stage",
+    "StageOutcome",
+    "add_control_surfaces",
+    "default_stages",
+    "run_doe",
+    "run_geometry",
+    "run_set",
+    "split_symmetry",
+]
+
+
+@dataclass
+class StageOutcome:
+    """What one stage returns: its checks, findings, warnings and the files it wrote."""
+
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    outputs: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RunContext:
+    """The inputs every stage reads and the values a stage hands to the next.
+
+    ``resolved`` is the resolved configuration (with every override applied), ``members`` the
+    component names of the selected configuration, ``state`` the scratch the stages share, and
+    ``out`` the folder the records and files are written to.
+    """
+
+    resolved: dict[str, Any]
+    configuration: str | None
+    variant: str
+    out: Path
+    parameter_id: str
+    members: list[str]
+    state: dict[str, Any] = field(default_factory=dict)
+
+
+StageFn = Callable[[RunContext], StageOutcome]
+
+
+@dataclass(frozen=True)
+class Stage:
+    """One stage of a run: its row of the table and its function, when this tree has one."""
+
+    row: StageRow
+    run: StageFn | None
+
+
+def _definition(context: RunContext) -> StageOutcome:
+    """S0: the configuration resolved, so every key is known and every relationship holds."""
+    resolved = context.resolved
+    return StageOutcome(
+        checks=[check_entry("input.valid", "passed", 0, 0, unit="refused keys")],
+        findings=[str(item) for item in resolved.get("findings", [])],
+        warnings=[str(item) for item in resolved.get("warnings", [])],
+        outputs={"components": list(resolved["components"]), "members": context.members},
+    )
+
+
+def _export(context: RunContext) -> StageOutcome:
+    """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
+    from pyflightstream.workspace._geometry_generate import generate_iges
+
+    name = context.configuration or str(
+        unpack(context.resolved["aircraft"]).get("name", "geometry")
+    )
+    target = context.out / f"{name}.igs"
+    written = generate_iges(context.resolved, target, configuration=context.configuration)
+    warnings = [
+        str(item) for item in written["warnings"] if item not in context.resolved["warnings"]
+    ]
+    if context.variant != "clean":
+        warnings.append(f"variant {context.variant}: not applied by the export stage in this tree")
+    return StageOutcome(
+        checks=[check_entry("profile.surfaces_only", "passed", 0, 0, unit="solid entities")],
+        warnings=warnings,
+        outputs={"iges": str(target), "faces": written["faces"], "audit": written["audit"]},
+    )
+
+
+#: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
+_STAGE_FUNCTIONS: dict[str, StageFn] = {"S0": _definition, "S11": _export}
+
+
+def default_stages() -> list[Stage]:
+    """Return every stage of the table with the function this tree holds for it, if any."""
+    return [Stage(row, _STAGE_FUNCTIONS.get(row.stage)) for row in STAGE_ROWS]
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _set_path(raw: dict[str, Any], dotted: str, value: Any) -> None:
+    """Set ``component.key.key`` of the raw ``components`` table, refusing an unknown component."""
+    parts = dotted.split(".")
+    components = raw.get("components")
+    if len(parts) < 2 or not isinstance(components, dict) or parts[0] not in components:
+        known = sorted(components) if isinstance(components, dict) else []
+        raise InputValueError(
+            f"overrides: {dotted!r} must be <component>.<key>[.<key>] of a declared component "
+            f"(declared: {known})"
+        )
+    node = components[parts[0]]
+    for part in parts[1:-1]:
+        node = node.setdefault(part, {})
+        if not isinstance(node, dict):
+            raise InputValueError(f"overrides: {dotted!r}: {part!r} is not a table")
+    node[parts[-1]] = value
+
+
+def _holds(resolved: Mapping[str, Any], dotted: str) -> bool:
+    node: Any = unpack(dict(resolved))["components"]
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
+
+
+def _resolve(config, overrides):
+    """Return the resolved configuration of a path or mapping with ``overrides`` applied."""
+    if isinstance(config, (str, Path)):
+        path = Path(config)
+        with path.open("rb") as stream:
+            raw = tomllib.load(stream)
+        stem, base = path.stem, path.parent
+    else:
+        raw, stem, base = copy.deepcopy(dict(config)), None, None
+    if overrides and raw.get("format") == "pyflightstream-geometry-resolved":
+        raise InputValueError("overrides: give a path or a raw configuration, not a resolved one")
+    for dotted, value in (overrides or {}).items():
+        _set_path(raw, dotted, value)
+    resolved = resolve_config(raw, stem=stem, base=base)
+    for dotted in overrides or {}:
+        if not _holds(resolved, dotted):
+            raise InputValueError(f"overrides: {dotted!r}: unknown parameter, nothing was run")
+    return resolved
+
+
+def _members(resolved, configuration, variant):
+    configurations = resolved["configurations"]
+    if configuration is None:
+        members = list(resolved["components"])
+    elif configuration not in configurations:
+        raise InputValueError(
+            f"configuration {configuration!r}: unknown; available: {sorted(configurations)}"
+        )
+    else:
+        members = list(configurations[configuration])
+    if variant not in unpack(resolved["variants"]):
+        raise InputValueError(
+            f"variant {variant!r}: unknown; available: {sorted(unpack(resolved['variants']))}"
+        )
+    return members
+
+
+def _skipped(row: StageRow) -> StageOutcome:
+    note = "stage not built in this tree"
+    return StageOutcome(
+        checks=[check_entry(cid, "skipped", note=note) for cid, _ in row.checks],
+        warnings=[f"{row.stage} {row.name}: {note}"],
+    )
+
+
+def _refused(message, *, parameter="", stage="S0", check="input.valid"):
+    return geometry_report("refused", parameter or None, stage=stage, check=check, message=message)
+
+
+def _first_failure(checks):
+    return next((c for c in checks if c["status"] == "failed"), None)
+
+
+def run_geometry(
+    config: Any,
+    *,
+    out: str | Path,
+    configuration: str | None = None,
+    variant: str = "clean",
+    overrides: Mapping[str, Any] | None = None,
+    until: str = "S13",
+    stages: Sequence[Stage] | None = None,
+) -> dict[str, Any]:
+    """Run the stages S0 to ``until`` and return the report; it stops at the first failed check.
+
+    Parameters
+    ----------
+    config : path or mapping
+        A configuration file or its raw mapping.
+    out : path
+        The folder the stage records (``S<n>.json``), the report (``report.json``) and the files
+        of the export stage are written to.
+    configuration, variant : str
+        The entry of the configuration registry to build, and the variant of it.
+    overrides : mapping, optional
+        ``{"main.planform.span": 12.0}``: component, then key path. A name no component holds is
+        refused and nothing runs.
+    until : str
+        The last stage to run, ``S0`` to ``S13``. A run to ``S9`` needs no kernel.
+    stages : sequence of Stage, optional
+        The stages to run, for a caller that replaces one; the stages of this tree by default.
+
+    Returns
+    -------
+    dict
+        The report: ``status`` accepted, failed (its ``stage``, ``check``, ``measured`` and
+        ``limit`` name the first failed check) or refused (the input, or the kernel, is not
+        usable). Never raised for a failed or a refused run.
+    """
+    last = stage_index(until)
+    folder = Path(out)
+    try:
+        resolved = _resolve(config, overrides)
+        members = _members(resolved, configuration, variant)
+    except (PyflightstreamError, ValueError, OSError, tomllib.TOMLDecodeError) as error:
+        return _refused(str(error))
+    parameter = parameter_id(resolved)
+    folder.mkdir(parents=True, exist_ok=True)
+    context = RunContext(resolved, configuration, variant, folder, parameter, members)
+    records: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for stage in list(stages if stages is not None else default_stages())[: last + 1]:
+        began = _now()
+        try:
+            outcome = stage.run(context) if stage.run else _skipped(stage.row)
+        except MissingExtraError as error:
+            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="kernel")
+        except ContractNotImplementedError as error:
+            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="built")
+        except (PyflightstreamError, ValueError, OSError) as error:
+            outcome = StageOutcome(
+                checks=[check_entry("stage.raised", "failed", 1, 0, note=str(error))]
+            )
+        record = stage_record(
+            stage.row.stage,
+            stage.row.name,
+            package_version=pyflightstream.__version__,
+            inputs_id=parameter,
+            parameter_id=parameter,
+            checks=outcome.checks,
+            findings=outcome.findings,
+            warnings=outcome.warnings,
+            outputs=outcome.outputs,
+            started=began,
+        )
+        write_record(folder / f"{stage.row.stage}.json", record)
+        records.append(record)
+        warnings.extend(outcome.warnings)
+        failed = _first_failure(record["checks"])
+        if failed is not None:
+            return _finish("failed", parameter, folder, records, warnings, stage.row, failed)
+    return _finish("accepted", parameter, folder, records, warnings, None, None)
+
+
+def _finish(status, parameter, folder, records, warnings, row, failed):
+    summary = [
+        {
+            "stage": r["stage"],
+            "name": r["name"],
+            "status": r["status"],
+            "record": f"{r['stage']}.json",
+        }
+        for r in records
+    ]
+    report = geometry_report(
+        status,
+        parameter,
+        stage=row.stage if row else None,
+        check=failed["id"] if failed else None,
+        message=failed["note"] if failed else "",
+        measured=failed["measured"] if failed else None,
+        limit=failed["limit"] if failed else None,
+        where=failed["where"] if failed else None,
+        stages=summary,
+        outputs={k: v for r in records for k, v in r["outputs"].items()},
+        warnings=warnings,
+    )
+    write_record(folder / "report.json", report)
+    return report
+
+
+def run_set(
+    config: Any,
+    out: str | Path,
+    overrides: Mapping[str, Any] | None = None,
+    configuration: str | None = None,
+    variant: str = "clean",
+    until: str = "S13",
+) -> dict[str, Any]:
+    """Run one parameter set and return its report; ``out`` is its report file."""
+    return run_geometry(
+        config,
+        out=Path(out).parent,
+        configuration=configuration,
+        variant=variant,
+        overrides=overrides,
+        until=until,
+    )
+
+
+def _one_set(index, config, params, out, configuration, variant, until):
+    folder = Path(out) / f"set-{index + 1:04d}"
+    arguments = {
+        "config": config if isinstance(config, Mapping) else str(config),
+        "out": str(folder / "report.json"),
+        "overrides": dict(params),
+        "configuration": configuration,
+        "variant": variant,
+        "until": until,
+    }
+    try:
+        return run_isolated(f"{__name__}:run_set", arguments, run_set)
+    except Exception as error:  # a worker fault must end this set only
+        return geometry_report(
+            "failed",
+            None,
+            stage="worker",
+            check="worker.completed",
+            message=f"{type(error).__name__}: {error}",
+        )
+
+
+def run_doe(
+    config: Any,
+    parameter_sets: Sequence[Mapping[str, Any]],
+    *,
+    out: str | Path,
+    configuration: str | None = None,
+    variant: str = "clean",
+    until: str = "S13",
+    workers: int = 1,
+) -> Iterator[dict[str, Any]]:
+    """Yield one report per parameter set, in order; a failed or refused set never stops the loop.
+
+    Each set runs in a worker process of its own (the kernel can fault natively) and writes
+    to ``out/set-0001``, ``out/set-0002`` and so on. A set whose worker dies is reported
+    ``failed`` at stage ``worker``.
+    """
+    if workers < 1:
+        raise InputValueError("workers: at least 1 required")
+    stage_index(until)
+    jobs = [
+        (i, config, params, out, configuration, variant, until)
+        for i, params in enumerate(parameter_sets)
+    ]
+    if workers == 1:
+        for job in jobs:
+            yield _one_set(*job)
+        return
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        yield from pool.map(lambda job: _one_set(*job), jobs)
+
+
+def _not_built(what: str) -> ContractNotImplementedError:
+    return ContractNotImplementedError(f"{what}: not built yet in this tree; nothing was written")
+
+
+def add_control_surfaces(
+    iges: str | Path, component: str, entries: Sequence[Mapping[str, Any]], out: str | Path
+) -> dict[str, Any]:
+    """Add control surfaces to a component of an IGES file (PFS-2215); not built yet."""
+    raise _not_built("add_control_surfaces")
+
+
+def split_symmetry(
+    iges: str | Path, out: str | Path, *, plane: str = "y", component: str | None = None
+) -> dict[str, Any]:
+    """Cut a full model at its symmetry plane and write the half model (C8); not built yet.
+
+    The faces that cross the plane are to be trimmed exactly on it and the plane edges left
+    open and marked as symmetry. The geometry belongs to another lane of the release.
+    """
+    if plane not in ("x", "y", "z"):
+        raise InputValueError(f"plane: one of x, y, z required, got {plane!r}")
+    raise _not_built("split_symmetry")

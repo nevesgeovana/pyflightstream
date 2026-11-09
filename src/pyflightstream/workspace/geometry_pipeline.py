@@ -36,6 +36,12 @@ from typing import Any
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.stages import fit_section
+from pyflightstream.workspace._geom_run import (
+    add_control_surfaces,
+    run_doe,
+    run_geometry,
+    split_symmetry,
+)
 from pyflightstream.workspace._geometry_check import (
     check_against_original,
     resolve_faces,
@@ -60,10 +66,14 @@ from pyflightstream.workspace._gmsh import gmsh_module, open_kernel
 __all__ = [
     "GeneratedMesh",
     "LiftingIdentification",
+    "add_control_surfaces",
     "check_against_original",
     "generate_iges",
     "identify_lifting_surface",
     "mesh_generated",
+    "run_doe",
+    "run_geometry",
+    "split_symmetry",
 ]
 
 
