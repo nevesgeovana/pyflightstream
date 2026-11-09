@@ -367,6 +367,25 @@ def test_r6_the_fine_pass_takes_the_stations_asked_when_the_span_is_settled(plai
     assert len(found.scan["station_m"]) >= 85
 
 
+def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_path):
+    """R6-005: the station refine_tip inserted shifted every rejected label after it."""
+    gmsh_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import generate_iges, identify_lifting_surface
+
+    wing = {
+        "type": "lifting_surface",
+        "sections": {"airfoils": ["NACA0012"]},
+        "planform": {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "sweep": 15.0},
+        "tip_cap": {"kind": "rounded"},
+    }
+    path = tmp_path / "rounded.igs"
+    generate_iges({"components": {"WING": wing}}, path)
+    found = identify_lifting_surface(path, "WING", stations=41, grid=65, converge=False)
+    outermost = found.scan["station_m"][-1]
+    assert len(found.scan["station_m"]) == 42  # the tip bisection inserted a clean endpoint
+    assert f"{outermost:.6g}" in found.scan["rejected"]
+
+
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 

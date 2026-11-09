@@ -286,6 +286,8 @@ def identify_pass(grids, samples, hosts, spec, count):
     def evaluate(s):
         return contour_features(closed_contour(cutter(grids, span, s)), span)
 
+    # Labelled before the refinement, which inserts a station the failures do not hold.
+    rejected = {f"{s:.6g}": reason for s, reason in zip(stations, failures, strict=True) if reason}
     stations, features, band, bracket = refine_tip(stations, features, band, evaluate)
     mirrored = spec["mirrored"]
     root = spec["root"]
@@ -336,9 +338,7 @@ def identify_pass(grids, samples, hosts, spec, count):
         "station_m": stations.tolist(),
         "clean_indices": band.tolist(),
         "tip_bracket_m": bracket,
-        "rejected": {
-            f"{s:.6g}": reason for s, reason in zip(stations, failures, strict=False) if reason
-        },
+        "rejected": rejected,
     }
     return result, band, features, stations, span, diagnostics
 
