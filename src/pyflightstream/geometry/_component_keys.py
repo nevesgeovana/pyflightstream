@@ -15,9 +15,10 @@ import math
 import re
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._schema import number, stations
+from pyflightstream.geometry._schema import known_keys, number, stations
 
 __all__ = [
+    "body_sections",
     "check_blister",
     "check_body_extras",
     "check_common",
@@ -28,6 +29,19 @@ __all__ = [
 SURFACE_KINDS = ("aileron", "elevator", "rudder", "plain_flap", "fowler")
 _CAP_KINDS = ("flat", "rounded", "ridged", "exact_loft", "none")
 _NACA = re.compile(r"NACA(?:\d{4}|\d{5})")
+_ITEM_KEYS = ("eta", "naca", "cst_upper", "cst_lower", "te", "file")
+_ITEM_KEYS_BY_FORM = {
+    "naca": ("eta", "naca"),
+    "cst_upper": ("eta", "cst_upper", "cst_lower", "te"),
+    "file": ("eta", "file"),
+}
+_PHYSICAL_KEYS = ("nose_radius", "boat_tail_deg", "te_thickness", "thickness_at")
+_BOUND_KEYS = ("component", "eta_in", "eta_out")
+_BODY_SECTION_KEYS = ("at", "shape", "radius", "width", "height", "centre_height", "z_c")
+_BODY_SECTION_KEYS += ("n_top", "n_bottom")
+_BOAT_TAIL_KEYS = ("x_cut", "base_height", "angle_limit_deg")
+_MESH_ZONE_KEYS = ("across", "across_min", "ratio", "le_cell", "end_cell", "growth", "max_cell")
+_KINEMATICS_KEYS = ("deflection_deg", "pivot_x", "pivot_z", "gap_pct", "overlap_pct")
 
 
 def check_common(name, component, warnings):
@@ -69,7 +83,7 @@ def _item_form(name, i, item):
     return forms[0]
 
 
-def _check_sections(name, component, raw):
+def _check_sections(name, component, raw, warnings):
     """Resolve ``sections.items`` into the legacy airfoil and station lists, check the rest."""
     section = component["sections"]
     if section["form"] != "cst":
@@ -80,13 +94,20 @@ def _check_sections(name, component, raw):
     if physical is not None and ("airfoils" in raw or "items" in raw):
         raise InputValueError(f"{name}.sections.physical: given together with naca sections")
     if physical is not None:
-        for key in ("nose_radius", "boat_tail_deg", "te_thickness", "thickness_at"):
+        known_keys(physical, _PHYSICAL_KEYS, f"{name}.sections.physical", warnings)
+        for key in _PHYSICAL_KEYS:
             if key in physical:
                 number(physical[key], f"{name}.sections.physical.{key}", 0)
     items = section["items"]
     if not items:
         return
+    if not isinstance(items, list):
+        raise InputValueError(f"{name}.sections.items: expected a list of tables")
+    for i, item in enumerate(items):
+        known_keys(item, _ITEM_KEYS, f"{name}.sections.items[{i}]", warnings)
     forms = [_item_form(name, i, item) for i, item in enumerate(items)]
+    for i, (item, form) in enumerate(zip(items, forms, strict=True)):
+        known_keys(item, _ITEM_KEYS_BY_FORM[form], f"{name}.sections.items[{i}]", warnings)
     stations([item["eta"] for item in items], f"{name}.sections.items", 1)
     section["eta"] = [item["eta"] for item in items]
     section["airfoils"] = [
@@ -202,10 +223,29 @@ def _check_tip_cap(cap):
             raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
 
 
-def _check_nacelle_bounds(name, component):
+def _surface_tables(path, surface, warnings):
+    """Warn about and skip the unknown keys of the tables inside a control surface."""
+    if "cove" in surface:
+        known_keys(surface["cove"], ("wall_x", "lip_x", "p3"), f"{path}.cove", warnings)
+        if "p3" in surface["cove"]:
+            known_keys(surface["cove"]["p3"], ("eta", "z_over_c"), f"{path}.cove.p3", warnings)
+    if "nose" in surface:
+        known_keys(surface["nose"], ("kind", "radius"), f"{path}.nose", warnings)
+    if "kinematics" in surface:
+        if not isinstance(surface["kinematics"], list):
+            raise InputValueError(f"{path}.kinematics: expected a list of tables")
+        for row in surface["kinematics"]:
+            known_keys(row, _KINEMATICS_KEYS, f"{path}.kinematics", warnings)
+
+
+def _check_nacelle_bounds(name, component, warnings):
     """Check the two control sections that bound each nacelle trim (requirement 4)."""
-    for i, bound in enumerate(component["sections"].get("nacelle_bounds", [])):
+    bounds = component["sections"].get("nacelle_bounds", [])
+    if not isinstance(bounds, list):
+        raise InputValueError(f"{name}.sections.nacelle_bounds: expected a list of tables")
+    for i, bound in enumerate(bounds):
         path = f"{name}.sections.nacelle_bounds[{i}]"
+        known_keys(bound, _BOUND_KEYS, path, warnings)
         number(bound.get("eta_in"), f"{path}.eta_in", 0, 1)
         number(bound.get("eta_out"), f"{path}.eta_out", 0, 1)
         if bound["eta_in"] >= bound["eta_out"]:
@@ -217,14 +257,16 @@ def _check_nacelle_bounds(name, component):
 def check_lifting_extras(name, component, raw, warnings, findings):
     """Check the C.2 and C.3 keys added to a lifting surface; fills sections from ``items``."""
     check_common(name, component, warnings)
-    _check_sections(name, component, raw.get("sections", {}))
+    _check_sections(name, component, raw.get("sections", {}), warnings)
+    for key, law in component.get("distributions", {}).items():
+        known_keys(law, ("stations", "values"), f"{name}.distributions.{key}", warnings)
     if component["trailing_edge"] == "collapsed":
         warnings.append(f"{name}.trailing_edge: collapse is a mesh key, blunt is kept")
         component["trailing_edge"] = "blunt"
     if component["trailing_edge"] != "blunt":
         raise InputValueError(f"{name}.trailing_edge: expected blunt")
     _check_tip_cap(component["tip_cap"])
-    _check_nacelle_bounds(name, component)
+    _check_nacelle_bounds(name, component, warnings)
     component["control_surfaces"] = [
         _fill_surface(name, i, raw, warnings) for i, raw in enumerate(component["control_surfaces"])
     ]
@@ -232,10 +274,24 @@ def check_lifting_extras(name, component, raw, warnings, findings):
     if len(set(names)) != len(names):
         raise InputValueError(f"{name}.control_surfaces.name: duplicate")
     for i, surface in enumerate(component["control_surfaces"]):
+        _surface_tables(f"{name}.control_surfaces[{i}]", surface, warnings)
         _check_surface(name, i, surface)
         for skipped in surface.pop("_skipped", []):
             warnings.append(f"{skipped}: used by fowler only, skipped")
     findings.extend(f"{name}: {text}" for text in component["open_findings"])
+
+
+def body_sections(name, sections, warnings):
+    """Warn about and skip the unknown keys of a body's sections; ``z_c`` is ``centre_height``."""
+    if not isinstance(sections, list):
+        raise InputValueError(f"{name}.sections: expected a list of tables")
+    for i, section in enumerate(sections):
+        path = f"{name}.sections[{i}]"
+        known_keys(section, _BODY_SECTION_KEYS, path, warnings)
+        if "z_c" in section:
+            height = section.pop("z_c")
+            if section.setdefault("centre_height", height) != height:
+                raise InputValueError(f"{path}.z_c: differs from centre_height, the same key")
 
 
 def check_body_extras(name, component, warnings, findings):
@@ -251,6 +307,7 @@ def check_body_extras(name, component, warnings, findings):
         form = rear.get("boat_tail")
         if set(rear) != {"boat_tail"} or not isinstance(form, dict):
             raise InputValueError(f"{name}.rear: expected pole, base or a boat_tail table")
+        known_keys(form, _BOAT_TAIL_KEYS, f"{name}.rear.boat_tail", warnings)
         number(form.get("x_cut"), f"{name}.rear.boat_tail.x_cut", 0, 1, strict=True)
         number(form.get("base_height"), f"{name}.rear.boat_tail.base_height", 0)
         number(
@@ -279,6 +336,10 @@ def check_fillet(name, component, warnings, findings):
         number(component[key], f"{name}.{key}", 0, strict=True)
     if not isinstance(component["extend_lower_to_te"], bool):
         raise InputValueError(f"{name}.extend_lower_to_te: expected true or false")
+    if "mesh_zone" in component:
+        known_keys(component["mesh_zone"], _MESH_ZONE_KEYS, f"{name}.mesh_zone", warnings)
+    if "spine" in component:
+        known_keys(component["spine"], ("from", "to"), f"{name}.spine", warnings)
     for key in component.get("laws", {}).items():
         if key not in ("radius", "handle", "setback"):
             warnings.append(f"{name}.laws.{key}: unknown key, skipped")
@@ -290,6 +351,15 @@ def check_blister(name, component, warnings, findings):
     findings.extend(f"{name}: {text}" for text in component["open_findings"])
     if not component["host"]:
         raise InputValueError(f"{name}.host: required")
+    if "stations" in component:
+        known_keys(component["stations"], ("x", "of"), f"{name}.stations", warnings)
+    if "profile" in component:
+        known_keys(
+            component["profile"],
+            ("depth", "plateau", "mirror_x", "of"),
+            f"{name}.profile",
+            warnings,
+        )
     x = component.get("stations", {}).get("x")
     if x is None:
         raise InputValueError(f"{name}.stations.x: required")

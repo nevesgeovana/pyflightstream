@@ -31,6 +31,7 @@ __all__ = [
     "LENGTH_UNITS",
     "TYPES",
     "fill",
+    "known_keys",
     "number",
     "read_acceptance",
     "read_dominance",
@@ -81,6 +82,16 @@ def fill(defaults, supplied, path, warnings):
         else:
             result[key] = deepcopy(value)
     return result
+
+
+def known_keys(table, known, path, warnings):
+    """Remove from ``table``, in place, each key not in ``known``, warning about each by name."""
+    if not isinstance(table, dict):
+        raise InputValueError(f"{path}: expected a table")
+    for key in sorted(set(table) - set(known), key=str):
+        del table[key]
+        warnings.append(f"{path}.{key}: unknown key, skipped")
+    return table
 
 
 def read_units(units, warnings):
@@ -199,7 +210,12 @@ def read_dominance(rows, components, warnings):
             warnings.append(f"{path}.ribbon: used by project only, skipped")
             del row["ribbon"]
         else:
-            row["ribbon"] = deepcopy(ribbon)
+            row["ribbon"] = known_keys(
+                deepcopy(ribbon),
+                ("half_height", "extend", "half_span", "tail"),
+                f"{path}.ribbon",
+                warnings,
+            )
         for name in row["dominant"] + row["dominated"]:
             if name not in components:
                 warnings.append(f"{path}: unknown component {name!r}")
@@ -212,13 +228,14 @@ def read_dominance(rows, components, warnings):
     return result
 
 
-def _members(raw, name, components):
+def _members(raw, name, components, warnings):
     """Normalize the members of one configuration to ``{component, version}`` rows."""
     if not isinstance(raw, list) or not raw:
         raise InputValueError(f"configurations.{name}.members: expected a nonempty list")
     rows = []
     for item in raw:
         row = {"component": item} if isinstance(item, str) else dict(item)
+        known_keys(row, ("component", "version"), f"configurations.{name}.members", warnings)
         piece = row.get("component")
         if piece not in components:
             raise InputValueError(f"configurations.{name}: unknown component {piece}")
@@ -260,7 +277,7 @@ def read_variants_and_registry(variants, configurations, components, warnings):
             warnings,
         )
         registry[name] = {
-            "members": _members(table["members"], name, components),
+            "members": _members(table["members"], name, components, warnings),
             "extends": table["extends"],
             "variants": table["variants"],
         }

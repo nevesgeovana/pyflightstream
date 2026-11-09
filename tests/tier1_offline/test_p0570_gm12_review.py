@@ -214,3 +214,121 @@ def test_r9_005_a_resolved_file_follows_a_data_file_that_changed(tmp_path):
     assert parameter_id(again) != parameter_id(first)
     assert parameter_id(again) == parameter_id(resolve_config(source, base=tmp_path))
     assert any("differs" in text for text in again["warnings"])
+
+
+# R9-006: an unknown key warns at every level, not only at the first.
+
+
+_FOWLER = {
+    "name": "f",
+    "kind": "fowler",
+    "eta_in": 0.1,
+    "eta_out": 0.5,
+    "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
+}
+
+
+@pytest.mark.parametrize(
+    ("component", "word"),
+    [
+        ({"type": "body", "sections": [{"at": "middle", "radius": 1.0, "rad": 2.0}]}, "rad"),
+        ({"type": "body", "area": 3.0}, "area"),
+        (
+            {
+                "type": "body",
+                "rear": {
+                    "boat_tail": {"x_cut": 0.5, "base_height": 0.1, "angle_limit_deg": 9, "foo": 1}
+                },
+            },
+            "foo",
+        ),
+        ({"type": "lifting_surface", "laws": {"radius": 1.0}}, "laws"),
+        ({"type": "lifting_surface", "mesh_zone": {"ratio": 1.0}}, "mesh_zone"),
+        (
+            {
+                "type": "lifting_surface",
+                "sections": {
+                    "items": [
+                        {"eta": 0.0, "naca": "2412", "te": 0.01},
+                        {"eta": 1.0, "naca": "0012"},
+                    ]
+                },
+            },
+            "te",
+        ),
+        ({"type": "lifting_surface", "sections": {"physical": {"nose_radiuss": 0.1}}}, "radiuss"),
+        (
+            {
+                "type": "lifting_surface",
+                "sections": {
+                    "nacelle_bounds": [{"component": "h", "eta_in": 0.1, "eta_out": 0.2, "foo": 1}]
+                },
+            },
+            "foo",
+        ),
+        (
+            {
+                "type": "lifting_surface",
+                "distributions": {"chord": {"stations": [0.0, 1.0], "values": [1, 1], "foo": 1}},
+            },
+            "foo",
+        ),
+        (
+            {
+                "type": "lifting_surface",
+                "control_surfaces": [{**_FOWLER, "cove": {**_FOWLER["cove"], "wall_xx": 0.7}}],
+            },
+            "wall_xx",
+        ),
+        (
+            {"type": "blister", "host": "h", "stations": {"x": [0, 1]}, "profile": {"depth": 0.1}}
+            | {"profile": {"depth": 0.1, "platau": 0.2}},
+            "platau",
+        ),
+        (
+            {"type": "fillet", "hosts": ["h", "w"], "mesh_zone": {"acros": 1.0}},
+            "acros",
+        ),
+    ],
+)
+def test_r9_006_an_unknown_key_warns_inside_every_table(component, word):
+    extra = {"w": {"type": "lifting_surface"}} if component["type"] == "fillet" else {}
+    from pyflightstream.geometry.config import resolve_config
+
+    data = {
+        "aircraft": {"name": "t"},
+        "components": {"c": component, "h": {"type": "body"}, **extra},
+    }
+    assert any(word in text for text in resolve_config(data)["warnings"])
+
+
+def test_r9_006_a_misspelt_member_version_warns():
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config(
+        {
+            "components": {"a": {"type": "body"}},
+            "configurations": {"c": {"members": [{"component": "a", "verion": "9.9.9"}]}},
+        }
+    )
+    assert any("verion" in text for text in resolved["warnings"])
+
+
+def test_r9_006_z_c_of_the_design_reaches_the_body():
+    from pyflightstream.geometry._boundary import unpack
+    from pyflightstream.geometry.config import resolve_config
+
+    section = {
+        "at": "middle",
+        "shape": "superellipse",
+        "width": 1.0,
+        "height": 1.0,
+        "z_c": 0.3,
+        "n_top": 2.0,
+        "n_bottom": 2.0,
+    }
+    resolved = resolve_config({"components": {"h": {"type": "body", "sections": [section]}}})
+    plain = unpack(resolved)["components"]["h"]["sections"][0]
+    assert plain["centre_height"] == 0.3 and "z_c" not in plain
+    wrapped = resolved["components"]["h"]["sections"][0]["centre_height"]
+    assert wrapped["source"] == "given"

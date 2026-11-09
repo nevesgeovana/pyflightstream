@@ -25,6 +25,7 @@ from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._boundary import unit_for, unpack
 from pyflightstream.geometry._component_keys import (
+    body_sections,
     check_blister,
     check_body_extras,
     check_common,
@@ -48,11 +49,14 @@ __all__ = ["load_config", "resolve_config"]
 
 RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
 
-FREE = frozenset(
-    {"distributions", "root_chord", "tip_chord", "area", "physical", "laws", "mesh_zone", "spine"}
-    | {"nacelle_bounds"}
-)
+#: The optional tables and keys with no default, by component type and dotted place. Anywhere else
+#: the same name is an unknown key.
 FREE_BY_TYPE = {
+    "lifting_surface": frozenset(
+        {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
+        | {"sections.physical", "sections.nacelle_bounds"}
+    ),
+    "fillet": frozenset({"laws", "mesh_zone", "spine"}),
     "blister": frozenset({"stations", "profile", "sections"}),
 }
 
@@ -177,12 +181,13 @@ def default_component(kind):
     return common
 
 
-def merge_values(defaults, supplied, path="", warnings=None, free=FREE):
+def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), place=""):
     """Overlay supplied values on defaults; a key the defaults do not know warns and is skipped."""
     result = deepcopy(defaults)
     for key, value in supplied.items():
         label = f"{path}.{key}".strip(".")
-        if key not in defaults and key not in free:
+        inner = f"{place}.{key}".strip(".")
+        if key not in defaults and inner not in free:
             if warnings is None:
                 raise InputValueError(f"{label}: unknown parameter")
             warnings.append(f"{label}: unknown key, skipped")
@@ -190,7 +195,7 @@ def merge_values(defaults, supplied, path="", warnings=None, free=FREE):
         if isinstance(result.get(key), dict):
             if not isinstance(value, dict):
                 raise InputValueError(f"{label}: expected a table")
-            result[key] = merge_values(result[key], value, label, warnings, free)
+            result[key] = merge_values(result[key], value, label, warnings, free, inner)
         else:
             result[key] = deepcopy(value)
     return result
@@ -329,6 +334,8 @@ def validate_sections(section):
 
 def resolve_body(raw, component, notes):
     """Validate a body component and return its (empty) derived quantities."""
+    body_sections(notes["name"], component["sections"], notes["warnings"])
+    body_sections(notes["name"], raw.get("sections", []), [])
     number(component["length"], "length", 0, strict=True)
     stations(component["stations"], "stations", 3)
     if component["stations"][0] <= 0 or component["stations"][-1] >= 1:
@@ -490,7 +497,7 @@ def _resolve_component(name, raw, notes, base):
         notes["findings"].append(
             f"{name}.tip_cap.shape: given and skipped until the parameter is defined"
         )
-    free = FREE | FREE_BY_TYPE.get(raw["type"], frozenset())
+    free = FREE_BY_TYPE.get(raw["type"], frozenset())
     component = merge_values(
         default_component(raw["type"]), raw, f"components.{name}", notes["warnings"], free
     )
