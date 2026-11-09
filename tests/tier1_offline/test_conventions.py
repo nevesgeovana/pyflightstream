@@ -49,14 +49,10 @@ _DIMENSIONLESS_OR_DEBT = {
     "station",
     # Normalized airfoil coordinates and chord fraction are dimensionless.
     "airfoil",
-    # ComponentRecord (schema 0.2.0): the record declares units "mm" once, so these
-    # millimetre fields keep the contract's names; the rest are unit-free parameters.
-    "coordinate",  # station coordinate along the station axis, mm by the record's units field
-    "x_range",  # hybrid region interval along x, mm by the record's units field
-    "LE",  # normalized curve parameter of the leading-edge split, in [0, 1]
-    "t",  # normalized curve parameter, in [0, 1]
-    "upper",  # normalized curve parameter of the upper split, in [0, 1]
-    "lower",  # normalized curve parameter of the lower split, in [0, 1]
+    # ComponentRecord (schema 0.2.0): the generic field names the record contract fixes
+    # (coordinate, x_range, LE, t, upper, lower) are exempt per model in
+    # _MODEL_DIMENSIONLESS_OR_DEBT below, so a float field of such a name on any other
+    # model still needs a unit suffix.
     "local_fraction",  # fraction of the local chord or diameter in the deviation limit
     "interval_floor_fraction",  # fraction of the component length that floors station insertion
     "max_local_limit_ratio",  # measured distance over the local limit, a ratio
@@ -217,6 +213,29 @@ _DIMENSIONLESS_OR_DEBT = {
 }
 
 
+#: Fields exempt on ONE model only (PFS-2210): ComponentRecord (schema 0.2.0) declares units
+#: "mm" once, so its millimetre fields keep the contract's names; the rest are normalized
+#: curve parameters in [0, 1]. Keyed by the model's dotted name so the exemption stays local.
+_MODEL_DIMENSIONLESS_OR_DEBT: dict[str, dict[str, str]] = {
+    "pyflightstream.geometry.component.Station": {
+        "coordinate": "station coordinate along the station axis, mm by the record's units field",
+    },
+    "pyflightstream.geometry.component.Region": {
+        "x_range": "hybrid region interval along x, mm by the record's units field",
+    },
+    "pyflightstream.geometry.component.LiftingSplits": {
+        "LE": "normalized curve parameter of the leading-edge split, in [0, 1]",
+    },
+    "pyflightstream.geometry.component.AzimuthSector": {
+        "t": "normalized curve parameter, in [0, 1]",
+    },
+    "pyflightstream.geometry.component.Sides": {
+        "upper": "normalized curve parameter of the upper split, in [0, 1]",
+        "lower": "normalized curve parameter of the lower split, in [0, 1]",
+    },
+}
+
+
 _REGISTERED_UNIT_DEBT = {
     "surface_roughness": "nm (SET_SURFACE_ROUGHNESS)",
     "crossflow_separation_diameter": "simulation length unit (SET_CROSSFLOW_SEPARATION_DIAMETER)",
@@ -270,14 +289,40 @@ def _model_float_fields() -> list[tuple[str, str]]:
     return pairs
 
 
-def test_float_model_fields_carry_units_or_a_stated_reason():
-    violations = [
+def _unit_violations(pairs: list[tuple[str, str]]) -> list[str]:
+    """The (model, field) pairs with no unit suffix and no exemption, bare or for that model."""
+    return [
         f"{model}.{field}"
-        for model, field in _model_float_fields()
+        for model, field in pairs
         if not _UNIT_SUFFIX.search(field)
         and field not in _DIMENSIONLESS_OR_DEBT
         and field not in _REGISTERED_UNIT_DEBT
+        and field not in _MODEL_DIMENSIONLESS_OR_DEBT.get(model, {})
     ]
+
+
+def test_pfs2210_a_generic_field_name_is_exempt_on_its_own_model_only():
+    """PFS-2210: `t` or `upper` on the record's model passes; the same name elsewhere is flagged."""
+    exempt = [
+        (model, field) for model, fields in _MODEL_DIMENSIONLESS_OR_DEBT.items() for field in fields
+    ]
+    assert exempt and not _unit_violations(exempt)
+    planted = [("pyflightstream.somewhere.Other", field) for _, field in exempt]
+    assert _unit_violations(planted) == [f"{model}.{field}" for model, field in planted]
+    assert _unit_violations([("pyflightstream.geometry.component.Station", "t")]) != []
+
+
+def test_pfs2210_every_per_model_exemption_names_a_live_float_field():
+    """PFS-2210: an exemption whose model or field is gone is removed, not left to hide one."""
+    live = set(_model_float_fields())
+    for model, fields in _MODEL_DIMENSIONLESS_OR_DEBT.items():
+        for field, reason in fields.items():
+            assert (model, field) in live, f"{model}.{field} is not a float field of a public model"
+            assert reason.strip()
+
+
+def test_float_model_fields_carry_units_or_a_stated_reason():
+    violations = _unit_violations(_model_float_fields())
     assert not violations, (
         f"float fields {violations} have neither an SI unit suffix nor an "
         "entry in the dimensionless/debt whitelist; units ride the names "
