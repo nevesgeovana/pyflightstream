@@ -42,7 +42,7 @@ def _finite(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def check_entry(check_id, status, measured=None, limit=None, unit="", where=None, note=""):
+def check_entry(check_id, status, measured=None, limit=None, *, unit="", where=None, note=""):
     """Return one check of a stage record.
 
     A check that ran (``passed`` or ``failed``) carries a finite measured value and a finite
@@ -123,9 +123,9 @@ def validate_stage_record(record: Mapping) -> None:
             check.get("status"),
             check.get("measured"),
             check.get("limit"),
-            check.get("unit", ""),
-            check.get("where"),
-            check.get("note", ""),
+            unit=check.get("unit", ""),
+            where=check.get("where"),
+            note=check.get("note", ""),
         )
 
 

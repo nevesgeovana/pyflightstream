@@ -124,30 +124,38 @@ def _fill_surface(name, i, raw, warnings):
     return surface
 
 
-def _check_surface(name, i, surface, span):
-    """Check one control surface table of a lifting surface (C.7)."""
-    path = f"{name}.control_surfaces[{i}]"
-    if not isinstance(surface.get("name"), str) or not surface["name"]:
-        raise InputValueError(f"{path}.name: required")
-    if surface["kind"] not in SURFACE_KINDS:
-        raise InputValueError(f"{path}.kind: expected one of {SURFACE_KINDS}")
+def _check_interval(path, surface):
+    """Check the span interval of a control surface; ``host`` is computed later."""
     for key in ("eta_in", "eta_out"):
         if surface.get(key) != "host":
             number(surface.get(key), f"{path}.{key}", 0, 1)
-    if (
-        "host" not in (surface["eta_in"], surface["eta_out"])
-        and surface["eta_in"] >= surface["eta_out"]
-    ):
-        raise InputValueError(f"{path}.eta_in: overlaps or inverts the span interval")
-    number(surface["chord_ratio"], f"{path}.chord_ratio", 0.05, 0.5)
+    if "host" not in (surface["eta_in"], surface["eta_out"]):
+        if surface["eta_in"] >= surface["eta_out"]:
+            raise InputValueError(f"{path}.eta_in: overlaps or inverts the span interval")
+
+
+def _check_choices(path, surface):
+    """Check the named choices and the bounded numbers of a control surface."""
+    if surface["kind"] not in SURFACE_KINDS:
+        raise InputValueError(f"{path}.kind: expected one of {SURFACE_KINDS}")
     if surface["span_basis"] not in ("semi_span", "exposed"):
         raise InputValueError(f"{path}.span_basis: expected semi_span or exposed")
     if surface["gap_closure"] not in ("end_faces", "strip"):
         raise InputValueError(
             f"{path}.gap_closure: expected end_faces or strip, open leaves free edges"
         )
+    number(surface["chord_ratio"], f"{path}.chord_ratio", 0.05, 0.5)
     number(surface["gap_span"], f"{path}.gap_span", 0, 0.05)
     number(surface["gap_chord"], f"{path}.gap_chord", 0)
+
+
+def _check_surface(name, i, surface):
+    """Check one control surface table of a lifting surface (C.7)."""
+    path = f"{name}.control_surfaces[{i}]"
+    if not isinstance(surface.get("name"), str) or not surface["name"]:
+        raise InputValueError(f"{path}.name: required")
+    _check_choices(path, surface)
+    _check_interval(path, surface)
     deflections = surface["deflection_deg"]
     if not isinstance(deflections, list) or not deflections:
         raise InputValueError(f"{path}.deflection_deg: expected a list")
@@ -155,14 +163,11 @@ def _check_surface(name, i, surface, span):
         number(d, f"{path}.deflection_deg", -89, 89)
     if surface["kind"] == "fowler":
         _check_fowler(path, surface, deflections)
-    else:
-        for key in ("cove", "nested_dz_pct", "clearance_pct", "kinematics", "nose"):
-            if key in surface:
-                warnings_key = f"{path}.{key}"
-                surface.pop(key)
-                surface.setdefault("_skipped", []).append(warnings_key)
-    if any(d != 0 for d in deflections) and not math.isfinite(span):
-        raise InputValueError(f"{path}: the host span is not finite")
+        return
+    for key in ("cove", "nested_dz_pct", "clearance_pct", "kinematics", "nose"):
+        if key in surface:
+            surface.pop(key)
+            surface.setdefault("_skipped", []).append(f"{path}.{key}")
 
 
 def _check_fowler(path, surface, deflections):
@@ -188,6 +193,27 @@ def _check_fowler(path, surface, deflections):
         )
 
 
+def _check_tip_cap(cap):
+    """Check the kind of a tip cap and the counts the exact loft reads."""
+    if cap["kind"] not in _CAP_KINDS:
+        raise InputValueError("tip_cap.kind: expected flat, rounded, ridged, exact_loft or none")
+    for key in ("sections", "control_points"):
+        if not isinstance(cap[key], int) or isinstance(cap[key], bool) or cap[key] < 2:
+            raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
+
+
+def _check_nacelle_bounds(name, component):
+    """Check the two control sections that bound each nacelle trim (requirement 4)."""
+    for i, bound in enumerate(component["sections"].get("nacelle_bounds", [])):
+        path = f"{name}.sections.nacelle_bounds[{i}]"
+        number(bound.get("eta_in"), f"{path}.eta_in", 0, 1)
+        number(bound.get("eta_out"), f"{path}.eta_out", 0, 1)
+        if bound["eta_in"] >= bound["eta_out"]:
+            raise InputValueError(f"{path}.eta_in: expected below eta_out")
+        if not isinstance(bound.get("component"), str):
+            raise InputValueError(f"{path}.component: required")
+
+
 def check_lifting_extras(name, component, raw, warnings, findings):
     """Check the C.2 and C.3 keys added to a lifting surface; fills sections from ``items``."""
     check_common(name, component, warnings)
@@ -197,20 +223,8 @@ def check_lifting_extras(name, component, raw, warnings, findings):
         component["trailing_edge"] = "blunt"
     if component["trailing_edge"] != "blunt":
         raise InputValueError(f"{name}.trailing_edge: expected blunt")
-    cap = component["tip_cap"]
-    if cap["kind"] not in _CAP_KINDS:
-        raise InputValueError("tip_cap.kind: expected flat, rounded, ridged, exact_loft or none")
-    for key in ("sections", "control_points"):
-        if not isinstance(cap[key], int) or isinstance(cap[key], bool) or cap[key] < 2:
-            raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
-    for i, bound in enumerate(component["sections"].get("nacelle_bounds", [])):
-        path = f"{name}.sections.nacelle_bounds[{i}]"
-        number(bound.get("eta_in"), f"{path}.eta_in", 0, 1)
-        number(bound.get("eta_out"), f"{path}.eta_out", 0, 1)
-        if bound["eta_in"] >= bound["eta_out"]:
-            raise InputValueError(f"{path}.eta_in: expected below eta_out")
-        if not isinstance(bound.get("component"), str):
-            raise InputValueError(f"{path}.component: required")
+    _check_tip_cap(component["tip_cap"])
+    _check_nacelle_bounds(name, component)
     component["control_surfaces"] = [
         _fill_surface(name, i, raw, warnings) for i, raw in enumerate(component["control_surfaces"])
     ]
@@ -218,7 +232,7 @@ def check_lifting_extras(name, component, raw, warnings, findings):
     if len(set(names)) != len(names):
         raise InputValueError(f"{name}.control_surfaces.name: duplicate")
     for i, surface in enumerate(component["control_surfaces"]):
-        _check_surface(name, i, surface, component["planform"]["span"])
+        _check_surface(name, i, surface)
         for skipped in surface.pop("_skipped", []):
             warnings.append(f"{skipped}: used by fowler only, skipped")
     findings.extend(f"{name}: {text}" for text in component["open_findings"])

@@ -24,6 +24,7 @@ import re
 from copy import deepcopy
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._boundary import unit_for
 
 __all__ = [
     "ANGLE_UNITS",
@@ -38,7 +39,6 @@ __all__ = [
     "read_variants_and_registry",
     "scale_units",
     "stations",
-    "unit_of",
 ]
 
 TYPES = ("lifting_surface", "body", "fillet", "blister", "propeller", "wing_fuselage_fairing")
@@ -47,57 +47,6 @@ ANGLE_UNITS = {"deg": 1.0, "rad": 180.0 / math.pi}
 READER_PROFILES = ("flightstream",)
 OPERATIONS = ("auto", "cut", "project")
 _VERSION = r"\d+\.\d+\.\d+"
-
-_DEG_KEYS = frozenset(
-    {
-        "sweep",
-        "dihedral",
-        "incidence",
-        "tip_twist",
-        "twist",
-        "rotation",
-        "azimuths",
-        "setting_angle",
-        "footprint_upper",
-        "footprint_lower",
-        "boat_tail_deg",
-    }
-)
-_M_KEYS = frozenset(
-    {
-        "span",
-        "root_chord",
-        "tip_chord",
-        "radius",
-        "hub_radius",
-        "base_radius",
-        "translation",
-        "radii",
-        "mac",
-        "centre_height",
-        "body_blend_radius",
-        "wing_blend_radius",
-        "base_height",
-        "nose_radius",
-        "te_thickness",
-    }
-)
-
-
-def unit_of(path):
-    """Return the unit at a dotted path: ``deg``, ``mm``, ``m``, ``m2`` or ``1``."""
-    key = path.split(".")[-1]
-    if key in _DEG_KEYS or key.endswith("_deg"):
-        return "deg"
-    if key == "area":
-        return "m2"
-    if key.endswith("_mm"):
-        return "mm"
-    if key in _M_KEYS or key.endswith("_m"):
-        return "m"
-    if key == "length" and "tip_cap" not in path:
-        return "m"
-    return "1"
 
 
 def number(value, name, lower=None, upper=None, strict=False):
@@ -158,7 +107,7 @@ def scale_units(node, path, length_scale, angle_scale):
         return [scale_units(v, path, length_scale, angle_scale) for v in node]
     if isinstance(node, bool) or not isinstance(node, (int, float)):
         return node
-    factor = {"m": length_scale, "m2": length_scale**2, "deg": angle_scale}.get(unit_of(path), 1.0)
+    factor = {"m": length_scale, "m2": length_scale**2, "deg": angle_scale}.get(unit_for(path), 1.0)
     return node * factor
 
 
@@ -307,6 +256,22 @@ def read_variants_and_registry(variants, configurations, components, warnings):
     return variants, _flatten(registry, variants, warnings)
 
 
+def _inherited(registry, name, done):
+    """Return the members of a configuration: the parent's, then its own, one per component."""
+    if name not in done:
+        row, merged = registry[name], []
+        if row["extends"]:
+            merged = [dict(m) for m in _inherited(registry, row["extends"], done)]
+        index = {m["component"]: i for i, m in enumerate(merged)}
+        for member in row["members"]:
+            if member["component"] in index:
+                merged[index[member["component"]]] = dict(member)
+            else:
+                merged.append(dict(member))
+        done[name] = merged
+    return done[name]
+
+
 def _flatten(registry, variants, warnings):
     """Append inherited members, refuse a cycle or a missing parent, resolve the variant lists."""
     edges = {}
@@ -318,29 +283,13 @@ def _flatten(registry, variants, warnings):
     node = _cycle(edges)
     if node is not None:
         raise InputValueError(f"configurations.{node}.extends: a cycle")
-    done = {}
-
-    def members_of(name):
-        if name not in done:
-            row, merged = registry[name], []
-            if row["extends"]:
-                merged = [dict(m) for m in members_of(row["extends"])]
-            index = {m["component"]: i for i, m in enumerate(merged)}
-            for member in row["members"]:
-                if member["component"] in index:
-                    merged[index[member["component"]]] = dict(member)
-                else:
-                    merged.append(dict(member))
-            done[name] = merged
-        return done[name]
-
-    result = {}
+    done, result = {}, {}
     for name, row in registry.items():
         kept = sorted(variants) if row["variants"] is None else list(row["variants"])
         for variant in [v for v in kept if v not in variants]:
             warnings.append(f"configurations.{name}.variants: unknown {variant!r}, skipped")
         result[name] = {
-            "members": members_of(name),
+            "members": _inherited(registry, name, done),
             "extends": row["extends"],
             "variants": [v for v in kept if v in variants],
         }

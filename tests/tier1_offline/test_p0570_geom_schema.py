@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 import re
 import subprocess
 import sys
@@ -475,7 +476,11 @@ def test_parameter_id_is_equal_across_fresh_processes(demo):
     )
     runs = [
         subprocess.run(
-            [sys.executable, "-c", code, str(demo)], capture_output=True, text=True, check=True
+            [sys.executable, "-c", code, str(demo)],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=dict(os.environ),
         )
         for _ in range(2)
     ]
@@ -487,7 +492,7 @@ def test_parameter_id_is_equal_across_fresh_processes(demo):
 
 
 def good_check(**kw):
-    return check_entry("split.identity", "passed", 3e-12, 1e-9, "m", {"patch": 7}, **kw)
+    return check_entry("split.identity", "passed", 3e-12, 1e-9, unit="m", where={"patch": 7}, **kw)
 
 
 def test_stage_record_names_version_inputs_check_limit_and_measured(tmp_path):
@@ -518,7 +523,7 @@ def test_stage_record_names_version_inputs_check_limit_and_measured(tmp_path):
 
 def test_stage_status_follows_its_checks():
     kw = {"package_version": "v", "inputs_id": "i", "parameter_id": "p"}
-    bad = check_entry("a", "failed", 2.0, 1.0, "deg")
+    bad = check_entry("a", "failed", 2.0, 1.0, unit="deg")
     assert stage_record("S1", "x", checks=[good_check(), bad], **kw)["status"] == "failed"
     skipped = check_entry("a", "skipped", note="no original")
     assert stage_record("S1", "x", checks=[skipped], **kw)["status"] == "skipped"
@@ -580,7 +585,7 @@ def test_tip_cap_shape_warns_is_skipped_and_is_listed_in_the_record():
         package_version="v",
         inputs_id="i",
         parameter_id=parameter_id(cfg),
-        checks=[check_entry("input.valid", "passed", 0.0, 0.0, "1")],
+        checks=[check_entry("input.valid", "passed", 0.0, 0.0, unit="1")],
         findings=cfg["findings"],
         warnings=cfg["warnings"],
     )

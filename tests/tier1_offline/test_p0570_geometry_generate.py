@@ -138,7 +138,8 @@ def fairing_model(occ):
         "FUS": {"type": "body"},
         "WING": {"type": "lifting_surface", "sections": {"airfoils": ["NACA0012"]},
                  "distributions": {"leading_edge_x": {"stations": [0, 1.0], "values": [0.4, 0.4]}}},
-        "FAIRING": {"type": "wing_fuselage_fairing"}}}))["components"]  # fmt: skip
+        "FAIRING": {"type": "wing_fuselage_fairing", "hosts": ["FUS", "WING"]},
+    }}))["components"]  # fmt: skip
     add_all(occ, body(data["FUS"]) + lifting_surface(data["WING"]))
     patches = wing_fuselage_fairing(data["FAIRING"], data["FUS"], data["WING"])
     tags = add_all(occ, patches)
