@@ -27,16 +27,14 @@ def test_r9_001_generate_reports_the_key_it_skipped(tmp_path):
     assert any("sweeep" in text for text in record["warnings"])
 
 
-def test_r9_001_mesh_generated_reports_the_key_it_skipped(monkeypatch):
+def test_r9_001_mesh_generated_reports_the_key_it_skipped():
     _need_gmsh()
-    from pyflightstream.workspace import _geometry_mesh
+    from pyflightstream.workspace._geometry_mesh import mesh_generated
 
-    monkeypatch.setattr(_geometry_mesh, "_mesh_component", lambda *a: (None, {}))
-    monkeypatch.setattr(_geometry_mesh, "load_mesh_controls", lambda c: {"lifting_surface": {}})
-    monkeypatch.setattr(_geometry_mesh, "add_occ_patch", lambda *a: 1, raising=False)
-    config = _plain(planform={"span": 2.0, "sweeep": 30.0})
-    result = _geometry_mesh.mesh_generated(config, component="w")
-    assert any("sweeep" in text for text in result.record["warnings"])
+    config = {"components": {"h": {"type": "body", "lenght": 2.0}}}
+    assert any(
+        "lenght" in text for text in mesh_generated(config, component="h").record["warnings"]
+    )
 
 
 # R9-002: a misspelt key of the units table leaves the file in metres, so it must warn.

@@ -182,7 +182,7 @@ def default_component(kind):
     return common
 
 
-def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), place=""):
+def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), *, place=""):
     """Overlay supplied values on defaults; a key the defaults do not know warns and is skipped."""
     result = deepcopy(defaults)
     for key, value in supplied.items():
@@ -196,7 +196,7 @@ def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), p
         if isinstance(result.get(key), dict):
             if not isinstance(value, dict):
                 raise InputValueError(f"{label}: expected a table")
-            result[key] = merge_values(result[key], value, label, warnings, free, inner)
+            result[key] = merge_values(result[key], value, label, warnings, free, place=inner)
         else:
             result[key] = deepcopy(value)
     return result

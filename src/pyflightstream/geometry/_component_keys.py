@@ -83,6 +83,18 @@ def _item_form(name, i, item):
     return forms[0]
 
 
+def _check_physical(name, physical, raw, warnings):
+    """Check the physical form of a section, the alternative to a designation."""
+    if physical is None:
+        return
+    if "airfoils" in raw or "items" in raw:
+        raise InputValueError(f"{name}.sections.physical: given together with naca sections")
+    known_keys(physical, _PHYSICAL_KEYS, f"{name}.sections.physical", warnings)
+    for key in _PHYSICAL_KEYS:
+        if key in physical:
+            number(physical[key], f"{name}.sections.physical.{key}", 0)
+
+
 def _check_sections(name, component, raw, warnings):
     """Resolve ``sections.items`` into the legacy airfoil and station lists, check the rest."""
     section = component["sections"]
@@ -90,14 +102,7 @@ def _check_sections(name, component, raw, warnings):
         raise InputValueError(
             f"{name}.sections.form: only cst is stored; cubic waits for the owner's decision"
         )
-    physical = section.get("physical")
-    if physical is not None and ("airfoils" in raw or "items" in raw):
-        raise InputValueError(f"{name}.sections.physical: given together with naca sections")
-    if physical is not None:
-        known_keys(physical, _PHYSICAL_KEYS, f"{name}.sections.physical", warnings)
-        for key in _PHYSICAL_KEYS:
-            if key in physical:
-                number(physical[key], f"{name}.sections.physical.{key}", 0)
+    _check_physical(name, section.get("physical"), raw, warnings)
     items = section["items"]
     if not items:
         return
