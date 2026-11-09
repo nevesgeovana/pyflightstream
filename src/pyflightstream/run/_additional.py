@@ -340,7 +340,7 @@ def archive_extraction_folder(folder: Path, stamp: str) -> None:
     folder.mkdir(parents=True, exist_ok=True)
 
 
-def _write_extraction_script(workspace, sim_id, name, text, *, stamp):
+def write_extraction_script(workspace, sim_id, name, text, *, stamp):
     """Archive a previous script before the workspace writes its replacement.
 
     The script lives in a folder of its own under ``scripts`` (``additional/<pproc>/``), which

@@ -154,7 +154,8 @@ def test_p0570_r8_004_a_wing_cut_off_the_loads_frame_is_warned(tmp_path, monkeyp
     """R8-004: one frame says nothing; a loads frame at another origin is named."""
     import warnings
 
-    from pyflightstream.cases.workflows import _steady, build_script
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.cases.workflows._steady import warn_of_a_wing_cut_off_the_loads_frame
     from pyflightstream.script import Script
     from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
@@ -171,7 +172,7 @@ def test_p0570_r8_004_a_wing_cut_off_the_loads_frame_is_warned(tmp_path, monkeyp
     other = {"frame": 1, "origin": [0.0, 0.0, 0.0], "axes": None}
     monkeypatch.setattr(script, "loads_frame_record", lambda: other)
     with pytest.warns(match="torsion load may carry the lever") as found:
-        _steady._warn_of_a_wing_cut_off_the_loads_frame(case, script)
+        warn_of_a_wing_cut_off_the_loads_frame(case, script)
     assert "frame 2" in str(found[0].message)
 
 

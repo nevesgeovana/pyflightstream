@@ -391,7 +391,7 @@ def _before_the_build(
     return workflow
 
 
-def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
+def warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
     """Warn where a row with airfoil separation on exports the section Cp (PFS-2217).
 
     The ``_cp.txt`` export stays the attached-flow Cp while the exported loads do not,
@@ -415,7 +415,7 @@ def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
         )
 
 
-def _warn_of_a_wing_cut_off_the_loads_frame(case: SimCase, script: Script) -> None:
+def warn_of_a_wing_cut_off_the_loads_frame(case: SimCase, script: Script) -> None:
     """Warn where a coupled wing's cut frame and loads frame have different origins (R8-004).
 
     The wing's route reads the export's moment as about the origin of the frame its ``X_QC``
@@ -452,8 +452,8 @@ def _after_the_build(case: SimCase, script: Script) -> None:
     untranslatable surface and the march label.
     """
     _setup_surfaces.refuse_setup_keys_that_reached_nothing(script, case)
-    _warn_of_an_attached_flow_cp(case, script)
-    _warn_of_a_wing_cut_off_the_loads_frame(case, script)
+    warn_of_an_attached_flow_cp(case, script)
+    warn_of_a_wing_cut_off_the_loads_frame(case, script)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:
             block["loads_frame_index"] = script.loads_frame

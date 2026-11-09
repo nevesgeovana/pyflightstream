@@ -5,8 +5,11 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.cases import PprocSpec
-from pyflightstream.cases.workflows import _steady, build_script
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows._steady import warn_of_an_attached_flow_cp
 from pyflightstream.script import Script
 from pyflightstream.script.solver_setup import AirfoilSeparation
 from tests.tier1_offline.test_workflows import steady_case
@@ -81,11 +84,17 @@ def test_p0570_fix6_no_cp_export_says_nothing():
     assert _cp_warnings(messages) == []
 
 
-def test_p0570_fix6_the_warning_alters_no_line(monkeypatch):
-    """The warning is the whole of the change: the script is the same without it."""
-    warned = _built(_case(separation=True, sections=True))[0]
-    monkeypatch.setattr(_steady, "_warn_of_an_attached_flow_cp", lambda *_: None)
-    assert _built(_case(separation=True, sections=True))[0] == warned
+def test_p0570_fix6_the_warning_alters_no_line():
+    """The warning is the whole of the change: the script is the same after it."""
+    case = _case(separation=True, sections=True)
+    script = Script("26.127")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        build_script(case, script)
+    built = script.render()
+    with pytest.warns(match="attached-flow Cp"):
+        warn_of_an_attached_flow_cp(case, script)
+    assert script.render() == built
 
 
 def test_p0570_fix6_the_definitions_page_says_so():

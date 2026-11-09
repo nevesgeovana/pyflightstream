@@ -100,7 +100,7 @@ def test_p0570_r8_003_an_extraction_script_past_the_limit_stays_in_scripts(tmp_p
     """R8-003: the name check read a long script as leaving the scripts folder."""
     if os.name != "nt":
         pytest.skip("a junction and the 260 limit are Windows")
-    from pyflightstream.run._additional import _write_extraction_script
+    from pyflightstream.run._additional import write_extraction_script
 
     root = tmp_path / "w"
     root.mkdir()
@@ -120,7 +120,7 @@ def test_p0570_r8_003_an_extraction_script_past_the_limit_stays_in_scripts(tmp_p
         workspace = CampaignWorkspace(root)
         scripts = workspace.create_sim("7001") / "scripts"
         size = 260 - len(str(scripts.resolve())) - 1
-        target, _digest = _write_extraction_script(
+        target, _digest = write_extraction_script(
             workspace, "7001", f"{'s' * (size - 4)}.txt", "text", stamp="s"
         )
         assert target.parent == scripts

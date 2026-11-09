@@ -99,13 +99,13 @@ from pyflightstream.run._additional import (
     _LOG_SUFFIX,
     _launch_extraction,
     _the_extraction_s_log,
-    _write_extraction_script,
     archive_extraction_folder,
     complete_extraction,
     discard_extraction_copy,
     layout_of,
     own_sections_layout,
     sections_numbering_refusal,
+    write_extraction_script,
 )
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
@@ -1813,7 +1813,7 @@ def _extract(
     archive_extraction_folder(folder, stamp)
     copy = folder / f"{context['stem']}{REOPENED_SUFFIX}"
     shutil.copy2(original, copy)
-    script_path, script_sha = _write_extraction_script(
+    script_path, script_sha = write_extraction_script(
         workspace,
         point.sim_id,
         _script_name(plan.pproc, str(context["stem"])),
