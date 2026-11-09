@@ -260,6 +260,13 @@ def test_r6_a_left_half_measures_as_its_mirror_image():
         assert planform["dihedral_deg"] == pytest.approx(3.0)
 
 
+def test_r6_fit_section_refuses_a_start_degree_above_its_limit():
+    """R6-008: the degree loop never ran and the fit died on an unbound name."""
+    feature = contour_features(closed_contour([cut(0.8)]), SPAN)
+    with pytest.raises(InputValueError, match="max_degree"):
+        fit_section(feature["contour"], SPAN, "NACA0012", degree=6, max_degree=5)
+
+
 # --- the workspace half, on a generated IGES -------------------------------------------------
 
 WING = {
@@ -414,6 +421,8 @@ def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
         ({"stations": 3}, "stations"),
         ({"root": "host"}, "hosts"),
         ({"span_axis": (0, 0, 0)}, "span_axis"),
+        ({"section_tolerance_mm": -1.0}, "section_tolerance_mm"),  # R6-008
+        ({"host_tolerance": -1.0}, "host_tolerance"),  # R6-008
     ):
         with pytest.raises(InputValueError, match=match):
             identify_lifting_surface(generated_wing, "WING", **bad)

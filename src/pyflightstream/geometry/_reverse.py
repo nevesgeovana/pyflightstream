@@ -574,6 +574,8 @@ def fit_section(contour, span, seed, *, degree=5, max_degree=20, tolerance_m=Non
     dict
         The fit: ``accepted``, ``seed``, ``degree``, the CST coefficients and the residual.
     """
+    if max_degree < degree:
+        raise InputValueError(f"max_degree: {max_degree} is below the first degree {degree}")
     feature = contour_features(contour, span)
     chord = feature["chord"]
     tolerance_m = max(0.0005, 0.001 * chord) if tolerance_m is None else tolerance_m

@@ -227,6 +227,12 @@ def identify_lifting_surface(
         raise InputValueError(f"cut: one of {list(CUTS)} required, got {cut!r}")
     if stations < 20 or grid < 33:
         raise InputValueError("stations, grid: at least 20 stations and a 33-point grid required")
+    if section_tolerance_mm is not None and not section_tolerance_mm > 0:
+        raise InputValueError(
+            f"section_tolerance_mm: positive required, got {section_tolerance_mm}"
+        )
+    if not host_tolerance >= 0:
+        raise InputValueError(f"host_tolerance: zero or positive required, got {host_tolerance}")
     if root == "host" and not hosts:
         raise InputValueError("root: 'host' needs hosts")
     gmsh_module(PURPOSE)
