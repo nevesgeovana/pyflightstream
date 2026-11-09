@@ -11,6 +11,10 @@ sections of a lifting surface back from an original IGES, in the form a configur
 (:class:`~pyflightstream.geometry.ComponentRecord`) and the TOML input boundary live in
 :mod:`pyflightstream.geometry` and import no kernel.
 
+A planform is reported with ``accepted`` set only when a coarse and a fine pass agree within
+the tolerances of the result (``convergence``); sections carry their own ``accepted`` against
+their residual tolerance.
+
 Each function refuses with the install command (``pip install pyflightstream[gmsh]``) when the
 extra is missing. The command line is ``pyfs-workspace geometry generate | identify | check |
 mesh-generated | schema``.
@@ -22,13 +26,36 @@ Examples
 ['GeneratedMesh', 'LiftingIdentification']
 """
 
-from pyflightstream.workspace._geometry_check import check_against_original
+from __future__ import annotations
+
+import math
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from pyflightstream._errors import InputValueError
+from pyflightstream.geometry.stages import fit_section
+from pyflightstream.workspace._geometry_check import (
+    check_against_original,
+    resolve_faces,
+    sample_surfaces,
+)
 from pyflightstream.workspace._geometry_generate import generate_iges
 from pyflightstream.workspace._geometry_mesh import GeneratedMesh, mesh_generated
 from pyflightstream.workspace._geometry_reverse import (
-    LiftingIdentification,
-    identify_lifting_surface,
+    COARSE,
+    CUTS,
+    PURPOSE,
+    ROOTS,
+    boundary_extent,
+    convergence,
+    identify_pass,
+    resolve_hosts,
+    span_direction,
+    surface_grid,
 )
+from pyflightstream.workspace._gmsh import gmsh_module, session
 
 __all__ = [
     "GeneratedMesh",
@@ -38,3 +65,204 @@ __all__ = [
     "identify_lifting_surface",
     "mesh_generated",
 ]
+
+
+@dataclass(frozen=True)
+class LiftingIdentification:
+    """The identified planform, sections and evidence of one lifting surface (metres, degrees).
+
+    ``planform`` is the result of :func:`pyflightstream.geometry.stages.reference_planform`;
+    ``sections`` are the root and tip CST fits and ``midspan`` the extra measured section.
+    ``accepted`` is true when the coarse and fine passes agree and every section met its
+    tolerance.
+    """
+
+    component: str
+    source: str
+    seed: str
+    planform: dict[str, Any]
+    sections: list[dict[str, Any]]
+    midspan: dict[str, Any]
+    accepted: bool
+    root_kind: str
+    clean_cuts: int
+    convergence: dict[str, Any] | None = None
+    scan: dict[str, Any] = field(default_factory=dict)
+
+    def to_component(self) -> dict[str, Any]:
+        """Return a ``lifting_surface`` component of a configuration that rebuilds this planform.
+
+        The configuration describes sections by NACA designation, so the seed designation
+        stands for the section shape and the measured CST fits stay in ``sections``. The
+        placement carries the leading edge at the root. A span axis tilted 89 degrees or more
+        from the y axis (a fin) is refused: place such a surface by rotation instead.
+        """
+        p = self.planform
+        dihedral = p["dihedral_deg"]
+        if abs(dihedral) >= 89.0:
+            raise InputValueError(
+                f"to_component: dihedral {dihedral:.3g} degrees is outside the configuration's "
+                "range of +-89; describe this surface with a placement rotation"
+            )
+        tilt = math.cos(math.radians(dihedral))
+        semi_y = p["semi_span_m"] * tilt
+        sweep_x = math.tan(math.radians(p["sweep_le_deg"])) * p["semi_span_m"]
+        return {
+            "type": "lifting_surface",
+            "planform": {
+                "span": 2.0 * semi_y,
+                "root_chord": p["root_chord_m"],
+                "tip_chord": p["tip_chord_m"],
+                "sweep": math.degrees(math.atan2(sweep_x, semi_y)),
+                "dihedral": dihedral,
+                "incidence": p["incidence_deg"],
+                "tip_twist": p["tip_twist_deg"],
+            },
+            "sections": {"airfoils": [self.seed]},
+            "placement": {"translation": list(p["reference_plane"]["origin_m"])},
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the result as plain data, ready for JSON."""
+        return {
+            "component": self.component,
+            "source": self.source,
+            "seed": self.seed,
+            "accepted": self.accepted,
+            "root_kind": self.root_kind,
+            "clean_cuts": self.clean_cuts,
+            "planform": self.planform,
+            "sections": self.sections,
+            "midspan": self.midspan,
+            "convergence": self.convergence,
+            "scan": self.scan,
+        }
+
+
+def identify_lifting_surface(
+    source: str | Path,
+    component: str,
+    *,
+    hosts: Sequence[str] = (),
+    root: str = "auto",
+    mirrored: bool | None = None,
+    cut: str = "plain",
+    seed: str = "NACA0012",
+    span_axis: Sequence[float] | None = None,
+    stations: int = 161,
+    grid: int = 257,
+    section_tolerance_mm: float | None = None,
+    section_degree: int = 5,
+    section_max_degree: int = 20,
+    host_tolerance: float = 5e-5,
+    converge: bool = True,
+) -> LiftingIdentification:
+    """Identify one lifting-surface component of an IGES file from its trimmed skin.
+
+    Parameters
+    ----------
+    source : str or Path
+        The IGES file, read only. Its faces are named by the NAME of their level.
+    component : str
+        The component to identify.
+    hosts : sequence of str, optional
+        Components the surface sits on, as names in ``source`` or ``path#name``. Given, the
+        root is where the extended leading edge meets them (``root="auto"``).
+    root : {"auto", "plane", "host", "boundary"}
+        ``plane``: the symmetry plane through the origin normal to the span axis. ``host``:
+        the host surface. ``boundary``: the span extent of the original's own boundary curves
+        (a surface open inside its host). ``auto``: ``host`` when ``hosts`` is given, else
+        ``plane``.
+    mirrored : bool, optional
+        Whether the surface has a mirror image across its root (doubles span and area);
+        defaults to true for a plane root and false otherwise.
+    cut : {"plain", "bridge_te", "mirror"}
+        ``bridge_te`` closes an open blunt trailing-edge slit; ``mirror`` adds the reflection
+        of a half-body original.
+    seed : str
+        The NACA designation the section fit starts from.
+    span_axis : sequence of float, optional
+        The first estimate of the span axis; the larger of y and z extent when omitted.
+    stations, grid : int
+        Stations of the fine pass and cut-grid points per side of each face.
+    section_tolerance_mm : float, optional
+        Section residual tolerance; the larger of 0.5 mm and 0.1 percent of the chord when
+        omitted.
+    section_degree, section_max_degree : int
+        The CST degree a section fit starts at and the highest it may rise to.
+    host_tolerance : float
+        The largest gap, in metres, at which the extended leading edge counts as meeting a host.
+    converge : bool
+        Run a coarse pass as well and require the planforms to agree for ``accepted``.
+
+    Returns
+    -------
+    LiftingIdentification
+
+    Raises
+    ------
+    MissingExtraError
+        gmsh is not installed.
+    InputValueError
+        An argument is refused, the component is unknown, or no clean band exists.
+    """
+    if root not in ROOTS:
+        raise InputValueError(f"root: one of {list(ROOTS)} required, got {root!r}")
+    if cut not in CUTS:
+        raise InputValueError(f"cut: one of {list(CUTS)} required, got {cut!r}")
+    if stations < 20 or grid < 33:
+        raise InputValueError("stations, grid: at least 20 stations and a 33-point grid required")
+    if root == "host" and not hosts:
+        raise InputValueError("root: 'host' needs hosts")
+    gmsh_module(PURPOSE)
+    resolved = ("host" if hosts else "plane") if root == "auto" else root
+    with session(PURPOSE) as gmsh:
+        gmsh.model.add("identify")
+        faces = resolve_faces(f"{source}#{component}")
+        host_faces = resolve_hosts(hosts, source) if resolved == "host" or hosts else []
+        samples, _ = sample_surfaces(faces, 65, 257)
+        axis = span_direction(samples, span_axis)
+        spec = {
+            "span": axis,
+            "root": resolved,
+            "cut": cut,
+            "mirrored": resolved == "plane" if mirrored is None else mirrored,
+            "host_tolerance": host_tolerance,
+        }
+        if resolved == "boundary":
+            spec["extent"] = boundary_extent(faces, axis)
+        grids = [surface_grid(t, grid) for t in faces]
+        agreement = None
+        if converge:
+            small = [surface_grid(t, COARSE[1]) for t in faces]
+            coarse = identify_pass(small, samples, host_faces, spec, min(stations, COARSE[0]))[0]
+        planform, band, features, stations_m, span, diagnostics = identify_pass(
+            grids, samples, host_faces, spec, stations
+        )
+        if converge:
+            agreement = convergence(coarse, planform)
+        chosen = [int(band[0]), int(band[len(band) // 2]), int(band[-1])]
+        fits = []
+        for role, index in zip(("root", "midspan", "tip"), chosen, strict=True):
+            fit = fit_section(
+                features[index]["contour"], span, seed,
+                degree=section_degree, max_degree=max(section_degree, section_max_degree),
+                tolerance_m=None if section_tolerance_mm is None else section_tolerance_mm / 1000,
+            )  # fmt: skip
+            fit["role"], fit["station_m"] = role, float(stations_m[index])
+            fit["eta"] = (fit["station_m"] - planform["root_station_m"]) / planform["semi_span_m"]
+            fits.append(fit)
+    accepted = all(f["accepted"] for f in fits) and (agreement is None or agreement["accepted"])
+    return LiftingIdentification(
+        component=component,
+        source=Path(source).name,
+        seed=seed,
+        planform=planform,
+        sections=[fits[0], fits[2]],
+        midspan=fits[1],
+        accepted=accepted,
+        root_kind=planform["root_kind"],
+        clean_cuts=len(band),
+        convergence=agreement,
+        scan={**diagnostics, "stations": stations, "grid": grid},
+    )

@@ -15,9 +15,9 @@ from pyflightstream.geometry._boundary import (
     export_schema,
     schema_digest,
     sha256_file,
-    verify_pins,
 )
 from pyflightstream.geometry.component import DEVIATION_PROFILES
+from pyflightstream.geometry.stages import verify_pins
 
 H = "a" * 64
 

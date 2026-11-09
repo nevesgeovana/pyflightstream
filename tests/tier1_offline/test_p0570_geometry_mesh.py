@@ -20,8 +20,8 @@ import pytest
 from pyflightstream._errors import InputValueError
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
-from pyflightstream.geometry._boundary import write_config
 from pyflightstream.geometry._mesh_topology import read_obj
+from pyflightstream.geometry.stages import write_config
 from pyflightstream.workspace._geometry_mesh import junction_bays, mesh_generated
 
 WB = {

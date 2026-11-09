@@ -241,7 +241,7 @@ def test_p0570_generate_iges_names_read_back_through_the_library_reader(tmp_path
 
 def test_p0570_generate_iges_reads_a_toml_file_and_selects_a_configuration(tmp_path):
     gmsh_or_skip()
-    from pyflightstream.geometry._boundary import write_config
+    from pyflightstream.geometry.stages import write_config
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     toml = tmp_path / "wb.toml"

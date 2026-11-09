@@ -49,6 +49,17 @@ def test_p0570_the_group_lists_every_parametric_verb():
     assert {"generate", "identify", "check", "mesh-generated", "schema"} <= set(GEOMETRY_VERBS)
 
 
+def test_p0570_the_public_stage_modules_define_what_they_export():
+    """A new module is deep (arch_metrics G1), so these two hold real definitions."""
+    from pyflightstream.geometry import stages
+    from pyflightstream.workspace import geometry_pipeline
+
+    assert stages.write_config.__module__ == stages.__name__
+    assert stages.verify_pins.__module__ == stages.__name__
+    assert geometry_pipeline.identify_lifting_surface.__module__ == geometry_pipeline.__name__
+    assert geometry_pipeline.LiftingIdentification.__module__ == geometry_pipeline.__name__
+
+
 def test_p0570_schema_prints_the_exported_schema_and_writes_it(tmp_path, capsys):
     target = tmp_path / "schema.json"
     code, out, _ = cli(["schema", "--out", target], capsys)

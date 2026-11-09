@@ -267,7 +267,7 @@ def generated_wing(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def identified(generated_wing):
-    from pyflightstream.workspace._geometry_reverse import identify_lifting_surface
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     return identify_lifting_surface(generated_wing, "WING", stations=61, grid=129)
 
@@ -297,7 +297,7 @@ def test_p0570_identify_result_rebuilds_through_load_config(identified):
 
 
 def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
-    from pyflightstream.workspace._geometry_reverse import identify_lifting_surface
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     for bad, match in (
         ({"root": "air"}, "root"),
@@ -311,7 +311,7 @@ def test_p0570_identify_refuses_a_bad_argument_before_any_cut(generated_wing):
 
 
 def test_p0570_identify_names_the_components_found_when_one_is_unknown(generated_wing):
-    from pyflightstream.workspace._geometry_reverse import identify_lifting_surface
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     with pytest.raises((InputValueError, ValueError), match="NOPE|WING"):
         identify_lifting_surface(generated_wing, "NOPE", stations=21, grid=33)
@@ -327,7 +327,7 @@ def test_p0570_the_reverse_module_refuses_without_gmsh(monkeypatch):
             raise ImportError("no gmsh")
         return real(name, *args, **kwargs)
 
-    from pyflightstream.workspace._geometry_reverse import identify_lifting_surface
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     monkeypatch.setattr(builtins, "__import__", refuse)
     with pytest.raises(MissingExtraError, match=r"pyflightstream\[gmsh\]"):

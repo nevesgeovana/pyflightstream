@@ -2593,10 +2593,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace.geometry_pipeline"><summary><code>pyflightstream.workspace.geometry_pipeline</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_check">pyflightstream.workspace._geometry_check</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_generate">pyflightstream.workspace._geometry_generate</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh">pyflightstream.workspace._geometry_mesh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_reverse">pyflightstream.workspace._geometry_reverse</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.hpc"><summary><code>pyflightstream.workspace.hpc</code></summary><ul>
@@ -3672,7 +3675,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.geometry._boundary"><summary><code>pyflightstream.geometry._boundary</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.component">pyflightstream.geometry.component</a> (module)</li>
 </ul></details>
 
@@ -3759,6 +3761,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.geometry.stages"><summary><code>pyflightstream.geometry.stages</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._bodies">pyflightstream.geometry._bodies</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._boundary">pyflightstream.geometry._boundary</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._caps">pyflightstream.geometry._caps</a> (module)</li>
@@ -3769,6 +3773,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._patch">pyflightstream.geometry._patch</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._placement">pyflightstream.geometry._placement</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._reverse">pyflightstream.geometry._reverse</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.component">pyflightstream.geometry.component</a> (module)</li>
 </ul></details>
 
 ## Layer 3.5

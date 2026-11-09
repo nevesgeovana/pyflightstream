@@ -2,25 +2,21 @@
 
 Pipeline role: private helpers of :mod:`pyflightstream.geometry.config` and
 :mod:`pyflightstream.geometry.component`. For the configuration: the unit of a
-dotted parameter path, the stripping of the ``{value, unit, source}`` wrappers
-of a resolved configuration back to plain values (checking each unit), and the
-TOML writer whose output ``load_config`` reads back unchanged. For the
-component record: the named deviation profile's limit, the SHA-256 pin check
-of every file a :class:`ComponentRecord` references, and the draft 2020-12 JSON
-Schema export of the record model (the packaged copy is compared with it in the
-test suite).
+dotted parameter path and the stripping of the ``{value, unit, source}`` wrappers
+of a resolved configuration back to plain values (checking each unit). For the
+component record: the named deviation profile's limit, the SHA-256 of a file, and
+the draft 2020-12 JSON Schema export of the record model (the packaged copy is
+compared with it in the test suite).
 """
 
 from __future__ import annotations
 
 import json
-import math
 from copy import deepcopy
 from pathlib import Path
 
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import InputValueError
-from pyflightstream._textio import write_text
 from pyflightstream.geometry.component import DEVIATION_PROFILES, ComponentRecord
 
 
@@ -96,37 +92,6 @@ def unpack(value, path=""):
     return deepcopy(value)
 
 
-def toml_value(value):
-    """Render a plain value as an inline TOML value."""
-    if isinstance(value, dict):
-        return (
-            "{ " + ", ".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in value.items()) + " }"
-        )
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(v) for v in value) + "]"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return json.dumps(value)
-    if isinstance(value, (int, float)) and math.isfinite(value):
-        return repr(value)
-    raise InputValueError(f"Unsupported TOML value: {value!r}")
-
-
-def write_config(config, path):
-    """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged.
-
-    Parameters
-    ----------
-    config : dict
-        Resolved configuration of plain values.
-    path : str or Path
-        File to write.
-    """
-    text = "\n".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in config.items()) + "\n"
-    write_text(path, text)
-
-
 def deviation_limit_mm(local_size_mm: float, profile: str = "study_default") -> float:
     """Return the allowed deviation for a local chord or diameter under a named profile."""
     try:
@@ -141,37 +106,6 @@ def deviation_limit_mm(local_size_mm: float, profile: str = "study_default") -> 
 def sha256_file(path: str | Path) -> str:
     """Return the SHA-256 of the exact bytes of a file as lowercase hex."""
     return file_sha256(path)
-
-
-def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:
-    """Check every referenced file against its pin; return one message per failure.
-
-    Paths resolve against ``asset_root``. An empty list means every referenced
-    file exists with matching bytes. A path that escapes the root is a failure.
-
-    Parameters
-    ----------
-    record : ComponentRecord
-        The component record whose referenced files are checked.
-    asset_root : str or Path
-        Directory against which the referenced paths resolve.
-
-    Returns
-    -------
-    list of str
-        One message per failure; empty when every pin holds.
-    """
-    root = Path(asset_root).resolve()
-    problems: list[str] = []
-    for reference in record.referenced_files():
-        target = (root / reference.path).resolve()
-        if root != target and root not in target.parents:
-            problems.append(f"{reference.path}: outside the asset root")
-        elif not target.is_file():
-            problems.append(f"{reference.path}: missing")
-        elif sha256_file(target) != reference.sha256:
-            problems.append(f"{reference.path}: SHA-256 differs from the pin")
-    return problems
 
 
 def export_schema() -> dict:
