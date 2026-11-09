@@ -363,7 +363,6 @@ _EXTRA_MODULES = {
     "pandas": "pandas",
     "xlsxwriter": "xlsxwriter",
     "pypdf": "pypdf",
-    "gmsh": "gmsh",
 }
 _PACKAGE_TO_MODULE = {"pynitefea": "pynite"}
 
