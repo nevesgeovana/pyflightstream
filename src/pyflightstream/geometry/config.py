@@ -230,8 +230,13 @@ def validate_ridge_profile(profile):
 
 
 def resolve_planform(supplied, defaults):
-    """Complete an independent trapezoidal set, rejecting redundant disagreement."""
+    """Complete an independent trapezoidal set, rejecting redundant disagreement.
+
+    With ``height`` (a single-sided surface, a fin) ``area`` is the area of that one surface;
+    otherwise it is the area of the mirrored pair.
+    """
     p = deepcopy(defaults)
+    sides = 2.0 if "height" in supplied else 1.0
     if "height" in supplied:
         if "span" in supplied:
             raise InputValueError("planform.height: given together with planform.span")
@@ -244,7 +249,7 @@ def resolve_planform(supplied, defaults):
         area = span * (root + tip) / 2
         ar = span**2 / area
     elif "area" in supplied:
-        area = number(supplied["area"], "planform.area", 0, strict=True)
+        area = sides * number(supplied["area"], "planform.area", 0, strict=True)
         ar = supplied.get("aspect_ratio", span**2 / area)
         if "span" not in supplied and "height" not in supplied and "aspect_ratio" in supplied:
             span = math.sqrt(area * ar)
@@ -262,7 +267,7 @@ def resolve_planform(supplied, defaults):
         "span": span,
         "root_chord": root,
         "tip_chord": tip,
-        "area": area,
+        "area": area / sides,
         "aspect_ratio": span**2 / area,
         "taper": taper,
     }

@@ -226,10 +226,37 @@ def test_g5b_height_with_aspect_ratio_and_bad_input(tmp_path):
         tmp_path,
     )
     assert by_area["planform"]["span"] == pytest.approx(1.0)
-    assert by_area["planform"]["root_chord"] == pytest.approx(0.4)
+    # R14-006: under height the area is that one surface's, so taper 1 gives 0.4 / 0.5.
+    assert by_area["planform"]["root_chord"] == pytest.approx(0.8)
     with pytest.raises(InputValueError, match="height"):
         resolved({"type": "lifting_surface", "planform": {"height": 0.5, "span": 1.0}}, tmp_path)
     with pytest.raises(InputValueError, match="height"):
         resolved({"type": "lifting_surface", "planform": {"height": -1.0}}, tmp_path)
     with pytest.raises(InputValueError, match="orientation"):
         resolved({"type": "lifting_surface", "planform": {"orientation": "up"}}, tmp_path)
+
+
+def test_r14_006_under_height_area_is_the_one_surface(tmp_path):
+    # A fin of height 0.5 and stated area 0.4 (one surface, taper 1) has chord 0.4 / 0.5.
+    fin = resolved(
+        {"type": "lifting_surface", "planform": {"height": 0.5, "area": 0.4, "taper": 1.0}},
+        tmp_path,
+    )["planform"]
+    assert fin["root_chord"] == pytest.approx(0.8, rel=1e-12)
+    assert fin["area"] == pytest.approx(0.4, rel=1e-12)
+    # Given by its chords, the fin reports the area of its one surface: 0.5 * (0.6 + 0.2) / 2.
+    by_chord = resolved(
+        {
+            "type": "lifting_surface",
+            "planform": {"height": 0.5, "root_chord": 0.6, "tip_chord": 0.2},
+        },
+        tmp_path,
+    )["planform"]
+    assert by_chord["area"] == pytest.approx(0.2, rel=1e-12)
+    # A mirrored pair keeps the area of both halves: span 1.0, area 0.4, taper 1 gives 0.4.
+    pair = resolved(
+        {"type": "lifting_surface", "planform": {"span": 1.0, "area": 0.4, "taper": 1.0}},
+        tmp_path,
+    )["planform"]
+    assert pair["root_chord"] == pytest.approx(0.4, rel=1e-12)
+    assert pair["area"] == pytest.approx(0.4, rel=1e-12)
