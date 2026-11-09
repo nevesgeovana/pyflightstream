@@ -38,7 +38,23 @@ __all__ = ["assembly_regions", "generate_components", "junction_lifting_surface"
 
 
 def generate_components(config) -> dict[str, list[Patch]]:
-    """Return the placed patches of every component of a resolved configuration."""
+    """Return the placed patches of every component of a resolved configuration.
+
+    Parameters
+    ----------
+    config : dict
+        Resolved configuration; its components are unpacked to plain values.
+
+    Returns
+    -------
+    dict
+        Component name to its list of placed patches, in the world frame.
+
+    Raises
+    ------
+    InputValueError
+        If a component is of a type other than body, lifting_surface or wing_fuselage_fairing.
+    """
     components = unpack(config)["components"]
     result = {}
     for name, component in components.items():
@@ -127,7 +143,21 @@ def junction_lifting_surface(wing, host, fairing) -> list[Patch]:
 
 
 def assembly_regions(config, patches) -> dict:
-    """Return the inside predicate of every component, in the world frame."""
+    """Return the inside predicate of every component, in the world frame.
+
+    Parameters
+    ----------
+    config : dict
+        Resolved configuration of the assembly.
+    patches : dict
+        Placed patches per component name, as :func:`generate_components` returns; the fairing
+        volume is built from them.
+
+    Returns
+    -------
+    dict
+        Component name to a function of a world point that tells whether it is inside.
+    """
     components = unpack(config)["components"]
     regions = {}
     for name, component in components.items():

@@ -142,7 +142,30 @@ def base_patch_grid(component, table, angles, barycentric):
 
 
 def body(component, junctions=()) -> list[Patch]:
-    """Return the patches of a body, with extra station breaks at the ``junctions`` fractions."""
+    """Return the patches of a body, with extra station breaks at the ``junctions`` fractions.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved body component (plain values, metres and degrees).
+    junctions : sequence of float, optional
+        Axial fractions at which extra station breaks are inserted; default empty.
+
+    Returns
+    -------
+    list of Patch
+        The nose, band, rear or base patches of the body, in the body frame.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry._boundary import unpack
+    >>> from pyflightstream.geometry.config import resolve_config
+    >>> raw = {"type": "body", "length": 20.0,
+    ...        "sections": [{"at": "middle", "shape": "circle", "radius": 1.2}]}
+    >>> patches = body(unpack(resolve_config(raw))["components"]["COMPONENT"])
+    >>> len(patches) > 0
+    True
+    """
     table = body_station_table(component)
     angles = np.deg2rad(component["azimuths"])
     patches = []

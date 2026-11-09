@@ -144,6 +144,30 @@ def orient_mesh(
     ``mirror_volume`` assumes every open edge lies on y=0 (reversing the reflected skin closes it).
     ``body`` integrates flux away from the straight axis; ``reference`` uses a supplied vector.
     Only connectivity changes. Returns ``(mesh, record)``.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        The mesh to orient.
+    sense : str, optional
+        Outward sense: ``mirror_volume``, ``body`` or ``reference``; default ``mirror_volume``.
+    axis_origin : sequence of float, optional
+        A point on the body axis; default the origin.
+    axis : sequence of float, optional
+        Direction of the body axis; default x.
+    reference : sequence of float, optional
+        Reference vector the outward flux is measured along; used by the ``reference`` sense.
+
+    Returns
+    -------
+    tuple
+        ``(mesh, record)``: the oriented mesh and a record of the orientation.
+
+    Raises
+    ------
+    InputValueError
+        If the skin is nonmanifold, its winding constraints contradict, the outward sense is
+        indeterminate or unknown, or a mirror volume has a free edge off y=0.
     """
     signs, islands = _propagate_winding(mesh)
     cells = [c if signs[i] > 0 else tuple(reversed(c)) for i, c in enumerate(mesh.cells)]
@@ -181,6 +205,18 @@ def oriented_source_normals(mesh, normals):
     """Choose one source-normal sign per source face, never one per cell.
 
     A locally folded cell therefore stays inverted against the oriented source face.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        The oriented mesh.
+    normals : array_like
+        Source normals, one per cell, shape ``(cells, 3)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        A copy of ``normals`` with the sign of each source face chosen to agree with the mesh.
     """
     result = np.array(normals, copy=True)
     vectors = area_vectors(mesh)
@@ -229,6 +265,34 @@ def check_mesh(
     ``normals`` holds one oriented source normal per cell and ``distances`` the distance of each
     node to every incident source surface. ``accepted`` covers those checks only: not physical
     spacing and not solver setup.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        The oriented mesh.
+    normals : array_like
+        One oriented source normal per cell, shape ``(cells, 3)``.
+    distances : array_like
+        Distance of each node to its source surfaces, shape ``(nodes,)``.
+    transition_surfaces : sequence of int, optional
+        Surfaces allowed to hold triangles; default none.
+    symmetry_tolerance : float, optional
+        Largest ``|y|`` of a free edge node, metres; default 1e-7.
+    distance_tolerance : float, optional
+        Largest accepted node-to-source distance, metres; default 5e-4.
+    area_tolerance : float, optional
+        Area below which a cell is degenerate, square metres; default 1e-14.
+
+    Returns
+    -------
+    dict
+        The record of counts, cell lists, tolerances and the ``accepted`` flag.
+
+    Raises
+    ------
+    InputValueError
+        If the shapes of ``normals`` or ``distances`` do not match the mesh, or any value is
+        nonfinite, a normal is zero or a distance is negative.
     """
     xyz = np.asarray(mesh.xyz)
     normals, distances = np.asarray(normals), np.asarray(distances)
@@ -356,6 +420,22 @@ def repair_inverted(mesh, normals, inverted, area_tolerance=1e-14):
 
     The mesh must be consistently oriented and ``normals`` oriented with it. Cell indices are
     preserved. Returns ``(mesh, flips)``.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        The consistently oriented mesh.
+    normals : array_like
+        Oriented source normals, one per cell.
+    inverted : sequence of int
+        Indices of the inverted cells.
+    area_tolerance : float, optional
+        Smallest signed area of a sound triangle, square metres; default 1e-14.
+
+    Returns
+    -------
+    tuple
+        ``(mesh, flips)``: the repaired mesh and the number of edges flipped.
     """
     cells = list(mesh.cells)
     flips = 0
@@ -418,7 +498,20 @@ def paired_triangles(mesh):
 
 
 def write_obj(path, mesh):
-    """Write the mesh as OBJ, one group per component, polygon topology preserved."""
+    """Write the mesh as OBJ, one group per component, polygon topology preserved.
+
+    Parameters
+    ----------
+    path : str or Path
+        File to write.
+    mesh : Mesh
+        The mesh to write.
+
+    Raises
+    ------
+    InputValueError
+        If a component name is empty or contains whitespace.
+    """
     lines = ["# polygon mesh; one group per component"]
     lines += ["v " + " ".join(format(float(x), ".17g") for x in p) for p in mesh.xyz]
     for name in dict.fromkeys(mesh.components):

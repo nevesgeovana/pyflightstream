@@ -63,7 +63,26 @@ def unit_for(path):
 
 
 def unpack(value, path=""):
-    """Strip the ``{value, unit, source}`` wrappers, checking each unit, and return plain values."""
+    """Strip the ``{value, unit, source}`` wrappers, checking each unit, and return plain values.
+
+    Parameters
+    ----------
+    value : object
+        A resolved configuration value: a wrapper, a mapping, a list or a plain value.
+    path : str, optional
+        Dotted path of ``value``, which names the expected unit; default empty.
+
+    Returns
+    -------
+    object
+        A deep copy of ``value`` with every wrapper replaced by its plain value.
+
+    Raises
+    ------
+    InputValueError
+        If a wrapper carries a unit other than the one its path implies, or a source other than
+        ``given`` or ``default``.
+    """
     if isinstance(value, list):
         return [unpack(v, path) for v in value]
     if isinstance(value, dict) and set(value) == {"value", "unit", "source"}:
@@ -95,7 +114,15 @@ def toml_value(value):
 
 
 def write_config(config, path):
-    """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged."""
+    """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged.
+
+    Parameters
+    ----------
+    config : dict
+        Resolved configuration of plain values.
+    path : str or Path
+        File to write.
+    """
     text = "\n".join(f"{json.dumps(k)} = {toml_value(v)}" for k, v in config.items()) + "\n"
     write_text(path, text)
 
@@ -121,6 +148,18 @@ def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:
 
     Paths resolve against ``asset_root``. An empty list means every referenced
     file exists with matching bytes. A path that escapes the root is a failure.
+
+    Parameters
+    ----------
+    record : ComponentRecord
+        The component record whose referenced files are checked.
+    asset_root : str or Path
+        Directory against which the referenced paths resolve.
+
+    Returns
+    -------
+    list of str
+        One message per failure; empty when every pin holds.
     """
     root = Path(asset_root).resolve()
     problems: list[str] = []
@@ -136,7 +175,13 @@ def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:
 
 
 def export_schema() -> dict:
-    """Return the draft 2020-12 JSON Schema of :class:`ComponentRecord`."""
+    """Return the draft 2020-12 JSON Schema of :class:`ComponentRecord`.
+
+    Returns
+    -------
+    dict
+        The schema, carrying its ``$schema`` and ``title`` keys.
+    """
     schema = ComponentRecord.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     schema["title"] = "Shared geometry component"

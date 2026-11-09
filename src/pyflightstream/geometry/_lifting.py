@@ -105,7 +105,18 @@ def lifting_patch_grid(component, models, layout, chord_count=49, span_count=9):
 
 
 def lifting_surface(component) -> list[Patch]:
-    """Return the skin of a lifting-surface component as bicubic patches."""
+    """Return the skin of a lifting-surface component as bicubic patches.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component (plain values, metres and degrees).
+
+    Returns
+    -------
+    list of Patch
+        The skin patches, six families per spanwise bay.
+    """
     models = section_models(component["sections"])
     layout = patch_layout(component["sections"]["eta"], component["planform"]["breaks"])
     return [

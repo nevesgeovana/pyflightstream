@@ -61,7 +61,24 @@ DEFAULT_CONTROLS: dict[str, dict[str, float]] = {
 
 
 def load_mesh_controls(source: Any = None) -> dict[str, dict[str, float]]:
-    """Return the mesh controls: the defaults, overridden by a mapping or a TOML file."""
+    """Return the mesh controls: the defaults, overridden by a mapping or a TOML file.
+
+    Parameters
+    ----------
+    source : str, Path or mapping, optional
+        A TOML file path or a mapping of tables to keys; None keeps the defaults.
+
+    Returns
+    -------
+    dict
+        Table name to its keys and values, a copy of the defaults with the overrides applied.
+
+    Raises
+    ------
+    InputValueError
+        If a table or key is unknown, a table is not a mapping, or a value is not a finite
+        positive number (a positive integer for a cell count).
+    """
     given: dict[str, Any] = {}
     if isinstance(source, (str, Path)):
         given = tomllib.loads(Path(source).read_text(encoding="utf-8"))
@@ -114,7 +131,18 @@ def _nodes(widths):
 
 
 def constant(cells):
-    """Return ``cells + 1`` equally spaced normalized nodes."""
+    """Return ``cells + 1`` equally spaced normalized nodes.
+
+    Parameters
+    ----------
+    cells : int
+        Number of cells; a positive integer.
+
+    Returns
+    -------
+    numpy.ndarray
+        The nodes from 0 to 1, shape ``(cells + 1,)``.
+    """
     _count(cells)
     return np.linspace(0.0, 1.0, cells + 1)
 
@@ -149,7 +177,28 @@ def geometric_cap(cells, ratio=1.15, cap_index=None, growth_until=0.5):
 
 
 def tip_refinement(cells, refined_cells=4, ratio=1.3):
-    """Return nodes of constant interior cells, then successive division by ``ratio`` at the tip."""
+    """Return nodes of constant interior cells, then successive division by ``ratio`` at the tip.
+
+    Parameters
+    ----------
+    cells : int
+        Total number of cells; a positive integer.
+    refined_cells : int, optional
+        Number of cells refined at the tip, in ``[0, cells)``; default 4.
+    ratio : float, optional
+        Successive width division at the tip, finite and at least 1; default 1.3.
+
+    Returns
+    -------
+    numpy.ndarray
+        The normalized nodes from 0 to 1, shape ``(cells + 1,)``.
+
+    Raises
+    ------
+    InputValueError
+        If ``refined_cells`` or ``ratio`` is out of range, or the spacing exceeds floating point
+        resolution.
+    """
     _count(cells)
     if (
         isinstance(refined_cells, bool)
@@ -181,6 +230,29 @@ def count_classes(loops, seeds, default_cells=4, lengths=None, target=None):
     ``loops`` maps a surface to its four signed edges, ``seeds`` maps an edge to its fixed
     normalized nodes. With ``lengths`` and ``target`` the free classes take the rounded mean
     length over ``target``; otherwise they take ``default_cells``.
+
+    Parameters
+    ----------
+    loops : dict
+        Surface to its four signed edge tags.
+    seeds : dict
+        Edge tag to its fixed normalized nodes.
+    default_cells : int, optional
+        Cell count of a free class when no lengths are given; default 4.
+    lengths : dict, optional
+        Edge tag to its length, used with ``target``.
+    target : float, optional
+        Target cell length for the free classes.
+
+    Returns
+    -------
+    dict
+        Edge tag to its cell count.
+
+    Raises
+    ------
+    InputValueError
+        If two seeded edges of one opposite-edge class fix different cell counts.
     """
     parent = {abs(e): abs(e) for loop in loops.values() for e in loop}
 
@@ -211,7 +283,22 @@ def count_classes(loops, seeds, default_cells=4, lengths=None, target=None):
 
 
 def insert_seed(seeds, signed_edge, nodes):
-    """Record the nodes of an edge walked in its own direction; refuse a different earlier seed."""
+    """Record the nodes of an edge walked in its own direction; refuse a different earlier seed.
+
+    Parameters
+    ----------
+    seeds : dict
+        Edge tag to its recorded nodes; updated in place.
+    signed_edge : int
+        Signed edge tag; a negative sign means the nodes were walked against the edge.
+    nodes : array_like
+        Normalized nodes as walked.
+
+    Raises
+    ------
+    InputValueError
+        If the edge already has a seed that differs.
+    """
     x = np.asarray(nodes) if signed_edge > 0 else 1 - np.asarray(nodes)[::-1]
     tag = abs(signed_edge)
     if tag in seeds and (
@@ -222,7 +309,24 @@ def insert_seed(seeds, signed_edge, nodes):
 
 
 def chord_nodes(component, controls, family, eta):
-    """Return the chordwise nodes of a fore or aft skin patch at span fraction ``eta``, or None."""
+    """Return the chordwise nodes of a fore or aft skin patch at span fraction ``eta``, or None.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component.
+    controls : dict
+        Mesh controls for the lifting surface (``chord_cells``, ``chord_growth``, ``growth_until``).
+    family : str
+        Patch family, such as ``upper_fore``; a trailing-edge family has no chordwise nodes.
+    eta : float
+        Span fraction at which the thickness station is taken.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        Normalized nodes from 0 to 1, or None for a trailing-edge family.
+    """
     if family.startswith("trailing"):
         return None
     mid = thickness_station(component, section_models(component["sections"]), eta)
@@ -242,7 +346,20 @@ def _ratios(widths):
 
 
 def chord_fraction(component, points):
-    """Return the chord fraction of model-space points on a lifting surface."""
+    """Return the chord fraction of model-space points on a lifting surface.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component.
+    points : numpy.ndarray
+        Model-space points, shape ``(n, 3)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        The chord fraction of each point, shape ``(n,)``.
+    """
     half = component["planform"]["span"] / 2
     eta = np.clip(points[:, 1] / half, 0, 1)
     values = planform_values(component, eta)
@@ -333,6 +450,22 @@ def check_lifting(component, controls, items, polylines):
     ``items`` lists ``{"family", "u", "v", "surface"}`` per structured patch (``u`` and ``v`` the
     edge tags); ``polylines`` maps an edge tag to its ``(n, 3)`` realized nodes. Trailing-edge
     strips are skipped. Returns ``(rows, failures)``.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component; its span sets the tip position.
+    controls : dict
+        Mesh controls whose chord growth, tip cells and tip ratio the edges are measured against.
+    items : sequence of dict
+        One entry per structured patch, as described above.
+    polylines : dict
+        Edge tag to its ``(n, 3)`` realized nodes.
+
+    Returns
+    -------
+    tuple
+        ``(rows, failures)``: one row per measured edge, and the rows that failed.
     """
     half = component["planform"]["span"] / 2
     result, failures = [], []
@@ -361,7 +494,25 @@ def check_lifting(component, controls, items, polylines):
 
 
 def check_body(component, controls, items, polylines):
-    """Measure the body spacing rules; ``items`` also carry ``axial`` (set on a band)."""
+    """Measure the body spacing rules; ``items`` also carry ``axial`` (set on a band).
+
+    Parameters
+    ----------
+    component : dict
+        Resolved body component; its length sets the axial step.
+    controls : dict
+        Mesh controls whose ``x_cells`` and ``azimuth_cells`` set the steps.
+    items : sequence of dict
+        One entry per structured patch with its ``family``, ``u`` and ``v`` edge tags,
+        ``surface`` and ``axial`` flag.
+    polylines : dict
+        Edge tag to its ``(n, 3)`` realized nodes.
+
+    Returns
+    -------
+    tuple
+        ``(rows, failures)``: one row per measured edge, and the rows that failed.
+    """
     x_step = component["length"] / controls["x_cells"]
     az_step = 180.0 / controls["azimuth_cells"]
     result, failures = [], []

@@ -320,6 +320,16 @@ def tip_cap(component) -> list[Patch]:
     """Return the tip cap of a lifting-surface component as bicubic patches.
 
     The list is empty for the kind ``none``.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component, whose ``tip_cap`` entry names the kind.
+
+    Returns
+    -------
+    list of Patch
+        The cap patches; empty when the kind is ``none``.
     """
     if component["tip_cap"]["kind"] == "none":
         return []

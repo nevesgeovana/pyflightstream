@@ -71,7 +71,28 @@ def place(patches, components, name) -> list[Patch]:
 
 
 def wing_in_body_frame(components, body_name, wing_name):
-    """Return the wing component with its leading edge expressed in the body frame."""
+    """Return the wing component with its leading edge expressed in the body frame.
+
+    Parameters
+    ----------
+    components : dict
+        Resolved components by name.
+    body_name : str
+        Name of the host body.
+    wing_name : str
+        Name of the lifting surface.
+
+    Returns
+    -------
+    dict
+        A copy of the wing component whose leading-edge distributions are in the body frame.
+
+    Raises
+    ------
+    InputValueError
+        If the wing and body differ by a rigid rotation, or the wing root is off the body
+        symmetry plane.
+    """
     br, bt = placement_transform(components, body_name)
     wr, wt = placement_transform(components, wing_name)
     if not np.allclose(br.T @ wr, np.eye(3), atol=1e-12):

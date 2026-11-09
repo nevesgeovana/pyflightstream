@@ -53,14 +53,43 @@ class StationRejectedError(ValueError):
 
 
 def cosine(count):
-    """Return ``count`` cosine-spaced values from 0 to 1."""
+    """Return ``count`` cosine-spaced values from 0 to 1.
+
+    Parameters
+    ----------
+    count : int
+        Number of samples; at least three.
+
+    Returns
+    -------
+    numpy.ndarray
+        The samples, shape ``(count,)``.
+
+    Raises
+    ------
+    InputValueError
+        If ``count`` is below three.
+    """
     if count < 3:
         raise InputValueError("count: at least three samples required")
     return (1 - np.cos(np.linspace(0, np.pi, count))) / 2
 
 
 def closed_contour(segments, tolerance=CLOSURE_TOLERANCE_M):
-    """Chain cut segments end to end into one closed contour or reject the station."""
+    """Chain cut segments end to end into one closed contour or reject the station.
+
+    Parameters
+    ----------
+    segments : iterable of array_like
+        Polyline segments of one cut, each ``(n, 3)``.
+    tolerance : float, optional
+        Largest endpoint or closure gap, metres; default ``CLOSURE_TOLERANCE_M``.
+
+    Returns
+    -------
+    numpy.ndarray
+        The closed contour, shape ``(m, 3)``, whose last point equals its first.
+    """
     lines = []
     for line in segments:
         line = np.asarray(line)
@@ -89,7 +118,22 @@ def closed_contour(segments, tolerance=CLOSURE_TOLERANCE_M):
 
 
 def contour_features(contour, span):
-    """Measure one closed cut: leading and trailing edge, chord, incidence, thickness ratio."""
+    """Measure one closed cut: leading and trailing edge, chord, incidence, thickness ratio.
+
+    Parameters
+    ----------
+    contour : array_like
+        Closed contour of the cut, shape ``(n, 3)``.
+    span : array_like
+        Spanwise direction of the cut.
+
+    Returns
+    -------
+    dict
+        The ``le`` and ``te`` points, ``chord``, ``thickness_ratio``, ``incidence``, the
+        ``contour`` and its ``unit_contour``, the ``extrema`` count and the
+        ``trailing_edge_endpoints``.
+    """
     p = np.asarray(contour)
     p = p[np.r_[True, np.linalg.norm(np.diff(p, axis=0), axis=1) > 1e-9]]
     if np.linalg.norm(p[-1] - p[0]) > 1e-9:
@@ -169,6 +213,27 @@ def clean_band(stations, features, trend_tolerance=0.0001):
     The interior polynomial trend is a classifier, never the output planform. A departure is
     rejected conservatively and recorded. Returns the indices of the longest clean run, the
     mask of every station that passed and the diagnostics of both trends.
+
+    Parameters
+    ----------
+    stations : array_like
+        Span station of each cut.
+    features : sequence
+        Features of each cut, or None where the cut was rejected.
+    trend_tolerance : float, optional
+        Relative departure from the interior trend that rejects a station; default 1e-4.
+
+    Returns
+    -------
+    tuple
+        ``(run, mask, diagnostics)``: indices of the longest clean run, the pass mask and the
+        trend diagnostics.
+
+    Raises
+    ------
+    InputValueError
+        If fewer than eight interior cuts are closed, no station is clean, or the clean run
+        has fewer than eight cuts.
     """
     s = np.asarray(stations)
     valid = np.array([f is not None for f in features])
@@ -224,6 +289,24 @@ def refine_tip(stations, features, band, evaluate, tolerance=1e-4):
     ``evaluate(station)`` returns the features of a fresh cut or raises
     :class:`StationRejectedError`. Returns the stations, features and band (a clean endpoint
     inserted when the bisection found one) and the final bracket.
+
+    Parameters
+    ----------
+    stations : array_like
+        Span station of each cut.
+    features : list
+        Features of each cut.
+    band : array_like
+        Indices of the clean stations.
+    evaluate : callable
+        Function of a station that returns the features of a fresh cut.
+    tolerance : float, optional
+        Bracket width at which the bisection stops; default 1e-4.
+
+    Returns
+    -------
+    tuple
+        ``(stations, features, band, bracket)`` after the refinement.
     """
     s = np.asarray(stations)
     last = int(band[-1])
@@ -261,7 +344,22 @@ def refine_tip(stations, features, band, evaluate, tolerance=1e-4):
 
 
 def leading_extension(stations, features, band):
-    """Return the leading-edge curve through the clean band, extended linearly beyond it."""
+    """Return the leading-edge curve through the clean band, extended linearly beyond it.
+
+    Parameters
+    ----------
+    stations : array_like
+        Span station of each cut.
+    features : sequence
+        Features of each cut.
+    band : array_like
+        Indices of the clean stations.
+
+    Returns
+    -------
+    callable
+        A function of a span station that returns the leading-edge point.
+    """
     s = np.asarray(stations)[band]
     points = np.array([features[i]["le"] for i in band])
     spline = CubicSpline(s, points, bc_type="natural")
@@ -291,6 +389,40 @@ def reference_planform(
     Leading and trailing edges are natural cubic splines of the clean stations, extended
     linearly past them. The root is a station given, or the root of ``boundary`` (a function of
     a leading-edge point that vanishes on the root surface) found inside ``root_bracket``.
+
+    Parameters
+    ----------
+    stations : array_like
+        Span station of each cut.
+    features : sequence
+        Features of each cut.
+    band : array_like
+        Indices of the clean stations.
+    span : array_like
+        Spanwise direction.
+    root_station : float, optional
+        Root station; required unless ``boundary`` is given.
+    tip_station : float, optional
+        Tip station; default the outermost clean station.
+    hold_incidence : bool, optional
+        Interpolate the incidence without extending it past the clean band; default False.
+    boundary : callable, optional
+        Function of a leading-edge point that vanishes on the root surface.
+    root_bracket : tuple of float, optional
+        Station bracket in which the root of ``boundary`` is sought.
+    mirrored : bool, optional
+        Whether the planform is the half of a mirrored wing; default True.
+
+    Returns
+    -------
+    dict
+        The planform measures: semi-span, span, root and tip chord, taper, sweeps, area, aspect
+        ratio, mean aerodynamic chord, incidence and tip twist.
+
+    Raises
+    ------
+    InputValueError
+        If neither a root station nor a boundary is given, or the root does not precede the tip.
     """
     s = np.asarray(stations)[band]
     le = np.array([features[i]["le"] for i in band])
@@ -417,6 +549,26 @@ def fit_section(contour, span, seed, *, degree=5, max_degree=20, tolerance_m=Non
     difference between the cut and the seed. ``tolerance_m`` defaults to the larger of 0.5 mm
     and 0.1 percent of the chord. The residual is the maximum ordinate difference against the
     cut on an independent cosine grid; ``accepted`` says whether it met the tolerance.
+
+    Parameters
+    ----------
+    contour : array_like
+        Closed contour of the cut, shape ``(n, 3)``.
+    span : array_like
+        Spanwise direction of the cut.
+    seed : str
+        NACA designation that supplies the starting shape.
+    degree : int, optional
+        First CST degree tried; default 5.
+    max_degree : int, optional
+        Highest CST degree tried; default 20.
+    tolerance_m : float, optional
+        Residual tolerance, metres; default as described above.
+
+    Returns
+    -------
+    dict
+        The fit: ``accepted``, ``seed``, ``degree``, the CST coefficients and the residual.
     """
     feature = contour_features(contour, span)
     chord = feature["chord"]
