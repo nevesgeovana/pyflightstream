@@ -1007,7 +1007,7 @@ def parse_run_loads(
         # A file not on disk falls through to _read_output, which says so.
         path = Path(sim_dir) / name
         if (
-            path.resolve().is_relative_to(Path(sim_dir).resolve())
+            _textio.resolved_plain(path).is_relative_to(_textio.resolved_plain(sim_dir))
             and path.is_file()
             and not _heads_a_loads_spreadsheet(path)
         ):
@@ -1694,7 +1694,7 @@ def _as_record(workspace: _ManifestWorkspace, record: _ManifestRecord | str) -> 
 def _read_output(sim_dir: Path, name: str, record: _ManifestRecord) -> str:
     """Read one collected output of a run, refusing evidence gaps."""
     path = Path(sim_dir) / name
-    if not path.resolve().is_relative_to(Path(sim_dir).resolve()):
+    if not _textio.resolved_plain(path).is_relative_to(_textio.resolved_plain(sim_dir)):
         raise MalformedOutputError(
             f"the collected output {name!r} of run {record.run_id!r} names a path outside "
             f"{sim_dir}; the manifest lists file names inside the simulation folder only"

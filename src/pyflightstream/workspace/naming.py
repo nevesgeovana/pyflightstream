@@ -46,6 +46,8 @@ from string import Formatter
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from pyflightstream._errors import ProductError, PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._textio import resolved_plain as resolved_plain
+from pyflightstream._textio import without_extended_prefix as without_extended_prefix
 
 __all__ = [
     "ADDITIONAL_DIR",
@@ -1017,30 +1019,3 @@ def submitted_by() -> str | None:
         return None
     who = str(who).strip()
     return who or None
-
-
-def without_extended_prefix(path: str) -> str:
-    r"""Return a Windows path without its extended-length prefix.
-
-    ``Path.resolve`` answers ``\\?\C:\...`` once a resolved path reaches the Windows limit
-    of 260 characters, and the plain form below it. So a file reached through a junction
-    with a short name can resolve to a prefixed path while its folder resolves to a plain
-    one, and the two no longer compare as parent and child.
-
-    Examples
-    --------
-    >>> without_extended_prefix("\\\\?\\C:\\a\\b.txt")
-    'C:\\a\\b.txt'
-    >>> without_extended_prefix("\\\\?\\UNC\\host\\share\\b.txt")
-    '\\\\host\\share\\b.txt'
-    >>> without_extended_prefix("C:\\a\\b.txt")
-    'C:\\a\\b.txt'
-    """
-    if path.startswith("\\\\?\\UNC\\"):
-        return "\\\\" + path[8:]
-    return path[4:] if path.startswith("\\\\?\\") else path
-
-
-def resolved_plain(path: str | Path) -> Path:
-    """Return ``path`` resolved, in the plain form whatever its resolved length."""
-    return Path(without_extended_prefix(str(Path(path).resolve())))

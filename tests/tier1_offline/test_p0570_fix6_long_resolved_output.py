@@ -33,6 +33,49 @@ def test_p0570_fix6_the_extended_prefix_is_removed(given, plain):
     assert without_extended_prefix(given) == plain
 
 
+@pytest.fixture
+def junction_folder(tmp_path):
+    """A short path through a junction into a folder of about 150 characters."""
+    if os.name != "nt":
+        pytest.skip("a junction and the 260 limit are Windows")
+    target = tmp_path / "t"
+    target.mkdir()
+    while len(str(target)) < 150:
+        target = target / ("d" * 20)
+        target.mkdir()
+    link = tmp_path / "j"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        check=True,
+        capture_output=True,
+        creationflags=_CREATE_NO_WINDOW,
+    )
+    yield link
+    os.rmdir(link)
+
+
+def _past_the_limit(folder: Path, stem: str = "P") -> Path:
+    """A file in ``folder`` that resolves past the limit while the folder and its path do not."""
+    size = 260 - len(str(folder.resolve())) - 1
+    path = folder / f"{stem}{'x' * (size - len(stem) - 4)}.txt"
+    path.write_text("x", encoding="utf-8")
+    assert len(str(path)) < 260
+    assert str(path.resolve()).startswith("\\\\?\\")
+    assert not str(folder.resolve()).startswith("\\\\?\\")
+    return path
+
+
+def test_p0570_r8_002_a_collected_output_past_the_limit_is_read(junction_folder):
+    """R8-002: the point PFS-2213 collects is read, not refused as naming a path outside."""
+    from types import SimpleNamespace
+
+    from pyflightstream.results.tables import _read_output
+
+    path = _past_the_limit(junction_folder)
+    record = SimpleNamespace(run_id="r")
+    assert _read_output(junction_folder, path.name, record) == "x"
+
+
 @pytest.mark.skipif(os.name != "nt", reason="a junction and the 260 limit are Windows")
 def test_p0570_fix6_an_output_resolving_past_the_limit_is_collected(tmp_path):
     root = tmp_path / "w"
