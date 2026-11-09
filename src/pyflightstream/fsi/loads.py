@@ -337,6 +337,7 @@ def project_wing_frame_loads(
     separation model on, and ``X_QC`` and ``Z_QC`` are in that frame, so the
     transfer is the lever of the section's forces. It is zero for a frame on
     the section, and a cut frame other than the loads frame is not measured.
+    :func:`to_elastic_axis` then moves it to the pitch axis where the blade has contours.
     Inputs broadcast; densities in N/m and N m / m, angles in rad.
 
     Source: rigid-section geometry of the wing-frame embedding; the moment
@@ -390,8 +391,8 @@ class ElasticAxisLoads:
         Force densities [N/m] toward the section suction side, with the same frame rule.
     moment_pa_nm_per_m : numpy.ndarray
         Nose-up moment densities about the pitch axis [N m / m]. The export
-        moment is negated in the rotor-frame projection and retained in the
-        wing-frame and section-frame projections. With station rotation, it is
+        moment is negated in the rotor-frame projection, moved to the pitch axis in
+        the wing-frame route and retained in the section-frame one. With station rotation, it is
         additionally scaled by cos(arctan(slope)), where slope is the interpolated
         deflection gradient; twist rotates the forces but does not scale this moment.
     moment_ea_nm_per_m : numpy.ndarray
