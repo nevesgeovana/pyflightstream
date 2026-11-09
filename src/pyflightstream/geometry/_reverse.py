@@ -451,6 +451,13 @@ def reference_planform(
         return extended_spline(x, te)
 
     if boundary is not None:
+        ends = [boundary(leading(x)) for x in root_bracket]
+        if ends[0] * ends[1] > 0:
+            raise InputValueError(
+                f"root: the leading edge does not cross the root surface between stations "
+                f"{root_bracket[0]:.6g} and {root_bracket[1]:.6g} m; a surface off the symmetry "
+                "plane takes a host or its own boundary curves as root"
+            )
         root_station = brentq(lambda x: boundary(leading(x)), *root_bracket, xtol=1e-10)
     if root_station is None:
         raise InputValueError("root: requires a symmetry station or a measured host boundary")

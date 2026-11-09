@@ -267,6 +267,20 @@ def test_r6_fit_section_refuses_a_start_degree_above_its_limit():
         fit_section(feature["contour"], SPAN, "NACA0012", degree=6, max_degree=5)
 
 
+def test_r6_a_root_the_leading_edge_never_reaches_is_refused_by_name(scan):
+    """R6-009: the bracket holds no crossing; the message names the root, not the root finder."""
+    s, features = scan
+    with pytest.raises(InputValueError, match="root: the leading edge does not cross"):
+        reference_planform(
+            s,
+            features,
+            np.arange(len(s)),
+            SPAN,
+            boundary=lambda p: p[1] + 5.0,
+            root_bracket=(-0.5, 0.2),
+        )
+
+
 # --- the workspace half, on a generated IGES -------------------------------------------------
 
 WING = {
