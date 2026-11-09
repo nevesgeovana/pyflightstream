@@ -93,6 +93,18 @@ def test_r6_each_healed_face_keeps_its_component(tmp_path, capsys):
     assert reach["Plate"][0] == pytest.approx(2 * reach["Flap"][0])  # the plate is the wide one
 
 
+def test_r6_a_component_left_out_leaves_the_kernel_model(tmp_path):
+    """R6-014: the page says its faces take no part in the join; only the list was tested."""
+    gmsh_or_skip()
+    from pyflightstream.workspace._gmsh import import_named, keep_components, session
+
+    with session("a test") as gmsh:
+        model = import_named(gmsh, [plate_and_flap(tmp_path)])
+        kept = keep_components(gmsh, model, ["Flap"])
+        assert kept.names == ["Flap"]
+        assert [tag for _, tag in gmsh.model.getEntities(2)] == kept.faces
+
+
 def grid_with(tmp_path, capsys, *flags, text=PLATE_GRID):
     gmsh_or_skip()
     grid = grid_file(tmp_path, text)
