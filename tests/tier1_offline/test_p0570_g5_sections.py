@@ -143,3 +143,30 @@ def test_g5_ordinates_that_are_not_a_function_of_x_are_refused():
 def test_g5_a_missing_file_item_is_refused_at_the_input(tmp_path):
     with pytest.raises(InputValueError, match="file not found"):
         resolve_config(raw([{"eta": 0.0, "file": "nope.dat"}]), base=tmp_path)
+
+
+def half_0012_closed(x):
+    """Half thickness of NACA 0012 with the closed trailing edge (coefficient -0.1036)."""
+    return 0.6 * (0.2969 * np.sqrt(x) - 0.1260 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1036 * x**4)
+
+
+def test_r14_009_a_file_keeps_its_own_trailing_edge(tmp_path):
+    from pyflightstream.geometry._sections import fit_or_read
+
+    x = (1 - np.cos(np.linspace(0, np.pi, 121))) / 2
+    yt = half_0012_closed(x)
+    pts = np.vstack([np.stack((x[::-1], yt[::-1]), 1), np.stack((x[1:], -yt[1:]), 1)])
+    rows = [f"{a:.10f} {b:.10f}" for a, b in pts]
+    (tmp_path / "sharp.dat").write_text("\n".join(["NACA 0012 closed", *rows, ""]))
+    comp = component(raw([{"eta": 0.0, "file": "sharp.dat"}]), tmp_path)
+    assert comp["sections"]["trailing_edge_thickness"] > 1e-3  # the default base is not zero
+    (section,) = fit_or_read(comp["sections"])
+    # The repeated closing point is dropped, so the base read is that of the last two rows.
+    assert section.te_thickness() == pytest.approx(0.0, abs=1e-4)
+    # The S1 residual is measured against the file as given, and the fit meets the file.
+    dense = (1 - np.cos(np.linspace(0, np.pi, 801))) / 2
+    upper, lower = section.evaluate(dense)
+    half = half_0012_closed(dense)
+    assert np.max(np.abs(upper[:, 1] - half)) <= 5e-4
+    assert np.max(np.abs(lower[:, 1] + half)) <= 5e-4
+    assert section.max_residual <= 5e-4

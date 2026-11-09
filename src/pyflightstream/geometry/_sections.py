@@ -260,6 +260,8 @@ def fit_or_read(sections) -> list[CstSection]:
 
     A ``physical`` entry gives one section for all stations, ``items`` rows are read from a
     designation, coefficients or a file of ordinates, and a plain airfoil list is fitted.
+    A file of ordinates keeps its own trailing-edge thickness, so its S1 residual is measured
+    against the file as given; ``trailing_edge_thickness`` sets the base of the other forms.
     """
     degree, te = sections["degree"], sections["trailing_edge_thickness"]
     if sections.get("physical"):
@@ -267,7 +269,9 @@ def fit_or_read(sections) -> list[CstSection]:
         return [one for _ in sections["eta"]]
     if sections.get("items"):
         return [
-            section_from_item(item, degree=degree, trailing_edge_thickness=te)
+            section_from_item(
+                item, degree=degree, trailing_edge_thickness=None if "file" in item else te
+            )
             for item in sections["items"]
         ]
     return [
