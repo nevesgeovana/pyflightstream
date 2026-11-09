@@ -4,6 +4,7 @@ OpenCASCADE keeps the target unit of its last import in a process-wide static th
 ``gmsh.finalize``, so these tests hold on every version and platform, in any test order.
 """
 
+import os
 import subprocess
 import sys
 
@@ -61,7 +62,11 @@ def test_p0570_the_first_read_of_a_process_succeeds_in_millimetres(tmp_path):
         "    print('XMAX', gmsh.model.occ.getBoundingBox(2, faces[0])[3])\n"
     )
     done = subprocess.run(
-        [sys.executable, "-c", code, str(path)], capture_output=True, text=True, check=False
+        [sys.executable, "-c", code, str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=dict(os.environ),
     )
     assert done.returncode == 0, done.stderr
     x_max = [line for line in done.stdout.splitlines() if line.startswith("XMAX")]
