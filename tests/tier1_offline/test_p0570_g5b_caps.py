@@ -187,3 +187,12 @@ def test_g5b_tip_cap_extent_bad_input():
     warnings, component = configuration(tip_cap={"kind": "flat", "extent": 0.08})
     assert any("tip_cap.extent" in text for text in warnings)
     assert "extent" not in component["tip_cap"]
+
+
+@pytest.mark.parametrize("kind", ["flat", "rounded", "ridged", "none"])
+def test_r14_004_loft_counts_on_another_cap_are_warned_and_skipped(kind):
+    warnings, _ = configuration(tip_cap={"kind": kind, "sections": 12, "control_points": 9})
+    assert any("tip_cap.sections" in text and kind in text for text in warnings)
+    assert any("tip_cap.control_points" in text for text in warnings)
+    warnings, _ = configuration(tip_cap={"kind": "exact_loft", "sections": 12})
+    assert not [text for text in warnings if "tip_cap.sections" in text]

@@ -258,8 +258,21 @@ def _check_tip_cap(cap):
             raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
 
 
+def _warn_loft_counts(name, cap, raw, warnings):
+    """Warn that the exact-loft counts given to another kind of cap are not read."""
+    if cap["kind"] == "exact_loft":
+        return
+    for key in ("sections", "control_points"):
+        if key in raw:
+            warnings.append(
+                f"{name}.tip_cap.{key}: read by an exact_loft cap only, a {cap['kind']} cap "
+                "skips it"
+            )
+
+
 def _check_tip_extent(name, cap, raw, warnings):
     """Check ``tip_cap.extent``, the reach of a rounded or lofted cap in model units."""
+    _warn_loft_counts(name, cap, raw, warnings)
     if "extent" not in cap:
         return
     number(cap["extent"], f"{name}.tip_cap.extent", 0, strict=True)
