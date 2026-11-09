@@ -98,16 +98,25 @@ def read_units(units, warnings):
 
 
 def scale_units(node, path, length_scale, angle_scale):
-    """Return ``node`` converted to metres and degrees, by the unit each dotted path implies."""
+    """Return ``node`` converted to metres and degrees, by the unit each dotted path implies.
+
+    A table with ``of`` holds ratios of what it names and is left alone. A key whose name states
+    its unit (``tolerance_m``, ``deflection_deg``) is already in that unit, whatever the file
+    declares, so it is left alone too.
+    """
     if length_scale == 1.0 and angle_scale == 1.0:
         return node
     if isinstance(node, dict):
+        if "of" in node:
+            return node
         return {
             k: scale_units(v, f"{path}.{k}", length_scale, angle_scale) for k, v in node.items()
         }
     if isinstance(node, list):
         return [scale_units(v, path, length_scale, angle_scale) for v in node]
     if isinstance(node, bool) or not isinstance(node, (int, float)):
+        return node
+    if path.endswith(("_m", "_mm", "_deg")):
         return node
     factor = {"m": length_scale, "m2": length_scale**2, "deg": angle_scale}.get(unit_for(path), 1.0)
     return node * factor
