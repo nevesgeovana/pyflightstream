@@ -182,6 +182,7 @@
       "tests/tier1_offline/test_p0570_fix6_attached_flow_cp.py",
       "tests/tier1_offline/test_p0570_fix6_long_resolved_output.py",
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
+      "tests/tier1_offline/test_p0570_g2r_trims.py",
       "tests/tier1_offline/test_p0570_g5_dihedral_identify.py",
       "tests/tier1_offline/test_p0570_g5_sections.py",
       "tests/tier1_offline/test_p0570_g5b_caps.py",

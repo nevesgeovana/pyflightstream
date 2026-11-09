@@ -7,7 +7,9 @@ is warned about, never refused. Only a solid entity is refused, because the pack
 surfaces only.
 
 Observed: non-rational, clamped, bicubic parametric surfaces (entity 128), trimmed by an outer
-boundary (entities 142 and 102), each face named by a 406 form 15 property.
+boundary (entities 142 and 102), each face named by a 406 form 15 property. The observed
+degrees are a set per direction and the observed net size a limit, both filled from the licensed
+reader probe; until it has run, only degree 3 is observed and no net limit is stated.
 """
 
 from __future__ import annotations
@@ -52,10 +54,14 @@ SOLID_ENTITIES: tuple[int, ...] = (
 class ReaderProfile:
     """What the reader is known to accept.
 
-    ``degrees`` are the degrees a file was read with. ``max_degree`` is a stated limit, ``None``
-    while no source gives one: a degree outside ``degrees`` is then warned about; once a source
-    sets it, a degree above it fails. ``bad_side_counts`` are the numbers of curves of an outer
+    ``degrees`` are the degrees a file was read with, in both directions; ``degrees_u`` and
+    ``degrees_v`` replace them for one direction once the probe observes the two apart.
+    ``max_degree`` is a stated limit, ``None`` while no source gives one: a degree outside the
+    observed ones is then warned about; once a source sets it, a degree above it fails.
+    ``max_net`` is the largest net, as points in u and in v, a probe read: ``None`` states no
+    limit, and a larger net then fails. ``bad_side_counts`` are the numbers of curves of an outer
     boundary that fail: a three-sided face collapses a side and is not among the observed shapes.
+    ``loop_gap`` is the gap, in parameter units, within which a trim loop is closed.
     """
 
     rational: bool = False
@@ -63,6 +69,15 @@ class ReaderProfile:
     degrees: tuple[int, ...] = (3,)
     max_degree: int | None = None
     bad_side_counts: tuple[int, ...] = (3,)
+    degrees_u: tuple[int, ...] | None = None
+    degrees_v: tuple[int, ...] | None = None
+    max_net: tuple[int, int] | None = None
+    loop_gap: float = 1e-7
+
+    def observed(self, direction: str) -> tuple[int, ...]:
+        """Return the degrees observed read in ``direction`` (``"u"`` or ``"v"``)."""
+        own = self.degrees_u if direction == "u" else self.degrees_v
+        return self.degrees if own is None else own
 
 
 #: The profile every file is measured against.
@@ -121,18 +136,29 @@ def surface_findings(entity: dict[str, Any], profile: ReaderProfile) -> list[Gat
                         "profile.unclamped", "fail", ident, f"{label} knots are not clamped: {ends}"
                     )
                 )
-    for degree in (m1, m2):
+    if profile.max_net is not None and (k1 + 1 > profile.max_net[0] or k2 + 1 > profile.max_net[1]):
+        found.append(
+            GateFinding(
+                "profile.net_size",
+                "fail",
+                ident,
+                f"net {k1 + 1} by {k2 + 1} is larger than the {profile.max_net[0]} by "
+                f"{profile.max_net[1]} a probe read",
+            )
+        )
+    for direction, degree in ("u", m1), ("v", m2):
         if profile.max_degree is not None and degree > profile.max_degree:
             found.append(
                 GateFinding("profile.degree", "fail", ident, f"degree {degree} above the limit")
             )
-        elif degree not in profile.degrees:
+        elif degree not in profile.observed(direction):
             found.append(
                 GateFinding(
                     "profile.degree",
                     "warn",
                     ident,
-                    f"degree {degree} was not observed read and no limit is stated for it",
+                    f"degree {degree} in {direction} was not observed read and no limit is "
+                    "stated for it",
                 )
             )
     return found

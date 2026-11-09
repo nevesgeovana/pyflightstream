@@ -323,3 +323,101 @@ def _flatten(registry, variants, warnings):
             "variants": [v for v in kept if v in variants],
         }
     return result
+
+
+_CONTINUITIES = ("C0", "C1", "C2")
+_BSPLINE_KEYS = ("degree", "knots", "poles")
+_ROOT_KINDS = ("open", "flat", "rounded", "ridged", "exact_loft")
+
+
+def check_bspline_item(path, spec):
+    """Check a ``bspline`` section item: a clamped knot vector, its degree and the 2-D poles."""
+    if not isinstance(spec, dict):
+        raise InputValueError(f"{path}: expected a table of degree, knots and poles")
+    missing = [k for k in _BSPLINE_KEYS if k not in spec]
+    if missing:
+        raise InputValueError(f"{path}: {', '.join(missing)} required")
+    degree, poles = spec["degree"], spec["poles"]
+    if isinstance(degree, bool) or not isinstance(degree, int) or degree < 1:
+        raise InputValueError(f"{path}.degree: expected a positive integer")
+    if not isinstance(poles, list) or len(poles) <= degree:
+        raise InputValueError(f"{path}.poles: expected more than degree poles")
+    for pole in poles:
+        if not isinstance(pole, list) or len(pole) != 2:
+            raise InputValueError(f"{path}.poles: each pole is an x/c and y/c pair")
+        for value in pole:
+            number(value, f"{path}.poles")
+    _check_knots(path, spec["knots"], len(poles), degree)
+
+
+def _check_knots(path, knots, count, degree):
+    """Check a clamped, nondecreasing knot vector of ``count + degree + 1`` values."""
+    if not isinstance(knots, list) or len(knots) != count + degree + 1:
+        raise InputValueError(f"{path}.knots: expected poles + degree + 1 values")
+    for value in knots:
+        number(value, f"{path}.knots")
+    if any(a > b for a, b in zip(knots, knots[1:], strict=False)) or knots[0] == knots[-1]:
+        raise InputValueError(f"{path}.knots: expected a nondecreasing vector that spans")
+    if len(set(knots[: degree + 1])) != 1 or len(set(knots[-degree - 1 :])) != 1:
+        raise InputValueError(f"{path}.knots: expected a clamped vector")
+    _check_interior(path, knots[degree + 1 : -degree - 1], degree)
+
+
+def _check_interior(path, interior, degree):
+    """Refuse an interior knot repeated more than ``degree`` times: the curve would break there."""
+    for value in set(interior):
+        if interior.count(value) > degree:
+            raise InputValueError(
+                f"{path}.knots: interior knot {value} repeated {interior.count(value)} times, "
+                f"more than the degree {degree}, so the section is not one curve"
+            )
+
+
+def check_section_law(name, section, warnings):
+    """Check ``sections.form``, ``continuity``, ``tolerance`` and ``pin`` of a lifting surface."""
+    path = f"{name}.sections"
+    if section["form"] == "cst":
+        warnings.append(f"{path}.form: cst is an input route, the stored form is bspline")
+        section["form"] = "bspline"
+    if section["form"] != "bspline":
+        raise InputValueError(
+            f"{path}.form: only the bspline form is stored, got {section['form']!r}"
+        )
+    if section["continuity"] not in _CONTINUITIES:
+        raise InputValueError(f"{path}.continuity: expected one of {_CONTINUITIES}")
+    for kind, value in section["tolerance"].items():
+        number(value, f"{path}.tolerance.{kind}", 0, 0.01, strict=True)
+    pin = section["pin"]
+    if not isinstance(pin, list):
+        raise InputValueError(f"{path}.pin: expected a list of x/c values")
+    for value in pin:
+        number(value, f"{path}.pin", 0, 1, strict=True)
+    if any(a >= b for a, b in zip(pin, pin[1:], strict=False)):
+        raise InputValueError(f"{path}.pin: x/c values must be strictly increasing")
+
+
+def check_lifting_layout(name, component):
+    """Check ``spanwise.law``, ``spanwise.lines`` and ``root`` of a lifting surface."""
+    spanwise = component["spanwise"]
+    if spanwise["law"] not in ("ruled", "smooth"):
+        raise InputValueError(f"{name}.spanwise.law: expected ruled or smooth")
+    lines = spanwise["lines"]
+    if lines:
+        stations(lines, f"{name}.spanwise.lines", 1, 0.0, 1.0)
+        if lines[0] <= 0 or lines[-1] >= 1:
+            raise InputValueError(f"{name}.spanwise.lines: must lie strictly inside (0, 1)")
+    if component["root"] not in _ROOT_KINDS:
+        raise InputValueError(f"{name}.root: expected one of {_ROOT_KINDS}")
+
+
+def check_body_law(name, component):
+    """Check the region stations, cap fraction, tolerance and degree of a body."""
+    regions = component["regions"]
+    if regions:
+        stations(regions, f"{name}.regions", 1, 0.0, 1.0)
+        if regions[0] <= 0 or regions[-1] >= 1:
+            raise InputValueError(f"{name}.regions: must lie strictly inside (0, 1)")
+    number(component["nose_cap_fraction"], f"{name}.nose_cap_fraction", 0, 0.1, strict=True)
+    number(component["tolerance"], f"{name}.tolerance", 0, 0.01, strict=True)
+    if component["degree"] not in (3, 5) or isinstance(component["degree"], bool):
+        raise InputValueError(f"{name}.degree: expected 3 or 5")

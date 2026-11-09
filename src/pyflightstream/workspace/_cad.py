@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+import numpy as np
+
 __all__ = [
     "CadKernel",
     "Face",
@@ -24,12 +26,16 @@ __all__ = [
     "NamedFaces",
     "Point",
     "UV",
+    "UVCurve",
 ]
 
 #: A point, in metres.
 Point = tuple[float, float, float]
 #: A surface parameter pair.
 UV = tuple[float, float]
+#: One curve of a trim loop in parameter space: the points it passes through, in (u, v). Two
+#: points are a straight line; more are a cubic spline through them.
+UVCurve = Sequence[UV]
 
 
 @dataclass(frozen=True, order=True)
@@ -99,6 +105,17 @@ class CadKernel(Protocol):
         """Add one non-rational B-spline surface; ``net[i][j]`` is the point at u index i."""
         ...
 
+    def add_trimmed_face(self, base: Face, loops_uv: Sequence[Sequence[UVCurve]]) -> Face:
+        """Add the part of the surface ``base`` that lies inside the outer loop of ``loops_uv``.
+
+        Each loop is a closed chain of :data:`UVCurve` in the parameter space of ``base``; the
+        first loop is the outer one and the rest are holes. The trim is exact, because it is
+        stated in parameters and not as space curves. ``base`` stays in the model, so one base
+        carries any number of faces; remove it with :meth:`remove` when its last face is made.
+        An open loop is refused.
+        """
+        ...
+
     def add_planar_face(self, loop: Sequence[Point]) -> Face:
         """Add a planar face bounded by the closed polyline ``loop``."""
         ...
@@ -115,6 +132,16 @@ class CadKernel(Protocol):
     # Edit
     def remove(self, faces: Sequence[Face]) -> None:
         """Delete the faces and what only they bound."""
+        ...
+
+    def split_face_uv(self, face: Face, direction: str, value: float) -> tuple[Face, ...]:
+        """Split ``face`` along the iso line ``direction`` (``"u"`` or ``"v"``) at ``value``.
+
+        ``face`` is replaced by the pieces and is not a handle afterwards. Return the pieces in
+        increasing order of ``direction``; a face the line does not cross comes back whole. The
+        cut is exact: it is an iso line of the face's own base. A face the kernel did not build
+        from a base (an imported one) is refused.
+        """
         ...
 
     def copy(self, faces: Sequence[Face]) -> tuple[Face, ...]:
@@ -170,28 +197,39 @@ class CadKernel(Protocol):
         """For each point, the closest point of ``face`` and its ``uv``."""
         ...
 
+    def reparametrize(self, edge: int, face: Face, t: float) -> UV:
+        """Return the ``(u, v)`` on ``face`` of the point of ``edge`` at its parameter ``t``."""
+        ...
+
+    def shared_curve(self, face_a: Face, face_b: Face) -> int | None:
+        """Return the one edge the two faces share, or ``None`` when they share none.
+
+        Two faces that share more than one edge have no one curve and are refused.
+        """
+        ...
+
     def is_inside(self, face: Face, uv: UV) -> bool:
         """Whether ``uv`` lies inside the trimmed face, not only inside its bounds."""
         ...
 
     # Batched surface and curve queries (a distance measure samples thousands of points)
-    def values(self, face: Face, uvs: Sequence[UV]) -> Sequence[Point]:
+    def values(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
         """Return the point of ``face`` at each ``uv``."""
         ...
 
-    def derivatives(self, face: Face, uvs: Sequence[UV]) -> Sequence[tuple[Point, Point]]:
+    def derivatives(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
         """Return ``(d/du, d/dv)`` of ``face`` at each ``uv``."""
         ...
 
-    def inside(self, face: Face, uvs: Sequence[UV]) -> Sequence[bool]:
+    def inside(self, face: Face, uvs: Sequence[UV]) -> np.ndarray:
         """Whether each ``uv`` lies inside the trimmed face."""
         ...
 
-    def project(self, face: Face, points: Sequence[Point]) -> tuple[Sequence[Point], Sequence[UV]]:
+    def project(self, face: Face, points: Sequence[Point]) -> tuple[np.ndarray, np.ndarray]:
         """Return the closest point of ``face`` to each point, and its ``uv`` (see ``closest``)."""
         ...
 
-    def parametrize(self, face: Face, points: Sequence[Point]) -> Sequence[UV]:
+    def parametrize(self, face: Face, points: Sequence[Point]) -> np.ndarray:
         """Return the ``uv`` of each point lying on ``face``."""
         ...
 
@@ -199,11 +237,11 @@ class CadKernel(Protocol):
         """Return the parameter range of ``edge``."""
         ...
 
-    def edge_values(self, edge: int, parameters: Sequence[float]) -> Sequence[Point]:
+    def edge_values(self, edge: int, parameters: Sequence[float]) -> np.ndarray:
         """Return the point of ``edge`` at each parameter."""
         ...
 
-    def edge_project(self, edge: int, points: Sequence[Point]) -> Sequence[Point]:
+    def edge_project(self, edge: int, points: Sequence[Point]) -> np.ndarray:
         """Return the closest point of the curve ``edge`` to each point; refuse a curveless edge."""
         ...
 
@@ -227,6 +265,13 @@ class CadKernel(Protocol):
         """Read one IGES file into the model and return its faces with the names the file gives."""
         ...
 
-    def export_iges(self, groups: Mapping[str, Sequence[Face]], path: str | Path) -> None:
-        """Write one IGES file, each group's faces carrying the group name as their NAME."""
+    def export_iges(
+        self, groups: Mapping[str, Sequence[Face]], path: str | Path, *, preference: int = 1
+    ) -> None:
+        """Write one IGES file, each group's faces carrying the group name as their NAME.
+
+        ``preference`` is the PREF of every trimmed face (IGES 142): 1 parameter space, 2 model
+        space, 3 either. Parameter space is the exact one of a trim built by
+        :meth:`add_trimmed_face`.
+        """
         ...

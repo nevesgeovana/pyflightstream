@@ -18,6 +18,7 @@ from pyflightstream._errors import InputValueError
 
 __all__ = [
     "FIXED_STAMP",
+    "PREFERENCES",
     "normalize_global",
     "read_iges",
     "serialize_iges",
@@ -26,6 +27,9 @@ __all__ = [
 
 #: The date and time every written file states, so a file does not depend on when it was written.
 FIXED_STAMP = "15H19700101.000000"
+#: The values of PREF in a trimmed face's outer boundary (142): 1 parameter space, 2 model space,
+#: 3 either.
+PREFERENCES = (1, 2, 3)
 #: Zero-based positions of the global section parameters that carry a time or an account name:
 #: file generation date (18) and model creation date (25), counted from 1.
 _STAMP_POSITIONS = (17, 24)
@@ -235,7 +239,25 @@ def serialize_iges(document):
     return "\n".join(lines + directory + parameters + [f"{counts:<72}T0000001"]) + "\n"
 
 
-def write_iges(gmsh, groups, path):
+def set_preference(document, preference):
+    """Set PREF (parameter 5) of every composite-curve-on-surface (142) of the document.
+
+    A boundary with no parameter-space curve (BPTR, parameter 3, is 0) can only be read in model
+    space, so it states 2 whatever ``preference`` asks.
+    """
+    for entity in document["entities"]:
+        if entity["type"] == 142:
+            if len(entity["parameters"]) < 6:
+                raise InputValueError("IGES.PREF: a 142 entity without its PREF parameter")
+            curveless = int(entity["parameters"][3] or 0) == 0
+            entity["parameters"][5] = str(2 if curveless else preference)
+    return document
+
+
+def write_iges(gmsh, groups, path, preference=1):
+    """Write the groups to one named IGES file; every trimmed face states ``preference`` (PREF)."""
+    if preference not in PREFERENCES:
+        raise InputValueError(f"IGES.PREF: {preference!r} is not one of {PREFERENCES}")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     entities = gmsh.model.getEntities()
@@ -259,4 +281,5 @@ def write_iges(gmsh, groups, path):
             raise InputValueError("IGES.NAME: temporary folder left the output folder")
         keys = component_keys(gmsh, groups, directory)
     document = name_properties(document, groups, keys)
+    document = set_preference(document, preference)
     _textio.write_text(path, serialize_iges(document), encoding="ascii")

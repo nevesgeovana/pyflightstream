@@ -206,6 +206,12 @@ def section_from_item(item, *, degree=5, trailing_edge_thickness=None) -> CstSec
             lower=tuple(float(v) for v in item["cst_lower"]),
             trailing_edge_thickness=float(item.get("te", trailing_edge_thickness or 0.0)),
         )
+    if "bspline" in item:
+        raise InputValueError(
+            f"sections.items at eta {item.get('eta')}: the bspline form resolves, but this "
+            "version's generator does not build it yet; state the section as naca, cst_upper "
+            "with cst_lower, or file"
+        )
     return section_from_ordinates(
         read_ordinates(item["file"]),
         f"sections.items file {item['file']!r}",

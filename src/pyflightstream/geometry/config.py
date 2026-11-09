@@ -101,10 +101,14 @@ def default_component(kind):
                 "trailing_edge_thickness": 0.00252,
                 "blend": "spline",
                 "items": [],
-                "form": "cst",
+                "form": "bspline",
+                "continuity": "C2",
+                "tolerance": {"analytic": 2e-5, "file": 1e-4},
+                "pin": [],
             },
+            spanwise={"law": "ruled", "lines": []},
+            root="open",
             trailing_edge="blunt",
-            base_strip="bicubic",
             control_surfaces=[],
             tip_cap={
                 "kind": "flat",
@@ -131,6 +135,10 @@ def default_component(kind):
             rear="pole",
             rings_file="",
             nose="pole",
+            nose_cap_fraction=0.004,
+            regions=[],
+            tolerance=1e-4,
+            degree=3,
             symmetry="half_y0",
             base_radius=0.05,
             nose_exponent=0.5,
@@ -187,6 +195,35 @@ def default_component(kind):
     else:
         raise InputValueError(f"type: unsupported {kind!r}")
     return common
+
+
+#: Keys of the one-skin parametrization that resolve and are checked but that the generator of
+#: this version does not read yet (lanes G4R and G5Rb apply them), by component type.
+_NOT_GENERATED = {
+    "lifting_surface": (
+        ("spanwise", "law"),
+        ("spanwise", "lines"),
+        ("root",),
+        ("sections", "pin"),
+        ("sections", "continuity"),
+        ("sections", "tolerance"),
+    ),
+    "body": (("regions",), ("nose_cap_fraction",), ("tolerance",), ("degree",)),
+}
+
+
+def warn_not_generated(name, component, warnings):
+    """Warn for each key of ``_NOT_GENERATED`` given a value other than its default."""
+    defaults = default_component(component["type"])
+    for path in _NOT_GENERATED.get(component["type"], ()):
+        value, default = component, defaults
+        for key in path:
+            value, default = value[key], default[key]
+        if value != default:
+            warnings.append(
+                f"{name}.{'.'.join(path)}: resolved, but the generator of this version does not "
+                "apply it yet; the surface is built as with the default"
+            )
 
 
 def merge_values(defaults, supplied, path="", warnings=None, free=frozenset(), *, place=""):
@@ -274,8 +311,12 @@ def resolve_planform(supplied, defaults):
     for key, value in expected.items():
         number(value, f"planform.{key}", 0, strict=True)
         if key in supplied and not math.isclose(supplied[key], value, rel_tol=1e-10, abs_tol=1e-12):
+            given = [k for k in (*expected, "height") if k in supplied]
             raise InputValueError(
-                f"planform.root_chord/planform.{key}: inconsistent independent set"
+                f"planform.{key}: inconsistent independent set; given {', '.join(given)}, and "
+                "a trapezoidal planform is fixed by taper plus two of span (or height), area "
+                "and aspect_ratio, or by root_chord with span; to vary the area at a fixed "
+                "aspect ratio, state area and aspect_ratio and leave span out"
             )
     p.update(expected)
     return p
@@ -337,6 +378,7 @@ def resolve_lifting(raw, component, notes):
             )
     check_slope_breaks(component)
     check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
+    warn_not_generated(notes["name"], component, notes["warnings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])
     number(component["tip_cap"]["length"], "tip_cap.length", 0, strict=True)
@@ -387,6 +429,7 @@ def resolve_body(raw, component, notes):
         raise InputValueError("stations: body transitions must be inside (0, 1)")
     check_body_symmetry(raw, component)
     check_body_extras(notes["name"], component, notes["warnings"], notes["findings"])
+    warn_not_generated(notes["name"], component, notes["warnings"])
     if not component["sections"]:
         raise InputValueError("sections: requires a section")
     for i, section in enumerate(component["sections"]):

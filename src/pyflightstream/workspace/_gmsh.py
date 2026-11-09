@@ -22,10 +22,17 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.extras import KernelUnavailableError
-from pyflightstream.workspace._cad import UV, Face, FragmentMap, NamedFaces, Point
+from pyflightstream.workspace._cad import (
+    UV,
+    Face,
+    FragmentMap,
+    NamedFaces,
+    Point,
+    UVCurve,
+)
 from pyflightstream.workspace._iges_names import (
     DEFAULT_NAME_ENCODING,
     IgesNames,
@@ -53,6 +60,10 @@ _OCC_IMPORT_UNIT = "MM"
 _NO_UNIT_YET = "Could not set OpenCASCADE target unit"
 #: A parameter pair is trusted when it reproduces the projected point to this fraction of its size.
 _PARAMETER_TOLERANCE = 1e-9
+#: A trim loop is closed when each curve starts where the one before it ends, within this gap in
+#: parameter units; the design's loop check (S7, ``trim.closed``) states 1e-12 and a kernel
+#: refuses at a thousandth of a unit more so a loop one rounding off still builds.
+_LOOP_GAP = 1e-9
 
 
 def gmsh_module(purpose: str) -> ModuleType:
@@ -163,6 +174,44 @@ def session(purpose: str) -> Iterator[Any]:
         yield gmsh
     finally:
         gmsh.finalize()
+
+
+def _oriented(loop: Sequence[UVCurve], *, outer: bool) -> list[list[UV]]:
+    """Return ``loop`` turning counterclockwise in (u, v) when ``outer`` and clockwise otherwise.
+
+    The kernel measures a hole as an area that is taken away only when its wire turns against
+    the outer one, and a caller states its loops in whatever sense it built them.
+    """
+    curves = [[(float(u), float(v)) for u, v in c] for c in loop]
+    ring = [p for c in curves for p in c[:-1]]
+    twice = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, [*ring[1:], ring[0]], strict=True))
+    if (twice > 0) == outer:
+        return curves
+    return [c[::-1] for c in curves[::-1]]
+
+
+def _check_loop_shape(loop: Sequence[UVCurve], low: UV, high: UV) -> None:
+    """Refuse a trim loop that leaves the base's domain or encloses no area.
+
+    Outside its domain a B-spline base is extrapolated, so such a loop builds a face that is not on
+    the surface; a loop of zero area, or a curve of zero length, builds no face a reader can use.
+    """
+    points = [(float(u), float(v)) for c in loop for u, v in c]
+    for u, v in points:
+        if not (
+            low[0] - _LOOP_GAP <= u <= high[0] + _LOOP_GAP
+            and low[1] - _LOOP_GAP <= v <= high[1] + _LOOP_GAP
+        ):
+            raise InputValueError(
+                f"a trim loop leaves the base's domain {low} to {high} at {(u, v)}"
+            )
+    if any(len(set(map(tuple, c))) < 2 for c in loop):
+        raise InputValueError("a trim loop holds a curve of zero length")
+    ring = [(float(u), float(v)) for c in loop for u, v in c[:-1]]
+    twice = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, [*ring[1:], ring[0]], strict=True))
+    size = (high[0] - low[0]) * (high[1] - low[1])
+    if abs(twice) <= _LOOP_GAP * size:
+        raise InputValueError("a trim loop encloses no area")
 
 
 @dataclass
@@ -280,6 +329,10 @@ class GmshKernel:
         self._g = gmsh
         self._dirty = False
         self._open = True
+        #: What each B-spline base was built from, so a split can build the same base again.
+        self._specs: dict[int, dict[str, Any]] = {}
+        #: The base of each face this kernel trimmed or split, by face tag.
+        self._parent: dict[int, int] = {}
 
     @property
     def version(self) -> str:
@@ -327,7 +380,56 @@ class GmshKernel:
             multiplicitiesV=list(mult_v),
         )
         self._dirty = True
+        self._specs[tag] = {
+            "net": [list(row) for row in net],
+            "knots_u": list(knots_u),
+            "knots_v": list(knots_v),
+            "mult_u": list(mult_u),
+            "mult_v": list(mult_v),
+            "deg_u": deg_u,
+            "deg_v": deg_v,
+        }
         return Face(tag)
+
+    def add_trimmed_face(self, base: Face, loops_uv: Sequence[Sequence[UVCurve]]) -> Face:
+        """Add the part of ``base`` inside the outer loop of ``loops_uv`` (see the protocol)."""
+        if not loops_uv:
+            raise InputValueError("a trimmed face needs at least its outer loop of (u, v) curves")
+        low, high = self.uv_bounds(base)
+        for loop in loops_uv:
+            _check_loop_shape(loop, low, high)
+        wires = [self._uv_wire(_oriented(loop, outer=k == 0)) for k, loop in enumerate(loops_uv)]
+        tag = self._g.model.occ.addTrimmedSurface(base.tag, wires, False)
+        self._dirty = True
+        if base.tag in self._specs:
+            self._parent[tag] = base.tag
+        return Face(tag)
+
+    def _uv_wire(self, loop: Sequence[UVCurve]) -> int:
+        """Build one closed wire of parameter-space curves (x is u, y is v, z is zero)."""
+        occ = self._g.model.occ
+        curves = [[(float(u), float(v)) for u, v in c] for c in loop]
+        if not curves or any(len(c) < 2 for c in curves):
+            raise InputValueError(
+                "a trim loop is a chain of curves of at least two (u, v) points each"
+            )
+        for k, curve in enumerate(curves):
+            nxt = curves[(k + 1) % len(curves)][0]
+            if max(abs(curve[-1][0] - nxt[0]), abs(curve[-1][1] - nxt[1])) > _LOOP_GAP:
+                raise InputValueError(
+                    f"a trim loop is open: curve {k} ends at {curve[-1]} and the next "
+                    f"starts at {nxt}"
+                )
+        starts = [occ.addPoint(c[0][0], c[0][1], 0.0) for c in curves]
+        edges = []
+        for k, curve in enumerate(curves):
+            end = starts[(k + 1) % len(curves)]
+            if len(curve) == 2:
+                edges.append(occ.addLine(starts[k], end))
+            else:
+                inner = [occ.addPoint(u, v, 0.0) for u, v in curve[1:-1]]
+                edges.append(occ.addSpline([starts[k], *inner, end]))
+        return int(occ.addWire(edges))
 
     def add_planar_face(self, loop: Sequence[Point]) -> Face:
         """Add a planar face bounded by the closed polyline ``loop``."""
@@ -370,6 +472,46 @@ class GmshKernel:
         """Delete the faces and what only they bound."""
         self._g.model.occ.remove(self._tags(faces), recursive=True)
         self._dirty = True
+
+    def split_face_uv(self, face: Face, direction: str, value: float) -> tuple[Face, ...]:
+        """Split ``face`` along the iso line ``direction`` at ``value`` (see the protocol)."""
+        if direction not in ("u", "v"):
+            raise InputValueError(f"a split direction is 'u' or 'v', not {direction!r}")
+        spec = self._specs.get(self._parent.get(face.tag, -1))
+        if spec is None:
+            raise InputValueError(
+                f"face {face.tag} was not built from a B-spline base by this kernel, so it has no "
+                "parameter space to split in; split a face made by add_trimmed_face"
+            )
+        axis = 0 if direction == "u" else 1
+        knots = spec["knots_u"] if axis == 0 else spec["knots_v"]
+        low, high = float(knots[0]), float(knots[-1])
+        if not low < value < high:
+            raise InputValueError(
+                f"the {direction} value {value} is not inside the base domain ({low}, {high})"
+            )
+        other = spec["knots_v"] if axis == 0 else spec["knots_u"]
+        o0, o1 = float(other[0]), float(other[-1])
+        corners = [(value, o0), (high, o0), (high, o1), (value, o1)]
+        if axis == 1:
+            corners = [(o0, value), (o1, value), (o1, high), (o0, high)]
+        scratch = self.add_bspline_surface(**spec)
+        upper = self.add_trimmed_face(
+            scratch, [[[corners[k], corners[(k + 1) % 4]] for k in range(4)]]
+        )
+        self._parent[upper.tag] = self._parent[face.tag]
+        occ = self._g.model.occ
+        _, mapping = occ.fragment([(2, face.tag)], [(2, upper.tag)])
+        mine = [t for d, t in mapping[0] if d == 2]
+        cutter = {t for d, t in mapping[1] if d == 2}
+        occ.remove([(2, t) for t in cutter if t not in mine], recursive=False)
+        occ.remove([(2, scratch.tag)], recursive=False)
+        self._dirty = True
+        base = self._parent[face.tag]
+        for tag in mine:
+            self._parent[tag] = base
+        lower = [Face(t) for t in mine if t not in cutter]
+        return tuple(lower + [Face(t) for t in mine if t in cutter])
 
     def copy(self, faces: Sequence[Face]) -> tuple[Face, ...]:
         """Return copies of the faces, in order."""
@@ -442,6 +584,21 @@ class GmshKernel:
             xyz, uv = model.getClosestPoint(2, face.tag, list(p))
             out.append(((xyz[0], xyz[1], xyz[2]), (uv[0], uv[1])))
         return tuple(out)
+
+    def reparametrize(self, edge: int, face: Face, t: float) -> UV:
+        """Return the ``(u, v)`` on ``face`` of the point of ``edge`` at its parameter ``t``."""
+        out = self._model().reparametrizeOnSurface(1, abs(edge), [float(t)], face.tag)
+        return (float(out[0]), float(out[1]))
+
+    def shared_curve(self, face_a: Face, face_b: Face) -> int | None:
+        """Return the one edge the two faces share, or ``None`` when they share none."""
+        common = {abs(e) for e in self.boundary(face_a)} & {abs(e) for e in self.boundary(face_b)}
+        if len(common) > 1:
+            raise InputValueError(
+                f"faces {face_a.tag} and {face_b.tag} share {len(common)} edges, so there is no "
+                f"one shared curve: {sorted(common)}"
+            )
+        return common.pop() if common else None
 
     def is_inside(self, face: Face, uv: UV) -> bool:
         """Return whether ``uv`` lies inside the trimmed face, not only inside its bounds."""
@@ -581,10 +738,17 @@ class GmshKernel:
                 kind="geometry",
             )
 
-    def export_iges(self, groups: Mapping[str, Sequence[Face]], path: str | Path) -> None:
-        """Write one IGES file, each group's faces carrying the group name as their NAME."""
+    def export_iges(
+        self, groups: Mapping[str, Sequence[Face]], path: str | Path, *, preference: int = 1
+    ) -> None:
+        """Write one IGES file of the named groups; ``preference`` is the PREF of each face."""
         self._model()
-        write_iges(self._g, {n: [f.tag for f in fs] for n, fs in groups.items()}, path)
+        write_iges(
+            self._g,
+            {n: [f.tag for f in fs] for n, fs in groups.items()},
+            path,
+            preference=preference,
+        )
 
 
 def open_kernel(purpose: str) -> GmshKernel:
