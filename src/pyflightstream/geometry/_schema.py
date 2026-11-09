@@ -83,12 +83,14 @@ def fill(defaults, supplied, path, warnings):
     return result
 
 
-def read_units(units):
+def read_units(units, warnings):
     """Return the scales to metres and degrees of a declared ``[units]`` table."""
     if not isinstance(units, dict):
         raise InputValueError("units: expected a table")
+    for key in sorted(set(units) - {"length", "angle"}):
+        warnings.append(f"units.{key}: unknown key, skipped; metres and degrees stay in force")
     length, angle = units.get("length", "m"), units.get("angle", "deg")
-    if length not in LENGTH_UNITS or angle not in ANGLE_UNITS:
+    if str(length) not in LENGTH_UNITS or str(angle) not in ANGLE_UNITS:
         raise InputValueError(
             f"units: length is one of {sorted(LENGTH_UNITS)}, angle one of {sorted(ANGLE_UNITS)}"
         )

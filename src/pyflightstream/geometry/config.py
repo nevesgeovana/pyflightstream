@@ -588,7 +588,7 @@ def resolve_config(data, stem=None, base=None):
         known |= {"format", "derived", "warnings", "findings", "files", "registry", "schema"}
     for key in sorted(set(source) - known):
         notes["warnings"].append(f"{key}: unknown key, skipped")
-    length_scale, angle_scale = read_units(source.get("units", {}))
+    length_scale, angle_scale = read_units(source.get("units", {}), notes["warnings"])
     if not resolved:
         source = scale_units(source, "", length_scale, angle_scale)
     if not source.get("components"):

@@ -37,3 +37,13 @@ def test_r9_001_mesh_generated_reports_the_key_it_skipped(monkeypatch):
     config = _plain(planform={"span": 2.0, "sweeep": 30.0})
     result = _geometry_mesh.mesh_generated(config, component="w")
     assert any("sweeep" in text for text in result.record["warnings"])
+
+
+# R9-002: a misspelt key of the units table leaves the file in metres, so it must warn.
+
+
+def test_r9_002_a_misspelt_units_key_warns():
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config({"units": {"lenght": "mm"}, "components": {"a": {"type": "body"}}})
+    assert any("units.lenght" in text for text in resolved["warnings"])
