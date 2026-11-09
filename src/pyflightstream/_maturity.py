@@ -66,6 +66,7 @@ MATURITY = {
     "pyflightstream.geometry": "provisional",
     "pyflightstream.geometry.component": "provisional",
     "pyflightstream.geometry.config": "provisional",
+    "pyflightstream.geometry.iges_profile": "provisional",
     "pyflightstream.geometry.stages": "provisional",
     "pyflightstream.fsi": "stable",
     "pyflightstream.fsi.beam": "stable",

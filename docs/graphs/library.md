@@ -1945,7 +1945,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._geom_gate"><summary><code>pyflightstream.workspace._geom_gate</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.geometry._iges_profile">pyflightstream.geometry._iges_profile</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.iges_profile">pyflightstream.geometry.iges_profile</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._iges_write">pyflightstream.workspace._iges_write</a> (module)</li>
 </ul></details>
 
@@ -3758,10 +3758,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._patch">pyflightstream.geometry._patch</a> (module)</li>
 </ul></details>
 
-<details id="pyflightstream.geometry._iges_profile"><summary><code>pyflightstream.geometry._iges_profile</code></summary><ul>
-<li>No package-internal outgoing imports.</li>
-</ul></details>
-
 <details id="pyflightstream.geometry._lifting"><summary><code>pyflightstream.geometry._lifting</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.geometry._airfoils">pyflightstream.geometry._airfoils</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._distributions">pyflightstream.geometry._distributions</a> (module)</li>
@@ -3824,6 +3820,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._component_keys">pyflightstream.geometry._component_keys</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._identity">pyflightstream.geometry._identity</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._schema">pyflightstream.geometry._schema</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.geometry.iges_profile"><summary><code>pyflightstream.geometry.iges_profile</code></summary><ul>
+<li>No package-internal outgoing imports.</li>
 </ul></details>
 
 <details id="pyflightstream.geometry.stages"><summary><code>pyflightstream.geometry.stages</code></summary><ul>

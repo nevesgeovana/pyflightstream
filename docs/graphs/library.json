@@ -656,11 +656,6 @@
       "path": "geometry/_identity.py"
     },
     {
-      "id": "pyflightstream.geometry._iges_profile",
-      "layer": 3.25,
-      "path": "geometry/_iges_profile.py"
-    },
-    {
       "id": "pyflightstream.geometry._lifting",
       "layer": 3.25,
       "path": "geometry/_lifting.py"
@@ -714,6 +709,11 @@
       "id": "pyflightstream.geometry.config",
       "layer": 3.25,
       "path": "geometry/config.py"
+    },
+    {
+      "id": "pyflightstream.geometry.iges_profile",
+      "layer": 3.25,
+      "path": "geometry/iges_profile.py"
     },
     {
       "id": "pyflightstream.geometry.stages",
@@ -14364,7 +14364,7 @@
     },
     {
       "source": "pyflightstream.workspace._geom_gate",
-      "target": "pyflightstream.geometry._iges_profile",
+      "target": "pyflightstream.geometry.iges_profile",
       "kind": "module"
     },
     {

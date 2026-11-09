@@ -84,7 +84,22 @@ def _number(text: str) -> float:
 
 
 def surface_findings(entity: dict[str, Any], profile: ReaderProfile) -> list[GateFinding]:
-    """Return the findings of one surface entity (128) measured against ``profile``."""
+    """Return the findings of one surface entity (128) measured against ``profile``.
+
+    Parameters
+    ----------
+    entity : dict
+        One parsed entity of type 128: its ``id`` and its ``parameters`` as read from the
+        parameter data section.
+    profile : ReaderProfile
+        The profile the surface is measured against, usually :data:`OBSERVED`.
+
+    Returns
+    -------
+    list of GateFinding
+        One finding per defect: rational weights, unclamped knots or a degree outside the
+        profile. Empty when the surface matches the profile.
+    """
     values = entity["parameters"]
     ident = entity["id"]
     k1, k2, m1, m2 = (int(values[i]) for i in range(1, 5))

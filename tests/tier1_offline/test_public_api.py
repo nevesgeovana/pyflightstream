@@ -109,6 +109,7 @@ PUBLIC_MODULES = [
     "pyflightstream.geometry",
     "pyflightstream.geometry.component",
     "pyflightstream.geometry.config",
+    "pyflightstream.geometry.iges_profile",
     "pyflightstream.geometry.stages",
     "pyflightstream.options",
     "pyflightstream.overview",
