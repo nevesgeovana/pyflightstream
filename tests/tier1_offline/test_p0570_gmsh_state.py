@@ -90,8 +90,7 @@ def test_p0570_a_generated_wing_identifies_at_its_span_after_a_stale_unit(tmp_pa
     pytest.importorskip("contourpy")
     from pyflightstream.workspace._geometry_generate import generate_iges
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
-
-    from .test_p0570_geometry_reverse import WING
+    from tests.tier1_offline.test_p0570_geometry_reverse import WING
 
     path = tmp_path / "wing.igs"
     generate_iges(WING, path)
