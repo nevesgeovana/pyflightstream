@@ -19,6 +19,30 @@ from pyflightstream.workspace import CampaignWorkspace, PointName
 _CREATE_NO_WINDOW = 0x08000000
 
 
+@pytest.fixture(autouse=True)
+def _resolve_answers_a_long_path_with_the_extended_prefix(monkeypatch):
+    """Build the condition the tests assert, on any machine.
+
+    Whether ``Path.resolve`` spells a path of 260 characters or more with the extended prefix
+    depends on the machine: where long paths are enabled the prefix is dropped, where they are
+    not it is kept. The requirement is about the second kind, so this resolve is made to answer
+    that way for a path at or past the limit and leaves every shorter path as it is.
+    """
+    if os.name != "nt":
+        return
+    real = Path.resolve
+    prefix = "\\\\?\\"
+
+    def resolve(self, strict=False):
+        resolved = real(self, strict=strict)
+        text = str(resolved)
+        if len(text) >= 260 and not text.startswith(prefix):
+            return Path(prefix + text)
+        return resolved
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+
+
 @pytest.mark.parametrize(
     ("given", "plain"),
     [
