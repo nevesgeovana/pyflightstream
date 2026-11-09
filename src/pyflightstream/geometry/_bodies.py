@@ -28,6 +28,7 @@ from ._skin import (
     band_axial,
     cap_edge_ids,
     clustered,
+    fit_patch,
     pole_parameter_grids,
     skin_band,
 )
@@ -479,3 +480,365 @@ def axisymmetric_radius(component, axial):
     if not table["axisymmetric"]:
         raise InputValueError("sections: not axisymmetric")
     return body_profile(component, table, np.asarray(axial))[..., 0]
+
+
+# ---------------------------------------------------------------------------------------------
+# Region layouts: a body is cut into faces by the rule of its type (fuselage or nacelle), and each
+# face is fitted with the fewest spans that hold it within a tolerance of the law.
+# ---------------------------------------------------------------------------------------------
+
+#: The layouts a body can follow: a fuselage is cut where its definition changes, a nacelle in bays.
+LAYOUTS = ("fuselage", "nacelle")
+#: Largest span count of a direction before the tolerance is called unreachable.
+MAX_SPANS = 16
+_CORNERS = {
+    "a": (0.0, 0.0),
+    "b": (1.0, 0.0),
+    "c": (0.0, 1.0),
+}
+
+
+def _width(component, table, x) -> float:
+    """Return the half width of the law at the axial fraction ``x``."""
+    return float(body_profile(component, table, np.asarray(x, float))[0])
+
+
+def _cap_end(component, table, radius, nose) -> float:
+    """Return the axial fraction where the half width of a closing end equals ``radius``."""
+    first, last = (float(table["stations"][0]), float(table["stations"][-1]))
+    near, far = (0.0, first) if nose else (last, 1.0)
+    if (nose and _width(component, table, far) <= radius) or (
+        not nose and _width(component, table, near) <= radius
+    ):
+        return far if nose else near
+    for _ in range(80):
+        mid = 0.5 * (near + far)
+        grows = _width(component, table, mid) < radius
+        near, far = (mid, far) if grows == nose else (near, mid)
+    return 0.5 * (near + far)
+
+
+def _constant_runs(component, table) -> list[tuple[float, float]]:
+    """Return the intervals between stations over which the section does not change at all."""
+    runs = []
+    for x0, x1 in zip(table["stations"][:-1], table["stations"][1:], strict=True):
+        values = body_profile(component, table, np.linspace(x0, x1, 9))
+        if np.ptp(values, axis=0).max() <= 1e-12 * max(1.0, float(np.abs(values).max())):
+            runs.append((float(x0), float(x1)))
+            if len(runs) > 1 and runs[-2][1] == runs[-1][0]:
+                runs[-2:] = [(runs[-2][0], runs[-1][1])]
+    return runs
+
+
+def _ends(component, table, cap_fraction):
+    """Return where the bands start and end, and the closing patches of the two ends."""
+    stations = table["stations"]
+    radius = cap_fraction * float(np.max(table["values"][:, 0]))
+    nose = component.get("nose", "pole") == "pole"
+    kind = rear_kind(component)
+    start = _cap_end(component, table, radius, True) if nose else float(stations[0])
+    if kind == "pole":
+        end = _cap_end(component, table, radius, False)
+    else:
+        end = rear_end(component) if kind in ("base", "boat_tail") else float(stations[-1])
+    return start, end, nose, kind
+
+
+def region_plan(component, layout="fuselage", cap_fraction=0.004, regions=()) -> dict:
+    """Return the axial regions of a body under the rule of its layout.
+
+    A ``fuselage`` is cut only where its definition changes: the start and end of a constant run
+    of the section (a region that is straight, degree 1 axially), the start of the rear closure
+    or of a boat-tail, the base, and every station listed in ``regions``. A ``nacelle`` is cut in
+    bays at its stations and at those listed, and every bay is a degree 5 face.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved body component.
+    layout : {"fuselage", "nacelle"}
+        The layout rule.
+    cap_fraction : float, optional
+        Radius of the nose or pole cap as a fraction of the largest half width; default 0.004.
+    regions : sequence of float, optional
+        Extra axial fractions at which to cut.
+
+    Returns
+    -------
+    dict
+        ``regions`` (``x0``, ``x1``, ``constant`` per region), ``nose`` and ``rear`` (the kind of
+        each end), ``layout`` and ``degree``.
+
+    Raises
+    ------
+    InputValueError
+        When the layout is unknown, the cap fraction is not positive or a listed station is not
+        inside the body.
+    """
+    if layout not in LAYOUTS:
+        raise InputValueError("layout: expected fuselage or nacelle")
+    if not cap_fraction > 0:
+        raise InputValueError("cap_fraction: expected a positive fraction")
+    table = body_station_table(component)
+    start, end, nose, kind = _ends(component, table, cap_fraction)
+    extra = [float(x) for x in regions]
+    if any(not start < x < end for x in extra):
+        raise InputValueError("regions: every station must lie inside the body")
+    marks = {start, end, *extra}
+    runs = _constant_runs(component, table) if layout == "fuselage" else []
+    if layout == "fuselage":
+        marks |= {float(x) for run in runs for x in run if start < x < end}
+        if kind != "open":
+            marks.add(float(table["stations"][-1]))
+    else:
+        marks |= {float(x) for x in table["stations"] if start < x < end}
+    cuts = sorted(x for x in marks if start <= x <= end)
+    cuts = [x for i, x in enumerate(cuts) if i == 0 or x - cuts[i - 1] > 1e-9]
+    found = [
+        {
+            "x0": a,
+            "x1": b,
+            "constant": any(r0 <= a + 1e-12 and b <= r1 + 1e-12 for r0, r1 in runs),
+        }
+        for a, b in zip(cuts, cuts[1:], strict=False)
+    ]
+    return {
+        "regions": found,
+        "nose": "pole" if nose else "open",
+        "rear": kind,
+        "layout": layout,
+        "degree": 3 if layout == "fuselage" else 5,
+    }
+
+
+def _axial_map(component, table, region, plan):
+    """Return the map from the axial parameter of a region to the axial fraction.
+
+    Toward a closing end the half width goes as a power of the distance, so the region is
+    parametrized by that power and the law stays a polynomial in it.
+    """
+    x0, x1 = region["x0"], region["x1"]
+    first, last = float(table["stations"][0]), float(table["stations"][-1])
+    exponent_nose, exponent_rear = component["nose_exponent"], component["rear_exponent"]
+    if plan["nose"] == "pole" and x0 == plan["regions"][0]["x0"] and exponent_nose != 1.0:
+        w0, w1 = (x0 / first) ** exponent_nose, (x1 / first) ** exponent_nose
+        return lambda v: first * (w0 + v * (w1 - w0)) ** (1.0 / exponent_nose)
+    closing = plan["rear"] in ("pole", "base") and exponent_rear != 1.0
+    if closing and x1 == plan["regions"][-1]["x1"]:
+        span = 1.0 - last
+        w0, w1 = ((1.0 - x0) / span) ** exponent_rear, ((1.0 - x1) / span) ** exponent_rear
+        return lambda v: 1.0 - span * np.maximum(w0 + v * (w1 - w0), 0.0) ** (1.0 / exponent_rear)
+    return lambda v: x0 + v * (x1 - x0)
+
+
+def _band_function(component, table, theta, axial):
+    """Return the surface function ``(u, v)`` of a band face: ``u`` azimuth, ``v`` axial."""
+    low, high = theta
+
+    def point(u, v):
+        return body_points(component, table, axial(v), low + u * (high - low))
+
+    return point
+
+
+def _disc_polar(w, angles):
+    """Return the azimuth and radius of a point of a cap triangle, smooth through the pole.
+
+    ``w`` are the weights of the two rim vertices. Near the pole the point is the straight blend
+    of the two rim directions, which is smooth; toward the rim the blend gives way to the true
+    polar point, so the rim itself is the arc, uniform in azimuth. A polar map alone has no
+    limit at the pole, and a polynomial patch cannot follow it.
+    """
+    rim = np.sum(w, axis=-1)
+    fraction = np.divide(w[..., 1], rim, out=np.zeros_like(rim), where=rim > 0)
+    theta = angles[0] + (angles[1] - angles[0]) * fraction
+    direction = lambda a: np.array([np.sin(a), np.cos(a)])  # noqa: E731
+    straight = w[..., :1] * direction(angles[0]) + w[..., 1:] * direction(angles[1])
+    polar = rim[..., None] * np.stack([np.sin(theta), np.cos(theta)], axis=-1)
+    weight = (rim**2)[..., None]
+    blend = (1.0 - weight) * straight + weight * polar
+    return np.arctan2(blend[..., 0], blend[..., 1]), np.hypot(blend[..., 0], blend[..., 1])
+
+
+def _cap_function(component, table, angles, corners, *, ring, end):
+    """Return the surface function of one quadrilateral of a cap, as the original network does."""
+    p = [np.asarray(c, float) for c in corners]
+    exponent = component["nose_exponent" if end == "nose" else "rear_exponent"]
+    last = rear_end(component)
+    centre_height = float(body_profile(component, table, np.asarray(last))[2])
+
+    def point(u, v):
+        u, v = np.asarray(u, float)[..., None], np.asarray(v, float)[..., None]
+        w = (1 - u) * (1 - v) * p[0] + u * (1 - v) * p[1] + u * v * p[2] + (1 - u) * v * p[3]
+        theta, radius = _disc_polar(w, angles)
+        if end == "base":
+            rim = body_points(component, table, last, theta)
+            centre = np.array([last * component["length"], 0.0, centre_height])
+            return centre + radius[..., None] * (rim - centre)
+        if end == "nose":
+            axial = ring * radius ** (1.0 / exponent)
+        else:
+            axial = 1.0 - (1.0 - ring) * radius ** (1.0 / exponent)
+        return body_points(component, table, axial, theta)
+
+    return point
+
+
+def _quads():
+    """Return the corner weights of the three quadrilaterals of one cap triangle."""
+    a, b, c = (np.array(_CORNERS[k]) for k in "abc")
+    ab, bc, ca, centre = (a + b) / 2, (b + c) / 2, (c + a) / 2, (a + b + c) / 3
+    return [(a, ab, centre, ca), (ab, b, bc, centre), (centre, bc, c, ca)]
+
+
+def _closing_ends(component, plan):
+    """Return ``(end, axial fraction, ring name, role)`` of each closed end of the body."""
+    regions, last = plan["regions"], len(plan["regions"])
+    ends = []
+    if plan["nose"] == "pole":
+        ends.append(("nose", regions[0]["x0"], "ring0", "nose_cap"))
+    if plan["rear"] == "pole":
+        ends.append(("rear", regions[-1]["x1"], f"ring{last}", "rear_cap"))
+    if plan["rear"] in ("base", "boat_tail"):
+        ends.append(("base", rear_end(component), f"ring{last}", "base"))
+    return ends
+
+
+def _faces(component, table, plan):
+    """Return every face of the body as a record: its surface function, names and degrees."""
+    full = is_full(component)
+    angles = [(0.0, np.pi)] + ([(np.pi, 2 * np.pi)] if full else [])
+    shape = {"sectors": len(angles), "halves": 2 * len(angles), "full": full}
+    regions, last = plan["regions"], len(plan["regions"])
+    faces = []
+    ends = _closing_ends(component, plan)
+    for sector, pair in enumerate(angles):
+        for end, ring_x, ring, role in ends:
+            for q, corners in enumerate(_quads()):
+                ids = cap_edge_ids(
+                    "nose" if end == "nose" else "rear", sector, shape["sectors"], ring, full
+                )[q]
+                point = _cap_function(component, table, pair, corners, ring=ring_x, end=end)
+                creased = (False, q != 0, False, False) if end == "base" else (False,) * 4
+                faces.append(
+                    {
+                        "point": point,
+                        "role": role,
+                        "ids": ids,
+                        "family": "nose" if end == "nose" else "rear",
+                        "bay": None,
+                        "degrees": (3, 3),
+                        "kind": "cap",
+                        "crease": creased,
+                        "region": None,
+                    }
+                )
+        mid = sum(pair) / 2
+        for offset, theta in enumerate([(pair[0], mid), (mid, pair[1])]):
+            half = 2 * sector + offset
+            low, high = _half_edges(half, shape)
+            for k, region in enumerate(regions):
+                axial = _axial_map(component, table, region, plan)
+                ids = (f"{low}.b{k}", f"{high}.b{k}", f"ring{k}.h{half}", f"ring{k + 1}.h{half}")
+                family = "front" if k == 0 else ("rear" if k == last - 1 else "middle")
+                faces.append(
+                    {
+                        "point": _band_function(component, table, theta, axial),
+                        "role": "band",
+                        "ids": ids,
+                        "family": family,
+                        "bay": (region["x0"], region["x1"]),
+                        "degrees": (3, 1 if region["constant"] else plan["degree"]),
+                        "kind": "band",
+                        "crease": (
+                            False,
+                            False,
+                            False,
+                            k == last - 1 and plan["rear"] in ("base", "boat_tail"),
+                        ),
+                        "region": k,
+                    }
+                )
+    for face in faces:
+        if face["kind"] == "cap":
+            face["degrees"] = (plan["degree"], plan["degree"])
+        else:
+            face["degrees"] = (plan["degree"], face["degrees"][1])
+    return faces
+
+
+def _fit_face(face, n_az, n_ax):
+    """Fit one face on the given span counts; returns the patch, residual and edge residuals."""
+    spans = (n_az, n_ax[face["region"]] if face["kind"] == "band" else n_az)
+    smooth = tuple(not c for c in face["crease"])
+    return fit_patch(face["point"], spans, face["degrees"], smooth, face["family"])
+
+
+def _grow(faces, results, n_az, n_ax, tolerance):
+    """Return the span counts after one step toward the tolerance; None when it is met."""
+    n_az2, n_ax2, met = n_az, list(n_ax), True
+    for face, (_, residual, (along_u, along_v)) in zip(faces, results, strict=True):
+        if residual <= tolerance:
+            continue
+        met = False
+        needs_u = along_u > tolerance / 2 or face["kind"] == "cap"
+        needs_v = along_v > tolerance / 2 and face["kind"] == "band"
+        if not (needs_u or needs_v):
+            needs_u = needs_v = True
+        if needs_u:
+            n_az2 = n_az + 1
+        if needs_v and face["degrees"][1] > 1:
+            n_ax2[face["region"]] = n_ax[face["region"]] + 1
+    return None if met else (n_az2, n_ax2)
+
+
+def body_regions(component, layout="fuselage", tolerance=None, cap_fraction=0.004, regions=()):
+    """Return the patches of a body cut by the region rule of its layout.
+
+    Each face is fitted with the fewest uniform spans that hold it within ``tolerance`` of the law
+    of the body, and faces that share an edge share its curve, so the seams are the law's own: a
+    tangent-continuous join measures the law and not the fit.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved body component.
+    layout : {"fuselage", "nacelle"}
+        The layout rule, see :func:`region_plan`.
+    tolerance : float, optional
+        Largest distance in metres from the law at the samples; default 1e-4 of the body length.
+    cap_fraction : float, optional
+        Radius of a closing cap as a fraction of the largest half width.
+    regions : sequence of float, optional
+        Extra axial fractions at which to cut.
+
+    Returns
+    -------
+    list of Patch
+        Cap and band patches with ``role`` and ``edge_ids``; roles ``nose_cap``, ``rear_cap``,
+        ``base`` and ``band``.
+
+    Raises
+    ------
+    InputValueError
+        As :func:`region_plan`, or when the tolerance needs more than ``MAX_SPANS`` spans.
+    """
+    plan = region_plan(component, layout, cap_fraction, regions)
+    tolerance = 1e-4 * component["length"] if tolerance is None else float(tolerance)
+    if not tolerance > 0:
+        raise InputValueError("tolerance: expected a positive distance")
+    table = body_station_table(component)
+    faces = _faces(component, table, plan)
+    n_az, n_ax = 1, [1] * len(plan["regions"])
+    while True:
+        results = [_fit_face(f, n_az, n_ax) for f in faces]
+        step = _grow(faces, results, n_az, n_ax, tolerance)
+        if step is None:
+            break
+        n_az, n_ax = step
+        if n_az > MAX_SPANS or max(n_ax) > MAX_SPANS:
+            raise InputValueError(f"tolerance: {tolerance:g} needs more than {MAX_SPANS} spans")
+    return [
+        _with_ids(patch, face["role"], face["ids"], face["family"], face["bay"])
+        for face, (patch, _, _) in zip(faces, results, strict=True)
+    ]
