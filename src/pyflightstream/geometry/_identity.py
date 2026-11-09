@@ -26,6 +26,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._patch import Patch
 
@@ -48,7 +49,7 @@ def canonical(value) -> str:
             return node
         if isinstance(node, (int, float, np.integer, np.floating)):
             return "f:" + (float(node) + 0.0).hex()
-        raise TypeError(f"not plain data: {type(node).__name__}")
+        raise InputValueError(f"identity: not plain data: {type(node).__name__}")
 
     return json.dumps(convert(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
