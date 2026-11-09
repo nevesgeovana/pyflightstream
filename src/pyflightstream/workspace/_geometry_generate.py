@@ -20,9 +20,10 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream._errors import InputValueError
+from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream.geometry.config import load_config, resolve_config
 from pyflightstream.geometry.stages import Patch, assembly_regions, generate_components
+from pyflightstream.workspace._geom_gate import check_profile
 from pyflightstream.workspace._gmsh import session
 from pyflightstream.workspace._iges_write import write_iges
 
@@ -209,13 +210,16 @@ def generate_iges(
     -------
     dict
         ``path``, the number of exposed ``faces`` of each component, the edge ``audit``, and
-        the ``warnings`` of the configuration: every key it skipped.
+        the ``warnings``: every key the configuration skipped, then each finding of the reader
+        profile gate on the written file (the run continues past them).
 
     Raises
     ------
     InputValueError
         For a refused configuration, an unknown ``configuration`` or a name the IGES format
         cannot carry; nothing is written.
+    pyflightstream._errors.InputArtifactError
+        When the written file holds a solid entity; the file is removed.
     pyflightstream.extras.MissingExtraError
         When the optional gmsh extra is not installed.
     """
@@ -241,9 +245,20 @@ def generate_iges(
         gmsh.model.occ.synchronize()
         exposed, audit = assemble(gmsh.model, groups, inside)
         write_iges(gmsh, exposed, path)
+    try:
+        gate = check_profile(path)
+    except InputArtifactError:
+        Path(path).unlink(missing_ok=True)
+        raise
+    gate_warnings = [
+        f"reader profile, {f.check}"
+        + (f" (entity {f.entity})" if f.entity else "")
+        + f": {f.detail}"
+        for f in gate.findings
+    ]
     return {
         "path": Path(path),
         "faces": {n: len(t) for n, t in exposed.items()},
         "audit": audit,
-        "warnings": list(resolved["warnings"]),
+        "warnings": [*resolved["warnings"], *gate_warnings],
     }

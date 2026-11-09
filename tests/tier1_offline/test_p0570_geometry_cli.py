@@ -203,3 +203,43 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     assert code == 0, err
     assert record_of(out)["obj"] == str(obj)
     assert "WING" in obj.read_text(encoding="utf-8")
+
+
+def test_p0570_generate_runs_the_reader_profile_gate_on_what_it_wrote(
+    tmp_path, capsys, monkeypatch
+):
+    """A clean file prints no finding; a planted one is a warning; a solid refuses, no file."""
+    pytest.importorskip("gmsh", reason="needs the optional extra: gmsh")
+    from pyflightstream.geometry.iges_profile import ReaderProfile
+    from pyflightstream.workspace import _geom_gate, _geometry_generate
+
+    config = tmp_path / "wing.toml"
+    config.write_text(WING, encoding="utf-8")
+    clean = tmp_path / "clean.igs"
+    code, out, err = cli(["generate", config, "--out", clean], capsys)
+    assert code == 0, err
+    assert not [w for w in record_of(out)["warnings"] if "reader profile" in w]
+
+    real = _geom_gate.check_profile
+    monkeypatch.setattr(
+        _geometry_generate, "check_profile", lambda p: real(p, ReaderProfile(degrees=(2,)))
+    )
+    planted = tmp_path / "planted.igs"
+    code, out, err = cli(["generate", config, "--out", planted], capsys)
+    assert code == 0, err
+    assert any("reader profile, profile.degree" in w for w in record_of(out)["warnings"])
+    monkeypatch.undo()
+
+    read = _geom_gate.read_iges
+
+    def with_solid(path):
+        document = read(path)
+        document["entities"].append({"id": 999, "type": 186, "parameters": [], "d1": [], "d2": []})
+        return document
+
+    monkeypatch.setattr(_geom_gate, "read_iges", with_solid)
+    solid = tmp_path / "solid.igs"
+    code, _, err = cli(["generate", config, "--out", solid], capsys)
+    assert code == 2
+    assert "186" in err
+    assert not solid.exists()
