@@ -13,7 +13,7 @@ import json
 import pytest
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.workspace._iges_select import resolve_components
+from pyflightstream.workspace._iges_names import resolve_components
 from pyflightstream.workspace._refine._obj import read_obj
 from tests.tier1_offline.test_p0560_iges import (
     PLATE_GRID,

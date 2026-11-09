@@ -35,7 +35,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.versions import known_versions
-from pyflightstream.workspace._gmsh import gmsh_module, import_named, session
+from pyflightstream.workspace._gmsh import gmsh_module, import_named, keep_components, session
 from pyflightstream.workspace._gmsh_worker import run_isolated
 from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
 from pyflightstream.workspace._iges_mesh import mesh_model
@@ -44,8 +44,8 @@ from pyflightstream.workspace._iges_names import (
     named_curves,
     read_iges_names,
     require_name_encoding,
+    resolve_components,
 )
-from pyflightstream.workspace._iges_select import keep_components, resolve_components
 from pyflightstream.workspace._iges_skin import outer_skin
 from pyflightstream.workspace._refine._obj import ObjMesh, midpoints, obj_text, write_te
 
@@ -436,6 +436,17 @@ def _junctions(
     return out
 
 
+def _junction_warnings(junctions: list[dict[str, Any]]) -> list[str]:
+    """Return one warning for each junction whose nodes lie past the join tolerance."""
+    return [
+        f"junction of {' and '.join(entry['components'])}: {entry['nodes']} node(s) lie "
+        f"up to {max(entry['distance'].values()):.4g} from the original faces of the "
+        f"components, past the join tolerance {entry['tolerance']:.4g}"
+        for entry in junctions
+        if not entry["within_tolerance"]
+    ]
+
+
 def _toml_key(name: str) -> str:
     return json.dumps(name, ensure_ascii=False)
 
@@ -727,13 +738,7 @@ def _write(
             warnings += said
             if found:
                 te[name] = found
-    for entry in junctions:
-        if not entry["within_tolerance"]:
-            warnings.append(
-                f"junction of {' and '.join(entry['components'])}: {entry['nodes']} node(s) lie "
-                f"up to {max(entry['distance'].values()):.4g} from the original faces of the "
-                f"components, past the join tolerance {entry['tolerance']:.4g}"
-            )
+    warnings += _junction_warnings(junctions)
     if check["conformal_mismatches"]:
         warnings.append(
             f"{check['conformal_mismatches']} open edge(s) are not boundaries of the body: two "

@@ -28,7 +28,7 @@ from pyflightstream.workspace._iges_names import (
     read_iges_names,
 )
 
-__all__ = ["NamedModel", "gmsh_module", "import_iges", "import_named", "session"]
+__all__ = ["NamedModel", "gmsh_module", "import_iges", "import_named", "keep_components", "session"]
 
 #: The unit an OpenCASCADE IGES import returns its coordinates in, whatever the file states.
 IMPORT_UNIT = "MILLIMETER"
@@ -163,3 +163,20 @@ def import_named(
         gmsh.model.occ.dilate([(2, t) for t in model.faces], 0.0, 0.0, 0.0, factor, factor, factor)
         gmsh.model.occ.synchronize()
     return model
+
+
+def keep_components(gmsh: Any, model: NamedModel, names: Sequence[str]) -> NamedModel:
+    """Remove the faces of every component not in ``names`` from the gmsh model; return the rest."""
+    keep = set(names)
+    dropped = [t for t, n in zip(model.faces, model.names, strict=True) if n not in keep]
+    if dropped:
+        gmsh.model.occ.remove([(2, t) for t in dropped], recursive=True)
+        gmsh.model.occ.synchronize()
+    pairs = [(t, n) for t, n in zip(model.faces, model.names, strict=True) if n in keep]
+    return NamedModel(
+        unit=model.unit,
+        faces=[t for t, _ in pairs],
+        names=[n for _, n in pairs],
+        sources=model.sources,
+        notes=[*model.notes, f"selected components: {', '.join(names)}"],
+    )

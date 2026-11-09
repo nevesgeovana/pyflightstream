@@ -30,6 +30,7 @@ __all__ = [
     "name_faces",
     "named_curves",
     "read_iges_names",
+    "resolve_components",
     "unit_of_flag",
 ]
 
@@ -639,3 +640,37 @@ def name_faces(
     lines = start + glines + directory + parameters + [_line(counts, "T", 1)]
     _textio.write_lines(out, lines, encoding=_BYTES)
     return out
+
+
+def resolve_components(found: Sequence[str], requested: Sequence[str]) -> list[str]:
+    """Return the components ``requested`` names, in the order of ``found``, or refuse.
+
+    Raises
+    ------
+    InputValueError
+        ``requested`` is empty, a name matches no component, or a name matches more than one
+        component that differs from it only in case or surrounding blanks.
+    """
+    if not requested:
+        raise InputValueError(
+            "component: at least one component name required. Nothing was written."
+        )
+    listing = ", ".join(repr(name) for name in found)
+    chosen: set[str] = set()
+    for name in requested:
+        if name in found:
+            chosen.add(name)
+            continue
+        loose = [f for f in found if f.strip().casefold() == name.strip().casefold()]
+        if not loose:
+            raise InputValueError(
+                f"component {name!r}: no component of the IGES files has this name; found: "
+                f"{listing}. Nothing was written."
+            )
+        if len(loose) > 1:
+            raise InputValueError(
+                f"component {name!r}: ambiguous, it matches "
+                f"{', '.join(repr(m) for m in loose)}; give the exact name. Nothing was written."
+            )
+        chosen.add(loose[0])
+    return [name for name in found if name in chosen]
