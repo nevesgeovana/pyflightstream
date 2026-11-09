@@ -171,9 +171,9 @@ def test_a_fold_over_the_limit_fails_and_a_crease_at_the_right_angle_allows_it()
     planes = make_planes(30.0)
     assert audit_jumps(planes)["failed"] == [0]
     assert audit_jumps(planes, creases=[{"at": "x|y", "deg": 28.5}])["failed"] == [0]
-    allowed = audit_jumps(planes, creases=[{"at": "x|y", "deg": 31.0}])
+    allowed = audit_jumps(planes, creases=[{"at": "x|y", "deg": 30.5}])
     assert allowed["failed"] == []
-    assert allowed["edges"][0]["allowed_deg"] == 31.0
+    assert allowed["edges"][0]["allowed_deg"] == 30.5
 
 
 @pytest.mark.parametrize("declared", [180.0, 90.0])
