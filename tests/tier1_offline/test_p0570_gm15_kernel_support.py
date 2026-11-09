@@ -120,3 +120,36 @@ def test_p0570_gm15_the_wheel_job_installs_the_libraries_and_checks_the_wheel():
     assert check < install and libraries < install
     assert steps[libraries]["if"] == "runner.os == 'Linux'"
     assert "Requires-Dist: gmsh" in steps[check]["run"]
+
+
+def _wheel_check_outcome(tmp_path, files):
+    """Run the wheel check of release.yml, as written, on a wheel holding ``files``."""
+    import subprocess
+    import zipfile
+
+    steps = _steps(_workflow("release.yml")["test-artifact"])
+    text = steps[_index(steps, "names gmsh as a dependency")]["run"]
+    script = text.split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    (tmp_path / "dist").mkdir(parents=True)
+    with zipfile.ZipFile(tmp_path / "dist" / "pyflightstream-0.57.0-py3-none-any.whl", "w") as w:
+        for name, body in files.items():
+            w.writestr(name, body)
+    return subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path, capture_output=True, text=True, check=False
+    )
+
+
+_METADATA = (
+    "pyflightstream-0.57.0.dist-info/METADATA",
+    "Name: pyflightstream\nRequires-Dist: gmsh<5,>=4.13\n",
+)
+
+
+def test_r11_001_the_wheel_check_passes_the_package_own_kernel_module(tmp_path):
+    """The package's workspace/_gmsh.py is not an embedded gmsh, and a real embed is refused."""
+    own = dict([_METADATA, ("pyflightstream/workspace/_gmsh.py", "")])
+    done = _wheel_check_outcome(tmp_path / "own", own)
+    assert done.returncode == 0, done.stderr[-600:]
+    embed = dict([_METADATA, ("pyflightstream/_vendor/gmsh.py", "")])
+    refused = _wheel_check_outcome(tmp_path / "embed", embed)
+    assert refused.returncode != 0 and "embeds gmsh files" in refused.stderr

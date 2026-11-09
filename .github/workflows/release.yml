@@ -143,8 +143,12 @@ jobs:
               names = archive.namelist()
               metadata = next(n for n in names if n.endswith(".dist-info/METADATA"))
               text = archive.read(metadata).decode("utf-8")
+          # By file name, not by suffix: the package's own workspace/_gmsh.py ends in gmsh.py.
           embedded = [
-              n for n in names if n.split("/")[0].lower().startswith("gmsh") or n.lower().endswith(("gmsh.py", "gmsh.dll", "libgmsh.so"))
+              n for n in names
+              if n.split("/")[0].lower().startswith("gmsh")
+              or n.rsplit("/", 1)[-1].lower() in {"gmsh.py", "gmsh.dll", "libgmsh.so"}
+              or n.rsplit("/", 1)[-1].lower().startswith("libgmsh.so.")
           ]
           assert not embedded, f"the wheel embeds gmsh files: {embedded[:5]}"
           requires = [line for line in text.splitlines() if line.startswith("Requires-Dist: gmsh")]
