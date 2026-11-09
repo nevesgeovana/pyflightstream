@@ -353,9 +353,8 @@ def check_fillet(name, component, warnings, findings):
         known_keys(component["mesh_zone"], _MESH_ZONE_KEYS, f"{name}.mesh_zone", warnings)
     if "spine" in component:
         known_keys(component["spine"], ("from", "to"), f"{name}.spine", warnings)
-    for key in component.get("laws", {}).items():
-        if key not in ("radius", "handle", "setback"):
-            warnings.append(f"{name}.laws.{key}: unknown key, skipped")
+    if "laws" in component:
+        known_keys(component["laws"], ("radius", "handle", "setback"), f"{name}.laws", warnings)
 
 
 def check_blister(name, component, warnings, findings):

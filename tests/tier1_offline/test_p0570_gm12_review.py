@@ -808,3 +808,24 @@ def test_r9_013_two_surfaces_that_overlap_in_span_are_refused():
         resolve_config(_plain(control_surfaces=surfaces))
     surfaces[1]["eta_in"] = 0.5
     resolve_config(_plain(control_surfaces=surfaces))
+
+
+# R9-014: the laws of a fillet.
+
+
+def test_r9_014_a_known_law_is_silent_and_an_unknown_one_is_named_and_gone():
+    from pyflightstream.geometry._boundary import unpack
+    from pyflightstream.geometry.config import resolve_config
+
+    resolved = resolve_config(
+        {
+            "aircraft": {"name": "t"},
+            "components": {
+                "h": {"type": "body"},
+                "w": {"type": "lifting_surface"},
+                "f": {"type": "fillet", "hosts": ["h", "w"], "laws": {"radius": 1.0, "foo": 2.0}},
+            },
+        }
+    )
+    assert resolved["warnings"] == ["f.laws.foo: unknown key, skipped"]
+    assert unpack(resolved)["components"]["f"]["laws"] == {"radius": 1.0}
