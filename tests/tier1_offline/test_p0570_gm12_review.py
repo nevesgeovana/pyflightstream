@@ -162,3 +162,34 @@ def _close(a, b):
     if isinstance(a, float):
         return a == pytest.approx(b, rel=1e-12, abs=1e-12)
     return a == b
+
+
+# R9-004: a data file enters the identity by its place and its bytes, not by its path.
+
+
+def _wing_of_files(first, second):
+    items = [{"eta": 0.0, "file": first}, {"eta": 1.0, "file": second}]
+    return {"components": {"w": {"type": "lifting_surface", "sections": {"items": items}}}}
+
+
+def test_r9_004_swapped_section_files_are_two_geometries(tmp_path):
+    from pyflightstream.geometry._identity import parameter_id
+    from pyflightstream.geometry.config import resolve_config
+
+    (tmp_path / "a.dat").write_text("A", encoding="ascii")
+    (tmp_path / "b.dat").write_text("B", encoding="ascii")
+    one = parameter_id(resolve_config(_wing_of_files("a.dat", "b.dat"), base=tmp_path))
+    two = parameter_id(resolve_config(_wing_of_files("b.dat", "a.dat"), base=tmp_path))
+    assert one != two
+
+
+def test_r9_004_a_renamed_section_file_is_one_geometry(tmp_path):
+    from pyflightstream.geometry._identity import parameter_id
+    from pyflightstream.geometry.config import resolve_config
+
+    (tmp_path / "a.dat").write_text("A", encoding="ascii")
+    (tmp_path / "c.dat").write_text("A", encoding="ascii")
+    (tmp_path / "b.dat").write_text("B", encoding="ascii")
+    one = parameter_id(resolve_config(_wing_of_files("a.dat", "b.dat"), base=tmp_path))
+    two = parameter_id(resolve_config(_wing_of_files("c.dat", "b.dat"), base=tmp_path))
+    assert one == two

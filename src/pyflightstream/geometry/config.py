@@ -528,13 +528,13 @@ def _file_digests(components, base):
             "sections_file": component.get("sections_file", ""),
             "original": component.get("original", "").split("#")[0],
         }
-        for item in (
+        for i, item in enumerate(
             component.get("sections", {}).get("items", [])
             if isinstance(component.get("sections"), dict)
             else []
         ):
             if "file" in item:
-                paths[f"sections.items.file.{item['file']}"] = item["file"]
+                paths[f"sections.items[{i}].file"] = item["file"]
         for role, path in sorted(paths.items()):
             if path:
                 digest = optional_file_sha256(base / path)
