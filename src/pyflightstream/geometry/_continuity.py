@@ -55,14 +55,22 @@ def _unit(vectors):
 
 
 def _turn(first, second):
-    """Return the angle in degrees between inward tangents, seen perpendicular to the edge."""
+    """Return the angle in degrees between inward tangents, seen perpendicular to the edge.
+
+    At a corner whose two edges are collinear (a straight angle, as at the pole of a cap that
+    spans half a turn) the inward tangent runs along the edge and has no part across it, so
+    the turn there is undefined rather than a fold; such a sample reads 0. A sample is so only
+    when the part across the edge is below 1e-9 of the inward tangent, which no real fold has.
+    """
     edge = _unit(first[1])
-    perpendicular = []
+    perpendicular, defined = [], True
     for inward in (first[2], second[2]):
         flat = inward - np.sum(inward * edge, axis=-1, keepdims=True) * edge
+        size = np.linalg.norm(inward, axis=-1)
+        defined = defined & (np.linalg.norm(flat, axis=-1) > 1e-9 * np.where(size > 0, size, 1.0))
         perpendicular.append(_unit(flat))
     cosine = np.clip(np.sum(perpendicular[0] * -perpendicular[1], axis=-1), -1.0, 1.0)
-    return np.degrees(np.arccos(cosine))
+    return np.where(defined, np.degrees(np.arccos(cosine)), 0.0)
 
 
 def edge_jumps(patches, tolerance: float | None = None, count: int = _SAMPLES) -> list[dict]:

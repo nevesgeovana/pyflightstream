@@ -80,9 +80,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the merge of G2b and G15 after review round 11: 2235, measured;
 #: then the merge of G5 and G5b after review round 14: 2250, measured;
 #: then the merge of G1R and G2R after review round 16: 2253, measured;
-#: then the merge of G3 after review round 18: 2259, measured.
+#: then the merge of G3 after review round 18: 2259, measured;
+#: then the merge of G4R, G5Ra and G5Rb after review round 19: 2267, measured.
 LEAN_CAPS = {
-    "tracked_files": 2259,
+    "tracked_files": 2267,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,

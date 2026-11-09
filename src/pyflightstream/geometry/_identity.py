@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -85,9 +86,16 @@ def parameter_id(resolved: Mapping) -> str:
     return _digest(canonical(values))
 
 
-def surface_id(patches: Mapping[str, Sequence[Patch]]) -> str:
-    """Return the ``surface_id`` of placed patches given per component name, as 64 hex digits."""
-    rows = []
+def surface_id(
+    patches: Mapping[str, Sequence[Patch]], trims: Mapping[str, Sequence[Any]] | None = None
+) -> str:
+    """Return the ``surface_id`` of placed patches given per component name, as 64 hex digits.
+
+    ``trims``, per component, are the faces as loops on those bases (:class:`Trim`); each loop
+    joins the identity, sorted by base, role and face, so two models on equal bases with other
+    faces differ. Without trims the identity is that of the bases alone, as before.
+    """
+    rows: list[dict] = []
     for name in sorted(patches):
         for index, patch in enumerate(patches[name]):
             rows.append(
@@ -102,6 +110,9 @@ def surface_id(patches: Mapping[str, Sequence[Patch]]) -> str:
                     "controls": np.asarray(patch.controls, dtype=float).tolist(),
                 }
             )
+    for name in sorted(trims or {}):
+        for trim in sorted(trims[name], key=lambda t: (t.base, t.role, t.face)):
+            rows.append({"component": name, **trim.to_dict()})
     return _digest(canonical(rows))
 
 

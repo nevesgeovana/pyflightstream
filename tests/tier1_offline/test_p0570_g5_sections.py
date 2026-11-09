@@ -98,7 +98,8 @@ def test_g5_a_surface_with_items_follows_the_cst_and_the_file(tmp_path):
     chord_root = comp["planform"]["root_chord"]
     chord_tip = comp["planform"]["tip_chord"]
     assert root[2] - 0.0 == pytest.approx(thickness_0012(0.3) * chord_root, abs=1e-3 * chord_root)
-    assert tip[2] == pytest.approx(0.2 * np.sqrt(0.3) * 0.7 * chord_tip, abs=1e-9)
+    # The skin's section is the stored B-spline, within the CST conversion limit of 2e-5 chords.
+    assert tip[2] == pytest.approx(0.2 * np.sqrt(0.3) * 0.7 * chord_tip, abs=2e-5 * chord_tip)
     assert len(lifting_surface(comp)) > 0
 
 
@@ -150,23 +151,37 @@ def half_0012_closed(x):
     return 0.6 * (0.2969 * np.sqrt(x) - 0.1260 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1036 * x**4)
 
 
-def test_r14_009_a_file_keeps_its_own_trailing_edge(tmp_path):
-    from pyflightstream.geometry._sections import fit_or_read
+def test_r14_009_a_sharp_file_takes_the_blunt_base_on_the_lifting_skin(tmp_path):
+    """Rewritten by G5Rb for the one-skin lifting route.
+
+    Before, the lifting route fitted CST to the file and kept its sharp edge. The skin is now
+    built from the stored B-spline sections, and a file whose edge is sharp takes the base
+    ``sections.trailing_edge_thickness`` by a linear wedge (blunt in the IGES, collapsed at mesh
+    generation), with a warning in the resolved configuration.
+    """
+    from pyflightstream.geometry._caps import lifting_model
 
     x = (1 - np.cos(np.linspace(0, np.pi, 121))) / 2
     yt = half_0012_closed(x)
     pts = np.vstack([np.stack((x[::-1], yt[::-1]), 1), np.stack((x[1:], -yt[1:]), 1)])
     rows = [f"{a:.10f} {b:.10f}" for a, b in pts]
     (tmp_path / "sharp.dat").write_text("\n".join(["NACA 0012 closed", *rows, ""]))
-    comp = component(raw([{"eta": 0.0, "file": "sharp.dat"}]), tmp_path)
-    assert comp["sections"]["trailing_edge_thickness"] > 1e-3  # the default base is not zero
-    (section,) = fit_or_read(comp["sections"])
-    # The repeated closing point is dropped, so the base read is that of the last two rows.
-    assert section.te_thickness() == pytest.approx(0.0, abs=1e-4)
-    # The S1 residual is measured against the file as given, and the fit meets the file.
-    dense = (1 - np.cos(np.linspace(0, np.pi, 801))) / 2
+    resolved = resolve_config(raw([{"eta": 0.0, "file": "sharp.dat"}]), base=tmp_path)
+    assert any("sharp trailing edge" in text for text in resolved["warnings"])
+    comp = unpack(resolved)["components"]["COMPONENT"]
+    te = comp["sections"]["trailing_edge_thickness"]
+    assert te > 1e-3  # the default base is not zero
+    model = lifting_model(comp)
+    # The trailing-edge face is as wide as the base at the root: te chords.
+    face = np.asarray(model.trailing_edge.controls)
+    width = float(np.linalg.norm(face[1, 0] - face[0, 0]))
+    assert width == pytest.approx(te * comp["planform"]["root_chord"], rel=1e-9)
+    # The section meets the file plus the wedge, z = +-(half + x te / 2), measured as ordinates
+    # aft of the nose, where an ordinate difference is close to a normal distance.
+    section = model.ends["root"]
+    assert section.te_thickness() == pytest.approx(te, abs=1e-9)
+    dense = 0.02 + 0.98 * (1 - np.cos(np.linspace(0, np.pi, 801))) / 2
     upper, lower = section.evaluate(dense)
-    half = half_0012_closed(dense)
+    half = half_0012_closed(dense) + dense * te / 2
     assert np.max(np.abs(upper[:, 1] - half)) <= 5e-4
     assert np.max(np.abs(lower[:, 1] + half)) <= 5e-4
-    assert section.max_residual <= 5e-4

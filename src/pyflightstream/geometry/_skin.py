@@ -13,7 +13,7 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from ._bspline import split_patch
+from ._bspline import clamped_knots, curve_basis, fit_curve, split_patch
 from ._patch import Patch, interpolate_patch
 
 #: Samples along each edge of a cap quadrilateral and of a band bay (equal, so a shared rim is one
@@ -30,6 +30,7 @@ __all__ = [
     "bay_cuts",
     "cap_edge_ids",
     "clustered",
+    "fit_patch",
     "pole_parameter_grids",
     "skin",
     "skin_band",
@@ -157,3 +158,164 @@ def cap_edge_ids(end, sector, sectors, ring, full):
         (inner[0], f"{ring}.h{2 * sector}", f"{end}.seam{here}.out", inner[2]),
         (inner[1], f"{ring}.h{2 * sector + 1}", inner[2], f"{end}.seam{there}.out"),
     ]
+
+
+#: Step, in the patch parameter, of the one-sided difference that measures the cross-edge slope.
+_STEP = 1e-4
+_SIDES = ("u0", "u1", "v0", "v1")
+
+
+def _edge_points(point, side, s):
+    """Return the points of one boundary line of a parametric surface, ``s`` along it."""
+    fixed = np.full_like(s, 0.0 if side[1] == "0" else 1.0)
+    return point(fixed, s) if side[0] == "u" else point(s, fixed)
+
+
+def _inward_slope(point, side, s):
+    """Return the derivative across one boundary line, per unit parameter, pointing inward.
+
+    A second-order one-sided difference of the surface function, so no sample outside the domain
+    is read.
+    """
+    samples = []
+    for k in (0.0, 1.0, 2.0):
+        a = np.full_like(s, k * _STEP if side[1] == "0" else 1.0 - k * _STEP)
+        samples.append(point(a, s) if side[0] == "u" else point(s, a))
+    return (-3.0 * samples[0] + 4.0 * samples[1] - samples[2]) / (2.0 * _STEP)
+
+
+def _end_slopes(point, side, s):
+    """Return the derivative along one boundary line, per unit parameter, at its two ends."""
+    marks = np.array([0.0, 1.0, 2.0]) * _STEP
+    start = _edge_points(point, side, marks)
+    stop = _edge_points(point, side, 1.0 - marks)
+    return (
+        (-3.0 * start[0] + 4.0 * start[1] - start[2]) / (2.0 * _STEP),
+        -(-3.0 * stop[0] + 4.0 * stop[1] - stop[2]) / (2.0 * _STEP),
+    )
+
+
+def _boundary(point, knots, degrees, s):
+    """Return the fitted controls and residual of each of the four boundary curves.
+
+    Each leaves its ends with the slope of the surface function, so the controls next to a corner
+    lie in the tangent plane there whichever edge they are read from.
+    """
+    axis = {"u0": 1, "u1": 1, "v0": 0, "v1": 0}
+    return {
+        side: fit_curve(
+            _edge_points(point, side, s),
+            s,
+            knots[axis[side]],
+            degrees[axis[side]],
+            _end_slopes(point, side, s),
+        )
+        for side in _SIDES
+    }
+
+
+def _pin_row(controls, fixed, side, rate, step):
+    """Set the row (or column) next to a boundary from the cross-edge slope along it."""
+    first = side[1] == "0"
+    axis = 0 if side[0] == "u" else 1
+    edge = 0 if first else controls.shape[axis] - 1
+    inner = edge + (1 if first else -1)
+    for j in range(1, controls.shape[1 - axis] - 1):
+        here, there = ((inner, j), (edge, j)) if axis == 0 else ((j, inner), (j, edge))
+        if not fixed[here]:
+            controls[here] = controls[there] + step * rate[j]
+            fixed[here] = True
+
+
+def _pin_frame(controls, fixed, edges, *, point, knots, degrees, s, smooth):
+    """Fix the boundary controls, and the next row where the edge joins its neighbour smoothly."""
+    controls[0, :], controls[-1, :] = edges["u0"][0], edges["u1"][0]
+    controls[:, 0], controls[:, -1] = edges["v0"][0], edges["v1"][0]
+    fixed[[0, -1], :] = True
+    fixed[:, [0, -1]] = True
+    for side in _SIDES:
+        axis = 0 if side[0] == "u" else 1
+        p, k = degrees[axis], knots[axis]
+        if not smooth[side] or controls.shape[axis] < 4 or p < 2:
+            continue
+        along = 1 - axis
+        rate = fit_curve(_inward_slope(point, side, s), s, knots[along], degrees[along])[0]
+        step = (k[p + 1] if side[1] == "0" else 1.0 - k[-p - 2]) / p
+        _pin_row(controls, fixed, side, rate, step)
+
+
+def fit_patch(point, spans, degrees=(3, 3), smooth=(True, True, True, True), family=""):
+    """Fit one tensor-product patch to a parametric surface function, on uniform knots.
+
+    The four boundary curves are fitted first, each from the samples of its own line, so two
+    patches that share a line and its span count get the same curve; where an edge is to join its
+    neighbour smoothly the next row of controls is set from the cross-edge slope of ``point``, so
+    both sides lie in the one tangent plane of the surface they sample. The interior is the least
+    squares fit to the samples.
+
+    Parameters
+    ----------
+    point : callable
+        ``point(u, v)`` with ``u`` and ``v`` arrays in [0, 1] that broadcast; returns ``(..., 3)``.
+    spans : tuple of int
+        Spans in ``u`` and in ``v``, each at least 1.
+    degrees : tuple of int, optional
+        Degree in ``u`` and in ``v``; default cubic. Degree 1 is exact for a ruled direction.
+    smooth : tuple of bool, optional
+        For the edges ``u0, u1, v0, v1``, whether the cross-edge slope is imposed.
+    family : str, optional
+        Family of the patch.
+
+    Returns
+    -------
+    patch : Patch
+    residual : float
+        Largest distance from a sample to the patch.
+    edge_residual : tuple of float
+        Largest boundary-curve residual along ``u`` and along ``v``.
+    """
+    knots = [
+        clamped_knots([i / n for i in range(1, n)], p) for n, p in zip(spans, degrees, strict=True)
+    ]
+    sizes = [len(k) - p - 1 for k, p in zip(knots, degrees, strict=True)]
+    s = np.linspace(0.0, 1.0, max(41, 4 * max(sizes)))
+    edges = _boundary(point, knots, degrees, s)
+    controls, fixed = np.zeros((*sizes, 3)), np.zeros(sizes, bool)
+    _pin_frame(
+        controls,
+        fixed,
+        edges,
+        point=point,
+        knots=knots,
+        degrees=degrees,
+        s=s,
+        smooth=dict(zip(_SIDES, smooth, strict=True)),
+    )
+    target = point(s[:, None], s[None, :])
+    bu, bv = (curve_basis(k, p, s) for k, p in zip(knots, degrees, strict=True))
+    free = ~fixed.ravel()
+    if free.any():
+        flat = controls.reshape(-1, 3)
+        left = target - np.einsum("ia,jb,abx->ijx", bu, bv, controls)
+        rhs = np.einsum("ia,ijx,jb->abx", bu, left, bv).reshape(-1, 3)[free]
+        gram = np.kron(bu.T @ bu, bv.T @ bv)[np.ix_(free, free)]
+        flat[free] = np.linalg.lstsq(gram, rhs, rcond=None)[0]
+    error = np.einsum("ia,jb,abx->ijx", bu, bv, controls) - target
+    along = (max(edges["v0"][1], edges["v1"][1]), max(edges["u0"][1], edges["u1"][1]))
+    patch = _as_patch(controls, knots, degrees, family)
+    return patch, float(np.max(np.linalg.norm(error, axis=-1))), along
+
+
+def _as_patch(controls, knots, degrees, family) -> Patch:
+    """Return a :class:`Patch` from controls and full knot vectors."""
+    (ku, mu), (kv, mv) = (np.unique(k, return_counts=True) for k in knots)
+    return Patch(
+        family=family,
+        controls=controls,
+        knots_u=tuple(float(x) for x in ku),
+        knots_v=tuple(float(x) for x in kv),
+        multiplicities_u=tuple(int(m) for m in mu),
+        multiplicities_v=tuple(int(m) for m in mv),
+        degree_u=degrees[0],
+        degree_v=degrees[1],
+    )

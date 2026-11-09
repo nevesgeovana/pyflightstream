@@ -419,6 +419,23 @@ def test_a_whole_body_closes_about_its_axis_and_has_no_free_edge():
     assert ys.min() < -1.0 and ys.max() > 1.0
 
 
+def test_r19_005_a_straight_angle_corner_is_not_read_as_a_fold():
+    """R19-005: the region caps of a whole body meet at the pole on a straight-angle corner.
+
+    The inward tangent there runs along the edge, so the turn is undefined; the audit read it as
+    a 180 deg fold. Every other sample of those seams is under 0.06 deg (measured).
+    """
+    from pyflightstream.geometry._bodies import body_regions
+
+    patches = body_regions(make_body(symmetry="full", rear_exponent=0.5))
+    result = audit_jumps(patches, limit_deg=1.0)
+    assert result["failed"] == []
+    assert result["max_jump_deg"] < 0.5
+    # a real fold of the same set is still a fold
+    folded = make_planes(90.0)
+    assert audit_jumps(folded, limit_deg=1.0)["failed"]
+
+
 def test_an_off_centre_whole_body_keeps_its_offset():
     section = {
         "at": "middle",

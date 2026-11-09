@@ -16,6 +16,7 @@ from pyflightstream.geometry._caps import (
 )
 from pyflightstream.geometry._distributions import blended_section
 from pyflightstream.geometry._lifting import (
+    cap_fraction,
     lifting_surface,
     planform_metrics,
     section_models,
@@ -23,6 +24,7 @@ from pyflightstream.geometry._lifting import (
     thickness_station,
 )
 from pyflightstream.geometry._patch import Patch, evaluate_patch, interpolate_patch, patch_layout
+from pyflightstream.geometry._sections import ANALYTIC_LIMIT
 
 PROFILE = {
     "stations": [0.0, 0.01, 0.09, 0.36, 0.81, 1.0],
@@ -99,10 +101,13 @@ def test_tapered_wing_chord_and_twist_follow_the_planform():
     assert metrics["area"] == pytest.approx(50.0, abs=1e-10)
     assert metrics["mac"] == pytest.approx(2.526, abs=5e-4)
     surfaces = lattice(patches, 11)
+    # The skin is built from the stored B-spline sections, whose leading-edge point lies within
+    # the conversion limit of the analytic nose; chord and twist follow within that limit.
     for index, eta in enumerate(np.linspace(0, 1, 11)):
         chord, twist = chord_and_twist(surfaces, index)
-        assert chord == pytest.approx((50 / 17) * (1 - 0.3 * eta), abs=1e-8)
-        assert twist == pytest.approx(3.0, abs=1e-8)
+        expected = (50 / 17) * (1 - 0.3 * eta)
+        assert chord == pytest.approx(expected, abs=ANALYTIC_LIMIT * expected)
+        assert twist == pytest.approx(3.0, abs=np.degrees(2 * ANALYTIC_LIMIT))
         assert surfaces["upper_fore"][0, index, 1] == pytest.approx(10 * eta, abs=1e-12)
 
 
@@ -113,7 +118,7 @@ def test_single_section_wing_is_a_constant_chord_rectangle():
     surfaces = lattice(patches, 5)
     for index in range(5):
         chord, twist = chord_and_twist(surfaces, index)
-        assert chord == pytest.approx(0.125, abs=1e-10)
+        assert chord == pytest.approx(0.125, abs=ANALYTIC_LIMIT * 0.125)
         assert twist == pytest.approx(0.0, abs=1e-10)
     assert planform_metrics(c)["area"] == pytest.approx(0.125)
 
@@ -180,7 +185,9 @@ def test_rounded_cap_adjacent_patches_agree_on_shared_edges(rounded):
 
 def test_rounded_cap_is_closed_on_the_base_plane(rounded):
     c, (_, u1, _, l1) = rounded
-    base = c["planform"]["span"] / 2
+    # The published span includes the cap, so the skin and the cap base end where the cap starts.
+    base = c["planform"]["span"] / 2 * cap_fraction(c)
+    assert base < c["planform"]["span"] / 2
     for s in (u1, l1):
         assert np.abs(s[-1][:, 1] - base).max() < 1e-12
     assert np.abs(u1[-1, -1] - l1[-1, 0]).max() < 1e-12
@@ -199,7 +206,11 @@ def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
     upper, lower = cst_airfoil(x, s["upper"], s["lower"], s["trailing_edge_thickness"])
     expected = 0.125 * (upper[1] - lower[1]) / 2 * 1.7
     patch = tip_cap(c)[0]
-    assert evaluate_patch(patch, 3)[-1, -1][1] - 0.5 == pytest.approx(expected, abs=1e-10)
+    # The published span includes the cap: the ridge ends on the half span, and the cap starts
+    # one reach inboard of it (the section's half thickness within its conversion limit).
+    start = 0.5 * cap_fraction(c)
+    assert evaluate_patch(patch, 3)[-1, -1][1] == pytest.approx(0.5, abs=1e-12)
+    assert 0.5 - start == pytest.approx(expected, rel=1e-3)
 
 
 def test_flat_cap_is_nine_patches_and_none_is_empty():
@@ -238,11 +249,17 @@ def test_ridged_cap_corner_angles_and_no_fold(ridged):
 
 def test_ridged_cap_reach_follows_the_profile_and_the_planform_taper(ridged):
     c, _, surfaces = ridged
-    reach = max(s[..., 1].max() for s in surfaces) - c["planform"]["span"] / 2
-    assert reach == pytest.approx(max(PROFILE["ridge"]) * c["planform"]["tip_chord"], rel=0.02)
+    # The published span includes the cap: the cap reaches from its start to the half span.
+    start = c["planform"]["span"] / 2 * cap_fraction(c)
+    reach = max(s[..., 1].max() for s in surfaces) - start
+    assert max(s[..., 1].max() for s in surfaces) == pytest.approx(c["planform"]["span"] / 2)
+    chord = c["planform"]["root_chord"] + (
+        c["planform"]["tip_chord"] - c["planform"]["root_chord"]
+    ) * cap_fraction(c)
+    assert reach == pytest.approx(max(PROFILE["ridge"]) * chord, rel=0.02)
     assert cap_taper(c) > 0
     assert surfaces[4][..., 0].min() < surfaces[4][..., 0].max()
-    assert surfaces[1][:, 0][..., 1].max() == pytest.approx(c["planform"]["span"] / 2, abs=1e-9)
+    assert surfaces[1][:, 0][..., 1].max() == pytest.approx(start, abs=1e-9)
 
 
 FILLET = {"root_fillet": {"enabled": True, "radii": [0.002, 0.003, 0.002]}}

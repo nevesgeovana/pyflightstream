@@ -868,10 +868,8 @@ def test_r16_003_c7_area_at_fixed_aspect_ratio_and_an_over_determined_planform_n
 @pytest.mark.parametrize(
     ("kind", "given", "path"),
     [
-        ("lifting_surface", {"spanwise": {"law": "smooth"}}, "w.spanwise.law"),
         ("lifting_surface", {"spanwise": {"lines": [0.4]}}, "w.spanwise.lines"),
         ("lifting_surface", {"root": "flat"}, "w.root"),
-        ("lifting_surface", {"sections": {"pin": [0.3]}}, "w.sections.pin"),
         ("lifting_surface", {"sections": {"continuity": "C1"}}, "w.sections.continuity"),
         ("lifting_surface", {"sections": {"tolerance": {"file": 5e-5}}}, "w.sections.tolerance"),
         ("body", {"regions": [0.5]}, "w.regions"),
@@ -886,3 +884,17 @@ def test_r16_002_a_new_key_the_generator_does_not_apply_yet_is_warned(kind, give
     assert [w for w in warnings if w.startswith(f"{path}:") and "does not apply" in w]
     quiet = resolve_config({"components": {"w": {"type": kind}}})["warnings"]
     assert not [w for w in quiet if "does not apply" in w]
+
+
+@pytest.mark.parametrize(
+    ("given", "path"),
+    [
+        ({"spanwise": {"law": "smooth"}}, "w.spanwise.law"),
+        ({"sections": {"pin": [0.3]}}, "w.sections.pin"),
+    ],
+)
+def test_r19_002_a_key_the_generated_skin_applies_is_not_warned_as_unapplied(given, path):
+    """R19-002: the generated skin reads these keys (lifting_surface changes with them)."""
+    raw = {"components": {"w": {"type": "lifting_surface", **given}}}
+    warnings = resolve_config(raw)["warnings"]
+    assert not [w for w in warnings if w.startswith(f"{path}:") and "does not apply" in w]

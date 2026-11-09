@@ -9,21 +9,41 @@ exponent follow a profile given per chord station.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
-from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import PchipInterpolator, make_interp_spline
 from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
 from ._airfoils import cst_airfoil
+from ._bspline import full_knots, insert_knot, split_patch, union_knots
 from ._distributions import blended_section, chord_spacing, planform_values
-from ._lifting import section_models, thickness_station
+from ._lifting import (
+    LiftingModel,
+    cap_fraction,
+    continuity_internal,
+    law_and_fraction,
+    max_thickness_x,
+    place_points,
+    section_at,
+    section_models,
+    section_sides,
+    skin_model,
+    thickness_station,
+    tip_section,
+    with_trim_checks,
+)
 from ._patch import Patch, interpolate_patch
+from ._trims import iso_trim
 
 __all__ = [
     "CAP_NOSE_LENGTH",
     "CAP_NOSE_RATIO",
+    "CAP_ACROSS",
     "CAP_TE_TAPER",
+    "RIM_SHARED",
     "cap_length",
     "cap_patch_grids",
     "cap_plane_grids",
@@ -36,13 +56,17 @@ __all__ = [
     "fillet_arc",
     "fillet_contact",
     "junction_normal",
+    "lifting_model",
     "map_cap_grid",
     "ridge_arc",
     "ridge_cross",
     "ridge_profile",
     "ridged_cap_grids",
+    "rim_halves",
+    "rim_shared",
     "root_fillet",
     "rounded_cap_grids",
+    "skin_caps",
     "tip_cap",
     "wing_contour_normal",
     "wing_contour_point",
@@ -62,12 +86,30 @@ def contour_segment(section, maximum, index, u):
             (maximum, 0, 1),
         ][index]
         x = chord_spacing(a, b, u)
-        return cst_airfoil(
-            x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-        )[side]
-    te = section["trailing_edge_thickness"]
-    z = (1 - u) * te / 2 if index == 2 else -u * te / 2
+        return _sides(section, x)[side]
+    top, bottom = _te_ends(section)
+    middle = (top + bottom) / 2
+    z = (1 - u) * top + u * middle if index == 2 else (1 - u) * middle + u * bottom
     return np.stack((np.ones_like(u), z), axis=-1)
+
+
+def _sides(section, x):
+    """Return the upper and lower (x, z) points of a section at chord fractions ``x``.
+
+    ``section`` is a stored B-spline section or a blended CST table.
+    """
+    if hasattr(section, "poles"):
+        upper, lower = section_sides(section, np.clip(np.asarray(x, float), 0.0, 1.0))
+        return (upper[0], lower[0]) if np.ndim(x) == 0 else (upper, lower)
+    return cst_airfoil(x, section["upper"], section["lower"], section["trailing_edge_thickness"])
+
+
+def _te_ends(section):
+    """Return the z of the upper and lower trailing-edge points of a section, in chords."""
+    if hasattr(section, "poles"):
+        return float(section.poles[-1][1]), float(section.poles[0][1])
+    te = section["trailing_edge_thickness"]
+    return te / 2, -te / 2
 
 
 def coons_grid(bottom, top, left, right):
@@ -91,9 +133,7 @@ def coons_grid(bottom, top, left, right):
 def cap_plane_grids(section, maximum):
     """Return the planar grids of a flat tip cap: six edge strips and three interior patches."""
     u, v = np.linspace(0, 1, 49), np.linspace(0, 1, 9)
-    up, low = cst_airfoil(
-        maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
+    up, low = _sides(section, maximum)
     centre = (up + low) / 2
     outer = [contour_segment(section, maximum, i, u) for i in range(6)]
     inner = [0.55 * edge + 0.45 * centre for edge in outer]
@@ -124,6 +164,16 @@ CAP_NOSE_LENGTH = (
 )
 
 
+def _tip(component):
+    """Return the planform fraction where the skin ends and the tip cap starts.
+
+    :func:`tip_cap` computes it once and passes it in ``_tip`` of a shallow copy of the table.
+    """
+    if "_tip" in component:
+        return component["_tip"]
+    return cap_fraction(component)
+
+
 def cap_length(component, upper, lower):
     """Return the reach of a rounded or lofted cap in tip chords.
 
@@ -132,13 +182,14 @@ def cap_length(component, upper, lower):
     """
     cap = component["tip_cap"]
     if "extent" in cap:
-        return float(cap["extent"] / planform_values(component, 1.0)["chord"])
+        return float(cap["extent"] / planform_values(component, _tip(component))["chord"])
     return float((upper[1] - lower[1]) / 2 * cap["length"])
 
 
 def cap_to_space(component, x, z, extension, rates=(0.0, 0.0)):
     """Map section (x, z) and a spanwise extension, all in unit chord, to model space."""
-    p = planform_values(component, 1.0)
+    tip = _tip(component)
+    p = planform_values(component, tip)
     angle, chord = np.deg2rad(p["twist"]), p["chord"]
     axis = component["planform"]["twist_axis"]
     dx, dz = (x - axis) * chord, z * chord
@@ -149,7 +200,7 @@ def cap_to_space(component, x, z, extension, rates=(0.0, 0.0)):
             + dx * np.cos(angle)
             + dz * np.sin(angle)
             + rates[0] * chord * extension,
-            component["planform"]["span"] / 2 + chord * extension,
+            component["planform"]["span"] / 2 * tip + chord * extension,
             p["leading_edge_z"]
             - dx * np.sin(angle)
             + dz * np.cos(angle)
@@ -173,18 +224,14 @@ def rounded_cap_grids(component, section, maximum, chord_count=49, across_count=
     half ellipses and the fourth side is the ridge, which stands above the
     leading-edge point so no side has zero length.
     """
-    upper_max, lower_max = cst_airfoil(
-        maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
+    upper_max, lower_max = _sides(section, maximum)
     length = cap_length(component, upper_max, lower_max)
     exponent = component["tip_cap"]["exponent"]
     u, v = np.linspace(0, 1, chord_count), np.linspace(0, 1, across_count)
     grids = []
     for a, b, side in [(0, maximum, 1), (maximum, 1, 1), (0, maximum, -1), (maximum, 1, -1)]:
         x = chord_spacing(a, b, u)
-        upper, lower = cst_airfoil(
-            x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-        )
+        upper, lower = _sides(section, x)
         middle, half = (upper[:, 1] + lower[:, 1]) / 2, (upper[:, 1] - lower[:, 1]) / 2
         s = np.clip((x - (1 - CAP_TE_TAPER)) / CAP_TE_TAPER, 0, 1)
         rise = np.clip(1 - x / CAP_NOSE_LENGTH, 0, 1)
@@ -192,7 +239,7 @@ def rounded_cap_grids(component, section, maximum, chord_count=49, across_count=
         phi = np.pi / 2 * (v if side > 0 else 1 - v)
         z = middle[:, None] + side * half[:, None] * np.cos(phi)[None, :]
         extension = ridge[:, None] * np.sin(phi)[None, :] ** exponent
-        grids.append(cap_to_space(component, np.repeat(x[:, None], len(v), 1), z, extension))
+        grids.append(cap_to_space(component, np.repeat(upper[:, :1], len(v), 1), z, extension))
     return grids
 
 
@@ -208,20 +255,16 @@ def exact_loft_grids(component, section, maximum):
     base. The planform rates carry the sections along the extended planform.
     """
     cap = component["tip_cap"]
-    upper_max, lower_max = cst_airfoil(
-        maximum, section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
+    upper_max, lower_max = _sides(section, maximum)
     length = cap_length(component, upper_max, lower_max)
     x = chord_spacing(0.0, 1.0, np.linspace(0, 1, cap["control_points"]))
-    upper, lower = cst_airfoil(
-        x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
+    upper, lower = _sides(section, x)
     middle, half = (upper[:, 1] + lower[:, 1]) / 2, (upper[:, 1] - lower[:, 1]) / 2
     fraction = np.linspace(0, 1, cap["sections"] + 1)
     scale = np.sqrt(np.clip(1 - fraction ** (2 / cap["exponent"]), 0, 1))
     taper, sweep, rise = cap_rates(component)
     extension = np.broadcast_to(length * fraction, (len(x), len(fraction)))
-    chord_x = x[:, None] * (1 - taper * extension)
+    chord_x = upper[:, :1] * (1 - taper * extension)
     return [
         cap_to_space(
             component, chord_x, middle[:, None] + side * half[:, None] * scale[None, :],
@@ -239,9 +282,9 @@ def cap_rates(component):
     The cap sections follow the extended planform: the leading edge continues its sweep and rise and
     the trailing edge continues the taper.
     """
-    inner = 1 - 1e-3
-    a, b = (planform_values(component, eta) for eta in (inner, 1.0))
-    run = 1e-3 * component["planform"]["span"] / 2
+    tip = _tip(component)
+    a, b = (planform_values(component, eta) for eta in (tip * (1 - 1e-3), tip))
+    run = 1e-3 * tip * component["planform"]["span"] / 2
     return (
         float((a["chord"] - b["chord"]) / run),
         float((b["leading_edge_x"] - a["leading_edge_x"]) / run),
@@ -312,9 +355,7 @@ def ridged_cap_grids(component, section, maximum, chord_count=49, across_count=6
     for a, b, side in [(0, maximum, 1), (maximum, 1, 1), (0, maximum, -1), (maximum, 1, -1)]:
         u = np.linspace(0, 1, chord_count)
         x = chord_spacing(a, b, u)
-        upper, lower = cst_airfoil(
-            x, section["upper"], section["lower"], section["trailing_edge_thickness"]
-        )
+        upper, lower = _sides(section, x)
         middle, half = (upper[:, 1] + lower[:, 1]) / 2, (upper[:, 1] - lower[:, 1]) / 2
         start, ridge, exponent = ridge_profile(profile, x)
         cross = ridge_cross(start, ridge, exponent, half, across_count)
@@ -326,16 +367,14 @@ def ridged_cap_grids(component, section, maximum, chord_count=49, across_count=6
                 "tip_cap",
                 cap_to_space(
                     component,
-                    np.repeat(x[:, None], across_count, 1) * (1 - taper * cross[..., 0]),
+                    np.repeat(upper[:, :1], across_count, 1) * (1 - taper * cross[..., 0]),
                     z,
                     cross[..., 0],
                     (sweep, rise),
                 ),
             )
         )
-    upper, lower = cst_airfoil(
-        np.array([1.0]), section["upper"], section["lower"], section["trailing_edge_thickness"]
-    )
+    upper, lower = _sides(section, np.array([1.0]))
     middle, half = float((upper[0, 1] + lower[0, 1]) / 2), float((upper[0, 1] - lower[0, 1]) / 2)
     start, ridge, exponent = (float(v[0]) for v in ridge_profile(profile, [1.0]))
     arc = ridge_arc([start], [ridge], [exponent], [half], 65)[0]
@@ -385,9 +424,9 @@ def tip_cap(component) -> list[Patch]:
     """
     if component["tip_cap"]["kind"] == "none":
         return []
-    models = section_models(component["sections"])
-    section = blended_section(component["sections"], models, 1.0)
-    maximum = thickness_station(component, models, 1.0)
+    section = tip_section(component)
+    maximum = max_thickness_x(section)
+    component = {**component, "_tip": cap_fraction(component, section)}
     return [
         interpolate_patch(grid, family=family)
         for family, grid in cap_patch_grids(component, section, maximum)
@@ -395,20 +434,15 @@ def tip_cap(component) -> list[Patch]:
 
 
 def wing_contour_point(component, models, maximum, index, u, eta):
-    """Return the model-space point of a contour segment at parameter ``u`` and span ``eta``."""
-    section = blended_section(component["sections"], models, eta)
+    """Return the model-space point of a contour segment at parameter ``u`` and span ``eta``.
+
+    The section is the stored one the skin is built from (``models`` is no longer read), so a
+    contour point at the tip lies on the cap's rim.
+    """
+    law, fraction = law_and_fraction(component)
+    section = section_at(law, eta)
     point = contour_segment(section, maximum, index, np.asarray(u))
-    p = planform_values(component, eta)
-    angle, chord = np.deg2rad(p["twist"]), p["chord"]
-    axis = component["planform"]["twist_axis"]
-    dx, dz = (point[0] - axis) * chord, point[1] * chord
-    return np.array(
-        [
-            p["leading_edge_x"] + axis * chord + dx * np.cos(angle) + dz * np.sin(angle),
-            component["planform"]["span"] / 2 * eta,
-            p["leading_edge_z"] - dx * np.sin(angle) + dz * np.cos(angle),
-        ]
-    )
+    return np.asarray(place_points(component, point, eta, fraction), float)
 
 
 def wing_contour_normal(component, models, maximum, index, u, eta):
@@ -485,3 +519,231 @@ def root_fillet(
             grid.append(fillet_arc(point, normal, radius, v, host_normal(centre)))
         patches.append(interpolate_patch(grid, family="root_fillet"))
     return patches
+
+
+# -- caps on the skin's own rim (S8) ------------------------------------------------------------
+
+#: Samples across a cap face, from its rim to its ridge; the face is the cubic through them.
+CAP_ACROSS = 9
+#: Distance allowed between a closure's rim and the skin edge it closes, in metres (S8).
+RIM_SHARED = 1e-12
+
+
+def _curve_patch(poles, knots) -> Patch:
+    """Return a curve as a patch of two equal rows, so the patch tools split and refine it."""
+    poles = np.asarray(poles, float)
+    distinct, mult = np.unique(np.asarray(knots, float), return_counts=True)
+    return Patch(
+        family="",
+        controls=np.stack((poles, poles), axis=1),
+        knots_u=tuple(float(k) for k in distinct),
+        knots_v=(0.0, 1.0),
+        multiplicities_u=tuple(int(m) for m in mult),
+        multiplicities_v=(2, 2),
+        degree_u=int(len(knots) - len(poles) - 1),
+        degree_v=1,
+    )
+
+
+def _u_knots(patch: Patch) -> np.ndarray:
+    return full_knots(patch.knots_u, patch.multiplicities_u)
+
+
+def _refined(patch: Patch, target) -> Patch:
+    """Insert knots until the u vector of ``patch`` is ``target``, a superset of it."""
+    have = dict(zip(patch.knots_u, patch.multiplicities_u, strict=True))
+    for knot, mult in zip(*np.unique(target, return_counts=True), strict=True):
+        extra = int(mult) - int(have.get(float(knot), 0))
+        if extra > 0 and 0.0 < knot < 1.0:
+            patch = insert_knot(patch, "u", float(knot), extra)
+    return patch
+
+
+def rim_halves(poles, knots):
+    """Return the lower and upper halves of a section curve on one shared knot vector.
+
+    The curve (lower trailing edge, leading edge at u = 0.5, upper trailing edge) is split at
+    0.5 by exact knot insertion; the lower half is reversed, so both halves run from the leading
+    edge to their trailing edge, and both are refined onto the union of their vectors, so pole i
+    of one pairs with pole i of the other. Works for chord-frame and model-space poles alike.
+
+    Returns
+    -------
+    tuple
+        ``(lower_poles, upper_poles, knots)``.
+    """
+    lower, upper = split_patch(_curve_patch(poles, knots), "u", 0.5)
+    lower = _curve_patch(np.asarray(lower.controls)[::-1, 0], 1.0 - _u_knots(lower)[::-1])
+    common = union_knots(_u_knots(lower), _u_knots(upper))
+    lower, upper = _refined(lower, common), _refined(upper, common)
+    return np.asarray(lower.controls)[:, 0], np.asarray(upper.controls)[:, 0], common
+
+
+def _across(component, kind, x, half, reach):
+    """Return ``(a, e)`` of a cap kind, shape (poles, CAP_ACROSS).
+
+    ``a`` is the share of the half thickness kept and ``e`` the reach in chords, from the rim
+    (first column) to the ridge (last).
+    """
+    cap = component["tip_cap"]
+    w = np.linspace(0.0, 1.0, CAP_ACROSS)
+    phi = np.pi / 2 * w
+    x = np.clip(np.asarray(x, float), 0.0, 1.0)
+    ones = np.ones((len(x), 1))
+    if kind == "ridged":
+        start, ridge, exponent = ridge_profile(cap["profile"], x)
+        safe = np.maximum(half, 1e-12)
+        cross = ridge_cross(start, ridge, exponent, safe, CAP_ACROSS)
+        a, e = cross[..., 1] / safe[:, None], cross[..., 0]
+    elif kind == "exact_loft":
+        a = ones * np.sqrt(np.clip(1 - w ** (2 / cap["exponent"]), 0, 1))[None, :]
+        e = ones * (reach * w)[None, :]
+    elif kind == "rounded":
+        s = np.clip((x - (1 - CAP_TE_TAPER)) / CAP_TE_TAPER, 0, 1)
+        rise = np.clip(1 - x / CAP_NOSE_LENGTH, 0, 1)
+        ridge = reach * (1 - (3 * s**2 - 2 * s**3)) * (1 - (1 - CAP_NOSE_RATIO) * rise**2)
+        a = ones * np.cos(phi)[None, :]
+        e = ridge[:, None] * np.sin(phi)[None, :] ** cap["exponent"]
+    else:
+        a, e = ones * np.cos(phi)[None, :], np.zeros((len(x), CAP_ACROSS))
+    a, e = np.array(a, float), np.array(e, float)
+    a[:, 0], a[:, -1], e[:, 0] = 1.0, 0.0, 0.0
+    return a, e
+
+
+def _across_patch(track, knots_u, family) -> Patch:
+    """Return the cubic across a cap through its sampled pole tracks, ends kept exactly."""
+    w = np.linspace(0.0, 1.0, CAP_ACROSS)
+    spline = make_interp_spline(w, track, k=3, axis=1)
+    controls = np.array(np.asarray(spline.c).transpose(1, 0, 2))
+    controls[:, 0], controls[:, -1] = track[:, 0], track[:, -1]
+    distinct_u, mult_u = np.unique(knots_u, return_counts=True)
+    distinct_w, mult_w = np.unique(spline.t, return_counts=True)
+    return Patch(
+        family=family,
+        controls=controls,
+        knots_u=tuple(float(k) for k in distinct_u),
+        knots_v=tuple(float(k) for k in distinct_w),
+        multiplicities_u=tuple(int(m) for m in mult_u),
+        multiplicities_v=tuple(int(m) for m in mult_w),
+        degree_u=int(len(knots_u) - len(track) - 1),
+        degree_v=3,
+        role="cap",
+    )
+
+
+def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict[str, Patch]:
+    """Return the cap faces that close one end of a skin, by base name.
+
+    The rim of the upper and lower faces is the skin's own boundary curve at that end, split at
+    the leading edge (u = 0.5), so each cap shares its edge with the skin exactly. Across, each
+    face runs from the rim to the ridge with the shape of the cap kind (``flat``, ``rounded``,
+    ``ridged`` or ``exact_loft``); the two faces meet on one ridge row. A third face, degree 1
+    across the base, closes the blunt trailing edge between the two faces' last pole tracks, so
+    its rim is the trailing-edge face's end edge. ``section`` is the chord-frame section at that
+    end. The tip end takes ``tip_cap.kind``; the root end takes ``root`` (``open`` gives none).
+    """
+    kind = component["tip_cap"]["kind"] if end == "tip" else component.get("root", "open")
+    if kind in ("none", "open"):
+        return {}
+    column, sign, eta = (-1, 1.0, 1.0) if end == "tip" else (0, -1.0, 0.0)
+    skin = model.skin
+    low3, up3, common = rim_halves(np.asarray(skin.controls)[:, column], _u_knots(skin))
+    low2, up2, _ = rim_halves(np.asarray(section.poles, float), np.asarray(section.knots, float))
+    tip = {**component, "_tip": model.fraction}
+    middle2 = (low2 + up2) / 2
+    up_max, low_max = _sides(section, np.array([max_thickness_x(section)]))
+    reach = cap_length(tip, up_max[0], low_max[0])
+    a, e = _across(component, kind, middle2[:, 0], np.linalg.norm(up2 - low2, axis=1) / 2, reach)
+    chord = float(planform_values(component, eta * model.fraction)["chord"])
+    span = np.array([0.0, sign * chord, 0.0])
+    middle3, half3 = (low3 + up3) / 2, (up3 - low3) / 2
+    ridge = middle3 + e[:, -1:] * span
+    faces = {}
+    for side, factor, rim in (("lower", -1.0, low3), ("upper", 1.0, up3)):
+        track = middle3[:, None] + factor * half3[:, None] * a[..., None] + e[..., None] * span
+        track[:, 0], track[:, -1] = rim, ridge
+        faces[f"{end}_cap_{side}"] = _across_patch(track, common, f"{end}_cap")
+    lower, upper = faces[f"{end}_cap_lower"], faces[f"{end}_cap_upper"]
+    corner = np.stack((np.asarray(lower.controls)[-1], np.asarray(upper.controls)[-1]))
+    if np.max(np.linalg.norm(corner[1] - corner[0], axis=-1)) > 0.0:
+        faces[f"{end}_cap_corner"] = Patch(
+            family=f"{end}_cap",
+            controls=corner,
+            knots_u=(0.0, 1.0),
+            knots_v=lower.knots_v,
+            multiplicities_u=(2, 2),
+            multiplicities_v=lower.multiplicities_v,
+            degree_u=1,
+            degree_v=3,
+            role="cap_corner",
+        )
+    return faces
+
+
+def rim_shared(model: LiftingModel) -> dict:
+    """Return the S8 record ``closure.rim_shared``: closures against the skin edges they close.
+
+    Measured: the trailing-edge face's rows against the skin's two u ends; each cap face's rim
+    against an independent split of the skin's end curve; each corner's rim against the
+    trailing-edge face's end edge; and the two faces of a cap against each other on the ridge.
+    """
+    skin, te = np.asarray(model.skin.controls), np.asarray(model.trailing_edge.controls)
+    gaps = [
+        np.linalg.norm(te[0] - skin[0], axis=-1).max(),
+        np.linalg.norm(te[1] - skin[-1], axis=-1).max(),
+    ]
+    for end, column in (("tip", -1), ("root", 0)):
+        if f"{end}_cap_upper" not in model.caps:
+            continue
+        low, up, _ = rim_halves(skin[:, column], _u_knots(model.skin))
+        upper = np.asarray(model.caps[f"{end}_cap_upper"].controls)
+        lower = np.asarray(model.caps[f"{end}_cap_lower"].controls)
+        gaps += [
+            np.linalg.norm(upper[:, 0] - up, axis=-1).max(),
+            np.linalg.norm(lower[:, 0] - low, axis=-1).max(),
+            np.linalg.norm(upper[:, -1] - lower[:, -1], axis=-1).max(),
+        ]
+        corner = model.caps.get(f"{end}_cap_corner")
+        if corner is not None:
+            rim = np.asarray(corner.controls)[:, 0]
+            gaps.append(np.linalg.norm(rim - te[:, column], axis=-1).max())
+    worst = float(max(gaps))
+    return {
+        "id": "closure.rim_shared",
+        "status": "pass" if worst <= RIM_SHARED else "fail",
+        "value": worst,
+        "note": f"closure rims against the skin edges they close, {RIM_SHARED} m",
+    }
+
+
+def lifting_model(component, warnings=None) -> LiftingModel:
+    """Return the whole geometry of a lifting surface: skin, trailing-edge face, caps and faces.
+
+    The records hold S4 (``law.ruled_twist``), S6 (``skin.section_exact``), S7 (``trim.*``), S8
+    (``closure.rim_shared``) and S9 (``continuity.internal`` per base).
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting-surface component (plain values, metres and degrees).
+    warnings : list, optional
+        Receives the warnings of the section conversion.
+
+    Returns
+    -------
+    LiftingModel
+        The bases, the faces as trims of them, the named iso lines and the stage records.
+    """
+    model = skin_model(component, warnings)
+    caps = {}
+    for end in ("tip", "root"):
+        caps.update(skin_caps(component, model, model.ends[end], end))
+    trims = model.trims + tuple(
+        iso_trim(name, name, (0.0, 1.0), (0.0, 1.0), role="cap") for name in caps
+    )
+    model = replace(model, caps=caps, trims=trims)
+    records = [*model.records, rim_shared(model)]
+    records += [continuity_internal(patch, name) for name, patch in caps.items()]
+    records += with_trim_checks(model)
+    return replace(model, records=tuple(records))

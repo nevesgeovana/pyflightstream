@@ -46,6 +46,7 @@ from pyflightstream.geometry._schema import (
     scale_units,
     stations,
 )
+from pyflightstream.geometry._sections import trailing_edge_notes
 
 __all__ = ["load_config", "resolve_config"]
 
@@ -197,14 +198,15 @@ def default_component(kind):
     return common
 
 
-#: Keys of the one-skin parametrization that resolve and are checked but that the generator of
-#: this version does not read yet (lanes G4R and G5Rb apply them), by component type.
+#: Keys of the one-skin parametrization that resolve and are checked but that the generated
+#: surface of this version does not depend on, by component type. ``spanwise.law`` and
+#: ``sections.pin`` shape the skin the generator writes, so they are not listed;
+#: ``spanwise.lines`` and ``root`` reach only the layout model (iso lines and root caps),
+#: which no verb writes yet.
 _NOT_GENERATED = {
     "lifting_surface": (
-        ("spanwise", "law"),
         ("spanwise", "lines"),
         ("root",),
-        ("sections", "pin"),
         ("sections", "continuity"),
         ("sections", "tolerance"),
     ),
@@ -649,6 +651,8 @@ def _check_data_files(name, component, base, warnings):
     for item in items:
         if item.get("file"):  # the generator reads it from wherever the input was read
             item["file"] = str((base / item["file"]).resolve())
+    if items:
+        trailing_edge_notes(name, sections, warnings)
     original = component.get("original", "").split("#")[0]
     if original and not (base / original).is_file():
         warnings.append(f"{name}.original: file not found; the distance checks are skipped")
