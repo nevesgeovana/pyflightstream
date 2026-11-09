@@ -1514,7 +1514,8 @@
     "_cli_geometry",
     "_cli_wheel",
     "_cli_merge",
-    "_cli_morph"
+    "_cli_morph",
+    "_cli_parametric"
    ]
   }
  },

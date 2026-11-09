@@ -137,6 +137,7 @@ nav:
           - CCS geometry: ccs-geometry.md
           - Removing surfaces: removing-surfaces.md
           - Geometry units and starts: geometry-units-and-starts.md
+          - Parametric aircraft geometry: geometry-parametrization.md
       - 2. Set up the study:
           - Matrix, library and presets:
               - Run matrix: workflow-run-matrix.md

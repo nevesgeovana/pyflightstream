@@ -328,6 +328,12 @@ def _imported_module_names(source: str, package: str) -> set[str]:
     return found
 
 
+#: Public functions the design of 0.57.0 item 3 names ``check_...`` that measure and return the
+#: measurement (the deviation record of a rebuilt surface). The name is the design's; the owner
+#: decides whether it is kept or renamed, and this row is deleted with that decision.
+_MEASURING_CHECKS = frozenset({"pyflightstream.workspace._geometry_check.check_against_original"})
+
+
 def test_check_prefixed_functions_return_nothing():
     """The check_ prefix promises a refusal, not a measurement.
 
@@ -361,6 +367,8 @@ def test_check_prefixed_functions_return_nothing():
                 continue
             inspected.add(f"{obj.__module__}.{obj.__qualname__}")
             annotation = inspect.signature(obj).return_annotation
+            if f"{obj.__module__}.{obj.__qualname__}" in _MEASURING_CHECKS:
+                continue
             if annotation not in (None, "None", inspect.Signature.empty):
                 offenders.append(f"{obj.__module__}.{obj.__qualname__} -> {annotation}")
     # Non-vacuity: the walk swallows ImportError per module, so a scan that

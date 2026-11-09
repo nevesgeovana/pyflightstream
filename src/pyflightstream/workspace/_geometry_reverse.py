@@ -30,7 +30,7 @@ import numpy as np
 from scipy.optimize import brentq, minimize_scalar
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._reverse import (
+from pyflightstream.geometry.stages import (
     clean_band,
     closed_contour,
     contour_features,

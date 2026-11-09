@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._mesh_topology import Mesh
+from pyflightstream.geometry.stages import Mesh
 from pyflightstream.workspace._gmsh import gmsh_module
 
 __all__ = [

@@ -24,9 +24,8 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._generation import assembly_regions, generate_components
-from pyflightstream.geometry._patch import Patch
 from pyflightstream.geometry.config import load_config, resolve_config
+from pyflightstream.geometry.stages import Patch, assembly_regions, generate_components
 from pyflightstream.workspace._gmsh import session
 
 __all__ = ["add_occ_patch", "assemble", "generate_iges", "write_iges"]
@@ -430,6 +429,14 @@ def generate_iges(
     -------
     dict
         ``path``, the number of exposed ``faces`` of each component, and the edge ``audit``.
+
+    Raises
+    ------
+    InputValueError
+        For a refused configuration, an unknown ``configuration`` or a name the IGES format
+        cannot carry; nothing is written.
+    pyflightstream.extras.MissingExtraError
+        When the optional gmsh extra is not installed.
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     every = generate_components(resolved)

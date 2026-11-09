@@ -12,7 +12,8 @@ gives the exit code: 0 when the output was written, 2 when the input is refused 
 extra is missing, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
-:data:`MORPH_VERBS`.
+:data:`MORPH_VERBS`, which also carries the verbs of :mod:`pyflightstream.run._cli_parametric`
+(``generate``, ``identify``, ``check``, ``mesh-generated`` and ``schema``).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from collections.abc import Callable
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._cli_parametric import PARAMETRIC_VERBS, add_parametric_verbs
 
 __all__ = ["MORPH_VERBS", "add_morph_verbs"]
 
@@ -251,10 +253,11 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
 }
 
 #: The verbs this module adds to the group.
-MORPH_VERBS = tuple(_PARSERS)
+MORPH_VERBS = (*_PARSERS, *PARAMETRIC_VERBS)
 
 
 def add_morph_verbs(verbs: Any) -> None:
-    """Add this module's verbs to the ``geometry`` subparsers."""
+    """Add this module's verbs, and those of the parametric pipeline, to the ``geometry`` group."""
     for add in _PARSERS.values():
         add(verbs)
+    add_parametric_verbs(verbs)

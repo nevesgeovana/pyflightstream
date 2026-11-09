@@ -109,6 +109,7 @@ PUBLIC_MODULES = [
     "pyflightstream.geometry",
     "pyflightstream.geometry.component",
     "pyflightstream.geometry.config",
+    "pyflightstream.geometry.stages",
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
@@ -280,6 +281,9 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.fsi_external_setup",
     "pyflightstream.workspace.fsi_setup",
+    # 0.57.0 (item 3, PFS-2211.01): generate, check, mesh and identify, behind `geometry generate`,
+    # `check`, `mesh-generated` and `identify`.
+    "pyflightstream.workspace.geometry_pipeline",
     # 0.33.0 (AD-11): the HPC profile, cut out of workspace.inputs, which
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.hpc",

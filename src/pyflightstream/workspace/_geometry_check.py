@@ -326,6 +326,22 @@ def check_against_original(
         The two surfaces, as described above.
     profile : str
         Named deviation profile; an unknown name is refused with the available names.
+
+    Returns
+    -------
+    dict
+        ``accepted`` (both directions passed), the ``forward``, ``restricted_reverse`` and
+        ``unrestricted_reverse`` statistics, the ``regions`` results, the excluded original
+        faces and boundary samples, the sample coverage of each surface, the ``profile`` and
+        its ``tolerance_rule``, and the ``method`` (sampled upper bounds, not continuous
+        Hausdorff distances).
+
+    Raises
+    ------
+    InputValueError
+        For an unknown profile, limits that name no chord, or a surface that cannot be resolved.
+    pyflightstream.extras.MissingExtraError
+        When the optional gmsh extra is not installed.
     """
     constants = _profile(profile)
     gmsh = gmsh_module(_PURPOSE)

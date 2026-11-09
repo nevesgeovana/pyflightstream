@@ -1,0 +1,464 @@
+"""The ``pyfs-workspace geometry`` verbs of the parametric aircraft pipeline.
+
+Pipeline role: the run layer's parsers and handlers for ``generate``, ``identify``, ``check``,
+``mesh-generated`` and ``schema`` (0.57.0 item 3). The work is the geometry package's
+(:mod:`pyflightstream.geometry`, the configuration boundary and the component record) and the
+workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the optional ``gmsh``
+extra); this module only reads the command line, calls it, prints the record it returns as
+JSON and gives the exit code: 0 when the work was done (and, for ``check``, accepted), 1 when
+``check`` measured the rebuilt surface and rejected it, 2 when an input is refused or the gmsh
+extra is missing, with the message on standard error and nothing written. Each parser names its
+handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls,
+so the group adds every verb of this module through :func:`add_parametric_verbs` and lists
+them by :data:`PARAMETRIC_VERBS`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pyflightstream._textio as _textio
+from pyflightstream._errors import PyflightstreamError
+
+__all__ = ["PARAMETRIC_VERBS", "add_parametric_verbs"]
+
+_PROFILES_HELP = "named deviation profile (default: study_default, 0.5 mm or 0.1 percent of chord)"
+
+
+def _report(work: Callable[[], dict[str, Any]], *, rejects: bool = False) -> int:
+    """Run one verb and print its record; 2 when refused, 1 when ``rejects`` and not accepted."""
+    try:
+        record = work()
+    except (OSError, PyflightstreamError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(json.dumps(record, indent=2, default=str))
+    return 1 if rejects and not record.get("accepted", True) else 0
+
+
+def _write_json(path: str | None, record: dict[str, Any]) -> None:
+    if path is not None:
+        _textio.write_text(path, json.dumps(record, indent=2, default=str))
+
+
+def add_generate_parser(subparsers: Any) -> None:
+    """Add the verb that writes a named IGES from a parametric configuration."""
+    parser = subparsers.add_parser(
+        "generate",
+        help="write a named IGES from a parametric configuration (needs the gmsh extra)",
+        description=(
+            "Reads a TOML configuration of bodies, lifting surfaces and the wing-fuselage "
+            "fairing, resolves it (every value carries its source), generates the exposed skin "
+            "with an edge audit and writes one IGES with one NAME per component on its own "
+            "level. The record (the IGES, the faces of each component and the audit) is "
+            "printed. Nothing is written when the configuration is refused."
+        ),
+    )
+    parser.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
+    parser.add_argument("--out", required=True, help="new .igs")
+    parser.add_argument(
+        "--configuration",
+        metavar="NAME",
+        help="generate only the components of this entry of the [configurations] table",
+    )
+    parser.set_defaults(mesh_command=run_generate)
+
+
+def run_generate(args: argparse.Namespace) -> int:
+    """Run generate: load and resolve the configuration, write the IGES, print the record."""
+    from pyflightstream.geometry import load_config
+    from pyflightstream.workspace.geometry_pipeline import generate_iges
+
+    def work() -> dict[str, Any]:
+        resolved = load_config(args.config)
+        return generate_iges(resolved, args.out, configuration=args.configuration)
+
+    return _report(work)
+
+
+def add_identify_parser(subparsers: Any) -> None:
+    """Add the verb that identifies a lifting surface of an original IGES."""
+    parser = subparsers.add_parser(
+        "identify",
+        help="identify a lifting surface of an original IGES: planform and sections "
+        "(needs the gmsh extra)",
+        description=(
+            "Cuts the trimmed faces of one component of an IGES file (named on its level) by "
+            "planes normal to its span axis, finds the clean band of sections, builds the "
+            "reference planform between the root and the outermost clean cut and fits a CST "
+            "section to the root, the middle and the tip. The root is the symmetry plane, the "
+            "host surface or the span extent of the original's own boundary curves. A coarse "
+            "and a fine pass must agree for the result to be accepted. Prints the result; "
+            "--config-out writes a configuration that rebuilds the planform."
+        ),
+    )
+    parser.add_argument("iges", metavar="IGES", help="the original IGES, read only")
+    parser.add_argument("component", metavar="COMPONENT", help="the component to identify")
+    parser.add_argument(
+        "--host",
+        dest="hosts",
+        action="append",
+        metavar="NAME",
+        help="a component the surface sits on, NAME or FILE#NAME (repeatable); the root is "
+        "where the extended leading edge meets it",
+    )
+    parser.add_argument(
+        "--root",
+        dest="root_from",
+        choices=("auto", "plane", "host", "boundary"),
+        default="auto",
+        help="where the planform starts: the symmetry plane, a host, or the span extent of the "
+        "face boundary curves (default: host when --host is given, else plane)",
+    )
+    parser.add_argument(
+        "--mirrored",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="whether the surface has a mirror image across its root, doubling span and area "
+        "(default: yes for a plane root, no otherwise)",
+    )
+    parser.add_argument(
+        "--cut",
+        choices=("plain", "bridge_te", "mirror"),
+        default="plain",
+        help="bridge_te closes an open blunt trailing-edge slit; mirror adds the reflection of "
+        "a half-body original (default: plain)",
+    )
+    parser.add_argument(
+        "--seed",
+        default="NACA0012",
+        metavar="NACA",
+        help="the NACA designation the section fit starts from (default: NACA0012)",
+    )
+    parser.add_argument(
+        "--span-axis",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        help="first estimate of the span axis (default: y or z, the larger extent)",
+    )
+    parser.add_argument(
+        "--stations",
+        type=int,
+        default=161,
+        metavar="N",
+        help="stations of the fine pass (default: 161)",
+    )
+    parser.add_argument(
+        "--grid",
+        dest="grid_points",
+        type=int,
+        default=257,
+        metavar="N",
+        help="cut-grid points per side of each face (default: 257)",
+    )
+    parser.add_argument(
+        "--section-tolerance-mm",
+        type=float,
+        metavar="MM",
+        help="section residual tolerance in mm (default: 0.5 mm or 0.1 percent of the chord)",
+    )
+    parser.add_argument(
+        "--section-degree",
+        type=int,
+        default=5,
+        metavar="N",
+        help="CST degree a section fit starts at (default: 5)",
+    )
+    parser.add_argument(
+        "--section-max-degree",
+        type=int,
+        default=20,
+        metavar="N",
+        help="highest CST degree a section fit may reach (default: 20)",
+    )
+    parser.add_argument(
+        "--host-tolerance",
+        type=float,
+        default=5e-5,
+        metavar="M",
+        help="largest gap in m at which the extended leading edge meets a host (default: 5e-5)",
+    )
+    parser.add_argument(
+        "--no-converge",
+        dest="converge",
+        action="store_false",
+        help="skip the coarse pass that must agree with the fine one",
+    )
+    parser.add_argument("--out", metavar="JSON", help="also write the result to this file")
+    parser.add_argument(
+        "--config-out",
+        metavar="TOML",
+        help="write a configuration (TOML) that rebuilds the identified surface",
+    )
+    parser.set_defaults(mesh_command=run_identify)
+
+
+def run_identify(args: argparse.Namespace) -> int:
+    """Run identify: print the result, optionally write it and the configuration it implies."""
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import write_config
+    from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
+
+    def work() -> dict[str, Any]:
+        found = identify_lifting_surface(
+            args.iges,
+            args.component,
+            hosts=args.hosts or (),
+            root=args.root_from,
+            mirrored=args.mirrored,
+            cut=args.cut,
+            seed=args.seed,
+            span_axis=args.span_axis,
+            stations=args.stations,
+            grid=args.grid_points,
+            section_tolerance_mm=args.section_tolerance_mm,
+            section_degree=args.section_degree,
+            section_max_degree=args.section_max_degree,
+            host_tolerance=args.host_tolerance,
+            converge=args.converge,
+        )
+        record = found.to_dict()
+        if args.config_out is not None:
+            entry = found.to_component()
+            write_config(resolve_config({"components": {args.component: entry}}), args.config_out)
+            record["config_out"] = args.config_out
+        _write_json(args.out, record)
+        return record
+
+    return _report(work)
+
+
+def add_check_parser(subparsers: Any) -> None:
+    """Add the verb that measures a rebuilt surface against an original."""
+    parser = subparsers.add_parser(
+        "check",
+        help="measure a rebuilt IGES against the original: forward and restricted reverse "
+        "distance (needs the gmsh extra)",
+        description=(
+            "Samples the original and the rebuilt faces and measures the distance of each to "
+            "the other: forward (the original to the rebuilt, everywhere) and reverse (the "
+            "rebuilt to the original, inside its trimmed boundary). The limit is the named "
+            "profile applied to the local chord. The distances are sampled upper bounds, not "
+            "continuous Hausdorff distances, as the record's method says. Exit 0 accepted, 1 "
+            "rejected, 2 refused. Give the local chord as --chord-m, or as --stations-m with "
+            "--chords-m."
+        ),
+    )
+    parser.add_argument("rebuilt", metavar="REBUILT", help="the rebuilt IGES, FILE or FILE#NAME")
+    parser.add_argument("original", metavar="ORIGINAL", help="the original IGES, FILE or FILE#NAME")
+    parser.add_argument("--chord-m", type=float, metavar="M", help="one local chord in m")
+    parser.add_argument(
+        "--stations-m",
+        type=float,
+        nargs="+",
+        metavar="S",
+        help="increasing stations in m along --axis, with --chords-m",
+    )
+    parser.add_argument(
+        "--chords-m", type=float, nargs="+", metavar="C", help="the chord in m at each station"
+    )
+    parser.add_argument(
+        "--axis",
+        dest="chord_axis",
+        type=int,
+        choices=(0, 1, 2),
+        default=1,
+        help="the axis of --stations-m, 0 x, 1 y, 2 z (default: 1)",
+    )
+    parser.add_argument(
+        "--component", metavar="NAME", help="the component of a file both surfaces are named in"
+    )
+    parser.add_argument(
+        "--exclude-face",
+        dest="exclude_faces",
+        type=int,
+        action="append",
+        metavar="INDEX",
+        help="leave this face of the original out, by index (repeatable)",
+    )
+    parser.add_argument(
+        "--forward-count",
+        type=int,
+        default=45,
+        metavar="N",
+        help="samples per side on each original face (default: 45)",
+    )
+    parser.add_argument(
+        "--reverse-count",
+        type=int,
+        default=31,
+        metavar="N",
+        help="samples per side on each rebuilt face (default: 31)",
+    )
+    parser.add_argument(
+        "--edge-count",
+        type=int,
+        default=101,
+        metavar="N",
+        help="samples on each trim edge (default: 101)",
+    )
+    parser.add_argument(
+        "--fold-y",
+        action="store_true",
+        help="the original is a half body: fold the rebuilt mirror half onto the modelled side",
+    )
+    parser.add_argument("--profile", default="study_default", help=_PROFILES_HELP)
+    parser.add_argument("--out", metavar="JSON", help="also write the record to this file")
+    parser.set_defaults(mesh_command=run_check)
+
+
+def run_check(args: argparse.Namespace) -> int:
+    """Run check: print the record; exit 1 when the rebuilt surface is rejected."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace.geometry_pipeline import check_against_original
+
+    def work() -> dict[str, Any]:
+        limits: dict[str, Any] = {
+            "axis": args.chord_axis,
+            "forward_count": args.forward_count,
+            "reverse_count": args.reverse_count,
+            "edge_count": args.edge_count,
+        }
+        if args.stations_m is not None or args.chords_m is not None:
+            if args.stations_m is None or args.chords_m is None:
+                raise InputValueError("--stations-m and --chords-m: give both")
+            limits.update(stations_m=args.stations_m, chords_m=args.chords_m)
+        elif args.chord_m is not None:
+            limits["chord_m"] = args.chord_m
+        else:
+            raise InputValueError("give --chord-m, or --stations-m with --chords-m")
+        if args.component is not None:
+            limits["component"] = args.component
+        if args.exclude_faces:
+            limits["exclude_faces"] = args.exclude_faces
+        if args.fold_y:
+            limits["fold_y"] = True
+        record = check_against_original(args.rebuilt, args.original, limits, profile=args.profile)
+        _write_json(args.out, record)
+        return record
+
+    return _report(work, rejects=True)
+
+
+def add_mesh_generated_parser(subparsers: Any) -> None:
+    """Add the verb that meshes a parametric configuration into an all-quad OBJ."""
+    parser = subparsers.add_parser(
+        "mesh-generated",
+        help="mesh a parametric configuration into an all-quad OBJ (needs the gmsh extra)",
+        description=(
+            "Resolves the configuration and meshes its patches from their role: constant "
+            "spanwise width with a refined tip, chordwise growth from the leading edge, "
+            "constant azimuth and axial step on a body, a planar all-quad flat tip cap and, "
+            "for a wing on a body, the fairing as one quad-dominant transition ring. The "
+            "orientation is outward. The record (counts, the acceptance checks, the spacing "
+            "rules) is printed; the OBJ holds one group per component."
+        ),
+    )
+    parser.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
+    parser.add_argument("--obj", required=True, help="new .obj")
+    parser.add_argument(
+        "--component",
+        metavar="NAME",
+        help="mesh this body or lifting surface alone, in its own frame (default: the assembly)",
+    )
+    parser.add_argument(
+        "--controls",
+        metavar="TOML",
+        help="mesh controls overriding the defaults, by table: lifting_surface, body, checks, "
+        "assembly",
+    )
+    parser.add_argument("--out", metavar="JSON", help="also write the record to this file")
+    parser.set_defaults(mesh_command=run_mesh_generated)
+
+
+def run_mesh_generated(args: argparse.Namespace) -> int:
+    """Run mesh-generated: write the OBJ and print the record of its checks."""
+    from pyflightstream.geometry import load_config
+    from pyflightstream.workspace.geometry_pipeline import mesh_generated
+
+    def work() -> dict[str, Any]:
+        resolved = load_config(args.config)
+        result = mesh_generated(
+            resolved, component=args.component, controls=args.controls, obj=args.obj
+        )
+        record = {"obj": args.obj, **result.record}
+        _write_json(args.out, record)
+        return record
+
+    return _report(work)
+
+
+def add_schema_parser(subparsers: Any) -> None:
+    """Add the verb that prints the component record schema or validates a record."""
+    parser = subparsers.add_parser(
+        "schema",
+        help="print the JSON Schema of the component record, or validate a record against it",
+        description=(
+            "Prints the draft 2020-12 JSON Schema of the component parameter record (schema "
+            "0.2.0): the contract between a reconstruction and this library. With --validate "
+            "the record file is parsed and its structural rules checked instead, and with "
+            "--asset-root every file it pins is re-read against its SHA-256. Needs no gmsh."
+        ),
+    )
+    parser.add_argument("--out", metavar="JSON", help="write the schema to this file")
+    parser.add_argument("--validate", metavar="RECORD", help="validate this record (JSON)")
+    parser.add_argument(
+        "--asset-root",
+        metavar="DIR",
+        help="with --validate: the folder the record's file paths resolve against, to check "
+        "every pin",
+    )
+    parser.set_defaults(mesh_command=run_schema)
+
+
+def run_schema(args: argparse.Namespace) -> int:
+    """Run schema: print the schema, or validate a record and its pins."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry import ComponentRecord
+    from pyflightstream.geometry.stages import export_schema, verify_pins
+
+    def work() -> dict[str, Any]:
+        if args.validate is None:
+            if args.asset_root is not None:
+                raise InputValueError("--asset-root: only with --validate")
+            schema = export_schema()
+            _write_json(args.out, schema)
+            return schema
+        record = ComponentRecord.from_json(Path(args.validate).read_text(encoding="utf-8"))
+        problems = verify_pins(record, args.asset_root) if args.asset_root is not None else []
+        return {
+            "record": args.validate,
+            "component": record.component_code,
+            "kind": record.kind,
+            "stations": len(record.stations),
+            "pins_checked": args.asset_root is not None,
+            "pin_problems": problems,
+            "accepted": not problems,
+        }
+
+    return _report(work, rejects=True)
+
+
+#: The parser of each verb this module adds, by its name in the group.
+_PARSERS: dict[str, Callable[[Any], None]] = {
+    "generate": add_generate_parser,
+    "identify": add_identify_parser,
+    "check": add_check_parser,
+    "mesh-generated": add_mesh_generated_parser,
+    "schema": add_schema_parser,
+}
+
+#: The verbs this module adds to the group.
+PARAMETRIC_VERBS = tuple(_PARSERS)
+
+
+def add_parametric_verbs(verbs: Any) -> None:
+    """Add this module's verbs to the ``geometry`` subparsers."""
+    for add in _PARSERS.values():
+        add(verbs)

@@ -26,33 +26,32 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._bodies import body
-from pyflightstream.geometry._boundary import unpack
-from pyflightstream.geometry._caps import tip_cap
-from pyflightstream.geometry._generation import assembly_regions, generate_components
-from pyflightstream.geometry._lifting import lifting_surface
-from pyflightstream.geometry._mesh_rules import (
+from pyflightstream.geometry.config import load_config, resolve_config
+from pyflightstream.geometry.stages import (
+    Mesh,
+    Patch,
+    assembly_regions,
+    body,
     check_body,
     check_lifting,
+    check_mesh,
     chord_fraction,
     chord_nodes,
     constant,
     count_classes,
+    generate_components,
     insert_seed,
+    lifting_surface,
     load_mesh_controls,
-    tip_refinement,
-)
-from pyflightstream.geometry._mesh_topology import (
-    Mesh,
-    check_mesh,
     orient_mesh,
     oriented_source_normals,
     repair_inverted,
+    tip_cap,
+    tip_refinement,
+    unpack,
+    wing_in_body_frame,
     write_obj,
 )
-from pyflightstream.geometry._patch import Patch
-from pyflightstream.geometry._placement import wing_in_body_frame
-from pyflightstream.geometry.config import load_config, resolve_config
 from pyflightstream.workspace._geometry_generate import add_occ_patch, assemble
 from pyflightstream.workspace._geometry_mesh_occ import (
     CAP_SURFACE,

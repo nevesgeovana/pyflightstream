@@ -179,6 +179,7 @@
       "tests/tier1_offline/test_p0560_wheel_terminations.py",
       "tests/tier1_offline/test_p0570_geometry_bodies.py",
       "tests/tier1_offline/test_p0570_geometry_check.py",
+      "tests/tier1_offline/test_p0570_geometry_cli.py",
       "tests/tier1_offline/test_p0570_geometry_component.py",
       "tests/tier1_offline/test_p0570_geometry_config.py",
       "tests/tier1_offline/test_p0570_geometry_generate.py",

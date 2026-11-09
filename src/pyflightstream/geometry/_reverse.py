@@ -278,6 +278,7 @@ def reference_planform(
     features,
     band,
     span,
+    *,
     root_station=None,
     tip_station=None,
     hold_incidence=False,
@@ -409,7 +410,7 @@ def _section_graphs(feature):
     return graphs, thickness, projection
 
 
-def fit_section(contour, span, seed, degree=5, max_degree=20, tolerance_m=None):
+def fit_section(contour, span, seed, *, degree=5, max_degree=20, tolerance_m=None):
     """Fit a CST section to one clean cut, raising the degree until the tolerance is met.
 
     The seed (a NACA designation) supplies the starting shape; the correction is fitted to the

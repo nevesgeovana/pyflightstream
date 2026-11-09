@@ -19,6 +19,10 @@ junction of two components against the original faces of both.
 [Grid and convert a named IGES](mesh/iges.md) gives the grid control file, the name rule and the
 limits.
 
+A named IGES can also be generated from a parametric configuration, checked against an original,
+meshed into quads and read back as a planform: [Parametric aircraft
+geometry](geometry-parametrization.md).
+
 ## Morphing a sector or a wheel
 
 `geometry morph` applies the tables of one morphing file to an OBJ in a fixed order: hub

@@ -241,6 +241,36 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "iges"): SUBJECT,  # The IGES files iges-grid and iges-convert read.
     ("pyfs-workspace", "grid"): SUBJECT,  # Control input of iges-grid.
     ("pyfs-workspace", "components"): SUBJECT,  # The components of the IGES iges-grid grids.
+    ("pyfs-workspace", "asset_root"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "chord_axis"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "chord_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "chords_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "config_out"): OUTPUT,  # geometry parametric verb.
+    ("pyfs-workspace", "configuration"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "controls"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "converge"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "cut"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "edge_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "exclude_faces"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "fold_y"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "forward_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "grid_points"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "host_tolerance"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "hosts"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "mirrored"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "obj"): OUTPUT,  # geometry parametric verb.
+    ("pyfs-workspace", "original"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "profile"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "rebuilt"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "reverse_count"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "root_from"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "section_degree"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "section_max_degree"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "section_tolerance_mm"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "seed"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "span_axis"): SWITCH,  # geometry parametric verb.
+    ("pyfs-workspace", "stations_m"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "validate"): SUBJECT,  # geometry parametric verb.
     ("pyfs-workspace", "against"): SUBJECT,
     ("pyfs-workspace", "kind"): SUBJECT,
     ("pyfs-workspace", "boundary"): SUBJECT,
@@ -992,7 +1022,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
         "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
-        "visual-inspect iges-grid iges-convert".split()
+        "visual-inspect iges-grid iges-convert check generate identify mesh-generated "
+        "schema".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -1045,9 +1076,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "table"): frozenset({"profile"}),
     ("pyfs-workspace", "pol"): frozenset({"profile"}),
     ("pyfs-workspace", "family"): frozenset({"profile"}),
-    ("pyfs-workspace", "component"): frozenset({"profile"}),
+    ("pyfs-workspace", "component"): frozenset({"check", "identify", "mesh-generated", "profile"}),
     ("pyfs-workspace", "sign"): frozenset({"profile"}),
-    ("pyfs-workspace", "stations"): frozenset({"beam", "profile"}),
+    ("pyfs-workspace", "stations"): frozenset({"beam", "identify", "profile"}),
     ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
     ("pyfs-workspace", "ref"): frozenset({"profile"}),
     ("pyfs-workspace", "disc"): frozenset({"profile"}),
@@ -1118,9 +1149,39 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te", "hub-rings", "morph"}),
-    ("pyfs-workspace", "iges"): frozenset({"iges-grid", "iges-convert"}),
+    ("pyfs-workspace", "iges"): frozenset({"identify", "iges-convert", "iges-grid"}),
     ("pyfs-workspace", "grid"): frozenset({"iges-grid"}),
     ("pyfs-workspace", "components"): frozenset({"iges-grid"}),
+    ("pyfs-workspace", "asset_root"): frozenset({"schema"}),
+    ("pyfs-workspace", "chord_axis"): frozenset({"check"}),
+    ("pyfs-workspace", "chord_m"): frozenset({"check"}),
+    ("pyfs-workspace", "chords_m"): frozenset({"check"}),
+    ("pyfs-workspace", "config_out"): frozenset({"identify"}),
+    ("pyfs-workspace", "configuration"): frozenset({"generate"}),
+    ("pyfs-workspace", "controls"): frozenset({"mesh-generated"}),
+    ("pyfs-workspace", "converge"): frozenset({"identify"}),
+    ("pyfs-workspace", "cut"): frozenset({"identify"}),
+    ("pyfs-workspace", "edge_count"): frozenset({"check"}),
+    ("pyfs-workspace", "exclude_faces"): frozenset({"check"}),
+    ("pyfs-workspace", "fold_y"): frozenset({"check"}),
+    ("pyfs-workspace", "forward_count"): frozenset({"check"}),
+    ("pyfs-workspace", "grid_points"): frozenset({"identify"}),
+    ("pyfs-workspace", "host_tolerance"): frozenset({"identify"}),
+    ("pyfs-workspace", "hosts"): frozenset({"identify"}),
+    ("pyfs-workspace", "mirrored"): frozenset({"identify"}),
+    ("pyfs-workspace", "obj"): frozenset({"mesh-generated"}),
+    ("pyfs-workspace", "original"): frozenset({"check"}),
+    ("pyfs-workspace", "profile"): frozenset({"check"}),
+    ("pyfs-workspace", "rebuilt"): frozenset({"check"}),
+    ("pyfs-workspace", "reverse_count"): frozenset({"check"}),
+    ("pyfs-workspace", "root_from"): frozenset({"identify"}),
+    ("pyfs-workspace", "section_degree"): frozenset({"identify"}),
+    ("pyfs-workspace", "section_max_degree"): frozenset({"identify"}),
+    ("pyfs-workspace", "section_tolerance_mm"): frozenset({"identify"}),
+    ("pyfs-workspace", "seed"): frozenset({"identify"}),
+    ("pyfs-workspace", "span_axis"): frozenset({"identify"}),
+    ("pyfs-workspace", "stations_m"): frozenset({"check"}),
+    ("pyfs-workspace", "validate"): frozenset({"schema"}),
     ("pyfs-workspace", "families"): frozenset({"beam", "refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),
@@ -1147,7 +1208,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "simulation_unit"): frozenset({"identify-te"}),
     ("pyfs-workspace", "per_family"): frozenset({"convert2midnodes"}),
     ("pyfs-workspace", "keep_first_row"): frozenset({"refine"}),
-    ("pyfs-workspace", "config"): frozenset({"refine"}),
+    ("pyfs-workspace", "config"): frozenset({"generate", "mesh-generated", "refine"}),
     ("pyfs-workspace", "out_dir"): frozenset({"refine"}),
     ("pyfs-workspace", "against"): frozenset({"audit"}),
     ("pyfs-workspace", "csv_file"): frozenset({"audit"}),

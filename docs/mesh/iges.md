@@ -29,6 +29,9 @@ The faces are every trimmed surface (144) and every untrimmed surface at the top
 order of the file's directory. That is the order in which the geometry kernel imports them, and
 the command compares the two counts: a file where they differ is refused with both counts.
 
+The IGES files `geometry generate` writes carry one NAME per component on its own level, so they
+enter the commands below unchanged ([Parametric aircraft geometry](../geometry-parametrization.md)).
+
 ## Grid a configuration
 
 ```text
