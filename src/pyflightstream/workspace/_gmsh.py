@@ -44,6 +44,8 @@ __all__ = [
 IMPORT_UNIT = "MILLIMETER"
 #: The same unit as gmsh's target unit option names it.
 _OCC_IMPORT_UNIT = "MM"
+#: What gmsh raises when the process has not yet made the target unit it would set.
+_NO_UNIT_YET = "Could not set OpenCASCADE target unit"
 #: A parameter pair is trusted when it reproduces the projected point to this fraction of its size.
 _PARAMETER_TOLERANCE = 1e-9
 
@@ -89,12 +91,28 @@ def import_iges(gmsh: Any, path: str | Path) -> list[int]:
     gmsh option leaves alone and ``gmsh.finalize`` does not reset, so a session that once asked
     for metres would change every later read in the process. The unit is named on every read and
     the option the caller's session held is put back.
+
+    The static does not exist before the first import or export of the process, and gmsh refuses
+    to set it then. That refusal proves no earlier read left a unit, so the read runs on the
+    default, which is millimetres.
     """
-    held = gmsh.option.getString("Geometry.OCCTargetUnit")
-    gmsh.option.setString("Geometry.OCCTargetUnit", _OCC_IMPORT_UNIT)
-    try:
+
+    def read(unit: str) -> list[tuple[int, int]]:
+        gmsh.option.setString("Geometry.OCCTargetUnit", unit)
         with _quiet_stdout():
-            out = gmsh.model.occ.importShapes(str(path), highestDimOnly=True)
+            shapes: list[tuple[int, int]] = gmsh.model.occ.importShapes(
+                str(path), highestDimOnly=True
+            )
+        return shapes
+
+    held = gmsh.option.getString("Geometry.OCCTargetUnit")
+    try:
+        try:
+            out = read(_OCC_IMPORT_UNIT)
+        except Exception as error:
+            if _NO_UNIT_YET not in str(error):
+                raise
+            out = read("")
     finally:
         gmsh.option.setString("Geometry.OCCTargetUnit", held)
     return [tag for dim, tag in out if dim == 2]
