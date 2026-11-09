@@ -12,6 +12,7 @@ from collections.abc import (
 )
 
 import pyflightstream.cases._setup_link as _setup_link
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
@@ -390,6 +391,25 @@ def _before_the_build(
     return workflow
 
 
+def _warn_of_an_attached_flow_cp(case: SimCase, script: Script) -> None:
+    """Warn where a row with airfoil separation on exports the section Cp (PFS-2217).
+
+    The ``_cp.txt`` export stays the attached-flow Cp while the exported loads do not,
+    so integrating it misleads (docs/definitions/the-sections-table-and-which-row-is-which.md).
+    Read from the finished script, so a model the build dropped is not warned of. No
+    value is altered.
+    """
+    commands = {line.split(" ", 1)[0].strip() for line in script.render().splitlines()}
+    if {"CREATE_AIRFOIL_SEPARATION", "EXPORT_ALL_SURFACE_SECTIONS"} <= commands:
+        warn(
+            f"case {case.sim_id!r}: airfoil separation is on and the row exports the section "
+            "Cp (_cp.txt). That Cp is the attached-flow Cp and does not match the exported "
+            "loads, so do not integrate it for loads or read it as the separated pressure.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _after_the_build(case: SimCase, script: Script) -> None:
     """Stamp and check the finished script: the steps build_script runs after the builder.
 
@@ -399,6 +419,7 @@ def _after_the_build(case: SimCase, script: Script) -> None:
     untranslatable surface and the march label.
     """
     _setup_surfaces.refuse_setup_keys_that_reached_nothing(script, case)
+    _warn_of_an_attached_flow_cp(case, script)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:
             block["loads_frame_index"] = script.loads_frame

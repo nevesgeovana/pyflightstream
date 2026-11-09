@@ -189,6 +189,7 @@
       "tests/tier1_offline/test_p0570_iges_decisions.py",
       "tests/tier1_offline/test_p0570_fix5_gmsh_worker.py",
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
+      "tests/tier1_offline/test_p0570_fix6_attached_flow_cp.py",
       "tests/tier1_offline/test_p0570_fix5_search_log_batch.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",

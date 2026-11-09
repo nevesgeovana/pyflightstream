@@ -320,6 +320,15 @@ solver's moment, with the moment point on the quarter chord, where the two
 readings coincide. Where the moment about the quarter chord is wanted, add
 `X_QC Fz - Z_QC Fx` to the `Moment`, on the measured case above.
 
+**Section Cp with separation on.** With airfoil separation on, the section
+export `<point>_cp.txt` stays the attached-flow Cp, while the exported loads
+carry the separation. Integrating it does not give the exported loads: on one
+wing on build 26.127, with the `HIGH_LIFT` model at 14 degrees, the Cp integral
+gives `Fz / q` 4.06 where the export gives 2.55, against differences of 0.006 or
+less over the rows without separation. A row that has the model on and exports
+the section Cp is warned when its script is built, and no value is altered. The
+Cp plot `plot_sections_cp` and the other separation models are not measured.
+
 **Integration never blocks post.** A block with fewer than two stations,
 non-monotonic or repeated Offset, or a non-finite sectional value cannot be
 integrated. Overflow in the integration is handled the same way. Post writes
