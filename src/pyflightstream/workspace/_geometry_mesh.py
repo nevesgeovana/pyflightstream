@@ -565,7 +565,8 @@ def mesh_generated(
     -------
     GeneratedMesh
         The oriented mesh and its record: counts, the acceptance checks, the spacing rules
-        measured on the realized edge nodes, and the orientation.
+        measured on the realized edge nodes, the orientation, and the ``warnings`` of the
+        configuration: every key it skipped.
 
     Raises
     ------
@@ -598,4 +599,4 @@ def mesh_generated(
             )
     if obj is not None:
         write_obj(obj, mesh)
-    return GeneratedMesh(mesh=mesh, record=record)
+    return GeneratedMesh(mesh=mesh, record={**record, "warnings": list(resolved["warnings"])})

@@ -194,6 +194,7 @@
       "tests/tier1_offline/test_p0570_geometry_mesh.py",
       "tests/tier1_offline/test_p0570_geometry_mesh_rules.py",
       "tests/tier1_offline/test_p0570_geometry_reverse.py",
+      "tests/tier1_offline/test_p0570_gm12_review.py",
       "tests/tier1_offline/test_p0570_gm2_kernel.py",
       "tests/tier1_offline/test_p0570_iges_decisions.py",
       "tests/tier1_offline/test_p0570_iges_select.py",

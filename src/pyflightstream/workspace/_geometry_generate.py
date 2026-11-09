@@ -208,7 +208,8 @@ def generate_iges(
     Returns
     -------
     dict
-        ``path``, the number of exposed ``faces`` of each component, and the edge ``audit``.
+        ``path``, the number of exposed ``faces`` of each component, the edge ``audit``, and
+        the ``warnings`` of the configuration: every key it skipped.
 
     Raises
     ------
@@ -240,4 +241,9 @@ def generate_iges(
         gmsh.model.occ.synchronize()
         exposed, audit = assemble(gmsh.model, groups, inside)
         write_iges(gmsh, exposed, path)
-    return {"path": Path(path), "faces": {n: len(t) for n, t in exposed.items()}, "audit": audit}
+    return {
+        "path": Path(path),
+        "faces": {n: len(t) for n, t in exposed.items()},
+        "audit": audit,
+        "warnings": list(resolved["warnings"]),
+    }
