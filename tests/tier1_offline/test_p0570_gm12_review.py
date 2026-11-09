@@ -919,3 +919,36 @@ def test_r9_018_airfoils_beside_items_warn():
         )
     )
     assert any("sections.airfoils" in text for text in resolved["warnings"])
+
+
+# R9-020: the unavailable kernel on a real load failure, not on an error put in its place.
+
+
+def test_r9_020_a_library_that_cannot_load_gives_the_named_error(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    (tmp_path / "gmsh.py").write_text(
+        "import ctypes\nctypes.CDLL('libpyfs_not_there_r9.so')\n", encoding="ascii"
+    )
+    probe = (
+        "from pyflightstream.extras import KernelUnavailableError\n"
+        "from pyflightstream.workspace._gmsh import gmsh_module\n"
+        "try:\n"
+        "    gmsh_module('the test')\n"
+        "except KernelUnavailableError as error:\n"
+        "    print('NAMED', error.reason)\n"
+    )
+    import pyflightstream
+
+    source = os.path.dirname(os.path.dirname(pyflightstream.__file__))
+    done = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join((str(tmp_path), source))},
+    )
+    assert done.returncode == 0, done.stderr[-400:]
+    assert done.stdout.startswith("NAMED") and "libpyfs_not_there_r9" in done.stdout
