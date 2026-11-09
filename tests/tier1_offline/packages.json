@@ -187,6 +187,7 @@
       "tests/tier1_offline/test_p0570_geometry_mesh.py",
       "tests/tier1_offline/test_p0570_geometry_mesh_rules.py",
       "tests/tier1_offline/test_p0570_iges_decisions.py",
+      "tests/tier1_offline/test_p0570_fix5_search_log_batch.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
       "tests/tier1_offline/test_reference_vocabulary.py",

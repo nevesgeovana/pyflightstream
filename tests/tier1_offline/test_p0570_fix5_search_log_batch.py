@@ -1,0 +1,188 @@
+"""PFS-2218 (0.57.0): ``pyfs-matrix search-log-batch`` writes a batch point's log from the master.
+
+A SUBMITTED point of a grouped job that has every other output but neither its
+log nor its cumulative log gets the segment of its order from the job's master
+log, and collect then judges it from that log. The verb previews unless
+``--apply`` is given; several candidate master logs, none, or too few points are
+named and nothing is written.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from pyflightstream.results.log import split_job_log
+from pyflightstream.run._search_log_batch import search_log_batch
+from pyflightstream.run.collect import collect_once
+from tests.support_helpers import no_sleep
+from tests.tier1_offline import test_p0370_s1_matrix_home as home
+
+SENTINEL = "SENTINEL-LAST-POINT"
+NATIVE = '\n[log]\nexport_log = false\nnative_log = "FTS{sim}.l*"\n'
+
+
+def _rows(workspace):
+    return {record.run_id: record for record in workspace.read_manifest()}
+
+
+def _scheduler_name(job):
+    return f"FTS{job['values'].get('sim', 'x')}.l6902784"
+
+
+def _job_log_name(job):
+    return Path(job["script"]).stem + ".job-log.txt"
+
+
+def _master_text(job):
+    """The job's master log: the fixture's points, repeated to the job's count, then a sentinel."""
+    segments = split_job_log(home.A2)
+    lines = home.A2.splitlines()
+    tail = lines[segments[-1].first_line : segments[-1].last_line + 1]
+    text = list(lines)
+    for _ in range(job["points"] - len(segments)):
+        text += ["Solution cleared. Initialization removed.", *tail]
+    text.append(SENTINEL)
+    return "\n".join(text) + "\n"
+
+
+def _lose_last_logs(workspace, name=None):
+    """Delete each job's last point's cumulative log and write the job's master log."""
+    lasts = {}
+    for record in workspace.read_manifest():
+        job = record.submission["job"]
+        if job["order"] != job["points"]:
+            continue
+        lasts[record.run_id] = job
+        folder = (
+            workspace.root / job["dir"] / workspace.sim_dir(record.sim_id).name
+        ) / record.submission["working_dir"]
+        found = list(folder.glob("*.cumulative-log.txt"))
+        assert found
+        master = workspace.root / job["dir"] / (name or _job_log_name)(job)
+        master.write_text(_master_text(job), encoding="utf-8")
+        for path in found:
+            path.unlink()
+    assert lasts
+    return lasts
+
+
+def _workspace(tmp_path, **kwargs):
+    return home.grouped_workspace(
+        tmp_path / "w", mode="batch", collect=False, logs=True, ended=True, **kwargs
+    )
+
+
+def _point_log(workspace, record):
+    folder = workspace.sim_dir(record.sim_id) / record.submission["working_dir"]
+    return sorted(folder.glob("*_log.txt"))
+
+
+def test_p0570_fix5_the_preview_writes_nothing_and_apply_writes_the_scheduler_log(tmp_path):
+    """PFS-2218: a point with no log gets its segment of the job log; the preview writes nothing."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace)
+    assert set(search_log_batch(workspace.root)["would write"]) == set(lasts)
+    for run_id in lasts:
+        assert not _point_log(workspace, _rows(workspace)[run_id])
+    assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
+    for run_id in lasts:
+        logs = _point_log(workspace, _rows(workspace)[run_id])
+        assert logs and SENTINEL in logs[0].read_text(encoding="utf-8")
+
+
+def test_p0570_fix5_the_scheduler_log_is_found_by_its_name(tmp_path):
+    """PFS-2218: the scheduler's FTS<first sim>.l* is the master log when no job log exists."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
+    for run_id in lasts:
+        logs = _point_log(workspace, _rows(workspace)[run_id])
+        assert logs and SENTINEL in logs[0].read_text(encoding="utf-8")
+
+
+def test_p0570_fix5_two_candidate_master_logs_are_named_and_master_chooses(tmp_path):
+    """PFS-2218: two scheduler logs are named and nothing is written; --master chooses one."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    job = next(iter(lasts.values()))
+    (workspace.root / job["dir"] / (_scheduler_name(job) + "9")).write_text("x", encoding="utf-8")
+    out = search_log_batch(workspace.root, apply=True)
+    assert any(label.startswith("several master logs") for label in out), out
+    assert "written" not in out
+    for run_id in lasts:
+        assert not _point_log(workspace, _rows(workspace)[run_id])
+    chosen = search_log_batch(workspace.root, apply=True, master=_scheduler_name(job))
+    assert set(chosen["written"]) == set(lasts), chosen
+
+
+def test_p0570_fix5_no_master_log_is_named_and_nothing_is_written(tmp_path):
+    """PFS-2218: a job with no master log is named, and no point of it is written."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    for job in lasts.values():
+        (workspace.root / job["dir"] / _scheduler_name(job)).unlink()
+    out = search_log_batch(workspace.root, apply=True)
+    assert any(label.startswith("no master log") for label in out), out
+    assert "written" not in out and "would write" not in out
+
+
+def test_p0570_fix5_a_master_log_with_too_few_points_is_named(tmp_path):
+    """PFS-2218: a master log that holds fewer points than the job is named; nothing is written."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace)
+    for job in lasts.values():
+        master = workspace.root / job["dir"] / _job_log_name(job)
+        master.write_text(home.A2.split("Solution cleared")[0] + "\n", encoding="utf-8")
+    out = search_log_batch(workspace.root, apply=True)
+    assert any("has only" in label for label in out), out
+    assert "written" not in out
+
+
+def test_p0570_fix5_a_profile_native_log_is_read_first(tmp_path):
+    """PFS-2218: the profile's native_log picks the master log among other FTS logs."""
+    workspace = _workspace(tmp_path, profile_tail=NATIVE)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    job = next(iter(lasts.values()))
+    (workspace.root / job["dir"] / "FTS9999.l1").write_text("another", encoding="utf-8")
+    out = search_log_batch(workspace.root, apply=True)
+    assert set(out["written"]) == set(lasts), out
+
+
+def test_p0570_fix5_the_verb_previews_and_applies_then_collect_judges_the_point(tmp_path, capsys):
+    """PFS-2218: the command line; after --apply, collect judges the last point from its log."""
+    workspace = _workspace(tmp_path)
+    lasts = _lose_last_logs(workspace, _scheduler_name)
+    code, said = home.pyfs(["search-log-batch"], workspace.root, capsys)
+    assert code == 0, said
+    assert f"would write: {len(lasts)}" in said and "preview only" in said, said
+    code, said = home.pyfs(["search-log-batch", "--apply"], workspace.root, capsys)
+    assert code == 0 and f"written: {len(lasts)}" in said, said
+    collect_once(workspace, interval=0.0, sleep=no_sleep)
+    for run_id in lasts:
+        record = _rows(workspace)[run_id]
+        assert "RAN_MISSING_LOG" not in str(record.status), record.status
+        logs = [name for name in record.outputs if name.endswith("_log.txt")]
+        assert logs
+        body = (workspace.sim_dir(record.sim_id) / logs[0]).read_text(encoding="utf-8")
+        assert SENTINEL in body
+
+
+def test_p0570_fix5_a_point_that_has_its_log_is_left_alone(tmp_path, capsys):
+    """PFS-2218: nothing is missing a log, so the verb says so and writes nothing."""
+    workspace = _workspace(tmp_path)
+    code, said = home.pyfs(["search-log-batch", "--apply"], workspace.root, capsys)
+    assert code == 0, said
+    assert "no SUBMITTED point of a batch is missing its log" in said, said
+
+
+@pytest.mark.parametrize("flag", ["--sims", "--master", "--apply", "--workspace"])
+def test_p0570_fix5_the_verb_reads_its_flags(flag):
+    """PFS-2218: the verb accepts the options the guides name."""
+    from pyflightstream.run.cli import _build_parser
+
+    parser = _build_parser()
+    assert parser.parse_args(["search-log-batch"]).subcommand == "search-log-batch"
+    verb = parser._subparsers._group_actions[0].choices["search-log-batch"]
+    assert flag in verb.format_help()
