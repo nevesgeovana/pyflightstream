@@ -193,11 +193,16 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
     code, out, _ = geom(["stages"], capsys)
     rows = printed(out)["stages"]
     steps = [f"S8.{piece}{n}" for piece in "BF" for n in (1, 2, 3)]  # G6R sub-steps of S8
-    assert [r["stage"] for r in rows] == [f"S{i}" for i in range(9)] + steps + ["S9"] + [
-        f"S{i}" for i in range(10, 14)
-    ]
+    junctions = [  # G7R sub-steps of S10, in the order they run
+        "S10.D1", "S10.C5", "S10.C6", "S10.C8", "S10.C9", "S10.D2", "S10.C7", "S10.D3",
+        "S10.D4", "S10.E1", "S10.D5", "S10.D6", "S10.D8", "S10.D8b", "S10.C1", "S10.C2",
+        "S10.C3", "S10.C4", "S10.D9", "S10.D10", "S10.E2",
+    ]  # fmt: skip
+    assert [r["stage"] for r in rows] == (
+        [f"S{i}" for i in range(9)] + steps + ["S9", "S10"] + junctions + ["S11", "S12", "S13"]
+    )
     built = {r["stage"] for r in rows if r["built"]}
-    assert built == {"S0", "S11", *steps}
+    assert built == {"S0", "S10", *junctions, "S11", *steps}
     assert all(r["checks"] for r in rows)
 
 

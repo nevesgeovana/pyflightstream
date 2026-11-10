@@ -47,6 +47,7 @@ from pyflightstream.geometry.stages import (
     check_entry,
     fillet_model,
     geometry_report,
+    junctions,
     parameter_id,
     stage_index,
     stage_record,
@@ -72,12 +73,17 @@ __all__ = [
 
 @dataclass
 class StageOutcome:
-    """What one stage returns: its checks, findings, warnings and the files it wrote."""
+    """What one stage returns: its checks, findings, warnings and the files it wrote.
+
+    ``wall_s`` is the stage's own wall time when the stage measured it apart from the call
+    (a sub-step of S10, all run in one call); None lets the runner time the call.
+    """
 
     checks: list[dict[str, Any]] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     outputs: dict[str, Any] = field(default_factory=dict)
+    wall_s: float | None = None
 
 
 @dataclass
@@ -257,9 +263,109 @@ def _blend_step(kind: str, stage: str) -> StageFn:
     return run
 
 
+def _plan(context: RunContext) -> tuple[list[Any], list[str]]:
+    """Return the dominance operations on the members of the run, and the rows it skipped."""
+    warnings: list[str] = []
+    rows = unpack(context.resolved).get("dominance", [])
+    return junctions.dominance_plan(rows, context.members, warnings), warnings
+
+
+def _dominance(context: RunContext) -> StageOutcome:
+    """S10: the dominance rows read on the members; a cycle was refused at S0 already."""
+    plan, warnings = _plan(context)
+    names = [f"{op.operation} {op.dominant} > {op.dominated}" for op in plan]
+    return StageOutcome(
+        checks=[check_entry("dominance.plan", "passed", 0, 0, unit="cycles")],
+        warnings=warnings,
+        outputs={"operations": names},
+    )
+
+
+def _assembly(context: RunContext) -> dict[str, Any] | None:
+    """Return the sub-step records of the assembly, run once per run in a worker.
+
+    None when no dominance row applies to the members: nothing is assembled, no kernel opens.
+    """
+    if "assembly" not in context.state:
+        plan, _ = _plan(context)
+        arguments: dict[str, Any] = {
+            "config": context.resolved,
+            "members": context.members,
+            "out": str(context.out / "S10-assembly.json"),
+        }
+        if not plan:
+            context.state["assembly"] = None
+        elif os.environ.get(WORKER_ENV) == "1":
+            context.state["assembly"] = _assembly_record(**arguments)
+        else:
+            context.state["assembly"] = run_isolated(
+                f"{__name__}:_assembly_record", arguments, _assembly_record
+            )
+    return context.state["assembly"]
+
+
+def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any]:
+    """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import generate_components
+    from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    resolved = resolve_config(copy.deepcopy(config))
+    every = generate_components(resolved)
+    again = generate_components(resolve_config(copy.deepcopy(config)))
+    plain = unpack(resolved)
+    pieces = {name: every[name] for name in members if name in every}
+    half = all(float(p.controls[..., 1].min()) >= -1e-9 for ps in pieces.values() for p in ps)
+    kernel = open_kernel("assembling the pieces by the dominance rows")
+    try:
+        records = Assembly(
+            kernel,
+            pieces,
+            plain.get("dominance", []),
+            out=Path(out).parent,
+            members=members,
+            kinds={name: plain["components"][name]["type"] for name in pieces},
+            plane_axis=1 if half else None,
+            regenerated={name: again[name] for name in pieces},
+            coverage_fraction=float(plain["acceptance"]["coverage_fraction"]),
+        ).run()
+    finally:
+        kernel.close()
+    result = json.loads(json.dumps({"records": records}, default=str))
+    write_record(Path(out), result)
+    return result
+
+
+def _assembly_step(stage: str) -> StageFn:
+    """Return the function of one sub-step of S10: its record from the assembly's run."""
+
+    def run(context: RunContext) -> StageOutcome:
+        ids = [cid for cid, _ in next(r for r in STAGE_ROWS if r.stage == stage).checks]
+        result = _assembly(context)
+        if result is None:
+            note = "no dominance row applies to the members of this configuration"
+            return StageOutcome(checks=[check_entry(c, "skipped", note=note) for c in ids])
+        record = next((r for r in result["records"] if r["stage"] == stage), None)
+        if record is None:
+            note = f"not measured: the assembly stopped at {result['records'][-1]['stage']}"
+            return StageOutcome(checks=[check_entry(c, "skipped", note=note) for c in ids])
+        # the assembly runs every sub-step in the first call; each record keeps its own time
+        return StageOutcome(
+            checks=record["checks"],
+            warnings=record["warnings"],
+            outputs=record["outputs"],
+            wall_s=float(record["wall_s"]),
+        )
+
+    return run
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
+    "S10": _dominance,
+    **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
@@ -593,7 +699,9 @@ def run_geometry(
             warnings=outcome.warnings,
             outputs=outcome.outputs,
             started=began,
-            wall_s=round(time.perf_counter() - ticked, 3),
+            wall_s=round(
+                outcome.wall_s if outcome.wall_s is not None else time.perf_counter() - ticked, 3
+            ),
         )
         write_record(folder / f"{stage.row.stage}.json", record)
         log.stage(record)

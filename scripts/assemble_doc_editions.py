@@ -7,7 +7,8 @@ which the release workflow builds from the tag and the release step attaches), a
 hands both here. The output holds one folder per edition, ``<version>/`` (``main``
 for a build that is not a release), a ``versions.json`` that the theme's version
 selector reads (``extra.version`` in ``properdocs.yml``), a root page that sends a
-reader to this build's edition, a not-found page that sends an address of the
+reader to this build's edition, a ``latest/`` alias holding one page for each page of this
+build that sends the reader to it, a not-found page that sends an address of the
 unversioned site to the same page there, and on every page of another edition a
 banner naming the edition and linking this one. A release with no zip is absent.
 Nothing is committed and nothing persists between deploys: each deploy rebuilds the
@@ -32,6 +33,9 @@ EDITION = re.compile(r"^(?:\d+\.\d+\.\d+|main)$")
 ZIP_NAME = re.compile(r"^pyflightstream-docs-(\d+\.\d+\.\d+)\.zip$")
 #: The selector's list, at the root of the published site.
 VERSIONS_FILE = "versions.json"
+#: The alias that always names this build's edition, so an address printed in a PDF or a
+#: README keeps working after a newer edition is published.
+ALIAS = "latest"
 #: The marker of the banner on the pages of an edition other than this build's.
 BANNER_ID = "pyfs-edition-banner"
 _BODY = re.compile(r"(<body[^>]*>)")
@@ -96,6 +100,7 @@ def _redirects(out: Path, editions: list[str], current: str, base: str) -> None:
     script = (
         f"var base={json.dumps(base)},known={json.dumps(sorted(editions))},"
         "path=location.pathname;if(path.indexOf(base)===0){var rest=path.slice(base.length);"
+        f"if(rest.split('/')[0]=={json.dumps(ALIAS)})rest=rest.slice({len(ALIAS) + 1});"
         f"if(known.indexOf(rest.split('/')[0])<0){{location.replace(base+{json.dumps(current)}"
         "+'/'+rest+location.search+location.hash);}}}"
     )
@@ -105,6 +110,37 @@ def _redirects(out: Path, editions: list[str], current: str, base: str) -> None:
         f'<p>This page does not exist. <a href="{target}">Open the documentation</a>.</p>\n',
         encoding="utf-8",
     )
+
+
+def _alias(out: Path, edition: str, base: str) -> int:
+    """Write ``latest/<page>/index.html`` for every page of ``edition``, sent to that page there.
+
+    Returns the number of pages written. Each stub is a real page (status 200) that
+    refreshes to the same page of the edition, so a link made once never dies. A script
+    sends it there with the address's query and fragment, which a refresh drops (a link to
+    a section lands on that section); the refresh is the fallback without scripts.
+    """
+    count = 0
+    for page in sorted((out / edition).rglob("index.html")):
+        rel = page.parent.relative_to(out / edition).as_posix()
+        rel = "" if rel == "." else rel + "/"
+        target = f"{base}{edition}/{rel}"
+        stub = out / ALIAS / rel / "index.html"
+        stub.parent.mkdir(parents=True, exist_ok=True)
+        stub.write_text(
+            '<!doctype html>\n<meta charset="utf-8">\n'
+            f'<link rel="canonical" href="{target}">\n'
+            f"<script>location.replace({json.dumps(target)}+location.search+location.hash)"
+            "</script>\n"
+            f'<meta http-equiv="refresh" content="0; url={target}">\n'
+            f'<a href="{target}">pyflightstream documentation</a>\n',
+            encoding="utf-8",
+        )
+        count += 1
+    # The guides' PDFs are files, which cannot be redirected: the alias holds a copy.
+    if (out / edition / "downloads").is_dir():
+        shutil.copytree(out / edition / "downloads", out / ALIAS / "downloads", dirs_exist_ok=True)
+    return count
 
 
 def assemble(
@@ -164,6 +200,7 @@ def assemble(
     ]
     (out / VERSIONS_FILE).write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
     _redirects(out, editions, version, base)
+    _alias(out, version, base)
     return entries
 
 

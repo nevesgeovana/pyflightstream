@@ -5,8 +5,9 @@ Pipeline role: the one public home of the numerical building blocks that the ker
 line call: the B-spline :class:`Patch`, the generation of the components of a resolved
 configuration and their regions, the body and lifting-surface skins and the flat tip cap, the
 placement of a wing in the frame of its body, the mesh spacing rules and the mesh checks, the
-OBJ writer, the mathematics of reading a lifting surface back from sections, and the record
-boundary (schema export, pin verification, configuration writing).
+OBJ writer, the mathematics of reading a lifting surface back from sections, the record
+boundary (schema export, pin verification, configuration writing), and ``junctions``, the
+namespace of the measured checks and limits of the S10 junction sub-steps.
 
 The pin check of a component record and the configuration writer are defined here; the other
 names are defined in the private modules of this package and re-exported, so a caller in
@@ -31,6 +32,7 @@ from pathlib import Path
 
 from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
+from pyflightstream.geometry import _junctions as junctions
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
@@ -58,7 +60,7 @@ from pyflightstream.geometry._mesh_topology import (
     repair_inverted,
     write_obj,
 )
-from pyflightstream.geometry._patch import Patch
+from pyflightstream.geometry._patch import Patch, evaluate_patch
 from pyflightstream.geometry._placement import wing_in_body_frame
 from pyflightstream.geometry._records import (
     CheckFailedError,
@@ -78,7 +80,7 @@ from pyflightstream.geometry._reverse import (
     reference_planform,
     refine_tip,
 )
-from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
+from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index, stage_row
 from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
@@ -104,6 +106,7 @@ __all__ = [
     "contour_features",
     "cosine",
     "count_classes",
+    "evaluate_patch",
     "exit_code",
     "export_schema",
     "fillet_model",
@@ -111,6 +114,7 @@ __all__ = [
     "generate_components",
     "geometry_report",
     "insert_seed",
+    "junctions",
     "leading_extension",
     "lifting_surface",
     "load_mesh_controls",
@@ -122,6 +126,7 @@ __all__ = [
     "repair_inverted",
     "stage_index",
     "stage_record",
+    "stage_row",
     "tip_cap",
     "tip_refinement",
     "unpack",
