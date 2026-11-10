@@ -9,4 +9,8 @@ it under the existing public `junctions` name.
 
 Assembly documentation states the dominance and removal requirements directly.
 
-migration: none; the example follows the current configuration schema.
+Comparing incompatible pole nets raises `InputValueError` naming `first` and `again`,
+the incompatible sizes, and the matching-net requirement.
+
+migration: incompatible pole-net comparisons raise the package's `InputValueError`,
+which remains a `ValueError` subclass.

@@ -24,6 +24,8 @@ from typing import Any
 
 import numpy as np
 
+from pyflightstream._errors import InputValueError
+
 from ._records import check_entry
 
 __all__ = [
@@ -284,16 +286,36 @@ def mirror_match(left: Sequence[np.ndarray], right: Sequence[np.ndarray], axis: 
 def pole_change(first: Sequence[Any], again: Sequence[Any]) -> float:
     """Return the largest pole move between two builds of a piece, patch by patch.
 
-    Raises ``ValueError`` when the two builds do not have the same pole nets, because then no pole
-    can be compared with its own.
+    Parameters
+    ----------
+    first : sequence of Patch
+        Patches of the original build, with control points in meters.
+    again : sequence of Patch
+        Patches of the repeated build, in the same order and coordinate frame.
+
+    Returns
+    -------
+    float
+        Largest control-point displacement in meters.
+
+    Raises
+    ------
+    InputValueError
+        If ``first`` and ``again`` have different patch counts or control-net shapes.
     """
     if len(first) != len(again):
-        raise ValueError(f"pole nets differ: {len(first)} patches against {len(again)}")
+        raise InputValueError(
+            f"first and again pole nets differ: {len(first)} patches against {len(again)}; "
+            "compare builds with matching patch counts and control-net shapes"
+        )
     change = 0.0
     for a, b in zip(first, again, strict=True):
         pa, pb = np.asarray(a.controls, float), np.asarray(b.controls, float)
         if pa.shape != pb.shape:
-            raise ValueError(f"pole nets differ: {pa.shape} against {pb.shape}")
+            raise InputValueError(
+                f"first and again pole nets differ: {pa.shape} against {pb.shape}; "
+                "compare builds with matching patch counts and control-net shapes"
+            )
         change = max(change, float(np.linalg.norm(pa - pb, axis=-1).max()))
     return change
 
