@@ -228,6 +228,93 @@ def test_p0570_gm11_transition_limits_measured_yes_no():
     )
 
 
+def test_p0570_gm11_fillet_uses_wing_root_refinement_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import fillet_checks
+
+    mesh, ids = _grid()
+    root, next_row = ids[0], ids[1]
+    assert all(
+        c["status"] == "passed"
+        for c in fillet_checks(mesh.xyz, ids, root, next_row, tolerance_m=1e-10)
+    )
+    bad = ids.copy()
+    bad[0] = bad[0, ::-1]
+    assert fillet_checks(mesh.xyz, bad, root, next_row, tolerance_m=1e-10)[0]["status"] == "failed"
+    bad_xyz = mesh.xyz.copy()
+    bad_xyz[ids[-1], 1] += 0.4
+    assert fillet_checks(bad_xyz, ids, root, next_row, tolerance_m=1e-10)[1]["status"] == "failed"
+
+
+def test_p0570_gm11_fairing_keel_on_fuselage_stations_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import keel_check
+
+    assert keel_check([0, 0.15, 0.3], [0, 0.15, 0.3])["status"] == "passed"
+    assert keel_check([0, 0.16, 0.3], [0, 0.15, 0.3])["status"] == "failed"
+
+
+def test_p0570_gm11_small_fairing_cells_only_boundary_row_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import fairing_boundary_check
+
+    mesh, ids = _grid(3, 3)
+    stations = np.array([0, 0.1, 1.1, 1.2])
+    mesh.xyz[:, 0] = stations[mesh.xyz[:, 0].astype(int)]
+    mesh.xyz[:, 1] = stations[mesh.xyz[:, 1].astype(int)]
+    rim = [
+        *zip(ids[0, :-1], ids[0, 1:], strict=True),
+        *zip(ids[-1, :-1], ids[-1, 1:], strict=True),
+        *zip(ids[:-1, 0], ids[1:, 0], strict=True),
+        *zip(ids[:-1, -1], ids[1:, -1], strict=True),
+    ]
+    assert fairing_boundary_check(mesh, "patch", rim, 0.2)["status"] == "passed"
+    mesh.xyz[ids[2], 1] = 0.2
+    mesh.xyz[ids[:, 2], 0] = 0.2
+    assert fairing_boundary_check(mesh, "patch", rim, 0.2)["status"] == "failed"
+
+
+def test_p0570_gm11_aft_fairing_growth_strictly_below_1_2_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import aft_growth_checks
+
+    good = np.cumsum([0, 0.03, 0.035, 0.04])
+    checks = aft_growth_checks([good], first_m=0.03, far_m=0.04)
+    assert all(c["status"] == "passed" for c in checks)
+    for widths in ([0.03, 0.036, 0.04], [0.03, 0.04, 0.05]):
+        assert any(
+            c["status"] == "failed"
+            for c in aft_growth_checks([np.cumsum([0, *widths])], first_m=0.03, far_m=0.04)
+        )
+
+
+def test_p0570_gm11_te_cut_continues_over_fairing_and_fuselage_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import cut_check
+
+    mesh, ids = _grid()
+    mesh.components = ["fairing", "fuselage", "fairing", "fuselage"]
+    assert cut_check(mesh, ids[:, 1], 1, 0, required={"fairing", "fuselage"})["status"] == "passed"
+    assert (
+        cut_check(mesh, ids[[0, 2], 1], 1, 0, required={"fairing", "fuselage"})["status"]
+        == "failed"
+    )
+    assert cut_check(mesh, ids[:, 0], 1, 0, required={"fairing", "fuselage"})["status"] == "failed"
+
+
+def test_p0570_gm11_fillet_tip_omitted_from_mesh_only_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import omission_checks
+
+    mesh, _ = _grid()
+    assert all(
+        c["status"] == "passed" for c in omission_checks(mesh, {9}, "sourcehash", "sourcehash")
+    )
+    assert omission_checks(mesh, {1}, "sourcehash", "sourcehash")[0]["status"] == "failed"
+    assert omission_checks(mesh, {9}, "before", "after")[1]["status"] == "failed"
+
+
+def test_p0570_gm11_surfaces_only_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import surface_only_check
+
+    assert surface_only_check([2, 2])["status"] == "passed"
+    assert surface_only_check([2, 3])["status"] == "failed"
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 
