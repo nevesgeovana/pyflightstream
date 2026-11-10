@@ -27,7 +27,8 @@ def test_p0570_anisotropic_surface_distance(u):
     assert surface.distance(point) < 1e-9 * np.sqrt(2)
 
 
-def test_p0570_written_boundaries_carry_both_curves(tmp_path):
+@pytest.mark.parametrize("preference", [1, 3], ids=["P0570-default", "P0570-either"])
+def test_p0570_written_boundaries_carry_both_curves(tmp_path, preference):
     kernel_or_skip()
     from pyflightstream.workspace._gmsh import open_kernel
 
@@ -37,7 +38,11 @@ def test_p0570_written_boundaries_carry_both_curves(tmp_path):
             [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)]
         )
         path = tmp_path / "piece.igs"
-        kernel.export_iges({"plate": [face]}, path)
+        if preference == 3:
+            with pytest.warns(UserWarning, match="IGES.PREF: 3 .*PREF 1 is written instead"):
+                kernel.export_iges({"plate": [face]}, path, preference=preference)
+        else:
+            kernel.export_iges({"plate": [face]}, path, preference=preference)
         document = read_iges(path)
         by_id = {e["id"]: e for e in document["entities"]}
         boundaries = [e for e in document["entities"] if e["type"] == 142]

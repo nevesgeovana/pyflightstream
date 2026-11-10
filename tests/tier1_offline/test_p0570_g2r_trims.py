@@ -69,9 +69,10 @@ def test_the_file_states_parameter_space_as_the_preference(kernel, tmp_path):
     kernel.export_iges({"WING": [lower, upper]}, path)
     trims = [e for e in read_iges(path)["entities"] if e["type"] == 142]
     assert len(trims) == 2 and {e["parameters"][5] for e in trims} == {"1"}
-    kernel.export_iges({"WING": [lower, upper]}, path, preference=3)
+    with pytest.warns(UserWarning, match="IGES.PREF: 3 .*PREF 1 is written instead"):
+        kernel.export_iges({"WING": [lower, upper]}, path, preference=3)
     trims = [e for e in read_iges(path)["entities"] if e["type"] == 142]
-    assert {e["parameters"][5] for e in trims} == {"3"}
+    assert {e["parameters"][5] for e in trims} == {"1"}
     with pytest.raises(InputValueError, match="IGES.PREF"):
         kernel.export_iges({"WING": [lower]}, path, preference=4)
 

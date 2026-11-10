@@ -33,8 +33,6 @@ FIXED_STAMP = "15H19700101.000000"
 #: The values of PREF in a trimmed face's outer boundary (142): 1 parameter space, 2 model space,
 #: 3 either.
 PREFERENCES = (1, 2, 3)
-#: The PREF the solver's CAD import reads no face from (record g13d-reads.json, item P2).
-_MODEL_SPACE = 2
 #: Zero-based positions of the global section parameters that carry a time or an account name:
 #: file generation date (18) and model creation date (25), counted from 1.
 _STAMP_POSITIONS = (17, 24)
@@ -362,21 +360,23 @@ def _name_and_flag(gmsh, groups, path, preference):
 
 
 def write_iges(gmsh, groups, path, preference=1):
-    """Write the groups to one named IGES file; every trimmed face states ``preference`` (PREF).
+    """Write the groups to one named IGES file with parameter space preferred (PREF 1).
 
-    A ``preference`` of 2 (model space) is warned about and written as 1: the solver's CAD import
-    reads no face from a boundary that states PREF 2. Every trimming curve is flagged as
-    parameter-space geometry (:func:`flag_parameter_space`). When the kernel would write a face
+    A ``preference`` of 2 (model space) or 3 (either) is warned about and written as 1. The
+    solver's CAD import reads no face from a boundary that states PREF 2. Every trimming curve
+    is flagged as parameter-space geometry (:func:`flag_parameter_space`). When the kernel
+    would write a face
     with no parameter-space outer boundary (a natural boundary, or a plane or other analytic
     surface; :func:`unbounded_faces`), every face is written as a B-spline copy, which carries
     one, and the copies leave the model after the write.
     """
     if preference not in PREFERENCES:
         raise InputValueError(f"IGES.PREF: {preference!r} is not one of {PREFERENCES}")
-    if preference == _MODEL_SPACE:
+    if preference != 1:
+        meaning = "model space" if preference == 2 else "either space"
         warn(
-            "IGES.PREF: 2 (model space) is read by the solver's CAD import as no face "
-            "(record g13d-reads.json, build 26.127); PREF 1 is written instead",
+            f"IGES.PREF: {preference} ({meaning}) was requested; PREF 1 is written instead "
+            "so the reader uses the parameter-space boundary",
             PyflightstreamWarning,
             stacklevel=3,
         )
