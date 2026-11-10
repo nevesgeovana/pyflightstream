@@ -185,7 +185,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     config.write_text(WING, encoding="utf-8")
     code, report, err, igs = generated(config, tmp_path / "gen", capsys)
     assert code in WRITTEN, err
-    assert report["outputs"]["faces"] == {"WING": 15}
+    assert report["outputs"]["faces"] == {"WING": 5}
 
     rebuilt = tmp_path / "found.toml"
     result = tmp_path / "found.json"
@@ -284,8 +284,13 @@ BSPLINE_ITEM = (
 )
 
 
-def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path, capsys):
-    """The schema accepts ``{eta, bspline}``; the generator of this version names it, no crash."""
+def test_p0570_r26_run_exports_a_bspline_section_item(tmp_path, capsys):
+    """Exact stored sections reach the trimmed exporter without a refit or refusal."""
+    from pathlib import Path
+
+    import numpy as np
+    from scipy.interpolate import BSpline
+
     config = tmp_path / "bspline.toml"
     config.write_text(
         '[components.W]\ntype = "lifting_surface"\n'
@@ -294,7 +299,11 @@ def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path
         encoding="utf-8",
     )
     code, report, err, igs = generated(config, tmp_path / "bspline", capsys)
-    assert code == 2
-    assert "sections.items" not in err and "stations[eta=0].section.kind" in err
-    assert "bspline" in err
-    assert igs is None and not list((tmp_path / "bspline").glob("*.igs"))
+    assert code in WRITTEN, (report, err)
+    assert igs is not None and Path(igs).is_file()
+    layout = json.loads((tmp_path / "bspline" / "W.layout.json").read_text(encoding="utf-8"))
+    stored = layout["sections"][0]["bspline"]
+    given = BSpline([0.0, 0.0, 0.5, 1.0, 1.0], [[1.0, -0.001], [0.0, 0.0], [1.0, 0.001]], 1)
+    rebuilt = BSpline(stored["knots"], stored["poles"], stored["degree"])
+    parameters = np.linspace(0, 1, 101)
+    np.testing.assert_allclose(rebuilt(parameters), given(parameters), atol=1e-12, rtol=0)
