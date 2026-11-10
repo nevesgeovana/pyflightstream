@@ -41,6 +41,14 @@ unread native-log blocks. Without the switch these conditions warn and computabl
 products are still written; a reference mismatch can leave coefficients wrong by a
 constant factor. Correct the recorded reference or solver inputs before using them.
 
+Quasi-steady rotor section corrections that calibrate `Fx` or `Fz` without
+`Moment` retain the raw moment and its harmonics. The post stage warns that the
+moment reference is unverified for this force-only correction, and records the
+warning in both corrected products' provenance notes. A moment about a distant
+reference includes a force lever; corrected forces beside a raw moment do not
+establish a consistent torsion load. Validate the reference and the force and
+moment calibration together before using that combination.
+
 
 <a id="contents"></a>
 

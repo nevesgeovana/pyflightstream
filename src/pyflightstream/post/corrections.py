@@ -453,6 +453,23 @@ def _corrected_cell(
     return raw + change, False
 
 
+def _moment_reference_notes(
+    columns: Sequence[str], wanted: Sequence[str], point: str, product: str
+) -> list[str]:
+    """Name the unsupported joint load set when forces change beside a raw moment."""
+    if "Moment" not in columns or "Moment" in wanted or not {"Fx", "Fz"} & set(wanted):
+        return []
+    note = (
+        "rotor section moment reference is unverified for force-only corrections: "
+        "Moment and its harmonics are retained raw beside corrected forces. A moment "
+        "about a distant reference includes a force lever, so these columns are not a "
+        "validated joint force and moment load set. Validate the moment reference and "
+        "the force and moment calibration together before using them for torsion."
+    )
+    warn(f"point={point} product={product}: {note}", stacklevel=3)
+    return [note]
+
+
 def _correct_wheel_point(
     point: WheelPointRef,
     *,
@@ -507,7 +524,9 @@ def _correct_wheel_point(
     stations, largest = _station_k(section_rows, point.rotor_alias)
     radii = [radius for radius, _ in stations]
     fits: dict[tuple[str, int], _Station] = {}
-    harmonic_record = _Record()
+    harmonic_record = _Record(
+        notes=_moment_reference_notes(section_columns, wanted, point.name, sections_out)
+    )
     outside: dict[str, list[str]] = {}
     new_harmonics: list[list[object]] = []
     for row in harmonic_rows:
@@ -574,7 +593,9 @@ def _correct_wheel_point(
             ),
         )
     )
-    section_record = _Record(cells=harmonic_record.cells, seen=harmonic_record.seen)
+    section_record = _Record(
+        cells=harmonic_record.cells, seen=harmonic_record.seen, notes=list(harmonic_record.notes)
+    )
     na_columns = {
         column
         for column, sources in _SECTION_DERIVED.items()

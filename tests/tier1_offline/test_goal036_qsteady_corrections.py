@@ -369,6 +369,48 @@ def _section_calibration(route: str = "table", low: float = 0.1) -> str:
     return text
 
 
+def test_p0570_lreq_force_only_correction_names_the_unverified_moment_reference(
+    tmp_path, monkeypatch
+):
+    """R8-009: changing a force beside a retained moment needs a reference warning.
+
+    A force increment at an unknown arm can change the moment about a distant
+    reference. Retaining the raw Moment is permitted only with that limit named.
+    """
+    _, out, manifest, log = _wheel_posted(
+        tmp_path,
+        monkeypatch,
+        correction={"route": "table", "file": "c001"},
+        calibration=_section_calibration(),
+    )
+    assert any("moment reference is unverified" in line and "force-only" in line for line in log)
+    _, raw = read_csv_table(out / "sections" / "DP_sections.csv")
+    _, corrected = read_csv_table(out / "sections" / "DP_sections_corrected.csv")
+    assert [row["Moment"] for row in corrected] == [row["Moment"] for row in raw]
+    for name in ("DP_sections_corrected.csv", "DP_harmonics_corrected.csv"):
+        notes = manifest["products"][f"sections/{name}"].get("notes", [])
+        assert any(
+            "force-only" in note and "moment reference is unverified" in note for note in notes
+        )
+
+
+@pytest.mark.parametrize("kind", ["none", "moment", "joint"])
+def test_p0570_lreq_force_only_reference_warning_does_not_claim_other_routes(
+    tmp_path, monkeypatch, kind
+):
+    calibration = None
+    correction = None
+    if kind != "none":
+        calibration = "route = 'table'\n" if kind == "moment" else _section_calibration()
+        for k in (0.1, 0.3):
+            calibration += _row("Moment", 0.5, 0.0, k, 0.0, 1.0, 1.0, 0.0)
+        correction = {"route": "table", "file": "c001"}
+    _, _, _, log = _wheel_posted(
+        tmp_path, monkeypatch, correction=correction, calibration=calibration
+    )
+    assert not any("moment reference is unverified for force-only" in line for line in log)
+
+
 def _coefficients(component: str, k: float) -> tuple[float, ...]:
     """Linear in K_1P between the two rows, by hand."""
     low, high = _SECTION_COEFFICIENTS[component][0.1], _SECTION_COEFFICIENTS[component][0.3]
