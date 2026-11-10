@@ -224,11 +224,21 @@ def section_from_ordinates(
     return _cst_from_stored(fit)
 
 
+def _station_label(eta) -> str:
+    """Return how a message names the section of the station at ``eta``, as the user wrote it."""
+    return "stations.section" if eta is None else f"stations[eta={float(eta):g}].section"
+
+
 def section_from_item(item, *, degree=5, trailing_edge_thickness=None) -> CstSection:
-    """Return the section a ``sections.items`` row names: NACA digits, CST or ordinates."""
+    """Return the section a ``sections.items`` row names: NACA digits, CST or ordinates.
+
+    A message names the station's ``section`` as the user wrote it, never the resolver's row.
+    """
+    label = _station_label(item.get("eta"))
     if "bspline" in item:
         raise InputValueError(
-            "sections.items: a bspline input is read by the bspline form, not the cst form"
+            f'{label}.kind: "bspline" resolves, but this version\'s generator does not build '
+            'it at this step yet; state the section with kind "naca", "cst" or "coords"'
         )
     if "naca" in item:
         fit = naca_to_cst(
@@ -241,15 +251,9 @@ def section_from_item(item, *, degree=5, trailing_edge_thickness=None) -> CstSec
             lower=tuple(float(v) for v in item["cst_lower"]),
             trailing_edge_thickness=float(item.get("te", trailing_edge_thickness or 0.0)),
         )
-    if "bspline" in item:
-        raise InputValueError(
-            f"sections.items at eta {item.get('eta')}: the bspline form resolves, but this "
-            "version's generator does not build it yet; state the section as naca, cst_upper "
-            "with cst_lower, or file"
-        )
     return section_from_ordinates(
         read_ordinates(item["file"]),
-        f"sections.items file {item['file']!r}",
+        f"{label}.file {item['file']!r}",
         degree=degree,
         trailing_edge_thickness=trailing_edge_thickness,
     )
@@ -659,7 +663,7 @@ def _prepared(item, te, label, warnings) -> _Prepared:
     if "bspline" in item:
         return _Prepared(
             np.empty((0, 2)), np.empty((0, 2)), 0.0, None,
-            exact=section_from_bspline(item["bspline"], f"{label}.bspline"),
+            exact=section_from_bspline(item["bspline"], label),
         )  # fmt: skip
     nose = stated = transform = None
     limit = ANALYTIC_LIMIT
@@ -894,7 +898,11 @@ def bspline_sections(sections, warnings=None) -> list[BSplineSection]:
     warnings = [] if warnings is None else warnings
     te, pins = sections["trailing_edge_thickness"], _check_pins(sections.get("pin"))
     rows = _items_of(sections, te, warnings)
-    preps = [_prepared(row, te, f"sections.items[{i}]", warnings) for i, row in enumerate(rows)]
+    etas = list(sections.get("eta") or [])
+    preps = [
+        _prepared(row, te, _station_label(etas[i] if i < len(etas) else None), warnings)
+        for i, row in enumerate(rows)
+    ]
     fitted = [p for p in preps if p.exact is None]
     fit_knots, fits = _joint_fit(fitted, pins) if fitted else (None, [])
     vectors = ([fit_knots] if fitted else []) + [

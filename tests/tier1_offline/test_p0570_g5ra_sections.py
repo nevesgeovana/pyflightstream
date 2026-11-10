@@ -277,6 +277,23 @@ def test_r15_002_a_sharp_file_takes_the_blunt_base_and_the_input_says_so(tmp_pat
     assert section.te_thickness() == pytest.approx(used, abs=1e-9)
 
 
+def test_r21_007_the_generator_names_the_station_as_the_user_wrote_it(tmp_path):
+    """A generator message names ``stations``, never the resolver's ``sections.items``."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.geometry._sections import section_from_item
+
+    write_file(tmp_path / "sharp.dat", closed=True)
+    resolved = resolve_config(raw_wing([{"eta": 0.0, "file": "sharp.dat"}]), base=tmp_path)
+    comp = unpack(resolved)["components"]["COMPONENT"]
+    warnings = []
+    bspline_sections(comp["sections"] | {"form": "bspline"}, warnings)
+    assert warnings and all("sections.items" not in w for w in warnings)
+    assert any(w.startswith("stations[eta=0].section.file: sharp") for w in warnings)
+    bspline = {"degree": 1, "knots": [0.0, 0.0, 1.0, 1.0], "poles": [[1.0, 0.0], [0.0, 0.0]]}
+    with pytest.raises(InputValueError, match=r'^stations\[eta=0\.5\]\.section\.kind: "bspline"'):
+        section_from_item({"eta": 0.5, "bspline": bspline})
+
+
 def test_r15_002_a_blunt_file_keeps_its_own_base_and_does_not_warn(tmp_path):
     write_file(tmp_path / "blunt.dat", closed=False)
     resolved = resolve_config(raw_wing([{"eta": 0.0, "file": "blunt.dat"}]), base=tmp_path)
@@ -301,7 +318,7 @@ def test_g5ra_a_bspline_row_in_the_cst_form_is_refused_with_the_reason():
 
     stored = bspline_sections(table([{"naca": "0012"}]))[0].to_stored()
     sections = {**table([{"bspline": stored}]), "form": "cst"}
-    with pytest.raises(InputValueError, match="bspline form"):
+    with pytest.raises(InputValueError, match=r'section\.kind: "bspline" resolves, but'):
         fit_or_read(sections)
 
 

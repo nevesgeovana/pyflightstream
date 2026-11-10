@@ -295,5 +295,6 @@ def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path
     )
     code, report, err, igs = generated(config, tmp_path / "bspline", capsys)
     assert code == 2
-    assert "sections.items" in err and "bspline" in err
+    assert "sections.items" not in err and "stations[eta=0].section.kind" in err
+    assert "bspline" in err
     assert igs is None and not list((tmp_path / "bspline").glob("*.igs"))
