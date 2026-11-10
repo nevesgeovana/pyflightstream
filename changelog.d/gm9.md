@@ -26,3 +26,7 @@ The add-control-surface verb and API now apply plain controls to normalized
 polynomial IGES skins. Native iso splitting retains source trims and unrelated
 components; new boundary closures and rigid motions produce separate named
 pieces. The returned record reports sewn closure and the input digest.
+
+Configured body hosts now feed F3 automatically. Native face-set distances
+and the source-file digests appear in the stage record and run log. Applicable
+F5/F6 waits remain incomplete until the trimmed assembly boundary is supplied.

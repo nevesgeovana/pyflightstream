@@ -382,13 +382,23 @@ def _control_record(stage: str, inputs: dict[str, Any]) -> dict[str, Any]:
 
     kernel = open_kernel(f"control {stage}")
     try:
+        files = {}
         if stage == "F3":
+            from pyflightstream._digest import file_sha256
+
             inputs = dict(inputs)
             for key in ("controls", "hosts"):
+                files[key] = {
+                    name: {"path": path, "sha256": file_sha256(path)}
+                    for name, path in inputs[key].items()
+                }
                 inputs[key] = {
                     name: kernel.import_iges(path).faces for name, path in inputs[key].items()
                 }
-        return check_stage(kernel, stage, inputs)
+        result = check_stage(kernel, stage, inputs)
+        if files:
+            result["outputs"]["inputs"] = files
+        return result
     finally:
         kernel.close()
 
@@ -418,9 +428,10 @@ def _control_step(stage: str) -> StageFn:
             )
         inputs = context.state.get("control_inputs", {}).get(short)
         if inputs is None:
+            waiting = bool(context.state.get("control_inputs")) and bool(_plan(context)[0])
             reason = (
                 "waits for the trimmed assembly of G8"
-                if short in ("F5", "F6")
+                if short in ("F5", "F6") and waiting
                 else "no control geometry supplied for this sub-step"
             )
             return StageOutcome(
@@ -669,7 +680,12 @@ def _not_measured(record: Mapping[str, Any], built: bool) -> list[str]:
     return [
         f"{record['stage']} {check['id']}"
         for check in record["checks"]
-        if check["status"] == "skipped" and (not built or check["note"] == _OMITTED)
+        if check["status"] == "skipped"
+        and (
+            not built
+            or check["note"] == _OMITTED
+            or check["note"] == "waits for the trimmed assembly of G8"
+        )
     ]
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyflightstream.geometry.stages import controls, write_record
+from pyflightstream.geometry.stages import controls, generate_components, write_record
 
 __all__ = ["prepare"]
 
@@ -27,6 +27,33 @@ def _faces(kernel, model, trims):
             deg_v=p.degree_v,
         )
     return [kernel.add_trimmed_face(native[t.base], [t.loop, *t.inner]) for t in trims]
+
+
+def _hosts(kernel, components, members, folder):
+    """Write selected host bodies in the same placed frame as the controls."""
+    names = [name for name in members if components[name]["type"] == "body"]
+    if not names:
+        return {}
+    generated = generate_components({"components": components})
+    paths = {}
+    for index, name in enumerate(names):
+        faces = []
+        for p in generated[name]:
+            faces.append(
+                kernel.add_bspline_surface(
+                    p.controls,
+                    knots_u=p.knots_u,
+                    knots_v=p.knots_v,
+                    mult_u=p.multiplicities_u,
+                    mult_v=p.multiplicities_v,
+                    deg_u=p.degree_u,
+                    deg_v=p.degree_v,
+                )
+            )
+        path = folder / f"control-host-{index}.igs"
+        kernel.export_iges({name: faces}, path)
+        paths[name] = str(path)
+    return paths
 
 
 def prepare(kernel, components, members, out):
@@ -83,9 +110,16 @@ def prepare(kernel, components, members, out):
         return {}
     sidecar = folder / "applied-controls.json"
     write_record(sidecar, manifest)
-    return {
+    inputs = {
         "F0": {"pieces": written, "applied_controls": str(sidecar)},
         "F1": {"batch": mains},
         "F2": {"batch": moving},
         "F4": {"batch": combined},
     }
+    hosts = _hosts(kernel, components, members, folder)
+    if hosts:
+        inputs["F3"] = {
+            "controls": {name: row["path"] for name, row in moving.items()},
+            "hosts": hosts,
+        }
+    return inputs

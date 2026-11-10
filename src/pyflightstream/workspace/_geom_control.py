@@ -172,13 +172,14 @@ def check_stage(kernel, stage, inputs):
     """
     clock = time.perf_counter()
     if "batch" in inputs:
-        checks, outputs = [], {}
+        checks, outputs = [], {"inputs": {}}
         for name, item in inputs["batch"].items():
             result = check_stage(kernel, stage, item)
             checks.extend(
                 {**c, "where": {"piece": name, **(c.get("where") or {})}} for c in result["checks"]
             )
             outputs[name] = result["outputs"]
+            outputs["inputs"][name] = result["outputs"]["inputs"]
         if not checks:
             raise InputValueError(f"{stage}.batch: no pieces supplied")
         return {"checks": checks, "outputs": outputs, "wall_s": time.perf_counter() - clock}
