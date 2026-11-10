@@ -7,4 +7,6 @@ the lookup also documents its typed refusal for an unknown stage.
 The geometry stages facade imports its junction implementation directly and exposes
 it under the existing public `junctions` name.
 
+Assembly documentation states the dominance and removal requirements directly.
+
 migration: none; the example follows the current configuration schema.

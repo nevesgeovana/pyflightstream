@@ -6,8 +6,8 @@ the projection, the split, the removal, the write and the sewing) and hands the 
 measured to the functions here, which compute distances, chains, inside tests, the flood of a
 removal and the verdict of each named check. Nothing here imports a kernel.
 
-The owner's assembly rule is the one implemented: the dominant imprints on the dominated, the
-dominated loses its inside, and the dominant is split along the junction too. No area constant
+The dominant imprints on the dominated, the dominated loses its inside, and the dominant is
+split along the junction too. No area constant
 decides a removal: the faces a piece keeps are those its seeds reach without crossing a junction.
 
 Every limit below carries the sentence that says where it comes from. They are lengths of the
