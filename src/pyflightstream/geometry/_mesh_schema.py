@@ -358,3 +358,41 @@ def spacing_nodes(table: Mapping[str, Any], *, direction: str) -> np.ndarray:
     if not np.all(np.isfinite(result)) or np.any(np.diff(result) <= 0):
         raise InputValueError(f"{direction}: spacing is below floating point resolution")
     return result
+
+
+def azimuth_count(stations, rule: Mapping[str, Any], *, ring_count: int = 0) -> tuple[int, float]:
+    """Derive a half-body count from measured (x, half perimeter, axial step) rows.
+
+    A numeric reference must be a measured station. This boundary never invents
+    an unmeasured perimeter or silently moves the requested reference station.
+    """
+    rows = np.asarray(stations, dtype=float)
+    if rows.ndim != 2 or rows.shape[1] != 3 or not len(rows) or not np.all(np.isfinite(rows)):
+        raise InputValueError(
+            "azimuth_rule: finite measured station, perimeter and step rows required"
+        )
+    if np.any(rows[:, 1:] <= 0):
+        raise InputValueError("azimuth_rule: perimeter and axial step must be positive")
+    aspect = rule.get("target_aspect", 1.0)
+    _positive(aspect, "azimuth_rule.target_aspect")
+    if type(ring_count) is not int or ring_count < 0:
+        raise InputValueError("azimuth_rule: ring_count must be a nonnegative integer")
+    reference = rule.get("reference", "max_perimeter")
+    if reference == "max_perimeter":
+        index = int(np.argmax(rows[:, 1]))
+    else:
+        if (
+            isinstance(reference, bool)
+            or not isinstance(reference, (int, float))
+            or not math.isfinite(reference)
+        ):
+            raise InputValueError(
+                "azimuth_rule.reference: measured station or max_perimeter required"
+            )
+        found = np.flatnonzero(np.abs(rows[:, 0] - reference) <= 1e-12)
+        if len(found) != 1:
+            raise InputValueError("azimuth_rule.reference: exactly one measured station required")
+        index = int(found[0])
+    return max(math.ceil(rows[index, 1] / (aspect * rows[index, 2])), ring_count), float(
+        rows[index, 0]
+    )

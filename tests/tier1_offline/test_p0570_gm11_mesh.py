@@ -315,6 +315,34 @@ def test_p0570_gm11_surfaces_only_yes_no():
     assert surface_only_check([2, 3])["status"] == "failed"
 
 
+def test_p0570_gm11_azimuth_rule_ceil_and_ring_floor_yes_no():
+    from pyflightstream.geometry._mesh_schema import azimuth_count
+
+    stations = [[0.0, 2.0, 0.2], [1.0, 3.01, 0.25]]
+    assert azimuth_count(stations, {"target_aspect": 1.0, "reference": "max_perimeter"}) == (
+        13,
+        1.0,
+    )
+    assert azimuth_count(stations, {"target_aspect": 1.0, "reference": 0.0}, ring_count=16) == (
+        16,
+        0.0,
+    )
+    with pytest.raises(InputValueError, match="reference.*station"):
+        azimuth_count(stations, {"reference": 0.5})
+    with pytest.raises(InputValueError, match="positive"):
+        azimuth_count([[0, 3, 0]], {})
+
+
+def test_p0570_gm11_body_aspect_is_measured_on_realized_stations_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import body_aspect_checks
+
+    mesh, ids = _grid()
+    assert all(c["passed"] for c in body_aspect_checks(mesh.xyz, ids, [0.67, 1.5]))
+    mesh.xyz[:, 0] *= 2
+    with pytest.raises(InputValueError, match="E14"):
+        body_aspect_checks(mesh.xyz, ids, [0.67, 1.5])
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 

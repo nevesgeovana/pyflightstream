@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._mesh_schema import mesh_measurements
 from pyflightstream.geometry._records import check_entry
 
 
@@ -227,3 +228,22 @@ def omission_checks(
 def surface_only_check(dimensions) -> dict:
     """Refuse volume, prism and solid entities in the realized entity inventory."""
     return _check("mesh.surfaces_only", sum(int(value != 2) for value in dimensions))
+
+
+def body_aspect_checks(xyz, node_ids, band) -> list[dict]:
+    """Check realized circumferential over axial edge lengths at every station."""
+    points = np.asarray(xyz)[np.asarray(node_ids, dtype=int)]
+    cross = np.linalg.norm(np.diff(points, axis=1), axis=2)
+    axial = np.linalg.norm(np.diff(points, axis=0), axis=2)
+    checks = []
+    for j in range(len(axial)):
+        for i in range(cross.shape[1]):
+            if axial[j, i] <= 0:
+                raise InputValueError("E14: zero axial spacing in realized body grid")
+            for k in (j, j + 1):
+                checks.append(
+                    mesh_measurements(
+                        "E14", f"station {k}, azimuth {i}", float(cross[k, i] / axial[j, i]), band
+                    )
+                )
+    return checks
