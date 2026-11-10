@@ -31,8 +31,7 @@ from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._errors import InputValueError, PyflightstreamError
-from pyflightstream.geometry._records import exit_code
-from pyflightstream.geometry._stage_table import STAGE_ROWS
+from pyflightstream.geometry.stages import STAGE_ROWS, exit_code
 from pyflightstream.run._geom_cli_moved import add_moved_verbs, report_of
 
 __all__ = ["main"]
@@ -153,19 +152,19 @@ def _doe(args: argparse.Namespace) -> int:
 
 
 def _validate(args: argparse.Namespace) -> int:
-    from pyflightstream.workspace._geom_run import describe_config
+    from pyflightstream.workspace.geometry_pipeline import describe_config
 
     return report_of(lambda: describe_config(args.config))
 
 
 def _configurations(args: argparse.Namespace) -> int:
-    from pyflightstream.workspace._geom_run import list_configurations
+    from pyflightstream.workspace.geometry_pipeline import list_configurations
 
     return report_of(lambda: list_configurations(args.config))
 
 
 def _stages(args: argparse.Namespace) -> int:
-    from pyflightstream.workspace._geom_run import built_stages
+    from pyflightstream.workspace.geometry_pipeline import built_stages
 
     built = built_stages()
     rows = [

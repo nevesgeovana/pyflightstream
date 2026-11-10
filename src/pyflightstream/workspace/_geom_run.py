@@ -37,16 +37,18 @@ from pyflightstream._errors import (
 )
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
-from pyflightstream.geometry._boundary import unpack
-from pyflightstream.geometry._identity import parameter_id
-from pyflightstream.geometry._records import (
+from pyflightstream.geometry.stages import (
+    STAGE_ROWS,
+    StageRow,
+    adopt_surface_file,
     check_entry,
     geometry_report,
+    parameter_id,
+    stage_index,
     stage_record,
+    unpack,
     write_record,
 )
-from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
-from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
