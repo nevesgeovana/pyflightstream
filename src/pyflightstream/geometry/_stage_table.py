@@ -115,7 +115,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         "S8.F3",
         "Fillet closure",
         False,
-        ("closure.free_edges", "the two trailing-edge ends"),
+        ("closure.free_edges", "none; the lower end when the lower face stops short of the TE"),
     ),
     _row(
         "S8.B1",

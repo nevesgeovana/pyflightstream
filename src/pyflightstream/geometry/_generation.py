@@ -118,10 +118,12 @@ def blend_faces(components, name) -> tuple[list[Patch], str]:
         ]
         cuts = [start, 0.5] if start > 0.0 else [0.5]
         pieces = split_along(middle, "u", cuts)[-2:]
-        return [
+        faces = [
             replace(piece, family=f"fillet_{side}", role="fillet")
             for piece, side in zip(pieces, ("lower", "upper"), strict=True)
-        ], body_name
+        ]
+        closing = [] if model.trailing_edge is None else [model.trailing_edge]
+        return faces + closing, body_name
     host = component["host"]
     if components[host]["type"] != "body":
         raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")

@@ -27,13 +27,14 @@ from pyflightstream._errors import InputValueError
 
 from ._blister import BlisterHost, BodyHost, blister_model, free_edge_check
 from ._blister import host_gap as host_gap_of
-from ._bspline import full_knots
+from ._bspline import clamped_knots, fit_curve, full_knots
 from ._caps import lifting_model
 from ._distributions import planform_values
 from ._lifting import thickness_station
 from ._patch import Patch
 from ._placement import move, placement_transform
 from ._records import check_entry
+from ._skin import split_along
 from ._trims import iso_trim
 
 __all__ = [
@@ -220,12 +221,16 @@ class FilletModel:
         ``spine``, the intersection point of each section.
     records : tuple of dict
         The S8 checks of the fillet.
+    trailing_edge : Patch or None
+        The face closing the trailing-edge ends (base ``"te"``, face ``"trailing_edge"``); it
+        narrows to a point at the lower edge when the lower face stops short of it.
     """
 
     base: Patch
     trims: tuple
     contacts: dict
     records: tuple = ()
+    trailing_edge: Patch | None = None
 
 
 def _spine_v(skin, host, u):
@@ -455,17 +460,103 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
         ),
         _footprint_check(host, spine, host_points, handles[:, 2]),
         _on_face_check(host_points, host, components[body_name]),
+    )
+    # When the lower face stops short of the trailing edge, the lower side of the wing meets the
+    # host directly there, so the closing face narrows to the spine point of the lower edge.
+    trailing_edge = closing_face(
+        base, v_host, v_wing, host, lower_corner=None if start == 0.0 else spine[0]
+    )
+    trims += (iso_trim("trailing_edge", "te", (0.0, 1.0), (0.0, 1.0), role="fillet_te"),)
+    wing_te = Surface(_te_in_frame(components, wing_name, body_name))
+    bases = {"base": base, "te": trailing_edge}
+    records += (
         free_edge_check(
-            {"base": base},
+            bases,
             trims,
             lambda p: (
                 host_gap_of(host, p) <= tolerance
                 or _on_skin(skin, p, tolerance, (s_values, wing_v, poles[:, 3]))
+                or _on_te(wing_te, p, tolerance)
             ),
-            expected=2,
+            expected=0 if start == 0.0 else 1,
         ),
     )
-    return FilletModel(base=base, trims=trims, contacts=contacts, records=records)
+    return FilletModel(
+        base=base,
+        trims=trims,
+        contacts=contacts,
+        records=records,
+        trailing_edge=trailing_edge,
+    )
+
+
+def closing_face(base: Patch, v_host: float, v_wing: float, host, lower_corner=None) -> Patch:
+    """Return the face that closes a fillet's two trailing-edge ends, as the wing's TE face does.
+
+    A bicubic Coons patch on four boundary curves: the fillet's end sections at u = 0 (lower
+    trailing edge) and u = 1 (upper), exactly, so the face shares both with the fillet's faces;
+    the straight line between the two wing contacts, which lies on the wing's blunt trailing-edge
+    face; and a cubic fitted to the host between the two host contacts, ends exact, so the
+    host side follows the host's curvature. With ``lower_corner`` (the lower face stops short of
+    the trailing edge) the lower boundary collapses to that point, where the wing's lower
+    trailing edge meets the host.
+    """
+    middle = split_along(base, "v", [v_host, v_wing])[1]
+    lower, upper = np.asarray(middle.controls)[0], np.asarray(middle.controls)[-1]
+    if lower_corner is not None:
+        lower = np.repeat(np.asarray(lower_corner, float)[None], 4, axis=0)
+    f0, f1, w0, w1 = lower[0], upper[0], lower[-1], upper[-1]
+    t = np.linspace(0.0, 1.0, 21)
+    on_host = np.array([host.project((1 - s) * f0 + s * f1) for s in t])
+    on_host[0], on_host[-1] = f0, f1
+    host_side, _ = fit_curve(on_host, t, clamped_knots([], 3), 3)
+    thirds = np.arange(4) / 3.0
+    wing_side = (1 - thirds)[:, None] * w0 + thirds[:, None] * w1
+    corners = np.array([[f0, w0], [f1, w1]])
+    net = np.empty((4, 4, 3))
+    for i, a in enumerate(thirds):
+        for j, b in enumerate(thirds):
+            ruled_u = (1 - a) * lower[j] + a * upper[j]
+            ruled_v = (1 - b) * host_side[i] + b * wing_side[i]
+            bilinear = (
+                (1 - a) * (1 - b) * corners[0, 0]
+                + (1 - a) * b * corners[0, 1]
+                + a * (1 - b) * corners[1, 0]
+                + a * b * corners[1, 1]
+            )
+            net[i, j] = ruled_u + ruled_v - bilinear
+    net[0], net[-1] = lower, upper  # the shared end curves, bit for bit
+    return Patch(
+        family="fillet_te",
+        controls=net,
+        knots_u=(0.0, 1.0),
+        knots_v=(0.0, 1.0),
+        multiplicities_u=(4, 4),
+        multiplicities_v=(4, 4),
+        degree_u=3,
+        degree_v=3,
+        role="fillet_te",
+    )
+
+
+def _te_in_frame(components, wing, frame) -> Patch:
+    """Return the lifting surface's blunt trailing-edge face in the frame body's frame."""
+    face = lifting_model(components[wing]).trailing_edge
+    body_rotation, body_translation = placement_transform(components, frame)
+    wing_rotation, wing_translation = placement_transform(components, wing)
+    rotation = body_rotation.T @ wing_rotation
+    return move([face], rotation, body_rotation.T @ (wing_translation - body_translation))[0]
+
+
+def _on_te(face, point, tolerance) -> bool:
+    """Whether ``point`` lies on the wing's trailing-edge face within ``tolerance``."""
+    grid = np.linspace(0.0, 1.0, 9)
+    u, v = min(
+        ((a, b) for a in grid for b in np.linspace(0.0, 1.0, 41)),
+        key=lambda uv: np.linalg.norm(face(*uv) - point),
+    )
+    u, v = face.closest(point, u, v)
+    return float(np.linalg.norm(face(u, v) - point)) <= tolerance
 
 
 def _on_face_check(contacts, host, body) -> dict:

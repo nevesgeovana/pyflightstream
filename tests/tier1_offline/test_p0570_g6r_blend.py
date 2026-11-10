@@ -132,7 +132,7 @@ def test_p0570_g6r_fillet_on_the_demo_passes_every_record(demo):
     assert _statuses(model) == {"passed"}
     assert records["closure.tangent_host"]["measured"] <= 1.0
     assert records["closure.tangent_wing"]["measured"] <= 1.0
-    assert [t.face for t in model.trims] == ["lower", "upper"]
+    assert [t.face for t in model.trims] == ["lower", "upper", "trailing_edge"]
 
 
 def test_p0570_g6r_fillet_meets_a_round_host_tangentially_by_its_radial_normal(demo):
@@ -439,7 +439,7 @@ def test_p0570_g6r_each_blend_sub_step_writes_its_record_with_inputs(tmp_path):
         assert all(c["where"]["component"] in ("blend", "pod") for c in record["checks"])
         assert set(record["outputs"]["inputs"]) <= {"blend", "pod"}
     free = json.loads((tmp_path / "S8.F3.json").read_text(encoding="utf-8"))["checks"][0]
-    assert (free["measured"], free["limit"]) == (2, 2)  # the two trailing-edge ends
+    assert (free["measured"], free["limit"]) == (0, 0)  # both trailing-edge ends closed
 
 
 def test_p0570_g6r_a_too_coarse_fillet_stops_the_run_at_its_build_on_tangency(tmp_path):
@@ -635,4 +635,57 @@ def test_p0570_g6r_fillet_on_a_blister_is_tangent_to_the_blister_loft(belly):
 def test_p0570_g6r_generate_builds_a_fillet_on_a_blister(belly):
     resolved, _, _ = belly
     patches = generate_components(resolved)
-    assert [p.family for p in patches["blend"]] == ["fillet_lower", "fillet_upper"]
+    assert [p.family for p in patches["blend"]] == ["fillet_lower", "fillet_upper", "fillet_te"]
+
+
+# -- the fillet's trailing-edge ends, closed -----------------------------------------------------
+
+
+def _wing_te_in_hull_frame(components):
+    from pyflightstream.geometry._placement import move, placement_transform
+
+    face = lifting_model(components["main"]).trailing_edge
+    br, bt = placement_transform(components, "hull")
+    wr, wt = placement_transform(components, "main")
+    return Surface(move([face], br.T @ wr, br.T @ (wt - bt))[0])
+
+
+def test_p0570_g6r_the_trailing_edge_ends_close_on_the_wing_te_face_and_the_host(demo):
+    from pyflightstream.geometry._skin import split_along
+
+    _, components, model = demo
+    records = {r["id"]: r for r in model.records}
+    assert (records["closure.free_edges"]["measured"], records["closure.free_edges"]["limit"]) == (
+        0,
+        0,
+    )
+    te = model.trailing_edge
+    assert te is not None and model.trims[-1].base == "te"
+    middle = split_along(model.base, "v", [model.contacts["v_host"], model.contacts["v_wing"]])[1]
+    assert np.array_equal(te.controls[:, 0][[0, -1]], middle.controls[[0, -1], 0])
+    assert np.array_equal(te.controls[0], middle.controls[0])  # the lower end, shared exactly
+    assert np.array_equal(te.controls[-1], middle.controls[-1])  # the upper end
+    face, wing_te = Surface(te), _wing_te_in_hull_frame(components)
+    for u in np.linspace(0.0, 1.0, 9):
+        on_host = face(u, 0.0)
+        assert abs(np.hypot(on_host[1], on_host[2]) - RADIUS) < 1e-4  # on the round hull
+        point = face(u, 1.0)
+        grid = np.linspace(0.0, 1.0, 41)
+        a, b = min(
+            ((p, q) for p in (0.0, 0.5, 1.0) for q in grid),
+            key=lambda pq: np.linalg.norm(wing_te(*pq) - point),
+        )
+        a, b = wing_te.closest(point, a, b)
+        assert np.linalg.norm(wing_te(a, b) - point) < 1e-4  # on the wing's blunt TE face
+
+
+def test_p0570_g6r_a_fillet_held_short_closes_its_te_end_to_the_lower_corner(second):
+    _, _, model = second
+    records = {r["id"]: r for r in model.records}
+    assert np.array_equal(
+        model.trailing_edge.controls[0], np.repeat(model.contacts["spine"][:1], 4, 0)
+    )
+    assert (records["closure.free_edges"]["measured"], records["closure.free_edges"]["limit"]) == (
+        1,
+        1,
+    )
