@@ -361,3 +361,38 @@ def test_p0570_gm9_toml_controls_reach_default_runner(tmp_path):
     assert records["S10.F1"]["status"] == records["S10.F2"]["status"] == "passed"
     assert "applied_controls" in record["outputs"]
     assert "flap-d15" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+
+
+def test_p0570_gm9_public_edit_applies_control_and_preserves_other_faces(kernel, tmp_path):
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+
+    raw = _plain_config()
+    model = stages.controls.build(stages.unpack(resolve_config(raw))["components"]["panel"])
+    native = []
+    for key in ("skin", "root", "tip", "trailing_edge"):
+        p = model.bases[key]
+        native.append(
+            kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        )
+    source, target = tmp_path / "source.igs", tmp_path / "edited.igs"
+    kernel.export_iges({"panel": native, "body": _closed_box(kernel, 4)}, source)
+    entry = {**raw["components"]["panel"]["control"][0], "deflection_deg": [15]}
+    result = add_control_surfaces(source, "panel", [entry], target)
+    assert result["status"] == "passed", result
+    imported = kernel.import_iges(target)
+    assert "panel/flap-d15" in imported.names
+    assert imported.names.count("body") == 6
+    topology = kernel.inspect_file(target, 1e-5)
+    assert all(len(owners) == 2 for _, owners in topology.edges)
+    with pytest.raises(InputValueError, match="eta"):
+        add_control_surfaces(source, "panel", [{**entry, "eta": [0.8, 0.2]}], tmp_path / "bad.igs")
+    assert not (tmp_path / "bad.igs").exists()
