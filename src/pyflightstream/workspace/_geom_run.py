@@ -986,7 +986,7 @@ def _not_built(what: str) -> InputValueError:
 def add_control_surfaces(
     iges: str | Path, component: str, entries: Sequence[Mapping[str, Any]], out: str | Path
 ) -> dict[str, Any]:
-    """Add control surfaces to a component of an IGES file (PFS-2215); not built yet.
+    """Add control surfaces to a named polynomial lifting skin in an IGES file.
 
     Parameters
     ----------
@@ -1002,12 +1002,12 @@ def add_control_surfaces(
     Returns
     -------
     dict
-        The record of the edit, once built.
+        Written pieces and measured closure checks at 0.01 mm.
 
     Raises
     ------
     InputValueError
-        Always for now: the verb is not built in this tree and writes nothing.
+        If entries are empty, the source is missing or its skin is unsupported.
 
     Examples
     --------
@@ -1015,9 +1015,40 @@ def add_control_surfaces(
     >>> add_control_surfaces("a.igs", "WING", [], "b.igs")  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    pyflightstream._errors.InputValueError: add_control_surfaces: not built yet ...
+    pyflightstream._errors.InputValueError: control entries: at least one table is required
     """
-    raise _not_built("add_control_surfaces")
+    tables = [dict(row) for row in entries]
+    if len(tables) == 1 and "control" in tables[0]:
+        tables = list(tables[0]["control"])
+    if not tables:
+        raise InputValueError("control entries: at least one table is required")
+    if not Path(iges).is_file():
+        raise InputValueError(f"control source: file does not exist: {iges}")
+    if Path(iges).resolve() == Path(out).resolve():
+        raise InputValueError("control out: source and destination must differ")
+    arguments: dict[str, Any] = {
+        "iges": str(iges),
+        "component": component,
+        "entries": tables,
+        "out": str(out),
+    }
+    return (
+        _control_edit_record(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(f"{__name__}:_control_edit_record", arguments, _control_edit_record)
+    )
+
+
+def _control_edit_record(iges: str, component: str, entries: list, out: str) -> dict:
+    """Apply an imported-skin edit inside a guarded kernel worker."""
+    from pyflightstream.workspace._geom_control_edit import edit
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("adding control surfaces")
+    try:
+        return edit(kernel, iges, component, entries, out)
+    finally:
+        kernel.close()
 
 
 def split_symmetry(

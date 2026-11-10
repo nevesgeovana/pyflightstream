@@ -212,7 +212,7 @@ def test_p0570_g3_the_geometry_edits_that_are_not_built_refuse_with_code_2(tmp_p
     code, _, err = geom(
         ["add-control-surface", tmp_path / "a.igs", "WING", entry, "--out", tmp_path / "o"], capsys
     )
-    assert code == 2 and "not built yet" in err
+    assert code == 2 and "file does not exist" in err
     code, _, err = geom(["split-symmetry", tmp_path / "a.igs", "--out", tmp_path / "h.igs"], capsys)
     assert code == 2 and "not built yet" in err
     code, _, err = geom(

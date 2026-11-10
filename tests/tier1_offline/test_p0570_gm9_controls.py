@@ -363,7 +363,7 @@ def test_p0570_gm9_toml_controls_reach_default_runner(tmp_path):
     assert "flap-d15" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
 
 
-def test_p0570_gm9_public_edit_applies_control_and_preserves_other_faces(kernel, tmp_path):
+def test_p0570_gm9_public_edit_applies_control_and_preserves_other_faces(kernel, tmp_path, capsys):
     from pyflightstream.geometry import resolve_config
     from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
 
@@ -396,3 +396,24 @@ def test_p0570_gm9_public_edit_applies_control_and_preserves_other_faces(kernel,
     with pytest.raises(InputValueError, match="eta"):
         add_control_surfaces(source, "panel", [{**entry, "eta": [0.8, 0.2]}], tmp_path / "bad.igs")
     assert not (tmp_path / "bad.igs").exists()
+    from pyflightstream.run.geom_cli import main
+
+    table = tmp_path / "control.toml"
+    table.write_text(
+        "[[control]]\nname='flap'\nkind='plain'\neta=[0.2,0.7]\nchord_ratio=0.25\ngap_span=0.01\ngap_chord=0.002\ndeflection_deg=[15]\n",
+        encoding="utf-8",
+    )
+    assert (
+        main(
+            [
+                "add-control-surface",
+                str(source),
+                "panel",
+                str(table),
+                "--out",
+                str(tmp_path / "cli.igs"),
+            ]
+        )
+        == 0
+    )
+    assert (tmp_path / "cli.igs").is_file()

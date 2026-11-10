@@ -11,16 +11,17 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from ._bspline import full_knots, split_patch, union_knots
+from ._bspline import full_knots, insert_knot, split_patch, union_knots
 from ._caps import _refined, lifting_model
 from ._patch import Patch
 from ._placement import placement_transform
 from ._trims import Trim, iso_trim
 
-__all__ = ["ControlPartition", "build", "partition", "placed"]
+__all__ = ["ControlPartition", "build", "imported", "partition", "placed"]
 
 
 @dataclass(frozen=True)
@@ -305,3 +306,62 @@ def placed(components: dict, name: str) -> ControlPartition:
             for key, p in model.bases.items()
         },
     )
+
+
+def imported(skin: Patch, entry: dict) -> dict:
+    """Prepare a plain control on an imported normalized closed-section skin.
+
+    Parameters
+    ----------
+    skin : Patch
+        Polynomial base with lower trailing edge at u=0, leading edge at
+        u=0.5 and upper trailing edge at u=1. Span parameter is v.
+    entry : dict
+        Public control table with eta, chord_ratio, gaps and deflection_deg.
+
+    Returns
+    -------
+    dict
+        Exact partitions, UV limits and rigid motion matrices. The caller
+        retains source trims by splitting the original native faces.
+
+    Raises
+    ------
+    InputValueError
+        If the control limits, kind or gap are unsupported or invalid.
+    """
+    a, b = entry.get("eta", (0.0, 1.0))
+    if not np.isfinite([a, b]).all() or not 0 < a < b < 1:
+        raise InputValueError("control.eta: require 0 < start < end < 1")
+    resolved = {
+        **entry,
+        "kind": {"plain": "plain_flap"}.get(entry.get("kind", "plain"), entry.get("kind")),
+        "eta_in": a,
+        "eta_out": b,
+        "gap_span": entry.get("gap_span", 0.005),
+    }
+    _, _, gap = _span(resolved, 1.0, 0.0)
+    ratio = float(entry.get("chord_ratio", 0.25))
+    if not 0 < ratio < 1:
+        raise InputValueError("control.chord_ratio: require 0 < value < 1")
+    nose = _point(skin, 0.5, 0.0)
+    chord = (_point(skin, 0, 0) + _point(skin, 1, 0)) / 2 - nose
+
+    def equation(u):
+        return float((_point(skin, u, 0) - nose) @ chord / (chord @ chord) - (1 - ratio))
+
+    low, high = brentq(equation, 0, 0.5), brentq(equation, 0.5, 1)
+    for u in (low, high):
+        if u not in skin.knots_u:
+            skin = insert_knot(skin, "u", u, 1)
+    main = partition(skin, lower=low, upper=high, span=(a, b))
+    moving = partition(skin, lower=low, upper=high, span=(a + gap, b - gap))
+    motions = {}
+    for angle in entry.get("deflection_deg", [0]):
+        rotation, translation = _motion(
+            skin, low, high, (a, b), angle=angle, gap=entry.get("gap_chord", 0.0)
+        )
+        matrix = np.eye(4)
+        matrix[:3, :3], matrix[:3, 3] = rotation, translation
+        motions[f"{entry.get('name', 'control')}-d{float(angle):g}"] = matrix.tolist()
+    return {"main": main, "moving": moving, "limits": (low, high, a, b, gap), "motions": motions}

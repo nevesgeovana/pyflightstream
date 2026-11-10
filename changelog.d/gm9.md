@@ -21,3 +21,8 @@ Resolved plain-flap and aileron entries now produce stationary iso trims,
 closed moving pieces, span gaps and rigid deflections in the placed component
 frame. F0, F1, F2 and F4 read and measure those files; applied-controls.json
 carries the numerical bases and trims for subsequent export integration.
+
+The add-control-surface verb and API now apply plain controls to normalized
+polynomial IGES skins. Native iso splitting retains source trims and unrelated
+components; new boundary closures and rigid motions produce separate named
+pieces. The returned record reports sewn closure and the input digest.
