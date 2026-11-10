@@ -13,3 +13,12 @@ or either space (3), with a warning naming the replacement.
 The closure stage measures lifting models handed to it by preceding custom
 stages through `RunContext.state["lifting_models"]`; absent models are built
 once and retained for subsequent checks.
+
+The geometry run exports the retained assembly faces, with one IGES and layout
+sidecar per source piece and a manifest recording its generated version,
+surface identity, kept-face ownership and measured trimmed areas. Lifting
+skins, fillets and blisters carry their original bases and UV loops into the
+assembly instead of sampled layout patches.
+
+migration: S11 writes `manifest.json`, per-piece IGES and layout files, and
+isolated face files for read-back checks beside the combined IGES.

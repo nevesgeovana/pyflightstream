@@ -142,9 +142,9 @@ def _generate(resolved: dict[str, Any], target: Path, configuration: str | None)
 
 def _generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Write the IGES and return the record of ``generate_iges`` as JSON values (a worker's)."""
-    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace._geom_export import generate_record
 
-    written = generate_iges(config, path, configuration=configuration)
+    written = generate_record(config, path, configuration)
     return json.loads(json.dumps(written, default=str))
 
 
@@ -155,7 +155,12 @@ def _export(context: RunContext) -> StageOutcome:
     )
     target = context.out / f"{name}.igs"
     try:
-        written = _generate(context.resolved, target, context.configuration)
+        assembled = context.state.get("assembly")
+        written = (
+            assembled["export"]
+            if assembled
+            else _generate(context.resolved, target, context.configuration)
+        )
     except InputArtifactError as error:
         if "solid entities" not in str(error):
             raise
@@ -170,7 +175,12 @@ def _export(context: RunContext) -> StageOutcome:
     return StageOutcome(
         checks=[check_entry("profile.surfaces_only", "passed", 0, 0, unit="solid entities")],
         warnings=warnings,
-        outputs={"iges": str(target), "faces": written["faces"], "audit": written["audit"]},
+        outputs={
+            "iges": written["iges"],
+            "manifest": written["manifest"],
+            "faces": written["faces"],
+            "audit": written["audit"],
+        },
     )
 
 
@@ -307,19 +317,24 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
 def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any]:
     """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
     from pyflightstream.geometry import resolve_config
-    from pyflightstream.geometry.stages import generate_components
+    from pyflightstream.geometry.stages import GeneratedPiece, generate_components
     from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._geom_export import write_assembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     resolved = resolve_config(copy.deepcopy(config))
-    every = generate_components(resolved)
-    again = generate_components(resolve_config(copy.deepcopy(config)))
+    every = generate_components(resolved, trimmed=True)
+    again = generate_components(resolve_config(copy.deepcopy(config)), trimmed=True)
     plain = unpack(resolved)
     pieces = {name: every[name] for name in members if name in every}
-    half = all(float(p.controls[..., 1].min()) >= -1e-9 for ps in pieces.values() for p in ps)
+    half = all(
+        float(p.controls[..., 1].min()) >= -1e-9
+        for ps in pieces.values()
+        for p in (ps.bases.values() if isinstance(ps, GeneratedPiece) else ps)
+    )
     kernel = open_kernel("assembling the pieces by the dominance rows")
     try:
-        records = Assembly(
+        assembly = Assembly(
             kernel,
             pieces,
             plain.get("dominance", []),
@@ -327,12 +342,25 @@ def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any
             members=members,
             kinds={name: plain["components"][name]["type"] for name in pieces},
             plane_axis=1 if half else None,
-            regenerated={name: again[name] for name in pieces},
+            regenerated={
+                name: list(p.bases.values()) if isinstance(p, GeneratedPiece) else list(p)
+                for name, p in again.items()
+                if name in pieces
+            },
             coverage_fraction=float(plain["acceptance"]["coverage_fraction"]),
-        ).run()
+        )
+        records = assembly.run()
+        written = {}
+        if not any(c["status"] == "failed" for r in records for c in r["checks"]):
+            for name in pieces:
+                if name not in assembly.models:
+                    assembly.models[name] = GeneratedPiece.from_patches(
+                        name, plain["components"][name]["version"], assembly.sources[name]
+                    )
+            written = write_assembly(assembly, Path(out).parent / "assembly.igs")
     finally:
         kernel.close()
-    result = json.loads(json.dumps({"records": records}, default=str))
+    result = json.loads(json.dumps({"records": records, "export": written}, default=str))
     write_record(Path(out), result)
     return result
 

@@ -9,7 +9,8 @@ another component.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from typing import Any, Literal, overload
 
 import numpy as np
 
@@ -18,10 +19,11 @@ from pyflightstream._errors import InputValueError
 from ._blister import blister_model, blister_region
 from ._bodies import body, body_station_table
 from ._boundary import unpack
-from ._caps import tip_cap, wing_contour_point
+from ._caps import lifting_model, tip_cap, wing_contour_point
 from ._fairings import wing_fuselage_fairing, wing_junction
 from ._fillet import fillet_hosts, fillet_model
-from ._lifting import lifting_surface, section_models, thickness_station
+from ._identity import surface_id
+from ._lifting import layout_record, lifting_surface, section_models, thickness_station
 from ._patch import Patch, interpolate_patch
 from ._placement import (
     body_junctions,
@@ -38,17 +40,133 @@ from ._regions import (
     placed_region,
 )
 from ._skin import split_along
+from ._trims import Trim, iso_trim
 
-__all__ = ["assembly_regions", "generate_components", "junction_lifting_surface"]
+__all__ = [
+    "GeneratedPiece",
+    "assembly_regions",
+    "generate_components",
+    "generate_pieces",
+    "junction_lifting_surface",
+]
 
 
-def generate_components(config) -> dict[str, list[Patch]]:
+@dataclass(frozen=True)
+class GeneratedPiece:
+    """Placed bases and UV faces, with the version and identity actually generated.
+
+    Layout lines are metadata. They never split or resample these bases. Assembly
+    propagates the base index of each retained face back to this source record.
+    """
+
+    name: str
+    version: str
+    bases: dict[str, Patch]
+    trims: tuple[Trim, ...]
+    layout: dict[str, Any]
+
+    @property
+    def source_surface_id(self) -> str:
+        """Identity of the placed bases and their original loops."""
+        return surface_id({self.name: list(self.bases.values())}, {self.name: self.trims})
+
+    @classmethod
+    def from_patches(cls, name: str, version: str, patches: list[Patch]) -> GeneratedPiece:
+        """Wrap full-domain patches from the legacy component interface."""
+        bases = {f"{p.family}_{i}": p for i, p in enumerate(patches)}
+        trims = tuple(
+            iso_trim(
+                key,
+                key,
+                (p.knots_u[0], p.knots_u[-1]),
+                (p.knots_v[0], p.knots_v[-1]),
+                p.role or p.family,
+            )
+            for key, p in bases.items()
+        )
+        return cls(name, version, bases, trims, {"lines": {"u": {}, "v": {}}})
+
+
+def generate_pieces(config) -> dict[str, GeneratedPiece]:
+    """Build placed source pieces for trimmed assembly and export, without layout fitting.
+
+    The legacy patch generator remains the mesher's interface. Here lifting
+    skins, fillets and blisters carry their original bases and parameter loops.
+    """
+    components = unpack(config)["components"]
+    pieces = {}
+    for name, component in components.items():
+        kind, frame = component["type"], name
+        layout: dict[str, Any] = {"lines": {"u": {}, "v": {}}}
+        if kind == "lifting_surface":
+            model = lifting_model(component)
+            bases, trims = model.bases(), model.trims
+            layout = layout_record(model)
+        elif kind == "fillet":
+            fillet = fillet_model(component, components, name)
+            _, _, frame = fillet_hosts(components, name)
+            # Use the model's own base name, including the optional TE closure.
+            bases = {fillet.trims[0].base: fillet.base}
+            if fillet.trailing_edge is not None:
+                bases["te"] = fillet.trailing_edge
+            trims = fillet.trims
+        elif kind == "blister":
+            frame = component["host"]
+            blister = blister_model(component, components[frame])
+            bases, trims = blister.bases, blister.trims
+        else:
+            if kind == "body":
+                patches = body(component, body_junctions(components, name))
+            elif kind == "wing_fuselage_fairing":
+                frame, wing_name = component["hosts"]
+                wing = wing_in_body_frame(components, frame, wing_name)
+                patches = wing_fuselage_fairing(component, components[frame], wing)
+            else:
+                raise InputValueError(f"{name}.type: unsupported source piece {kind!r}")
+            bases = {f"{patch.family}_{i}": patch for i, patch in enumerate(patches)}
+            trims = tuple(
+                iso_trim(
+                    key,
+                    key,
+                    (p.knots_u[0], p.knots_u[-1]),
+                    (p.knots_v[0], p.knots_v[-1]),
+                    p.role or p.family,
+                )
+                for key, p in bases.items()
+            )
+        placed = dict(
+            zip(
+                bases,
+                move(list(bases.values()), *placement_transform(components, frame)),
+                strict=True,
+            )
+        )
+        pieces[name] = GeneratedPiece(name, str(component["version"]), placed, tuple(trims), layout)
+    return pieces
+
+
+@overload
+def generate_components(
+    config: Any, *, trimmed: Literal[False] = False
+) -> dict[str, list[Patch]]: ...
+
+
+@overload
+def generate_components(config: Any, *, trimmed: Literal[True]) -> dict[str, GeneratedPiece]: ...
+
+
+def generate_components(
+    config, *, trimmed=False
+) -> dict[str, list[Patch]] | dict[str, GeneratedPiece]:
     """Return the placed patches of every component of a resolved configuration.
 
     Parameters
     ----------
     config : dict
         Resolved configuration; its components are unpacked to plain values.
+    trimmed : bool, optional
+        Return source pieces with their bases and UV loops for assembly and export.
+        False preserves the mesher's patch-list interface.
 
     Returns
     -------
@@ -60,6 +178,8 @@ def generate_components(config) -> dict[str, list[Patch]]:
     InputValueError
         If a component is of a type other than body, lifting_surface or wing_fuselage_fairing.
     """
+    if trimmed:
+        return generate_pieces(config)
     components = unpack(config)["components"]
     result = {}
     for name, component in components.items():

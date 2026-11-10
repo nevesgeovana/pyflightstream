@@ -131,3 +131,30 @@ def test_p0570_cap_boundary_check_reaches_run_log(tmp_path, gap):
         found = [c for c in checks if c["id"] == "closure.cap_edge_gap"]
         assert found and found[0]["status"] == "passed"
     assert "closure.cap_edge_gap" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("kind", ["body", "lifting_surface"], ids=["P0570-body", "P0570-skin"])
+def test_p0570_export_keeps_component_version_and_trimmed_faces(tmp_path, kind):
+    kernel_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = {"components": {"shell": {"type": kind, "version": "2.1.0"}}}
+    report = run_geometry(raw, out=tmp_path, until="S11")
+    assert report["status"] != "failed", report
+    manifest_path = tmp_path / "manifest.json"
+    assert manifest_path.is_file(), "S11 must retain each source piece and its written faces"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    piece = manifest["components"]["shell"]
+    assert piece["version"] == "2.1.0"
+    assert len(piece["source_surface_id"]) == 64
+    assert piece["faces"] and all(f["area_m2"] > 0 for f in piece["faces"])
+    sidecar = json.loads((tmp_path / "shell.layout.json").read_text(encoding="utf-8"))
+    assert len(sidecar["faces"]) == len(piece["faces"])
+    assert all(f["base"] in sidecar["bases"] for f in sidecar["faces"])
+    if kind == "lifting_surface":
+        skin_faces = [f for f in sidecar["faces"] if f["base"] == "skin"]
+        assert len(skin_faces) >= 2
+        assert {f["role"] for f in skin_faces} == {"upper", "lower"}
+        assert {t["role"] for f in skin_faces for t in f["source_faces"]} >= {"upper", "lower"}
+    document = read_iges(tmp_path / piece["iges"])
+    assert len([e for e in document["entities"] if e["type"] == 144]) == len(piece["faces"])

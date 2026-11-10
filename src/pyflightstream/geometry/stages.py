@@ -38,7 +38,12 @@ from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
 from pyflightstream.geometry._caps import CAP_EDGE_GAP, cap_edge_gap, lifting_model, tip_cap
 from pyflightstream.geometry._fillet import fillet_model
-from pyflightstream.geometry._generation import assembly_regions, generate_components
+from pyflightstream.geometry._generation import (
+    GeneratedPiece,
+    assembly_regions,
+    generate_components,
+    generate_pieces,
+)
 from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._lifting import lifting_surface
 from pyflightstream.geometry._mesh_rules import (
@@ -89,6 +94,7 @@ __all__ = [
     "cap_edge_gap",
     "lifting_model",
     "CheckFailedError",
+    "GeneratedPiece",
     "Mesh",
     "Patch",
     "STAGE_ROWS",
@@ -115,6 +121,7 @@ __all__ = [
     "fillet_model",
     "fit_section",
     "generate_components",
+    "generate_pieces",
     "geometry_report",
     "insert_seed",
     "junctions",

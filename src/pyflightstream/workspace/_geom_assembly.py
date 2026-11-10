@@ -94,13 +94,31 @@ class Assembly(RemovalSteps):
     def _load(self):
         worst, where = 0, {}
         for name, patches in self.sources.items():
-            built = [add_patch(self.k, p) for p in patches]
-            for index, face in enumerate(built):
-                self.origin[face] = (name, index)
-            gap = abs(len(built) - int(self.expected_faces.get(name, len(patches))))
+            model = self.models.get(name)
+            if model is None:
+                built = [add_patch(self.k, p) for p in patches]
+                self.source_areas[name] = sum(self.k.area(f) for f in built)
+                for index, face in enumerate(built):
+                    self.origin[face] = (name, index)
+            else:
+                bases = {key: add_patch(self.k, p) for key, p in model.bases.items()}
+                self.source_areas[name] = sum(self.k.area(f) for f in bases.values())
+                built = []
+                for trim in model.trims:
+                    face = self.k.add_trimmed_face(bases[trim.base], [trim.loop, *trim.inner])
+                    self.origin[face] = (name, list(bases).index(trim.base))
+                    built.append(face)
+                self.k.remove(list(bases.values()))
+            expected = len(model.trims) if model else len(patches)
+            gap = abs(len(built) - int(self.expected_faces.get(name, expected)))
             if gap > worst or not where:
                 worst, where = gap, {"component": name, "built": len(built)}
             self.faces[name] = self._self_fragment(name, built)
+            self.input_free_edges += [
+                self._samples(edge, 17)
+                for edge, count in self.edge_counts(self.faces[name]).items()
+                if count == 1
+            ]
         self._resolve_auto()
         contact, pair, limit = 0.0, {}, jn.SEW_M
         for op in self.plan:

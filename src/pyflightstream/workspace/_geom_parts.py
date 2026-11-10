@@ -17,7 +17,13 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.geometry.stages import Patch, check_entry, evaluate_patch, stage_row
+from pyflightstream.geometry.stages import (
+    GeneratedPiece,
+    Patch,
+    check_entry,
+    evaluate_patch,
+    stage_row,
+)
 from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._cad import CadKernel, Face
 
@@ -179,7 +185,7 @@ class AssemblyBase:
     def __init__(
         self,
         kernel: CadKernel,
-        pieces: Mapping[str, Sequence[Patch]],
+        pieces: Mapping[str, Sequence[Patch] | GeneratedPiece],
         rows: Sequence[Mapping[str, Any]],
         *,
         out: str | Path,
@@ -191,7 +197,11 @@ class AssemblyBase:
         coverage_fraction: float = 1e-4,
     ) -> None:
         self.k = kernel
-        self.sources = {name: list(patches) for name, patches in pieces.items()}
+        self.models = {name: p for name, p in pieces.items() if isinstance(p, GeneratedPiece)}
+        self.sources = {
+            name: list(p.bases.values()) if isinstance(p, GeneratedPiece) else list(p)
+            for name, p in pieces.items()
+        }
         self.kinds = dict(kinds or {})
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
@@ -218,6 +228,51 @@ class AssemblyBase:
         self.j_edges: dict[jn.Operation, list[int]] = {}
         self.j_samples: dict[jn.Operation, list[np.ndarray]] = {}
         self.groups: list[list[str]] = []
+        self.input_free_edges: list[np.ndarray] = []
+        self.source_areas: dict[str, float] = {}
+
+    def export_state(self) -> dict[str, Any]:
+        """Snapshot retained ownership and measured areas while the kernel is still open.
+
+        Source identity belongs to generation, not to the requested registry version.
+        The original free edges remain available for the export sewing comparison.
+        """
+        components = {}
+        for name, faces in self.faces.items():
+            model = self.models.get(name)
+            bases = list(model.bases) if model else [p.family for p in self.sources[name]]
+            components[name] = {
+                "version": model.version if model else None,
+                "source_surface_id": model.source_surface_id if model else None,
+                "source_area_m2": self.source_areas.get(name),
+                "free_edges": sum(n == 1 for n in self.edge_counts(faces).values()),
+                "faces": [
+                    {
+                        "name": f"{name}_{i}",
+                        "tag": f.tag,
+                        "base": bases[self.origin[f][1]],
+                        "area_m2": self.k.area(f),
+                    }
+                    for i, f in enumerate(faces)
+                ],
+            }
+        return plain(
+            {
+                "components": components,
+                "input_free_edges": self.alone_free or self.input_free_edges,
+                "input_slivers": self.alone_slivers,
+                "plane_axis": self.plane_axis,
+            }
+        )
+
+    def edge_counts(self, faces: Sequence[Face]) -> dict[int, int]:
+        """Count face incidences for each edge, without combining separate pieces."""
+        counts: dict[int, int] = {}
+        for face in faces:
+            for edge in self.k.boundary(face):
+                key = abs(edge)
+                counts[key] = counts.get(key, 0) + 1
+        return counts
 
     # ---- driving --------------------------------------------------------------------------
 
