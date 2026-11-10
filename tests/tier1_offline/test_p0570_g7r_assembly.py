@@ -482,6 +482,88 @@ def test_p0570_g7r_bj1_no_a_blister_0_015_mm_off_its_body_finds_no_shared_curve(
     assert stage == "S10.D3" or check == "join.shared_pairs"
 
 
+def _steps_until(asm, last):
+    """Run the sub-steps of ``asm`` in order up to and including ``last``."""
+    for stage, _ in asm.STEPS:
+        record = asm.step(stage)
+        assert not [c for c in record["checks"] if c["status"] == "failed"], record
+        if stage == last:
+            return
+
+
+def _edge_points(kernel, edge, count=9):
+    low, high = kernel.edge_bounds(edge)
+    return kernel.edge_values(edge, np.linspace(low, high, count).tolist())
+
+
+def test_p0570_g7r_bj3_no_an_edge_0_06_mm_off_its_own_face(kernel, tmp_path, monkeypatch):
+    """T-BJ3: an edge curve 0.06 mm off its face's surface (the original's own tolerance is
+    0.05 mm). A kernel cannot be made to build that edge from patches, so the kernel the
+    sub-step asks reports one edge of the joined blister 0.06 mm off its wall, normal to it:
+    S10.C3 passes before and fails after, with that distance."""
+    from pyflightstream.workspace._gmsh import GmshKernel
+
+    join = {"dominant": ["BLISTER"], "dominated": ["BODY"], "operation": "cut"}
+    blister = box((1.0, 0.2, -1.3), (3.0, 0.6, -0.8), skip=("zmax",))
+    asm = assembly(
+        kernel,
+        tmp_path,
+        {"BODY": body(), "BLISTER": blister},
+        [join],
+        kinds={"BODY": "body", "BLISTER": "blister"},
+    )
+    _steps_until(asm, "S10.C2")
+    assert checks_of(asm.step("S10.C3"))["join.edge_on_surface"]["status"] == "passed"
+    # the bottom edge of the blister's wall x = 1 (along y at z = -1.3)
+    bad = {
+        abs(e)
+        for face in asm.faces["BLISTER"]
+        for e in kernel.boundary(face)
+        if np.allclose(_edge_points(kernel, abs(e))[:, [0, 2]], [1.0, -1.3], atol=1e-9)
+    }
+    assert len(bad) == 1
+    real = GmshKernel.edge_values
+
+    def off(self, edge, parameters):
+        values = real(self, edge, parameters)
+        return values - np.array([6e-5, 0.0, 0.0]) if abs(edge) in bad else values
+
+    monkeypatch.setattr(GmshKernel, "edge_values", off)
+    entry = checks_of(asm.step("S10.C3"))["join.edge_on_surface"]
+    assert entry["status"] == "failed"
+    assert entry["measured"] == pytest.approx(6e-5, rel=1e-6)
+
+
+def test_p0570_g7r_s9_no_a_writer_that_drops_the_faces_with_inner_loops(
+    kernel, tmp_path, monkeypatch
+):
+    """T-S9: a writer that loses what has inner loops reads back fewer faces. The wing passes
+    through the middle of the body's side face, which keeps it as an inner loop; S10.D9 passes
+    with the real writer and fails with that one, naming the body."""
+    from pyflightstream.geometry.stages import junctions
+    from pyflightstream.workspace._gmsh import GmshKernel
+
+    def loops(k, face):
+        ends = [tuple(_edge_points(k, abs(e), 2)) for e in k.boundary(face)]
+        return len(junctions.chain(ends, junctions.CHAIN_END_GAP_M)[0])
+
+    pieces = {"BODY": body(), "WING": wing(x=(0.5, 1.5))}
+    asm = assembly(kernel, tmp_path, pieces, [CUT])
+    _steps_until(asm, "S10.C4")
+    assert any(loops(kernel, f) > 1 for f in asm.faces["BODY"])
+    assert checks_of(asm.step("S10.D9"))["write.read_back"]["status"] == "passed"
+    real = GmshKernel.export_iges
+
+    def outer_only(self, groups, path, **options):
+        kept = {name: [f for f in faces if loops(self, f) == 1] for name, faces in groups.items()}
+        return real(self, kept, path, **options)
+
+    monkeypatch.setattr(GmshKernel, "export_iges", outer_only)
+    entry = checks_of(asm.step("S10.D9"))["write.read_back"]
+    assert entry["status"] == "failed"
+    assert entry["measured"] >= 1 and entry["where"]["component"] == "BODY"
+
+
 def test_p0570_g7r_bj4_one_combined_import_sews_the_join_and_file_by_file_does_not(
     kernel, tmp_path
 ):
