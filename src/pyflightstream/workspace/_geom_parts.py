@@ -16,10 +16,8 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream.geometry import _junctions as jn
-from pyflightstream.geometry._patch import Patch, evaluate_patch
-from pyflightstream.geometry._records import check_entry
-from pyflightstream.geometry._stage_table import stage_row
+from pyflightstream.geometry.stages import Patch, check_entry, evaluate_patch, stage_row
+from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._cad import CadKernel, Face
 
 __all__ = ["AssemblyBase", "sewn_free_edges"]

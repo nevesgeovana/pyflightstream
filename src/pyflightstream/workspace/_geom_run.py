@@ -47,6 +47,7 @@ from pyflightstream.geometry.stages import (
     check_entry,
     fillet_model,
     geometry_report,
+    junctions,
     parameter_id,
     stage_index,
     stage_record,
@@ -259,11 +260,9 @@ def _blend_step(kind: str, stage: str) -> StageFn:
 
 def _plan(context: RunContext) -> tuple[list[Any], list[str]]:
     """Return the dominance operations on the members of the run, and the rows it skipped."""
-    from pyflightstream.geometry._junctions import dominance_plan
-
     warnings: list[str] = []
     rows = unpack(context.resolved).get("dominance", [])
-    return dominance_plan(rows, context.members, warnings), warnings
+    return junctions.dominance_plan(rows, context.members, warnings), warnings
 
 
 def _dominance(context: RunContext) -> StageOutcome:

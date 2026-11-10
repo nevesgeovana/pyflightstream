@@ -20,8 +20,8 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream.geometry import _junctions as jn
-from pyflightstream.geometry._patch import Patch
+from pyflightstream.geometry.stages import Patch
+from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._cad import CadKernel, Face, FileTopology
 from pyflightstream.workspace._geom_parts import (
     BLUFF,
