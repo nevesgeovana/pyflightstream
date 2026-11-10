@@ -2000,9 +2000,7 @@ class CampaignWorkspace:
         The temporary file was ``runs.json.tmp`` for every writer, so two
         processes could write one temporary file between them and replace the
         manifest with a mixture. The process id is in the name; the lock
-        already keeps two writers of one process apart, and no read of this
-        process has the file open while it is replaced
-        (:func:`~pyflightstream.workspace.record_document.replace_file`).
+        keeps writers apart, and ``record_document.replace_file`` keeps reads out.
         """
         self.root.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(record_document.encode_rows(raw), indent=2)
