@@ -50,7 +50,12 @@ def _faces_read(kernel, inputs):
         }
     if not checks:
         raise InputValueError("F0.pieces: empty; supply at least one written control piece")
-    return checks, {"inputs": files}
+    return checks, {
+        "inputs": files,
+        **(
+            {"applied_controls": inputs["applied_controls"]} if "applied_controls" in inputs else {}
+        ),
+    }
 
 
 def _clearance(kernel, inputs):
@@ -89,6 +94,8 @@ def _on_segments(points, segments):
 def _topology(kernel, inputs):
     path = inputs["path"]
     topology = kernel.inspect_file(path, _SEW_M)
+    if not topology.areas:
+        raise InputValueError("control geometry: no faces read")
     free = [points for points, owners in topology.edges if len(owners) == 1]
     symmetry = inputs.get("symmetry_axis")
     if symmetry is not None:
@@ -164,6 +171,17 @@ def check_stage(kernel, stage, inputs):
         If the stage or a required face set or reference is invalid.
     """
     clock = time.perf_counter()
+    if "batch" in inputs:
+        checks, outputs = [], {}
+        for name, item in inputs["batch"].items():
+            result = check_stage(kernel, stage, item)
+            checks.extend(
+                {**c, "where": {"piece": name, **(c.get("where") or {})}} for c in result["checks"]
+            )
+            outputs[name] = result["outputs"]
+        if not checks:
+            raise InputValueError(f"{stage}.batch: no pieces supplied")
+        return {"checks": checks, "outputs": outputs, "wall_s": time.perf_counter() - clock}
     if stage == "F0":
         checks, outputs = _faces_read(kernel, inputs)
     elif stage == "F3":

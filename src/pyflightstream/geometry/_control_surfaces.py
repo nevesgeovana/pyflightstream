@@ -15,11 +15,12 @@ from scipy.interpolate import BSpline
 from pyflightstream._errors import InputValueError
 
 from ._bspline import full_knots, split_patch, union_knots
-from ._caps import _refined
+from ._caps import _refined, lifting_model
 from ._patch import Patch
+from ._placement import placement_transform
 from ._trims import Trim, iso_trim
 
-__all__ = ["ControlPartition", "partition"]
+__all__ = ["ControlPartition", "build", "partition", "placed"]
 
 
 @dataclass(frozen=True)
@@ -160,3 +161,147 @@ def partition(
         for faces in (main, moving):
             faces.append(iso_trim(name, name, (0.0, 1.0), (0.0, 1.0), "end"))
     return ControlPartition(bases, {"main": tuple(main), "control": tuple(moving)})
+
+
+def _point(skin, u, v):
+    poles = BSpline(full_knots(skin.knots_u, skin.multiplicities_u), skin.controls, skin.degree_u)(
+        u
+    )
+    return BSpline(full_knots(skin.knots_v, skin.multiplicities_v), poles, skin.degree_v)(v)
+
+
+def _motion(skin, low, high, span, *, angle, gap):
+    """Rigid motion about the straight midpoint hinge, positive downwards."""
+    a, b = span
+    origin = (_point(skin, low, a) + _point(skin, high, a)) / 2
+    end = (_point(skin, low, b) + _point(skin, high, b)) / 2
+    axis = end - origin
+    axis /= np.linalg.norm(axis)
+    samples = (
+        _point(skin, low, np.linspace(a, b, 49)) + _point(skin, high, np.linspace(a, b, 49))
+    ) / 2
+    if angle and np.linalg.norm(np.cross(samples - origin, axis), axis=1).max() > 1e-10:
+        raise InputValueError("control hinge: deflection requires a straight hinge axis")
+    cross = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
+    theta = np.deg2rad(angle)
+    rotation = np.eye(3) + np.sin(theta) * cross + (1 - np.cos(theta)) * (cross @ cross)
+    chord = (_point(skin, 0, (a + b) / 2) + _point(skin, 1, (a + b) / 2)) / 2 - _point(
+        skin, 0.5, (a + b) / 2
+    )
+    return rotation, origin - origin @ rotation.T + gap * chord
+
+
+def _caps(component, model):
+    bases = {"skin": model.skin, "trailing_edge": model.trailing_edge, **model.caps}
+    main = [t for t in model.trims if t.base in model.caps]
+    for end, station, kind in (
+        ("root", 0.0, component.get("root")),
+        ("tip", 1.0, component["tip_cap"]["kind"]),
+    ):
+        if kind == "flat":
+            main = [t for t in main if not t.base.startswith(f"{end}_cap")]
+            bases[end] = _end(model.skin, 0.5, 0.5, station)
+            main.append(iso_trim(end, end, (0, 1), (0, 1), "cap"))
+    return bases, main
+
+
+def _span(entry, fraction, previous):
+    if entry["kind"] not in ("plain_flap", "aileron"):
+        raise InputValueError("control.kind: this builder requires plain_flap or aileron")
+    a, b = (float(entry[k]) / fraction for k in ("eta_in", "eta_out"))
+    gap = float(entry["gap_span"]) / fraction
+    if not np.isfinite(gap) or gap < 0 or 2 * gap >= b - a:
+        raise InputValueError("control.gap_span: must leave a positive moving span")
+    if a < previous:
+        raise InputValueError("control.eta: overlapping controls")
+    return a, b, gap
+
+
+def build(component: dict) -> ControlPartition:
+    """Build plain flap and aileron pieces from resolved control entries.
+
+    Parameters
+    ----------
+    component : dict
+        Resolved lifting surface in its local frame. Span limits and gaps are
+        fractions of the planform semispan; chord gap is a chord fraction.
+
+    Returns
+    -------
+    ControlPartition
+        Stationary main and separate rigidly moved pieces for each angle.
+
+    Raises
+    ------
+    InputValueError
+        If controls overlap, gaps consume a span, or a hinge cannot rotate rigidly.
+    """
+    model = lifting_model(component)
+    skin = model.skin
+    bases, main = _caps(component, model)
+    pieces = {}
+    entries = sorted(component.get("control_surfaces", []), key=lambda c: c["eta_in"])
+    previous = 0.0
+    for index, entry in enumerate(entries):
+        name = str(entry.get("name") or f"surface_{index}")
+        a, b, gap = _span(entry, model.fraction, previous)
+        low, high = (model.lines["u"][f"hinge_{name}_{side}"] for side in ("lower", "upper"))
+        stationary = partition(skin, lower=low, upper=high, span=(a, b))
+        for u in ((0.0, 0.5), (0.5, 1.0)):
+            _rectangle(main, u, (previous, a))
+        for u in ((low, 0.5), (0.5, high)):
+            _rectangle(main, u, (a, b))
+        if previous < a:
+            main.append(
+                iso_trim(f"te_{index}", "trailing_edge", (0, 1), (previous, a), "trailing_edge")
+            )
+        for key in ("hinge", "inboard", "outboard"):
+            target = f"{name}_{key}"
+            bases[target] = stationary.bases[key]
+            trim = next(t for t in stationary.pieces["main"] if t.base == key)
+            main.append(replace(trim, base=target, face=target))
+        moving = partition(skin, lower=low, upper=high, span=(a + gap, b - gap))
+        for angle in entry["deflection_deg"]:
+            label = f"{name}-d{float(angle):g}"
+            rotation, translation = _motion(
+                skin, low, high, (a, b), angle=angle, gap=entry["gap_chord"]
+            )
+            trims = moving.pieces["control"]
+            for key in {t.base for t in trims}:
+                patch = moving.bases[key]
+                bases[f"{label}/{key}"] = replace(
+                    patch, controls=patch.controls @ rotation.T + translation
+                )
+            pieces[label] = tuple(replace(t, base=f"{label}/{t.base}") for t in trims)
+        previous = b
+    for u in ((0.0, 0.5), (0.5, 1.0)):
+        _rectangle(main, u, (previous, 1.0))
+    if previous < 1:
+        main.append(iso_trim("te_end", "trailing_edge", (0, 1), (previous, 1), "trailing_edge"))
+    return ControlPartition(bases, {"main": tuple(main), **pieces})
+
+
+def placed(components: dict, name: str) -> ControlPartition:
+    """Build the named component's controls in the assembled coordinate frame.
+
+    Parameters
+    ----------
+    components : dict
+        Resolved component definitions including attachment parents.
+    name : str
+        Lifting surface carrying controls.
+
+    Returns
+    -------
+    ControlPartition
+        Bases transformed by the component placement and parent chain.
+    """
+    model = build(components[name])
+    rotation, translation = placement_transform(components, name)
+    return replace(
+        model,
+        bases={
+            key: replace(p, controls=p.controls @ rotation.T + translation)
+            for key, p in model.bases.items()
+        },
+    )

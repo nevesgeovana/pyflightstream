@@ -361,6 +361,20 @@ def _assembly_step(stage: str) -> StageFn:
     return run
 
 
+def _control_prepare(components: dict, members: list, out: str) -> dict:
+    """Construct applied pieces inside the guarded worker process."""
+    from pyflightstream.workspace._geom_control_build import prepare
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("building applied controls")
+    try:
+        result = prepare(kernel, components, members, Path(out).parent)
+        write_record(Path(out), result)
+        return result
+    finally:
+        kernel.close()
+
+
 def _control_record(stage: str, inputs: dict[str, Any]) -> dict[str, Any]:
     """Measure a file-based control boundary inside its own kernel process."""
     from pyflightstream.workspace._geom_control import check_stage
@@ -385,6 +399,23 @@ def _control_step(stage: str) -> StageFn:
     def run(context: RunContext) -> StageOutcome:
         row = next(r for r in STAGE_ROWS if r.stage == stage)
         short = stage.split(".")[-1]
+        if "control_inputs" not in context.state:
+            components = unpack(context.resolved)["components"]
+            arguments = {
+                "components": components,
+                "members": context.members,
+                "out": str(context.out / "control-inputs.json"),
+            }
+            configured = any(components[n].get("control_surfaces") for n in context.members)
+            context.state["control_inputs"] = (
+                (
+                    _control_prepare(**arguments)
+                    if os.environ.get(WORKER_ENV) == "1"
+                    else run_isolated(f"{__name__}:_control_prepare", arguments, _control_prepare)
+                )
+                if configured
+                else {}
+            )
         inputs = context.state.get("control_inputs", {}).get(short)
         if inputs is None:
             reason = (

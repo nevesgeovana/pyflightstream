@@ -299,6 +299,7 @@ def _plain_config():
                     {"eta": 1.0, "section": {"kind": "naca", "code": "0012"}},
                 ],
                 "cap": {"type": "flat"},
+                "root": "flat",
                 "control": [
                     {
                         "name": "flap",
@@ -348,12 +349,15 @@ def test_p0570_gm9_plain_applied_geometry_preserves_skin_and_closes(kernel, tmp_
 
 
 def test_p0570_gm9_toml_controls_reach_default_runner(tmp_path):
+    import json
+
     from pyflightstream.workspace.geometry_pipeline import run_geometry
 
     report = run_geometry(_plain_config(), out=tmp_path, until="S10.F4")
     records = {r["stage"]: r for r in report["stages"]}
     assert "S10.F0" in records, report
-    assert records["S10.F0"]["status"] == "passed", records["S10.F0"]
+    record = json.loads((tmp_path / records["S10.F0"]["record"]).read_text(encoding="utf-8"))
+    assert records["S10.F0"]["status"] == "passed", json.dumps(record)
     assert records["S10.F1"]["status"] == records["S10.F2"]["status"] == "passed"
-    assert "applied_controls" in records["S10.F0"]["outputs"]
+    assert "applied_controls" in record["outputs"]
     assert "flap-d15" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")

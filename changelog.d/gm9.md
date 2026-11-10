@@ -16,3 +16,8 @@ trimmed-assembly integration remains pending.
 Each F check has its own stage-table row and runner callback. Supplied control
 boundaries produce stage records and geom-run.log lines; a failed check stops
 the runner before the next sub-step.
+
+Resolved plain-flap and aileron entries now produce stationary iso trims,
+closed moving pieces, span gaps and rigid deflections in the placed component
+frame. F0, F1, F2 and F4 read and measure those files; applied-controls.json
+carries the numerical bases and trims for subsequent export integration.
