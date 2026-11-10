@@ -33,6 +33,7 @@
       "tests/tier1_offline/test_p0551_h03_induction.py",
       "tests/tier1_offline/test_p0551_reldocs_names.py",
       "tests/tier1_offline/test_p0551_rotor_sections.py",
+      "tests/tier1_offline/test_p0570_doc_links.py",
       "tests/tier1_offline/test_probes.py",
       "tests/tier1_offline/test_probes_geometry.py",
       "tests/tier1_offline/test_probes_planar.py"

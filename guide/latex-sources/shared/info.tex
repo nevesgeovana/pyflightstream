@@ -35,9 +35,10 @@
 % numbered reference, by the page's slug (its file name under docs/ without
 % .md) and its title:
 %   \item \docref{storage-and-sync}{Storage and sync}
+% The latest alias is kept by the docs deploy, so a compiled PDF outlives an edition.
 % A tier-1 test of the repository checks that every slug names a page that
 % exists under docs/.
-\newcommand{\pkgsite}{https://nevesgeovana.github.io/pyflightstream}
+\newcommand{\pkgsite}{https://nevesgeovana.github.io/pyflightstream/latest}
 \newcommand{\docref}[2]{\pkgauthor, \emph{\pkgname{} documentation}, page
   ``#2''. \url{\pkgsite/#1/}}
 
