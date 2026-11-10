@@ -479,3 +479,74 @@ def test_p0570_gm9_exposed_span_and_split_bounds():
     control.update(span_basis="exposed", exposed_root_m=3.0)
     with pytest.raises(InputValueError, match="exposed_root"):
         stages.controls.build(component)
+
+
+def _fowler_config():
+    raw = _plain_config()
+    entry = raw["components"]["panel"]["control"][0]
+    entry.update(
+        kind="fowler",
+        gap_chord=0.0,
+        cove={"wall_x": 0.72, "lip_x": 0.94, "p3": {"eta": 0.45, "z_over_c": 0.035}},
+        nose={"kind": "elliptic", "radius": 0.01},
+        nested_dz_pct=-0.2,
+        clearance_pct=0.1,
+        kinematics=[
+            {
+                "deflection_deg": 15,
+                "pivot_x": 0.75,
+                "pivot_z": -0.1,
+                "gap_pct": 2.0,
+                "overlap_pct": 1.0,
+            }
+        ],
+    )
+    return raw
+
+
+def _fowler_model(raw):
+    from pyflightstream.geometry import resolve_config
+
+    component = stages.unpack(resolve_config(raw))["components"]["panel"]
+    try:
+        return stages.controls.build(component)
+    except InputValueError as error:
+        pytest.fail(f"a stated Fowler cove must build applied surfaces: {error}")
+
+
+def test_p0570_gm9_fowler_cove_nested_and_deployed_are_closed(kernel, tmp_path):
+    from pyflightstream.workspace._geom_control_build import _faces
+
+    model = _fowler_model(_fowler_config())
+    assert set(model.pieces) == {"main", "flap-d0", "flap-d15"}
+    roles = {t.role for t in model.pieces["main"]}
+    assert {"cove_wall", "cove_roof", "lip_base"} <= roles
+    for name, trims in model.pieces.items():
+        path = tmp_path / f"{name}.igs"
+        faces = _faces(kernel, model, trims)
+        kernel.export_iges({name: faces}, path)
+        assert _passed(_fcheck(kernel, "F1" if name == "main" else "F2", {"path": str(path)}))
+        # NO: removing a cove wall or flap nose must expose an actual sewn opening.
+        role = "cove_wall" if name == "main" else "nose"
+        missing = next(i for i, trim in enumerate(trims) if trim.role == role)
+        kernel.export_iges({name: faces[:missing] + faces[missing + 1 :]}, path)
+        assert not _passed(_fcheck(kernel, "F1", {"path": str(path)}))
+
+
+def test_p0570_gm9_fowler_laws_have_measured_yes_and_no():
+    model = _fowler_model(_fowler_config())
+    checks = getattr(model, "checks", ())
+    assert checks, "Fowler acceptance must carry measured checks"
+    by_id = {c["id"]: c for c in checks}
+    for name in ("fowler.gap_error_pct", "fowler.overlap_error_pct"):
+        assert by_id[name]["limit"] == 0.01
+        assert by_id[name]["measured"] < 0.01
+    assert by_id["fowler.inside_main"]["measured"] == 0
+    assert by_id["fowler.nested_clearance_pct"]["measured"] >= 0.1
+    assert by_id["closure.retracted_identity"]["measured"] <= 1e-12
+    bad = _fowler_config()
+    bad["components"]["panel"]["control"][0]["clearance_pct"] = 20
+    with pytest.raises(InputValueError, match="clearance"):
+        from pyflightstream.geometry import resolve_config
+
+        stages.controls.build(stages.unpack(resolve_config(bad))["components"]["panel"])
