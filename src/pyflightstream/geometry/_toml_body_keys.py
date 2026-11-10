@@ -84,11 +84,15 @@ def _translate_parts(name, raw, warnings):
         return
     if not isinstance(parts, list) or not all(isinstance(p, (int, float)) for p in parts):
         raise InputValueError(f"{name}.parts: expected a list of numbers")
+    for p in parts:
+        number(p, f"{name}.parts", 0, 1)
+    if any(a >= b for a, b in zip(parts, parts[1:], strict=False)):
+        raise InputValueError(f"{name}.parts: the boundaries must increase along the body")
     interior = [p for p in parts if 0 < p < parts[-1]]
-    if len(interior) < 3 or any(a >= b for a, b in zip(parts, parts[1:], strict=False)):
+    if len(interior) < 3:
         warnings.append(
-            f"{name}.parts: needs three interior boundaries, increasing; the default "
-            "transitions are kept, skipped"
+            f"{name}.parts: needs three interior boundaries; the default transitions are kept, "
+            "skipped"
         )
         return
     raw["stations"] = interior

@@ -168,7 +168,16 @@ def test_ridge_profile_validation():
             resolve_config({"type": "lifting_surface", "cap": {"type": "ridged", "profile": bad}})
 
 
-def test_parts_not_increasing_or_too_few_are_warned_and_skipped():
-    for parts in ([0.0, 0.8, 0.2, 1.0], [0.0, 0.2, 0.8, 1.0]):
-        cfg = resolve_config({"type": "body", "parts": parts})
-        assert any(w.startswith("COMPONENT.parts:") for w in cfg["warnings"])
+def test_parts_too_few_are_warned_and_skipped():
+    """Fewer than three interior boundaries is a body the generator cannot split: warn, skip."""
+    cfg = resolve_config({"type": "body", "parts": [0.0, 0.2, 0.8, 1.0]})
+    assert any(w.startswith("COMPONENT.parts:") for w in cfg["warnings"])
+
+
+@pytest.mark.parametrize(
+    "parts", [[0.0, 0.8, 0.2, 0.5, 1.0], [0.0, 0.2, 0.2, 0.5, 0.9, 1.0], [0.0, 0.2, 0.5, 0.9, 1.4]]
+)
+def test_r21_003_parts_out_of_order_or_beyond_the_body_are_refused(parts):
+    """A malformed list is an input error, not an entry that does not apply: it is refused."""
+    with pytest.raises(InputValueError, match=r"COMPONENT\.parts"):
+        resolve_config({"type": "body", "parts": parts})
