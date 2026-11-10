@@ -448,9 +448,15 @@ def check_blister(name, component, warnings, findings):
         raise InputValueError(f"{name}.stations.x: required")
     stations(x, f"{name}.stations.x", 2, -math.inf, math.inf)
     depth = component.get("profile", {}).get("depth")
-    if depth is None:
+    if depth is None and not component["sections_file"]:  # a sections file gives the depth
         raise InputValueError(f"{name}.profile.depth: required")
-    number(depth, f"{name}.profile.depth", 0, strict=True)
+    if depth is None:
+        pass
+    elif isinstance(depth, list):  # one depth per station; the tips are poles (G6R)
+        for value in depth:
+            number(value, f"{name}.profile.depth", 0)
+    else:
+        number(depth, f"{name}.profile.depth", 0, strict=True)
     if component["sections_file"] == "" and "sections" not in component:
         component["sections"] = {"kind": "superellipse"}
     if component["tips"] != "pole":

@@ -24,6 +24,7 @@ from pathlib import Path
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._airfoils import naca_camber
+from pyflightstream.geometry._blister import blister_notes
 from pyflightstream.geometry._bodies import apply_rings, check_boat_tail, check_body_symmetry
 from pyflightstream.geometry._boundary import unit_for, unpack
 from pyflightstream.geometry._component_keys import (
@@ -34,6 +35,7 @@ from pyflightstream.geometry._component_keys import (
     check_fillet,
     check_lifting_extras,
 )
+from pyflightstream.geometry._fillet import fillet_notes
 from pyflightstream.geometry._identity import SCHEMA_MAJOR
 from pyflightstream.geometry._schema import (
     TYPES,
@@ -473,12 +475,14 @@ def resolve_fairing(raw, component, notes):
 def resolve_fillet(raw, component, notes):
     """Validate a fillet component and return its (empty) derived quantities."""
     check_fillet(notes["name"], component, notes["warnings"], notes["findings"])
+    fillet_notes(notes["name"], component, notes["warnings"])
     return {}
 
 
 def resolve_blister(raw, component, notes):
     """Validate a blister component and return its (empty) derived quantities."""
     check_blister(notes["name"], component, notes["warnings"], notes["findings"])
+    blister_notes(notes["name"], component, notes["warnings"])
     return {}
 
 
@@ -680,6 +684,8 @@ def _check_data_files(name, component, base, warnings):
     for item in items:
         if item.get("file"):  # the generator reads it from wherever the input was read
             item["file"] = str((base / item["file"]).resolve())
+    if component.get("sections_file"):  # a blister's sections, read when it is built (G6R)
+        component["sections_file"] = str((base / component["sections_file"]).resolve())
     if items:
         trailing_edge_notes(name, sections, warnings)
     original = component.get("original", "").split("#")[0]

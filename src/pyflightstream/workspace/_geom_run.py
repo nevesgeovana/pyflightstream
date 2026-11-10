@@ -21,6 +21,7 @@ import copy
 import json
 import os
 import re
+import time
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -37,7 +38,9 @@ from pyflightstream._errors import (
 )
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._records import (
     check_entry,
@@ -47,6 +50,7 @@ from pyflightstream.geometry._records import (
 )
 from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
 from pyflightstream.geometry._toml_keys import adopt_surface_file
+from pyflightstream.workspace._geom_log import RunLog
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
@@ -161,8 +165,74 @@ def _export(context: RunContext) -> StageOutcome:
     )
 
 
+#: The inputs of a blend piece that each of its sub-steps reports, by component type.
+_BLEND_INPUTS = {
+    "fillet": ("hosts", "laws", "extend_lower_to_te", "patches", "wing_band", "host_band"),
+    "blister": ("host", "stations", "profile", "sections", "tips"),
+}
+
+
+def _blend_models(context: RunContext, kind: str) -> dict[str, Any]:
+    """Return the fillet or blister models of the selected members, built once per run."""
+    key = f"blend.{kind}"
+    if key not in context.state:
+        components = unpack(context.resolved)["components"]
+        models: dict[str, Any] = {}
+        for name in context.members:
+            component = components[name]
+            if component["type"] != kind:
+                continue
+            if kind == "fillet":
+                models[name] = fillet_model(component, components, name)
+                continue
+            host = component["host"]
+            if components[host]["type"] != "body":
+                raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")
+            models[name] = blister_model(component, components[host])
+        context.state[key] = models
+    return context.state[key]
+
+
+def _blend_step(kind: str, stage: str) -> StageFn:
+    """Return the function of one sub-step of a blend piece: its own checks of each piece.
+
+    The sub-step reports, per piece, the checks its row of the stage table names (each with the
+    piece in ``where``) and the piece's inputs; a configuration with no such piece reports each
+    check skipped with that reason.
+    """
+
+    def run(context: RunContext) -> StageOutcome:
+        row = next(r for r in STAGE_ROWS if r.stage == stage)
+        wanted = [cid for cid, _ in row.checks]
+        models = _blend_models(context, kind)
+        if not models:
+            note = f"no {kind} among the members of this configuration"
+            return StageOutcome(checks=[check_entry(cid, "skipped", note=note) for cid in wanted])
+        components = unpack(context.resolved)["components"]
+        checks, inputs = [], {}
+        for name, model in models.items():
+            for record in model.records:
+                if record["id"] in wanted:
+                    checks.append({**record, "where": {**record["where"], "component": name}})
+            inputs[name] = {
+                k: components[name][k] for k in _BLEND_INPUTS[kind] if k in components[name]
+            }
+        return StageOutcome(checks=checks, outputs={"inputs": inputs})
+
+    return run
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
-STAGE_FUNCTIONS: dict[str, StageFn] = {"S0": _definition, "S11": _export}
+STAGE_FUNCTIONS: dict[str, StageFn] = {
+    "S0": _definition,
+    "S11": _export,
+    "S8.F1": _blend_step("fillet", "S8.F1"),
+    "S8.F2": _blend_step("fillet", "S8.F2"),
+    "S8.F3": _blend_step("fillet", "S8.F3"),
+    "S8.B1": _blend_step("blister", "S8.B1"),
+    "S8.B2": _blend_step("blister", "S8.B2"),
+    "S8.B3": _blend_step("blister", "S8.B3"),
+}
 
 
 def default_stages() -> list[Stage]:
@@ -384,26 +454,45 @@ def run_geometry(
     """
     last = stage_index(until)
     folder = Path(out)
+    folder.mkdir(parents=True, exist_ok=True)
+    clock = time.perf_counter()
+    log = RunLog(folder)
+    log.start(
+        config=str(config) if isinstance(config, (str, Path)) else "(mapping given in memory)",
+        package_version=_package_version(),
+        configuration=configuration,
+        variant=variant,
+        until=until,
+        started=_now(),
+        overrides=overrides,
+    )
     try:
         resolved = _resolve(config, overrides)
         members = _members(resolved, configuration, variant)
     except (PyflightstreamError, ValueError, OSError, tomllib.TOMLDecodeError) as error:
-        return _refused(str(error))
+        return _refuse(folder, log, clock, [], _refused(str(error)))
     parameter = parameter_id(resolved)
-    folder.mkdir(parents=True, exist_ok=True)
+    log.note(f"parameter id: {parameter}")
     context = RunContext(resolved, configuration, variant, folder, parameter, members)
     records: list[dict[str, Any]] = []
     warnings: list[str] = []
     not_run: list[str] = []
-    for stage in list(stages if stages is not None else default_stages())[: last + 1]:
+    planned = list(stages if stages is not None else default_stages())[: last + 1]
+    for position, stage in enumerate(planned):
         began = _now()
+        ticked = time.perf_counter()
+        later = [f"{s.row.stage} {s.row.name}" for s in planned[position + 1 :]]
         try:
             outcome = stage.run(context) if stage.run else _skipped(stage.row)
         except MissingExtraError as error:
-            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="kernel")
+            report = _refused(
+                str(error), parameter=parameter, stage=stage.row.stage, check="kernel"
+            )
+            return _refuse(folder, log, clock, later, report)
         except InputValueError as error:
             # An input a stage cannot build is refused, not failed: nothing was measured.
-            return _refused(str(error), parameter=parameter, stage=stage.row.stage, check="input")
+            report = _refused(str(error), parameter=parameter, stage=stage.row.stage, check="input")
+            return _refuse(folder, log, clock, later, report)
         except (PyflightstreamError, ValueError, OSError) as error:
             outcome = StageOutcome(
                 checks=[check_entry("stage.raised", "failed", 1, 0, note=str(error))]
@@ -419,14 +508,16 @@ def run_geometry(
             warnings=outcome.warnings,
             outputs=outcome.outputs,
             started=began,
+            wall_s=round(time.perf_counter() - ticked, 3),
         )
         write_record(folder / f"{stage.row.stage}.json", record)
+        log.stage(record)
         records.append(record)
         warnings.extend(outcome.warnings)
         not_run.extend(_not_measured(record, stage.run is not None))
         failed = _first_failure(record["checks"])
         if failed is not None:
-            return _finish(
+            report = _finish(
                 "failed",
                 parameter,
                 folder,
@@ -435,10 +526,21 @@ def run_geometry(
                 failure=(stage.row, failed),
                 not_run=not_run,
             )
+            log.finish(report, later, time.perf_counter() - clock)
+            return report
     status = "incomplete" if not_run else "accepted"
-    return _finish(
+    report = _finish(
         status, parameter, folder, records, warnings=warnings, failure=None, not_run=not_run
     )
+    log.finish(report, [], time.perf_counter() - clock)
+    return report
+
+
+def _refuse(folder: Path, log: RunLog, clock: float, later: list[str], report: dict[str, Any]):
+    """Write the report and the end of the log of a refused run, and return the report."""
+    write_record(folder / "report.json", report)
+    log.finish(report, later, time.perf_counter() - clock)
+    return report
 
 
 def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
@@ -501,13 +603,36 @@ def _one_set(job):
     try:
         return run_isolated(f"{__name__}:run_set", arguments, run_set)
     except Exception as error:  # a worker fault must end this set only
-        return geometry_report(
+        report = geometry_report(
             "failed",
             None,
             stage="worker",
             check="worker.completed",
             message=f"{type(error).__name__}: {error}",
         )
+        return _record_worker_fault(Path(arguments["out"]).parent, arguments, report)
+
+
+def _record_worker_fault(folder: Path, arguments: Mapping[str, Any], report: dict[str, Any]):
+    """Leave a report and a log in the set folder of a set whose worker died; return the report."""
+    clock = time.perf_counter()
+    folder.mkdir(parents=True, exist_ok=True)
+    log = RunLog(folder)
+    if not log.path.exists():
+        config = arguments["config"]
+        log.start(
+            config=config if isinstance(config, str) else "(mapping given in memory)",
+            package_version=_package_version(),
+            configuration=arguments["configuration"],
+            variant=arguments["variant"],
+            until=arguments["until"],
+            started=_now(),
+            overrides=arguments["overrides"],
+        )
+    if not (folder / "report.json").exists():
+        write_record(folder / "report.json", report)
+    log.finish(report, [], time.perf_counter() - clock)
+    return report
 
 
 def run_doe(

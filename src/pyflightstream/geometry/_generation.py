@@ -9,14 +9,18 @@ another component.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from pyflightstream._errors import InputValueError
 
+from ._blister import blister_model, blister_region
 from ._bodies import body, body_station_table
 from ._boundary import unpack
 from ._caps import tip_cap, wing_contour_point
 from ._fairings import wing_fuselage_fairing, wing_junction
+from ._fillet import fillet_hosts, fillet_model
 from ._lifting import lifting_surface, section_models, thickness_station
 from ._patch import Patch, interpolate_patch
 from ._placement import (
@@ -33,6 +37,7 @@ from ._regions import (
     lifting_region,
     placed_region,
 )
+from ._skin import split_along
 
 __all__ = ["assembly_regions", "generate_components", "junction_lifting_surface"]
 
@@ -81,13 +86,55 @@ def generate_components(config) -> dict[str, list[Patch]]:
             body_name, wing_name = component["hosts"]
             wing = wing_in_body_frame(components, body_name, wing_name)
             patches = wing_fuselage_fairing(component, components[body_name], wing)
+        elif kind in ("fillet", "blister"):
+            # Built in the frame of the body they lie on; their own placement is not read.
+            patches, body_name = blend_faces(components, name)
+            result[name] = move(patches, *placement_transform(components, body_name))
+            continue
         else:
             raise InputValueError(
-                f"{name}.type: this assembly driver supports body, lifting_surface "
-                "and wing_fuselage_fairing"
+                f"{name}.type: this assembly driver supports body, lifting_surface, "
+                "wing_fuselage_fairing, fillet and blister"
             )
         result[name] = place(patches, components, name)
     return result
+
+
+def blend_faces(components, name) -> tuple[list[Patch], str]:
+    """Return the faces a fillet or a blister writes today, and the body whose frame they are in.
+
+    Until the assembly writes trimmed faces, each face is its base cut at iso lines: a fillet's
+    two faces lie between its contact lines, split at the leading edge; a blister's base is cut
+    at its mean crease into the face outside the host and a band inside it, which the assembly
+    drops as buried. No count is assumed: every face carries its family and role.
+    """
+    component = components[name]
+    if component["type"] == "fillet":
+        model = fillet_model(component, components, name)
+        _, _, body_name = fillet_hosts(components, name)
+        start = model.trims[0].loop[0][0][0]
+        middle = split_along(model.base, "v", [model.contacts["v_host"], model.contacts["v_wing"]])[
+            1
+        ]
+        cuts = [start, 0.5] if start > 0.0 else [0.5]
+        pieces = split_along(middle, "u", cuts)[-2:]
+        faces = [
+            replace(piece, family=f"fillet_{side}", role="fillet")
+            for piece, side in zip(pieces, ("lower", "upper"), strict=True)
+        ]
+        closing = [] if model.trailing_edge is None else [model.trailing_edge]
+        return faces + closing, body_name
+    host = component["host"]
+    if components[host]["type"] != "body":
+        raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")
+    loft = blister_model(component, components[host])
+    patches = []
+    for base, patch in loft.bases.items():
+        crease = float(np.mean(loft.crease[base][1:-1, 0]))
+        outer, inner = split_along(patch, "u", [crease])
+        patches.append(replace(outer, family=f"blister_{base}", role="blister"))
+        patches.append(replace(inner, family=f"blister_{base}_inside", role="blister_band"))
+    return patches, host
 
 
 def junction_lifting_surface(wing, host, fairing) -> list[Patch]:
@@ -174,4 +221,13 @@ def assembly_regions(config, patches) -> dict:
             )
             triangles = fairing_volume_triangles(patches[name], interior)
             regions[name] = lambda point, skin=triangles: inside_triangles(point, skin)
+        elif component["type"] == "blister":
+            host = component["host"]
+            regions[name] = placed_region(
+                blister_region(component, components[host]),
+                *placement_transform(components, host),
+            )
+        elif component["type"] == "fillet":
+            # The blend buries nothing until the dominance stage trims its hosts by it.
+            regions[name] = lambda point: False
     return regions
