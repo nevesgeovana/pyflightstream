@@ -397,3 +397,14 @@ def test_a_misspelt_key_warns_at_every_level_of_the_new_tables():
         "planform.sref_m3: unknown key",
     ):
         assert any(needle in w for w in warnings), needle
+
+
+def test_r21_009_an_engine_naming_no_component_is_warned_by_its_engine_key():
+    text = (
+        '[surface]\nname = "W"\n[planform]\nsref_m2 = 9.0\naspect_ratio = 9.0\ntaper = 0.6\n'
+        '[[stations]]\neta = 0.0\nsection = { kind = "naca", code = "0012" }\n'
+        '[[engine]]\nname = "N"\neta_axis = 0.3\nhalf_width_mm = 100\n'
+    )
+    warnings = resolve_config(tomllib.loads(text))["warnings"]
+    assert any(w.startswith("W.engine.name: 'N' is no component") for w in warnings), warnings
+    assert not any("nacelle_bounds" in w for w in warnings)

@@ -563,8 +563,8 @@ def _skip_absent_references(components, warnings):
             for bound in section["nacelle_bounds"]:
                 if bound not in kept:
                     warnings.append(
-                        f"{name}.sections.nacelle_bounds: {bound['component']!r} is no component, "
-                        "skipped"
+                        f"{name}.engine.name: {bound['component']!r} is no component of the "
+                        "file, its bounding sections are skipped"
                     )
             section["nacelle_bounds"] = kept
         for surface in component.get("control_surfaces", []):
