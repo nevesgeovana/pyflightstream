@@ -497,18 +497,19 @@ def run_geometry(
         started=_now(),
         overrides=overrides,
     )
+    planned = list(stages if stages is not None else default_stages())[: last + 1]
     try:
         resolved = _resolve(config, overrides)
         members = _members(resolved, configuration, variant)
     except (PyflightstreamError, ValueError, OSError, tomllib.TOMLDecodeError) as error:
-        return _refuse(folder, log, clock, [], _refused(str(error)))
+        later = [f"{s.row.stage} {s.row.name}" for s in planned[1:]]
+        return _refuse(folder, log, clock, later, _refused(str(error)))
     parameter = parameter_id(resolved)
     log.note(f"parameter id: {parameter}")
     context = RunContext(resolved, configuration, variant, folder, parameter, members)
     records: list[dict[str, Any]] = []
     warnings: list[str] = []
     not_run: list[str] = []
-    planned = list(stages if stages is not None else default_stages())[: last + 1]
     for position, stage in enumerate(planned):
         began = _now()
         ticked = time.perf_counter()

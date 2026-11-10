@@ -70,6 +70,10 @@ def test_p0570_g3l_a_refused_run_leaves_a_report_and_a_log(tmp_path):
     assert json.loads((tmp_path / "o" / "report.json").read_text(encoding="utf-8")) == report
     text = (tmp_path / "o" / LOG).read_text(encoding="utf-8")
     assert "result: REFUSED" in text and "unknown parameter" in text
+    # R22-005: a run refused at its input lists every sub-step it did not reach
+    (line,) = [x for x in text.splitlines() if x.startswith("sub-steps not reached: ")]
+    assert line.startswith("sub-steps not reached: S1 ") and "S8.B3 Blister closure" in line
+    assert line.split(", ")[-1].startswith("S13 ")
 
 
 def test_p0570_g3l_a_doe_set_that_was_refused_or_faulted_has_its_own_log(tmp_path, monkeypatch):
