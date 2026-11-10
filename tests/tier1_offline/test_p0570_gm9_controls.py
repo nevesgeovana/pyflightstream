@@ -250,3 +250,39 @@ def test_p0570_gm9_trimmed_assembly_boundary(kernel, tmp_path, stage, missing):
     # The session supplies the trimmed assembly boundary at merge. This assertion
     # keeps the integration expectation pending even once the checker works.
     assert hasattr(_geom_run, "trimmed_control_assembly")
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["P0570-F-LOG-YES", "P0570-F-LOG-NO"])
+def test_p0570_gm9_stage_table_runner_records_and_log(kernel, tmp_path, missing):
+    from pyflightstream.workspace import _geom_run
+
+    rows = {row.stage: row for row in stages.STAGE_ROWS}
+    assert all(f"S10.F{i}" in rows for i in range(8)), "F sub-steps absent from the table"
+    assert all(f"S10.F{i}" in _geom_run.STAGE_FUNCTIONS for i in range(8))
+    faces = _closed_box(kernel)
+    path = tmp_path / "main.igs"
+    kernel.export_iges({"main": faces[:-1] if missing else faces}, path)
+
+    def seed(context):
+        context.state["control_inputs"] = {
+            "F0": {"pieces": {"main": {"path": str(path), "written": 6}}},
+            "F1": {"path": str(path)},
+        }
+        return _geom_run.StageOutcome(checks=[stages.check_entry("input.valid", "passed", 0, 0)])
+
+    selected = [_geom_run.Stage(rows["S0"], seed)]
+    selected += [
+        _geom_run.Stage(rows[f"S10.F{i}"], _geom_run.STAGE_FUNCTIONS[f"S10.F{i}"]) for i in (0, 1)
+    ]
+    report = _geom_run.run_geometry(
+        {"type": "body"}, out=tmp_path / "run", until="S10.F1", stages=selected
+    )
+    assert report["status"] == ("failed" if missing else "accepted")
+    log = (tmp_path / "run" / "geom-run.log").read_text(encoding="utf-8")
+    assert "sub-step S10.F0" in log and "control.faces_read" in log
+    assert "threshold" in log and "sha256" in log and "wall" in log
+    if missing:
+        assert report["stage"] == "S10.F0"
+        assert "sub-step S10.F1 " not in log
+    else:
+        assert "sub-step S10.F1" in log and "control.free_edges" in log
