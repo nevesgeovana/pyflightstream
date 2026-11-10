@@ -45,7 +45,7 @@ from pyflightstream.geometry._generation import (
     generate_pieces,
     source_cells,
 )
-from pyflightstream.geometry._identity import parameter_id
+from pyflightstream.geometry._identity import build_id, parameter_id, surface_id
 from pyflightstream.geometry._lifting import lifting_surface
 from pyflightstream.geometry._mesh_rules import (
     check_body,
@@ -76,7 +76,7 @@ from pyflightstream.geometry._records import (
     stage_record,
     write_record,
 )
-from pyflightstream.geometry._registry import manifest_checks
+from pyflightstream.geometry._registry import manifest_checks, manifest_record
 from pyflightstream.geometry._reverse import (
     clean_band,
     closed_contour,
@@ -92,6 +92,9 @@ from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
+    "build_id",
+    "manifest_record",
+    "surface_id",
     "CAP_EDGE_GAP",
     "cap_edge_gap",
     "lifting_model",

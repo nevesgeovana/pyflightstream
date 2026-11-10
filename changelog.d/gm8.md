@@ -53,3 +53,13 @@ including the largest missing region and its centroid.
 migration: S10.D8b uses `acceptance.coverage_spacing` and reports
 `coverage.area_sum` with a relative limit of 1e-3. A displaced face cannot
 pass coverage merely because its parameter coordinates contain the source.
+
+The export manifest uses `pyflightstream-geom-manifest/1`, with piece records,
+file digests, parameter, surface and build identities, junction rows and
+measured areas. Reimport fills its measured area; an unperformed measurement
+stays null. Layout sidecars preserve the original base order and all source
+trim loops, including those with no retained face.
+
+migration: The provisional manifest's component mapping is now the specified
+`pieces` list. Each piece has an integer `faces` count and a `face_records`
+list containing its retained-face measurements.

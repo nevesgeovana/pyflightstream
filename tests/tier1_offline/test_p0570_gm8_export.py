@@ -144,20 +144,20 @@ def test_p0570_export_keeps_component_version_and_trimmed_faces(tmp_path, kind):
     manifest_path = tmp_path / "manifest.json"
     assert manifest_path.is_file(), "S11 must retain each source piece and its written faces"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    piece = manifest["components"]["shell"]
+    piece = next(p for p in manifest["pieces"] if p["component"] == "shell")
     assert piece["version"] == "2.1.0"
     assert len(piece["source_surface_id"]) == 64
-    assert piece["faces"] and all(f["area_m2"] > 0 for f in piece["faces"])
+    assert piece["faces"] and all(f["area_m2"] > 0 for f in piece["face_records"])
     sidecar = json.loads((tmp_path / "shell.layout.json").read_text(encoding="utf-8"))
-    assert len(sidecar["faces"]) == len(piece["faces"])
+    assert len(sidecar["faces"]) == piece["faces"]
     assert all(f["base"] in sidecar["bases"] for f in sidecar["faces"])
     if kind == "lifting_surface":
         skin_faces = [f for f in sidecar["faces"] if f["base"] == "skin"]
         assert len(skin_faces) >= 2
         assert {f["role"] for f in skin_faces} == {"upper", "lower"}
         assert {t["role"] for f in skin_faces for t in f["source_faces"]} >= {"upper", "lower"}
-    document = read_iges(tmp_path / piece["iges"])
-    assert len([e for e in document["entities"] if e["type"] == 144]) == len(piece["faces"])
+    document = read_iges(tmp_path / piece["file"])
+    assert len([e for e in document["entities"] if e["type"] == 144]) == piece["faces"]
 
 
 @pytest.mark.parametrize(
@@ -272,7 +272,7 @@ def test_p0570_fresh_readback_catches_a_trimmed_face_written_untrimmed(tmp_path,
 
     resolved, written = _written_halves(tmp_path)
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
-    face = manifest["components"]["plate"]["faces"][0]
+    face = manifest["pieces"][0]["face_records"][0]
     assert face["area_m2"] == pytest.approx(0.5, abs=1e-12)
     if lost:
         path = tmp_path / face["iges"]
@@ -281,7 +281,9 @@ def test_p0570_fresh_readback_catches_a_trimmed_face_written_untrimmed(tmp_path,
         trimmed["parameters"][2] = "0"
         trimmed["parameters"][4] = "0"
         path.write_text(serialize_iges(document), encoding="ascii")
-    record = check_export("S11.R", resolved, None, ["plate"], tmp_path, written)
+    record = check_export(
+        "S11.R", resolved, configuration=None, members=["plate"], out=tmp_path, source=written
+    )
     areas = [c for c in record["checks"] if c["id"] == "area.read_back"]
     assert areas, "export must measure the area of every face read alone"
     assert areas[0]["status"] == ("failed" if lost else "passed")
@@ -327,9 +329,11 @@ def test_p0570_sewing_checks_introduced_edges_against_the_input_reference(
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["input_slivers"] == (2 if height < 0.005 else 0)
     if missing:
-        face = manifest["components"]["plate"]["faces"][0]
+        face = manifest["pieces"][0]["face_records"][0]
         (tmp_path / manifest["iges"]).write_bytes((tmp_path / face["iges"]).read_bytes())
-    record = check_export("S11.S", resolved, None, ["plate"], tmp_path, written)
+    record = check_export(
+        "S11.S", resolved, configuration=None, members=["plate"], out=tmp_path, source=written
+    )
     checks = {c["id"]: c for c in record["checks"]}
     assert "sew.free_introduced" in checks, "sewing must distinguish original and new openings"
     assert checks["sew.free_introduced"]["status"] == ("failed" if missing else "passed")
@@ -454,7 +458,33 @@ def test_p0570_f1_coverage_catches_losses_that_reimport_and_triple_audit_miss(tm
             3.0 if lost == "aft" else 0.2, rel=1e-3
         )
     config = resolve_config({"components": {n: {"type": "body"} for n in pieces}})
-    read = check_export("S11.R", config, None, list(pieces), tmp_path, written)
+    read = check_export(
+        "S11.R", config, configuration=None, members=list(pieces), out=tmp_path, source=written
+    )
     assert all(c["status"] == "passed" for c in read["checks"]), read
-    sewn = check_export("S11.S", config, None, list(pieces), tmp_path, written)
+    sewn = check_export(
+        "S11.S", config, configuration=None, members=list(pieces), out=tmp_path, source=written
+    )
     assert next(c for c in sewn["checks"] if c["id"] == "sew.triple_edges")["status"] == "passed"
+
+
+def test_p0570_export_manifest_has_public_piece_records_and_original_loops(tmp_path):
+    import hashlib
+
+    kernel_or_skip()
+    _written_halves(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest.get("format") == "pyflightstream-geom-manifest/1"
+    assert manifest["variant"] == "clean"
+    assert len(manifest["surface_id"]) == 64
+    assert len(manifest["build_id"]) == 64
+    assert len(manifest["parameter_id"]) == 64
+    assert len(manifest["pieces"]) == 1
+    piece = manifest["pieces"][0]
+    assert piece["component"] == "plate" and piece["faces"] == 2
+    assert piece["trimmed_area_m2"] == pytest.approx(1.0, abs=1e-12)
+    assert piece["source_area_m2"] == pytest.approx(1.0, abs=1e-12)
+    assert piece["sha256"] == hashlib.sha256((tmp_path / piece["file"]).read_bytes()).hexdigest()
+    sidecar = json.loads((tmp_path / piece["layout"]).read_text(encoding="utf-8"))
+    assert sidecar["base_order"] == ["skin_0"]
+    assert len(sidecar["source_trims"]) == 2

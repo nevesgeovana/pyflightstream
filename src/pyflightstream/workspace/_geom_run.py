@@ -197,10 +197,10 @@ def _export_step(stage: str) -> StageFn:
             **check_export(
                 stage,
                 context.resolved,
-                context.configuration,
-                context.members,
-                context.out,
-                context.state["export"],
+                configuration=context.configuration,
+                members=context.members,
+                out=context.out,
+                source=context.state["export"],
             )
         )
 
@@ -334,6 +334,7 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
             "config": context.resolved,
             "members": context.members,
             "out": str(context.out / "S10-assembly.json"),
+            "configuration": context.configuration,
         }
         if not plan:
             context.state["assembly"] = None
@@ -346,7 +347,9 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
     return context.state["assembly"]
 
 
-def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any]:
+def _assembly_record(
+    config: Any, members: list[str], out: str, configuration: str | None = None
+) -> dict[str, Any]:
     """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
     from pyflightstream.geometry import resolve_config
     from pyflightstream.geometry.stages import GeneratedPiece, generate_components
@@ -390,7 +393,12 @@ def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any
                     assembly.models[name] = GeneratedPiece.from_patches(
                         name, plain["components"][name]["version"], assembly.sources[name]
                     )
-            written = write_assembly(assembly, Path(out).parent / "assembly.igs")
+            written = write_assembly(
+                assembly,
+                Path(out).parent / "assembly.igs",
+                resolved=resolved,
+                configuration=configuration,
+            )
     finally:
         kernel.close()
     result = json.loads(json.dumps({"records": records, "export": written}, default=str))

@@ -9,20 +9,33 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.geometry.stages import check_entry, manifest_checks, unpack, write_record
+from pyflightstream.geometry.stages import (
+    build_id,
+    check_entry,
+    manifest_checks,
+    manifest_record,
+    parameter_id,
+    sha256_file,
+    surface_id,
+    unpack,
+    write_record,
+)
 from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._geom_assembly import Assembly
 from pyflightstream.workspace._geom_parts import plain
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
 
-def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
+def write_assembly(
+    assembly: Assembly, target: Path, *, resolved=None, configuration=None
+) -> dict[str, Any]:
     """Write one file per piece and per face, plus the combined sewing input.
 
     Per-face files let a fresh kernel import each face alone, so adjacency
@@ -37,6 +50,7 @@ def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
         piece["iges"] = f"{name}.igs"
         piece["layout"] = f"{name}.layout.json"
         assembly.k.export_iges({name: faces}, target.parent / piece["iges"])
+        piece["sha256"] = sha256_file(target.parent / piece["iges"])
         model = assembly.models[name]
         bases = {
             key: {
@@ -76,12 +90,47 @@ def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
                 {
                     **model.layout,
                     "bases": bases,
+                    "base_order": list(model.bases),
+                    "source_trims": [t.to_dict() for t in model.trims],
                     "faces": piece["faces"],
                     "source_surface_id": model.source_surface_id,
                 }
             ),
         )
     assembly.k.export_iges(assembly.faces, target)
+    config = (
+        unpack(resolved)
+        if resolved is not None
+        else {
+            "components": {
+                n: {"version": p.version, "source_surface_id": p.source_surface_id}
+                for n, p in assembly.models.items()
+            }
+        }
+    )
+    parameter = parameter_id(config)
+    try:
+        package = metadata.version("pyflightstream")
+    except metadata.PackageNotFoundError:
+        package = "0.0.0+uninstalled"
+    identity = surface_id(
+        {n: list(p.bases.values()) for n, p in assembly.models.items()},
+        {n: p.trims for n, p in assembly.models.items()},
+    )
+    coverage: dict[str, Any] = next(
+        (r["outputs"].get("pieces", {}) for r in assembly.records if r["stage"] == "S10.D8b"), {}
+    )
+    manifest = manifest_record(
+        manifest,
+        configuration=configuration,
+        identities={
+            "parameter_id": parameter,
+            "surface_id": identity,
+            "build_id": build_id(parameter, package, assembly.k.name, assembly.k.version),
+        },
+        dominance=config.get("dominance", []),
+        coverage=coverage,
+    )
     write_record(target.parent / "manifest.json", manifest)
     return {
         "iges": str(target),
@@ -96,7 +145,7 @@ def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
     }
 
 
-def check_export(stage, resolved, configuration, members, out, source) -> dict[str, Any]:
+def check_export(stage, resolved, *, configuration, members, out, source) -> dict[str, Any]:
     """Measure one export sub-step against the retained source record."""
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
     if stage == "S11.R":
@@ -159,10 +208,12 @@ def read_back(folder: Path, manifest: dict, area_excess: float) -> dict[str, Any
             failures.append({"file": file, "error": str(error)})
             return {"areas": [], "edges": []}
 
-    for name, piece in manifest["components"].items():
-        expected = [float(f["area_m2"]) for f in piece["faces"]]
-        imported = read(piece["iges"])
+    for piece in manifest["pieces"]:
+        name = piece["component"]
+        expected = [float(f["area_m2"]) for f in piece["face_records"]]
+        imported = read(piece["file"])
         areas = imported["areas"]
+        piece["reimport_area_m2"] = sum(areas)
         count_gap = max(count_gap, abs(len(areas) - len(expected)))
         if len(areas) == len(expected):
             for got, wanted in zip(sorted(areas), sorted(expected), strict=True):
@@ -173,14 +224,14 @@ def read_back(folder: Path, manifest: dict, area_excess: float) -> dict[str, Any
                         {"component": name, "expected_m2": wanted, "read_m2": got},
                     )
         else:
-            worst, where = max(worst, 1.0), {"component": name, "file": piece["iges"]}
+            worst, where = max(worst, 1.0), {"component": name, "file": piece["file"]}
         source_area = float(piece["source_area_m2"])
         excess = max(excess, (sum(areas) - source_area) / max(source_area, 1e-30))
-        sewn = read(piece["iges"], 1e-5)
+        sewn = read(piece["file"], 1e-5)
         free = sum(len(e["faces"]) == 1 for e in sewn["edges"])
         free_gap = max(free_gap, abs(free - piece["free_edges"]))
         triple += sum(len(e["faces"]) > 2 for e in sewn["edges"])
-        for face in piece["faces"]:
+        for face in piece["face_records"]:
             alone = read(face["iges"])
             count_gap = max(count_gap, abs(len(alone["areas"]) - 1))
             area = sum(alone["areas"])
@@ -195,6 +246,7 @@ def read_back(folder: Path, manifest: dict, area_excess: float) -> dict[str, Any
                         "read_m2": area,
                     },
                 )
+    write_record(folder / "manifest.json", manifest)
     return {
         "checks": [
             _measured("area.read_back", worst, 1e-3, unit="relative", where=where),
@@ -284,6 +336,6 @@ def generate_record(config: Any, path: str, configuration: str | None) -> dict[s
         record = assembly.step("S10.D1")
         if any(c["status"] == "failed" for c in record["checks"]):
             raise InputArtifactError(str(record["checks"]), kind="geometry")
-        return write_assembly(assembly, Path(path))
+        return write_assembly(assembly, Path(path), resolved=config, configuration=configuration)
     finally:
         kernel.close()

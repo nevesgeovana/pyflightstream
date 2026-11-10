@@ -10,7 +10,46 @@ from __future__ import annotations
 from ._boundary import unpack
 from ._records import check_entry
 
-__all__ = ["manifest_checks"]
+__all__ = ["manifest_checks", "manifest_record"]
+
+
+def manifest_record(state, *, configuration, identities, dominance, coverage) -> dict:
+    """Publish measured piece records, leaving unperformed measurements unset.
+
+    The live assembly snapshot is input only. There is one published piece
+    list, with detailed face records alongside the specified integer count.
+    """
+    return {
+        "format": "pyflightstream-geom-manifest/1",
+        "configuration": configuration,
+        "variant": "clean",
+        **identities,
+        "dominance": dominance,
+        "pieces": [
+            _piece_record(name, piece, dominance, coverage.get(name))
+            for name, piece in state["components"].items()
+        ],
+        **{key: value for key, value in state.items() if key != "components"},
+    }
+
+
+def _piece_record(name, piece, dominance, coverage):
+    return {
+        "component": name,
+        "version": piece["version"],
+        "file": piece["iges"],
+        "sha256": piece["sha256"],
+        "layout": piece["layout"],
+        "faces": len(piece["faces"]),
+        "face_records": piece["faces"],
+        "source_surface_id": piece["source_surface_id"],
+        "source_area_m2": piece["source_area_m2"],
+        "trimmed_area_m2": sum(f["area_m2"] for f in piece["faces"]),
+        "reimport_area_m2": None,
+        "missing_area_m2": None if coverage is None else coverage["missing_m2"],
+        "free_edges": piece["free_edges"],
+        "junctions": [row for row in dominance if name in (*row["dominant"], *row["dominated"])],
+    }
 
 
 def manifest_checks(resolved, configuration, members, manifest, sources) -> list[dict]:
@@ -21,7 +60,7 @@ def manifest_checks(resolved, configuration, members, manifest, sources) -> list
         if configuration is not None
         else {n: config["components"][n]["version"] for n in members}
     )
-    written = manifest.get("components", {})
+    written = {piece["component"]: piece for piece in manifest.get("pieces", [])}
     checks = []
     for name in sorted(set(expected) | set(written)):
         actual, source = written.get(name, {}), sources.get(name, {})
