@@ -39,14 +39,17 @@ def component(raw):
 
 
 def wing(kind="rounded", **extra):
-    cap = {"kind": kind, "length": 1.282, "exponent": 0.85} if kind == "rounded" else {"kind": kind}
+    cap = {"type": kind, "length": 1.282, "exponent": 0.85} if kind == "rounded" else {"type": kind}
     if kind == "ridged":
         cap["profile"] = copy.deepcopy(PROFILE)
     return component(
         {
-            "planform": {"taper": 0.7, "sweep": 3.0},
-            "sections": {"airfoils": ["NACA23018", "NACA23012"]},
-            "tip_cap": cap,
+            "planform": {"taper": 0.7, "le_sweep_deg": 3.0},
+            "stations": [
+                {"eta": 0.0, "section": {"kind": "naca", "code": "23018"}},
+                {"eta": 1.0, "section": {"kind": "naca", "code": "23012"}},
+            ],
+            "cap": cap,
             **extra,
         }
     )
@@ -91,8 +94,11 @@ def test_patch_round_trips_through_plain_data_and_refuses_small_grids():
 def test_tapered_wing_chord_and_twist_follow_the_planform():
     c = component(
         {
-            "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
-            "sections": {"airfoils": ["NACA23018", "NACA23012"]},
+            "planform": {"sref_m2": 50.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
+            "stations": [
+                {"eta": 0.0, "section": {"kind": "naca", "code": "23018"}},
+                {"eta": 1.0, "section": {"kind": "naca", "code": "23012"}},
+            ],
         }
     )
     patches = lifting_surface(c)
@@ -112,7 +118,7 @@ def test_tapered_wing_chord_and_twist_follow_the_planform():
 
 
 def test_single_section_wing_is_a_constant_chord_rectangle():
-    c = component({"sections": {"airfoils": ["NACA0012"]}})
+    c = component({"stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}]})
     patches = lifting_surface(c)
     assert len(patches) == 6
     surfaces = lattice(patches, 5)
@@ -196,8 +202,8 @@ def test_rounded_cap_is_closed_on_the_base_plane(rounded):
 def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
     c = component(
         {
-            "sections": {"airfoils": ["NACA0012"]},
-            "tip_cap": {"kind": "rounded", "length": 1.7},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+            "cap": {"type": "rounded", "length": 1.7},
         }
     )
     models = section_models(c["sections"])
@@ -214,10 +220,10 @@ def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
 
 
 def test_flat_cap_is_nine_patches_and_none_is_empty():
-    c = component({"tip_cap": {"kind": "flat"}})
+    c = component({"cap": {"type": "flat"}})
     flat = tip_cap(c)
     assert len(flat) == 9 and all(p.family == "tip_cap" for p in flat)
-    assert tip_cap(component({"tip_cap": {"kind": "none"}})) == []
+    assert tip_cap(component({"cap": {"type": "none"}})) == []
 
 
 @pytest.fixture(scope="module")
@@ -266,7 +272,9 @@ FILLET = {"root_fillet": {"enabled": True, "radii": [0.002, 0.003, 0.002]}}
 
 
 def test_root_fillet_strips_join_end_to_end():
-    c = component({"sections": {"airfoils": ["NACA0012"]}, **FILLET})
+    c = component(
+        {"stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}], **FILLET}
+    )
     patches = root_fillet(c)
     assert len(patches) == 6 and all(p.family == "root_fillet" for p in patches)
     surfaces = [evaluate_patch(p, 31) for p in patches]
@@ -278,7 +286,13 @@ def test_root_fillet_strips_join_end_to_end():
 
 
 def test_root_fillet_touches_the_wing_skin_at_its_root_contact():
-    c = component({"planform": {"taper": 0.7}, "sections": {"airfoils": ["NACA0012"]}, **FILLET})
+    c = component(
+        {
+            "planform": {"taper": 0.7},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+            **FILLET,
+        }
+    )
     patches = root_fillet(c)
     models = section_models(c["sections"])
     section = blended_section(c["sections"], models, 0.0)
@@ -297,7 +311,13 @@ def test_root_fillet_touches_the_wing_skin_at_its_root_contact():
 
 
 def test_root_fillet_on_a_curved_host_meets_it_tangentially():
-    c = component({"planform": {"taper": 0.7}, "sections": {"airfoils": ["NACA0012"]}, **FILLET})
+    c = component(
+        {
+            "planform": {"taper": 0.7},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+            **FILLET,
+        }
+    )
 
     def distance(p):
         return np.hypot(p[1], p[2]) - 0.1
@@ -323,7 +343,7 @@ def test_root_fillet_on_a_curved_host_meets_it_tangentially():
 def test_enabled_fillet_with_zero_radius_is_refused():
     c = component(
         {
-            "sections": {"airfoils": ["NACA0012"]},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
             "root_fillet": {"enabled": True, "radii": [0.0, 0.0, 0.0]},
         }
     )

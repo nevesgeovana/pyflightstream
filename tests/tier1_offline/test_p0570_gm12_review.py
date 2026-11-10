@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.geom_inputs import stations as as_stations
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 
@@ -22,7 +23,9 @@ def test_r9_001_generate_reports_the_key_it_skipped(tmp_path):
     _need_gmsh()
     from pyflightstream.workspace._geometry_generate import generate_iges
 
-    record = generate_iges(_plain(planform={"span": 2.0, "sweeep": 30.0}), tmp_path / "w.igs")
+    record = generate_iges(
+        _plain(planform={"semispan_mm": 1000.0, "sweeep": 30.0}), tmp_path / "w.igs"
+    )
     assert any("sweeep" in text for text in record["warnings"])
 
 
@@ -58,7 +61,7 @@ def _resolved_in(scale, declared):
         "components": {
             "w": {
                 "type": "lifting_surface",
-                "planform": {"span": 9 * s, "root_chord": 1.2 * s, "tip_chord": 0.8 * s},
+                "planform": {"semispan_mm": 4500.0, "root_chord_mm": 1200.0, "tip_chord_mm": 800.0},
                 "distributions": {
                     "chord": {"stations": [0.0, 1.0], "values": [1.2 * s, 0.8 * s]},
                     "leading_edge_x": {"stations": [0.0, 1.0], "values": [0.0, 0.5 * s]},
@@ -67,14 +70,15 @@ def _resolved_in(scale, declared):
             },
             "h": {
                 "type": "body",
-                "length": 8 * s,
+                # unit-suffixed keys ignore the [units] table, so the body stays in millimetres
+                "length_mm": 8000.0,
                 "sections": [
                     {
                         "at": "middle",
                         "shape": "superellipse",
-                        "width": 0.9 * s,
-                        "height": 0.8 * s,
-                        "centre_height": 0.1 * s,
+                        "half_width_mm": 900.0,
+                        "half_height_mm": 800.0,
+                        "centre_z_mm": 100.0,
                         "n_top": 2.0,
                         "n_bottom": 2.0,
                     }
@@ -166,7 +170,7 @@ def _close(a, b):
 
 def _wing_of_files(first, second):
     items = [{"eta": 0.0, "file": first}, {"eta": 1.0, "file": second}]
-    return {"components": {"w": {"type": "lifting_surface", "sections": {"items": items}}}}
+    return {"components": {"w": {"type": "lifting_surface", "stations": as_stations(items)}}}
 
 
 def test_r9_004_swapped_section_files_are_two_geometries(tmp_path):
@@ -219,8 +223,7 @@ def test_r9_005_a_resolved_file_follows_a_data_file_that_changed(tmp_path):
 _FOWLER = {
     "name": "f",
     "kind": "fowler",
-    "eta_in": 0.1,
-    "eta_out": 0.5,
+    "eta": [0.1, 0.5],
     "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
 }
 
@@ -228,12 +231,12 @@ _FOWLER = {
 @pytest.mark.parametrize(
     ("component", "word"),
     [
-        ({"type": "body", "sections": [{"at": "middle", "radius": 1.0, "rad": 2.0}]}, "rad"),
+        ({"type": "body", "sections": [{"at": "middle", "radius_mm": 1000.0, "rad": 2.0}]}, "rad"),
         ({"type": "body", "area": 3.0}, "area"),
         (
             {
                 "type": "body",
-                "rear": {
+                "tail": {
                     "boat_tail": {"x_cut": 1.0, "base_height": 0.1, "angle_limit_deg": 9, "foo": 1}
                 },
             },
@@ -244,12 +247,12 @@ _FOWLER = {
         (
             {
                 "type": "lifting_surface",
-                "sections": {
-                    "items": [
+                "stations": as_stations(
+                    [
                         {"eta": 0.0, "naca": "2412", "te": 0.01},
                         {"eta": 1.0, "naca": "0012"},
                     ]
-                },
+                ),
             },
             "te",
         ),
@@ -270,9 +273,7 @@ _FOWLER = {
         (
             {
                 "type": "lifting_surface",
-                "sections": {
-                    "nacelle_bounds": [{"component": "h", "eta_in": 0.1, "eta_out": 0.2, "foo": 1}]
-                },
+                "engine": [{"name": "h", "eta_axis": 0.15, "half_width_mm": 1.0, "foo": 1}],
             },
             "foo",
         ),
@@ -286,7 +287,7 @@ _FOWLER = {
         (
             {
                 "type": "lifting_surface",
-                "control_surfaces": [{**_FOWLER, "cove": {**_FOWLER["cove"], "wall_xx": 0.7}}],
+                "control": [{**_FOWLER, "cove": {**_FOWLER["cove"], "wall_xx": 0.7}}],
             },
             "wall_xx",
         ),
@@ -331,15 +332,15 @@ def test_r9_006_z_c_of_the_design_reaches_the_body():
     section = {
         "at": "middle",
         "shape": "superellipse",
-        "width": 1.0,
-        "height": 1.0,
-        "z_c": 0.3,
+        "half_width_mm": 1000.0,
+        "half_height_mm": 1000.0,
+        "centre_z_mm": 300.0,
         "n_top": 2.0,
         "n_bottom": 2.0,
     }
     resolved = resolve_config({"components": {"h": {"type": "body", "sections": [section]}}})
     plain = unpack(resolved)["components"]["h"]["sections"][0]
-    assert plain["centre_height"] == 0.3 and "z_c" not in plain
+    assert plain["centre_height"] == pytest.approx(0.3) and "centre_z_mm" not in plain
     wrapped = resolved["components"]["h"]["sections"][0]["centre_height"]
     assert wrapped["source"] == "given"
 
@@ -612,22 +613,26 @@ _FULL = {
             "placement": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]},
             "creases": [{"at": "x", "deg": 3.0}],
             "open_findings": ["a"],
-            "planform": {"span": 2.0, "root_chord": 1.0, "tip_chord": 0.5, "breaks": [0.5]},
+            "planform": {
+                "semispan_mm": 1000.0,
+                "root_chord_mm": 1000.0,
+                "tip_chord_mm": 500.0,
+                "breaks": [0.5],
+            },
             "distributions": {"chord": {"stations": [0.0, 1.0], "values": [1.0, 0.5]}},
-            "sections": {
-                "items": [
+            "stations": as_stations(
+                [
                     {"eta": 0.0, "naca": "2412"},
                     {"eta": 1.0, "cst_upper": [0.1, 0.1], "cst_lower": [-0.1, -0.1], "te": 0.0},
-                ],
-                "nacelle_bounds": [{"component": "H", "eta_in": 0.1, "eta_out": 0.2}],
-            },
-            "tip_cap": {"kind": "flat", "shape": {"a": 1}},
-            "control_surfaces": [
+                ]
+            ),
+            "engine": [{"name": "H", "eta_axis": 0.15, "half_width_mm": 50.0}],
+            "cap": {"type": "flat", "shape": {"a": 1}},
+            "control": [
                 {
                     "name": "f",
                     "kind": "fowler",
-                    "eta_in": 0.1,
-                    "eta_out": 0.5,
+                    "eta": [0.1, 0.5],
                     "deflection_deg": [10.0],
                     "split_around": ["H"],
                     "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
@@ -645,9 +650,9 @@ _FULL = {
         },
         "H": {
             "type": "body",
-            "length": 3.0,
-            "rear": {"boat_tail": {"x_cut": 1.0, "base_height": 0.1, "angle_limit_deg": 25.0}},
-            "sections": [{"at": "middle", "shape": "circle", "radius": 0.3}],
+            "length_mm": 3000.0,
+            "tail": {"boat_tail": {"x_cut": 1.0, "base_height": 0.1, "angle_limit_deg": 25.0}},
+            "sections": [{"at": "middle", "shape": "circle", "radius_mm": 300.0}],
         },
         "F": {"type": "fillet", "hosts": ["W", "H"], "patches": 5, "laws": {"radius": 1.0}},
         "B": {
@@ -708,7 +713,7 @@ def test_r9_010_the_wrong_form_names_the_component():
     from pyflightstream.geometry.config import resolve_config
 
     with pytest.raises(InputValueError, match="components.w"):
-        resolve_config({"components": {"w": {"type": "body", "creases": 3}}})
+        resolve_config({"components": {"w": {"type": "lifting_surface", "creases": 3}}})
 
 
 def test_r9_010_fairing_hosts_in_the_wrong_order_are_refused_by_name():
@@ -736,7 +741,11 @@ def test_r9_010_fairing_hosts_in_the_wrong_order_are_refused_by_name():
         {"type": "blister", "host": "h", "sections_file": "nope.csv"}
         | {"stations": {"x": [0.0, 1.0]}, "profile": {"depth": 0.1}},
         {"type": "lifting_surface"}
-        | {"sections": {"items": [{"eta": 0.0, "file": "nope.dat"}, {"eta": 1.0, "naca": "0012"}]}},
+        | {
+            "stations": as_stations(
+                [{"eta": 0.0, "file": "nope.dat"}, {"eta": 1.0, "naca": "0012"}]
+            )
+        },
     ],
 )
 def test_r9_011_a_missing_geometry_file_is_refused_by_name(piece, tmp_path):
@@ -769,15 +778,11 @@ def _reference_case():
                 "h": {"type": "body"},
                 "w": {
                     "type": "lifting_surface",
-                    "sections": {
-                        "nacelle_bounds": [
-                            {"component": "pod", "eta_in": 0.1, "eta_out": 0.2},
-                            {"component": "h", "eta_in": 0.3, "eta_out": 0.4},
-                        ]
-                    },
-                    "control_surfaces": [
-                        {"name": "f", "eta_in": 0.1, "eta_out": 0.5, "split_around": ["pod", "h"]}
+                    "engine": [
+                        {"name": "pod", "eta_axis": 0.15, "half_width_mm": 1.0},
+                        {"name": "h", "eta_axis": 0.35, "half_width_mm": 1.0},
                     ],
+                    "control": [{"name": "f", "eta": [0.1, 0.5], "split_around": ["pod", "h"]}],
                 },
             },
             "variants": {"cs": ["w.f", "w.nothing"]},
@@ -813,13 +818,13 @@ def test_r9_013_two_surfaces_that_overlap_in_span_are_refused():
     from pyflightstream.geometry.config import resolve_config
 
     surfaces = [
-        {"name": "f", "eta_in": 0.1, "eta_out": 0.5},
-        {"name": "a", "eta_in": 0.4, "eta_out": 0.9},
+        {"name": "f", "eta": [0.1, 0.5]},
+        {"name": "a", "eta": [0.4, 0.9]},
     ]
     with pytest.raises(InputValueError, match="f and a overlap"):
-        resolve_config(_plain(control_surfaces=surfaces))
-    surfaces[1]["eta_in"] = 0.5
-    resolve_config(_plain(control_surfaces=surfaces))
+        resolve_config(_plain(control=surfaces))
+    surfaces[1]["eta"] = [0.5, 0.9]
+    resolve_config(_plain(control=surfaces))
 
 
 # R9-014: the laws of a fillet.
@@ -912,25 +917,25 @@ def test_r9_017_a_six_series_number_does_not_pass_as_five_digits():
 
     items = [{"eta": 0.0, "naca": "64215"}, {"eta": 1.0, "naca": "0012"}]
     with pytest.raises(InputValueError, match="NACA64215"):
-        resolve_config(_plain(sections={"items": items}))
-    resolve_config(_plain(sections={"items": [{"eta": 0.0, "naca": "23012"}, items[1]]}))
+        resolve_config(_plain(stations=as_stations(items)))
+    resolve_config(_plain(stations=as_stations([{"eta": 0.0, "naca": "23012"}, items[1]])))
 
 
 # R9-018: two statements of the sections, one of which is ignored.
 
 
-def test_r9_018_airfoils_beside_items_warn():
+def test_r9_018_airfoils_beside_stations_are_refused_as_renamed():
+    from pyflightstream._errors import InputValueError
     from pyflightstream.geometry.config import resolve_config
 
-    resolved = resolve_config(
-        _plain(
-            sections={
-                "airfoils": ["NACA2412", "NACA2412"],
-                "items": [{"eta": 0.0, "naca": "0012"}, {"eta": 1.0, "naca": "0012"}],
-            }
+    # the old sections.airfoils name is refused whatever else is given, so it cannot be ignored
+    with pytest.raises(InputValueError, match="sections.airfoils: renamed to stations"):
+        resolve_config(
+            _plain(
+                sections={"airfoils": ["NACA2412", "NACA2412"]},
+                stations=as_stations([{"eta": 0.0, "naca": "0012"}, {"eta": 1.0, "naca": "0012"}]),
+            )
         )
-    )
-    assert any("sections.airfoils" in text for text in resolved["warnings"])
 
 
 # R9-020: the unavailable kernel on a real load failure, not on an error put in its place.

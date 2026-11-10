@@ -24,10 +24,13 @@ ETA = [0.0, 0.25, 0.5, 0.75, 1.0]
 
 
 def wing(planform=None, distributions=None):
+    extra = dict(planform or {})
     raw = {
         "type": "lifting_surface",
-        "planform": {"span": 1.2, "taper": 0.5, "sweep": 10.0, **(planform or {})},
+        "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 10.0, **extra},
     }
+    if "twist_axis" in extra:
+        raw["surface"] = {"twist_axis": raw["planform"].pop("twist_axis")}
     if distributions:
         raw["distributions"] = distributions
     return raw
@@ -129,7 +132,8 @@ def test_g5b_slope_break_on_a_linear_planform_changes_nothing(tmp_path):
 
 def lifting_with_twist(axis, tmp_path):
     return resolved(
-        wing({"incidence": 6.0, "tip_twist": -3.0, "twist_axis": axis, "dihedral": 4.0}), tmp_path
+        wing({"incidence": 6.0, "tip_twist": -3.0, "twist_axis": axis, "dihedral_deg": 4.0}),
+        tmp_path,
     )
 
 
@@ -204,7 +208,8 @@ def test_g5b_height_is_half_the_span_and_vertical_sets_the_rotation(tmp_path):
     fin = resolved(
         {
             "type": "lifting_surface",
-            "planform": {"height": 0.5, "taper": 0.5, "orientation": "vertical"},
+            "surface": {"span_axis": "z"},
+            "planform": {"semispan_mm": 500.0, "taper": 0.5},
         },
         tmp_path,
     )
@@ -218,7 +223,8 @@ def test_g5b_height_is_half_the_span_and_vertical_sets_the_rotation(tmp_path):
     own = resolved(
         {
             "type": "lifting_surface",
-            "planform": {"height": 0.5, "orientation": "vertical"},
+            "surface": {"span_axis": "z"},
+            "planform": {"semispan_mm": 500.0},
             "placement": {"rotation": [0.0, 0.0, 30.0]},
         },
         tmp_path,
@@ -226,42 +232,49 @@ def test_g5b_height_is_half_the_span_and_vertical_sets_the_rotation(tmp_path):
     assert own["placement"]["rotation"] == [0.0, 0.0, 30.0]
 
 
-def test_g5b_height_with_aspect_ratio_and_bad_input(tmp_path):
-    by_area = resolved(
-        {"type": "lifting_surface", "planform": {"height": 0.5, "area": 0.4, "taper": 1.0}},
+def test_g5b_fin_semispan_and_bad_input(tmp_path):
+    fin = resolved(
+        {
+            "type": "lifting_surface",
+            "surface": {"span_axis": "z"},
+            "planform": {"semispan_mm": 500.0, "root_chord_mm": 800.0, "tip_chord_mm": 800.0},
+        },
         tmp_path,
     )
-    assert by_area["planform"]["span"] == pytest.approx(1.0)
-    # R14-006: under height the area is that one surface's, so taper 1 gives 0.4 / 0.5.
-    assert by_area["planform"]["root_chord"] == pytest.approx(0.8)
-    with pytest.raises(InputValueError, match="height"):
-        resolved({"type": "lifting_surface", "planform": {"height": 0.5, "span": 1.0}}, tmp_path)
-    with pytest.raises(InputValueError, match="height"):
-        resolved({"type": "lifting_surface", "planform": {"height": -1.0}}, tmp_path)
-    with pytest.raises(InputValueError, match="orientation"):
-        resolved({"type": "lifting_surface", "planform": {"orientation": "up"}}, tmp_path)
+    assert fin["planform"]["span"] == pytest.approx(1.0)
+    with pytest.raises(InputValueError, match="planform.semispan_mm"):
+        resolved({"type": "lifting_surface", "planform": {"semispan_mm": -1000.0}}, tmp_path)
+    with pytest.raises(InputValueError, match="span_axis"):
+        resolved({"type": "lifting_surface", "surface": {"span_axis": "up"}}, tmp_path)
 
 
-def test_r14_006_under_height_area_is_the_one_surface(tmp_path):
-    # A fin of height 0.5 and stated area 0.4 (one surface, taper 1) has chord 0.4 / 0.5.
+def test_r14_006_a_fin_reports_the_area_of_its_one_surface(tmp_path):
+    # A fin of height 0.5 with both chords 0.8 has the area of one surface, 0.4.
     fin = resolved(
-        {"type": "lifting_surface", "planform": {"height": 0.5, "area": 0.4, "taper": 1.0}},
+        {
+            "type": "lifting_surface",
+            "surface": {"span_axis": "z"},
+            "planform": {"semispan_mm": 500.0, "root_chord_mm": 800.0, "tip_chord_mm": 800.0},
+        },
         tmp_path,
     )["planform"]
-    assert fin["root_chord"] == pytest.approx(0.8, rel=1e-12)
     assert fin["area"] == pytest.approx(0.4, rel=1e-12)
     # Given by its chords, the fin reports the area of its one surface: 0.5 * (0.6 + 0.2) / 2.
     by_chord = resolved(
         {
             "type": "lifting_surface",
-            "planform": {"height": 0.5, "root_chord": 0.6, "tip_chord": 0.2},
+            "surface": {"span_axis": "z"},
+            "planform": {"semispan_mm": 500.0, "root_chord_mm": 600.0, "tip_chord_mm": 200.0},
         },
         tmp_path,
     )["planform"]
     assert by_chord["area"] == pytest.approx(0.2, rel=1e-12)
     # A mirrored pair keeps the area of both halves: span 1.0, area 0.4, taper 1 gives 0.4.
     pair = resolved(
-        {"type": "lifting_surface", "planform": {"span": 1.0, "area": 0.4, "taper": 1.0}},
+        {
+            "type": "lifting_surface",
+            "planform": {"sref_m2": 0.4, "aspect_ratio": 2.5, "taper": 1.0},
+        },
         tmp_path,
     )["planform"]
     assert pair["root_chord"] == pytest.approx(0.4, rel=1e-12)

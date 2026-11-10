@@ -87,7 +87,7 @@ def test_p0570_check_of_a_generated_iges_against_itself_is_accepted(tmp_path):
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path / "fus.igs"
-    generate_iges({"components": {"FUS": {"type": "body", "length": 2.0}}}, path)
+    generate_iges({"components": {"FUS": {"type": "body", "length_mm": 2000.0}}}, path)
     result = check(
         f"{path}#FUS",
         f"{path}#FUS",
@@ -103,7 +103,7 @@ def test_p0570_check_refuses_an_unknown_component_name(tmp_path):
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path / "fus.igs"
-    generate_iges({"components": {"FUS": {"type": "body", "length": 2.0}}}, path)
+    generate_iges({"components": {"FUS": {"type": "body", "length_mm": 2000.0}}}, path)
     with pytest.raises(InputValueError, match="no faces named NOPE"):
         check(f"{path}#NOPE", f"{path}#FUS", LIMITS)
 

@@ -288,12 +288,12 @@ WING = {
     "components": {
         "WING": {
             "type": "lifting_surface",
-            "sections": {"airfoils": ["NACA0012"]},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
             "planform": {
-                "span": 1.2,
+                "sref_m2": 0.24,
                 "aspect_ratio": 6.0,
                 "taper": 0.5,
-                "sweep": 15.0,
+                "le_sweep_deg": 15.0,
                 "incidence": 1.0,
                 "tip_twist": -2.0,
             },
@@ -355,8 +355,8 @@ def test_r6_the_configuration_rebuilds_a_twisted_wing_inside_the_limit(identifie
 
     entry = identified.to_component()
     assert entry["placement"]["translation"] == pytest.approx([0.0, 0.0, 0.0], abs=2e-4)
-    assert entry["planform"]["sweep"] == pytest.approx(15.0, abs=0.05)
-    assert entry["planform"]["dihedral"] == pytest.approx(0.0, abs=0.02)
+    assert entry["planform"]["le_sweep_deg"] == pytest.approx(15.0, abs=0.05)
+    assert entry["planform"]["dihedral_deg"] == pytest.approx(0.0, abs=0.02)
     again = generated_wing.parent / "again.igs"
     generate_iges({"components": {"WING": entry}}, again)
     record = check_against_original(
@@ -374,9 +374,9 @@ def plain_wing(tmp_path_factory):
     from pyflightstream.workspace._geometry_generate import generate_iges
 
     path = tmp_path_factory.mktemp("plain") / "wing.igs"
-    planform = {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "sweep": 15.0}
-    sections = {"airfoils": ["NACA0012"]}
-    wing = {"type": "lifting_surface", "sections": sections, "planform": planform}
+    planform = {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "le_sweep_deg": 15.0}
+    stations = [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}]
+    wing = {"type": "lifting_surface", "stations": stations, "planform": planform}
     generate_iges({"components": {"WING": wing}}, path)
     return path
 
@@ -398,9 +398,9 @@ def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_
 
     wing = {
         "type": "lifting_surface",
-        "sections": {"airfoils": ["NACA0012"]},
-        "planform": {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "sweep": 15.0},
-        "tip_cap": {"kind": "rounded"},
+        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+        "planform": {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "le_sweep_deg": 15.0},
+        "cap": {"type": "rounded"},
     }
     path = tmp_path / "rounded.igs"
     generate_iges({"components": {"WING": wing}}, path)
@@ -418,8 +418,8 @@ def test_r6_a_boundary_root_measures_its_extent_along_the_settled_span_axis(tmp_
 
     wing = {
         "type": "lifting_surface",
-        "sections": {"airfoils": ["NACA0012"]},
-        "planform": {"span": 1.2, "aspect_ratio": 6.0, "taper": 0.5, "dihedral": 6.0},
+        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+        "planform": {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "dihedral_deg": 6.0},
     }
     path = tmp_path / "dihedral.igs"
     generate_iges({"components": {"WING": wing}}, path)

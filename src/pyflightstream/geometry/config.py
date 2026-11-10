@@ -47,6 +47,8 @@ from pyflightstream.geometry._schema import (
     stations,
 )
 from pyflightstream.geometry._sections import trailing_edge_notes
+from pyflightstream.geometry._toml_body_keys import translate_body, user_names
+from pyflightstream.geometry._toml_keys import adopt_surface_file, finish_lifting, translate_lifting
 
 __all__ = ["load_config", "resolve_config"]
 
@@ -58,7 +60,7 @@ FREE_BY_TYPE = {
     "lifting_surface": frozenset(
         {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
         | {"planform.height", "tip_cap.extent"}
-        | {"sections.physical", "sections.nacelle_bounds"}
+        | {"sections.physical", "sections.nacelle_bounds", "engine"}
     ),
     "fillet": frozenset({"laws", "mesh_zone", "spine"}),
     "blister": frozenset({"stations", "profile", "sections"}),
@@ -253,19 +255,19 @@ def validate_ridge_profile(profile):
 
     Per chord station: spanwise start of the rounding, ridge height and superellipse exponent.
     """
-    stations(profile["stations"], "tip_cap.profile.stations")
+    stations(profile["stations"], "cap.profile.stations")
     if profile["stations"][0] != 0 or profile["stations"][-1] != 1:
-        raise InputValueError("tip_cap.profile.stations: must run from 0 to 1")
+        raise InputValueError("cap.profile.stations: must run from 0 to 1")
     for key in ("start", "ridge", "exponent"):
         values = profile[key]
         if not isinstance(values, list) or len(values) != len(profile["stations"]):
-            raise InputValueError(f"tip_cap.profile.{key}: count must match the stations")
+            raise InputValueError(f"cap.profile.{key}: count must match the stations")
         for value in values:
-            number(value, f"tip_cap.profile.{key}", 0, strict=key == "exponent")
+            number(value, f"cap.profile.{key}", 0, strict=key == "exponent")
     if any(r <= s for r, s in zip(profile["ridge"], profile["start"], strict=True)):
-        raise InputValueError("tip_cap.profile.ridge: must exceed start at every station")
+        raise InputValueError("cap.profile.ridge: must exceed start at every station")
     if any(n < 1.2 for n in profile["exponent"]):
-        raise InputValueError("tip_cap.profile.exponent: at least 1.2 required")
+        raise InputValueError("cap.profile.exponent: at least 1.2 required")
 
 
 def resolve_planform(supplied, defaults):
@@ -316,9 +318,8 @@ def resolve_planform(supplied, defaults):
             given = [k for k in (*expected, "height") if k in supplied]
             raise InputValueError(
                 f"planform.{key}: inconsistent independent set; given {', '.join(given)}, and "
-                "a trapezoidal planform is fixed by taper plus two of span (or height), area "
-                "and aspect_ratio, or by root_chord with span; to vary the area at a fixed "
-                "aspect ratio, state area and aspect_ratio and leave span out"
+                "a trapezoidal planform is fixed by sref_m2, aspect_ratio and taper, or by "
+                "semispan_mm with root_chord_mm and tip_chord_mm"
             )
     p.update(expected)
     return p
@@ -383,8 +384,8 @@ def resolve_lifting(raw, component, notes):
     warn_not_generated(notes["name"], component, notes["warnings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])
-    number(component["tip_cap"]["length"], "tip_cap.length", 0, strict=True)
-    number(component["tip_cap"]["exponent"], "tip_cap.exponent", 0, strict=True)
+    number(component["tip_cap"]["length"], "cap.length", 0, strict=True)
+    number(component["tip_cap"]["exponent"], "cap.exponent", 0, strict=True)
     if len(component["root_fillet"]["radii"]) != 3:
         raise InputValueError("root_fillet.radii: requires LE, maximum thickness and TE values")
     for radius in component["root_fillet"]["radii"]:
@@ -570,7 +571,7 @@ def _skip_absent_references(components, warnings):
             for other in surface["split_around"]:
                 if other not in components:
                     warnings.append(
-                        f"{name}.control_surfaces.{surface['name']}.split_around: {other!r} is no "
+                        f"{name}.control.{surface['name']}.split_around: {other!r} is no "
                         "component, the piece stays continuous"
                     )
             surface["split_around"] = [o for o in surface["split_around"] if o in components]
@@ -597,19 +598,45 @@ def assembly_defaults(components, supplied):
 
 
 def _resolve_component(name, raw, notes, base):
+    """Resolve one component; every message names the key as the user wrote it."""
+    first = len(notes["warnings"])
+    kind = raw.get("type") if isinstance(raw, dict) else None
+    try:
+        result = _resolve_component_keys(name, raw, notes, base)
+    except InputValueError as error:
+        if notes["resolved"]:
+            raise
+        index = notes.get("station_index", {}).get(name)
+        raise InputValueError(user_names(str(error), kind, index)) from error
+    if not notes["resolved"]:
+        index = notes.get("station_index", {}).get(name)
+        notes["warnings"][first:] = [user_names(w, kind, index) for w in notes["warnings"][first:]]
+    return result
+
+
+def _translate_inputs(name, raw, notes, base):
+    """Read the published key names of a fresh component and skip a cap shape."""
+    if raw["type"] == "lifting_surface":
+        translate_lifting(name, raw, notes, base)
+    elif raw["type"] == "body":
+        translate_body(name, raw, notes)
+    cap = raw.get("tip_cap")
+    if isinstance(cap, dict) and "shape" in cap:
+        cap.pop("shape")
+        notes["warnings"].append(f"{name}.cap.shape: parameter not yet defined, skipped")
+        notes["findings"].append(
+            f"{name}.cap.shape: given and skipped until the parameter is defined"
+        )
+
+
+def _resolve_component_keys(name, raw, notes, base):
     """Merge, validate and return one component and its derived quantities."""
     if "type" not in raw:
         raise InputValueError(f"components.{name}.type: required")
     if raw["type"] not in TYPES:
         raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
     raw = deepcopy(raw)
-    cap = raw.get("tip_cap")
-    if isinstance(cap, dict) and "shape" in cap:
-        cap.pop("shape")
-        notes["warnings"].append(f"{name}.tip_cap.shape: parameter not yet defined, skipped")
-        notes["findings"].append(
-            f"{name}.tip_cap.shape: given and skipped until the parameter is defined"
-        )
+    _translate_inputs(name, raw, notes, base)
     free = FREE_BY_TYPE.get(raw["type"], frozenset())
     component = merge_values(
         default_component(raw["type"]), raw, f"components.{name}", notes["warnings"], free
@@ -636,6 +663,8 @@ def _resolve_component(name, raw, notes, base):
             number(value, f"{name}.placement.{key}")
     number(component["attach"]["station"], f"{name}.attach.station", 0, 1)
     _check_data_files(name, component, base, notes["warnings"])
+    if raw["type"] == "lifting_surface":
+        finish_lifting(name, component, notes)
     return component, derived, raw
 
 
@@ -730,10 +759,10 @@ def resolve_config(data, stem=None, base=None):
 def _resolve(data, stem, base):
     """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
-    source = unpack(data)
+    source = adopt_surface_file(unpack(data))
     if "type" in source:
         source = {"components": {"COMPONENT": source}}
-    notes = {"warnings": [], "findings": [], "name": ""}
+    notes = {"warnings": [], "findings": [], "name": "", "resolved": resolved}
     known = {"aircraft", "units", "acceptance", "reader", "components", "dominance"}
     known |= {"configurations", "variants"}
     if resolved:

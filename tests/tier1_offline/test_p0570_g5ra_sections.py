@@ -22,6 +22,7 @@ from pyflightstream.geometry._sections import (
     section_from_stored,
     shape_unchanged,
 )
+from tests.geom_inputs import stations as as_stations
 
 
 def table(items, te=0.00252, **extra):
@@ -257,8 +258,8 @@ def test_g5ra_a_fit_above_its_limit_is_reported_not_refused(tmp_path):
 def raw_wing(items):
     return {
         "type": "lifting_surface",
-        "planform": {"span": 1.2, "taper": 0.5, "sweep": 0.0},
-        "sections": {"items": items},
+        "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 0.0},
+        "stations": as_stations(items),
     }
 
 
@@ -270,7 +271,7 @@ def test_r15_002_a_sharp_file_takes_the_blunt_base_and_the_input_says_so(tmp_pat
     assert used == pytest.approx(comp["sections"]["trailing_edge_thickness"])
     assert used > 1e-3
     assert any(
-        "sharp trailing edge" in w and "sections.items[0].file" in w for w in resolved["warnings"]
+        "sharp trailing edge" in w and "stations[0].section.file" in w for w in resolved["warnings"]
     )
     (section,) = bspline_sections(comp["sections"] | {"form": "bspline"})
     assert section.te_thickness() == pytest.approx(used, abs=1e-9)

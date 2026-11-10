@@ -22,6 +22,7 @@ from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._caps import wing_contour_normal
 from pyflightstream.geometry._fairings import wing_fuselage_fairing
 from pyflightstream.geometry._lifting import lifting_surface, section_models, thickness_station
+from tests.geom_inputs import body_input
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 WB = {
@@ -30,7 +31,7 @@ WB = {
         "WING": {
             "type": "lifting_surface",
             "attach": {"parent": "FUS", "station": 0.4},
-            "sections": {"airfoils": ["NACA0012"]},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
         },
         "FAIRING": {
             "type": "wing_fuselage_fairing",
@@ -63,7 +64,7 @@ def cylinder(rear="pole"):
         "rear": rear,
         "sections": [{"at": "middle", "shape": "circle", "radius": 1.2}],
     }
-    return unpack(resolve_config(raw))["components"]["COMPONENT"]
+    return unpack(resolve_config(body_input(raw)))["components"]["COMPONENT"]
 
 
 def add_all(gmsh, patches):
@@ -137,7 +138,9 @@ def test_p0570_body_station_tangency_below_a_tenth_of_a_degree(occ):
 def fairing_model(occ):
     data = unpack(resolve_config({"components": {
         "FUS": {"type": "body"},
-        "WING": {"type": "lifting_surface", "sections": {"airfoils": ["NACA0012"]},
+        "WING": {"type": "lifting_surface", "stations": [
+            {"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}
+        ],
                  "distributions": {"leading_edge_x": {"stations": [0, 1.0], "values": [0.4, 0.4]}}},
         "FAIRING": {"type": "wing_fuselage_fairing", "hosts": ["FUS", "WING"]},
     }}))["components"]  # fmt: skip

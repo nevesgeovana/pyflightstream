@@ -17,6 +17,7 @@ from pyflightstream.geometry._bodies import (
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._continuity import audit_jumps
 from pyflightstream.geometry._patch import evaluate_patch
+from tests.geom_inputs import body_input
 
 CIRCLE = {"shape": "circle", "radius": 1.0}
 TAIL = {"boat_tail": {"x_cut": 0.97, "base_height": 0.3, "angle_limit_deg": 45.0}}
@@ -126,7 +127,9 @@ def test_listed_stations_cut_a_region_and_bad_input_is_refused():
 
 
 def make_body(**extra):
-    raw = {"type": "body", "length": 20.0, "sections": [{"at": "middle", **CIRCLE}], **extra}
+    raw = body_input(
+        {"type": "body", "length": 20.0, "sections": [{"at": "middle", **CIRCLE}], **extra}
+    )
     return unpack(resolve_config(raw))["components"]["COMPONENT"]
 
 

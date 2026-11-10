@@ -19,7 +19,7 @@ from pyflightstream.geometry._stage_table import STAGE_ROWS
 from pyflightstream.workspace import _geom_run
 from pyflightstream.workspace._geom_run import StageOutcome
 
-BODY = {"components": {"FUS": {"type": "body", "length": 2.0}}}
+BODY = {"components": {"FUS": {"type": "body", "length_mm": 2000.0}}}
 
 
 def _failing_at(stage_id, *, when_length=None, checks=None):
@@ -131,9 +131,9 @@ def test_p0570_g3_an_unbuilt_stage_is_recorded_skipped_and_the_report_says_so(tm
 @pytest.mark.parametrize(
     ("kwargs", "text"),
     [
-        ({"overrides": {"FUS.lenght": 3.0}}, "unknown parameter"),
-        ({"overrides": {"WING.length": 3.0}}, "declared component"),
-        ({"overrides": {"length": 3.0}}, "declared component"),
+        ({"overrides": {"FUS.lenght_mm": 3000.0}}, "unknown parameter"),
+        ({"overrides": {"WING.length_mm": 3000.0}}, "declared component"),
+        ({"overrides": {"length_mm": 3000.0}}, "declared component"),
         ({"configuration": "nope"}, "configuration 'nope': unknown"),
         ({"variant": "nope"}, "variant 'nope': unknown"),
     ],
@@ -156,13 +156,15 @@ def test_p0570_g3_an_unknown_until_and_an_empty_file_are_refused(tmp_path):
 def test_p0570_g3_an_override_changes_the_identity_and_a_repeat_keeps_it(tmp_path):
     a = _geom_run.run_geometry(BODY, out=tmp_path / "a", until="S0")
     b = _geom_run.run_geometry(BODY, out=tmp_path / "b", until="S0")
-    c = _geom_run.run_geometry(BODY, out=tmp_path / "c", until="S0", overrides={"FUS.length": 3.0})
+    c = _geom_run.run_geometry(
+        BODY, out=tmp_path / "c", until="S0", overrides={"FUS.length_mm": 3000.0}
+    )
     assert a["parameter_id"] == b["parameter_id"] != c["parameter_id"]
 
 
 def test_p0570_g3_a_loop_continues_after_a_failed_set(tmp_path, monkeypatch, isolated_off):
     monkeypatch.setitem(_geom_run.STAGE_FUNCTIONS, "S4", _failing_at("S4", when_length=3.0))
-    sets = [{"FUS.length": 2.5}, {"FUS.length": 3.0}, {"FUS.length": 3.5}]
+    sets = [{"FUS.length_mm": 2500.0}, {"FUS.length_mm": 3000.0}, {"FUS.length_mm": 3500.0}]
     reports = list(_geom_run.run_doe(BODY, sets, out=tmp_path, until="S9"))
     assert [r["status"] for r in reports] == ["incomplete", "failed", "incomplete"]
     assert (reports[1]["stage"], reports[1]["check"]) == ("S4", "law.monotonic")
@@ -171,7 +173,7 @@ def test_p0570_g3_a_loop_continues_after_a_failed_set(tmp_path, monkeypatch, iso
 
 
 def test_p0570_g3_a_loop_continues_after_a_refused_set_through_real_workers(tmp_path):
-    sets = [{"FUS.length": 2.5}, {"FUS.nope": 1.0}, {"FUS.length": 3.5}]
+    sets = [{"FUS.length_mm": 2500.0}, {"FUS.nope": 1.0}, {"FUS.length_mm": 3500.0}]
     reports = list(_geom_run.run_doe(BODY, sets, out=tmp_path, until="S9"))
     assert [r["status"] for r in reports] == ["incomplete", "refused", "incomplete"]
     assert "unknown parameter" in reports[1]["message"]
@@ -185,7 +187,7 @@ def test_p0570_g3_a_worker_that_does_not_answer_is_a_failed_set_and_the_loop_goe
     tmp_path, monkeypatch
 ):
     """A real worker ended by its time limit: that set fails at ``worker``, the next one runs."""
-    sets = [{"FUS.length": 2.5}, {"FUS.length": 3.5}]
+    sets = [{"FUS.length_mm": 2500.0}, {"FUS.length_mm": 3500.0}]
     loop = _geom_run.run_doe(BODY, sets, out=tmp_path, until="S2")
     monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", "0.01")
     first = next(loop)

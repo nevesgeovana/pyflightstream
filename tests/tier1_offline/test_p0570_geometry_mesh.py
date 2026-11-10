@@ -31,7 +31,7 @@ WB = {
         "WING": {
             "type": "lifting_surface",
             "attach": {"parent": "FUS", "station": 0.4},
-            "sections": {"airfoils": ["NACA0012"]},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
         },
         "FAIRING": {
             "type": "wing_fuselage_fairing",

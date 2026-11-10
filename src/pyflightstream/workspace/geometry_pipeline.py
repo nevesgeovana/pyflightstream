@@ -138,15 +138,17 @@ class LiftingIdentification:
         return {
             "type": "lifting_surface",
             "planform": {
-                "span": 2.0 * semi_y,
-                "root_chord": p["root_chord_m"],
-                "tip_chord": p["tip_chord_m"],
-                "sweep": math.degrees(math.atan2(tip[0] - root[0], semi_y)),
-                "dihedral": math.degrees(math.atan2(tip[2] - root[2], semi_y)),
+                "semispan_mm": 1000.0 * semi_y,
+                "root_chord_mm": 1000.0 * p["root_chord_m"],
+                "tip_chord_mm": 1000.0 * p["tip_chord_m"],
+                "le_sweep_deg": math.degrees(math.atan2(tip[0] - root[0], semi_y)),
+                "dihedral_deg": math.degrees(math.atan2(tip[2] - root[2], semi_y)),
                 "incidence": p["incidence_deg"],
                 "tip_twist": p["tip_twist_deg"],
             },
-            "sections": {"airfoils": [self.seed]},
+            "stations": [
+                {"eta": 0.0, "section": {"kind": "naca", "code": self.seed.removeprefix("NACA")}}
+            ],
             "placement": {"translation": list(root)},
         }
 

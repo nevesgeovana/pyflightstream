@@ -28,7 +28,11 @@ def configuration(**wing):
     data = {
         "components": {
             "N": {"type": "body"},
-            "W": {"type": "lifting_surface", "planform": {"span": 1.2, "taper": 0.5}, **wing},
+            "W": {
+                "type": "lifting_surface",
+                "planform": {"semispan_mm": 600.0, "taper": 0.5},
+                **wing,
+            },
         }
     }
     resolved = resolve_config(data)
@@ -45,10 +49,10 @@ def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
     from pyflightstream.geometry._caps import lifting_model
 
     _, plain = configuration()
-    bound = {"component": "N", "eta_in": 0.3, "eta_out": 0.55}
-    warnings, bounded = configuration(sections={"nacelle_bounds": [bound]})
+    bound = {"name": "N", "eta_axis": 0.425, "half_width_mm": 75.0}
+    warnings, bounded = configuration(engine=[bound])
     assert not [w for w in warnings if "nacelle_bounds" in w]
-    assert bound_stations(bounded) == [0.3, 0.55]
+    assert bound_stations(bounded) == pytest.approx([0.3, 0.55])
     assert bays(bounded) == bays(plain)
     model = lifting_model(bounded)
     assert {model.lines["v"]["nacelle_N_in"], model.lines["v"]["nacelle_N_out"]} == {0.3, 0.55}
@@ -61,34 +65,34 @@ def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
 
 
 def test_g5b_nacelle_bound_on_no_component_is_reported_by_the_verb_and_skipped():
-    bound = {"component": "pod", "eta_in": 0.3, "eta_out": 0.55}
-    warnings, component = configuration(sections={"nacelle_bounds": [bound]})
+    bound = {"name": "pod", "eta_axis": 0.425, "half_width_mm": 75.0}
+    warnings, component = configuration(engine=[bound])
     assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
     assert bound_stations(component) == []
 
 
 def test_g5b_nacelle_bounds_bad_input_is_refused():
     for bad in (
-        {"component": "N", "eta_in": 0.6, "eta_out": 0.5},
-        {"component": "N", "eta_in": -0.1, "eta_out": 0.5},
-        {"component": "N", "eta_in": 0.2, "eta_out": 1.5},
+        {"name": "N", "eta_axis": 0.55, "half_width_mm": -30.0},
+        {"name": "N", "eta_axis": 0.2, "half_width_mm": 180.0},
+        {"name": "N", "eta_axis": 0.85, "half_width_mm": 390.0},
     ):
-        with pytest.raises(InputValueError, match="nacelle_bounds"):
-            configuration(sections={"nacelle_bounds": [bad]})
+        with pytest.raises(InputValueError, match="engine"):
+            configuration(engine=[bad])
 
 
 def test_g5b_nacelle_bounds_given_twice_share_a_station():
     pair = [
-        {"component": "N", "eta_in": 0.3, "eta_out": 0.5},
-        {"component": "N", "eta_in": 0.5, "eta_out": 0.7},
+        {"name": "N", "eta_axis": 0.4, "half_width_mm": 60.0},
+        {"name": "N", "eta_axis": 0.6, "half_width_mm": 60.0},
     ]
-    _, component = configuration(sections={"nacelle_bounds": pair})
-    assert bound_stations(component) == [0.3, 0.5, 0.7]
+    _, component = configuration(engine=pair)
+    assert bound_stations(component) == pytest.approx([0.3, 0.5, 0.7])
 
 
 def loft_component(exponent=1.0):
     cap = {"kind": "exact_loft", "length": 1.0, "exponent": exponent}
-    return configuration(tip_cap={**cap, "sections": 8, "control_points": 15})[1]
+    return configuration(cap={**cap, "sections": 8, "control_points": 15})[1]
 
 
 def test_g5b_exact_loft_matches_its_closed_form():
@@ -140,10 +144,10 @@ def test_g5b_exact_loft_cap_is_two_patches_and_a_wrong_exponent_changes_it():
 def test_g5b_exact_loft_counts_come_from_the_input_and_bad_counts_are_refused():
     component = loft_component()
     assert component["tip_cap"]["sections"] == 8
-    with pytest.raises(InputValueError, match="tip_cap.sections"):
-        configuration(tip_cap={"kind": "exact_loft", "sections": 1})
-    with pytest.raises(InputValueError, match="tip_cap.kind"):
-        configuration(tip_cap={"kind": "exact-loft"})
+    with pytest.raises(InputValueError, match="cap.sections"):
+        configuration(cap={"type": "exact_loft", "sections": 1})
+    with pytest.raises(InputValueError, match="cap.type"):
+        configuration(cap={"type": "exact-loft"})
 
 
 def trailing(component):
@@ -165,7 +169,7 @@ def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
     from pyflightstream.geometry._boundary import unpack  # noqa: F401
 
     for kind in ("rounded", "exact_loft"):
-        _, component = configuration(tip_cap={"kind": kind, "extent": 0.08})
+        _, component = configuration(cap={"type": kind, "extent": 0.08})
         models = section_models(component["sections"])
         section = blended_section(component["sections"], models, 1.0)
         maximum = thickness_station(component, models, 1.0)
@@ -177,19 +181,19 @@ def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
 
 
 def test_g5b_tip_cap_extent_bad_input():
-    with pytest.raises(InputValueError, match="together with tip_cap.length"):
-        configuration(tip_cap={"kind": "rounded", "extent": 0.08, "length": 2.0})
+    with pytest.raises(InputValueError, match="together with cap.length"):
+        configuration(cap={"type": "rounded", "extent": 0.08, "length": 2.0})
     with pytest.raises(InputValueError, match="extent"):
-        configuration(tip_cap={"kind": "rounded", "extent": -0.1})
-    warnings, component = configuration(tip_cap={"kind": "flat", "extent": 0.08})
-    assert any("tip_cap.extent" in text for text in warnings)
+        configuration(cap={"type": "rounded", "extent": -0.1})
+    warnings, component = configuration(cap={"type": "flat", "extent": 0.08})
+    assert any("cap.extent" in text for text in warnings)
     assert "extent" not in component["tip_cap"]
 
 
 @pytest.mark.parametrize("kind", ["flat", "rounded", "ridged", "none"])
 def test_r14_004_loft_counts_on_another_cap_are_warned_and_skipped(kind):
-    warnings, _ = configuration(tip_cap={"kind": kind, "sections": 12, "control_points": 9})
-    assert any("tip_cap.sections" in text and kind in text for text in warnings)
-    assert any("tip_cap.control_points" in text for text in warnings)
-    warnings, _ = configuration(tip_cap={"kind": "exact_loft", "sections": 12})
-    assert not [text for text in warnings if "tip_cap.sections" in text]
+    warnings, _ = configuration(cap={"type": kind, "sections": 12, "control_points": 9})
+    assert any("cap.sections" in text and kind in text for text in warnings)
+    assert any("cap.control_points" in text for text in warnings)
+    warnings, _ = configuration(cap={"type": "exact_loft", "sections": 12})
+    assert not [text for text in warnings if "cap.sections" in text]
