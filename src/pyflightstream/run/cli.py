@@ -1254,6 +1254,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             sims=args.sims,
             points=args.points,  # FR-326
             progress_every=args.progress_every,
+            parallel=args.parallel,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
             local=args.local,

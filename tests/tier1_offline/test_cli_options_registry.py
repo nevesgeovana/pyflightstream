@@ -947,7 +947,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "families"): frozenset({"refine"}),
     ("pyfs-matrix", "chordwise"): frozenset({"refine"}),
     ("pyfs-matrix", "spanwise"): frozenset({"refine"}),
-    ("pyfs-matrix", "parallel"): frozenset({"refine"}),
+    ("pyfs-matrix", "parallel"): frozenset({"refine", "run"}),
     ("pyfs-matrix", "accept_remesh"): frozenset({"refine"}),
     ("pyfs-matrix", "accept_unknown"): frozenset({"refine"}),
     ("pyfs-matrix", "force_factors"): frozenset({"refine"}),

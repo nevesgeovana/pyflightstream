@@ -720,9 +720,32 @@ def _add_run_parsers(subparsers: Any) -> None:
     )
 
 
+def _parallel_count(text: str) -> int | str:
+    """Parse --parallel: a positive whole number or auto."""
+    if text == "auto":
+        return text
+    try:
+        count = int(text)
+    except ValueError:
+        count = 0
+    if count < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is neither a positive whole number nor auto")
+    return count
+
+
 def _add_run_option_parsers(subparsers: Any) -> None:
     """Add the later options of the run subcommand."""
     run = subparsers.choices["run"]
+    run.add_argument(
+        "--parallel",
+        dest="parallel",
+        type=_parallel_count,
+        default=None,
+        metavar="N|auto",
+        help="solver runs alive at once on this machine: a positive count (at most 8) or "
+        "auto (2 on a multi-core machine, bounded by the configured licence seats and the "
+        "free memory). Default: the setup's [runtime] parallel, else one at a time",
+    )
     run.add_argument(
         "--progress-every",
         dest="progress_every",

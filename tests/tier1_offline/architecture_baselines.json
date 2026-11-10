@@ -1101,7 +1101,7 @@
   "pyflightstream.run._batch_run": 2,
   "pyflightstream.run._campaign": 3,
   "pyflightstream.run._cli_geometry": 4,
-  "pyflightstream.run._cli_parsers": 2,
+  "pyflightstream.run._cli_parsers": 3,
   "pyflightstream.run._cli_print": 4,
   "pyflightstream.run._cli_query_point": 1,
   "pyflightstream.run._collect_logs": 1,
