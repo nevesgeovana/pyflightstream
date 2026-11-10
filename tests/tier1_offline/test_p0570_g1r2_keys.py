@@ -189,6 +189,25 @@ def test_a_single_fin_on_the_plane_has_sref_of_its_one_surface():
     assert component["placement"]["rotation"] == [90.0, 0.0, 0.0]
 
 
+def test_r21_011_a_mirrored_fin_pair_has_sref_of_both_fins():
+    """Off the symmetry plane a fin is mirrored: Sref and the aspect ratio are of the pair.
+
+    Each fin is then half the span b = sqrt(AR Sref) high and carries half of Sref.
+    """
+    text = (
+        '[surface]\nname = "F"\nspan_axis = "z"\n[planform]\n'
+        "sref_m2 = 0.8\naspect_ratio = 2.5\ntaper = 0.5\nroot_le_mm = [9000.0, -1500.0, 0.0]\n"
+    )
+    planform = wing(resolve_config(tomllib.loads(text)), "F")["planform"]
+    span = (0.8 * 2.5) ** 0.5
+    assert planform["area"] == pytest.approx(0.8, rel=1e-12)
+    assert planform["aspect_ratio"] == pytest.approx(2.5)
+    assert planform["span"] == pytest.approx(span)
+    # independent of the area rule: one fin, a trapezoid of height b / 2 with these chords
+    one_fin = 0.5 * span * (planform["root_chord"] + planform["tip_chord"]) / 2
+    assert one_fin == pytest.approx(0.4)
+
+
 def test_a_wing_sref_is_the_published_area_of_both_halves():
     text = '[surface]\nname = "W"\n[planform]\nsref_m2 = 12.0\naspect_ratio = 9.0\ntaper = 0.6\n'
     planform = wing(resolve_config(tomllib.loads(text)), "W")["planform"]
