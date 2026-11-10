@@ -132,6 +132,102 @@ def test_p0570_gm11_followers_copy_shared_ids_with_first_neighbour_priority():
         follower_edges(controls, {**given, "blend": {"rim": [7, 8]}})
 
 
+def _grid(nx=2, ny=2, *, component="patch"):
+    from pyflightstream.geometry._mesh_topology import Mesh
+
+    xyz = np.array([(i, j, 0.0) for j in range(ny + 1) for i in range(nx + 1)])
+    ids = np.arange(len(xyz)).reshape(ny + 1, nx + 1)
+    cells = [
+        (int(ids[j, i]), int(ids[j, i + 1]), int(ids[j + 1, i + 1]), int(ids[j + 1, i]))
+        for j in range(ny)
+        for i in range(nx)
+    ]
+    return Mesh(xyz, cells, [component] * len(cells), [1] * len(cells), np.arange(len(xyz))), ids
+
+
+@pytest.mark.parametrize("kind", ["lifting_surface", "control_surface", "fillet", "fuselage"])
+def test_p0570_gm11_full_structured_grid_yes_no(kind):
+    from pyflightstream.workspace._geometry_mesh_s1 import structured_check
+
+    mesh, ids = _grid()
+    assert structured_check(mesh, ids, "patch", kind)["status"] == "passed"
+    bad = deepcopy(mesh)
+    bad.cells[0] = bad.cells[0][:3]
+    assert structured_check(bad, ids, "patch", kind)["status"] == "failed"
+    bad = deepcopy(mesh)
+    bad.cells[0] = tuple(reversed(bad.cells[0]))
+    assert structured_check(bad, ids, "patch", kind)["status"] == "failed"
+
+
+@pytest.mark.parametrize("kind", ["lifting_surface", "fillet"])
+def test_p0570_gm11_constant_y_from_root_with_no_blend_yes_no(kind):
+    from pyflightstream.workspace._geometry_mesh_s1 import row_check
+
+    mesh, ids = _grid()
+    assert row_check(mesh.xyz, ids, kind)["measured"] == 0
+    bad = mesh.xyz.copy()
+    bad[ids[0, 1], 1] += 0.02
+    assert row_check(bad, ids, kind)["status"] == "failed"
+
+
+def test_p0570_gm11_blunt_te_one_quad_across_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import trailing_edge_check
+
+    assert trailing_edge_check(np.arange(6).reshape(3, 2))["status"] == "passed"
+    assert trailing_edge_check(np.arange(9).reshape(3, 3))["status"] == "failed"
+
+
+def test_p0570_gm11_fuselage_uniform_longitudinal_spacing_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import axial_check
+
+    mesh, ids = _grid()
+    # The axial stations index grid columns; 150 mm is fixture data, not a default.
+    mesh.xyz[:, 0] *= 0.15
+    assert axial_check(mesh.xyz, ids.T, 0.15)["status"] == "passed"
+    mesh.xyz[ids[1, 1], 0] += 0.01
+    assert axial_check(mesh.xyz, ids.T, 0.15)["status"] == "failed"
+
+
+@pytest.mark.parametrize(
+    ("region", "intersects", "yes"),
+    [
+        ("fairing", [], True),
+        ("aft_patch", ["pylon"], True),
+        ("aft_patch", ["vertical_tail"], True),
+        ("aft_patch", [], False),
+        ("fuselage", ["pylon"], False),
+        ("fillet", [], False),
+        ("lifting_surface", [], False),
+    ],
+)
+def test_p0570_gm11_quad_dominant_only_allowed_regions(region, intersects, yes):
+    from pyflightstream.workspace._geometry_mesh_s1 import transition_checks
+
+    mesh, _ = _grid()
+    mesh.cells[0] = mesh.cells[0][:3]
+    checks = transition_checks(
+        mesh,
+        "patch",
+        region,
+        {"max_triangle_fraction": 0.5, "max_aspect": 3, "max_skew_deg": 90},
+        intersects=intersects,
+    )
+    assert (checks[0]["status"] == "passed") is yes
+
+
+def test_p0570_gm11_transition_limits_measured_yes_no():
+    from pyflightstream.workspace._geometry_mesh_s1 import transition_checks
+
+    mesh, _ = _grid()
+    limits = {"max_triangle_fraction": 0.1, "max_aspect": 2, "max_skew_deg": 50}
+    assert all(c["status"] == "passed" for c in transition_checks(mesh, "patch", "fairing", limits))
+    mesh.cells[0] = mesh.cells[0][:3]
+    assert any(
+        c["id"] == "mesh.transition.triangle_fraction" and c["status"] == "failed"
+        for c in transition_checks(mesh, "patch", "fairing", limits)
+    )
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 
