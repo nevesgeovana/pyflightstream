@@ -10,21 +10,60 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from pyflightstream.workspace._geom_gate import _Surface
-from pyflightstream.workspace._iges_write import read_iges
+from pyflightstream.geometry.iges_profile import ReaderProfile
+from pyflightstream.workspace._geom_gate import check_profile
+from pyflightstream.workspace._iges_write import read_iges, serialize_iges
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 
 @pytest.mark.parametrize("u", [0.001, 0.999], ids=["P0570-low-bound", "P0570-high-bound"])
-def test_p0570_anisotropic_surface_distance(u):
+def test_p0570_anisotropic_surface_distance(tmp_path, u):
     values = [128, 1, 1, 1, 1, 0, 0, 1, 0, 0]
     values += [0, 0, 1, 1, 0, 0, 10000, 10000]
     values += [1, 1, 1, 1]
     values += [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0]
     values += [0, 1, 0, 10000]
-    surface = _Surface([str(v) for v in values])
-    point = np.array([u, 0.12345, 0.0])
-    assert surface.distance(point) < 1e-9 * np.sqrt(2)
+    corners = [(u, 0.12345), (u + 0.00001, 0.12345), (u + 0.00001, 0.12346), (u, 0.12346)]
+    entities = [
+        _entity(1, 128, values),
+        _entity(3, 144, [144, 1, 1, 0, 5, 0, 1, 11]),
+        _entity(5, 142, [142, 1, 1, 7, 9, 1]),
+        _entity(7, 102, [102, 4, 13, 17, 21, 25]),
+        _entity(9, 102, [102, 4, 15, 19, 23, 27]),
+        _entity(11, 406, [406, 1, "5Hplate"]),
+    ]
+    entities[3]["d1"][8] = "00000500"
+    entities[5]["d2"][4] = f"{15:8d}"
+    for i, (x, y) in enumerate(corners):
+        xx, yy = corners[(i + 1) % 4]
+        entities += [
+            _entity(13 + 4 * i, 110, [110, x, y * 10000, 0, xx, yy * 10000, 0]),
+            _entity(15 + 4 * i, 110, [110, x, y, 0, xx, yy, 0]),
+        ]
+        entities[-2]["d1"][8] = "00000500"
+    globals_ = ["0"] * 25
+    globals_[18] = str(1e-9 * np.sqrt(2))
+    document = {"start": ["distance fixture"], "global": globals_, "entities": entities}
+    path = tmp_path / "distance.igs"
+    path.write_text(serialize_iges(document), encoding="ascii")
+    profile = ReaderProfile(degrees_u=(1,), degrees_v=(1,))
+    assert check_profile(path, profile).passed
+    # A parallel displacement must still be detected at the same resolution.
+    for entity in entities:
+        if entity["id"] in (15, 19, 23, 27):
+            entity["parameters"][3] = entity["parameters"][6] = "0.00001"
+    path.write_text(serialize_iges(document), encoding="ascii")
+    assert {f.check for f in check_profile(path, profile).failed} == {"profile.loop_surface"}
+
+
+def _entity(ident, kind, values):
+    return {
+        "id": ident,
+        "type": kind,
+        "parameters": [str(v) for v in values],
+        "d1": [f"{kind:8d}"] + [f"{0:8d}"] * 7 + ["00000000"],
+        "d2": [f"{kind:8d}"] + [f"{0:8d}"] * 8,
+    }
 
 
 @pytest.mark.parametrize("preference", [1, 3], ids=["P0570-default", "P0570-either"])
@@ -61,10 +100,11 @@ def test_p0570_written_boundaries_carry_both_curves(tmp_path, preference):
 
 
 @pytest.mark.parametrize("gap", [0.0, 0.00013], ids=["P0570-control", "P0570-cap-edge-gap"])
-def test_p0570_cap_boundary_check_reaches_run_log(tmp_path, monkeypatch, gap):
-    from pyflightstream.geometry import resolve_config, stages
+def test_p0570_cap_boundary_check_reaches_run_log(tmp_path, gap):
+    from pyflightstream.geometry import resolve_config
     from pyflightstream.geometry._boundary import unpack
     from pyflightstream.geometry._caps import lifting_model
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
     from pyflightstream.workspace.geometry_pipeline import run_geometry
 
     raw = {"components": {"main": {"type": "lifting_surface", "cap": {"type": "rounded"}}}}
@@ -76,8 +116,13 @@ def test_p0570_cap_boundary_check_reaches_run_log(tmp_path, monkeypatch, gap):
     controls[0, 1:, 2] += gap
     caps = {**model.caps, "tip_cap_corner": replace(corner, controls=controls)}
     model = replace(model, caps=caps)
-    monkeypatch.setattr(stages, "lifting_model", lambda *args, **kwargs: model, raising=False)
-    report = run_geometry(raw, out=tmp_path, until="S8")
+
+    def supply_model(context):
+        context.state["lifting_models"] = {"main": model}
+        return StageOutcome()
+
+    plan = [Stage(s.row, supply_model) if s.row.stage == "S7" else s for s in default_stages()]
+    report = run_geometry(raw, out=tmp_path, until="S8", stages=plan)
     if gap:
         assert report["status"] == "failed"
         assert (report["stage"], report["check"]) == ("S8", "closure.cap_edge_gap")

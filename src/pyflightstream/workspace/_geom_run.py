@@ -362,16 +362,19 @@ def _assembly_step(stage: str) -> StageFn:
 
 
 def _closures(context: RunContext) -> StageOutcome:
-    """S8: measure cap boundaries against the skin and the adjacent cap faces."""
+    """S8: measure the preceding stage's lifting models, building absent models once."""
     from pyflightstream.geometry import stages
 
     checks, inputs = [], {}
+    models = context.state.setdefault("lifting_models", {})
     components = unpack(context.resolved)["components"]
     for name in context.members:
         component = components[name]
         if component["type"] != "lifting_surface":
             continue
-        model = stages.lifting_model(component)
+        if name not in models:
+            models[name] = stages.lifting_model(component)
+        model = models[name]
         if not model.caps:
             continue
         gap = stages.cap_edge_gap(model)

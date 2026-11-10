@@ -9,3 +9,7 @@ stop the run with `closure.cap_edge_gap` when the gap exceeds 0.005 mm.
 
 migration: IGES export writes PREF 1 for requests for either model space (2)
 or either space (3), with a warning naming the replacement.
+
+The closure stage measures lifting models handed to it by preceding custom
+stages through `RunContext.state["lifting_models"]`; absent models are built
+once and retained for subsequent checks.
