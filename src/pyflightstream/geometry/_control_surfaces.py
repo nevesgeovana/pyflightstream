@@ -25,11 +25,20 @@ from ._control_curves import point as _point
 from ._control_span import prepare_spans
 from ._control_span import span_limits as _span
 from ._fowler import add_fowler, definition, pin_skin, with_pins
+from ._fowler import check_partition as check_fowler
 from ._patch import Patch
 from ._placement import placement_transform
 from ._trims import Trim, iso_trim
 
-__all__ = ["ControlPartition", "build", "imported", "partition", "placed"]
+__all__ = [
+    "ControlPartition",
+    "build",
+    "check_fowler",
+    "face_patches",
+    "imported",
+    "partition",
+    "placed",
+]
 
 
 def _end(skin, lower, upper, station):
@@ -178,14 +187,17 @@ def _caps(component, model):
     return bases, main
 
 
-def build(component: dict) -> ControlPartition:
-    """Build plain flap and aileron pieces from resolved control entries.
+def build(component: dict, *, strict: bool = True) -> ControlPartition:
+    """Build closed plain and Fowler pieces from resolved control entries.
 
     Parameters
     ----------
     component : dict
         Resolved lifting surface in its local frame. Span limits and gaps are
         fractions of the planform semispan; chord gap is a chord fraction.
+    strict : bool, optional
+        Refuse inadequate nested clearance; false retains the failed measurement
+        for the runner to stop at the nesting sub-step.
 
     Returns
     -------
@@ -216,6 +228,10 @@ def build(component: dict) -> ControlPartition:
         _rectangle(main, u, (previous, 1.0))
     if previous < 1:
         main.append(iso_trim("te_end", "trailing_edge", (0, 1), (previous, 1), "trailing_edge"))
+    if strict and any(
+        c["id"] == "fowler.nested_clearance_pct" and c["status"] == "failed" for c in checks
+    ):
+        raise InputValueError("control.clearance_pct: nested clearance is below its stated minimum")
     return ControlPartition(bases, {"main": tuple(main), **pieces}, tuple(warnings), tuple(checks))
 
 
@@ -268,12 +284,43 @@ def placed(components: dict, name: str) -> ControlPartition:
     ControlPartition
         Bases transformed by the component placement and parent chain.
     """
-    model = build(components[name])
+    model = build(components[name], strict=False)
     rotation, translation = placement_transform(components, name)
     return replace(
         model,
         bases=transform_bases(model.bases, rotation, translation),
     )
+
+
+def face_patches(model: ControlPartition, trims) -> list[Patch]:
+    """Restrict rectangular applied faces exactly for the assembly's source hulls.
+
+    Parameters
+    ----------
+    model : ControlPartition
+        Bases and iso trims of an applied component.
+    trims : sequence of Trim
+        The faces of one stationary or moving piece.
+
+    Returns
+    -------
+    list of Patch
+        Exact restrictions by knot insertion, with normalized parameters.
+
+    Raises
+    ------
+    InputValueError
+        If a face is not a rectangular iso trim or has an inner loop.
+    """
+    patches = []
+    for trim in trims:
+        us = sorted({p[0] for edge in trim.loop for p in edge})
+        vs = sorted({p[1] for edge in trim.loop for p in edge})
+        if len(us) != 2 or len(vs) != 2 or trim.inner:
+            raise InputValueError("control face: require rectangular iso trims for a source hull")
+        p = _interval(model.bases[trim.base], "u", *us)
+        patches.append(replace(_interval(p, "v", *vs), family=trim.face, role=trim.role))
+    return patches
 
 
 def imported(skin: Patch, entry: dict) -> dict:

@@ -54,3 +54,13 @@ F7 builds the requested registry variant automatically, retaining all selected
 components and all angle combinations of the active controls. A standalone
 vertical surface receives a planar root cap; its measured area and the
 combined files' sewn free and triple edges appear in the F7 record.
+
+Fowler measurements now inspect the actual applied bases. A changed flap
+position, altered exterior, reduced nesting clearance or missing cove bay
+fails its own check. A failing nesting check stops at FW2 before motion-law
+records are written. The strict 0.01 percent chord law threshold is recorded.
+
+F7 applies configured host junctions using exact restricted control faces
+and the existing measured assembly operations. Junction lengths and the
+assembly sub-step records accompany each angle combination; sewn closure
+alone cannot stand in for a junction that was never formed.

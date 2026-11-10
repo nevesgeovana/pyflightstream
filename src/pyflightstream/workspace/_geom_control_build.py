@@ -134,7 +134,12 @@ def prepare(kernel, components, members, out):
     steps = {
         "FW1": {"fowler.cove_bay_mismatch"},
         "FW2": {"fowler.nested_clearance_pct"},
-        "FW3": {"fowler.gap_error_pct", "fowler.overlap_error_pct", "fowler.inside_main"},
+        "FW3": {
+            "fowler.gap_error_pct",
+            "fowler.overlap_error_pct",
+            "fowler.inside_main",
+            "fowler.law_threshold_hits",
+        },
         "FW4": {"closure.retracted_identity"},
     }
     for step, names in steps.items():

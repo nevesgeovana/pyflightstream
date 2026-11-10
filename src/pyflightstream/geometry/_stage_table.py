@@ -291,6 +291,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         True,
         ("fowler.gap_error_pct", "below 0.01 percent chord, 49 stations"),
         ("fowler.overlap_error_pct", "below 0.01 percent chord, 49 stations"),
+        ("fowler.law_threshold_hits", "0 errors at or above 0.01 percent chord"),
         ("fowler.inside_main", "0 profile points at 49 stations"),
     ),
     _row(

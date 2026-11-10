@@ -216,13 +216,70 @@ def definition(skin, entry, span, previous=0.0):
     bases, main = _cove(skin, patches, limits, span, previous)
     nested, trims = _nested(skin, patches, limits, span)
     name = entry["name"]
-    checks = measure(skin, patches, nested, entry, span)
+    pieces, motions = {}, {}
+    for angle in entry["deflection_deg"]:
+        label = f"{name}-d{float(angle):g}"
+        rotation, translation = motion(skin, patches, nested, entry, span, angle=angle)
+        matrix = np.eye(4)
+        matrix[:3, :3], matrix[:3, 3] = rotation, translation
+        motions[label] = matrix.tolist()
+        for key in {t.base for t in trims}:
+            p = nested[key]
+            bases[f"{label}/{key}"] = replace(p, controls=p.controls @ rotation.T + translation)
+        pieces[label] = tuple(replace(t, base=f"{label}/{t.base}") for t in trims)
+    own = {k for k in bases if k != "skin" and "/" not in k}
+    bases = {f"{name}_{k}" if k in own else k: p for k, p in bases.items()}
+    main = [
+        replace(t, face=f"{name}_{t.face}", base=f"{name}_{t.base}" if t.base in own else t.base)
+        for t in main
+    ]
+    model = ControlPartition(bases, {"main": tuple(main), **pieces})
+    model = replace(model, checks=tuple(check_partition(model, entry, span=span)))
+    return {"model": model, "limits": limits, "motions": motions}
+
+
+def check_partition(model, entry, *, span):
+    """Recompute the Fowler checks from actual applied bases and iso faces.
+
+    Parameters
+    ----------
+    model : ControlPartition
+        Applied geometry in the component's local frame.
+    entry : dict
+        Fowler control definition used for construction.
+    span : tuple
+        Inboard and outboard skin parameters and the normalized end gap.
+
+    Returns
+    -------
+    list of dict
+        Measured checks against the stated clearance and motion targets.
+    """
+    skin = model.bases["skin"]
+    name = entry["name"]
+    patches = {n: model.bases[f"{name}_{n}"] for n in ("cove_wall", "cove_roof", "lip_base")}
+    applied = {
+        angle: {
+            key[len(f"{name}-d{float(angle):g}/") :]: value
+            for key, value in model.bases.items()
+            if key.startswith(f"{name}-d{float(angle):g}/")
+        }
+        for angle in entry["deflection_deg"]
+    }
+    if 0 in applied:
+        nested = applied[0]
+    else:
+        original, limits = _shape(skin, entry)
+        nested, _ = _nested(skin, original, limits, span)
+    checks = measure(skin, patches, nested, entry, span, applied=applied)
     expected = sorted({span[0], span[1], *(v for v in skin.knots_v if span[0] < v < span[1])})
     wanted = set(zip(expected, expected[1:], strict=False))
     mismatch = 0
     for role in ("cove_wall", "cove_roof", "lip_base"):
         actual = {
-            tuple(sorted({p[1] for edge in t.loop for p in edge})) for t in main if t.role == role
+            tuple(sorted({p[1] for edge in t.loop for p in edge}))
+            for t in model.pieces["main"]
+            if t.role == role
         }
         mismatch += len(wanted.symmetric_difference(actual))
     checks.insert(
@@ -235,26 +292,4 @@ def definition(skin, entry, span, previous=0.0):
             where={"control": entry["name"], "bay_limits": expected},
         ),
     )
-    pieces, motions = {}, {}
-    for angle in entry["deflection_deg"]:
-        label = f"{name}-d{float(angle):g}"
-        rotation, translation = motion(skin, patches, nested, entry, span, angle=angle)
-        matrix = np.eye(4)
-        matrix[:3, :3], matrix[:3, 3] = rotation, translation
-        motions[label] = matrix.tolist()
-        for key in {t.base for t in trims}:
-            p = nested[key]
-            bases[f"{label}/{key}"] = replace(p, controls=p.controls @ rotation.T + translation)
-        pieces[label] = tuple(replace(t, base=f"{label}/{t.base}") for t in trims)
-    # Prefix cove-specific definitions so multiple independent Fowler spans coexist.
-    own = {k for k in bases if k != "skin" and "/" not in k}
-    bases = {f"{name}_{k}" if k in own else k: p for k, p in bases.items()}
-    main = [
-        replace(t, face=f"{name}_{t.face}", base=f"{name}_{t.base}" if t.base in own else t.base)
-        for t in main
-    ]
-    return {
-        "model": ControlPartition(bases, {"main": tuple(main), **pieces}, checks=tuple(checks)),
-        "limits": limits,
-        "motions": motions,
-    }
+    return checks

@@ -98,16 +98,12 @@ def _nested_clearance(skin, patches, outline, stations):
     return 100 * minimum
 
 
-def measure(skin, patches, nested, entry, span):
+def measure(skin, patches, nested, entry, span, *, applied):
     """Measure nested clearance, exterior identity and every deployed section law."""
     a, b, gap = span
     stations = np.linspace(a + gap, b - gap, 49)
     outline = curves(skin, nested, entry)
     clearance = _nested_clearance(skin, patches, outline, stations)
-    if clearance < entry.get("clearance_pct", 0.1) - 1e-10:
-        raise InputValueError(
-            f"control.clearance_pct: nested clearance {clearance:g} percent chord is too small"
-        )
     checks = [
         _check(
             "fowler.nested_clearance_pct", clearance, entry.get("clearance_pct", 0.1), bound="min"
@@ -133,20 +129,17 @@ def measure(skin, patches, nested, entry, span):
             )
     checks.append(_check("closure.retracted_identity", identity, 1e-12, unit="m"))
     for angle in entry["deflection_deg"]:
-        checks.extend(
-            _angle_checks(skin, patches, nested, entry, span, stations=stations, angle=angle)
-        )
+        checks.extend(_angle_checks(skin, patches, applied[angle], entry, stations, angle=angle))
     return checks
 
 
-def _angle_checks(skin, patches, nested, entry, span, *, stations, angle):
-    rotation, translation = motion(skin, patches, nested, entry, span, angle=angle)
+def _angle_checks(skin, patches, nested, entry, stations, *, angle):
     outline = curves(skin, nested, entry)
     error_gap, error_overlap, inside = 0.0, 0.0, 0
     laws = {row["deflection_deg"]: row for row in entry.get("kinematics", [])}
     for v in stations:
         le, axes = frame(skin, v)
-        profiles = _profiles(skin, outline, v, rotation, translation)
+        profiles = _profiles(skin, outline, v, np.eye(3), np.zeros(3))
         inside += inside_count(skin, patches, profiles, v, le, axes=axes)
         if angle:
             lip = cove_points(patches, v, le, axes)[2]
@@ -162,6 +155,13 @@ def _angle_checks(skin, patches, nested, entry, span, *, stations, angle):
             [
                 _check("fowler.gap_error_pct", error_gap, 0.01, where=where),
                 _check("fowler.overlap_error_pct", error_overlap, 0.01, where=where),
+                _check(
+                    "fowler.law_threshold_hits",
+                    int(error_gap >= 0.01) + int(error_overlap >= 0.01),
+                    0,
+                    unit="count",
+                    where=where,
+                ),
             ]
         )
     return checks

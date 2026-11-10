@@ -759,3 +759,67 @@ def test_p0570_gm9_f7_applies_the_tail_host_junction(tmp_path):
     assert record["status"] == "passed", (report, record)
     lengths = record["outputs"].get("junction_lengths_m", {})
     assert lengths and all(values["host/panel"] > 0 for values in lengths.values()), record
+
+
+def test_p0570_gm9_fowler_bad_nesting_stops_at_its_own_substep(tmp_path):
+    import json
+
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = _fowler_config()
+    raw["components"]["panel"]["control"][0]["clearance_pct"] = 20
+    report = run_geometry(raw, out=tmp_path, until="S10.F4")
+    assert report["status"] == "failed" and report["stage"] == "S10.FW2", report
+    record = json.loads((tmp_path / "S10.FW2.json").read_text(encoding="utf-8"))
+    assert record["checks"][0]["id"] == "fowler.nested_clearance_pct"
+    assert record["checks"][0]["limit"] == 20
+    assert not (tmp_path / "S10.FW3.json").exists()
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "fowler.nested_clearance_pct" in log and "S10.FW2" in log
+
+
+def test_p0570_gm9_kinked_cove_uses_sewing_to_reject_an_unsplit_roof(kernel, tmp_path):
+    from dataclasses import replace
+
+    skin = _box_skin()
+    poles = skin.controls.copy()
+    poles[:, 1, 0] += 0.3
+    poles[:, 2, 0] += 0.1
+    skin = replace(skin, controls=poles)
+    original = stages.controls.partition(skin, lower=0.2, upper=0.8, span=(0.2, 0.7))
+    entry = {**_fowler_config()["components"]["panel"]["control"][0], "deflection_deg": [0]}
+    model = stages.controls.imported(skin, entry)["main"]
+    model.bases.update({k: original.bases[k] for k in ("root", "tip")})
+    extra = [
+        t
+        for t in original.pieces["main"]
+        if t.base in ("root", "tip")
+        or (
+            t.base in ("skin", "trailing_edge")
+            and min(p[1] for edge in t.loop for p in edge) >= 0.7
+        )
+    ]
+    main = [*model.pieces["main"], *extra]
+    for broken in (False, True):
+        if broken:
+            p = model.bases["flap_cove_roof"]
+            changed = p.controls.copy()
+            changed[:, 1] = (changed[:, 0] + changed[:, -1]) / 2
+            model.bases["flap_cove_roof"] = replace(p, controls=changed)
+        native = {}
+        for key in {t.base for t in main}:
+            p = model.bases[key]
+            native[key] = kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        faces = [kernel.add_trimmed_face(native[t.base], [t.loop]) for t in main]
+        path = tmp_path / f"kink-{broken}.igs"
+        kernel.export_iges({"main": faces}, path)
+        measured = _fcheck(kernel, "F1", {"path": str(path)})
+        assert _passed(measured) is not broken, measured

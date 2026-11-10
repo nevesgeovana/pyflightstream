@@ -30,7 +30,7 @@ def exterior_intervals(skin, entry):
 
 def curves(skin, nested, entry):
     return [
-        *(interval(skin, "u", a, b) for a, b in exterior_intervals(skin, entry)),
+        *(interval(nested["skin"], "u", a, b) for a, b in exterior_intervals(skin, entry)),
         *(nested[n] for n in ("nose", "upper_nested", "upper_transition", "trailing_edge")),
     ]
 
