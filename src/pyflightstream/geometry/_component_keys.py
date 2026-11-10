@@ -428,6 +428,24 @@ def check_fillet(name, component, warnings, findings):
         known_keys(component["laws"], ("radius", "handle", "setback"), f"{name}.laws", warnings)
 
 
+def _check_blister_law(name, component):
+    """Refuse a blister without increasing stations, or without a depth and a sections file."""
+    x = component.get("stations", {}).get("x")
+    if x is None:
+        raise InputValueError(f"{name}.stations.x: required")
+    stations(x, f"{name}.stations.x", 2, -math.inf, math.inf)
+    depth = component.get("profile", {}).get("depth")
+    if depth is None and not component["sections_file"]:  # a sections file gives the depth
+        raise InputValueError(f"{name}.profile.depth: required")
+    if depth is None:
+        return
+    if isinstance(depth, list):  # one depth per station; the tips are poles (G6R)
+        for value in depth:
+            number(value, f"{name}.profile.depth", 0)
+    else:
+        number(depth, f"{name}.profile.depth", 0, strict=True)
+
+
 def check_blister(name, component, warnings, findings):
     """Check a blister component: a host, increasing stations and a depth."""
     check_common(name, component, warnings)
@@ -443,20 +461,7 @@ def check_blister(name, component, warnings, findings):
             f"{name}.profile",
             warnings,
         )
-    x = component.get("stations", {}).get("x")
-    if x is None:
-        raise InputValueError(f"{name}.stations.x: required")
-    stations(x, f"{name}.stations.x", 2, -math.inf, math.inf)
-    depth = component.get("profile", {}).get("depth")
-    if depth is None and not component["sections_file"]:  # a sections file gives the depth
-        raise InputValueError(f"{name}.profile.depth: required")
-    if depth is None:
-        pass
-    elif isinstance(depth, list):  # one depth per station; the tips are poles (G6R)
-        for value in depth:
-            number(value, f"{name}.profile.depth", 0)
-    else:
-        number(depth, f"{name}.profile.depth", 0, strict=True)
+    _check_blister_law(name, component)
     if component["sections_file"] == "" and "sections" not in component:
         component["sections"] = {"kind": "superellipse"}
     if component["tips"] != "pole":
