@@ -7,6 +7,8 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 REPO = Path(__file__).resolve().parents[2]
 _SPEC = importlib.util.spec_from_file_location(
     "check_doc_links", REPO / "scripts" / "check_doc_links.py"
@@ -61,6 +63,13 @@ def test_deploy_serves_a_latest_page_for_every_page_of_the_build(tmp_path):
         assert f"url={base}0.57.0/{rel}" in stub, rel
     missing = (out / "404.html").read_text(encoding="utf-8")
     assert "rest.slice(7)" in missing
+
+
+def test_pages_deploy_waits_longer_than_the_default_ten_minutes():
+    workflow = yaml.safe_load((REPO / ".github/workflows/docs.yml").read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["deploy"]["steps"]
+    deploy = next(s for s in steps if s.get("uses", "").startswith("actions/deploy-pages@"))
+    assert int(deploy["with"]["timeout"]) >= 1_800_000
 
 
 def test_site_url_is_the_served_latest_alias():
