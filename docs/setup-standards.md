@@ -314,7 +314,8 @@ The homogeneous policies are inferred from GOAL-076, not measured. They are
 conservative starting points for the kit's calibration to confirm. Detection
 uses Windows processor relationships or Linux sysfs; unsupported or incomplete
 topology is refused. Submitted jobs cannot use the submit host as evidence for
-a compute node, so this block requires a local launch on the solver machine.
+a compute node, so `max_threads` and `affinity` require a local launch on the solver
+machine; the concurrency keys below do not, and a submitted run ignores them.
 
 The run record's `solver_setup.runtime` stores the resolved count, requested
 affinity, applied KMP environment and topology (physical and logical cores,

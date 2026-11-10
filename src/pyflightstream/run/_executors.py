@@ -1742,8 +1742,14 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     """
     if isinstance(executor, LocalExecutor):
         case = executor.resolve_case_runtime(case)
-    elif case.solver.runtime is not None:
-        raise CampaignConfigError("[runtime] requires a local launch on the solver machine")
+    elif case.solver.runtime is not None and (
+        case.solver.runtime.max_threads is not None or case.solver.runtime.affinity is not None
+    ):
+        # Only a launch policy needs the solver machine; the concurrency keys bound local runs
+        # and a submitted run, which runs one at a time, ignores them (PFS-2201.02).
+        raise CampaignConfigError(
+            "[runtime] max_threads and affinity require a local launch on the solver machine"
+        )
     if _machine_exports_log(executor):
         return case
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})

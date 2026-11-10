@@ -412,3 +412,15 @@ def test_p0570_r23_005_an_interrupt_or_a_crashed_worker_starts_no_queued_case(st
         parallel.run_pool(units, 1)
     time.sleep(0.8)  # long enough for every queued case to run, were any still queued
     assert len(ran) <= 1, ran
+
+
+def test_p0570_r23_006_a_parallel_only_block_is_no_launch_policy_for_a_submitted_run(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.run._executors import _with_the_profile_s_log
+
+    parallel_only = make_cases(tmp_path, 1, RuntimeSettings(parallel=2, licence_seats=3)).sims[0]
+    launched = _with_the_profile_s_log(parallel_only, object())
+    assert launched.solver.runtime == parallel_only.solver.runtime
+    threads = make_cases(tmp_path, 1, RuntimeSettings(max_threads=4)).sims[0]
+    with pytest.raises(CampaignConfigError, match="local launch"):
+        _with_the_profile_s_log(threads, object())
