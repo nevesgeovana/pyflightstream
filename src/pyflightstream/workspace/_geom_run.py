@@ -73,12 +73,17 @@ __all__ = [
 
 @dataclass
 class StageOutcome:
-    """What one stage returns: its checks, findings, warnings and the files it wrote."""
+    """What one stage returns: its checks, findings, warnings and the files it wrote.
+
+    ``wall_s`` is the stage's own wall time when the stage measured it apart from the call
+    (a sub-step of S10, all run in one call); None lets the runner time the call.
+    """
 
     checks: list[dict[str, Any]] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     outputs: dict[str, Any] = field(default_factory=dict)
+    wall_s: float | None = None
 
 
 @dataclass
@@ -345,8 +350,12 @@ def _assembly_step(stage: str) -> StageFn:
         if record is None:
             note = f"not measured: the assembly stopped at {result['records'][-1]['stage']}"
             return StageOutcome(checks=[check_entry(c, "skipped", note=note) for c in ids])
+        # the assembly runs every sub-step in the first call; each record keeps its own time
         return StageOutcome(
-            checks=record["checks"], warnings=record["warnings"], outputs=record["outputs"]
+            checks=record["checks"],
+            warnings=record["warnings"],
+            outputs=record["outputs"],
+            wall_s=float(record["wall_s"]),
         )
 
     return run
@@ -690,7 +699,9 @@ def run_geometry(
             warnings=outcome.warnings,
             outputs=outcome.outputs,
             started=began,
-            wall_s=round(time.perf_counter() - ticked, 3),
+            wall_s=round(
+                outcome.wall_s if outcome.wall_s is not None else time.perf_counter() - ticked, 3
+            ),
         )
         write_record(folder / f"{stage.row.stage}.json", record)
         log.stage(record)

@@ -532,3 +532,57 @@ def test_p0570_g7r_run_geometry_with_no_row_skips_the_substeps_with_their_reason
     assert all(c["status"] == "skipped" for c in record["checks"])
     assert "no dominance row" in record["checks"][0]["note"]
     assert not any(item.startswith("S10.D4 ") for item in report["not_run"])
+
+
+# ---- through run_geometry, on synthetic pieces ------------------------------------------------
+
+
+def _run_pieces(tmp_path, monkeypatch, pieces, rows, *, again=None):
+    """Run run_geometry to S10.E2 on a TOML naming ``pieces`` (all bodies), the generation of
+    the components replaced by the synthetic pieces; ``again`` is the second build (BJ5).
+
+    The run stays in this process (the worker variable), so the replaced generation and any
+    kernel defect a test plants are the ones the assembly meets."""
+    kernel_or_skip()
+    from pyflightstream.geometry import stages
+    from pyflightstream.workspace import _geom_run
+
+    builds = []
+
+    def generate(resolved, *args, **kwargs):
+        builds.append(1)
+        source = again if again is not None and len(builds) > 1 else pieces
+        return {name: list(patches) for name, patches in source.items()}
+
+    monkeypatch.setattr(stages, "generate_components", generate)
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_WORKER", "1")
+    text = "".join(
+        f"[components.{name}]\ntype = 'body'\nlength_mm = 1000.0\n"
+        f"[components.{name}.placement]\ntranslation = [{3.0 * k}, 0.0, 0.0]\n"
+        for k, name in enumerate(pieces)
+    )
+    text += "".join(
+        f"[[dominance]]\ndominant = {row['dominant']!r}\ndominated = {row['dominated']!r}\n"
+        f"operation = {row['operation']!r}\n"
+        for row in rows
+    )
+    path = tmp_path / "pieces.toml"
+    path.write_text(text, encoding="utf-8")
+    report = _geom_run.run_geometry(path, out=tmp_path / "run", until="S10.E2")
+    return report, tmp_path / "run"
+
+
+def test_p0570_g7r_run_log_times_each_substep_by_its_own_wall_time(tmp_path, monkeypatch):
+    """Review round 24: the assembly runs every sub-step in the first call, so the runner's
+    clock gave S10.D1 the whole assembly and every later sub-step about 0 s. Each sub-step's
+    record and log line now carry the sub-step's own wall time."""
+    pieces, rows = wb(fillet=False)
+    report, run = _run_pieces(tmp_path, monkeypatch, pieces, rows)
+    assert report["status"] != "failed", report
+    assembly = json.loads((run / "S10-assembly.json").read_text(encoding="utf-8"))
+    own = {r["stage"]: r["wall_s"] for r in assembly["records"]}
+    for stage in ("S10.D1", "S10.D2", "S10.D8"):
+        record = json.loads((run / f"{stage}.json").read_text(encoding="utf-8"))
+        assert record["wall_s"] == own[stage], (stage, record["wall_s"], own[stage])
+    log = (run / "geom-run.log").read_text(encoding="utf-8")
+    assert f"(wall {own['S10.D2']:.3f} s)" in log
