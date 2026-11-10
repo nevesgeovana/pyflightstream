@@ -219,6 +219,53 @@ def test_p0570_e2201_the_manifest_stays_consistent_under_concurrency(tmp_path):
     assert not workspace.manifest_path.with_name("runs.json.lock").exists()
 
 
+def test_p0570_e2201_reads_of_the_run_register_never_meet_its_replace(tmp_path):
+    """Concurrent runs read ``runs.json`` while others append to it.
+
+    Readers of this process read the register through the workspace, twenty milliseconds
+    apart, while 16 cases run four at a time. On Windows a file held open cannot be
+    replaced and a file being replaced cannot be opened, so a read that is not kept
+    out of a replace fails the read or the append; every read and every point must
+    come through.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    stop = threading.Event()
+    errors: list[BaseException] = []
+    reads = [0]
+
+    def reader():
+        while not stop.is_set():
+            try:
+                workspace.read_raw_manifest()
+            except Exception as error:  # every failure of a read is the finding
+                errors.append(error)
+            reads[0] += 1
+            stop.wait(0.02)  # yield to the runs: the readers must not starve them
+
+    readers = [threading.Thread(target=reader) for _ in range(3)]
+    for thread in readers:
+        thread.start()
+    try:
+        records = run_campaign(
+            make_cases(tmp_path, 16),
+            SleepingSolver(0.0),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            quiet=True,
+            parallel=4,
+        )
+    finally:
+        stop.set()
+        for thread in readers:
+            thread.join()
+    assert not errors, errors[:3]
+    assert reads[0] > 0
+    assert len(records) == 16
+    assert all(r.status is RunStatus.CONVERGED for r in records), [r.error for r in records]
+    assert len({r.run_id for r in workspace.read_manifest()}) == 16
+
+
 def test_p0570_e2201_appends_are_serialised_and_the_objects_are_left_as_found():
     inside = {"now": 0, "worst": 0}
 

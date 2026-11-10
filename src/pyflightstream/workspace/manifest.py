@@ -1357,6 +1357,23 @@ def _validate_lock_timeout(timeout_s: float) -> None:
         )
 
 
+_THREAD_LOCKS: dict[str, threading.RLock] = {}
+_THREAD_LOCKS_GUARD = threading.Lock()
+
+
+def register_thread_lock(manifest: Path) -> threading.RLock:
+    """Return the lock that keeps a read of one register file out of its replace.
+
+    One lock per file in this process, whichever workspace object names it. The
+    lease of :func:`manifest_lock` keeps writers apart, threads included; this lock
+    keeps the threads that read the file out of the instant it is replaced, which
+    on Windows a file held open refuses.
+    """
+    key = os.path.normcase(os.path.abspath(manifest))
+    with _THREAD_LOCKS_GUARD:
+        return _THREAD_LOCKS.setdefault(key, threading.RLock())
+
+
 def _read_manifest_owner(lock: Path) -> dict:
     """Read a lease owner without treating unreadable metadata as ownership."""
     try:

@@ -2000,14 +2000,16 @@ class CampaignWorkspace:
         The temporary file was ``runs.json.tmp`` for every writer, so two
         processes could write one temporary file between them and replace the
         manifest with a mixture. The process id is in the name; the lock
-        already keeps two writers of one process apart.
+        already keeps two writers of one process apart, and no read of this
+        process has the file open while it is replaced
+        (:func:`~pyflightstream.workspace.record_document.replace_file`).
         """
         self.root.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(record_document.encode_rows(raw), indent=2)
         temporary = self.manifest_path.with_suffix(f".json.{os.getpid()}.tmp")
         try:
             _textio.write_text(temporary, payload + "\n")
-            temporary.replace(self.manifest_path)
+            record_document.replace_file(temporary, self.manifest_path)
         finally:
             temporary.unlink(missing_ok=True)
 

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pyflightstream.workspace.manifest import RunStatus, WorkspaceError
+from pyflightstream.workspace.manifest import RunStatus, WorkspaceError, register_thread_lock
 
 __all__ = ["SCHEMA_VERSION", "decode_document", "encode_rows", "read_rows"]
 
@@ -341,7 +341,8 @@ def read_rows(path: Path, *, unreadable: list[dict] | None = None) -> list[dict]
     Parameters
     ----------
     path : Path
-        Manifest file to read without taking a writer lock or changing the file.
+        Manifest file to read without taking the writer's lease or changing the file;
+        the read is kept out of this process's replace of it.
     unreadable : list of dict, optional
         Query-only row diagnostics, as in :func:`decode_document`. Omit for strict
         reads; malformed documents and shared registries are refused in both modes.
@@ -357,9 +358,22 @@ def read_rows(path: Path, *, unreadable: list[dict] | None = None) -> list[dict]
         The file is unreadable, invalid or requires explicit migration.
     """
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        with register_thread_lock(path):
+            text = path.read_text(encoding="utf-8")
+        document = json.loads(text)
     except FileNotFoundError:
         return []
     except (OSError, ValueError) as error:
         raise WorkspaceError(f"{path}: cannot read run records: {error}") from error
     return decode_document(document, source=path, unreadable=unreadable)
+
+
+def replace_file(source: Path, path: Path) -> None:
+    """Replace the register at ``path`` with the complete file ``source``, atomically.
+
+    The caller holds the register's lease. The replace is taken under
+    :func:`register_thread_lock`, which :func:`read_rows` takes too, so no read of
+    this process has the file open at that instant.
+    """
+    with register_thread_lock(path):
+        source.replace(path)
