@@ -250,18 +250,7 @@ def body_aspect_checks(xyz, node_ids, band) -> list[dict]:
     return checks
 
 
-def collapse_trailing_edge(
-    mesh: Mesh, pairs, base_cells: set[int], *, tolerance_m: float
-) -> tuple[Mesh, list[dict]]:
-    """Collapse explicit upper/lower TE pairs at their midpoints in a new mesh.
-
-    Only declared base cells are removed. The source geometry and source mesh
-    are untouched; any unintended degenerate skin cell refuses the operation.
-    """
-    if not np.isfinite(tolerance_m) or tolerance_m <= 0 or not pairs or not base_cells:
-        raise InputValueError(
-            "collapse: positive distance tolerance, TE pairs and base cells required"
-        )
+def _collapsed_nodes(mesh: Mesh, pairs, tolerance_m: float):
     xyz = mesh.xyz.copy()
     if not np.all(np.isfinite(xyz)):
         raise InputValueError("collapse distance: mesh coordinates must be finite")
@@ -277,6 +266,22 @@ def collapse_trailing_edge(
             raise InputValueError(f"collapse distance {distance} exceeds tolerance {tolerance_m} m")
         xyz[a] = (xyz[a] + xyz[b]) / 2
         representatives[b] = a
+    return xyz, representatives, used, distance
+
+
+def collapse_trailing_edge(
+    mesh: Mesh, pairs, base_cells: set[int], *, tolerance_m: float
+) -> tuple[Mesh, list[dict]]:
+    """Collapse explicit upper/lower TE pairs at their midpoints in a new mesh.
+
+    Only declared base cells are removed. The source geometry and source mesh
+    are untouched; any unintended degenerate skin cell refuses the operation.
+    """
+    if not np.isfinite(tolerance_m) or tolerance_m <= 0 or not pairs or not base_cells:
+        raise InputValueError(
+            "collapse: positive distance tolerance, TE pairs and base cells required"
+        )
+    xyz, representatives, used, distance = _collapsed_nodes(mesh, pairs, tolerance_m)
     if not base_cells <= set(range(len(mesh.cells))):
         raise InputValueError("collapse: base cell indices outside mesh")
     cells, components, surfaces = [], [], []

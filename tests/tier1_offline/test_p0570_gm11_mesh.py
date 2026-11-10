@@ -441,3 +441,19 @@ def test_p0570_gm11_coarsening_recomputes_laws_instead_of_removing_strips():
     assert not np.allclose(coarse, refined[::2])
     with pytest.raises(InputValueError, match="law"):
         spacing_nodes({"cells": 12, "law": "remove_strips"}, direction="chordwise")
+
+
+def test_p0570_gm11_first_cell_is_honoured_by_the_law():
+    from pyflightstream.geometry._mesh_schema import spacing_nodes
+
+    nodes = spacing_nodes(
+        {"cells": 48, "law": "geometric_cap", "first_cell": 0.0033, "growth_until": 0.515},
+        direction="chordwise",
+    )
+    widths = np.diff(nodes)
+    assert widths[0] == pytest.approx(0.0033, abs=1e-14)
+    assert np.all(widths > 0) and widths[-1] == pytest.approx(widths[-2])
+    with pytest.raises(InputValueError, match="first_cell"):
+        spacing_nodes(
+            {"cells": 8, "law": "geometric_cap", "first_cell": 0.2}, direction="chordwise"
+        )

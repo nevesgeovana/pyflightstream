@@ -137,8 +137,7 @@ def _transition(value: Any, where: str, warnings: list[str]) -> dict:
     return table
 
 
-def _component(name: str, raw: Any, strategy: int, warnings: list[str]) -> dict:
-    c = _unknown(_table(raw, name), _COMPONENT_KEYS, name, warnings)
+def _role(c: dict, name: str) -> str:
     if c.get("parent"):
         c.setdefault("role", "follower")
         c.setdefault("follows", c["parent"])
@@ -155,14 +154,10 @@ def _component(name: str, raw: Any, strategy: int, warnings: list[str]) -> dict:
     c["follows"] = follows
     if c.get("fill", "full_quad") not in {"full_quad", "quad_dominant"}:
         raise InputValueError(f"{name}.fill: full_quad or quad_dominant required")
-    if "transition" in c:
-        if role != "flexible":
-            _fail("E12", name)
-        c["transition"] = _transition(c["transition"], f"{name}.transition", warnings)
-    if strategy == 2 and (
-        c.get("fill") == "quad_dominant" or c.get("transition", {}).get("max_triangle_fraction", 0)
-    ):
-        _fail("E07", name)
+    return role
+
+
+def _body_controls(c: dict, name: str) -> None:
     if "x_cells" in c and "x_step_m" in c:
         _fail("E05", name)
     if "azimuth_cells" in c and "azimuth_step_deg" in c:
@@ -172,38 +167,60 @@ def _component(name: str, raw: Any, strategy: int, warnings: list[str]) -> dict:
     for key in ("x_cells", "azimuth_cells", "x_step_m", "azimuth_step_deg", "collapse_tolerance_m"):
         if key in c:
             _positive(c[key], f"{name}.{key}", integer=key.endswith("cells"))
-    if "azimuth_rule" in c:
-        rule = _unknown(
-            _table(c["azimuth_rule"], name),
-            {"mode", "target_aspect", "aspect_band", "reference"},
-            f"{name}.azimuth_rule",
-            warnings,
-        )
-        if rule.get("mode", "aspect") != "aspect":
-            raise InputValueError(f"{name}.azimuth_rule.mode: aspect required")
-        _positive(rule.get("target_aspect", 1.0), f"{name}.azimuth_rule.target_aspect")
-        band = rule.get("aspect_band", [0.67, 1.5])
-        if not isinstance(band, list) or len(band) != 2:
-            raise InputValueError(f"{name}.azimuth_rule.aspect_band: two positive limits required")
-        for value in band:
-            _positive(value, f"{name}.azimuth_rule.aspect_band")
-        if band[0] > band[1]:
-            raise InputValueError(f"{name}.azimuth_rule.aspect_band: limits reversed")
-        c["azimuth_rule"] = rule
+
+
+def _azimuth_rule(raw, name: str, warnings: list[str]) -> dict:
+    rule = _unknown(
+        _table(raw, name),
+        {"mode", "target_aspect", "aspect_band", "reference"},
+        f"{name}.azimuth_rule",
+        warnings,
+    )
+    if rule.get("mode", "aspect") != "aspect":
+        raise InputValueError(f"{name}.azimuth_rule.mode: aspect required")
+    _positive(rule.get("target_aspect", 1.0), f"{name}.azimuth_rule.target_aspect")
+    band = rule.get("aspect_band", [0.67, 1.5])
+    if not isinstance(band, list) or len(band) != 2:
+        raise InputValueError(f"{name}.azimuth_rule.aspect_band: two positive limits required")
+    for value in band:
+        _positive(value, f"{name}.azimuth_rule.aspect_band")
+    if band[0] > band[1]:
+        raise InputValueError(f"{name}.azimuth_rule.aspect_band: limits reversed")
+    return rule
+
+
+def _blocks(raw, name: str, warnings: list[str]) -> dict:
+    blocks = _unknown(
+        _table(raw, name), {"topology", "i", "j", "poles"}, f"{name}.blocks", warnings
+    )
+    poles = _table(blocks.get("poles", {}), f"{name}.blocks.poles")
+    if any(value not in {"valence3", "open"} for value in poles.values()):
+        _fail("E11", name)
+    return blocks
+
+
+def _component(name: str, raw: Any, strategy: int, warnings: list[str]) -> dict:
+    c = _unknown(_table(raw, name), _COMPONENT_KEYS, name, warnings)
+    role = _role(c, name)
+    _body_controls(c, name)
+    if "transition" in c:
+        if role == "primary":
+            _fail("E12", name)
+        c["transition"] = _transition(c["transition"], f"{name}.transition", warnings)
+    if strategy == 2 and (
+        c.get("fill") == "quad_dominant" or c.get("transition", {}).get("max_triangle_fraction", 0)
+    ):
+        _fail("E07", name)
     required = c.get("type") == "lifting_surface" and role != "follower"
     for direction in ("chordwise", "spanwise"):
         if required or direction in c:
             c[direction] = _distribution(
                 c.get(direction, {}), f"{name}.{direction}", warnings, required=required
             )
+    if "azimuth_rule" in c:
+        c["azimuth_rule"] = _azimuth_rule(c["azimuth_rule"], name, warnings)
     if "blocks" in c:
-        blocks = _unknown(
-            _table(c["blocks"], name), {"topology", "i", "j", "poles"}, f"{name}.blocks", warnings
-        )
-        poles = _table(blocks.get("poles", {}), f"{name}.blocks.poles")
-        if any(value not in {"valence3", "open"} for value in poles.values()):
-            _fail("E11", name)
-        c["blocks"] = blocks
+        c["blocks"] = _blocks(c["blocks"], name, warnings)
     if c.get("trailing_edge", "blunt") not in {"blunt", "collapsed"}:
         raise InputValueError(f"{name}.trailing_edge: blunt or collapsed required")
     return c
@@ -227,6 +244,28 @@ def _order(components: dict) -> list[str]:
     for name in components:
         visit(name)
     return result
+
+
+def _components(
+    tables: dict, members: set[str], names: set[str], mesh: dict, warnings: list[str]
+) -> dict:
+    components = {}
+    for name, table in tables.items():
+        if name not in members:
+            warnings.append(f"W01: {name}: outside configuration; table ignored")
+            continue
+        if name not in names:
+            _fail("E04", name)
+        c = _component(name, table, mesh["strategy"], warnings)
+        if mesh["variant"] == "clean" and c.get("parent"):
+            _fail("E16", name)
+        for neighbour in c["follows"]:
+            if neighbour not in members:
+                _fail("E01", f"{name}: {neighbour}")
+            if neighbour not in tables:
+                raise InputValueError(f"{name}.follows: {neighbour} has no mesh controls")
+        components[name] = c
+    return components
 
 
 def mesh_controls(source: Any, *, members: set[str], names: set[str]) -> dict[str, Any]:
@@ -255,23 +294,9 @@ def mesh_controls(source: Any, *, members: set[str], names: set[str]) -> dict[st
     if mesh.get("variant", "clean") not in {"clean", "cs", "csf"}:
         _fail("E16", "mesh.variant")
     mesh.setdefault("variant", "clean")
-    tables = _table(result.get("components", {}), "components")
-    components = {}
-    for name, table in tables.items():
-        if name not in members:
-            warnings.append(f"W01: {name}: outside configuration; table ignored")
-            continue
-        if name not in names:
-            _fail("E04", name)
-        c = _component(name, table, strategy, warnings)
-        if mesh["variant"] == "clean" and c.get("parent"):
-            _fail("E16", name)
-        for neighbour in c["follows"]:
-            if neighbour not in members:
-                _fail("E01", f"{name}: {neighbour}")
-            if neighbour not in tables:
-                raise InputValueError(f"{name}.follows: {neighbour} has no mesh controls")
-        components[name] = c
+    components = _components(
+        _table(result.get("components", {}), "components"), members, names, mesh, warnings
+    )
     defaults = _unknown(
         _table(result.get("defaults", {}), "defaults"),
         {"lifting_surface", "body", "quality", "transition", "junction"},
@@ -319,6 +344,49 @@ def mesh_measurements(code: str, where: str, measured: Any, threshold: Any) -> d
     }
 
 
+def _span_nodes(values: dict) -> np.ndarray:
+    count = values["cells"]
+    root, tip = values.get("root_cells", 0), values.get("tip_cells", 0)
+    if root + tip >= count:
+        raise InputValueError("spanwise: root and tip runs must leave a constant interior")
+    widths = np.ones(count)
+    for n, ratio, reverse in (
+        (root, values.get("root_ratio", 1.3), False),
+        (tip, values.get("tip_ratio", 1.3), True),
+    ):
+        if ratio < 1:
+            raise InputValueError("spanwise: refinement ratios must be at least 1")
+        run = np.exp(-np.arange(n, 0, -1) * np.log(ratio))
+        if reverse and n:
+            widths[-n:] = run[::-1]
+        elif n:
+            widths[:n] = run
+    return np.r_[0.0, np.cumsum(widths) / widths.sum()]
+
+
+def _first_cell_nodes(count: int, first: float, growth_until: float) -> np.ndarray:
+    if first > 1 / count or not 0 < growth_until < 1:
+        raise InputValueError("first_cell: must allow nondecreasing cells summing to 1")
+    if first == 1 / count:
+        return np.asarray(constant(count))
+    candidates = []
+    for k in range(1, count):
+        exponents = np.minimum(np.arange(count), k)
+        low, high = 0.0, float(np.log(1 / first) / k)
+        for _ in range(60):
+            mid = (low + high) / 2
+            if first * np.exp(exponents * mid).sum() > 1:
+                high = mid
+            else:
+                low = mid
+        widths = first * np.exp(exponents * ((low + high) / 2))
+        nodes = np.r_[0.0, np.cumsum(widths)]
+        candidates.append((abs(nodes[k] - growth_until), nodes))
+    if not candidates:
+        raise InputValueError("first_cell: at least two cells required")
+    return min(candidates, key=lambda item: item[0])[1]
+
+
 def spacing_nodes(table: Mapping[str, Any], *, direction: str) -> np.ndarray:
     """Build a fresh normalized spacing law, preserving the requested cell count.
 
@@ -329,30 +397,11 @@ def spacing_nodes(table: Mapping[str, Any], *, direction: str) -> np.ndarray:
     count, law = values["cells"], values["law"]
     x = np.linspace(0.0, 1.0, count + 1)
     if direction == "spanwise" and (values.get("root_cells") or values.get("tip_cells")):
-        root, tip = values.get("root_cells", 0), values.get("tip_cells", 0)
-        if root + tip >= count:
-            raise InputValueError("spanwise: root and tip runs must leave a constant interior")
-        widths = np.ones(count)
-        for n, ratio, reverse in (
-            (root, values.get("root_ratio", 1.3), False),
-            (tip, values.get("tip_ratio", 1.3), True),
-        ):
-            if ratio < 1:
-                raise InputValueError("spanwise: refinement ratios must be at least 1")
-            run = np.exp(-np.arange(n, 0, -1) * np.log(ratio))
-            if reverse and n:
-                widths[-n:] = run[::-1]
-            elif n:
-                widths[:n] = run
-        result = np.r_[0.0, np.cumsum(widths) / widths.sum()]
+        result = _span_nodes(values)
     elif law == "constant":
         result = np.asarray(constant(count))
     elif law == "geometric_cap":
-        result = np.asarray(
-            geometric_cap(
-                count, values.get("ratio", 1.15), growth_until=values.get("growth_until", 0.5)
-            )
-        )
+        result = _geometric_nodes(values)
     elif law == "cosine":
         result = (1 - np.cos(np.pi * x)) / 2
     else:
@@ -362,6 +411,18 @@ def spacing_nodes(table: Mapping[str, Any], *, direction: str) -> np.ndarray:
     if not np.all(np.isfinite(result)) or np.any(np.diff(result) <= 0):
         raise InputValueError(f"{direction}: spacing is below floating point resolution")
     return result
+
+
+def _geometric_nodes(values: dict) -> np.ndarray:
+    if "first_cell" in values:
+        return _first_cell_nodes(
+            values["cells"], values["first_cell"], values.get("growth_until", 0.5)
+        )
+    return np.asarray(
+        geometric_cap(
+            values["cells"], values.get("ratio", 1.15), growth_until=values.get("growth_until", 0.5)
+        )
+    )
 
 
 def azimuth_count(stations, rule: Mapping[str, Any], *, ring_count: int = 0) -> tuple[int, float]:

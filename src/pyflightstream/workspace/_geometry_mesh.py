@@ -582,7 +582,7 @@ def mesh_generated(
 
         names = set(unpack(resolved)["components"])
         mesh_controls(controls, members=names, names=names)
-        raise InputValueError("strategy controls: use mesh_configuration with an exported manifest")
+        raise InputValueError("strategy controls: configuration meshing is not available")
     values = load_mesh_controls(controls)
     components = unpack(resolved)["components"]
     if component is not None and component not in components:
