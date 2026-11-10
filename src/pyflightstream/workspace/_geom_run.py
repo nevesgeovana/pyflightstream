@@ -142,20 +142,27 @@ def _generate(resolved: dict[str, Any], target: Path, configuration: str | None)
 
 def _generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Write the IGES and return the record of ``generate_iges`` as JSON values (a worker's)."""
-    from pyflightstream.workspace._geometry_generate import generate_iges
+    from pyflightstream.workspace._geom_export import generate_record
 
-    written = generate_iges(config, path, configuration=configuration)
+    written = generate_record(config, path, configuration)
     return json.loads(json.dumps(written, default=str))
 
 
 def _export(context: RunContext) -> StageOutcome:
     """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
+    if context.variant != "clean":
+        return _waiting_variant(context, "S11")
     name = context.configuration or str(
         unpack(context.resolved["aircraft"]).get("name", "geometry")
     )
     target = context.out / f"{name}.igs"
     try:
-        written = _generate(context.resolved, target, context.configuration)
+        assembled = context.state.get("assembly")
+        written = (
+            assembled["export"]
+            if assembled
+            else _generate(context.resolved, target, context.configuration)
+        )
     except InputArtifactError as error:
         if "solid entities" not in str(error):
             raise
@@ -165,12 +172,51 @@ def _export(context: RunContext) -> StageOutcome:
     warnings = [
         str(item) for item in written["warnings"] if item not in context.resolved["warnings"]
     ]
-    if context.variant != "clean":
-        warnings.append(f"variant {context.variant}: not applied by the export stage in this tree")
+    context.state["export"] = written
+    measured = _export_step("S11")(context)
     return StageOutcome(
-        checks=[check_entry("profile.surfaces_only", "passed", 0, 0, unit="solid entities")],
-        warnings=warnings,
-        outputs={"iges": str(target), "faces": written["faces"], "audit": written["audit"]},
+        checks=measured.checks,
+        warnings=warnings + measured.warnings,
+        outputs={
+            **measured.outputs,
+            "iges": written["iges"],
+            "manifest": written["manifest"],
+            "surface_id": written["surface_id"],
+            "build_id": written["build_id"],
+            "faces": written["faces"],
+            "audit": written["audit"],
+        },
+    )
+
+
+def _export_step(stage: str) -> StageFn:
+    """Run one measured export sub-step with the independently retained source identity."""
+
+    def run(context: RunContext) -> StageOutcome:
+        from pyflightstream.workspace._geom_export import check_export
+
+        if context.variant != "clean":
+            return _waiting_variant(context, stage)
+        return StageOutcome(
+            **check_export(
+                stage,
+                context.resolved,
+                configuration=context.configuration,
+                members=context.members,
+                out=context.out,
+                source=context.state["export"],
+            )
+        )
+
+    return run
+
+
+def _waiting_variant(context: RunContext, stage: str) -> StageOutcome:
+    note = f"waiting for G9: applied-control variant {context.variant}"
+    row = next(r for r in STAGE_ROWS if r.stage == stage)
+    return StageOutcome(
+        checks=[check_entry(cid, "skipped", note=note) for cid, _ in row.checks],
+        outputs={"state": "waiting", "waiting_for": "G9", "variant": context.variant},
     )
 
 
@@ -292,6 +338,7 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
             "config": context.resolved,
             "members": context.members,
             "out": str(context.out / "S10-assembly.json"),
+            "configuration": context.configuration,
         }
         if not plan:
             context.state["assembly"] = None
@@ -304,22 +351,29 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
     return context.state["assembly"]
 
 
-def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any]:
+def _assembly_record(
+    config: Any, members: list[str], out: str, configuration: str | None = None
+) -> dict[str, Any]:
     """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
     from pyflightstream.geometry import resolve_config
-    from pyflightstream.geometry.stages import generate_components
+    from pyflightstream.geometry.stages import GeneratedPiece, generate_components
     from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._geom_export import write_assembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     resolved = resolve_config(copy.deepcopy(config))
-    every = generate_components(resolved)
-    again = generate_components(resolve_config(copy.deepcopy(config)))
+    every = generate_components(resolved, trimmed=True)
+    again = generate_components(resolve_config(copy.deepcopy(config)), trimmed=True)
     plain = unpack(resolved)
     pieces = {name: every[name] for name in members if name in every}
-    half = all(float(p.controls[..., 1].min()) >= -1e-9 for ps in pieces.values() for p in ps)
+    half = all(
+        float(p.controls[..., 1].min()) >= -1e-9
+        for ps in pieces.values()
+        for p in (ps.bases.values() if isinstance(ps, GeneratedPiece) else ps)
+    )
     kernel = open_kernel("assembling the pieces by the dominance rows")
     try:
-        records = Assembly(
+        assembly = Assembly(
             kernel,
             pieces,
             plain.get("dominance", []),
@@ -327,12 +381,36 @@ def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any
             members=members,
             kinds={name: plain["components"][name]["type"] for name in pieces},
             plane_axis=1 if half else None,
-            regenerated={name: again[name] for name in pieces},
+            regenerated={
+                name: list(p.bases.values()) if isinstance(p, GeneratedPiece) else list(p)
+                for name, p in again.items()
+                if name in pieces
+            },
             coverage_fraction=float(plain["acceptance"]["coverage_fraction"]),
-        ).run()
+            coverage_spacing=float(plain["acceptance"]["coverage_spacing"]),
+        )
+        records = assembly.run()
+        written = {}
+        if not any(c["status"] == "failed" for r in records for c in r["checks"]):
+            for name in pieces:
+                if name not in assembly.models:
+                    assembly.models[name] = GeneratedPiece.from_patches(
+                        name, plain["components"][name]["version"], assembly.sources[name]
+                    )
+            written = write_assembly(
+                assembly,
+                Path(out).parent / "assembly.igs",
+                resolved=resolved,
+                configuration=configuration,
+            )
+            written["sections"] = {
+                n: p.layout["sections"]
+                for n, p in every.items()
+                if isinstance(p, GeneratedPiece) and "sections" in p.layout
+            }
     finally:
         kernel.close()
-    result = json.loads(json.dumps({"records": records}, default=str))
+    result = json.loads(json.dumps({"records": records, "export": written}, default=str))
     write_record(Path(out), result)
     return result
 
@@ -341,6 +419,8 @@ def _assembly_step(stage: str) -> StageFn:
     """Return the function of one sub-step of S10: its record from the assembly's run."""
 
     def run(context: RunContext) -> StageOutcome:
+        if context.variant != "clean":
+            return _waiting_variant(context, stage)
         ids = [cid for cid, _ in next(r for r in STAGE_ROWS if r.stage == stage).checks]
         result = _assembly(context)
         if result is None:
@@ -361,12 +441,58 @@ def _assembly_step(stage: str) -> StageFn:
     return run
 
 
+def _closures(context: RunContext) -> StageOutcome:
+    """S8: measure the preceding stage's lifting models, building absent models once."""
+    from pyflightstream.geometry import stages
+
+    checks, inputs = [], {}
+    models = context.state.setdefault("lifting_models", {})
+    components = unpack(context.resolved)["components"]
+    for name in context.members:
+        component = components[name]
+        if component["type"] != "lifting_surface":
+            continue
+        if name not in models:
+            models[name] = stages.lifting_model(component)
+        model = models[name]
+        if not model.caps:
+            continue
+        gap = stages.cap_edge_gap(model)
+        checks.append(
+            check_entry(
+                "closure.cap_edge_gap",
+                "passed" if gap <= stages.CAP_EDGE_GAP else "failed",
+                gap,
+                stages.CAP_EDGE_GAP,
+                unit="m",
+                where={"component": name},
+                note="BUG: a cap boundary leaves its neighbouring edge"
+                if gap > stages.CAP_EDGE_GAP
+                else "4001 samples on each shared cap boundary",
+            )
+        )
+        inputs[name] = {"cap": component["tip_cap"], "root": component["root"]}
+    if not checks:
+        checks.append(check_entry("closure.cap_edge_gap", "skipped", note="no lifting caps"))
+    return StageOutcome(checks=checks, outputs={"inputs": inputs})
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
+    "S8": _closures,
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,
+    "S11.V": _export_step("S11.V"),
+    "S11.P": _export_step("S11.P"),
+    "S11.R": _export_step("S11.R"),
+    "S11.S": _export_step("S11.S"),
+    "S12.C": _export_step("S12.C"),
+    "S12.G": _export_step("S12.G"),
+    "S12": _export_step("S12"),
+    "S13.R": _export_step("S13.R"),
+    "S13": _export_step("S13"),
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
     "S8.F3": _blend_step("fillet", "S8.F3"),
@@ -463,6 +589,13 @@ def _members(resolved, configuration, variant):
         raise InputValueError(
             f"variant {variant!r}: unknown; available: {sorted(unpack(resolved['variants']))}"
         )
+    if configuration is not None:
+        allowed = unpack(resolved["registry"])[configuration]["variants"]
+        if variant not in allowed:
+            raise InputValueError(
+                f"configuration {configuration!r}: variant {variant!r} is excluded; "
+                f"available: {allowed}"
+            )
     return members
 
 
@@ -592,7 +725,8 @@ def _not_measured(record: Mapping[str, Any], built: bool) -> list[str]:
     return [
         f"{record['stage']} {check['id']}"
         for check in record["checks"]
-        if check["status"] == "skipped" and (not built or check["note"] == _OMITTED)
+        if check["status"] == "skipped"
+        and (not built or check["note"] == _OMITTED or check["note"].startswith("waiting for "))
     ]
 
 
@@ -747,9 +881,12 @@ def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
         }
         for r in records
     ]
+    outputs = {k: v for r in records for k, v in r["outputs"].items()}
     report = geometry_report(
         status,
         parameter,
+        surface_id=outputs.get("surface_id"),
+        build_id=outputs.get("build_id"),
         stage=row.stage if row else None,
         check=failed["id"] if failed else None,
         message=failed["note"] if failed else "",
@@ -757,7 +894,7 @@ def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
         limit=failed["limit"] if failed else None,
         where=failed["where"] if failed else None,
         stages=summary,
-        outputs={k: v for r in records for k, v in r["outputs"].items()},
+        outputs=outputs,
         warnings=warnings,
         not_run=not_run,
     )

@@ -36,10 +36,17 @@ from pyflightstream._textio import write_text
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
-from pyflightstream.geometry._caps import tip_cap
+from pyflightstream.geometry._caps import CAP_EDGE_GAP, cap_edge_gap, lifting_model, tip_cap
 from pyflightstream.geometry._fillet import fillet_model
-from pyflightstream.geometry._generation import assembly_regions, generate_components
-from pyflightstream.geometry._identity import parameter_id
+from pyflightstream.geometry._generation import (
+    GeneratedPiece,
+    assembly_regions,
+    generate_components,
+    generate_pieces,
+    source_cells,
+    stored_sections_config,
+)
+from pyflightstream.geometry._identity import build_id, parameter_id, surface_id
 from pyflightstream.geometry._lifting import lifting_surface
 from pyflightstream.geometry._mesh_rules import (
     check_body,
@@ -61,7 +68,7 @@ from pyflightstream.geometry._mesh_topology import (
     write_obj,
 )
 from pyflightstream.geometry._patch import Patch, evaluate_patch
-from pyflightstream.geometry._placement import wing_in_body_frame
+from pyflightstream.geometry._placement import placement_transform, wing_in_body_frame
 from pyflightstream.geometry._records import (
     CheckFailedError,
     check_entry,
@@ -70,6 +77,7 @@ from pyflightstream.geometry._records import (
     stage_record,
     write_record,
 )
+from pyflightstream.geometry._registry import manifest_checks, manifest_record, sidecar_identity
 from pyflightstream.geometry._reverse import (
     clean_band,
     closed_contour,
@@ -85,7 +93,17 @@ from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
+    "build_id",
+    "manifest_record",
+    "surface_id",
+    "sidecar_identity",
+    "stored_sections_config",
+    "placement_transform",
+    "CAP_EDGE_GAP",
+    "cap_edge_gap",
+    "lifting_model",
     "CheckFailedError",
+    "GeneratedPiece",
     "Mesh",
     "Patch",
     "STAGE_ROWS",
@@ -112,12 +130,14 @@ __all__ = [
     "fillet_model",
     "fit_section",
     "generate_components",
+    "generate_pieces",
     "geometry_report",
     "insert_seed",
     "junctions",
     "leading_extension",
     "lifting_surface",
     "load_mesh_controls",
+    "manifest_checks",
     "orient_mesh",
     "oriented_source_normals",
     "parameter_id",
@@ -125,6 +145,7 @@ __all__ = [
     "refine_tip",
     "repair_inverted",
     "stage_index",
+    "source_cells",
     "stage_record",
     "stage_row",
     "tip_cap",

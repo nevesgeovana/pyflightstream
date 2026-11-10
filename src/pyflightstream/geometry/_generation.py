@@ -9,20 +9,24 @@ another component.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from typing import Any, Literal, overload
 
 import numpy as np
+from scipy.interpolate import BSpline
 
 from pyflightstream._errors import InputValueError
 
 from ._blister import blister_model, blister_region
 from ._bodies import body, body_station_table
 from ._boundary import unpack
-from ._caps import tip_cap, wing_contour_point
+from ._bspline import full_knots
+from ._caps import lifting_model, tip_cap, wing_contour_point
 from ._fairings import wing_fuselage_fairing, wing_junction
 from ._fillet import fillet_hosts, fillet_model
-from ._lifting import lifting_surface, section_models, thickness_station
-from ._patch import Patch, interpolate_patch
+from ._identity import surface_id
+from ._lifting import layout_record, lifting_surface, section_law, section_models, thickness_station
+from ._patch import Patch, evaluate_patch, interpolate_patch
 from ._placement import (
     body_junctions,
     move,
@@ -38,17 +42,240 @@ from ._regions import (
     placed_region,
 )
 from ._skin import split_along
+from ._trims import Trim, iso_trim
 
-__all__ = ["assembly_regions", "generate_components", "junction_lifting_surface"]
+__all__ = [
+    "GeneratedPiece",
+    "assembly_regions",
+    "generate_components",
+    "generate_pieces",
+    "junction_lifting_surface",
+    "source_cells",
+    "stored_sections_config",
+]
 
 
-def generate_components(config) -> dict[str, list[Patch]]:
+def stored_sections_config(resolved, sections):
+    """Store fitted lifting sections as B-splines for exact, fit-free regeneration.
+
+    The resolved parameters and derived values stay in their resolved form,
+    so writing and reloading does not recompute their floating-point values.
+    Optional unset mapping values are omitted because TOML has no null value.
+    """
+    config = unpack(resolved)
+    for name, component in config["components"].items():
+        if component["type"] != "lifting_surface":
+            continue
+        component["sections"]["items"] = sections[name]
+        component["sections"]["airfoils"] = []
+        component["sections"].pop("physical", None)
+        component["sections"]["form"] = "bspline"
+    return _toml_values(config)
+
+
+def _toml_values(value):
+    if isinstance(value, dict):
+        return {k: _toml_values(v) for k, v in value.items() if v is not None}
+    if isinstance(value, (list, tuple)):
+        return [_toml_values(v) for v in value]
+    return value
+
+
+def _loop_mask(loop, uv):
+    inside, boundary = np.zeros(len(uv), bool), np.zeros(len(uv), bool)
+    for first, last in loop:
+        a, b = np.asarray(first), np.asarray(last)
+        edge, delta = b - a, uv - a
+        cross = edge[0] * delta[:, 1] - edge[1] * delta[:, 0]
+        boundary |= (np.abs(cross) <= 1e-12) & (delta @ edge >= 0) & (delta @ edge <= edge @ edge)
+        if b[1] != a[1]:
+            crossing = (a[1] > uv[:, 1]) != (b[1] > uv[:, 1])
+            inside ^= crossing & (uv[:, 0] < a[0] + (uv[:, 1] - a[1]) * edge[0] / edge[1])
+    return inside | boundary
+
+
+def source_cells(patch: Patch, *, spacing: float, scale: float, trims=None) -> dict:
+    """Sample source UV cells, integrating their physical areas by Gauss quadrature.
+
+    Grid counts follow the sampled arc lengths and the requested share of the
+    piece's extent. Original trim exclusions are retained as a separate mask.
+    The cell-area sum can therefore be checked against the kernel's source area.
+    """
+    if spacing <= 0 or scale <= 0:
+        raise InputValueError("coverage requires positive spacing and source extent")
+    grid = evaluate_patch(patch, 33)
+    lengths = [
+        float(np.linalg.norm(np.diff(grid, axis=i), axis=2).sum(axis=i).max()) for i in (0, 1)
+    ]
+    counts = [max(2, int(np.ceil(length / (spacing * scale)))) for length in lengths]
+    if counts[0] * counts[1] > 1_000_000:
+        raise InputValueError("coverage spacing requires over one million cells on one base")
+    us = np.linspace(patch.knots_u[0], patch.knots_u[-1], counts[0] + 1)
+    vs = np.linspace(patch.knots_v[0], patch.knots_v[-1], counts[1] + 1)
+    uc, vc = (us[:-1] + us[1:]) / 2, (vs[:-1] + vs[1:]) / 2
+    controls = np.asarray(patch.controls, float)
+    bu = BSpline(
+        full_knots(patch.knots_u, patch.multiplicities_u), np.eye(controls.shape[0]), patch.degree_u
+    )
+    bv = BSpline(
+        full_knots(patch.knots_v, patch.multiplicities_v), np.eye(controls.shape[1]), patch.degree_v
+    )
+
+    def net(u, v, du=0, dv=0):
+        return np.einsum("ui,vj,ijc->uvc", bu(u, du), bv(v, dv), controls, optimize=True)
+
+    points = net(uc, vc)
+    normals = np.cross(net(uc, vc, du=1), net(uc, vc, dv=1))
+    normals /= np.maximum(np.linalg.norm(normals, axis=2, keepdims=True), 1e-300)
+    nodes, weights = np.polynomial.legendre.leggauss(4)
+    areas = np.zeros(tuple(counts))
+    for a, wa in zip(nodes, weights, strict=True):
+        for b, wb in zip(nodes, weights, strict=True):
+            u, v = uc + a * np.diff(us) / 2, vc + b * np.diff(vs) / 2
+            jacobian = np.cross(net(u, v, du=1), net(u, v, dv=1))
+            areas += wa * wb * np.linalg.norm(jacobian, axis=2)
+    areas *= np.diff(us)[:, None] * np.diff(vs)[None, :] / 4
+    uv = np.stack(np.meshgrid(uc, vc, indexing="ij"), axis=-1).reshape(-1, 2)
+    included = np.ones(len(uv), bool) if trims is None else np.zeros(len(uv), bool)
+    for trim in trims or ():
+        mask = _loop_mask(trim.loop, uv)
+        for inner in trim.inner:
+            mask &= ~_loop_mask(inner, uv)
+        included |= mask
+    return {
+        "uv": uv,
+        "points": points.reshape(-1, 3),
+        "normals": normals.reshape(-1, 3),
+        "areas": areas,
+        "included": included,
+    }
+
+
+@dataclass(frozen=True)
+class GeneratedPiece:
+    """Placed bases and UV faces, with the version and identity actually generated.
+
+    Layout lines are metadata. They never split or resample these bases. Assembly
+    propagates the base index of each retained face back to this source record.
+    """
+
+    name: str
+    version: str
+    bases: dict[str, Patch]
+    trims: tuple[Trim, ...]
+    layout: dict[str, Any]
+
+    @property
+    def source_surface_id(self) -> str:
+        """Identity of the placed bases and their original loops."""
+        return surface_id({self.name: list(self.bases.values())}, {self.name: self.trims})
+
+    @classmethod
+    def from_patches(cls, name: str, version: str, patches: list[Patch]) -> GeneratedPiece:
+        """Wrap full-domain patches from the legacy component interface."""
+        bases = {f"{p.family}_{i}": p for i, p in enumerate(patches)}
+        trims = tuple(
+            iso_trim(
+                key,
+                key,
+                (p.knots_u[0], p.knots_u[-1]),
+                (p.knots_v[0], p.knots_v[-1]),
+                p.role or p.family,
+            )
+            for key, p in bases.items()
+        )
+        return cls(name, version, bases, trims, {"lines": {"u": {}, "v": {}}})
+
+
+def generate_pieces(config) -> dict[str, GeneratedPiece]:
+    """Build placed source pieces for trimmed assembly and export, without layout fitting.
+
+    The legacy patch generator remains the mesher's interface. Here lifting
+    skins, fillets and blisters carry their original bases and parameter loops.
+    """
+    components = unpack(config)["components"]
+    pieces = {}
+    for name, component in components.items():
+        kind, frame = component["type"], name
+        layout: dict[str, Any] = {"lines": {"u": {}, "v": {}}}
+        if kind == "lifting_surface":
+            model = lifting_model(component)
+            bases, trims = model.bases(), model.trims
+            layout = layout_record(model)
+            layout["sections"] = [
+                {
+                    "eta": eta,
+                    "bspline": {k: section.to_stored()[k] for k in ("degree", "knots", "poles")},
+                }
+                for eta, section in zip(
+                    component["sections"]["eta"], section_law(component).given, strict=True
+                )
+            ]
+        elif kind == "fillet":
+            fillet = fillet_model(component, components, name)
+            _, _, frame = fillet_hosts(components, name)
+            # Use the model's own base name, including the optional TE closure.
+            bases = {fillet.trims[0].base: fillet.base}
+            if fillet.trailing_edge is not None:
+                bases["te"] = fillet.trailing_edge
+            trims = fillet.trims
+        elif kind == "blister":
+            frame = component["host"]
+            blister = blister_model(component, components[frame])
+            bases, trims = blister.bases, blister.trims
+        else:
+            if kind == "body":
+                patches = body(component, body_junctions(components, name))
+            elif kind == "wing_fuselage_fairing":
+                frame, wing_name = component["hosts"]
+                wing = wing_in_body_frame(components, frame, wing_name)
+                patches = wing_fuselage_fairing(component, components[frame], wing)
+            else:
+                raise InputValueError(f"{name}.type: unsupported source piece {kind!r}")
+            bases = {f"{patch.family}_{i}": patch for i, patch in enumerate(patches)}
+            trims = tuple(
+                iso_trim(
+                    key,
+                    key,
+                    (p.knots_u[0], p.knots_u[-1]),
+                    (p.knots_v[0], p.knots_v[-1]),
+                    p.role or p.family,
+                )
+                for key, p in bases.items()
+            )
+        placed = dict(
+            zip(
+                bases,
+                move(list(bases.values()), *placement_transform(components, frame)),
+                strict=True,
+            )
+        )
+        pieces[name] = GeneratedPiece(name, str(component["version"]), placed, tuple(trims), layout)
+    return pieces
+
+
+@overload
+def generate_components(
+    config: Any, *, trimmed: Literal[False] = False
+) -> dict[str, list[Patch]]: ...
+
+
+@overload
+def generate_components(config: Any, *, trimmed: Literal[True]) -> dict[str, GeneratedPiece]: ...
+
+
+def generate_components(
+    config, *, trimmed=False
+) -> dict[str, list[Patch]] | dict[str, GeneratedPiece]:
     """Return the placed patches of every component of a resolved configuration.
 
     Parameters
     ----------
     config : dict
         Resolved configuration; its components are unpacked to plain values.
+    trimmed : bool, optional
+        Return source pieces with their bases and UV loops for assembly and export.
+        False preserves the mesher's patch-list interface.
 
     Returns
     -------
@@ -60,6 +287,8 @@ def generate_components(config) -> dict[str, list[Patch]]:
     InputValueError
         If a component is of a type other than body, lifting_surface or wing_fuselage_fairing.
     """
+    if trimmed:
+        return generate_pieces(config)
     components = unpack(config)["components"]
     result = {}
     for name, component in components.items():
