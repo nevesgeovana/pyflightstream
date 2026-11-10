@@ -187,7 +187,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         "Body joins cut",
         True,
         ("join.crease_gap", "CREASE_GAP_M, 1e-6 m"),
-        ("join.length", "the dominant's own boundary inside the dominated, 1e-3 relative"),
+        ("join.length", "MIN_JUNCTION_FRACTION, 0.04 of the smaller piece's extent"),
     ),
     _row(
         "S10.D4",
@@ -199,13 +199,13 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("junction.single_curve", "one curve per junction"),
         ("junction.shared_vertex", "one vertex where faces meet"),
         ("junction.pcurve_on_face", "JUNCTION_GAP_M, 5e-6 m"),
-        ("junction.length", "MIN_JUNCTION_M, 0.1 m"),
+        ("junction.length", "MIN_JUNCTION_FRACTION, 0.04 of the smaller piece's extent"),
     ),
     _row(
         "S10.E1",
         "Groups of three pieces or more",
         True,
-        ("group.junction_length", "MIN_JUNCTION_M, 0.1 m, per pair"),
+        ("group.junction_length", "MIN_JUNCTION_FRACTION of the smaller piece, per pair"),
         ("group.single_curve", "one curve per junction of the group"),
     ),
     _row(

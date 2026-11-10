@@ -190,6 +190,11 @@ class AssemblyBase:
         self.regenerated = regenerated
         self.coverage_fraction = float(coverage_fraction)
         self.hulls = {name: hull(p) for name, p in self.sources.items()}
+        #: each piece's largest extent, the size a relative junction limit is taken of
+        self.extents = {
+            name: float(np.ptp(h.reshape(-1, 3), axis=0).max()) if len(h) else 0.0
+            for name, h in self.hulls.items()
+        }
         self.faces: dict[str, list[Face]] = {}
         self.origin: dict[Face, tuple[str, int]] = {}
         self.records: list[dict[str, Any]] = []
@@ -234,6 +239,10 @@ class AssemblyBase:
     @staticmethod
     def _op_name(op: jn.Operation) -> str:
         return f"{op.operation} {op.dominant} > {op.dominated}"
+
+    def _min_junction(self, op: jn.Operation) -> float:
+        """Return the shortest junction the pieces of ``op`` may have, relative to their size."""
+        return jn.min_junction(self.extents[op.dominant], self.extents[op.dominated])
 
     def _ops(self, operation: str) -> list[jn.Operation]:
         return [op for op in self.plan if op.operation == operation]

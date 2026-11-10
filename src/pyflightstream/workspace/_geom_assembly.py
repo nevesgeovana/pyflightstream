@@ -421,17 +421,19 @@ class Assembly(RemovalSteps):
         joins = [op for op in self._ops("cut") if self._is_join(op)]
         if not joins:
             return skip(["join.crease_gap", "join.length"], "no body join among the rows"), {}
-        gap, shortest, where = 0.0, np.inf, {}
+        gap, ratio, shortest, limit, where = 0.0, np.inf, 0.0, 0.0, {}
         for op in joins:
             edges = self._junction(op.dominant, op.dominated)
             if not edges:
                 d = hull_contact(self.hulls[op.dominant], self.hulls[op.dominated])
-                gap, shortest, where = max(gap, d), 0.0, {"pair": self._op_name(op)}
-                continue
-            gap = max(gap, self._gap_to_faces(edges))
+                gap = max(gap, d)
+            else:
+                gap = max(gap, self._gap_to_faces(edges))
             length = sum(self._length(e) for e in edges)
-            if length < shortest:
-                shortest, where = length, {"pair": self._op_name(op), "length_m": length}
+            least = self._min_junction(op)
+            if length / max(least, 1e-300) < ratio:
+                ratio, shortest, limit = length / max(least, 1e-300), length, least
+                where = {"pair": self._op_name(op), "length_m": length}
         return [
             jn.measured(
                 "join.crease_gap",
@@ -444,7 +446,7 @@ class Assembly(RemovalSteps):
             jn.measured(
                 "join.length",
                 shortest,
-                jn.MIN_JUNCTION_M,
+                limit,
                 unit="m",
                 bound="min",
                 where=where,
@@ -467,14 +469,16 @@ class Assembly(RemovalSteps):
         if not ops:
             return skip(ids, "no cut row other than body joins"), {}
         m = {"gap": 0.0, "lonely": 0, "closure": 0.0, "dup": 0, "vertex": 0, "pcurve": 0.0}
-        shortest, where, lengths = np.inf, {}, {}
+        ratio, shortest, limit, where, lengths = np.inf, 0.0, 0.0, {}, {}
         for op in ops:
             edges = self._junction(op.dominant, op.dominated)
             self._measure_junction(op, edges, m)
             length = sum(self._length(e) for e in edges)
             lengths[self._op_name(op)] = length
-            if length < shortest:
-                shortest, where = length, {"pair": self._op_name(op)}
+            least = self._min_junction(op)
+            if length / max(least, 1e-300) < ratio:
+                ratio, shortest, limit = length / max(least, 1e-300), length, least
+                where = {"pair": self._op_name(op)}
         return [
             jn.measured(
                 "junction.curve_gap",
@@ -521,7 +525,7 @@ class Assembly(RemovalSteps):
             jn.measured(
                 "junction.length",
                 shortest,
-                jn.MIN_JUNCTION_M,
+                limit,
                 unit="m",
                 bound="min",
                 where=where,
@@ -606,18 +610,22 @@ class Assembly(RemovalSteps):
         if not groups:
             return skip(ids, "no group of three pieces or more"), {}
         lengths, dup = {}, 0
+        ratio, shortest, limit = np.inf, 0.0, 0.0
         for op in self._ops("cut"):
             if not any({op.dominant, op.dominated} <= set(g) for g in groups):
                 continue
             edges = self._junction(op.dominant, op.dominated)
-            lengths[f"{op.dominant} x {op.dominated}"] = sum(self._length(e) for e in edges)
+            length = sum(self._length(e) for e in edges)
+            lengths[f"{op.dominant} x {op.dominated}"] = length
+            least = self._min_junction(op)
+            if length / max(least, 1e-300) < ratio:
+                ratio, shortest, limit = length / max(least, 1e-300), length, least
             dup += self._duplicates(op)
-        shortest = min(lengths.values()) if lengths else 0.0
         return [
             jn.measured(
                 "group.junction_length",
                 shortest,
-                jn.MIN_JUNCTION_M,
+                limit,
                 unit="m",
                 bound="min",
                 where={"lengths_m": lengths},

@@ -304,6 +304,48 @@ def test_p0570_g7r_w4_no_a_junction_of_10_mm_is_refused_as_no_intersection(kerne
     assert entry["status"] == "failed" and entry["measured"] == pytest.approx(0.01, rel=1e-6)
 
 
+def scaled(pieces, factor):
+    """The pieces with every pole multiplied by ``factor`` (a model of another size)."""
+    return {
+        name: [
+            Patch(
+                p.family,
+                p.controls * factor,
+                p.knots_u,
+                p.knots_v,
+                p.multiplicities_u,
+                p.multiplicities_v,
+                p.degree_u,
+                p.degree_v,
+            )
+            for p in patches
+        ]
+        for name, patches in pieces.items()
+    }
+
+
+@pytest.mark.parametrize("factor", [0.01, 10.0])
+def test_p0570_g7r_w4_the_junction_length_limit_scales_with_the_pieces(kernel, tmp_path, factor):
+    """Review round 24: the shortest junction is relative to the pieces it judges, so the same
+    model at 0.01 and 10 times its size keeps its verdicts. A 2.4 m junction of a wing 2.5 m
+    across passes and a 20 mm one fails, whatever the scale (an absolute 0.1 m refused the
+    first at 0.01 and accepted the second at 10)."""
+    good = scaled({"BODY": body(), "WING": wing()}, factor)
+    asm = assembly(kernel, tmp_path / "yes", good, [CUT])
+    asm.step("S10.D1")
+    entry = checks_of(asm.step("S10.D4"))["junction.length"]
+    assert entry["status"] == "passed", entry
+    assert entry["measured"] == pytest.approx(2.4 * factor, rel=1e-6)
+    tiny = scaled({"BODY": body(), "WING": wing(x=(2.0, 2.005), z=(0.0, 0.005))}, factor)
+    asm = assembly(kernel, tmp_path / "no", tiny, [CUT])
+    asm.step("S10.D1")
+    entry = checks_of(asm.step("S10.D4"))["junction.length"]
+    assert entry["status"] == "failed", entry
+    # at 0.01 the 0.2 mm junction meets the kernel's own resolution: within 0.1 percent
+    assert entry["measured"] == pytest.approx(0.02 * factor, rel=1e-3)
+    assert entry["limit"] == pytest.approx(0.04 * 2.5 * factor, rel=1e-9)
+
+
 def test_p0570_g7r_s5_no_a_fillet_ring_open_on_one_side_does_not_close_its_footprint(
     kernel, tmp_path
 ):

@@ -37,7 +37,7 @@ __all__ = [
     "J_ON_LOOP_M",
     "KEPT_ON_LOOP_M",
     "LOOP_CLOSURE_M",
-    "MIN_JUNCTION_M",
+    "MIN_JUNCTION_FRACTION",
     "OPENING_M",
     "REGENERATE_M",
     "RIM_MARGIN_M",
@@ -64,6 +64,7 @@ __all__ = [
     "loop_closure",
     "mean_width",
     "measured",
+    "min_junction",
     "mirror_match",
     "pair_curves",
     "parity_inside",
@@ -120,8 +121,11 @@ SLIVER_WIDTH_M = 5e-3
 #: A region of a split face narrower than 0.05 mm on average has no area worth a face; it is
 #: dropped and counted (hand-off S8).
 ZERO_WIDTH_M = 5e-5
-#: A cut whose junction is shorter than 100 mm means the pieces do not intersect (hand-off W4).
-MIN_JUNCTION_M = 0.1
+#: A junction shorter than this fraction of the smaller piece's largest extent means the pieces
+#: of a cut do not intersect. Relative, so the library builds no length in and a model is judged
+#: alike at any scale: the hand-off's 100 mm per pair (W4) on a piece about 2.5 m across, where
+#: the 10 mm junction it refused lies a factor of ten below.
+MIN_JUNCTION_FRACTION = 0.04
 #: The fuzzy value of a group fragment, 0.05 mm (hand-off T1).
 GROUP_FUZZY_M = 5e-5
 
@@ -494,6 +498,15 @@ def drop_zero_width(faces: Sequence[Any], widths: Sequence[float]) -> tuple[list
 def slivers(widths: Sequence[float]) -> list[int]:
     """Return the faces narrower than :data:`SLIVER_WIDTH_M`, by index (listed, never refused)."""
     return [k for k, w in enumerate(widths) if w < SLIVER_WIDTH_M]
+
+
+def min_junction(*extents: float) -> float:
+    """Return the shortest junction two pieces may have, from their largest extents in metres.
+
+    It is :data:`MIN_JUNCTION_FRACTION` of the smaller extent, so the limit scales with the
+    pieces it judges.
+    """
+    return MIN_JUNCTION_FRACTION * float(min(extents))
 
 
 def introduced(total: int, inputs: int) -> int:
