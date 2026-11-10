@@ -84,9 +84,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the merge of G4R, G5Ra and G5Rb after review round 19: 2267, measured;
 #: then the merge of G1R2, G13P and G13D after review round 21: 2278, measured;
 #: then the merge of G6R and G3L in review round 22: 2285, measured (+7);
-#: then the merge of INTG8 (CI repair of the pyfs-geom integration): 2287, measured.
+#: then the merge of INTG8 (CI repair of the pyfs-geom integration): 2287, measured;
+#: then the merge of PFS-2201.02 (parallel runs) in review round 23: 2290, measured (+3).
 LEAN_CAPS = {
-    "tracked_files": 2287,
+    "tracked_files": 2290,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
