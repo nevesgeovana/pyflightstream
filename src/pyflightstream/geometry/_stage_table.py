@@ -256,7 +256,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         True,
         ("sew.free_introduced", "none beyond the pieces' own"),
         ("sew.triple_edges", "none"),
-        ("sew.slivers", "counted and listed, SLIVER_WIDTH_M"),
+        ("sew.slivers", "none beyond the pieces' own, SLIVER_WIDTH_M (theirs listed)"),
     ),
     _row(
         "S10.E2",

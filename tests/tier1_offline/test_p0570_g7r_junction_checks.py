@@ -334,3 +334,11 @@ def test_p0570_g7r_t2_the_stage_table_states_the_clearance_floor_the_check_uses(
     row = next(r for r in STAGE_ROWS if r.stage == "S10.E2")
     text = dict(row.checks)["assembly.clearance"]
     assert "SEW_M" in text and "1e-5 m" in text, text
+
+
+def test_p0570_g7r_s10_the_stage_table_says_new_slivers_fail():
+    """Review round 24: sew.slivers fails on slivers the assembly introduces (hand-off S10: 0)
+    and lists those the pieces bring; the table said only "counted and listed"."""
+    row = next(r for r in STAGE_ROWS if r.stage == "S10.D10")
+    text = dict(row.checks)["sew.slivers"]
+    assert "none beyond the pieces' own" in text, text

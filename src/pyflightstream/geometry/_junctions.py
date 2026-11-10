@@ -115,8 +115,9 @@ SYMMETRY_M = 1e-6
 REGENERATE_M = 1e-9
 #: A rim point within 0.01 mm of the dominant's surface counts as on it (hand-off BJ8).
 RIM_MARGIN_M = 1e-5
-#: A face narrower than 5 mm on average is a sliver: counted and listed, not refused (hand-off
-#: section 5, item 7).
+#: A face narrower than 5 mm on average is a sliver (hand-off section 5, item 7). Those the
+#: pieces bring alone are counted and listed, not refused (hand-off D1: generator thin faces);
+#: a sliver the assembly introduces fails ``sew.slivers`` (hand-off S10: 0).
 SLIVER_WIDTH_M = 5e-3
 #: A region of a split face narrower than 0.05 mm on average has no area worth a face; it is
 #: dropped and counted (hand-off S8).
