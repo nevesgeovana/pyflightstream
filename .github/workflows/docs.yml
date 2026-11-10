@@ -100,5 +100,10 @@ jobs:
       pages: write
       id-token: write
     steps:
+      # The v0.56.0 deploy failed with "Timeout reached, aborting!" while the Pages status
+      # stayed at syncing_files: the action waits 10 minutes by default, and the site holds
+      # every edition, so it grows with each release. Wait up to 30 minutes.
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e  # v4
+        with:
+          timeout: 1800000

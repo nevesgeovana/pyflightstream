@@ -13,7 +13,7 @@ pytest
 
 The fsi extra is needed for the complete offline suite. Add manual
 when changing manual-reading tools.
-Guard optional imports at the operation that needs them. [Test tiers](https://nevesgeovana.github.io/pyflightstream/tiers/)
+Guard optional imports at the operation that needs them. [Test tiers](https://nevesgeovana.github.io/pyflightstream/latest/tiers/)
 explains what offline and licensed tests establish.
 
 Run affected subject tests while developing. Each tier-1 file belongs to one
@@ -56,7 +56,16 @@ gh release upload v<version> pyflightstream-docs-<version>.zip
 Every docs deploy serves the site it built under `/<version>/` beside the zip of each
 earlier release that carries one, with the version selector listing them; a release
 whose zip was never attached is absent from the selector until it is, and the next
-deploy picks it up.
+deploy picks it up. It also serves `/latest/<page>/` for every page of the build, which is
+the address the guides and the repository text cite.
+
+After the docs deploy is green, check that every page the guides cite answers 200 on the
+published site (offline, `python scripts/check_doc_links.py` maps each slug to its page
+under `docs/` and runs in the test suite):
+
+```text
+python scripts/check_doc_links.py --site https://nevesgeovana.github.io/pyflightstream/latest
+```
 
 ## Regenerate the Understanding views
 
@@ -146,8 +155,8 @@ files and remains local. Use each command's --help for required arguments.
 grammar needs review. When a build inherits no evidence, regenerate its absent
 command list with scripts/gen_absent_commands.py and run the database tests.
 
-See [versions and evidence](https://nevesgeovana.github.io/pyflightstream/concepts/versions-and-evidence/) and
-[build support](https://nevesgeovana.github.io/pyflightstream/builds/) for the two status ladders.
+See [versions and evidence](https://nevesgeovana.github.io/pyflightstream/latest/concepts/versions-and-evidence/) and
+[build support](https://nevesgeovana.github.io/pyflightstream/latest/builds/) for the two status ladders.
 
 ## Style and mutation tests
 
