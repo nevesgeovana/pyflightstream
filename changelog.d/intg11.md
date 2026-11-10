@@ -14,5 +14,7 @@ the incompatible sizes, and the matching-net requirement.
 
 The parity fallback is documented by the dominant component's role.
 
+The generated library graph includes the junction checks' typed-error dependency.
+
 migration: incompatible pole-net comparisons raise the package's `InputValueError`,
 which remains a `ValueError` subclass.

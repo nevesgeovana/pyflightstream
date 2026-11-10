@@ -6299,6 +6299,11 @@
     },
     {
       "source": "pyflightstream.geometry._junctions",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._junctions",
       "target": "pyflightstream.geometry._records",
       "kind": "module"
     },
