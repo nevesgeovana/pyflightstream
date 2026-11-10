@@ -89,3 +89,19 @@ def test_p0570_g3l_a_doe_set_that_was_refused_or_faulted_has_its_own_log(tmp_pat
     text = (folder / LOG).read_text(encoding="utf-8")
     assert "stopped at sub-step worker, check worker.completed" in text
     assert "ran longer than 0.01 s" in text and "package version:" in text
+
+
+def test_r22_004_a_set_that_faults_on_a_rerun_leaves_no_earlier_report_or_log(
+    tmp_path, monkeypatch
+):
+    """R22-004: run again into the same folder, a faulted set's files are this run's only."""
+    (first,) = _geom_run.run_doe(BODY, [{"FUS.length_mm": 2500.0}], out=tmp_path, until="S2")
+    assert first["status"] == "incomplete"
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", "0.01")
+    (second,) = _geom_run.run_doe(BODY, [{"FUS.length_mm": 2500.0}], out=tmp_path, until="S2")
+    folder = tmp_path / "set-0001"
+    on_disk = json.loads((folder / "report.json").read_text(encoding="utf-8"))
+    assert (second["status"], on_disk["status"], on_disk["stage"]) == ("failed", "failed", "worker")
+    results = [line for line in (folder / LOG).read_text(encoding="utf-8").splitlines()
+               if line.startswith("result:")]  # fmt: skip
+    assert len(results) == 1 and results[0].startswith("result: FAILED")

@@ -51,7 +51,7 @@ from pyflightstream.geometry._records import (
 )
 from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
 from pyflightstream.geometry._toml_keys import adopt_surface_file
-from pyflightstream.workspace._geom_log import RunLog
+from pyflightstream.workspace._geom_log import LOG_NAME, RunLog
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
@@ -631,6 +631,10 @@ def _one_set(job):
         "out": str(Path(common["out"]) / f"set-{index + 1:04d}" / "report.json"),
         "overrides": dict(params),
     }
+    # A report or a log left by an earlier run in this set folder would be read as this run's
+    # when the worker dies before writing its own: neither survives the start of the set.
+    for stale in ("report.json", LOG_NAME):
+        (Path(arguments["out"]).parent / stale).unlink(missing_ok=True)
     try:
         return run_isolated(f"{__name__}:run_set", arguments, run_set)
     except Exception as error:  # a worker fault must end this set only
