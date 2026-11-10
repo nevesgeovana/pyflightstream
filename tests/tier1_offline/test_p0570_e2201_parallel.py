@@ -311,3 +311,14 @@ def test_p0570_r23_001_each_concurrent_run_carries_its_own_case_runtime(tmp_path
         for sim_id in ("9000", "9001")
     }
     assert by_sim == {"9000": [hybrid_environment], "9001": [{}]}, seen
+
+
+def test_p0570_r23_002_concurrent_runs_log_to_the_workspace_activity_log(tmp_path):
+    workspace, _ = run(tmp_path, 3, SleepingSolver(0.05), parallel=2)
+    logs = sorted(
+        p.relative_to(workspace.root).as_posix() for p in workspace.root.rglob("activity.log")
+    )
+    assert logs == ["logs/activity.log"]
+    text = (workspace.root / "logs" / "activity.log").read_text(encoding="utf-8")
+    started = [line for line in text.splitlines() if "[solver] started" in line]
+    assert sum("datapoints" in line for line in started) == 3, started

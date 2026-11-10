@@ -15,6 +15,7 @@ no recorded failure.
 
 from __future__ import annotations
 
+import contextvars
 import copy
 import os
 import re
@@ -236,9 +237,13 @@ def gated_campaign(executors: Sequence[Any], workspace: Any, gate: RunGate) -> I
 
 
 def run_pool(units: Sequence[Callable[[], None]], workers: int) -> None:
-    """Run every unit on at most ``workers`` threads; the first error is raised after all end."""
+    """Run every unit on at most ``workers`` threads; the first error is raised after all end.
+
+    Each unit runs in a copy of the caller's context, so the activity log and the
+    console of the command reach the worker threads as they reach the serial loop.
+    """
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = [pool.submit(unit) for unit in units]
+        futures = [pool.submit(contextvars.copy_context().run, unit) for unit in units]
     for future in futures:
         error = future.exception()
         if error is not None:
