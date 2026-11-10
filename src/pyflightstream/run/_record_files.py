@@ -27,7 +27,7 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._assessment import worse_of
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, record_document
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -133,7 +133,7 @@ def _replace_bytes(target: Path, payload: bytes) -> None:
     try:
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(payload)
-        temporary.replace(target)
+        record_document.replace_file(temporary, target)
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise

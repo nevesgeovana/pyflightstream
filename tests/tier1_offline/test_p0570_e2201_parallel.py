@@ -582,3 +582,21 @@ def test_p0570_r23_006_only_a_launch_policy_needs_a_local_launch(tmp_path, runti
     assert all(r.status is RunStatus.CONVERGED for r in records), [
         (r.status, r.error) for r in records
     ]
+
+
+def test_p0570_r25_001_a_restore_or_rebuild_replaces_the_register_through_the_lock(
+    tmp_path, monkeypatch
+):
+    from pyflightstream.run import _record_files
+    from pyflightstream.workspace import record_document
+
+    seen = []
+    real = record_document.replace_file
+    monkeypatch.setattr(
+        record_document,
+        "replace_file",
+        lambda source, path: (seen.append(path), real(source, path)),
+    )
+    target = tmp_path / "runs.json"
+    _record_files._replace_bytes(target, b"[]\n")
+    assert seen == [target] and target.read_bytes() == b"[]\n"
