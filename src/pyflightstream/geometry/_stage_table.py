@@ -109,6 +109,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         False,
         ("closure.base_present", "the base runs past both contact lines"),
         ("fillet.host_footprint", "2e-2 relative, geometry._fillet.FOOTPRINT_LIMIT"),
+        ("fillet.contact_on_face", "no contact on the part of a blister its body trims away"),
     ),
     _row(
         "S8.F3",

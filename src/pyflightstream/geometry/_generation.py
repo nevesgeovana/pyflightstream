@@ -111,7 +111,7 @@ def blend_faces(components, name) -> tuple[list[Patch], str]:
     component = components[name]
     if component["type"] == "fillet":
         model = fillet_model(component, components, name)
-        _, body_name = fillet_hosts(components, name)
+        _, _, body_name = fillet_hosts(components, name)
         start = model.trims[0].loop[0][0][0]
         middle = split_along(model.base, "v", [model.contacts["v_host"], model.contacts["v_wing"]])[
             1

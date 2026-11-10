@@ -25,14 +25,14 @@ from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from ._blister import BodyHost, free_edge_check
+from ._blister import BlisterHost, BodyHost, blister_model, free_edge_check
 from ._blister import host_gap as host_gap_of
 from ._bspline import full_knots
 from ._caps import lifting_model
 from ._distributions import planform_values
 from ._lifting import thickness_station
 from ._patch import Patch
-from ._placement import wing_in_body_frame
+from ._placement import move, placement_transform
 from ._records import check_entry
 from ._trims import iso_trim
 
@@ -160,17 +160,46 @@ def fillet_notes(name, component, warnings) -> None:
 
 
 def fillet_hosts(components, name):
-    """Return ``(wing, body)``, the names of a fillet's lifting surface and body hosts."""
+    """Return ``(wing, host, frame)``: the lifting surface, the other host and the frame body.
+
+    The other host is a body or a blister; the fillet is built in the frame of that body, or of
+    the body the blister lies on, and lies on the blister's face, outside that body.
+    """
     hosts = components[name]["hosts"]
     kinds = {host: components[host]["type"] for host in hosts}
     wings = [h for h in hosts if kinds[h] == "lifting_surface"]
-    bodies = [h for h in hosts if kinds[h] == "body"]
-    if len(wings) != 1 or len(bodies) != 1:
+    others = [h for h in hosts if kinds[h] in ("body", "blister")]
+    if len(wings) != 1 or len(others) != 1:
         raise InputValueError(
-            f"{name}.hosts: this version builds a fillet between one lifting surface and one "
-            f"body; given {', '.join(f'{h} ({kinds[h]})' for h in hosts)}"
+            f"{name}.hosts: a fillet lies between one lifting surface and one body or blister; "
+            f"given {', '.join(f'{h} ({kinds[h]})' for h in hosts)}"
         )
-    return wings[0], bodies[0]
+    host = others[0]
+    frame = host if kinds[host] == "body" else components[host]["host"]
+    if components[frame]["type"] != "body":
+        raise InputValueError(f"{host}.host: a blister lies on a body; {frame!r} is not one")
+    return wings[0], host, frame
+
+
+def _host_surface(components, host, frame):
+    """Return the host surface: the body's law, or the blister's loft on its body."""
+    if host == frame:
+        return BodyHost(components[frame])
+    return BlisterHost(blister_model(components[host], components[frame]), components[frame])
+
+
+def _skin_in_frame(components, wing, frame):
+    """Return the lifting surface's skin in its own frame and in the frame body's frame.
+
+    The two frames differ by the relative rigid motion of the placements (a fin is rolled), so
+    the skin's poles are moved and its parameters are unchanged.
+    """
+    local = lifting_model(components[wing]).skin
+    body_rotation, body_translation = placement_transform(components, frame)
+    wing_rotation, wing_translation = placement_transform(components, wing)
+    rotation = body_rotation.T @ wing_rotation
+    translation = body_rotation.T @ (wing_translation - body_translation)
+    return local, move([local], rotation, translation)[0]
 
 
 @dataclass(frozen=True)
@@ -349,10 +378,11 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
         When the hosts are not one lifting surface and one body, when they do not meet along
         the whole chord, or when a radius is wider than the lifting surface.
     """
-    wing_name, body_name = fillet_hosts({**components, name: fillet}, name)
-    wing = wing_in_body_frame(components, body_name, wing_name)
-    skin = Surface(lifting_model(wing).skin)
-    host = BodyHost(components[body_name])
+    wing_name, host_name, body_name = fillet_hosts({**components, name: fillet}, name)
+    wing = components[wing_name]
+    local, placed = _skin_in_frame(components, wing_name, body_name)
+    skin = Surface(placed)
+    host = _host_surface(components, host_name, body_name)
     # Three sections per patch of the old layout, so the contacts stay on the hosts (the
     # interpolation error falls with the square of the spacing); an odd count keeps u = 0.5.
     count = 6 * int(np.ceil(fillet["patches"] / 2)) + 1
@@ -379,7 +409,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
         role="fillet",
     )
     v_host, v_wing = e_host / (high - low), (1.0 + e_host) / (high - low)
-    start = _lower_start(fillet, skin, wing)
+    start = _lower_start(fillet, Surface(local), wing)
     trims = (
         iso_trim("lower", "base", (start, 0.5), (v_host, v_wing), role="fillet"),
         iso_trim("upper", "base", (0.5, 1.0), (v_host, v_wing), role="fillet"),
@@ -424,6 +454,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
             )
         ),
         _footprint_check(host, spine, host_points, handles[:, 2]),
+        _on_face_check(host_points, host, components[body_name]),
         free_edge_check(
             {"base": base},
             trims,
@@ -435,6 +466,28 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
         ),
     )
     return FilletModel(base=base, trims=trims, contacts=contacts, records=records)
+
+
+def _on_face_check(contacts, host, body) -> dict:
+    """``fillet.contact_on_face``: host contacts on the part of a blister its body trims away.
+
+    A blister's face is the part of its loft outside the body it lies on; a contact inside that
+    body lies on no written face. A body host is trimmed by no other piece here.
+    """
+    if isinstance(host, BodyHost):
+        return check_entry(
+            "fillet.contact_on_face", "skipped", note="the host is a body, trimmed by no piece"
+        )
+    frame = BodyHost(body)
+    buried = int(np.count_nonzero(frame.levels(contacts) <= 0.0))
+    return check_entry(
+        "fillet.contact_on_face",
+        "passed" if buried == 0 else "failed",
+        buried,
+        0,
+        unit="contacts",
+        note="host contacts inside the body the blister lies on",
+    )
 
 
 #: Largest relative difference between the host area under the fillet and its law footprint.

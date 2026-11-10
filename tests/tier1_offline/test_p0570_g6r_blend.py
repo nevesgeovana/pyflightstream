@@ -114,6 +114,13 @@ def _skin(components, wing, body):
     return Surface(lifting_model(wing_in_body_frame(components, body, wing)).skin)
 
 
+def _statuses(model):
+    """The statuses of a fillet's records; on a body host ``fillet.contact_on_face`` is skipped."""
+    out = {r["id"]: r["status"] for r in model.records}
+    assert out.pop("fillet.contact_on_face") == "skipped"
+    return set(out.values())
+
+
 def _angle(a, b):
     cosine = abs(float(a @ b)) / (np.linalg.norm(a) * np.linalg.norm(b))
     return float(np.degrees(np.arccos(min(cosine, 1.0))))
@@ -122,7 +129,7 @@ def _angle(a, b):
 def test_p0570_g6r_fillet_on_the_demo_passes_every_record(demo):
     _, _, model = demo
     records = {r["id"]: r for r in model.records}
-    assert {r["status"] for r in model.records} == {"passed"}
+    assert _statuses(model) == {"passed"}
     assert records["closure.tangent_host"]["measured"] <= 1.0
     assert records["closure.tangent_wing"]["measured"] <= 1.0
     assert [t.face for t in model.trims] == ["lower", "upper"]
@@ -203,7 +210,7 @@ def test_p0570_g6r_base_is_larger_than_its_faces_by_the_bands(demo):
 
 def test_p0570_g6r_second_fixture_with_different_hosts_passes_every_record(second):
     _, _, model = second
-    assert {r["status"] for r in model.records} == {"passed"}, [
+    assert _statuses(model) == {"passed"}, [
         (r["id"], r["measured"]) for r in model.records if r["status"] != "passed"
     ]
 
@@ -425,7 +432,9 @@ def test_p0570_g6r_each_blend_sub_step_writes_its_record_with_inputs(tmp_path):
     }
     for step in steps:
         record = json.loads((tmp_path / f"{step}.json").read_text(encoding="utf-8"))
-        assert {c["status"] for c in record["checks"]} == {"passed"}, step
+        statuses = {c["id"]: c["status"] for c in record["checks"]}
+        on_face = statuses.pop("fillet.contact_on_face", "skipped")  # a body host: not trimmed
+        assert set(statuses.values()) == {"passed"} and on_face == "skipped", step
         assert expected.get(step, set()) <= {c["id"] for c in record["checks"]}
         assert all(c["where"]["component"] in ("blend", "pod") for c in record["checks"])
         assert set(record["outputs"]["inputs"]) <= {"blend", "pod"}
@@ -563,3 +572,67 @@ def test_p0570_g6r_b3_a_bad_sections_file_is_refused_by_line(tmp_path, text, mat
     resolved, _ = _plain(config)
     with pytest.raises(InputValueError, match=match):
         generate_components(resolved)
+
+
+# -- a fillet whose host is a blister (a low wing in a ventral fairing) ------------------------
+
+
+def _low_wing_in_a_belly():
+    config = deepcopy(DEMO)
+    components = config["components"]
+    components["main"]["placement"] = {"translation": [0.0, 0.0, -0.6]}  # under the hull
+    components["belly"] = {
+        "type": "blister",
+        "host": "hull",
+        "stations": {"x": [1.8, 2.6, 3.4, 4.4, 5.2]},
+        "profile": {"depth": [0.0, 0.33, 0.35, 0.33, 0.0]},
+        "sections": {"width": [0.0, 0.4, 0.42, 0.4, 0.0]},
+    }
+    components["blend"]["hosts"] = ["main", "belly"]
+    return config
+
+
+@pytest.fixture(scope="module")
+def belly():
+    resolved, components = _plain(_low_wing_in_a_belly())
+    model = fillet_model(components["blend"], components, "blend")
+    return resolved, components, model
+
+
+def test_p0570_g6r_fillet_on_a_blister_passes_its_records_on_the_blister_face(belly):
+    _, _, model = belly
+    records = {r["id"]: r for r in model.records}
+    assert {r["status"] for r in model.records} == {"passed"}, [
+        (r["id"], r["measured"]) for r in model.records if r["status"] != "passed"
+    ]
+    assert records["fillet.contact_on_face"]["measured"] == 0  # every contact outside the hull
+
+
+def test_p0570_g6r_fillet_on_a_blister_is_tangent_to_the_blister_loft(belly):
+    _, components, model = belly
+    loft = blister_model(components["belly"], components["hull"])
+    surfaces = [Surface(p) for p in loft.bases.values()]
+    base = Surface(model.base)
+    worst = 0.0
+    for s in np.linspace(0.02, 0.98, 41):
+        point = base(s, model.contacts["v_host"])
+        best = None
+        for surface in surfaces:
+            grid = np.linspace(0.0, 1.0, 17)
+            u, v = min(
+                ((a, b) for a in grid for b in grid),
+                key=lambda uv, surface=surface: np.linalg.norm(surface(*uv) - point),
+            )
+            u, v = surface.closest(point, u, v)
+            gap = float(np.linalg.norm(surface(u, v) - point))
+            if best is None or gap < best[0]:
+                best = (gap, surface.normal(u, v))
+        assert best[0] < 1e-3
+        worst = max(worst, _angle(base.normal(s, model.contacts["v_host"]), best[1]))
+    assert worst <= 1.0
+
+
+def test_p0570_g6r_generate_builds_a_fillet_on_a_blister(belly):
+    resolved, _, _ = belly
+    patches = generate_components(resolved)
+    assert [p.family for p in patches["blend"]] == ["fillet_lower", "fillet_upper"]
