@@ -38,3 +38,10 @@ Explicit exposed roots map eta into the planform semispan. Named engine
 bounding sections split a control into closed inboard and outboard pieces;
 missing bounds retain one piece with a recorded warning. Host-derived limits
 without a measured boundary refuse instead of using an invented station.
+
+Stated Fowler entries now construct a square cove, an elliptic nose and a
+closed nested flap. Cove faces split at every skin span knot. Each deployed
+flap uses one rigid pivot-axis rotation and translation; gap and overlap are
+measured on the polynomial section curves at 49 span stations. Exterior
+identity is measured outside the nose and lip gap bands. The single cove p3
+station specifies a constant normalized roof-wall height over the span.

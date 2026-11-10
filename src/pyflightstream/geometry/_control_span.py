@@ -36,8 +36,8 @@ def span_limits(entry, fraction, previous):
     InputValueError
         If the kind is unsupported, intervals overlap or the gap consumes the span.
     """
-    if entry["kind"] not in ("plain_flap", "aileron"):
-        raise InputValueError("control.kind: this builder requires plain_flap or aileron")
+    if entry["kind"] not in ("plain_flap", "aileron", "fowler", "elevator", "rudder"):
+        raise InputValueError("control.kind: unsupported applied control")
     a, b = (float(entry[k]) / fraction for k in ("eta_in", "eta_out"))
     gap = float(entry["gap_span"]) / fraction
     if not math.isfinite(gap) or gap < 0 or 2 * gap >= b - a:

@@ -515,15 +515,25 @@ def _fowler_model(raw):
 
 
 def test_p0570_gm9_fowler_cove_nested_and_deployed_are_closed(kernel, tmp_path):
-    from pyflightstream.workspace._geom_control_build import _faces
-
     model = _fowler_model(_fowler_config())
     assert set(model.pieces) == {"main", "flap-d0", "flap-d15"}
     roles = {t.role for t in model.pieces["main"]}
     assert {"cove_wall", "cove_roof", "lip_base"} <= roles
     for name, trims in model.pieces.items():
         path = tmp_path / f"{name}.igs"
-        faces = _faces(kernel, model, trims)
+        native = {}
+        for key in {t.base for t in trims}:
+            p = model.bases[key]
+            native[key] = kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        faces = [kernel.add_trimmed_face(native[t.base], [t.loop]) for t in trims]
         kernel.export_iges({name: faces}, path)
         assert _passed(_fcheck(kernel, "F1" if name == "main" else "F2", {"path": str(path)}))
         # NO: removing a cove wall or flap nose must expose an actual sewn opening.

@@ -7,7 +7,7 @@ curves by knot insertion and spline evaluation, without sampling or refitting.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 import numpy as np
 from scipy.interpolate import BSpline
@@ -15,45 +15,20 @@ from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from ._bspline import full_knots, insert_knot, split_patch, union_knots
+from ._bspline import full_knots, insert_knot, union_knots
 from ._caps import _refined, lifting_model
+from ._control_curves import ControlPartition, transform_bases
+from ._control_curves import at_v as _at_v
+from ._control_curves import interval as _interval
+from ._control_curves import point as _point
 from ._control_span import prepare_spans
 from ._control_span import span_limits as _span
+from ._fowler import add_fowler, with_pins
 from ._patch import Patch
 from ._placement import placement_transform
 from ._trims import Trim, iso_trim
 
 __all__ = ["ControlPartition", "build", "imported", "partition", "placed"]
-
-
-@dataclass(frozen=True)
-class ControlPartition:
-    """Shared bases and the named faces of the stationary and moving pieces."""
-
-    bases: dict[str, Patch]
-    pieces: dict[str, tuple[Trim, ...]]
-    warnings: tuple[str, ...] = ()
-
-
-def _interval(patch, direction, low, high):
-    """Restrict one parameter by exact knot insertion, normalizing the result."""
-    if high < 1:
-        patch = split_patch(patch, direction, high)[0]
-    if low > 0:
-        patch = split_patch(patch, direction, low / high)[1]
-    return patch
-
-
-def _at_v(patch, value):
-    knots = full_knots(patch.knots_v, patch.multiplicities_v)
-    poles = BSpline(knots, patch.controls, patch.degree_v, axis=1)(value)
-    return replace(
-        patch,
-        controls=np.stack((poles, poles), axis=1),
-        knots_v=(0.0, 1.0),
-        multiplicities_v=(2, 2),
-        degree_v=1,
-    )
 
 
 def _end(skin, lower, upper, station):
@@ -167,13 +142,6 @@ def partition(
     return ControlPartition(bases, {"main": tuple(main), "control": tuple(moving)})
 
 
-def _point(skin, u, v):
-    poles = BSpline(full_knots(skin.knots_u, skin.multiplicities_u), skin.controls, skin.degree_u)(
-        u
-    )
-    return BSpline(full_knots(skin.knots_v, skin.multiplicities_v), poles, skin.degree_v)(v)
-
-
 def _motion(skin, low, high, span, *, angle, gap):
     """Rigid motion about the straight midpoint hinge, positive downwards."""
     a, b = span
@@ -229,49 +197,59 @@ def build(component: dict) -> ControlPartition:
         If controls overlap, gaps consume a span, or a hinge cannot rotate rigidly.
     """
     component, warnings = prepare_spans(component)
-    model = lifting_model(component)
-    skin = model.skin
+    model = lifting_model(with_pins(component))
     bases, main = _caps(component, model)
-    pieces = {}
+    pieces, checks = {}, []
     entries = sorted(component.get("control_surfaces", []), key=lambda c: c["eta_in"])
     previous = 0.0
-    for index, entry in enumerate(entries):
-        name = str(entry.get("name") or f"surface_{index}")
+    for entry in entries:
         a, b, gap = _span(entry, model.fraction, previous)
-        low, high = (model.lines["u"][f"hinge_{name}_{side}"] for side in ("lower", "upper"))
-        stationary = partition(skin, lower=low, upper=high, span=(a, b))
-        for u in ((0.0, 0.5), (0.5, 1.0)):
-            _rectangle(main, u, (previous, a))
-        for u in ((low, 0.5), (0.5, high)):
-            _rectangle(main, u, (a, b))
-        if previous < a:
-            main.append(
-                iso_trim(f"te_{index}", "trailing_edge", (0, 1), (previous, a), "trailing_edge")
-            )
-        for key in ("hinge", "inboard", "outboard"):
-            target = f"{name}_{key}"
-            bases[target] = stationary.bases[key]
-            trim = next(t for t in stationary.pieces["main"] if t.base == key)
-            main.append(replace(trim, base=target, face=target))
-        moving = partition(skin, lower=low, upper=high, span=(a + gap, b - gap))
-        for angle in entry["deflection_deg"]:
-            label = f"{name}-d{float(angle):g}"
-            rotation, translation = _motion(
-                skin, low, high, (a, b), angle=angle, gap=entry["gap_chord"]
-            )
-            trims = moving.pieces["control"]
-            for key in {t.base for t in trims}:
-                patch = moving.bases[key]
-                bases[f"{label}/{key}"] = replace(
-                    patch, controls=patch.controls @ rotation.T + translation
-                )
-            pieces[label] = tuple(replace(t, base=f"{label}/{t.base}") for t in trims)
+        builder = {"fowler": add_fowler}.get(entry["kind"], _add_plain)
+        added = builder(model, entry, (a, b, gap), previous)
+        bases.update(added.bases)
+        main.extend(added.pieces["main"])
+        pieces.update({k: v for k, v in added.pieces.items() if k != "main"})
+        checks.extend(added.checks)
         previous = b
     for u in ((0.0, 0.5), (0.5, 1.0)):
         _rectangle(main, u, (previous, 1.0))
     if previous < 1:
         main.append(iso_trim("te_end", "trailing_edge", (0, 1), (previous, 1), "trailing_edge"))
-    return ControlPartition(bases, {"main": tuple(main), **pieces}, tuple(warnings))
+    return ControlPartition(bases, {"main": tuple(main), **pieces}, tuple(warnings), tuple(checks))
+
+
+def _add_plain(model, entry, span, previous):
+    skin = model.skin
+    name = entry["name"]
+    a, b, gap = span
+    bases, main, pieces = {}, [], {}
+    low, high = (model.lines["u"][f"hinge_{name}_{side}"] for side in ("lower", "upper"))
+    stationary = partition(skin, lower=low, upper=high, span=(a, b))
+    for u in ((0.0, 0.5), (0.5, 1.0)):
+        _rectangle(main, u, (previous, a))
+    for u in ((low, 0.5), (0.5, high)):
+        _rectangle(main, u, (a, b))
+    if previous < a:
+        main.append(iso_trim(f"te_{name}", "trailing_edge", (0, 1), (previous, a), "trailing_edge"))
+    for key in ("hinge", "inboard", "outboard"):
+        target = f"{name}_{key}"
+        bases[target] = stationary.bases[key]
+        trim = next(t for t in stationary.pieces["main"] if t.base == key)
+        main.append(replace(trim, base=target, face=target))
+    moving = partition(skin, lower=low, upper=high, span=(a + gap, b - gap))
+    for angle in entry["deflection_deg"]:
+        label = f"{name}-d{float(angle):g}"
+        rotation, translation = _motion(
+            skin, low, high, (a, b), angle=angle, gap=entry["gap_chord"]
+        )
+        trims = moving.pieces["control"]
+        for key in {t.base for t in trims}:
+            patch = moving.bases[key]
+            bases[f"{label}/{key}"] = replace(
+                patch, controls=patch.controls @ rotation.T + translation
+            )
+        pieces[label] = tuple(replace(t, base=f"{label}/{t.base}") for t in trims)
+    return ControlPartition(bases, {"main": tuple(main), **pieces})
 
 
 def placed(components: dict, name: str) -> ControlPartition:
@@ -293,10 +271,7 @@ def placed(components: dict, name: str) -> ControlPartition:
     rotation, translation = placement_transform(components, name)
     return replace(
         model,
-        bases={
-            key: replace(p, controls=p.controls @ rotation.T + translation)
-            for key, p in model.bases.items()
-        },
+        bases=transform_bases(model.bases, rotation, translation),
     )
 
 
