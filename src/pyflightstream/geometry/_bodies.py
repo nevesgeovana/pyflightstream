@@ -426,8 +426,8 @@ def body(component, junctions=()) -> list[Patch]:
     --------
     >>> from pyflightstream.geometry._boundary import unpack
     >>> from pyflightstream.geometry.config import resolve_config
-    >>> raw = {"type": "body", "length": 20.0,
-    ...        "sections": [{"at": "middle", "shape": "circle", "radius": 1.2}]}
+    >>> raw = {"type": "body", "length_mm": 20000.0,
+    ...        "sections": [{"at": "middle", "shape": "circle", "radius_mm": 1200.0}]}
     >>> patches = body(unpack(resolve_config(raw))["components"]["COMPONENT"])
     >>> len(patches) > 0
     True

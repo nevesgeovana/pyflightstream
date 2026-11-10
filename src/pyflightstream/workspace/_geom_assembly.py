@@ -6,8 +6,8 @@ pieces loaded, each piece alone, body joins and cuts by one fragment per group, 
 junctions imprinted on their hosts, the inside removed by a flood from each piece's own exposed
 side, skin coverage in parameter space, the joins and the whole written, read back and sewn. Each
 sub-step returns its named checks with the measured value and the limit, and a run stops at the
-first failed check. The owner's rule is the one implemented: the dominant imprints on the
-dominated, the dominated loses its inside, and the dominant is split along the junction too; no
+first failed check. The dominant imprints on the dominated, the dominated loses its inside,
+and the dominant is split along the junction too; no
 area constant decides a removal.
 
 The kernel is reached only through :class:`~pyflightstream.workspace._cad.CadKernel`.
