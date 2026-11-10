@@ -1,1 +1,0 @@
-Body regions for the geometry package: a fuselage is cut only where its definition changes and a nacelle in bays, each face fitted with the fewest spans that hold the law within a tolerance, and faces that share an edge share its curve so the tangent plane is continuous. Internal; no user-visible change until the body verb takes the new plan.
