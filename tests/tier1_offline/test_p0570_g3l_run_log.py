@@ -36,7 +36,7 @@ def test_p0570_g3l_a_planted_failure_is_named_in_the_log(tmp_path, monkeypatch):
     assert "check law.monotonic: measured 2.5 mm, threshold <= 1.0 mm: FAILED" in text
     assert "stopped at sub-step S4, check law.monotonic" in text
     assert "measured 2.5, threshold 1.0" in text
-    assert "inputs: " in text and "wing.igs" in text and "warning: planted warning" in text
+    assert 'inputs of piece: "wing.igs"' in text and "warning: planted warning" in text
     assert "sub-steps not reached: S5" in text and "S9" in text.split("not reached")[1]
     assert "sub-step S5" not in text.replace("not reached", "")
 

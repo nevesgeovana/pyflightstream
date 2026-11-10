@@ -845,3 +845,22 @@ def test_r22_007_a_fillet_on_a_failing_blister_stops_the_run_at_the_blister(tmp_
     assert report["where"]["component"] == "belly"
     stages = [s["stage"] for s in report["stages"] if s["stage"].startswith("S8.")]
     assert stages == ["S8.B1", "S8.B2"]
+
+
+def test_r22_008_the_log_lists_every_input_of_a_piece_whole_with_its_sections_file(tmp_path):
+    """R22-008: the log's inputs line was cut at 160 characters and a blister's sections file
+    was not among its inputs; each piece's inputs are written whole, the file named."""
+    from pyflightstream.workspace import _geom_run
+
+    config = _file_blister(tmp_path, {1: FLAT, 2: FLAT, 3: FLAT})
+    config["components"]["pod"]["stations"]["x"] = [2.4, 3.0, 3.6, 4.4, 5.0]
+    out = tmp_path / "run"
+    _geom_run.run_geometry(config, out=out, until="S9")
+    text = (out / "geom-run.log").read_text(encoding="utf-8")
+    start = text.index("sub-step S8.B1")
+    (line,) = [x for x in text[start:].splitlines() if x.startswith("  inputs of pod: ")][:1]
+    inputs = json.loads(line.removeprefix("  inputs of pod: "))
+    assert inputs["sections_file"].endswith("pod.csv")
+    assert inputs["stations"]["x"] == [2.4, 3.0, 3.6, 4.4, 5.0] and "..." not in line
+    record = json.loads((out / "S8.B1.json").read_text(encoding="utf-8"))
+    assert record["outputs"]["inputs"]["pod"] == inputs  # the log derives from the record

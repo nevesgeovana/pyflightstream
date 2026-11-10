@@ -169,7 +169,7 @@ def _export(context: RunContext) -> StageOutcome:
 #: The inputs of a blend piece that each of its sub-steps reports, by component type.
 _BLEND_INPUTS = {
     "fillet": ("hosts", "laws", "extend_lower_to_te", "patches", "wing_band", "host_band"),
-    "blister": ("host", "stations", "profile", "sections", "tips"),
+    "blister": ("host", "stations", "profile", "sections", "sections_file", "tips"),
 }
 
 
@@ -246,7 +246,9 @@ def _blend_step(kind: str, stage: str) -> StageFn:
                     if record["id"] in wanted:
                         checks.append({**record, "where": {**record["where"], "component": name}})
             inputs[name] = {
-                k: components[name][k] for k in _BLEND_INPUTS[kind] if k in components[name]
+                k: components[name][k]
+                for k in _BLEND_INPUTS[kind]
+                if components[name].get(k) not in (None, "")
             }
         return StageOutcome(checks=checks, outputs={"inputs": inputs})
 

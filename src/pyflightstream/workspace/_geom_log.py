@@ -93,8 +93,13 @@ class RunLog:
             f"sub-step {record['stage']} {record['name']}: {str(record['status']).upper()}"
             f" (wall {record['wall_s']:.3f} s)"
         ]
-        if inputs is not None:
-            lines.append(f"  inputs: {_short(inputs)}")
+        if isinstance(inputs, Mapping):  # every input of each piece, whole: never shortened
+            lines.extend(
+                f"  inputs of {piece}: {json.dumps(value, default=str, sort_keys=True)}"
+                for piece, value in inputs.items()
+            )
+        elif inputs is not None:
+            lines.append(f"  inputs: {json.dumps(inputs, default=str, sort_keys=True)}")
         for key, value in outputs.items():
             lines.append(f"  file or output {key}: {_short(value)}")
         lines.extend(_check_line(c) for c in record["checks"])
