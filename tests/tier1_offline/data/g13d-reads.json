@@ -1,0 +1,250 @@
+{
+  "lane": "G13D",
+  "date": "2026-11-09",
+  "build": "26.127",
+  "executable": "Flightstream_2612.exe",
+  "route": "Script: NEW_SIMULATION, IMPORT_CAD HIGH FALSE 80 <igs>, CONVERT_CAD_TO_MESH -1, SET_SIMULATION_LENGTH_UNITS METER, EXPORT_SURFACE_MESH OBJ -1; LocalExecutor hidden; one process at a time",
+  "status_note": "use = digits 5 and 6 of the directory entry status number (field 9): 00 geometry, 05 2D parametric",
+  "isolation_p6": {
+    "parent_direct": "P6 written by the writer at 3a1259425 (142 use 05, BPTR 102 and its 110 members use 00)",
+    "parent_converted": "P6 after iges-convert (142 use 00, BPTR 102 and its 126 members use 05)",
+    "variants": {
+      "D": [
+        "direct, unchanged",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 6.01
+        }
+      ],
+      "C": [
+        "converted, unchanged",
+        {
+          "triangles": 9262,
+          "area": 6.004733,
+          "free_gb_before": 6.0
+        }
+      ],
+      "D_142use00": [
+        "direct, the 142 use 05 -> 00 only",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 5.9
+        }
+      ],
+      "D_bptrUse05": [
+        "direct, BPTR 102 and members use 00 -> 05",
+        {
+          "triangles": 5456,
+          "area": 6.004722,
+          "free_gb_before": 6.08
+        }
+      ],
+      "D_bptr102only05": [
+        "direct, the BPTR 102 alone use 00 -> 05",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 6.22
+        }
+      ],
+      "D_bptrMembersOnly05": [
+        "direct, the BPTR members (110) alone use 00 -> 05",
+        {
+          "triangles": 5456,
+          "area": 6.004722,
+          "free_gb_before": 6.21
+        }
+      ],
+      "D_both": [
+        "direct, 142 use 00 and BPTR chain use 05",
+        {
+          "triangles": 5456,
+          "area": 6.004722,
+          "free_gb_before": 6.12
+        }
+      ],
+      "D_406use00": [
+        "direct, the 406 NAME use 02 -> 00 only",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 6.13
+        }
+      ],
+      "C_142use05": [
+        "converted, the 142 use 00 -> 05 only",
+        {
+          "triangles": 9262,
+          "area": 6.004733,
+          "free_gb_before": 6.13
+        }
+      ],
+      "C_bptrUse00": [
+        "converted, BPTR 102 and members use 05 -> 00",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 6.12
+        }
+      ],
+      "C_both": [
+        "converted, 142 use 05 and BPTR chain use 00",
+        {
+          "triangles": 0,
+          "area": 0,
+          "free_gb_before": 6.12
+        }
+      ]
+    },
+    "written_area": 6.004724
+  },
+  "isolation_p9": {
+    "P9a_conv": [
+      "P9a after iges-convert (144 N1 = 1, 142 with BPTR)",
+      {
+        "triangles": 1244,
+        "area": 3.141501,
+        "free_gb_before": 5.55
+      }
+    ],
+    "C9a_N1zero": [
+      "the same with the 144 N1 1 -> 0 and PTO -> 0 only",
+      {
+        "triangles": 0,
+        "area": 0,
+        "free_gb_before": 5.57
+      }
+    ],
+    "D9a_flagged": [
+      "P9a direct (144 N1 = 0, no 142) with the trim flags fixed",
+      {
+        "triangles": 0,
+        "area": 0,
+        "free_gb_before": 5.52
+      }
+    ],
+    "D9b_flagged": [
+      "P9b direct with the trim flags fixed: the 120 side (BPTR set) reads, the two 108 caps (BPTR 0) do not",
+      {
+        "triangles": 2145,
+        "area": 6.280637,
+        "free_gb_before": 5.5
+      }
+    ],
+    "P9b_conv": [
+      "P9b after iges-convert (three 128 faces, BPTR set)",
+      {
+        "triangles": 4694,
+        "area": 7.850668,
+        "free_gb_before": 5.5
+      }
+    ]
+  },
+  "pref_p1_after_fix": {
+    "P1_pref0": {
+      "triangles": 3646,
+      "area": 6.123661,
+      "free_gb_before": 5.48
+    },
+    "P1_pref1": {
+      "triangles": 3646,
+      "area": 6.123661,
+      "free_gb_before": 5.6
+    },
+    "P2_pref2": {
+      "triangles": 0,
+      "area": 0,
+      "free_gb_before": 5.58
+    },
+    "P1_pref3": {
+      "triangles": 3646,
+      "area": 6.123661,
+      "free_gb_before": 5.44
+    },
+    "note": "P1 and P2 after the fix differ only in the PREF of their two 142 entities"
+  },
+  "after_fix_direct": {
+    "P1": {
+      "triangles": 3646,
+      "area": 6.123661,
+      "free_gb_before": 5.6,
+      "written_area": 6.124074,
+      "ratio": 0.999933,
+      "preference": 1
+    },
+    "P2": {
+      "triangles": 0,
+      "area": 0,
+      "free_gb_before": 5.58,
+      "written_area": 6.124074,
+      "ratio": 0.0,
+      "preference": 2
+    },
+    "P3": {
+      "triangles": 7181,
+      "area": 6.123646,
+      "free_gb_before": 5.56,
+      "written_area": 6.124073,
+      "ratio": 0.99993,
+      "preference": 1
+    },
+    "P4": {
+      "triangles": 12037,
+      "area": 6.343652,
+      "free_gb_before": 5.37,
+      "written_area": 6.344127,
+      "ratio": 0.999925,
+      "preference": 1
+    },
+    "P5": {
+      "triangles": 3820,
+      "area": 5.889034,
+      "free_gb_before": 5.4,
+      "written_area": 5.890059,
+      "ratio": 0.999826,
+      "preference": 1
+    },
+    "P6": {
+      "triangles": 5456,
+      "area": 6.004722,
+      "free_gb_before": 5.49,
+      "written_area": 6.004724,
+      "ratio": 1.0,
+      "preference": 1
+    },
+    "P7": {
+      "triangles": 20410,
+      "area": 12.055168,
+      "free_gb_before": 5.49,
+      "written_area": 12.055872,
+      "ratio": 0.999942,
+      "preference": 1
+    },
+    "P8": {
+      "triangles": 2507,
+      "area": 6.103189,
+      "free_gb_before": 5.4,
+      "written_area": 6.103295,
+      "ratio": 0.999983,
+      "preference": 1
+    },
+    "P9a_rational": {
+      "triangles": 1244,
+      "area": 3.141501,
+      "free_gb_before": 5.39,
+      "written_area": 3.141593,
+      "ratio": 0.999971,
+      "preference": 1
+    },
+    "P9b_revolution": {
+      "triangles": 4611,
+      "area": 7.849947,
+      "free_gb_before": 5.39,
+      "written_area": 7.853982,
+      "ratio": 0.999486,
+      "preference": 1
+    }
+  }
+}

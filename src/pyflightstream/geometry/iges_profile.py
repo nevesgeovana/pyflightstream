@@ -9,7 +9,14 @@ surfaces only.
 Observed: non-rational, clamped, bicubic parametric surfaces (entity 128), trimmed by an outer
 boundary (entities 142 and 102), each face named by a 406 form 15 property. The observed
 degrees are a set per direction and the observed net size a limit, both filled from the licensed
-reader probe; until it has run, only degree 3 is observed and no net limit is stated.
+reader probe (record ``tests/tier1_offline/data/g13p-reads.json``, build 26.127, lane G13P): the
+solver read faces of degree 1, 3 and 5 in either direction, and a net of 111 by 18, from files
+written by ``iges-convert``; the same probe files as the package writes them, imported directly,
+read with the same areas (record ``tests/tier1_offline/data/g13d-reads.json``, lane G13D, the
+P2 file of PREF 2 excepted). The direct route reads a
+face only when its outer boundary has parameter-space curves flagged 2D parametric (entity use 05)
+and a PREF other than 2, which the writer states unless asked for PREF 2. No net limit is stated
+because the largest net probed was not a failing one.
 """
 
 from __future__ import annotations
@@ -81,7 +88,7 @@ class ReaderProfile:
 
 
 #: The profile every file is measured against.
-OBSERVED = ReaderProfile()
+OBSERVED = ReaderProfile(degrees_u=(1, 3, 5), degrees_v=(1, 3, 5))
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,327 @@
+{
+  "lane": "G13P",
+  "date": "2026-11-09",
+  "build": "26.127",
+  "executable": "Flightstream_2612.exe",
+  "route": "Script: NEW_SIMULATION, IMPORT_CAD HIGH FALSE 80 <igs>, CONVERT_CAD_TO_MESH <body>, SET_SIMULATION_LENGTH_UNITS METER, EXPORT_SURFACE_MESH OBJ -1; LocalExecutor hidden",
+  "unit_note": "areas in square metres of the exported OBJ; probe geometry is in metres",
+  "per_face_note": "the OBJ names one group per CAD body (Model 0 for an iges-convert file), so faces are not separable: the count is the OBJ triangles and the comparison is the total area",
+  "control_plain_two_sheet_iges": {
+    "direct_body_minus1": "no vertices",
+    "direct_body_1": {
+      "free_gb_before": 6.32,
+      "return_code": 0,
+      "timed_out": false,
+      "wall_s": 0.6,
+      "tail": "exited with return code 0; stdout: Physical memory used: 69.206 MB / CAD model import completed in .00 seconds / C:\\t\\g13p\\probes\\run\\C0_direct\\out.obj",
+      "read": {
+        "_vertices": 0
+      },
+      "note": "a bare two-sheet 128 file with body 1 reads one body, 'PYFSP'"
+    }
+  },
+  "p10": "not run: the published original is an SMI file and this lane uses synthetic geometry only",
+  "items": {
+    "P1": {
+      "shows": "ruled skin 5 by 1, 93 by 2, upper and lower iso trims, PREF 1",
+      "written_faces": 2,
+      "written_face_areas": {
+        "WING": [
+          3.0620369352062538,
+          3.0620369352062538
+        ]
+      },
+      "written_total_area": 6.1240738704125075,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 3646,
+        "area": 6.123660886161381,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9999325638031373
+    },
+    "P2": {
+      "shows": "the same skin, PREF 2",
+      "written_faces": 2,
+      "written_face_areas": {
+        "WING": [
+          3.0620369352062538,
+          3.0620369352062538
+        ]
+      },
+      "written_total_area": 6.1240738704125075,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 3646,
+        "area": 6.123660886161381,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9999325638031373
+    },
+    "P3": {
+      "shows": "the same skin, a leading edge trim that is not an iso line",
+      "written_faces": 2,
+      "written_face_areas": {
+        "WING": [
+          3.089585876771572,
+          3.0344870242384685
+        ]
+      },
+      "written_total_area": 6.12407290101004,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 7314,
+        "area": 6.1236460728624404,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9999303032223001
+    },
+    "P4": {
+      "shows": "P1 plus a trailing edge face and two caps whose rims are the skin's end curves",
+      "written_faces": 7,
+      "written_face_areas": {
+        "WING": [
+          3.0620369352062538,
+          3.0620369352062538,
+          0.024000000000000042,
+          0.04901330313096877,
+          0.04901330313096877,
+          0.04901330313096877,
+          0.04901330313096877
+        ]
+      },
+      "written_total_area": 6.3441270829363825,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 12033,
+        "area": 6.343652322708138,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9999251653975342
+    },
+    "P5": {
+      "shows": "one face with an inner loop",
+      "written_faces": 1,
+      "written_face_areas": {
+        "HOLE": [
+          5.890059336301703
+        ]
+      },
+      "written_total_area": 5.890059336301703,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 3966,
+        "area": 5.888894009750835,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9998021536822752
+    },
+    "P6": {
+      "shows": "a bicubic body region cut into four faces",
+      "written_faces": 4,
+      "written_face_areas": {
+        "BODY": [
+          1.5005578638257004,
+          1.5017243175858457,
+          1.5018187993622991,
+          1.5006234092537984
+        ]
+      },
+      "written_total_area": 6.0047243900276435,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 9262,
+        "area": 6.0047333365506885,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 1.0000014899140184
+    },
+    "P7": {
+      "shows": "a closed wing through a plate after a kernel fragment, the footprint removed",
+      "written_faces": 8,
+      "written_face_areas": {
+        "WING": [
+          1.535831649445073,
+          1.52620528575731,
+          1.5324130933268565,
+          1.5296238418793973,
+          0.011925491192629863,
+          0.012074508807370179
+        ],
+        "BODY": [
+          2.953953109883459,
+          2.95384521350271
+        ]
+      },
+      "written_total_area": 12.055872193794807,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 20073,
+        "area": 12.055229727454355,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.9999467092608378
+    },
+    "P8": {
+      "shows": "net 111 by 18, degree 5 by 5, one face",
+      "written_faces": 1,
+      "written_face_areas": {
+        "NET": [
+          6.103295091934078
+        ]
+      },
+      "written_total_area": 6.103295091934078,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 2507,
+        "area": 6.103189275922547,
+        "group_names": [
+          "Model 0"
+        ]
+      },
+      "convert_area_over_written": 0.999982662478229
+    },
+    "P9a_rational": {
+      "shows": null,
+      "written_faces": 0,
+      "written_face_areas": {},
+      "written_total_area": null,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 1244,
+        "area": 3.141500732247971,
+        "group_names": [
+          "Model 0"
+        ]
+      }
+    },
+    "P9b_revolution": {
+      "shows": null,
+      "written_faces": 0,
+      "written_face_areas": {},
+      "written_total_area": null,
+      "direct_body_minus1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "direct_body_1": {
+        "groups": 0,
+        "faces_triangles": 0,
+        "area": 0.0
+      },
+      "through_iges_convert": {
+        "groups": 1,
+        "triangles": 4694,
+        "area": 7.850668105304818,
+        "group_names": [
+          "Model 0"
+        ]
+      }
+    }
+  }
+}
