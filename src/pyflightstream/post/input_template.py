@@ -716,21 +716,13 @@ def _filled(text: str) -> str:
 _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 
 
+_RUNTIME_KEYS = ("max_threads", "affinity", "parallel", "licence_seats", "ram_floor_gb")
+
 #: The setup tables the input template's example leaves out, each with the
 #: reason and its keys: the separation models, whose assignment is
 #: scenario-specific, and the per-step actions of FR-319.
 _SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
-    "`[runtime]`": MappingProxyType(
-        {
-            "machine launch resources": (
-                "max_threads",
-                "affinity",
-                "parallel",
-                "licence_seats",
-                "ram_floor_gb",
-            )
-        }
-    ),
+    "`[runtime]`": MappingProxyType({"machine launch resources": _RUNTIME_KEYS}),
     "`[bulk_separation]`": MappingProxyType(
         {
             "scenario-specific assignment; select surfaces explicitly": (
