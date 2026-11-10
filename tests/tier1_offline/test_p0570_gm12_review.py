@@ -461,10 +461,16 @@ def test_r9_008_a_surface_no_face_names_fails_the_gate(tmp_path):
     assert {f.check for f in check_profile(tmp_path / "bare.igs").failed} >= {"profile.surfaces"}
 
 
-def test_r9_008_a_planar_face_is_warned_as_not_observed(tmp_path):
+def test_r9_008_a_written_planar_face_is_a_bounded_bspline_face(tmp_path):
+    """R21-006: the writer writes a plane as a 128 with a parameter-space outer boundary.
+
+    A 108 cap whose 142 has no BPTR curve is read by the solver as no face (G13D record), so the
+    writer no longer emits one and the gate has no entity to warn about.
+    """
     _need_gmsh()
     from pyflightstream.workspace._geom_gate import check_profile
     from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_write import read_iges, unbounded_faces
 
     k = open_kernel("gate")
     try:
@@ -472,9 +478,32 @@ def test_r9_008_a_planar_face_is_warned_as_not_observed(tmp_path):
         k.export_iges({"CAP": [face]}, tmp_path / "cap.igs")
     finally:
         k.close()
+    document = read_iges(tmp_path / "cap.igs")
+    types = {e["type"] for e in document["entities"]}
+    assert 108 not in types and 128 in types
+    assert unbounded_faces(document) == 0
     report = check_profile(tmp_path / "cap.igs")
     assert report.passed
-    assert [f.check for f in report.findings if f.severity == "warn"] == ["profile.entity"]
+    assert "profile.entity" not in {f.check for f in report.findings}
+
+
+def test_r9_008_a_foreign_planar_face_is_warned_as_not_observed(tmp_path):
+    """R21-006: the gate's entity arm still warns on a 108 in a file the package did not write."""
+    _need_gmsh()
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_write import read_iges
+
+    k = open_kernel("gate")
+    try:
+        k.add_planar_face([(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)])
+        k._model()  # synchronized, then the kernel's own writer, not the package's
+        k._g.write(str(tmp_path / "foreign.igs"))
+    finally:
+        k.close()
+    assert 108 in {e["type"] for e in read_iges(tmp_path / "foreign.igs")["entities"]}
+    report = check_profile(tmp_path / "foreign.igs")
+    assert "profile.entity" in [f.check for f in report.findings if f.severity == "warn"]
 
 
 @pytest.mark.parametrize("planted", ["u_start", "u_end", "v_start", "v_end"])
