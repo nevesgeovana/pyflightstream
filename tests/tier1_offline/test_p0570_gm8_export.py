@@ -665,6 +665,7 @@ def test_p0570_profile_failure_stops_its_substep_and_reaches_the_run_log(tmp_pat
     "wrong", [False, True], ids=["P0570-source-control", "P0570-relabeled-source"]
 )
 def test_p0570_roundtrip_regenerates_stored_surfaces_without_a_section_fit(tmp_path, kind, wrong):
+    import os
     import subprocess
     import sys
     import tomllib
@@ -692,6 +693,7 @@ def test_p0570_roundtrip_regenerates_stored_surfaces_without_a_section_fit(tmp_p
             stdout=log,
             stderr=subprocess.STDOUT,
             check=True,
+            env=dict(os.environ),
         )
     answer = json.loads(reply.read_text(encoding="utf-8"))
     record, calls = answer["record"], answer["calls"]
