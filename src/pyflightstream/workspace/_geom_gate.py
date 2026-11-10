@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.geometry.iges_profile import (
     OBSERVED,
     SOLID_ENTITIES,
@@ -31,9 +32,94 @@ from pyflightstream.geometry.iges_profile import (
     ReaderProfile,
     surface_findings,
 )
+from pyflightstream.workspace._iges_names import read_iges_names
 from pyflightstream.workspace._iges_write import read_iges
 
-__all__ = ["GateFinding", "GateReport", "check_profile"]
+__all__ = ["GateFinding", "GateReport", "base_displacement", "check_profile", "read_bases"]
+
+
+def base_displacement(path, sources) -> float:
+    """Compare each written face's base coefficients with its other written copies.
+
+    Control poles are placed in metres, including an IGES transformation when
+    present. Knots and degrees must also match. No surface sampling or fitting
+    can hide a changed control net behind a small geometric residual.
+    """
+    document = read_iges(path)
+    names = read_iges_names(path)
+    unit = METRES_PER_UNIT.get(names.unit or "")
+    if unit is None:
+        return 1.0
+    factor = float(unit)
+    entities = {e["id"]: e for e in document["entities"]}
+    faces = [e for e in document["entities"] if e["type"] == 144]
+    worst = 0.0
+    for face, name in zip(faces, names.faces, strict=True):
+        entity = entities[int(face["parameters"][1])]
+        if entity["type"] != 128:
+            return 1.0
+        surface = _Surface(entity["parameters"])
+        points = surface.points.swapaxes(0, 1)
+        transform = int(entity["d1"][6])
+        if transform:
+            matrix = np.asarray(
+                [_number(v) for v in entities[transform]["parameters"][1:13]]
+            ).reshape(3, 4)
+            points = points @ matrix[:, :3].T + matrix[:, 3]
+        error = min(
+            (_base_error(surface, points * factor, p) for p in sources.get(name, [])), default=1.0
+        )
+        worst = max(worst, error)
+    return worst
+
+
+def read_bases(path):
+    """Read the serialized base coefficients per face name, without a kernel or a fit.
+
+    These are the comparison values for other copies of the same source base.
+    Serialization rounding is shared by the copies; it does not change the
+    independently retained numerical source identity.
+    """
+    document = read_iges(path)
+    names = read_iges_names(path)
+    entities = {e["id"]: e for e in document["entities"]}
+    faces = [e for e in document["entities"] if e["type"] == 144]
+    result = {}
+    for face, name in zip(faces, names.faces, strict=True):
+        entity = entities[int(face["parameters"][1])]
+        surface = _Surface(entity["parameters"])
+        points = surface.points.swapaxes(0, 1)
+        transform = int(entity["d1"][6])
+        if transform:
+            matrix = np.asarray(
+                [_number(v) for v in entities[transform]["parameters"][1:13]]
+            ).reshape(3, 4)
+            points = points @ matrix[:, :3].T + matrix[:, 3]
+        result[name] = {
+            "controls": points * float(METRES_PER_UNIT[names.unit or "m"]),
+            "knots_u": surface.knots[0],
+            "knots_v": surface.knots[1],
+            "mult_u": np.ones(len(surface.knots[0]), int),
+            "mult_v": np.ones(len(surface.knots[1]), int),
+            "degree_u": surface.degrees[0],
+            "degree_v": surface.degrees[1],
+        }
+    return result
+
+
+def _base_error(surface, points, expected):
+    controls = np.asarray(expected["controls"])
+    knots = [np.repeat(expected[f"knots_{d}"], expected[f"mult_{d}"]) for d in ("u", "v")]
+    if (
+        points.shape != controls.shape
+        or surface.degrees != (expected["degree_u"], expected["degree_v"])
+        or any(a.shape != b.shape for a, b in zip(surface.knots, knots, strict=True))
+    ):
+        return 1.0
+    values = [float(np.max(np.abs(points - controls))), float(np.max(np.abs(surface.weights - 1)))]
+    values += [float(np.max(np.abs(a - b))) for a, b in zip(surface.knots, knots, strict=True)]
+    return max(values) if np.isfinite(values).all() else 1.0
+
 
 #: Points taken along each curve of a boundary when it is measured.
 _BOUNDARY_SAMPLES = 9

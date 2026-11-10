@@ -76,7 +76,7 @@ from pyflightstream.geometry._records import (
     stage_record,
     write_record,
 )
-from pyflightstream.geometry._registry import manifest_checks, manifest_record
+from pyflightstream.geometry._registry import manifest_checks, manifest_record, sidecar_identity
 from pyflightstream.geometry._reverse import (
     clean_band,
     closed_contour,
@@ -95,6 +95,7 @@ __all__ = [
     "build_id",
     "manifest_record",
     "surface_id",
+    "sidecar_identity",
     "CAP_EDGE_GAP",
     "cap_edge_gap",
     "lifting_model",

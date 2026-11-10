@@ -63,3 +63,13 @@ trim loops, including those with no retained face.
 migration: The provisional manifest's component mapping is now the specified
 `pieces` list. Each piece has an integer `faces` count and a `face_records`
 list containing its retained-face measurements.
+
+S11 counts the faces actually emitted in every file and rejects solid
+entities. S11.P measures reader compatibility, requires both boundary
+curves with PREF 1 and parameter-space use 05, and compares the written
+copies of each base at 1e-12. It independently verifies the sidecar's
+original bases and loops against the generated source identity.
+
+migration: Reader and shared-base checks have their own S11.P stage and log
+record. `--until S11` performs the write audit; a complete run continues
+through the profile, reimport and sewing audits.

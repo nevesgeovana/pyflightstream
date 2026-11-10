@@ -173,10 +173,12 @@ def _export(context: RunContext) -> StageOutcome:
         str(item) for item in written["warnings"] if item not in context.resolved["warnings"]
     ]
     context.state["export"] = written
+    measured = _export_step("S11")(context)
     return StageOutcome(
-        checks=[check_entry("profile.surfaces_only", "passed", 0, 0, unit="solid entities")],
-        warnings=warnings,
+        checks=measured.checks,
+        warnings=warnings + measured.warnings,
         outputs={
+            **measured.outputs,
             "iges": written["iges"],
             "manifest": written["manifest"],
             "faces": written["faces"],
@@ -476,6 +478,7 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,
     "S11.V": _export_step("S11.V"),
+    "S11.P": _export_step("S11.P"),
     "S11.R": _export_step("S11.R"),
     "S11.S": _export_step("S11.S"),
     "S8.F1": _blend_step("fillet", "S8.F1"),

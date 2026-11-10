@@ -488,3 +488,141 @@ def test_p0570_export_manifest_has_public_piece_records_and_original_loops(tmp_p
     sidecar = json.loads((tmp_path / piece["layout"]).read_text(encoding="utf-8"))
     assert sidecar["base_order"] == ["skin_0"]
     assert len(sidecar["source_trims"]) == 2
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ["", "face", "piece", "combined", "sidecar"],
+    ids=[
+        "P0570-base-control",
+        "P0570-face-base",
+        "P0570-piece-base",
+        "P0570-combined-base",
+        "P0570-sidecar-base",
+    ],
+)
+def test_p0570_profile_checks_every_written_base_and_source_sidecar(tmp_path, changed):
+    from pyflightstream.workspace._geom_export import check_export
+
+    kernel_or_skip()
+    resolved, written = _written_halves(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    piece = manifest["pieces"][0]
+    if changed == "sidecar":
+        path = tmp_path / piece["layout"]
+        layout = json.loads(path.read_text(encoding="utf-8"))
+        layout["bases"]["skin_0"]["controls"][0][0][2] += 1e-10
+        path.write_text(json.dumps(layout), encoding="utf-8")
+    elif changed:
+        path = (
+            tmp_path
+            / {
+                "face": piece["face_records"][0]["iges"],
+                "piece": piece["file"],
+                "combined": manifest["iges"],
+            }[changed]
+        )
+        document = read_iges(path)
+        values = next(e["parameters"] for e in document["entities"] if e["type"] == 128)
+        ku, kv, du, dv = map(int, values[1:5])
+        pole = 10 + ku + du + 2 + kv + dv + 2 + (ku + 1) * (kv + 1)
+        values[pole + 2] = str(float(values[pole + 2]) + 1e-10)
+        path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export(
+        "S11.P", resolved, configuration=None, members=["plate"], out=tmp_path, source=written
+    )
+    checks = {c["id"]: c for c in record["checks"]}
+    assert "profile.base_shared" in checks, record
+    assert checks["profile.base_shared"]["status"] == ("failed" if changed else "passed"), record
+    assert checks["profile.reader"]["status"] == "passed", record
+
+
+@pytest.mark.parametrize("fault", ["pref", "pcurve"], ids=["P0570-PREF-2", "P0570-no-pcurve"])
+def test_p0570_export_profile_rejects_an_unreadable_boundary(tmp_path, fault):
+    from pyflightstream.workspace._geom_export import check_export
+
+    kernel_or_skip()
+    resolved, written = _written_halves(tmp_path)
+    path = tmp_path / "combined.igs"
+    document = read_iges(path)
+    boundary = next(e for e in document["entities"] if e["type"] == 142)
+    boundary["parameters"][5 if fault == "pref" else 3] = "2" if fault == "pref" else "0"
+    path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export(
+        "S11.P", resolved, configuration=None, members=["plate"], out=tmp_path, source=written
+    )
+    checks = {c["id"]: c for c in record["checks"]}
+    assert "profile.reader" in checks, record
+    assert checks["profile.reader"]["status"] == "failed", record
+
+
+def test_p0570_write_check_counts_faces_in_the_actual_file(tmp_path):
+    from pyflightstream.workspace._geom_export import check_export
+
+    kernel_or_skip()
+    resolved, written = _written_halves(tmp_path)
+    path = tmp_path / "combined.igs"
+    document = read_iges(path)
+    face = next(e for e in document["entities"] if e["type"] == 144)
+    document["entities"].remove(face)
+    path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export(
+        "S11", resolved, configuration=None, members=["plate"], out=tmp_path, source=written
+    )
+    checks = {c["id"]: c for c in record["checks"]}
+    assert "write.face_count" in checks, record
+    assert checks["write.face_count"]["status"] == "failed", record
+    assert checks["write.face_count"]["measured"] == 1
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ["", "pref", "base"],
+    ids=["P0570-profile-run-control", "P0570-profile-run-pref", "P0570-profile-run-base"],
+)
+def test_p0570_profile_failure_stops_its_substep_and_reaches_the_run_log(tmp_path, fault):
+    from pyflightstream.workspace._geom_export import check_export
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    kernel_or_skip()
+
+    def write(context):
+        _, written = _written_halves(context.out)
+        context.state["export"] = written
+        if fault == "pref":
+            path = context.out / "combined.igs"
+            document = read_iges(path)
+            next(e for e in document["entities"] if e["type"] == 142)["parameters"][5] = "2"
+            path.write_text(serialize_iges(document), encoding="ascii")
+        elif fault == "base":
+            path = context.out / "plate.layout.json"
+            layout = json.loads(path.read_text(encoding="utf-8"))
+            layout["bases"]["skin_0"]["controls"][0][0][2] += 1e-10
+            path.write_text(json.dumps(layout), encoding="utf-8")
+        return StageOutcome(
+            **check_export(
+                "S11",
+                context.resolved,
+                configuration=None,
+                members=context.members,
+                out=context.out,
+                source=written,
+            )
+        )
+
+    stages = {s.row.stage: s for s in default_stages()}
+    report = run_geometry(
+        {"components": {"plate": {"type": "body"}}},
+        out=tmp_path,
+        until="S11.P",
+        stages=[Stage(stages["S11"].row, write), stages["S11.P"]],
+    )
+    assert report["status"] == ("failed" if fault else "accepted"), report
+    profile = json.loads((tmp_path / "S11.P.json").read_text(encoding="utf-8"))
+    assert profile["outputs"]["inputs"]["files"]
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "S11.P" in log and "profile.base_shared" in log and "profile.reader" in log
+    if fault:
+        assert report["stage"] == "S11.P"
+        assert report["check"] == ("profile.reader" if fault == "pref" else "profile.base_shared")

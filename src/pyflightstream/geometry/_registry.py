@@ -7,10 +7,35 @@ generated. Copying a requested version into a manifest cannot make them agree.
 
 from __future__ import annotations
 
-from ._boundary import unpack
-from ._records import check_entry
+import numpy as np
 
-__all__ = ["manifest_checks", "manifest_record"]
+from ._boundary import unpack
+from ._identity import surface_id
+from ._patch import Patch
+from ._records import check_entry
+from ._trims import Trim
+
+__all__ = ["manifest_checks", "manifest_record", "sidecar_identity"]
+
+
+def sidecar_identity(name, layout):
+    """Recompute source identity from every original base and loop in a sidecar."""
+    patches = []
+    for key in layout["base_order"]:
+        p = layout["bases"][key]
+        patches.append(
+            Patch(
+                key,
+                np.asarray(p["controls"]),
+                tuple(p["knots_u"]),
+                tuple(p["knots_v"]),
+                tuple(p["mult_u"]),
+                tuple(p["mult_v"]),
+                p["degree_u"],
+                p["degree_v"],
+            )
+        )
+    return surface_id({name: patches}, {name: [Trim(**t) for t in layout["source_trims"]]})
 
 
 def manifest_record(state, *, configuration, identities, dominance, coverage) -> dict:

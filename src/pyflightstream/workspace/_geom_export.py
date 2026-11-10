@@ -23,6 +23,7 @@ from pyflightstream.geometry.stages import (
     manifest_record,
     parameter_id,
     sha256_file,
+    sidecar_identity,
     surface_id,
     unpack,
     write_record,
@@ -148,12 +149,93 @@ def write_assembly(
 def check_export(stage, resolved, *, configuration, members, out, source) -> dict[str, Any]:
     """Measure one export sub-step against the retained source record."""
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
+    if stage == "S11":
+        return write_checks(Path(out), manifest)
+    if stage == "S11.P":
+        return profile_checks(Path(out), manifest, source)
     if stage == "S11.R":
         return read_back(Path(out), manifest, float(unpack(resolved)["acceptance"]["area_excess"]))
     if stage == "S11.S":
         return sew_back(Path(out), manifest)
     checks = manifest_checks(resolved, configuration, members, manifest, source["sources"])
     return {"checks": checks, "outputs": {"inputs": {"members": members}}}
+
+
+def write_checks(folder, manifest):
+    """Count emitted faces and solid entities in each file immediately after writing."""
+    from pyflightstream.geometry.iges_profile import SOLID_ENTITIES
+    from pyflightstream.workspace._iges_write import read_iges
+
+    expected = {manifest["iges"]: sum(p["faces"] for p in manifest["pieces"])}
+    for piece in manifest["pieces"]:
+        expected[piece["file"]] = piece["faces"]
+        expected.update({f["iges"]: 1 for f in piece["face_records"]})
+    missing, solid = 0, 0
+    for file, count in expected.items():
+        entities = read_iges(folder / file)["entities"]
+        missing = max(missing, abs(sum(e["type"] == 144 for e in entities) - count))
+        solid += sum(e["type"] in SOLID_ENTITIES for e in entities)
+    return {
+        "checks": [
+            _measured("write.face_count", missing, 0, unit="faces"),
+            _measured("profile.surfaces_only", solid, 0, unit="solid entities"),
+        ],
+        "outputs": {"inputs": {"expected_faces": expected}},
+    }
+
+
+def profile_checks(folder, manifest, source):
+    """Measure the reader flags and every published base against source provenance."""
+    from pyflightstream.geometry.iges_profile import SOLID_ENTITIES
+    from pyflightstream.workspace._geom_gate import base_displacement, check_profile, read_bases
+    from pyflightstream.workspace._iges_write import read_iges
+
+    files, combined, shared = {}, {}, 0.0
+    for piece in manifest["pieces"]:
+        name = piece["component"]
+        layout = json.loads((folder / piece["layout"]).read_text(encoding="utf-8"))
+        identity = sidecar_identity(name, layout)
+        shared = max(shared, float(identity != source["sources"][name]["source_surface_id"]))
+        written_bases = {}
+        for face in piece["face_records"]:
+            if face["base"] not in written_bases:
+                written_bases[face["base"]] = read_bases(folder / face["iges"])[face["name"]]
+        combined[name] = list(written_bases.values())
+        files[piece["file"]] = {name: combined[name]}
+        for face in piece["face_records"]:
+            files[face["iges"]] = {face["name"]: [written_bases[face["base"]]]}
+    files[manifest["iges"]] = combined
+    solid, flags = 0, 0
+    for file, bases in files.items():
+        document = read_iges(folder / file)
+        by_id = {e["id"]: e for e in document["entities"]}
+        solid += sum(e["type"] in SOLID_ENTITIES for e in by_id.values())
+        for entity in by_id.values():
+            if entity["type"] == 142:
+                values = entity["parameters"]
+                parameter, model = by_id.get(int(values[3])), by_id.get(int(values[4]))
+                flags += int(
+                    values[5] != "1"
+                    or parameter is None
+                    or model is None
+                    or parameter["d1"][8][4:6] != "05"
+                )
+        shared = max(shared, base_displacement(folder / file, bases))
+    report = None if solid else check_profile(folder / manifest["iges"])
+    failures = flags + (len(report.failed) if report is not None else solid)
+    return {
+        "checks": [
+            _measured("profile.reader", failures, 0, unit="defects"),
+            _measured("profile.base_shared", shared, 1e-12, unit="coefficient difference"),
+        ],
+        "warnings": []
+        if report is None
+        else [str(f) for f in report.findings if f.severity == "warn"],
+        "outputs": {
+            "inputs": {"files": list(files)},
+            "findings": [] if report is None else [vars(f) for f in report.findings],
+        },
+    }
 
 
 def inspect_record(file: str, tolerance: float | None) -> dict[str, Any]:
