@@ -370,6 +370,38 @@ def test_p0570_gm11_control_surface_defaults_to_parent_follower_yes_no():
         mesh_controls(controls, members={"foil", "flap"}, names={"foil", "flap"})
 
 
+def test_p0570_gm11_collapse_te_is_mesh_only_and_distance_bounded_yes_no():
+    from pyflightstream.geometry._mesh_topology import Mesh
+    from pyflightstream.workspace._geometry_mesh_s1 import collapse_trailing_edge
+
+    xyz = np.array(
+        [
+            (1, 0, 0.01),
+            (1, 1, 0.01),
+            (1, 0, -0.01),
+            (1, 1, -0.01),
+            (0, 0, 0.1),
+            (0, 1, 0.1),
+            (0, 0, -0.1),
+            (0, 1, -0.1),
+        ]
+    )
+    source = Mesh(
+        xyz, [(4, 0, 1, 5), (2, 6, 7, 3), (0, 2, 3, 1)], ["foil"] * 3, [1, 2, 3], np.arange(8)
+    )
+    before = deepcopy(source)
+    collapsed, checks = collapse_trailing_edge(source, [(0, 2), (1, 3)], {2}, tolerance_m=0.011)
+    assert len(collapsed.xyz) == 6 and len(collapsed.cells) == 2
+    assert all(len(c) == 4 for c in collapsed.cells)
+    assert all(c["status"] == "passed" for c in checks)
+    assert checks[0]["measured"] == pytest.approx(0.01)
+    assert np.array_equal(source.xyz, before.xyz) and source.cells == before.cells
+    with pytest.raises(InputValueError, match="collapse.*distance"):
+        collapse_trailing_edge(source, [(0, 2), (1, 3)], {2}, tolerance_m=0.009)
+    with pytest.raises(InputValueError, match="base"):
+        collapse_trailing_edge(source, [(0, 2), (1, 3)], set(), tolerance_m=0.011)
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 

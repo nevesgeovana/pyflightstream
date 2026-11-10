@@ -15,6 +15,7 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._mesh_schema import mesh_measurements
+from pyflightstream.geometry._mesh_topology import Mesh
 from pyflightstream.geometry._records import check_entry
 
 
@@ -247,3 +248,60 @@ def body_aspect_checks(xyz, node_ids, band) -> list[dict]:
                     )
                 )
     return checks
+
+
+def collapse_trailing_edge(
+    mesh: Mesh, pairs, base_cells: set[int], *, tolerance_m: float
+) -> tuple[Mesh, list[dict]]:
+    """Collapse explicit upper/lower TE pairs at their midpoints in a new mesh.
+
+    Only declared base cells are removed. The source geometry and source mesh
+    are untouched; any unintended degenerate skin cell refuses the operation.
+    """
+    if not np.isfinite(tolerance_m) or tolerance_m <= 0 or not pairs or not base_cells:
+        raise InputValueError(
+            "collapse: positive distance tolerance, TE pairs and base cells required"
+        )
+    xyz = mesh.xyz.copy()
+    if not np.all(np.isfinite(xyz)):
+        raise InputValueError("collapse distance: mesh coordinates must be finite")
+    representatives = np.arange(len(xyz))
+    used: set[int] = set()
+    distance = 0.0
+    for a, b in pairs:
+        if a == b or min(a, b) < 0 or max(a, b) >= len(xyz) or {a, b} & used:
+            raise InputValueError("collapse: disjoint valid upper/lower TE pairs required")
+        used.update((a, b))
+        distance = max(distance, float(np.linalg.norm(xyz[a] - xyz[b]) / 2))
+        if not np.isfinite(distance) or distance > tolerance_m:
+            raise InputValueError(f"collapse distance {distance} exceeds tolerance {tolerance_m} m")
+        xyz[a] = (xyz[a] + xyz[b]) / 2
+        representatives[b] = a
+    if not base_cells <= set(range(len(mesh.cells))):
+        raise InputValueError("collapse: base cell indices outside mesh")
+    cells, components, surfaces = [], [], []
+    for i, cell in enumerate(mesh.cells):
+        new_cell = tuple(int(representatives[j]) for j in cell)
+        degenerate = len(set(new_cell)) != len(new_cell)
+        if i in base_cells:
+            if not degenerate or not set(cell) <= used:
+                raise InputValueError("collapse: declared base cell does not collapse to its TE")
+            continue
+        if degenerate:
+            raise InputValueError("collapse: undeclared base or skin cell would degenerate")
+        cells.append(new_cell)
+        components.append(mesh.components[i])
+        surfaces.append(mesh.surfaces[i])
+    keep = sorted({j for cell in cells for j in cell})
+    indices = {node: i for i, node in enumerate(keep)}
+    collapsed = Mesh(
+        xyz[keep],
+        [tuple(indices[j] for j in cell) for cell in cells],
+        components,
+        surfaces,
+        mesh.node_tags[keep].copy(),
+    )
+    return collapsed, [
+        _check("mesh.te.collapse_distance", distance, tolerance_m, unit="m"),
+        _check("mesh.te.base_removed", abs(len(mesh.cells) - len(cells) - len(base_cells))),
+    ]
