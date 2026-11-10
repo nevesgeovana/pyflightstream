@@ -19,9 +19,11 @@ from pyflightstream._errors import InputValueError
 __all__ = [
     "FIXED_STAMP",
     "PREFERENCES",
+    "flag_parameter_space",
     "normalize_global",
     "read_iges",
     "serialize_iges",
+    "unbounded_faces",
     "write_iges",
 ]
 
@@ -254,12 +256,65 @@ def set_preference(document, preference):
     return document
 
 
-def write_iges(gmsh, groups, path, preference=1):
-    """Write the groups to one named IGES file; every trimmed face states ``preference`` (PREF)."""
-    if preference not in PREFERENCES:
-        raise InputValueError(f"IGES.PREF: {preference!r} is not one of {PREFERENCES}")
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+#: The entity use flags a trimming curve carries: 00 geometry (the 142, a model-space curve) and 05
+#: 2D parametric (the curves its BPTR names).
+_GEOMETRY_USE, _PARAMETER_SPACE_USE = "00", "05"
+
+
+def _status_with_use(status, use):
+    """Return the status number with its entity use flag (digits 5 and 6) set to ``use``."""
+    return status[:4] + use + status[6:]
+
+
+def flag_parameter_space(document):
+    """Flag every trimming curve as the solver's CAD import reads it.
+
+    The entity use flag (digits 5 and 6 of the status number, directory entry field 9) of each
+    curve a 142's BPTR names, and of every member a composite (102) there reaches, is set to 05
+    (2D parametric); the 142 itself, a model-space curve, is set to 00 (geometry). The kernel's
+    writer flags them the other way round, and the solver's CAD import then reads no face.
+    """
+    by_id = {e["id"]: e for e in document["entities"]}
+    curves = set()
+    for entity in document["entities"]:
+        if entity["type"] != 142:
+            continue
+        entity["d1"][8] = _status_with_use(entity["d1"][8], _GEOMETRY_USE)
+        stack = [int(entity["parameters"][3] or 0)]
+        while stack:
+            number = stack.pop()
+            member = by_id.get(number)
+            if member is None or number in curves:
+                continue
+            curves.add(number)
+            if member["type"] == 102:
+                values = member["parameters"]
+                stack += [int(v) for v in values[2 : 2 + int(values[1])] if v]
+    for number in curves:
+        by_id[number]["d1"][8] = _status_with_use(by_id[number]["d1"][8], _PARAMETER_SPACE_USE)
+    return document
+
+
+def unbounded_faces(document):
+    """Count the trimmed faces (144) with no parameter-space outer boundary.
+
+    A 144 with N1 = 0 (its surface's own boundary, no 142 written) or whose outer 142 has no BPTR
+    curve (a model-space only boundary, as the kernel writes a plane) is read by the solver's CAD
+    import as no face.
+    """
+    by_id = {e["id"]: e for e in document["entities"]}
+    count = 0
+    for entity in document["entities"]:
+        if entity["type"] != 144:
+            continue
+        values = entity["parameters"]
+        outer = by_id.get(int(values[4] or 0)) if int(values[2] or 0) else None
+        if outer is None or not int(outer["parameters"][3] or 0):
+            count += 1
+    return count
+
+
+def _write_visible(gmsh, groups, path):
     entities = gmsh.model.getEntities()
     visibility = [(dim, tag, gmsh.model.getVisibility(dim, tag)) for dim, tag in entities]
     old = gmsh.option.getNumber("Geometry.OCCExportOnlyVisible")
@@ -274,6 +329,21 @@ def write_iges(gmsh, groups, path, preference=1):
         for dim, tag, visible in visibility:
             gmsh.model.setVisibility([(dim, tag)], visible)
         gmsh.option.setNumber("Geometry.OCCExportOnlyVisible", old)
+
+
+def _nurbs_copies(gmsh, groups):
+    """Return the groups as B-spline copies of their faces, which the kernel writes with trims."""
+    occ = gmsh.model.occ
+    copies = {}
+    for name, tags in groups.items():
+        copied = occ.copy([(2, tag) for tag in tags])
+        occ.convertToNURBS(copied)
+        copies[name] = [tag for _, tag in copied]
+    occ.synchronize()
+    return copies
+
+
+def _name_and_flag(gmsh, groups, path, preference):
     document = read_iges(path)
     with TemporaryDirectory(prefix="iges-names-", dir=path.parent) as temporary:
         directory = Path(temporary).resolve()
@@ -282,4 +352,30 @@ def write_iges(gmsh, groups, path, preference=1):
         keys = component_keys(gmsh, groups, directory)
     document = name_properties(document, groups, keys)
     document = set_preference(document, preference)
+    document = flag_parameter_space(document)
     _textio.write_text(path, serialize_iges(document), encoding="ascii")
+
+
+def write_iges(gmsh, groups, path, preference=1):
+    """Write the groups to one named IGES file; every trimmed face states ``preference`` (PREF).
+
+    Every trimming curve is flagged as parameter-space geometry (:func:`flag_parameter_space`).
+    When the kernel would write a face with no parameter-space outer boundary (a natural
+    boundary, or a plane or other analytic surface; :func:`unbounded_faces`), every face is
+    written as a B-spline copy, which carries one, and the copies leave the model after the write.
+    """
+    if preference not in PREFERENCES:
+        raise InputValueError(f"IGES.PREF: {preference!r} is not one of {PREFERENCES}")
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_visible(gmsh, groups, path)
+    if not unbounded_faces(read_iges(path)):
+        _name_and_flag(gmsh, groups, path, preference)
+        return
+    copies = _nurbs_copies(gmsh, groups)
+    try:
+        _write_visible(gmsh, copies, path)
+        _name_and_flag(gmsh, copies, path, preference)
+    finally:
+        gmsh.model.occ.remove([(2, t) for tags in copies.values() for t in tags], recursive=True)
+        gmsh.model.occ.synchronize()
