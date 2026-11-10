@@ -36,7 +36,9 @@ from pyflightstream._errors import (
 )
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
+from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._boundary import unpack
+from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._records import (
     check_entry,
@@ -159,8 +161,74 @@ def _export(context: RunContext) -> StageOutcome:
     )
 
 
+#: The inputs of a blend piece that each of its sub-steps reports, by component type.
+_BLEND_INPUTS = {
+    "fillet": ("hosts", "laws", "extend_lower_to_te", "patches", "wing_band", "host_band"),
+    "blister": ("host", "stations", "profile", "sections", "tips"),
+}
+
+
+def _blend_models(context: RunContext, kind: str) -> dict[str, Any]:
+    """Return the fillet or blister models of the selected members, built once per run."""
+    key = f"blend.{kind}"
+    if key not in context.state:
+        components = unpack(context.resolved)["components"]
+        models: dict[str, Any] = {}
+        for name in context.members:
+            component = components[name]
+            if component["type"] != kind:
+                continue
+            if kind == "fillet":
+                models[name] = fillet_model(component, components, name)
+                continue
+            host = component["host"]
+            if components[host]["type"] != "body":
+                raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")
+            models[name] = blister_model(component, components[host])
+        context.state[key] = models
+    return context.state[key]
+
+
+def _blend_step(kind: str, stage: str) -> StageFn:
+    """Return the function of one sub-step of a blend piece: its own checks of each piece.
+
+    The sub-step reports, per piece, the checks its row of the stage table names (each with the
+    piece in ``where``) and the piece's inputs; a configuration with no such piece reports each
+    check skipped with that reason.
+    """
+
+    def run(context: RunContext) -> StageOutcome:
+        row = next(r for r in STAGE_ROWS if r.stage == stage)
+        wanted = [cid for cid, _ in row.checks]
+        models = _blend_models(context, kind)
+        if not models:
+            note = f"no {kind} among the members of this configuration"
+            return StageOutcome(checks=[check_entry(cid, "skipped", note=note) for cid in wanted])
+        components = unpack(context.resolved)["components"]
+        checks, inputs = [], {}
+        for name, model in models.items():
+            for record in model.records:
+                if record["id"] in wanted:
+                    checks.append({**record, "where": {**record["where"], "component": name}})
+            inputs[name] = {
+                k: components[name][k] for k in _BLEND_INPUTS[kind] if k in components[name]
+            }
+        return StageOutcome(checks=checks, outputs={"inputs": inputs})
+
+    return run
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
-STAGE_FUNCTIONS: dict[str, StageFn] = {"S0": _definition, "S11": _export}
+STAGE_FUNCTIONS: dict[str, StageFn] = {
+    "S0": _definition,
+    "S11": _export,
+    "S8.F1": _blend_step("fillet", "S8.F1"),
+    "S8.F2": _blend_step("fillet", "S8.F2"),
+    "S8.F3": _blend_step("fillet", "S8.F3"),
+    "S8.B1": _blend_step("blister", "S8.B1"),
+    "S8.B2": _blend_step("blister", "S8.B2"),
+    "S8.B3": _blend_step("blister", "S8.B3"),
+}
 
 
 def default_stages() -> list[Stage]:

@@ -40,7 +40,7 @@ __all__ = [
 _SECTION_SAMPLES = 61
 _SECTION_SPANS = 10
 #: Crease samples per span of the loft between two stations.
-_CREASE_PER_SPAN = 8
+_CREASE_PER_SPAN = 16
 #: Largest turn across the front to rear edge, degrees (design S9).
 SEAM_LIMIT_DEG = 1.0
 #: Keys of a blister that this version reads only to check them, with what it does instead.
@@ -48,6 +48,9 @@ _NOT_APPLIED = {
     ("profile", "plateau"): "the depth law follows the stations alone",
     ("profile", "mirror_x"): "the depth law follows the stations alone",
 }
+
+
+_TOO_FEW = "a blister closes in a pole at each end, so it needs three or more stations"
 
 
 class BodyHost:
@@ -112,7 +115,12 @@ class BodyHost:
 
 def _per_station(value, count, name):
     """Return a value given once or per station as one float per station."""
-    values = np.atleast_1d(np.asarray(value, float))
+    try:
+        values = np.atleast_1d(np.asarray(value, float))
+    except (TypeError, ValueError):
+        raise InputValueError(f"{name}: expected a number or one per station") from None
+    if values.ndim != 1 or isinstance(value, bool) or not np.all(np.isfinite(values)):
+        raise InputValueError(f"{name}: expected a number or one per station")
     if values.size == 1:
         return np.full(count, float(values[0]))
     if values.size != count:
@@ -127,10 +135,7 @@ def blister_notes(name, component, warnings) -> None:
     """
     count = len(component.get("stations", {}).get("x", []))
     if count < 3:
-        raise InputValueError(
-            f"{name}.stations.x: a blister closes in a pole at each end, so it needs three or "
-            "more stations"
-        )
+        warnings.append(f"{name}.stations.x: {_TOO_FEW}; generate refuses this blister")
     sections = component.get("sections", {})
     for key in ("width", "exponent"):
         if key in sections:
@@ -172,6 +177,8 @@ def blister_law(blister, host: BodyHost) -> dict:
     values as ratios of the host length.
     """
     x = np.asarray(blister["stations"]["x"], float)
+    if len(x) < 3:
+        raise InputValueError(f"stations.x: {_TOO_FEW}")
     if blister["stations"].get("of") == "host_length":
         x = x * host.length
     count = len(x)
@@ -293,9 +300,14 @@ def _evaluate(patch: Patch, u, v):
     controls = np.asarray(patch.controls, float)
     tu = full_knots(patch.knots_u, patch.multiplicities_u)
     tv = full_knots(patch.knots_v, patch.multiplicities_v)
-    rows = BSpline(tu, controls, patch.degree_u, axis=0)(np.atleast_1d(u))
-    columns = BSpline(tv, rows, patch.degree_v, axis=1)(np.atleast_1d(v))
-    return np.einsum("iic->ic", columns) if np.ndim(u) else columns[0, 0]
+    u_values = np.clip(np.atleast_1d(np.asarray(u, float)), 0.0, 1.0)
+    v_values = np.clip(np.atleast_1d(np.asarray(v, float)), 0.0, 1.0)
+    u_values, v_values = np.broadcast_arrays(u_values, v_values)
+    basis_u = BSpline.design_matrix(u_values, tu, patch.degree_u)
+    basis_v = BSpline.design_matrix(v_values, tv, patch.degree_v).toarray()
+    rows = (basis_u @ controls.reshape(controls.shape[0], -1)).reshape(len(u_values), -1, 3)
+    points = np.einsum("kjc,kj->kc", rows, basis_v)
+    return points if np.ndim(u) or np.ndim(v) else points[0]
 
 
 def _crease_on(patch, host, v):
@@ -357,6 +369,101 @@ def _loop_checks(trims) -> list[dict]:
     ]
 
 
+#: Gauss-Legendre nodes for the face areas, and the sampling grid of the independent area.
+_AREA_GAUSS = np.polynomial.legendre.leggauss(16)
+_AREA_GRID = 160
+#: Largest relative difference between the area the trim removes and the area found inside the
+#: host by sampling: the sampled measure resolves the crease to one cell of the grid.
+AREA_REMOVED_LIMIT = 1e-2
+
+
+def host_gap(host, point) -> float:
+    """Return the distance from ``point`` to its radial foot on ``host``."""
+    return float(np.linalg.norm(np.asarray(point) - host.project(point)))
+
+
+def _jacobian(patch: Patch, u, v):
+    """Return |S_u x S_v| at the parameter pairs ``(u, v)`` (arrays of one shape)."""
+    step = 1e-6
+    hi_u, lo_u = np.minimum(u + step, 1), np.maximum(u - step, 0)
+    hi_v, lo_v = np.minimum(v + step, 1), np.maximum(v - step, 0)
+    du = (_evaluate(patch, hi_u, v) - _evaluate(patch, lo_u, v)) / (hi_u - lo_u)[:, None]
+    dv = (_evaluate(patch, u, hi_v) - _evaluate(patch, u, lo_v)) / (hi_v - lo_v)[:, None]
+    return np.linalg.norm(np.cross(du, dv), axis=-1)
+
+
+def _area_removed_check(bases, crease, host) -> dict:
+    """``trim.area_removed``: base area less face area, against the sampled area inside the host.
+
+    The removed area comes from the crease loop (each face integrated from u = 0 to the crease,
+    then along v); the reference classifies a grid of cell centres by the host's own law. The two
+    measure one quantity by different routes, so a crease off the host shows as a difference.
+    """
+    nodes, weights = _AREA_GAUSS
+    removed = sampled = total = 0.0
+    centres = (np.arange(_AREA_GRID) + 0.5) / _AREA_GRID
+    uu, vv = np.meshgrid(centres, centres, indexing="ij")
+    u_grid, v_grid = uu.ravel(), vv.ravel()
+    for name, patch in bases.items():
+        jac = _jacobian(patch, u_grid, v_grid) / _AREA_GRID**2
+        inside = host.levels(_evaluate(patch, u_grid, v_grid)) < 0.0
+        base_area = float(jac.sum())
+        sampled += float(jac[inside].sum())
+        rows = []
+        for u_c, v in crease[name]:
+            u = u_c * (nodes + 1) / 2
+            rows.append(u_c / 2 * float(weights @ _jacobian(patch, u, np.full_like(u, v))))
+        face = float(np.trapezoid(rows, crease[name][:, 1]))
+        removed += base_area - face
+        total += base_area
+    difference = abs(removed - sampled) / total
+    return check_entry(
+        "trim.area_removed",
+        "passed" if difference <= AREA_REMOVED_LIMIT else "failed",
+        difference,
+        AREA_REMOVED_LIMIT,
+        unit="relative to the base area",
+        note=f"removed {removed:.6g} m2, inside the host by sampling {sampled:.6g} m2",
+    )
+
+
+def free_edge_check(bases, trims, on_junction, expected: int) -> dict:
+    """``closure.free_edges``: loop pieces of the faces that no other face or host closes.
+
+    A piece is closed when it has no length, lies on a host (``on_junction`` at its sample
+    points), lies on the symmetry plane y = 0, or coincides with a piece of another face.
+    ``expected`` is the number of open ends the construction declares.
+    """
+    pieces = []
+    for trim in trims:
+        patch = bases[trim.base]
+        t = np.linspace(0.0, 1.0, 7)
+        for a, b in trim.loop:
+            u = a[0] + (b[0] - a[0]) * t
+            v = a[1] + (b[1] - a[1]) * t
+            pieces.append((trim.face, _evaluate(patch, u, v)))
+    free = 0
+    for face, points in pieces:
+        if np.max(np.linalg.norm(points - points[0], axis=1)) < 1e-9:
+            continue
+        if np.all(np.abs(points[:, 1]) < 1e-9) or all(on_junction(p) for p in points):
+            continue
+        middle = points[len(points) // 2]
+        shared = any(
+            other != face and np.min(np.linalg.norm(others - middle, axis=1)) < 1e-9
+            for other, others in pieces
+        )
+        free += 0 if shared else 1
+    return check_entry(
+        "closure.free_edges",
+        "passed" if free <= expected else "failed",
+        free,
+        expected,
+        unit="edges",
+        note="loop pieces closed by no face, host or symmetry plane",
+    )
+
+
 def blister_model(blister, host_body) -> BlisterModel:
     """Return the bases, faces and records of a blister on its host body.
 
@@ -410,7 +517,8 @@ def blister_model(blister, host_body) -> BlisterModel:
         bases, spans = {"loft": loft}, {"loft": len(v) - 1}
     trims, crease, worst = [], {}, 0.0
     for name, patch in bases.items():
-        samples = np.linspace(0.0, 1.0, _CREASE_PER_SPAN * spans[name] + 1)
+        tau = np.linspace(0.0, 1.0, _CREASE_PER_SPAN * spans[name] + 1)
+        samples = (1.0 - np.cos(np.pi * tau)) / 2  # closest at the poles, where the crease turns
         crease[name] = np.column_stack((_crease_on(patch, host, samples), samples))
         trims.append(_crease_trim(name, samples, crease[name][:, 0]))
         for u, value in crease[name]:
@@ -431,6 +539,8 @@ def blister_model(blister, host_body) -> BlisterModel:
             "blister.crease_on_host", "passed" if worst <= 1e-9 else "failed", worst, 1e-9, unit="m"
         ),
         *_loop_checks(trims),
+        _area_removed_check(bases, crease, host),
+        free_edge_check(bases, trims, lambda p: host_gap(host, p) <= tolerance, expected=0),
     ]
     if "front" in bases:
         turn = _seam_turn(bases["front"], bases["rear"])

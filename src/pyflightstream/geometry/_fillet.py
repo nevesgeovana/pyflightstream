@@ -25,7 +25,8 @@ from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
 
-from ._blister import BodyHost
+from ._blister import BodyHost, free_edge_check
+from ._blister import host_gap as host_gap_of
 from ._bspline import full_knots
 from ._caps import lifting_model
 from ._distributions import planform_values
@@ -102,8 +103,11 @@ def _tangent(vector, normal):
 
 def _law_values(value, name):
     """Return a law given as one number or a list of values along the spine, as an array."""
-    values = np.atleast_1d(np.asarray(value, float))
-    if values.ndim != 1 or not np.all(np.isfinite(values)):
+    try:
+        values = np.atleast_1d(np.asarray(value, float))
+    except (TypeError, ValueError):
+        values = np.array([np.nan])
+    if values.ndim != 1 or not np.all(np.isfinite(values)) or isinstance(value, bool):
         raise InputValueError(f"{name}: expected a number or a list of numbers along the spine")
     return values
 
@@ -264,7 +268,7 @@ def _sections(fillet, skin, host, wing, s_values):
         wing_v.append(v_w)
         host_points.append(f_point)
         spine_points.append(centre)
-        handles.append((h_f, h_w))
+        handles.append((h_f, h_w, a * (1 - mu)))
     return (
         np.array(poles),
         np.array(wing_v),
@@ -282,6 +286,7 @@ def spine_parameters(count: int) -> np.ndarray:
     """
     half = np.linspace(0.0, 0.5, (count + 1) // 2)
     side = 0.5 * (1.0 - np.cos(np.pi * half))
+    side[-1] = 0.5  # the trailing edges exactly, so the base spans [0, 1]
     return np.unique(np.r_[0.5 - side, 0.5 + side])
 
 
@@ -417,5 +422,70 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
                 ("closure.contact_gap_wing", wing_gap),
             )
         ),
+        _footprint_check(host, spine, host_points, handles[:, 2]),
+        free_edge_check(
+            {"base": base},
+            trims,
+            lambda p: (
+                host_gap_of(host, p) <= tolerance
+                or _on_skin(skin, p, tolerance, (s_values, wing_v, poles[:, 3]))
+            ),
+            expected=2,
+        ),
     )
     return FilletModel(base=base, trims=trims, contacts=contacts, records=records)
+
+
+#: Largest relative difference between the host area under the fillet and its law footprint.
+FOOTPRINT_LIMIT = 2e-2
+
+
+def _footprint_check(host, spine, contacts, reach) -> dict:
+    """``fillet.host_footprint``: the host area between spine and contact, against the laws.
+
+    Measured on the host: the strip from each spine point to its host contact, projected on the
+    host's law and summed as triangles. Expected from the laws: the contact distance
+    ``a (1 - mu)`` integrated along the spine. The dominance stage removes this strip from the
+    host, so a contact off its place or on the wrong side shows here first.
+    """
+    t = np.linspace(0.0, 1.0, 9)
+    strips = np.array(
+        [
+            [host.project(c + value * (f - c)) for value in t]
+            for c, f in zip(spine, contacts, strict=True)
+        ]
+    )
+    a, b = strips[:-1, :-1], strips[1:, :-1]
+    c, d = strips[1:, 1:], strips[:-1, 1:]
+    measured = 0.5 * float(
+        np.linalg.norm(np.cross(b - a, c - a), axis=-1).sum()
+        + np.linalg.norm(np.cross(c - a, d - a), axis=-1).sum()
+    )
+    # Along the spine the strip's inner side follows the spine and its outer side the contact,
+    # so its length is their mean (the leading edge turns the contact on a much larger arc).
+    steps = (
+        np.linalg.norm(np.diff(spine, axis=0), axis=1)
+        + np.linalg.norm(np.diff(contacts, axis=0), axis=1)
+    ) / 2
+    expected = float(np.sum(steps * (reach[:-1] + reach[1:]) / 2))
+    difference = abs(measured - expected) / expected
+    return check_entry(
+        "fillet.host_footprint",
+        "passed" if difference <= FOOTPRINT_LIMIT else "failed",
+        difference,
+        FOOTPRINT_LIMIT,
+        unit="relative",
+        note=f"host strip {measured:.6g} m2, law footprint {expected:.6g} m2",
+    )
+
+
+def _on_skin(skin, point, tolerance, rows) -> bool:
+    """Whether ``point`` lies on the lifting surface's skin within ``tolerance``.
+
+    ``rows`` are the wing contacts ``(s, v, xyz)``; the nearest one starts the search, so a
+    point near a trailing-edge corner is not drawn to the other side of the edge.
+    """
+    s, v, points = rows
+    k = int(np.argmin(np.linalg.norm(points - point, axis=1)))
+    u, v = skin.closest(point, float(s[k]), float(v[k]))
+    return float(np.linalg.norm(skin(u, v) - point)) <= tolerance

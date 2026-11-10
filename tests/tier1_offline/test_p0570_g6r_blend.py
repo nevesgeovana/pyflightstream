@@ -7,6 +7,7 @@ delta's row G6R (blister as two lofts trimmed by the host, fillet bases larger t
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 
 import numpy as np
@@ -14,7 +15,7 @@ import pytest
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._blister import BodyHost, blister_model
-from pyflightstream.geometry._bodies import body_profile, body_station_table
+from pyflightstream.geometry._bodies import body_profile, body_regions, body_station_table
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._caps import lifting_model
 from pyflightstream.geometry._fillet import _Surface, fillet_model
@@ -324,7 +325,6 @@ def test_p0570_g6r_blister_wider_than_its_host_is_refused_by_its_check(pod):
 @pytest.mark.parametrize(
     ("change", "match"),
     [
-        ({"stations": {"x": [2.0, 3.0]}, "profile": {"depth": 0.1}}, "three or more stations"),
         ({"profile": {"depth": [0.0, 0.1, -0.1, 0.1, 0.0]}}, "profile.depth"),
         ({"sections": {"width": [0.1, 0.2]}}, "sections.width"),
     ],
@@ -334,6 +334,20 @@ def test_p0570_g6r_bad_blister_input_is_refused(change, match):
     config["components"]["pod"] = {**deepcopy(BLISTER), **change}
     with pytest.raises(InputValueError, match=match):
         resolve_config(config)
+
+
+def test_p0570_g6r_a_two_station_blister_warns_at_resolve_and_is_refused_at_generate():
+    config = deepcopy(DEMO)
+    config["components"]["pod"] = {
+        **deepcopy(BLISTER),
+        "stations": {"x": [2.0, 3.0]},
+        "profile": {"depth": 0.1},
+        "sections": {},
+    }
+    resolved, _ = _plain(config)
+    assert any("pod.stations.x" in w and "three or more" in w for w in resolved["warnings"])
+    with pytest.raises(InputValueError, match="three or more stations"):
+        generate_components(resolved)
 
 
 def test_p0570_g6r_a_blister_on_a_lifting_surface_is_refused_at_generate():
@@ -355,3 +369,114 @@ def test_p0570_g6r_generate_writes_the_fillet_and_blister_and_reports_skipped_ke
     assert result["faces"]["blend"] >= 2
     assert result["faces"]["pod"] >= 2
     assert any("blend.mesh_zone" in w and "skipped" in w for w in result["warnings"])
+
+
+# -- the body's region plan (G4R), which the held wiring will make the written body -------------
+
+
+def _distance_to(patches, point):
+    """Return the distance from ``point`` to the nearest of ``patches`` (sampled, then Newton)."""
+    best = np.inf
+    for patch in patches:
+        surface = _Surface(patch)
+        grid = np.linspace(0.0, 1.0, 9)
+        samples = [(u, v, surface(u, v)) for u in grid for v in grid]
+        u, v, _ = min(samples, key=lambda row: np.linalg.norm(row[2] - point))
+        u, v = surface.closest(point, u, v)
+        best = min(best, float(np.linalg.norm(surface(u, v) - point)))
+    return best
+
+
+def test_p0570_g6r_contacts_lie_on_the_region_plan_within_its_tolerance(demo, pod):
+    _, components, model = demo
+    hull = components["hull"]
+    tolerance = 1e-4 * hull["length"]
+    regions = [p for p in body_regions(hull) if p.role == "band"]
+    for point in model.contacts["host"][::6]:
+        assert _distance_to(regions, point) <= 2 * tolerance
+    _, loft = pod
+    surface = _Surface(loft.bases["front"])
+    for u, v in loft.crease["front"][2:-2:3]:
+        assert _distance_to(regions, surface(u, v)) <= 2 * tolerance
+
+
+# -- the checkable sub-steps of the run: build, trim by host, closure -------------------------
+
+
+def _demo_with_pod():
+    config = deepcopy(DEMO)
+    config["components"]["pod"] = deepcopy(BLISTER)
+    return config
+
+
+def test_p0570_g6r_each_blend_sub_step_writes_its_record_with_inputs(tmp_path):
+    from pyflightstream.workspace import _geom_run
+
+    report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
+    assert report["status"] == "incomplete", report.get("message")  # S1 to S7 are not built here
+    steps = ["S8.F1", "S8.F2", "S8.F3", "S8.B1", "S8.B2", "S8.B3"]
+    assert [s["stage"] for s in report["stages"] if s["stage"].startswith("S8.")] == steps
+    expected = {
+        "S8.F1": {"fillet.spine", "closure.tangent_host", "closure.tangent_wing"},
+        "S8.F2": {"closure.base_present", "fillet.host_footprint"},
+        "S8.F3": {"closure.free_edges"},
+        "S8.B2": {"trim.area_removed", "blister.crease_on_host"},
+        "S8.B3": {"closure.free_edges"},
+    }
+    for step in steps:
+        record = json.loads((tmp_path / f"{step}.json").read_text(encoding="utf-8"))
+        assert {c["status"] for c in record["checks"]} == {"passed"}, step
+        assert expected.get(step, set()) <= {c["id"] for c in record["checks"]}
+        assert all(c["where"]["component"] in ("blend", "pod") for c in record["checks"])
+        assert set(record["outputs"]["inputs"]) <= {"blend", "pod"}
+    free = json.loads((tmp_path / "S8.F3.json").read_text(encoding="utf-8"))["checks"][0]
+    assert (free["measured"], free["limit"]) == (2, 2)  # the two trailing-edge ends
+
+
+def test_p0570_g6r_a_failing_tangency_stops_the_run_at_the_fillet_build(tmp_path, monkeypatch):
+    from pyflightstream.geometry import _fillet
+    from pyflightstream.workspace import _geom_run
+
+    monkeypatch.setattr(_fillet, "TANGENT_LIMIT_DEG", 1e-6)
+    report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
+    assert report["status"] == "failed"
+    assert (report["stage"], report["check"]) == ("S8.F1", "closure.tangent_host")
+    assert (tmp_path / "S8.F1.json").is_file() and not (tmp_path / "S8.F2.json").exists()
+
+
+def test_p0570_g6r_a_failing_area_stops_the_run_at_the_blister_trim(tmp_path, monkeypatch):
+    from pyflightstream.geometry import _blister
+    from pyflightstream.workspace import _geom_run
+
+    monkeypatch.setattr(_blister, "AREA_REMOVED_LIMIT", 1e-12)
+    report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
+    assert (report["stage"], report["check"]) == ("S8.B2", "trim.area_removed")
+    assert (tmp_path / "S8.B1.json").is_file() and not (tmp_path / "S8.B3.json").exists()
+
+
+def test_p0570_g6r_a_configuration_without_blends_skips_their_sub_steps_by_reason(tmp_path):
+    from pyflightstream.workspace import _geom_run
+
+    config = deepcopy(DEMO)
+    del config["components"]["blend"]
+    report = _geom_run.run_geometry(config, out=tmp_path, until="S9")
+    record = json.loads((tmp_path / "S8.F2.json").read_text(encoding="utf-8"))
+    assert {c["status"] for c in record["checks"]} == {"skipped"}
+    assert all("no fillet" in c["note"] for c in record["checks"])
+    assert not any(item.startswith("S8.F") for item in report["not_run"])
+
+
+def test_p0570_g6r_a_planted_free_edge_is_counted(pod):
+    from pyflightstream.geometry._blister import free_edge_check, host_gap
+    from pyflightstream.geometry._trims import iso_trim
+
+    components, model = pod
+    host = BodyHost(components["hull"])
+
+    def on_host(point):
+        return host_gap(host, point) <= 8e-4
+
+    assert free_edge_check(model.bases, model.trims, on_host, expected=0)["measured"] == 0
+    extra = iso_trim("loose", "front", (0.05, 0.2), (0.3, 0.6))  # a face nothing closes
+    check = free_edge_check(model.bases, [*model.trims, extra], on_host, expected=0)
+    assert check["status"] == "failed" and check["measured"] == 4
