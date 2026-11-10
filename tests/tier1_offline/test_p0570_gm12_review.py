@@ -822,7 +822,8 @@ def _reference_case():
 
 def test_r9_012_a_bound_on_no_component_warns_and_is_skipped():
     warnings, plain = _reference_case()
-    assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
+    # R21-009: the warning names the user's engine key, not the resolver's nacelle_bounds
+    assert any(text.startswith("w.engine.name: 'pod'") for text in warnings)
     bounds = plain["components"]["w"]["sections"]["nacelle_bounds"]
     assert [b["component"] for b in bounds] == ["h"]
 
