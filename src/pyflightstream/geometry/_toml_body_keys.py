@@ -30,7 +30,14 @@ _RENAMED_SECTION = {
     "z_c": "centre_z_mm",
     "radius": "radius_mm",
 }
-_SECTION_KEYS = ("at", "shape", "half_width_mm", "half_height_mm", "centre_z_mm", "radius_mm")
+_SECTION_KEYS: tuple[str, ...] = (
+    "at",
+    "shape",
+    "half_width_mm",
+    "half_height_mm",
+    "centre_z_mm",
+    "radius_mm",
+)
 _SECTION_KEYS += ("n_top", "n_bottom")
 _SECTION_TO_INTERNAL = {
     "half_width_mm": "width",

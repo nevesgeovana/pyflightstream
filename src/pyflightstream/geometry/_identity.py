@@ -110,8 +110,9 @@ def surface_id(
                     "controls": np.asarray(patch.controls, dtype=float).tolist(),
                 }
             )
-    for name in sorted(trims or {}):
-        for trim in sorted(trims[name], key=lambda t: (t.base, t.role, t.face)):
+    trim_sets = trims or {}
+    for name in sorted(trim_sets):
+        for trim in sorted(trim_sets[name], key=lambda t: (t.base, t.role, t.face)):
             rows.append({"component": name, **trim.to_dict()})
     return _digest(canonical(rows))
 

@@ -123,7 +123,7 @@ def _generate(resolved: dict[str, Any], target: Path, configuration: str | None)
     """
     arguments = {"config": resolved, "path": str(target), "configuration": configuration}
     if os.environ.get(WORKER_ENV) == "1":
-        return _generate_record(**arguments)
+        return _generate_record(resolved, str(target), configuration)
     return run_isolated(f"{__name__}:_generate_record", arguments, _generate_record)
 
 
