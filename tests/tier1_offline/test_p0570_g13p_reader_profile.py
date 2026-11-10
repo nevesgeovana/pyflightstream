@@ -36,8 +36,12 @@ def test_inner_loop_hole_is_removed_in_the_read(record):
     assert record["items"]["P5"]["through_iges_convert"]["area"] < full - 0.1
 
 
-def test_direct_import_is_recorded_as_empty(record):
-    """The finding the profile text states: no package-written file was read directly."""
+def test_direct_import_of_the_earlier_writer_is_recorded_as_empty(record):
+    """The G13P record: the files of the writer before G13D were not read directly.
+
+    The cause and the fix are the G13D record (``g13d-reads.json``): after the fix the same
+    probes read directly with their written areas, P2 (PREF 2) excepted.
+    """
     for name in ("P1", "P4", "P6", "P8"):
         assert record["items"][name]["direct_body_minus1"]["area"] == 0.0
         assert record["items"][name]["direct_body_1"]["area"] == 0.0
