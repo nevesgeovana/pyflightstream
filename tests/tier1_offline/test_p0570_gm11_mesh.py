@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError
@@ -110,3 +111,44 @@ def test_p0570_gm11_realized_errors_yes_no(code, yes, no, limit):
     assert mesh_measurements(code, "synthetic", yes, limit)["passed"]
     with pytest.raises(InputValueError, match=code):
         mesh_measurements(code, "synthetic", no, limit)
+
+
+def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
+    from pyflightstream.geometry._mesh_schema import spacing_nodes
+
+    chord = spacing_nodes(
+        {"cells": 24, "law": "geometric_cap", "ratio": 1.1}, direction="chordwise"
+    )
+    widths = np.diff(chord)
+    assert len(chord) == 25 and chord[0] == 0 and chord[-1] == 1
+    assert np.min(np.diff(widths)) >= -1e-14
+    assert widths[-1] == pytest.approx(widths[-3])
+    table = {
+        "cells": 16,
+        "law": "constant",
+        "root_cells": 3,
+        "tip_cells": 3,
+        "root_ratio": 1.2,
+        "tip_ratio": 1.4,
+    }
+    widths = np.diff(spacing_nodes(table, direction="spanwise"))
+    assert widths[1] / widths[0] == pytest.approx(1.2)
+    assert widths[-2] / widths[-1] == pytest.approx(1.4)
+    assert np.ptp(widths[3:-3]) < 1e-14
+    with pytest.raises(InputValueError, match="constant interior"):
+        spacing_nodes({**table, "cells": 6}, direction="spanwise")
+
+
+def test_p0570_gm11_coarsening_recomputes_laws_instead_of_removing_strips():
+    from pyflightstream.geometry._mesh_schema import spacing_nodes
+
+    refined = spacing_nodes(
+        {"cells": 24, "law": "geometric_cap", "ratio": 1.1}, direction="chordwise"
+    )
+    coarse = spacing_nodes(
+        {"cells": 12, "law": "geometric_cap", "ratio": 1.16}, direction="chordwise"
+    )
+    assert len(coarse) == 13
+    assert not np.allclose(coarse, refined[::2])
+    with pytest.raises(InputValueError, match="law"):
+        spacing_nodes({"cells": 12, "law": "remove_strips"}, direction="chordwise")

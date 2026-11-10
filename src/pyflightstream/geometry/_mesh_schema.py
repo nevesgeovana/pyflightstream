@@ -14,7 +14,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from pyflightstream._errors import InputValueError
+
+from ._mesh_rules import constant, geometric_cap
 
 ERRORS = {
     "E01": "follows names an absent component",
@@ -309,3 +313,48 @@ def mesh_measurements(code: str, where: str, measured: Any, threshold: Any) -> d
         "threshold": threshold,
         "passed": True,
     }
+
+
+def spacing_nodes(table: Mapping[str, Any], *, direction: str) -> np.ndarray:
+    """Build a fresh normalized spacing law, preserving the requested cell count.
+
+    Span root and tip runs grow toward the constant interior. Coarse scenarios
+    call this again with their new controls; no rows of a finer mesh are removed.
+    """
+    values = _distribution(table, direction, [], required=True)
+    count, law = values["cells"], values["law"]
+    x = np.linspace(0.0, 1.0, count + 1)
+    if direction == "spanwise" and (values.get("root_cells") or values.get("tip_cells")):
+        root, tip = values.get("root_cells", 0), values.get("tip_cells", 0)
+        if root + tip >= count:
+            raise InputValueError("spanwise: root and tip runs must leave a constant interior")
+        widths = np.ones(count)
+        for n, ratio, reverse in (
+            (root, values.get("root_ratio", 1.3), False),
+            (tip, values.get("tip_ratio", 1.3), True),
+        ):
+            if ratio < 1:
+                raise InputValueError("spanwise: refinement ratios must be at least 1")
+            run = np.exp(-np.arange(n, 0, -1) * np.log(ratio))
+            if reverse and n:
+                widths[-n:] = run[::-1]
+            elif n:
+                widths[:n] = run
+        result = np.r_[0.0, np.cumsum(widths) / widths.sum()]
+    elif law == "constant":
+        result = np.asarray(constant(count))
+    elif law == "geometric_cap":
+        result = np.asarray(
+            geometric_cap(
+                count, values.get("ratio", 1.15), growth_until=values.get("growth_until", 0.5)
+            )
+        )
+    elif law == "cosine":
+        result = (1 - np.cos(np.pi * x)) / 2
+    else:
+        beta = values.get("ratio", 1.15)
+        result = (1 + np.tanh(beta * (2 * x - 1)) / np.tanh(beta)) / 2
+    result[0], result[-1] = 0.0, 1.0
+    if not np.all(np.isfinite(result)) or np.any(np.diff(result) <= 0):
+        raise InputValueError(f"{direction}: spacing is below floating point resolution")
+    return result
