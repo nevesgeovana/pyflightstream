@@ -339,3 +339,122 @@ def test_p0570_sewing_checks_introduced_edges_against_the_input_reference(
         assert checks["sew.free_introduced"]["measured"] == 1
     else:
         assert all(c["status"] == "passed" for c in checks.values())
+
+
+@pytest.mark.parametrize(
+    "trimmed,fault",
+    [(False, ""), (True, ""), (True, "delete"), (False, "displace")],
+    ids=["P0570-coverage-control", "P0570-original-trim", "P0570-deleted", "P0570-off-source"],
+)
+def test_p0570_coverage_measures_source_trim_and_world_distance(tmp_path, trimmed, fault):
+    kernel_or_skip()
+    from pyflightstream.geometry.stages import GeneratedPiece, Patch
+    from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    patch = Patch(
+        "plate",
+        np.array([[[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0], [1.0, 1.0, 0.0]]]),
+        (0.0, 1.0),
+        (0.0, 1.0),
+        (2, 2),
+        (2, 2),
+        1,
+        1,
+    )
+    piece = GeneratedPiece.from_patches("plate", "1.0.0", [patch])
+    if trimmed:
+        corners = ((0.0, 0.0), (0.5, 0.0), (0.5, 1.0), (0.0, 1.0))
+        trim = replace(
+            piece.trims[0], loop=tuple((corners[i], corners[(i + 1) % 4]) for i in range(4))
+        )
+        piece = replace(piece, trims=(trim,))
+    kernel = open_kernel("source coverage fixture")
+    try:
+        assembly = Assembly(kernel, {"plate": piece}, [], out=tmp_path)
+        assembly.step("S10.D1")
+        if fault == "delete":
+            kernel.remove([assembly.faces["plate"].pop()])
+        elif fault == "displace":
+            kernel.transform(
+                assembly.faces["plate"],
+                [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.00013], [0, 0, 0, 1]],
+            )
+        record = assembly.step("S10.D8b")
+    finally:
+        kernel.close()
+    checks = {c["id"]: c for c in record["checks"]}
+    assert checks["coverage.skin"]["status"] == ("failed" if fault else "passed"), record
+    ledger = record["outputs"]["pieces"]["plate"]
+    assert {"covered_m2", "removed_m2", "missing_m2"} <= set(ledger)
+    assert ledger["covered_m2"] + ledger["removed_m2"] + ledger["missing_m2"] == pytest.approx(
+        1.0, abs=1e-12
+    )
+    assert checks["coverage.area_sum"]["status"] == "passed"
+    assert ledger["missing_m2"] == pytest.approx(
+        (0.5 if trimmed else 1.0) if fault else 0.0, abs=1e-12
+    )
+
+
+@pytest.mark.parametrize(
+    "lost", ["", "tip", "aft"], ids=["P0570-F1-control", "P0570-F1-kept-face", "P0570-F1-aft-of-te"]
+)
+def test_p0570_f1_coverage_catches_losses_that_reimport_and_triple_audit_miss(tmp_path, lost):
+    kernel_or_skip()
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import GeneratedPiece
+    from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._geom_export import check_export, write_assembly
+    from pyflightstream.workspace._gmsh import open_kernel
+    from tests.tier1_offline.test_p0570_g7r_assembly import box, wing
+
+    source = {"body": box((0.0, -1.0, -1.0), (4.0, 1.0, 1.0), split_x=2.5), "foil": wing()}
+    pieces = {
+        name: GeneratedPiece.from_patches(name, "1.0.0", patches)
+        for name, patches in source.items()
+    }
+    rows = [{"dominant": ["body"], "dominated": ["foil"], "operation": "cut"}]
+    kernel = open_kernel("coverage lesson fixtures")
+    try:
+        assembly = Assembly(
+            kernel, pieces, rows, out=tmp_path, kinds={"body": "body", "foil": "lifting_surface"}
+        )
+        for stage, _ in assembly.STEPS:
+            record = assembly.step(stage)
+            assert all(c["status"] != "failed" for c in record["checks"]), record
+            if stage == "S10.D8":
+                break
+        if lost:
+            owner = "body" if lost == "aft" else "foil"
+            candidates = (
+                [
+                    f
+                    for f in assembly.faces[owner]
+                    if (kernel.centroid(f)[0] > 2.5 and kernel.centroid(f)[1] > 0.99)
+                    if lost == "aft"
+                ]
+                if lost == "aft"
+                else [f for f in assembly.faces[owner] if kernel.centroid(f)[1] > 2.99]
+            )
+            assert len(candidates) == 1
+            assert kernel.area(candidates[0]) == pytest.approx(
+                3.0 if lost == "aft" else 0.2, rel=1e-6
+            )
+            kernel.remove(candidates)
+            assembly.faces[owner].remove(candidates[0])
+        coverage = assembly.step("S10.D8b")
+        written = write_assembly(assembly, tmp_path / "combined.igs")
+    finally:
+        kernel.close()
+    checks = {c["id"]: c for c in coverage["checks"]}
+    assert checks["coverage.skin"]["status"] == ("failed" if lost else "passed")
+    assert checks["coverage.area_sum"]["status"] == "passed"
+    if lost:
+        assert checks["coverage.skin"]["where"]["missing_m2"] == pytest.approx(
+            3.0 if lost == "aft" else 0.2, rel=1e-3
+        )
+    config = resolve_config({"components": {n: {"type": "body"} for n in pieces}})
+    read = check_export("S11.R", config, None, list(pieces), tmp_path, written)
+    assert all(c["status"] == "passed" for c in read["checks"]), read
+    sewn = check_export("S11.S", config, None, list(pieces), tmp_path, written)
+    assert next(c for c in sewn["checks"] if c["id"] == "sew.triple_edges")["status"] == "passed"

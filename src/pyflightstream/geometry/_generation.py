@@ -13,18 +13,20 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal, overload
 
 import numpy as np
+from scipy.interpolate import BSpline
 
 from pyflightstream._errors import InputValueError
 
 from ._blister import blister_model, blister_region
 from ._bodies import body, body_station_table
 from ._boundary import unpack
+from ._bspline import full_knots
 from ._caps import lifting_model, tip_cap, wing_contour_point
 from ._fairings import wing_fuselage_fairing, wing_junction
 from ._fillet import fillet_hosts, fillet_model
 from ._identity import surface_id
 from ._lifting import layout_record, lifting_surface, section_models, thickness_station
-from ._patch import Patch, interpolate_patch
+from ._patch import Patch, evaluate_patch, interpolate_patch
 from ._placement import (
     body_junctions,
     move,
@@ -48,7 +50,78 @@ __all__ = [
     "generate_components",
     "generate_pieces",
     "junction_lifting_surface",
+    "source_cells",
 ]
+
+
+def _loop_mask(loop, uv):
+    inside, boundary = np.zeros(len(uv), bool), np.zeros(len(uv), bool)
+    for first, last in loop:
+        a, b = np.asarray(first), np.asarray(last)
+        edge, delta = b - a, uv - a
+        cross = edge[0] * delta[:, 1] - edge[1] * delta[:, 0]
+        boundary |= (np.abs(cross) <= 1e-12) & (delta @ edge >= 0) & (delta @ edge <= edge @ edge)
+        if b[1] != a[1]:
+            crossing = (a[1] > uv[:, 1]) != (b[1] > uv[:, 1])
+            inside ^= crossing & (uv[:, 0] < a[0] + (uv[:, 1] - a[1]) * edge[0] / edge[1])
+    return inside | boundary
+
+
+def source_cells(patch: Patch, *, spacing: float, scale: float, trims=None) -> dict:
+    """Sample source UV cells, integrating their physical areas by Gauss quadrature.
+
+    Grid counts follow the sampled arc lengths and the requested share of the
+    piece's extent. Original trim exclusions are retained as a separate mask.
+    The cell-area sum can therefore be checked against the kernel's source area.
+    """
+    if spacing <= 0 or scale <= 0:
+        raise InputValueError("coverage requires positive spacing and source extent")
+    grid = evaluate_patch(patch, 33)
+    lengths = [
+        float(np.linalg.norm(np.diff(grid, axis=i), axis=2).sum(axis=i).max()) for i in (0, 1)
+    ]
+    counts = [max(2, int(np.ceil(length / (spacing * scale)))) for length in lengths]
+    if counts[0] * counts[1] > 1_000_000:
+        raise InputValueError("coverage spacing requires over one million cells on one base")
+    us = np.linspace(patch.knots_u[0], patch.knots_u[-1], counts[0] + 1)
+    vs = np.linspace(patch.knots_v[0], patch.knots_v[-1], counts[1] + 1)
+    uc, vc = (us[:-1] + us[1:]) / 2, (vs[:-1] + vs[1:]) / 2
+    controls = np.asarray(patch.controls, float)
+    bu = BSpline(
+        full_knots(patch.knots_u, patch.multiplicities_u), np.eye(controls.shape[0]), patch.degree_u
+    )
+    bv = BSpline(
+        full_knots(patch.knots_v, patch.multiplicities_v), np.eye(controls.shape[1]), patch.degree_v
+    )
+
+    def net(u, v, du=0, dv=0):
+        return np.einsum("ui,vj,ijc->uvc", bu(u, du), bv(v, dv), controls, optimize=True)
+
+    points = net(uc, vc)
+    normals = np.cross(net(uc, vc, du=1), net(uc, vc, dv=1))
+    normals /= np.maximum(np.linalg.norm(normals, axis=2, keepdims=True), 1e-300)
+    nodes, weights = np.polynomial.legendre.leggauss(4)
+    areas = np.zeros(tuple(counts))
+    for a, wa in zip(nodes, weights, strict=True):
+        for b, wb in zip(nodes, weights, strict=True):
+            u, v = uc + a * np.diff(us) / 2, vc + b * np.diff(vs) / 2
+            jacobian = np.cross(net(u, v, du=1), net(u, v, dv=1))
+            areas += wa * wb * np.linalg.norm(jacobian, axis=2)
+    areas *= np.diff(us)[:, None] * np.diff(vs)[None, :] / 4
+    uv = np.stack(np.meshgrid(uc, vc, indexing="ij"), axis=-1).reshape(-1, 2)
+    included = np.ones(len(uv), bool) if trims is None else np.zeros(len(uv), bool)
+    for trim in trims or ():
+        mask = _loop_mask(trim.loop, uv)
+        for inner in trim.inner:
+            mask &= ~_loop_mask(inner, uv)
+        included |= mask
+    return {
+        "uv": uv,
+        "points": points.reshape(-1, 3),
+        "normals": normals.reshape(-1, 3),
+        "areas": areas,
+        "included": included,
+    }
 
 
 @dataclass(frozen=True)

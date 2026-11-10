@@ -19,8 +19,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
+from scipy.ndimage import label
 
-from pyflightstream.geometry.stages import Patch
+from pyflightstream.geometry.stages import Patch, source_cells
 from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._cad import CadKernel, Face, FileTopology
 from pyflightstream.workspace._geom_parts import (
@@ -63,6 +64,8 @@ class Assembly(RemovalSteps):
         The pieces built a second time from their own resolved inputs.
     coverage_fraction : float, optional
         The largest missing area of a piece's skin, as a fraction of its area.
+    coverage_spacing : float, optional
+        Sample spacing as a share of each piece's extent for source-base coverage.
     """
 
     STEPS = (
@@ -88,6 +91,102 @@ class Assembly(RemovalSteps):
         ("S10.D10", "sew"),
         ("S10.E2", "clearance"),
     )
+
+    def _source_coverage(self, name, index, patch):
+        model = self.models.get(name)
+        trims = (
+            None
+            if model is None
+            else [t for t in model.trims if t.base == list(model.bases)[index]]
+        )
+        cells = source_cells(
+            patch, spacing=self.coverage_spacing, scale=self.extents[name], trims=trims
+        )
+        points, areas = cells["points"], cells["areas"]
+        covered = np.zeros(len(points), bool)
+        for face in self.faces.get(name, []):
+            if self.origin.get(face) != (name, index):
+                continue
+            projected, uv = self.k.project(face, points)
+            near = np.linalg.norm(projected - points, axis=1) <= jn.SEW_M
+            near &= np.isfinite(uv).all(axis=1)
+            if near.any():
+                covered[near] |= self.k.inside(face, uv[near])
+        covered &= cells["included"]
+        removed = ~cells["included"]
+        for i in np.flatnonzero(~covered & ~removed):
+            removed[i] = self._legit(name, points[i], cells["normals"][i])
+        missing = ~(covered | removed)
+        groups, _ = label(missing.reshape(areas.shape))
+        group_areas = np.bincount(groups.ravel(), weights=areas.ravel())
+        group_areas[0] = 0.0
+        chosen = int(group_areas.argmax())
+        largest = float(group_areas[chosen])
+        centroid = (
+            np.average(
+                points[groups.ravel() == chosen],
+                axis=0,
+                weights=areas.ravel()[groups.ravel() == chosen],
+            ).tolist()
+            if largest
+            else []
+        )
+        return (
+            {
+                "area_m2": float(areas.sum()),
+                "covered_m2": float(areas.ravel()[covered].sum()),
+                "removed_m2": float(areas.ravel()[removed].sum()),
+                "missing_m2": float(areas.ravel()[missing].sum()),
+            },
+            largest,
+            centroid,
+        )
+
+    def _coverage(self):
+        """Check generated bases in world space, retaining original trim exclusions.
+
+        Patch-only callers cover the full base domain. Generated source models
+        additionally retain their original trim exclusions.
+        """
+        worst, area_error, where, totals = 0.0, 0.0, {}, {}
+        for name, patches in self.sources.items():
+            ledger = {key: 0.0 for key in ("area_m2", "covered_m2", "removed_m2", "missing_m2")}
+            expected = self.source_areas[name]
+            for index, patch in enumerate(patches):
+                measured, largest, centroid = self._source_coverage(name, index, patch)
+                for key in ledger:
+                    ledger[key] += measured[key]
+                fraction = largest / max(expected, 1e-30)
+                if fraction >= worst:
+                    worst, where = (
+                        fraction,
+                        {
+                            "component": name,
+                            "patch": index,
+                            "missing_m2": largest,
+                            "centroid_m": centroid,
+                        },
+                    )
+            balance = ledger["covered_m2"] + ledger["removed_m2"] + ledger["missing_m2"]
+            area_error = max(area_error, abs(balance - expected) / max(expected, 1e-30))
+            totals[name] = {**ledger, "source_area_m2": expected}
+        return [
+            jn.measured(
+                "coverage.skin",
+                worst,
+                self.coverage_fraction,
+                unit="fraction",
+                where=where,
+                cause="BUG: source skin is neither kept nor legitimately removed",
+            ),
+            jn.measured(
+                "coverage.area_sum",
+                area_error,
+                1e-3,
+                unit="relative",
+                cause="BUG: covered, removed and missing areas do not sum to the source area",
+            ),
+        ], {"pieces": totals, "inputs": {"spacing": self.coverage_spacing, "distance_m": jn.SEW_M}}
 
     # ---- D1, C5, C6, C8, C9: the pieces before any operation ------------------------------
 

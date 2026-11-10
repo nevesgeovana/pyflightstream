@@ -43,6 +43,7 @@ from pyflightstream.geometry._generation import (
     assembly_regions,
     generate_components,
     generate_pieces,
+    source_cells,
 )
 from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._lifting import lifting_surface
@@ -137,6 +138,7 @@ __all__ = [
     "refine_tip",
     "repair_inverted",
     "stage_index",
+    "source_cells",
     "stage_record",
     "stage_row",
     "tip_cap",

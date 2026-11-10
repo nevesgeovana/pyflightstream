@@ -195,6 +195,7 @@ class AssemblyBase:
         expected_faces: Mapping[str, int] | None = None,
         regenerated: Mapping[str, Sequence[Patch]] | None = None,
         coverage_fraction: float = 1e-4,
+        coverage_spacing: float = 1 / 200,
     ) -> None:
         self.k = kernel
         self.models = {name: p for name, p in pieces.items() if isinstance(p, GeneratedPiece)}
@@ -211,6 +212,7 @@ class AssemblyBase:
         self.expected_faces = dict(expected_faces or {})
         self.regenerated = regenerated
         self.coverage_fraction = float(coverage_fraction)
+        self.coverage_spacing = float(coverage_spacing)
         self.hulls = {name: hull(p) for name, p in self.sources.items()}
         #: each piece's largest extent, the size a relative junction limit is taken of
         self.extents = {

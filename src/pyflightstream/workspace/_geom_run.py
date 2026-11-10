@@ -380,6 +380,7 @@ def _assembly_record(config: Any, members: list[str], out: str) -> dict[str, Any
                 if name in pieces
             },
             coverage_fraction=float(plain["acceptance"]["coverage_fraction"]),
+            coverage_spacing=float(plain["acceptance"]["coverage_spacing"]),
         )
         records = assembly.run()
         written = {}

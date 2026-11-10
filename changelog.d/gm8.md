@@ -44,3 +44,12 @@ S11.S imports the combined file in one operation at each sewing tolerance,
 triple edges and new sub-5 mm slivers, listing the thin faces in each import.
 Unassembled pieces now retain their original sliver count as well as their
 free edges, so existing thin faces do not become export defects.
+
+Source coverage checks the distance to kept faces in world space, respects
+original trim exclusions and integrates cell areas against the kernel's
+source area. It records covered, legitimately removed and missing areas,
+including the largest missing region and its centroid.
+
+migration: S10.D8b uses `acceptance.coverage_spacing` and reports
+`coverage.area_sum` with a relative limit of 1e-3. A displaced face cannot
+pass coverage merely because its parameter coordinates contain the source.
