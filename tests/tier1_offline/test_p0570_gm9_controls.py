@@ -560,3 +560,111 @@ def test_p0570_gm9_fowler_laws_have_measured_yes_and_no():
         from pyflightstream.geometry import resolve_config
 
         stages.controls.build(stages.unpack(resolve_config(bad))["components"]["panel"])
+
+
+def test_p0570_gm9_fowler_substeps_reach_records_and_log(tmp_path):
+    import json
+
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    rows = {row.stage for row in stages.STAGE_ROWS}
+    assert {f"S10.FW{i}" for i in range(1, 5)} <= rows, "Fowler sub-steps are absent"
+    report = run_geometry(_fowler_config(), out=tmp_path, until="S10.F4")
+    for step in ("FW1", "FW2", "FW3", "FW4"):
+        record = json.loads((tmp_path / f"S10.{step}.json").read_text(encoding="utf-8"))
+        assert record["status"] == "passed", (report, record)
+        assert record["outputs"]["inputs"]
+        assert all(c["measured"] is not None and c["limit"] is not None for c in record["checks"])
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert all(f"sub-step S10.FW{i}" in log for i in range(1, 5))
+    assert "fowler.gap_error_pct" in log and "0.01" in log and "49" in log
+
+
+def test_p0570_gm9_fowler_public_edit_checks_the_actual_cove(kernel, tmp_path):
+    from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    faces = []
+    for key in ("skin", "root", "tip", "trailing_edge"):
+        p = model.bases[key]
+        faces.append(
+            kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        )
+    source, target = tmp_path / "clean.igs", tmp_path / "fowler.igs"
+    kernel.export_iges({"panel": faces}, source)
+    result = add_control_surfaces(source, "panel", raw["components"]["panel"]["control"], target)
+    assert result["status"] == "passed", result
+    assert any(c["id"] == "fowler.gap_error_pct" for c in result["checks"]), result
+    assert all(len(owners) == 2 for _, owners in kernel.inspect_file(target, 1e-5).edges)
+
+
+@pytest.mark.parametrize(
+    "variant", ["clean", "cs", "csf"], ids=["P0570-F7-CLEAN", "P0570-F7-CS", "P0570-F7-CSF"]
+)
+def test_p0570_gm9_f7_automatically_selects_variant_controls(kernel, tmp_path, variant):
+    import copy
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    tail = copy.deepcopy(raw["components"]["panel"])
+    tail["placement"] = {"translation": [3, 0, 1]}
+    tail["control"][0].update(name="elevator", kind="elevator")
+    raw["components"]["tail"] = tail
+    raw["variants"] = {"cs": ["tail.elevator"], "csf": ["tail.elevator", "panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant=variant, until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", (report, record)
+    paths = record["outputs"]["variants"]
+    assert len(paths) == {"clean": 1, "cs": 2, "csf": 4}[variant]
+    for item in paths.values():
+        names = set(kernel.import_iges(item["path"]).names)
+        assert any("elevator-d" in n for n in names) is (variant != "clean")
+        assert any("flap-d" in n for n in names) is (variant == "csf")
+    assert "S10.F7" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["P0570-F7-CAP-YES", "P0570-F7-CAP-NO"])
+def test_p0570_gm9_f7_caps_fin_root_and_rejects_open_tip(tmp_path, missing):
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    fin = raw["components"]["panel"]
+    fin.pop("root")
+    fin["surface"] = {"span_axis": "z"}
+    fin["cap"]["type"] = "none" if missing else "flat"
+    raw["variants"] = {"cs": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant="cs", until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == ("failed" if missing else "passed"), (report, record)
+    assert record["outputs"]["root_caps_m2"]["panel"] > 0
+    assert (
+        any(c["id"] == "control.free_edges" and c["measured"] > 0 for c in record["checks"])
+        is missing
+    )
