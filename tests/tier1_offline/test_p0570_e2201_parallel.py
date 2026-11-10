@@ -584,19 +584,38 @@ def test_p0570_r23_006_only_a_launch_policy_needs_a_local_launch(tmp_path, runti
     ]
 
 
-def test_p0570_r25_001_a_restore_or_rebuild_replaces_the_register_through_the_lock(
-    tmp_path, monkeypatch
-):
-    from pyflightstream.run import _record_files
-    from pyflightstream.workspace import record_document
+def test_p0570_r25_001_a_restore_or_rebuild_replaces_the_register_through_the_lock(tmp_path):
+    import json
 
-    seen = []
-    real = record_document.replace_file
-    monkeypatch.setattr(
-        record_document,
-        "replace_file",
-        lambda source, path: (seen.append(path), real(source, path)),
-    )
-    target = tmp_path / "runs.json"
-    _record_files._replace_bytes(target, b"[]\n")
-    assert seen == [target] and target.read_bytes() == b"[]\n"
+    from pyflightstream.run.records import restore
+    from pyflightstream.workspace.manifest import register_thread_lock
+    from pyflightstream.workspace.record_document import encode_rows
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    archive = workspace.root / "archive"
+    archive.mkdir(exist_ok=True)
+    empty = json.dumps(encode_rows([])).encode()
+    (archive / "runs-20261110-120000.json").write_bytes(empty)
+    held, release, done = threading.Event(), threading.Event(), threading.Event()
+
+    def reader() -> None:
+        with register_thread_lock(workspace.manifest_path):
+            held.set()
+            release.wait(10)
+
+    def restorer() -> None:
+        restore(workspace.root, "runs", apply=True)
+        done.set()
+
+    holder = threading.Thread(target=reader)
+    holder.start()
+    assert held.wait(10)
+    worker = threading.Thread(target=restorer)
+    worker.start()
+    try:
+        assert not done.wait(0.5), "the restore replaced the register under a held lock"
+    finally:
+        release.set()
+        holder.join(10)
+        worker.join(10)
+    assert done.is_set() and workspace.manifest_path.read_bytes() == empty
