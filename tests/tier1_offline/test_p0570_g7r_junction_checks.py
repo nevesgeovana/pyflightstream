@@ -213,7 +213,7 @@ def test_p0570_g7r_free_edges_are_classified_symmetry_opening_buried_or_unexplai
         return jn.parity_inside(points, partner)
 
     edges = [
-        _segment((1, 0, 0.1), (2, 0, 0.1)),  # on y = 0
+        _segment((1, 0, 1.5), (2, 0, 1.5)),  # on y = 0, outside the partner
         _segment((1, 0.5, 1.0 + 1.7e-5), (2, 0.5, 1.0 + 1.7e-5)),  # 0.017 mm off the partner
         _segment((1, 0.5, 0.5), (2, 0.5, 0.5)),  # inside the partner
         _segment((1, 0.5, 1.0 + 5e-5), (2, 0.5, 1.0 + 5e-5)),  # 0.05 mm off: unexplained
@@ -304,7 +304,7 @@ def test_p0570_g7r_s10_free_edges_introduced_are_the_total_minus_the_inputs():
 
 
 def test_p0570_g7r_slivers_are_counted_by_mean_width():
-    widths = [jn.mean_width(0.038 * 10.0, 20.0), jn.mean_width(1.0, 4.0)]  # 3.8 mm and 0.5 m
+    widths = [jn.mean_width(0.019, 10.0), jn.mean_width(1.0, 4.0)]  # 3.8 mm and 0.5 m
     assert jn.slivers(widths) == [0]
 
 
