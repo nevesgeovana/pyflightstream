@@ -689,3 +689,78 @@ def test_p0570_g6r_a_fillet_held_short_closes_its_te_end_to_the_lower_corner(sec
         1,
         1,
     )
+
+
+# -- PA-30 B9: a fin fillet, the fin rolled upright on the second fixture's body ----------------
+
+FIN = {
+    "type": "lifting_surface",
+    "surface": {"span_axis": "z"},
+    "attach": {"parent": "pod", "station": 0.7},
+    "planform": {
+        "semispan_mm": 900.0,
+        "root_chord_mm": 900.0,
+        "tip_chord_mm": 500.0,
+        "le_sweep_deg": 30.0,
+    },
+    "stations": [
+        {"eta": 0.0, "section": {"kind": "naca", "naca": "0010"}},
+        {"eta": 1.0, "section": {"kind": "naca", "naca": "0010"}},
+    ],
+}
+
+
+def _second_with_fin():
+    config = deepcopy(SECOND)
+    config["components"]["fin"] = deepcopy(FIN)
+    config["components"]["fin_root"] = {"type": "fillet", "hosts": ["fin", "pod"]}
+    return config
+
+
+@pytest.fixture(scope="module")
+def fin():
+    resolved, components = _plain(_second_with_fin())
+    return resolved, components, fillet_model(components["fin_root"], components, "fin_root")
+
+
+def test_p0570_g6r_b9_a_fin_fillet_passes_its_records_on_both_sides(fin):
+    _, components, model = fin
+    assert components["fin"]["placement"]["rotation"] == [90.0, 0.0, 0.0]  # rolled upright
+    assert _statuses(model) == {"passed"}
+    spine = model.contacts["spine"]
+    assert np.allclose(spine[0] * [1, -1, 1], spine[-1], atol=1e-9)  # the two sides mirror
+    assert spine[:, 2].min() > 0.3  # on the top of the body (centre 0.05, half height 0.35)
+
+
+def test_p0570_g6r_b9_a_fin_fillet_is_tangent_to_the_body_s_region_faces(fin):
+    _, components, model = fin
+    regions = [Surface(p) for p in body_regions(components["pod"]) if p.role == "band"]
+    base = Surface(model.base)
+    worst = 0.0
+    for s in np.linspace(0.05, 0.45, 9):  # the +y side, where the half body has faces
+        point = base(s, model.contacts["v_host"])
+        best = None
+        for surface in regions:
+            grid = np.linspace(0.0, 1.0, 9)
+            u, v = min(
+                ((a, b) for a in grid for b in grid),
+                key=lambda uv, surface=surface: np.linalg.norm(surface(*uv) - point),
+            )
+            u, v = surface.closest(point, u, v)
+            gap = float(np.linalg.norm(surface(u, v) - point))
+            if best is None or gap < best[0]:
+                best = (gap, surface.normal(u, v))
+        assert best[0] < 2e-3
+        worst = max(worst, _angle(base.normal(s, model.contacts["v_host"]), best[1]))
+    assert worst <= 1.0
+
+
+def test_p0570_g6r_b9_the_run_records_the_fin_fillet_sub_steps(tmp_path):
+    from pyflightstream.workspace import _geom_run
+
+    _geom_run.run_geometry(_second_with_fin(), out=tmp_path, until="S9")
+    for step in ("S8.F1", "S8.F2", "S8.F3"):
+        record = json.loads((tmp_path / f"{step}.json").read_text(encoding="utf-8"))
+        mine = [c for c in record["checks"] if c["where"].get("component") == "fin_root"]
+        assert mine and {c["status"] for c in mine} <= {"passed", "skipped"}, step
+        assert "fin_root" in record["outputs"]["inputs"]
