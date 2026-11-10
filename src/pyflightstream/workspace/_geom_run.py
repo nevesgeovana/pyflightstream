@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -197,22 +198,20 @@ def _set_path(raw: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
-def _is_input_key(raw: Mapping[str, Any], dotted: str) -> bool:
-    node: Any = raw.get("components", raw)
-    for part in dotted.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return False
-        node = node[part]
-    return True
+def _reported_unknown(warnings: Sequence[Any], dotted: str) -> bool:
+    """Whether the resolver warned that ``dotted``, or a table on its path, is an unknown key.
 
-
-def _holds(resolved: Mapping[str, Any], dotted: str) -> bool:
-    node: Any = unpack(dict(resolved))["components"]
-    for part in dotted.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return False
-        node = node[part]
-    return True
+    A published key is translated to the resolver's names, so whether it is known cannot be read
+    from the resolved names; the resolver's own unknown-key warning on the key or on any table
+    above it is what says the override was skipped.
+    """
+    parts = dotted.split(".")
+    prefixes = [".".join(parts[:n]) for n in range(2, len(parts) + 1)]
+    return any(
+        re.search(rf"(?:^|\s)(?:components\.)?{re.escape(prefix)}: unknown key", str(w))
+        for prefix in prefixes
+        for w in warnings
+    )
 
 
 def _resolve(config, overrides):
@@ -230,10 +229,7 @@ def _resolve(config, overrides):
         _set_path(raw, dotted, value)
     resolved = resolve_config(raw, stem=stem, base=base)
     for dotted in overrides or {}:
-        # a published key is translated, so it is absent from the resolved names: it is known
-        # unless the resolver reported it as an unknown key
-        reported = any(f"{dotted}: unknown key" in str(w) for w in resolved["warnings"])
-        if reported or (not _holds(resolved, dotted) and not _is_input_key(raw, dotted)):
+        if _reported_unknown(resolved["warnings"], dotted):
             raise InputValueError(f"overrides: {dotted!r}: unknown parameter, nothing was run")
     return resolved
 

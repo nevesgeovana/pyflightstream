@@ -144,6 +144,37 @@ def test_p0570_g3_a_bad_input_is_refused_before_any_stage_runs(tmp_path, kwargs,
     assert report["stage"] == "S0" and not list(tmp_path.glob("S*.json"))
 
 
+WING = {
+    "components": {
+        "W": {
+            "type": "lifting_surface",
+            "planform": {"sref_m2": 9.0, "aspect_ratio": 9.0, "taper": 0.6},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+        }
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ("dotted", "refused"),
+    [
+        ("W.planform.sref_m2", False),  # a published key, translated, so absent from the result
+        ("W.planform.sref_mm2", True),  # an unknown key of a known table
+        ("W.planfrom.sref_m2", True),  # an unknown table: the reviewed code ran without it
+        ("W.surfce.span_axis", True),
+    ],
+)
+def test_r21_001_an_override_on_an_unknown_key_or_table_is_refused(dotted, refused):
+    from pyflightstream.geometry._boundary import unpack
+
+    if refused:
+        with pytest.raises(InputValueError, match="unknown parameter, nothing was run"):
+            _geom_run._resolve(WING, {dotted: 10.0})
+    else:
+        resolved = unpack(_geom_run._resolve(WING, {dotted: 10.0}))
+        assert resolved["components"]["W"]["planform"]["area"] == pytest.approx(10.0)
+
+
 def test_p0570_g3_an_unknown_until_and_an_empty_file_are_refused(tmp_path):
     with pytest.raises(InputValueError, match="stage 'S99'"):
         _geom_run.run_geometry(BODY, out=tmp_path, until="S99")
