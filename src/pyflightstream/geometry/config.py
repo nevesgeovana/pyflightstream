@@ -614,13 +614,8 @@ def _resolve_component(name, raw, notes, base):
     return result
 
 
-def _resolve_component_keys(name, raw, notes, base):
-    """Merge, validate and return one component and its derived quantities."""
-    if "type" not in raw:
-        raise InputValueError(f"components.{name}.type: required")
-    if raw["type"] not in TYPES:
-        raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
-    raw = deepcopy(raw)
+def _translate_inputs(name, raw, notes, base):
+    """Read the published key names of a fresh component and skip a cap shape."""
     if raw["type"] == "lifting_surface":
         translate_lifting(name, raw, notes, base)
     elif raw["type"] == "body":
@@ -632,6 +627,16 @@ def _resolve_component_keys(name, raw, notes, base):
         notes["findings"].append(
             f"{name}.cap.shape: given and skipped until the parameter is defined"
         )
+
+
+def _resolve_component_keys(name, raw, notes, base):
+    """Merge, validate and return one component and its derived quantities."""
+    if "type" not in raw:
+        raise InputValueError(f"components.{name}.type: required")
+    if raw["type"] not in TYPES:
+        raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
+    raw = deepcopy(raw)
+    _translate_inputs(name, raw, notes, base)
     free = FREE_BY_TYPE.get(raw["type"], frozenset())
     component = merge_values(
         default_component(raw["type"]), raw, f"components.{name}", notes["warnings"], free
