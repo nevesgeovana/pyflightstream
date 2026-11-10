@@ -175,6 +175,9 @@ _DIMENSIONLESS_OR_DEBT = {
     # SolverSettings, the preset-mapping block. Cp is dimensionless by
     # definition, the stabilization strength is a dimensionless solver
     # factor, and a wake termination in revolutions is a count of turns.
+    # Free memory in gigabytes a concurrent run needs: bytes have no SI suffix
+    # in the list above, and the owner's decision states the floor in GB.
+    "ram_floor_gb",  # RuntimeSettings, GB stated in the name and the docstring
     "minimum_cp",  # pressure coefficient floor, dimensionless
     "solver_stabilization",  # stabilization strength, dimensionless
     "wake_termination_revolutions",  # revolutions are counts

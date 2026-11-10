@@ -1452,6 +1452,13 @@ class LocalExecutor:
         request = case.solver.runtime
         if request is None:
             return case
+        if (
+            request.max_threads is None
+            and request.affinity is None
+            and (request.parallel, request.licence_seats, request.ram_floor_gb) != (None,) * 3
+        ):
+            # A block that only sets the campaign's parallel count: no launch policy to resolve.
+            return case
         if request.max_threads is not None and (
             case.solver.max_threads is not None or row_ncpus(case, None) is not None
         ):

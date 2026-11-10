@@ -319,3 +319,38 @@ a compute node, so this block requires a local launch on the solver machine.
 The run record's `solver_setup.runtime` stores the resolved count, requested
 affinity, applied KMP environment and topology (physical and logical cores,
 P/E classification, per-core SMT, sockets and NUMA membership).
+
+### Concurrent runs
+
+The same block sets how many solver runs of one campaign are alive at once:
+
+```toml
+[runtime]
+parallel = "auto"      # a positive count, or "auto"; unset is 1
+licence_seats = 2      # seats this machine may use; unset is 2
+ram_floor_gb = 1.0     # free memory a further run needs before it starts; unset is 1.0
+```
+
+Unset, the campaign runs its cases one after another, exactly as before. Each
+case (one row of the matrix, with all its points) is one unit of concurrency, so a
+matrix of a single row gains nothing. `pyfs-matrix run --parallel N|auto` overrides
+the block for one run. A count above 8 runs 8 and warns.
+
+`auto` is the smallest of 2 (the measured optimum on a multi-core machine, which
+comes from the serial gaps of a run and not from free cores), `licence_seats`, the
+free memory divided by `ram_floor_gb`, and 8. The seat count is configured: the
+licence server is not queried. A further run starts only when fewer than the count
+are alive, the free memory is at least `ram_floor_gb`, and a few seconds have passed
+since the previous start, because a solver claims its memory as it loads; the first
+run always starts. A run that fails with the licence named in the solver's own
+output lowers the count to one and is repeated once, alone, so a seat count set too
+high costs one repeat and no recorded failure. The licence wording is matched
+against the captured text and is not yet confirmed against a licensed probe.
+
+Every case is staged before the first run starts; each run still writes only into
+its own datapoint folder, and manifest rows are appended under a lock, in the order
+the runs finish. A failed run does not stop the others. Simulations are posted
+after the last run ends, not as each finishes. Only local runs are concurrent: a
+submitting or grouping executor runs one at a time, with a note. A `[runtime]` block
+with only these keys resolves no thread count or affinity. The thread count and
+affinity of the first case apply to every concurrent run.

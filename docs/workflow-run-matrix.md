@@ -484,6 +484,16 @@ case names its outputs per point and no single literal could name them
 all. Each point collects into `sims/<sim>/datapoints/DP-<point>/`, so
 what the assessor reads is that point's evidence and nothing else.
 
+## Running several simulations at once
+
+`pyfs-matrix run <matrix> --parallel 2` runs two simulations of the matrix at a time
+on this machine; `--parallel auto` lets the package choose from the machine, the
+configured licence seats and the free memory. Without the flag the run is serial, or
+follows `parallel` in the setup's `[runtime]` block. The gain depends on the machine:
+on a 20-logical-core laptop two runs gave about 20 percent more throughput and a
+third added little. See [Setup standards](setup-standards.md) for the memory floor,
+the seat count and what happens when a run fails on the licence.
+
 ## Redoing a point whose row was wrong
 
 A point already in the manifest is refused, because re-running a recorded point
