@@ -200,7 +200,20 @@ def interpolate_polynomial_strip(points, family: str = "", bay=None) -> Patch:
 
 
 def evaluate_patch(patch: Patch, count: int = 41) -> np.ndarray:
-    """Sample a patch on a ``count`` by ``count`` parameter lattice, shape ``(count, count, 3)``."""
+    """Sample a patch on a square parameter lattice.
+
+    Parameters
+    ----------
+    patch : Patch
+        B-spline surface to sample, in its control points' coordinate frame and units.
+    count : int, optional
+        Number of samples along each parameter axis, including both ends; default 41.
+
+    Returns
+    -------
+    numpy.ndarray
+        Coordinates with shape ``(count, count, 3)``, in the patch's frame and units.
+    """
     controls = np.asarray(patch.controls)
     tu = np.repeat(patch.knots_u, patch.multiplicities_u)
     tv = np.repeat(patch.knots_v, patch.multiplicities_v)

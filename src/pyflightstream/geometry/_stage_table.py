@@ -297,7 +297,23 @@ _BY_ID = {row.stage: row for row in STAGE_ROWS}
 
 
 def stage_row(stage: str) -> StageRow:
-    """Return the row of ``stage``, refusing an id the table does not hold."""
+    """Return the row of ``stage``, refusing an id the table does not hold.
+
+    Parameters
+    ----------
+    stage : str
+        Stage id from the geometry pipeline table, such as ``S10.D1``.
+
+    Returns
+    -------
+    StageRow
+        The stage's name, kernel requirement and measured checks.
+
+    Raises
+    ------
+    InputValueError
+        If ``stage`` is absent from the table; the message lists accepted ids.
+    """
     try:
         return _BY_ID[stage]
     except KeyError:
