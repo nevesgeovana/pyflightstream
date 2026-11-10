@@ -24,6 +24,7 @@ from pathlib import Path
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._airfoils import naca_camber
+from pyflightstream.geometry._blister import blister_notes
 from pyflightstream.geometry._bodies import apply_rings, check_boat_tail, check_body_symmetry
 from pyflightstream.geometry._boundary import unit_for, unpack
 from pyflightstream.geometry._component_keys import (
@@ -479,6 +480,7 @@ def resolve_fillet(raw, component, notes):
 def resolve_blister(raw, component, notes):
     """Validate a blister component and return its (empty) derived quantities."""
     check_blister(notes["name"], component, notes["warnings"], notes["findings"])
+    blister_notes(notes["name"], component, notes["warnings"])
     return {}
 
 
