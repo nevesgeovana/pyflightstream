@@ -12,5 +12,7 @@ Assembly documentation states the dominance and removal requirements directly.
 Comparing incompatible pole nets raises `InputValueError` naming `first` and `again`,
 the incompatible sizes, and the matching-net requirement.
 
+The parity fallback is documented by the dominant component's role.
+
 migration: incompatible pole-net comparisons raise the package's `InputValueError`,
 which remains a `ValueError` subclass.

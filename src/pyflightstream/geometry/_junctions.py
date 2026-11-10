@@ -427,8 +427,7 @@ def dominant_inside(
     A point within ``near`` of the dominant's current faces is decided by the outward normal at
     its closest point there. Where the faces next to a point are gone (removed as inside another
     piece), that closest point is far and its normal orients nothing, so beyond ``near`` the
-    point is decided by the parity of the dominant's whole hull ``hull`` (the PA-30 assembly
-    note).
+    point is decided by the parity of the dominant's whole hull ``hull``.
     """
     tris = np.asarray(current, float).reshape(-1, 3, 3)
     whole = np.asarray(hull, float).reshape(-1, 3, 3)
