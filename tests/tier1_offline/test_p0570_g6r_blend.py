@@ -18,7 +18,7 @@ from pyflightstream.geometry._blister import BodyHost, blister_model
 from pyflightstream.geometry._bodies import body_profile, body_regions, body_station_table
 from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._caps import lifting_model
-from pyflightstream.geometry._fillet import _Surface, fillet_model
+from pyflightstream.geometry._fillet import Surface, fillet_model
 from pyflightstream.geometry._generation import generate_components
 from pyflightstream.geometry._placement import wing_in_body_frame
 from pyflightstream.geometry.config import resolve_config
@@ -111,7 +111,7 @@ def second():
 
 
 def _skin(components, wing, body):
-    return _Surface(lifting_model(wing_in_body_frame(components, body, wing)).skin)
+    return Surface(lifting_model(wing_in_body_frame(components, body, wing)).skin)
 
 
 def _angle(a, b):
@@ -134,7 +134,7 @@ def test_p0570_g6r_fillet_meets_a_round_host_tangentially_by_its_radial_normal(d
     xs = model.contacts["host"][:, 0]
     widths = body_profile(components["hull"], table, xs / 8.0)[:, 0]
     assert np.allclose(widths, RADIUS, atol=1e-12)  # the round middle: normal is radial
-    base = _Surface(model.base)
+    base = Surface(model.base)
     worst = 0.0
     for s in np.linspace(0.0, 1.0, 121):
         point = base(s, model.contacts["v_host"])
@@ -147,7 +147,7 @@ def test_p0570_g6r_fillet_meets_a_round_host_tangentially_by_its_radial_normal(d
 def test_p0570_g6r_fillet_meets_the_skin_tangentially_between_its_sections(demo):
     _, components, model = demo
     skin = _skin(components, "main", "hull")
-    base = _Surface(model.base)
+    base = Surface(model.base)
     worst = 0.0
     s_values = model.contacts["wing"][:, 0]
     middles = (s_values[:-1] + s_values[1:]) / 2  # half way between sections, the worst place
@@ -163,7 +163,7 @@ def test_p0570_g6r_fillet_meets_the_skin_tangentially_between_its_sections(demo)
 def test_p0570_g6r_setback_divides_the_two_contact_distances_in_its_ratio(second):
     _, _, model = second
     spine, wing_v = model.contacts["spine"], model.contacts["wing"]
-    base = _Surface(model.base)
+    base = Surface(model.base)
     on_wing = np.array([base(s, model.contacts["v_wing"]) for s in wing_v[:, 0]])
     on_host = np.array([base(s, model.contacts["v_host"]) for s in wing_v[:, 0]])
     ratio = np.linalg.norm(on_wing - spine, axis=1) / np.linalg.norm(on_host - spine, axis=1)
@@ -176,7 +176,7 @@ def test_p0570_g6r_lower_face_reaches_the_trailing_edge_unless_switched_off(demo
     lower = model.trims[0]
     assert lower.loop[0][0][0] == 0.0
     skin = _skin(components, "main", "hull")
-    start = _Surface(model.base)(0.0, model.contacts["v_wing"])
+    start = Surface(model.base)(0.0, model.contacts["v_wing"])
     assert np.linalg.norm(start - skin(0.0, model.contacts["wing"][0, 2])) < 1e-9
     _, other, held = second
     u0 = held.trims[0].loop[0][0][0]
@@ -193,7 +193,7 @@ def test_p0570_g6r_base_is_larger_than_its_faces_by_the_bands(demo):
     v_host, v_wing = model.contacts["v_host"], model.contacts["v_wing"]
     assert 0.0 < v_host < v_wing < 1.0
     chord = 1.25  # sref 9, AR 9, taper 0.6: 2 S / (b (1 + taper))
-    base = _Surface(model.base)
+    base = Surface(model.base)
     beyond_host = [np.linalg.norm(base(s, 0.0) - base(s, v_host)) for s in np.linspace(0.1, 0.9, 9)]
     beyond_wing = [np.linalg.norm(base(s, 1.0) - base(s, v_wing)) for s in np.linspace(0.1, 0.9, 9)]
     band = 0.02 * chord
@@ -279,7 +279,7 @@ def test_p0570_g6r_blister_is_two_lofts_meeting_at_the_deepest_station(pod):
 
 def test_p0570_g6r_blister_bottom_line_is_the_host_bottom_less_the_depth(pod):
     _, model = pod
-    front = _Surface(model.bases["front"])
+    front = Surface(model.bases["front"])
     for v, x, depth in ((0.5, 3.0, 0.08), (1.0, 3.6, 0.15)):
         point = front(0.0, v)
         assert point[0] == pytest.approx(x, abs=1e-12)
@@ -291,7 +291,7 @@ def test_p0570_g6r_blister_face_ends_on_the_host_and_its_base_goes_inside(pod):
     components, model = pod
     host = BodyHost(components["hull"])
     for name, patch in model.bases.items():
-        surface = _Surface(patch)
+        surface = Surface(patch)
         for u, v in model.crease[name]:
             point = surface(u, v)
             assert abs(np.hypot(point[1], point[2]) - RADIUS) < 1e-9  # on the round host
@@ -378,7 +378,7 @@ def _distance_to(patches, point):
     """Return the distance from ``point`` to the nearest of ``patches`` (sampled, then Newton)."""
     best = np.inf
     for patch in patches:
-        surface = _Surface(patch)
+        surface = Surface(patch)
         grid = np.linspace(0.0, 1.0, 9)
         samples = [(u, v, surface(u, v)) for u in grid for v in grid]
         u, v, _ = min(samples, key=lambda row: np.linalg.norm(row[2] - point))
@@ -395,7 +395,7 @@ def test_p0570_g6r_contacts_lie_on_the_region_plan_within_its_tolerance(demo, po
     for point in model.contacts["host"][::6]:
         assert _distance_to(regions, point) <= 2 * tolerance
     _, loft = pod
-    surface = _Surface(loft.bases["front"])
+    surface = Surface(loft.bases["front"])
     for u, v in loft.crease["front"][2:-2:3]:
         assert _distance_to(regions, surface(u, v)) <= 2 * tolerance
 
@@ -433,25 +433,28 @@ def test_p0570_g6r_each_blend_sub_step_writes_its_record_with_inputs(tmp_path):
     assert (free["measured"], free["limit"]) == (2, 2)  # the two trailing-edge ends
 
 
-def test_p0570_g6r_a_failing_tangency_stops_the_run_at_the_fillet_build(tmp_path, monkeypatch):
-    from pyflightstream.geometry import _fillet
+def test_p0570_g6r_a_too_coarse_fillet_stops_the_run_at_its_build_on_tangency(tmp_path):
     from pyflightstream.workspace import _geom_run
 
-    monkeypatch.setattr(_fillet, "TANGENT_LIMIT_DEG", 1e-6)
-    report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
+    config = _demo_with_pod()
+    config["components"]["blend"]["patches"] = 4  # 13 sections: the contacts leave the hosts
+    report = _geom_run.run_geometry(config, out=tmp_path, until="S9")
     assert report["status"] == "failed"
-    assert (report["stage"], report["check"]) == ("S8.F1", "closure.tangent_host")
+    assert report["stage"] == "S8.F1"
+    assert report["check"] in ("closure.tangent_host", "closure.tangent_wing")
+    assert report["measured"] > report["limit"] == 1.0
     assert (tmp_path / "S8.F1.json").is_file() and not (tmp_path / "S8.F2.json").exists()
 
 
-def test_p0570_g6r_a_failing_area_stops_the_run_at_the_blister_trim(tmp_path, monkeypatch):
-    from pyflightstream.geometry import _blister
-    from pyflightstream.workspace import _geom_run
+def test_p0570_g6r_a_crease_off_the_host_fails_the_area_removed(pod):
+    from pyflightstream.geometry._blister import AREA_REMOVED_LIMIT, area_removed_check
 
-    monkeypatch.setattr(_blister, "AREA_REMOVED_LIMIT", 1e-12)
-    report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
-    assert (report["stage"], report["check"]) == ("S8.B2", "trim.area_removed")
-    assert (tmp_path / "S8.B1.json").is_file() and not (tmp_path / "S8.B3.json").exists()
+    components, model = pod
+    host = BodyHost(components["hull"])
+    assert area_removed_check(model.bases, model.crease, host)["status"] == "passed"
+    moved = {name: rows + np.array([0.05, 0.0]) for name, rows in model.crease.items()}
+    check = area_removed_check(model.bases, moved, host)
+    assert check["status"] == "failed" and check["measured"] > AREA_REMOVED_LIMIT
 
 
 def test_p0570_g6r_a_configuration_without_blends_skips_their_sub_steps_by_reason(tmp_path):

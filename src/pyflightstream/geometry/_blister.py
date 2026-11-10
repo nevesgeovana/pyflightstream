@@ -28,12 +28,16 @@ from ._skin import split_along
 from ._trims import LOOP_GAP, Trim
 
 __all__ = [
+    "AREA_REMOVED_LIMIT",
     "BlisterModel",
     "BodyHost",
     "blister_law",
     "blister_model",
     "blister_notes",
     "blister_region",
+    "area_removed_check",
+    "free_edge_check",
+    "host_gap",
 ]
 
 #: Samples per section for the fit, and the section's interior knots (degree 3).
@@ -128,14 +132,8 @@ def _per_station(value, count, name):
     return values
 
 
-def blister_notes(name, component, warnings) -> None:
-    """Check the blister keys this stage reads, and warn for those it does not apply.
-
-    Called when the configuration is resolved, so each warning reaches the verb's report.
-    """
-    count = len(component.get("stations", {}).get("x", []))
-    if count < 3:
-        warnings.append(f"{name}.stations.x: {_TOO_FEW}; generate refuses this blister")
+def _check_station_values(name, component, count, warnings) -> None:
+    """Refuse a width, exponent or depth law that is not one value or one per station."""
     sections = component.get("sections", {})
     for key in ("width", "exponent"):
         if key in sections:
@@ -155,6 +153,17 @@ def blister_notes(name, component, warnings) -> None:
             f"{name}.profile.depth: the first and last stations are the poles of the tips, their "
             "depth is taken as 0"
         )
+
+
+def blister_notes(name, component, warnings) -> None:
+    """Check the blister keys this stage reads, and warn for those it does not apply.
+
+    Called when the configuration is resolved, so each warning reaches the verb's report.
+    """
+    count = len(component.get("stations", {}).get("x", []))
+    if count < 3:
+        warnings.append(f"{name}.stations.x: {_TOO_FEW}; generate refuses this blister")
+    _check_station_values(name, component, count, warnings)
     for (table, key), instead in _NOT_APPLIED.items():
         if key in component.get(table, {}):
             warnings.append(f"{name}.{table}.{key}: not applied by this version, {instead}")
@@ -392,7 +401,7 @@ def _jacobian(patch: Patch, u, v):
     return np.linalg.norm(np.cross(du, dv), axis=-1)
 
 
-def _area_removed_check(bases, crease, host) -> dict:
+def area_removed_check(bases, crease, host) -> dict:
     """``trim.area_removed``: base area less face area, against the sampled area inside the host.
 
     The removed area comes from the crease loop (each face integrated from u = 0 to the crease,
@@ -539,7 +548,7 @@ def blister_model(blister, host_body) -> BlisterModel:
             "blister.crease_on_host", "passed" if worst <= 1e-9 else "failed", worst, 1e-9, unit="m"
         ),
         *_loop_checks(trims),
-        _area_removed_check(bases, crease, host),
+        area_removed_check(bases, crease, host),
         free_edge_check(bases, trims, lambda p: host_gap(host, p) <= tolerance, expected=0),
     ]
     if "front" in bases:

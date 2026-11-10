@@ -39,6 +39,7 @@ from ._trims import iso_trim
 __all__ = [
     "TANGENT_LIMIT_DEG",
     "FilletModel",
+    "Surface",
     "fillet_hosts",
     "fillet_laws",
     "fillet_model",
@@ -56,7 +57,7 @@ _LAW_DEFAULTS = {"handle": 1.0, "setback": 0.0}
 _CHECKS_PER_SPAN = 3
 
 
-class _Surface:
+class Surface:
     """Point and first derivatives of a :class:`Patch` at one parameter pair."""
 
     def __init__(self, patch: Patch):
@@ -303,7 +304,7 @@ def _lower_start(fillet, skin, wing):
 
 def _contact_checks(base, skin, host, contacts, count):
     """Return the largest turn to each host along its contact line, and the host gap."""
-    surface = _Surface(base)
+    surface = Surface(base)
     s_fine = np.linspace(0.0, 1.0, count)
     host_turn = host_gap = wing_turn = wing_gap = 0.0
     for s in s_fine:
@@ -350,7 +351,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
     """
     wing_name, body_name = fillet_hosts({**components, name: fillet}, name)
     wing = wing_in_body_frame(components, body_name, wing_name)
-    skin = _Surface(lifting_model(wing).skin)
+    skin = Surface(lifting_model(wing).skin)
     host = BodyHost(components[body_name])
     # Three sections per patch of the old layout, so the contacts stay on the hosts (the
     # interpolation error falls with the square of the spacing); an odd count keeps u = 0.5.
