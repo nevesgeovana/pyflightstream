@@ -361,11 +361,57 @@ def _assembly_step(stage: str) -> StageFn:
     return run
 
 
+def _control_record(stage: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Measure a file-based control boundary inside its own kernel process."""
+    from pyflightstream.workspace._geom_control import check_stage
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel(f"control {stage}")
+    try:
+        if stage == "F3":
+            inputs = dict(inputs)
+            for key in ("controls", "hosts"):
+                inputs[key] = {
+                    name: kernel.import_iges(path).faces for name, path in inputs[key].items()
+                }
+        return check_stage(kernel, stage, inputs)
+    finally:
+        kernel.close()
+
+
+def _control_step(stage: str) -> StageFn:
+    """Bind one independent F check to the runner's records and run log."""
+
+    def run(context: RunContext) -> StageOutcome:
+        row = next(r for r in STAGE_ROWS if r.stage == stage)
+        short = stage.split(".")[-1]
+        inputs = context.state.get("control_inputs", {}).get(short)
+        if inputs is None:
+            reason = (
+                "waits for the trimmed assembly of G8"
+                if short in ("F5", "F6")
+                else "no control geometry supplied for this sub-step"
+            )
+            return StageOutcome(
+                checks=[check_entry(cid, "skipped", note=reason) for cid, _ in row.checks]
+            )
+        arguments = {"stage": short, "inputs": inputs}
+        result = (
+            _control_record(**arguments)
+            if os.environ.get(WORKER_ENV) == "1"
+            else run_isolated(f"{__name__}:_control_record", arguments, _control_record)
+        )
+        return StageOutcome(**result)
+
+    return run
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
+    **{row.stage: _control_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.F")},
     "S11": _export,
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),

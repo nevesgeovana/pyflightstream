@@ -13,3 +13,6 @@ Control sub-step checks measure written/read face counts, sewn free and triple
 edges at 0.01 mm, native clearance to hosts, and named slot openings. Post-cut
 checks accept named junction lengths and clean-reference lengths; their shared
 trimmed-assembly integration remains pending.
+Each F check has its own stage-table row and runner callback. Supplied control
+boundaries produce stage records and geom-run.log lines; a failed check stops
+the runner before the next sub-step.
