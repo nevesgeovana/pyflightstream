@@ -1699,6 +1699,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.record_document">pyflightstream.workspace.record_document</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.run._runtime"><summary><code>pyflightstream.run._runtime</code></summary><ul>
@@ -1971,6 +1972,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._geom_assembly"><summary><code>pyflightstream.workspace._geom_assembly</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._cad">pyflightstream.workspace._cad</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_parts">pyflightstream.workspace._geom_parts</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_removal">pyflightstream.workspace._geom_removal</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._geom_gate"><summary><code>pyflightstream.workspace._geom_gate</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.iges_profile">pyflightstream.geometry.iges_profile</a> (module)</li>
@@ -1981,13 +1989,29 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>No package-internal outgoing imports.</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._geom_parts"><summary><code>pyflightstream.workspace._geom_parts</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._cad">pyflightstream.workspace._cad</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._geom_removal"><summary><code>pyflightstream.workspace._geom_removal</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._cad">pyflightstream.workspace._cad</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_parts">pyflightstream.workspace._geom_parts</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._geom_run"><summary><code>pyflightstream.workspace._geom_run</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry">pyflightstream.geometry</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.geometry">pyflightstream.geometry</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_assembly">pyflightstream.workspace._geom_assembly</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geom_log">pyflightstream.workspace._geom_log</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_generate">pyflightstream.workspace._geometry_generate</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._gmsh_worker">pyflightstream.workspace._gmsh_worker</a> (module)</li>
 </ul></details>
 
@@ -3845,6 +3869,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._patch">pyflightstream.geometry._patch</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.geometry._junctions"><summary><code>pyflightstream.geometry._junctions</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.geometry._records">pyflightstream.geometry._records</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.geometry._lifting"><summary><code>pyflightstream.geometry._lifting</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._bspline">pyflightstream.geometry._bspline</a> (module)</li>
@@ -3968,6 +3996,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._fillet">pyflightstream.geometry._fillet</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._generation">pyflightstream.geometry._generation</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._identity">pyflightstream.geometry._identity</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._junctions">pyflightstream.geometry._junctions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._lifting">pyflightstream.geometry._lifting</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._mesh_rules">pyflightstream.geometry._mesh_rules</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._mesh_topology">pyflightstream.geometry._mesh_topology</a> (module)</li>

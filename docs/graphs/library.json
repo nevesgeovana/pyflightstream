@@ -676,6 +676,11 @@
       "path": "geometry/_identity.py"
     },
     {
+      "id": "pyflightstream.geometry._junctions",
+      "layer": 3.25,
+      "path": "geometry/_junctions.py"
+    },
+    {
       "id": "pyflightstream.geometry._lifting",
       "layer": 3.25,
       "path": "geometry/_lifting.py"
@@ -1746,6 +1751,11 @@
       "path": "workspace/_free_space.py"
     },
     {
+      "id": "pyflightstream.workspace._geom_assembly",
+      "layer": 2,
+      "path": "workspace/_geom_assembly.py"
+    },
+    {
       "id": "pyflightstream.workspace._geom_gate",
       "layer": 2,
       "path": "workspace/_geom_gate.py"
@@ -1754,6 +1764,16 @@
       "id": "pyflightstream.workspace._geom_log",
       "layer": 2,
       "path": "workspace/_geom_log.py"
+    },
+    {
+      "id": "pyflightstream.workspace._geom_parts",
+      "layer": 2,
+      "path": "workspace/_geom_parts.py"
+    },
+    {
+      "id": "pyflightstream.workspace._geom_removal",
+      "layer": 2,
+      "path": "workspace/_geom_removal.py"
     },
     {
       "id": "pyflightstream.workspace._geom_run",
@@ -6278,6 +6298,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._junctions",
+      "target": "pyflightstream.geometry._records",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._lifting",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6610,6 +6635,11 @@
     {
       "source": "pyflightstream.geometry.stages",
       "target": "pyflightstream.geometry._identity",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._junctions",
       "kind": "module"
     },
     {
@@ -13313,6 +13343,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.run._record_files",
+      "target": "pyflightstream.workspace.record_document",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.run._runtime",
       "target": "pyflightstream.cases",
       "kind": "module"
@@ -14853,6 +14888,26 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geom_assembly",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_assembly",
+      "target": "pyflightstream.workspace._cad",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_assembly",
+      "target": "pyflightstream.workspace._geom_parts",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_assembly",
+      "target": "pyflightstream.workspace._geom_removal",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._geom_gate",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -14868,6 +14923,36 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geom_parts",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_parts",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_parts",
+      "target": "pyflightstream.workspace._cad",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_removal",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_removal",
+      "target": "pyflightstream.workspace._cad",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_removal",
+      "target": "pyflightstream.workspace._geom_parts",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -14880,12 +14965,27 @@
     {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.geometry",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.geometry",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.geometry.stages",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_assembly",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geom_run",
@@ -14895,6 +14995,11 @@
     {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._geometry_generate",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._gmsh",
       "kind": "deferred"
     },
     {
