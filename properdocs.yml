@@ -5,7 +5,7 @@
 # it under docs/, a deliberate small deviation recorded at M0.
 site_name: pyflightstream
 site_description: Version-aware, didactic Python driver for FlightStream
-site_url: https://nevesgeovana.github.io/pyflightstream/
+site_url: https://nevesgeovana.github.io/pyflightstream/latest/
 repo_url: https://github.com/nevesgeovana/pyflightstream
 
 theme:
@@ -291,7 +291,7 @@ nav:
           - Requirements tree: graphs/requirements.md
       - Library module graph: graphs/library.md
       - Matrix to products: graphs/data-flow.md
-      - Contributor rules: https://nevesgeovana.github.io/pyflightstream/architecture/#architectural-decisions
+      - Contributor rules: https://nevesgeovana.github.io/pyflightstream/latest/architecture/#architectural-decisions
       - Test tiers: tiers.md
       - House conventions: conventions.md
 

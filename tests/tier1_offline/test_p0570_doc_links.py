@@ -63,6 +63,14 @@ def test_deploy_serves_a_latest_page_for_every_page_of_the_build(tmp_path):
     assert "rest.slice(7)" in missing
 
 
+def test_site_url_is_the_served_latest_alias():
+    text = (REPO / "properdocs.yml").read_text(encoding="utf-8")
+    match = re.search(r"^site_url:\s*(\S+)\s*$", text, re.MULTILINE)
+    assert match is not None
+    # The sitemap and the canonical links list site_url/<page>/, which the deploy serves.
+    assert match.group(1) == "https://nevesgeovana.github.io/pyflightstream/latest/"
+
+
 def test_repository_text_links_no_unversioned_site_page():
     site = "https://nevesgeovana.github.io/pyflightstream/"
     unversioned = []
