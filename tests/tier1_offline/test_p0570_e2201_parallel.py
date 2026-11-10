@@ -270,3 +270,44 @@ def test_p0570_e2201_a_parallel_only_block_resolves_no_topology(tmp_path):
     case = make_cases(tmp_path, 1, RuntimeSettings(parallel="auto")).sims[0]
     with patch("pyflightstream.run._runtime.detect_topology", side_effect=AssertionError):
         assert LocalExecutor(exe).resolve_case_runtime(case) is case
+
+
+def test_p0570_r23_001_each_concurrent_run_carries_its_own_case_runtime(tmp_path):
+    from unittest.mock import patch
+
+    from tests.tier1_offline.test_rt057_runtime import TOPOLOGIES
+
+    topology, _, hybrid_environment = TOPOLOGIES[0]
+    assert hybrid_environment, "the fixture topology must give a launch environment"
+    seen: dict[str, dict[str, str]] = {}
+
+    class Recording(SleepingSolver):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            time.sleep(0.3)  # the other case resolves its own runtime meanwhile
+            seen[str(working_dir)] = dict(self.runtime_environment)
+            return super().run_script(script_path, working_dir, timeout_s)
+
+    campaign = make_cases(tmp_path, 2)
+    sims = [
+        sim.model_copy(
+            update={
+                "solver": SolverSettings(runtime=RuntimeSettings(affinity=affinity, parallel=2))
+            }
+        )
+        for sim, affinity in zip(campaign.sims, ("auto", "all"), strict=True)
+    ]
+    campaign = campaign.model_copy(update={"sims": sims})
+    with patch("pyflightstream.run._runtime.detect_topology", return_value=topology):
+        run_campaign(
+            campaign,
+            Recording(0.05),
+            CampaignWorkspace(tmp_path / "camp"),
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            quiet=True,
+        )
+    by_sim = {
+        sim_id: [env for folder, env in seen.items() if f"sim_{sim_id}" in folder]
+        for sim_id in ("9000", "9001")
+    }
+    assert by_sim == {"9000": [hybrid_environment], "9001": [{}]}, seen

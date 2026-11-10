@@ -352,5 +352,5 @@ its own datapoint folder, and manifest rows are appended under a lock, in the or
 the runs finish. A failed run does not stop the others. Simulations are posted
 after the last run ends, not as each finishes. Only local runs are concurrent: a
 submitting or grouping executor runs one at a time, with a note. A `[runtime]` block
-with only these keys resolves no thread count or affinity. The thread count and
-affinity of the first case apply to every concurrent run.
+with only these keys resolves no thread count or affinity. Each concurrent run
+launches with the thread count and affinity of its own case.

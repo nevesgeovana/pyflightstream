@@ -18,6 +18,7 @@ import re
 import string
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -1434,14 +1435,33 @@ class LocalExecutor:
                 "progress lines, so it is a whole number, 0 to say nothing."
             )
         self.progress_every = int(progress_every)
-        self.runtime_environment: dict[str, str] = {}
-        self.runtime_affinity: str | None = None
+        # Per thread, so concurrent runs of one campaign each launch with their own case's
+        # [runtime] policy (PFS-2201.02): resolution and launch happen on one worker.
+        self._runtime_by_thread: dict[int, tuple[dict[str, str], str | None]] = {}
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "
                 "explicit campaign input (fs_exe); check the installation folder of "
                 "the version the campaign requests."
             )
+
+    @property
+    def runtime_environment(self) -> dict[str, str]:
+        """Launch environment of the case this thread resolved last; empty when none."""
+        return self._runtime_by_thread.get(threading.get_ident(), ({}, None))[0]
+
+    @runtime_environment.setter
+    def runtime_environment(self, value: dict[str, str]) -> None:
+        self._runtime_by_thread[threading.get_ident()] = (value, self.runtime_affinity)
+
+    @property
+    def runtime_affinity(self) -> str | None:
+        """Affinity policy of the case this thread resolved last; None when none."""
+        return self._runtime_by_thread.get(threading.get_ident(), ({}, None))[1]
+
+    @runtime_affinity.setter
+    def runtime_affinity(self, value: str | None) -> None:
+        self._runtime_by_thread[threading.get_ident()] = (self.runtime_environment, value)
 
     def resolve_case_runtime(self, case: SimCase) -> SimCase:
         """Resolve an explicit setup runtime block on this launch host before emission."""
