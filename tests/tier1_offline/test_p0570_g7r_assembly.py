@@ -427,7 +427,12 @@ def test_p0570_g7r_t1_yes_the_tail_group_is_one_fragment_with_every_junction(ker
 def test_p0570_g7r_t1_pairs_cut_separately_are_measured_by_the_same_check(kernel, tmp_path):
     """T-T1 NO as the hand-off records it (pairs run separately fail at fuzzy 0.05 mm) does not
     reproduce on this kernel: pairs cut one after another stay one curve per junction. The
-    check that would say so runs on that state and reads 0; this records the measurement."""
+    check that would say so runs on that state and reads 0; this records the measurement.
+
+    Measured on gmsh 4.15.2 (review round 24, the tail of this file: BODY x FIN and FIN x HT
+    cut one after another): group.single_curve 0, passed. The replacement NO, a pair of the
+    group that does not meet, is the next test. A kernel on which this reads above 0 makes the
+    hand-off's NO reproduce, and this test then fails to say so."""
     pieces, rows = _tail()
     asm = assembly(kernel, tmp_path, pieces, rows)
     asm.step("S10.D1")
