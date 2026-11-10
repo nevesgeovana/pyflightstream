@@ -586,3 +586,24 @@ def test_p0570_g7r_run_log_times_each_substep_by_its_own_wall_time(tmp_path, mon
         assert record["wall_s"] == own[stage], (stage, record["wall_s"], own[stage])
     log = (run / "geom-run.log").read_text(encoding="utf-8")
     assert f"(wall {own['S10.D2']:.3f} s)" in log
+
+
+def _stopped(report):
+    return report["status"], report["stage"], report["check"]
+
+
+def test_p0570_g7r_s6_no_through_run_geometry_an_imprint_that_splits_no_host(tmp_path, monkeypatch):
+    """T-S6 through the verb: an imprint that leaves the hosts whole puts the projected junction
+    on the host but on none of its loops; the run stops at S10.D6 with the distance."""
+    from pyflightstream.workspace._cad import FragmentMap
+    from pyflightstream.workspace._gmsh import GmshKernel
+
+    def whole(self, faces, edges, *, fuzzy=0.0):
+        return FragmentMap(faces=tuple(faces), from_a=tuple((f,) for f in faces), from_b=())
+
+    monkeypatch.setattr(GmshKernel, "imprint", whole)
+    pieces, rows = wb()
+    report, run = _run_pieces(tmp_path, monkeypatch, pieces, rows)
+    assert _stopped(report) == ("failed", "S10.D6", "junction.on_host_loops"), report
+    record = json.loads((run / "S10.D6.json").read_text(encoding="utf-8"))
+    assert checks_of(record)["junction.on_host_loops"]["measured"] > 5e-6

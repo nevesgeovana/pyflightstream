@@ -298,4 +298,12 @@ class AssemblyBase:
                 continue
             projected = self.k.edge_project(e, as_points(points))
             best = np.minimum(best, np.linalg.norm(np.asarray(projected) - points, axis=1))
+        # the box only skips work: a point no curve's box reached is measured against them all,
+        # so a junction far from every loop reads its distance, never an infinity
+        far = ~np.isfinite(best)
+        if far.any():
+            for e in edges:
+                projected = self.k.edge_project(e, as_points(points[far]))
+                distance = np.linalg.norm(np.asarray(projected) - points[far], axis=1)
+                best[far] = np.minimum(best[far], distance)
         return float(best.max()) if len(best) else 0.0
