@@ -475,7 +475,7 @@ def test_the_cli_reference_carries_every_tool_subcommand_and_option():
     # Non-vacuity, at the counts measured at 0.33.0 development (help flags
     # and positionals included). The parity arm of GOAL-038 keeps every
     # option and subcommand of 0.32.0, so these only grow.
-    assert len(tools) == 7, names
+    assert len(tools) == 8, names  # pyfs-geom joined at 0.57.0
     assert options >= CLI_ARGUMENTS_MEASURED, f"only {options} arguments were compared"
     assert subcommands >= CLI_SUBCOMMANDS_MEASURED, f"only {subcommands} subcommands"
 

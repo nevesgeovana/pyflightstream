@@ -35,7 +35,7 @@ from ._patch import Patch
 from ._placement import move, placement_transform
 from ._records import CheckFailedError, check_entry
 from ._skin import split_along
-from ._trims import iso_trim
+from ._trims import Trim, iso_trim
 
 __all__ = [
     "TANGENT_LIMIT_DEG",
@@ -425,7 +425,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
     )
     v_host, v_wing = e_host / (high - low), (1.0 + e_host) / (high - low)
     start = _lower_start(fillet, Surface(local), wing)
-    trims = (
+    trims: tuple[Trim, ...] = (
         iso_trim("lower", "base", (start, 0.5), (v_host, v_wing), role="fillet"),
         iso_trim("upper", "base", (0.5, 1.0), (v_host, v_wing), role="fillet"),
     )

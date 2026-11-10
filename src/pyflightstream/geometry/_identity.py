@@ -73,7 +73,28 @@ def _strip_paths(node):
 
 
 def parameter_id(resolved: Mapping) -> str:
-    """Return the ``parameter_id`` of a resolved configuration, as 64 hex digits."""
+    """Return the ``parameter_id`` of a resolved configuration, as 64 hex digits.
+
+    Parameters
+    ----------
+    resolved : Mapping
+        A configuration as :func:`pyflightstream.geometry.resolve_config` returns it. File
+        paths, the source of each value and the order of members do not enter the identity.
+
+    Returns
+    -------
+    str
+        The SHA-256 of the canonical form of the values, so two resolved configurations that
+        mean the same parameters give the same string.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry import resolve_config
+    >>> from pyflightstream.geometry.stages import parameter_id
+    >>> resolved = resolve_config({"type": "lifting_surface"})
+    >>> len(parameter_id(resolved))
+    64
+    """
     values = unpack(dict(resolved))
     for key in _DROPPED:
         values.pop(key, None)
@@ -110,8 +131,9 @@ def surface_id(
                     "controls": np.asarray(patch.controls, dtype=float).tolist(),
                 }
             )
-    for name in sorted(trims or {}):
-        for trim in sorted(trims[name], key=lambda t: (t.base, t.role, t.face)):
+    trim_sets = trims or {}
+    for name in sorted(trim_sets):
+        for trim in sorted(trim_sets[name], key=lambda t: (t.base, t.role, t.face)):
             rows.append({"component": name, **trim.to_dict()})
     return _digest(canonical(rows))
 

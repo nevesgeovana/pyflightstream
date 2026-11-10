@@ -38,19 +38,21 @@ from pyflightstream._errors import (
 )
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.geometry import resolve_config
-from pyflightstream.geometry._blister import blister_model
-from pyflightstream.geometry._boundary import unpack
-from pyflightstream.geometry._fillet import fillet_model
-from pyflightstream.geometry._identity import parameter_id
-from pyflightstream.geometry._records import (
+from pyflightstream.geometry.stages import (
+    STAGE_ROWS,
     CheckFailedError,
+    StageRow,
+    adopt_surface_file,
+    blister_model,
     check_entry,
+    fillet_model,
     geometry_report,
+    parameter_id,
+    stage_index,
     stage_record,
+    unpack,
     write_record,
 )
-from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
-from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.workspace._geom_log import LOG_NAME, RunLog
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
@@ -128,15 +130,15 @@ def _generate(resolved: dict[str, Any], target: Path, configuration: str | None)
     """
     arguments = {"config": resolved, "path": str(target), "configuration": configuration}
     if os.environ.get(WORKER_ENV) == "1":
-        return _generate_record(**arguments)
+        return _generate_record(resolved, str(target), configuration)
     return run_isolated(f"{__name__}:_generate_record", arguments, _generate_record)
 
 
 def _generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Write the IGES and return the record of ``generate_iges`` as JSON values (a worker's)."""
-    from pyflightstream.workspace import _geometry_generate
+    from pyflightstream.workspace._geometry_generate import generate_iges
 
-    written = _geometry_generate.generate_iges(config, path, configuration=configuration)
+    written = generate_iges(config, path, configuration=configuration)
     return json.loads(json.dumps(written, default=str))
 
 
@@ -371,7 +373,27 @@ def _leaves(node: Any, path: str) -> Iterator[dict[str, Any]]:
 
 
 def describe_config(config: Any, overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """Resolve a configuration (S0 only) and return every value with its unit and source."""
+    """Resolve a configuration (S0 only) and return every value with its unit and source.
+
+    Parameters
+    ----------
+    config : Mapping or str or Path
+        A configuration, or the path of a TOML file.
+    overrides : Mapping, optional
+        Values to set before resolving, by dotted path.
+
+    Returns
+    -------
+    dict
+        ``status``, the ``parameter_id``, the ``values`` with unit and source, and the
+        ``warnings`` and ``findings`` of the resolution.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import describe_config
+    >>> describe_config({"type": "lifting_surface"})["status"]
+    'valid'
+    """
     resolved = _resolve(config, overrides)
     values = [
         leaf
@@ -388,7 +410,24 @@ def describe_config(config: Any, overrides: Mapping[str, Any] | None = None) -> 
 
 
 def list_configurations(config: Any) -> dict[str, Any]:
-    """Return the configurations of a configuration file with their members and variants."""
+    """Return the configurations of a configuration file with their members and variants.
+
+    Parameters
+    ----------
+    config : Mapping or str or Path
+        A configuration, or the path of a TOML file.
+
+    Returns
+    -------
+    dict
+        The ``components``, the ``variants`` and, per configuration, its ``members``.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import list_configurations
+    >>> list_configurations({"type": "lifting_surface"})["components"]
+    ['COMPONENT']
+    """
     resolved = unpack(dict(_resolve(config, None)))
     return {
         "components": list(resolved["components"]),
@@ -401,7 +440,19 @@ def list_configurations(config: Any) -> dict[str, Any]:
 
 
 def built_stages() -> set[str]:
-    """Return the ids of the stages this tree has a function for."""
+    """Return the ids of the stages this tree has a function for.
+
+    Returns
+    -------
+    set of str
+        The stage ids that run; the other stages of the table are reported as not measured.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import built_stages
+    >>> "S0" in built_stages()
+    True
+    """
     return set(STAGE_FUNCTIONS)
 
 
@@ -688,6 +739,41 @@ def run_doe(
     Each set runs in a worker process of its own (the kernel can fault natively) and writes
     to ``out/set-0001``, ``out/set-0002`` and so on. A set whose worker dies is reported
     ``failed`` at stage ``worker``.
+
+    Parameters
+    ----------
+    config : Mapping or str or Path
+        A configuration, or the path of a TOML file.
+    parameter_sets : sequence of Mapping
+        One table of overrides per set, by dotted path.
+    out : str or Path
+        The folder that receives one sub-folder per set.
+    configuration : str, optional
+        The configuration to build, for a file that holds several.
+    variant : str, optional
+        The variant to build; ``"clean"`` by default.
+    until : str, optional
+        The last stage to run; ``"S13"`` by default.
+    workers : int, optional
+        The number of sets run at once; 1 runs them in order.
+
+    Yields
+    ------
+    dict
+        The report of each set, as :func:`pyflightstream.geometry.stages.geometry_report`.
+
+    Raises
+    ------
+    InputValueError
+        If ``workers`` is below 1 or ``until`` is not a stage id.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import run_doe
+    >>> next(run_doe({}, [], out="doe", workers=0))
+    Traceback (most recent call last):
+    ...
+    pyflightstream._errors.InputValueError: workers: at least 1 required
     """
     if workers < 1:
         raise InputValueError("workers: at least 1 required")
@@ -715,7 +801,37 @@ def _not_built(what: str) -> InputValueError:
 def add_control_surfaces(
     iges: str | Path, component: str, entries: Sequence[Mapping[str, Any]], out: str | Path
 ) -> dict[str, Any]:
-    """Add control surfaces to a component of an IGES file (PFS-2215); not built yet."""
+    """Add control surfaces to a component of an IGES file (PFS-2215); not built yet.
+
+    Parameters
+    ----------
+    iges : str or Path
+        The IGES file to read.
+    component : str
+        The component that carries the control surfaces.
+    entries : sequence of Mapping
+        One table per control surface, with the keys of a ``[[control]]`` entry.
+    out : str or Path
+        The IGES file to write.
+
+    Returns
+    -------
+    dict
+        The record of the edit, once built.
+
+    Raises
+    ------
+    InputValueError
+        Always for now: the verb is not built in this tree and writes nothing.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+    >>> add_control_surfaces("a.igs", "WING", [], "b.igs")  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    pyflightstream._errors.InputValueError: add_control_surfaces: not built yet ...
+    """
     raise _not_built("add_control_surfaces")
 
 
@@ -726,6 +842,36 @@ def split_symmetry(
 
     The faces that cross the plane are to be trimmed exactly on it and the plane edges left
     open and marked as symmetry. The geometry belongs to another lane of the release.
+
+    Parameters
+    ----------
+    iges : str or Path
+        The full model to read.
+    out : str or Path
+        The half model to write.
+    plane : str, optional
+        The symmetry plane, ``"x"``, ``"y"`` (default) or ``"z"``.
+    component : str, optional
+        The component to cut; None cuts every one.
+
+    Returns
+    -------
+    dict
+        The record of the cut, once built.
+
+    Raises
+    ------
+    InputValueError
+        If ``plane`` is not ``x``, ``y`` or ``z``, and always for now otherwise: the verb is
+        not built in this tree and writes nothing.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.geometry_pipeline import split_symmetry
+    >>> split_symmetry("a.igs", "b.igs", plane="w")
+    Traceback (most recent call last):
+    ...
+    pyflightstream._errors.InputValueError: plane: one of x, y, z required, got 'w'
     """
     if plane not in ("x", "y", "z"):
         raise InputValueError(f"plane: one of x, y, z required, got {plane!r}")

@@ -69,6 +69,43 @@ def check_entry(
     limit, so a paper can cite both, and its status must follow from them: ``bound`` says whether
     the limit is a maximum, the default, or a minimum. A ``skipped`` check carries a note that says
     why.
+
+    Parameters
+    ----------
+    check_id : str
+        The id of the check in the stage table, such as ``"input.valid"``.
+    status : str
+        ``"passed"``, ``"failed"`` or ``"skipped"``.
+    measured : float, optional
+        The measured value; required when the check ran.
+    limit : float, optional
+        The limit it is held to; required when the check ran.
+    unit : str, optional
+        The unit of ``measured`` and ``limit``.
+    where : Mapping, optional
+        Where the worst value sits, such as a component or a station.
+    note : str, optional
+        Why a skipped check was skipped; required for ``"skipped"``.
+    bound : str, optional
+        ``"max"`` (default) if ``measured`` may not exceed ``limit``, ``"min"`` if it may not
+        fall below it.
+
+    Returns
+    -------
+    dict
+        The check as plain values.
+
+    Raises
+    ------
+    InputValueError
+        If the status is unknown, a number is missing or not finite, a skipped check has no
+        note, or the status contradicts the numbers.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import check_entry
+    >>> check_entry("input.valid", "passed", 0, 0, unit="refused keys")["status"]
+    'passed'
     """
     if status not in _STATUSES:
         raise InputValueError(f"check {check_id}: status expected one of {_STATUSES}")
@@ -123,6 +160,46 @@ def stage_record(
     ``failed`` when any check failed, ``skipped`` when none ran, else ``passed``. The record
     names ``package_version`` and ``inputs_id`` (the identity of what the stage read). A check
     :func:`check_entry` would refuse is refused here too, whoever built it.
+
+    Parameters
+    ----------
+    stage : str
+        The stage id, such as ``"S0"``.
+    name : str
+        The name of the stage.
+    package_version : str
+        The version of this package that ran the stage.
+    inputs_id : str
+        The identity of what the stage read.
+    parameter_id : str
+        The identity of the parameters of the run.
+    checks : sequence of Mapping, optional
+        The checks of the stage, each as :func:`check_entry` returns it.
+    findings : sequence of str, optional
+        What the stage found that is not a check.
+    warnings : sequence of str, optional
+        The warnings of the stage.
+    outputs : Mapping, optional
+        What the stage produced, such as file names and counts.
+    kernel : str, optional
+        The geometry kernel it used, or None.
+    started : str, optional
+        The start time, ISO 8601.
+    wall_s : float, optional
+        The wall time in seconds.
+
+    Returns
+    -------
+    dict
+        The record as plain values.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import check_entry, stage_record
+    >>> check = check_entry("input.valid", "passed", 0, 0)
+    >>> stage_record("S0", "Definition", package_version="0", inputs_id="a",
+    ...              parameter_id="b", checks=[check])["status"]
+    'passed'
     """
     checks = [_rechecked(c) for c in checks]
     status = _status_of(checks)
@@ -212,6 +289,54 @@ def geometry_report(
     ``failed`` names a stage and a check. ``not_run`` lists, as ``"<stage> <check>"``, every
     check of the stage table up to the last stage run that was not measured; a run with one is
     ``incomplete``, never ``accepted``.
+
+    Parameters
+    ----------
+    status : str
+        ``"accepted"``, ``"incomplete"``, ``"failed"`` or ``"refused"``.
+    parameter_id : str
+        The identity of the parameters of the run.
+    surface_id : str, optional
+        The identity of the surface that was built.
+    build_id : str, optional
+        The identity of the build (parameters, package version and kernel).
+    stage : str, optional
+        The stage that failed or refused; required for ``"failed"``.
+    check : str, optional
+        The check that failed; required for ``"failed"``.
+    message : str, optional
+        The reason, in words.
+    measured : float, optional
+        The measured value of the failed check.
+    limit : float, optional
+        The limit of the failed check.
+    where : Mapping, optional
+        Where the failed check sits.
+    stages : sequence of Mapping, optional
+        The stage records of the run.
+    outputs : Mapping, optional
+        The files the run wrote.
+    warnings : sequence of str, optional
+        The warnings of the run.
+    not_run : sequence of str, optional
+        The checks not measured, as ``"<stage> <check>"``.
+
+    Returns
+    -------
+    dict
+        The report as plain values.
+
+    Raises
+    ------
+    InputValueError
+        If the status is unknown, a failed run names no stage or check, or an accepted run
+        has checks not measured.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import geometry_report
+    >>> geometry_report("accepted", "p")["status"]
+    'accepted'
     """
     if status not in _OUTCOMES:
         raise InputValueError(f"report: status expected one of {sorted(_OUTCOMES)}")
@@ -239,12 +364,51 @@ def geometry_report(
 
 
 def exit_code(report: Mapping) -> int:
-    """Return the exit code of a run: 0 accepted, 1 failed, 2 refused, 3 incomplete."""
+    """Return the exit code of a run: 0 accepted, 1 failed, 2 refused, 3 incomplete.
+
+    Parameters
+    ----------
+    report : Mapping
+        A report as :func:`geometry_report` returns it.
+
+    Returns
+    -------
+    int
+        The process exit code of the report's status.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import exit_code
+    >>> exit_code({"status": "failed"})
+    1
+    """
     return _OUTCOMES[report["status"]]
 
 
 def write_record(path, record: Mapping) -> None:
-    """Write a record or report as sorted, indented JSON; a stage record is validated first."""
+    """Write a record or report as sorted, indented JSON; a stage record is validated first.
+
+    Parameters
+    ----------
+    path : str or Path
+        The file to write.
+    record : Mapping
+        A stage record or a report.
+
+    Returns
+    -------
+    None
+        The file is written.
+
+    Examples
+    --------
+    >>> import tempfile, pathlib
+    >>> from pyflightstream.geometry.stages import geometry_report, write_record
+    >>> folder = pathlib.Path(tempfile.mkdtemp())
+    >>> write_record(folder / "report.json", geometry_report("accepted", "p"))
+    >>> (folder / "report.json").exists()
+    True
+    """
     if record.get("format") == STAGE_FORMAT:
         validate_stage_record(record)
     write_text(Path(path), json.dumps(record, indent=2, sort_keys=True) + "\n")

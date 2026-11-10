@@ -31,10 +31,13 @@ from pathlib import Path
 
 from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
+from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
 from pyflightstream.geometry._caps import tip_cap
+from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._generation import assembly_regions, generate_components
+from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._lifting import lifting_surface
 from pyflightstream.geometry._mesh_rules import (
     check_body,
@@ -57,6 +60,14 @@ from pyflightstream.geometry._mesh_topology import (
 )
 from pyflightstream.geometry._patch import Patch
 from pyflightstream.geometry._placement import wing_in_body_frame
+from pyflightstream.geometry._records import (
+    CheckFailedError,
+    check_entry,
+    exit_code,
+    geometry_report,
+    stage_record,
+    write_record,
+)
 from pyflightstream.geometry._reverse import (
     clean_band,
     closed_contour,
@@ -67,14 +78,22 @@ from pyflightstream.geometry._reverse import (
     reference_planform,
     refine_tip,
 )
+from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
+from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
+    "CheckFailedError",
     "Mesh",
     "Patch",
+    "STAGE_ROWS",
+    "StageRow",
+    "adopt_surface_file",
     "assembly_regions",
+    "blister_model",
     "body",
     "check_body",
+    "check_entry",
     "check_lifting",
     "check_mesh",
     "chord_fraction",
@@ -85,18 +104,24 @@ __all__ = [
     "contour_features",
     "cosine",
     "count_classes",
+    "exit_code",
     "export_schema",
+    "fillet_model",
     "fit_section",
     "generate_components",
+    "geometry_report",
     "insert_seed",
     "leading_extension",
     "lifting_surface",
     "load_mesh_controls",
     "orient_mesh",
     "oriented_source_normals",
+    "parameter_id",
     "reference_planform",
     "refine_tip",
     "repair_inverted",
+    "stage_index",
+    "stage_record",
     "tip_cap",
     "tip_refinement",
     "unpack",
@@ -104,6 +129,7 @@ __all__ = [
     "wing_in_body_frame",
     "write_config",
     "write_obj",
+    "write_record",
 ]
 
 

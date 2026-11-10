@@ -42,6 +42,9 @@ from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.stages import fit_section
 from pyflightstream.workspace._geom_run import (
     add_control_surfaces,
+    built_stages,
+    describe_config,
+    list_configurations,
     run_doe,
     run_geometry,
     split_symmetry,
@@ -70,8 +73,11 @@ __all__ = [
     "GeneratedMesh",
     "LiftingIdentification",
     "add_control_surfaces",
+    "built_stages",
     "check_against_original",
+    "describe_config",
     "identify_lifting_surface",
+    "list_configurations",
     "mesh_generated",
     "run_doe",
     "run_geometry",

@@ -67,7 +67,7 @@ def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
 def test_g5b_nacelle_bound_on_no_component_is_reported_by_the_verb_and_skipped():
     bound = {"name": "pod", "eta_axis": 0.425, "half_width_mm": 75.0}
     warnings, component = configuration(engine=[bound])
-    assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
+    assert any(".engine.name" in text and "pod" in text for text in warnings)
     assert bound_stations(component) == []
 
 

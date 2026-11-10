@@ -200,5 +200,27 @@ def stage_row(stage: str) -> StageRow:
 
 
 def stage_index(stage: str) -> int:
-    """Return the position of ``stage`` in the table, refusing an unknown id."""
+    """Return the position of ``stage`` in the table, refusing an unknown id.
+
+    Parameters
+    ----------
+    stage : str
+        A stage id, ``"S0"`` to ``"S13"``.
+
+    Returns
+    -------
+    int
+        The index of its row in ``STAGE_ROWS``.
+
+    Raises
+    ------
+    InputValueError
+        If the table holds no such stage.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import stage_index
+    >>> stage_index("S3")
+    3
+    """
     return STAGE_ROWS.index(stage_row(stage))

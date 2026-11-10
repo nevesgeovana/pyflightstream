@@ -159,6 +159,7 @@ MATURITY = {
     "pyflightstream.run": "stable",
     "pyflightstream.run.cli": "stable",
     "pyflightstream.run.collect": "stable",
+    "pyflightstream.run.geom_cli": "provisional",
     "pyflightstream.run.matrix": "stable",
     "pyflightstream.run.records": "provisional",
     "pyflightstream.script": "stable",

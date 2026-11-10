@@ -291,14 +291,23 @@ def run_check(args: argparse.Namespace) -> int:
         }
         if args.stations_m is not None or args.chords_m is not None:
             if args.stations_m is None or args.chords_m is None:
-                raise InputValueError("--stations-m and --chords-m: give both")
+                raise InputValueError(
+                    "stations_m (CLI: --stations-m) and chords_m (CLI: --chords-m): give both"
+                )
             limits.update(stations_m=args.stations_m, chords_m=args.chords_m)
             if args.chord_m is not None:
-                warn("--chord-m: not used, --stations-m and --chords-m give", NotApplicableWarning)
+                warn(
+                    "chord_m (CLI: --chord-m): not used, "
+                    "stations_m (CLI: --stations-m) and chords_m (CLI: --chords-m) give",
+                    NotApplicableWarning,
+                )
         elif args.chord_m is not None:
             limits["chord_m"] = args.chord_m
         else:
-            raise InputValueError("give --chord-m, or --stations-m with --chords-m")
+            raise InputValueError(
+                "give chord_m (CLI: --chord-m), or stations_m (CLI: --stations-m) "
+                "with chords_m (CLI: --chords-m)"
+            )
         if args.component is not None:
             limits["component"] = args.component
         if args.exclude_faces:
@@ -344,7 +353,9 @@ def run_schema(args: argparse.Namespace) -> int:
     def work() -> dict[str, Any]:
         if args.validate is None:
             if args.asset_root is not None:
-                raise InputValueError("--asset-root: only with --validate")
+                raise InputValueError(
+                    "asset_root (CLI: --asset-root): only with validate (CLI: --validate)"
+                )
             schema = export_schema()
             write_json(args.out, schema)
             return schema
