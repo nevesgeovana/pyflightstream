@@ -89,8 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--site",
-        help="site base to fetch online, for example "
-        "https://nevesgeovana.github.io/pyflightstream/latest",
+        help="site base to fetch online: the address \\pkgsite names in "
+        "guide/latex-sources/shared/info.tex (the release steps in CONTRIBUTING.md give it)",
     )
     args = parser.parse_args(argv)
     findings = online(args.site) if args.site else offline()

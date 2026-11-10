@@ -5,11 +5,18 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+#: The documentation site, built from the repository's owner in pyproject (the Pages address of
+#: github.com/<owner>/pyflightstream), so no account name is written in this file.
+_OWNER = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]["urls"][
+    "Repository"
+].split("/")[-2]
+SITE = f"https://{_OWNER}.github.io/pyflightstream/"
 _SPEC = importlib.util.spec_from_file_location(
     "check_doc_links", REPO / "scripts" / "check_doc_links.py"
 )
@@ -22,7 +29,7 @@ _SPEC.loader.exec_module(links)
 def test_docref_builds_the_latest_alias_url():
     assert links.site_base().rstrip("/").endswith("/latest")
     built = links.urls(links.site_base(), {"storage-and-sync": ["x.tex"]})
-    assert built == ["https://nevesgeovana.github.io/pyflightstream/latest/storage-and-sync/"]
+    assert built == [f"{SITE}latest/storage-and-sync/"]
 
 
 def test_every_docref_slug_is_a_page_and_the_check_can_fail(tmp_path):
@@ -117,11 +124,11 @@ def test_site_url_is_the_served_latest_alias():
     match = re.search(r"^site_url:\s*(\S+)\s*$", text, re.MULTILINE)
     assert match is not None
     # The sitemap and the canonical links list site_url/<page>/, which the deploy serves.
-    assert match.group(1) == "https://nevesgeovana.github.io/pyflightstream/latest/"
+    assert match.group(1) == f"{SITE}latest/"
 
 
 def test_repository_text_links_no_unversioned_site_page():
-    site = "https://nevesgeovana.github.io/pyflightstream/"
+    site = SITE
     unversioned = []
     for name in (
         "README.md",
