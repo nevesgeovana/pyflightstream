@@ -68,3 +68,29 @@ alone cannot stand in for a junction that was never formed.
 Imported-control validation preserves caller tables. A swapped file/table
 input raises InputValueError, and unknown nested keys remain visible in
 the returned warnings without being removed from the caller's data.
+
+For example, apply a stated Fowler entry to a normalized polynomial skin
+whose lower trailing edge is u=0, leading edge u=0.5 and upper trailing edge
+u=1, with v running along the span. This entry is exercised by the public
+edit regression test:
+
+```toml
+[[control]]
+name = "flap"
+kind = "fowler"
+eta = [0.2, 0.7]
+chord_ratio = 0.25
+gap_span = 0.01
+deflection_deg = [0, 15]
+cove = {wall_x = 0.72, lip_x = 0.94, p3 = {eta = 0.45, z_over_c = 0.035}}
+nose = {kind = "elliptic", radius = 0.01}
+nested_dz_pct = -0.2
+clearance_pct = 0.1
+kinematics = [{deflection_deg = 15, pivot_x = 0.75, pivot_z = -0.1, gap_pct = 2.0, overlap_pct = 1.0}]
+```
+
+Read the entry with `tomllib` and pass its `control` list to
+`workspace.geometry_pipeline.add_control_surfaces("panel.igs", "panel", entries, "fowler.igs")`.
+The returned record includes the Fowler measurements and warnings; the output
+contains separately named main and angle alternatives. Registry variants
+select the active controls and F7 checks each angle combination separately.
