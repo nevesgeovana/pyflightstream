@@ -20,6 +20,7 @@ from pyflightstream.geometry._patch import (
     interpolate_polynomial_strip,
 )
 from pyflightstream.geometry._skin import bay_cuts, skin, split_along
+from tests.geom_inputs import body_input
 
 CIRCLE = {"at": "middle", "shape": "circle", "radius": 1.2}
 #: The turn at the rim of the flat base of ``boom_like``, as the audit measures it, declared.
@@ -27,7 +28,8 @@ BASE_CREASE = [{"at": "band|base", "deg": 87.0}]
 
 
 def resolved(raw, base=None):
-    out = resolve_config({"type": "body", "length": 20.0, "sections": [CIRCLE], **raw}, base=base)
+    data = body_input({"type": "body", "length": 20.0, "sections": [CIRCLE], **raw})
+    out = resolve_config(data, base=base)
     return out
 
 
@@ -345,9 +347,11 @@ def test_a_boat_tail_must_start_beyond_the_last_station(x_cut):
 
 
 def test_boat_tail_forms_that_are_not_a_table_are_refused():
-    for rear in ("sphere", {"boat_tail": 3}, {"tail": {}}):
-        with pytest.raises(InputValueError, match="rear"):
+    for rear in ("sphere", {"boat_tail": 3}):
+        with pytest.raises(InputValueError, match="tail"):
             resolved({"rear": rear})
+    # an unknown key inside the tail table is warned and skipped, not refused
+    assert any("tail.tail: unknown key" in w for w in resolved({"rear": {"tail": {}}})["warnings"])
 
 
 RINGS = (

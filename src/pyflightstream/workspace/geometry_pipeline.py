@@ -147,7 +147,7 @@ class LiftingIdentification:
                 "tip_twist": p["tip_twist_deg"],
             },
             "stations": [
-                {"eta": 0.0, "section": {"kind": "naca", "naca": self.seed.removeprefix("NACA")}}
+                {"eta": 0.0, "section": {"kind": "naca", "code": self.seed.removeprefix("NACA")}}
             ],
             "placement": {"translation": list(root)},
         }

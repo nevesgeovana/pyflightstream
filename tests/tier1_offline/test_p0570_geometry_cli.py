@@ -23,8 +23,9 @@ from tests.tier1_offline.test_p0570_geometry_component import lifting
 WING = """
 [components.WING]
 type = "lifting_surface"
-[components.WING.sections]
-airfoils = ["NACA0012"]
+[[components.WING.stations]]
+eta = 0.0
+section = {kind = "naca", code = "0012"}
 [components.WING.planform]
 sref_m2 = 0.24
 aspect_ratio = 6.0
@@ -278,7 +279,7 @@ def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, ca
 
 
 BSPLINE_ITEM = (
-    "{eta = 0.0, bspline = {degree = 1, knots = [0.0, 0.0, 0.5, 1.0, 1.0], "
+    '{eta = 0.0, section = {kind = "bspline", degree = 1, knots = [0.0, 0.0, 0.5, 1.0, 1.0], '
     "poles = [[1.0, -0.001], [0.0, 0.0], [1.0, 0.001]]}}"
 )
 
@@ -289,7 +290,7 @@ def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path
     config.write_text(
         '[components.W]\ntype = "lifting_surface"\n'
         "planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6}\n"
-        f'sections.items = [{BSPLINE_ITEM}, {{eta = 1.0, naca = "0012"}}]\n',
+        f'stations = [{BSPLINE_ITEM}, {{eta = 1.0, section = {{kind = "naca", code = "0012"}}}}]\n',
         encoding="utf-8",
     )
     code, report, err, igs = generated(config, tmp_path / "bspline", capsys)

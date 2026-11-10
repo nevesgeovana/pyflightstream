@@ -29,6 +29,7 @@ from pyflightstream.geometry._placement import (
     wing_in_body_frame,
 )
 from pyflightstream.geometry._regions import body_region, inside_triangles, lifting_region
+from tests.geom_inputs import body_input
 
 SUPERELLIPSE = {
     "at": "middle",
@@ -47,7 +48,7 @@ def make_body(**extra):
         "sections": [{"at": "middle", "shape": "circle", "radius": 1.2}],
         **extra,
     }
-    return unpack(resolve_config(raw))["components"]["COMPONENT"]
+    return unpack(resolve_config(body_input(raw)))["components"]["COMPONENT"]
 
 
 def wing_body():
@@ -58,7 +59,7 @@ def wing_body():
                     "FUS": {"type": "body"},
                     "WING": {
                         "type": "lifting_surface",
-                        "sections": {"airfoils": ["NACA0012"]},
+                        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
                         "distributions": {
                             "leading_edge_x": {"stations": [0.0, 1.0], "values": [0.4, 0.4]}
                         },
@@ -79,7 +80,7 @@ def wb_components():
                     "WING": {
                         "type": "lifting_surface",
                         "attach": {"parent": "FUS", "station": 0.4},
-                        "sections": {"airfoils": ["NACA0012"]},
+                        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
                     },
                     "FAIRING": {
                         "type": "wing_fuselage_fairing",
@@ -105,10 +106,12 @@ def test_p0570_body_middle_radius_and_patch_families():
     assert max(errors) < 1e-6
 
 
-@pytest.mark.parametrize(("values", "key"), [([0.2, 0.8], "stations"), ([0, 90, 180], "azimuths")])
-def test_p0570_body_minimum_counts(values, key):
-    with pytest.raises(InputValueError, match=key):
-        resolve_config({"type": "body", key: values})
+def test_p0570_body_minimum_counts():
+    with pytest.raises(InputValueError, match="azimuths"):
+        resolve_config({"type": "body", "azimuths": [0, 90, 180]})
+    # fewer than three interior part boundaries is warned and skipped, not refused
+    cfg = resolve_config({"type": "body", "parts": [0.0, 0.2, 0.8, 1.0]})
+    assert any(w.startswith("COMPONENT.parts:") for w in cfg["warnings"])
 
 
 def test_p0570_body_axisymmetric_reduction():
@@ -296,18 +299,21 @@ def test_p0570_generation_equals_the_research_reference_to_the_last_bit(monkeypa
 
     raw = {
         "components": {
-            "FUS": {"type": "body", "rear": "base", "base_radius": 0.05},
+            "FUS": {"type": "body", "tail": {"kind": "base"}, "base_radius": 0.05},
             "WING": {
                 "type": "lifting_surface",
                 "attach": {"parent": "FUS", "station": 0.4},
-                "sections": {"airfoils": ["NACA0012"]},
+                "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
             },
             "FAIRING": {
                 "type": "wing_fuselage_fairing",
                 "hosts": ["FUS", "WING"],
                 "attach": {"parent": "FUS", "station": 0.0},
             },
-            "HTP": {"type": "lifting_surface", "sections": {"airfoils": ["NACA0012"]}},
+            "HTP": {
+                "type": "lifting_surface",
+                "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+            },
         }
     }
     old = research.generate_components(research_config.resolve_config(raw))

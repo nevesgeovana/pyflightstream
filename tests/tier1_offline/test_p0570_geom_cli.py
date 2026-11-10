@@ -16,7 +16,7 @@ from pyflightstream.run.geom_cli import main
 from pyflightstream.workspace import _geom_run
 from pyflightstream.workspace._geom_run import StageOutcome
 
-BODY = '[components.FUS]\ntype = "body"\nlength = 2.0\n'
+BODY = '[components.FUS]\ntype = "body"\nlength_mm = 2000.0\n'
 
 
 def geom(args, capsys):
@@ -67,7 +67,8 @@ def test_p0570_g3_run_stops_at_a_planted_failure_and_names_the_stage_and_check(
 def test_p0570_g3_run_overrides_a_value_and_changes_the_identity(demo, tmp_path, capsys):
     base = printed(geom(["run", demo, "--out", tmp_path / "a", "--until", "S0"], capsys)[1])
     moved = geom(
-        ["run", demo, "--out", tmp_path / "b", "--until", "S0", "--set", "FUS.length=3.0"], capsys
+        ["run", demo, "--out", tmp_path / "b", "--until", "S0", "--set", "FUS.length_mm=3000.0"],
+        capsys,
     )
     assert moved[0] == 0 and printed(moved[1])["parameter_id"] != base["parameter_id"]
 
@@ -75,10 +76,10 @@ def test_p0570_g3_run_overrides_a_value_and_changes_the_identity(demo, tmp_path,
 @pytest.mark.parametrize(
     ("extra", "text"),
     [
-        (["--set", "FUS.lenght=3.0"], "unknown parameter"),
-        (["--set", "FUS.length"], "component.key=value"),
-        (["--set", "FUS.length=3", "--set", "FUS.length=4"], "given twice"),
-        (["--set", "WING.length=3"], "declared component"),
+        (["--set", "FUS.lenght_mm=3000.0"], "unknown parameter"),
+        (["--set", "FUS.length_mm"], "component.key=value"),
+        (["--set", "FUS.length_mm=3000", "--set", "FUS.length_mm=4000"], "given twice"),
+        (["--set", "WING.length_mm=3000"], "declared component"),
         (["--until", "S99"], "S99"),
         (["--variant", "nope"], "variant 'nope'"),
         (["--configuration", "nope"], "configuration 'nope'"),
@@ -106,9 +107,9 @@ def test_p0570_g3_doe_continues_after_a_failed_set_and_names_each_set(
     _plant(monkeypatch, when_length=3.0)
     sets = tmp_path / "sets.toml"
     sets.write_text(
-        "[[sets]]\nname = 'low'\n'FUS.length' = 2.5\n"
-        "[[sets]]\nname = 'mid'\n'FUS.length' = 3.0\n"
-        "[[sets]]\n'FUS.length' = 3.5\n",
+        "[[sets]]\nname = 'low'\n'FUS.length_mm' = 2500.0\n"
+        "[[sets]]\nname = 'mid'\n'FUS.length_mm' = 3000.0\n"
+        "[[sets]]\n'FUS.length_mm' = 3500.0\n",
         encoding="utf-8",
     )
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S9"], capsys)
@@ -121,7 +122,7 @@ def test_p0570_g3_doe_continues_after_a_failed_set_and_names_each_set(
 
 
 def test_p0570_g3_doe_refuses_a_misspelt_table_and_an_empty_file(demo, tmp_path, capsys):
-    for body in ("[[set]]\n'FUS.length' = 3.0\n", "", "sets = []\n"):
+    for body in ("[[set]]\n'FUS.length_mm' = 3000.0\n", "", "sets = []\n"):
         sets = tmp_path / "sets.toml"
         sets.write_text(body, encoding="utf-8")
         code, _, err = geom(["doe", demo, sets, "--out", tmp_path / "d"], capsys)
@@ -132,7 +133,9 @@ def test_p0570_g3_doe_refuses_a_misspelt_table_and_an_empty_file(demo, tmp_path,
 
 def test_p0570_g3_doe_reports_a_refused_set_and_still_runs_the_next(demo, tmp_path, capsys):
     sets = tmp_path / "sets.toml"
-    sets.write_text("[[sets]]\n'FUS.nope' = 1\n[[sets]]\n'FUS.length' = 3.5\n", encoding="utf-8")
+    sets.write_text(
+        "[[sets]]\n'FUS.nope' = 1\n[[sets]]\n'FUS.length_mm' = 3500.0\n", encoding="utf-8"
+    )
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S2"], capsys)
     statuses = [r["report"]["status"] for r in printed(out)["sets"]]
     assert code == 2 and statuses == ["refused", "incomplete"]
@@ -148,25 +151,29 @@ def test_p0570_r18_001_run_through_unbuilt_stages_exits_3_and_doe_ranks_failed_o
     monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
     _plant(monkeypatch, when_length=3.0)
     sets = tmp_path / "sets.toml"
-    sets.write_text("[[sets]]\n'FUS.length' = 2.5\n[[sets]]\n'FUS.length' = 3.0\n", "utf-8")
+    sets.write_text(
+        "[[sets]]\n'FUS.length_mm' = 2500.0\n[[sets]]\n'FUS.length_mm' = 3000.0\n", "utf-8"
+    )
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S9"], capsys)
     assert code == 1 and printed(out)["accepted"] is False
-    sets.write_text("[[sets]]\n'FUS.length' = 2.5\n", "utf-8")
+    sets.write_text("[[sets]]\n'FUS.length_mm' = 2500.0\n", "utf-8")
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "e", "--until", "S9"], capsys)
     assert code == 3 and printed(out)["accepted"] is False
 
 
 def test_p0570_r18_004_doe_reads_an_unquoted_dotted_key_as_its_override(demo, tmp_path, capsys):
-    """``FUS.length = 3.0`` unquoted is a nested table in TOML; it is the same override."""
+    """``FUS.length_mm = 3000.0`` unquoted is a nested table in TOML; it is the same override."""
     sets = tmp_path / "sets.toml"
-    sets.write_text("[[sets]]\nFUS.length = 3.0\n[[sets]]\n'FUS.length' = 3.0\n", "utf-8")
+    sets.write_text(
+        "[[sets]]\nFUS.length_mm = 3000.0\n[[sets]]\n'FUS.length_mm' = 3000.0\n", "utf-8"
+    )
     code, out, _ = geom(["doe", demo, sets, "--out", tmp_path / "d", "--until", "S0"], capsys)
     reports = [r["report"] for r in printed(out)["sets"]]
     assert code == 0 and [r["status"] for r in reports] == ["accepted", "accepted"]
     assert reports[0]["parameter_id"] == reports[1]["parameter_id"]
-    sets.write_text("[[sets]]\nFUS.length = 3.0\n'FUS.length' = 3.5\n", "utf-8")
+    sets.write_text("[[sets]]\nFUS.length_mm = 3000.0\n'FUS.length_mm' = 3500.0\n", "utf-8")
     code, _, err = geom(["doe", demo, sets, "--out", tmp_path / "e", "--until", "S0"], capsys)
-    assert code == 2 and "FUS.length given twice" in err
+    assert code == 2 and "FUS.length_mm given twice" in err
 
 
 def test_p0570_g3_validate_prints_every_value_with_its_source(demo, tmp_path, capsys):
@@ -176,7 +183,7 @@ def test_p0570_g3_validate_prints_every_value_with_its_source(demo, tmp_path, ca
     assert values["components.FUS.length"]["value"] == 2.0
     assert values["components.FUS.length"]["source"] == "given"
     bad = tmp_path / "bad.toml"
-    bad.write_text(BODY.replace("2.0", '"long"'), encoding="utf-8")
+    bad.write_text(BODY.replace("2000.0", '"long"'), encoding="utf-8")
     assert geom(["validate", bad], capsys)[0] == 2
 
 

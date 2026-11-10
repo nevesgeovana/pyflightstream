@@ -49,10 +49,10 @@ def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
     from pyflightstream.geometry._caps import lifting_model
 
     _, plain = configuration()
-    bound = {"component": "N", "eta_in": 0.3, "eta_out": 0.55}
-    warnings, bounded = configuration(sections={"nacelle_bounds": [bound]})
+    bound = {"name": "N", "eta_axis": 0.425, "half_width_mm": 75.0}
+    warnings, bounded = configuration(engine=[bound])
     assert not [w for w in warnings if "nacelle_bounds" in w]
-    assert bound_stations(bounded) == [0.3, 0.55]
+    assert bound_stations(bounded) == pytest.approx([0.3, 0.55])
     assert bays(bounded) == bays(plain)
     model = lifting_model(bounded)
     assert {model.lines["v"]["nacelle_N_in"], model.lines["v"]["nacelle_N_out"]} == {0.3, 0.55}
@@ -65,29 +65,29 @@ def test_g5b_nacelle_bounds_add_two_sections_and_keep_the_shape():
 
 
 def test_g5b_nacelle_bound_on_no_component_is_reported_by_the_verb_and_skipped():
-    bound = {"component": "pod", "eta_in": 0.3, "eta_out": 0.55}
-    warnings, component = configuration(sections={"nacelle_bounds": [bound]})
+    bound = {"name": "pod", "eta_axis": 0.425, "half_width_mm": 75.0}
+    warnings, component = configuration(engine=[bound])
     assert any("nacelle_bounds" in text and "pod" in text for text in warnings)
     assert bound_stations(component) == []
 
 
 def test_g5b_nacelle_bounds_bad_input_is_refused():
     for bad in (
-        {"component": "N", "eta_in": 0.6, "eta_out": 0.5},
-        {"component": "N", "eta_in": -0.1, "eta_out": 0.5},
-        {"component": "N", "eta_in": 0.2, "eta_out": 1.5},
+        {"name": "N", "eta_axis": 0.55, "half_width_mm": -30.0},
+        {"name": "N", "eta_axis": 0.2, "half_width_mm": 180.0},
+        {"name": "N", "eta_axis": 0.85, "half_width_mm": 390.0},
     ):
-        with pytest.raises(InputValueError, match="nacelle_bounds"):
-            configuration(sections={"nacelle_bounds": [bad]})
+        with pytest.raises(InputValueError, match="engine"):
+            configuration(engine=[bad])
 
 
 def test_g5b_nacelle_bounds_given_twice_share_a_station():
     pair = [
-        {"component": "N", "eta_in": 0.3, "eta_out": 0.5},
-        {"component": "N", "eta_in": 0.5, "eta_out": 0.7},
+        {"name": "N", "eta_axis": 0.4, "half_width_mm": 60.0},
+        {"name": "N", "eta_axis": 0.6, "half_width_mm": 60.0},
     ]
-    _, component = configuration(sections={"nacelle_bounds": pair})
-    assert bound_stations(component) == [0.3, 0.5, 0.7]
+    _, component = configuration(engine=pair)
+    assert bound_stations(component) == pytest.approx([0.3, 0.5, 0.7])
 
 
 def loft_component(exponent=1.0):

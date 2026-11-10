@@ -197,6 +197,15 @@ def _set_path(raw: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+def _is_input_key(raw: Mapping[str, Any], dotted: str) -> bool:
+    node: Any = raw.get("components", raw)
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
+
+
 def _holds(resolved: Mapping[str, Any], dotted: str) -> bool:
     node: Any = unpack(dict(resolved))["components"]
     for part in dotted.split("."):
@@ -221,7 +230,10 @@ def _resolve(config, overrides):
         _set_path(raw, dotted, value)
     resolved = resolve_config(raw, stem=stem, base=base)
     for dotted in overrides or {}:
-        if not _holds(resolved, dotted):
+        # a published key is translated, so it is absent from the resolved names: it is known
+        # unless the resolver reported it as an unknown key
+        reported = any(f"{dotted}: unknown key" in str(w) for w in resolved["warnings"])
+        if reported or (not _holds(resolved, dotted) and not _is_input_key(raw, dotted)):
             raise InputValueError(f"overrides: {dotted!r}: unknown parameter, nothing was run")
     return resolved
 

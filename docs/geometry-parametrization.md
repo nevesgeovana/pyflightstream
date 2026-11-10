@@ -20,8 +20,9 @@ A parameter this release does not know warns and is skipped: it appears under `w
 ```toml
 [components.WING]
 type = "lifting_surface"
-[components.WING.sections]
-airfoils = ["NACA0012"]
+[[components.WING.stations]]
+eta = 0.0
+section = { kind = "naca", code = "0012" }
 [components.WING.planform]
 sref_m2 = 0.24
 aspect_ratio = 6.0
@@ -34,7 +35,12 @@ A lifting surface is given by one complete planform set: `sref_m2`, `aspect_rati
 semispan includes the tip cap. A file that mixes the two sets is refused with the redundant keys
 named. A file may also be written as `[surface]`, `[planform]`, `[[stations]]`, `[cap]`,
 `[[control]]` and `[[engine]]` tables with no `type` and no `components` table; `[surface]`
-makes it a lifting surface. A key that the verb reads but whose feature is not generated yet
+makes it a lifting surface. `eta` of a station, a control surface or an engine axis is a fraction of the span station where the tip cap
+starts. A body is written with `length_mm`, `nose = {kind}`, `tail = {kind}`, `parts` and
+`sections` whose shapes carry `half_width_mm`, `half_height_mm` and `centre_z_mm`. A section may be
+given as a `bspline` (inline `degree`, `knots`, `poles`, or `file` naming a JSON file with those
+three), a `naca` (`code`), a `cst` or a `coords` file. A key that the verb reads but whose feature
+is not generated yet
 (a `[[bay]]` list, a cap template, a tabulated flap cove) warns by name and is skipped.
 
 ## Generate

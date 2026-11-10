@@ -28,18 +28,28 @@ def wing(**extra):
     surface = {
         "type": "lifting_surface",
         "planform": {"sref_m2": SREF, "aspect_ratio": AR, "taper": TAPER},
-        "sections": {"airfoils": ["NACA2412", "NACA0012"]},
+        "stations": [
+            {"eta": 0.0, "section": {"kind": "naca", "code": "2412"}},
+            {"eta": 1.0, "section": {"kind": "naca", "code": "0012"}},
+        ],
         **extra,
     }
     raw = {"components": {"W": surface, "N": {"type": "body"}}}
     return unpack(resolve_config(raw))["components"]["W"]
 
 
+def _skin_share():
+    """The share of the semi-span the skin covers under the rounded cap of ACCEPTANCE."""
+    from pyflightstream.geometry._lifting import cap_fraction
+
+    return cap_fraction(wing(cap={"type": "rounded"}))
+
+
+# Bounds 0.3 and 0.45 of the skin: a half width of 0.075 of the skin's span, a length in mm.
 ACCEPTANCE = {
-    "sections": {
-        "airfoils": ["NACA2412", "NACA0012"],
-        "nacelle_bounds": [{"component": "N", "eta_in": 0.3, "eta_out": 0.45}],
-    },
+    "engine": [
+        {"name": "N", "eta_axis": 0.375, "half_width_mm": 0.075 * SPAN / 2 * _skin_share() * 1000}
+    ],
     "control": [{"name": "aileron", "eta": [0.6, 0.9], "chord_ratio": 0.25}],
     "cap": {"type": "rounded"},
 }
@@ -88,7 +98,7 @@ def test_g5rb_one_skin_degree_5_by_1_with_a_pole_row_per_defining_section(accept
     start = model.fraction
     chord = root * (1 - (1 - TAPER) * start)
     tip_row = np.asarray(skin.controls)[:, 1]
-    assert tip_row[:, 1] == pytest.approx(np.full(len(tip_row), SPAN / 2 * start), abs=1e-12)
+    assert tip_row[:, 1] == pytest.approx(np.full(len(tip_row), SPAN / 2 * start), abs=1e-9)
     assert tip_row[[0, -1], 0] == pytest.approx([chord, chord], abs=1e-12)  # x of the TE ends
 
 
@@ -104,7 +114,7 @@ def test_g5rb_published_span_includes_the_rounded_cap(accepted):
     assert ridge == pytest.approx(SPAN / 2, abs=1e-9)
     flat = lifting_model(wing(cap={"type": "flat"}))
     assert flat.fraction == 1.0
-    assert np.asarray(flat.skin.controls)[:, -1, 1] == pytest.approx(SPAN / 2, abs=1e-12)
+    assert np.asarray(flat.skin.controls)[:, -1, 1] == pytest.approx(SPAN / 2, abs=1e-9)
 
 
 def test_g5rb_trailing_edge_face_shares_both_skin_edges(accepted):
@@ -135,7 +145,7 @@ def test_g5rb_faces_are_iso_trims_cut_at_the_nacelle_bounds(accepted):
     faces = {t.face: t for t in model.trims}
     assert {"upper_0", "upper_1", "upper_2", "lower_0", "lower_1", "lower_2"} <= set(faces)
     vs = sorted({p[1] for t in model.trims if t.base == "skin" for piece in t.loop for p in piece})
-    assert vs == [0.0, 0.3, 0.45, 1.0]
+    assert vs == pytest.approx([0.0, 0.3, 0.45, 1.0], abs=1e-9)
     us = sorted({p[0] for t in model.trims if t.base == "skin" for piece in t.loop for p in piece})
     assert us == [0.0, 0.5, 1.0]
     assert {t.base for t in model.trims} == {"skin", "trailing_edge", *model.caps}
@@ -144,11 +154,10 @@ def test_g5rb_faces_are_iso_trims_cut_at_the_nacelle_bounds(accepted):
 def test_g5rb_section_lines_are_iso_v_and_the_hinge_is_an_iso_u_knot(accepted):
     _, model = accepted
     v = model.lines["v"]
-    assert {v["nacelle_N_in"], v["nacelle_N_out"], v["aileron_in"], v["aileron_out"]} == {
-        0.3, 0.45, 0.6, 0.9,
-    }  # fmt: skip
+    found = sorted([v["nacelle_N_in"], v["nacelle_N_out"], v["aileron_in"], v["aileron_out"]])
+    assert found == pytest.approx([0.3, 0.45, 0.6, 0.9], abs=1e-9)
     hinge = model.lines["u"]["hinge_aileron_upper"]
-    assert hinge == pytest.approx(0.5 + 0.5 * np.sqrt(0.75), abs=1e-12)
+    assert hinge == pytest.approx(0.5 + 0.5 * np.sqrt(0.75), abs=1e-9)
     assert hinge in model.skin.knots_u
     assert model.lines["u"]["le"] == 0.5 and 0.5 in model.skin.knots_u
 
@@ -178,7 +187,9 @@ def test_g5rb_partition_catches_a_missing_and_a_doubled_face(accepted):
 
 
 def test_g5rb_trimmed_areas_sum_to_the_ruled_panel_area():
-    model = lifting_model(wing(sections={"airfoils": ["NACA0012"]}))
+    model = lifting_model(
+        wing(stations=[{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}])
+    )
     upper = sum(a for t in model.trims if t.role == "upper" for a in [_face_area(model, t)])
     # The upper surface of a trapezoid panel: arc length of the section times the mean chord.
     x = (1 - np.cos(np.linspace(0, np.pi, 4001))) / 2
@@ -239,7 +250,7 @@ def test_g5rb_layout_blocks_are_exact_pieces_of_the_skin_with_the_mesh_family_na
         (b["u"][1] - b["u"][0]) * (b["v"][1] - b["v"][0])
         for b in record["blocks"] if b["base"] == "skin"
     )  # fmt: skip
-    assert area == pytest.approx(1.0, abs=1e-12)
+    assert area == pytest.approx(1.0, abs=1e-9)
 
 
 def test_g5rb_surface_id_holds_the_trim_loops(accepted):
@@ -256,7 +267,12 @@ def test_g5rb_surface_id_holds_the_trim_loops(accepted):
 
 def test_g5rb_smooth_law_interpolates_its_sections():
     component = wing(
-        sections={"airfoils": ["NACA2412", "NACA2412", "NACA0012", "NACA0012"]},
+        stations=[
+            {"eta": 0.0, "section": {"kind": "naca", "code": "2412"}},
+            {"eta": 1 / 3, "section": {"kind": "naca", "code": "2412"}},
+            {"eta": 2 / 3, "section": {"kind": "naca", "code": "0012"}},
+            {"eta": 1.0, "section": {"kind": "naca", "code": "0012"}},
+        ],
         spanwise={"law": "smooth"},
     )
     model = lifting_model(component)

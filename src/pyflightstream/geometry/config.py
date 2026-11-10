@@ -47,7 +47,8 @@ from pyflightstream.geometry._schema import (
     stations,
 )
 from pyflightstream.geometry._sections import trailing_edge_notes
-from pyflightstream.geometry._toml_keys import adopt_surface_file, apply_engines, translate_lifting
+from pyflightstream.geometry._toml_body_keys import translate_body, user_names
+from pyflightstream.geometry._toml_keys import adopt_surface_file, finish_lifting, translate_lifting
 
 __all__ = ["load_config", "resolve_config"]
 
@@ -379,7 +380,6 @@ def resolve_lifting(raw, component, notes):
                 strict=key == "chord",
             )
     check_slope_breaks(component)
-    apply_engines(notes["name"], component, notes["warnings"])
     check_lifting_extras(notes["name"], component, raw, notes["warnings"], notes["findings"])
     warn_not_generated(notes["name"], component, notes["warnings"])
     if component["tip_cap"]["kind"] == "ridged":
@@ -598,6 +598,23 @@ def assembly_defaults(components, supplied):
 
 
 def _resolve_component(name, raw, notes, base):
+    """Resolve one component; every message names the key as the user wrote it."""
+    first = len(notes["warnings"])
+    kind = raw.get("type") if isinstance(raw, dict) else None
+    try:
+        result = _resolve_component_keys(name, raw, notes, base)
+    except InputValueError as error:
+        if notes["resolved"]:
+            raise
+        index = notes.get("station_index", {}).get(name)
+        raise InputValueError(user_names(str(error), kind, index)) from error
+    if not notes["resolved"]:
+        index = notes.get("station_index", {}).get(name)
+        notes["warnings"][first:] = [user_names(w, kind, index) for w in notes["warnings"][first:]]
+    return result
+
+
+def _resolve_component_keys(name, raw, notes, base):
     """Merge, validate and return one component and its derived quantities."""
     if "type" not in raw:
         raise InputValueError(f"components.{name}.type: required")
@@ -605,7 +622,9 @@ def _resolve_component(name, raw, notes, base):
         raise InputValueError(f"components.{name}.type: unsupported {raw['type']!r}")
     raw = deepcopy(raw)
     if raw["type"] == "lifting_surface":
-        translate_lifting(name, raw, notes["warnings"], notes["resolved"])
+        translate_lifting(name, raw, notes, base)
+    elif raw["type"] == "body":
+        translate_body(name, raw, notes)
     cap = raw.get("tip_cap")
     if isinstance(cap, dict) and "shape" in cap:
         cap.pop("shape")
@@ -639,6 +658,8 @@ def _resolve_component(name, raw, notes, base):
             number(value, f"{name}.placement.{key}")
     number(component["attach"]["station"], f"{name}.attach.station", 0, 1)
     _check_data_files(name, component, base, notes["warnings"])
+    if raw["type"] == "lifting_surface":
+        finish_lifting(name, component, notes)
     return component, derived, raw
 
 

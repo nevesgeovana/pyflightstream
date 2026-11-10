@@ -3,14 +3,14 @@ demo = ["FUS", "WING"]
 
 [components.FUS]
 type = "body"
-length = 8.0
-stations = [0.15, 0.35, 0.75]
-rear = "pole"
+length_mm = 8000.0
+parts = [0.0, 0.15, 0.35, 0.75, 1.0]
+tail = {kind = "pole"}
 
 [[components.FUS.sections]]
 at = "middle"
 shape = "circle"
-radius = 0.4
+radius_mm = 400.0
 
 [components.WING]
 type = "lifting_surface"
@@ -23,8 +23,13 @@ taper = 0.5
 le_sweep_deg = 4.0
 incidence = 2.0
 
-[components.WING.sections]
-airfoils = ["NACA0012", "NACA2412"]
+[[components.WING.stations]]
+eta = 0.0
+section = {kind = "naca", code = "0012"}
+
+[[components.WING.stations]]
+eta = 1.0
+section = {kind = "naca", code = "2412"}
 
 [components.WING.cap]
 type = "rounded"

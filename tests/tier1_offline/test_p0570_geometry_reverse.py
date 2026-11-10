@@ -288,7 +288,7 @@ WING = {
     "components": {
         "WING": {
             "type": "lifting_surface",
-            "sections": {"airfoils": ["NACA0012"]},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
             "planform": {
                 "sref_m2": 0.24,
                 "aspect_ratio": 6.0,
@@ -375,8 +375,8 @@ def plain_wing(tmp_path_factory):
 
     path = tmp_path_factory.mktemp("plain") / "wing.igs"
     planform = {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "le_sweep_deg": 15.0}
-    sections = {"airfoils": ["NACA0012"]}
-    wing = {"type": "lifting_surface", "sections": sections, "planform": planform}
+    stations = [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}]
+    wing = {"type": "lifting_surface", "stations": stations, "planform": planform}
     generate_iges({"components": {"WING": wing}}, path)
     return path
 
@@ -398,7 +398,7 @@ def test_r6_a_rejected_station_keeps_its_own_label_after_the_tip_is_refined(tmp_
 
     wing = {
         "type": "lifting_surface",
-        "sections": {"airfoils": ["NACA0012"]},
+        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
         "planform": {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "le_sweep_deg": 15.0},
         "cap": {"type": "rounded"},
     }
@@ -418,7 +418,7 @@ def test_r6_a_boundary_root_measures_its_extent_along_the_settled_span_axis(tmp_
 
     wing = {
         "type": "lifting_surface",
-        "sections": {"airfoils": ["NACA0012"]},
+        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
         "planform": {"sref_m2": 0.24, "aspect_ratio": 6.0, "taper": 0.5, "dihedral_deg": 6.0},
     }
     path = tmp_path / "dihedral.igs"

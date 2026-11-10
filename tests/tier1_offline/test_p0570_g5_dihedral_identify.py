@@ -19,8 +19,9 @@ from tests.tier1_offline._kernel_support import kernel_or_skip
 WING = """
 [components.WING]
 type = "lifting_surface"
-[components.WING.sections]
-airfoils = ["NACA0012"]
+[[components.WING.stations]]
+eta = 0.0
+section = {{kind = "naca", code = "0012"}}
 [components.WING.planform]
 sref_m2 = 0.24
 aspect_ratio = 6.0

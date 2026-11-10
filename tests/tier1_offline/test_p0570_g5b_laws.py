@@ -22,18 +22,22 @@ from pyflightstream.geometry._sections import (
     section_from_physical,
     shape_unchanged,
 )
+from tests.geom_inputs import naca_stations, stations
 
 
-def lifting(sections):
-    return {
+def lifting(sections, stations=None):
+    out = {
         "type": "lifting_surface",
         "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 0.0},
         "sections": sections,
     }
+    if stations is not None:
+        out["stations"] = stations
+    return out
 
 
-def resolved(sections, tmp_path):
-    data = {"components": {"W": lifting(sections)}}
+def resolved(sections, tmp_path, stations=None):
+    data = {"components": {"W": lifting(sections, stations)}}
     return unpack(resolve_config(data, base=tmp_path))["components"]["W"]
 
 
@@ -81,11 +85,11 @@ def test_g5b_physical_section_impossible_and_conflicting_inputs_are_refused(tmp_
     with pytest.raises(InputValueError, match="boat_tail_deg"):
         resolved({"physical": {**PHYSICAL, "boat_tail_deg": 95.0}}, tmp_path)
     with pytest.raises(InputValueError, match="given together"):
-        resolved({"physical": PHYSICAL, "airfoils": ["NACA0012", "NACA0012"]}, tmp_path)
+        resolved({"physical": PHYSICAL}, tmp_path, naca_stations(["NACA0012", "NACA0012"]))
 
 
 def test_g5b_s1_records_for_a_fitted_section(tmp_path):
-    table = resolved({"airfoils": ["NACA0012", "NACA0012"]}, tmp_path)["sections"]
+    table = resolved({}, tmp_path, naca_stations(["NACA0012", "NACA0012"]))["sections"]
     section = fit_or_read(table)[0]
     records = {r["id"]: r for r in section_checks(section)}
     value = records["section.residual"]["value"]
@@ -117,7 +121,7 @@ def test_g5b_s3_shape_unchanged_and_a_wrong_elevation_is_caught(tmp_path):
         {"eta": 0.0, "naca": "0012"},
         {"eta": 1.0, "cst_upper": [0.2, 0.3, 0.1], "cst_lower": [-0.2, -0.1, -0.1], "te": 0.0},
     ]
-    table = resolved({"items": items}, tmp_path)["sections"]
+    table = resolved({}, tmp_path, stations(items))["sections"]
     record = shape_unchanged(table)
     assert record["status"] == "pass"
     assert record["value"] <= 1e-9

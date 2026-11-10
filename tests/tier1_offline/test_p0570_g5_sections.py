@@ -22,6 +22,7 @@ from pyflightstream.geometry._sections import (
     section_from_ordinates,
 )
 from pyflightstream.geometry.config import load_config
+from tests.geom_inputs import stations as as_stations
 
 
 def thickness_0012(x, te_open=True):
@@ -44,7 +45,7 @@ def raw(items, **extra):
     return {
         "type": "lifting_surface",
         "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 0.0},
-        "sections": {"items": items},
+        "stations": as_stations(items),
         **extra,
     }
 
@@ -108,8 +109,8 @@ def test_g5_a_file_path_is_read_from_the_folder_of_the_input(tmp_path, monkeypat
     toml = tmp_path / "wing.toml"
     toml.write_text(
         '[components.WING]\ntype = "lifting_surface"\n'
-        '[[components.WING.sections.items]]\neta = 0.0\nfile = "foil.dat"\n'
-        '[[components.WING.sections.items]]\neta = 1.0\nnaca = "0012"\n',
+        '[[components.WING.stations]]\neta = 0.0\nsection = {kind = "coords", file = "foil.dat"}\n'
+        '[[components.WING.stations]]\neta = 1.0\nsection = {kind = "naca", code = "0012"}\n',
         encoding="utf-8",
     )
     elsewhere = tmp_path / "elsewhere"

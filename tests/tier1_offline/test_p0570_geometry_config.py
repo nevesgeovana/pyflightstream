@@ -63,7 +63,10 @@ def test_independent_set_derives_area_and_mean_chord(tmp_path):
         {
             "type": "lifting_surface",
             "planform": {"sref_m2": 50.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
-            "sections": {"airfoils": ["NACA23018", "NACA23012"]},
+            "stations": [
+                {"eta": 0.0, "section": {"kind": "naca", "code": "23018"}},
+                {"eta": 1.0, "section": {"kind": "naca", "code": "23012"}},
+            ],
         }
     )
     derived = result["derived"]["COMPONENT"]
@@ -78,17 +81,35 @@ def test_independent_set_derives_area_and_mean_chord(tmp_path):
 @pytest.mark.parametrize(
     "raw,parameter",
     [
-        ({"type": "body", "stations": [0.2, 0.8]}, "stations"),
+        ({"type": "body", "parts": "0.2, 0.8"}, "parts"),
         ({"type": "body", "azimuths": [0, 90, 180]}, "azimuths"),
-        ({"type": "body", "stations": [0.2, 0.1, 0.8]}, "stations"),
+        ({"type": "body", "parts": [0.0, 0.2, "x", 0.8, 1.0]}, "parts"),
         ({"type": "lifting_surface", "planform": {"semispan_mm": -500.0}}, "span"),
         ({"type": "lifting_surface", "planform": {"aspect_ratio": float("nan")}}, "aspect_ratio"),
-        ({"type": "lifting_surface", "sections": {"airfoils": []}}, "sections.eta"),
+        (
+            {
+                "type": "lifting_surface",
+                "stations": [{"eta": 0.5, "section": {"kind": "naca", "code": "0012"}}] * 2,
+            },
+            "stations",
+        ),
         ({"type": "propeller", "hub_radius": 2}, "hub_radius"),
         ({"units": {"length": "ft"}, "components": {"A": {"type": "body"}}}, "units"),
-        ({"type": "body", "length": {"value": 1, "unit": "ft", "source": "given"}}, "length.unit"),
+        (
+            {"type": "body", "length_mm": {"value": 1, "unit": "ft", "source": "given"}},
+            "length_mm.unit",
+        ),
         ({"type": "lifting_surface", "cap": {"type": "spiky"}}, "cap.type"),
-        ({"type": "lifting_surface", "sections": {"airfoils": ["CLARKY", "CLARKY"]}}, "NACA"),
+        (
+            {
+                "type": "lifting_surface",
+                "stations": [
+                    {"eta": 0.0, "section": {"kind": "naca", "code": "CLARKY"}},
+                    {"eta": 1.0, "section": {"kind": "naca", "code": "CLARKY"}},
+                ],
+            },
+            "NACA",
+        ),
     ],
 )
 def test_invalid_parameters_are_refused_with_the_parameter_named(raw, parameter):
@@ -145,3 +166,9 @@ def test_ridge_profile_validation():
         bad = {**profile, key: value}
         with pytest.raises(InputValueError, match=word):
             resolve_config({"type": "lifting_surface", "cap": {"type": "ridged", "profile": bad}})
+
+
+def test_parts_not_increasing_or_too_few_are_warned_and_skipped():
+    for parts in ([0.0, 0.8, 0.2, 1.0], [0.0, 0.2, 0.8, 1.0]):
+        cfg = resolve_config({"type": "body", "parts": parts})
+        assert any(w.startswith("COMPONENT.parts:") for w in cfg["warnings"])

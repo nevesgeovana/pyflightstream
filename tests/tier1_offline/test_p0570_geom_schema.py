@@ -27,6 +27,7 @@ from pyflightstream.geometry._records import (
     write_record,
 )
 from pyflightstream.geometry.stages import write_config
+from tests.geom_inputs import stations as as_stations
 
 GEOMETRY = Path(pyflightstream.__file__).parent / "geometry"
 
@@ -36,16 +37,19 @@ name = "demo"
 
 [components.hull]
 type = "body"
-length = 8.0
-stations = [0.15, 0.4, 0.8]
-sections = [{at = "middle", shape = "circle", radius = 0.45}]
-rear = "pole"
+length_mm = 8000.0
+parts = [0.0, 0.15, 0.4, 0.8, 1.0]
+sections = [{at = "middle", shape = "circle", radius_mm = 450.0}]
+tail = {kind = "pole"}
 
 [components.main]
 type = "lifting_surface"
 attach = {parent = "hull", station = 0.35}
 planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral_deg = 3.0}
-sections.items = [{eta = 0.0, naca = "2412"}, {eta = 1.0, naca = "0012"}]
+stations = [
+  {eta = 0.0, section = {kind = "naca", code = "2412"}},
+  {eta = 1.0, section = {kind = "naca", code = "0012"}},
+]
 
 [components.tailplane]
 type = "lifting_surface"
@@ -139,9 +143,9 @@ def test_stating_a_default_explicitly_keeps_the_value_and_changes_the_source():
     [
         ({"components": {"a": {}}}, "components.a.type"),
         ({"components": {"a": {"type": "wing"}}}, "unsupported"),
-        ({"components": {"a": {"type": "body", "length": float("inf")}}}, "length"),
+        ({"components": {"a": {"type": "body", "length_mm": float("inf")}}}, "length_mm"),
         ({"components": {"a": {"type": "body", "continuity": "G0"}}}, "continuity"),
-        ({"components": {"a": {"type": "body", "rear": "flat"}}}, "rear"),
+        ({"components": {"a": {"type": "body", "tail": {"kind": "flat"}}}}, "tail"),
         ({"components": {"a": {"type": "body", "rings_file": "nowhere.csv"}}}, "rings_file"),
         (
             {"components": {"a": {"type": "lifting_surface", "sections": {"form": "cubic"}}}},
@@ -158,7 +162,8 @@ def test_stating_a_default_explicitly_keeps_the_value_and_changes_the_source():
                 "components": {
                     "a": {
                         "type": "lifting_surface",
-                        "sections": {"physical": {}, "airfoils": ["NACA0012"]},
+                        "sections": {"physical": {}},
+                        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
                     }
                 }
             },
@@ -290,22 +295,22 @@ def test_section_items_set_stations_and_the_physical_form_is_exclusive():
         {"eta": 0.5, "naca": "0012"},
         {"eta": 1.0, "naca": "0010"},
     ]
-    plain = unpack(resolve_config(lifting(sections={"items": items})))["components"]["w"][
+    plain = unpack(resolve_config(lifting(stations=as_stations(items))))["components"]["w"][
         "sections"
     ]
     assert plain["eta"] == [0.0, 0.5, 1.0]
     assert plain["airfoils"] == ["NACA2412", "NACA0012", "NACA0010"]
     cst = {"eta": 0.0, "cst_upper": [0.2, 0.2], "cst_lower": [-0.1, -0.1], "te": 0.002}
-    mixed = resolve_config(lifting(sections={"items": [cst, {"eta": 1.0, "naca": "0012"}]}))
+    mixed = resolve_config(lifting(stations=as_stations([cst, {"eta": 1.0, "naca": "0012"}])))
     assert unpack(mixed)["components"]["w"]["sections"]["airfoils"] == ["", "NACA0012"]
-    with pytest.raises(InputValueError, match="naca"):
+    with pytest.raises(InputValueError, match="section.code"):
         resolve_config(
-            lifting(sections={"items": [{"eta": 0.0, "naca": "99"}, {"eta": 1.0, "naca": "12"}]})
+            lifting(stations=as_stations([{"eta": 0.0, "naca": "99"}, {"eta": 1.0, "naca": "12"}]))
         )
     with pytest.raises(InputValueError, match="stations"):
         resolve_config(
             lifting(
-                sections={"items": [{"eta": 0.5, "naca": "0012"}, {"eta": 0.5, "naca": "0012"}]}
+                stations=as_stations([{"eta": 0.5, "naca": "0012"}, {"eta": 0.5, "naca": "0012"}])
             )
         )
 
@@ -320,18 +325,19 @@ def test_exact_loft_cap_resolves_and_a_nacelle_bound_is_checked():
     cfg = resolve_config(
         lifting(
             cap={"type": "exact_loft"},
-            sections={"nacelle_bounds": [{"component": "n", "eta_in": 0.2, "eta_out": 0.3}]},
+            engine=[{"name": "n", "eta_axis": 0.25, "half_width_mm": 50.0}],
         )
     )
     cap = unpack(cfg)["components"]["w"]["tip_cap"]
     assert (cap["kind"], cap["sections"], cap["control_points"]) == ("exact_loft", 30, 31)
-    bad = {"component": "n", "eta_in": 0.4, "eta_out": 0.3}
-    with pytest.raises(InputValueError, match="eta_in"):
-        resolve_config(lifting(sections={"nacelle_bounds": [bad]}))
+    bad = {"name": "n", "eta_axis": 0.35, "half_width_mm": -50.0}
+    with pytest.raises(InputValueError, match="half_width_mm"):
+        resolve_config(lifting(engine=[bad]))
 
 
 def test_body_rear_boat_tail_and_blister_and_fillet_resolve():
     rear = {"boat_tail": {"x_cut": 0.8, "base_height": 0.1, "angle_limit_deg": 12.0}}
+    tail = rear
     blister = {
         "type": "blister",
         "host": "hull",
@@ -341,7 +347,7 @@ def test_body_rear_boat_tail_and_blister_and_fillet_resolve():
     cfg = resolve_config(
         {
             "components": {
-                "hull": {"type": "body", "rear": rear},
+                "hull": {"type": "body", "tail": tail},
                 "pod": blister,
                 "fil": {"type": "fillet", "hosts": ["hull", "pod"]},
             }
@@ -624,7 +630,10 @@ name = "t"
 type = "lifting_surface"
 planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral_deg = 3.0}
 spanwise = {law = "ruled"}
-sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
+stations = [
+  {eta = 0.0, section = {kind = "naca", code = "23015"}},
+  {eta = 1.0, section = {kind = "naca", code = "0012"}},
+]
 cap = {type = "rounded"}
 """,
     )
@@ -667,7 +676,7 @@ sections.pin = [0.25, 0.7]
 
 def test_g1r_bspline_section_item_resolves_and_gives_no_designation():
     items = [{"eta": 0.0, "bspline": BSPLINE}, {"eta": 1.0, "naca": "0012"}]
-    w = unpack(resolve_config(lifting(sections={"items": items})))["components"]["w"]["sections"]
+    w = unpack(resolve_config(lifting(stations=as_stations(items))))["components"]["w"]["sections"]
     assert w["eta"] == [0.0, 1.0]
     assert w["airfoils"] == ["", "NACA0012"]
     assert w["items"][0]["bspline"]["knots"] == KNOTS
@@ -689,17 +698,18 @@ def test_g1r_bad_bspline_item_is_refused_naming_the_key(mutate, word):
     spec = copy.deepcopy(BSPLINE)
     mutate(spec)
     items = [{"eta": 0.0, "bspline": spec}, {"eta": 1.0, "naca": "0012"}]
-    with pytest.raises(InputValueError, match=rf"items\[0\]\.bspline.*{word}"):
-        resolve_config(lifting(sections={"items": items}))
+    with pytest.raises(InputValueError, match=rf"stations\[0\]\.section.*{word}"):
+        resolve_config(lifting(stations=as_stations(items)))
 
 
 def test_g1r_item_with_two_forms_or_a_misspelt_key_is_handled():
-    both = {"eta": 0.0, "naca": "0012", "bspline": BSPLINE}
-    with pytest.raises(InputValueError, match="bspline"):
-        resolve_config(lifting(sections={"items": [both, {"eta": 1.0, "naca": "0012"}]}))
-    typo = {"eta": 0.0, "bspline": BSPLINE, "bsplines": 1}
-    cfg = resolve_config(lifting(sections={"items": [typo, {"eta": 1.0, "naca": "0012"}]}))
-    assert any("items[0].bsplines: unknown key" in w for w in cfg["warnings"])
+    # a station holds one section table whose kind picks the form, so two forms cannot be written
+    no_kind = {"eta": 0.0, "section": {"code": "0012", **BSPLINE}}
+    with pytest.raises(InputValueError, match="section.kind"):
+        resolve_config(lifting(stations=[no_kind, *as_stations([{"eta": 1.0, "naca": "0012"}])]))
+    typo = {"eta": 0.0, "section": {"kind": "bspline", **BSPLINE}, "bsplines": 1}
+    cfg = resolve_config(lifting(stations=[typo, *as_stations([{"eta": 1.0, "naca": "0012"}])]))
+    assert any("stations[0].bsplines: unknown key" in w for w in cfg["warnings"])
 
 
 def test_g1r_cst_form_is_an_input_route_with_a_warning_and_cubic_stays_refused():
@@ -804,12 +814,15 @@ name = "t"
 [components.w]
 type = "lifting_surface"
 planform = {sref_m2 = 16.0, aspect_ratio = 9.0, taper = 0.5}
-sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
+stations = [
+  {eta = 0.0, section = {kind = "naca", code = "23015"}},
+  {eta = 1.0, section = {kind = "naca", code = "0012"}},
+]
 control = [
   {name = "flap", kind = "plain_flap", eta = [0.1, 0.55]},
   {name = "aileron", kind = "aileron", eta = [0.55, 0.95]},
 ]
-sections.nacelle_bounds = [{component = "engine", eta_in = 0.28, eta_out = 0.34}]
+engine = [{name = "engine", eta_axis = 0.31, half_width_mm = 180.0}]
 
 [components.engine]
 type = "body"
@@ -823,7 +836,7 @@ attach = {parent = "w", station = 0.31}
         0.55,
         0.95,
     )
-    assert w["sections"]["nacelle_bounds"][0]["eta_out"] == 0.34
+    assert w["sections"]["nacelle_bounds"][0]["eta_out"] == pytest.approx(0.34)
     assert cfg["warnings"] == []
     again = tmp_path / "geometry.toml"
     again.write_text(
@@ -849,8 +862,8 @@ def test_r16_004_a_bspline_item_the_section_form_cannot_hold_is_refused(spec, se
     """A repeated interior knot breaks the curve; a degree above the surface's cannot be lowered."""
     item = {**copy.deepcopy(BSPLINE), **spec}
     items = [{"eta": 0.0, "bspline": item}, {"eta": 1.0, "naca": "0012"}]
-    raw = lifting(sections={"items": items, "degree": section_degree})
-    with pytest.raises(InputValueError, match=rf"items\[0\]\.bspline.*{word}"):
+    raw = lifting(stations=as_stations(items), sections={"degree": section_degree})
+    with pytest.raises(InputValueError, match=rf"stations\[0\]\.section.*{word}"):
         resolve_config(raw)
 
 

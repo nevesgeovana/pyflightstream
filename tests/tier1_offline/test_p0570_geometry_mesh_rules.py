@@ -149,7 +149,10 @@ def test_spanwise_rule_refuses_a_missing_tip_refinement():
 def wing_component():
     from pyflightstream.geometry import resolve_config
 
-    raw = {"type": "lifting_surface", "sections": {"airfoils": ["NACA0012"]}}
+    raw = {
+        "type": "lifting_surface",
+        "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+    }
     return unpack(resolve_config(raw))["components"]["COMPONENT"]
 
 
