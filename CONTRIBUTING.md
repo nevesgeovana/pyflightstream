@@ -56,7 +56,16 @@ gh release upload v<version> pyflightstream-docs-<version>.zip
 Every docs deploy serves the site it built under `/<version>/` beside the zip of each
 earlier release that carries one, with the version selector listing them; a release
 whose zip was never attached is absent from the selector until it is, and the next
-deploy picks it up.
+deploy picks it up. It also serves `/latest/<page>/` for every page of the build, which is
+the address the guides and the repository text cite.
+
+After the docs deploy is green, check that every page the guides cite answers 200 on the
+published site (offline, `python scripts/check_doc_links.py` maps each slug to its page
+under `docs/` and runs in the test suite):
+
+```text
+python scripts/check_doc_links.py --site https://nevesgeovana.github.io/pyflightstream/latest
+```
 
 ## Regenerate the Understanding views
 

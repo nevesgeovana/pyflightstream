@@ -72,6 +72,41 @@ def test_pages_deploy_waits_longer_than_the_default_ten_minutes():
     assert int(deploy["with"]["timeout"]) >= 1_800_000
 
 
+def test_release_steps_run_the_online_link_check_after_the_deploy():
+    text = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert "scripts/check_doc_links.py --site https://" in text
+
+
+def test_online_check_reports_non_200(monkeypatch, tmp_path):
+    import urllib.error
+
+    sources = tmp_path / "src"
+    (sources / "shared").mkdir(parents=True)
+    (sources / "shared/info.tex").write_text(
+        r"\newcommand{\pkgsite}{https://x.org/p/latest}", encoding="utf-8"
+    )
+    (sources / "a.tex").write_text(r"\docref{ok}{T} \docref{gone}{T}", encoding="utf-8")
+
+    class _Reply:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake(url, timeout):
+        if url.endswith("/gone/"):
+            raise urllib.error.HTTPError(url, 404, "nf", None, None)
+        return _Reply()
+
+    monkeypatch.setattr(links.urllib.request, "urlopen", fake)
+    assert links.online("https://x.org/p/latest", sources) == [
+        "https://x.org/p/latest/gone/: HTTP 404"
+    ]
+
+
 def test_site_url_is_the_served_latest_alias():
     text = (REPO / "properdocs.yml").read_text(encoding="utf-8")
     match = re.search(r"^site_url:\s*(\S+)\s*$", text, re.MULTILINE)
@@ -92,6 +127,6 @@ def test_repository_text_links_no_unversioned_site_page():
     ):
         text = (REPO / name).read_text(encoding="utf-8")
         for url in re.findall(re.escape(site) + r"[^\s)\"]*", text):
-            if not url.startswith(site + "latest/"):
+            if url != site + "latest" and not url.startswith(site + "latest/"):
                 unversioned.append(f"{name}: {url}")
     assert not unversioned, unversioned
