@@ -133,6 +133,9 @@ def _alias(out: Path, edition: str, base: str) -> int:
             encoding="utf-8",
         )
         count += 1
+    # The guides' PDFs are files, which cannot be redirected: the alias holds a copy.
+    if (out / edition / "downloads").is_dir():
+        shutil.copytree(out / edition / "downloads", out / ALIAS / "downloads", dirs_exist_ok=True)
     return count
 
 

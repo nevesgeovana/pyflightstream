@@ -52,7 +52,7 @@ def _assemble_module():
 def test_deploy_serves_a_latest_page_for_every_page_of_the_build(tmp_path):
     module = _assemble_module()
     site = tmp_path / "current"
-    for page in ("index.html", "guide/index.html", "a/b/index.html"):
+    for page in ("index.html", "guide/index.html", "a/b/index.html", "downloads/g.pdf"):
         (site / page).parent.mkdir(parents=True, exist_ok=True)
         (site / page).write_text("<html>x</html>", encoding="utf-8")
     base = "/pyflightstream/"
@@ -61,6 +61,7 @@ def test_deploy_serves_a_latest_page_for_every_page_of_the_build(tmp_path):
     for rel in ("", "guide/", "a/b/"):
         stub = (out / "latest" / rel / "index.html").read_text(encoding="utf-8")
         assert f"url={base}0.57.0/{rel}" in stub, rel
+    assert (out / "latest" / "downloads" / "g.pdf").is_file()
     missing = (out / "404.html").read_text(encoding="utf-8")
     assert "rest.slice(7)" in missing
 
