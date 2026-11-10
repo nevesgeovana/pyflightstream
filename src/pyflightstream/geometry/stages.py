@@ -30,9 +30,9 @@ import json
 import math
 from pathlib import Path
 
+import pyflightstream.geometry._junctions as junctions
 from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
-from pyflightstream.geometry import _junctions as junctions
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
