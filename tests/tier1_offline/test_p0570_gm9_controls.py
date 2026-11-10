@@ -435,3 +435,22 @@ def test_p0570_gm9_default_runner_measures_control_host_clearance(tmp_path):
     record = json.loads((tmp_path / "S10.F3.json").read_text(encoding="utf-8"))
     assert record["status"] == "passed", (report, record)
     assert min(record["outputs"]["distances_m"].values()) > 0
+
+
+def test_p0570_gm9_combined_variants_include_every_control(kernel, tmp_path):
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.workspace._geom_control_build import prepare
+
+    raw = _plain_config()
+    entries = raw["components"]["panel"]["control"]
+    entries[0]["eta"] = [0.2, 0.4]
+    entries.append({**entries[0], "name": "aileron", "kind": "aileron", "eta": [0.6, 0.8]})
+    components = stages.unpack(resolve_config(raw))["components"]
+    inputs = prepare(kernel, components, ["panel"], tmp_path)
+    assert len(inputs["F4"]["batch"]) == 4
+    for row in inputs["F4"]["batch"].values():
+        names = set(kernel.import_iges(row["path"]).names)
+        assert len(names) == 3, names
+        assert any("flap-d" in n for n in names) and any("aileron-d" in n for n in names)
+    result = _fcheck(kernel, "F4", inputs["F4"])
+    assert _passed(result), result
