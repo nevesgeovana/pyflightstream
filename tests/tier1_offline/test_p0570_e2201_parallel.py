@@ -322,3 +322,33 @@ def test_p0570_r23_002_concurrent_runs_log_to_the_workspace_activity_log(tmp_pat
     text = (workspace.root / "logs" / "activity.log").read_text(encoding="utf-8")
     started = [line for line in text.splitlines() if "[solver] started" in line]
     assert sum("datapoints" in line for line in started) == 3, started
+
+
+def test_p0570_r23_003_a_solver_failure_is_not_taken_for_the_licence_and_a_repeat_is_said():
+    from pyflightstream._errors import PyflightstreamWarning
+
+    def result(code, err=""):
+        return ExecutionResult(code, 1.0, False, None, "", err)
+
+    # "no" inside "Unknown" is no licence refusal.
+    assert not parallel.licence_failure(
+        result(1, "Unknown keyword SET_X in script, license feature checked out")
+    )
+    calls: list[str] = []
+
+    def failing(text):
+        def run_script(script_path, working_dir, timeout_s=None):
+            calls.append(text)
+            return result(1 if len(calls) == 1 else 0, text if len(calls) == 1 else "")
+
+        return run_script
+
+    gate = parallel.RunGate(2, settle_s=0.0, free_gb=lambda: 99.0)
+    with pytest.warns(PyflightstreamWarning, match="no available seats"):
+        repeated = gate.wrap(failing("License checkout failed: no available seats"))("s", "w")
+    assert not repeated.failed and len(calls) == 2
+    # A failure the pattern misses is the run's failure: returned as failed, not repeated.
+    calls.clear()
+    gate = parallel.RunGate(2, settle_s=0.0, free_gb=lambda: 99.0)
+    missed = gate.wrap(failing("access violation at 0x0"))("s", "w")
+    assert missed.failed and len(calls) == 1 and not gate.fell_back

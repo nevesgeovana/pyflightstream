@@ -46,10 +46,12 @@ SETTLE_S = 5.0
 #: Seconds between two reads of the free memory while a start waits.
 START_POLL_S = 0.5
 
+#: Whole words only, within one clause: a word such as "Unknown" holds "no" and must not
+#: turn a solver's own failure into a licence refusal (review round 23).
 _LICENCE_FAILED = re.compile(
-    r"licen[cs]e[^.\n]{0,80}?(unavailable|not available|no available|denied|failed|failure|"
-    r"could not|cannot|unable|exceeded|in use|no seats?|not found|invalid|expired)"
-    r"|(unable|failed|failure|cannot|could not|no|denied)[^.\n]{0,40}?licen[cs]e",
+    r"\blicen[cs]e\b[^.;,\n]{0,80}?\b(unavailable|not available|no available|denied|failed|"
+    r"failure|could not|cannot|unable|exceeded|in use|no seats?|not found|invalid|expired)\b"
+    r"|\b(unable|failed|failure|cannot|could not|no|denied)\b[^.;,\n]{0,40}?\blicen[cs]e\b",
     re.IGNORECASE,
 )
 
@@ -57,6 +59,17 @@ _LICENCE_FAILED = re.compile(
 def licence_failure(result: Any) -> bool:
     """Whether a solver result is a failed run whose captured text blames the licence."""
     return bool(result.failed and _LICENCE_FAILED.search(result.diagnosis()))
+
+
+def _licence_words(result: Any) -> str:
+    """Return the line of the captured text that was taken for a licence refusal."""
+    text = result.diagnosis()
+    found = _LICENCE_FAILED.search(text)
+    if found is None:
+        return ""
+    start = text.rfind("\n", 0, found.start()) + 1
+    end = text.find("\n", found.end())
+    return text[start : end if end >= 0 else len(text)].strip()
 
 
 def free_ram_gb() -> float | None:
@@ -200,6 +213,13 @@ class RunGate:
             with self.slot():
                 result = run_script(script_path, working_dir=working_dir, timeout_s=timeout_s)
             if self._licence_failure(result) and self.fall_back_to_serial():
+                warnings.warn(
+                    f"the solver run in {working_dir} failed and its output reads "
+                    f"{_licence_words(result)!r}, taken for a licence refusal: later runs go "
+                    "one at a time and this run is repeated once, alone",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
                 with self.slot():
                     result = run_script(script_path, working_dir=working_dir, timeout_s=timeout_s)
             return result
