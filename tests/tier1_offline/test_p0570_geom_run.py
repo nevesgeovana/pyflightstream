@@ -175,6 +175,22 @@ def test_r21_001_an_override_on_an_unknown_key_or_table_is_refused(dotted, refus
         assert resolved["components"]["W"]["planform"]["area"] == pytest.approx(10.0)
 
 
+def test_r21_002_an_override_reaches_a_published_single_surface_file(tmp_path):
+    """A [surface] file (the proposal's DOE form) is one component named by surface.name."""
+    from pyflightstream.geometry._boundary import unpack
+
+    path = tmp_path / "lifting_doe_wing.toml"
+    path.write_text(
+        '[surface]\nname = "Wing"\n[planform]\nsref_m2 = 9.0\naspect_ratio = 9.0\ntaper = 0.6\n'
+        '[[stations]]\neta = 0.0\nsection = { kind = "naca", code = "0012" }\n',
+        encoding="utf-8",
+    )
+    resolved = unpack(_geom_run._resolve(path, {"Wing.planform.sref_m2": 9.9}))
+    assert resolved["components"]["Wing"]["planform"]["area"] == pytest.approx(9.9)
+    with pytest.raises(InputValueError, match="unknown parameter"):
+        _geom_run._resolve(path, {"Wing.planfrom.sref_m2": 9.9})
+
+
 def test_p0570_g3_an_unknown_until_and_an_empty_file_are_refused(tmp_path):
     with pytest.raises(InputValueError, match="stage 'S99'"):
         _geom_run.run_geometry(BODY, out=tmp_path, until="S99")

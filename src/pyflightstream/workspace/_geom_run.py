@@ -46,6 +46,7 @@ from pyflightstream.geometry._records import (
     write_record,
 )
 from pyflightstream.geometry._stage_table import STAGE_ROWS, StageRow, stage_index
+from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
@@ -225,6 +226,9 @@ def _resolve(config, overrides):
         raw, stem, base = copy.deepcopy(dict(config)), None, None
     if overrides and raw.get("format") == "pyflightstream-geometry-resolved":
         raise InputValueError("overrides: give a path or a raw configuration, not a resolved one")
+    if overrides:
+        # a [surface] or [body] file is one component named by its table: overrides address it
+        raw = adopt_surface_file(raw)
     for dotted, value in (overrides or {}).items():
         _set_path(raw, dotted, value)
     resolved = resolve_config(raw, stem=stem, base=base)
