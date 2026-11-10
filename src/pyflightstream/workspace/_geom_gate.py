@@ -339,6 +339,46 @@ def _loop_findings(
     return found + (_on_surface(ident, model, surface, resolution) if model else [])
 
 
+#: Entity use flag (status digits 5 and 6) of a curve in a surface's parameter space.
+_PARAMETER_SPACE_USE = "05"
+
+
+def _direct_read_findings(
+    ident: int, face: _Face, by_id: dict[int, dict[str, Any]]
+) -> list[GateFinding]:
+    """Warn on an outer boundary the solver's direct CAD import reads as no face.
+
+    Measured on build 26.127 (record ``g13d-reads.json``): a face is read only when its outer
+    boundary (142) has a parameter-space curve (BPTR) flagged 2D parametric (use 05) and a PREF
+    other than 2. A file written by this package meets all three; a file from elsewhere may not,
+    and ``iges-convert`` rewrites it into the form that is read.
+    """
+    boundary = by_id.get(face.outer) if face.outer else None
+    if boundary is None or boundary["type"] != 142:
+        reason = "no parameter-space outer boundary (142)"
+    else:
+        values = boundary["parameters"]
+        bptr = int(values[3] or 0) if len(values) > 3 else 0
+        curve = by_id.get(bptr) if bptr else None
+        if curve is None:
+            reason = "its outer boundary has no parameter-space curve (BPTR 0)"
+        elif curve["d1"][8][4:6] != _PARAMETER_SPACE_USE:
+            reason = f"its parameter-space curve has entity use {curve['d1'][8][4:6]}, not 05"
+        elif len(values) > 5 and values[5].strip() == "2":
+            reason = "its outer boundary states PREF 2 (model space)"
+        else:
+            return []
+    return [
+        GateFinding(
+            "profile.trim",
+            "warn",
+            ident,
+            f"{reason}; the solver's direct CAD import reads such a face as no face, run "
+            "iges-convert on the file",
+        )
+    ]
+
+
 def face_findings(
     entity: dict[str, Any],
     by_id: dict[int, dict[str, Any]],
@@ -376,6 +416,7 @@ def face_findings(
     )
     if not named:
         found.append(GateFinding("profile.name", "fail", ident, "no 406 form 15 NAME on the face"))
+    found += _direct_read_findings(ident, face, by_id)
     sides = _outer_sides(face, by_id)
     if sides in profile.bad_side_counts:
         found.append(

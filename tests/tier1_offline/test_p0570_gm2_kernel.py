@@ -320,11 +320,16 @@ def control(tmp_path):
 def _with_boundary(document, sides):
     face = next(e for e in document["entities"] if e["type"] == 144)
     surface = next(e for e in document["entities"] if e["type"] == 128)
+    written = next(e for e in document["entities"] if e["type"] == 142)
     top = max(e["id"] for e in document["entities"]) + 2
     curve, trim = top, top + 2
+    # the written parameter-space curve stays the BPTR (R21-004: a 142 with BPTR 0 is read by
+    # the solver as no face, and the gate warns on it); the planted model-space composite
+    # carries the side count
+    bptr = written["parameters"][3]
     document["entities"] += [
         _entity(curve, 102, ["102", str(sides), *["0"] * sides]),
-        _entity(trim, 142, ["142", "1", str(surface["id"]), "0", str(curve), "1"]),
+        _entity(trim, 142, ["142", "1", str(surface["id"]), bptr, str(curve), "1"]),
     ]
     face["parameters"][4] = str(trim)
     return document

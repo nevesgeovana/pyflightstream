@@ -140,3 +140,39 @@ def test_natural_and_planar_faces_are_written_with_a_parameter_space_boundary(ke
     named = kernel.import_iges(path)
     assert sorted(named.names) == ["PLATE", "SKIN"]
     assert sorted(kernel.area(f) for f in named.faces) == pytest.approx(areas, rel=1e-6)
+
+
+@pytest.mark.parametrize("planted", ["none", "use_00", "pref_2", "bptr_0", "n1_0"])
+def test_r21_004_the_gate_warns_on_a_boundary_the_direct_import_reads_as_no_face(
+    kernel, tmp_path, planted
+):
+    """Each condition of the record, planted alone in a written file, is warned as profile.trim."""
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace._geom_gate import check_profile
+    from pyflightstream.workspace._iges_write import serialize_iges
+
+    net = [[(float(i), float(j), 0.1 * i * j) for j in range(4)] for i in range(4)]
+    skin = kernel.add_bspline_surface(
+        net, knots_u=[0.0, 1.0], knots_v=[0.0, 1.0], mult_u=[4, 4], mult_v=[4, 4], deg_u=3, deg_v=3
+    )  # fmt: skip
+    path = tmp_path / "skin.igs"
+    kernel.export_iges({"SKIN": [skin]}, path)
+    document = read_iges(path)
+    ((outer, curves),) = _outer_boundaries(document)
+    face = next(e for e in document["entities"] if e["type"] == 144)
+    if planted == "use_00":
+        curves[0]["d1"][8] = curves[0]["d1"][8][:4] + "00" + curves[0]["d1"][8][6:]
+    elif planted == "pref_2":
+        outer["parameters"][5] = "2"
+    elif planted == "bptr_0":
+        outer["parameters"][3] = "0"
+    elif planted == "n1_0":
+        face["parameters"][2] = "0"
+        face["parameters"][4] = "0"
+    planted_path = tmp_path / f"{planted}.igs"
+    write_text(planted_path, serialize_iges(document), encoding="ascii")
+    trims = [f for f in check_profile(planted_path).findings if f.check == "profile.trim"]
+    if planted == "none":
+        assert trims == []
+    else:
+        assert [f.severity for f in trims] == ["warn"] and "iges-convert" in trims[0].detail
