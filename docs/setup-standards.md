@@ -344,8 +344,8 @@ are alive, the free memory is at least `ram_floor_gb`, and a few seconds have pa
 since the previous start, because a solver claims its memory as it loads; the first
 run always starts. A run that fails with the licence named in the solver's own
 output lowers the count to one and is repeated once, alone, with a warning that
-quotes the line taken for the refusal, so a seat count set too high costs one repeat
-and no recorded failure. The licence wording is matched, as whole words, against the
+quotes the line taken for the refusal; every run refused while runs overlapped is
+repeated so, and a seat count set too high costs those repeats and no recorded failure. The licence wording is matched, as whole words, against the
 captured text and is not yet confirmed against a licensed probe; a failure it does
 not match is recorded as the run's failure and is not repeated.
 

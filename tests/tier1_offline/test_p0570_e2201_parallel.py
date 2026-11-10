@@ -352,3 +352,35 @@ def test_p0570_r23_003_a_solver_failure_is_not_taken_for_the_licence_and_a_repea
     gate = parallel.RunGate(2, settle_s=0.0, free_gb=lambda: 99.0)
     missed = gate.wrap(failing("access violation at 0x0"))("s", "w")
     assert missed.failed and len(calls) == 1 and not gate.fell_back
+
+
+def test_p0570_r23_004_every_run_refused_while_runs_overlapped_is_repeated():
+    lock = threading.Lock()
+    state = {"alive": 0, "refused": 0, "calls": 0}
+
+    def run_script(script_path, working_dir, timeout_s=None):
+        with lock:
+            state["calls"] += 1
+            refuse = state["alive"] > 0 and state["refused"] < 2
+            state["refused"] += refuse
+            state["alive"] += 1
+        time.sleep(0.2)
+        with lock:
+            state["alive"] -= 1
+        err = "License checkout failed: no available seats" if refuse else ""
+        return ExecutionResult(1 if refuse else 0, 0.2, False, None, "", err)
+
+    gate = parallel.RunGate(3, settle_s=0.0, free_gb=lambda: 99.0)
+    gated = gate.wrap(run_script)
+    results: list[ExecutionResult] = []
+    with pytest.warns(UserWarning):
+        threads = [
+            threading.Thread(target=lambda: results.append(gated("s", "w"))) for _ in range(3)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    assert state["refused"] == 2, state
+    assert [r.failed for r in results] == [False] * 3, "a run refused on the licence was recorded"
+    assert state["calls"] == 5

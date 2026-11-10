@@ -8,9 +8,9 @@ The gate is placed around ``run_script`` of each local executor, so the bound
 holds on the solver processes themselves. Three conditions hold a start: the
 count of runs already alive, a free-memory floor per run, and a short settle
 interval after the previous start, because a launched solver claims its memory
-only as it loads. A run that fails on the licence lowers the bound to one and is
-repeated once, alone, so a seat count configured too high costs one repeat and
-no recorded failure.
+only as it loads. A run that fails on the licence while runs could overlap lowers
+the bound to one and is repeated once, alone, so a seat count configured too high
+costs a repeat of each refused run and no recorded failure.
 """
 
 from __future__ import annotations
@@ -182,16 +182,20 @@ class RunGate:
         return free is None or free >= self._floor
 
     @contextmanager
-    def slot(self) -> Iterator[None]:
-        """Hold one run's place: wait until the bound, the settle time and the floor allow it."""
+    def slot(self) -> Iterator[bool]:
+        """Hold one run's place: wait until the bound, the settle time and the floor allow it.
+
+        Yields whether the run started while the bound was above one, so runs could overlap.
+        """
         with self._cond:
             while not self._may_start():
                 self._cond.wait(timeout=self._poll)
             self.running += 1
             self.peak = max(self.peak, self.running)
             self._last_start = self._clock()
+            shared = self.limit > 1
         try:
-            yield
+            yield shared
         finally:
             with self._cond:
                 self.running -= 1
@@ -207,12 +211,17 @@ class RunGate:
             return changed
 
     def wrap(self, run_script: Callable[..., Any]) -> Callable[..., Any]:
-        """Return ``run_script`` gated, repeating once, alone, after a licence failure."""
+        """Return ``run_script`` gated, repeating once, alone, after a licence failure.
+
+        Every run that started while runs could overlap and fails on the licence is
+        repeated, not only the first: runs refused together are each the seat's, not theirs.
+        """
 
         def gated(script_path: Path, working_dir: Path, timeout_s: float | None = None) -> Any:
-            with self.slot():
+            with self.slot() as shared:
                 result = run_script(script_path, working_dir=working_dir, timeout_s=timeout_s)
-            if self._licence_failure(result) and self.fall_back_to_serial():
+            if shared and self._licence_failure(result):
+                self.fall_back_to_serial()
                 warnings.warn(
                     f"the solver run in {working_dir} failed and its output reads "
                     f"{_licence_words(result)!r}, taken for a licence refusal: later runs go "
