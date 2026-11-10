@@ -577,6 +577,12 @@ def mesh_generated(
         When the gmsh library cannot load (``KernelUnavailableError``).
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
+    if isinstance(controls, dict) and "mesh" in controls:
+        from pyflightstream.geometry._mesh_schema import mesh_controls
+
+        names = set(unpack(resolved)["components"])
+        mesh_controls(controls, members=names, names=names)
+        raise InputValueError("strategy controls: use mesh_configuration with an exported manifest")
     values = load_mesh_controls(controls)
     components = unpack(resolved)["components"]
     if component is not None and component not in components:
