@@ -30,3 +30,6 @@ pieces. The returned record reports sewn closure and the input digest.
 Configured body hosts now feed F3 automatically. Native face-set distances
 and the source-file digests appear in the stage record and run log. Applicable
 F5/F6 waits remain incomplete until the trimmed assembly boundary is supplied.
+
+Combined checks now include one angle choice from every control, so a second
+control cannot disappear from an otherwise closed main/control configuration.

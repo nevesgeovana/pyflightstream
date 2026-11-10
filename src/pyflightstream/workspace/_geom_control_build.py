@@ -6,6 +6,7 @@ The assembly lane consumes the sidecar without reconstructing the skin.
 
 from __future__ import annotations
 
+from itertools import product
 from pathlib import Path
 
 from pyflightstream.geometry.stages import controls, generate_components, write_record
@@ -56,6 +57,24 @@ def _hosts(kernel, components, members, folder):
     return paths
 
 
+def _combinations(kernel, faces, name, folder, index):
+    """Write each angle combination with one moving piece of every control."""
+    families = {}
+    for piece in faces:
+        if piece != "main":
+            families.setdefault(piece.rsplit("-d", 1)[0], []).append(piece)
+    combined = {}
+    for number, selected in enumerate(product(*families.values())):
+        path = folder / f"control-combined-{index}-{number}.igs"
+        kernel.export_iges({f"{name}/{piece}": faces[piece] for piece in ("main", *selected)}, path)
+        combined[f"{name}/{'/'.join(selected)}"] = {
+            "path": str(path),
+            "previous_free": 0,
+            "symmetry_axis": 1,
+        }
+    return combined
+
+
 def prepare(kernel, components, members, out):
     """Write applied pieces and return file-based inputs for the F checks.
 
@@ -96,16 +115,7 @@ def prepare(kernel, components, members, out):
             written[key] = {"path": str(path), "written": len(trims)}
             target = mains if piece == "main" else moving
             target[key] = {"path": str(path), "symmetry_axis": 1}
-        for number, (piece, native) in enumerate(faces.items()):
-            if piece == "main":
-                continue
-            path = folder / f"control-combined-{index}-{number}.igs"
-            kernel.export_iges({f"{name}/main": faces["main"], f"{name}/{piece}": native}, path)
-            combined[f"{name}/{piece}"] = {
-                "path": str(path),
-                "previous_free": 0,
-                "symmetry_axis": 1,
-            }
+        combined.update(_combinations(kernel, faces, name, folder, index))
     if not written:
         return {}
     sidecar = folder / "applied-controls.json"
