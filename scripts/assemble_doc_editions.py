@@ -116,7 +116,9 @@ def _alias(out: Path, edition: str, base: str) -> int:
     """Write ``latest/<page>/index.html`` for every page of ``edition``, sent to that page there.
 
     Returns the number of pages written. Each stub is a real page (status 200) that
-    refreshes to the same page of the edition, so a link made once never dies.
+    refreshes to the same page of the edition, so a link made once never dies. A script
+    sends it there with the address's query and fragment, which a refresh drops (a link to
+    a section lands on that section); the refresh is the fallback without scripts.
     """
     count = 0
     for page in sorted((out / edition).rglob("index.html")):
@@ -128,6 +130,8 @@ def _alias(out: Path, edition: str, base: str) -> int:
         stub.write_text(
             '<!doctype html>\n<meta charset="utf-8">\n'
             f'<link rel="canonical" href="{target}">\n'
+            f"<script>location.replace({json.dumps(target)}+location.search+location.hash)"
+            "</script>\n"
             f'<meta http-equiv="refresh" content="0; url={target}">\n'
             f'<a href="{target}">pyflightstream documentation</a>\n',
             encoding="utf-8",

@@ -62,6 +62,10 @@ def test_deploy_serves_a_latest_page_for_every_page_of_the_build(tmp_path):
         stub = (out / "latest" / rel / "index.html").read_text(encoding="utf-8")
         assert f"url={base}0.57.0/{rel}" in stub, rel
     assert (out / "latest" / "downloads" / "g.pdf").is_file()
+    # review round 24: a refresh drops the fragment, so a link to a section of a page (the
+    # nav's latest/architecture/#architectural-decisions) is carried there by the script
+    stub = (out / "latest" / "a/b/" / "index.html").read_text(encoding="utf-8")
+    assert f'location.replace("{base}0.57.0/a/b/"+location.search+location.hash)' in stub
     missing = (out / "404.html").read_text(encoding="utf-8")
     assert "rest.slice(7)" in missing
 
