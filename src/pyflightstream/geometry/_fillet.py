@@ -33,7 +33,7 @@ from ._distributions import planform_values
 from ._lifting import thickness_station
 from ._patch import Patch
 from ._placement import move, placement_transform
-from ._records import check_entry
+from ._records import CheckFailedError, check_entry
 from ._skin import split_along
 from ._trims import iso_trim
 
@@ -263,13 +263,23 @@ def _blossom(points, parameters):
 def _sections(fillet, skin, host, wing, s_values):
     """Return the Bezier poles of every section, the wing contact v and the host contacts."""
     laws = fillet_laws(fillet, float(planform_values(wing, 0.0)["chord"]))
-    poles, wing_v, host_points, handles, spine_points = [], [], [], [], []
-    for s in s_values:
-        v_c = _spine_v(skin, host, s)
-        if v_c is None:
-            raise InputValueError(
-                f"fillet.spine: the lifting surface and its body host do not meet at u = {s:.4g}"
+    spine_v = [_spine_v(skin, host, s) for s in s_values]
+    missing = [s for s, v_c in zip(s_values, spine_v, strict=True) if v_c is None]
+    if missing:
+        raise CheckFailedError(
+            check_entry(
+                "fillet.spine",
+                "failed",
+                len(s_values) - len(missing),
+                len(s_values),
+                bound="min",
+                where={"u": float(missing[0])},
+                note=f"the lifting surface and its body host do not meet at u = {missing[0]:.4g}"
+                f" ({len(missing)} of {len(s_values)} sections)",
             )
+        )
+    poles, wing_v, host_points, handles, spine_points = [], [], [], [], []
+    for s, v_c in zip(s_values, spine_v, strict=True):
         centre = skin(s, v_c)
         n_wing, n_host = skin.normal(s, v_c), host.normal(centre)
         spine = _unit(np.cross(n_wing, n_host))  # tangent of the intersection, either sense

@@ -764,3 +764,49 @@ def test_p0570_g6r_b9_the_run_records_the_fin_fillet_sub_steps(tmp_path):
         mine = [c for c in record["checks"] if c["where"].get("component") == "fin_root"]
         assert mine and {c["status"] for c in mine} <= {"passed", "skipped"}, step
         assert "fin_root" in record["outputs"]["inputs"]
+
+
+# -- R22-003: a build that stops at a failed check stops the run there, as failed ---------------
+
+
+def test_r22_003_a_blister_off_its_host_fails_the_run_at_its_trim_sub_step(tmp_path):
+    from pyflightstream.workspace import _geom_run
+
+    config = _demo_with_pod()
+    config["components"]["pod"]["sections"] = {"width": [0.0, 0.2, 0.6, 0.2, 0.0]}
+    report = _geom_run.run_geometry(config, out=tmp_path, until="S9")
+    assert (report["status"], report["stage"], report["check"]) == (
+        "failed",
+        "S8.B2",
+        "closure.base_present",
+    )
+    assert report["measured"] < report["limit"] == 0.0 and report["where"]["component"] == "pod"
+    built = json.loads((tmp_path / "S8.B1.json").read_text(encoding="utf-8"))
+    assert {c["status"] for c in built["checks"]} == {"skipped"}
+    assert all("stopped at S8.B2 closure.base_present" in c["note"] for c in built["checks"])
+    trim = json.loads((tmp_path / "S8.B2.json").read_text(encoding="utf-8"))
+    assert [c["id"] for c in trim["checks"] if c["status"] == "failed"] == ["closure.base_present"]
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "stopped at sub-step S8.B2, check closure.base_present" in log
+
+
+def test_r22_003_hosts_that_do_not_meet_fail_the_run_at_the_fillet_build(tmp_path):
+    from pyflightstream.workspace import _geom_run
+
+    config = deepcopy(DEMO)
+    config["components"]["main"]["placement"] = {"translation": [0.0, 0.0, 3.0]}  # above the hull
+    report = _geom_run.run_geometry(config, out=tmp_path, until="S9")
+    assert (report["status"], report["stage"], report["check"]) == (
+        "failed",
+        "S8.F1",
+        "fillet.spine",
+    )
+    assert report["measured"] < report["limit"]
+    assert (tmp_path / "S8.F1.json").is_file() and not (tmp_path / "S8.F2.json").exists()
+    with pytest.raises(InputValueError, match="fillet.spine: the lifting surface"):
+        _plain_fillet(config)
+
+
+def _plain_fillet(config):
+    _, components = _plain(config)
+    return fillet_model(components["blend"], components, "blend")

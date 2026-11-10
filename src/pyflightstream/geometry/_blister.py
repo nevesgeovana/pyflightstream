@@ -24,7 +24,7 @@ from pyflightstream._errors import InputValueError
 from ._bodies import body_profile, body_station_table
 from ._bspline import clamped_knots, fit_curve, full_knots
 from ._patch import Patch
-from ._records import check_entry
+from ._records import CheckFailedError, check_entry
 from ._skin import split_along
 from ._trims import LOOP_GAP, Trim
 
@@ -345,9 +345,17 @@ def _crease_angle(law, i, host):
 
     top = inside(1.0)
     if top >= 0.0:
-        raise InputValueError(
-            f"closure.base_present: the blister section at x = {law['x'][i]:.6g} does not enter "
-            "its host, so the host cannot trim it"
+        raise CheckFailedError(
+            check_entry(
+                "closure.base_present",
+                "failed",
+                -top,
+                0.0,
+                bound="min",
+                where={"x": float(law["x"][i])},
+                note=f"the blister section at x = {law['x'][i]:.6g} does not enter its host, "
+                "so the host cannot trim it",
+            )
         )
     if inside(0.0) <= 0.0:
         return 0.0
@@ -425,8 +433,18 @@ def _crease_on(patch, host, v):
 
         if level(0.0) <= 0.0:
             out.append(0.0)
-        elif level(1.0) >= 0.0:
-            raise InputValueError("closure.base_present: a blister base does not enter its host")
+        elif (top := level(1.0)) >= 0.0:
+            raise CheckFailedError(
+                check_entry(
+                    "closure.base_present",
+                    "failed",
+                    -top,
+                    0.0,
+                    bound="min",
+                    where={"v": float(value)},
+                    note="a blister base does not enter its host",
+                )
+            )
         else:
             out.append(brentq(level, 0.0, 1.0, xtol=1e-14))
     return np.asarray(out)

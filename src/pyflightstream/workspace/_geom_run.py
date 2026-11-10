@@ -43,6 +43,7 @@ from pyflightstream.geometry._boundary import unpack
 from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._identity import parameter_id
 from pyflightstream.geometry._records import (
+    CheckFailedError,
     check_entry,
     geometry_report,
     stage_record,
@@ -172,25 +173,52 @@ _BLEND_INPUTS = {
 }
 
 
+#: The stage ids of each blend piece's sub-steps start with its prefix.
+_BLEND_PREFIX = {"fillet": "S8.F", "blister": "S8.B"}
+
+
+def _blend_model(kind: str, component, components, name):
+    """Return the model of one piece, or the failed check its build stopped at."""
+    try:
+        if kind == "fillet":
+            return fillet_model(component, components, name)
+        host = component["host"]
+        if components[host]["type"] != "body":
+            raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")
+        return blister_model(component, components[host])
+    except CheckFailedError as failure:
+        return failure.check
+
+
 def _blend_models(context: RunContext, kind: str) -> dict[str, Any]:
-    """Return the fillet or blister models of the selected members, built once per run."""
+    """Return the fillet or blister models of the selected members, built once per run.
+
+    A piece whose build stopped at a failed check holds that check in place of its model.
+    """
     key = f"blend.{kind}"
     if key not in context.state:
         components = unpack(context.resolved)["components"]
-        models: dict[str, Any] = {}
-        for name in context.members:
-            component = components[name]
-            if component["type"] != kind:
-                continue
-            if kind == "fillet":
-                models[name] = fillet_model(component, components, name)
-                continue
-            host = component["host"]
-            if components[host]["type"] != "body":
-                raise InputValueError(f"{name}.host: a blister lies on a body; {host!r} is not one")
-            models[name] = blister_model(component, components[host])
-        context.state[key] = models
+        context.state[key] = {
+            name: _blend_model(kind, components[name], components, name)
+            for name in context.members
+            if components[name]["type"] == kind
+        }
     return context.state[key]
+
+
+def _owner(kind: str, check_id: str) -> str:
+    """Return the sub-step of ``kind`` whose row names ``check_id``; its first one otherwise."""
+    rows = [r for r in STAGE_ROWS if r.stage.startswith(_BLEND_PREFIX[kind])]
+    return next((r.stage for r in rows if check_id in {c for c, _ in r.checks}), rows[0].stage)
+
+
+def _stopped_piece(kind, stage, wanted, name, failed):
+    """Return the checks of ``stage`` for a piece whose build stopped at the check ``failed``."""
+    owner = _owner(kind, failed["id"])
+    if owner == stage:
+        return [{**failed, "where": {**failed["where"], "component": name}}]
+    note = f"not measured: {name} stopped at {owner} {failed['id']}"
+    return [check_entry(cid, "skipped", where={"component": name}, note=note) for cid in wanted]
 
 
 def _blend_step(kind: str, stage: str) -> StageFn:
@@ -211,9 +239,12 @@ def _blend_step(kind: str, stage: str) -> StageFn:
         components = unpack(context.resolved)["components"]
         checks, inputs = [], {}
         for name, model in models.items():
-            for record in model.records:
-                if record["id"] in wanted:
-                    checks.append({**record, "where": {**record["where"], "component": name}})
+            if isinstance(model, dict):  # the build stopped at this failed check
+                checks += _stopped_piece(kind, stage, wanted, name, model)
+            else:
+                for record in model.records:
+                    if record["id"] in wanted:
+                        checks.append({**record, "where": {**record["where"], "component": name}})
             inputs[name] = {
                 k: components[name][k] for k in _BLEND_INPUTS[kind] if k in components[name]
             }
