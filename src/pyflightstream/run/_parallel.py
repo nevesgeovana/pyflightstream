@@ -33,7 +33,7 @@ from pyflightstream.run._batch_exec import GroupingExecutor
 from pyflightstream.run._executors import submits_jobs
 from pyflightstream.run._ids import _say
 
-#: A safety ceiling on concurrent runs, whatever is asked (owner decision).
+#: A safety ceiling on concurrent runs, whatever count is asked.
 PARALLEL_HARD_CAP = 8
 #: Free memory one more run needs before it starts, in GB; measured about 0.6 GB.
 RAM_FLOOR_GB = 1.0
