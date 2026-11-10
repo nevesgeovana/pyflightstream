@@ -336,6 +336,20 @@ def test_p0570_r26_distinct_angles_keep_distinct_control_pieces(builder):
     assert labels == {"flap-d15.000001", "flap-d15.000002"}
 
 
+def test_p0570_r26_control_guide_has_an_executed_example():
+    """The guide must expose the control workflow and its assembly limits."""
+    from pathlib import Path
+
+    page = Path(__file__).resolve().parents[2] / "docs" / "geometry-parametrization.md"
+    text = page.read_text(encoding="utf-8")
+    assert "add-control-surface" in text and "add_control_surfaces" in text
+    assert "F5" in text and "F6" in text
+    examples = [part.split("```", 1)[0] for part in text.split("```python\n")[1:]]
+    example = next((part for part in examples if "controls.build" in part), "")
+    assert example, "control guide needs a runnable worked example"
+    exec(compile(example, str(page), "exec"), {})
+
+
 def test_p0570_gm9_plain_applied_geometry_preserves_skin_and_closes(kernel, tmp_path):
     from pyflightstream.geometry import resolve_config
 

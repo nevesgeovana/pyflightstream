@@ -548,6 +548,16 @@ def cap_edge_gap(model: LiftingModel) -> float:
     Compare 4001 corresponding boundary points, including endpoints, on the exact spline
     edges. This includes the side edges of the corner, which a skin-rim-only check misses.
     No interior fit samples are used as evidence of boundary closure.
+
+    Parameters
+    ----------
+    model : LiftingModel
+        Skin, trailing edge and caps in the same coordinate frame, in metres.
+
+    Returns
+    -------
+    float
+        Largest sampled boundary gap in metres, or zero when no caps are present.
     """
     gaps = [0.0]
     for end, column in (("tip", -1), ("root", 0)):

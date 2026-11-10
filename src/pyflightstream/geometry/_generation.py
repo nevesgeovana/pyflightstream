@@ -61,6 +61,18 @@ def stored_sections_config(resolved, sections):
     The resolved parameters and derived values stay in their resolved form,
     so writing and reloading does not recompute their floating-point values.
     Optional unset mapping values are omitted because TOML has no null value.
+
+    Parameters
+    ----------
+    resolved : dict
+        Resolved geometry configuration.
+    sections : dict
+        Stored B-spline section tables keyed by lifting component name.
+
+    Returns
+    -------
+    dict
+        Plain TOML-compatible configuration retaining the supplied section coefficients.
     """
     config = unpack(resolved)
     for name, component in config["components"].items():
@@ -100,6 +112,27 @@ def source_cells(patch: Patch, *, spacing: float, scale: float, trims=None) -> d
     Grid counts follow the sampled arc lengths and the requested share of the
     piece's extent. Original trim exclusions are retained as a separate mask.
     The cell-area sum can therefore be checked against the kernel's source area.
+
+    Parameters
+    ----------
+    patch : Patch
+        Source base with control points in metres.
+    spacing : float
+        Positive cell spacing as a fraction of the source extent.
+    scale : float
+        Positive source extent in metres.
+    trims : sequence of Trim, optional
+        Original included faces; omitted means the entire parameter domain.
+
+    Returns
+    -------
+    dict
+        Cell centres, normals, areas in square metres and the inclusion mask.
+
+    Raises
+    ------
+    InputValueError
+        If spacing or scale is nonpositive, or the grid exceeds one million cells.
     """
     if spacing <= 0 or scale <= 0:
         raise InputValueError("coverage requires positive spacing and source extent")
@@ -192,6 +225,21 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
 
     The legacy patch generator remains the mesher's interface. Here lifting
     skins, fillets and blisters carry their original bases and parameter loops.
+
+    Parameters
+    ----------
+    config : dict
+        Resolved geometry configuration including placement and component versions.
+
+    Returns
+    -------
+    dict of str to GeneratedPiece
+        Source bases in world coordinates, in metres, with their trims and layouts.
+
+    Raises
+    ------
+    InputValueError
+        If a component type has no source-piece generator.
     """
     components = unpack(config)["components"]
     pieces = {}

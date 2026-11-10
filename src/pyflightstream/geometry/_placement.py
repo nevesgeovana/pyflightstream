@@ -44,7 +44,20 @@ def attachment_point(parent, station):
 
 
 def placement_transform(components, name):
-    """Return ``(rotation, translation)`` taking the component ``name`` to the world frame."""
+    """Return ``(rotation, translation)`` taking the component ``name`` to the world frame.
+
+    Parameters
+    ----------
+    components : dict
+        Resolved components including placement and attachment parents.
+    name : str
+        Component whose transform is requested.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        Rotation matrix of shape (3, 3) and translation in metres of shape (3,).
+    """
     component = components[name]
     rotation = rotation_matrix(component["placement"]["rotation"])
     translation = np.asarray(component["placement"]["translation"], float)
