@@ -509,29 +509,41 @@ def test_p0570_r23_004_every_run_refused_while_runs_overlapped_is_repeated():
 @pytest.mark.parametrize("stop", ["interrupt", "crash"])
 def test_p0570_r23_005_an_interrupt_or_a_crashed_worker_starts_no_queued_case(stop):
     import _thread
+    import signal
 
+    # Ctrl-C becomes KeyboardInterrupt only under Python's own handler; a library that
+    # left SIGINT at the system default earlier in this process (gmsh started
+    # interruptible does) makes interrupt_main do nothing, which is not this claim.
+    previous = signal.signal(signal.SIGINT, signal.default_int_handler)
     ran: list[int] = []
+    workers: list[threading.Thread] = []
+    released = threading.Event()
 
     def first():
+        workers.append(threading.current_thread())
         if stop == "interrupt":
-            time.sleep(0.3)  # the pool is waiting on its cases by now
             _thread.interrupt_main()  # Ctrl-C reaching the command while a case runs
-            time.sleep(0.2)
+            released.wait(10)  # the case is still running when the interrupt is taken
         else:
             raise RuntimeError("a worker crashed")
 
     def queued(index):
         def unit():
-            time.sleep(0.05)
             ran.append(index)
 
         return unit
 
     units = [first, *(queued(index) for index in range(9))]
-    with pytest.raises(KeyboardInterrupt if stop == "interrupt" else RuntimeError):
-        parallel.run_pool(units, 1)
-    time.sleep(0.8)  # long enough for every queued case to run, were any still queued
-    assert len(ran) <= 1, ran
+    try:
+        with pytest.raises(KeyboardInterrupt if stop == "interrupt" else RuntimeError):
+            parallel.run_pool(units, 1)
+    finally:
+        released.set()
+        signal.signal(signal.SIGINT, previous)
+    # The pool's one thread ends once nothing is left queued for it.
+    workers[0].join(10)
+    assert not workers[0].is_alive()
+    assert ran == []
 
 
 class _NotLocal:

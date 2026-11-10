@@ -1152,7 +1152,7 @@ def test_p0560_convert_keeps_the_first_files_unit_and_scales_the_others(tmp_path
     record = json.loads(stdout)
     assert record["unit"] == "METER" and read_iges_names(out).unit == "METER"
     assert any("mm.igs is in MILLIMETER and was scaled to METER" in n for n in record["notes"])
-    gmsh.initialize()
+    gmsh.initialize(interruptible=False)  # an interruptible start leaves SIGINT at the default
     try:
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.occ.importShapes(str(out))
@@ -1276,7 +1276,7 @@ def test_p0560_convert_output_flags_the_curves_on_its_surfaces(tmp_path, capsys)
     gmsh = gmsh_or_skip()
     # A disk is a trimmed plane: the writer gives it a 144 bounded by a 142.
     source = tmp_path / "disk.igs"
-    gmsh.initialize()
+    gmsh.initialize(interruptible=False)  # an interruptible start leaves SIGINT at the default
     try:
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.occ.addDisk(0, 0, 0, 1, 0.5)

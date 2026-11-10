@@ -272,17 +272,34 @@ def run_pool(units: Sequence[Callable[[], None]], workers: int) -> None:
     console of the command reach the worker threads as they reach the serial loop.
     An error in a unit, or an interrupt of the caller, starts no unit still queued,
     as the serial loop would start no later case: the units running finish, and the
-    error is raised. The wait polls, so an interrupt is taken while units run.
+    error is raised. The wait polls, so an interrupt is taken while units run. A
+    worker freed by a failed unit takes the next one from the queue before the
+    caller can cancel it, so every unit first reads a stop flag the failure sets.
     """
+    stopped = threading.Event()
+
+    def guarded(unit: Callable[[], None]) -> Callable[[], None]:
+        def run() -> None:
+            if stopped.is_set():
+                return
+            try:
+                unit()
+            except BaseException:
+                stopped.set()
+                raise
+
+        return run
+
     pool = ThreadPoolExecutor(max_workers=max(1, workers))
     try:
-        futures = [pool.submit(contextvars.copy_context().run, unit) for unit in units]
+        futures = [pool.submit(contextvars.copy_context().run, guarded(u)) for u in units]
         pending = set(futures)
         while pending:
             done, pending = wait(pending, timeout=START_POLL_S, return_when=FIRST_EXCEPTION)
             if any(not future.cancelled() and future.exception() for future in done):
                 break
     except BaseException:
+        stopped.set()
         pool.shutdown(wait=False, cancel_futures=True)
         raise
     pool.shutdown(wait=True, cancel_futures=True)
