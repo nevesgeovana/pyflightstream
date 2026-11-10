@@ -326,3 +326,11 @@ def test_p0570_g7r_dominance_plan_orders_rows_and_warns_and_skips_absent_members
     ]
     assert warnings == ["dominance[2]: N is not a member of this configuration, row skipped"]
     assert jn.dominance_plan([], ["B"], []) == []
+
+
+def test_p0570_g7r_t2_the_stage_table_states_the_clearance_floor_the_check_uses():
+    """Review round 24: assembly.clearance refuses a separate piece within the sewing tolerance
+    (SEW_M), stricter than the hand-off's "> 0"; the stage table says so, not "above 0"."""
+    row = next(r for r in STAGE_ROWS if r.stage == "S10.E2")
+    text = dict(row.checks)["assembly.clearance"]
+    assert "SEW_M" in text and "1e-5 m" in text, text

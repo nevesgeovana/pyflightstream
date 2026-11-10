@@ -425,6 +425,11 @@ class RemovalSteps(AssemblyBase):
         )
 
     def _clearance(self):
+        """E2: the least distance from a piece in no row to any other piece.
+
+        The floor is the sewing tolerance ``SEW_M``, stricter than the hand-off's "> 0"
+        (W7, T2): a piece closer than that to another would be sewn to it when the file is read.
+        """
         joined = {n for op in self.plan for n in (op.dominant, op.dominated)}
         separate = [n for n in self.sources if n not in joined]
         if not separate:
@@ -445,7 +450,8 @@ class RemovalSteps(AssemblyBase):
                 unit="m",
                 bound="min",
                 where=where,
-                cause="STRATEGY: a piece in no row meets another piece",
+                cause="STRATEGY: a piece in no row meets another piece or lies within the "
+                "sewing tolerance of it",
             )
         ], {}
 

@@ -258,7 +258,14 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("sew.triple_edges", "none"),
         ("sew.slivers", "counted and listed, SLIVER_WIDTH_M"),
     ),
-    _row("S10.E2", "Separate pieces clear", True, ("assembly.clearance", "above 0")),
+    _row(
+        "S10.E2",
+        "Separate pieces clear",
+        True,
+        # stricter than the hand-off's "> 0" (W7, T2): a piece within the sewing tolerance of
+        # another would be sewn to it
+        ("assembly.clearance", "SEW_M, 1e-5 m, the sewing tolerance (min)"),
+    ),
     _row(
         "S11",
         "Export",
