@@ -139,6 +139,10 @@ def _transition(value: Any, where: str, warnings: list[str]) -> dict:
 
 def _component(name: str, raw: Any, strategy: int, warnings: list[str]) -> dict:
     c = _unknown(_table(raw, name), _COMPONENT_KEYS, name, warnings)
+    if c.get("parent"):
+        c.setdefault("role", "follower")
+        c.setdefault("follows", c["parent"])
+        c.setdefault("fill", "full_quad")
     role = c.setdefault("role", "primary")
     if role not in {"primary", "flexible", "follower"}:
         raise InputValueError(f"{name}.role: primary, flexible or follower required")
@@ -396,3 +400,21 @@ def azimuth_count(stations, rule: Mapping[str, Any], *, ring_count: int = 0) -> 
     return max(math.ceil(rows[index, 1] / (aspect * rows[index, 2])), ring_count), float(
         rows[index, 0]
     )
+
+
+def hinge_nodes(table: Mapping[str, Any]) -> np.ndarray:
+    """Pin chord fractions at exact nodes without adding cells or deleting strips."""
+    nodes = spacing_nodes(table, direction="chordwise")
+    hinges = sorted(set(table.get("hinge_rows", [])))
+    count = len(nodes) - 1
+    if len(hinges) >= count:
+        raise InputValueError("hinge rows: more cells are needed to keep every interval nonempty")
+    indices = [0]
+    for i, value in enumerate(hinges):
+        nearest = int(np.argmin(np.abs(nodes - value)))
+        indices.append(max(indices[-1] + 1, min(count - len(hinges) + i, nearest)))
+    indices.append(count)
+    result = np.interp(nodes, nodes[indices], [0.0, *hinges, 1.0])
+    if np.any(np.diff(result) <= 0):
+        raise InputValueError("hinge rows: spacing below floating point resolution")
+    return result

@@ -343,6 +343,33 @@ def test_p0570_gm11_body_aspect_is_measured_on_realized_stations_yes_no():
         body_aspect_checks(mesh.xyz, ids, [0.67, 1.5])
 
 
+def test_p0570_gm11_hinge_rows_exact_and_cell_count_preserved_yes_no():
+    from pyflightstream.geometry._mesh_schema import hinge_nodes
+
+    table = {"cells": 12, "law": "geometric_cap", "ratio": 1.1, "hinge_rows": [0.72, 0.73]}
+    nodes = hinge_nodes(table)
+    assert len(nodes) == 13
+    assert np.all(np.diff(nodes) > 0)
+    assert 0.72 in nodes and 0.73 in nodes
+    with pytest.raises(InputValueError, match="hinge.*cells"):
+        hinge_nodes({**table, "cells": 2})
+
+
+def test_p0570_gm11_control_surface_defaults_to_parent_follower_yes_no():
+    from pyflightstream.geometry._mesh_schema import mesh_controls
+
+    controls = _controls()
+    controls["mesh"]["variant"] = "cs"
+    controls["components"]["flap"] = {"parent": "foil"}
+    resolved = mesh_controls(controls, members={"foil", "flap"}, names={"foil", "flap"})
+    assert resolved["components"]["flap"]["role"] == "follower"
+    assert resolved["components"]["flap"]["follows"] == ["foil"]
+    assert resolved["components"]["flap"]["fill"] == "full_quad"
+    controls["mesh"]["variant"] = "clean"
+    with pytest.raises(InputValueError, match="E16"):
+        mesh_controls(controls, members={"foil", "flap"}, names={"foil", "flap"})
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 
