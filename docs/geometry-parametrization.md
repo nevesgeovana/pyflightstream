@@ -103,6 +103,9 @@ to configured body hosts; F4 checks the combined angle choices. F5 and F6 need
 the trimmed assembly boundary and remain incomplete when that input is pending.
 The applied pieces and `applied-controls.json` do not yet replace the clean
 assembly export. An applied variant requested through S11 remains incomplete.
+Sewn control check IDs include their sub-step, for example
+`control.f1.free_edges` for the main piece and `control.f2.free_edges` for the
+control alone, so records and run logs identify the failing operation.
 
 To edit an existing normalized polynomial lifting skin, put the same control
 entry in a `[[control]]` table in `controls.toml` and run:

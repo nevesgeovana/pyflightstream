@@ -179,7 +179,10 @@ def _fcheck(kernel, stage, inputs):
 
     module = "pyflightstream.workspace._geom_control"
     assert importlib.util.find_spec(module), "the F sub-steps have no implementation"
-    return importlib.import_module(module).check_stage(kernel, stage, inputs)
+    result = importlib.import_module(module).check_stage(kernel, stage, inputs)
+    row = next(row for row in stages.STAGE_ROWS if row.stage == f"S10.{stage}")
+    assert {c["id"] for c in result["checks"]} == {cid for cid, _ in row.checks}
+    return result
 
 
 def _passed(result):
@@ -205,8 +208,8 @@ def test_p0570_gm9_sewn_closure_rejects_missing_end(kernel, tmp_path, stage, mis
     result = _fcheck(kernel, stage, {"path": str(path)})
     assert _passed(result) is not missing
     checks = {c["id"]: c for c in result["checks"]}
-    assert checks["control.free_edges"]["measured"] == (4 if missing else 0)
-    assert checks["control.free_edges"]["limit"] == 0
+    assert checks[f"control.{stage.lower()}.free_edges"]["measured"] == (4 if missing else 0)
+    assert checks[f"control.{stage.lower()}.free_edges"]["limit"] == 0
     assert result["outputs"]["sew_tolerance_m"] == 1e-5
 
 
@@ -285,7 +288,7 @@ def test_p0570_gm9_stage_table_runner_records_and_log(kernel, tmp_path, missing)
         assert report["stage"] == "S10.F0"
         assert "sub-step S10.F1 " not in log
     else:
-        assert "sub-step S10.F1" in log and "control.free_edges" in log
+        assert "sub-step S10.F1" in log and "control.f1.free_edges" in log
 
 
 def _plain_config():

@@ -119,11 +119,15 @@ def _topology(kernel, inputs):
 def _sewn(kernel, stage, inputs):
     outputs = _topology(kernel, inputs)
     free = outputs["free_edges"]
-    checks = [_maximum("control.triple_edges", outputs["triple_edges"])]
+    checks = [_maximum(f"control.{stage.lower()}.triple_edges", outputs["triple_edges"])]
     if stage in ("F4", "F5", "F6"):
-        checks.append(_maximum("control.free_delta", abs(free - inputs["previous_free"])))
+        checks.append(
+            _maximum(f"control.{stage.lower()}.free_delta", abs(free - inputs["previous_free"]))
+        )
     if stage not in ("F5", "F6"):
-        checks.append(_maximum("control.free_edges", outputs["unnamed_free_edges"]))
+        checks.append(
+            _maximum(f"control.{stage.lower()}.free_edges", outputs["unnamed_free_edges"])
+        )
     if stage in ("F5", "F6"):
         measured = inputs["junction_lengths_m"]
         reference = inputs["clean_junction_lengths_m"]
@@ -134,7 +138,7 @@ def _sewn(kernel, stage, inputs):
         for pair, expected in reference.items():
             checks.append(
                 _maximum(
-                    "control.junction_length",
+                    f"control.{stage.lower()}.junction_length",
                     abs(measured[pair] - expected),
                     unit="m",
                     where={"pair": pair},
