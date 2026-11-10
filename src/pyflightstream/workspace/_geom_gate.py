@@ -228,14 +228,20 @@ class _Surface:
         grid = [(u, v) for u in np.linspace(u0, u1, _GRID) for v in np.linspace(v0, v1, _GRID)]
         best = min(grid, key=lambda uv: float(np.linalg.norm(self.at(*uv) - point)))
         u, v = float(best[0]), float(best[1])
-        step = 1e-6 * max(u1 - u0, v1 - v0)
+        ranges = np.array([u1 - u0, v1 - v0])
+        steps = 1e-6 * ranges
         for _ in range(_REFINE):
             here = self.at(u, v)
-            du = (self.at(min(u + step, u1), v) - self.at(max(u - step, u0), v)) / (2 * step)
-            dv = (self.at(u, min(v + step, v1)) - self.at(u, max(v - step, v0))) / (2 * step)
+            ua, ub = max(u - steps[0], u0), min(u + steps[0], u1)
+            va, vb = max(v - steps[1], v0), min(v + steps[1], v1)
+            du = (self.at(ub, v) - self.at(ua, v)) / (ub - ua)
+            dv = (self.at(u, vb) - self.at(u, va)) / (vb - va)
             jacobian = np.stack([du, dv], axis=1)
             move = np.linalg.lstsq(jacobian, point - here, rcond=None)[0]
+            previous = np.array([u, v])
             u, v = float(np.clip(u + move[0], u0, u1)), float(np.clip(v + move[1], v0, v1))
+            if np.max(np.abs((np.array([u, v]) - previous) / ranges)) <= 1e-12:
+                break
         return float(np.linalg.norm(self.at(u, v) - point))
 
 

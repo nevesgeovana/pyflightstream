@@ -209,6 +209,7 @@
       "tests/tier1_offline/test_p0570_geom_oracles.py",
       "tests/tier1_offline/test_p0570_geom_run.py",
       "tests/tier1_offline/test_p0570_geom_schema.py",
+      "tests/tier1_offline/test_p0570_gm8_export.py",
       "tests/tier1_offline/test_p0570_geometry_bodies.py",
       "tests/tier1_offline/test_p0570_geometry_check.py",
       "tests/tier1_offline/test_p0570_geometry_cli.py",
