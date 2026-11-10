@@ -113,6 +113,25 @@ def test_p0570_gm11_realized_errors_yes_no(code, yes, no, limit):
         mesh_measurements(code, "synthetic", no, limit)
 
 
+def test_p0570_gm11_followers_copy_shared_ids_with_first_neighbour_priority():
+    from pyflightstream.workspace._geometry_mesh_s1 import follower_edges
+
+    controls = {
+        "components": {
+            "first": {"role": "primary", "follows": []},
+            "second": {"role": "primary", "follows": []},
+            "blend": {"role": "follower", "follows": ["first", "second"]},
+        },
+        "order": ["first", "second", "blend"],
+    }
+    given = {"first": {"rim": [0, 1, 2]}, "second": {"rim": [8, 9, 10], "host": [3, 4, 5]}}
+    edges = follower_edges(controls, given)
+    assert edges["blend"] == {"rim": [0, 1, 2], "host": [3, 4, 5]}
+    assert given == {"first": {"rim": [0, 1, 2]}, "second": {"rim": [8, 9, 10], "host": [3, 4, 5]}}
+    with pytest.raises(InputValueError, match="follower.*distribution"):
+        follower_edges(controls, {**given, "blend": {"rim": [7, 8]}})
+
+
 def test_p0570_gm11_chordwise_plateau_and_spanwise_runs():
     from pyflightstream.geometry._mesh_schema import spacing_nodes
 
