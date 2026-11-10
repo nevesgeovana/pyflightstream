@@ -200,6 +200,8 @@
       "tests/tier1_offline/test_p0570_g5ra_sections.py",
       "tests/tier1_offline/test_p0570_g5rb_skin.py",
       "tests/tier1_offline/test_p0570_g6r_blend.py",
+      "tests/tier1_offline/test_p0570_g7r_assembly.py",
+      "tests/tier1_offline/test_p0570_g7r_junction_checks.py",
       "tests/tier1_offline/test_p0570_geom_bluff.py",
       "tests/tier1_offline/test_p0570_geom_bspline.py",
       "tests/tier1_offline/test_p0570_geom_cli.py",
