@@ -183,6 +183,7 @@
       "tests/tier1_offline/test_p0570_fix6_long_resolved_output.py",
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
       "tests/tier1_offline/test_p0570_g2r_trims.py",
+      "tests/tier1_offline/test_p0570_g3l_run_log.py",
       "tests/tier1_offline/test_p0570_g4r_curves.py",
       "tests/tier1_offline/test_p0570_g4r_regions.py",
       "tests/tier1_offline/test_p0570_g1r2_keys.py",
