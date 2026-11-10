@@ -23,11 +23,19 @@ type = "lifting_surface"
 [components.WING.sections]
 airfoils = ["NACA0012"]
 [components.WING.planform]
-span = 1.2
+sref_m2 = 0.24
 aspect_ratio = 6.0
 taper = 0.5
-sweep = 15.0
+le_sweep_deg = 15.0
 ```
+
+A lifting surface is given by one complete planform set: `sref_m2`, `aspect_ratio` and `taper`
+(the span, semispan and chords follow), or `semispan_mm`, `root_chord_mm` and `tip_chord_mm`. The
+semispan includes the tip cap. A file that mixes the two sets is refused with the redundant keys
+named. A file may also be written as `[surface]`, `[planform]`, `[[stations]]`, `[cap]`,
+`[[control]]` and `[[engine]]` tables with no `type` and no `components` table; `[surface]`
+makes it a lifting surface. A key that the verb reads but whose feature is not generated yet
+(a `[[bay]]` list, a cap template, a tabulated flap cove) warns by name and is skipped.
 
 ## Generate
 

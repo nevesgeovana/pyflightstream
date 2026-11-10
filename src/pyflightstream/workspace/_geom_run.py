@@ -354,7 +354,7 @@ def run_geometry(
     configuration, variant : str
         The entry of the configuration registry to build, and the variant of it.
     overrides : mapping, optional
-        ``{"main.planform.span": 12.0}``: component, then key path. A name no component holds is
+        ``{"main.planform.sref_m2": 12.0}``: component, then key path. A name no component holds is
         refused and nothing runs.
     until : str
         The last stage to run, ``S0`` to ``S13``. A run to ``S9`` needs no kernel.

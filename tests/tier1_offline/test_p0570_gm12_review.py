@@ -22,7 +22,9 @@ def test_r9_001_generate_reports_the_key_it_skipped(tmp_path):
     _need_gmsh()
     from pyflightstream.workspace._geometry_generate import generate_iges
 
-    record = generate_iges(_plain(planform={"span": 2.0, "sweeep": 30.0}), tmp_path / "w.igs")
+    record = generate_iges(
+        _plain(planform={"semispan_mm": 1000.0, "sweeep": 30.0}), tmp_path / "w.igs"
+    )
     assert any("sweeep" in text for text in record["warnings"])
 
 
@@ -58,7 +60,7 @@ def _resolved_in(scale, declared):
         "components": {
             "w": {
                 "type": "lifting_surface",
-                "planform": {"span": 9 * s, "root_chord": 1.2 * s, "tip_chord": 0.8 * s},
+                "planform": {"semispan_mm": 4500.0, "root_chord_mm": 1200.0, "tip_chord_mm": 800.0},
                 "distributions": {
                     "chord": {"stations": [0.0, 1.0], "values": [1.2 * s, 0.8 * s]},
                     "leading_edge_x": {"stations": [0.0, 1.0], "values": [0.0, 0.5 * s]},
@@ -219,8 +221,7 @@ def test_r9_005_a_resolved_file_follows_a_data_file_that_changed(tmp_path):
 _FOWLER = {
     "name": "f",
     "kind": "fowler",
-    "eta_in": 0.1,
-    "eta_out": 0.5,
+    "eta": [0.1, 0.5],
     "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
 }
 
@@ -286,7 +287,7 @@ _FOWLER = {
         (
             {
                 "type": "lifting_surface",
-                "control_surfaces": [{**_FOWLER, "cove": {**_FOWLER["cove"], "wall_xx": 0.7}}],
+                "control": [{**_FOWLER, "cove": {**_FOWLER["cove"], "wall_xx": 0.7}}],
             },
             "wall_xx",
         ),
@@ -612,7 +613,12 @@ _FULL = {
             "placement": {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]},
             "creases": [{"at": "x", "deg": 3.0}],
             "open_findings": ["a"],
-            "planform": {"span": 2.0, "root_chord": 1.0, "tip_chord": 0.5, "breaks": [0.5]},
+            "planform": {
+                "semispan_mm": 1000.0,
+                "root_chord_mm": 1000.0,
+                "tip_chord_mm": 500.0,
+                "breaks": [0.5],
+            },
             "distributions": {"chord": {"stations": [0.0, 1.0], "values": [1.0, 0.5]}},
             "sections": {
                 "items": [
@@ -621,13 +627,12 @@ _FULL = {
                 ],
                 "nacelle_bounds": [{"component": "H", "eta_in": 0.1, "eta_out": 0.2}],
             },
-            "tip_cap": {"kind": "flat", "shape": {"a": 1}},
-            "control_surfaces": [
+            "cap": {"type": "flat", "shape": {"a": 1}},
+            "control": [
                 {
                     "name": "f",
                     "kind": "fowler",
-                    "eta_in": 0.1,
-                    "eta_out": 0.5,
+                    "eta": [0.1, 0.5],
                     "deflection_deg": [10.0],
                     "split_around": ["H"],
                     "cove": {"p3": {"eta": 0.1, "z_over_c": 0.0}},
@@ -775,9 +780,7 @@ def _reference_case():
                             {"component": "h", "eta_in": 0.3, "eta_out": 0.4},
                         ]
                     },
-                    "control_surfaces": [
-                        {"name": "f", "eta_in": 0.1, "eta_out": 0.5, "split_around": ["pod", "h"]}
-                    ],
+                    "control": [{"name": "f", "eta": [0.1, 0.5], "split_around": ["pod", "h"]}],
                 },
             },
             "variants": {"cs": ["w.f", "w.nothing"]},
@@ -813,13 +816,13 @@ def test_r9_013_two_surfaces_that_overlap_in_span_are_refused():
     from pyflightstream.geometry.config import resolve_config
 
     surfaces = [
-        {"name": "f", "eta_in": 0.1, "eta_out": 0.5},
-        {"name": "a", "eta_in": 0.4, "eta_out": 0.9},
+        {"name": "f", "eta": [0.1, 0.5]},
+        {"name": "a", "eta": [0.4, 0.9]},
     ]
     with pytest.raises(InputValueError, match="f and a overlap"):
-        resolve_config(_plain(control_surfaces=surfaces))
-    surfaces[1]["eta_in"] = 0.5
-    resolve_config(_plain(control_surfaces=surfaces))
+        resolve_config(_plain(control=surfaces))
+    surfaces[1]["eta"] = [0.5, 0.9]
+    resolve_config(_plain(control=surfaces))
 
 
 # R9-014: the laws of a fillet.

@@ -21,12 +21,13 @@ from pyflightstream.geometry._patch import Patch
 from pyflightstream.geometry._trims import iso_trim, trim_checks
 
 SPAN, AR, TAPER = 8.0, 8.0, 0.6
+SREF = SPAN**2 / AR
 
 
 def wing(**extra):
     surface = {
         "type": "lifting_surface",
-        "planform": {"span": SPAN, "aspect_ratio": AR, "taper": TAPER},
+        "planform": {"sref_m2": SREF, "aspect_ratio": AR, "taper": TAPER},
         "sections": {"airfoils": ["NACA2412", "NACA0012"]},
         **extra,
     }
@@ -39,8 +40,8 @@ ACCEPTANCE = {
         "airfoils": ["NACA2412", "NACA0012"],
         "nacelle_bounds": [{"component": "N", "eta_in": 0.3, "eta_out": 0.45}],
     },
-    "control_surfaces": [{"name": "aileron", "eta_in": 0.6, "eta_out": 0.9, "chord_ratio": 0.25}],
-    "tip_cap": {"kind": "rounded"},
+    "control": [{"name": "aileron", "eta": [0.6, 0.9], "chord_ratio": 0.25}],
+    "cap": {"type": "rounded"},
 }
 
 
@@ -101,7 +102,7 @@ def test_g5rb_published_span_includes_the_rounded_cap(accepted):
     assert model.fraction == pytest.approx(expected, rel=2e-4)
     ridge = max(np.asarray(p.controls)[:, -1, 1].max() for p in model.caps.values())
     assert ridge == pytest.approx(SPAN / 2, abs=1e-9)
-    flat = lifting_model(wing(tip_cap={"kind": "flat"}))
+    flat = lifting_model(wing(cap={"type": "flat"}))
     assert flat.fraction == 1.0
     assert np.asarray(flat.skin.controls)[:, -1, 1] == pytest.approx(SPAN / 2, abs=1e-12)
 
@@ -198,8 +199,9 @@ def _face_area(model, trim):
 def test_g5rb_ruled_twist_inserts_sections_where_the_twist_sags_the_chord():
     straight = lifting_model(wing())
     assert records(straight)["law.ruled_twist"]["value"]["inserted"] == 0
-    twisted_component = wing(planform={"span": SPAN, "aspect_ratio": AR, "taper": TAPER,
-                                       "tip_twist": -3.0})  # fmt: skip
+    twisted_component = wing(
+        planform={"sref_m2": SREF, "aspect_ratio": AR, "taper": TAPER, "tip_twist": -3.0}
+    )
     twisted = lifting_model(twisted_component)
     found = records(twisted)["law.ruled_twist"]
     assert found["status"] == "pass" and found["value"]["inserted"] > 0
@@ -277,7 +279,7 @@ def test_g5rb_acceptance_wing_meshes_and_passes_the_tier1_spacing_rules():
     kernel_or_skip()
     surface = {
         "type": "lifting_surface",
-        "planform": {"span": SPAN, "aspect_ratio": AR, "taper": TAPER},
+        "planform": {"sref_m2": SREF, "aspect_ratio": AR, "taper": TAPER},
         **ACCEPTANCE,
     }
     config = {"components": {"W": surface, "N": {"type": "body"}}}

@@ -179,13 +179,13 @@ _SURFACE_FREE = frozenset(
 def _fill_surface(name, i, raw, warnings):
     """Overlay one control surface table on its defaults; an unknown key warns and is skipped."""
     if not isinstance(raw, dict):
-        raise InputValueError(f"{name}.control_surfaces[{i}]: expected a table")
+        raise InputValueError(f"{name}.control[{i}]: expected a table")
     surface = {k: (list(v) if isinstance(v, list) else v) for k, v in _SURFACE_DEFAULTS.items()}
     for key, value in raw.items():
         if key in _SURFACE_DEFAULTS or key in _SURFACE_FREE:
             surface[key] = value
         else:
-            warnings.append(f"{name}.control_surfaces[{i}].{key}: unknown key, skipped")
+            warnings.append(f"{name}.control[{i}].{key}: unknown key, skipped")
     return surface
 
 
@@ -193,10 +193,10 @@ def _check_interval(path, surface):
     """Check the span interval of a control surface; ``host`` is computed later."""
     for key in ("eta_in", "eta_out"):
         if surface.get(key) != "host":
-            number(surface.get(key), f"{path}.{key}", 0, 1)
+            number(surface.get(key), f"{path}.eta", 0, 1)
     if "host" not in (surface["eta_in"], surface["eta_out"]):
         if surface["eta_in"] >= surface["eta_out"]:
-            raise InputValueError(f"{path}.eta_in: overlaps or inverts the span interval")
+            raise InputValueError(f"{path}.eta: overlaps or inverts the span interval")
 
 
 def _check_choices(path, surface):
@@ -216,7 +216,7 @@ def _check_choices(path, surface):
 
 def _check_surface(name, i, surface):
     """Check one control surface table of a lifting surface (C.7)."""
-    path = f"{name}.control_surfaces[{i}]"
+    path = f"{name}.control[{i}]"
     if not isinstance(surface.get("name"), str) or not surface["name"]:
         raise InputValueError(f"{path}.name: required")
     _check_choices(path, surface)
@@ -267,16 +267,16 @@ def _check_no_overlap(name, surfaces):
     )
     for (_, end, left), (start, _, right) in zip(stated, stated[1:], strict=False):
         if start < end:
-            raise InputValueError(f"{name}.control_surfaces: {left} and {right} overlap in span")
+            raise InputValueError(f"{name}.control: {left} and {right} overlap in span")
 
 
 def _check_tip_cap(cap):
     """Check the kind of a tip cap and the counts the exact loft reads."""
     if cap["kind"] not in _CAP_KINDS:
-        raise InputValueError("tip_cap.kind: expected flat, rounded, ridged, exact_loft or none")
+        raise InputValueError("cap.type: expected flat, rounded, ridged, exact_loft or none")
     for key in ("sections", "control_points"):
         if not isinstance(cap[key], int) or isinstance(cap[key], bool) or cap[key] < 2:
-            raise InputValueError(f"tip_cap.{key}: expected an integer of at least 2")
+            raise InputValueError(f"cap.{key}: expected an integer of at least 2")
 
 
 def _warn_loft_counts(name, cap, raw, warnings):
@@ -286,8 +286,7 @@ def _warn_loft_counts(name, cap, raw, warnings):
     for key in ("sections", "control_points"):
         if key in raw:
             warnings.append(
-                f"{name}.tip_cap.{key}: read by an exact_loft cap only, a {cap['kind']} cap "
-                "skips it"
+                f"{name}.cap.{key}: read by an exact_loft cap only, a {cap['kind']} cap skips it"
             )
 
 
@@ -296,11 +295,11 @@ def _check_tip_extent(name, cap, raw, warnings):
     _warn_loft_counts(name, cap, raw, warnings)
     if "extent" not in cap:
         return
-    number(cap["extent"], f"{name}.tip_cap.extent", 0, strict=True)
+    number(cap["extent"], f"{name}.cap.extent", 0, strict=True)
     if "length" in raw:
-        raise InputValueError(f"{name}.tip_cap.extent: given together with tip_cap.length")
+        raise InputValueError(f"{name}.cap.extent: given together with cap.length")
     if cap["kind"] not in ("rounded", "exact_loft"):
-        warnings.append(f"{name}.tip_cap.extent: a {cap['kind']} cap has no reach, skipped")
+        warnings.append(f"{name}.cap.extent: a {cap['kind']} cap has no reach, skipped")
         cap.pop("extent")
 
 
@@ -355,9 +354,9 @@ def check_lifting_extras(name, component, raw, warnings, findings):
     ]
     names = [s.get("name") for s in component["control_surfaces"]]
     if len(set(names)) != len(names):
-        raise InputValueError(f"{name}.control_surfaces.name: duplicate")
+        raise InputValueError(f"{name}.control.name: duplicate")
     for i, surface in enumerate(component["control_surfaces"]):
-        _surface_tables(f"{name}.control_surfaces[{i}]", surface, warnings)
+        _surface_tables(f"{name}.control[{i}]", surface, warnings)
         _check_surface(name, i, surface)
         for skipped in surface.pop("_skipped", []):
             warnings.append(f"{skipped}: used by fowler only, skipped")

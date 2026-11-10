@@ -31,16 +31,8 @@ _RENAMED_PLANFORM = {
 _RENAMED_TOP = {
     "tip_cap": "cap (with type in place of kind)",
     "control_surfaces": "control (with eta = [inner, outer] in place of eta_in and eta_out)",
-    "engine_bounds": "engine",
-}
-_RENAMED_SECTIONS = {
-    "items": "stations (each with section = {kind = ...})",
-    "airfoils": 'stations (each with section = {kind = "naca", naca = ...})',
-    "eta": "stations (each with eta)",
-    "nacelle_bounds": "engine (eta_axis and half_width_mm)",
 }
 _SET_A = ("semispan_mm", "root_chord_mm", "tip_chord_mm")
-_SET_B = ("sref_m2", "aspect_ratio", "taper")
 _SURFACE_KEYS = ("name", "span_axis", "section_type", "model", "twist_axis")
 _STATION_KEYS = ("eta", "twist_deg", "te_thickness_mm", "section")
 _CONTROL_KEYS = ("name", "kind", "eta", "chord_ratio", "cove", "hinge_line")
@@ -112,8 +104,9 @@ def _translate_planform(name, raw, vertical):
     _planform_set(name, planform)
     for key in (*_PLANFORM_TO_INTERNAL, "semispan_mm"):
         if key in planform:
-            value = number(planform.pop(key), f"{name}.planform.{key}")
-            planform[_internal_name(key, vertical)] = value * _factor(key)
+            positive = None if key.endswith("_deg") else 0
+            value = number(planform.pop(key), f"{name}.planform.{key}", positive, strict=True)
+            planform[_internal_name(key, vertical)] = value * _factor(key, vertical)
     if "root_le_mm" in planform:
         _root_le(name, raw, planform.pop("root_le_mm"))
 
@@ -125,9 +118,11 @@ def _internal_name(key, vertical):
     return _PLANFORM_TO_INTERNAL[key][0]
 
 
-def _factor(key):
+def _factor(key, vertical):
     """Return the factor from the input unit to the resolver's: a semispan becomes a span."""
-    return 2e-3 if key == "semispan_mm" else _PLANFORM_TO_INTERNAL[key][1]
+    if key == "semispan_mm":
+        return 1e-3 if vertical else 2e-3
+    return _PLANFORM_TO_INTERNAL[key][1]
 
 
 def _root_le(name, raw, point):
@@ -321,7 +316,6 @@ def translate_lifting(name, raw, warnings, resolved):
         return
     _refuse_renamed(name, raw, _RENAMED_TOP)
     _refuse_renamed(f"{name}.planform", raw.get("planform"), _RENAMED_PLANFORM)
-    _refuse_renamed(f"{name}.sections", raw.get("sections"), _RENAMED_SECTIONS)
     vertical = _translate_surface(name, raw, warnings)
     _translate_planform(name, raw, vertical)
     _translate_cap(name, raw, warnings)

@@ -43,7 +43,7 @@ def write_ordinates(path, count=121):
 def raw(items, **extra):
     return {
         "type": "lifting_surface",
-        "planform": {"span": 1.2, "taper": 0.5, "sweep": 0.0},
+        "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 0.0},
         "sections": {"items": items},
         **extra,
     }

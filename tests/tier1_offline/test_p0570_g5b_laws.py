@@ -27,7 +27,7 @@ from pyflightstream.geometry._sections import (
 def lifting(sections):
     return {
         "type": "lifting_surface",
-        "planform": {"span": 1.2, "taper": 0.5, "sweep": 0.0},
+        "planform": {"semispan_mm": 600.0, "taper": 0.5, "le_sweep_deg": 0.0},
         "sections": sections,
     }
 

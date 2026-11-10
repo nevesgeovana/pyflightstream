@@ -44,13 +44,13 @@ rear = "pole"
 [components.main]
 type = "lifting_surface"
 attach = {parent = "hull", station = 0.35}
-planform = {span = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral = 3.0}
+planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral_deg = 3.0}
 sections.items = [{eta = 0.0, naca = "2412"}, {eta = 1.0, naca = "0012"}]
 
 [components.tailplane]
 type = "lifting_surface"
 attach = {parent = "hull", station = 0.9}
-planform = {span = 3.0, aspect_ratio = 5.0, taper = 0.7}
+planform = {sref_m2 = 1.8, aspect_ratio = 5.0, taper = 0.7}
 
 [components.main_blend]
 type = "fillet"
@@ -152,7 +152,7 @@ def test_stating_a_default_explicitly_keeps_the_value_and_changes_the_source():
         ({"components": {"a": {"type": "blister", "host": ""}}}, "host"),
         ({"components": {"a": {"type": "lifting_surface", "version": "1.x"}}}, "version"),
         ({"components": {"a": {"type": "lifting_surface", "creases": [{"deg": 5}]}}}, "creases"),
-        ({"components": {"a": {"type": "lifting_surface", "tip_cap": {"kind": "spiky"}}}}, "kind"),
+        ({"components": {"a": {"type": "lifting_surface", "cap": {"type": "spiky"}}}}, "cap.type"),
         (
             {
                 "components": {
@@ -233,10 +233,10 @@ def test_registry_extends_appends_overrides_and_refuses_a_cycle():
 
 
 def test_variants_naming_no_control_surface_warn_and_a_surface_resolves():
-    surface = {"name": "aileron", "kind": "aileron", "eta_in": 0.6, "eta_out": 0.9}
+    surface = {"name": "aileron", "kind": "aileron", "eta": [0.6, 0.9]}
     cfg = resolve_config(
         {
-            "components": {"main": {"type": "lifting_surface", "control_surfaces": [surface]}},
+            "components": {"main": {"type": "lifting_surface", "control": [surface]}},
             "variants": {"cs": ["main.aileron", "main.flap"]},
         }
     )
@@ -248,16 +248,15 @@ def test_variants_naming_no_control_surface_warn_and_a_surface_resolves():
 @pytest.mark.parametrize(
     "surface,word",
     [
-        ({"eta_in": 0.5, "eta_out": 0.4}, "overlaps"),
-        ({"eta_in": 0.1, "eta_out": 0.4, "chord_ratio": 0.9}, "chord_ratio"),
-        ({"eta_in": 0.1, "eta_out": 0.4, "gap_span": 0.2}, "gap_span"),
-        ({"eta_in": 0.1, "eta_out": 0.4, "gap_closure": "open"}, "gap_closure"),
-        ({"eta_in": 0.1, "eta_out": 0.4, "kind": "slat"}, "kind"),
-        ({"eta_in": 0.1, "eta_out": 0.4, "kind": "fowler"}, "cove.p3"),
+        ({"eta": [0.5, 0.4]}, "overlaps"),
+        ({"eta": [0.1, 0.4], "chord_ratio": 0.9}, "chord_ratio"),
+        ({"eta": [0.1, 0.4], "gap_span": 0.2}, "gap_span"),
+        ({"eta": [0.1, 0.4], "gap_closure": "open"}, "gap_closure"),
+        ({"eta": [0.1, 0.4], "kind": "slat"}, "kind"),
+        ({"eta": [0.1, 0.4], "kind": "fowler", "cove": {}}, "cove.p3"),
         (
             {
-                "eta_in": 0.1,
-                "eta_out": 0.4,
+                "eta": [0.1, 0.4],
                 "kind": "fowler",
                 "deflection_deg": [0, 20],
                 "cove": {"p3": {"eta": 0.5, "z_over_c": -0.02}},
@@ -269,18 +268,18 @@ def test_variants_naming_no_control_surface_warn_and_a_surface_resolves():
 def test_control_surface_refusals(surface, word):
     row = {"name": "f", **surface}
     with pytest.raises(InputValueError, match=word):
-        resolve_config(lifting(control_surfaces=[row]))
+        resolve_config(lifting(control=[row]))
 
 
 def test_duplicate_control_surface_names_are_refused():
-    rows = [{"name": "f", "eta_in": 0.1, "eta_out": 0.2}] * 2
+    rows = [{"name": "f", "eta": [0.1, 0.2]}] * 2
     with pytest.raises(InputValueError, match="duplicate"):
-        resolve_config(lifting(control_surfaces=rows))
+        resolve_config(lifting(control=rows))
 
 
 def test_fowler_extras_are_skipped_with_a_warning_on_a_plain_surface():
-    row = {"name": "f", "eta_in": 0.1, "eta_out": 0.4, "cove": {"wall_x": 0.7}}
-    cfg = resolve_config(lifting(control_surfaces=[row]))
+    row = {"name": "f", "eta": [0.1, 0.4], "cove": {"wall_x": 0.7}}
+    cfg = resolve_config(lifting(control=[row]))
     assert any("cove" in w for w in cfg["warnings"])
     assert "cove" not in unpack(cfg)["components"]["w"]["control_surfaces"][0]
 
@@ -320,7 +319,7 @@ def test_trailing_edge_collapsed_warns_and_stays_blunt():
 def test_exact_loft_cap_resolves_and_a_nacelle_bound_is_checked():
     cfg = resolve_config(
         lifting(
-            tip_cap={"kind": "exact_loft"},
+            cap={"type": "exact_loft"},
             sections={"nacelle_bounds": [{"component": "n", "eta_in": 0.2, "eta_out": 0.3}]},
         )
     )
@@ -361,13 +360,16 @@ def test_units_in_millimetres_and_radians_convert_to_metres_and_degrees():
         {
             "units": {"length": "mm", "angle": "rad"},
             "components": {
-                "w": {"type": "lifting_surface", "planform": {"span": 9000.0, "dihedral": 0.05}}
+                "w": {
+                    "type": "lifting_surface",
+                    "planform": {"semispan_mm": 4500.0, "incidence": 0.05},
+                }
             },
         }
     )
     plain = unpack(mm)["components"]["w"]["planform"]
     assert plain["span"] == pytest.approx(9.0)
-    assert plain["dihedral"] == pytest.approx(0.05 * 180 / np.pi)
+    assert plain["incidence"] == pytest.approx(0.05 * 180 / np.pi)
     assert mm["units"] == {"length": "m", "angle": "deg"}
 
 
@@ -413,10 +415,12 @@ def test_a_component_called_wing_or_fus_gets_no_special_default():
 
 
 def test_parameter_id_ignores_source_order_and_integer_or_float_spelling():
-    a = resolve_config(lifting(planform={"span": 9, "taper": 0.5}))
-    b = resolve_config(lifting(planform={"taper": 0.5, "span": 9.0}, trailing_edge="blunt"))
+    a = resolve_config(lifting(planform={"semispan_mm": 4500.0, "taper": 0.5}))
+    b = resolve_config(
+        lifting(planform={"taper": 0.5, "semispan_mm": 4500.0}, trailing_edge="blunt")
+    )
     assert parameter_id(a) == parameter_id(b)
-    c = resolve_config(lifting(planform={"span": 9.0000001, "taper": 0.5}))
+    c = resolve_config(lifting(planform={"semispan_mm": 4500.00005, "taper": 0.5}))
     assert parameter_id(a) != parameter_id(c)
     assert len(short(parameter_id(a))) == 16
 
@@ -575,10 +579,10 @@ def test_report_status_and_exit_codes():
 
 
 def test_tip_cap_shape_warns_is_skipped_and_is_listed_in_the_record():
-    cfg = resolve_config(lifting(tip_cap={"kind": "rounded", "shape": {"depth": 0.1}}))
+    cfg = resolve_config(lifting(cap={"type": "rounded", "shape": {"depth": 0.1}}))
     assert "shape" not in unpack(cfg)["components"]["w"]["tip_cap"]
-    assert any(w.startswith("w.tip_cap.shape") for w in cfg["warnings"])
-    assert any(f.startswith("w.tip_cap.shape") for f in cfg["findings"])
+    assert any(w.startswith("w.cap.shape") for w in cfg["warnings"])
+    assert any(f.startswith("w.cap.shape") for f in cfg["findings"])
     record = stage_record(
         "S0",
         "definition",
@@ -618,10 +622,10 @@ name = "t"
 
 [components.w]
 type = "lifting_surface"
-planform = {span = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral = 3.0}
+planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6, dihedral_deg = 3.0}
 spanwise = {law = "ruled"}
 sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
-tip_cap = {kind = "rounded"}
+cap = {type = "rounded"}
 """,
     )
     s = w["sections"]
@@ -799,11 +803,11 @@ name = "t"
 
 [components.w]
 type = "lifting_surface"
-planform = {span = 12.0, aspect_ratio = 9.0, taper = 0.5}
+planform = {sref_m2 = 16.0, aspect_ratio = 9.0, taper = 0.5}
 sections.items = [{eta = 0.0, naca = "23015"}, {eta = 1.0, naca = "0012"}]
-control_surfaces = [
-  {name = "flap", kind = "plain_flap", eta_in = 0.1, eta_out = 0.55},
-  {name = "aileron", kind = "aileron", eta_in = 0.55, eta_out = 0.95},
+control = [
+  {name = "flap", kind = "plain_flap", eta = [0.1, 0.55]},
+  {name = "aileron", kind = "aileron", eta = [0.55, 0.95]},
 ]
 sections.nacelle_bounds = [{component = "engine", eta_in = 0.28, eta_out = 0.34}]
 
@@ -822,14 +826,16 @@ attach = {parent = "w", station = 0.31}
     assert w["sections"]["nacelle_bounds"][0]["eta_out"] == 0.34
     assert cfg["warnings"] == []
     again = tmp_path / "geometry.toml"
-    again.write_text(again.read_text().replace("span = 12.0", "span = 14.0"), encoding="utf-8")
+    again.write_text(
+        again.read_text().replace("sref_m2 = 16.0", "sref_m2 = 18.0"), encoding="utf-8"
+    )
     other = unpack(load_config(again))["components"]["w"]
-    assert other["control_surfaces"] == w["control_surfaces"] and other["planform"]["span"] == 14.0
+    assert other["control_surfaces"] == w["control_surfaces"]
+    assert other["planform"]["span"] == pytest.approx((18.0 * 9.0) ** 0.5)
     for eta in (1.2, -0.1):
-        bad = copy.deepcopy(w["control_surfaces"][0])
-        bad["eta_out"] = eta
-        with pytest.raises(InputValueError, match="eta_out"):
-            resolve_config(lifting(control_surfaces=[bad]))
+        bad = {"name": "flap", "kind": "plain_flap", "eta": [0.1, eta]}
+        with pytest.raises(InputValueError, match="control.0..eta"):
+            resolve_config(lifting(control=[bad]))
 
 
 @pytest.mark.parametrize(
@@ -856,13 +862,12 @@ def test_r16_003_c7_area_at_fixed_aspect_ratio_and_an_over_determined_planform_n
         return unpack(resolve_config(raw))["components"]["w"]["planform"]
 
     for area in (9.0, 12.0):
-        p = planform(area=area, aspect_ratio=9.0, taper=0.6)
+        p = planform(sref_m2=area, aspect_ratio=9.0, taper=0.6)
         assert p["area"] == pytest.approx(area) and p["aspect_ratio"] == pytest.approx(9.0)
     with pytest.raises(InputValueError) as refused:
-        planform(span=9.0, aspect_ratio=9.0, taper=0.6, area=12.0)
+        planform(semispan_mm=4500.0, aspect_ratio=9.0, taper=0.6, sref_m2=12.0)
     text = str(refused.value)
-    assert "given span, area, aspect_ratio, taper" in text
-    assert "leave span out" in text
+    assert "semispan_mm" in text and "sref_m2" in text and "redundant" in text
 
 
 @pytest.mark.parametrize(

@@ -17,16 +17,16 @@ type = "lifting_surface"
 attach = { parent = "FUS", station = 0.4 }
 
 [components.WING.planform]
-span = 6.0
+sref_m2 = 4.0
 aspect_ratio = 9.0
 taper = 0.5
-sweep = 4.0
+le_sweep_deg = 4.0
 incidence = 2.0
 
 [components.WING.sections]
 airfoils = ["NACA0012", "NACA2412"]
 
-[components.WING.tip_cap]
-kind = "rounded"
+[components.WING.cap]
+type = "rounded"
 length = 1.2
 exponent = 0.9

@@ -254,19 +254,19 @@ def validate_ridge_profile(profile):
 
     Per chord station: spanwise start of the rounding, ridge height and superellipse exponent.
     """
-    stations(profile["stations"], "tip_cap.profile.stations")
+    stations(profile["stations"], "cap.profile.stations")
     if profile["stations"][0] != 0 or profile["stations"][-1] != 1:
-        raise InputValueError("tip_cap.profile.stations: must run from 0 to 1")
+        raise InputValueError("cap.profile.stations: must run from 0 to 1")
     for key in ("start", "ridge", "exponent"):
         values = profile[key]
         if not isinstance(values, list) or len(values) != len(profile["stations"]):
-            raise InputValueError(f"tip_cap.profile.{key}: count must match the stations")
+            raise InputValueError(f"cap.profile.{key}: count must match the stations")
         for value in values:
-            number(value, f"tip_cap.profile.{key}", 0, strict=key == "exponent")
+            number(value, f"cap.profile.{key}", 0, strict=key == "exponent")
     if any(r <= s for r, s in zip(profile["ridge"], profile["start"], strict=True)):
-        raise InputValueError("tip_cap.profile.ridge: must exceed start at every station")
+        raise InputValueError("cap.profile.ridge: must exceed start at every station")
     if any(n < 1.2 for n in profile["exponent"]):
-        raise InputValueError("tip_cap.profile.exponent: at least 1.2 required")
+        raise InputValueError("cap.profile.exponent: at least 1.2 required")
 
 
 def resolve_planform(supplied, defaults):
@@ -384,8 +384,8 @@ def resolve_lifting(raw, component, notes):
     warn_not_generated(notes["name"], component, notes["warnings"])
     if component["tip_cap"]["kind"] == "ridged":
         validate_ridge_profile(component["tip_cap"]["profile"])
-    number(component["tip_cap"]["length"], "tip_cap.length", 0, strict=True)
-    number(component["tip_cap"]["exponent"], "tip_cap.exponent", 0, strict=True)
+    number(component["tip_cap"]["length"], "cap.length", 0, strict=True)
+    number(component["tip_cap"]["exponent"], "cap.exponent", 0, strict=True)
     if len(component["root_fillet"]["radii"]) != 3:
         raise InputValueError("root_fillet.radii: requires LE, maximum thickness and TE values")
     for radius in component["root_fillet"]["radii"]:
@@ -571,7 +571,7 @@ def _skip_absent_references(components, warnings):
             for other in surface["split_around"]:
                 if other not in components:
                     warnings.append(
-                        f"{name}.control_surfaces.{surface['name']}.split_around: {other!r} is no "
+                        f"{name}.control.{surface['name']}.split_around: {other!r} is no "
                         "component, the piece stays continuous"
                     )
             surface["split_around"] = [o for o in surface["split_around"] if o in components]
@@ -609,9 +609,9 @@ def _resolve_component(name, raw, notes, base):
     cap = raw.get("tip_cap")
     if isinstance(cap, dict) and "shape" in cap:
         cap.pop("shape")
-        notes["warnings"].append(f"{name}.tip_cap.shape: parameter not yet defined, skipped")
+        notes["warnings"].append(f"{name}.cap.shape: parameter not yet defined, skipped")
         notes["findings"].append(
-            f"{name}.tip_cap.shape: given and skipped until the parameter is defined"
+            f"{name}.cap.shape: given and skipped until the parameter is defined"
         )
     free = FREE_BY_TYPE.get(raw["type"], frozenset())
     component = merge_values(

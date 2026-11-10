@@ -48,7 +48,12 @@ def test_inconsistent_root_chord():
         resolve_config(
             {
                 "type": "lifting_surface",
-                "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "root_chord": 4.0},
+                "planform": {
+                    "sref_m2": 50.0,
+                    "aspect_ratio": 8.0,
+                    "taper": 0.7,
+                    "root_chord_mm": 4000.0,
+                },
             }
         )
 
@@ -57,7 +62,7 @@ def test_independent_set_derives_area_and_mean_chord(tmp_path):
     result = resolve_config(
         {
             "type": "lifting_surface",
-            "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
+            "planform": {"sref_m2": 50.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
             "sections": {"airfoils": ["NACA23018", "NACA23012"]},
         }
     )
@@ -76,13 +81,13 @@ def test_independent_set_derives_area_and_mean_chord(tmp_path):
         ({"type": "body", "stations": [0.2, 0.8]}, "stations"),
         ({"type": "body", "azimuths": [0, 90, 180]}, "azimuths"),
         ({"type": "body", "stations": [0.2, 0.1, 0.8]}, "stations"),
-        ({"type": "lifting_surface", "planform": {"span": -1}}, "span"),
+        ({"type": "lifting_surface", "planform": {"semispan_mm": -500.0}}, "span"),
         ({"type": "lifting_surface", "planform": {"aspect_ratio": float("nan")}}, "aspect_ratio"),
         ({"type": "lifting_surface", "sections": {"airfoils": []}}, "sections.eta"),
         ({"type": "propeller", "hub_radius": 2}, "hub_radius"),
         ({"units": {"length": "ft"}, "components": {"A": {"type": "body"}}}, "units"),
         ({"type": "body", "length": {"value": 1, "unit": "ft", "source": "given"}}, "length.unit"),
-        ({"type": "lifting_surface", "tip_cap": {"kind": "spiky"}}, "tip_cap.kind"),
+        ({"type": "lifting_surface", "cap": {"type": "spiky"}}, "cap.type"),
         ({"type": "lifting_surface", "sections": {"airfoils": ["CLARKY", "CLARKY"]}}, "NACA"),
     ],
 )
@@ -110,13 +115,16 @@ def test_parent_cycle():
 
 def test_alternate_independent_sets():
     c = resolve_config(
-        {"type": "lifting_surface", "planform": {"span": 20, "root_chord": 3, "tip_chord": 2}}
+        {
+            "type": "lifting_surface",
+            "planform": {"semispan_mm": 10000.0, "root_chord_mm": 3000.0, "tip_chord_mm": 2000.0},
+        }
     )
     p = unpack(c)["components"]["COMPONENT"]["planform"]
     assert p["area"] == 50
     assert p["aspect_ratio"] == 8
     c = resolve_config(
-        {"type": "lifting_surface", "planform": {"area": 50, "aspect_ratio": 8, "taper": 0.7}}
+        {"type": "lifting_surface", "planform": {"sref_m2": 50, "aspect_ratio": 8, "taper": 0.7}}
     )
     assert unpack(c)["components"]["COMPONENT"]["planform"]["span"] == 20
 
@@ -128,7 +136,7 @@ def test_ridge_profile_validation():
         "ridge": [0.01, 0.05, 0.06],
         "exponent": [2.5, 2.5, 3.0],
     }
-    resolve_config({"type": "lifting_surface", "tip_cap": {"kind": "ridged", "profile": profile}})
+    resolve_config({"type": "lifting_surface", "cap": {"type": "ridged", "profile": profile}})
     for key, value, word in [
         ("stations", [0.0, 0.5, 0.9], "stations"),
         ("exponent", [1.0, 2.5, 3.0], "exponent"),
@@ -136,6 +144,4 @@ def test_ridge_profile_validation():
     ]:
         bad = {**profile, key: value}
         with pytest.raises(InputValueError, match=word):
-            resolve_config(
-                {"type": "lifting_surface", "tip_cap": {"kind": "ridged", "profile": bad}}
-            )
+            resolve_config({"type": "lifting_surface", "cap": {"type": "ridged", "profile": bad}})

@@ -26,10 +26,10 @@ type = "lifting_surface"
 [components.WING.sections]
 airfoils = ["NACA0012"]
 [components.WING.planform]
-span = 1.2
+sref_m2 = 0.24
 aspect_ratio = 6.0
 taper = 0.5
-sweep = 15.0
+le_sweep_deg = 15.0
 """
 
 
@@ -170,7 +170,7 @@ def test_r6_a_flag_the_verb_will_not_use_is_warned(tmp_path, capsys):
 
 def test_p0570_run_refuses_a_configuration_with_an_unknown_tip_cap_kind(tmp_path, capsys):
     config = tmp_path / "bad.toml"
-    config.write_text(WING + '[components.WING.tip_cap]\nkind = "spiky"\n', encoding="utf-8")
+    config.write_text(WING + '[components.WING.cap]\ntype = "spiky"\n', encoding="utf-8")
     code, report, err, igs = generated(config, tmp_path / "bad", capsys)
     assert code == 2
     assert err.strip() and report["status"] == "refused" and igs is None
@@ -288,7 +288,7 @@ def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path
     config = tmp_path / "bspline.toml"
     config.write_text(
         '[components.W]\ntype = "lifting_surface"\n'
-        "planform = {span = 9.0, aspect_ratio = 9.0, taper = 0.6}\n"
+        "planform = {sref_m2 = 9.0, aspect_ratio = 9.0, taper = 0.6}\n"
         f'sections.items = [{BSPLINE_ITEM}, {{eta = 1.0, naca = "0012"}}]\n',
         encoding="utf-8",
     )

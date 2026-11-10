@@ -22,11 +22,11 @@ type = "lifting_surface"
 [components.WING.sections]
 airfoils = ["NACA0012"]
 [components.WING.planform]
-span = 1.2
+sref_m2 = 0.24
 aspect_ratio = 6.0
 taper = 0.5
-sweep = 15.0
-dihedral = {dihedral}
+le_sweep_deg = 15.0
+dihedral_deg = {dihedral}
 """
 
 
@@ -120,7 +120,7 @@ def test_r14_001_a_rounded_tip_cap_does_not_move_the_tip_of_a_dihedral_wing(
     kernel_or_skip()
     pytest.importorskip("contourpy")
     config = tmp_path / "wing.toml"
-    text = WING.format(dihedral=dihedral) + '[components.WING.tip_cap]\nkind = "rounded"\n'
+    text = WING.format(dihedral=dihedral) + '[components.WING.cap]\ntype = "rounded"\n'
     config.write_text(text, encoding="utf-8")
     igs = generate(config, tmp_path / "gen", capsys)
     rebuilt = tmp_path / "found.toml"

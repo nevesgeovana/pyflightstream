@@ -185,6 +185,7 @@
       "tests/tier1_offline/test_p0570_g2r_trims.py",
       "tests/tier1_offline/test_p0570_g4r_curves.py",
       "tests/tier1_offline/test_p0570_g4r_regions.py",
+      "tests/tier1_offline/test_p0570_g1r2_keys.py",
       "tests/tier1_offline/test_p0570_g5_dihedral_identify.py",
       "tests/tier1_offline/test_p0570_g5_sections.py",
       "tests/tier1_offline/test_p0570_g5b_caps.py",

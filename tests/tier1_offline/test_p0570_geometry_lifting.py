@@ -39,14 +39,14 @@ def component(raw):
 
 
 def wing(kind="rounded", **extra):
-    cap = {"kind": kind, "length": 1.282, "exponent": 0.85} if kind == "rounded" else {"kind": kind}
+    cap = {"type": kind, "length": 1.282, "exponent": 0.85} if kind == "rounded" else {"type": kind}
     if kind == "ridged":
         cap["profile"] = copy.deepcopy(PROFILE)
     return component(
         {
-            "planform": {"taper": 0.7, "sweep": 3.0},
+            "planform": {"taper": 0.7, "le_sweep_deg": 3.0},
             "sections": {"airfoils": ["NACA23018", "NACA23012"]},
-            "tip_cap": cap,
+            "cap": cap,
             **extra,
         }
     )
@@ -91,7 +91,7 @@ def test_patch_round_trips_through_plain_data_and_refuses_small_grids():
 def test_tapered_wing_chord_and_twist_follow_the_planform():
     c = component(
         {
-            "planform": {"span": 20.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
+            "planform": {"sref_m2": 50.0, "aspect_ratio": 8.0, "taper": 0.7, "incidence": 3.0},
             "sections": {"airfoils": ["NACA23018", "NACA23012"]},
         }
     )
@@ -197,7 +197,7 @@ def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
     c = component(
         {
             "sections": {"airfoils": ["NACA0012"]},
-            "tip_cap": {"kind": "rounded", "length": 1.7},
+            "cap": {"type": "rounded", "length": 1.7},
         }
     )
     models = section_models(c["sections"])
@@ -214,10 +214,10 @@ def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
 
 
 def test_flat_cap_is_nine_patches_and_none_is_empty():
-    c = component({"tip_cap": {"kind": "flat"}})
+    c = component({"cap": {"type": "flat"}})
     flat = tip_cap(c)
     assert len(flat) == 9 and all(p.family == "tip_cap" for p in flat)
-    assert tip_cap(component({"tip_cap": {"kind": "none"}})) == []
+    assert tip_cap(component({"cap": {"type": "none"}})) == []
 
 
 @pytest.fixture(scope="module")

@@ -28,7 +28,11 @@ def configuration(**wing):
     data = {
         "components": {
             "N": {"type": "body"},
-            "W": {"type": "lifting_surface", "planform": {"span": 1.2, "taper": 0.5}, **wing},
+            "W": {
+                "type": "lifting_surface",
+                "planform": {"semispan_mm": 600.0, "taper": 0.5},
+                **wing,
+            },
         }
     }
     resolved = resolve_config(data)
@@ -88,7 +92,7 @@ def test_g5b_nacelle_bounds_given_twice_share_a_station():
 
 def loft_component(exponent=1.0):
     cap = {"kind": "exact_loft", "length": 1.0, "exponent": exponent}
-    return configuration(tip_cap={**cap, "sections": 8, "control_points": 15})[1]
+    return configuration(cap={**cap, "sections": 8, "control_points": 15})[1]
 
 
 def test_g5b_exact_loft_matches_its_closed_form():
@@ -140,10 +144,10 @@ def test_g5b_exact_loft_cap_is_two_patches_and_a_wrong_exponent_changes_it():
 def test_g5b_exact_loft_counts_come_from_the_input_and_bad_counts_are_refused():
     component = loft_component()
     assert component["tip_cap"]["sections"] == 8
-    with pytest.raises(InputValueError, match="tip_cap.sections"):
-        configuration(tip_cap={"kind": "exact_loft", "sections": 1})
-    with pytest.raises(InputValueError, match="tip_cap.kind"):
-        configuration(tip_cap={"kind": "exact-loft"})
+    with pytest.raises(InputValueError, match="cap.sections"):
+        configuration(cap={"type": "exact_loft", "sections": 1})
+    with pytest.raises(InputValueError, match="cap.type"):
+        configuration(cap={"type": "exact-loft"})
 
 
 def trailing(component):
@@ -165,7 +169,7 @@ def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
     from pyflightstream.geometry._boundary import unpack  # noqa: F401
 
     for kind in ("rounded", "exact_loft"):
-        _, component = configuration(tip_cap={"kind": kind, "extent": 0.08})
+        _, component = configuration(cap={"type": kind, "extent": 0.08})
         models = section_models(component["sections"])
         section = blended_section(component["sections"], models, 1.0)
         maximum = thickness_station(component, models, 1.0)
@@ -177,19 +181,19 @@ def test_g5b_tip_cap_extent_sets_the_printed_reach_for_rounded_and_loft_caps():
 
 
 def test_g5b_tip_cap_extent_bad_input():
-    with pytest.raises(InputValueError, match="together with tip_cap.length"):
-        configuration(tip_cap={"kind": "rounded", "extent": 0.08, "length": 2.0})
+    with pytest.raises(InputValueError, match="together with cap.length"):
+        configuration(cap={"type": "rounded", "extent": 0.08, "length": 2.0})
     with pytest.raises(InputValueError, match="extent"):
-        configuration(tip_cap={"kind": "rounded", "extent": -0.1})
-    warnings, component = configuration(tip_cap={"kind": "flat", "extent": 0.08})
-    assert any("tip_cap.extent" in text for text in warnings)
+        configuration(cap={"type": "rounded", "extent": -0.1})
+    warnings, component = configuration(cap={"type": "flat", "extent": 0.08})
+    assert any("cap.extent" in text for text in warnings)
     assert "extent" not in component["tip_cap"]
 
 
 @pytest.mark.parametrize("kind", ["flat", "rounded", "ridged", "none"])
 def test_r14_004_loft_counts_on_another_cap_are_warned_and_skipped(kind):
-    warnings, _ = configuration(tip_cap={"kind": kind, "sections": 12, "control_points": 9})
-    assert any("tip_cap.sections" in text and kind in text for text in warnings)
-    assert any("tip_cap.control_points" in text for text in warnings)
-    warnings, _ = configuration(tip_cap={"kind": "exact_loft", "sections": 12})
-    assert not [text for text in warnings if "tip_cap.sections" in text]
+    warnings, _ = configuration(cap={"type": kind, "sections": 12, "control_points": 9})
+    assert any("cap.sections" in text and kind in text for text in warnings)
+    assert any("cap.control_points" in text for text in warnings)
+    warnings, _ = configuration(cap={"type": "exact_loft", "sections": 12})
+    assert not [text for text in warnings if "cap.sections" in text]
