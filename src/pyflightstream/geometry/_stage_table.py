@@ -92,7 +92,31 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("closure.no_ridge", "acceptance"),
         ("closure.retracted_identity", "acceptance"),
     ),
-    # Sub-steps of S8 for the blend pieces (G6R), each with its own measured checks.
+    # Sub-steps of S8 for the blend pieces (G6R), each with its own measured checks. A blister
+    # hosts a fillet, so its sub-steps come first and its own check stops the run.
+    _row(
+        "S8.B1",
+        "Blister build",
+        False,
+        ("section.residual", "body tolerance, 1e-4 of its length by default"),
+        ("continuity.bluff_jump", "1 deg, geometry._blister.SEAM_LIMIT_DEG"),
+    ),
+    _row(
+        "S8.B2",
+        "Blister trim by host",
+        False,
+        ("closure.base_present", "every section enters the host"),
+        ("blister.crease_on_host", "1e-9 m"),
+        ("trim.closed", "1e-12 in parameter units"),
+        ("trim.in_domain", "domain of the base"),
+        ("trim.area_removed", "1e-2 relative, geometry._blister.AREA_REMOVED_LIMIT"),
+    ),
+    _row(
+        "S8.B3",
+        "Blister closure",
+        False,
+        ("closure.free_edges", "none: poles at the tips, symmetry plane at the keel"),
+    ),
     _row(
         "S8.F1",
         "Fillet build",
@@ -116,29 +140,6 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         "Fillet closure",
         False,
         ("closure.free_edges", "none; the lower end when the lower face stops short of the TE"),
-    ),
-    _row(
-        "S8.B1",
-        "Blister build",
-        False,
-        ("section.residual", "body tolerance, 1e-4 of its length by default"),
-        ("continuity.bluff_jump", "1 deg, geometry._blister.SEAM_LIMIT_DEG"),
-    ),
-    _row(
-        "S8.B2",
-        "Blister trim by host",
-        False,
-        ("closure.base_present", "every section enters the host"),
-        ("blister.crease_on_host", "1e-9 m"),
-        ("trim.closed", "1e-12 in parameter units"),
-        ("trim.in_domain", "domain of the base"),
-        ("trim.area_removed", "1e-2 relative, geometry._blister.AREA_REMOVED_LIMIT"),
-    ),
-    _row(
-        "S8.B3",
-        "Blister closure",
-        False,
-        ("closure.free_edges", "none: poles at the tips, symmetry plane at the keel"),
     ),
     _row(
         "S9",

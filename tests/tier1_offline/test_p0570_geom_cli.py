@@ -192,7 +192,7 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
     assert code == 0 and printed(out)["components"] == ["FUS"]
     code, out, _ = geom(["stages"], capsys)
     rows = printed(out)["stages"]
-    steps = [f"S8.{piece}{n}" for piece in "FB" for n in (1, 2, 3)]  # G6R sub-steps of S8
+    steps = [f"S8.{piece}{n}" for piece in "BF" for n in (1, 2, 3)]  # G6R sub-steps of S8
     assert [r["stage"] for r in rows] == [f"S{i}" for i in range(9)] + steps + ["S9"] + [
         f"S{i}" for i in range(10, 14)
     ]

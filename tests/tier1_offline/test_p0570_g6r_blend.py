@@ -421,7 +421,7 @@ def test_p0570_g6r_each_blend_sub_step_writes_its_record_with_inputs(tmp_path):
 
     report = _geom_run.run_geometry(_demo_with_pod(), out=tmp_path, until="S9")
     assert report["status"] == "incomplete", report.get("message")  # S1 to S7 are not built here
-    steps = ["S8.F1", "S8.F2", "S8.F3", "S8.B1", "S8.B2", "S8.B3"]
+    steps = ["S8.B1", "S8.B2", "S8.B3", "S8.F1", "S8.F2", "S8.F3"]  # a blister may host a fillet
     assert [s["stage"] for s in report["stages"] if s["stage"].startswith("S8.")] == steps
     expected = {
         "S8.F1": {"fillet.spine", "closure.tangent_host", "closure.tangent_wing"},
@@ -827,3 +827,21 @@ def test_r22_006_a_sections_file_under_other_length_units_is_warned_read_in_metr
     assert "read in metres" in warning and "'mm'" in warning
     model = blister_model(components["pod"], components["hull"])  # the file is in metres
     assert {r["status"] for r in model.records} == {"passed"}
+
+
+def test_r22_007_a_fillet_on_a_failing_blister_stops_the_run_at_the_blister(tmp_path):
+    """R22-007: a blister hosts a fillet, so its sub-steps run first and its own check stops
+    the run, naming the blister rather than the fillet built on it."""
+    from pyflightstream.workspace import _geom_run
+
+    config = _low_wing_in_a_belly()
+    config["components"]["belly"]["sections"] = {"width": [0.0, 0.4, 0.9, 0.4, 0.0]}
+    report = _geom_run.run_geometry(config, out=tmp_path, until="S9")
+    assert (report["status"], report["stage"], report["check"]) == (
+        "failed",
+        "S8.B2",
+        "closure.base_present",
+    )
+    assert report["where"]["component"] == "belly"
+    stages = [s["stage"] for s in report["stages"] if s["stage"].startswith("S8.")]
+    assert stages == ["S8.B1", "S8.B2"]
