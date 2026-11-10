@@ -17,6 +17,8 @@ from pyflightstream._errors import InputValueError
 
 from ._bspline import full_knots, insert_knot, split_patch, union_knots
 from ._caps import _refined, lifting_model
+from ._control_span import prepare_spans
+from ._control_span import span_limits as _span
 from ._patch import Patch
 from ._placement import placement_transform
 from ._trims import Trim, iso_trim
@@ -30,6 +32,7 @@ class ControlPartition:
 
     bases: dict[str, Patch]
     pieces: dict[str, tuple[Trim, ...]]
+    warnings: tuple[str, ...] = ()
 
 
 def _interval(patch, direction, low, high):
@@ -206,18 +209,6 @@ def _caps(component, model):
     return bases, main
 
 
-def _span(entry, fraction, previous):
-    if entry["kind"] not in ("plain_flap", "aileron"):
-        raise InputValueError("control.kind: this builder requires plain_flap or aileron")
-    a, b = (float(entry[k]) / fraction for k in ("eta_in", "eta_out"))
-    gap = float(entry["gap_span"]) / fraction
-    if not np.isfinite(gap) or gap < 0 or 2 * gap >= b - a:
-        raise InputValueError("control.gap_span: must leave a positive moving span")
-    if a < previous:
-        raise InputValueError("control.eta: overlapping controls")
-    return a, b, gap
-
-
 def build(component: dict) -> ControlPartition:
     """Build plain flap and aileron pieces from resolved control entries.
 
@@ -237,6 +228,7 @@ def build(component: dict) -> ControlPartition:
     InputValueError
         If controls overlap, gaps consume a span, or a hinge cannot rotate rigidly.
     """
+    component, warnings = prepare_spans(component)
     model = lifting_model(component)
     skin = model.skin
     bases, main = _caps(component, model)
@@ -279,7 +271,7 @@ def build(component: dict) -> ControlPartition:
         _rectangle(main, u, (previous, 1.0))
     if previous < 1:
         main.append(iso_trim("te_end", "trailing_edge", (0, 1), (previous, 1), "trailing_edge"))
-    return ControlPartition(bases, {"main": tuple(main), **pieces})
+    return ControlPartition(bases, {"main": tuple(main), **pieces}, tuple(warnings))
 
 
 def placed(components: dict, name: str) -> ControlPartition:

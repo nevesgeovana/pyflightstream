@@ -97,11 +97,13 @@ def prepare(kernel, components, members, out):
     folder = Path(out)
     folder.mkdir(parents=True, exist_ok=True)
     written, mains, moving, combined, manifest = {}, {}, {}, {}, {}
+    warnings = []
     for index, name in enumerate(members):
         component = components[name]
         if not component.get("control_surfaces"):
             continue
         model = controls.placed(components, name)
+        warnings.extend(model.warnings)
         manifest[name] = {
             "bases": {key: patch.to_dict() for key, patch in model.bases.items()},
             "pieces": {key: [t.to_dict() for t in trims] for key, trims in model.pieces.items()},
@@ -121,7 +123,7 @@ def prepare(kernel, components, members, out):
     sidecar = folder / "applied-controls.json"
     write_record(sidecar, manifest)
     inputs = {
-        "F0": {"pieces": written, "applied_controls": str(sidecar)},
+        "F0": {"pieces": written, "applied_controls": str(sidecar), "warnings": warnings},
         "F1": {"batch": mains},
         "F2": {"batch": moving},
         "F4": {"batch": combined},

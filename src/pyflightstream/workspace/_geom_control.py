@@ -191,4 +191,9 @@ def check_stage(kernel, stage, inputs):
         checks, outputs = _sewn(kernel, stage, inputs)
     else:
         raise InputValueError(f"control stage {stage!r}: expected F0 through F7")
-    return {"checks": checks, "outputs": outputs, "wall_s": time.perf_counter() - clock}
+    return {
+        "checks": checks,
+        "outputs": outputs,
+        "wall_s": time.perf_counter() - clock,
+        "warnings": list(inputs.get("warnings", [])),
+    }

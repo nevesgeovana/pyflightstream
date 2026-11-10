@@ -33,3 +33,8 @@ F5/F6 waits remain incomplete until the trimmed assembly boundary is supplied.
 
 Combined checks now include one angle choice from every control, so a second
 control cannot disappear from an otherwise closed main/control configuration.
+
+Explicit exposed roots map eta into the planform semispan. Named engine
+bounding sections split a control into closed inboard and outboard pieces;
+missing bounds retain one piece with a recorded warning. Host-derived limits
+without a measured boundary refuse instead of using an invented station.
