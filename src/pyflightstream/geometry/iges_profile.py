@@ -7,7 +7,8 @@ is warned about, never refused. Only a solid entity is refused, because the pack
 surfaces only.
 
 Observed: non-rational, clamped, bicubic parametric surfaces (entity 128), trimmed by an outer
-boundary (entities 142 and 102), each face named by a 406 form 15 property. The observed
+boundary (entities 142 and 102) and, where a face has holes, inner boundaries, each face named by
+a 406 form 15 property. The observed
 degrees are a set per direction and the observed net size a limit, both filled from the licensed
 reader probe (record ``tests/tier1_offline/data/g13p-reads.json``, build 26.127, lane G13P): the
 solver read faces of degree 1, 3 and 5 in either direction, and a net of 111 by 18, from files
@@ -70,6 +71,8 @@ class ReaderProfile:
     limit, and a larger net then fails. ``bad_side_counts`` are the numbers of curves of an outer
     boundary that fail: a three-sided face collapses a side and is not among the observed shapes.
     ``loop_gap`` is the gap, in parameter units, within which a trim loop is closed.
+    ``inner_loops`` is true once a probe read a face with an inner boundary with the hole
+    subtracted; while it is false, a face with inner boundaries is warned about.
     """
 
     rational: bool = False
@@ -81,6 +84,7 @@ class ReaderProfile:
     degrees_v: tuple[int, ...] | None = None
     max_net: tuple[int, int] | None = None
     loop_gap: float = 1e-7
+    inner_loops: bool = False
 
     def observed(self, direction: str) -> tuple[int, ...]:
         """Return the degrees observed read in ``direction`` (``"u"`` or ``"v"``)."""
@@ -88,8 +92,11 @@ class ReaderProfile:
         return self.degrees if own is None else own
 
 
-#: The profile every file is measured against.
-OBSERVED = ReaderProfile(degrees_u=(1, 3, 5), degrees_v=(1, 3, 5))
+#: The profile every file is measured against. Inner loops are observed read: the probe face P5
+#: (one face with an inner loop) read with the hole subtracted, its area within 0.03 percent of the
+#: written face, through ``iges-convert`` (record ``g13p-reads.json``) and imported directly
+#: (record ``g13d-reads.json``).
+OBSERVED = ReaderProfile(degrees_u=(1, 3, 5), degrees_v=(1, 3, 5), inner_loops=True)
 
 
 @dataclass(frozen=True)

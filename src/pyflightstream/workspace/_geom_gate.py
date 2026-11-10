@@ -4,7 +4,8 @@ Pure text work on the file, with no kernel: :func:`check_profile` reads the enti
 reports one finding per defect. A solid entity is refused with an error, because the package
 builds surfaces only. Every other defect is a ``fail`` finding that names its check and entity,
 so a loop of parameter sets keeps its report. A degree beyond the observed ones, which no source
-limits yet, an inner loop and a surface of revolution (120) are a ``warn``. The profile itself is
+limits yet, a surface of revolution (120), and an inner loop while the profile does not record
+inner loops as read, are a ``warn``. The profile itself is
 :mod:`pyflightstream.geometry.iges_profile`.
 
 A trimmed face (144) is read from its parameter list, not from where this package writes things:
@@ -400,7 +401,7 @@ def face_findings(
                 "source states the rest",
             )
         )
-    if face.inner:
+    if face.inner and not profile.inner_loops:
         found.append(
             GateFinding(
                 "profile.inner_loop",

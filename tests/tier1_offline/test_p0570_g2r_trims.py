@@ -363,6 +363,9 @@ def test_an_inner_boundary_and_a_120_warn_and_do_not_fail(written, tmp_path):
     report = _gate(_rewrite(tmp_path, document, "warn.igs"))
     assert _checks(report) == ["profile.entity", "profile.inner_loop"] and report.passed
     assert {f.severity for f in report.findings} == {"warn"}
+    # R21-014: a profile that records inner loops as read does not warn about them
+    observed = _gate(_rewrite(tmp_path, document, "observed.igs"), inner_loops=True)
+    assert _checks(observed) == ["profile.entity"]
 
 
 def test_degrees_are_observed_per_direction_and_a_net_limit_fails(written):

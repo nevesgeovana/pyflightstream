@@ -88,3 +88,17 @@ def _entity(k1: int, k2: int, m1: int, m2: int) -> dict:
     values = ["128", str(k1), str(k2), str(m1), str(m2), "0", "0", "0", "0", "0"]
     values += [str(v) for v in t1 + t2 + weights]
     return {"id": 1, "parameters": values}
+
+
+def test_r21_014_inner_loops_are_observed_read_on_both_routes(record):
+    """R21-014: P5 read with the hole subtracted, converted (g13p) and direct (g13d), so the
+    profile records inner loops as read and the gate does not warn about them."""
+    direct = json.loads((RECORD.parent / "g13d-reads.json").read_text(encoding="utf-8"))
+    item = record["items"]["P5"]
+    assert "inner loop" in item["shows"]
+    hole = item["written_total_area"]
+    assert hole < record["items"]["P1"]["written_total_area"] - 0.1
+    assert item["through_iges_convert"]["area"] == pytest.approx(hole, rel=1e-3)
+    assert direct["after_fix_direct"]["P5"]["area"] == pytest.approx(hole, rel=1e-3)
+    assert OBSERVED.inner_loops is True
+    assert ReaderProfile().inner_loops is False
