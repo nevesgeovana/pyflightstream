@@ -35,6 +35,7 @@ from pyflightstream.geometry._component_keys import (
     check_fillet,
     check_lifting_extras,
 )
+from pyflightstream.geometry._fillet import fillet_notes
 from pyflightstream.geometry._identity import SCHEMA_MAJOR
 from pyflightstream.geometry._schema import (
     TYPES,
@@ -474,6 +475,7 @@ def resolve_fairing(raw, component, notes):
 def resolve_fillet(raw, component, notes):
     """Validate a fillet component and return its (empty) derived quantities."""
     check_fillet(notes["name"], component, notes["warnings"], notes["findings"])
+    fillet_notes(notes["name"], component, notes["warnings"])
     return {}
 
 

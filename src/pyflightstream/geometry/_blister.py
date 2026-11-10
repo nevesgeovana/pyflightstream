@@ -33,6 +33,7 @@ __all__ = [
     "blister_law",
     "blister_model",
     "blister_notes",
+    "blister_region",
 ]
 
 #: Samples per section for the fit, and the section's interior knots (degree 3).
@@ -68,14 +69,26 @@ class BodyHost:
 
     def level(self, point) -> float:
         """Return the implicit value of the body law at ``point``: negative inside."""
-        x, y, z = (float(c) for c in point)
-        if not 0.0 < x < self.length:
-            return 1.0
-        width, height, centre, top, bottom = self.shape(x)
-        if width <= 0.0 or height <= 0.0:
-            return 1.0
-        exponent = top if z >= centre else bottom
-        return (abs(y) / width) ** exponent + (abs(z - centre) / height) ** exponent - 1.0
+        return float(self.levels(np.asarray(point, float)[None, :])[0])
+
+    def levels(self, points) -> np.ndarray:
+        """Return :meth:`level` at each row of ``points``, shape ``(n, 3)``."""
+        points = np.asarray(points, float)
+        x, y, z = points[:, 0], points[:, 1], points[:, 2]
+        out = np.ones(len(points))
+        ok = (x > 0.0) & (x < self.length)
+        if not np.any(ok):
+            return out
+        values = body_profile(self.body, self.table, x[ok] / self.length)
+        width, height, centre, top, bottom = np.moveaxis(values, -1, 0)
+        valid = (width > 0.0) & (height > 0.0)
+        exponent = np.where(z[ok] >= centre, top, bottom)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inner = (np.abs(y[ok]) / width) ** exponent + (np.abs(z[ok] - centre) / height) ** (
+                exponent
+            )
+        out[ok] = np.where(valid, inner - 1.0, 1.0)
+        return out
 
     def project(self, point) -> np.ndarray:
         """Return the point of the body in the plane of ``point``'s x, radially from the axis."""
@@ -91,9 +104,9 @@ class BodyHost:
     def normal(self, point) -> np.ndarray:
         """Return the outward unit normal of the body law at a point on it."""
         step = 1e-7 * self.length
-        gradient = np.array(
-            [self.level(point + step * e) - self.level(point - step * e) for e in np.eye(3)]
-        )
+        offsets = np.asarray(point, float) + step * np.r_[np.eye(3), -np.eye(3)]
+        values = self.levels(offsets)
+        gradient = values[:3] - values[3:]
         return gradient / np.linalg.norm(gradient)
 
 
@@ -183,6 +196,34 @@ def blister_law(blister, host: BodyHost) -> dict:
         "top": shapes[:, 2],
         "low": low,
     }
+
+
+def blister_region(blister, host_body):
+    """Return the predicate for points strictly inside a blister, in its host's frame.
+
+    The solid is the blister's sections closed at their top line, interpolated along x as the
+    loft is; the part of it inside the host is inside the host as well.
+    """
+    host = BodyHost(host_body)
+    law = blister_law(blister, host)
+    k = min(3, len(law["x"]) - 1)
+    laws = {
+        key: make_interp_spline(law["x"], law[key], k=k)
+        for key in ("width", "exponent", "top", "low")
+    }
+
+    def contains(point):
+        x, y, z = (float(c) for c in point)
+        if not law["x"][0] < x < law["x"][-1]:
+            return False
+        width, exponent, top, low = (
+            float(laws[key](x)) for key in ("width", "exponent", "top", "low")
+        )
+        if width <= 0.0 or z >= top or z <= low:
+            return False
+        return (abs(y) / width) ** exponent + ((top - z) / (top - low)) ** exponent < 1.0 - 1e-9
+
+    return contains
 
 
 def _section_point(law, i, t):
