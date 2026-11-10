@@ -454,3 +454,28 @@ def test_p0570_gm9_combined_variants_include_every_control(kernel, tmp_path):
         assert any("flap-d" in n for n in names) and any("aileron-d" in n for n in names)
     result = _fcheck(kernel, "F4", inputs["F4"])
     assert _passed(result), result
+
+
+def test_p0570_gm9_exposed_span_and_split_bounds():
+    from pyflightstream.geometry import resolve_config
+
+    component = stages.unpack(resolve_config(_plain_config()))["components"]["panel"]
+    control = component["control_surfaces"][0]
+    control.update(span_basis="exposed", exposed_root_m=1.0, gap_span=0.0)
+    model = stages.controls.build(component)
+    trim = next(t for t in model.pieces["flap-d0"] if t.base.endswith("/skin"))
+    assert sorted({p[1] for edge in trim.loop for p in edge}) == pytest.approx([0.6, 0.85])
+    control.update(span_basis="semi_span", split_around=["pod"], gap_span=0.005)
+    component["sections"]["nacelle_bounds"] = [{"component": "pod", "eta_in": 0.4, "eta_out": 0.5}]
+    model = stages.controls.build(component)
+    assert set(model.pieces) == {
+        "main",
+        "flap-inboard-d0",
+        "flap-inboard-d15",
+        "flap-outboard-d0",
+        "flap-outboard-d15",
+    }
+    # NO: an exposed root outside the planform cannot silently move the control.
+    control.update(span_basis="exposed", exposed_root_m=3.0)
+    with pytest.raises(InputValueError, match="exposed_root"):
+        stages.controls.build(component)
