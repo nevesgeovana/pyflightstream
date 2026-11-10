@@ -39,7 +39,6 @@ from pyflightstream._identifier_columns import (
     SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
 )
 from pyflightstream._progress import (
-    quiet_keeps,
     record_activity,
     terminal_glob,
     terminal_path,
@@ -65,6 +64,11 @@ from pyflightstream.run._assessment import (
     OutcomeAssessor,
 )
 from pyflightstream.run._batch_exec import GroupingExecutor
+from pyflightstream.run._campaign_report import (
+    _job_point_statuses,
+    _say_the_rows,
+    _say_the_summary,
+)
 from pyflightstream.run._continuation import (
     _unused_continuation_run_id,
     queued_points,
@@ -77,7 +81,6 @@ from pyflightstream.run._continuation_frame import (
 from pyflightstream.run._executors import (
     Executor,
     SolverBuild,
-    _clock,
 )
 from pyflightstream.run._identity import (
     _case_build,
@@ -96,6 +99,7 @@ from pyflightstream.run._ids import (
     already_recorded_error,
     post_stage_options,
 )
+from pyflightstream.run._parallel import campaign_workers, run_cases_in_parallel
 from pyflightstream.run._plan import (
     _output_collision,
     _staged_inputs_conflict,
@@ -117,7 +121,6 @@ from pyflightstream.workspace import (
     RunRecord,
     RunStatus,
     WorkspaceError,
-    planned_points_without_record,
     post_stages,
 )
 from pyflightstream.workspace._settings_file import (
@@ -314,6 +317,8 @@ class _CampaignState:
     accepted_builds: Collection[str] = ()
     #: ``force_rerun_all`` was asked: a point recorded as SUBMITTED is redone and warned of.
     redo_submitted: bool = False
+    #: Solver runs alive at once (an int or ``auto``); None reads the setup's [runtime] block.
+    parallel: int | str | None = None
     #: The simulations this call posted, each once, as its last point of the
     #: call was recorded (PFS-2185.18).
     posted: list[str] = field(default_factory=list)
@@ -381,6 +386,7 @@ def run_campaign(
     sweep_csv: str | Path | None = None,
     accepted_builds: Collection[str] = (),
     redo_submitted: bool = False,
+    parallel: int | str | None = None,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -518,6 +524,12 @@ def run_campaign(
         belongs to a batch whose job has not ended, instead of refusing it,
         warning that its job is not cancelled. ``run_matrix`` sets it for
         ``force_rerun_all``.
+    parallel : int or str, optional
+        Solver runs of the campaign alive at once, each case on its own worker:
+        a positive count (cut at 8) or ``"auto"``. None reads ``parallel`` of
+        the setup's ``[runtime]`` block, and without one runs the cases one at a
+        time. Only local runs are concurrent; a submitting or grouping executor
+        runs one at a time.
 
     Returns
     -------
@@ -566,6 +578,7 @@ def run_campaign(
         sweep_csv=sweep_csv,
         accepted_builds=accepted_builds,
         redo_submitted=redo_submitted,
+        parallel=parallel,
     )
     _resolve_campaign_schedule(state)
     superseded = [run_id for _, _, ids in state.to_supersede for run_id in ids]
@@ -577,32 +590,43 @@ def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
     """Execute the resolved schedule, keeping replacement failures recoverable."""
     _preflight_campaign_schedule(state)
     _start_campaign_progress(state)
-    # PFS-2185.18: each simulation is posted once its last scheduled case of
-    # this call has run, before the next case's points run.
-    last_case = {case.sim_id: index for index, (case, _, _) in enumerate(state.scheduled)}
-    for index, (case, build, pending) in enumerate(state.scheduled):
-        state.case, state.build, state.pending = case, build, pending
-        _prepare_campaign_case(state)
-        if (
-            _runs_as_one_job(state.campaign, state.case, state.case_executor)
-            and len(state.pending) > 1
-            and not state.job_recorded
-        ):
-            _start_campaign_sweep(state)
-            # Keep the shared lookup on the campaign entry path.
-            try:
-                cold = _ids._is_cold_start(state.case)
-            except CampaignConfigError as error:
-                cold = True
-                state.preparation_error = state.preparation_error or str(error)
-            _execute_campaign_sweep(state, cold=cold)
-        else:
-            _execute_campaign_points(state)
-        if last_case[case.sim_id] == index:
-            _post_the_simulation(state, case.sim_id)
+    workers = campaign_workers(state)
+    if workers > 1:
+        run_cases_in_parallel(
+            state, workers, _prepare_campaign_case, _execute_prepared_case, _post_the_simulation
+        )
+    else:
+        # PFS-2185.18: each simulation is posted once its last scheduled case of
+        # this call has run, before the next case's points run.
+        last_case = {case.sim_id: index for index, (case, _, _) in enumerate(state.scheduled)}
+        for index, (case, build, pending) in enumerate(state.scheduled):
+            state.case, state.build, state.pending = case, build, pending
+            _prepare_campaign_case(state)
+            _execute_prepared_case(state)
+            if last_case[case.sim_id] == index:
+                _post_the_simulation(state, case.sim_id)
     for said in state.sweep_said:
         warnings.warn_explicit(said.message, said.category, said.filename, said.lineno)
     return _finish_campaign(state)
+
+
+def _execute_prepared_case(state: _CampaignState) -> None:
+    """Run the points of the case ``state`` has prepared, as one job or one point each."""
+    if (
+        _runs_as_one_job(state.campaign, state.case, state.case_executor)
+        and len(state.pending) > 1
+        and not state.job_recorded
+    ):
+        _start_campaign_sweep(state)
+        # Keep the shared lookup on the campaign entry path.
+        try:
+            cold = _ids._is_cold_start(state.case)
+        except CampaignConfigError as error:
+            cold = True
+            state.preparation_error = state.preparation_error or str(error)
+        _execute_campaign_sweep(state, cold=cold)
+    else:
+        _execute_campaign_points(state)
 
 
 def _post_the_simulation(state: _CampaignState, sim_id: str) -> None:
@@ -1402,63 +1426,6 @@ def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
     return state.records
 
 
-def _say_the_rows(
-    campaign: Campaign,
-    workspace: CampaignWorkspace,
-    known: Sequence[RunRecord],
-    *,
-    quiet: bool,
-) -> None:
-    """Say, per row, how many planned points have a record, and warn of the rest.
-
-    One line per row of the campaign, on the terminal and in
-    ``logs/activity.log``: ``row 4016: all 10 executed``, or ``row 4016: 6 of
-    10 point(s) executed, 4 not attempted``. A point is executed when a record
-    of this campaign carries it, from this call or an earlier one
-    (:func:`~pyflightstream.workspace.planned_points_without_record`); a row
-    with points no record carries is also a warning naming them. The manifest
-    is read again, because a forced re-run archived records this call started
-    from; where it cannot be read, the records this call knows stand in.
-    """
-    try:
-        rows: Sequence[Mapping[str, object]] = workspace.read_raw_manifest()
-    except (OSError, ValueError, WorkspaceError):
-        rows = [record.model_dump(mode="json") for record in known]
-    for case in campaign.sims:
-        planned = [_run_id(campaign, case, point) for point in case.sweep.points()]
-        missing = planned_points_without_record(planned, rows)
-        total = len(planned)
-        if not missing:
-            _say(f"row {case.sim_id}: all {total} executed", quiet=quiet)
-            continue
-        _say(
-            f"row {case.sim_id}: {total - len(missing)} of {total} point(s) executed, "
-            f"{len(missing)} not attempted",
-            quiet=quiet,
-        )
-        warnings.warn(
-            f"row {case.sim_id}: {len(missing)} of its {total} planned point(s) were not "
-            "attempted and no record carries them: "
-            + ", ".join(run_id.rsplit("/", 1)[-1] for run_id in missing)
-            + ". Run the row again with --resume, which runs the points no record carries.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
-    """Return one status per point of a job record, each point's own where it has one.
-
-    A job whose record carries an entry for every point it ran counts each by its
-    entry; one that stopped before it could (a preparation refusal, a solver that
-    never started) counts every point at the job's status.
-    """
-    entries = record.points_ran or []
-    if len(entries) == points:
-        return [str(entry.get("status") or record.status) for entry in entries]
-    return [str(record.status)] * points
-
-
 #: The run banner's two approved aircraft: the rows
 #: above the wing, then the wing, which the banner text follows.
 _RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
@@ -1473,25 +1440,6 @@ _RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
         "   --(+)--(+)--(_)--(+)--(+)--",
     ),
 )
-
-
-def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) -> None:
-    """Say how the points of this call ended, as a small table, and how long it took (G43)."""
-    counts: dict[str, int] = {}
-    for status in outcomes:
-        counts[status] = counts.get(status, 0) + 1
-    width = max(len("status"), *(len(status) for status in counts))
-    rule = f"  +-{'-' * width}-+--------+"
-    _say(rule, quiet=quiet)
-    _say(f"  | {'status':<{width}} | points |", quiet=quiet)
-    _say(rule, quiet=quiet)
-    for status, count in sorted(counts.items()):
-        _say(f"  | {status:<{width}} | {count:>6} |", quiet=quiet)
-    _say(rule, quiet=quiet)
-    _say(f"  {len(outcomes)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
-    # FR-997: the table in one line is what a quiet console says of a run.
-    ended = ", ".join(f"{status} {count}" for status, count in sorted(counts.items()))
-    quiet_keeps(f"{len(outcomes)} point(s) in {_clock(elapsed_s)}: {ended}")
 
 
 def _supersede_recorded_points(

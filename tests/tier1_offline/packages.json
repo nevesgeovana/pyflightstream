@@ -177,6 +177,7 @@
       "tests/tier1_offline/test_p0560_v127_base_cp.py",
       "tests/tier1_offline/test_p0560_v127_mesh_build.py",
       "tests/tier1_offline/test_p0560_wheel_terminations.py",
+      "tests/tier1_offline/test_p0570_e2201_parallel.py",
       "tests/tier1_offline/test_p0570_fix5_gmsh_worker.py",
       "tests/tier1_offline/test_p0570_fix5_search_log_batch.py",
       "tests/tier1_offline/test_p0570_fix6_attached_flow_cp.py",

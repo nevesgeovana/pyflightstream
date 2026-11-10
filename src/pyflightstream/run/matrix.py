@@ -834,6 +834,7 @@ def run_matrix(
     sweep_csv: str | Path | None = None,
     local: bool = False,
     require_plan: bool = False,
+    parallel: int | str | None = None,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -934,6 +935,10 @@ def run_matrix(
         itself, as Windows does, and every point's executor entry says
         ``forced_local``. Refused beside a submitting ``executor``. The
         command line spells it ``--local``.
+    parallel : int or str, optional
+        Solver runs alive at once, as ``run_campaign(parallel=...)``; None reads the
+        setup's ``[runtime]`` block and otherwise runs one at a time. The command line
+        spells it ``--parallel``.
     hidden : bool or None
         Windowless solver runs, forwarded to the default executor only
         and ignored when ``executor`` is given. The default is None,
@@ -1082,6 +1087,7 @@ def run_matrix(
         # FR-998: a build entry of this machine's overlay accepting its own build.
         accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
         redo_submitted=force_rerun_all,
+        parallel=parallel,
     )
 
 
