@@ -1351,6 +1351,11 @@
       "path": "run/_campaign.py"
     },
     {
+      "id": "pyflightstream.run._campaign_report",
+      "layer": 1,
+      "path": "run/_campaign_report.py"
+    },
+    {
       "id": "pyflightstream.run._cli_geometry",
       "layer": 1,
       "path": "run/_cli_geometry.py"
@@ -1464,6 +1469,11 @@
       "id": "pyflightstream.run._matrix_warnings",
       "layer": 1,
       "path": "run/_matrix_warnings.py"
+    },
+    {
+      "id": "pyflightstream.run._parallel",
+      "layer": 1,
+      "path": "run/_parallel.py"
     },
     {
       "id": "pyflightstream.run._pending",
@@ -11494,6 +11504,11 @@
     },
     {
       "source": "pyflightstream.run._campaign",
+      "target": "pyflightstream.run._campaign_report",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.run._continuation",
       "kind": "module"
     },
@@ -11520,6 +11535,11 @@
     {
       "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.run._ids",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign",
+      "target": "pyflightstream.run._parallel",
       "kind": "module"
     },
     {
@@ -11555,6 +11575,36 @@
     {
       "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream.run._executors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream.run._ids",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._campaign_report",
+      "target": "pyflightstream.workspace",
       "kind": "module"
     },
     {
@@ -12586,6 +12636,26 @@
       "source": "pyflightstream.run._matrix_warnings",
       "target": "pyflightstream.workspace.storage",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._parallel",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._parallel",
+      "target": "pyflightstream.run._batch_exec",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._parallel",
+      "target": "pyflightstream.run._executors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._parallel",
+      "target": "pyflightstream.run._ids",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.run._pending",

@@ -1231,12 +1231,14 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.results.tables">pyflightstream.results.tables</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._assessment">pyflightstream.run._assessment</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._batch_exec">pyflightstream.run._batch_exec</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._campaign_report">pyflightstream.run._campaign_report</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._continuation">pyflightstream.run._continuation</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._continuation_frame">pyflightstream.run._continuation_frame</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._identity">pyflightstream.run._identity</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._parallel">pyflightstream.run._parallel</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._plan">pyflightstream.run._plan</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._points">pyflightstream.run._points</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._sweep">pyflightstream.run._sweep</a> (module)</li>
@@ -1244,6 +1246,15 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._settings_file">pyflightstream.workspace._settings_file</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.run._campaign_report"><summary><code>pyflightstream.run._campaign_report</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._progress">pyflightstream._progress</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.run._cli_geometry"><summary><code>pyflightstream.run._cli_geometry</code></summary><ul>
@@ -1519,6 +1530,13 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.matrix">pyflightstream.workspace.matrix</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.storage">pyflightstream.workspace.storage</a> (deferred)</li>
+</ul></details>
+
+<details id="pyflightstream.run._parallel"><summary><code>pyflightstream.run._parallel</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._batch_exec">pyflightstream.run._batch_exec</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.run._ids">pyflightstream.run._ids</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.run._pending"><summary><code>pyflightstream.run._pending</code></summary><ul>
