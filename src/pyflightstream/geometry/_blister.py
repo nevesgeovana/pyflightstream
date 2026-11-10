@@ -12,6 +12,7 @@ with the kernel's junction curve.
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 
 import numpy as np
@@ -44,7 +45,7 @@ __all__ = [
 _SECTION_SAMPLES = 61
 _SECTION_SPANS = 10
 #: Crease samples per span of the loft between two stations.
-_CREASE_PER_SPAN = 16
+_CREASE_PER_SPAN = 32
 #: Largest turn across the front to rear edge, degrees (design S9).
 SEAM_LIMIT_DEG = 1.0
 #: Keys of a blister that this version reads only to check them, with what it does instead.
@@ -141,14 +142,13 @@ def _check_station_values(name, component, count, warnings) -> None:
             low = values < 0 if key == "width" else values <= 0
             if np.any(low) or not np.all(np.isfinite(values)):
                 raise InputValueError(f"{name}.sections.{key}: expected positive numbers")
-    depth = _per_station(component["profile"]["depth"], count, f"{name}.profile.depth")
+    given = component.get("profile", {}).get("depth")
+    if given is None:  # a sections file gives the depth
+        return
+    depth = _per_station(given, count, f"{name}.profile.depth")
     if np.any(depth < 0):
         raise InputValueError(f"{name}.profile.depth: expected values of zero or more")
-    if (
-        np.any(depth[[0, -1]] != 0)
-        and depth.size == count
-        and np.ndim(component["profile"]["depth"])
-    ):
+    if np.any(depth[[0, -1]] != 0) and depth.size == count and np.ndim(given):
         warnings.append(
             f"{name}.profile.depth: the first and last stations are the poles of the tips, their "
             "depth is taken as 0"
@@ -168,9 +168,12 @@ def blister_notes(name, component, warnings) -> None:
         if key in component.get(table, {}):
             warnings.append(f"{name}.{table}.{key}: not applied by this version, {instead}")
     if component.get("sections_file"):
-        warnings.append(
-            f"{name}.sections_file: not read by this version, the superellipse sections are used"
-        )
+        given = [
+            f"sections.{k}" for k in ("width", "exponent") if k in component.get("sections", {})
+        ]
+        given += ["profile.depth"] if "depth" in component.get("profile", {}) else []
+        for key in given:
+            warnings.append(f"{name}.{key}: the sections file decides the shape; skipped")
     for key in ("translation", "rotation"):
         if any(component["placement"][key]):
             warnings.append(f"{name}.placement.{key}: a blister lies on its host, skipped")
@@ -190,6 +193,10 @@ def blister_law(blister, host: BodyHost) -> dict:
         raise InputValueError(f"stations.x: {_TOO_FEW}")
     if blister["stations"].get("of") == "host_length":
         x = x * host.length
+    if np.any(x <= 0) or np.any(x >= host.length):
+        raise InputValueError("stations.x: every station lies inside the host's length")
+    if blister.get("sections_file"):
+        return _file_law(blister["sections_file"], x, host)
     count = len(x)
     depth = _per_station(blister["profile"]["depth"], count, "profile.depth")
     if blister["profile"].get("of") == "host_length":
@@ -200,8 +207,6 @@ def blister_law(blister, host: BodyHost) -> dict:
     depth, width = depth.copy(), width.copy()
     depth[[0, -1]] = 0.0
     width[[0, -1]] = 0.0
-    if np.any(x <= 0) or np.any(x >= host.length):
-        raise InputValueError("stations.x: every station lies inside the host's length")
     shapes = np.array([host.shape(value) for value in x])
     low = shapes[:, 2] - shapes[:, 1] - depth
     return {
@@ -214,6 +219,70 @@ def blister_law(blister, host: BodyHost) -> dict:
     }
 
 
+def read_sections_file(path, count: int) -> dict[int, np.ndarray]:
+    """Read a blister's sections: CSV columns ``station``, ``y``, ``z`` in metres, host frame.
+
+    ``station`` is the index of the station in ``stations.x``; the rows of one station run from
+    the keel (``y = 0``) up to a point inside the host, in order. A station with no rows is a
+    pole on the host's lowest line, and so are the first and the last.
+
+    Raises
+    ------
+    InputValueError
+        For a missing column, a station index outside the stations, a section of one point, a
+        section that does not start on the plane of symmetry, or a negative ``y``.
+    """
+    rows: dict[int, list[tuple[float, float]]] = {}
+    with open(path, newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        if not {"station", "y", "z"} <= set(reader.fieldnames or ()):
+            raise InputValueError(f"sections_file {path}: expected columns station, y, z")
+        for line, row in enumerate(reader, start=2):
+            try:
+                station, y, z = int(row["station"]), float(row["y"]), float(row["z"])
+            except (TypeError, ValueError):
+                raise InputValueError(f"sections_file {path}, line {line}: not numbers") from None
+            if not 0 <= station < count:
+                raise InputValueError(
+                    f"sections_file {path}, line {line}: station {station} is not one of the "
+                    f"{count} stations"
+                )
+            if y < 0 or not np.isfinite([y, z]).all():
+                raise InputValueError(f"sections_file {path}, line {line}: expected y >= 0")
+            rows.setdefault(station, []).append((y, z))
+    out = {}
+    for station, points in rows.items():
+        if len(points) < 2 or points[0][0] > 1e-9:
+            raise InputValueError(
+                f"sections_file {path}: the section of station {station} needs two or more "
+                "points, starting on the plane of symmetry (y = 0)"
+            )
+        out[station] = np.asarray(points, float)
+    return out
+
+
+def _file_law(path, x, host) -> dict:
+    """Return the law of a blister whose sections come from a file (see :func:`blister_law`)."""
+    given = read_sections_file(path, len(x))
+    shapes = np.array([host.shape(value) for value in x])
+    bottom = shapes[:, 2] - shapes[:, 1]
+    points = []
+    for i in range(len(x)):
+        pole = i in (0, len(x) - 1) or i not in given
+        # A pole runs, as a superellipse pole does, from the host's lowest line up to its centre.
+        column = np.array([[0.0, bottom[i]], [0.0, shapes[i, 2]]])
+        points.append(column if pole else given[i])
+    low = np.array([p[:, 1].min() for p in points])
+    return {
+        "x": x,
+        "points": points,
+        "depth": np.maximum(bottom - low, 0.0),
+        "width": np.array([p[:, 0].max() for p in points]),
+        "top": np.array([p[-1, 1] for p in points]),
+        "low": low,
+    }
+
+
 def blister_region(blister, host_body):
     """Return the predicate for points strictly inside a blister, in its host's frame.
 
@@ -222,6 +291,9 @@ def blister_region(blister, host_body):
     """
     host = BodyHost(host_body)
     law = blister_law(blister, host)
+    if "points" in law:  # sections from a file: the loft itself is the solid's side
+        surface = BlisterHost(blister_model(blister, host_body), host_body)
+        return lambda point: surface.contains(point)
     k = min(3, len(law["x"]) - 1)
     laws = {
         key: make_interp_spline(law["x"], law[key], k=k)
@@ -242,9 +314,23 @@ def blister_region(blister, host_body):
     return contains
 
 
-def _section_point(law, i, t):
-    """Return points of section ``i`` at angles ``t`` in [0, pi/2], bottom to top."""
-    t = np.asarray(t, float)
+def _section_point(law, i, u):
+    """Return points of section ``i`` at fractions ``u`` in [0, 1], keel to top.
+
+    A superellipse section is parametrized by its angle (u = 1 at a quarter turn); a section
+    read from a file by its arc length through the file's points, joined by a cubic.
+    """
+    u = np.asarray(u, float)
+    if "points" in law:
+        yz = law["points"][i]
+        if len(yz) == 1:
+            out = np.broadcast_to(yz[0], (*u.shape, 2))
+        else:
+            steps = np.linalg.norm(np.diff(yz, axis=0), axis=1)
+            s = np.r_[0.0, np.cumsum(steps)] / steps.sum()
+            out = make_interp_spline(s, yz, k=min(3, len(yz) - 1))(u)
+        return np.concatenate((np.full((*u.shape, 1), law["x"][i]), out), axis=-1)
+    t = u * np.pi / 2
     n = law["exponent"][i]
     y = law["width"][i] * np.sin(t) ** (2.0 / n)
     z = law["top"][i] - (law["top"][i] - law["low"][i]) * np.cos(t) ** (2.0 / n)
@@ -252,12 +338,12 @@ def _section_point(law, i, t):
 
 
 def _crease_angle(law, i, host):
-    """Return the angle where section ``i`` enters the host, or refuse when it never does."""
+    """Return the u where section ``i`` enters the host, or refuse when it never does."""
 
-    def inside(t):
-        return host.level(_section_point(law, i, t))
+    def inside(u):
+        return host.level(_section_point(law, i, u))
 
-    top = inside(np.pi / 2)
+    top = inside(1.0)
     if top >= 0.0:
         raise InputValueError(
             f"closure.base_present: the blister section at x = {law['x'][i]:.6g} does not enter "
@@ -265,17 +351,26 @@ def _crease_angle(law, i, host):
         )
     if inside(0.0) <= 0.0:
         return 0.0
-    return brentq(inside, 0.0, np.pi / 2, xtol=1e-14)
+    return brentq(inside, 0.0, 1.0, xtol=1e-14)
 
 
 def _section_poles(law, i, host, knots):
-    """Fit section ``i`` on ``knots``, u proportional to the section angle; poles, residual.
+    """Fit section ``i`` on ``knots``; return poles and the residual.
 
-    Refuses through :func:`_crease_angle` a section that never enters the host.
+    The residual of a file section is the largest distance from a point of the file to the
+    fitted curve; of a superellipse, from the fit samples. Refuses through
+    :func:`_crease_angle` a section that never enters the host.
     """
     _crease_angle(law, i, host)
     u = np.linspace(0.0, 1.0, _SECTION_SAMPLES)
-    return fit_curve(_section_point(law, i, u * np.pi / 2), u, knots, 3)
+    poles, residual = fit_curve(_section_point(law, i, u), u, knots, 3)
+    if "points" in law and len(law["points"][i]) > 1:
+        dense = BSpline(knots, poles, 3)(np.linspace(0.0, 1.0, 4001))[:, 1:]
+        given = law["points"][i]
+        residual = float(
+            np.max(np.min(np.linalg.norm(given[:, None] - dense[None], axis=-1), axis=1))
+        )
+    return poles, residual
 
 
 @dataclass(frozen=True)
@@ -302,6 +397,7 @@ class BlisterModel:
     crease: dict
     law: dict
     records: tuple = ()
+    loft: Patch | None = None
 
 
 def _evaluate(patch: Patch, u, v):
@@ -533,7 +629,7 @@ def blister_model(blister, host_body) -> BlisterModel:
         for u, value in crease[name]:
             point = _evaluate(patch, u, value)
             worst = max(worst, float(np.linalg.norm(point - host.project(point))))
-    margin = min(-host.level(_section_point(law, i, np.pi / 2)) for i in range(len(v)))
+    margin = min(-host.level(_section_point(law, i, 1.0)) for i in range(len(v)))
     tolerance = float(host_body.get("tolerance", 1e-4)) * host.length
     records = [
         check_entry("closure.base_present", "passed", margin, 0.0, bound="min", note="inside"),
@@ -564,5 +660,92 @@ def blister_model(blister, host_body) -> BlisterModel:
             )
         )
     return BlisterModel(
-        bases=bases, trims=tuple(trims), crease=crease, law=law, records=tuple(records)
+        bases=bases,
+        trims=tuple(trims),
+        crease=crease,
+        law=law,
+        records=tuple(records),
+        loft=loft,
     )
+
+
+class BlisterHost:
+    """A blister as a host surface, read from its loft: level, projection, normal, inside.
+
+    At a point's x the loft's iso-v line is the planar section there (x is linear in v). The
+    level is the signed distance in that plane from the point, folded to ``y >= 0``, to its
+    nearest point on the section: positive outside. The section's top end lies inside the host
+    body, so the blister's face is the part of this surface outside the body.
+    """
+
+    def __init__(self, model: BlisterModel, host_body):
+        if model.loft is None:
+            raise InputValueError("blister host: the model carries no loft")
+        loft = model.loft
+        self.body = BodyHost(host_body)
+        self.length = self.body.length
+        self.x0, self.x1 = float(model.law["x"][0]), float(model.law["x"][-1])
+        self._tu = full_knots(loft.knots_u, loft.multiplicities_u)
+        self._degree_u = loft.degree_u
+        tv = full_knots(loft.knots_v, loft.multiplicities_v)
+        self._rows = BSpline(tv, np.asarray(loft.controls, float), loft.degree_v, axis=1)
+
+    def _section(self, x) -> BSpline:
+        v = (float(x) - self.x0) / (self.x1 - self.x0)
+        return BSpline(self._tu, self._rows(np.clip(v, 0.0, 1.0)), self._degree_u)
+
+    def _nearest(self, point):
+        """Return the section curve at the point's x and the u of the nearest point on it."""
+        curve = self._section(point[0])
+        target = np.array([abs(point[1]), point[2]])
+        grid = np.linspace(0.0, 1.0, 129)
+        u = float(grid[np.argmin(np.linalg.norm(curve(grid)[:, 1:] - target, axis=1))])
+        first, second = curve.derivative(), curve.derivative(2)
+        for _ in range(8):
+            r = curve(u)[1:] - target
+            d1, d2 = first(u)[1:], second(u)[1:]
+            slope = d1 @ d1 + r @ d2
+            if slope <= 0:
+                break
+            u = float(np.clip(u - (r @ d1) / slope, 0.0, 1.0))
+        return curve, u
+
+    def level(self, point) -> float:
+        """Signed distance in the section plane to the blister's side: negative inside."""
+        point = np.asarray(point, float)
+        if not self.x0 < point[0] < self.x1:
+            return 1.0
+        curve, u = self._nearest(point)
+        foot, tangent = curve(u)[1:], curve.derivative()(u)[1:]
+        outward = np.array([tangent[1], -tangent[0]])
+        offset = np.array([abs(point[1]), point[2]]) - foot
+        sign = 1.0 if offset @ outward >= 0 else -1.0
+        return sign * float(np.linalg.norm(offset))
+
+    def levels(self, points) -> np.ndarray:
+        """Return :meth:`level` at each row of ``points``."""
+        return np.array([self.level(p) for p in np.asarray(points, float)])
+
+    def project(self, point) -> np.ndarray:
+        """Return the nearest point of the section at the point's x, on the point's side."""
+        point = np.asarray(point, float)
+        curve, u = self._nearest(point)
+        foot = curve(u)
+        return np.array([point[0], np.copysign(foot[1], point[1]), foot[2]])
+
+    def normal(self, point) -> np.ndarray:
+        """Return the outward unit normal of the blister at a point on it (level gradient)."""
+        step = 1e-6
+        point = np.asarray(point, float)
+        gradient = np.array(
+            [self.level(point + step * e) - self.level(point - step * e) for e in np.eye(3)]
+        )
+        return gradient / np.linalg.norm(gradient)
+
+    def contains(self, point) -> bool:
+        """Whether ``point`` is strictly inside the blister, below its sections' top ends."""
+        point = np.asarray(point, float)
+        if not self.x0 < point[0] < self.x1:
+            return False
+        top = self._section(point[0])(1.0)[2]
+        return bool(point[2] < top and self.level(point) < -1e-9)

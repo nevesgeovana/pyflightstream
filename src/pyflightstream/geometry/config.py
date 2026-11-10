@@ -658,6 +658,8 @@ def _check_data_files(name, component, base, warnings):
     for item in items:
         if item.get("file"):  # the generator reads it from wherever the input was read
             item["file"] = str((base / item["file"]).resolve())
+    if component.get("sections_file"):  # a blister's sections, read when it is built (G6R)
+        component["sections_file"] = str((base / component["sections_file"]).resolve())
     if items:
         trailing_edge_notes(name, sections, warnings)
     original = component.get("original", "").split("#")[0]

@@ -483,3 +483,83 @@ def test_p0570_g6r_a_planted_free_edge_is_counted(pod):
     extra = iso_trim("loose", "front", (0.05, 0.2), (0.3, 0.6))  # a face nothing closes
     check = free_edge_check(model.bases, [*model.trims, extra], on_host, expected=0)
     assert check["status"] == "failed" and check["measured"] == 4
+
+
+# -- PA-30 B3: blister sections from a file ----------------------------------------------------
+
+#: A flat-bottomed section no superellipse gives: keel, a flat run, a chine, up into the host.
+FLAT = [(0.0, -0.62), (0.12, -0.62), (0.2, -0.58), (0.26, -0.45), (0.28, -0.2)]
+
+
+def _sections_csv(path, sections):
+    lines = ["station,y,z"]
+    for station, points in sections.items():
+        lines += [f"{station},{y!r},{z!r}" for y, z in points]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _file_blister(tmp_path, sections):
+    config = deepcopy(DEMO)
+    config["components"]["pod"] = {
+        "type": "blister",
+        "host": "hull",
+        "stations": {"x": [2.4, 3.0, 3.6, 4.4, 5.0]},
+        "sections_file": str(_sections_csv(tmp_path / "pod.csv", sections)),
+    }
+    return config
+
+
+def test_p0570_g6r_b3_a_sections_file_shapes_the_blister_and_no_longer_warns(tmp_path):
+    config = _file_blister(tmp_path, {1: FLAT, 2: FLAT, 3: FLAT})
+    resolved, components = _plain(config)
+    assert not any("pod.sections_file" in w for w in resolved["warnings"])
+    model = blister_model(components["pod"], components["hull"])
+    assert {r["status"] for r in model.records} == {"passed"}, [
+        (r["id"], r["measured"]) for r in model.records if r["status"] != "passed"
+    ]
+    records = {r["id"]: r for r in model.records}
+    assert records["section.residual"]["measured"] < 2e-4  # every file point on the loft
+    front = Surface(model.bases["front"])
+    keel = front(0.0, 1.0)  # station 1, x = 3.0, the deepest: the file's first point
+    assert keel[0] == pytest.approx(3.0, abs=1e-12)
+    assert (keel[1], keel[2]) == pytest.approx((0.0, -0.62), abs=1e-9)
+    chine = [front(u, 1.0) for u in np.linspace(0.0, 1.0, 4001)]
+    nearest = min(chine, key=lambda p: np.hypot(p[1] - 0.2, p[2] + 0.58))
+    assert np.hypot(nearest[1] - 0.2, nearest[2] + 0.58) < 2e-4  # the chine is kept
+
+
+def test_p0570_g6r_b3_a_file_section_with_width_given_warns_the_width_is_skipped(tmp_path):
+    config = _file_blister(tmp_path, {2: FLAT})
+    config["components"]["pod"]["sections"] = {"width": 0.3}
+    config["components"]["pod"]["profile"] = {"depth": 0.1}
+    warnings = resolve_config(config)["warnings"]
+    assert any("pod.sections.width" in w and "skipped" in w for w in warnings)
+    assert any("pod.profile.depth" in w and "skipped" in w for w in warnings)
+
+
+def test_p0570_g6r_b3_the_region_of_a_file_blister_is_its_loft(tmp_path):
+    from pyflightstream.geometry._generation import assembly_regions
+
+    resolved, _ = _plain(_file_blister(tmp_path, {1: FLAT, 2: FLAT, 3: FLAT}))
+    inside = assembly_regions(resolved, {})["pod"]
+    assert inside([3.6, 0.1, -0.6]) and inside([3.6, 0.0, -0.5])
+    assert not inside([3.6, 0.1, -0.65]) and not inside([3.6, 0.27, -0.6])
+
+
+@pytest.mark.parametrize(
+    ("text", "match"),
+    [
+        ("station,y\n1,0.0\n", "columns station, y, z"),
+        ("station,y,z\n9,0.0,-0.6\n9,0.1,-0.6\n", "not one of the 5 stations"),
+        ("station,y,z\n2,0.05,-0.6\n2,0.2,-0.3\n", "plane of symmetry"),
+        ("station,y,z\n2,0.0,-0.6\n", "two or more points"),
+        ("station,y,z\n2,a,-0.6\n", "not numbers"),
+    ],
+)
+def test_p0570_g6r_b3_a_bad_sections_file_is_refused_by_line(tmp_path, text, match):
+    config = _file_blister(tmp_path, {})
+    (tmp_path / "pod.csv").write_text(text, encoding="utf-8")
+    resolved, _ = _plain(config)
+    with pytest.raises(InputValueError, match=match):
+        generate_components(resolved)
