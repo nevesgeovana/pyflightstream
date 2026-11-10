@@ -286,3 +286,74 @@ def test_p0570_gm9_stage_table_runner_records_and_log(kernel, tmp_path, missing)
         assert "sub-step S10.F1 " not in log
     else:
         assert "sub-step S10.F1" in log and "control.free_edges" in log
+
+
+def _plain_config():
+    return {
+        "components": {
+            "panel": {
+                "type": "lifting_surface",
+                "planform": {"sref_m2": 4.0, "aspect_ratio": 4.0, "taper": 1.0},
+                "stations": [
+                    {"eta": 0.0, "section": {"kind": "naca", "code": "0012"}},
+                    {"eta": 1.0, "section": {"kind": "naca", "code": "0012"}},
+                ],
+                "cap": {"type": "flat"},
+                "control": [
+                    {
+                        "name": "flap",
+                        "kind": "plain",
+                        "eta": [0.2, 0.7],
+                        "chord_ratio": 0.25,
+                        "gap_span": 0.01,
+                        "gap_chord": 0.002,
+                        "deflection_deg": [0, 15],
+                    }
+                ],
+            }
+        }
+    }
+
+
+def test_p0570_gm9_plain_applied_geometry_preserves_skin_and_closes(kernel, tmp_path):
+    from pyflightstream.geometry import resolve_config
+
+    component = stages.unpack(resolve_config(_plain_config()))["components"]["panel"]
+    build = getattr(stages.controls, "build", None)
+    assert callable(build), "TOML control entries have no applied geometry"
+    model = build(component)
+    assert set(model.pieces) == {"main", "flap-d0", "flap-d15"}
+    for name, trims in model.pieces.items():
+        native = {}
+        for key in {t.base for t in trims}:
+            patch = model.bases[key]
+            native[key] = kernel.add_bspline_surface(
+                patch.controls,
+                knots_u=patch.knots_u,
+                knots_v=patch.knots_v,
+                mult_u=patch.multiplicities_u,
+                mult_v=patch.multiplicities_v,
+                deg_u=patch.degree_u,
+                deg_v=patch.degree_v,
+            )
+        faces = [kernel.add_trimmed_face(native[t.base], [t.loop]) for t in trims]
+        path = tmp_path / f"{name}.igs"
+        kernel.export_iges({name: faces}, path)
+        result = _fcheck(kernel, "F1" if name == "main" else "F2", {"path": str(path)})
+        assert _passed(result), result
+    # NO: a gap wider than the interval must refuse before constructing faces.
+    component["control_surfaces"][0]["gap_span"] = 0.3
+    with pytest.raises(InputValueError, match="gap_span"):
+        build(component)
+
+
+def test_p0570_gm9_toml_controls_reach_default_runner(tmp_path):
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    report = run_geometry(_plain_config(), out=tmp_path, until="S10.F4")
+    records = {r["stage"]: r for r in report["stages"]}
+    assert "S10.F0" in records, report
+    assert records["S10.F0"]["status"] == "passed", records["S10.F0"]
+    assert records["S10.F1"]["status"] == records["S10.F2"]["status"] == "passed"
+    assert "applied_controls" in records["S10.F0"]["outputs"]
+    assert "flap-d15" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
