@@ -693,6 +693,20 @@ def _check_data_files(name, component, base, warnings):
         warnings.append(f"{name}.original: file not found; the distance checks are skipped")
 
 
+def _warn_metre_files(components, unit, warnings):
+    """Warn that a blister's sections file is read in metres whatever ``[units]`` declares.
+
+    The keys of the file are converted from the declared unit; the file's own ``y`` and ``z``
+    are not, so a file written in that unit would build a blister that many times too large.
+    """
+    for name, component in components.items():
+        if component.get("sections_file"):
+            warnings.append(
+                f"{name}.sections_file: its y and z are read in metres; units.length = "
+                f"{unit!r} applies to the keys of this file, not to the sections file"
+            )
+
+
 def _file_digests(components, base):
     """Return the identity of every data file a component names: its role and its SHA-256."""
     rows = []
@@ -786,6 +800,8 @@ def _resolve(data, stem, base):
         components[name], derived[name], raws[name] = _guarded(
             f"components.{name}", _resolve_component, name, raw, notes, base
         )
+    if not resolved and length_scale != 1.0:
+        _warn_metre_files(components, source["units"]["length"], notes["warnings"])
     assembly_defaults(components, raws)
     validate_relationships(components)
     _skip_absent_references(components, notes["warnings"])

@@ -810,3 +810,20 @@ def test_r22_003_hosts_that_do_not_meet_fail_the_run_at_the_fillet_build(tmp_pat
 def _plain_fillet(config):
     _, components = _plain(config)
     return fillet_model(components["blend"], components, "blend")
+
+
+def test_r22_006_a_sections_file_under_other_length_units_is_warned_read_in_metres(tmp_path):
+    """R22-006: [units] converts the keys, not the file: a file in millimetres builds 1000 times
+    too large, so a sections file under a length unit other than metres is warned about."""
+    config = _file_blister(tmp_path, {1: FLAT, 2: FLAT, 3: FLAT})
+    assert not any("sections_file" in w for w in resolve_config(deepcopy(config))["warnings"])
+    config["units"] = {"length": "mm"}
+    hull = config["components"]["hull"]
+    hull["length_mm"] = 8000.0  # unit-suffixed: millimetres whatever [units] says
+    config["components"]["pod"]["stations"]["x"] = [2400.0, 3000.0, 3600.0, 4400.0, 5000.0]
+    resolved, components = _plain(config)
+    assert components["pod"]["stations"]["x"] == [2.4, 3.0, 3.6, 4.4, 5.0]
+    (warning,) = [w for w in resolved["warnings"] if "pod.sections_file" in w]
+    assert "read in metres" in warning and "'mm'" in warning
+    model = blister_model(components["pod"], components["hull"])  # the file is in metres
+    assert {r["status"] for r in model.records} == {"passed"}
