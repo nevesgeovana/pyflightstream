@@ -28,6 +28,7 @@ from pyflightstream.extras import KernelUnavailableError
 from pyflightstream.workspace._cad import (
     UV,
     Face,
+    FileTopology,
     FragmentMap,
     NamedFaces,
     Point,
@@ -456,9 +457,10 @@ class GmshKernel:
         return Face(faces[0])
 
     # Boolean
-    def fragment(self, a: Sequence[Face], b: Sequence[Face]) -> FragmentMap:
+    def fragment(self, a: Sequence[Face], b: Sequence[Face], *, fuzzy: float = 0.0) -> FragmentMap:
         """Imprint the faces of ``a`` and ``b`` on each other and return what each became."""
-        out, mapping = self._g.model.occ.fragment(self._tags(a), self._tags(b))
+        with self._fuzzy(fuzzy):
+            out, mapping = self._g.model.occ.fragment(self._tags(a), self._tags(b))
         self._dirty = True
         rows = [tuple(Face(t) for d, t in row if d == 2) for row in mapping]
         return FragmentMap(
@@ -466,6 +468,31 @@ class GmshKernel:
             from_a=tuple(rows[: len(a)]),
             from_b=tuple(rows[len(a) :]),
         )
+
+    def imprint(
+        self, faces: Sequence[Face], edges: Sequence[int], *, fuzzy: float = 0.0
+    ) -> FragmentMap:
+        """Split ``faces`` along the ``edges`` lying on them (see the protocol)."""
+        self._model()
+        tools = [(1, abs(e)) for e in dict.fromkeys(edges)]
+        with self._fuzzy(fuzzy):
+            out, mapping = self._g.model.occ.fragment(self._tags(faces), tools)
+        self._dirty = True
+        rows = [tuple(Face(t) for d, t in row if d == 2) for row in mapping[: len(faces)]]
+        return FragmentMap(
+            faces=tuple(Face(t) for d, t in out if d == 2), from_a=tuple(rows), from_b=()
+        )
+
+    @contextlib.contextmanager
+    def _fuzzy(self, value: float) -> Iterator[None]:
+        """Set the boolean operations' fuzzy value for one call, and restore the kernel's."""
+        option = "Geometry.ToleranceBoolean"
+        before = self._g.option.getNumber(option)
+        self._g.option.setNumber(option, float(value))
+        try:
+            yield
+        finally:
+            self._g.option.setNumber(option, before)
 
     # Edit
     def remove(self, faces: Sequence[Face]) -> None:
@@ -718,6 +745,34 @@ class GmshKernel:
         self._check_extent(path, faces, listed.unit)
         return NamedFaces(faces=faces, names=tuple(listed.faces), unit=listed.unit)
 
+    def inspect_file(self, path: str | Path, tolerance: float | None) -> FileTopology:
+        """Read one IGES file alone in a model of its own, sewn when ``tolerance`` is given.
+
+        The model of the kernel is not touched: the file goes to a scratch model that is removed
+        afterwards. A face keeps the name of the face of the file nearest to it.
+        """
+        listed = read_iges_names(path)
+        _unit_of(listed)
+        self._model()
+        current = self._g.model.getCurrent()
+        self._g.model.add("inspect")
+        try:
+            occ = self._g.model.occ
+            tags = import_iges(self._g, path)
+            occ.synchronize()
+            factor = float(METRES_PER_UNIT[IMPORT_UNIT])
+            occ.dilate([(2, t) for t in tags], 0.0, 0.0, 0.0, factor, factor, factor)
+            occ.synchronize()
+            named = list(listed.faces) if len(listed.faces) == len(tags) else [""] * len(tags)
+            centres = np.array([occ.getCenterOfMass(2, t) for t in tags]).reshape(-1, 3)
+            if tolerance is not None:
+                occ.healShapes([], float(tolerance), True, False, False, True, False)
+                occ.synchronize()
+            return _topology(self._g, named, centres)
+        finally:
+            self._g.model.remove()
+            self._g.model.setCurrent(current)
+
     def _check_extent(self, path: str | Path, faces: Sequence[Face], unit: str | None) -> None:
         """Refuse a read-back whose size is far from the largest coordinate the file states.
 
@@ -749,6 +804,36 @@ class GmshKernel:
             path,
             preference=preference,
         )
+
+
+def _topology(gmsh: Any, named: Sequence[str], centres: np.ndarray) -> FileTopology:
+    """Return the faces and edges of the current model, each face named from ``named``."""
+    model, occ = gmsh.model, gmsh.model.occ
+    faces = [int(t) for _, t in model.getEntities(2)]
+    index = {t: i for i, t in enumerate(faces)}
+    names = []
+    for t in faces:
+        if not named:
+            names.append("")
+            continue
+        centre = np.asarray(occ.getCenterOfMass(2, t))
+        names.append(named[int(np.argmin(np.linalg.norm(centres - centre, axis=1)))])
+    perimeters = []
+    for t in faces:
+        bound = model.getBoundary([(2, t)], oriented=False)
+        perimeters.append(float(sum(occ.getMass(1, abs(e)) for _, e in bound)))
+    edges = []
+    for _, e in model.getEntities(1):
+        up, _ = model.getAdjacencies(1, e)
+        low, high = model.getParametrizationBounds(1, e)
+        samples = np.asarray(model.getValue(1, e, np.linspace(low[0], high[0], 17))).reshape(-1, 3)
+        edges.append((samples, tuple(index[int(t)] for t in up if int(t) in index)))
+    return FileTopology(
+        names=tuple(names),
+        areas=tuple(float(occ.getMass(2, t)) for t in faces),
+        perimeters=tuple(perimeters),
+        edges=tuple(edges),
+    )
 
 
 def open_kernel(purpose: str) -> GmshKernel:

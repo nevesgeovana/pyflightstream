@@ -22,6 +22,7 @@ import numpy as np
 __all__ = [
     "CadKernel",
     "Face",
+    "FileTopology",
     "FragmentMap",
     "NamedFaces",
     "Point",
@@ -71,9 +72,24 @@ class NamedFaces:
     notes: tuple[str, ...] = field(default=())
 
 
+@dataclass(frozen=True)
+class FileTopology:
+    """What one IGES file holds once read alone, and sewn when a tolerance was given.
+
+    ``names``, ``areas`` and ``perimeters`` are per face, in metres; each item of ``edges`` is
+    ``(samples, faces)``: points along the edge and the indices of the faces that share it, so a
+    free edge has one face and a non-manifold edge more than two.
+    """
+
+    names: tuple[str, ...]
+    areas: tuple[float, ...]
+    perimeters: tuple[float, ...]
+    edges: tuple[tuple[np.ndarray, tuple[int, ...]], ...]
+
+
 @runtime_checkable
 class CadKernel(Protocol):
-    """What a geometry stage may ask of a CAD kernel: 35 members in eight groups."""
+    """What a geometry stage may ask of a CAD kernel: 37 members in eight groups."""
 
     # Life
     @property
@@ -125,8 +141,22 @@ class CadKernel(Protocol):
         ...
 
     # Boolean
-    def fragment(self, a: Sequence[Face], b: Sequence[Face]) -> FragmentMap:
-        """Imprint the faces of ``a`` and ``b`` on each other and return what each became."""
+    def fragment(self, a: Sequence[Face], b: Sequence[Face], *, fuzzy: float = 0.0) -> FragmentMap:
+        """Imprint the faces of ``a`` and ``b`` on each other and return what each became.
+
+        ``fuzzy`` is the distance below which the operation treats two shapes as touching; 0
+        keeps the kernel's own.
+        """
+        ...
+
+    def imprint(
+        self, faces: Sequence[Face], edges: Sequence[int], *, fuzzy: float = 0.0
+    ) -> FragmentMap:
+        """Split ``faces`` along the ``edges`` lying on them; ``from_a`` gives what each became.
+
+        An edge that bounds one of ``faces`` stays shared by that face and the faces it split,
+        so a projected junction is one curve of both sides.
+        """
         ...
 
     # Edit
@@ -263,6 +293,14 @@ class CadKernel(Protocol):
     # IO
     def import_iges(self, path: str | Path) -> NamedFaces:
         """Read one IGES file into the model and return its faces with the names the file gives."""
+        ...
+
+    def inspect_file(self, path: str | Path, tolerance: float | None) -> FileTopology:
+        """Read one IGES file alone, apart from the model, sew it at ``tolerance`` if given.
+
+        The file is read in one import, because faces of two imports are never sewn to each
+        other; the model of the kernel is left as it was.
+        """
         ...
 
     def export_iges(
