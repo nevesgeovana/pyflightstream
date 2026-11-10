@@ -83,3 +83,13 @@ Run reports retain the written surface and build identities.
 
 migration: The regeneration and reverse identification checks have separate
 S13.R and S13 records. Applied-control variants continue to wait for G9.
+
+S12.C exercises the existing IGES converter and checks retained face counts.
+S12.G grids the retained named faces through the existing mesher, checks its
+CAD boundary audit, and records a boundary reference. S12 re-reads that mesh
+to reject introduced open seams and triple edges, then finds each lifting
+piece's upper trailing-edge rim from its sidecar roles.
+
+migration: Reader conversion, gridding and the final audit have separate
+records and named checks. This diagnostic grid uses 16 cells in each
+structured direction and does not replace a user's production grid.

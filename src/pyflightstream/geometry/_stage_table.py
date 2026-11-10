@@ -306,12 +306,14 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("sew.triple_edges", "0 edges"),
         ("sew.slivers", "0 new faces below 5 mm mean width"),
     ),
+    _row("S12.C", "Reader conversion", True, ("gate.convert", "0 changed face counts")),
+    _row("S12.G", "Reader gridding", True, ("gate.grid", "0 mismatched or triple edges")),
     _row(
         "S12",
         "Reader gate",
         False,
-        ("gate.conformal", "reader profile"),
-        ("gate.te_found", "reader profile"),
+        ("gate.conformal", "0 mismatched or triple edges"),
+        ("gate.te_found", "positive upper TE rim from sidecar roles"),
     ),
     _row(
         "S13.R", "Regenerate stored sections", False, ("roundtrip.same_surface", "equal surface_id")

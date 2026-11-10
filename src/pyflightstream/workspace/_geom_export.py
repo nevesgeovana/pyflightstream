@@ -159,6 +159,10 @@ def check_export(stage, resolved, *, configuration, members, out, source) -> dic
         return read_back(Path(out), manifest, float(unpack(resolved)["acceptance"]["area_excess"]))
     if stage == "S11.S":
         return sew_back(Path(out), manifest)
+    if stage in ("S12.C", "S12.G", "S12"):
+        from pyflightstream.workspace._geom_reader import reader_check
+
+        return reader_check(stage, out, manifest, resolved)
     if stage in ("S13.R", "S13"):
         from pyflightstream.workspace._geom_roundtrip import identify, regenerate
 

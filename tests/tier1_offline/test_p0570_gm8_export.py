@@ -770,3 +770,169 @@ def test_p0570_roundtrip_records_failure_and_written_identities(tmp_path, wrong)
     assert "S13.R" in log and "roundtrip.same_surface" in log
     if wrong:
         assert report["stage"] == "S13.R" and report["check"] == "roundtrip.same_surface"
+
+
+def _reader_piece(folder):
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import GeneratedPiece
+    from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._geom_export import write_assembly
+    from pyflightstream.workspace._gmsh import open_kernel
+    from tests.tier1_offline.test_p0570_g7r_assembly import wing
+
+    roles = {"xmax": "trailing_edge", "zmax": "upper", "zmin": "lower"}
+    patches = [replace(p, role=roles.get(p.family, "cap")) for p in wing()]
+    piece = GeneratedPiece.from_patches("wing", "1.0.0", patches)
+    resolved = resolve_config({"components": {"wing": {"type": "lifting_surface"}}})
+    kernel = open_kernel("reader gate fixture")
+    try:
+        assembly = Assembly(kernel, {"wing": piece}, [], out=folder)
+        assembly.step("S10.D1")
+        written = write_assembly(assembly, folder / "combined.igs", resolved=resolved)
+    finally:
+        kernel.close()
+    return resolved, written
+
+
+@pytest.mark.parametrize(
+    "fault", ["", "seam", "te"], ids=["P0570-reader-control", "P0570-open-seam", "P0570-no-TE"]
+)
+def test_p0570_reader_checks_actual_mesh_and_sidecar_trailing_edge(tmp_path, fault):
+    from pathlib import Path
+
+    from pyflightstream.workspace._geom_export import check_export
+    from pyflightstream.workspace._refine._obj import obj_text, read_obj
+
+    kernel_or_skip()
+    resolved, written = _reader_piece(tmp_path)
+
+    def run(stage):
+        return check_export(
+            stage, resolved, configuration=None, members=["wing"], out=tmp_path, source=written
+        )
+
+    converted = run("S12.C")
+    assert any(c["id"] == "gate.convert" for c in converted["checks"]), converted
+    assert all(c["status"] == "passed" for c in converted["checks"]), converted
+    gridded = run("S12.G")
+    assert any(c["id"] == "gate.grid" for c in gridded["checks"]), gridded
+    assert all(c["status"] == "passed" for c in gridded["checks"]), gridded
+    layout_path = tmp_path / "wing.layout.json"
+    layout = json.loads(layout_path.read_text(encoding="utf-8"))
+    if fault == "te":
+        for face in layout["faces"]:
+            if face["role"] == "trailing_edge":
+                face["role"] = "cap"
+        layout_path.write_text(json.dumps(layout), encoding="utf-8")
+    elif fault == "seam":
+        path = Path(gridded["outputs"]["mesh"])
+        mesh = read_obj(path)
+        upper = next(f["name"] for f in layout["faces"] if f["role"] == "upper")
+        nodes = mesh.family_vertices(upper)
+        copies = dict(zip(nodes, range(len(mesh.verts), len(mesh.verts) + len(nodes)), strict=True))
+        mesh.verts = np.concatenate((mesh.verts, mesh.verts[nodes]))
+        mesh.families[upper] = [[copies[n] for n in f] for f in mesh.families[upper]]
+        path.write_text(obj_text(mesh), encoding="utf-8")
+    audited = run("S12")
+    checks = {c["id"]: c for c in audited["checks"]}
+    assert {"gate.conformal", "gate.te_found"} <= set(checks), audited
+    assert checks["gate.conformal"]["status"] == ("failed" if fault == "seam" else "passed")
+    assert checks["gate.te_found"]["status"] == ("passed" if not fault else "failed")
+    if not fault:
+        assert audited["outputs"]["trailing_edges"]["wing"]["edges"] > 0
+
+
+@pytest.mark.parametrize("wrong", [False, True], ids=["P0570-reader-log", "P0570-reader-stop"])
+def test_p0570_reader_substeps_record_their_inputs_checks_and_failure(tmp_path, wrong):
+    from pyflightstream.workspace._geom_export import check_export
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    kernel_or_skip()
+    stages = {s.row.stage: s for s in default_stages()}
+
+    def write(context):
+        _, written = _reader_piece(context.out)
+        context.state["export"] = written
+        return StageOutcome(
+            **check_export(
+                "S11",
+                context.resolved,
+                configuration=None,
+                members=context.members,
+                out=context.out,
+                source=written,
+            )
+        )
+
+    def grid(context):
+        outcome = stages["S12.G"].run(context)
+        if wrong:
+            path = context.out / "wing.layout.json"
+            layout = json.loads(path.read_text(encoding="utf-8"))
+            for face in layout["faces"]:
+                if face["role"] == "trailing_edge":
+                    face["role"] = "cap"
+            path.write_text(json.dumps(layout), encoding="utf-8")
+        return outcome
+
+    report = run_geometry(
+        {"components": {"wing": {"type": "lifting_surface"}}},
+        out=tmp_path,
+        until="S12",
+        stages=[
+            Stage(stages["S11"].row, write),
+            stages["S12.C"],
+            Stage(stages["S12.G"].row, grid),
+            stages["S12"],
+        ],
+    )
+    assert report["status"] == ("failed" if wrong else "accepted"), report
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    for stage, check in (
+        ("S12.C", "gate.convert"),
+        ("S12.G", "gate.grid"),
+        ("S12", "gate.te_found"),
+    ):
+        record = json.loads((tmp_path / f"{stage}.json").read_text(encoding="utf-8"))
+        assert record["outputs"]["inputs"]
+        assert any(c["id"] == check for c in record["checks"])
+        assert stage in log and check in log
+    if wrong:
+        assert report["stage"] == "S12" and report["check"] == "gate.te_found"
+
+
+def test_p0570_reader_conversion_rejects_a_deleted_written_face(tmp_path):
+    from pyflightstream.workspace._geom_export import check_export
+
+    kernel_or_skip()
+    resolved, written = _reader_piece(tmp_path)
+    path = tmp_path / "combined.igs"
+    document = read_iges(path)
+    document["entities"].remove(next(e for e in document["entities"] if e["type"] == 144))
+    path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export(
+        "S12.C", resolved, configuration=None, members=["wing"], out=tmp_path, source=written
+    )
+    checks = {c["id"]: c for c in record["checks"]}
+    assert checks["gate.convert"]["status"] == "failed", record
+
+
+def test_p0570_clean_lifting_export_runs_all_export_reader_and_roundtrip_substeps(tmp_path):
+    from pyflightstream.workspace._geom_run import default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    kernel_or_skip()
+    stages = [s for s in default_stages() if s.row.stage.startswith(("S11", "S12", "S13"))]
+    report = run_geometry(
+        {"components": {"wing": {"type": "lifting_surface", "cap": {"type": "none"}}}},
+        out=tmp_path,
+        until="S13",
+        stages=stages,
+    )
+    assert report["status"] == "accepted", report
+    assert not report["not_run"], report
+    for stage in stages:
+        record = json.loads((tmp_path / f"{stage.row.stage}.json").read_text(encoding="utf-8"))
+        assert record["status"] == "passed", record
+        assert record["outputs"]["inputs"], record
