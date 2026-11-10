@@ -68,6 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # Re-export PyflightstreamError and the six results names for callers
 # using this module's public path.
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.results import AnchorNotFoundError as AnchorNotFoundError
@@ -299,7 +300,20 @@ def project_rotor_frame_loads(
     -------
     tuple of numpy.ndarray
         ``(f_chordwise, f_normal, m_nose_up)``, in N/m, N/m and N m / m.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        The rotating blade's moment reference relative to its pitch axis is unverified.
     """
+    warn(
+        "rotor_frame moment about the pitch axis is unverified: the exported Moment's "
+        "reference point has not been measured on a rotating blade. The projection retains "
+        "the negated export without a reference-point transfer; validate the moment reference "
+        "with displaced-frame load exports before relying on the torsion load.",
+        PyflightstreamWarning,
+        stacklevel=2,
+    )
     fx = np.asarray(fx_n_per_m, dtype=float)
     fz = np.asarray(fz_n_per_m, dtype=float)
     beta = np.asarray(blade_angle_rad, dtype=float)
@@ -440,12 +454,32 @@ def _quarter_chord_from_pitch_axis(cfg: FsiConfig, radii: np.ndarray) -> tuple[A
 
     ``BladeProperties.section_contours_m`` holds each section about the pitch axis, chordwise
     toward the leading edge, so the most forward and most aft points are the chord's ends. A
-    blade without contours states no pitch axis on the chord: it reads as the quarter chord, and
-    the offset is zero.
+    blade without contours states no pitch axis on the chord: it reads as the quarter chord,
+    the offset is zero and a warning names that assumption. Contours trigger a warning too,
+    because the solver's quarter chord can differ from the geometric one on multi-element
+    sections, which the configuration cannot identify.
     """
     contours = cfg.blade.section_contours_m
     if contours is None:
+        warn(
+            "wing_frame blade without contours does not locate the pitch axis on the chord. "
+            "The moment transfer assumes the pitch axis is the exported quarter chord; "
+            "another pitch-axis position is unsupported. Supply section_contours_m about the "
+            "pitch axis and validate the reference before relying on the torsion load.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
         return 0.0, 0.0
+    warn(
+        "wing_frame multi-element pitch-axis moments are unsupported: the transfer assumes "
+        "the exported quarter chord equals the single-element geometric quarter chord from "
+        "section_contours_m. The configuration does not identify the number of elements, so "
+        "every contoured wing receives this warning. The geometric transfer is retained; "
+        "validate the solver's quarter-chord location against the contour before relying on "
+        "the torsion load.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
     offsets = []
     for contour in contours:
         points = np.asarray(contour, dtype=float)
@@ -550,6 +584,12 @@ def to_elastic_axis(
     FsiInputError
         If the family's sections span a range other than the configured blade's, or cover too
         little of it.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        If the moment's pitch-axis reference is unverified (rotor or section frame), the
+        blade lacks contours, or a wing relies on the single-element quarter-chord assumption.
     """
     stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
     embedding = frame_embedding(cfg)
@@ -585,6 +625,14 @@ def to_elastic_axis(
             z_qc_m=block.z_qc_m,
         )
     else:
+        warn(
+            "section_frame moment about the pitch axis is unverified: section-axis force "
+            "components do not establish the exported Moment's reference point. The export "
+            "is retained without a reference-point transfer; validate it with displaced-frame "
+            "load exports before relying on the torsion load.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
         chordwise, normal = block.fx_n_per_m, block.fz_n_per_m
         moment_pa = block.moment_qc_nm_per_m
     if deflection_m is not None or twist_rad is not None:

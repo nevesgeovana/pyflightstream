@@ -10,8 +10,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning, collecting_warnings
 from pyflightstream.fsi.config import FixedWing, FsiConfig
-from pyflightstream.fsi.loads import SectionBlock, project_wing_frame_loads, to_elastic_axis
+from pyflightstream.fsi.loads import (
+    SectionBlock,
+    project_rotor_frame_loads,
+    project_wing_frame_loads,
+    to_elastic_axis,
+)
 from tests.tier1_offline.conftest import make_uniform_blade_config
 
 _SPAN = np.linspace(0.25, 1.85, 9)
@@ -193,3 +199,44 @@ def test_p0570_r8_008_the_transfer_reproduces_a_measured_row():
         z_qc_m=-0.04681,
     )
     assert abs(float(moment) - -0.711736) < 0.0166
+
+
+@pytest.mark.parametrize("embedding", ["rotor_frame", "section_frame"])
+def test_p0570_lreq_unmeasured_frame_reference_is_named(embedding):
+    data = make_uniform_blade_config(root_radius_m=0.25, tip_radius_m=1.85).model_dump()
+    data["omega_rad_per_s"] = 100.0 if embedding == "rotor_frame" else 0.0
+    cfg = FsiConfig.model_validate(data)
+    block = _block(0.0, 0.0, fx=20.0, fz=400.0, about_qc=-30.0)
+    with collecting_warnings() as caught:
+        loads = to_elastic_axis(block, cfg)
+    messages = [str(w.message) for w in caught]
+    assert any(embedding in m and "pitch axis" in m and "unverified" in m for m in messages)
+    assert all(issubclass(w.category, PyflightstreamWarning) for w in caught)
+    expected = 30.0 if embedding == "rotor_frame" else -30.0
+    assert loads.moment_pa_nm_per_m == pytest.approx(expected)
+
+
+def test_p0570_lreq_direct_rotor_projection_warns():
+    with pytest.warns(PyflightstreamWarning, match="rotor_frame.*pitch axis.*unverified"):
+        _, _, moment = project_rotor_frame_loads(
+            np.array([2.0]), np.array([3.0]), np.array([7.0]), np.array([0.0])
+        )
+    assert moment == pytest.approx([-7.0])
+
+
+def test_p0570_lreq_contour_free_pitch_axis_is_named():
+    block = _block(0.0, 0.0, fx=0.0, fz=400.0, about_qc=-30.0)
+    with pytest.warns(PyflightstreamWarning, match="wing_frame.*without contours.*pitch axis"):
+        loads = to_elastic_axis(block, _wing())
+    assert loads.moment_pa_nm_per_m == pytest.approx(-30.0)
+
+
+@pytest.mark.parametrize("fraction", [0.25, 0.35])
+def test_p0570_lreq_multi_element_assumption_is_named_on_contoured_wings(fraction):
+    # No element-count metadata exists, so every contoured wing must disclose this limit.
+    block = _block(0.0, 0.0, fx=0.0, fz=400.0, about_qc=-30.0)
+    with pytest.warns(PyflightstreamWarning, match="wing_frame.*multi-element.*pitch.axis"):
+        loads = to_elastic_axis(block, _contoured(fraction))
+    # Hand statics: 400 N/m acts 0.10 m ahead of the 35%-chord pitch axis.
+    expected = -30.0 if fraction == 0.25 else 10.0
+    assert loads.moment_pa_nm_per_m == pytest.approx(expected)

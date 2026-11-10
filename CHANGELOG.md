@@ -21,6 +21,9 @@ FlightStream versions.
 
 ### Fixed
 
+- FSI load transfer warns about unverified rotor-frame and section-frame moment
+  references, missing contour-based pitch-axis positions, and the unsupported
+  multi-element quarter-chord assumption. Existing moment values are retained.
 - Batch collection retains the last scheduler-log segment after the final point's
   exports settle when no scheduler end files are declared. Declared end files
   remain authoritative. An ended batch point without its log is reported as

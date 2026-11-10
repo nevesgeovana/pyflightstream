@@ -267,6 +267,11 @@ class TestFsiDriver:
         _fsi_driver__write_loads(tmp_path / "set", 100)
         with warnings.catch_warnings():
             warnings.simplefilter("error", PyflightstreamWarning)
+            warnings.filterwarnings(
+                "ignore",
+                "rotor_frame moment about the pitch axis is unverified",
+                PyflightstreamWarning,
+            )
             driver.coupling_step(tmp_path / "set")
 
     @staticmethod
