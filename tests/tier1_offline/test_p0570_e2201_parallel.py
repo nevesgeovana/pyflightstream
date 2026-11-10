@@ -266,6 +266,79 @@ def test_p0570_e2201_reads_of_the_run_register_never_meet_its_replace(tmp_path):
     assert len({r.run_id for r in workspace.read_manifest()}) == 16
 
 
+def test_p0570_e2201_another_process_holding_the_register_is_waited_out(tmp_path):
+    """Another process reading or replacing ``runs.json`` holds it for a moment.
+
+    On Windows that hold refuses this process's replace or read with a sharing
+    violation; each is retried for about a second. The other process is played by
+    a thread that takes none of this process's locks.
+    """
+    import os
+
+    from pyflightstream.workspace import RunRecord
+
+    def record(name):
+        return RunRecord(
+            run_id=f"camp/sim_1/{name}",
+            sim_id="1",
+            fs_version_requested="26.120",
+            package_version="0.57.0",
+            script_sha256="0" * 64,
+            raw_flag=False,
+            status=RunStatus.SUBMITTED,
+        )
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.append_record(record("first"))
+    register = workspace.manifest_path
+    # A reader elsewhere has the register open while this process appends.
+    held, done = threading.Event(), threading.Event()
+
+    def foreign_reader():
+        with register.open("rb"):
+            held.set()
+            done.wait(0.2)
+
+    reader = threading.Thread(target=foreign_reader)
+    reader.start()
+    held.wait(5)
+    try:
+        workspace.append_record(record("second"))
+    finally:
+        done.set()
+        reader.join()
+    # A writer elsewhere replaces the register while this process reads it.
+    content = register.read_bytes()
+    stop = threading.Event()
+
+    def foreign_writer():
+        temporary = register.with_name("runs.json.other.tmp")
+        while not stop.is_set():
+            temporary.write_bytes(content)
+            try:
+                os.replace(temporary, register)
+            except PermissionError:
+                pass  # the other process's own refusal is not under test
+
+    writer = threading.Thread(target=foreign_writer)
+    writer.start()
+    errors: list[BaseException] = []
+    try:
+        for _ in range(300):
+            try:
+                assert len(workspace.read_raw_manifest()) == 2
+            except Exception as error:  # every failure of a read is the finding
+                errors.append(error)
+    finally:
+        stop.set()
+        writer.join()
+    assert not errors, errors[:3]
+    assert [r.run_id for r in workspace.read_manifest()] == [
+        "camp/sim_1/first",
+        "camp/sim_1/second",
+    ]
+
+
 def test_p0570_e2201_appends_are_serialised_and_the_objects_are_left_as_found():
     inside = {"now": 0, "worst": 0}
 

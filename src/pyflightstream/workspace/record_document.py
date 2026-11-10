@@ -9,6 +9,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +20,10 @@ from pyflightstream.workspace.manifest import RunStatus, WorkspaceError, registe
 __all__ = ["SCHEMA_VERSION", "decode_document", "encode_rows", "read_rows"]
 
 SCHEMA_VERSION = 4
+#: Attempts at a read or a replace of a register that another process holds on Windows,
+#: and the first pause between them, doubled each time: about 1.3 s of waiting in all.
+SHARING_ATTEMPTS = 8
+SHARING_PAUSE_S = 0.01
 _HEADER = {
     "id": "run_id",
     "point": "point",
@@ -359,7 +366,7 @@ def read_rows(path: Path, *, unreadable: list[dict] | None = None) -> list[dict]
     """
     try:
         with register_thread_lock(path):
-            text = path.read_text(encoding="utf-8")
+            text = _shared(lambda: path.read_text(encoding="utf-8"))
         document = json.loads(text)
     except FileNotFoundError:
         return []
@@ -373,7 +380,27 @@ def replace_file(source: Path, path: Path) -> None:
 
     The caller holds the register's lease. The replace is taken under
     :func:`register_thread_lock`, which :func:`read_rows` takes too, so no read of
-    this process has the file open at that instant.
+    this process has the file open at that instant; a read by another process is
+    waited out (:data:`SHARING_ATTEMPTS`).
     """
     with register_thread_lock(path):
-        source.replace(path)
+        _shared(lambda: source.replace(path))
+
+
+def _shared[T](action: Callable[[], T]) -> T:
+    """Run a read or a replace of a register, waiting out a brief hold by another process.
+
+    Windows refuses to open a file being replaced, and to replace a file held open, with
+    ``PermissionError`` (a sharing violation); another process's read or replace holds the
+    file for milliseconds. Elsewhere neither happens, and the error is raised at once.
+    """
+    pause = SHARING_PAUSE_S
+    for _ in range(SHARING_ATTEMPTS - 1):
+        try:
+            return action()
+        except PermissionError:
+            if os.name != "nt":
+                raise
+            time.sleep(pause)
+            pause *= 2
+    return action()
