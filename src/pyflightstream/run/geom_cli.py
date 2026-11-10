@@ -270,7 +270,25 @@ def _build_parser() -> argparse.ArgumentParser:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Run ``pyfs-geom``; returns the exit code (0 accepted, 1 failed, 2 refused, 3 incomplete)."""
+    """Run ``pyfs-geom``; returns the exit code (0 accepted, 1 failed, 2 refused, 3 incomplete).
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command line without the program name; None reads ``sys.argv``.
+
+    Returns
+    -------
+    int
+        The exit code: 0 accepted, 1 failed, 2 refused, 3 incomplete.
+
+    Examples
+    --------
+    >>> from pyflightstream.run.geom_cli import main
+    >>> main(["validate", "no-such-file.toml"])  # doctest: +ELLIPSIS
+    ...
+    2
+    """
     args = _build_parser().parse_args(argv)
     handler = getattr(args, "handler", None) or args.mesh_command
     try:

@@ -71,6 +71,24 @@ def adopt_surface_file(source):
     A file of the published form holds no ``type``: ``[surface]`` makes it a lifting surface and
     ``[body]`` a body. The file-level tables (``units``, ``aircraft``, ``acceptance``,
     ``reader``) stay at the file level; every other table belongs to the component.
+
+    Parameters
+    ----------
+    source : Mapping
+        A parsed configuration file.
+
+    Returns
+    -------
+    Mapping
+        The file with a ``components`` table, or ``source`` itself when it already has one or
+        holds neither table.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import adopt_surface_file
+    >>> adopted = adopt_surface_file({"surface": {"name": "W"}})
+    >>> adopted["components"]["W"]["type"]
+    'lifting_surface'
     """
     if "components" in source or "type" in source:
         return source
