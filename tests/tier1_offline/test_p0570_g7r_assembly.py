@@ -11,6 +11,7 @@ and must stop at that row's sub-step, naming its check.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -608,6 +609,61 @@ def test_p0570_g7r_run_log_times_each_substep_by_its_own_wall_time(tmp_path, mon
 
 def _stopped(report):
     return report["status"], report["stage"], report["check"]
+
+
+def test_p0570_g7r_bj5_no_through_run_geometry_a_second_build_with_another_pole(
+    tmp_path, monkeypatch
+):
+    """T-BJ5 through the verb: the second build of a piece from its own inputs moves one pole by
+    1e-6 m (a generator that does not rebuild what it built); the run stops at S10.C5."""
+    pieces, rows = wb(fillet=False)
+    again = {name: list(patches) for name, patches in pieces.items()}
+    first = again["WING"][0]
+    again["WING"][0] = Patch(
+        first.family,
+        first.controls + np.array([0.0, 0.0, 1e-6]),
+        first.knots_u,
+        first.knots_v,
+        first.multiplicities_u,
+        first.multiplicities_v,
+        first.degree_u,
+        first.degree_v,
+    )
+    report, run = _run_pieces(tmp_path, monkeypatch, pieces, rows, again=again)
+    assert _stopped(report) == ("failed", "S10.C5", "piece.regenerated"), report
+    record = json.loads((run / "S10.C5.json").read_text(encoding="utf-8"))
+    entry = checks_of(record)["piece.regenerated"]
+    assert entry["measured"] == pytest.approx(1e-6, rel=1e-6)
+    assert "class BUG" in entry["note"]
+
+
+def test_p0570_g7r_bj2_no_through_run_geometry_a_join_written_with_its_crease_apart(
+    tmp_path, monkeypatch
+):
+    """T-BJ2 through the verb: the writer puts one side of the join 0.0205 mm off the other
+    (the hand-off's crease offset), so the two written curves are no longer one; the run stops
+    at S10.C2 with that distance."""
+    from pyflightstream.workspace._gmsh import GmshKernel
+
+    real = GmshKernel.export_iges
+
+    def apart(self, groups, path, **options):
+        if not Path(path).name.startswith("S10-join-"):
+            return real(self, groups, path, **options)
+        moved = self.copy(groups["BLISTER"])
+        self.transform(moved, [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 2.05e-5], [0, 0, 0, 1]])
+        try:
+            return real(self, {**groups, "BLISTER": list(moved)}, path, **options)
+        finally:
+            self.remove(list(moved))
+
+    monkeypatch.setattr(GmshKernel, "export_iges", apart)
+    join = {"dominant": ["BLISTER"], "dominated": ["BODY"], "operation": "cut"}
+    blister = box((1.0, 0.2, -1.3), (3.0, 0.6, -0.8), skip=("zmax",))
+    report, run = _run_pieces(tmp_path, monkeypatch, {"BODY": body(), "BLISTER": blister}, [join])
+    assert _stopped(report) == ("failed", "S10.C2", "join.written_pairs"), report
+    record = json.loads((run / "S10.C2.json").read_text(encoding="utf-8"))
+    assert checks_of(record)["join.written_pairs"]["measured"] == pytest.approx(2.05e-5, rel=1e-2)
 
 
 def test_p0570_g7r_s6_no_through_run_geometry_an_imprint_that_splits_no_host(tmp_path, monkeypatch):
