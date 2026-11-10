@@ -150,6 +150,8 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "AtmosphereError": ValueError,
         "BrokenCommandError": RuntimeError,
         "CampaignErrors": RuntimeError,
+        # 0.57.0: a geometry check that stops the construction is an input refusal.
+        "CheckFailedError": ValueError,
         "CommandArgumentError": ValueError,
         "CommandDatabaseError": ValueError,
         "CommandNotInVersionError": LookupError,

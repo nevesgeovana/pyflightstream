@@ -58,6 +58,7 @@ from __future__ import annotations
 
 from pyflightstream._atmosphere import AtmosphereError
 from pyflightstream._errors import (
+    CheckFailedError,
     ContractNotImplementedError,
     DemotedRefusalWarning,
     DuplicateValueWarning,
@@ -162,6 +163,7 @@ __all__ = [
     "CalibrationError",
     "CampaignConfigError",
     "CampaignErrors",
+    "CheckFailedError",
     "CommandArgumentError",
     "CommandDatabaseError",
     "CommandNotInVersionError",

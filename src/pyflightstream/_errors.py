@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import sys
 import warnings
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from difflib import get_close_matches
@@ -245,6 +245,18 @@ class InputValueError(PyflightstreamError, ValueError):
     domain class of its own. ``ValueError`` stays a base, so ``except ValueError``
     still catches it.
     """
+
+
+class CheckFailedError(InputValueError):
+    """A check measured as failed where the construction cannot go on; it carries the check.
+
+    Raised as an input error, so a direct caller is refused with the check's id and note; a run
+    records the carried check in the sub-step that owns it and stops there as ``failed``.
+    """
+
+    def __init__(self, check: Mapping) -> None:
+        super().__init__(f"{check['id']}: {check['note']}")
+        self.check = dict(check)
 
 
 class InputTypeError(PyflightstreamError, TypeError):
