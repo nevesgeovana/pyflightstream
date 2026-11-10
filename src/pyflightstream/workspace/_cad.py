@@ -183,6 +183,24 @@ class CadKernel(Protocol):
         ...
 
     # Query
+    def split_imported_face_uv(self, face: Face, direction: str, value: float) -> tuple[Face, ...]:
+        """Split a face on its own iso-u or iso-v line, retaining its existing trims.
+
+        Imported faces are supported without fitting a replacement surface. The input is
+        replaced by its pieces, lower parameter side first. A finite value outside the
+        face's parameter bounds returns the unchanged face. Invalid directions and
+        non-finite values are refused before mutation.
+        """
+        ...
+
+    def minimum_distance(self, a: Sequence[Face], b: Sequence[Face]) -> float:
+        """Return native minimum distance between trimmed face sets, in metres.
+
+        Contact and intersection give zero. This is a kernel extremum query, with no
+        sampling of faces or edges. Empty sets and a failed kernel query are refused.
+        """
+        ...
+
     def faces(self) -> tuple[Face, ...]:
         """Return every face of the model, in creation order."""
         ...
