@@ -9,10 +9,10 @@ run matrix, and pyflightstream plans, runs and post-processes every point,
 from your workstation or a cluster. MIT licensed.
 
 CHANGELOG.md describes package changes and the retained release history.
-Use the [upgrade guidance](https://nevesgeovana.github.io/pyflightstream/upgrading/)
+Use the [upgrade guidance](https://nevesgeovana.github.io/pyflightstream/latest/upgrading/)
 when moving an existing workspace to a newer package version.
 
-**Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
+**Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/latest/)**
 
 ## What it does
 
@@ -55,14 +55,14 @@ located through your workspace, never guessed.
 pyfs-workspace init my-study
 ```
 
-[Getting started](https://nevesgeovana.github.io/pyflightstream/getting-started/)
+[Getting started](https://nevesgeovana.github.io/pyflightstream/latest/getting-started/)
 starts with an executable solver-free example, then walks the geometry,
 matrix, reference, setup and post-processing inputs needed before planning.
 Initialization creates `my-study/inputs/INPUTS.md`; read it next. Planning
 needs those inputs but no solver license. Running requires a separately
 licensed FlightStream installation.
 
-[From the GUI to pyfs](https://nevesgeovana.github.io/pyflightstream/gui-to-pyfs/)
+[From the GUI to pyfs](https://nevesgeovana.github.io/pyflightstream/latest/gui-to-pyfs/)
 maps each GUI step to the key that takes it here.
 
 ## Command-line tools
@@ -113,7 +113,7 @@ version, checked by a test. `documented` describes the database support level;
 it does not imply that no measurements exist for that build. Individual commands
 may carry different evidence. The details, and how to tell
 which build you have, are on
-[Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/):
+[Which build do I have](https://nevesgeovana.github.io/pyflightstream/latest/builds/):
 
 ```python
 import pyflightstream
@@ -132,7 +132,7 @@ pytest
 
 The hard invariants are in `CONTRIBUTING.md`. Tier 1 runs anywhere; tiers 2
 and 3 need a licensed FlightStream and are described in
-[the test tiers](https://nevesgeovana.github.io/pyflightstream/tiers/).
+[the test tiers](https://nevesgeovana.github.io/pyflightstream/latest/tiers/).
 
 ## Citing and license
 

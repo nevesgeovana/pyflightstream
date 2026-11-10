@@ -18,10 +18,10 @@ title page says which), and the guide to the Python library itself.
 | 8 | `pyfts-guide-08-fsi.pdf` | fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
 | 9 | `pyfts-guide-09-python-environment-offline.pdf` | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
-Download the PDFs from the [documentation site](https://nevesgeovana.github.io/pyflightstream/guides/).
+Download the PDFs from the [documentation site](https://nevesgeovana.github.io/pyflightstream/latest/guides/).
 
 Each deck ends with its numbered references: the package's documentation
-pages (https://nevesgeovana.github.io/pyflightstream/) and the textbooks and
+pages (https://nevesgeovana.github.io/pyflightstream/latest/) and the textbooks and
 papers behind every physical explanation it gives.
 
 `pyflightstream_user_guide.tex` is the guide to the Python library: versions

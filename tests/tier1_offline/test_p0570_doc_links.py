@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -33,3 +34,20 @@ def test_every_docref_slug_is_a_page_and_the_check_can_fail(tmp_path):
     found = links.offline(sources, tmp_path)
     assert any("does not end in /latest" in f for f in found)
     assert any("'nope'" in f for f in found)
+
+
+def test_repository_text_links_no_unversioned_site_page():
+    site = "https://nevesgeovana.github.io/pyflightstream/"
+    unversioned = []
+    for name in (
+        "README.md",
+        "CONTRIBUTING.md",
+        "guide/README.md",
+        "docs/guides.md",
+        "pyproject.toml",
+    ):
+        text = (REPO / name).read_text(encoding="utf-8")
+        for url in re.findall(re.escape(site) + r"[^\s)\"]*", text):
+            if not url.startswith(site + "latest/"):
+                unversioned.append(f"{name}: {url}")
+    assert not unversioned, unversioned
