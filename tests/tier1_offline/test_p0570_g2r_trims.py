@@ -69,11 +69,25 @@ def test_the_file_states_parameter_space_as_the_preference(kernel, tmp_path):
     kernel.export_iges({"WING": [lower, upper]}, path)
     trims = [e for e in read_iges(path)["entities"] if e["type"] == 142]
     assert len(trims) == 2 and {e["parameters"][5] for e in trims} == {"1"}
-    kernel.export_iges({"WING": [lower, upper]}, path, preference=2)
+    kernel.export_iges({"WING": [lower, upper]}, path, preference=3)
     trims = [e for e in read_iges(path)["entities"] if e["type"] == 142]
-    assert {e["parameters"][5] for e in trims} == {"2"}
+    assert {e["parameters"][5] for e in trims} == {"3"}
     with pytest.raises(InputValueError, match="IGES.PREF"):
         kernel.export_iges({"WING": [lower]}, path, preference=4)
+
+
+def test_r21_005_a_model_space_preference_is_warned_and_written_as_parameter_space(
+    kernel, tmp_path
+):
+    """The solver's CAD import reads no face from a 142 of PREF 2 (record g13d-reads.json, P2)."""
+    from pyflightstream._errors import PyflightstreamWarning
+
+    lower, upper = _two_faces(kernel)
+    path = tmp_path / "pref2.igs"
+    with pytest.warns(PyflightstreamWarning, match="IGES.PREF: 2 .*PREF 1 is written instead"):
+        kernel.export_iges({"WING": [lower, upper]}, path, preference=2)
+    trims = [e for e in read_iges(path)["entities"] if e["type"] == 142]
+    assert len(trims) == 2 and {e["parameters"][5] for e in trims} == {"1"}
 
 
 def test_r16_005_parameter_space_is_preferred_only_where_the_file_has_that_curve():

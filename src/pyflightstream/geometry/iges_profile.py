@@ -15,7 +15,8 @@ written by ``iges-convert``; the same probe files as the package writes them, im
 read with the same areas (record ``tests/tier1_offline/data/g13d-reads.json``, lane G13D, the
 P2 file of PREF 2 excepted). The direct route reads a
 face only when its outer boundary has parameter-space curves flagged 2D parametric (entity use 05)
-and a PREF other than 2, which the writer states unless asked for PREF 2. No net limit is stated
+and a PREF other than 2; the writer states both, and a PREF 2 asked of it is warned about and
+written as 1. No net limit is stated
 because the largest net probed was not a failing one.
 """
 

@@ -272,6 +272,7 @@ class CadKernel(Protocol):
 
         ``preference`` is the PREF of every trimmed face (IGES 142): 1 parameter space, 2 model
         space, 3 either. Parameter space is the exact one of a trim built by
-        :meth:`add_trimmed_face`.
+        :meth:`add_trimmed_face`. A 2 is warned about and written as 1, since the solver's CAD
+        import reads no face from a boundary that prefers model space.
         """
         ...
