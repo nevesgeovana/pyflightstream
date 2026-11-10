@@ -32,6 +32,7 @@ from pathlib import Path
 
 from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
+from pyflightstream.geometry import _control_surfaces as controls
 from pyflightstream.geometry import _junctions as junctions
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
@@ -104,6 +105,7 @@ __all__ = [
     "closed_contour",
     "constant",
     "contour_features",
+    "controls",
     "cosine",
     "count_classes",
     "evaluate_patch",
