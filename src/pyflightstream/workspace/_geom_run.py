@@ -129,9 +129,9 @@ def _generate(resolved: dict[str, Any], target: Path, configuration: str | None)
 
 def _generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Write the IGES and return the record of ``generate_iges`` as JSON values (a worker's)."""
-    from pyflightstream.workspace import _geometry_generate
+    from pyflightstream.workspace._geometry_generate import generate_iges
 
-    written = _geometry_generate.generate_iges(config, path, configuration=configuration)
+    written = generate_iges(config, path, configuration=configuration)
     return json.loads(json.dumps(written, default=str))
 
 
