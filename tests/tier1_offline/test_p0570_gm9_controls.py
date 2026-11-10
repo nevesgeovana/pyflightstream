@@ -316,6 +316,26 @@ def _plain_config():
     }
 
 
+@pytest.mark.parametrize(
+    "builder", ["build", "imported"], ids=["P0570-R26-build", "P0570-R26-imported"]
+)
+def test_p0570_r26_distinct_angles_keep_distinct_control_pieces(builder):
+    """Two deflections differing after six significant digits must both survive."""
+    from pyflightstream.geometry import resolve_config
+
+    raw = _plain_config()
+    entry = raw["components"]["panel"]["control"][0]
+    entry["deflection_deg"] = [15.000001, 15.000002]
+    component = stages.unpack(resolve_config(raw))["components"]["panel"]
+    if builder == "build":
+        result = stages.controls.build(component)
+        labels = set(result.pieces) - {"main"}
+    else:
+        result = stages.controls.imported(stages.lifting_model(component).skin, entry)
+        labels = set(result["motions"])
+    assert labels == {"flap-d15.000001", "flap-d15.000002"}
+
+
 def test_p0570_gm9_plain_applied_geometry_preserves_skin_and_closes(kernel, tmp_path):
     from pyflightstream.geometry import resolve_config
 

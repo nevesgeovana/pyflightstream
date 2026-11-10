@@ -38,3 +38,6 @@ Explicit exposed roots map eta into the planform semispan. Named engine
 bounding sections split a control into closed inboard and outboard pieces;
 missing bounds retain one piece with a recorded warning. Host-derived limits
 without a measured boundary refuse instead of using an invented station.
+
+Distinct control deflections retain distinct piece names even when they differ
+after six significant digits. Integer angle labels such as `flap-d15` stay unchanged.
