@@ -274,10 +274,10 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("profile.surfaces_only", "no solid entity"),
         ("profile.reader", "reader profile"),
         ("profile.base_shared", "1e-12 m"),
-        ("manifest.piece_version", "version of each piece"),
         ("reimport.each_component", "every component reads back"),
         ("area.read_back", "1e-3 relative"),
     ),
+    _row("S11.V", "Export registry", False, ("manifest.piece_version", "version of each piece")),
     _row(
         "S12",
         "Reader gate",

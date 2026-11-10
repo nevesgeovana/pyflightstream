@@ -158,3 +158,59 @@ def test_p0570_export_keeps_component_version_and_trimmed_faces(tmp_path, kind):
         assert {t["role"] for f in skin_faces for t in f["source_faces"]} >= {"upper", "lower"}
     document = read_iges(tmp_path / piece["iges"])
     assert len([e for e in document["entities"] if e["type"] == 144]) == len(piece["faces"])
+
+
+@pytest.mark.parametrize(
+    "built", ["2.1.0", "1.1.0"], ids=["P0570-version-control", "P0570-wrong-version"]
+)
+def test_p0570_manifest_checks_the_built_version_against_inherited_registry(tmp_path, built):
+    kernel_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = {
+        "components": {"shell": {"type": "body", "version": built}},
+        "configurations": {
+            "base": {"members": [{"component": "shell", "version": "2.1.0"}]},
+            "derived": {"extends": "base", "members": ["shell"]},
+        },
+    }
+    # An explicit derived member inherits the same declared version, independent of generation.
+    raw["configurations"]["derived"]["members"] = [{"component": "shell", "version": "2.1.0"}]
+    report = run_geometry(raw, configuration="derived", out=tmp_path, until="S13")
+    checks = [
+        check
+        for path in tmp_path.glob("S*.json")
+        for check in json.loads(path.read_text(encoding="utf-8")).get("checks", [])
+        if check["id"] == "manifest.piece_version"
+    ]
+    assert checks and all(
+        c["status"] == ("passed" if built == "2.1.0" else "failed") for c in checks
+    )
+    if built != "2.1.0":
+        assert report["check"] == "manifest.piece_version"
+        assert "1.1.0" in str(checks) and "2.1.0" in str(checks)
+
+
+@pytest.mark.parametrize("variant", ["clean", "deployed"], ids=["P0570-allowed", "P0570-excluded"])
+def test_p0570_selected_configuration_limits_its_variants(tmp_path, variant):
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = {
+        "components": {"shell": {"type": "body"}},
+        "variants": {"deployed": []},
+        "configurations": {"one": {"members": ["shell"], "variants": ["clean"]}},
+    }
+    report = run_geometry(raw, configuration="one", variant=variant, out=tmp_path, until="S0")
+    assert report["status"] == ("accepted" if variant == "clean" else "refused")
+
+
+def test_p0570_applied_variant_waits_without_publishing_clean_geometry(tmp_path):
+    kernel_or_skip()
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = {"components": {"shell": {"type": "body"}}, "variants": {"deployed": []}}
+    report = run_geometry(raw, variant="deployed", out=tmp_path, until="S11")
+    assert report["status"] == "incomplete"
+    record = json.loads((tmp_path / "S11.json").read_text(encoding="utf-8"))
+    assert record["outputs"].get("state") == "waiting"
+    assert not list(tmp_path.glob("*.igs"))

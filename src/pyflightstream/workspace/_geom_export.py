@@ -7,13 +7,14 @@ Layout sidecars carry source bases and lines without resampling the geometry.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.geometry.stages import write_record
+from pyflightstream.geometry.stages import manifest_checks, write_record
 from pyflightstream.workspace._geom_assembly import Assembly
 from pyflightstream.workspace._geom_parts import plain
 
@@ -85,7 +86,18 @@ def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
         "faces": {name: len(faces) for name, faces in assembly.faces.items()},
         "warnings": [],
         "audit": {"source": "retained assembly faces"},
+        "sources": {
+            n: {"version": p.version, "source_surface_id": p.source_surface_id}
+            for n, p in assembly.models.items()
+        },
     }
+
+
+def check_export(stage, resolved, configuration, members, out, source) -> dict[str, Any]:
+    """Measure one export sub-step against the retained source record."""
+    manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
+    checks = manifest_checks(resolved, configuration, members, manifest, source["sources"])
+    return {"checks": checks, "outputs": {"inputs": {"members": members}}}
 
 
 def generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:

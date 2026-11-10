@@ -22,3 +22,11 @@ assembly instead of sampled layout patches.
 
 migration: S11 writes `manifest.json`, per-piece IGES and layout files, and
 isolated face files for read-back checks beside the combined IGES.
+
+S11.V checks manifest membership, piece versions and source identities against
+the selected registry and the separately retained generation record.
+
+migration: A configuration now refuses variants excluded by its own registry
+entry, even when the variant exists elsewhere in the configuration file.
+Applied-control variant export is recorded as waiting for G9, without
+publishing clean geometry under the requested variant.

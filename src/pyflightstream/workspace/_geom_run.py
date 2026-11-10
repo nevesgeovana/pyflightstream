@@ -150,6 +150,8 @@ def _generate_record(config: Any, path: str, configuration: str | None) -> dict[
 
 def _export(context: RunContext) -> StageOutcome:
     """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
+    if context.variant != "clean":
+        return _waiting_variant(context, "S11")
     name = context.configuration or str(
         unpack(context.resolved["aircraft"]).get("name", "geometry")
     )
@@ -170,8 +172,7 @@ def _export(context: RunContext) -> StageOutcome:
     warnings = [
         str(item) for item in written["warnings"] if item not in context.resolved["warnings"]
     ]
-    if context.variant != "clean":
-        warnings.append(f"variant {context.variant}: not applied by the export stage in this tree")
+    context.state["export"] = written
     return StageOutcome(
         checks=[check_entry("profile.surfaces_only", "passed", 0, 0, unit="solid entities")],
         warnings=warnings,
@@ -181,6 +182,37 @@ def _export(context: RunContext) -> StageOutcome:
             "faces": written["faces"],
             "audit": written["audit"],
         },
+    )
+
+
+def _export_step(stage: str) -> StageFn:
+    """Run one measured export sub-step with the independently retained source identity."""
+
+    def run(context: RunContext) -> StageOutcome:
+        from pyflightstream.workspace._geom_export import check_export
+
+        if context.variant != "clean":
+            return _waiting_variant(context, stage)
+        return StageOutcome(
+            **check_export(
+                stage,
+                context.resolved,
+                context.configuration,
+                context.members,
+                context.out,
+                context.state["export"],
+            )
+        )
+
+    return run
+
+
+def _waiting_variant(context: RunContext, stage: str) -> StageOutcome:
+    note = f"waiting for G9: applied-control variant {context.variant}"
+    row = next(r for r in STAGE_ROWS if r.stage == stage)
+    return StageOutcome(
+        checks=[check_entry(cid, "skipped", note=note) for cid, _ in row.checks],
+        outputs={"state": "waiting", "waiting_for": "G9", "variant": context.variant},
     )
 
 
@@ -369,6 +401,8 @@ def _assembly_step(stage: str) -> StageFn:
     """Return the function of one sub-step of S10: its record from the assembly's run."""
 
     def run(context: RunContext) -> StageOutcome:
+        if context.variant != "clean":
+            return _waiting_variant(context, stage)
         ids = [cid for cid, _ in next(r for r in STAGE_ROWS if r.stage == stage).checks]
         result = _assembly(context)
         if result is None:
@@ -432,6 +466,7 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,
+    "S11.V": _export_step("S11.V"),
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
     "S8.F3": _blend_step("fillet", "S8.F3"),
@@ -528,6 +563,13 @@ def _members(resolved, configuration, variant):
         raise InputValueError(
             f"variant {variant!r}: unknown; available: {sorted(unpack(resolved['variants']))}"
         )
+    if configuration is not None:
+        allowed = unpack(resolved["registry"])[configuration]["variants"]
+        if variant not in allowed:
+            raise InputValueError(
+                f"configuration {configuration!r}: variant {variant!r} is excluded; "
+                f"available: {allowed}"
+            )
     return members
 
 
@@ -657,7 +699,8 @@ def _not_measured(record: Mapping[str, Any], built: bool) -> list[str]:
     return [
         f"{record['stage']} {check['id']}"
         for check in record["checks"]
-        if check["status"] == "skipped" and (not built or check["note"] == _OMITTED)
+        if check["status"] == "skipped"
+        and (not built or check["note"] == _OMITTED or check["note"].startswith("waiting for "))
     ]
 
 

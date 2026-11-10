@@ -75,6 +75,7 @@ from pyflightstream.geometry._records import (
     stage_record,
     write_record,
 )
+from pyflightstream.geometry._registry import manifest_checks
 from pyflightstream.geometry._reverse import (
     clean_band,
     closed_contour,
@@ -128,6 +129,7 @@ __all__ = [
     "leading_extension",
     "lifting_surface",
     "load_mesh_controls",
+    "manifest_checks",
     "orient_mesh",
     "oriented_source_normals",
     "parameter_id",
