@@ -144,3 +144,109 @@ def test_p0570_gm9_plain_partition_preserves_base_and_closes_ends(kernel, tmp_pa
 def test_p0570_gm9_partition_refuses_invalid_span(span):
     with pytest.raises(InputValueError, match="span"):
         _control_partition().partition(_box_skin(), lower=0.2, upper=0.8, span=span)
+
+
+def _closed_box(kernel, offset=0.0):
+    points = [
+        (x, y + offset, z)
+        for x, y, z in [
+            (0, 0, 0),
+            (1, 0, 0),
+            (1, 1, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+            (1, 0, 1),
+            (1, 1, 1),
+            (0, 1, 1),
+        ]
+    ]
+    return [
+        kernel.add_planar_face([points[i] for i in indices])
+        for indices in [
+            (0, 1, 2, 3),
+            (4, 7, 6, 5),
+            (0, 4, 5, 1),
+            (1, 5, 6, 2),
+            (2, 6, 7, 3),
+            (3, 7, 4, 0),
+        ]
+    ]
+
+
+def _fcheck(kernel, stage, inputs):
+    import importlib
+    import importlib.util
+
+    module = "pyflightstream.workspace._geom_control"
+    assert importlib.util.find_spec(module), "the F sub-steps have no implementation"
+    return importlib.import_module(module).check_stage(kernel, stage, inputs)
+
+
+def _passed(result):
+    return all(c["status"] == "passed" for c in result["checks"])
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["P0570-F0-YES", "P0570-F0-NO"])
+def test_p0570_gm9_f0_counts_faces_read_against_written(kernel, tmp_path, missing):
+    faces = _closed_box(kernel)
+    path = tmp_path / "piece.igs"
+    kernel.export_iges({"main": faces[:-1] if missing else faces}, path)
+    result = _fcheck(kernel, "F0", {"pieces": {"main": {"path": str(path), "written": 6}}})
+    assert _passed(result) is not missing
+    assert result["checks"][0]["measured"] == int(missing)
+
+
+@pytest.mark.parametrize("stage", ["F1", "F2", "F7"], ids=["P0570-F1", "P0570-F2", "P0570-F7"])
+@pytest.mark.parametrize("missing", [False, True], ids=["YES", "NO"])
+def test_p0570_gm9_sewn_closure_rejects_missing_end(kernel, tmp_path, stage, missing):
+    faces = _closed_box(kernel)
+    path = tmp_path / "closed.igs"
+    kernel.export_iges({"piece": faces[:-1] if missing else faces}, path)
+    result = _fcheck(kernel, stage, {"path": str(path)})
+    assert _passed(result) is not missing
+    checks = {c["id"]: c for c in result["checks"]}
+    assert checks["control.free_edges"]["measured"] == (4 if missing else 0)
+    assert checks["control.free_edges"]["limit"] == 0
+    assert result["outputs"]["sew_tolerance_m"] == 1e-5
+
+
+@pytest.mark.parametrize("offset", [2.0, 1.0], ids=["P0570-F3-YES", "P0570-F3-NO"])
+def test_p0570_gm9_f3_exact_clearance(kernel, offset):
+    flap, host = _closed_box(kernel), _closed_box(kernel, offset)
+    result = _fcheck(kernel, "F3", {"controls": {"flap": flap}, "hosts": {"body": host}})
+    assert _passed(result) is (offset > 1)
+    assert result["outputs"]["distances_m"]["flap/body"] == pytest.approx(offset - 1)
+
+
+@pytest.mark.parametrize("named", [True, False], ids=["P0570-F4-YES", "P0570-F4-NO"])
+def test_p0570_gm9_f4_requires_names_for_slot_openings(kernel, tmp_path, named):
+    faces = _closed_box(kernel)
+    path = tmp_path / "slot.igs"
+    kernel.export_iges({"main": faces[1:]}, path)
+    # The four bottom boundary edges are the deliberately open slot rim.
+    rim = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)]
+    slots = {"slot": [[rim[i], rim[(i + 1) % 4]] for i in range(4)]} if named else {}
+    result = _fcheck(kernel, "F4", {"path": str(path), "slots": slots, "previous_free": 4})
+    assert _passed(result) is named
+
+
+@pytest.mark.parametrize("stage", ["F5", "F6"], ids=["P0570-F5", "P0570-F6"])
+@pytest.mark.parametrize("missing", [False, True], ids=["YES", "NO"])
+@pytest.mark.xfail(reason="waits for the trimmed assembly of G8", strict=True)
+def test_p0570_gm9_trimmed_assembly_boundary(kernel, tmp_path, stage, missing):
+    from pyflightstream.workspace import _geom_run
+
+    faces = _closed_box(kernel)
+    path = tmp_path / "after_cut.igs"
+    kernel.export_iges({"main": faces[:-1] if missing else faces}, path)
+    inputs = {
+        "path": str(path),
+        "previous_free": 0,
+        "junction_lengths_m": {"main/body": 4.0},
+        "clean_junction_lengths_m": {"main/body": 4.0},
+    }
+    result = _fcheck(kernel, stage, inputs)
+    assert _passed(result) is not missing
+    # The session supplies the trimmed assembly boundary at merge. This assertion
+    # keeps the integration expectation pending even once the checker works.
+    assert hasattr(_geom_run, "trimmed_control_assembly")
