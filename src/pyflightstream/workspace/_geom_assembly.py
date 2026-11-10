@@ -219,22 +219,7 @@ class Assembly(RemovalSteps):
                 if count == 1
             ]
             if model is not None and not self.plan:
-                for index, face in enumerate(self.faces[name]):
-                    perimeter = sum(
-                        jn.polyline_length(self._samples(abs(e), 257))
-                        for e in self.k.boundary(face)
-                    )
-                    area = self.k.area(face)
-                    width = jn.mean_width(area, perimeter)
-                    if width < jn.SLIVER_WIDTH_M:
-                        self.input_sliver_faces.append(
-                            {
-                                "component": name,
-                                "face": index,
-                                "area_m2": area,
-                                "width_m": width,
-                            }
-                        )
+                self._record_input_slivers(name)
         self._resolve_auto()
         contact, pair, limit = 0.0, {}, jn.SEW_M
         for op in self.plan:
@@ -260,6 +245,19 @@ class Assembly(RemovalSteps):
             ),
         ]
         return checks, {"inputs": {"patches": {n: len(p) for n, p in self.sources.items()}}}
+
+    def _record_input_slivers(self, name):
+        """Keep the thin source faces as the export sewing reference."""
+        for index, face in enumerate(self.faces[name]):
+            perimeter = sum(
+                jn.polyline_length(self._samples(abs(e), 257)) for e in self.k.boundary(face)
+            )
+            area = self.k.area(face)
+            width = jn.mean_width(area, perimeter)
+            if width < jn.SLIVER_WIDTH_M:
+                self.input_sliver_faces.append(
+                    {"component": name, "face": index, "area_m2": area, "width_m": width}
+                )
 
     def _self_fragment(self, name: str, built: list[Face]) -> list[Face]:
         """Fragment a piece's own faces together, so faces of one piece share their seams."""
