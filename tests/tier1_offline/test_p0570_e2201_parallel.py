@@ -414,13 +414,39 @@ def test_p0570_r23_005_an_interrupt_or_a_crashed_worker_starts_no_queued_case(st
     assert len(ran) <= 1, ran
 
 
-def test_p0570_r23_006_a_parallel_only_block_is_no_launch_policy_for_a_submitted_run(tmp_path):
-    from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.run._executors import _with_the_profile_s_log
+class _NotLocal:
+    """An executor that is no LocalExecutor (as a submitting one), running a stand-in."""
 
-    parallel_only = make_cases(tmp_path, 1, RuntimeSettings(parallel=2, licence_seats=3)).sims[0]
-    launched = _with_the_profile_s_log(parallel_only, object())
-    assert launched.solver.runtime == parallel_only.solver.runtime
-    threads = make_cases(tmp_path, 1, RuntimeSettings(max_threads=4)).sims[0]
-    with pytest.raises(CampaignConfigError, match="local launch"):
-        _with_the_profile_s_log(threads, object())
+    def __init__(self):
+        self._inner = SleepingSolver(0.01)
+
+    def run_script(self, script_path, working_dir, timeout_s=None):
+        return self._inner.run_script(script_path, working_dir, timeout_s)
+
+
+@pytest.mark.parametrize(
+    ("runtime", "converges"),
+    [(RuntimeSettings(parallel=2, licence_seats=3), True), (RuntimeSettings(max_threads=4), False)],
+)
+def test_p0570_r23_006_only_a_launch_policy_needs_a_local_launch(tmp_path, runtime, converges):
+    from pyflightstream.cases import CampaignConfigError
+
+    def go():
+        return run_campaign(
+            make_cases(tmp_path, 2, runtime),
+            _NotLocal(),
+            CampaignWorkspace(tmp_path / "camp"),
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            quiet=True,
+        )
+
+    if not converges:
+        with pytest.raises(CampaignConfigError, match="local launch"):
+            go()
+        return
+    records = go()
+    assert len(records) == 2
+    assert all(r.status is RunStatus.CONVERGED for r in records), [
+        (r.status, r.error) for r in records
+    ]
