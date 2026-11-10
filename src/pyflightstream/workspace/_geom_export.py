@@ -16,6 +16,7 @@ import numpy as np
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.geometry.stages import check_entry, manifest_checks, unpack, write_record
+from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._geom_assembly import Assembly
 from pyflightstream.workspace._geom_parts import plain
 from pyflightstream.workspace._gmsh_worker import run_isolated
@@ -100,6 +101,8 @@ def check_export(stage, resolved, configuration, members, out, source) -> dict[s
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
     if stage == "S11.R":
         return read_back(Path(out), manifest, float(unpack(resolved)["acceptance"]["area_excess"]))
+    if stage == "S11.S":
+        return sew_back(Path(out), manifest)
     checks = manifest_checks(resolved, configuration, members, manifest, source["sources"])
     return {"checks": checks, "outputs": {"inputs": {"members": members}}}
 
@@ -201,6 +204,67 @@ def read_back(folder: Path, manifest: dict, area_excess: float) -> dict[str, Any
             _measured("reimport.triple_edges", triple, 0, unit="edges"),
         ],
         "outputs": {"inputs": {"files": files}, "worker_pids": pids, "failures": failures},
+    }
+
+
+def sew_back(folder: Path, manifest: dict) -> dict[str, Any]:
+    """Read the combined file once per tolerance and compare with the input openings.
+
+    Faces from separately imported files are never treated as sewn together.
+    Thin faces already present in the input are listed, not treated as new defects.
+    """
+    reference = [np.asarray(p, float) for p in manifest["input_free_edges"]]
+    axis = manifest.get("plane_axis")
+
+    def brought(points):
+        if axis is not None and float(np.abs(points[:, axis]).max()) <= jn.SYMMETRY_M:
+            return True
+        return any(
+            float(jn.distance_to_polyline(points, p).max()) <= jn.OPENING_M for p in reference
+        )
+
+    imports = []
+    for tolerance in (jn.SEW_M, jn.SEW_WIDE_M):
+        topology = _inspect(folder / manifest["iges"], tolerance)
+        free = [np.asarray(e["samples"]) for e in topology["edges"] if len(e["faces"]) == 1]
+        new = [p.tolist() for p in free if not brought(p)]
+        widths = [
+            jn.mean_width(a, p)
+            for a, p in zip(topology["areas"], topology["perimeters"], strict=True)
+        ]
+        thin = [
+            {"face": i, "area_m2": topology["areas"][i], "width_m": widths[i]}
+            for i in jn.slivers(widths)
+        ]
+        imports.append(
+            {
+                "tolerance_m": tolerance,
+                "pid": topology["pid"],
+                "free_edges": len(free),
+                "introduced": new,
+                "triple_edges": sum(len(e["faces"]) > 2 for e in topology["edges"]),
+                "slivers": thin,
+                "slivers_introduced": max(0, len(thin) - manifest["input_slivers"]),
+            }
+        )
+    return {
+        "checks": [
+            _measured(
+                "sew.free_introduced", max(len(r["introduced"]) for r in imports), 0, unit="edges"
+            ),
+            _measured("sew.triple_edges", max(r["triple_edges"] for r in imports), 0, unit="edges"),
+            _measured(
+                "sew.slivers", max(r["slivers_introduced"] for r in imports), 0, unit="faces"
+            ),
+        ],
+        "outputs": {
+            "inputs": {
+                "file": manifest["iges"],
+                "free_edges": len(reference),
+                "slivers": manifest["input_slivers"],
+            },
+            "imports": imports,
+        },
     }
 
 

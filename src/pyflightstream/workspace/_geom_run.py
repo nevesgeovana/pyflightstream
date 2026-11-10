@@ -468,6 +468,7 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S11": _export,
     "S11.V": _export_step("S11.V"),
     "S11.R": _export_step("S11.R"),
+    "S11.S": _export_step("S11.S"),
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
     "S8.F3": _blend_step("fillet", "S8.F3"),

@@ -287,6 +287,14 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("reimport.triple_edges", "0 edges"),
     ),
     _row(
+        "S11.S",
+        "Export sew",
+        True,
+        ("sew.free_introduced", "0 new edges at 1e-5 and 5e-5 m"),
+        ("sew.triple_edges", "0 edges"),
+        ("sew.slivers", "0 new faces below 5 mm mean width"),
+    ),
+    _row(
         "S12",
         "Reader gate",
         False,

@@ -38,3 +38,9 @@ above the source area plus `acceptance.area_excess`.
 
 migration: Read-back checks now have their own S11.R stage record and run-log
 entries; `--until S11` stops after writing and does not claim read-back checks.
+
+S11.S imports the combined file in one operation at each sewing tolerance,
+1e-5 m and 5e-5 m. It reports introduced free edges against the input curves,
+triple edges and new sub-5 mm slivers, listing the thin faces in each import.
+Unassembled pieces now retain their original sliver count as well as their
+free edges, so existing thin faces do not become export defects.

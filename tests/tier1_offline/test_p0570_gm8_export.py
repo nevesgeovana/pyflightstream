@@ -216,8 +216,8 @@ def test_p0570_applied_variant_waits_without_publishing_clean_geometry(tmp_path)
     assert not list(tmp_path.glob("*.igs"))
 
 
-def _written_halves(folder):
-    """Two exact half-square trims on one unit-square base, each of area 0.5."""
+def _written_halves(folder, height=1.0):
+    """Two exact half-width trims on one rectangular base."""
     kernel_or_skip()
     from pyflightstream.geometry import resolve_config
     from pyflightstream.geometry.stages import GeneratedPiece, Patch
@@ -236,6 +236,10 @@ def _written_halves(folder):
         1,
     )
     piece = GeneratedPiece.from_patches("plate", "1.0.0", [patch])
+    if height != 1.0:
+        controls = patch.controls.copy()
+        controls[..., 1] *= height
+        piece = GeneratedPiece.from_patches("plate", "1.0.0", [replace(patch, controls=controls)])
     trims = []
     for name, low, high in (("left", 0.0, 0.5), ("right", 0.5, 1.0)):
         points = ((low, 0.0), (high, 0.0), (high, 1.0), (low, 1.0))
@@ -310,3 +314,28 @@ def test_p0570_reimport_has_its_own_stage_record_and_run_log(tmp_path):
     assert all(c["status"] == "passed" for c in record["checks"])
     log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
     assert "S11.R" in log and "area.read_back" in log and "reimport.free_edges" in log
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["P0570-sew-control", "P0570-new-opening"])
+@pytest.mark.parametrize("height", [1.0, 0.001], ids=["P0570-wide", "P0570-input-slivers"])
+def test_p0570_sewing_checks_introduced_edges_against_the_input_reference(
+    tmp_path, missing, height
+):
+    from pyflightstream.workspace._geom_export import check_export
+
+    resolved, written = _written_halves(tmp_path, height)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input_slivers"] == (2 if height < 0.005 else 0)
+    if missing:
+        face = manifest["components"]["plate"]["faces"][0]
+        (tmp_path / manifest["iges"]).write_bytes((tmp_path / face["iges"]).read_bytes())
+    record = check_export("S11.S", resolved, None, ["plate"], tmp_path, written)
+    checks = {c["id"]: c for c in record["checks"]}
+    assert "sew.free_introduced" in checks, "sewing must distinguish original and new openings"
+    assert checks["sew.free_introduced"]["status"] == ("failed" if missing else "passed")
+    assert checks["sew.triple_edges"]["measured"] == 0
+    assert {row["tolerance_m"] for row in record["outputs"]["imports"]} == {1e-5, 5e-5}
+    if missing:
+        assert checks["sew.free_introduced"]["measured"] == 1
+    else:
+        assert all(c["status"] == "passed" for c in checks.values())

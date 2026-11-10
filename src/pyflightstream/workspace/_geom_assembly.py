@@ -119,6 +119,23 @@ class Assembly(RemovalSteps):
                 for edge, count in self.edge_counts(self.faces[name]).items()
                 if count == 1
             ]
+            if model is not None and not self.plan:
+                for index, face in enumerate(self.faces[name]):
+                    perimeter = sum(
+                        jn.polyline_length(self._samples(abs(e), 257))
+                        for e in self.k.boundary(face)
+                    )
+                    area = self.k.area(face)
+                    width = jn.mean_width(area, perimeter)
+                    if width < jn.SLIVER_WIDTH_M:
+                        self.input_sliver_faces.append(
+                            {
+                                "component": name,
+                                "face": index,
+                                "area_m2": area,
+                                "width_m": width,
+                            }
+                        )
         self._resolve_auto()
         contact, pair, limit = 0.0, {}, jn.SEW_M
         for op in self.plan:

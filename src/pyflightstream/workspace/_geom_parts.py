@@ -229,6 +229,7 @@ class AssemblyBase:
         self.j_samples: dict[jn.Operation, list[np.ndarray]] = {}
         self.groups: list[list[str]] = []
         self.input_free_edges: list[np.ndarray] = []
+        self.input_sliver_faces: list[dict[str, Any]] = []
         self.source_areas: dict[str, float] = {}
 
     def export_state(self) -> dict[str, Any]:
@@ -260,7 +261,10 @@ class AssemblyBase:
             {
                 "components": components,
                 "input_free_edges": self.alone_free or self.input_free_edges,
-                "input_slivers": self.alone_slivers,
+                "input_slivers": self.alone_slivers
+                if self.alone_files
+                else len(self.input_sliver_faces),
+                "input_sliver_faces": self.input_sliver_faces,
                 "plane_axis": self.plane_axis,
             }
         )
