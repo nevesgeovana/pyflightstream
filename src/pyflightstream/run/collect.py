@@ -106,6 +106,7 @@ from pyflightstream.run._collect_notes import (
 )
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._missing_log import (
+    absent_solver_logs,
     declared_log_names,
     missing_log_fields,
     missing_log_note,
@@ -437,6 +438,22 @@ def _native_log_or_job_end(
         if native.source is None
         else ()
     )
+    job = (record.submission or {}).get("job")
+    # A relocated batch has ended. With export_log=false, no script log was
+    # declared, but the expected scheduler-derived point log can still be absent.
+    if (
+        not absent
+        and native.source is None
+        and isinstance(job, Mapping)
+        and job.get("kind") == "batch"
+        and not (workspace.root / str(job["dir"]) / _sim_dir(workspace, record).name).is_dir()
+    ):
+        absent = absent_solver_logs(
+            names,
+            [name for name in names if name.endswith(LOG_SUFFIX)],
+            work_dir,
+            written_here=[str(item.get("dat")) for item in record.surface_translations or []],
+        )
     if absent:
         return native, None, absent
     failed = job_ended_without_log(workspace, record, names, work_dir, native=native, point=point)

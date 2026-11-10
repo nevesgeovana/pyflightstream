@@ -385,8 +385,28 @@ the frame sits. That is zero for a frame on the section. Where the blade carries
 its section contours, which are drawn about the pitch axis, the moment then
 moves from the quarter chord to that axis, so the beam receives the moment about
 its pitch axis at any chord fraction. A typed blade without contours states no
-pitch axis on the chord, and it is read as the quarter chord. The
-offline tests hold the emitted script, the weight against the cantilever's closed form
+pitch axis on the chord, and it is read as the quarter chord, with a warning
+that another pitch-axis position is unsupported. Supply `section_contours_m`
+about the pitch axis to locate that axis on the section.
+
+The contour transfer assumes a single element: the solver's exported quarter
+chord must equal the geometric quarter chord of that contour. This does not
+hold for the measured multi-element section, so multi-element pitch-axis
+moments are unsupported. The configuration has no element-count field; every
+contoured wing therefore warns about this assumption and retains the geometric
+transfer. Check the solver's quarter-chord location against the contour before
+relying on the torsion load.
+
+The `rotor_frame` and `section_frame` routes also warn: the exported moment's
+reference point relative to the pitch axis is unverified for those embeddings.
+The rotor projection retains the negated export; the section-frame route
+retains the export. Neither applies the wing's reference-point transfer.
+Section-axis force components alone do not establish a moment reference.
+Validate these routes with displaced-frame load exports before relying on their
+torsion loads. These warnings disclose unsupported reference assumptions; they
+do not establish a corrected moment for those cases.
+
+The offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 
 ## Automatic workspace coupling

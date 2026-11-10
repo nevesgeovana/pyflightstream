@@ -10,6 +10,10 @@ and, for a batch, copies each finished point from ``sims/batch/<label>/`` into
 it, a grouped point's folder and record look exactly like those of a submitted
 point that ran alone, and the existing loop completes it unchanged.
 
+When no end files are declared, the last point's required exports and available
+log settling over collect's interval also establish the batch end. This is a
+quiet-file inference; declared scheduler end files are preferred when available.
+
 A RECORD WITH NO JOB ENTRY IS NOT LOOKED AT. A workspace holding none returns
 from :func:`prepare_grouped_points` with its records as given, no observation
 taken and no sleep spent;
@@ -278,7 +282,10 @@ def _waited(point: _Point, source: Path | None) -> list[Path]:
         for name in _declared(point.record)
         if not name.endswith(_LOG_SUFFIX) and name not in translated
     ]
-    return [point.work / name for name in names] + ([source] if source is not None else [])
+    paths = [point.work / name for name in names] + ([source] if source is not None else [])
+    if point.log_name is not None and (point.work / point.log_name).is_file():
+        paths.append(point.work / point.log_name)
+    return paths
 
 
 def _write_log(point: _Point, source: Path, *, complete: bool, start: int) -> None:
@@ -474,6 +481,32 @@ def _move_job(workspace: CampaignWorkspace, job: _Job, sims: set[str]) -> None:
             )
 
 
+def _settled_batch_end(workspace: CampaignWorkspace, job: _Job) -> bool:
+    """Judge a batch without declared end files by its final point's settled exports."""
+    if job.job["kind"] != "batch" or (job.profile is not None and job.profile.job_end_files):
+        return False
+    last = next(
+        (
+            r
+            for r in job.members
+            if (entry := job_of(r)) is not None and entry["order"] == job.job["points"]
+        ),
+        None,
+    )
+    if last is None:
+        return False
+    entry = job_of(last)
+    if entry is None:
+        return False
+    batch_sim = _job_dir(workspace, entry) / workspace.sim_dir(last.sim_id).name
+    point = _point(workspace, last, entry, in_batch=batch_sim.is_dir())
+    source = _log_source(point, _job_dir(workspace, entry), job.profile)
+    paths = _waited(point, None)
+    if source is not None and source.is_file():
+        paths.append(source)
+    return bool(paths) and job.watch.steady(paths)
+
+
 def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecord]) -> None:
     """Prepare every SUBMITTED point of one job: ended or running, move or copy, then slice."""
     verdict = job_ended(
@@ -486,6 +519,9 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
         interval=job.watch.interval,
     )
     in_batch = job.job["kind"] == "batch"
+    if not verdict.ended and _settled_batch_end(workspace, job):
+        verdict = JobEndVerdict(True, "the last point's outputs and available log settled")
+        job.notes.append(f"job {job.job['name']} ended: {verdict.evidence}")
     if in_batch and verdict.ended:
         # EVERY SIMULATION OF THE JOB (PFS-2103.022): one whose points all
         # completed from copies while the job ran has no SUBMITTED record,

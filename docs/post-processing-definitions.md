@@ -23,11 +23,31 @@ product's recorded window, units and reference quantities before comparing
 values. A solver rerun is needed when the required exports are absent or the
 solver inputs must change; recomputing a reduction alone does not require one.
 
+Before posting a submitted batch, collect it with `pyfs-matrix collect`.
+When the HPC profile declares `job_end_files`, those files provide the scheduler
+end evidence. Otherwise collect can judge the batch ended once its last point's
+required exports and available cumulative log remain unchanged for the collect
+settle interval. A quiet interval can include a paused writer; choose an interval
+appropriate to the scheduler and prefer declared end files when available.
+The final scheduler-log segment is then retained with its point. A point without
+its expected log is recorded and reported as `RAN_MISSING_LOG`, with no inferred
+convergence verdict or solver timing. After checking the outputs, an explicit
+`mark-converged --reason "outputs checked" --apply` records that verdict and
+preserves the previous status in the mark.
+
 `post --check-frozen` and `collect --check-frozen` refuse a reference area/length mismatch
 between an export and SREF/CREF, as well as averages affected by frozen solves or
 unread native-log blocks. Without the switch these conditions warn and computable
 products are still written; a reference mismatch can leave coefficients wrong by a
 constant factor. Correct the recorded reference or solver inputs before using them.
+
+Quasi-steady rotor section corrections that calibrate `Fx` or `Fz` without
+`Moment` retain the raw moment and its harmonics. The post stage warns that the
+moment reference is unverified for this force-only correction, and records the
+warning in both corrected products' provenance notes. A moment about a distant
+reference includes a force lever; corrected forces beside a raw moment do not
+establish a consistent torsion load. Validate the reference and the force and
+moment calibration together before using that combination.
 
 
 <a id="contents"></a>

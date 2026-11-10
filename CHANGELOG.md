@@ -21,6 +21,15 @@ FlightStream versions.
 
 ### Fixed
 
+- FSI load transfer warns about unverified rotor-frame and section-frame moment
+  references, missing contour-based pitch-axis positions, and the unsupported
+  multi-element quarter-chord assumption. Existing moment values are retained.
+- Force-only quasi-steady rotor section corrections warn about the unverified
+  reference of retained raw moments and record that limit in product provenance.
+- Batch collection retains the last scheduler-log segment after the final point's
+  exports settle when no scheduler end files are declared. Declared end files
+  remain authoritative. An ended batch point without its log is reported as
+  `RAN_MISSING_LOG` and accepts an explicit convergence mark after output checks.
 - IGES component names retain embedded Latin-1 control bytes when records are read.
 - IGES guidance clarifies the node-number tie-break and the limit for a blunt base
   with multiple cells across its thickness; marking probe descriptions cover supported builds.

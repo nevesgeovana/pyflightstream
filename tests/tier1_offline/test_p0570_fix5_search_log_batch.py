@@ -13,9 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.results.log import RESTART_MARKER, split_job_log
+from pyflightstream.results.log import split_job_log
+from pyflightstream.run._mark_converged import mark_converged
 from pyflightstream.run._search_log_batch import search_log_batch
-from pyflightstream.run.collect import collect_once
+from pyflightstream.run.collect import Stamp, collect_once, observe
 from pyflightstream.workspace import RunStatus
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_p0370_s1_matrix_home as home
@@ -220,51 +221,33 @@ def test_p0570_fix5_a_point_missing_another_output_is_left_alone(tmp_path):
 
 
 def test_p0570_fix5_a_point_already_moved_home_counts_its_outputs_there(tmp_path):
-    """PFS-2218: after collect moved an ended batch home, the outputs are read at home."""
+    """PFS-2218: a relocated batch point's outputs are read at home."""
     workspace = _workspace(tmp_path, profile_tail=NATIVE)
     lasts = _lose_last_logs(workspace, _scheduler_name)
-    for job in lasts.values():
-        master = workspace.root / job["dir"] / _scheduler_name(job)
-        complete = master.read_text(encoding="utf-8")
-        master.write_text(complete.rsplit(RESTART_MARKER, 1)[0], encoding="utf-8")
-    collect_once(workspace, interval=0.0, sleep=no_sleep)
-    for run_id, job in lasts.items():
-        record = _rows(workspace)[run_id]
-        assert record.status is RunStatus.SUBMITTED, record.status
-        assert not _other_outputs(workspace, record, job)[0].exists()
-        (workspace.root / job["dir"] / _scheduler_name(job)).write_text(complete, encoding="utf-8")
+    from pyflightstream.workspace._batch_relocate import move_sim
+
+    for record in workspace.read_manifest():
+        source = (
+            workspace.root / record.submission["job"]["dir"] / workspace.sim_dir(record.sim_id).name
+        )
+        if source.is_dir():
+            move_sim(source, workspace.sim_dir(record.sim_id))
     assert set(search_log_batch(workspace.root, apply=True)["written"]) == set(lasts)
 
 
-def test_p0570_fix5_a_job_with_no_end_evidence_keeps_its_last_point_until_the_verb(tmp_path):
-    """PFS-2219 (open): on export_log = false with no job_end_files, the last point waits.
-
-    The package cannot tell this finished job from a running one: no ``.end.json`` (written
-    under ``--local`` only), no job log (the script exports one only when its points export
-    theirs) and no end files. Every earlier point is judged; the last has no later marker, so
-    it stays SUBMITTED with no log and no RAN_MISSING_LOG, which is what was reported. This
-    pins the state until PFS-2219 decides it, and pins that the verb gets the point out of it.
-    """
+def test_p0570_lreq_a_job_without_end_files_collects_its_settled_last_point(tmp_path):
+    """P0570-LREQ-BATCH-END: the final native segment needs no later initialization marker."""
     workspace = home.grouped_workspace(
         tmp_path / "w", mode="batch", collect=False, logs=False, ended=False, profile_tail=NATIVE
     )
     job = workspace.read_manifest()[0].submission["job"]
     master = workspace.root / job["dir"] / _scheduler_name(job)
     master.write_text(_master_text(job), encoding="utf-8")
-    assert not list(master.parent.glob("*.end.json")) and not list(master.parent.glob("*job-log*"))
     collect_once(workspace, interval=0.0, sleep=no_sleep)
     last = next(r for r in workspace.read_manifest() if r.submission["job"]["order"] == 3)
-    assert last.status is RunStatus.SUBMITTED and not _point_log(workspace, last)
-    for record in workspace.read_manifest():
-        if record.run_id != last.run_id:
-            assert record.status is not RunStatus.SUBMITTED, record.run_id
-    assert search_log_batch(workspace.root, apply=True)["written"] == [last.run_id]
-    collect_once(workspace, interval=0.0, sleep=no_sleep)
-    judged = _rows(workspace)[last.run_id]
-    assert (
-        judged.status is not RunStatus.SUBMITTED and judged.status is not RunStatus.RAN_MISSING_LOG
-    )
-    assert SENTINEL in _point_log(workspace, judged)[0].read_text(encoding="utf-8")
+    assert last.status is not RunStatus.SUBMITTED
+    assert SENTINEL in _point_log(workspace, last)[0].read_text(encoding="utf-8")
+    assert "written" not in search_log_batch(workspace.root, apply=True)
 
 
 def test_p0570_fix5_a_simulation_no_batch_holds_is_named(tmp_path, capsys):
@@ -293,3 +276,100 @@ def test_p0570_fix5_the_verb_reads_its_flags(flag):
     assert parser.parse_args(["search-log-batch"]).subcommand == "search-log-batch"
     verb = parser._subparsers._group_actions[0].choices["search-log-batch"]
     assert flag in verb.format_help()
+
+
+def _settling_workspace(tmp_path, *, end_file=False, master=True):
+    profile = NATIVE + ('job_end_files = ["done.flag"]\n' if end_file else "")
+    workspace = home.grouped_workspace(
+        tmp_path / "w",
+        mode="batch",
+        collect=False,
+        logs=False,
+        ended=False,
+        profile_tail=profile,
+    )
+    last = max(workspace.read_manifest(), key=lambda r: r.submission["job"]["order"])
+    job = last.submission["job"]
+    folder = workspace.root / job["dir"]
+    if master:
+        (folder / _scheduler_name(job)).write_text(_master_text(job), encoding="utf-8")
+    return workspace, last, folder
+
+
+def _settling_last(workspace, record):
+    return _rows(workspace)[record.run_id]
+
+
+def test_p0570_lreq_settled_final_point_gets_its_scheduler_segment(tmp_path):
+    workspace, last, folder = _settling_workspace(tmp_path)
+    pauses = []
+    collect_once(workspace, interval=2.0, sleep=pauses.append)
+    assert _settling_last(workspace, last).status is not RunStatus.SUBMITTED
+    assert SENTINEL in _point_log(workspace, last)[0].read_text(encoding="utf-8")
+    assert pauses and all(pause == 2.0 for pause in pauses)
+    assert not (folder / workspace.sim_dir(last.sim_id).name).exists()
+
+
+def test_p0570_lreq_declared_end_file_is_required_before_final_slice(tmp_path):
+    workspace, last, folder = _settling_workspace(tmp_path, end_file=True)
+    collect_once(workspace, interval=2.0, sleep=lambda _: None)
+    assert _settling_last(workspace, last).status is RunStatus.SUBMITTED
+    assert not _point_log(workspace, last)
+    (folder / "done.flag").write_text("ended", encoding="utf-8")
+    collect_once(workspace, interval=2.0, sleep=lambda _: None)
+    assert _settling_last(workspace, last).status is not RunStatus.SUBMITTED
+    assert SENTINEL in _point_log(workspace, last)[0].read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("changing", ["output", "master", "point-log"])
+def test_p0570_lreq_changing_final_files_keep_the_batch_submitted(tmp_path, changing):
+    workspace, last, folder = _settling_workspace(tmp_path)
+    job = last.submission["job"]
+    target = (
+        folder / _scheduler_name(job)
+        if changing == "master"
+        else _other_outputs(workspace, last, job)[0]
+    )
+    if changing == "point-log":
+        target = target.parent / next(
+            name for name in last.submission["declared_outputs"] if name.endswith("_log.txt")
+        )
+        target.write_text("still writing", encoding="utf-8")
+    serial = 0
+
+    def observer(paths):
+        nonlocal serial
+        serial += 1
+        seen = dict(observe(paths))
+        key = str(target)
+        if key in seen:
+            stamp = seen[key]
+            seen[key] = Stamp(size=stamp.size + serial, mtime_ns=stamp.mtime_ns)
+        return seen
+
+    collect_once(workspace, interval=2.0, sleep=lambda _: None, observer=observer)
+    assert _settling_last(workspace, last).status is RunStatus.SUBMITTED
+    assert (folder / workspace.sim_dir(last.sim_id).name).exists()
+
+
+def test_p0570_lreq_missing_final_output_keeps_the_batch_submitted(tmp_path):
+    workspace, last, folder = _settling_workspace(tmp_path)
+    _other_outputs(workspace, last, last.submission["job"])[0].unlink()
+    collect_once(workspace, interval=2.0, sleep=lambda _: None)
+    assert _settling_last(workspace, last).status is RunStatus.SUBMITTED
+    assert (folder / workspace.sim_dir(last.sim_id).name).exists()
+
+
+def test_p0570_lreq_missing_log_is_reported_and_can_be_marked(tmp_path):
+    workspace, last, _folder = _settling_workspace(tmp_path, master=False)
+    report = collect_once(workspace, interval=2.0, sleep=lambda _: None)
+    judged = _settling_last(workspace, last)
+    assert judged.status is RunStatus.RAN_MISSING_LOG
+    assert "RAN_MISSING_LOG" in "\n".join(report.lines())
+    assert judged.wall_time_s is None and judged.iterations is None
+    out = mark_converged(workspace.root, [last.sim_id], reason="outputs checked", apply=True)
+    assert out["applied"] and out["marked"]
+    marked = _settling_last(workspace, last)
+    assert marked.status is RunStatus.CONVERGED
+    assert marked.marked["from"] == "RAN_MISSING_LOG"
+    assert (workspace.root / out["runs_archived_as"]).is_file()
