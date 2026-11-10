@@ -668,3 +668,94 @@ def test_p0570_gm9_f7_caps_fin_root_and_rejects_open_tip(tmp_path, missing):
         any(c["id"] == "control.free_edges" and c["measured"] > 0 for c in record["checks"])
         is missing
     )
+
+
+def test_p0570_gm9_fowler_checks_measure_mutated_applied_geometry():
+    import copy
+    from dataclasses import replace
+
+    verify = getattr(stages.controls, "check_fowler", None)
+    assert callable(verify), (
+        "Fowler checks must measure the applied bases, not only construction inputs"
+    )
+    raw = _fowler_config()
+    entry = raw["components"]["panel"]["control"][0]
+    model = _fowler_model(raw)
+    assert all(c["status"] == "passed" for c in verify(model, entry, span=(0.2, 0.7, 0.01)))
+    for angle, delta, check in [
+        (15, (0.01, 0, 0), "fowler.overlap_error_pct"),
+        (15, (0, 0, -0.01), "fowler.gap_error_pct"),
+        (0, (-0.3, 0, 0), "fowler.inside_main"),
+    ]:
+        changed = copy.deepcopy(model)
+        prefix = f"flap-d{angle}/"
+        for key, p in list(changed.bases.items()):
+            if key.startswith(prefix):
+                changed.bases[key] = replace(p, controls=p.controls + delta)
+        measured = verify(changed, entry, span=(0.2, 0.7, 0.01))
+        assert any(c["id"] == check and c["status"] == "failed" for c in measured), measured
+    changed = copy.deepcopy(model)
+    p = changed.bases["flap-d0/skin"]
+    changed.bases["flap-d0/skin"] = replace(p, controls=p.controls + (0, 0, -0.01))
+    assert any(
+        c["id"] == "closure.retracted_identity" and c["status"] == "failed"
+        for c in verify(changed, entry, span=(0.2, 0.7, 0.01))
+    )
+    changed = copy.deepcopy(model)
+    p = changed.bases["flap-d0/upper_nested"]
+    changed.bases["flap-d0/upper_nested"] = replace(p, controls=p.controls + (0, 0, 0.0019))
+    assert any(
+        c["id"] == "fowler.nested_clearance_pct" and c["status"] == "failed"
+        for c in verify(changed, entry, span=(0.2, 0.7, 0.01))
+    )
+
+
+def test_p0570_gm9_fowler_kink_bays_have_a_no_fixture():
+    from dataclasses import replace
+
+    skin = _box_skin()
+    poles = skin.controls.copy()
+    poles[:, 1, 0] += 0.3
+    poles[:, 2, 0] += 0.1
+    skin = replace(skin, controls=poles)
+    entry = _fowler_config()["components"]["panel"]["control"][0]
+    entry = {**entry, "deflection_deg": [0]}
+    model = stages.controls.imported(skin, entry)["main"]
+    verify = getattr(stages.controls, "check_fowler", None)
+    assert callable(verify), "kink splitting needs a measured YES and NO"
+    roofs = [t for t in model.pieces["main"] if t.role == "cove_roof"]
+    bounds = sorted(sorted({p[1] for edge in t.loop for p in edge}) for t in roofs)
+    assert bounds == [[0.2, 0.5], [0.5, 0.7]]
+    assert all(c["status"] == "passed" for c in verify(model, entry, span=(0.2, 0.7, 0.01)))
+    model.pieces["main"] = tuple(t for t in model.pieces["main"] if t != roofs[0])
+    assert any(
+        c["id"] == "fowler.cove_bay_mismatch" and c["status"] == "failed"
+        for c in verify(model, entry, span=(0.2, 0.7, 0.01))
+    )
+
+
+def test_p0570_gm9_f7_applies_the_tail_host_junction(tmp_path):
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    fin = raw["components"]["panel"]
+    fin.pop("root")
+    fin["surface"] = {"span_axis": "z"}
+    fin["placement"] = {"translation": [0.5, 0, 0]}
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    raw["variants"] = {"cs": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant="cs", until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", (report, record)
+    lengths = record["outputs"].get("junction_lengths_m", {})
+    assert lengths and all(values["host/panel"] > 0 for values in lengths.values()), record
