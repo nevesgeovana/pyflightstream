@@ -95,6 +95,16 @@ def _rectangle(trim, u, v):
         trim.append(iso_trim(f"skin_{len(trim)}", "skin", u, v, role="skin"))
 
 
+def _validate(skin, lower, upper, span):
+    a, b = span
+    if not np.isfinite([a, b]).all() or not 0 < a < b < 1:
+        raise InputValueError("control span: give finite limits 0 < start < end < 1")
+    if not 0 < lower < 0.5 < upper < 1:
+        raise InputValueError("control hinge: give lower < 0.5 < upper inside (0, 1)")
+    if lower not in skin.knots_u or upper not in skin.knots_u:
+        raise InputValueError("control hinge: both parameters must be pinned skin knots")
+
+
 def partition(
     skin: Patch, *, lower: float, upper: float, span: tuple[float, float]
 ) -> ControlPartition:
@@ -122,13 +132,8 @@ def partition(
     InputValueError
         If the limits are nonfinite, reversed, outside the skin, or unpinned.
     """
+    _validate(skin, lower, upper, span)
     a, b = span
-    if not np.isfinite([a, b]).all() or not 0 < a < b < 1:
-        raise InputValueError("control span: give finite limits 0 < start < end < 1")
-    if not 0 < lower < 0.5 < upper < 1:
-        raise InputValueError("control hinge: give lower < 0.5 < upper inside (0, 1)")
-    if lower not in skin.knots_u or upper not in skin.knots_u:
-        raise InputValueError("control hinge: both parameters must be pinned skin knots")
     bases = {
         "skin": skin,
         "hinge": _wall(skin, lower, upper),
