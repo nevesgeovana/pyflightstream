@@ -14,9 +14,10 @@ from scipy.interpolate import BSpline
 
 from pyflightstream._errors import InputValueError
 
-from ._bspline import full_knots
-from ._control_curves import ControlPartition, boundary, end_faces, interval, ruled
+from ._bspline import full_knots, insert_knot
+from ._control_curves import ControlPartition, boundary, chord_parameter, end_faces, interval, ruled
 from ._fowler_motion import measure, motion
+from ._records import check_entry
 from ._trims import iso_trim
 
 
@@ -49,11 +50,21 @@ def _fractions(entry):
 
 
 def _u(skin, x, upper):
-    value = 0.5 + (0.5 if upper else -0.5) * np.sqrt(x)
+    value = chord_parameter(skin, x, upper)
     nearest = min(skin.knots_u, key=lambda k: abs(k - value))
     if abs(nearest - value) > 1e-9:
         raise InputValueError("control.cove: boundary must be pinned before building the skin")
     return nearest
+
+
+def pin_skin(skin, entry):
+    """Insert cove and nose pins into an imported base without changing it."""
+    for x in _fractions(entry):
+        for upper in (False, True):
+            u = chord_parameter(skin, x, upper)
+            if min(abs(k - u) for k in skin.knots_u) > 1e-10:
+                skin = insert_knot(skin, "u", u)
+    return skin
 
 
 def _frame(skin):
@@ -196,16 +207,41 @@ def _nested(skin, patches, limits, span):
 
 def add_fowler(model, entry, span, previous):
     """Return the cove and every closed flap angle, retaining shared exterior bases."""
-    skin = model.skin
+    return definition(model.skin, entry, span, previous)["model"]
+
+
+def definition(skin, entry, span, previous=0.0):
+    """Construct the pieces and retain the native-edit motion and split boundaries."""
     patches, limits = _shape(skin, entry)
     bases, main = _cove(skin, patches, limits, span, previous)
     nested, trims = _nested(skin, patches, limits, span)
     name = entry["name"]
     checks = measure(skin, patches, nested, entry, span)
-    pieces = {}
+    expected = sorted({span[0], span[1], *(v for v in skin.knots_v if span[0] < v < span[1])})
+    wanted = set(zip(expected, expected[1:], strict=False))
+    mismatch = 0
+    for role in ("cove_wall", "cove_roof", "lip_base"):
+        actual = {
+            tuple(sorted({p[1] for edge in t.loop for p in edge})) for t in main if t.role == role
+        }
+        mismatch += len(wanted.symmetric_difference(actual))
+    checks.insert(
+        0,
+        check_entry(
+            "fowler.cove_bay_mismatch",
+            "passed" if mismatch == 0 else "failed",
+            mismatch,
+            0,
+            where={"control": entry["name"], "bay_limits": expected},
+        ),
+    )
+    pieces, motions = {}, {}
     for angle in entry["deflection_deg"]:
         label = f"{name}-d{float(angle):g}"
         rotation, translation = motion(skin, patches, nested, entry, span, angle=angle)
+        matrix = np.eye(4)
+        matrix[:3, :3], matrix[:3, 3] = rotation, translation
+        motions[label] = matrix.tolist()
         for key in {t.base for t in trims}:
             p = nested[key]
             bases[f"{label}/{key}"] = replace(p, controls=p.controls @ rotation.T + translation)
@@ -217,4 +253,8 @@ def add_fowler(model, entry, span, previous):
         replace(t, face=f"{name}_{t.face}", base=f"{name}_{t.base}" if t.base in own else t.base)
         for t in main
     ]
-    return ControlPartition(bases, {"main": tuple(main), **pieces}, checks=tuple(checks))
+    return {
+        "model": ControlPartition(bases, {"main": tuple(main), **pieces}, checks=tuple(checks)),
+        "limits": limits,
+        "motions": motions,
+    }

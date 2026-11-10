@@ -274,6 +274,32 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("assembly.clearance", "SEW_M, 1e-5 m, the sewing tolerance (min)"),
     ),
     _row(
+        "S10.FW1",
+        "Fowler cove bays",
+        True,
+        ("fowler.cove_bay_mismatch", "0; split each cove face at every skin span knot"),
+    ),
+    _row(
+        "S10.FW2",
+        "Fowler nesting",
+        True,
+        ("fowler.nested_clearance_pct", "control.clearance_pct, minimum percent chord"),
+    ),
+    _row(
+        "S10.FW3",
+        "Fowler motion laws",
+        True,
+        ("fowler.gap_error_pct", "below 0.01 percent chord, 49 stations"),
+        ("fowler.overlap_error_pct", "below 0.01 percent chord, 49 stations"),
+        ("fowler.inside_main", "0 profile points at 49 stations"),
+    ),
+    _row(
+        "S10.FW4",
+        "Fowler retracted exterior",
+        True,
+        ("closure.retracted_identity", "1e-12 m outside the nose and lip gap bands"),
+    ),
+    _row(
         "S10.F0",
         "Control pieces read",
         True,

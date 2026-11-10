@@ -11,7 +11,7 @@ from numpy.polynomial import Polynomial
 from scipy.interpolate import BSpline, PPoly
 
 from ._bspline import full_knots
-from ._control_curves import interval, point
+from ._control_curves import chord_parameter, interval, point
 
 
 def frame(skin, v):
@@ -21,13 +21,16 @@ def frame(skin, v):
     return le, np.stack((chord, normal), axis=1) / (chord @ chord)
 
 
-def curves(skin, nested, entry):
+def exterior_intervals(skin, entry):
     nose = 1 - entry["chord_ratio"] + entry.get("nose", {}).get("radius", 0.02)
     lip = entry["cove"].get("lip_x", 0.96)
     aft = lip + min(entry.get("nose", {}).get("radius", 0.02), (1 - lip) / 2)
+    return (0, chord_parameter(skin, nose, False)), (chord_parameter(skin, aft, True), 1)
+
+
+def curves(skin, nested, entry):
     return [
-        interval(skin, "u", 0, 0.5 - 0.5 * np.sqrt(nose)),
-        interval(skin, "u", 0.5 + 0.5 * np.sqrt(aft), 1),
+        *(interval(skin, "u", a, b) for a, b in exterior_intervals(skin, entry)),
         *(nested[n] for n in ("nose", "upper_nested", "upper_transition", "trailing_edge")),
     ]
 

@@ -17,13 +17,14 @@ from pyflightstream._errors import InputValueError
 
 from ._bspline import full_knots, insert_knot, union_knots
 from ._caps import _refined, lifting_model
+from ._component_keys import _check_surface, _fill_surface, _surface_tables
 from ._control_curves import ControlPartition, transform_bases
 from ._control_curves import at_v as _at_v
 from ._control_curves import interval as _interval
 from ._control_curves import point as _point
 from ._control_span import prepare_spans
 from ._control_span import span_limits as _span
-from ._fowler import add_fowler, with_pins
+from ._fowler import add_fowler, definition, pin_skin, with_pins
 from ._patch import Patch
 from ._placement import placement_transform
 from ._trims import Trim, iso_trim
@@ -307,7 +308,27 @@ def imported(skin: Patch, entry: dict) -> dict:
         "eta_out": b,
         "gap_span": entry.get("gap_span", 0.005),
     }
+    warnings: list[str] = []
+    canonical = {k: v for k, v in resolved.items() if k != "eta"}
+    resolved = _fill_surface("control", 0, canonical, warnings)
+    _surface_tables("control", resolved, warnings)
+    _check_surface("control", 0, resolved)
     _, _, gap = _span(resolved, 1.0, 0.0)
+    if resolved["kind"] == "fowler":
+        prepared = definition(pin_skin(skin, resolved), resolved, (a, b, gap))
+        model = prepared["model"]
+        model.bases["trailing_edge"] = _wall(skin, 0.0, 1.0)
+        low, high, moving_low, moving_high = prepared["limits"]
+        return {
+            "main": model,
+            "moving": model,
+            "limits": (low, high, a, b, gap),
+            "moving_limits": (moving_low, moving_high, a, b, gap),
+            "cuts_u": prepared["limits"],
+            "motions": prepared["motions"],
+            "fowler": True,
+            "warnings": warnings,
+        }
     ratio = float(entry.get("chord_ratio", 0.25))
     if not 0 < ratio < 1:
         raise InputValueError("control.chord_ratio: require 0 < value < 1")
@@ -331,4 +352,10 @@ def imported(skin: Patch, entry: dict) -> dict:
         matrix = np.eye(4)
         matrix[:3, :3], matrix[:3, 3] = rotation, translation
         motions[f"{entry.get('name', 'control')}-d{float(angle):g}"] = matrix.tolist()
-    return {"main": main, "moving": moving, "limits": (low, high, a, b, gap), "motions": motions}
+    return {
+        "main": main,
+        "moving": moving,
+        "limits": (low, high, a, b, gap),
+        "motions": motions,
+        "warnings": warnings,
+    }

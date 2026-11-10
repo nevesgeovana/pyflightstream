@@ -183,7 +183,18 @@ def check_stage(kernel, stage, inputs):
         if not checks:
             raise InputValueError(f"{stage}.batch: no pieces supplied")
         return {"checks": checks, "outputs": outputs, "wall_s": time.perf_counter() - clock}
-    if stage == "F0":
+    if stage in ("FW1", "FW2", "FW3", "FW4"):
+        checks = inputs["checks"]
+        outputs = {
+            "inputs": {
+                "parameters": inputs["parameters"],
+                "geometry": {
+                    "path": inputs["applied_controls"],
+                    "sha256": file_sha256(inputs["applied_controls"]),
+                },
+            }
+        }
+    elif stage == "F0":
         checks, outputs = _faces_read(kernel, inputs)
     elif stage == "F3":
         checks, outputs = _clearance(kernel, inputs)

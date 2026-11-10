@@ -45,3 +45,12 @@ flap uses one rigid pivot-axis rotation and translation; gap and overlap are
 measured on the polynomial section curves at 49 span stations. Exterior
 identity is measured outside the nose and lip gap bands. The single cove p3
 station specifies a constant normalized roof-wall height over the span.
+
+Fowler cove bays, nesting, motion laws and retracted exterior each have a
+separate stage record and run-log entry. The imported-skin edit also builds
+the cove and nose, preserving source trims on the retained exterior faces.
+
+F7 builds the requested registry variant automatically, retaining all selected
+components and all angle combinations of the active controls. A standalone
+vertical surface receives a planar root cap; its measured area and the
+combined files' sewn free and triple edges appear in the F7 record.

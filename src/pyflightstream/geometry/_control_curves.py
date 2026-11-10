@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy.optimize import brentq
 
 from ._bspline import full_knots, split_patch
 from ._patch import Patch
@@ -54,6 +55,17 @@ def point(patch, u, v):
     return BSpline(
         full_knots(patch.knots_v, patch.multiplicities_v), boundary(patch, u), patch.degree_v
     )(v)
+
+
+def chord_parameter(skin, x, upper):
+    """Invert a root-section chord fraction on either monotone skin side."""
+    le = point(skin, 0.5, 0)
+    chord = (point(skin, 0, 0) + point(skin, 1, 0)) / 2 - le
+    return brentq(
+        lambda u: (point(skin, u, 0) - le) @ chord / (chord @ chord) - x,
+        0.5 if upper else 0,
+        1 if upper else 0.5,
+    )
 
 
 def at_v(patch, value):

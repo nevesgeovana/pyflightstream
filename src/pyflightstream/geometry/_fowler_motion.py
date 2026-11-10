@@ -14,7 +14,16 @@ from scipy.spatial.transform import Rotation
 from pyflightstream._errors import InputValueError
 
 from ._control_curves import point
-from ._fowler_section import cove_points, curves, distance, frame, inside_count, minimum_x, section
+from ._fowler_section import (
+    cove_points,
+    curves,
+    distance,
+    exterior_intervals,
+    frame,
+    inside_count,
+    minimum_x,
+    section,
+)
 from ._records import check_entry
 
 
@@ -109,26 +118,7 @@ def measure(skin, patches, nested, entry, span):
     identity = 0.0
     for patch, (u0, u1) in zip(
         outline[:2],
-        (
-            (
-                0,
-                0.5
-                - 0.5
-                * np.sqrt(1 - entry["chord_ratio"] + entry.get("nose", {}).get("radius", 0.02)),
-            ),
-            (
-                0.5
-                + 0.5
-                * np.sqrt(
-                    entry["cove"].get("lip_x", 0.96)
-                    + min(
-                        entry.get("nose", {}).get("radius", 0.02),
-                        (1 - entry["cove"].get("lip_x", 0.96)) / 2,
-                    )
-                ),
-                1,
-            ),
-        ),
+        exterior_intervals(skin, entry),
         strict=True,
     ):
         for u in np.linspace(0, 1, 17):

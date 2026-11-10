@@ -564,6 +564,39 @@ def _control_step(stage: str) -> StageFn:
     return run
 
 
+def _control_group_record(resolved: dict, members: list, variant: str, out: str) -> dict:
+    """Construct the F7 group inside one guarded worker."""
+    from pyflightstream.workspace._geom_control_group import group
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("checking control variants and capped tail group")
+    try:
+        return group(kernel, resolved, members, variant, Path(out).parent)
+    finally:
+        kernel.close()
+
+
+def _control_group_step(context: RunContext) -> StageOutcome:
+    """Measure F7 automatically, retaining an explicitly supplied boundary."""
+    if context.state.get("control_inputs", {}).get("F7"):
+        return _control_step("S10.F7")(context)
+    plain = unpack(context.resolved)
+    if not any(plain["components"][n].get("control_surfaces") for n in context.members):
+        return _skipped(next(row for row in STAGE_ROWS if row.stage == "S10.F7"))
+    arguments = {
+        "resolved": plain,
+        "members": context.members,
+        "variant": context.variant,
+        "out": str(context.out / "control-group.json"),
+    }
+    result = (
+        _control_group_record(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(f"{__name__}:_control_group_record", arguments, _control_group_record)
+    )
+    return StageOutcome(**result)
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
@@ -571,6 +604,7 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     **{row.stage: _control_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.F")},
+    "S10.F7": _control_group_step,
     "S11": _export,
     "S11.V": _export_step("S11.V"),
     "S11.P": _export_step("S11.P"),

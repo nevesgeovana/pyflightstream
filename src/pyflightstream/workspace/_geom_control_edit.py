@@ -150,42 +150,63 @@ def edit(kernel, iges, component, entries, out):
             p["limits"][3] - p["limits"][4],
         )
     ]
-    skin_faces = _split(kernel, skin_faces, "u", [v for p in prepared for v in p["limits"][:2]])
+    skin_faces = _split(
+        kernel, skin_faces, "u", [v for p in prepared for v in p.get("cuts_u", p["limits"][:2])]
+    )
     skin_faces = _split(kernel, skin_faces, "v", cuts)
     te_faces = _split(kernel, te_faces, "v", cuts)
     main = groups.setdefault(component, [])
     for p in prepared:
         removed, skin_faces = _selected(kernel, skin_faces, p["limits"])
         removed_te, te_faces = _selected(kernel, te_faces, p["limits"], te=True)
-        moving, _ = _selected(kernel, removed, p["limits"], moving=True)
+        moving, _ = _selected(kernel, removed, p.get("moving_limits", p["limits"]), moving=True)
         moving_te, _ = _selected(kernel, removed_te, p["limits"], moving=True, te=True)
         main.extend(
             _faces(
                 kernel,
                 p["main"],
-                [t for t in p["main"].pieces["main"] if t.base in ("hinge", "inboard", "outboard")],
+                [
+                    t
+                    for t in p["main"].pieces["main"]
+                    if (
+                        t.role not in ("skin", "trailing_edge")
+                        if p.get("fowler")
+                        else t.base in ("hinge", "inboard", "outboard")
+                    )
+                ],
             )
         )
-        closures = _faces(
-            kernel,
-            p["moving"],
-            [
-                t
-                for t in p["moving"].pieces["control"]
-                if t.base in ("hinge", "inboard", "outboard")
-            ],
+        closures = (
+            []
+            if p.get("fowler")
+            else _faces(
+                kernel,
+                p["moving"],
+                [
+                    t
+                    for t in p["moving"].pieces["control"]
+                    if t.base in ("hinge", "inboard", "outboard")
+                ],
+            )
         )
         for label, matrix in p["motions"].items():
             copy = kernel.copy([*moving, *moving_te, *closures])
             kernel.transform(copy, matrix)
             groups[f"{component}/{label}"] = list(copy)
+            if p.get("fowler"):
+                trims = [
+                    t for t in p["moving"].pieces[label] if t.role not in ("skin", "trailing_edge")
+                ]
+                groups[f"{component}/{label}"].extend(_faces(kernel, p["moving"], trims))
     main.extend([*skin_faces, *te_faces])
     kernel.export_iges(groups, out)
     result = check_stage(kernel, "F4", {"path": out, "previous_free": 0, "symmetry_axis": 1})
+    result["checks"].extend(c for p in prepared for c in p["main"].checks)
     return {
         "status": "passed" if all(c["status"] == "passed" for c in result["checks"]) else "failed",
         **result,
         "source_sha256": file_sha256(iges),
         "pieces": {name: len(faces) for name, faces in groups.items()},
         "path": out,
+        "warnings": [warning for p in prepared for warning in p["warnings"]],
     }
