@@ -384,3 +384,31 @@ def test_p0570_r23_004_every_run_refused_while_runs_overlapped_is_repeated():
     assert state["refused"] == 2, state
     assert [r.failed for r in results] == [False] * 3, "a run refused on the licence was recorded"
     assert state["calls"] == 5
+
+
+@pytest.mark.parametrize("stop", ["interrupt", "crash"])
+def test_p0570_r23_005_an_interrupt_or_a_crashed_worker_starts_no_queued_case(stop):
+    import _thread
+
+    ran: list[int] = []
+
+    def first():
+        if stop == "interrupt":
+            time.sleep(0.3)  # the pool is waiting on its cases by now
+            _thread.interrupt_main()  # Ctrl-C reaching the command while a case runs
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("a worker crashed")
+
+    def queued(index):
+        def unit():
+            time.sleep(0.05)
+            ran.append(index)
+
+        return unit
+
+    units = [first, *(queued(index) for index in range(9))]
+    with pytest.raises(KeyboardInterrupt if stop == "interrupt" else RuntimeError):
+        parallel.run_pool(units, 1)
+    time.sleep(0.8)  # long enough for every queued case to run, were any still queued
+    assert len(ran) <= 1, ran

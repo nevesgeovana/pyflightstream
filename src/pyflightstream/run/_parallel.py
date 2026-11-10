@@ -23,7 +23,7 @@ import threading
 import time
 import warnings
 from collections.abc import Callable, Iterator, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -266,15 +266,28 @@ def gated_campaign(executors: Sequence[Any], workspace: Any, gate: RunGate) -> I
 
 
 def run_pool(units: Sequence[Callable[[], None]], workers: int) -> None:
-    """Run every unit on at most ``workers`` threads; the first error is raised after all end.
+    """Run every unit on at most ``workers`` threads; the first error is raised once they end.
 
     Each unit runs in a copy of the caller's context, so the activity log and the
     console of the command reach the worker threads as they reach the serial loop.
+    An error in a unit, or an interrupt of the caller, starts no unit still queued,
+    as the serial loop would start no later case: the units running finish, and the
+    error is raised. The wait polls, so an interrupt is taken while units run.
     """
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+    pool = ThreadPoolExecutor(max_workers=max(1, workers))
+    try:
         futures = [pool.submit(contextvars.copy_context().run, unit) for unit in units]
+        pending = set(futures)
+        while pending:
+            done, pending = wait(pending, timeout=START_POLL_S, return_when=FIRST_EXCEPTION)
+            if any(not future.cancelled() and future.exception() for future in done):
+                break
+    except BaseException:
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown(wait=True, cancel_futures=True)
     for future in futures:
-        error = future.exception()
+        error = None if future.cancelled() else future.exception()
         if error is not None:
             raise error
 

@@ -351,7 +351,8 @@ not match is recorded as the run's failure and is not repeated.
 
 Every case is staged before the first run starts; each run still writes only into
 its own datapoint folder, and manifest rows are appended under a lock, in the order
-the runs finish. A failed run does not stop the others. Simulations are posted
+the runs finish. A failed run does not stop the others; an interrupt (Ctrl-C) or an
+unexpected error starts no case still queued, and the runs alive end on their own. Simulations are posted
 after the last run ends, not as each finishes. Only local runs are concurrent: a
 submitting or grouping executor runs one at a time, with a note. A `[runtime]` block
 with only these keys resolves no thread count or affinity. Each concurrent run
