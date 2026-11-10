@@ -823,3 +823,66 @@ def test_p0570_gm9_kinked_cove_uses_sewing_to_reject_an_unsplit_roof(kernel, tmp
         kernel.export_iges({"main": faces}, path)
         measured = _fcheck(kernel, "F1", {"path": str(path)})
         assert _passed(measured) is not broken, measured
+
+
+def test_p0570_gm9_fowler_public_edit_bad_inputs_are_visible(kernel, tmp_path):
+    import copy
+
+    from pyflightstream.exceptions import InputArtifactError
+    from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    faces = []
+    for key in ("skin", "root", "tip", "trailing_edge"):
+        p = model.bases[key]
+        faces.append(
+            kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        )
+    source = tmp_path / "source.igs"
+    kernel.export_iges({"panel": faces}, source)
+    entry = copy.deepcopy(raw["components"]["panel"]["control"][0])
+    entry["gap_sapn"] = 0.01
+    entry["cove"]["lip_xx"] = 0.94
+    entry["cove"]["p3"]["z_over_cc"] = 0.035
+    entry["nose"]["raduis"] = 0.01
+    entry["kinematics"][0]["gap_pc"] = 2.0
+    result = add_control_surfaces(source, "panel", [entry], tmp_path / "warned.igs")
+    assert result["status"] == "passed", result
+    for key in ("gap_sapn", "lip_xx", "z_over_cc", "raduis", "gap_pc"):
+        assert any(key in warning for warning in result["warnings"]), result
+    target = tmp_path / "refused.igs"
+    bad = {**entry, "gap_span": "5mm"}
+    with pytest.raises(InputValueError, match="gap_span"):
+        add_control_surfaces(source, "panel", [bad], target)
+    with pytest.raises(InputValueError, match="component"):
+        add_control_surfaces(source, "relabeled", [entry], target)
+    empty, swapped = tmp_path / "empty.igs", tmp_path / "entry.toml"
+    empty.write_text("", encoding="utf-8")
+    swapped.write_text("name='flap'", encoding="utf-8")
+    for wrong in (empty, swapped):
+        with pytest.raises((InputValueError, InputArtifactError)):
+            add_control_surfaces(wrong, "panel", [entry], target)
+    with pytest.raises((InputValueError, InputArtifactError)):
+        add_control_surfaces(source, "panel", [empty], target)
+    assert not target.exists()
+
+
+def test_p0570_gm9_imported_control_validation_keeps_caller_tables():
+    import copy
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    entry = copy.deepcopy(raw["components"]["panel"]["control"][0])
+    entry["cove"]["lip_xx"] = 0.94
+    before = copy.deepcopy(entry)
+    stages.controls.imported(model.bases["skin"], entry)
+    assert entry == before, "warning about an unknown key must not delete it from caller data"
