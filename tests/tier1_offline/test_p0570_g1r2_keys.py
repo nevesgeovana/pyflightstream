@@ -127,10 +127,19 @@ def test_the_smi_wing_skips_by_name_what_has_no_implementation_yet(tmp_path):
         "Wing.cap.type",
         "Wing.control[0].cove",
         "Wing.engine[0].half_width_mm",
-        "Wing.surface.name",
     ):
         assert any(w.startswith(text) for w in warnings), text
     assert not [w for w in warnings if "section.file" in w]
+
+
+def test_r21_010_surface_name_names_the_file_and_is_warned_only_when_unused(tmp_path):
+    """In a [surface] file the name IS the component name; the reviewed code said skipped."""
+    result = resolve(SMI_WING, tmp_path)
+    assert "Wing" in unpack(result)["components"]
+    assert not [w for w in result["warnings"] if "surface.name" in w]
+    raw = {"type": "lifting_surface", "surface": {"name": "Other"}}
+    warnings = resolve_config({"components": {"W": raw}})["warnings"]
+    assert any(w.startswith("W.surface.name: the component is named by") for w in warnings)
 
 
 def test_a_missing_or_malformed_section_file_is_refused_naming_the_station(tmp_path):

@@ -172,8 +172,12 @@ def _translate_surface(name, raw, warnings):
     if surface is None:
         return False
     known_keys(surface, _SURFACE_KEYS, f"{name}.surface", warnings)
-    if "name" in surface:
-        warnings.append(f"{name}.surface.name: the component name is the table key, skipped")
+    if "name" in surface and str(surface["name"]) != name:
+        # a [surface] file is named by surface.name (adopt_surface_file); inside a components
+        # table the table key names the component and a different surface.name is not used
+        warnings.append(
+            f"{name}.surface.name: the component is named by its table key {name!r}, skipped"
+        )
     for key in ("section_type", "model"):
         _accept_or_skip(name, surface, key, warnings)
     axis = surface.get("span_axis", "y")
