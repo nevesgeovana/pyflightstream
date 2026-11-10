@@ -1,7 +1,7 @@
 """search-log-batch: write the log of a batch point from the job's master log.
 
-A point of a grouped job that ended with all its outputs but neither its log nor
-its cumulative log is SUBMITTED, and collect waits for it. Its log is a segment
+A SUBMITTED point of a grouped job with all its outputs but neither its log nor
+its cumulative log can recover its log before collection. Its log is a segment
 of the job's master log: the job's ``<job stem>.job-log.txt``, the scheduler's
 ``FTS<first sim>.l*``, or the only ``FTS*.l*`` in the job's folder. This command
 cuts that segment with the code collect uses, so the point's log has the bytes
@@ -201,8 +201,8 @@ def add_search_log_batch_parser(subparsers: Any) -> None:
         help="write the log of a batch point that has its other files, from the job's "
         "master log (preview unless --apply)",
         description=(
-            "A point of a batch whose outputs are all there but whose log is not stays "
-            "SUBMITTED. Its log is a segment of the job's master log, found as "
+            "A SUBMITTED point of a batch whose outputs are all there but whose log is "
+            "missing can recover its segment of the job's master log, found as "
             "<job stem>.job-log.txt, the scheduler's FTS<first sim>.l*, or the only "
             "FTS*.l* of the job's folder (a profile's native_log is read first). The "
             "segment is cut as collect cuts it; runs.json is not changed, and "
