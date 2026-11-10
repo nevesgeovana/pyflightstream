@@ -8,6 +8,7 @@ structural tests read the written file only; no test runs the solver.
 
 from __future__ import annotations
 
+import inspect
 import json
 import math
 from pathlib import Path
@@ -176,3 +177,62 @@ def test_r21_004_the_gate_warns_on_a_boundary_the_direct_import_reads_as_no_face
         assert trims == []
     else:
         assert [f.severity for f in trims] == ["warn"] and "iges-convert" in trims[0].detail
+
+
+# -- R21-013: one rule for the parameter-space flags, used by the writer and by iges-convert ------
+
+
+def _entity(number, kind, parameters):
+    d1 = [f"{kind:8d}", f"{0:8d}", *[f"{0:8d}"] * 6, "00000000"]
+    d2 = [f"{kind:8d}", f"{0:8d}", f"{0:8d}", f"{0:8d}", f"{0:8d}", *[" " * 8] * 4]
+    return {"id": number, "type": kind, "d1": d1, "d2": d2, "parameters": parameters}
+
+
+def _trim_document():
+    """A 142 whose BPTR is a composite holding a line and a nested composite, and a 142 without."""
+    line = ["110", "0.0", "0.0", "0.0", "1.0", "0.0", "0.0"]
+    entities = [
+        _entity(1, 142, ["142", "0", "5", "7", "9", "1"]),
+        _entity(3, 142, ["142", "0", "5", "0", "9", "2"]),
+        _entity(5, 110, line),
+        _entity(7, 102, ["102", "2", "11", "13"]),
+        _entity(9, 110, line),
+        _entity(11, 110, line),
+        _entity(13, 102, ["102", "2", "15", "7"]),
+        _entity(15, 110, line),
+        _entity(17, 110, line),
+    ]
+    return {"start": ["r21-013"], "global": ["1H,", "1H;"], "entities": entities}
+
+
+def test_r21_013_the_parameter_space_rule_reaches_nested_members_once():
+    from pyflightstream.workspace._iges_names import parameter_space_curves
+
+    composites = {7: [11, 13], 13: [15, 7]}
+    known = {5, 7, 9, 11, 13, 15, 17}
+
+    def members(number):
+        return composites.get(number, []) if number in known else None
+
+    assert parameter_space_curves([7, 0, 99], members) == {7, 11, 13, 15}
+    assert parameter_space_curves([], members) == set()
+
+
+def test_r21_013_the_writer_and_iges_convert_flag_the_same_curves_by_the_one_rule(tmp_path):
+    from pyflightstream._textio import write_text
+    from pyflightstream.workspace import _iges_names, _iges_write
+
+    source = tmp_path / "trims.igs"
+    write_text(source, _iges_write.serialize_iges(_trim_document()), encoding="ascii")
+    written = _iges_write.flag_parameter_space(read_iges(source))
+    converted = read_iges(_iges_names.flag_curves_on_surfaces(source, tmp_path / "flagged.igs"))
+    by_writer = {e["id"]: _use(e) for e in written["entities"]}
+    by_convert = {e["id"]: _use(e) for e in converted["entities"]}
+    assert by_writer == by_convert
+    assert {n for n, use in by_writer.items() if use == "05"} == {7, 11, 13, 15}
+
+    # both callers delegate to the one rule, which lives once
+    assert _iges_write.parameter_space_curves is _iges_names.parameter_space_curves
+    for caller in (_iges_write.flag_parameter_space, _iges_names.flag_curves_on_surfaces):
+        source_text = inspect.getsource(caller)
+        assert "parameter_space_curves(" in source_text and "stack" not in source_text

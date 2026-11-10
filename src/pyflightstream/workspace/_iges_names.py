@@ -13,7 +13,7 @@ and appending one NAME per component.
 from __future__ import annotations
 
 import codecs
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +29,7 @@ __all__ = [
     "flag_curves_on_surfaces",
     "name_faces",
     "named_curves",
+    "parameter_space_curves",
     "read_iges_names",
     "resolve_components",
     "unit_of_flag",
@@ -521,6 +522,30 @@ def _with_pref(lines: list[str], delimiter: str, end: str) -> list[str]:
     return [text[64 * i : 64 * i + 64] + line[64:] for i, line in enumerate(lines)]
 
 
+def parameter_space_curves(
+    bptrs: Iterable[int], members: Callable[[int], Sequence[int] | None]
+) -> set[int]:
+    """Return the entity numbers the solver's CAD import reads as parameter-space curves (use 05).
+
+    The one rule both the IGES writer and ``iges-convert`` apply: each curve a 142's BPTR names
+    (``bptrs``, 0 for none), and every member a composite (102) there reaches, at any depth.
+    ``members(number)`` returns ``None`` for a number no entity holds, an empty list for a curve
+    that is not a composite, and the member numbers of a composite.
+    """
+    curves: set[int] = set()
+    stack = [number for number in bptrs if number]
+    while stack:
+        number = stack.pop()
+        if number in curves:
+            continue
+        reached = members(number)
+        if reached is None:
+            continue
+        curves.add(number)
+        stack += [value for value in reached if value]
+    return curves
+
+
 def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
     """Write ``source`` to ``target`` with the flags the solver's CAD import reads on each 142.
 
@@ -538,7 +563,7 @@ def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
     directory = list(sections["D"])
     parameters = list(sections["P"])
     delimiter, end = parsed.sep
-    curves: set[int] = set()
+    bptrs: list[int] = []
     for entry in parsed.entries:
         if entry.kind != _CURVE_ON_SURFACE:
             continue
@@ -550,17 +575,19 @@ def flag_curves_on_surfaces(source: str | Path, target: str | Path) -> Path:
         first = entry.pstart - 1
         span = slice(first, first + entry.pcount)
         parameters[span] = _with_pref(parameters[span], delimiter, end)
-        stack = [bptr]
-        while stack:
-            number = stack.pop()
-            member = parsed.by_number.get(number)
-            if member is None or number in curves:
-                continue
-            curves.add(number)
-            if member.kind == _COMPOSITE:
-                values = parsed.parameters(member)
-                count = int(values[1]) if len(values) > 1 and values[1].strip() else 0
-                stack += [int(v) for v in values[2 : 2 + count] if v.strip()]
+        bptrs.append(bptr)
+
+    def members(number: int) -> list[int] | None:
+        member = parsed.by_number.get(number)
+        if member is None:
+            return None
+        if member.kind != _COMPOSITE:
+            return []
+        values = parsed.parameters(member)
+        count = int(values[1]) if len(values) > 1 and values[1].strip() else 0
+        return [int(v) for v in values[2 : 2 + count] if v.strip()]
+
+    curves = parameter_space_curves(bptrs, members)
     for number in curves:
         directory[number - 1] = _set_use(directory[number - 1], _PARAMETER_SPACE)
     out = Path(target)

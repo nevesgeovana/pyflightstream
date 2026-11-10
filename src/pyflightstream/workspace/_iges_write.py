@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
+from pyflightstream.workspace._iges_names import parameter_space_curves
 
 __all__ = [
     "FIXED_STAMP",
@@ -277,21 +278,23 @@ def flag_parameter_space(document):
     writer flags them the other way round, and the solver's CAD import then reads no face.
     """
     by_id = {e["id"]: e for e in document["entities"]}
-    curves = set()
+    bptrs = []
     for entity in document["entities"]:
         if entity["type"] != 142:
             continue
         entity["d1"][8] = _status_with_use(entity["d1"][8], _GEOMETRY_USE)
-        stack = [int(entity["parameters"][3] or 0)]
-        while stack:
-            number = stack.pop()
-            member = by_id.get(number)
-            if member is None or number in curves:
-                continue
-            curves.add(number)
-            if member["type"] == 102:
-                values = member["parameters"]
-                stack += [int(v) for v in values[2 : 2 + int(values[1])] if v]
+        bptrs.append(int(entity["parameters"][3] or 0))
+
+    def members(number):
+        member = by_id.get(number)
+        if member is None:
+            return None
+        if member["type"] != 102:
+            return []
+        values = member["parameters"]
+        return [int(v) for v in values[2 : 2 + int(values[1])] if v]
+
+    curves = parameter_space_curves(bptrs, members)
     for number in curves:
         by_id[number]["d1"][8] = _status_with_use(by_id[number]["d1"][8], _PARAMETER_SPACE_USE)
     return document
