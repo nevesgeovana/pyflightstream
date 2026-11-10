@@ -37,6 +37,9 @@ named. A file may also be written as `[surface]`, `[planform]`, `[[stations]]`, 
 `[[control]]` and `[[engine]]` tables with no `type` and no `components` table; `[surface]`
 makes it a lifting surface. Control `eta` values are fractions of the planform semispan,
 including the tip cap; control limits must remain inside the skin before the cap.
+Flat tip and root caps use three quadrilateral faces sharing an interior point.
+Their outer edges preserve the skin's exact section curve. The default wing
+above exports six faces; use `--until S11.P` to include the reader-profile check.
 A body is written with `length_mm`, `nose = {kind}`, `tail = {kind}`, `parts` and
 `sections` whose shapes carry `half_width_mm`, `half_height_mm` and `centre_z_mm`. A section may be
 given as a `bspline` (inline `degree`, `knots`, `poles`, or `file` naming a JSON file with those

@@ -199,3 +199,10 @@ Sewn control checks use sub-step-specific IDs in the stage table, records and
 run logs, such as `control.f1.free_edges` and `control.f2.free_edges`.
 Migration: consumers of control topology check IDs must include `f1`, `f2`,
 `f4`, `f5`, `f6` or `f7` after `control.`. Face-read and host-contact IDs are unchanged.
+
+Flat lifting-surface caps use three quadrilateral patches with exact skin rims
+and shared interior edges. Their written boundaries pass the reader profile
+without a collapsed leading-edge side. Migration: flat-cap layout names are
+`tip_cap_nose`, `tip_cap_upper` and `tip_cap_lower` (or the corresponding `root_`
+names). All three cap faces are nondegenerate; the default wing exports six
+faces instead of five.

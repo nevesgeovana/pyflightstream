@@ -185,7 +185,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     config.write_text(WING, encoding="utf-8")
     code, report, err, igs = generated(config, tmp_path / "gen", capsys)
     assert code in WRITTEN, err
-    assert report["outputs"]["faces"] == {"WING": 5}
+    assert report["outputs"]["faces"] == {"WING": 6}
 
     rebuilt = tmp_path / "found.toml"
     result = tmp_path / "found.json"

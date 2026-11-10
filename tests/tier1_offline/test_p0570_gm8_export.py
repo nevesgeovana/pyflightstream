@@ -66,6 +66,38 @@ def _entity(ident, kind, values):
     }
 
 
+@pytest.mark.parametrize("end", ["tip", "root"])
+def test_p0570_r26_flat_cap_passes_reader_profile_with_exact_closed_rims(tmp_path, end):
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import cap_edge_gap, lifting_model, unpack
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    kernel_or_skip()
+    component = {"type": "lifting_surface", "cap": {"type": "flat" if end == "tip" else "none"}}
+    if end == "root":
+        component["root"] = "flat"
+    raw = {"components": {"wing": component}}
+    model = lifting_model(unpack(resolve_config(raw))["components"]["wing"])
+    assert next(c for c in model.records if c["id"] == "closure.rim_shared")["value"] <= 1e-12
+    assert cap_edge_gap(model) <= 1e-12
+    nose = model.caps[f"{end}_cap_nose"]
+    for cap in model.caps.values():
+        grid = cap.evaluate(31)
+        for edge in (grid[0], grid[-1], grid[:, 0], grid[:, -1]):
+            assert np.linalg.norm(np.diff(edge, axis=0), axis=1).sum() > 1e-6
+        normals = np.cross(np.diff(grid, axis=0)[:, :-1], np.diff(grid, axis=1)[:-1])
+        assert np.all(normals[1:-1, 1:-1, 1] > 0) or np.all(normals[1:-1, 1:-1, 1] < 0)
+    changed = np.array(nose.controls, copy=True)
+    changed[0, :, 2] += 1e-4
+    broken = replace(model, caps={**model.caps, f"{end}_cap_nose": replace(nose, controls=changed)})
+    assert cap_edge_gap(broken) >= 9e-5
+    report = run_geometry(raw, out=tmp_path, until="S11.P")
+    assert report["status"] in ("accepted", "incomplete"), report
+    record = json.loads((tmp_path / "S11.P.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", record
+    assert check_profile(tmp_path / "wing.igs").passed
+
+
 @pytest.mark.parametrize("preference", [1, 3], ids=["P0570-default", "P0570-either"])
 def test_p0570_written_boundaries_carry_both_curves(tmp_path, preference):
     kernel_or_skip()
