@@ -361,9 +361,43 @@ def _assembly_step(stage: str) -> StageFn:
     return run
 
 
+def _closures(context: RunContext) -> StageOutcome:
+    """S8: measure cap boundaries against the skin and the adjacent cap faces."""
+    from pyflightstream.geometry import stages
+
+    checks, inputs = [], {}
+    components = unpack(context.resolved)["components"]
+    for name in context.members:
+        component = components[name]
+        if component["type"] != "lifting_surface":
+            continue
+        model = stages.lifting_model(component)
+        if not model.caps:
+            continue
+        gap = stages.cap_edge_gap(model)
+        checks.append(
+            check_entry(
+                "closure.cap_edge_gap",
+                "passed" if gap <= stages.CAP_EDGE_GAP else "failed",
+                gap,
+                stages.CAP_EDGE_GAP,
+                unit="m",
+                where={"component": name},
+                note="BUG: a cap boundary leaves its neighbouring edge"
+                if gap > stages.CAP_EDGE_GAP
+                else "4001 samples on each shared cap boundary",
+            )
+        )
+        inputs[name] = {"cap": component["tip_cap"], "root": component["root"]}
+    if not checks:
+        checks.append(check_entry("closure.cap_edge_gap", "skipped", note="no lifting caps"))
+    return StageOutcome(checks=checks, outputs={"inputs": inputs})
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
+    "S8": _closures,
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
-from scipy.interpolate import PchipInterpolator, make_interp_spline
+from scipy.interpolate import BSpline, PchipInterpolator, make_interp_spline
 from scipy.optimize import brentq
 
 from pyflightstream._errors import InputValueError
@@ -44,6 +44,8 @@ __all__ = [
     "CAP_ACROSS",
     "CAP_TE_TAPER",
     "RIM_SHARED",
+    "CAP_EDGE_GAP",
+    "cap_edge_gap",
     "cap_length",
     "cap_patch_grids",
     "cap_plane_grids",
@@ -527,6 +529,51 @@ def root_fillet(
 CAP_ACROSS = 9
 #: Distance allowed between a closure's rim and the skin edge it closes, in metres (S8).
 RIM_SHARED = 1e-12
+
+#: Dense cap-edge acceptance, in metres (closure hand-off CC3 and CC4: 0.005 mm).
+CAP_EDGE_GAP = 5e-6
+
+
+def _edge_samples(patch, axis, index):
+    controls = np.asarray(patch.controls)
+    poles = controls[:, index] if axis == "u" else controls[index]
+    knots = full_knots(getattr(patch, f"knots_{axis}"), getattr(patch, f"multiplicities_{axis}"))
+    degree = getattr(patch, f"degree_{axis}")
+    return BSpline(knots, poles, degree)(np.linspace(knots[degree], knots[-degree - 1], 4001))
+
+
+def cap_edge_gap(model: LiftingModel) -> float:
+    """Measure each cap surface along its shared boundary, including the corner sides.
+
+    Compare 4001 corresponding boundary points, including endpoints, on the exact spline
+    edges. This includes the side edges of the corner, which a skin-rim-only check misses.
+    No interior fit samples are used as evidence of boundary closure.
+    """
+    gaps = [0.0]
+    for end, column in (("tip", -1), ("root", 0)):
+        if f"{end}_cap_upper" not in model.caps:
+            continue
+        upper, lower = (model.caps[f"{end}_cap_{side}"] for side in ("upper", "lower"))
+        low, up, knots = rim_halves(
+            np.asarray(model.skin.controls)[:, column], _u_knots(model.skin)
+        )
+        degree = len(knots) - len(low) - 1
+        parameters = np.linspace(knots[degree], knots[-degree - 1], 4001)
+        pairs = [
+            (_edge_samples(upper, "u", 0), BSpline(knots, up, degree)(parameters)),
+            (_edge_samples(lower, "u", 0), BSpline(knots, low, degree)(parameters)),
+            (_edge_samples(upper, "u", -1), _edge_samples(lower, "u", -1)),
+            (_edge_samples(upper, "v", 0), _edge_samples(lower, "v", 0)),
+        ]
+        corner = model.caps.get(f"{end}_cap_corner")
+        if corner is not None:
+            pairs += [
+                (_edge_samples(corner, "v", 0), _edge_samples(lower, "v", -1)),
+                (_edge_samples(corner, "v", -1), _edge_samples(upper, "v", -1)),
+                (_edge_samples(corner, "u", 0), _edge_samples(model.trailing_edge, "u", column)),
+            ]
+        gaps += [float(np.linalg.norm(a - b, axis=1).max()) for a, b in pairs]
+    return max(gaps)
 
 
 def _curve_patch(poles, knots) -> Patch:

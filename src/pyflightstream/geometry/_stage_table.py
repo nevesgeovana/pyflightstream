@@ -87,6 +87,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         "Closures",
         False,
         ("closure.rim_shared", "1e-12 m"),
+        ("closure.cap_edge_gap", "5e-6 m, 4001 boundary samples"),
         ("closure.rim_jump", "acceptance"),
         ("closure.base_present", "acceptance"),
         ("closure.no_ridge", "acceptance"),

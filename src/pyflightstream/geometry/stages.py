@@ -36,7 +36,7 @@ from pyflightstream.geometry import _junctions as junctions
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
-from pyflightstream.geometry._caps import tip_cap
+from pyflightstream.geometry._caps import CAP_EDGE_GAP, cap_edge_gap, lifting_model, tip_cap
 from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._generation import assembly_regions, generate_components
 from pyflightstream.geometry._identity import parameter_id
@@ -85,6 +85,9 @@ from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
+    "CAP_EDGE_GAP",
+    "cap_edge_gap",
+    "lifting_model",
     "CheckFailedError",
     "Mesh",
     "Patch",
