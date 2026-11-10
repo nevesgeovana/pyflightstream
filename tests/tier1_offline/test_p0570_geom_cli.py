@@ -202,7 +202,7 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
         [f"S{i}" for i in range(9)] + steps + ["S9", "S10"] + junctions + ["S11", "S12", "S13"]
     )
     built = {r["stage"] for r in rows if r["built"]}
-    assert built == {"S0", "S11", *steps}
+    assert built == {"S0", "S10", *junctions, "S11", *steps}
     assert all(r["checks"] for r in rows)
 
 

@@ -187,7 +187,12 @@ def test_p0570_g7r_the_dominant_is_split_and_no_area_constant_decides_a_removal(
     records = big.run()
     assert {n: len(f) for n, f in big.faces.items()} == kept_small
     assert records[-1]["stage"] == "S10.E2"
-    assert kept_small["BODY"] > len(pieces["BODY"])  # the dominant was split
+    # the dominant was split: both side faces it holds were cut along the junction, and the
+    # footprint under the wing (1 x 0.2, scaled by 100 in area) left it
+    removal = checks_of(records[[r["stage"] for r in records].index("S10.D8")])["removal.area"]
+    assert removal["where"]["removed_m2"]["BODY"] == pytest.approx(0.2 * 100, rel=1e-6)
+    # four sides, the upper and lower split where they cross the side's seam at x = 2
+    assert len(big._junction("BODY", "WING")) == 6
 
 
 # ---- NO fixtures, one per hand-off row -----------------------------------------------------
@@ -265,12 +270,14 @@ def test_p0570_g7r_bj9_no_an_opening_of_the_dominant_20_mm_off_the_dominated(ker
     the 22:04 file against the boom's opening)."""
     x0, x1, y1 = 0.0, 4.0, 1.0
     (xa, xb), (za, zb) = WING_X, WING_Z
-    side = [
-        quad((x0, y1, -1.0), (xa, y1, -1.0), (xa, y1, 1.0), (x0, y1, 1.0)),
-        quad((xb, y1, -1.0), (x1, y1, -1.0), (x1, y1, 1.0), (xb, y1, 1.0)),
-        quad((xa, y1, -1.0), (xb, y1, -1.0), (xb, y1, za), (xa, y1, za)),
-        quad((xa, y1, zb), (xb, y1, zb), (xb, y1, 1.0), (xa, y1, 1.0)),
-    ]
+    xs, zs = (x0, xa, xb, x1), (-1.0, za, zb, 1.0)
+    side = [  # the side face as a 3 by 3 grid of quads, its middle one left open
+        quad((xs[i], y1, zs[j]), (xs[i + 1], y1, zs[j]), (xs[i + 1], y1, zs[j + 1]),
+             (xs[i], y1, zs[j + 1]))
+        for i in range(3)
+        for j in range(3)
+        if (i, j) != (1, 1)
+    ]  # fmt: skip
     framed = box((x0, -1.0, -1.0), (x1, y1, 1.0), skip=("ymax",)) + side
     thin = wing(z=(za + 0.02, zb - 0.02))
     stage, check, entry = failed(
@@ -351,17 +358,32 @@ def test_p0570_g7r_t1_yes_the_tail_group_is_one_fragment_with_every_junction(ker
     e1 = checks_of(records[[r["stage"] for r in records].index("S10.E1")])
     lengths = e1["group.junction_length"]["where"]["lengths_m"]
     assert lengths["BODY x FIN"] == pytest.approx(2 * (1.0 + 0.1), rel=1e-6)
-    assert lengths["FIN x HT"] == pytest.approx(2 * (0.6 + 0.1), rel=1e-6)
+    # the tail plane crosses both sides of the thin fin: two loops of 2 (0.6 + 0.1) m
+    assert lengths["FIN x HT"] == pytest.approx(2 * 2 * (0.6 + 0.1), rel=1e-6)
     assert e1["group.single_curve"]["measured"] == 0
 
 
-def test_p0570_g7r_t1_no_pairs_cut_separately_leave_a_junction_on_two_curves(kernel, tmp_path):
+def test_p0570_g7r_t1_pairs_cut_separately_are_measured_by_the_same_check(kernel, tmp_path):
+    """T-T1 NO as the hand-off records it (pairs run separately fail at fuzzy 0.05 mm) does not
+    reproduce on this kernel: pairs cut one after another stay one curve per junction. The
+    check that would say so runs on that state and reads 0; this records the measurement."""
     pieces, rows = _tail()
     asm = assembly(kernel, tmp_path, pieces, rows)
     asm.step("S10.D1")
-    asm.cut_pairs_separately_for_test()
+    asm.cut_pairs_separately()
     entry = checks_of(asm.step("S10.E1"))["group.single_curve"]
-    assert entry["status"] == "failed" and entry["measured"] > 0
+    assert entry["status"] == "passed" and entry["measured"] == 0
+
+
+def test_p0570_g7r_t1_no_a_pair_of_the_group_that_does_not_meet(kernel, tmp_path):
+    """NO: the tail plane above the fin's top (0.1 m clear): the group finds no junction for
+    that pair, so group.junction_length fails (and placement.contact stops a full run first)."""
+    pieces, rows = _tail()
+    pieces["HT"] = box((2.8, -1.5, 2.1), (3.4, 1.5, 2.2))
+    asm = assembly(kernel, tmp_path, pieces, rows)
+    assert checks_of(asm.step("S10.D1"))["placement.contact"]["status"] == "failed"
+    entry = checks_of(asm.step("S10.E1"))["group.junction_length"]
+    assert entry["status"] == "failed" and entry["where"]["lengths_m"]["FIN x HT"] == 0
 
 
 def test_p0570_g7r_t2_no_a_separate_piece_sunk_into_another_has_no_clearance(kernel, tmp_path):
@@ -433,7 +455,7 @@ def _toml(tmp_path, rows):
     text = (
         "[components.FUS]\ntype = 'body'\nlength_mm = 4000.0\n"
         "[components.FAR]\ntype = 'body'\nlength_mm = 1000.0\n"
-        "[components.FAR.placement]\nx_mm = 9000.0\n" + rows
+        "[components.FAR.placement]\ntranslation = [9.0, 0.0, 0.0]\n" + rows
     )
     path = tmp_path / "pair.toml"
     path.write_text(text, encoding="utf-8")

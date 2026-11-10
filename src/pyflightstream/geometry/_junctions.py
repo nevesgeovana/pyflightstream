@@ -70,6 +70,7 @@ __all__ = [
     "plane_offset",
     "points_outside",
     "pole_change",
+    "ray_hits",
     "polyline_length",
     "slivers",
 ]
@@ -348,6 +349,14 @@ def _crossings(origin: np.ndarray, direction: np.ndarray, tris: np.ndarray) -> i
     return int(np.count_nonzero(ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 0)))
 
 
+def ray_hits(point: np.ndarray, direction: np.ndarray, triangles: np.ndarray) -> bool:
+    """Whether the line through ``point`` along ``direction``, either sense, meets a triangle."""
+    tris = np.asarray(triangles, float).reshape(-1, 3, 3)
+    d = np.asarray(direction, float) / np.linalg.norm(direction)
+    p = np.asarray(point, float)
+    return _crossings(p, d, tris) > 0 or _crossings(p, -d, tris) > 0
+
+
 def parity_inside(points: np.ndarray, triangles: np.ndarray) -> np.ndarray:
     """Whether each point is inside the closed hull: odd crossings, by the vote of three rays."""
     tris = np.asarray(triangles, float).reshape(-1, 3, 3)
@@ -358,8 +367,22 @@ def parity_inside(points: np.ndarray, triangles: np.ndarray) -> np.ndarray:
     return np.array(out, bool)
 
 
+#: Outward normals already computed, by the bytes of the triangles and the hull; a run asks the
+#: same dominant thousands of times, and each answer costs a parity test per triangle.
+_NORMALS: dict[int, np.ndarray] = {}
+
+
 def _outward_normals(tris: np.ndarray, hull: np.ndarray) -> np.ndarray:
     """Return each triangle's unit normal turned out of the hull (parity of a nudged centroid)."""
+    key = hash((tris.tobytes(), hull.tobytes()))
+    if key not in _NORMALS:
+        if len(_NORMALS) > 64:
+            _NORMALS.clear()
+        _NORMALS[key] = _normals_out(tris, hull)
+    return _NORMALS[key]
+
+
+def _normals_out(tris: np.ndarray, hull: np.ndarray) -> np.ndarray:
     normal = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0])
     normal /= np.maximum(np.linalg.norm(normal, axis=1), 1e-300)[:, None]
     size = float(np.ptp(hull.reshape(-1, 3), axis=0).max())
