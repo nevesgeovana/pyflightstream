@@ -93,3 +93,5 @@ piece's upper trailing-edge rim from its sidecar roles.
 migration: Reader conversion, gridding and the final audit have separate
 records and named checks. This diagnostic grid uses 16 cells in each
 structured direction and does not replace a user's production grid.
+Conversion checks reject a written face-count mismatch before invoking the
+native IGES reader, returning a failed `gate.convert` check for a missing face.

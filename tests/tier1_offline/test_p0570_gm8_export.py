@@ -918,6 +918,27 @@ def test_p0570_reader_conversion_rejects_a_deleted_written_face(tmp_path):
     assert checks["gate.convert"]["status"] == "failed", record
 
 
+def test_p0570_r26_missing_export_face_is_rejected_before_native_conversion(tmp_path):
+    """A missing directory entity must not reach the native IGES reader."""
+    from pyflightstream.workspace._geom_export import check_export
+
+    kernel_or_skip()
+    resolved, written = _reader_piece(tmp_path)
+    path = tmp_path / "combined.igs"
+    document = read_iges(path)
+    document["entities"].remove(next(e for e in document["entities"] if e["type"] == 144))
+    path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export(
+        "S12.C", resolved, configuration=None, members=["wing"], out=tmp_path, source=written
+    )
+    assert record["checks"][0]["status"] == "failed"
+    assert record["outputs"]["conversion"] == {
+        "error": "written face count differs from the manifest",
+        "faces": 4,
+    }
+    assert not (tmp_path / "S12-converted.igs").exists()
+
+
 def test_p0570_clean_lifting_export_runs_all_export_reader_and_roundtrip_substeps(tmp_path):
     from pyflightstream.workspace._geom_run import default_stages
     from pyflightstream.workspace.geometry_pipeline import run_geometry
