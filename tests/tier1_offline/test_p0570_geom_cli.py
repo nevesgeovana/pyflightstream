@@ -198,11 +198,17 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
         "S10.D4", "S10.E1", "S10.D5", "S10.D6", "S10.D8", "S10.D8b", "S10.C1", "S10.C2",
         "S10.C3", "S10.C4", "S10.D9", "S10.D10", "S10.E2",
     ]  # fmt: skip
+    controls = [f"S10.F{i}" for i in range(8)]
     assert [r["stage"] for r in rows] == (
-        [f"S{i}" for i in range(9)] + steps + ["S9", "S10"] + junctions + ["S11", "S12", "S13"]
+        [f"S{i}" for i in range(9)]
+        + steps
+        + ["S9", "S10"]
+        + junctions
+        + controls
+        + ["S11", "S12", "S13"]
     )
     built = {r["stage"] for r in rows if r["built"]}
-    assert built == {"S0", "S10", *junctions, "S11", *steps}
+    assert built == {"S0", "S10", *junctions, *controls, "S11", *steps}
     assert all(r["checks"] for r in rows)
 
 
@@ -212,7 +218,7 @@ def test_p0570_g3_the_geometry_edits_that_are_not_built_refuse_with_code_2(tmp_p
     code, _, err = geom(
         ["add-control-surface", tmp_path / "a.igs", "WING", entry, "--out", tmp_path / "o"], capsys
     )
-    assert code == 2 and "not built yet" in err
+    assert code == 2 and "file does not exist" in err
     code, _, err = geom(["split-symmetry", tmp_path / "a.igs", "--out", tmp_path / "h.igs"], capsys)
     assert code == 2 and "not built yet" in err
     code, _, err = geom(

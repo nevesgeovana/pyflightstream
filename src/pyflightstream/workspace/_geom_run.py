@@ -477,12 +477,100 @@ def _closures(context: RunContext) -> StageOutcome:
     return StageOutcome(checks=checks, outputs={"inputs": inputs})
 
 
+def _control_prepare(components: dict, members: list, out: str) -> dict:
+    """Construct applied pieces inside the guarded worker process."""
+    from pyflightstream.workspace._geom_control_build import prepare
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("building applied controls")
+    try:
+        result = prepare(kernel, components, members, Path(out).parent)
+        write_record(Path(out), result)
+        return result
+    finally:
+        kernel.close()
+
+
+def _control_record(stage: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Measure a file-based control boundary inside its own kernel process."""
+    from pyflightstream.workspace._geom_control import check_stage
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel(f"control {stage}")
+    try:
+        files = {}
+        if stage == "F3":
+            from pyflightstream._digest import file_sha256
+
+            inputs = dict(inputs)
+            for key in ("controls", "hosts"):
+                files[key] = {
+                    name: {"path": path, "sha256": file_sha256(path)}
+                    for name, path in inputs[key].items()
+                }
+                inputs[key] = {
+                    name: kernel.import_iges(path).faces for name, path in inputs[key].items()
+                }
+        result = check_stage(kernel, stage, inputs)
+        if files:
+            result["outputs"]["inputs"] = files
+        return result
+    finally:
+        kernel.close()
+
+
+def _control_step(stage: str) -> StageFn:
+    """Bind one independent F check to the runner's records and run log."""
+
+    def run(context: RunContext) -> StageOutcome:
+        row = next(r for r in STAGE_ROWS if r.stage == stage)
+        short = stage.split(".")[-1]
+        if "control_inputs" not in context.state:
+            components = unpack(context.resolved)["components"]
+            arguments = {
+                "components": components,
+                "members": context.members,
+                "out": str(context.out / "control-inputs.json"),
+            }
+            configured = any(components[n].get("control_surfaces") for n in context.members)
+            context.state["control_inputs"] = (
+                (
+                    _control_prepare(**arguments)
+                    if os.environ.get(WORKER_ENV) == "1"
+                    else run_isolated(f"{__name__}:_control_prepare", arguments, _control_prepare)
+                )
+                if configured
+                else {}
+            )
+        inputs = context.state.get("control_inputs", {}).get(short)
+        if inputs is None:
+            waiting = bool(context.state.get("control_inputs")) and bool(_plan(context)[0])
+            reason = (
+                "waits for the trimmed assembly of G8"
+                if short in ("F5", "F6") and waiting
+                else "no control geometry supplied for this sub-step"
+            )
+            return StageOutcome(
+                checks=[check_entry(cid, "skipped", note=reason) for cid, _ in row.checks]
+            )
+        arguments = {"stage": short, "inputs": inputs}
+        result = (
+            _control_record(**arguments)
+            if os.environ.get(WORKER_ENV) == "1"
+            else run_isolated(f"{__name__}:_control_record", arguments, _control_record)
+        )
+        return StageOutcome(**result)
+
+    return run
+
+
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
 STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S0": _definition,
     "S8": _closures,
     "S10": _dominance,
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
+    **{row.stage: _control_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.F")},
     "S11": _export,
     "S11.V": _export_step("S11.V"),
     "S11.P": _export_step("S11.P"),
@@ -726,7 +814,12 @@ def _not_measured(record: Mapping[str, Any], built: bool) -> list[str]:
         f"{record['stage']} {check['id']}"
         for check in record["checks"]
         if check["status"] == "skipped"
-        and (not built or check["note"] == _OMITTED or check["note"].startswith("waiting for "))
+        and (
+            not built
+            or check["note"] == _OMITTED
+            or check["note"].startswith("waiting for ")
+            or check["note"] == "waits for the trimmed assembly of G8"
+        )
     ]
 
 
@@ -1046,7 +1139,7 @@ def _not_built(what: str) -> InputValueError:
 def add_control_surfaces(
     iges: str | Path, component: str, entries: Sequence[Mapping[str, Any]], out: str | Path
 ) -> dict[str, Any]:
-    """Add control surfaces to a component of an IGES file (PFS-2215); not built yet.
+    """Add control surfaces to a named polynomial lifting skin in an IGES file.
 
     Parameters
     ----------
@@ -1062,12 +1155,12 @@ def add_control_surfaces(
     Returns
     -------
     dict
-        The record of the edit, once built.
+        Written pieces and measured closure checks at 0.01 mm.
 
     Raises
     ------
     InputValueError
-        Always for now: the verb is not built in this tree and writes nothing.
+        If entries are empty, the source is missing or its skin is unsupported.
 
     Examples
     --------
@@ -1075,9 +1168,40 @@ def add_control_surfaces(
     >>> add_control_surfaces("a.igs", "WING", [], "b.igs")  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    pyflightstream._errors.InputValueError: add_control_surfaces: not built yet ...
+    pyflightstream._errors.InputValueError: control entries: at least one table is required
     """
-    raise _not_built("add_control_surfaces")
+    tables = [dict(row) for row in entries]
+    if len(tables) == 1 and "control" in tables[0]:
+        tables = list(tables[0]["control"])
+    if not tables:
+        raise InputValueError("control entries: at least one table is required")
+    if not Path(iges).is_file():
+        raise InputValueError(f"control source: file does not exist: {iges}")
+    if Path(iges).resolve() == Path(out).resolve():
+        raise InputValueError("control out: source and destination must differ")
+    arguments: dict[str, Any] = {
+        "iges": str(iges),
+        "component": component,
+        "entries": tables,
+        "out": str(out),
+    }
+    return (
+        _control_edit_record(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(f"{__name__}:_control_edit_record", arguments, _control_edit_record)
+    )
+
+
+def _control_edit_record(iges: str, component: str, entries: list, out: str) -> dict:
+    """Apply an imported-skin edit inside a guarded kernel worker."""
+    from pyflightstream.workspace._geom_control_edit import edit
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("adding control surfaces")
+    try:
+        return edit(kernel, iges, component, entries, out)
+    finally:
+        kernel.close()
 
 
 def split_symmetry(

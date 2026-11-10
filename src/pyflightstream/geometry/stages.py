@@ -30,6 +30,7 @@ import json
 import math
 from pathlib import Path
 
+import pyflightstream.geometry._control_surfaces as controls
 import pyflightstream.geometry._junctions as junctions
 from pyflightstream._errors import InputValueError
 from pyflightstream._textio import write_text
@@ -122,6 +123,7 @@ __all__ = [
     "closed_contour",
     "constant",
     "contour_features",
+    "controls",
     "cosine",
     "count_classes",
     "evaluate_patch",

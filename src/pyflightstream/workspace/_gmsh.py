@@ -553,6 +553,51 @@ class GmshKernel:
         self._dirty = True
 
     # Query
+    def split_imported_face_uv(self, face: Face, direction: str, value: float) -> tuple[Face, ...]:
+        """Split on an iso line of the face's own base, preserving holes and outer trims.
+
+        A parameter-space rectangle on the same base supplies the upper half cutter.
+        Fragment provenance retains only descendants of the input, so the rectangle
+        cannot fill a hole or extend the original outer boundary.
+        """
+        if direction not in ("u", "v"):
+            raise InputValueError(f"split direction {direction!r}: give 'u' or 'v'")
+        if not np.isfinite(value):
+            raise InputValueError(f"split value {value!r}: give a finite parameter")
+        low, high = self.uv_bounds(face)
+        axis = 0 if direction == "u" else 1
+        if not low[axis] < value < high[axis]:
+            return (face,)
+        u0, v0 = (value, low[1]) if axis == 0 else (low[0], value)
+        corners = [(u0, v0), (high[0], v0), high, (u0, high[1])]
+        cutter = self.add_trimmed_face(
+            face, [[[corners[i], corners[(i + 1) % 4]] for i in range(4)]]
+        )
+        result = self.fragment([face], [cutter])
+        mine, upper = set(result.from_a[0]), set(result.from_b[0])
+        excess = upper - mine
+        if excess:
+            self._g.model.occ.remove(self._tags(sorted(excess)), recursive=False)
+            self._dirty = True
+        return tuple(sorted(mine - upper) + sorted(mine & upper))
+
+    def minimum_distance(self, a: Sequence[Face], b: Sequence[Face]) -> float:
+        """Return the native minimum distance of trimmed face sets in metres, zero on contact."""
+        if not a or not b:
+            raise InputValueError("minimum distance: empty face set; give two nonempty sets")
+        self._model()
+        minimum = float("inf")
+        for first in a:
+            for second in b:
+                distance = float(self._g.model.occ.getDistance(2, first.tag, 2, second.tag)[0])
+                if not np.isfinite(distance) or distance < 0:
+                    raise InputValueError(
+                        f"minimum distance: kernel returned {distance!r} for faces "
+                        f"{first.tag}, {second.tag}; check the face handles and geometry"
+                    )
+                minimum = min(minimum, distance)
+        return minimum
+
     def faces(self) -> tuple[Face, ...]:
         """Return every face of the model, in creation order."""
         return tuple(Face(t) for _, t in self._model().getEntities(2))
