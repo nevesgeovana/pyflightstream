@@ -796,7 +796,7 @@ class GmshKernel:
     def export_iges(
         self, groups: Mapping[str, Sequence[Face]], path: str | Path, *, preference: int = 1
     ) -> None:
-        """Write one IGES file of the named groups; ``preference`` is the PREF of each face."""
+        """Write both boundary curves with PREF 1; preferences 2 and 3 warn and normalize."""
         self._model()
         write_iges(
             self._g,

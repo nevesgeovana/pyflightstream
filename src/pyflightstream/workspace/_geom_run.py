@@ -467,6 +467,7 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     **{row.stage: _assembly_step(row.stage) for row in STAGE_ROWS if row.stage.startswith("S10.")},
     "S11": _export,
     "S11.V": _export_step("S11.V"),
+    "S11.R": _export_step("S11.R"),
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
     "S8.F3": _blend_step("fillet", "S8.F3"),

@@ -176,7 +176,7 @@ def test_p0570_manifest_checks_the_built_version_against_inherited_registry(tmp_
     }
     # An explicit derived member inherits the same declared version, independent of generation.
     raw["configurations"]["derived"]["members"] = [{"component": "shell", "version": "2.1.0"}]
-    report = run_geometry(raw, configuration="derived", out=tmp_path, until="S13")
+    report = run_geometry(raw, configuration="derived", out=tmp_path, until="S11.V")
     checks = [
         check
         for path in tmp_path.glob("S*.json")
@@ -214,3 +214,99 @@ def test_p0570_applied_variant_waits_without_publishing_clean_geometry(tmp_path)
     record = json.loads((tmp_path / "S11.json").read_text(encoding="utf-8"))
     assert record["outputs"].get("state") == "waiting"
     assert not list(tmp_path.glob("*.igs"))
+
+
+def _written_halves(folder):
+    """Two exact half-square trims on one unit-square base, each of area 0.5."""
+    kernel_or_skip()
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.geometry.stages import GeneratedPiece, Patch
+    from pyflightstream.workspace._geom_assembly import Assembly
+    from pyflightstream.workspace._geom_export import write_assembly
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    patch = Patch(
+        "skin",
+        np.array([[[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0], [1.0, 1.0, 0.0]]]),
+        (0.0, 1.0),
+        (0.0, 1.0),
+        (2, 2),
+        (2, 2),
+        1,
+        1,
+    )
+    piece = GeneratedPiece.from_patches("plate", "1.0.0", [patch])
+    trims = []
+    for name, low, high in (("left", 0.0, 0.5), ("right", 0.5, 1.0)):
+        points = ((low, 0.0), (high, 0.0), (high, 1.0), (low, 1.0))
+        trims.append(
+            replace(
+                piece.trims[0],
+                face=name,
+                role=name,
+                loop=tuple((points[i], points[(i + 1) % 4]) for i in range(4)),
+            )
+        )
+    piece = replace(piece, trims=tuple(trims))
+    kernel = open_kernel("area acceptance fixture")
+    try:
+        assembly = Assembly(kernel, {"plate": piece}, [], out=folder)
+        loaded = assembly.step("S10.D1")
+        assert all(c["status"] == "passed" for c in loaded["checks"])
+        written = write_assembly(assembly, folder / "combined.igs")
+    finally:
+        kernel.close()
+    resolved = resolve_config({"components": {"plate": {"type": "body"}}})
+    return resolved, written
+
+
+@pytest.mark.parametrize("lost", [False, True], ids=["P0570-area-control", "P0570-lost-trim"])
+def test_p0570_fresh_readback_catches_a_trimmed_face_written_untrimmed(tmp_path, lost):
+    import os
+
+    from pyflightstream.workspace._geom_export import check_export
+
+    resolved, written = _written_halves(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    face = manifest["components"]["plate"]["faces"][0]
+    assert face["area_m2"] == pytest.approx(0.5, abs=1e-12)
+    if lost:
+        path = tmp_path / face["iges"]
+        document = read_iges(path)
+        trimmed = next(e for e in document["entities"] if e["type"] == 144)
+        trimmed["parameters"][2] = "0"
+        trimmed["parameters"][4] = "0"
+        path.write_text(serialize_iges(document), encoding="ascii")
+    record = check_export("S11.R", resolved, None, ["plate"], tmp_path, written)
+    areas = [c for c in record["checks"] if c["id"] == "area.read_back"]
+    assert areas, "export must measure the area of every face read alone"
+    assert areas[0]["status"] == ("failed" if lost else "passed")
+    assert areas[0]["limit"] == 1e-3
+    if lost:
+        assert areas[0]["measured"] == pytest.approx(1.0, rel=1e-6)
+    else:
+        assert all(c["status"] == "passed" for c in record["checks"])
+        assert all(pid != os.getpid() for pid in record["outputs"]["worker_pids"])
+
+
+def test_p0570_reimport_has_its_own_stage_record_and_run_log(tmp_path):
+    from pyflightstream.geometry.stages import check_entry
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    def supply(context):
+        _, written = _written_halves(context.out)
+        context.state["export"] = written
+        return StageOutcome(
+            checks=[check_entry("profile.surfaces_only", "passed", 0, 0)], outputs=written
+        )
+
+    plan = [Stage(s.row, supply) if s.row.stage == "S11" else s for s in default_stages()]
+    report = run_geometry(
+        {"components": {"plate": {"type": "body"}}}, out=tmp_path, until="S11.R", stages=plan
+    )
+    assert report["status"] != "failed", report
+    record = json.loads((tmp_path / "S11.R.json").read_text(encoding="utf-8"))
+    assert all(c["status"] == "passed" for c in record["checks"])
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "S11.R" in log and "area.read_back" in log and "reimport.free_edges" in log

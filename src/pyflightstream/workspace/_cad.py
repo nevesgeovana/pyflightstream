@@ -308,9 +308,10 @@ class CadKernel(Protocol):
     ) -> None:
         """Write one IGES file, each group's faces carrying the group name as their NAME.
 
-        ``preference`` is the PREF of every trimmed face (IGES 142): 1 parameter space, 2 model
-        space, 3 either. Parameter space is the exact one of a trim built by
-        :meth:`add_trimmed_face`. A 2 is warned about and written as 1, since the solver's CAD
-        import reads no face from a boundary that prefers model space.
+        Every 142 carries both parameter-space and model-space curves, with PREF 1.
+        The parameter-space curves have entity use flag 05. Requests for preference
+        2 (model space) or 3 (either) warn and write 1, since the observed reader
+        requires the parameter-space boundary. Its coordinates are the exact ones
+        supplied to :meth:`add_trimmed_face`.
         """
         ...

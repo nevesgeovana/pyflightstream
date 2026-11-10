@@ -30,3 +30,11 @@ migration: A configuration now refuses variants excluded by its own registry
 entry, even when the variant exists elsewhere in the configuration file.
 Applied-control variant export is recorded as waiting for G9, without
 publishing clean geometry under the requested variant.
+
+S11.R reimports every component and each isolated face in fresh kernel
+processes, comparing face counts, sewn free edges and per-face trimmed areas.
+It rejects a relative face-area difference above 1e-3 and component area
+above the source area plus `acceptance.area_excess`.
+
+migration: Read-back checks now have their own S11.R stage record and run-log
+entries; `--until S11` stops after writing and does not claim read-back checks.

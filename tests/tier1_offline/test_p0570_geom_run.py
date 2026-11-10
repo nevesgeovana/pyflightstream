@@ -342,7 +342,8 @@ def test_p0570_g3_the_export_stage_writes_an_iges_the_report_names(tmp_path):
     kernel_or_skip()
     report = _geom_run.run_geometry(BODY, out=tmp_path, until="S11")
     assert report["status"] == "incomplete", report
-    assert "S11 area.read_back" in report["not_run"]
+    # Read-back has its own subsequent sub-step, S11.R; stopping at write does not run it.
+    assert not (tmp_path / "S11.R.json").exists()
     assert "S11 profile.surfaces_only" not in report["not_run"]
     assert Path(report["outputs"]["iges"]).is_file()
     assert Path(report["outputs"]["iges"]).parent == tmp_path

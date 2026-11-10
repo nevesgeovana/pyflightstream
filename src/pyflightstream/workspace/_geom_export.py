@@ -8,15 +8,17 @@ Layout sidecars carry source bases and lines without resampling the geometry.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.geometry.stages import manifest_checks, write_record
+from pyflightstream.geometry.stages import check_entry, manifest_checks, unpack, write_record
 from pyflightstream.workspace._geom_assembly import Assembly
 from pyflightstream.workspace._geom_parts import plain
+from pyflightstream.workspace._gmsh_worker import run_isolated
 
 
 def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
@@ -96,8 +98,110 @@ def write_assembly(assembly: Assembly, target: Path) -> dict[str, Any]:
 def check_export(stage, resolved, configuration, members, out, source) -> dict[str, Any]:
     """Measure one export sub-step against the retained source record."""
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
+    if stage == "S11.R":
+        return read_back(Path(out), manifest, float(unpack(resolved)["acceptance"]["area_excess"]))
     checks = manifest_checks(resolved, configuration, members, manifest, source["sources"])
     return {"checks": checks, "outputs": {"inputs": {"members": members}}}
+
+
+def inspect_record(file: str, tolerance: float | None) -> dict[str, Any]:
+    """Read one file alone in a fresh worker; return measured topology in metres."""
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("export read-back")
+    try:
+        topology = kernel.inspect_file(file, tolerance)
+        return plain(
+            {
+                "areas": topology.areas,
+                "perimeters": topology.perimeters,
+                "edges": [{"samples": points, "faces": faces} for points, faces in topology.edges],
+                "names": topology.names,
+                "pid": os.getpid(),
+            }
+        )
+    finally:
+        kernel.close()
+
+
+def _inspect(path: Path, tolerance: float | None = None) -> dict[str, Any]:
+    return run_isolated(
+        f"{__name__}:inspect_record", {"file": str(path), "tolerance": tolerance}, inspect_record
+    )
+
+
+def _measured(check, value, limit, *, unit, where=None):
+    return check_entry(
+        check, "passed" if value <= limit else "failed", value, limit, unit=unit, where=where
+    )
+
+
+def read_back(folder: Path, manifest: dict, area_excess: float) -> dict[str, Any]:
+    """Measure component count, free edges and each isolated face's trimmed area.
+
+    Area reads have no sewing. Free-edge comparison uses a separate import sewn
+    at 1e-5 m. A failed import counts as a lost face and a full area loss.
+    """
+    count_gap, free_gap, triple, worst, excess = 0, 0, 0, 0.0, 0.0
+    where: dict[str, Any] = {}
+    pids, failures, files = [], [], []
+
+    def read(file, tolerance=None):
+        files.append(file)
+        try:
+            record = _inspect(folder / file, tolerance)
+            pids.append(record["pid"])
+            return record
+        except InputArtifactError as error:
+            failures.append({"file": file, "error": str(error)})
+            return {"areas": [], "edges": []}
+
+    for name, piece in manifest["components"].items():
+        expected = [float(f["area_m2"]) for f in piece["faces"]]
+        imported = read(piece["iges"])
+        areas = imported["areas"]
+        count_gap = max(count_gap, abs(len(areas) - len(expected)))
+        if len(areas) == len(expected):
+            for got, wanted in zip(sorted(areas), sorted(expected), strict=True):
+                relative = abs(got - wanted) / max(wanted, 1e-30)
+                if relative >= worst:
+                    worst, where = (
+                        relative,
+                        {"component": name, "expected_m2": wanted, "read_m2": got},
+                    )
+        else:
+            worst, where = max(worst, 1.0), {"component": name, "file": piece["iges"]}
+        source_area = float(piece["source_area_m2"])
+        excess = max(excess, (sum(areas) - source_area) / max(source_area, 1e-30))
+        sewn = read(piece["iges"], 1e-5)
+        free = sum(len(e["faces"]) == 1 for e in sewn["edges"])
+        free_gap = max(free_gap, abs(free - piece["free_edges"]))
+        triple += sum(len(e["faces"]) > 2 for e in sewn["edges"])
+        for face in piece["faces"]:
+            alone = read(face["iges"])
+            count_gap = max(count_gap, abs(len(alone["areas"]) - 1))
+            area = sum(alone["areas"])
+            relative = abs(area - face["area_m2"]) / max(face["area_m2"], 1e-30)
+            if relative >= worst:
+                worst, where = (
+                    relative,
+                    {
+                        "component": name,
+                        "face": face["name"],
+                        "expected_m2": face["area_m2"],
+                        "read_m2": area,
+                    },
+                )
+    return {
+        "checks": [
+            _measured("area.read_back", worst, 1e-3, unit="relative", where=where),
+            _measured("area.source_excess", excess, area_excess, unit="relative"),
+            _measured("reimport.each_component", count_gap, 0, unit="faces"),
+            _measured("reimport.free_edges", free_gap, 0, unit="edges"),
+            _measured("reimport.triple_edges", triple, 0, unit="edges"),
+        ],
+        "outputs": {"inputs": {"files": files}, "worker_pids": pids, "failures": failures},
+    }
 
 
 def generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
