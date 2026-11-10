@@ -417,3 +417,21 @@ def test_p0570_gm9_public_edit_applies_control_and_preserves_other_faces(kernel,
         == 0
     )
     assert (tmp_path / "cli.igs").is_file()
+
+
+def test_p0570_gm9_default_runner_measures_control_host_clearance(tmp_path):
+    import json
+
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = _plain_config()
+    raw["components"]["host"] = {
+        "type": "body",
+        "length_mm": 1000.0,
+        "placement": {"translation": [0, 4, 0]},
+    }
+    report = run_geometry(raw, out=tmp_path, until="S10.F3")
+    assert (tmp_path / "S10.F3.json").is_file(), json.dumps(report)
+    record = json.loads((tmp_path / "S10.F3.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", (report, record)
+    assert min(record["outputs"]["distances_m"].values()) > 0
