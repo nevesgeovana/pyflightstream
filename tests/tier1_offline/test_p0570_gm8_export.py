@@ -160,6 +160,36 @@ def test_p0570_export_keeps_component_version_and_trimmed_faces(tmp_path, kind):
     assert len([e for e in document["entities"] if e["type"] == 144]) == piece["faces"]
 
 
+def _cold_roundtrip():
+    """Run the regeneration check with empty process-local fitting caches."""
+    import sys
+    from pathlib import Path
+
+    from pyflightstream.workspace._geom_export import check_export
+
+    request, reply = map(Path, sys.argv[1:3])
+    data = json.loads(request.read_text(encoding="utf-8"))
+    calls = []
+
+    def trace(frame, event, _arg):
+        if event == "call" and frame.f_code.co_name in ("_joint_fit", "open_kernel"):
+            calls.append(frame.f_code.co_name)
+
+    sys.setprofile(trace)
+    try:
+        record = check_export(
+            "S13.R",
+            data["resolved"],
+            configuration=None,
+            members=["part"],
+            out=request.parent,
+            source=data["written"],
+        )
+    finally:
+        sys.setprofile(None)
+    reply.write_text(json.dumps({"record": record, "calls": calls}), encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     "built", ["2.1.0", "1.1.0"], ids=["P0570-version-control", "P0570-wrong-version"]
 )
@@ -626,3 +656,117 @@ def test_p0570_profile_failure_stops_its_substep_and_reaches_the_run_log(tmp_pat
     if fault:
         assert report["stage"] == "S11.P"
         assert report["check"] == ("profile.reader" if fault == "pref" else "profile.base_shared")
+
+
+@pytest.mark.parametrize(
+    "kind", ["body", "lifting_surface"], ids=["P0570-body-roundtrip", "P0570-wing-roundtrip"]
+)
+@pytest.mark.parametrize(
+    "wrong", [False, True], ids=["P0570-source-control", "P0570-relabeled-source"]
+)
+def test_p0570_roundtrip_regenerates_stored_surfaces_without_a_section_fit(tmp_path, kind, wrong):
+    import subprocess
+    import sys
+    import tomllib
+    from pathlib import Path
+
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.workspace._geom_export import generate_record
+
+    kernel_or_skip()
+    component = {"type": kind}
+    if kind == "lifting_surface":
+        component["cap"] = {"type": "none"}
+    resolved = resolve_config({"components": {"part": component}})
+    written = generate_record(resolved, str(tmp_path / "combined.igs"), None)
+    if wrong:
+        written["sources"]["part"]["source_surface_id"] = "0" * 64
+    request, reply = tmp_path / "cold-request.json", tmp_path / "cold-reply.json"
+    request.write_text(json.dumps({"resolved": resolved, "written": written}), encoding="utf-8")
+    code = (
+        "from tests.tier1_offline.test_p0570_gm8_export import _cold_roundtrip; _cold_roundtrip()"
+    )
+    with (tmp_path / "cold-worker.log").open("w", encoding="utf-8") as log:
+        subprocess.run(
+            [sys.executable, "-c", code, str(request), str(reply)],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+    answer = json.loads(reply.read_text(encoding="utf-8"))
+    record, calls = answer["record"], answer["calls"]
+    checks = {c["id"]: c for c in record["checks"]}
+    assert "roundtrip.same_surface" in checks, record
+    assert checks["roundtrip.same_surface"]["status"] == ("failed" if wrong else "passed"), record
+    assert not calls, calls
+    stored = tomllib.loads(Path(record["outputs"]["resolved_toml"]).read_text(encoding="utf-8"))
+    assert stored["format"] == "pyflightstream-geometry-resolved"
+    if kind == "lifting_surface":
+        sections = stored["components"]["part"]["sections"]
+        assert sections["form"] == "bspline" and not sections["airfoils"]
+        assert sections["items"] and all("bspline" in item for item in sections["items"])
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["body", "lifting_surface", "invalid"],
+    ids=["P0570-no-reverse", "P0570-reverse-control", "P0570-reverse-flat-plate"],
+)
+def test_p0570_roundtrip_identifies_supported_pieces_and_reports_bad_geometry(tmp_path, kind):
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.workspace._geom_export import check_export, generate_record
+
+    kernel_or_skip()
+    if kind == "invalid":
+        _, written = _written_halves(tmp_path)
+        name = "plate"
+        resolved = resolve_config({"components": {name: {"type": "lifting_surface"}}})
+    else:
+        name = "part"
+        component = {"type": kind}
+        if kind == "lifting_surface":
+            component["cap"] = {"type": "none"}
+        resolved = resolve_config({"components": {name: component}})
+        written = generate_record(resolved, str(tmp_path / "combined.igs"), None)
+    record = check_export(
+        "S13", resolved, configuration=None, members=[name], out=tmp_path, source=written
+    )
+    checks = [c for c in record["checks"] if c["id"] == "roundtrip.identify"]
+    assert checks, record
+    assert (
+        checks[0]["status"]
+        == {"body": "skipped", "lifting_surface": "passed", "invalid": "failed"}[kind]
+    ), record
+    assert checks[0]["where"]["component"] == name
+
+
+@pytest.mark.parametrize("wrong", [False, True], ids=["P0570-run-control", "P0570-run-source"])
+def test_p0570_roundtrip_records_failure_and_written_identities(tmp_path, wrong):
+    from pyflightstream.workspace._geom_export import generate_record
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    kernel_or_skip()
+
+    def write(context):
+        written = generate_record(context.resolved, str(context.out / "combined.igs"), None)
+        context.state["assembly"] = {"export": written}
+        if wrong:
+            written["sources"]["part"]["source_surface_id"] = "0" * 64
+        return StageOutcome()
+
+    stages = {s.row.stage: s for s in default_stages()}
+    report = run_geometry(
+        {"components": {"part": {"type": "lifting_surface", "cap": {"type": "none"}}}},
+        out=tmp_path,
+        until="S13.R",
+        stages=[Stage(stages["S0"].row, write), stages["S11"], stages["S13.R"]],
+    )
+    assert report["status"] == ("failed" if wrong else "incomplete"), report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert report["surface_id"] == manifest["surface_id"]
+    assert report["build_id"] == manifest["build_id"]
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "S13.R" in log and "roundtrip.same_surface" in log
+    if wrong:
+        assert report["stage"] == "S13.R" and report["check"] == "roundtrip.same_surface"

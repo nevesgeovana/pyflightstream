@@ -44,6 +44,7 @@ from pyflightstream.geometry._generation import (
     generate_components,
     generate_pieces,
     source_cells,
+    stored_sections_config,
 )
 from pyflightstream.geometry._identity import build_id, parameter_id, surface_id
 from pyflightstream.geometry._lifting import lifting_surface
@@ -67,7 +68,7 @@ from pyflightstream.geometry._mesh_topology import (
     write_obj,
 )
 from pyflightstream.geometry._patch import Patch, evaluate_patch
-from pyflightstream.geometry._placement import wing_in_body_frame
+from pyflightstream.geometry._placement import placement_transform, wing_in_body_frame
 from pyflightstream.geometry._records import (
     CheckFailedError,
     check_entry,
@@ -96,6 +97,8 @@ __all__ = [
     "manifest_record",
     "surface_id",
     "sidecar_identity",
+    "stored_sections_config",
+    "placement_transform",
     "CAP_EDGE_GAP",
     "cap_edge_gap",
     "lifting_model",

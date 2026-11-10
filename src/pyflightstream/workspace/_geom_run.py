@@ -181,6 +181,8 @@ def _export(context: RunContext) -> StageOutcome:
             **measured.outputs,
             "iges": written["iges"],
             "manifest": written["manifest"],
+            "surface_id": written["surface_id"],
+            "build_id": written["build_id"],
             "faces": written["faces"],
             "audit": written["audit"],
         },
@@ -401,6 +403,11 @@ def _assembly_record(
                 resolved=resolved,
                 configuration=configuration,
             )
+            written["sections"] = {
+                n: p.layout["sections"]
+                for n, p in every.items()
+                if isinstance(p, GeneratedPiece) and "sections" in p.layout
+            }
     finally:
         kernel.close()
     result = json.loads(json.dumps({"records": records, "export": written}, default=str))
@@ -481,6 +488,8 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
     "S11.P": _export_step("S11.P"),
     "S11.R": _export_step("S11.R"),
     "S11.S": _export_step("S11.S"),
+    "S13.R": _export_step("S13.R"),
+    "S13": _export_step("S13"),
     "S8.F1": _blend_step("fillet", "S8.F1"),
     "S8.F2": _blend_step("fillet", "S8.F2"),
     "S8.F3": _blend_step("fillet", "S8.F3"),
@@ -869,9 +878,12 @@ def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
         }
         for r in records
     ]
+    outputs = {k: v for r in records for k, v in r["outputs"].items()}
     report = geometry_report(
         status,
         parameter,
+        surface_id=outputs.get("surface_id"),
+        build_id=outputs.get("build_id"),
         stage=row.stage if row else None,
         check=failed["id"] if failed else None,
         message=failed["note"] if failed else "",
@@ -879,7 +891,7 @@ def _finish(status, parameter, folder, records, *, warnings, failure, not_run):
         limit=failed["limit"] if failed else None,
         where=failed["where"] if failed else None,
         stages=summary,
-        outputs={k: v for r in records for k, v in r["outputs"].items()},
+        outputs=outputs,
         warnings=warnings,
         not_run=not_run,
     )

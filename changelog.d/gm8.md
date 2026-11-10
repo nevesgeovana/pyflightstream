@@ -73,3 +73,13 @@ original bases and loops against the generated source identity.
 migration: Reader and shared-base checks have their own S11.P stage and log
 record. `--until S11` performs the write audit; a complete run continues
 through the profile, reimport and sewing audits.
+
+S13.R stores the fitted defining sections as B-splines in resolved TOML,
+reloads them in a pure regeneration, and compares every piece's bases and
+trim loops with the independently retained source identities. This works
+in a fresh process without a section refit. S13 independently identifies
+written lifting pieces; unsupported component types are explicitly skipped.
+Run reports retain the written surface and build identities.
+
+migration: The regeneration and reverse identification checks have separate
+S13.R and S13 records. Applied-control variants continue to wait for G9.

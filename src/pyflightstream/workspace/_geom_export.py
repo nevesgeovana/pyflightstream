@@ -136,6 +136,8 @@ def write_assembly(
     return {
         "iges": str(target),
         "manifest": str(target.parent / "manifest.json"),
+        "surface_id": manifest["surface_id"],
+        "build_id": manifest["build_id"],
         "faces": {name: len(faces) for name, faces in assembly.faces.items()},
         "warnings": [],
         "audit": {"source": "retained assembly faces"},
@@ -157,6 +159,14 @@ def check_export(stage, resolved, *, configuration, members, out, source) -> dic
         return read_back(Path(out), manifest, float(unpack(resolved)["acceptance"]["area_excess"]))
     if stage == "S11.S":
         return sew_back(Path(out), manifest)
+    if stage in ("S13.R", "S13"):
+        from pyflightstream.workspace._geom_roundtrip import identify, regenerate
+
+        return (
+            regenerate(resolved, out, members, manifest, source)
+            if stage == "S13.R"
+            else identify(resolved, out, manifest)
+        )
     checks = manifest_checks(resolved, configuration, members, manifest, source["sources"])
     return {"checks": checks, "outputs": {"inputs": {"members": members}}}
 
@@ -418,6 +428,10 @@ def generate_record(config: Any, path: str, configuration: str | None) -> dict[s
         record = assembly.step("S10.D1")
         if any(c["status"] == "failed" for c in record["checks"]):
             raise InputArtifactError(str(record["checks"]), kind="geometry")
-        return write_assembly(assembly, Path(path), resolved=config, configuration=configuration)
+        written = write_assembly(assembly, Path(path), resolved=config, configuration=configuration)
+        written["sections"] = {
+            n: p.layout["sections"] for n, p in every.items() if "sections" in p.layout
+        }
+        return written
     finally:
         kernel.close()

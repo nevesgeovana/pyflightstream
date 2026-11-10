@@ -314,10 +314,12 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("gate.te_found", "reader profile"),
     ),
     _row(
+        "S13.R", "Regenerate stored sections", False, ("roundtrip.same_surface", "equal surface_id")
+    ),
+    _row(
         "S13",
         "Round trip",
         True,
-        ("roundtrip.same_surface", "equal surface_id"),
         ("roundtrip.identify", "acceptance"),
     ),
 )

@@ -25,7 +25,7 @@ from ._caps import lifting_model, tip_cap, wing_contour_point
 from ._fairings import wing_fuselage_fairing, wing_junction
 from ._fillet import fillet_hosts, fillet_model
 from ._identity import surface_id
-from ._lifting import layout_record, lifting_surface, section_models, thickness_station
+from ._lifting import layout_record, lifting_surface, section_law, section_models, thickness_station
 from ._patch import Patch, evaluate_patch, interpolate_patch
 from ._placement import (
     body_junctions,
@@ -51,7 +51,34 @@ __all__ = [
     "generate_pieces",
     "junction_lifting_surface",
     "source_cells",
+    "stored_sections_config",
 ]
+
+
+def stored_sections_config(resolved, sections):
+    """Store fitted lifting sections as B-splines for exact, fit-free regeneration.
+
+    The resolved parameters and derived values stay in their resolved form,
+    so writing and reloading does not recompute their floating-point values.
+    Optional unset mapping values are omitted because TOML has no null value.
+    """
+    config = unpack(resolved)
+    for name, component in config["components"].items():
+        if component["type"] != "lifting_surface":
+            continue
+        component["sections"]["items"] = sections[name]
+        component["sections"]["airfoils"] = []
+        component["sections"].pop("physical", None)
+        component["sections"]["form"] = "bspline"
+    return _toml_values(config)
+
+
+def _toml_values(value):
+    if isinstance(value, dict):
+        return {k: _toml_values(v) for k, v in value.items() if v is not None}
+    if isinstance(value, (list, tuple)):
+        return [_toml_values(v) for v in value]
+    return value
 
 
 def _loop_mask(loop, uv):
@@ -175,6 +202,15 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
             model = lifting_model(component)
             bases, trims = model.bases(), model.trims
             layout = layout_record(model)
+            layout["sections"] = [
+                {
+                    "eta": eta,
+                    "bspline": {k: section.to_stored()[k] for k in ("degree", "knots", "poles")},
+                }
+                for eta, section in zip(
+                    component["sections"]["eta"], section_law(component).given, strict=True
+                )
+            ]
         elif kind == "fillet":
             fillet = fillet_model(component, components, name)
             _, _, frame = fillet_hosts(components, name)
