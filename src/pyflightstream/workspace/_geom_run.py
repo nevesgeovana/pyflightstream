@@ -1194,7 +1194,7 @@ def add_control_surfaces(
     Raises
     ------
     InputValueError
-        If entries are empty, the source is missing or its skin is unsupported.
+        If entries are empty or not tables, the source is missing or its skin is unsupported.
 
     Examples
     --------
@@ -1204,9 +1204,14 @@ def add_control_surfaces(
     ...
     pyflightstream._errors.InputValueError: control entries: at least one table is required
     """
-    tables = [dict(row) for row in entries]
-    if len(tables) == 1 and "control" in tables[0]:
-        tables = list(tables[0]["control"])
+    try:
+        tables = [dict(row) for row in entries]
+        if len(tables) == 1 and "control" in tables[0]:
+            tables = list(tables[0]["control"])
+    except (TypeError, ValueError):
+        raise InputValueError("control entries: expected a sequence of tables") from None
+    if any(not isinstance(row, Mapping) for row in tables):
+        raise InputValueError("control entries: expected a sequence of tables")
     if not tables:
         raise InputValueError("control entries: at least one table is required")
     if not Path(iges).is_file():

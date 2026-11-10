@@ -7,6 +7,7 @@ curves by knot insertion and spline evaluation, without sampling or refitting.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import replace
 
 import numpy as np
@@ -345,6 +346,7 @@ def imported(skin: Patch, entry: dict) -> dict:
     InputValueError
         If the control limits, kind or gap are unsupported or invalid.
     """
+    entry = copy.deepcopy(entry)
     a, b = entry.get("eta", (0.0, 1.0))
     if not np.isfinite([a, b]).all() or not 0 < a < b < 1:
         raise InputValueError("control.eta: require 0 < start < end < 1")

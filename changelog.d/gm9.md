@@ -64,3 +64,7 @@ F7 applies configured host junctions using exact restricted control faces
 and the existing measured assembly operations. Junction lengths and the
 assembly sub-step records accompany each angle combination; sewn closure
 alone cannot stand in for a junction that was never formed.
+
+Imported-control validation preserves caller tables. A swapped file/table
+input raises InputValueError, and unknown nested keys remain visible in
+the returned warnings without being removed from the caller's data.
