@@ -358,6 +358,24 @@ def test_p0570_g7r_s5_no_a_fillet_ring_open_on_one_side_does_not_close_its_footp
     assert "class STRATEGY" in entry["note"]
 
 
+def test_p0570_g7r_a_substep_that_raises_fails_at_that_substep(kernel, tmp_path, monkeypatch):
+    """Review round 24: a kernel answering NaN for a curve projection made S10.D6 pass (the
+    built-in max dropped the NaN, so a lost projection read 0). The NaN is now an infinite
+    distance, its check cannot be built, and the sub-step is recorded failed where it stands,
+    not raised out of the assembly (which a run reported as a refusal at S10.D1)."""
+    from pyflightstream.workspace._gmsh import GmshKernel
+
+    def nowhere(self, edge, points):
+        return np.full((len(points), 3), np.nan)
+
+    monkeypatch.setattr(GmshKernel, "edge_project", nowhere)
+    pieces, rows = wb()
+    records = assembly(kernel, tmp_path, pieces, rows).run()
+    stage, check, entry = failed(records)
+    assert (stage, check) == ("S10.D6", "stage.raised")
+    assert "junction.on_host_loops" in entry["note"] and "class BUG" in entry["note"]
+
+
 def test_p0570_g7r_coverage_and_sewing_catch_a_kept_face_deleted_after_removal(kernel, tmp_path):
     """Design F.1 mutation: a kept face deleted after the removal; the edge audit still passes
     (no triple edge), coverage.skin fails with that face's area and sewing finds new free edges.

@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.geometry.stages import Patch, check_entry, evaluate_patch, stage_row
 from pyflightstream.geometry.stages import junctions as jn
 from pyflightstream.workspace._cad import CadKernel, Face
@@ -108,6 +109,17 @@ def free_boundaries(patches: Sequence[Patch], tolerance: float) -> list[np.ndarr
         if not shared:
             free.append(c)
     return free
+
+
+def gap(found: Any, points: np.ndarray) -> np.ndarray:
+    """Return the distance of each point to the point the kernel gave for it.
+
+    A point the kernel could not give (NaN) is infinitely far, never 0: the built-in ``max`` of
+    the sub-steps would drop a NaN and read a lost projection as a pass, and an infinite value is
+    refused by the check, so the sub-step fails where it stands.
+    """
+    d = np.linalg.norm(np.asarray(found, float) - points, axis=1)
+    return np.where(np.isnan(d), np.inf, d)
 
 
 def bbox_hit(samples: np.ndarray, triangles: np.ndarray, margin: float) -> bool:
@@ -218,11 +230,20 @@ class AssemblyBase:
         return self.records
 
     def step(self, stage: str) -> dict[str, Any]:
-        """Run one sub-step and return its record (checks, inputs, outputs, wall time)."""
+        """Run one sub-step and return its record (checks, inputs, outputs, wall time).
+
+        A sub-step that raises is recorded as failed at that sub-step (check ``stage.raised``,
+        the error in its note), as the runner records a raising stage, so the failure keeps its
+        place instead of ending the assembly as a refusal of its first sub-step.
+        """
         method = dict(self.STEPS)[stage]
         before = len(self.warnings)
         clock = time.perf_counter()
-        checks, outputs = getattr(self, f"_{method}")()
+        try:
+            checks, outputs = getattr(self, f"_{method}")()
+        except (PyflightstreamError, ValueError, OSError) as error:
+            note = f"class BUG: the sub-step raised: {error}"
+            checks, outputs = [check_entry("stage.raised", "failed", 1, 0, note=note)], {}
         inputs = {"rows": [self._op_name(op) for op in self.plan], **outputs.pop("inputs", {})}
         outputs = {"inputs": inputs, **outputs}
         record = {
@@ -272,7 +293,7 @@ class AssemblyBase:
         best = np.full(len(points), np.inf)
         for face in faces:
             xyz, _ = self.k.project(face, as_points(points))
-            best = np.minimum(best, np.linalg.norm(np.asarray(xyz) - points, axis=1))
+            best = np.minimum(best, gap(xyz, points))
         return best
 
     def _on_plane(self, point: np.ndarray) -> bool:
@@ -297,13 +318,12 @@ class AssemblyBase:
             if np.any(np.asarray(box_high) < low) or np.any(np.asarray(box_low) > high):
                 continue
             projected = self.k.edge_project(e, as_points(points))
-            best = np.minimum(best, np.linalg.norm(np.asarray(projected) - points, axis=1))
+            best = np.minimum(best, gap(projected, points))
         # the box only skips work: a point no curve's box reached is measured against them all,
         # so a junction far from every loop reads its distance, never an infinity
         far = ~np.isfinite(best)
         if far.any():
             for e in edges:
                 projected = self.k.edge_project(e, as_points(points[far]))
-                distance = np.linalg.norm(np.asarray(projected) - points[far], axis=1)
-                best[far] = np.minimum(best[far], distance)
+                best[far] = np.minimum(best[far], gap(projected, points[far]))
         return float(best.max()) if len(best) else 0.0
