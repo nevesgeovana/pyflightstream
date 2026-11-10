@@ -182,7 +182,8 @@ class FilletModel:
         base between the two contact lines.
     contacts : dict
         ``v_host`` and ``v_wing``, the iso-v contact lines of the base; ``wing``, the contact on
-        the lifting surface's skin as ``(s, u, v)`` rows; ``host``, the contact points on the body.
+        the lifting surface's skin as ``(s, u, v)`` rows; ``host``, the contact points on the body;
+        ``spine``, the intersection point of each section.
     records : tuple of dict
         The S8 checks of the fillet.
     """
@@ -223,7 +224,7 @@ def _blossom(points, parameters):
 def _sections(fillet, skin, host, wing, s_values):
     """Return the Bezier poles of every section, the wing contact v and the host contacts."""
     laws = fillet_laws(fillet, float(planform_values(wing, 0.0)["chord"]))
-    poles, wing_v, host_points, handles = [], [], [], []
+    poles, wing_v, host_points, handles, spine_points = [], [], [], [], []
     for s in s_values:
         v_c = _spine_v(skin, host, s)
         if v_c is None:
@@ -262,8 +263,15 @@ def _sections(fillet, skin, host, wing, s_values):
         poles.append([f_point, f_point + h_f * d_f, w_point + h_w * d_w, w_point])
         wing_v.append(v_w)
         host_points.append(f_point)
+        spine_points.append(centre)
         handles.append((h_f, h_w))
-    return np.array(poles), np.array(wing_v), np.array(host_points), np.array(handles)
+    return (
+        np.array(poles),
+        np.array(wing_v),
+        np.array(host_points),
+        np.array(handles),
+        np.array(spine_points),
+    )
 
 
 def spine_parameters(count: int) -> np.ndarray:
@@ -343,7 +351,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
     # interpolation error falls with the square of the spacing); an odd count keeps u = 0.5.
     count = 6 * int(np.ceil(fillet["patches"] / 2)) + 1
     s_values = spine_parameters(count)
-    poles, wing_v, host_points, handles = _sections(fillet, skin, host, wing, s_values)
+    poles, wing_v, host_points, handles, spine = _sections(fillet, skin, host, wing, s_values)
     chord = float(planform_values(wing, 0.0)["chord"])
     e_host = float(np.mean(fillet["host_band"] * chord / (3 * handles[:, 0])))
     e_wing = float(np.mean(fillet["wing_band"] * chord / (3 * handles[:, 1])))
@@ -375,6 +383,7 @@ def fillet_model(fillet, components, name="fillet") -> FilletModel:
         "v_wing": v_wing,
         "wing": np.column_stack((s_values, s_values, wing_v)),
         "host": host_points,
+        "spine": spine,
     }
     host_turn, wing_turn, host_gap, wing_gap = _contact_checks(
         base, skin, host, contacts, _CHECKS_PER_SPAN * (count - 1) + 1
