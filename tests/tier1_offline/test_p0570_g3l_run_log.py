@@ -80,10 +80,7 @@ def test_p0570_g3l_a_doe_set_that_was_refused_or_faulted_has_its_own_log(tmp_pat
     assert "result: REFUSED" in (refused / LOG).read_text(encoding="utf-8")
     assert "result: INCOMPLETE" in (tmp_path / "set-0001" / LOG).read_text(encoding="utf-8")
 
-    def dead(*args, **kwargs):
-        raise RuntimeError("worker died")
-
-    monkeypatch.setattr(_geom_run, "run_isolated", dead)
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_TIMEOUT", "0.01")
     out = tmp_path / "dead"
     (report,) = _geom_run.run_doe(BODY, [{"FUS.length": 2.5}], out=out, until="S2")
     assert report["stage"] == "worker"
@@ -91,4 +88,4 @@ def test_p0570_g3l_a_doe_set_that_was_refused_or_faulted_has_its_own_log(tmp_pat
     assert json.loads((folder / "report.json").read_text(encoding="utf-8"))["stage"] == "worker"
     text = (folder / LOG).read_text(encoding="utf-8")
     assert "stopped at sub-step worker, check worker.completed" in text
-    assert "worker died" in text and "package version:" in text
+    assert "ran longer than 0.01 s" in text and "package version:" in text
