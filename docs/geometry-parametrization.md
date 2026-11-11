@@ -35,8 +35,12 @@ A lifting surface is given by one complete planform set: `sref_m2`, `aspect_rati
 semispan includes the tip cap. A file that mixes the two sets is refused with the redundant keys
 named. A file may also be written as `[surface]`, `[planform]`, `[[stations]]`, `[cap]`,
 `[[control]]` and `[[engine]]` tables with no `type` and no `components` table; `[surface]`
-makes it a lifting surface. `eta` of a station, a control surface or an engine axis is a fraction of the span station where the tip cap
-starts. A body is written with `length_mm`, `nose = {kind}`, `tail = {kind}`, `parts` and
+makes it a lifting surface. Control `eta` values are fractions of the planform semispan,
+including the tip cap; control limits must remain inside the skin before the cap.
+Flat tip and root caps use three quadrilateral faces sharing an interior point.
+Their outer edges preserve the skin's exact section curve. The default wing
+above exports six faces; use `--until S11.P` to include the reader-profile check.
+A body is written with `length_mm`, `nose = {kind}`, `tail = {kind}`, `parts` and
 `sections` whose shapes carry `half_width_mm`, `half_height_mm` and `centre_z_mm`. A section may be
 given as a `bspline` (inline `degree`, `knots`, `poles`, or `file` naming a JSON file with those
 three), a `naca` (`code`), a `cst` or a `coords` file. A key that the verb reads but whose feature
@@ -68,6 +72,58 @@ value (an unknown name is refused). `pyfs-geom doe wing.toml sets.toml --out out
 per `[[sets]]` table of the second file and continues after a failed set, each in a worker
 process of its own. `pyfs-geom stages` lists the stages and their checks, `validate` prints every
 resolved value with its source and `configurations` lists the registry.
+
+## Plain controls
+
+Plain flaps and ailerons cut stationary and moving pieces from the same lifting
+skin. Span gaps shorten the moving piece at both ends; the chord gap translates
+it aft, and each deflection produces a separately named piece. This numerical
+example creates two deflections without loading the CAD kernel:
+
+```python
+from pyflightstream.geometry import resolve_config, stages
+
+config = resolve_config({"components": {"wing": {
+    "type": "lifting_surface",
+    "planform": {"sref_m2": 4.0, "aspect_ratio": 4.0, "taper": 1.0},
+    "root": "flat",
+    "cap": {"type": "flat"},
+    "control": [{
+        "name": "flap", "kind": "plain", "eta": [0.2, 0.7],
+        "chord_ratio": 0.25, "gap_span": 0.01, "gap_chord": 0.002,
+        "deflection_deg": [0, 15],
+    }],
+}}})
+wing = stages.unpack(config)["components"]["wing"]
+pieces = stages.controls.build(wing)
+assert set(pieces.pieces) == {"main", "flap-d0", "flap-d15"}
+```
+
+Use these component tables in a TOML file and run `pyfs-geom run wing.toml
+--out out --until S10.F4` to write and check the control pieces. F0 compares
+written and read face counts; F1 and F2 check sewn closure; F3 measures clearance
+to configured body hosts; F4 checks the combined angle choices. F5 and F6 need
+the trimmed assembly boundary and remain incomplete when that input is pending.
+The applied pieces and `applied-controls.json` do not yet replace the clean
+assembly export. An applied variant requested through S11 remains incomplete.
+Sewn control check IDs include their sub-step, for example
+`control.f1.free_edges` for the main piece and `control.f2.free_edges` for the
+control alone, so records and run logs identify the failing operation.
+
+To edit an existing normalized polynomial lifting skin, put the same control
+entry in a `[[control]]` table in `controls.toml` and run:
+
+```text
+pyfs-geom add-control-surface source.igs WING controls.toml --out edited.igs
+```
+
+The Python equivalent is `add_control_surfaces(source, "WING", entries, target)`
+from `pyflightstream.workspace.geometry_pipeline`. The source skin uses u=0 and
+u=1 at the trailing edges, u=0.5 at the leading edge and v along the span.
+Native cuts preserve existing trims and unrelated faces. Entries need disjoint
+span intervals strictly inside (0, 1), and rigid deflection needs a straight
+hinge. The destination must differ from the source. Read the returned `status`
+and `checks`: writing a file alone does not establish sewn closure at 0.01 mm.
 
 ## Check against an original
 

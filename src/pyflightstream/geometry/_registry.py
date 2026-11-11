@@ -19,7 +19,20 @@ __all__ = ["manifest_checks", "manifest_record", "sidecar_identity"]
 
 
 def sidecar_identity(name, layout):
-    """Recompute source identity from every original base and loop in a sidecar."""
+    """Recompute source identity from every original base and loop in a sidecar.
+
+    Parameters
+    ----------
+    name : str
+        Component name.
+    layout : dict
+        Sidecar with ordered bases in metres and original source trims.
+
+    Returns
+    -------
+    str
+        SHA-256 identity of the stored bases and loops.
+    """
     patches = []
     for key in layout["base_order"]:
         p = layout["bases"][key]
@@ -43,6 +56,24 @@ def manifest_record(state, *, configuration, identities, dominance, coverage) ->
 
     The live assembly snapshot is input only. There is one published piece
     list, with detailed face records alongside the specified integer count.
+
+    Parameters
+    ----------
+    state : dict
+        Live assembly snapshot with measured components and openings.
+    configuration : str or None
+        Selected registry configuration, or all components when omitted.
+    identities : dict
+        Parameter, surface and build identities of this export.
+    dominance : list
+        Resolved dominance operations.
+    coverage : dict
+        Measured coverage ledger per component, in square metres.
+
+    Returns
+    -------
+    dict
+        Export manifest with measured face records and unset reimport areas.
     """
     return {
         "format": "pyflightstream-geom-manifest/1",
@@ -78,7 +109,26 @@ def _piece_record(name, piece, dominance, coverage):
 
 
 def manifest_checks(resolved, configuration, members, manifest, sources) -> list[dict]:
-    """Check member set, declared versions and actual generated surface identities."""
+    """Check member set, declared versions and actual generated surface identities.
+
+    Parameters
+    ----------
+    resolved : dict
+        Resolved configuration and registry.
+    configuration : str or None
+        Selected registry entry, or None to use the component versions.
+    members : list of str
+        Requested component names when no registry entry is selected.
+    manifest : dict
+        Written export manifest.
+    sources : dict
+        Independently retained generated versions and surface identities by component.
+
+    Returns
+    -------
+    list of dict
+        One version and source-identity check for each expected or written component.
+    """
     config = unpack(resolved)
     expected = (
         {m["component"]: m["version"] for m in config["registry"][configuration]["members"]}

@@ -466,7 +466,11 @@ def _moment_reference_notes(
         "validated joint force and moment load set. Validate the moment reference and "
         "the force and moment calibration together before using them for torsion."
     )
-    warn(f"point={point} product={product}: {note}", stacklevel=3)
+    warn(
+        f"point={point} product={product}: {note}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
     return [note]
 
 

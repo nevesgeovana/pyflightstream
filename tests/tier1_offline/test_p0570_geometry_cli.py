@@ -185,7 +185,7 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
     config.write_text(WING, encoding="utf-8")
     code, report, err, igs = generated(config, tmp_path / "gen", capsys)
     assert code in WRITTEN, err
-    assert report["outputs"]["faces"] == {"WING": 15}
+    assert report["outputs"]["faces"] == {"WING": 6}
 
     rebuilt = tmp_path / "found.toml"
     result = tmp_path / "found.json"
@@ -232,18 +232,20 @@ def test_p0570_identify_check_and_mesh_a_generated_wing_through_the_verbs(tmp_pa
 
 
 def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, capsys, monkeypatch):
-    """A clean file prints no finding; a planted one is a warning; a solid fails S11, no file.
+    """A clean file passes S11.P; an elevated degree warns; a solid fails S11.
 
     The defects are planted in the file the kernel writes, so the real gate reads a real file.
     """
     gmsh = kernel_or_skip()
-    import re
+    import numpy as np
+
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
 
     # The plant patches the kernel in this process, so S11 runs here, not in a worker (R18-003).
     monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
     config = tmp_path / "wing.toml"
-    config.write_text(WING, encoding="utf-8")
-    code, report, err, _ = generated(config, tmp_path / "clean", capsys)
+    config.write_text(WING + '[components.WING.cap]\ntype = "none"\n', encoding="utf-8")
+    code, report, err, _ = generated(config, tmp_path / "clean", capsys, until="S11.P")
     assert code in WRITTEN, err
     assert not [w for w in report["warnings"] if "reader profile" in w]
 
@@ -252,30 +254,56 @@ def test_p0570_run_applies_the_reader_profile_gate_to_what_it_wrote(tmp_path, ca
     def planting(edit):
         def write(path):
             real_write(path)
-            with open(path, encoding="ascii", newline="") as handle:
-                text = handle.read()
+            document = read_iges(path)
+            edit(document)
             with open(path, "w", encoding="ascii", newline="") as handle:
-                handle.write(edit(text))
+                handle.write(serialize_iges(document))
 
         return write
 
-    def quadratic(text):
-        return re.sub(r"(?m)^(\s*128,\d+,\d+,)3,3,", r"\g<1>2,2,", text, count=1)
+    def quadratic(document):
+        changed = 0
+        for entity in document["entities"]:
+            values = entity["parameters"]
+            if entity["type"] != 128 or (int(values[2]), int(values[4])) != (1, 1):
+                continue
+            # Exact elevation of a linear span: add the midpoint pole row.
+            # Changing only the degree field would corrupt the knot/pole layout.
+            nu, degree = int(values[1]) + 1, int(values[3])
+            end_u = 10 + nu + degree + 1
+            start_poles = end_u + 4 + 2 * nu
+            end_poles = start_poles + 6 * nu
+            poles = np.asarray(values[start_poles:end_poles], float).reshape(2, nu, 3)
+            elevated = np.stack((poles[0], poles.mean(axis=0), poles[1]))
+            values[2] = values[4] = "2"
+            entity["parameters"] = (
+                values[:end_u]
+                + ["0", "0", "0", "1", "1", "1"]
+                + ["1"] * (3 * nu)
+                + [str(x) for x in elevated.ravel()]
+                + values[end_poles:]
+            )
+            changed += 1
+        assert changed, "the degree defect was not planted"
 
-    def solid(text):
-        return re.sub(r"(?m)^( {5})128 ", r"\g<1>186 ", text, count=1)
+    def solid(document):
+        entity = next(e for e in document["entities"] if e["type"] == 128)
+        entity["type"] = 186
+        entity["d1"][0] = entity["d2"][0] = f"{186:8d}"
+        entity["parameters"][0] = "186"
 
     monkeypatch.setattr(gmsh, "write", planting(quadratic))
-    code, report, err, _ = generated(config, tmp_path / "planted", capsys)
+    code, report, err, _ = generated(config, tmp_path / "planted", capsys, until="S11.P")
     assert code in WRITTEN, err
-    assert any("reader profile, profile.degree" in w for w in report["warnings"])
+    assert any("profile.degree" in w for w in report["warnings"])
 
     monkeypatch.setattr(gmsh, "write", planting(solid))
-    code, report, _, igs = generated(config, tmp_path / "solid", capsys)
+    code, report, _, _ = generated(config, tmp_path / "solid", capsys)
     assert code == 1
     assert (report["stage"], report["check"]) == ("S11", "profile.surfaces_only")
-    assert "186" in report["message"] and igs is None
-    assert not list((tmp_path / "solid").glob("*.igs"))
+    record = json.loads((tmp_path / "solid" / "S11.json").read_text(encoding="utf-8"))
+    finding = next(c for c in record["checks"] if c["id"] == "profile.surfaces_only")
+    assert finding["status"] == "failed" and finding["measured"] > 0
 
 
 BSPLINE_ITEM = (
@@ -284,8 +312,13 @@ BSPLINE_ITEM = (
 )
 
 
-def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path, capsys):
-    """The schema accepts ``{eta, bspline}``; the generator of this version names it, no crash."""
+def test_p0570_r26_run_exports_a_bspline_section_item(tmp_path, capsys):
+    """Exact stored sections reach the trimmed exporter without a refit or refusal."""
+    from pathlib import Path
+
+    import numpy as np
+    from scipy.interpolate import BSpline
+
     config = tmp_path / "bspline.toml"
     config.write_text(
         '[components.W]\ntype = "lifting_surface"\n'
@@ -294,7 +327,11 @@ def test_r16_001_run_refuses_a_bspline_section_item_it_cannot_build_yet(tmp_path
         encoding="utf-8",
     )
     code, report, err, igs = generated(config, tmp_path / "bspline", capsys)
-    assert code == 2
-    assert "sections.items" not in err and "stations[eta=0].section.kind" in err
-    assert "bspline" in err
-    assert igs is None and not list((tmp_path / "bspline").glob("*.igs"))
+    assert code in WRITTEN, (report, err)
+    assert igs is not None and Path(igs).is_file()
+    layout = json.loads((tmp_path / "bspline" / "W.layout.json").read_text(encoding="utf-8"))
+    stored = layout["sections"][0]["bspline"]
+    given = BSpline([0.0, 0.0, 0.5, 1.0, 1.0], [[1.0, -0.001], [0.0, 0.0], [1.0, 0.001]], 1)
+    rebuilt = BSpline(stored["knots"], stored["poles"], stored["degree"])
+    parameters = np.linspace(0, 1, 101)
+    np.testing.assert_allclose(rebuilt(parameters), given(parameters), atol=1e-12, rtol=0)

@@ -256,7 +256,7 @@ def _add_plain(model, entry, span, previous):
         main.append(replace(trim, base=target, face=target))
     moving = partition(skin, lower=low, upper=high, span=(a + gap, b - gap))
     for angle in entry["deflection_deg"]:
-        label = f"{name}-d{float(angle):g}"
+        label = f"{name}-d{str(float(angle)).removesuffix('.0')}"
         rotation, translation = _motion(
             skin, low, high, (a, b), angle=angle, gap=entry["gap_chord"]
         )
@@ -400,7 +400,8 @@ def imported(skin: Patch, entry: dict) -> dict:
         )
         matrix = np.eye(4)
         matrix[:3, :3], matrix[:3, 3] = rotation, translation
-        motions[f"{entry.get('name', 'control')}-d{float(angle):g}"] = matrix.tolist()
+        label = f"{entry.get('name', 'control')}-d{str(float(angle)).removesuffix('.0')}"
+        motions[label] = matrix.tolist()
     return {
         "main": main,
         "moving": moving,

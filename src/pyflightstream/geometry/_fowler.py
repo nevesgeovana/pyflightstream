@@ -218,7 +218,7 @@ def definition(skin, entry, span, previous=0.0):
     name = entry["name"]
     pieces, motions = {}, {}
     for angle in entry["deflection_deg"]:
-        label = f"{name}-d{float(angle):g}"
+        label = f"{name}-d{str(float(angle)).removesuffix('.0')}"
         rotation, translation = motion(skin, patches, nested, entry, span, angle=angle)
         matrix = np.eye(4)
         matrix[:3, :3], matrix[:3, 3] = rotation, translation
@@ -260,9 +260,9 @@ def check_partition(model, entry, *, span):
     patches = {n: model.bases[f"{name}_{n}"] for n in ("cove_wall", "cove_roof", "lip_base")}
     applied = {
         angle: {
-            key[len(f"{name}-d{float(angle):g}/") :]: value
+            key[len(f"{name}-d{str(float(angle)).removesuffix('.0')}/") :]: value
             for key, value in model.bases.items()
-            if key.startswith(f"{name}-d{float(angle):g}/")
+            if key.startswith(f"{name}-d{str(float(angle)).removesuffix('.0')}/")
         }
         for angle in entry["deflection_deg"]
     }

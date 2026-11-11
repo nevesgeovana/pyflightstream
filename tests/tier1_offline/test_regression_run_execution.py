@@ -1121,7 +1121,11 @@ class TestRun2Review:
     @staticmethod
     def test_p0400_ended_batch_moves_home_after_every_point_completed(tmp_path):
         workspace = _run_2_review__grouped_workspace(
-            tmp_path, mode="batch", collect=False, ended=False
+            tmp_path,
+            mode="batch",
+            collect=False,
+            ended=False,
+            profile_tail='\n[log]\njob_end_files = ["done.flag"]\n',
         )
         row = workspace.read_manifest()[0]
         job = row.submission["job"]

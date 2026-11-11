@@ -115,6 +115,18 @@ def surface_id(
     ``trims``, per component, are the faces as loops on those bases (:class:`Trim`); each loop
     joins the identity, sorted by base, role and face, so two models on equal bases with other
     faces differ. Without trims the identity is that of the bases alone, as before.
+
+    Parameters
+    ----------
+    patches : Mapping
+        Ordered placed patches per component, with control points in metres.
+    trims : Mapping, optional
+        Trim loops per component; omitted means only bases enter the digest.
+
+    Returns
+    -------
+    str
+        SHA-256 identity as 64 hexadecimal digits.
     """
     rows: list[dict] = []
     for name in sorted(patches):
@@ -139,7 +151,24 @@ def surface_id(
 
 
 def build_id(parameter: str, package_version: str, kernel_name: str, kernel_version: str) -> str:
-    """Return the ``build_id``: a parameter identity tied to the package and the kernel."""
+    """Return the ``build_id``: a parameter identity tied to the package and the kernel.
+
+    Parameters
+    ----------
+    parameter : str
+        Resolved parameter identity.
+    package_version : str
+        Package version used for generation.
+    kernel_name : str
+        Geometry kernel name.
+    kernel_version : str
+        Geometry kernel version.
+
+    Returns
+    -------
+    str
+        SHA-256 identity as 64 hexadecimal digits.
+    """
     return _digest(
         canonical(
             {

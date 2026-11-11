@@ -26,14 +26,21 @@ def measured(name, value, *, where=None):
 
 def convert(folder, manifest):
     """Exercise the shipped converter and compare its read-back face counts."""
+    from pyflightstream.workspace._iges_write import read_iges
     from pyflightstream.workspace.iges_convert import convert_iges
 
     target = folder / "S12-converted.igs"
+    expected = {p["component"]: p["faces"] for p in manifest["pieces"]}
     try:
-        record = convert_iges([folder / manifest["iges"]], target)
-        expected = {p["component"]: p["faces"] for p in manifest["pieces"]}
-        errors = abs(record["faces"] - sum(expected.values()))
-        errors += record["components"] != expected
+        document = read_iges(folder / manifest["iges"])
+        written = sum(e["type"] == 144 for e in document["entities"])
+        errors = abs(written - sum(expected.values()))
+        if errors:
+            record = {"error": "written face count differs from the manifest", "faces": written}
+        else:
+            record = convert_iges([folder / manifest["iges"]], target)
+            errors = abs(record["faces"] - sum(expected.values()))
+            errors += record["components"] != expected
     except PyflightstreamError as error:
         record, errors = {"error": str(error)}, 1
     return {
