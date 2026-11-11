@@ -37,6 +37,7 @@ from pyflightstream.geometry._component_keys import (
 )
 from pyflightstream.geometry._fillet import fillet_notes
 from pyflightstream.geometry._identity import SCHEMA_MAJOR
+from pyflightstream.geometry._propeller_input import validate_definition
 from pyflightstream.geometry._schema import (
     TYPES,
     number,
@@ -59,6 +60,7 @@ RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
 #: The optional tables and keys with no default, by component type and dotted place. Anywhere else
 #: the same name is an unknown key.
 FREE_BY_TYPE = {
+    "propeller": frozenset({"definition"}),
     "lifting_surface": frozenset(
         {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
         | {"planform.height", "tip_cap.extent"}
@@ -488,6 +490,10 @@ def resolve_blister(raw, component, notes):
 
 def resolve_propeller(raw, component, notes):
     """Validate a propeller component and return its (empty) derived quantities."""
+    if "definition" in component:
+        component["definition"] = validate_definition(component["definition"])
+        check_common(notes["name"], component, notes["warnings"])
+        return {}
     number(component["radius"], "radius", 0, strict=True)
     number(component["hub_radius"], "hub_radius", 0, component["radius"], strict=True)
     if component["hub_radius"] >= component["radius"]:
@@ -620,7 +626,9 @@ def _resolve_component(name, raw, notes, base):
 
 def _translate_inputs(name, raw, notes, base):
     """Read the published key names of a fresh component and skip a cap shape."""
-    if raw["type"] == "lifting_surface":
+    if raw["type"] == "propeller" and "definition" in raw:
+        raw["definition"] = validate_definition(raw["definition"], base)
+    elif raw["type"] == "lifting_surface":
         translate_lifting(name, raw, notes, base)
     elif raw["type"] == "body":
         translate_body(name, raw, notes)
