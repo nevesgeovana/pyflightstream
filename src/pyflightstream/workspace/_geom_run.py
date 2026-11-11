@@ -604,9 +604,17 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
 }
 
 
-def default_stages() -> list[Stage]:
-    """Return every stage of the table with the function this tree holds for it, if any."""
-    return [Stage(row, STAGE_FUNCTIONS.get(row.stage)) for row in STAGE_ROWS]
+def default_stages(*, include_propeller: bool = False) -> list[Stage]:
+    """Return generic stages, optionally including the propeller-specific sub-steps.
+
+    The runner requests the complete table, then selects by component type.
+    A caller overriding generic export stages retains the generic workflow.
+    """
+    return [
+        Stage(row, STAGE_FUNCTIONS.get(row.stage))
+        for row in STAGE_ROWS
+        if include_propeller or row.stage not in PROPELLER_STAGES
+    ]
 
 
 def _package_version() -> str:
@@ -897,7 +905,9 @@ def run_geometry(
         started=_now(),
         overrides=overrides,
     )
-    planned = list(stages if stages is not None else default_stages())[: last + 1]
+    planned = list(stages if stages is not None else default_stages(include_propeller=True))[
+        : last + 1
+    ]
     try:
         resolved = _resolve(config, overrides)
         members = _members(resolved, configuration, variant)

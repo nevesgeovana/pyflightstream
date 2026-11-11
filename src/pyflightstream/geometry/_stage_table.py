@@ -482,7 +482,7 @@ def stage_index(stage: str) -> int:
     Examples
     --------
     >>> from pyflightstream.geometry.stages import stage_index
-    >>> stage_index("S3")
-    3
+    >>> stage_index("S0")
+    0
     """
     return STAGE_ROWS.index(stage_row(stage))

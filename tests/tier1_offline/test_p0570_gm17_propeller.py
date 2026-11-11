@@ -395,10 +395,21 @@ def test_p0570_gm17_pcurve_mismatch_stops_runner(tmp_path):
         context.state["export"] = {"iges": str(target)}
         return StageOutcome(checks=[check_entry("input.valid", "passed", 0, 0)])
 
-    stage = next(s for s in default_stages() if s.row.stage == "S11.PC")
+    stage = next(s for s in default_stages(include_propeller=True) if s.row.stage == "S11.PC")
     report = run_geometry(
         design().component(), out=tmp_path / "run", stages=[Stage(stage_row("S0"), seed), stage]
     )
     assert report["status"] == "failed"
     assert report["stage"] == "S11.PC" and report["check"] == "propeller.pcurve_3d"
     assert report["measured"] > report["limit"]
+
+
+def test_p0570_gm17_stages_verb_exposes_checks(capsys):
+    """P0570-G17-STAGES: every propeller sub-step and threshold reaches the public verb."""
+    from pyflightstream.run.geom_cli import main
+
+    assert main(["stages"]) == 0
+    rows = {row["stage"]: row for row in json.loads(capsys.readouterr().out)["stages"]}
+    expected = {"S1.P", "S4.P", "S5.P", "S6.P", "S8.P", "S11.PC", "S11.PS"}
+    assert expected <= rows.keys()
+    assert all(rows[key]["checks"] for key in expected)

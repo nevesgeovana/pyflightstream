@@ -51,7 +51,12 @@ class PropellerAssembly(Assembly):
 def applicable_stages(planned, resolved, members):
     """Select the propeller-only surface workflow; mixed assemblies keep their full plan."""
     components = unpack(resolved)["components"]
-    if not members or any(components[n]["type"] != "propeller" for n in members):
+    propellers = [
+        n for n in members if components[n]["type"] == "propeller" and "definition" in components[n]
+    ]
+    if not propellers:
+        return [stage for stage in planned if stage.row.stage not in PROPELLER_STAGES]
+    if len(propellers) != len(members):
         return planned
     keep = {"S0", "S11", "S11.V", "S11.P", "S11.R", "S11.S"} | PROPELLER_STAGES
     return [stage for stage in planned if stage.row.stage in keep]
