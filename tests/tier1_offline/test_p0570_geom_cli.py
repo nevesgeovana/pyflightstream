@@ -199,16 +199,47 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
         "S10.C3", "S10.C4", "S10.D9", "S10.D10", "S10.E2",
     ]  # fmt: skip
     controls = [f"S10.F{i}" for i in range(8)]
+    propellers = {"S1.P", "S4.P", "S5.P", "S6.P", "S8.P", "S11.PU", "S11.PC", "S11.PS"}
+    exports = ["S11.V", "S11.PU", "S11.P", "S11.PC", "S11.R", "S11.S", "S11.PS"]
+    reader = ["S12.C", "S12.G", "S12", "S13.R", "S13"]
     assert [r["stage"] for r in rows] == (
-        [f"S{i}" for i in range(9)]
+        [
+            "S0",
+            "S1",
+            "S1.P",
+            "S2",
+            "S3",
+            "S4",
+            "S4.P",
+            "S5",
+            "S5.P",
+            "S6",
+            "S6.P",
+            "S7",
+            "S8.P",
+            "S8",
+        ]
         + steps
         + ["S9", "S10"]
         + junctions
         + controls
-        + ["S11", "S12", "S13"]
+        + ["S11"]
+        + exports
+        + reader
     )
     built = {r["stage"] for r in rows if r["built"]}
-    assert built == {"S0", "S10", *junctions, *controls, "S11", *steps}
+    assert built == {
+        "S0",
+        "S8",
+        "S10",
+        "S11",
+        *propellers,
+        *exports,
+        *reader,
+        *junctions,
+        *controls,
+        *steps,
+    }
     assert all(r["checks"] for r in rows)
 
 

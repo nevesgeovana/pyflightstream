@@ -163,6 +163,7 @@ def test_p0570_gm17_written_rotor_trim_and_closure(tmp_path):
     }
     assert checks["propeller.pcurve_3d"]["measured"] <= 1e-4
     assert checks["propeller.sewn_free_edges"]["measured"] == 0
+    assert checks["propeller.output_units"]["measured"] == 0
 
 
 def test_p0570_gm17_toml_roundtrip_and_keywords(tmp_path):
@@ -410,7 +411,7 @@ def test_p0570_gm17_stages_verb_exposes_checks(capsys):
 
     assert main(["stages"]) == 0
     rows = {row["stage"]: row for row in json.loads(capsys.readouterr().out)["stages"]}
-    expected = {"S1.P", "S4.P", "S5.P", "S6.P", "S8.P", "S11.PC", "S11.PS"}
+    expected = {"S1.P", "S4.P", "S5.P", "S6.P", "S8.P", "S11.PU", "S11.PC", "S11.PS"}
     assert expected <= rows.keys()
     assert all(rows[key]["checks"] for key in expected)
 
@@ -474,3 +475,49 @@ def test_p0570_gm17_mixed_profiles_open_root_export(tmp_path):
     assert report["status"] == "accepted", report
     assert report["outputs"]["faces"] == {"COMPONENT": 4}
     assert geometry.Propeller(raw).report()["closure"]["expected_open_edges"] == 2
+
+
+def test_p0570_gm17_output_millimetres_preserve_size(tmp_path):
+    """P0570-G17-OUTPUT-UNITS: requested mm are written and reimport at the physical radius."""
+    from pyflightstream._lengths import METRES_PER_UNIT
+    from pyflightstream.geometry.stages import check_entry, stage_row
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace._gmsh import open_kernel
+    from pyflightstream.workspace._iges_names import read_iges_names
+    from pyflightstream.workspace._iges_write import read_iges, serialize_iges
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    report = run_geometry(design().component(blades="one"), out=tmp_path, until="S11")
+    assert report["status"] == "accepted", report
+    file = report["outputs"]["iges"]
+    assert read_iges(file)["global"][13] == "2"
+    assert float(METRES_PER_UNIT[read_iges_names(file).unit]) == 0.001
+    kernel = open_kernel("verifying propeller output units")
+    try:
+        topology = kernel.inspect_file(file, 1e-5)
+        points = np.vstack([p for p, _ in topology.edges])
+        assert points[:, 2].max() == pytest.approx(0.6, abs=1e-9)
+        assert points[:, 2].min() == pytest.approx(0.12, abs=1e-9)
+    finally:
+        kernel.close()
+
+    doc = read_iges(file)
+    doc["global"][13:15] = ["6", "1HM"]
+    Path(file).write_text(serialize_iges(doc), encoding="ascii")
+
+    def seed(context):
+        context.state["export"] = report["outputs"]
+        return StageOutcome(checks=[check_entry("input.valid", "passed", 0, 0)])
+
+    stage = next(s for s in default_stages(include_propeller=True) if s.row.stage == "S11.PU")
+    bad = run_geometry(
+        design().component(blades="one"),
+        out=tmp_path / "relabelled",
+        stages=[Stage(stage_row("S0"), seed), stage],
+    )
+    assert (bad["status"], bad["stage"], bad["check"]) == (
+        "failed",
+        "S11.PU",
+        "propeller.output_units",
+    )
+    assert bad["measured"] == 1 and bad["limit"] == 0

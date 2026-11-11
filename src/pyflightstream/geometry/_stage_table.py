@@ -374,6 +374,12 @@ STAGE_ROWS: tuple[StageRow, ...] = (
     ),
     _row("S11.V", "Export registry", False, ("manifest.piece_version", "version of each piece")),
     _row(
+        "S11.PU",
+        "Propeller output units",
+        False,
+        ("propeller.output_units", "zero files outside schema 1 mm units"),
+    ),
+    _row(
         "S11.P",
         "Export profile",
         False,

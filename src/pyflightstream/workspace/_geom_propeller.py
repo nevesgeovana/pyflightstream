@@ -6,6 +6,7 @@ trim curves and sewn topology. Kernel work stays behind the guarded adapter.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -32,7 +33,7 @@ PURE_CHECKS = {
     "S6.P": ("propeller.loft_exact", "propeller.loft_c2"),
     "S8.P": ("propeller.closure",),
 }
-PROPELLER_STAGES = {*PURE_CHECKS, "S11.PC", "S11.PS"}
+PROPELLER_STAGES = {*PURE_CHECKS, "S11.PU", "S11.PC", "S11.PS"}
 
 
 class PropellerAssembly(Assembly):
@@ -101,7 +102,9 @@ def stage_result(context, stage):
             ]
         return {"checks": checks, "outputs": {"inputs": inputs}}
     source = context.state["export"]["iges"]
-    if stage == "S11.PC":
+    if stage == "S11.PU":
+        checks = unit_checks(context.state["export"], models, len(models) == len(context.members))
+    elif stage == "S11.PC":
         checks = trim_checks(source)
     else:
         expected = sum(
@@ -120,6 +123,25 @@ def stage_result(context, stage):
             else run_isolated(f"{__name__}:sewn_checks", arguments, sewn_checks)
         )
     return {"checks": checks, "outputs": {"inputs": {"iges": source, "definitions": inputs}}}
+
+
+def unit_checks(source, names, complete):
+    """Measure the written units of each propeller file, including isolated face files."""
+    from pyflightstream.workspace._iges_names import read_iges_names
+
+    folder = Path(source["manifest"]).parent
+    manifest = json.loads(Path(source["manifest"]).read_text(encoding="utf-8"))
+    files = [Path(source["iges"])] if complete else []
+    for piece in manifest["pieces"]:
+        if piece["component"] in names:
+            files.append(folder / piece["file"])
+            files.extend(folder / face["iges"] for face in piece["face_records"])
+    wrong = [
+        str(file)
+        for file in dict.fromkeys(files)
+        if float(METRES_PER_UNIT.get(read_iges_names(file).unit or "", 0)) != 0.001
+    ]
+    return [measure("propeller.output_units", len(wrong), 0, "files", note=", ".join(wrong))]
 
 
 def sewn_checks(file, expected):

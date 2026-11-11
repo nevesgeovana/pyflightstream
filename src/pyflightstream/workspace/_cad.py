@@ -322,7 +322,12 @@ class CadKernel(Protocol):
         ...
 
     def export_iges(
-        self, groups: Mapping[str, Sequence[Face]], path: str | Path, *, preference: int = 1
+        self,
+        groups: Mapping[str, Sequence[Face]],
+        path: str | Path,
+        *,
+        preference: int = 1,
+        unit: str = "m",
     ) -> None:
         """Write one IGES file, each group's faces carrying the group name as their NAME.
 
@@ -331,5 +336,6 @@ class CadKernel(Protocol):
         2 (model space) or 3 (either) warn and write 1, since the observed reader
         requires the parameter-space boundary. Its coordinates are the exact ones
         supplied to :meth:`add_trimmed_face`.
+        ``unit`` selects ``m`` or ``mm`` in the file; model coordinates remain metres.
         """
         ...

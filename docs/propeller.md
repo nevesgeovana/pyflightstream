@@ -83,6 +83,7 @@ returned report.
 Handedness and section planarity are checked at every defining station;
 the reference station cannot mask a reversed inboard or outboard section.
 
+Propeller groups are exported in mm. The live kernel model remains in metres.
 Export uses the library IGES writer, with both spatial and parameter-space
 trim curves and PREF 1. The runner checks written pcurves against the spatial
 trim at `1e-4 mm`, face counts and areas after reimport, and free and triple

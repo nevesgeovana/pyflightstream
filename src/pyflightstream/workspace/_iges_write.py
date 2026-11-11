@@ -359,7 +359,35 @@ def _name_and_flag(gmsh, groups, path, preference):
     _textio.write_text(path, serialize_iges(document), encoding="ascii")
 
 
-def write_iges(gmsh, groups, path, preference=1):
+def _write_millimetres(gmsh, groups, path, preference):
+    """Write scaled temporary copies and state mm without changing the live metre model."""
+    write_iges(gmsh, groups, path, preference)
+    original = read_iges(path)["global"]
+    occ, copies = gmsh.model.occ, {}
+    try:
+        for name, tags in groups.items():
+            copied = occ.copy([(2, tag) for tag in tags])
+            copies[name] = [tag for _, tag in copied]
+        faces = [(2, tag) for tags in copies.values() for tag in tags]
+        occ.dilate(faces, 0, 0, 0, 1000, 1000, 1000)
+        occ.synchronize()
+        write_iges(gmsh, copies, path, preference)
+        document = read_iges(path)
+        values = document["global"]
+        values[13], values[14] = "2", "2HMM"
+        # Global parameters 17 and 19 carry lengths. Preserve physical line width and resolution.
+        for index in (16, 18):
+            if original[index]:
+                value = float(original[index].replace("D", "E").replace("d", "e"))
+                values[index] = format(1000 * value, ".17g")
+        _textio.write_text(path, serialize_iges(document), encoding="ascii")
+    finally:
+        if copies:
+            occ.remove([(2, tag) for tags in copies.values() for tag in tags], recursive=True)
+            occ.synchronize()
+
+
+def write_iges(gmsh, groups, path, preference=1, *, unit="m"):
     """Write the groups to one named IGES file with parameter space preferred (PREF 1).
 
     A ``preference`` of 2 (model space) or 3 (either) is warned about and written as 1. The
@@ -369,7 +397,10 @@ def write_iges(gmsh, groups, path, preference=1):
     with no parameter-space outer boundary (a natural boundary, or a plane or other analytic
     surface; :func:`unbounded_faces`), every face is written as a B-spline copy, which carries
     one, and the copies leave the model after the write.
+    ``unit`` selects m or mm; the latter writes scaled copies and preserves the live model.
     """
+    if unit not in ("m", "mm"):
+        raise InputValueError(f"IGES.unit: expected m or mm, got {unit!r}")
     if preference not in PREFERENCES:
         raise InputValueError(f"IGES.PREF: {preference!r} is not one of {PREFERENCES}")
     if preference != 1:
@@ -383,6 +414,9 @@ def write_iges(gmsh, groups, path, preference=1):
         preference = 1
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if unit == "mm":
+        _write_millimetres(gmsh, groups, path, preference)
+        return
     _write_visible(gmsh, groups, path)
     if not unbounded_faces(read_iges(path)):
         _name_and_flag(gmsh, groups, path, preference)
