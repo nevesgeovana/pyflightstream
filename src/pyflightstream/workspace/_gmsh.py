@@ -708,6 +708,21 @@ class GmshKernel:
         low, high = self._model().getParametrizationBounds(1, abs(edge))
         return float(low[0]), float(high[0])
 
+    def edge_length(self, edge: int) -> float:
+        """Return the native arc length of a signed boundary edge, in metres."""
+        from scipy.integrate import quad
+
+        model = self._model()
+        low, high = self.edge_bounds(edge)
+
+        def speed(t):
+            return float(np.linalg.norm(model.getDerivative(1, abs(edge), [t])))
+
+        # Numerical integration accuracy, above QUADPACK's 50-epsilon minimum;
+        # this is not a physical junction tolerance.
+        value, _ = quad(speed, low, high, epsabs=0.0, epsrel=64 * np.finfo(float).eps, limit=200)
+        return float(value)
+
     def edge_values(self, edge: int, parameters: Sequence[float]) -> np.ndarray:
         """Return the point of ``edge`` at each parameter, as an n by 3 array."""
         values = np.asarray(parameters, float)
