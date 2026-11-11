@@ -26,7 +26,7 @@ from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._airfoils import naca_camber
 from pyflightstream.geometry._blister import blister_notes
 from pyflightstream.geometry._bodies import apply_rings, check_boat_tail, check_body_symmetry
-from pyflightstream.geometry._boundary import unit_for, unpack
+from pyflightstream.geometry._boundary import definition_units, unit_for, unpack
 from pyflightstream.geometry._component_keys import (
     body_sections,
     check_blister,
@@ -516,21 +516,29 @@ def resolve_propeller(raw, component, notes):
     return {}
 
 
-def provenance(value, supplied, path=""):
+def provenance(value, supplied, path="", *, propeller_units=None):
     """Wrap each leaf of a component as ``{value, unit, source}``; source is given or default."""
     if isinstance(value, dict):
         provided = supplied if isinstance(supplied, dict) else {}
+        if path.endswith("definition"):
+            propeller_units = definition_units(value)
         return {
-            k: provenance(v, provided.get(k), f"{path}.{k}".strip(".")) for k, v in value.items()
+            k: provenance(
+                v, provided.get(k), f"{path}.{k}".strip("."), propeller_units=propeller_units
+            )
+            for k, v in value.items()
         }
     if isinstance(value, list) and value and isinstance(value[0], dict):
         given = supplied if isinstance(supplied, list) else []
         return [
-            provenance(v, given[i] if i < len(given) else None, path) for i, v in enumerate(value)
+            provenance(
+                v, given[i] if i < len(given) else None, path, propeller_units=propeller_units
+            )
+            for i, v in enumerate(value)
         ]
     return {
         "value": value,
-        "unit": unit_for(path),
+        "unit": unit_for(path, propeller_units),
         "source": "default" if supplied is None else "given",
     }
 
@@ -627,6 +635,7 @@ def _resolve_component(name, raw, notes, base):
 def _translate_inputs(name, raw, notes, base):
     """Read the published key names of a fresh component and skip a cap shape."""
     if raw["type"] == "propeller" and "definition" in raw:
+        notes.setdefault("propeller_given", {})[name] = deepcopy(raw["definition"])
         raw["definition"] = validate_definition(raw["definition"], base)
     elif raw["type"] == "lifting_surface":
         translate_lifting(name, raw, notes, base)
@@ -677,6 +686,8 @@ def _resolve_component_keys(name, raw, notes, base):
     _check_data_files(name, component, base, notes["warnings"])
     if raw["type"] == "lifting_surface":
         finish_lifting(name, component, notes)
+    if name in notes.get("propeller_given", {}):
+        raw["definition"] = notes["propeller_given"][name]
     return component, derived, raw
 
 

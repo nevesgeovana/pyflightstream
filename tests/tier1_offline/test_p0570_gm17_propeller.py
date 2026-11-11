@@ -413,3 +413,44 @@ def test_p0570_gm17_stages_verb_exposes_checks(capsys):
     expected = {"S1.P", "S4.P", "S5.P", "S6.P", "S8.P", "S11.PC", "S11.PS"}
     assert expected <= rows.keys()
     assert all(rows[key]["checks"] for key in expected)
+
+
+def test_p0570_gm17_definition_units_and_sources():
+    """P0570-G17-PROVENANCE: embedded mm and distribution units retain their meanings."""
+    raw = definition()
+    raw["stations"].update(skew=[0.1] * 7, rake=[5.0] * 7, units={"skew": "s/R", "rake": "deg"})
+    result = resolve_config({"components": {"rotor": {"type": "propeller", "definition": raw}}})
+    value = result["components"]["rotor"]["definition"]
+    assert value["propeller"]["radius"]["unit"] == "mm"
+    assert value["propeller"]["pitch_setting"]["unit"] == "deg"
+    assert value["propeller"]["rotation"]["unit"] == "1"
+    assert value["stations"]["skew"]["unit"] == "s/R"
+    assert value["stations"]["rake"]["unit"] == "deg"
+    assert value["options"]["fit_tol_chord"]["source"] == "default"
+    assert value["propeller"]["radius"]["source"] == "given"
+    assert unpack(resolve_config(result)) == unpack(result)
+
+
+def test_p0570_gm17_geometric_pitch_rake_and_tip():
+    """P0570-G17-COORDINATES: physical points verify pitch, axial shift and the demo tip law."""
+    from scipy.interpolate import CubicSpline
+
+    p = design()
+    a, b = p.blade(), p.with_rake(0.037).blade()
+    for first, moved in zip(a.patches, b.patches, strict=True):
+        np.testing.assert_array_equal(first.controls[..., 1:], moved.controls[..., 1:])
+        np.testing.assert_allclose(
+            moved.controls[..., 0] - first.controls[..., 0], 600 * 0.037, atol=1e-10
+        )
+    raw = definition()
+    offset = 28 - float(CubicSpline(raw["stations"]["r_R"], raw["stations"]["beta_deg"])(0.7))
+    for r, beta in zip(raw["stations"]["r_R"], raw["stations"]["beta_deg"], strict=True):
+        le = (at(a.patches[0], 0, r) + at(a.patches[1], 0, r)) / 2
+        te = (at(a.patches[0], 1, r) + at(a.patches[1], 1, r)) / 2
+        assert np.rad2deg(np.arctan2((te - le)[0], (te - le)[1])) == pytest.approx(
+            beta + offset, abs=1e-9
+        )
+    raw = definition("skewed_naca")
+    raw["stations"].update(x_ref=[0.0] * 7, y_ref=[0.0] * 7)
+    tip = at(geometry.Propeller(raw).blade().patches[0], 0, 1)
+    np.testing.assert_allclose(tip, 500 * np.array([0.05, 0.5, np.sqrt(3) / 2]), atol=1e-9)

@@ -5,6 +5,9 @@ containing schema 1 data. Lengths in this table use mm, chord and station
 positions use fractions of radius, and angles use degrees. The definition is
 strict: an unknown key, invalid unit, missing profile or invalid station names
 the offending input and refuses the design.
+Resolved records label embedded radii in mm, pitch in degrees and skew and
+rake in their declared column units. Supplied and default values retain
+distinct provenance.
 
 The definition contains `propeller`, `stations`, `airfoils`, `options` and
 `output` tables. Supply at least four increasing `r_R` stations with equal
