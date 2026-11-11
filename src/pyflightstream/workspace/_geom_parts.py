@@ -237,6 +237,7 @@ class AssemblyBase:
         self.input_free_edges: list[np.ndarray] = []
         self.input_sliver_faces: list[dict[str, Any]] = []
         self.source_areas: dict[str, float] = {}
+        self.classification_hulls: dict[str, np.ndarray] = {}
 
     def export_state(self) -> dict[str, Any]:
         """Snapshot retained ownership and measured areas while the kernel is still open.
@@ -294,6 +295,22 @@ class AssemblyBase:
         return (
             model.hull_patches if model is not None and model.hull_patches else self.sources[name]
         )
+
+    def _inside_source(self, name, position):
+        """Use the near-face rule locally and refined source parity away from it.
+
+        Placement's nine-point hull can put a curved boundary on the wrong
+        side of a narrow cut region. The 33-point classification hull refines
+        that sampling; the independent removal-area check retains its limit.
+        """
+        points = np.asarray(position)[None]
+        triangles = self.hulls[name]
+        near = float(jn.distance_to_triangles(points, triangles)[0]) <= jn.SEW_M
+        if name not in self.models or near:
+            return bool(jn.dominant_inside(points, triangles, triangles, near=jn.SEW_M)[0])
+        if name not in self.classification_hulls:
+            self.classification_hulls[name] = hull(self._source_faces(name), count=33)
+        return bool(jn.parity_inside(points, self.classification_hulls[name])[0])
 
     @contextmanager
     def _active_faces(self):

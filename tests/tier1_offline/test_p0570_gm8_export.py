@@ -41,6 +41,105 @@ def _applied_config():
     }
 
 
+@pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
+def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    panel = raw["components"]["panel"]
+    panel["placement"] = {"translation": [0.5, 0, 0]}
+    panel["control"][0]["eta"] = [0.2, 0.5]
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    if stage == "F6":
+        panel["engine"] = [{"name": "pod", "eta_axis": 0.8, "half_width_mm": 100}]
+        raw["components"]["pod"] = {
+            "type": "body",
+            "length_mm": 2000,
+            "symmetry": "full",
+            "placement": {"translation": [0, 1.6, 0]},
+        }
+        raw["dominance"].append({"dominant": ["pod"], "dominated": ["panel"], "operation": "cut"})
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", f"S10.{stage}")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until=f"S10.{stage}", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    record = json.loads((tmp_path / f"S10.{stage}.json").read_text(encoding="utf-8"))
+    assert record["checks"] and all(c["status"] == "passed" for c in record["checks"]), record
+    assert any(c["id"] == f"control.{stage.lower()}.junction_length" for c in record["checks"])
+    assert "clean_junction_lengths_m" in str(record["outputs"])
+    assert "sha256" in str(record["outputs"])
+    assert f"sub-step S10.{stage}" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    boundary = record["outputs"]["inputs"]["geometry"]["path"]
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    damaged = tmp_path / "introduced-free-face.igs"
+    kernel = open_kernel("constructing a valid introduced-free-edge NO fixture")
+    try:
+        read = kernel.import_iges(boundary)
+        groups = {}
+        for face, name in zip(read.faces, read.names, strict=True):
+            groups.setdefault(name, []).append(face)
+        groups["defect"] = [
+            kernel.add_planar_face([(10, 0, 0), (11, 0, 0), (11, 1, 0), (10, 1, 0)])
+        ]
+        kernel.export_iges(groups, damaged)
+    finally:
+        kernel.close()
+
+    def seed(context):
+        context.state["control_inputs"] = {
+            stage: {
+                "path": str(damaged),
+                "symmetry_axis": 1,
+                "previous_free": record["outputs"]["free_edges"],
+                "junction_lengths_m": record["outputs"]["junction_lengths_m"],
+                "clean_junction_lengths_m": record["outputs"]["inputs"]["clean_junction_lengths_m"],
+            }
+        }
+        return _geom_run.StageOutcome()
+
+    negative = [_geom_run.Stage(stage_row("S0"), seed), selected[-1]]
+    failed = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path / "negative", until=f"S10.{stage}", stages=negative
+    )
+    assert (failed["status"], failed["stage"], failed["check"]) == (
+        "failed",
+        f"S10.{stage}",
+        f"control.{stage.lower()}.free_delta",
+    )
+
+
+def test_p0570_applied_host_cut_stops_when_the_clean_reference_fails(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    raw["components"]["panel"]["placement"] = {"translation": [10, 0, 0]}
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S10.F5")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S10.F5", stages=selected
+    )
+    assert (report["status"], report["stage"], report["check"]) == (
+        "failed",
+        "S10.F5",
+        "placement.contact",
+    )
+    assert not (tmp_path / "F5-boundary" / "applied").exists(), (
+        "a failed reference must stop the chain"
+    )
+
+
 def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path):
     from pyflightstream.geometry.stages import stage_row
     from pyflightstream.workspace import _geom_run

@@ -64,7 +64,7 @@ def write_assembly(
     manifest = assembly.export_state()
     manifest["iges"] = target.name
     manifest["components"] = dict(manifest["components"])
-    source_free = []
+    source_free: list[list[list[float]]] = []
     for name, faces in assembly.faces.items():
         piece = manifest["components"][name]
         piece["iges"] = f"{name}.igs"

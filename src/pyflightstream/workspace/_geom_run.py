@@ -571,6 +571,8 @@ def _control_step(stage: str) -> StageFn:
                 else {}
             )
         inputs = context.state.get("control_inputs", {}).get(short)
+        if inputs is None and short == "F5":
+            return _trimmed_control_step(context, short, row)
         if inputs is None:
             waiting = bool(context.state.get("control_inputs")) and bool(_plan(context)[0])
             reason = (
@@ -590,6 +592,42 @@ def _control_step(stage: str) -> StageFn:
         return StageOutcome(**result)
 
     return run
+
+
+def trimmed_control_assembly(config, members, variant, out, stage):
+    """Measure an applied host-cut boundary using the existing trimmed assembly."""
+    from pyflightstream.workspace._geom_control_assembly import trimmed_control_assembly as build
+
+    return build(config, members, variant, out, stage)
+
+
+def _trimmed_control_step(context, short, row):
+    if not unpack(context.resolved)["variants"][context.variant]:
+        return StageOutcome(
+            checks=[
+                check_entry(cid, "skipped", note="no active controls for this variant")
+                for cid, _ in row.checks
+            ]
+        )
+    arguments = {
+        "config": context.resolved,
+        "members": context.members,
+        "variant": context.variant,
+        "out": str(context.out / f"{short}-boundary" / "record.json"),
+        "stage": short,
+    }
+    result = (
+        trimmed_control_assembly(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(
+            f"{__name__}:trimmed_control_assembly", arguments, trimmed_control_assembly
+        )
+    )
+    if result:
+        return StageOutcome(**result)
+    return StageOutcome(
+        checks=[check_entry(cid, "skipped", note="no host cut applies") for cid, _ in row.checks]
+    )
 
 
 def _control_group_record(resolved: dict, members: list, variant: str, out: str) -> dict:

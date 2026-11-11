@@ -517,6 +517,19 @@ class Assembly(RemovalSteps):
         with self._active_faces():
             return super()._remove()
 
+    def _legit(self, name, position, normal):
+        cut, under = self._partners_of(name)
+        return any(self._inside_source(other, position) for other in cut) or any(
+            jn.ray_hits(position, normal, self.hulls[other]) for other in under
+        )
+
+    def _inside_kept(self):
+        return sum(
+            self._inside_source(op.dominant, self._interior(face)[0])
+            for op in self._ops("cut")
+            for face in self.faces[op.dominated]
+        )
+
     def _cut_groups(self) -> list[list[str]]:
         groups: list[set[str]] = []
         for op in self._ops("cut"):
