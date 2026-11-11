@@ -545,3 +545,34 @@ def test_p0570_gm17_until_uses_stage_identity_in_filtered_plan(tmp_path):
     assert report["status"] == "accepted"
     assert report["stages"][-1]["stage"] == "S11.R"
     assert not (tmp_path / "S11.S.json").exists()
+
+
+@pytest.mark.parametrize(
+    "fixture,reference", [("simple_naca", 0.7), ("skewed_naca", 0.7), ("simple_naca", 0.65)]
+)
+def test_p0570_gm17_reference_pitch_is_on_actual_loft(fixture, reference):
+    """P0570-G17-REFERENCE: reference pitch and 0.7 R are measured on planar loft sections."""
+    from scipy.interpolate import CubicSpline
+
+    raw = definition(fixture)
+    raw["propeller"]["pitch_reference_r_R"] = reference
+    model = geometry.Propeller(raw)
+    upper, lower = model.blade().patches[:2]
+    table, prop = raw["stations"], raw["propeller"]
+    law = CubicSpline(table["r_R"], table["beta_deg"])
+    for r in (reference, 0.7):
+        skew = raw["options"].get("skew_tip_deg", 0) * (
+            (r - table["r_R"][0]) / (1 - table["r_R"][0])
+        ) ** raw["options"].get("skew_power", 2)
+        angle = np.deg2rad(skew)
+        radial = np.array([0, np.sin(angle), np.cos(angle)])
+        tangent = np.array([0, -np.cos(angle), np.sin(angle)])
+        chord = (at(upper, 1, r) + at(lower, 1, r) - at(upper, 0, r) - at(lower, 0, r)) / 2
+        beta = np.rad2deg(np.arctan2(chord[0], -chord @ tangent))
+        expected = float(law(r) - law(reference) + prop["pitch_setting"])
+        assert beta == pytest.approx(expected, abs=1e-8)
+        for patch in (upper, lower):
+            for u in (0, 0.3, 1):
+                assert at(patch, u, r) @ radial == pytest.approx(prop["radius"] * r, abs=1e-8)
+    actual = np.rad2deg(np.arctan2(chord[0], -chord @ tangent))
+    assert model.report()["pitch"]["beta_0p7R_deg"] == pytest.approx(actual, abs=1e-10)

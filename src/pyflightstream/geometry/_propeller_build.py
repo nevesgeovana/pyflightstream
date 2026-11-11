@@ -60,15 +60,15 @@ def section_placement(points, center, *, r, chord, beta, skew, rake, data):
 
 def blade_geometry(data):
     """Build the blade through every defining section with a cubic C2 radial loft."""
-    table, options, prop = data["stations"], data["options"], data["propeller"]
-    fits, centers, errors = fitted_sections(data)
+    options, prop = data["options"], data["propeller"]
+    fits, centers, errors, table = fitted_sections(data)
     radial = np.asarray(table["r_R"], float)
     beta = np.asarray(table["beta_deg"], float)
     offset = prop["pitch_setting"] - float(
         make_interp_spline(radial, beta)(prop["pitch_reference_r_R"])
     )
     beta += offset
-    skew, rake = offsets(data)
+    skew, rake = offsets({**data, "stations": table})
     rows = [[], []]
     stacking = []
     for i, r in enumerate(radial):
@@ -85,6 +85,7 @@ def blade_geometry(data):
             side.insert(0, side[0] + delta * br)
         stacking.insert(0, stacking[0] + delta * br)
         radial = np.r_[inner, radial]
+        beta, skew, rake = (np.r_[values[0], values] for values in (beta, skew, rake))
     poles = [make_interp_spline(radial, side, k=3) for side in rows]
     loft_error = max(
         float(np.linalg.norm(p(radial) - row, axis=-1).max())

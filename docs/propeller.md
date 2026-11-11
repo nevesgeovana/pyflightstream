@@ -36,6 +36,9 @@ to the section area centroid, with optional `x_ref` and `y_ref` chord fractions.
 
 Sections use degree-five B-splines on a common vector. Their pole rows are
 interpolated with a cubic not-a-knot spline in r/R, yielding C2 continuity.
+The loft includes the pitch reference and 0.7 R as actual planar sections
+when they lie within the supplied radial range. Their profiles and parameter
+columns use cubic interpolation. Beta checks measure the resulting chord.
 `options.trailing_edge` is `blunt` or `sharp`; `te_thickness` specifies the
 blunt gap as a chord fraction. `root_cap` and `tip` are `planar` or `none`.
 `root_extension_r_R` copies the first section farther inboard.

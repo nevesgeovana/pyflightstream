@@ -79,7 +79,7 @@ def _placement_values(data, blade):
     origin, radial, thrust, velocity = axes(data)
     upper, lower = blade.patches[:2]
     planes, leads, bulges = [], [], []
-    for eta, skew in zip(data["stations"]["r_R"], blade.info["skew_deg"], strict=True):
+    for eta, skew in zip(blade.info["r_R"], blade.info["skew_deg"], strict=True):
         theta = np.deg2rad(skew)
         tr = np.sin(theta) * radial + np.cos(theta) * velocity
         br = np.cos(theta) * radial - np.sin(theta) * velocity
@@ -94,14 +94,23 @@ def _placement_values(data, blade):
     return max(planes), min(leads), min(bulges)
 
 
+def _geometric_beta(data, blade, radial):
+    """Measure the loft's midline chord against the local propeller plane."""
+    _, direction, thrust, motion = axes(data)
+    angle = np.deg2rad(CubicSpline(blade.info["r_R"], blade.info["skew_deg"])(radial))
+    tangent = np.sin(angle) * direction + np.cos(angle) * motion
+    upper, lower = blade.patches[:2]
+    chord = sum(evaluate(p, 1, radial) - evaluate(p, 0, radial) for p in (upper, lower)) / 2
+    return float(np.rad2deg(np.arctan2(-chord @ thrust, -chord @ tangent)))
+
+
 def design_report(data, blade):
     """Return classical disk solidity, activity factor, pitch and measured geometry checks."""
     table, prop, info = data["stations"], data["propeller"], blade.info
     r = np.asarray(table["r_R"])
     chord = CubicSpline(r, table["c_R"])
-    beta = CubicSpline(r, table["beta_deg"])
-    shift = prop["pitch_setting"] - beta(prop["pitch_reference_r_R"])
-    beta_ref = float(beta(prop["pitch_reference_r_R"]) + shift)
+    beta_ref = _geometric_beta(data, blade, prop["pitch_reference_r_R"])
+    beta_07 = _geometric_beta(data, blade, 0.7)
     # Six point Gauss integrates the degree-six product chord(r) r^3 exactly on each bay.
     nodes, weights = np.polynomial.legendre.leggauss(6)
     integral = 0.0
@@ -130,10 +139,10 @@ def design_report(data, blade):
         measured("propeller.beta_reference", abs(beta_ref - prop["pitch_setting"]), 1e-10, "deg"),
         measured(
             "propeller.beta_0p7R",
-            abs(float(beta(0.7) + shift)),
+            abs(beta_07),
             90,
             "deg",
-            note=f"signed beta from plane: {float(beta(0.7) + shift):.12g} deg",
+            note=f"signed beta from plane: {beta_07:.12g} deg",
         ),
         measured("propeller.closure", abs(free - expected_free) + triple, 0, "edges"),
     ]
@@ -141,7 +150,7 @@ def design_report(data, blade):
         "ok": all(c["status"] == "passed" for c in checks),
         "checks": checks,
         "section_fit": {"max_err_chord": max(info["section_fit"])},
-        "pitch": {"beta_at_reference_deg": beta_ref, "beta_0p7R_deg": float(beta(0.7) + shift)},
+        "pitch": {"beta_at_reference_deg": beta_ref, "beta_0p7R_deg": beta_07},
         "solidity": {
             "disk": disk,
             "local_0p7R": float(prop["blades"] * chord(0.7) / (2 * np.pi * 0.7)),

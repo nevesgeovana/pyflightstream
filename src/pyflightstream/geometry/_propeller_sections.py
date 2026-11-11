@@ -84,13 +84,41 @@ def centroid(upper, lower):
     return np.sum((polygon + q) * cross[:, None], axis=0) / (3 * cross.sum())
 
 
+def _loft_table(data):
+    """Include both pitch check locations among the actual planar loft sections."""
+    source = data["stations"]
+    r = np.asarray(source["r_R"], float)
+    extra = [q for q in (data["propeller"]["pitch_reference_r_R"], 0.7) if r[0] <= q <= r[-1]]
+    radial = np.unique(np.r_[r, extra])
+    table = {"r_R": radial.tolist(), "units": source.get("units", {})}
+    for key in ("c_R", "beta_deg", "t_c", "x_ref", "y_ref", "skew", "rake"):
+        if key in source:
+            table[key] = CubicSpline(r, source[key])(radial).tolist()
+    return table
+
+
+def _profile_between(profiles, table, position):
+    """Interpolate raw normalized profile coordinates before local thickness and placement."""
+    indices = np.flatnonzero(np.asarray(table["r_R"]) == position)
+    if len(indices):
+        return profiles[table["airfoil"][int(indices[0])]]
+
+    def sample(s):
+        pairs = [profiles[key](s) for key in table["airfoil"]]
+        return tuple(
+            CubicSpline(table["r_R"], [pair[j] for pair in pairs])(position) for j in (0, 1)
+        )
+
+    return sample
+
+
 def fitted_sections(data):
     """Return common-vector side splines, stacking coordinates and fit errors per station."""
-    table, options = data["stations"], data["options"]
+    table, options = _loft_table(data), data["options"]
     profiles = {key: _profile(spec) for key, spec in data["airfoils"].items()}
     sources = [
-        _station_profile(profiles[key], tc, options)
-        for key, tc in zip(table["airfoil"], table["t_c"], strict=True)
+        _station_profile(_profile_between(profiles, data["stations"], r), tc, options)
+        for r, tc in zip(table["r_R"], table["t_c"], strict=True)
     ]
     validation = np.unique(np.r_[np.linspace(0, 1, 4098), 1 - np.geomspace(2e-8, 0.029, 137)])
     reference = [source(validation) for source in sources]
@@ -113,4 +141,4 @@ def fitted_sections(data):
         for j, key in enumerate(("x_ref", "y_ref")):
             if key in table:
                 center[j] = table[key][i]
-    return fits, centers, errors
+    return fits, centers, errors, table
