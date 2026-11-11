@@ -206,3 +206,59 @@ without a collapsed leading-edge side. Migration: flat-cap layout names are
 `tip_cap_nose`, `tip_cap_upper` and `tip_cap_lower` (or the corresponding `root_`
 names). All three cap faces are nondegenerate; the default wing exports six
 faces instead of five.
+
+Stated Fowler entries now construct a square cove, an elliptic nose and a
+closed nested flap. Cove faces split at every skin span knot. Each deployed
+flap uses one rigid pivot-axis rotation and translation; gap and overlap are
+measured on the polynomial section curves at 49 span stations. Exterior
+identity is measured outside the nose and lip gap bands. The single cove p3
+station specifies a constant normalized roof-wall height over the span.
+
+Fowler cove bays, nesting, motion laws and retracted exterior each have a
+separate stage record and run-log entry. The imported-skin edit also builds
+the cove and nose, preserving source trims on the retained exterior faces.
+
+F7 builds the requested registry variant automatically, retaining all selected
+components and all angle combinations of the active controls. A standalone
+vertical surface receives a planar root cap; its measured area and the
+combined files' sewn free and triple edges appear in the F7 record.
+
+Fowler measurements now inspect the actual applied bases. A changed flap
+position, altered exterior, reduced nesting clearance or missing cove bay
+fails its own check. A failing nesting check stops at FW2 before motion-law
+records are written. The strict 0.01 percent chord law threshold is recorded.
+
+F7 applies configured host junctions using exact restricted control faces
+and the existing measured assembly operations. Junction lengths and the
+assembly sub-step records accompany each angle combination; sewn closure
+alone cannot stand in for a junction that was never formed.
+
+Imported-control validation preserves caller tables. A swapped file/table
+input raises InputValueError, and unknown nested keys remain visible in
+the returned warnings without being removed from the caller's data.
+
+For example, apply a stated Fowler entry to a normalized polynomial skin
+whose lower trailing edge is u=0, leading edge u=0.5 and upper trailing edge
+u=1, with v running along the span. This entry is exercised by the public
+edit regression test:
+
+```toml
+[[control]]
+name = "flap"
+kind = "fowler"
+eta = [0.2, 0.7]
+chord_ratio = 0.25
+gap_span = 0.01
+deflection_deg = [0, 15]
+cove = {wall_x = 0.72, lip_x = 0.94, p3 = {eta = 0.45, z_over_c = 0.035}}
+nose = {kind = "elliptic", radius = 0.01}
+nested_dz_pct = -0.2
+clearance_pct = 0.1
+kinematics = [{deflection_deg = 15, pivot_x = 0.75, pivot_z = -0.1, gap_pct = 2.0, overlap_pct = 1.0}]
+```
+
+Read the entry with `tomllib` and pass its `control` list to
+`workspace.geometry_pipeline.add_control_surfaces("panel.igs", "panel", entries, "fowler.igs")`.
+The returned record includes the Fowler measurements and warnings; the output
+contains separately named main and angle alternatives. Registry variants
+select the active controls and F7 checks each angle combination separately.

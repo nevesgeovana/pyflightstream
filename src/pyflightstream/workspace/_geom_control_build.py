@@ -97,16 +97,19 @@ def prepare(kernel, components, members, out):
     folder = Path(out)
     folder.mkdir(parents=True, exist_ok=True)
     written, mains, moving, combined, manifest = {}, {}, {}, {}, {}
-    warnings = []
+    warnings, measurements, parameters = [], [], {}
     for index, name in enumerate(members):
         component = components[name]
         if not component.get("control_surfaces"):
             continue
         model = controls.placed(components, name)
+        measurements.extend(model.checks)
+        parameters[name] = component["control_surfaces"]
         warnings.extend(model.warnings)
         manifest[name] = {
             "bases": {key: patch.to_dict() for key, patch in model.bases.items()},
             "pieces": {key: [t.to_dict() for t in trims] for key, trims in model.pieces.items()},
+            "checks": list(model.checks),
         }
         faces = {}
         for number, (piece, trims) in enumerate(model.pieces.items()):
@@ -128,6 +131,25 @@ def prepare(kernel, components, members, out):
         "F2": {"batch": moving},
         "F4": {"batch": combined},
     }
+    steps = {
+        "FW1": {"fowler.cove_bay_mismatch"},
+        "FW2": {"fowler.nested_clearance_pct"},
+        "FW3": {
+            "fowler.gap_error_pct",
+            "fowler.overlap_error_pct",
+            "fowler.inside_main",
+            "fowler.law_threshold_hits",
+        },
+        "FW4": {"closure.retracted_identity"},
+    }
+    for step, names in steps.items():
+        checks = [c for c in measurements if c["id"] in names]
+        if checks:
+            inputs[step] = {
+                "checks": checks,
+                "parameters": parameters,
+                "applied_controls": str(sidecar),
+            }
     hosts = _hosts(kernel, components, members, folder)
     if hosts:
         inputs["F3"] = {

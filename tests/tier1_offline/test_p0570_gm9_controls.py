@@ -516,3 +516,410 @@ def test_p0570_gm9_exposed_span_and_split_bounds():
     control.update(span_basis="exposed", exposed_root_m=3.0)
     with pytest.raises(InputValueError, match="exposed_root"):
         stages.controls.build(component)
+
+
+def _fowler_config():
+    raw = _plain_config()
+    entry = raw["components"]["panel"]["control"][0]
+    entry.update(
+        kind="fowler",
+        gap_chord=0.0,
+        cove={"wall_x": 0.72, "lip_x": 0.94, "p3": {"eta": 0.45, "z_over_c": 0.035}},
+        nose={"kind": "elliptic", "radius": 0.01},
+        nested_dz_pct=-0.2,
+        clearance_pct=0.1,
+        kinematics=[
+            {
+                "deflection_deg": 15,
+                "pivot_x": 0.75,
+                "pivot_z": -0.1,
+                "gap_pct": 2.0,
+                "overlap_pct": 1.0,
+            }
+        ],
+    )
+    return raw
+
+
+def _fowler_model(raw):
+    from pyflightstream.geometry import resolve_config
+
+    component = stages.unpack(resolve_config(raw))["components"]["panel"]
+    try:
+        return stages.controls.build(component)
+    except InputValueError as error:
+        pytest.fail(f"a stated Fowler cove must build applied surfaces: {error}")
+
+
+def test_p0570_gm9_fowler_cove_nested_and_deployed_are_closed(kernel, tmp_path):
+    model = _fowler_model(_fowler_config())
+    assert set(model.pieces) == {"main", "flap-d0", "flap-d15"}
+    roles = {t.role for t in model.pieces["main"]}
+    assert {"cove_wall", "cove_roof", "lip_base"} <= roles
+    for name, trims in model.pieces.items():
+        path = tmp_path / f"{name}.igs"
+        native = {}
+        for key in {t.base for t in trims}:
+            p = model.bases[key]
+            native[key] = kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        faces = [kernel.add_trimmed_face(native[t.base], [t.loop]) for t in trims]
+        kernel.export_iges({name: faces}, path)
+        assert _passed(_fcheck(kernel, "F1" if name == "main" else "F2", {"path": str(path)}))
+        # NO: removing a cove wall or flap nose must expose an actual sewn opening.
+        role = "cove_wall" if name == "main" else "nose"
+        missing = next(i for i, trim in enumerate(trims) if trim.role == role)
+        kernel.export_iges({name: faces[:missing] + faces[missing + 1 :]}, path)
+        assert not _passed(_fcheck(kernel, "F1", {"path": str(path)}))
+
+
+def test_p0570_gm9_fowler_laws_have_measured_yes_and_no():
+    model = _fowler_model(_fowler_config())
+    checks = getattr(model, "checks", ())
+    assert checks, "Fowler acceptance must carry measured checks"
+    by_id = {c["id"]: c for c in checks}
+    for name in ("fowler.gap_error_pct", "fowler.overlap_error_pct"):
+        assert by_id[name]["limit"] == 0.01
+        assert by_id[name]["measured"] < 0.01
+    assert by_id["fowler.inside_main"]["measured"] == 0
+    assert by_id["fowler.nested_clearance_pct"]["measured"] >= 0.1
+    assert by_id["closure.retracted_identity"]["measured"] <= 1e-12
+    bad = _fowler_config()
+    bad["components"]["panel"]["control"][0]["clearance_pct"] = 20
+    with pytest.raises(InputValueError, match="clearance"):
+        from pyflightstream.geometry import resolve_config
+
+        stages.controls.build(stages.unpack(resolve_config(bad))["components"]["panel"])
+
+
+def test_p0570_gm9_fowler_substeps_reach_records_and_log(tmp_path):
+    import json
+
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    rows = {row.stage for row in stages.STAGE_ROWS}
+    assert {f"S10.FW{i}" for i in range(1, 5)} <= rows, "Fowler sub-steps are absent"
+    report = run_geometry(_fowler_config(), out=tmp_path, until="S10.F4")
+    for step in ("FW1", "FW2", "FW3", "FW4"):
+        record = json.loads((tmp_path / f"S10.{step}.json").read_text(encoding="utf-8"))
+        assert record["status"] == "passed", (report, record)
+        assert record["outputs"]["inputs"]
+        assert all(c["measured"] is not None and c["limit"] is not None for c in record["checks"])
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert all(f"sub-step S10.FW{i}" in log for i in range(1, 5))
+    assert "fowler.gap_error_pct" in log and "0.01" in log and "49" in log
+
+
+def test_p0570_gm9_fowler_public_edit_checks_the_actual_cove(kernel, tmp_path):
+    from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    faces = []
+    for key in ("skin", "root", "tip", "trailing_edge"):
+        p = model.bases[key]
+        faces.append(
+            kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        )
+    source, target = tmp_path / "clean.igs", tmp_path / "fowler.igs"
+    kernel.export_iges({"panel": faces}, source)
+    result = add_control_surfaces(source, "panel", raw["components"]["panel"]["control"], target)
+    assert result["status"] == "passed", result
+    assert any(c["id"] == "fowler.gap_error_pct" for c in result["checks"]), result
+    assert all(len(owners) == 2 for _, owners in kernel.inspect_file(target, 1e-5).edges)
+
+
+@pytest.mark.parametrize(
+    "variant", ["clean", "cs", "csf"], ids=["P0570-F7-CLEAN", "P0570-F7-CS", "P0570-F7-CSF"]
+)
+def test_p0570_gm9_f7_automatically_selects_variant_controls(kernel, tmp_path, variant):
+    import copy
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    tail = copy.deepcopy(raw["components"]["panel"])
+    tail["placement"] = {"translation": [3, 0, 1]}
+    tail["control"][0].update(name="elevator", kind="elevator")
+    raw["components"]["tail"] = tail
+    raw["variants"] = {"cs": ["tail.elevator"], "csf": ["tail.elevator", "panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant=variant, until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", (report, record)
+    paths = record["outputs"]["variants"]
+    assert len(paths) == {"clean": 1, "cs": 2, "csf": 4}[variant]
+    for item in paths.values():
+        names = set(kernel.import_iges(item["path"]).names)
+        assert any("elevator-d" in n for n in names) is (variant != "clean")
+        assert any("flap-d" in n for n in names) is (variant == "csf")
+    assert "S10.F7" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["P0570-F7-CAP-YES", "P0570-F7-CAP-NO"])
+def test_p0570_gm9_f7_caps_fin_root_and_rejects_open_tip(tmp_path, missing):
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    fin = raw["components"]["panel"]
+    fin.pop("root")
+    fin["surface"] = {"span_axis": "z"}
+    fin["cap"]["type"] = "none" if missing else "flat"
+    raw["variants"] = {"cs": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant="cs", until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == ("failed" if missing else "passed"), (report, record)
+    assert record["outputs"]["root_caps_m2"]["panel"] > 0
+    assert (
+        any(c["id"] == "control.f7.free_edges" and c["measured"] > 0 for c in record["checks"])
+        is missing
+    )
+
+
+def test_p0570_gm9_fowler_checks_measure_mutated_applied_geometry():
+    import copy
+    from dataclasses import replace
+
+    verify = getattr(stages.controls, "check_fowler", None)
+    assert callable(verify), (
+        "Fowler checks must measure the applied bases, not only construction inputs"
+    )
+    raw = _fowler_config()
+    entry = raw["components"]["panel"]["control"][0]
+    model = _fowler_model(raw)
+    assert all(c["status"] == "passed" for c in verify(model, entry, span=(0.2, 0.7, 0.01)))
+    for angle, delta, check in [
+        (15, (0.01, 0, 0), "fowler.overlap_error_pct"),
+        (15, (0, 0, -0.01), "fowler.gap_error_pct"),
+        (0, (-0.3, 0, 0), "fowler.inside_main"),
+    ]:
+        changed = copy.deepcopy(model)
+        prefix = f"flap-d{angle}/"
+        for key, p in list(changed.bases.items()):
+            if key.startswith(prefix):
+                changed.bases[key] = replace(p, controls=p.controls + delta)
+        measured = verify(changed, entry, span=(0.2, 0.7, 0.01))
+        assert any(c["id"] == check and c["status"] == "failed" for c in measured), measured
+    changed = copy.deepcopy(model)
+    p = changed.bases["flap-d0/skin"]
+    changed.bases["flap-d0/skin"] = replace(p, controls=p.controls + (0, 0, -0.01))
+    assert any(
+        c["id"] == "closure.retracted_identity" and c["status"] == "failed"
+        for c in verify(changed, entry, span=(0.2, 0.7, 0.01))
+    )
+    changed = copy.deepcopy(model)
+    p = changed.bases["flap-d0/upper_nested"]
+    changed.bases["flap-d0/upper_nested"] = replace(p, controls=p.controls + (0, 0, 0.0019))
+    assert any(
+        c["id"] == "fowler.nested_clearance_pct" and c["status"] == "failed"
+        for c in verify(changed, entry, span=(0.2, 0.7, 0.01))
+    )
+
+
+def test_p0570_gm9_fowler_kink_bays_have_a_no_fixture():
+    from dataclasses import replace
+
+    skin = _box_skin()
+    poles = skin.controls.copy()
+    poles[:, 1, 0] += 0.3
+    poles[:, 2, 0] += 0.1
+    skin = replace(skin, controls=poles)
+    entry = _fowler_config()["components"]["panel"]["control"][0]
+    entry = {**entry, "deflection_deg": [0]}
+    model = stages.controls.imported(skin, entry)["main"]
+    verify = getattr(stages.controls, "check_fowler", None)
+    assert callable(verify), "kink splitting needs a measured YES and NO"
+    roofs = [t for t in model.pieces["main"] if t.role == "cove_roof"]
+    bounds = sorted(sorted({p[1] for edge in t.loop for p in edge}) for t in roofs)
+    assert bounds == [[0.2, 0.5], [0.5, 0.7]]
+    assert all(c["status"] == "passed" for c in verify(model, entry, span=(0.2, 0.7, 0.01)))
+    model.pieces["main"] = tuple(t for t in model.pieces["main"] if t != roofs[0])
+    assert any(
+        c["id"] == "fowler.cove_bay_mismatch" and c["status"] == "failed"
+        for c in verify(model, entry, span=(0.2, 0.7, 0.01))
+    )
+
+
+def test_p0570_gm9_f7_applies_the_tail_host_junction(tmp_path):
+    import json
+
+    from pyflightstream.workspace import _geom_run
+
+    raw = _plain_config()
+    fin = raw["components"]["panel"]
+    fin.pop("root")
+    fin["surface"] = {"span_axis": "z"}
+    fin["placement"] = {"translation": [0.5, 0, 0]}
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    raw["variants"] = {"cs": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(row, _geom_run.STAGE_FUNCTIONS[row.stage])
+        for row in stages.STAGE_ROWS
+        if row.stage in ("S0", "S10.F7")
+    ]
+    report = _geom_run.run_geometry(
+        raw, out=tmp_path, variant="cs", until="S10.F7", stages=selected
+    )
+    record = json.loads((tmp_path / "S10.F7.json").read_text(encoding="utf-8"))
+    assert record["status"] == "passed", (report, record)
+    lengths = record["outputs"].get("junction_lengths_m", {})
+    assert lengths and all(values["host/panel"] > 0 for values in lengths.values()), record
+
+
+def test_p0570_gm9_fowler_bad_nesting_stops_at_its_own_substep(tmp_path):
+    import json
+
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    raw = _fowler_config()
+    raw["components"]["panel"]["control"][0]["clearance_pct"] = 20
+    report = run_geometry(raw, out=tmp_path, until="S10.F4")
+    assert report["status"] == "failed" and report["stage"] == "S10.FW2", report
+    record = json.loads((tmp_path / "S10.FW2.json").read_text(encoding="utf-8"))
+    assert record["checks"][0]["id"] == "fowler.nested_clearance_pct"
+    assert record["checks"][0]["limit"] == 20
+    assert not (tmp_path / "S10.FW3.json").exists()
+    log = (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    assert "fowler.nested_clearance_pct" in log and "S10.FW2" in log
+
+
+def test_p0570_gm9_kinked_cove_uses_sewing_to_reject_an_unsplit_roof(kernel, tmp_path):
+    from dataclasses import replace
+
+    skin = _box_skin()
+    poles = skin.controls.copy()
+    poles[:, 1, 0] += 0.3
+    poles[:, 2, 0] += 0.1
+    skin = replace(skin, controls=poles)
+    original = stages.controls.partition(skin, lower=0.2, upper=0.8, span=(0.2, 0.7))
+    entry = {**_fowler_config()["components"]["panel"]["control"][0], "deflection_deg": [0]}
+    model = stages.controls.imported(skin, entry)["main"]
+    model.bases.update({k: original.bases[k] for k in ("root", "tip")})
+    extra = [
+        t
+        for t in original.pieces["main"]
+        if t.base in ("root", "tip")
+        or (
+            t.base in ("skin", "trailing_edge")
+            and min(p[1] for edge in t.loop for p in edge) >= 0.7
+        )
+    ]
+    main = [*model.pieces["main"], *extra]
+    for broken in (False, True):
+        if broken:
+            p = model.bases["flap_cove_roof"]
+            changed = p.controls.copy()
+            changed[:, 1] = (changed[:, 0] + changed[:, -1]) / 2
+            model.bases["flap_cove_roof"] = replace(p, controls=changed)
+        native = {}
+        for key in {t.base for t in main}:
+            p = model.bases[key]
+            native[key] = kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        faces = [kernel.add_trimmed_face(native[t.base], [t.loop]) for t in main]
+        path = tmp_path / f"kink-{broken}.igs"
+        kernel.export_iges({"main": faces}, path)
+        measured = _fcheck(kernel, "F1", {"path": str(path)})
+        assert _passed(measured) is not broken, measured
+
+
+def test_p0570_gm9_fowler_public_edit_bad_inputs_are_visible(kernel, tmp_path):
+    import copy
+
+    from pyflightstream.exceptions import InputArtifactError
+    from pyflightstream.workspace.geometry_pipeline import add_control_surfaces
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    faces = []
+    for key in ("skin", "root", "tip", "trailing_edge"):
+        p = model.bases[key]
+        faces.append(
+            kernel.add_bspline_surface(
+                p.controls,
+                knots_u=p.knots_u,
+                knots_v=p.knots_v,
+                mult_u=p.multiplicities_u,
+                mult_v=p.multiplicities_v,
+                deg_u=p.degree_u,
+                deg_v=p.degree_v,
+            )
+        )
+    source = tmp_path / "source.igs"
+    kernel.export_iges({"panel": faces}, source)
+    entry = copy.deepcopy(raw["components"]["panel"]["control"][0])
+    entry["gap_sapn"] = 0.01
+    entry["cove"]["lip_xx"] = 0.94
+    entry["cove"]["p3"]["z_over_cc"] = 0.035
+    entry["nose"]["raduis"] = 0.01
+    entry["kinematics"][0]["gap_pc"] = 2.0
+    result = add_control_surfaces(source, "panel", [entry], tmp_path / "warned.igs")
+    assert result["status"] == "passed", result
+    for key in ("gap_sapn", "lip_xx", "z_over_cc", "raduis", "gap_pc"):
+        assert any(key in warning for warning in result["warnings"]), result
+    target = tmp_path / "refused.igs"
+    bad = {**entry, "gap_span": "5mm"}
+    with pytest.raises(InputValueError, match="gap_span"):
+        add_control_surfaces(source, "panel", [bad], target)
+    with pytest.raises(InputValueError, match="component"):
+        add_control_surfaces(source, "relabeled", [entry], target)
+    empty, swapped = tmp_path / "empty.igs", tmp_path / "entry.toml"
+    empty.write_text("", encoding="utf-8")
+    swapped.write_text("name='flap'", encoding="utf-8")
+    for wrong in (empty, swapped):
+        with pytest.raises((InputValueError, InputArtifactError)):
+            add_control_surfaces(wrong, "panel", [entry], target)
+    with pytest.raises((InputValueError, InputArtifactError)):
+        add_control_surfaces(source, "panel", [empty], target)
+    assert not target.exists()
+
+
+def test_p0570_gm9_imported_control_validation_keeps_caller_tables():
+    import copy
+
+    raw = _fowler_config()
+    model = _fowler_model(raw)
+    entry = copy.deepcopy(raw["components"]["panel"]["control"][0])
+    entry["cove"]["lip_xx"] = 0.94
+    before = copy.deepcopy(entry)
+    stages.controls.imported(model.bases["skin"], entry)
+    assert entry == before, "warning about an unknown key must not delete it from caller data"
