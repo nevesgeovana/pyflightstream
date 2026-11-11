@@ -609,6 +609,7 @@ def default_stages(*, include_propeller: bool = False) -> list[Stage]:
 
     The runner requests the complete table, then selects by component type.
     A caller overriding generic export stages retains the generic workflow.
+    The runner applies ``until`` by registered stage identity in either plan.
     """
     return [
         Stage(row, STAGE_FUNCTIONS.get(row.stage))
@@ -905,8 +906,10 @@ def run_geometry(
         started=_now(),
         overrides=overrides,
     )
-    planned = list(stages if stages is not None else default_stages(include_propeller=True))[
-        : last + 1
+    planned = [
+        stage
+        for stage in (stages if stages is not None else default_stages(include_propeller=True))
+        if stage_index(stage.row.stage) <= last
     ]
     try:
         resolved = _resolve(config, overrides)

@@ -521,3 +521,27 @@ def test_p0570_gm17_output_millimetres_preserve_size(tmp_path):
         "propeller.output_units",
     )
     assert bad["measured"] == 1 and bad["limit"] == 0
+
+
+def test_p0570_gm17_until_uses_stage_identity_in_filtered_plan(tmp_path):
+    """P0570-G17-UNTIL: a generic override plan stops at the requested registered row."""
+    from pyflightstream.geometry.stages import check_entry
+    from pyflightstream.workspace._geom_run import Stage, StageOutcome, default_stages
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    plan = []
+    for stage in default_stages():
+
+        def passing(context, row=stage.row):
+            return StageOutcome(checks=[check_entry(cid, "passed", 0, 0) for cid, _ in row.checks])
+
+        plan.append(Stage(stage.row, passing))
+    report = run_geometry(
+        {"components": {"body": {"type": "body"}}},
+        out=tmp_path,
+        until="S11.R",
+        stages=plan,
+    )
+    assert report["status"] == "accepted"
+    assert report["stages"][-1]["stage"] == "S11.R"
+    assert not (tmp_path / "S11.S.json").exists()
