@@ -71,7 +71,7 @@ def boundary_counts(patches, tolerance=1e-6):
             for other in edges[:i]
         ):
             counts.append(1 + count)
-    return sum(n == 1 for n in counts), sum(n > 2 for n in counts)
+    return int(sum(n == 1 for n in counts)), int(sum(n > 2 for n in counts))
 
 
 def design_report(data, blade):
@@ -107,7 +107,7 @@ def design_report(data, blade):
         for u in (0, 0.31, 1)
     )
     free, triple = boundary_counts(blade.patches)
-    expected_free = (2 + (data["options"]["trailing_edge"] != "sharp")) * sum(
+    expected_free = (2 + (not info["sharp_te"])) * sum(
         data["options"][key] == "none" for key in ("root_cap", "tip")
     )
     checks = [

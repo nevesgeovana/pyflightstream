@@ -207,6 +207,7 @@ def test_p0570_gm17_edges_extensions_and_caps(target):
         delta = at(patch, 0.4, 0.15) - at(patch, 0.4, 0.2)
         np.testing.assert_allclose(delta, [0, 0, -30], atol=1e-10)
     assert p.report()["ok"]
+    assert json.loads(json.dumps(p.report()))["closure"]["free_edges"] == 0
     raw["options"].update(root_cap="none", tip="none")
     opened = geometry.Propeller(raw)
     assert len(opened.blade().patches) == (3 if target == "blunt" else 2)
@@ -269,6 +270,15 @@ def test_p0570_gm17_cst_and_coordinate_profiles(tmp_path):
     raw["airfoils"]["n4412"] = {"cst": {"upper": [-0.1, -0.1], "lower": [0.1, 0.1]}}
     with pytest.raises(ValueError, match="swapped"):
         geometry.Propeller(raw).blade()
+
+
+def test_p0570_gm17_natural_sharp_profile():
+    """P0570-G17-NATURAL-TE: a zero-gap source closes without a zero-area trailing face."""
+    raw = definition()
+    raw["airfoils"]["n4412"] = {"cst": {"upper": [0.1, 0.1], "lower": [-0.1, -0.1]}}
+    p = geometry.Propeller(raw)
+    assert len(p.blade().patches) == 4
+    assert p.report()["ok"]
 
 
 @pytest.mark.parametrize(

@@ -95,7 +95,8 @@ def blade_geometry(data):
         _surface(p.c.transpose(1, 0, 2), tu, tv, du=5, dv=3, family=role)
         for p, role in zip(poles, ("upper", "lower"), strict=True)
     ]
-    if options["trailing_edge"] != "sharp":
+    sharp = max(np.linalg.norm(patches[0].controls[-1] - patches[1].controls[-1], axis=1)) <= 1e-9
+    if not sharp:
         te = np.stack((patches[1].controls[-1], patches[0].controls[-1]), axis=0)
         patches.append(_surface(te, [0, 0, 1, 1], tv, du=1, dv=3, family="trailing_edge"))
     for end, key in ((0, "root_cap"), (-1, "tip")):
@@ -113,7 +114,10 @@ def blade_geometry(data):
             "section_fit": errors,
             "stacking_mm": np.asarray(stacking).tolist(),
             "loft_error_mm": loft_error,
-            "loft_c2_violations": sum(m > 1 for m in np.unique(tv[4:-4], return_counts=True)[1]),
+            "loft_c2_violations": sum(
+                int(m > 1) for m in np.unique(tv[4:-4], return_counts=True)[1]
+            ),
+            "sharp_te": bool(sharp),
         },
     )
 

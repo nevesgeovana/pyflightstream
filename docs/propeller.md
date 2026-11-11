@@ -36,6 +36,8 @@ interpolated with a cubic not-a-knot spline in r/R, yielding C2 continuity.
 `options.trailing_edge` is `blunt` or `sharp`; `te_thickness` specifies the
 blunt gap as a chord fraction. `root_cap` and `tip` are `planar` or `none`.
 `root_extension_r_R` copies the first section farther inboard.
+If every source section has a zero trailing gap, its naturally sharp edge
+closes directly and no zero-area trailing face is written.
 
 The disk solidity is `B/pi * integral(c/R d(r/R))`. The per-blade activity
 factor is `100000/32 * integral((c/R)(r/R)^3 d(r/R))`. These integrals cover
