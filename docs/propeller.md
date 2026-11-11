@@ -41,3 +41,49 @@ The disk solidity is `B/pi * integral(c/R d(r/R))`. The per-blade activity
 factor is `100000/32 * integral((c/R)(r/R)^3 d(r/R))`. These integrals cover
 the supplied aerodynamic stations, excluding the optional root extension.
 The report also gives local solidity and beta at 0.7 R.
+
+To write and check the full rotor through the standard geometry runner:
+
+```python
+from pyflightstream.geometry import Propeller
+from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+p = Propeller.from_toml("docs/examples/propeller/simple_naca.toml")
+p = p.with_pitch(31).with_skew(lambda r: 20 * r**2).with_rake(0.03)
+report = run_geometry(p.component(), out="build/propeller")
+print(report["status"], report["outputs"].get("iges"))
+```
+
+Use `p.component(blades="one")` for one blade. `output.blades` in TOML also
+selects `one` or `all`. The runner's `out` folder selects the destination;
+the definition's `output.iges` is a suggested standalone filename, not a path
+that can override the runner's destination. Geometry in the API uses mm;
+component placement and workspace surfaces use metres.
+
+The same workflow from the CLI is:
+
+```console
+pyfs-geom run docs/examples/propeller/simple_naca.toml --out build/propeller
+pyfs-geom run docs/examples/propeller/skewed_naca.toml --out build/skewed
+```
+
+`--until S8` runs the numerical checks without loading the kernel. A
+propeller-only run selects the applicable propeller and export sub-steps;
+it does not run the lifting-surface mesh workflow. Each sub-step writes its
+inputs, measured checks, thresholds and timing to a stage JSON record and
+`geom-run.log`. The first failed check stops the run and is named in the
+returned report.
+
+Export uses the library IGES writer, with both spatial and parameter-space
+trim curves and PREF 1. The runner checks written pcurves against the spatial
+trim at `1e-4 mm`, face counts and areas after reimport, and free and triple
+edges after sewing at `0.01 mm`. Open ends are permitted only when requested
+with `root_cap = "none"` or `tip = "none"`. Numerical closure uses exact
+shared patch edges at `1e-6 mm`.
+
+Optional tip laws are `skew_tip_deg` or `skew_tip_s_R`, and `rake_tip_x_R` or
+`rake_tip_deg`, with powers defaulting to 2. The law is
+`tip * ((r/R - first_station)/(1 - first_station))**power`. A column and a tip
+law for the same displacement cannot be combined. Optional `[frame]` vectors
+are `blade_dir`, `thrust_dir`, `rotation_dir_at_blade`, and
+`pitch_axis_point_mm`; directions must be orthogonal.

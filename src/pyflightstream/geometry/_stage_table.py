@@ -46,6 +46,12 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("section.te_thickness", "acceptance"),
         ("section.inflection", "acceptance"),
     ),
+    _row(
+        "S1.P",
+        "Propeller section fit",
+        False,
+        ("propeller.section_fit", "definition.options.fit_tol_chord"),
+    ),
     _row("S2", "Identity report", False, ("identity.listed", "every seed listed")),
     _row(
         "S3",
@@ -63,7 +69,23 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("law.ruled_twist", "acceptance"),
         ("law.region_boundaries", "acceptance"),
     ),
+    _row(
+        "S4.P",
+        "Propeller design measures",
+        False,
+        ("propeller.solidity", "positive disk area ratio"),
+        ("propeller.activity_factor", "positive per-blade integral"),
+        ("propeller.beta_reference", "1e-10 deg residual"),
+        ("propeller.beta_0p7R", "beta from plane, greater than -90 deg"),
+    ),
     _row("S5", "Placement", False, ("place.frame", "acceptance")),
+    _row(
+        "S5.P",
+        "Propeller planar placement",
+        False,
+        ("propeller.section_plane", "1e-8 mm"),
+        ("propeller.handedness", "zero sign violations"),
+    ),
     _row(
         "S6",
         "Skin",
@@ -71,6 +93,13 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("skin.section_exact", "1e-12 m"),
         ("skin.law_residual", "acceptance"),
         ("skin.distance", "acceptance, when an original exists"),
+    ),
+    _row(
+        "S6.P",
+        "Propeller cubic loft",
+        False,
+        ("propeller.loft_exact", "1e-8 mm at defining stations"),
+        ("propeller.loft_c2", "zero radial knots below C2"),
     ),
     _row(
         "S7",
@@ -81,6 +110,12 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("trim.iso_exact", "axis-aligned"),
         ("trim.partition", "1e-9 relative"),
         ("trim.outer_only", "warning"),
+    ),
+    _row(
+        "S8.P",
+        "Propeller numerical closure",
+        False,
+        ("propeller.closure", "zero unexpected free or triple edges at 1e-6 mm"),
     ),
     _row(
         "S8",
@@ -346,6 +381,13 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("profile.base_shared", "1e-12"),
     ),
     _row(
+        "S11.PC",
+        "Propeller written trim curves",
+        False,
+        ("propeller.trim_preference", "zero missing curves or non-PREF-1 boundaries"),
+        ("propeller.pcurve_3d", "1e-4 mm between the pcurve image and spatial trim"),
+    ),
+    _row(
         "S11.R",
         "Export reimport",
         True,
@@ -362,6 +404,13 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("sew.free_introduced", "0 new edges at 1e-5 and 5e-5 m"),
         ("sew.triple_edges", "0 edges"),
         ("sew.slivers", "0 new faces below 5 mm mean width"),
+    ),
+    _row(
+        "S11.PS",
+        "Propeller sewn topology",
+        True,
+        ("propeller.sewn_free_edges", "zero beyond explicitly uncapped rims"),
+        ("propeller.sewn_triple_edges", "zero"),
     ),
     _row("S12.C", "Reader conversion", True, ("gate.convert", "0 changed face counts")),
     _row("S12.G", "Reader gridding", True, ("gate.grid", "0 mismatched or triple edges")),

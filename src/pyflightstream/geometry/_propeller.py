@@ -22,6 +22,19 @@ from ._propeller_checks import design_report
 from ._propeller_input import validate_definition
 
 
+def _toml_literal(value):
+    """Render one schema value with TOML's inline-table syntax."""
+    if isinstance(value, dict):
+        return (
+            "{ "
+            + ", ".join(f"{json.dumps(k)} = {_toml_literal(v)}" for k, v in value.items())
+            + " }"
+        )
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_literal(v) for v in value) + "]"
+    return json.dumps(value)
+
+
 class Propeller:
     """Classical planar propeller in mm, with degree-five sections and a cubic C2 loft.
 
@@ -155,19 +168,8 @@ class Propeller:
 
     def to_toml(self, path):
         """Write schema 1 TOML that reads back with identical parameters and surfaces."""
-
-        # The schema is shallow: each top-level table can use TOML inline tables.
-        def literal(value):
-            if isinstance(value, dict):
-                return (
-                    "{ "
-                    + ", ".join(f"{json.dumps(k)} = {literal(v)}" for k, v in value.items())
-                    + " }"
-                )
-            if isinstance(value, list):
-                return "[" + ", ".join(literal(v) for v in value) + "]"
-            return json.dumps(value)
-
         write_text(
-            path, "\n".join(f"{key} = {literal(value)}" for key, value in self._data.items()) + "\n"
+            path,
+            "\n".join(f"{key} = {_toml_literal(value)}" for key, value in self._data.items())
+            + "\n",
         )

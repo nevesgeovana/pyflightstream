@@ -68,6 +68,18 @@ TABLE_KEYS = {
 }
 
 
+def adopt_propeller(data):
+    """Wrap standalone schema 1 data as one geometry component, retaining its own units."""
+    if "schema_version" not in data and "propeller" not in data:
+        return data
+    strict_table(data, DEFINITION_KEYS, "definition")
+    name = data.get("propeller", {}).get("name", "PROPELLER")
+    return {
+        "aircraft": {"name": name},
+        "components": {"COMPONENT": {"type": "propeller", "definition": data}},
+    }
+
+
 def strict_table(value, keys, path):
     """Require a table whose keys all belong to the named schema node."""
     if not isinstance(value, dict):

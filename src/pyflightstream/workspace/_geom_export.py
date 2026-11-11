@@ -419,6 +419,7 @@ def sew_back(folder: Path, manifest: dict) -> dict[str, Any]:
 def generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Build unassembled source pieces on a kernel for a configuration with no operations."""
     from pyflightstream.geometry.stages import generate_pieces, unpack
+    from pyflightstream.workspace._geom_propeller import PropellerAssembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     plain_config = unpack(config)
@@ -428,7 +429,12 @@ def generate_record(config: Any, path: str, configuration: str | None) -> dict[s
     )
     kernel = open_kernel("writing source pieces")
     try:
-        assembly = Assembly(kernel, {n: every[n] for n in members}, [], out=Path(path).parent)
+        factory = (
+            PropellerAssembly
+            if any(plain_config["components"][n]["type"] == "propeller" for n in members)
+            else Assembly
+        )
+        assembly = factory(kernel, {n: every[n] for n in members}, [], out=Path(path).parent)
         record = assembly.step("S10.D1")
         if any(c["status"] == "failed" for c in record["checks"]):
             raise InputArtifactError(str(record["checks"]), kind="geometry")

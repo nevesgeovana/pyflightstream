@@ -37,7 +37,7 @@ from pyflightstream.geometry._component_keys import (
 )
 from pyflightstream.geometry._fillet import fillet_notes
 from pyflightstream.geometry._identity import SCHEMA_MAJOR
-from pyflightstream.geometry._propeller_input import validate_definition
+from pyflightstream.geometry._propeller_input import adopt_propeller, validate_definition
 from pyflightstream.geometry._schema import (
     TYPES,
     number,
@@ -735,6 +735,10 @@ def _file_digests(components, base):
             if path:
                 digest = optional_file_sha256(base / path)
                 rows.append({"role": f"{name}.{role}", "sha256": digest or ""})
+        for aid, profile in sorted(component.get("definition", {}).get("airfoils", {}).items()):
+            if "file" in profile:
+                digest = optional_file_sha256(base / profile["file"])
+                rows.append({"role": f"{name}.airfoils.{aid}.file", "sha256": digest or ""})
     return rows
 
 
@@ -787,7 +791,7 @@ def resolve_config(data, stem=None, base=None):
 def _resolve(data, stem, base):
     """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
-    source = adopt_surface_file(unpack(data))
+    source = adopt_propeller(adopt_surface_file(unpack(data)))
     if "type" in source:
         source = {"components": {"COMPONENT": source}}
     notes = {"warnings": [], "findings": [], "name": "", "resolved": resolved}

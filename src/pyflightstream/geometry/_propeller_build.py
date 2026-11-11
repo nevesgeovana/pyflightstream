@@ -24,7 +24,7 @@ class PropellerGeometry:
     info: dict
 
 
-def _surface(controls, tu, tv, du, dv, family):
+def _surface(controls, tu, tv, *, du, dv, family):
     ku, mu = np.unique(tu, return_counts=True)
     kv, mv = np.unique(tv, return_counts=True)
     return Patch(
@@ -40,7 +40,7 @@ def _surface(controls, tu, tv, du, dv, family):
     )
 
 
-def section_placement(points, center, r, chord, beta, skew, rake, data):
+def section_placement(points, center, *, r, chord, beta, skew, rake, data):
     """Place section points by the documented scale, pitch, skew, rake sequence."""
     origin, radial, thrust, velocity = axes(data)
     theta, angle = np.deg2rad([skew, beta])
@@ -72,10 +72,10 @@ def blade_geometry(data):
     rows = [[], []]
     stacking = []
     for i, r in enumerate(radial):
-        args = (centers[i], r, table["c_R"][i], beta[i], skew[i], rake[i], data)
-        stacking.append(section_placement(np.array([centers[i]]), *args)[0])
+        args = dict(r=r, chord=table["c_R"][i], beta=beta[i], skew=skew[i], rake=rake[i], data=data)
+        stacking.append(section_placement(np.array([centers[i]]), centers[i], **args)[0])
         for j in (0, 1):
-            rows[j].append(section_placement(fits[i][j].c, *args))
+            rows[j].append(section_placement(fits[i][j].c, centers[i], **args))
     if "root_extension_r_R" in options:
         inner = options["root_extension_r_R"]
         delta = (inner - radial[0]) * prop["radius"]
@@ -86,18 +86,22 @@ def blade_geometry(data):
         stacking.insert(0, stacking[0] + delta * br)
         radial = np.r_[inner, radial]
     poles = [make_interp_spline(radial, side, k=3) for side in rows]
+    loft_error = max(
+        float(np.linalg.norm(p(radial) - row, axis=-1).max())
+        for p, row in zip(poles, rows, strict=True)
+    )
     tu, tv = fits[0][0].t, poles[0].t
     patches = [
-        _surface(p.c.transpose(1, 0, 2), tu, tv, 5, 3, role)
+        _surface(p.c.transpose(1, 0, 2), tu, tv, du=5, dv=3, family=role)
         for p, role in zip(poles, ("upper", "lower"), strict=True)
     ]
     if options["trailing_edge"] != "sharp":
         te = np.stack((patches[1].controls[-1], patches[0].controls[-1]), axis=0)
-        patches.append(_surface(te, [0, 0, 1, 1], tv, 1, 3, "trailing_edge"))
+        patches.append(_surface(te, [0, 0, 1, 1], tv, du=1, dv=3, family="trailing_edge"))
     for end, key in ((0, "root_cap"), (-1, "tip")):
         if options[key] == "planar":
             cap = np.stack((patches[1].controls[:, end], patches[0].controls[:, end]), axis=1)
-            patches.append(_surface(cap, tu, [0, 0, 1, 1], 5, 1, key))
+            patches.append(_surface(cap, tu, [0, 0, 1, 1], du=5, dv=1, family=key))
     return PropellerGeometry(
         tuple(patches),
         {
@@ -108,6 +112,8 @@ def blade_geometry(data):
             "rake_x_R": rake.tolist(),
             "section_fit": errors,
             "stacking_mm": np.asarray(stacking).tolist(),
+            "loft_error_mm": loft_error,
+            "loft_c2_violations": sum(m > 1 for m in np.unique(tv[4:-4], return_counts=True)[1]),
         },
     )
 
