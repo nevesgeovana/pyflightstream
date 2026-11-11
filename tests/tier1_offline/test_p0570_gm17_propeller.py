@@ -454,3 +454,23 @@ def test_p0570_gm17_geometric_pitch_rake_and_tip():
     raw["stations"].update(x_ref=[0.0] * 7, y_ref=[0.0] * 7)
     tip = at(geometry.Propeller(raw).blade().patches[0], 0, 1)
     np.testing.assert_allclose(tip, 500 * np.array([0.05, 0.5, np.sqrt(3) / 2]), atol=1e-9)
+
+
+def test_p0570_gm17_mixed_profiles_open_root_export(tmp_path):
+    """P0570-G17-MIXED: file, CST and NACA stations export with their actual open rim."""
+    from pyflightstream.workspace.geometry_pipeline import run_geometry
+
+    x = np.linspace(0, 1, 101) ** 2
+    z = 0.1 * np.sqrt(x) * (1 - x) + 0.001 * x
+    file = tmp_path / "coordinates.dat"
+    np.savetxt(file, np.vstack((np.column_stack((x, z))[::-1], np.column_stack((x, -z))[1:])))
+    raw = definition()
+    raw["airfoils"]["root"] = {"cst": {"upper": [0.1, 0.1], "lower": [-0.1, -0.1]}}
+    raw["airfoils"]["file"] = {"file": str(file)}
+    raw["stations"]["airfoil"] = ["root", "n4412", "n4412", "file", "file", "n4412", "n4412"]
+    raw["options"]["root_cap"] = "none"
+    raw["output"]["blades"] = "one"
+    report = run_geometry(raw, out=tmp_path / "run")
+    assert report["status"] == "accepted", report
+    assert report["outputs"]["faces"] == {"COMPONENT": 4}
+    assert geometry.Propeller(raw).report()["closure"]["expected_open_edges"] == 2

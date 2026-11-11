@@ -349,18 +349,32 @@ def source_trim(key, patch, *, options=None):
         (patch.knots_v[0], patch.knots_v[-1]),
         patch.role or patch.family,
     )
-    if options is None or patch.role not in ("root_cap", "tip", "upper", "lower"):
+    if options is None or patch.role not in ("root_cap", "tip", "upper", "lower", "trailing_edge"):
+        return trim
+    if patch.role == "trailing_edge" and not _collapsed_end(patch):
         return trim
     loop = []
     for i, (a, b) in enumerate(trim.loop):
         cap = "root_cap" if i == 0 else "tip"
-        divide = patch.role in ("root_cap", "tip") or options[cap] == "planar"
-        if i in (0, 2) and divide:
+        divide = (
+            i in (1, 3)
+            if patch.role == "trailing_edge"
+            else i in (0, 2) and (patch.role in ("root_cap", "tip") or options[cap] == "planar")
+        )
+        if divide:
             middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
             loop.extend(((a, middle), (middle, b)))
         else:
             loop.append((a, b))
     return replace(trim, loop=tuple(loop))
+
+
+def _collapsed_end(patch):
+    """Whether a propeller trailing face collapses to a point at either radial end, in m."""
+    return any(
+        float(np.linalg.norm(p - p[0], axis=1).max()) <= 1e-12
+        for p in (patch.controls[:, 0], patch.controls[:, -1])
+    )
 
 
 def blend_faces(components, name) -> tuple[list[Patch], str]:

@@ -113,8 +113,8 @@ def design_report(data, blade):
     _, radial, _, velocity = axes(data)
     plane, leads, bulge = _placement_values(data, blade)
     free, triple = boundary_counts(blade.patches)
-    expected_free = (2 + (not info["sharp_te"])) * sum(
-        data["options"][key] == "none" for key in ("root_cap", "tip")
+    expected_free = sum(
+        info["rim_edges"][key] for key in ("root_cap", "tip") if data["options"][key] == "none"
     )
     checks = [
         measured(
