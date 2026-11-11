@@ -261,10 +261,12 @@ class Assembly(RemovalSteps):
 
     def _self_fragment(self, name: str, built: list[Face]) -> list[Face]:
         """Fragment a piece's own faces together, so faces of one piece share their seams."""
-        if len(built) < 2:
-            return built
-        result = self.k.fragment(built[:1], built[1:])
-        return self._inherit(built, [*result.from_a, *result.from_b])
+        inert = [f for f in built if self._inert(f)]
+        active = [f for f in built if not self._inert(f)]
+        if len(active) < 2:
+            return active + inert
+        result = self.k.fragment(active[:1], active[1:])
+        return self._inherit(active, [*result.from_a, *result.from_b]) + inert
 
     def _inherit(
         self,
@@ -291,7 +293,7 @@ class Assembly(RemovalSteps):
         resolved = []
         for op in self.plan:
             if op.operation == "auto":
-                free = free_boundaries(self.sources[op.dominant], jn.SEW_M)
+                free = free_boundaries(self._source_faces(op.dominant), jn.SEW_M)
                 touching = any(
                     jn.distance_to_triangles(c, self.hulls[op.dominated]).max() <= op.tolerance_m
                     for c in free
@@ -332,10 +334,10 @@ class Assembly(RemovalSteps):
         if self.plane_axis is None:
             return skip(["piece.symmetry_edges"], "a full model has no symmetry plane"), {}
         worst, where = 0.0, {}
-        for name, patches in self.sources.items():
+        for name in self.sources:
             near = [
                 c
-                for c in free_boundaries(patches, jn.SEW_M)
+                for c in free_boundaries(self._source_faces(name), jn.SEW_M)
                 if np.abs(c[:, self.plane_axis]).max() <= jn.SHARED_PAIR_NEAR_M
             ]
             offset = jn.plane_offset(near, self.plane_axis)
@@ -381,7 +383,7 @@ class Assembly(RemovalSteps):
     def _rim_edges(self, name: str) -> list[np.ndarray]:
         return [
             c
-            for c in free_boundaries(self.sources[name], jn.SEW_M)
+            for c in free_boundaries(self._source_faces(name), jn.SEW_M)
             if not (self.plane_axis is not None and self._on_plane_curve(c))
         ]
 
@@ -503,12 +505,17 @@ class Assembly(RemovalSteps):
             return
         self.cut_done = True
         self.groups = self._cut_groups()
-        for group in self.groups:
-            fuzzy = 0.0 if len(group) == 2 else jn.GROUP_FUZZY_M
-            a = list(self.faces[group[0]])
-            b = [f for name in group[1:] for f in self.faces[name]]
-            result = self.k.fragment(a, b, fuzzy=fuzzy)
-            self._regroup(group, a + b, [*result.from_a, *result.from_b])
+        with self._active_faces():
+            for group in self.groups:
+                fuzzy = 0.0 if len(group) == 2 else jn.GROUP_FUZZY_M
+                a = list(self.faces[group[0]])
+                b = [f for name in group[1:] for f in self.faces[name]]
+                result = self.k.fragment(a, b, fuzzy=fuzzy)
+                self._regroup(group, a + b, [*result.from_a, *result.from_b])
+
+    def _remove(self):
+        with self._active_faces():
+            return super()._remove()
 
     def _cut_groups(self) -> list[list[str]]:
         groups: list[set[str]] = []
@@ -844,7 +851,7 @@ class Assembly(RemovalSteps):
         hull = self.hulls[op.dominated]
         return [
             c
-            for c in free_boundaries(self.sources[op.dominant], jn.SEW_M)
+            for c in free_boundaries(self._source_faces(op.dominant), jn.SEW_M)
             if float(jn.distance_to_triangles(c, hull).max()) <= SEAT_REACH_M
         ]
 
@@ -868,6 +875,10 @@ class Assembly(RemovalSteps):
         return count
 
     def _split(self):
+        with self._active_faces():
+            return self._split_active()
+
+    def _split_active(self):
         ops = self._ops("project")
         ids = ["junction.on_host_loops", "junction.split_closure"]
         if not ops:

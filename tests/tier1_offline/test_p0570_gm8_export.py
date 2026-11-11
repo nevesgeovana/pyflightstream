@@ -16,6 +16,60 @@ from pyflightstream.workspace._iges_write import read_iges, serialize_iges
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 
+def _applied_config():
+    return {
+        "components": {
+            "panel": {
+                "type": "lifting_surface",
+                "planform": {"sref_m2": 4.0, "aspect_ratio": 4.0, "taper": 1.0},
+                "cap": {"type": "flat"},
+                "root": "flat",
+                "control": [
+                    {
+                        "name": "flap",
+                        "kind": "plain",
+                        "eta": [0.2, 0.7],
+                        "chord_ratio": 0.25,
+                        "gap_span": 0.01,
+                        "gap_chord": 0.002,
+                        "deflection_deg": [15],
+                    }
+                ],
+            }
+        },
+        "variants": {"deployed": ["panel.flap"]},
+    }
+
+
+def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s])
+        for s in ("S0", "S11", "S11.V", "S11.P", "S11.R", "S11.S", "S13.R")
+    ]
+    report = _geom_run.run_geometry(
+        _applied_config(), variant="deployed", out=tmp_path, until="S13.R", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["variant"] == "deployed"
+    assert [p["component"] for p in manifest["pieces"]] == ["panel"]
+    piece = manifest["pieces"][0]
+    sidecar = json.loads((tmp_path / piece["layout"]).read_text(encoding="utf-8"))
+    assert any(t["base"].startswith("flap-d15/") for t in sidecar["source_trims"])
+    skin = [t for t in sidecar["source_trims"] if t["base"] == "skin"]
+    assert len(skin) >= 4
+    assert all(t["base"] in sidecar["bases"] for t in sidecar["source_trims"])
+    assert piece["source_surface_id"] != ""
+    assert all(
+        c["status"] == "passed"
+        for c in json.loads((tmp_path / "S13.R.json").read_text(encoding="utf-8"))["checks"]
+    )
+
+
 @pytest.mark.parametrize("u", [0.001, 0.999], ids=["P0570-low-bound", "P0570-high-bound"])
 def test_p0570_anisotropic_surface_distance(tmp_path, u):
     values = [128, 1, 1, 1, 1, 0, 0, 1, 0, 0]

@@ -30,7 +30,11 @@ def regenerate(resolved, folder, members, manifest, source):
     stored = stored_sections_config(resolved, source["sections"])
     write_config(stored, path)
     loaded = load_config(path)
-    every = generate_pieces(loaded)
+    every = generate_pieces(
+        loaded,
+        variant=manifest.get("variant", "clean"),
+        selection=manifest.get("control_selection"),
+    )
     pieces = {n: every[n] for n in members}
     identity = surface_id(
         {n: list(p.bases.values()) for n, p in pieces.items()},

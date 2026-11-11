@@ -156,7 +156,7 @@ def _generate_record(config: Any, path: str, configuration: str | None) -> dict[
 
 def _export(context: RunContext) -> StageOutcome:
     """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
-    if context.variant != "clean":
+    if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
         return _waiting_variant(context, "S11")
     name = context.configuration or str(
         unpack(context.resolved["aircraft"]).get("name", "geometry")
@@ -164,11 +164,7 @@ def _export(context: RunContext) -> StageOutcome:
     target = context.out / f"{name}.igs"
     try:
         assembled = context.state.get("assembly")
-        written = (
-            assembled["export"]
-            if assembled
-            else _generate(context.resolved, target, context.configuration)
-        )
+        written = assembled["export"] if assembled else _generate_variant(context, target)
     except InputArtifactError as error:
         if "solid entities" not in str(error):
             raise
@@ -201,7 +197,7 @@ def _export_step(stage: str) -> StageFn:
     def run(context: RunContext) -> StageOutcome:
         from pyflightstream.workspace._geom_export import check_export
 
-        if context.variant != "clean":
+        if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
             return _waiting_variant(context, stage)
         return StageOutcome(
             **check_export(
@@ -215,6 +211,26 @@ def _export_step(stage: str) -> StageFn:
         )
 
     return run
+
+
+def _generate_variant(context, target):
+    if context.variant == "clean":
+        return _generate(context.resolved, target, context.configuration)
+    from pyflightstream.workspace._geom_export import generate_record
+
+    arguments = {
+        "config": context.resolved,
+        "path": str(target),
+        "configuration": context.configuration,
+        "variant": context.variant,
+    }
+    return (
+        generate_record(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(
+            "pyflightstream.workspace._geom_export:generate_record", arguments, generate_record
+        )
+    )
 
 
 def _waiting_variant(context: RunContext, stage: str) -> StageOutcome:
@@ -345,6 +361,7 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
             "members": context.members,
             "out": str(context.out / "S10-assembly.json"),
             "configuration": context.configuration,
+            "variant": context.variant,
         }
         if not plan:
             context.state["assembly"] = None
@@ -358,18 +375,22 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
 
 
 def _assembly_record(
-    config: Any, members: list[str], out: str, configuration: str | None = None
+    config: Any,
+    members: list[str],
+    out: str,
+    configuration: str | None = None,
+    variant: str = "clean",
 ) -> dict[str, Any]:
     """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
     from pyflightstream.geometry import resolve_config
-    from pyflightstream.geometry.stages import GeneratedPiece, generate_components
+    from pyflightstream.geometry.stages import GeneratedPiece, generate_pieces
     from pyflightstream.workspace._geom_assembly import Assembly
     from pyflightstream.workspace._geom_export import write_assembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     resolved = resolve_config(copy.deepcopy(config))
-    every = generate_components(resolved, trimmed=True)
-    again = generate_components(resolve_config(copy.deepcopy(config)), trimmed=True)
+    every = generate_pieces(resolved, variant=variant)
+    again = generate_pieces(resolve_config(copy.deepcopy(config)), variant=variant)
     plain = unpack(resolved)
     pieces = {name: every[name] for name in members if name in every}
     half = all(
@@ -408,6 +429,7 @@ def _assembly_record(
                 Path(out).parent / "assembly.igs",
                 resolved=resolved,
                 configuration=configuration,
+                variant=variant,
             )
             written["sections"] = {
                 n: p.layout["sections"]
@@ -425,7 +447,7 @@ def _assembly_step(stage: str) -> StageFn:
     """Return the function of one sub-step of S10: its record from the assembly's run."""
 
     def run(context: RunContext) -> StageOutcome:
-        if context.variant != "clean":
+        if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
             return _waiting_variant(context, stage)
         ids = [cid for cid, _ in next(r for r in STAGE_ROWS if r.stage == stage).checks]
         result = _assembly(context)
