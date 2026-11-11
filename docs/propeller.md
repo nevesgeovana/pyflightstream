@@ -75,6 +75,8 @@ it does not run the lifting-surface mesh workflow. Each sub-step writes its
 inputs, measured checks, thresholds and timing to a stage JSON record and
 `geom-run.log`. The first failed check stops the run and is named in the
 returned report.
+Handedness and section planarity are checked at every defining station;
+the reference station cannot mask a reversed inboard or outboard section.
 
 Export uses the library IGES writer, with both spatial and parameter-space
 trim curves and PREF 1. The runner checks written pcurves against the spatial

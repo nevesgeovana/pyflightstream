@@ -76,7 +76,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         ("propeller.solidity", "positive disk area ratio"),
         ("propeller.activity_factor", "positive per-blade integral"),
         ("propeller.beta_reference", "1e-10 deg residual"),
-        ("propeller.beta_0p7R", "beta from plane, greater than -90 deg"),
+        ("propeller.beta_0p7R", "absolute beta from plane at most 90 deg"),
     ),
     _row("S5", "Placement", False, ("place.frame", "acceptance")),
     _row(

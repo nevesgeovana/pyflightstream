@@ -281,6 +281,14 @@ def test_p0570_gm17_natural_sharp_profile():
     assert p.report()["ok"]
 
 
+def test_p0570_gm17_handedness_at_every_station():
+    """P0570-G17-HAND: a reversed root section cannot hide behind a valid reference section."""
+    raw = definition()
+    raw["stations"]["beta_deg"][0] = 210
+    report = geometry.Propeller(raw).report()
+    assert not report["handedness"]["ok"]
+
+
 @pytest.mark.parametrize(
     "path,value,match",
     [

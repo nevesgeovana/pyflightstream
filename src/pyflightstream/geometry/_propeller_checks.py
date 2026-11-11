@@ -74,6 +74,26 @@ def boundary_counts(patches, tolerance=1e-6):
     return int(sum(n == 1 for n in counts)), int(sum(n > 2 for n in counts))
 
 
+def _placement_values(data, blade):
+    """Measure every defining plane and the smallest leading and suction projections."""
+    origin, radial, thrust, velocity = axes(data)
+    upper, lower = blade.patches[:2]
+    planes, leads, bulges = [], [], []
+    for eta, skew in zip(data["stations"]["r_R"], blade.info["skew_deg"], strict=True):
+        theta = np.deg2rad(skew)
+        tr = np.sin(theta) * radial + np.cos(theta) * velocity
+        br = np.cos(theta) * radial - np.sin(theta) * velocity
+        le, te = evaluate(upper, 0, eta), evaluate(upper, 1, eta)
+        leads.append(float((le - te) @ tr))
+        bulges.append(float((evaluate(upper, 0.55, eta) - evaluate(lower, 0.55, eta)) @ thrust))
+        planes += [
+            abs(float((evaluate(p, u, eta) - origin) @ br) - data["propeller"]["radius"] * eta)
+            for p in (upper, lower)
+            for u in (0, 0.31, 1)
+        ]
+    return max(planes), min(leads), min(bulges)
+
+
 def design_report(data, blade):
     """Return classical disk solidity, activity factor, pitch and measured geometry checks."""
     table, prop, info = data["stations"], data["propeller"], blade.info
@@ -90,22 +110,8 @@ def design_report(data, blade):
         integral += (b - a) / 2 * np.sum(weights * chord(x) * x**3)
     af = float(1e5 / 32 * integral)
     disk = float(prop["blades"] * chord.integrate(r[0], r[-1]) / np.pi)
-    origin, radial, thrust, velocity = axes(data)
-    # Measure a defining station; a skewed loft need not stay planar between stations.
-    station = int(np.argmin(np.abs(r - prop["pitch_reference_r_R"])))
-    eta = r[station]
-    theta = np.deg2rad(info["skew_deg"][station])
-    tr = np.sin(theta) * radial + np.cos(theta) * velocity
-    br = np.cos(theta) * radial - np.sin(theta) * velocity
-    upper, lower = blade.patches[:2]
-    le, te = evaluate(upper, 0, eta), evaluate(upper, 1, eta)
-    leads = float((le - te) @ tr)
-    bulge = float((evaluate(upper, 0.55, eta) - evaluate(lower, 0.55, eta)) @ thrust)
-    plane = max(
-        abs(float((evaluate(p, u, eta) - origin) @ br) - prop["radius"] * eta)
-        for p in (upper, lower)
-        for u in (0, 0.31, 1)
-    )
+    _, radial, _, velocity = axes(data)
+    plane, leads, bulge = _placement_values(data, blade)
     free, triple = boundary_counts(blade.patches)
     expected_free = (2 + (not info["sharp_te"])) * sum(
         data["options"][key] == "none" for key in ("root_cap", "tip")
@@ -124,11 +130,10 @@ def design_report(data, blade):
         measured("propeller.beta_reference", abs(beta_ref - prop["pitch_setting"]), 1e-10, "deg"),
         measured(
             "propeller.beta_0p7R",
-            float(beta(0.7) + shift),
-            -90,
+            abs(float(beta(0.7) + shift)),
+            90,
             "deg",
-            bound="min",
-            note="beta from plane; upper bound checked at input",
+            note=f"signed beta from plane: {float(beta(0.7) + shift):.12g} deg",
         ),
         measured("propeller.closure", abs(free - expected_free) + triple, 0, "edges"),
     ]
