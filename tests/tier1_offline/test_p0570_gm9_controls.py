@@ -179,7 +179,10 @@ def _fcheck(kernel, stage, inputs):
 
     module = "pyflightstream.workspace._geom_control"
     assert importlib.util.find_spec(module), "the F sub-steps have no implementation"
-    return importlib.import_module(module).check_stage(kernel, stage, inputs)
+    result = importlib.import_module(module).check_stage(kernel, stage, inputs)
+    row = next(row for row in stages.STAGE_ROWS if row.stage == f"S10.{stage}")
+    assert {c["id"] for c in result["checks"]} == {cid for cid, _ in row.checks}
+    return result
 
 
 def _passed(result):
@@ -205,8 +208,8 @@ def test_p0570_gm9_sewn_closure_rejects_missing_end(kernel, tmp_path, stage, mis
     result = _fcheck(kernel, stage, {"path": str(path)})
     assert _passed(result) is not missing
     checks = {c["id"]: c for c in result["checks"]}
-    assert checks["control.free_edges"]["measured"] == (4 if missing else 0)
-    assert checks["control.free_edges"]["limit"] == 0
+    assert checks[f"control.{stage.lower()}.free_edges"]["measured"] == (4 if missing else 0)
+    assert checks[f"control.{stage.lower()}.free_edges"]["limit"] == 0
     assert result["outputs"]["sew_tolerance_m"] == 1e-5
 
 
@@ -285,7 +288,7 @@ def test_p0570_gm9_stage_table_runner_records_and_log(kernel, tmp_path, missing)
         assert report["stage"] == "S10.F0"
         assert "sub-step S10.F1 " not in log
     else:
-        assert "sub-step S10.F1" in log and "control.free_edges" in log
+        assert "sub-step S10.F1" in log and "control.f1.free_edges" in log
 
 
 def _plain_config():
@@ -314,6 +317,40 @@ def _plain_config():
             }
         }
     }
+
+
+@pytest.mark.parametrize(
+    "builder", ["build", "imported"], ids=["P0570-R26-build", "P0570-R26-imported"]
+)
+def test_p0570_r26_distinct_angles_keep_distinct_control_pieces(builder):
+    """Two deflections differing after six significant digits must both survive."""
+    from pyflightstream.geometry import resolve_config
+
+    raw = _plain_config()
+    entry = raw["components"]["panel"]["control"][0]
+    entry["deflection_deg"] = [15.000001, 15.000002]
+    component = stages.unpack(resolve_config(raw))["components"]["panel"]
+    if builder == "build":
+        result = stages.controls.build(component)
+        labels = set(result.pieces) - {"main"}
+    else:
+        result = stages.controls.imported(stages.lifting_model(component).skin, entry)
+        labels = set(result["motions"])
+    assert labels == {"flap-d15.000001", "flap-d15.000002"}
+
+
+def test_p0570_r26_control_guide_has_an_executed_example():
+    """The guide must expose the control workflow and its assembly limits."""
+    from pathlib import Path
+
+    page = Path(__file__).resolve().parents[2] / "docs" / "geometry-parametrization.md"
+    text = page.read_text(encoding="utf-8")
+    assert "add-control-surface" in text and "add_control_surfaces" in text
+    assert "F5" in text and "F6" in text
+    examples = [part.split("```", 1)[0] for part in text.split("```python\n")[1:]]
+    example = next((part for part in examples if "controls.build" in part), "")
+    assert example, "control guide needs a runnable worked example"
+    exec(compile(example, str(page), "exec"), {})
 
 
 def test_p0570_gm9_plain_applied_geometry_preserves_skin_and_closes(kernel, tmp_path):

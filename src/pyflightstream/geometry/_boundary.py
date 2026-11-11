@@ -121,6 +121,12 @@ def unpack(value, path=""):
     InputValueError
         If a wrapper carries a unit other than the one its path implies, or a source other than
         ``given`` or ``default``.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry.stages import unpack
+    >>> unpack({"name": {"value": "wing", "unit": "1", "source": "given"}})
+    {'name': 'wing'}
     """
     if isinstance(value, list):
         return [unpack(v, path) for v in value]

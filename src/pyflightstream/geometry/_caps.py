@@ -548,9 +548,25 @@ def cap_edge_gap(model: LiftingModel) -> float:
     Compare 4001 corresponding boundary points, including endpoints, on the exact spline
     edges. This includes the side edges of the corner, which a skin-rim-only check misses.
     No interior fit samples are used as evidence of boundary closure.
+
+    Parameters
+    ----------
+    model : LiftingModel
+        Skin, trailing edge and caps in the same coordinate frame, in metres.
+
+    Returns
+    -------
+    float
+        Largest sampled boundary gap in metres, or zero when no caps are present.
     """
     gaps = [0.0]
     for end, column in (("tip", -1), ("root", 0)):
+        if f"{end}_cap_nose" in model.caps:
+            gaps += [
+                float(np.linalg.norm(a - b, axis=1).max())
+                for a, b in _flat_pairs(model, end, column)
+            ]
+            continue
         if f"{end}_cap_upper" not in model.caps:
             continue
         upper, lower = (model.caps[f"{end}_cap_{side}"] for side in ("upper", "lower"))
@@ -679,6 +695,80 @@ def _across_patch(track, knots_u, family) -> Patch:
     )
 
 
+def _flat_rim(poles, knots):
+    """Six exact perimeter curves on their own bases, starting at the leading edge."""
+    low, up, common = rim_halves(poles, knots)
+    up_a, up_b = split_patch(_curve_patch(up, common), "u", 0.5)
+    low_a, low_b = split_patch(_curve_patch(low, common), "u", 0.5)
+    lower = [
+        _curve_patch(np.asarray(p.controls)[::-1, 0], 1 - _u_knots(p)[::-1]) for p in (low_b, low_a)
+    ]
+    top, bottom = np.asarray(up_b.controls)[-1, 0], np.asarray(lower[0].controls)[0, 0]
+    middle = (top + bottom) / 2
+    linear = [
+        _curve_patch(np.array([a, b]), np.array([0.0, 0.0, 1.0, 1.0]))
+        for a, b in ((top, middle), (middle, bottom))
+    ]
+    return [up_a, up_b, *linear, *lower]
+
+
+def _greville(patch):
+    knots, degree = _u_knots(patch), patch.degree_u
+    return np.array([np.mean(knots[i + 1 : i + degree + 1]) for i in range(len(patch.controls))])
+
+
+def _flat_caps(poles, knots, end):
+    """Three Coons quadrilaterals with exact perimeter curves and straight shared spokes."""
+    curves = _flat_rim(poles, knots)
+    centre = (np.asarray(curves[0].controls)[-1, 0] + np.asarray(curves[4].controls)[-1, 0]) / 2
+    faces = {}
+    for side, index in (("nose", 5), ("upper", 1), ("lower", 3)):
+        basis_u, basis_v = curves[index], curves[(index + 1) % 6]
+        bottom, right = np.asarray(basis_u.controls)[:, 0], np.asarray(basis_v.controls)[:, 0]
+        tu, tv = _greville(basis_u), _greville(basis_v)
+        u, v = tu[:, None, None], tv[None, :, None]
+        a, b, c, d = bottom[0], bottom[-1], right[-1], centre
+        top = (1 - tu[:, None]) * d + tu[:, None] * c
+        left = (1 - tv[:, None]) * a + tv[:, None] * d
+        net = (
+            (1 - v) * bottom[:, None]
+            + v * top[:, None]
+            + (1 - u) * left[None]
+            + u * right[None]
+            - ((1 - u) * (1 - v) * a + u * (1 - v) * b + u * v * c + (1 - u) * v * d)
+        )
+        faces[f"{end}_cap_{side}"] = replace(
+            basis_u,
+            family=f"{end}_cap",
+            controls=net,
+            knots_v=basis_v.knots_u,
+            multiplicities_v=basis_v.multiplicities_u,
+            degree_v=basis_v.degree_u,
+            role="cap",
+        )
+    return faces
+
+
+def _flat_pairs(model, end, column):
+    """Compare cap rims to the independent skin split, and shared spokes to each other."""
+    curves = _flat_rim(np.asarray(model.skin.controls)[:, column], _u_knots(model.skin))
+    samples = [
+        BSpline(_u_knots(c), np.asarray(c.controls)[:, 0], c.degree_u)(np.linspace(0, 1, 4001))
+        for c in curves
+    ]
+    faces = [model.caps[f"{end}_cap_{side}"] for side in ("nose", "upper", "lower")]
+    pairs = []
+    for i, (face, index) in enumerate(zip(faces, (5, 1, 3), strict=True)):
+        pairs.extend(
+            [
+                (_edge_samples(face, "u", 0), samples[index]),
+                (_edge_samples(face, "v", -1), samples[(index + 1) % 6]),
+                (_edge_samples(face, "u", -1), _edge_samples(faces[(i + 1) % 3], "v", 0)[::-1]),
+            ]
+        )
+    return pairs
+
+
 def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict[str, Patch]:
     """Return the cap faces that close one end of a skin, by base name.
 
@@ -689,12 +779,16 @@ def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict
     across the base, closes the blunt trailing edge between the two faces' last pole tracks, so
     its rim is the trailing-edge face's end edge. ``section`` is the chord-frame section at that
     end. The tip end takes ``tip_cap.kind``; the root end takes ``root`` (``open`` gives none).
+    Flat ends instead use three Coons quadrilaterals around a common interior point,
+    retaining the exact rim without collapsing a boundary edge at the leading edge.
     """
     kind = component["tip_cap"]["kind"] if end == "tip" else component.get("root", "open")
     if kind in ("none", "open"):
         return {}
     column, sign, eta = (-1, 1.0, 1.0) if end == "tip" else (0, -1.0, 0.0)
     skin = model.skin
+    if kind == "flat":
+        return _flat_caps(np.asarray(skin.controls)[:, column], _u_knots(skin), end)
     low3, up3, common = rim_halves(np.asarray(skin.controls)[:, column], _u_knots(skin))
     low2, up2, _ = rim_halves(np.asarray(section.poles, float), np.asarray(section.knots, float))
     tip = {**component, "_tip": model.fraction}
@@ -741,6 +835,12 @@ def rim_shared(model: LiftingModel) -> dict:
         np.linalg.norm(te[1] - skin[-1], axis=-1).max(),
     ]
     for end, column in (("tip", -1), ("root", 0)):
+        if f"{end}_cap_nose" in model.caps:
+            gaps += [
+                float(np.linalg.norm(a - b, axis=1).max())
+                for a, b in _flat_pairs(model, end, column)
+            ]
+            continue
         if f"{end}_cap_upper" not in model.caps:
             continue
         low, up, _ = rim_halves(skin[:, column], _u_knots(model.skin))

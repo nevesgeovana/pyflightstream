@@ -752,6 +752,15 @@ def lifting_surface(component) -> list[Patch]:
     -------
     list of Patch
         The skin faces, six families per spanwise bay.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry import resolve_config, stages
+    >>> config = resolve_config({"type": "lifting_surface"})
+    >>> component = stages.unpack(config)["components"]["COMPONENT"]
+    >>> faces = stages.lifting_surface(component)
+    >>> len(faces) > 0
+    True
     """
     model = skin_model(component)
     law = section_law(component, None, model.fraction)

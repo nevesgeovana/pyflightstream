@@ -772,6 +772,13 @@ def resolve_config(data, stem=None, base=None):
         X.Y.Z version, a value or relationship is out of range, a dominance or extends cycle
         exists, a value has the wrong form, or a resolved input's derived quantity is
         inconsistent. Unknown keys do not raise: they are skipped and listed in ``warnings``.
+
+    Examples
+    --------
+    >>> from pyflightstream.geometry import resolve_config
+    >>> resolved = resolve_config({"type": "body", "length_mm": 2000.0})
+    >>> resolved["components"]["COMPONENT"]["length"]["value"]
+    2.0
     """
     return _guarded("configuration", _resolve, data, stem, base)
 
