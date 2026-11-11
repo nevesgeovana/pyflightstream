@@ -42,6 +42,7 @@ from pyflightstream.geometry.stages import (
     STAGE_ROWS,
     CheckFailedError,
     StageRow,
+    adopt_propeller,
     adopt_surface_file,
     blister_model,
     check_entry,
@@ -55,6 +56,11 @@ from pyflightstream.geometry.stages import (
     write_record,
 )
 from pyflightstream.workspace._geom_log import LOG_NAME, RunLog
+from pyflightstream.workspace._geom_propeller import (
+    PROPELLER_STAGES,
+    applicable_stages,
+    stage_result,
+)
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
@@ -598,7 +604,15 @@ def _control_group_step(context: RunContext) -> StageOutcome:
 
 
 #: The stage functions of this tree, by stage id. A stage not named here is recorded skipped.
+def _propeller_step(stage):
+    def run(context):
+        return StageOutcome(**stage_result(context, stage))
+
+    return run
+
+
 STAGE_FUNCTIONS: dict[str, StageFn] = {
+    **{stage: _propeller_step(stage) for stage in PROPELLER_STAGES},
     "S0": _definition,
     "S8": _closures,
     "S10": _dominance,
@@ -624,9 +638,18 @@ STAGE_FUNCTIONS: dict[str, StageFn] = {
 }
 
 
-def default_stages() -> list[Stage]:
-    """Return every stage of the table with the function this tree holds for it, if any."""
-    return [Stage(row, STAGE_FUNCTIONS.get(row.stage)) for row in STAGE_ROWS]
+def default_stages(*, include_propeller: bool = False) -> list[Stage]:
+    """Return generic stages, optionally including the propeller-specific sub-steps.
+
+    The runner requests the complete table, then selects by component type.
+    A caller overriding generic export stages retains the generic workflow.
+    The runner applies ``until`` by registered stage identity in either plan.
+    """
+    return [
+        Stage(row, STAGE_FUNCTIONS.get(row.stage))
+        for row in STAGE_ROWS
+        if include_propeller or row.stage not in PROPELLER_STAGES
+    ]
 
 
 def _package_version() -> str:
@@ -687,7 +710,7 @@ def _resolve(config, overrides):
         raise InputValueError("overrides: give a path or a raw configuration, not a resolved one")
     if overrides:
         # a [surface] or [body] file is one component named by its table: overrides address it
-        raw = adopt_surface_file(raw)
+        raw = adopt_propeller(adopt_surface_file(raw))
     for dotted, value in (overrides or {}).items():
         _set_path(raw, dotted, value)
     resolved = resolve_config(raw, stem=stem, base=base)
@@ -917,13 +940,19 @@ def run_geometry(
         started=_now(),
         overrides=overrides,
     )
-    planned = list(stages if stages is not None else default_stages())[: last + 1]
+    planned = [
+        stage
+        for stage in (stages if stages is not None else default_stages(include_propeller=True))
+        if stage_index(stage.row.stage) <= last
+    ]
     try:
         resolved = _resolve(config, overrides)
         members = _members(resolved, configuration, variant)
     except (PyflightstreamError, ValueError, OSError, tomllib.TOMLDecodeError) as error:
         later = [f"{s.row.stage} {s.row.name}" for s in planned[1:]]
         return _refuse(folder, log, clock, later, _refused(str(error)))
+    if stages is None:
+        planned = applicable_stages(planned, resolved, members)
     parameter = parameter_id(resolved)
     log.note(f"parameter id: {parameter}")
     context = RunContext(resolved, configuration, variant, folder, parameter, members)

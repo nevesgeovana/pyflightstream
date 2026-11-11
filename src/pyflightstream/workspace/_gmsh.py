@@ -839,7 +839,12 @@ class GmshKernel:
             )
 
     def export_iges(
-        self, groups: Mapping[str, Sequence[Face]], path: str | Path, *, preference: int = 1
+        self,
+        groups: Mapping[str, Sequence[Face]],
+        path: str | Path,
+        *,
+        preference: int = 1,
+        unit: str = "m",
     ) -> None:
         """Write both boundary curves with PREF 1; preferences 2 and 3 warn and normalize."""
         self._model()
@@ -848,6 +853,7 @@ class GmshKernel:
             {n: [f.tag for f in fs] for n, fs in groups.items()},
             path,
             preference=preference,
+            unit=unit,
         )
 
 

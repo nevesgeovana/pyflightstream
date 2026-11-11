@@ -26,7 +26,7 @@ from pyflightstream._errors import InputValueError
 from pyflightstream.geometry._airfoils import naca_camber
 from pyflightstream.geometry._blister import blister_notes
 from pyflightstream.geometry._bodies import apply_rings, check_boat_tail, check_body_symmetry
-from pyflightstream.geometry._boundary import unit_for, unpack
+from pyflightstream.geometry._boundary import definition_units, unit_for, unpack
 from pyflightstream.geometry._component_keys import (
     body_sections,
     check_blister,
@@ -37,6 +37,7 @@ from pyflightstream.geometry._component_keys import (
 )
 from pyflightstream.geometry._fillet import fillet_notes
 from pyflightstream.geometry._identity import SCHEMA_MAJOR
+from pyflightstream.geometry._propeller_input import adopt_propeller, validate_definition
 from pyflightstream.geometry._schema import (
     TYPES,
     number,
@@ -59,6 +60,7 @@ RESOLVED_FORMAT = "pyflightstream-geometry-resolved"
 #: The optional tables and keys with no default, by component type and dotted place. Anywhere else
 #: the same name is an unknown key.
 FREE_BY_TYPE = {
+    "propeller": frozenset({"definition"}),
     "lifting_surface": frozenset(
         {"distributions", "planform.root_chord", "planform.tip_chord", "planform.area"}
         | {"planform.height", "tip_cap.extent"}
@@ -488,6 +490,10 @@ def resolve_blister(raw, component, notes):
 
 def resolve_propeller(raw, component, notes):
     """Validate a propeller component and return its (empty) derived quantities."""
+    if "definition" in component:
+        component["definition"] = validate_definition(component["definition"])
+        check_common(notes["name"], component, notes["warnings"])
+        return {}
     number(component["radius"], "radius", 0, strict=True)
     number(component["hub_radius"], "hub_radius", 0, component["radius"], strict=True)
     if component["hub_radius"] >= component["radius"]:
@@ -510,21 +516,29 @@ def resolve_propeller(raw, component, notes):
     return {}
 
 
-def provenance(value, supplied, path=""):
+def provenance(value, supplied, path="", *, propeller_units=None):
     """Wrap each leaf of a component as ``{value, unit, source}``; source is given or default."""
     if isinstance(value, dict):
         provided = supplied if isinstance(supplied, dict) else {}
+        if path.endswith("definition"):
+            propeller_units = definition_units(value)
         return {
-            k: provenance(v, provided.get(k), f"{path}.{k}".strip(".")) for k, v in value.items()
+            k: provenance(
+                v, provided.get(k), f"{path}.{k}".strip("."), propeller_units=propeller_units
+            )
+            for k, v in value.items()
         }
     if isinstance(value, list) and value and isinstance(value[0], dict):
         given = supplied if isinstance(supplied, list) else []
         return [
-            provenance(v, given[i] if i < len(given) else None, path) for i, v in enumerate(value)
+            provenance(
+                v, given[i] if i < len(given) else None, path, propeller_units=propeller_units
+            )
+            for i, v in enumerate(value)
         ]
     return {
         "value": value,
-        "unit": unit_for(path),
+        "unit": unit_for(path, propeller_units),
         "source": "default" if supplied is None else "given",
     }
 
@@ -620,7 +634,10 @@ def _resolve_component(name, raw, notes, base):
 
 def _translate_inputs(name, raw, notes, base):
     """Read the published key names of a fresh component and skip a cap shape."""
-    if raw["type"] == "lifting_surface":
+    if raw["type"] == "propeller" and "definition" in raw:
+        notes.setdefault("propeller_given", {})[name] = deepcopy(raw["definition"])
+        raw["definition"] = validate_definition(raw["definition"], base)
+    elif raw["type"] == "lifting_surface":
         translate_lifting(name, raw, notes, base)
     elif raw["type"] == "body":
         translate_body(name, raw, notes)
@@ -669,6 +686,8 @@ def _resolve_component_keys(name, raw, notes, base):
     _check_data_files(name, component, base, notes["warnings"])
     if raw["type"] == "lifting_surface":
         finish_lifting(name, component, notes)
+    if name in notes.get("propeller_given", {}):
+        raw["definition"] = notes["propeller_given"][name]
     return component, derived, raw
 
 
@@ -727,6 +746,10 @@ def _file_digests(components, base):
             if path:
                 digest = optional_file_sha256(base / path)
                 rows.append({"role": f"{name}.{role}", "sha256": digest or ""})
+        for aid, profile in sorted(component.get("definition", {}).get("airfoils", {}).items()):
+            if "file" in profile:
+                digest = optional_file_sha256(base / profile["file"])
+                rows.append({"role": f"{name}.airfoils.{aid}.file", "sha256": digest or ""})
     return rows
 
 
@@ -786,7 +809,7 @@ def resolve_config(data, stem=None, base=None):
 def _resolve(data, stem, base):
     """Resolve a configuration; :func:`resolve_config` is the documented entry."""
     resolved = data.get("format") == RESOLVED_FORMAT
-    source = adopt_surface_file(unpack(data))
+    source = adopt_propeller(adopt_surface_file(unpack(data)))
     if "type" in source:
         source = {"components": {"COMPONENT": source}}
     notes = {"warnings": [], "findings": [], "name": "", "resolved": resolved}

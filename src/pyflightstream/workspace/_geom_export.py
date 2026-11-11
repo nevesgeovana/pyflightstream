@@ -34,6 +34,18 @@ from pyflightstream.workspace._geom_parts import plain
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
 
+def _export_units(resolved, names):
+    """Choose the definition's mm for propeller-only groups; other groups use kernel metres."""
+    components = unpack(resolved or {}).get("components", {})
+    if names and all(
+        components.get(n, {}).get("type") == "propeller"
+        and components[n].get("definition", {}).get("output", {}).get("units") == "mm"
+        for n in names
+    ):
+        return {"unit": "mm"}
+    return {}
+
+
 def write_assembly(
     assembly: Assembly, target: Path, *, resolved=None, configuration=None
 ) -> dict[str, Any]:
@@ -50,7 +62,8 @@ def write_assembly(
         piece = manifest["components"][name]
         piece["iges"] = f"{name}.igs"
         piece["layout"] = f"{name}.layout.json"
-        assembly.k.export_iges({name: faces}, target.parent / piece["iges"])
+        units = _export_units(resolved, [name])
+        assembly.k.export_iges({name: faces}, target.parent / piece["iges"], **units)
         piece["sha256"] = sha256_file(target.parent / piece["iges"])
         model = assembly.models[name]
         bases = {
@@ -67,7 +80,7 @@ def write_assembly(
         }
         for i, (face, entry) in enumerate(zip(faces, piece["faces"], strict=True)):
             entry["iges"] = f"{name}.face-{i}.igs"
-            assembly.k.export_iges({entry["name"]: [face]}, target.parent / entry["iges"])
+            assembly.k.export_iges({entry["name"]: [face]}, target.parent / entry["iges"], **units)
             entry["source_faces"] = [t.to_dict() for t in model.trims if t.base == entry["base"]]
             centre = np.mean(assembly.k.uv_bounds(face), axis=0)
             roles = set()
@@ -98,7 +111,7 @@ def write_assembly(
                 }
             ),
         )
-    assembly.k.export_iges(assembly.faces, target)
+    assembly.k.export_iges(assembly.faces, target, **_export_units(resolved, assembly.faces))
     config = (
         unpack(resolved)
         if resolved is not None
@@ -419,6 +432,7 @@ def sew_back(folder: Path, manifest: dict) -> dict[str, Any]:
 def generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
     """Build unassembled source pieces on a kernel for a configuration with no operations."""
     from pyflightstream.geometry.stages import generate_pieces, unpack
+    from pyflightstream.workspace._geom_propeller import PropellerAssembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     plain_config = unpack(config)
@@ -428,7 +442,12 @@ def generate_record(config: Any, path: str, configuration: str | None) -> dict[s
     )
     kernel = open_kernel("writing source pieces")
     try:
-        assembly = Assembly(kernel, {n: every[n] for n in members}, [], out=Path(path).parent)
+        factory = (
+            PropellerAssembly
+            if any(plain_config["components"][n]["type"] == "propeller" for n in members)
+            else Assembly
+        )
+        assembly = factory(kernel, {n: every[n] for n in members}, [], out=Path(path).parent)
         record = assembly.step("S10.D1")
         if any(c["status"] == "failed" for c in record["checks"]):
             raise InputArtifactError(str(record["checks"]), kind="geometry")

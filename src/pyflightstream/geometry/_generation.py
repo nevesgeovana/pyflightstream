@@ -34,6 +34,7 @@ from ._placement import (
     placement_transform,
     wing_in_body_frame,
 )
+from ._propeller import Propeller
 from ._regions import (
     body_region,
     fairing_volume_triangles,
@@ -272,7 +273,9 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
             blister = blister_model(component, components[frame])
             bases, trims = blister.bases, blister.trims
         else:
-            if kind == "body":
+            if kind == "propeller":
+                patches = propeller_patches(component)
+            elif kind == "body":
                 patches = body(component, body_junctions(components, name))
             elif kind == "wing_fuselage_fairing":
                 frame, wing_name = component["hosts"]
@@ -281,16 +284,8 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
             else:
                 raise InputValueError(f"{name}.type: unsupported source piece {kind!r}")
             bases = {f"{patch.family}_{i}": patch for i, patch in enumerate(patches)}
-            trims = tuple(
-                iso_trim(
-                    key,
-                    key,
-                    (p.knots_u[0], p.knots_u[-1]),
-                    (p.knots_v[0], p.knots_v[-1]),
-                    p.role or p.family,
-                )
-                for key, p in bases.items()
-            )
+            options = component["definition"]["options"] if kind == "propeller" else None
+            trims = tuple(source_trim(key, p, options=options) for key, p in bases.items())
         placed = dict(
             zip(
                 bases,
@@ -341,7 +336,9 @@ def generate_components(
     result = {}
     for name, component in components.items():
         kind = component["type"]
-        if kind == "body":
+        if kind == "propeller":
+            patches = propeller_patches(component)
+        elif kind == "body":
             patches = body(component, body_junctions(components, name))
         elif kind == "lifting_surface":
             fairings = [
@@ -375,6 +372,57 @@ def generate_components(
             )
         result[name] = place(patches, components, name)
     return result
+
+
+def propeller_patches(component):
+    """Build the selected blade set, converting the definition's mm to workspace metres."""
+    if "definition" not in component:
+        raise InputValueError("propeller.definition: schema 1 definition required for generation")
+    design = Propeller(component["definition"])
+    model = design.blade() if design.config["output"]["blades"] == "one" else design.rotor()
+    return [replace(p, controls=p.controls * 1e-3) for p in model.patches]
+
+
+def source_trim(key, patch, *, options=None):
+    """Give a cap's two curved rims an explicit midpoint vertex before kernel export.
+
+    The tensor cap has a collapsed nose edge. Dividing both curved rims keeps
+    its outer wire outside the reader profile's unsupported three-edge form,
+    including when a sharp trailing edge collapses its other end too.
+    """
+    trim = iso_trim(
+        key,
+        key,
+        (patch.knots_u[0], patch.knots_u[-1]),
+        (patch.knots_v[0], patch.knots_v[-1]),
+        patch.role or patch.family,
+    )
+    if options is None or patch.role not in ("root_cap", "tip", "upper", "lower", "trailing_edge"):
+        return trim
+    if patch.role == "trailing_edge" and not _collapsed_end(patch):
+        return trim
+    loop = []
+    for i, (a, b) in enumerate(trim.loop):
+        cap = "root_cap" if i == 0 else "tip"
+        divide = (
+            i in (1, 3)
+            if patch.role == "trailing_edge"
+            else i in (0, 2) and (patch.role in ("root_cap", "tip") or options[cap] == "planar")
+        )
+        if divide:
+            middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+            loop.extend(((a, middle), (middle, b)))
+        else:
+            loop.append((a, b))
+    return replace(trim, loop=tuple(loop))
+
+
+def _collapsed_end(patch):
+    """Whether a propeller trailing face collapses to a point at either radial end, in m."""
+    return any(
+        float(np.linalg.norm(p - p[0], axis=1).max()) <= 1e-12
+        for p in (patch.controls[:, 0], patch.controls[:, -1])
+    )
 
 
 def blend_faces(components, name) -> tuple[list[Patch], str]:

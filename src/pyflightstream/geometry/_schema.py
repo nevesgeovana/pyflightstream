@@ -115,7 +115,7 @@ def scale_units(node, path, length_scale, angle_scale):
     its unit (``tolerance_m``, ``deflection_deg``) is already in that unit, whatever the file
     declares, so it is left alone too.
     """
-    if length_scale == 1.0 and angle_scale == 1.0:
+    if path.endswith(".definition") or (length_scale == 1.0 and angle_scale == 1.0):
         return node
     if isinstance(node, dict):
         if "of" in node:

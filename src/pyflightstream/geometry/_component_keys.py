@@ -15,6 +15,10 @@ import math
 import re
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.geometry._propeller_input import (
+    DEFINITION_KEYS as PROPELLER_DEFINITION_KEYS,
+)
+from pyflightstream.geometry._propeller_input import TABLE_KEYS as PROPELLER_TABLE_KEYS
 from pyflightstream.geometry._schema import (
     check_body_law,
     check_bspline_item,
@@ -26,6 +30,8 @@ from pyflightstream.geometry._schema import (
 )
 
 __all__ = [
+    "PROPELLER_DEFINITION_KEYS",
+    "PROPELLER_TABLE_KEYS",
     "body_sections",
     "check_blister",
     "check_body_extras",

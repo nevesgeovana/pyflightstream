@@ -70,6 +70,9 @@ from pyflightstream.geometry._mesh_topology import (
 )
 from pyflightstream.geometry._patch import Patch, evaluate_patch
 from pyflightstream.geometry._placement import placement_transform, wing_in_body_frame
+from pyflightstream.geometry._propeller_checks import evaluate as evaluate_propeller_patch
+from pyflightstream.geometry._propeller_checks import measured as propeller_measurement
+from pyflightstream.geometry._propeller_input import adopt_propeller
 from pyflightstream.geometry._records import (
     CheckFailedError,
     check_entry,
@@ -94,6 +97,9 @@ from pyflightstream.geometry._toml_keys import adopt_surface_file
 from pyflightstream.geometry.component import ComponentRecord
 
 __all__ = [
+    "adopt_propeller",
+    "evaluate_propeller_patch",
+    "propeller_measurement",
     "build_id",
     "manifest_record",
     "surface_id",

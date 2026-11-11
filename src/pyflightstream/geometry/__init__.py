@@ -19,7 +19,8 @@ Examples
 'given'
 """
 
+from pyflightstream.geometry._propeller import Propeller
 from pyflightstream.geometry.component import ComponentRecord
 from pyflightstream.geometry.config import load_config, resolve_config
 
-__all__ = ["ComponentRecord", "load_config", "resolve_config"]
+__all__ = ["ComponentRecord", "Propeller", "load_config", "resolve_config"]

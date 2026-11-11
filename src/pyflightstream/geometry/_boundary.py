@@ -81,10 +81,16 @@ def _unit_from_table(parts):
     return _UNIT_BY_TABLE.get((parts[-2], parts[-1]))
 
 
-def unit_for(path):
+def unit_for(path, propeller_units=None):
     """Return the unit at a dotted path: ``deg``, ``mm``, ``m``, ``m2`` or ``1``."""
     parts = path.split(".")
     key = parts[-1]
+    if len(parts) >= 3 and parts[-3] == "definition":
+        if parts[-2] == "propeller":
+            return {"radius": "mm", "hub_radius": "mm", "pitch_setting": "deg"}.get(key, "1")
+        if parts[-2] == "stations" and key in ("skew", "rake"):
+            default = "deg" if key == "skew" else "x/R"
+            return (propeller_units or {}).get(key, default)
     by_table = _unit_from_table(parts)
     if by_table is not None:
         return by_table
@@ -101,7 +107,20 @@ def unit_for(path):
     return "1"
 
 
-def unpack(value, path=""):
+def definition_units(value):
+    """Read the declared column units of a raw or wrapped schema 1 definition."""
+    table = value.get("stations", {})
+    if not isinstance(table, dict) or "r_R" not in table:
+        return None
+    units = table.get("units", {})
+    if not isinstance(units, dict):
+        return None
+    return {
+        key: unit.get("value") if isinstance(unit, dict) else unit for key, unit in units.items()
+    }
+
+
+def unpack(value, path="", *, propeller_units=None):
     """Strip the ``{value, unit, source}`` wrappers, checking each unit, and return plain values.
 
     Parameters
@@ -110,6 +129,9 @@ def unpack(value, path=""):
         A resolved configuration value: a wrapper, a mapping, a list or a plain value.
     path : str, optional
         Dotted path of ``value``, which names the expected unit; default empty.
+    propeller_units : mapping, optional
+        Skew and rake column units while descending a schema 1 definition;
+        inferred automatically at the definition boundary.
 
     Returns
     -------
@@ -129,15 +151,21 @@ def unpack(value, path=""):
     {'name': 'wing'}
     """
     if isinstance(value, list):
-        return [unpack(v, path) for v in value]
+        return [unpack(v, path, propeller_units=propeller_units) for v in value]
     if isinstance(value, dict) and set(value) == {"value", "unit", "source"}:
-        if value["unit"] != unit_for(path):
-            raise InputValueError(f"{path}.unit: expected {unit_for(path)}")
+        expected = unit_for(path, propeller_units)
+        if value["unit"] != expected:
+            raise InputValueError(f"{path}.unit: expected {expected}")
         if value["source"] not in ("given", "default"):
             raise InputValueError(f"{path}.source: expected given or default")
         return deepcopy(value["value"])
     if isinstance(value, dict):
-        return {k: unpack(v, f"{path}.{k}".strip(".")) for k, v in value.items()}
+        if path.endswith("definition"):
+            propeller_units = definition_units(value)
+        return {
+            k: unpack(v, f"{path}.{k}".strip("."), propeller_units=propeller_units)
+            for k, v in value.items()
+        }
     return deepcopy(value)
 
 
