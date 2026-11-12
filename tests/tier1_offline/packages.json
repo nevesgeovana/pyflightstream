@@ -225,6 +225,7 @@
       "tests/tier1_offline/test_p0570_gm15_kernel_support.py",
       "tests/tier1_offline/test_p0570_gm17_propeller.py",
       "tests/tier1_offline/test_p0570_gm2_kernel.py",
+      "tests/tier1_offline/test_p0570_gm8_curve_lengths.py",
       "tests/tier1_offline/test_p0570_gm8_export.py",
       "tests/tier1_offline/test_p0570_gm9_controls.py",
       "tests/tier1_offline/test_p0570_gmsh_projection.py",

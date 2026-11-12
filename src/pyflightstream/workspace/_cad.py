@@ -89,7 +89,7 @@ class FileTopology:
 
 @runtime_checkable
 class CadKernel(Protocol):
-    """What a geometry stage may ask of a CAD kernel: 37 members in eight groups."""
+    """Surface construction, topology, measurements and export behind a replaceable kernel."""
 
     # Life
     @property
@@ -283,6 +283,10 @@ class CadKernel(Protocol):
 
     def edge_bounds(self, edge: int) -> tuple[float, float]:
         """Return the parameter range of ``edge``."""
+        ...
+
+    def edge_length(self, edge: int) -> float:
+        """Return the native arc length of a signed boundary edge, in metres."""
         ...
 
     def edge_values(self, edge: int, parameters: Sequence[float]) -> np.ndarray:

@@ -16,8 +16,500 @@ from pyflightstream.workspace._iges_write import read_iges, serialize_iges
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 
+def _applied_config():
+    return {
+        "components": {
+            "panel": {
+                "type": "lifting_surface",
+                "planform": {"sref_m2": 4.0, "aspect_ratio": 4.0, "taper": 1.0},
+                "cap": {"type": "flat"},
+                "root": "flat",
+                "control": [
+                    {
+                        "name": "flap",
+                        "kind": "plain",
+                        "eta": [0.2, 0.7],
+                        "chord_ratio": 0.25,
+                        "gap_span": 0.01,
+                        "gap_chord": 0.02,
+                        "deflection_deg": [15],
+                    }
+                ],
+            }
+        },
+        "variants": {"deployed": ["panel.flap"]},
+    }
+
+
+def test_p0570_triangular_face_keeps_its_surface_with_four_boundary_segments(tmp_path):
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel_or_skip()
+    kernel = open_kernel("a retained triangular face")
+    path = tmp_path / "triangle.igs"
+    try:
+        face = kernel.add_planar_face([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
+        kernel.export_iges({"triangle": [face]}, path)
+        profile = check_profile(path)
+        assert profile.passed, profile.failed
+        topology = kernel.inspect_file(path, None)
+        assert len(topology.areas) == 1
+        assert topology.areas[0] == pytest.approx(0.5, rel=1e-9)
+        document = read_iges(path)
+        by_id = {e["id"]: e for e in document["entities"]}
+        boundary = next(e for e in document["entities"] if e["type"] == 142)
+        for pointer in boundary["parameters"][3:5]:
+            assert by_id[int(pointer)]["parameters"][1] == "4"
+        assert boundary["parameters"][5] == "1"
+    finally:
+        kernel.close()
+
+
+def test_p0570_converter_retains_compatible_named_nurbs_coefficients(tmp_path, monkeypatch):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace._geom_gate import base_displacement, read_bases
+    from pyflightstream.workspace._gmsh import gmsh_module, open_kernel
+    from pyflightstream.workspace.iges_convert import convert_iges
+
+    kernel_or_skip()
+    source, target = tmp_path / "source.igs", tmp_path / "converted.igs"
+    kernel = open_kernel("a compatible named B-spline at a translated datum")
+    try:
+        face = kernel.add_bspline_surface(
+            [[(0, 0, 0), (0, 1, 0)], [(1, 0, 0), (1, 1, 0.2)]],
+            knots_u=[0, 1],
+            knots_v=[0, 1],
+            mult_u=[2, 2],
+            mult_v=[2, 2],
+            deg_u=1,
+            deg_v=1,
+        )
+        kernel.export_iges({"part": [face]}, source)
+    finally:
+        kernel.close()
+    document = read_iges(source)
+    offset = 10000.123456789013
+    for entity in document["entities"]:
+        values, kind = entity["parameters"], entity["type"]
+        if kind == 128:
+            ku, kv, du, dv = map(int, values[1:5])
+            count = (ku + 1) * (kv + 1)
+            start = 10 + ku + du + 2 + kv + dv + 2 + count
+            indices = range(start, start + 3 * count, 3)
+        elif kind == 126 and entity["d1"][8][4:6] != "05":
+            k, degree = map(int, values[1:3])
+            start = 7 + k + degree + 2 + k + 1
+            indices = range(start, start + 3 * (k + 1), 3)
+        elif kind == 110 and entity["d1"][8][4:6] != "05":
+            indices = (1, 4)
+        else:
+            continue
+        for index in indices:
+            values[index] = format(float(values[index]) + offset, ".17g")
+    document["global"][19] = str(offset + 1)
+    source.write_text(serialize_iges(document), encoding="ascii")
+    expected = {name: [base] for name, base in read_bases(source).items()}
+    record = convert_iges([source], target)
+    assert record["faces"] == 1 and record["components"] == {"part": 1}
+    assert base_displacement(target, expected) <= 1e-12
+    assert record["readback"]["retained_compatible_nurbs"] is True
+    gmsh = gmsh_module("a retained-file count mutation")
+    importing, calls = gmsh.model.occ.importShapes, []
+
+    def drop_second_read(path, *args, **kwargs):
+        calls.append(path)
+        faces = importing(path, *args, **kwargs)
+        return faces if len(calls) == 1 else []
+
+    monkeypatch.setattr(gmsh.model.occ, "importShapes", drop_second_read)
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
+    refused = tmp_path / "lost-face.igs"
+    with pytest.raises(InputArtifactError, match="faces"):
+        convert_iges([source], refused)
+    assert not refused.exists()
+
+
+def test_p0570_fowler_variant_regenerates_its_actual_pinned_sections(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+    from tests.tier1_offline.test_p0570_gm9_controls import _fowler_config
+
+    kernel_or_skip()
+    raw = _fowler_config()
+    raw["variants"] = {"deployed": ["panel.flap"]}
+    captured = {}
+
+    def retain(context):
+        result = _geom_run.STAGE_FUNCTIONS["S11"](context)
+        captured.update(
+            resolved=context.resolved, written=context.state["export"], members=context.members
+        )
+        return result
+
+    selected = [
+        _geom_run.Stage(stage_row(s), retain if s == "S11" else _geom_run.STAGE_FUNCTIONS[s])
+        for s in ("S0", "S11", "S13.R")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S13.R", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    record = json.loads((tmp_path / "S13.R.json").read_text(encoding="utf-8"))
+    assert all(c["status"] == "passed" for c in record["checks"]), record
+    assert len(report["outputs"]["variant_exports"]) == 2
+    cold = _run_cold_roundtrip(tmp_path, **captured)
+    assert not cold["calls"], cold
+    assert all(c["status"] == "passed" for c in cold["record"]["checks"]), cold
+
+
+def test_p0570_fowler_boundary_distance_uses_bounded_pcurve_starts(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+    from tests.tier1_offline.test_p0570_gm9_controls import _fowler_config
+
+    kernel_or_skip()
+    raw = _fowler_config()
+    raw["variants"] = {"deployed": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S11", "S11.P")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S11.P", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    cove = next(f for f in manifest["pieces"][0]["face_records"] if f["role"] == "cove_roof")
+    document = read_iges(tmp_path / cove["iges"])
+    by_id = {e["id"]: e for e in document["entities"]}
+    outer = next(e for e in document["entities"] if e["type"] == 142)
+    pending = [int(outer["parameters"][4])]
+    while pending:
+        curve = by_id[pending.pop()]
+        values = curve["parameters"]
+        if curve["type"] == 102:
+            pending.extend(map(int, values[2 : 2 + int(values[1])]))
+        elif curve["type"] == 126:
+            k, degree = map(int, values[1:3])
+            start = 7 + k + degree + 2 + k + 1
+            for pole in range(k + 1):
+                z = start + 3 * pole + 2
+                values[z] = str(float(values[z]) + 0.01)
+        elif curve["type"] == 110:
+            for z in (3, 6):
+                values[z] = str(float(values[z]) + 0.01)
+    damaged = tmp_path / "displaced-cove-boundary.igs"
+    damaged.write_text(serialize_iges(document), encoding="ascii")
+    assert {f.check for f in check_profile(damaged).failed} == {"profile.loop_surface"}
+
+
+def test_p0570_empty_variant_reaches_the_export_api(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = {"components": {"shell": {"type": "body"}}, "variants": {"deployed": []}}
+    selected = [_geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S11")]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S11", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["variant"] == "deployed"
+    assert [p["component"] for p in manifest["pieces"]] == ["shell"]
+
+
+def test_p0570_selected_host_cut_does_not_run_unrequested_control_stages(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S10.F5")
+    ]
+    report = _geom_run.run_geometry(
+        _applied_config(), variant="deployed", out=tmp_path, until="S10.F5", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    assert not (tmp_path / "control-inputs.json").exists(), (
+        "an inapplicable selected host cut must not run the earlier control builders"
+    )
+
+
+@pytest.mark.parametrize(
+    "stage,bay_width",
+    [("F5", None), ("F6", 110), ("F6", 100)],
+    ids=["P0570-body-cut", "P0570-engine-cut", "P0570-engine-loop-gap"],
+)
+def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage, bay_width):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    panel = raw["components"]["panel"]
+    panel["placement"] = {"translation": [0.5, 0, 0]}
+    panel["control"][0]["eta"] = [0.2, 0.5]
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    if stage == "F6":
+        panel["engine"] = [{"name": "pod", "eta_axis": 0.8, "half_width_mm": bay_width}]
+        raw["components"]["pod"] = {
+            "type": "body",
+            "length_mm": 2000,
+            "symmetry": "full",
+            "placement": {"translation": [0, 1.6, 0]},
+        }
+        raw["dominance"].append({"dominant": ["pod"], "dominated": ["panel"], "operation": "cut"})
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", f"S10.{stage}")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until=f"S10.{stage}", stages=selected
+    )
+    if bay_width == 100:
+        assert (report["status"], report["stage"], report["check"]) == (
+            "failed",
+            "S10.F6",
+            "junction.loop_closure",
+        )
+        assert report["measured"] > report["limit"] == 5e-6
+        assert not (tmp_path / "F6-boundary" / "applied").exists()
+        return
+    assert report["status"] == "accepted", report
+    record = json.loads((tmp_path / f"S10.{stage}.json").read_text(encoding="utf-8"))
+    assert record["checks"] and all(c["status"] == "passed" for c in record["checks"]), record
+    assert any(c["id"] == f"control.{stage.lower()}.junction_length" for c in record["checks"])
+    assert "clean_junction_lengths_m" in str(record["outputs"])
+    assert "sha256" in str(record["outputs"])
+    assert f"sub-step S10.{stage}" in (tmp_path / "geom-run.log").read_text(encoding="utf-8")
+    boundary = record["outputs"]["inputs"]["geometry"]["path"]
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    damaged = tmp_path / "introduced-free-face.igs"
+    kernel = open_kernel("constructing a valid introduced-free-edge NO fixture")
+    try:
+        read = kernel.import_iges(boundary)
+        groups = {}
+        for face, name in zip(read.faces, read.names, strict=True):
+            groups.setdefault(name, []).append(face)
+        groups["defect"] = [
+            kernel.add_planar_face([(10, 0, 0), (11, 0, 0), (11, 1, 0), (10, 1, 0)])
+        ]
+        kernel.export_iges(groups, damaged)
+    finally:
+        kernel.close()
+
+    def seed(context):
+        context.state["control_inputs"] = {
+            stage: {
+                "path": str(damaged),
+                "symmetry_axis": 1,
+                "previous_free": record["outputs"]["free_edges"],
+                "junction_lengths_m": record["outputs"]["junction_lengths_m"],
+                "clean_junction_lengths_m": record["outputs"]["inputs"]["clean_junction_lengths_m"],
+            }
+        }
+        return _geom_run.StageOutcome()
+
+    negative = [_geom_run.Stage(stage_row("S0"), seed), selected[-1]]
+    failed = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path / "negative", until=f"S10.{stage}", stages=negative
+    )
+    assert (failed["status"], failed["stage"], failed["check"]) == (
+        "failed",
+        f"S10.{stage}",
+        f"control.{stage.lower()}.free_delta",
+    )
+
+
+def test_p0570_applied_host_cut_stops_when_the_clean_reference_fails(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    raw["components"]["panel"]["placement"] = {"translation": [10, 0, 0]}
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S10.F5")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S10.F5", stages=selected
+    )
+    assert (report["status"], report["stage"], report["check"]) == (
+        "failed",
+        "S10.F5",
+        "placement.contact",
+    )
+    assert not (tmp_path / "F5-boundary" / "applied").exists(), (
+        "a failed reference must stop the chain"
+    )
+
+
+def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s])
+        for s in ("S0", "S11", "S11.V", "S11.P", "S11.R", "S11.S", "S13.R", "S13")
+    ]
+    report = _geom_run.run_geometry(
+        _applied_config(), variant="deployed", out=tmp_path, until="S13", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["variant"] == "deployed"
+    assert [p["component"] for p in manifest["pieces"]] == ["panel"]
+    piece = manifest["pieces"][0]
+    sidecar = json.loads((tmp_path / piece["layout"]).read_text(encoding="utf-8"))
+    assert any(t["base"].startswith("flap-d15/") for t in sidecar["source_trims"])
+    skin = [t for t in sidecar["source_trims"] if t["base"] == "skin"]
+    assert len(skin) >= 4
+    assert all(t["base"] in sidecar["bases"] for t in sidecar["source_trims"])
+    assert piece["source_surface_id"] != ""
+    assert all(
+        c["status"] == "passed"
+        for c in json.loads((tmp_path / "S13.R.json").read_text(encoding="utf-8"))["checks"]
+    )
+    reverse = json.loads((tmp_path / "S13.json").read_text(encoding="utf-8"))
+    assert reverse["checks"][0]["status"] == "skipped"
+    assert "no reverse capability for applied controls" in reverse["checks"][0]["note"]
+
+
+def test_p0570_applied_variant_exports_each_angle_without_superposing_positions(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    raw["components"]["panel"]["control"][0]["deflection_deg"] = [0, 15]
+    source = {}
+
+    def retain(context):
+        outcome = _geom_run.STAGE_FUNCTIONS["S11"](context)
+        source.update(context.state["export"])
+        return outcome
+
+    selected = [
+        _geom_run.Stage(stage_row("S0"), _geom_run.STAGE_FUNCTIONS["S0"]),
+        _geom_run.Stage(stage_row("S11"), retain),
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S11", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    exports = report["outputs"].get("variant_exports", [])
+    assert len(exports) == 2, "every angle combination needs its own export"
+    records = [json.loads((tmp_path / e["manifest"]).read_text(encoding="utf-8")) for e in exports]
+    assert {r["control_selection"]["panel.flap"] for r in records} == {"flap-d0", "flap-d15"}
+    assert len({r["surface_id"] for r in records}) == 2
+    for record in records:
+        piece = record["pieces"][0]
+        assert piece["faces"] == records[0]["pieces"][0]["faces"]
+    second = tmp_path / exports[1]["manifest"]
+    face = second.parent / records[1]["pieces"][0]["face_records"][0]["iges"]
+    document = read_iges(face)
+    values = next(e["parameters"] for e in document["entities"] if e["type"] == 128)
+    ku, kv, du, dv = map(int, values[1:5])
+    pole = 10 + ku + du + 2 + kv + dv + 2 + (ku + 1) * (kv + 1)
+    values[pole + 2] = str(float(values[pole + 2]) + 1e-10)
+    face.write_text(serialize_iges(document), encoding="ascii")
+
+    def seed(context):
+        context.state["export"] = source
+        return _geom_run.STAGE_FUNCTIONS["S0"](context)
+
+    failed = _geom_run.run_geometry(
+        raw,
+        variant="deployed",
+        out=tmp_path,
+        until="S11.P",
+        stages=[
+            _geom_run.Stage(stage_row("S0"), seed),
+            _geom_run.Stage(stage_row("S11.P"), _geom_run.STAGE_FUNCTIONS["S11.P"]),
+        ],
+    )
+    assert (failed["status"], failed["stage"], failed["check"]) == (
+        "failed",
+        "S11.P",
+        "profile.base_shared",
+    )
+    checks = json.loads((tmp_path / "S11.P.json").read_text(encoding="utf-8"))["checks"]
+    assert any(c["status"] == "failed" and c["where"].get("position") == 1 for c in checks)
+
+
+def test_p0570_applied_assembly_export_keeps_ownership_and_source_trims(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    raw = _applied_config()
+    raw["components"]["panel"]["placement"] = {"translation": [0.5, 0, 0]}
+    raw["components"]["panel"]["control"][0]["eta"] = [0.2, 0.5]
+    raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
+    raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s])
+        for s in (
+            "S0",
+            "S10.D1",
+            "S11",
+            "S11.P",
+            "S11.R",
+            "S11.S",
+            "S12.C",
+            "S12.G",
+            "S12",
+            "S13.R",
+        )
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S13.R", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert {p["component"] for p in manifest["pieces"]} == {"host", "panel"}
+    panel = next(p for p in manifest["pieces"] if p["component"] == "panel")
+    layout = json.loads((tmp_path / panel["layout"]).read_text(encoding="utf-8"))
+    assert any(t["base"].startswith("flap-d15/") for t in layout["source_trims"])
+    assert panel["source_surface_id"] and panel["version"]
+
+
+@pytest.mark.parametrize("gap", [0.02, 0.002], ids=["P0570-clear", "P0570-interpenetrating"])
+def test_p0570_applied_variant_runs_shipped_reader_and_mesh_checks(tmp_path, gap):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s])
+        for s in ("S0", "S11", "S11.P", "S12.C", "S12.G", "S12")
+    ]
+    raw = _applied_config()
+    raw["components"]["panel"]["control"][0]["gap_chord"] = gap
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S12", stages=selected
+    )
+    if gap == 0.002:
+        assert (report["status"], report["stage"], report["check"]) == (
+            "failed",
+            "S12.G",
+            "gate.grid",
+        )
+        assert report["measured"] > 0
+        return
+    assert report["status"] == "accepted", report
+    for stage in ("S12.C", "S12.G", "S12"):
+        record = json.loads((tmp_path / f"{stage}.json").read_text(encoding="utf-8"))
+        assert record["checks"] and all(c["status"] == "passed" for c in record["checks"]), record
+
+
 @pytest.mark.parametrize("u", [0.001, 0.999], ids=["P0570-low-bound", "P0570-high-bound"])
-def test_p0570_anisotropic_surface_distance(tmp_path, u):
+@pytest.mark.parametrize("quadratic", [False, True], ids=["P0570-uniform", "P0570-independent"])
+def test_p0570_anisotropic_surface_distance(tmp_path, u, quadratic):
     values = [128, 1, 1, 1, 1, 0, 0, 1, 0, 0]
     values += [0, 0, 1, 1, 0, 0, 10000, 10000]
     values += [1, 1, 1, 1]
@@ -41,6 +533,17 @@ def test_p0570_anisotropic_surface_distance(tmp_path, u):
             _entity(15 + 4 * i, 110, [110, x, y, 0, xx, yy, 0]),
         ]
         entities[-2]["d1"][8] = "00000500"
+        if quadratic:
+            # Same straight physical edge with a quadratic time parameter.
+            # Its nine samples differ from those of the linear pcurve, so the
+            # distance search must refine an independently sampled point.
+            model = entities[-1]
+            a, b = [x, y, 0], [xx, yy, 0]
+            values = [126, 2, 2, 1, 0, 1, 0]
+            values += [0, 0, 0, 1, 1, 1] + [1, 1, 1]
+            values += [*a, *a, *b, 0, 1, 0, 0, 1]
+            model.update(type=126, parameters=[str(v) for v in values])
+            model["d1"][0] = model["d2"][0] = f"{126:8d}"
     globals_ = ["0"] * 25
     globals_[18] = str(1e-9 * np.sqrt(2))
     document = {"start": ["distance fixture"], "global": globals_, "entities": entities}
@@ -51,7 +554,8 @@ def test_p0570_anisotropic_surface_distance(tmp_path, u):
     # A parallel displacement must still be detected at the same resolution.
     for entity in entities:
         if entity["id"] in (15, 19, 23, 27):
-            entity["parameters"][3] = entity["parameters"][6] = "0.00001"
+            for z in (18, 21, 24) if quadratic else (3, 6):
+                entity["parameters"][z] = "0.00001"
     path.write_text(serialize_iges(document), encoding="ascii")
     assert {f.check for f in check_profile(path, profile).failed} == {"profile.loop_surface"}
 
@@ -213,13 +717,36 @@ def _cold_roundtrip():
             "S13.R",
             data["resolved"],
             configuration=None,
-            members=["part"],
+            members=data.get("members", ["part"]),
             out=request.parent,
             source=data["written"],
         )
     finally:
         sys.setprofile(None)
     reply.write_text(json.dumps({"record": record, "calls": calls}), encoding="utf-8")
+
+
+def _run_cold_roundtrip(folder, resolved, written, members):
+    import os
+    import subprocess
+    import sys
+
+    request, reply = folder / "cold-request.json", folder / "cold-reply.json"
+    request.write_text(
+        json.dumps({"resolved": resolved, "written": written, "members": members}), encoding="utf-8"
+    )
+    code = (
+        "from tests.tier1_offline.test_p0570_gm8_export import _cold_roundtrip; _cold_roundtrip()"
+    )
+    with (folder / "cold-worker.log").open("w", encoding="utf-8") as log:
+        subprocess.run(
+            [sys.executable, "-c", code, str(request), str(reply)],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+            env=dict(os.environ),
+        )
+    return json.loads(reply.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(
@@ -266,16 +793,20 @@ def test_p0570_selected_configuration_limits_its_variants(tmp_path, variant):
     assert report["status"] == ("accepted" if variant == "clean" else "refused")
 
 
-def test_p0570_applied_variant_waits_without_publishing_clean_geometry(tmp_path):
+def test_p0570_empty_variant_exports_its_declared_geometry(tmp_path):
     kernel_or_skip()
     from pyflightstream.workspace.geometry_pipeline import run_geometry
 
     raw = {"components": {"shell": {"type": "body"}}, "variants": {"deployed": []}}
     report = run_geometry(raw, variant="deployed", out=tmp_path, until="S11")
-    assert report["status"] == "incomplete"
+    assert report["status"] in ("accepted", "incomplete")
     record = json.loads((tmp_path / "S11.json").read_text(encoding="utf-8"))
-    assert record["outputs"].get("state") == "waiting"
-    assert not list(tmp_path.glob("*.igs"))
+    assert record["status"] == "passed"
+    assert list(tmp_path.glob("*.igs"))
+    assert (
+        json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))["variant"]
+        == "deployed"
+    )
 
 
 def _written_halves(folder, height=1.0):
@@ -697,9 +1228,6 @@ def test_p0570_profile_failure_stops_its_substep_and_reaches_the_run_log(tmp_pat
     "wrong", [False, True], ids=["P0570-source-control", "P0570-relabeled-source"]
 )
 def test_p0570_roundtrip_regenerates_stored_surfaces_without_a_section_fit(tmp_path, kind, wrong):
-    import os
-    import subprocess
-    import sys
     import tomllib
     from pathlib import Path
 
@@ -714,20 +1242,7 @@ def test_p0570_roundtrip_regenerates_stored_surfaces_without_a_section_fit(tmp_p
     written = generate_record(resolved, str(tmp_path / "combined.igs"), None)
     if wrong:
         written["sources"]["part"]["source_surface_id"] = "0" * 64
-    request, reply = tmp_path / "cold-request.json", tmp_path / "cold-reply.json"
-    request.write_text(json.dumps({"resolved": resolved, "written": written}), encoding="utf-8")
-    code = (
-        "from tests.tier1_offline.test_p0570_gm8_export import _cold_roundtrip; _cold_roundtrip()"
-    )
-    with (tmp_path / "cold-worker.log").open("w", encoding="utf-8") as log:
-        subprocess.run(
-            [sys.executable, "-c", code, str(request), str(reply)],
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            check=True,
-            env=dict(os.environ),
-        )
-    answer = json.loads(reply.read_text(encoding="utf-8"))
+    answer = _run_cold_roundtrip(tmp_path, resolved, written, ["part"])
     record, calls = answer["record"], answer["calls"]
     checks = {c["id"]: c for c in record["checks"]}
     assert "roundtrip.same_surface" in checks, record

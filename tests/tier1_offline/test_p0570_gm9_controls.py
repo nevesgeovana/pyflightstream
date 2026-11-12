@@ -235,7 +235,6 @@ def test_p0570_gm9_f4_requires_names_for_slot_openings(kernel, tmp_path, named):
 
 @pytest.mark.parametrize("stage", ["F5", "F6"], ids=["P0570-F5", "P0570-F6"])
 @pytest.mark.parametrize("missing", [False, True], ids=["YES", "NO"])
-@pytest.mark.xfail(reason="waits for the trimmed assembly of G8", strict=True)
 def test_p0570_gm9_trimmed_assembly_boundary(kernel, tmp_path, stage, missing):
     from pyflightstream.workspace import _geom_run
 

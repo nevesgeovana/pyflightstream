@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -213,7 +214,10 @@ class AssemblyBase:
         self.regenerated = regenerated
         self.coverage_fraction = float(coverage_fraction)
         self.coverage_spacing = float(coverage_spacing)
-        self.hulls = {name: hull(p) for name, p in self.sources.items()}
+        self.hulls = {
+            name: hull(self.models[name].hull_patches or p) if name in self.models else hull(p)
+            for name, p in self.sources.items()
+        }
         #: each piece's largest extent, the size a relative junction limit is taken of
         self.extents = {
             name: float(np.ptp(h.reshape(-1, 3), axis=0).max()) if len(h) else 0.0
@@ -233,6 +237,7 @@ class AssemblyBase:
         self.input_free_edges: list[np.ndarray] = []
         self.input_sliver_faces: list[dict[str, Any]] = []
         self.source_areas: dict[str, float] = {}
+        self.classification_hulls: dict[str, np.ndarray] = {}
 
     def export_state(self) -> dict[str, Any]:
         """Snapshot retained ownership and measured areas while the kernel is still open.
@@ -279,6 +284,45 @@ class AssemblyBase:
                 key = abs(edge)
                 counts[key] = counts.get(key, 0) + 1
         return counts
+
+    def _inert(self, face: Face) -> bool:
+        name, index = self.origin[face]
+        model = self.models.get(name)
+        return model is not None and list(model.bases)[index] in model.inert_bases
+
+    def _source_faces(self, name):
+        model = self.models.get(name)
+        return (
+            model.hull_patches if model is not None and model.hull_patches else self.sources[name]
+        )
+
+    def _inside_source(self, name, position):
+        """Use the near-face rule locally and refined source parity away from it.
+
+        Placement's nine-point hull can put a curved boundary on the wrong
+        side of a narrow cut region. The 33-point classification hull refines
+        that sampling; the independent removal-area check retains its limit.
+        """
+        points = np.asarray(position)[None]
+        triangles = self.hulls[name]
+        near = float(jn.distance_to_triangles(points, triangles)[0]) <= jn.SEW_M
+        if name not in self.models or near:
+            return bool(jn.dominant_inside(points, triangles, triangles, near=jn.SEW_M)[0])
+        if name not in self.classification_hulls:
+            self.classification_hulls[name] = hull(self._source_faces(name), count=33)
+        return bool(jn.parity_inside(points, self.classification_hulls[name])[0])
+
+    @contextmanager
+    def _active_faces(self):
+        """Keep moving and cove faces out of host operations, retaining their handles."""
+        inert = {name: [f for f in faces if self._inert(f)] for name, faces in self.faces.items()}
+        for name, faces in self.faces.items():
+            self.faces[name] = [f for f in faces if f not in inert[name]]
+        try:
+            yield
+        finally:
+            for name, faces in inert.items():
+                self.faces[name].extend(faces)
 
     # ---- driving --------------------------------------------------------------------------
 

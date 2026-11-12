@@ -198,6 +198,8 @@ class GeneratedPiece:
     bases: dict[str, Patch]
     trims: tuple[Trim, ...]
     layout: dict[str, Any]
+    hull_patches: tuple[Patch, ...] = ()
+    inert_bases: tuple[str, ...] = ()
 
     @property
     def source_surface_id(self) -> str:
@@ -221,7 +223,7 @@ class GeneratedPiece:
         return cls(name, version, bases, trims, {"lines": {"u": {}, "v": {}}})
 
 
-def generate_pieces(config) -> dict[str, GeneratedPiece]:
+def generate_pieces(config, *, variant="clean", selection=None) -> dict[str, GeneratedPiece]:
     """Build placed source pieces for trimmed assembly and export, without layout fitting.
 
     The legacy patch generator remains the mesher's interface. Here lifting
@@ -231,6 +233,10 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
     ----------
     config : dict
         Resolved geometry configuration including placement and component versions.
+    variant : str, optional
+        Registry variant selecting active component controls.
+    selection : dict, optional
+        Moving piece label for each active component.control, one angle per control.
 
     Returns
     -------
@@ -248,6 +254,9 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
         kind, frame = component["type"], name
         layout: dict[str, Any] = {"lines": {"u": {}, "v": {}}}
         if kind == "lifting_surface":
+            from ._control_surfaces import with_pins
+
+            component = with_pins(component)
             model = lifting_model(component)
             bases, trims = model.bases(), model.trims
             layout = layout_record(model)
@@ -294,7 +303,91 @@ def generate_pieces(config) -> dict[str, GeneratedPiece]:
             )
         )
         pieces[name] = GeneratedPiece(name, str(component["version"]), placed, tuple(trims), layout)
+    if variant != "clean":
+        _apply_controls(unpack(config), pieces, variant, selection or {})
     return pieces
+
+
+def _apply_controls(config, pieces, variant, selection):
+    """Retain placed control bases and original loops, with exact restricted hulls."""
+    from . import _control_surfaces as controls
+
+    components = config["components"]
+    active = config["variants"][variant]
+    for name, source in list(pieces.items()):
+        entries = [
+            e
+            for e in components[name].get("control_surfaces", [])
+            if f"{name}.{e['name']}" in active
+        ]
+        if not entries:
+            continue
+        component = {**components[name], "control_surfaces": entries}
+        model = controls.placed({**components, name: component}, name)
+        # Keep the noncollapsed, exact flat-cap construction already generated.
+        main = list(model.pieces["main"])
+        for end in ("root", "tip"):
+            caps = [t for t in source.trims if t.base.startswith(f"{end}_cap")]
+            if caps and any(t.base == end for t in main):
+                main = [t for t in main if t.base != end] + caps
+                model.bases.update({t.base: source.bases[t.base] for t in caps})
+        model.pieces["main"] = tuple(main)
+        chosen = ["main"]
+        for entry in entries:
+            labels = [k for k in model.pieces if k.startswith(f"{entry['name']}-d")]
+            label = selection.get(f"{name}.{entry['name']}", labels[0])
+            if label not in labels:
+                raise InputValueError(f"{name}.{entry['name']}: unknown applied piece {label!r}")
+            chosen.append(label)
+        trims = tuple(_control_trim(t, label) for label in chosen for t in model.pieces[label])
+        bases = {key: model.bases[key] for key in sorted({t.base for t in trims})}
+        restricted = tuple(controls.face_patches(model, trims))
+        trims = tuple(_reader_trim(t, p) for t, p in zip(trims, restricted, strict=True))
+        inert = tuple(
+            sorted(
+                {
+                    t.base
+                    for t in trims
+                    if t.face.startswith(tuple(chosen[1:]))
+                    or t.role in ("cove_wall", "cove_roof", "lip_base")
+                }
+            )
+        )
+        pieces[name] = GeneratedPiece(
+            name,
+            source.version,
+            bases,
+            trims,
+            source.layout,
+            restricted,
+            inert,
+        )
+
+
+def _control_trim(trim, label):
+    role = trim.role
+    if role == "skin":
+        us = [p[0] for edge in trim.loop for p in edge]
+        role = "lower" if max(us) <= 0.5 else "upper"
+    return replace(trim, face=f"{label}/{trim.face}", role=role)
+
+
+def _reader_trim(trim, patch):
+    """Give a collapsed end face four nonzero rim segments without changing its surface."""
+    grid = evaluate_patch(patch, 5)
+    edges = (grid[:, 0], grid[-1], grid[::-1, -1], grid[0, ::-1])
+    lengths = [float(np.linalg.norm(np.diff(e, axis=0), axis=1).sum()) for e in edges]
+    if min(lengths) > 1e-12:
+        return trim
+    split = int(np.argmax(lengths))
+    loop = []
+    for i, (a, b) in enumerate(trim.loop):
+        if i == split:
+            middle = tuple((x + y) / 2 for x, y in zip(a, b, strict=True))
+            loop.extend(((a, middle), (middle, b)))
+        else:
+            loop.append((a, b))
+    return replace(trim, loop=tuple(loop))
 
 
 @overload

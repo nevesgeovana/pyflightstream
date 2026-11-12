@@ -5,7 +5,9 @@ converted to a NURBS surface, and one IGES is written holding only B-spline surf
 the form the solver's CAD import reads. Each component keeps its name: its faces sit on one level
 and one 406 form 15 NAME names that level, so the solver and
 :func:`pyflightstream.workspace._iges_names.read_iges_names` read the same components back. The
-first file's length unit is kept and every other file is scaled to it. A record
+first file's length unit is kept and every other file is scaled to it. A compatible
+single NURBS source retains its coefficients and trims, with a second native import
+checking its faces and names before writing. A record
 ``<out>.json`` beside the output lists the faces of each component, the digest of every source,
 the surface types before and after, and the read-back.
 """
@@ -110,6 +112,9 @@ def _convert(sources: Sequence[str | Path], out: str | Path, name_encoding: str)
     with session(_PURPOSE) as gmsh:
         model = import_named(gmsh, sources, name_encoding=name_encoding)
         before = _types(gmsh, model.faces)
+        retained = _retained_source(sources, model, before, name_encoding)
+        if retained is not None:
+            return _retain(gmsh, retained, target, model, before, name_encoding=name_encoding)
         gmsh.model.occ.convertToNURBS([(2, t) for t in model.faces])
         gmsh.model.occ.synchronize()
         after = _types(gmsh, model.faces)
@@ -158,6 +163,12 @@ def _convert(sources: Sequence[str | Path], out: str | Path, name_encoding: str)
                 )
             target.parent.mkdir(parents=True, exist_ok=True)
             _textio.write_bytes(target, staged.read_bytes())
+    return _conversion_record(
+        target, model, before, after, distance=distance, name_encoding=name_encoding
+    )
+
+
+def _conversion_record(target, model, before, after, *, distance, name_encoding, retained=False):
     readback = read_iges_names(target, name_encoding=name_encoding)
     record = {
         "output": target.name,
@@ -178,8 +189,80 @@ def _convert(sources: Sequence[str | Path], out: str | Path, name_encoding: str)
         "import_unit": IMPORT_UNIT,
         "metres_per_unit": float(METRES_PER_UNIT[model.unit]),
     }
+    if retained:
+        record["readback"]["retained_compatible_nurbs"] = True
     _textio.write_text(Path(str(target) + ".json"), json.dumps(record, indent=2) + "\n")
     return record
+
+
+def _nurbs_document(document):
+    """Recognize the bounded representation already accepted by the native writer."""
+    allowed = {102, 110, 124, 126, 128, 142, 144, 402, 406}
+    if not {e["type"] for e in document["entities"]} <= allowed:
+        return False
+    by_id = {e["id"]: e for e in document["entities"]}
+    faces = [e for e in document["entities"] if e["type"] == 144]
+    loops = [e["parameters"] for e in document["entities"] if e["type"] == 142]
+    return (
+        bool(faces)
+        and bool(loops)
+        and all(
+            by_id[int(e["parameters"][1])]["type"] == 128 and int(e["parameters"][2]) == 1
+            for e in faces
+        )
+        and all(p[5] == "1" and int(p[3]) in by_id and int(p[4]) in by_id for p in loops)
+    )
+
+
+def _retained_source(sources, model, before, name_encoding):
+    from ._iges_write import read_iges
+
+    if len(sources) != 1 or before != {"BSpline surface": len(model.faces)}:
+        return None
+    source = Path(sources[0])
+    names = read_iges_names(source, name_encoding=name_encoding)
+    if names.unit != model.unit or list(names.faces) != model.names:
+        return None
+    try:
+        document = read_iges(source)
+    except UnicodeError:
+        return None
+    return source if _nurbs_document(document) else None
+
+
+def _retain(gmsh, source, target, model, before, *, name_encoding):
+    """Preserve ready NURBS geometry and validate a second independent import."""
+    centres, size = _centres(gmsh, model.faces), _diagonal(gmsh)
+    with tempfile.TemporaryDirectory() as folder:
+        staged = flag_curves_on_surfaces(source, Path(folder) / "retained.igs")
+        gmsh.clear()
+        readback = import_named(gmsh, [staged], name_encoding=name_encoding)
+        if len(readback.faces) != len(model.faces) or readback.names != model.names:
+            raise InputArtifactError(
+                f"{target}: the retained file does not read back with its original faces "
+                "and names. Nothing was written.",
+                kind="geometry",
+            )
+        after = _types(gmsh, readback.faces)
+        back = _centres(gmsh, readback.faces)
+        distance = max(
+            (
+                max(abs(a - b) for a, b in zip(x, y, strict=True))
+                for x, y in zip(centres, back, strict=True)
+            ),
+            default=0.0,
+        )
+        if distance > 1e-4 * max(size, 1.0):
+            raise InputArtifactError(
+                f"{target}: the retained faces do not read back in their original order. "
+                "Nothing was written.",
+                kind="geometry",
+            )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _textio.write_bytes(target, staged.read_bytes())
+    return _conversion_record(
+        target, model, before, after, distance=distance, name_encoding=name_encoding, retained=True
+    )
 
 
 def _diagonal(gmsh: Any) -> float:

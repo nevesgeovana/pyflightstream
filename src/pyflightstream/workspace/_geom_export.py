@@ -47,7 +47,13 @@ def _export_units(resolved, names):
 
 
 def write_assembly(
-    assembly: Assembly, target: Path, *, resolved=None, configuration=None
+    assembly: Assembly,
+    target: Path,
+    *,
+    resolved=None,
+    configuration=None,
+    variant="clean",
+    selection=None,
 ) -> dict[str, Any]:
     """Write one file per piece and per face, plus the combined sewing input.
 
@@ -58,12 +64,16 @@ def write_assembly(
     manifest = assembly.export_state()
     manifest["iges"] = target.name
     manifest["components"] = dict(manifest["components"])
+    source_free: list[list[list[float]]] = []
     for name, faces in assembly.faces.items():
         piece = manifest["components"][name]
         piece["iges"] = f"{name}.igs"
         piece["layout"] = f"{name}.layout.json"
         units = _export_units(resolved, [name])
         assembly.k.export_iges({name: faces}, target.parent / piece["iges"], **units)
+        topology = assembly.k.inspect_file(target.parent / piece["iges"], jn.SEW_M)
+        piece["free_edges"] = sum(len(owners) == 1 for _, owners in topology.edges)
+        source_free.extend(points.tolist() for points, owners in topology.edges if len(owners) == 1)
         piece["sha256"] = sha256_file(target.parent / piece["iges"])
         model = assembly.models[name]
         bases = {
@@ -111,6 +121,8 @@ def write_assembly(
                 }
             ),
         )
+    if not assembly.plan:
+        manifest["input_free_edges"] = source_free
     assembly.k.export_iges(assembly.faces, target, **_export_units(resolved, assembly.faces))
     config = (
         unpack(resolved)
@@ -145,6 +157,8 @@ def write_assembly(
         dominance=config.get("dominance", []),
         coverage=coverage,
     )
+    manifest["variant"] = variant
+    manifest["control_selection"] = selection or {}
     write_record(target.parent / "manifest.json", manifest)
     return {
         "iges": str(target),
@@ -163,6 +177,27 @@ def write_assembly(
 
 def check_export(stage, resolved, *, configuration, members, out, source) -> dict[str, Any]:
     """Measure one export sub-step against the retained source record."""
+    result = _check_one(
+        stage, resolved, configuration=configuration, members=members, out=out, source=source
+    )
+    for index, alternative in enumerate(source.get("alternatives", []), 1):
+        measured = _check_one(
+            stage,
+            resolved,
+            configuration=configuration,
+            members=members,
+            out=Path(alternative["manifest"]).parent,
+            source=alternative,
+        )
+        result["checks"].extend(
+            {**c, "where": {**c["where"], "position": index}} for c in measured["checks"]
+        )
+        result.setdefault("warnings", []).extend(measured.get("warnings", []))
+        result["outputs"].setdefault("positions", {})[str(index)] = measured["outputs"]
+    return result
+
+
+def _check_one(stage, resolved, *, configuration, members, out, source):
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
     if stage == "S11":
         return write_checks(Path(out), manifest)
@@ -429,14 +464,16 @@ def sew_back(folder: Path, manifest: dict) -> dict[str, Any]:
     }
 
 
-def generate_record(config: Any, path: str, configuration: str | None) -> dict[str, Any]:
+def generate_record(
+    config: Any, path: str, configuration: str | None, variant="clean", selection=None
+) -> dict[str, Any]:
     """Build unassembled source pieces on a kernel for a configuration with no operations."""
     from pyflightstream.geometry.stages import generate_pieces, unpack
     from pyflightstream.workspace._geom_propeller import PropellerAssembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     plain_config = unpack(config)
-    every = generate_pieces(config)
+    every = generate_pieces(config, variant=variant, selection=selection)
     members = (
         list(every) if configuration is None else plain_config["configurations"][configuration]
     )
@@ -451,7 +488,14 @@ def generate_record(config: Any, path: str, configuration: str | None) -> dict[s
         record = assembly.step("S10.D1")
         if any(c["status"] == "failed" for c in record["checks"]):
             raise InputArtifactError(str(record["checks"]), kind="geometry")
-        written = write_assembly(assembly, Path(path), resolved=config, configuration=configuration)
+        written = write_assembly(
+            assembly,
+            Path(path),
+            resolved=config,
+            configuration=configuration,
+            variant=variant,
+            selection=selection,
+        )
         written["sections"] = {
             n: p.layout["sections"] for n, p in every.items() if "sections" in p.layout
         }

@@ -13,6 +13,9 @@ import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import numpy as np
+from scipy.interpolate import BSpline
+
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream.workspace._iges_names import parameter_space_curves
@@ -354,9 +357,109 @@ def _name_and_flag(gmsh, groups, path, preference):
             raise InputValueError("IGES.NAME: temporary folder left the output folder")
         keys = component_keys(gmsh, groups, directory)
     document = name_properties(document, groups, keys)
+    document = _reader_boundaries(document)
     document = set_preference(document, preference)
     document = flag_parameter_space(document)
     _textio.write_text(path, serialize_iges(document), encoding="ascii")
+
+
+def _curve_halves(entity):
+    """Split a native curve exactly, retaining its transformation."""
+    a, b = (list(entity["parameters"]) for _ in range(2))
+
+    def number(v):
+        return float(v.replace("D", "E").replace("d", "e"))
+
+    if entity["type"] == 110:
+        middle = [
+            format((number(x) + number(y)) / 2, ".17g") for x, y in zip(a[1:4], a[4:7], strict=True)
+        ]
+        a[4:7], b[1:4] = middle, middle
+    elif entity["type"] == 126:
+        k, degree = map(int, a[1:3])
+        at = 7 + k + degree + 2 + 4 * (k + 1)
+        low, high = number(a[at]), number(a[at + 1])
+        middle = (low + high) / 2
+        a, b = (_bounded_curve(a, x, y) for x, y in ((low, middle), (middle, high)))
+    else:
+        return None
+    return a, b
+
+
+def _bounded_curve(values, low, high):
+    """Clamp an exact rational B-spline subcurve in homogeneous coordinates."""
+    k, degree = map(int, values[1:3])
+    numbers = np.array([float(v.replace("D", "E").replace("d", "e")) for v in values[7:]])
+    count, at = k + 1, k + degree + 2
+    weights = numbers[at : at + count]
+    points = numbers[at + count : at + 4 * count].reshape(count, 3)
+    homogeneous = np.column_stack((points * weights[:, None], weights))
+    spline = BSpline(numbers[:at], homogeneous, degree)
+    for bound in (low, high):
+        missing = degree + 1 - np.count_nonzero(spline.t == bound)
+        if missing > 0:
+            spline = spline.insert_knot(bound, int(missing))
+    first = int(np.flatnonzero(spline.t == low)[0])
+    last = int(np.flatnonzero(spline.t == high)[-1]) + 1
+    knots = spline.t[first:last]
+    poles = spline.c[first : first + len(knots) - degree - 1]
+    weights = poles[:, 3]
+    points = poles[:, :3] / weights[:, None]
+    prefix = [*values[:7]]
+    prefix[1], prefix[4], prefix[6] = str(len(poles) - 1), "0", "0"
+    data = [*knots, *weights, *points.ravel(), low, high]
+    return prefix + [format(v, ".17g") for v in data] + values[7 + at + 4 * count + 2 :]
+
+
+def _append_copy(document, entity, values):
+    copied = {**entity, "id": max(e["id"] for e in document["entities"]) + 2}
+    copied.update(d1=list(entity["d1"]), d2=list(entity["d2"]), parameters=values)
+    document["entities"].append(copied)
+    return str(copied["id"])
+
+
+def _split_chain(document, chain, index, curve, halves):
+    members = [_append_copy(document, curve, values) for values in halves]
+    values = list(chain["parameters"])
+    values[1] = "4"
+    values[2 + index : 3 + index] = members
+    return _append_copy(document, chain, values)
+
+
+def _triangle_chains(boundary, by_id):
+    chains = [by_id.get(int(p)) for p in boundary["parameters"][3:5]]
+    if all(c and c["type"] == 102 and c["parameters"][1] == "3" for c in chains):
+        return chains
+    return None
+
+
+def _split_triangle(document, boundary, chains, by_id):
+    for index in range(3):
+        curves = [by_id[int(c["parameters"][2 + index])] for c in chains]
+        halves = [_curve_halves(c) for c in curves]
+        if any(h is None for h in halves):
+            continue
+        for column, (chain, curve, parts) in enumerate(zip(chains, curves, halves, strict=True)):
+            boundary["parameters"][3 + column] = _split_chain(document, chain, index, curve, parts)
+        break
+
+
+def _reader_boundaries(document):
+    """Give triangular loops four exact segments in both spaces, without splitting a face.
+
+    IGES 5.3 section 4.23 defines the starting and ending parameters of a 126.
+    Two adjacent restrictions cover the original curve. Native lines are
+    bisected exactly. Unsupported curves retain their measured profile failure.
+    """
+    by_id = {e["id"]: e for e in document["entities"]}
+    for boundary in list(document["entities"]):
+        if boundary["type"] != 142:
+            continue
+        chains = _triangle_chains(boundary, by_id)
+        if chains is None:
+            continue
+        _split_triangle(document, boundary, chains, by_id)
+    return document
 
 
 def _write_millimetres(gmsh, groups, path, preference):
