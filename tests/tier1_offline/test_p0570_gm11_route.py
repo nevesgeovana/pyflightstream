@@ -247,6 +247,28 @@ def test_p0570_gm11_acceptance_table_yes_no():
     )
 
 
+def test_p0570_gm11e_aspect_limit_exempts_only_the_te_base_cells_yes_no():
+    """YES: a stretched cell on a trailing family face is exempt and still reported.
+
+    NO: the same cell on any other face fails the aspect row.
+    """
+    from pyflightstream.workspace._geometry_mesh_s1 import acceptance_checks
+
+    stretched = _two_part_mesh()
+    stretched.xyz[N_PHI + 3] *= [40.0, 40.0, 1.0]
+    yes = {**_KERNEL, "surface_families": {1: "trailing_edge", 2: "middle"}}
+    row = _by_id(acceptance_checks(stretched, yes, _controls(), {"FAIR": {}}))[
+        "mesh.quality.aspect"
+    ]
+    assert row["status"] == "passed", row
+    exempt = row["where"]["te_base_exempt"]
+    assert exempt["cells"] >= 1 and exempt["max_aspect"] > 8.0
+    assert set(exempt["surfaces"]) == {"WING.1"}
+    no = {**_KERNEL, "surface_families": {1: "upper", 2: "middle"}}
+    row = _by_id(acceptance_checks(stretched, no, _controls(), {"FAIR": {}}))["mesh.quality.aspect"]
+    assert row["status"] == "failed" and row["where"]["te_base_exempt"]["cells"] == 0
+
+
 def test_p0570_gm11_irregular_node_inside_a_structured_surface_is_counted():
     from pyflightstream.workspace._geometry_mesh_s1 import acceptance_checks
 

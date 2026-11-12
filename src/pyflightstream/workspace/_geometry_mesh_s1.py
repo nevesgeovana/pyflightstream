@@ -474,18 +474,35 @@ def _limit_check(check_id: str, value: float, table: Mapping, key: str, unit: st
     return check_entry(check_id, "skipped", note=f"no {key} given; measured {value:.6g}", unit=unit)
 
 
-def _quality(mesh: Mesh, transition: set[str], quality: Mapping[str, Any]) -> list[dict]:
+def _quality(
+    mesh: Mesh, transition: set[str], quality: Mapping[str, Any], base: frozenset = frozenset()
+) -> list[dict]:
+    """Measure degeneracy, quad aspect and skew; ``base`` holds the TE base faces.
+
+    The aspect limit applies everywhere except the cell across a blunt trailing-edge base (one
+    quad across a base far thinner than the spanwise cell): those cells are left out of the
+    limit and reported under ``where.te_base_exempt`` with their count and largest aspect.
+    """
     degenerate: dict[str, int] = {}
     aspect, skew, worst = 0.0, 0.0, ""
+    exempt: dict[str, Any] = {"cells": 0, "max_aspect": 0.0, "surfaces": []}
     for cell, name, surface in zip(mesh.cells, mesh.components, mesh.surfaces, strict=True):
         sine, ratio, angle = _corner_measures(mesh.xyz[list(cell)])
         if sine < DEGENERATE_SINE:
             degenerate[f"{name}.{int(surface)}"] = degenerate.get(f"{name}.{int(surface)}", 0) + 1
         if name not in transition and len(cell) == 4:
+            skew = max(skew, angle)
+            if int(surface) in base:
+                label = f"{name}.{int(surface)}"
+                exempt["cells"] += 1
+                exempt["max_aspect"] = max(exempt["max_aspect"], ratio)
+                if label not in exempt["surfaces"]:
+                    exempt["surfaces"].append(label)
+                continue
             worst = f"{name}.{int(surface)}" if ratio > aspect else worst
-            aspect, skew = max(aspect, ratio), max(skew, angle)
+            aspect = max(aspect, ratio)
     aspect_check = _limit_check("mesh.quality.aspect", aspect, quality, "max_aspect")
-    aspect_check["where"] = {"surface": worst}
+    aspect_check["where"] = {"surface": worst, "te_base_exempt": exempt}
     return [
         _check("mesh.degenerate", sum(degenerate.values()), where={"by_surface": degenerate}),
         aspect_check,
@@ -580,7 +597,10 @@ def acceptance_checks(
         int(s) for s, f in record.get("surface_families", {}).items() if f == "tip_cap"
     )
     checks = [_check("mesh.inverted", int(record["inverted_count"]))]
-    checks += _quality(mesh, names, controls.get("defaults", {}).get("quality", {}))
+    base = frozenset(
+        int(s) for s, f in record.get("surface_families", {}).items() if f.startswith("trailing")
+    )
+    checks += _quality(mesh, names, controls.get("defaults", {}).get("quality", {}), base)
     checks += _topology(mesh)
     checks += _triangle_checks(mesh, transition, caps)
     checks.append(_irregular_nodes(mesh, names, caps))
