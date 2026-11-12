@@ -732,50 +732,50 @@ def test_p0570_gm11d_sliver_surfaces_name_the_faces_the_degenerate_row_refuses()
     assert sliver_surfaces(mesh, {6}) == set()
 
 
-def test_p0570_gm11d_the_cap_restores_every_kernel_option_it_sets(monkeypatch):
-    """The planar cap meshes in its own model; a failed cap leaves the caller's options as found.
+def _naca_rim(points=12, y=0.5, te_half=0.0016):
+    """A planar NACA 0012 tip outline with a blunt base: base midpoint, upper, lower."""
+    x = 0.5 * (1 - np.cos(np.linspace(0.0, np.pi, points)))[::-1]  # 1 to 0, cosine spaced
+    t = 0.6 * (0.2969 * np.sqrt(x) - 0.126 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1036 * x**4)
+    t[0] = te_half
+    upper = np.c_[x, np.full_like(x, y), t]
+    lower = np.c_[x[::-1][1:], np.full(points - 1, y), -t[::-1][1:]]
+    return np.vstack([[1.0, y, 0.0], upper, lower])
+
+
+def test_p0570_gm11d_the_cap_restores_every_kernel_option_it_sets():
+    """The planar cap meshes in its own model and leaves the caller's options as it found them.
 
     A transition face retried with another algorithm meshes the whole model again, so an option
     the cap leaked (smoothing above all) would move the structured faces of the second pass.
     """
-    from types import SimpleNamespace
+    from tests.tier1_offline._kernel_support import kernel_or_skip
 
-    import pyflightstream.workspace._geometry_mesh_occ as occ
+    kernel_or_skip()
+    from pyflightstream.workspace._geometry_mesh_occ import mesh_cap
+    from pyflightstream.workspace._gmsh import session
 
-    options = {
-        "Mesh.MeshSizeFromPoints": 0.0,
-        "Mesh.MeshSizeExtendFromBoundary": 0.0,
-        "Mesh.MeshSizeFromCurvature": 0.0,
-        "Mesh.Algorithm": 6.0,
-        "Mesh.RecombinationAlgorithm": 0.0,
-        "Mesh.RecombineMinimumQuality": 0.01,
-        "Mesh.RecombineOptimizeTopology": 0.0,
-        "Mesh.Smoothing": 1.0,
-    }
-    before = dict(options)
-
-    def generate(dim):
-        raise RuntimeError("no mesh")
-
-    fake = SimpleNamespace(
-        option=SimpleNamespace(getNumber=options.__getitem__, setNumber=options.__setitem__),
-        model=SimpleNamespace(
-            getCurrent=lambda: "assembly",
-            add=lambda name: None,
-            remove=lambda: None,
-            setCurrent=lambda name: None,
-            mesh=SimpleNamespace(clear=lambda: None, generate=generate),
-        ),
+    options = (
+        "Mesh.Algorithm",
+        "Mesh.RecombinationAlgorithm",
+        "Mesh.RecombineMinimumQuality",
+        "Mesh.RecombineOptimizeTopology",
+        "Mesh.Smoothing",
+        "Mesh.MeshSizeFromPoints",
+        "Mesh.MeshSizeExtendFromBoundary",
     )
-    monkeypatch.setattr(occ, "gmsh_module", lambda why: fake)
-    monkeypatch.setattr(occ, "_chains", lambda ring: (None, None, None, None))
-    monkeypatch.setattr(occ, "_cut_stations", lambda *args: [])
-    monkeypatch.setattr(occ, "_build_cap_halves", lambda *args, **kwargs: [])
-    ring = np.array([[0, 0.5, 0], [1, 0.5, 0], [1, 0.5, 0.1], [0, 0.5, 0.1]], dtype=float)
-    mesh = Mesh(ring, [], [], [], np.arange(4))
-    with pytest.raises(InputValueError, match="cap: halves are not all quadrilateral"):
-        occ._mesh_cap_once(mesh, [0, 1, 2, 3], "WING")
-    assert options == before
+    ring = _naca_rim()
+    mesh = Mesh(ring, [], [], [], np.arange(len(ring)))
+    with session("testing the planar cap options") as gmsh:
+        gmsh.model.add("caller")
+        before = {k: gmsh.option.getNumber(k) for k in options}
+        # Every variant runs the cap's own options; a cap refused at the end restores them too.
+        try:
+            mesh_cap(mesh, list(range(len(ring))), "WING")
+        except InputValueError as exc:
+            assert "cap:" in str(exc)
+        after = {k: gmsh.option.getNumber(k) for k in options}
+        assert gmsh.model.getCurrent() == "caller"
+    assert after == before
 
 
 # ---- delta F.2: junction blocks on the layout sidecar interface (G16 supplies the sidecar) -----
