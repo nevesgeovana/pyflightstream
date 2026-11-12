@@ -100,3 +100,72 @@ Optional tip laws are `skew_tip_deg` or `skew_tip_s_R`, and `rake_tip_x_R` or
 law for the same displacement cannot be combined. Optional `[frame]` vectors
 are `blade_dir`, `thrust_dir`, `rotation_dir_at_blade`, and
 `pitch_axis_point_mm`; directions must be orthogonal.
+
+## Slicing an existing propeller
+
+`geometry prop-slice` reads a propeller OBJ or IGES and writes the definition above
+that rebuilds it:
+
+```console
+pyfs-workspace geometry prop-slice --geometry rotor.igs --blades 3 --out sliced
+pyfs-workspace geometry prop-slice --geometry rotor.obj --blades 5 --stations 0.25 0.4 0.55 0.7 0.85 1.0 --out sliced
+```
+
+The folder holds `propeller.toml` (schema 1, read by `Propeller.from_toml`),
+one normalized profile per station in `sections/sNN.dat` (leading edge at
+0, trailing-edge midpoint at 1, upper surface from the trailing edge to the
+leading edge, then the lower), `table.csv` and the record `prop-slice.json`.
+The table gives, over r/R, `c_R`, `beta_deg`, `t_c`, `camber` (the largest
+mean-line ordinate in chords), `te_gap_c`, `skew_deg` and `rake_x_R`. From
+Python, `pyflightstream.workspace.prop_slice.slice_propeller` does the same
+and returns the record.
+
+The measures use this page's definitions, so the output rebuilds the
+geometry it was cut from:
+
+- The axis is the thrust direction `--axis` (default `-1 0 0`) through
+  `--origin` (mm, default 0). Blade 0 is the blade nearest `--blade-dir`
+  (default `0 0 1`), and skew is measured from that direction. A frame other
+  than the default is written as `[frame]`. The rotation sense is measured:
+  the leading edge faces the motion.
+- Each station is cut by a plane, not a cylinder: the plane at distance `r`
+  from the shaft whose normal is the blade direction rotated by the station's
+  skew, which is where the builder places a planar section. The skew is found
+  by iteration until the section's area centroid, the default stacking
+  point, lies on that plane's radial line; a cylinder would bend the section
+  and bias its chord and pitch.
+- The chord runs from the trailing-edge midpoint to the leading edge, the
+  point farthest from it. The ends come from the extreme pair of the
+  section, the rounder end being the leading edge; a blunt base is the run
+  of section steps at more than 45 degrees to the chord next to the far end.
+  `beta_deg` is the chord line's angle from the propeller plane, `t_c` the
+  largest thickness at equal x, rake the centroid's aft distance over R.
+- The blades are counted between 0.55 and 0.75 of the tip radius and must
+  equal `--blades`. The radius is the largest distance of the blade from the
+  shaft along its tip direction, so a planar tip cap gives it exactly. The
+  root is the innermost such distance of the blade surface; a hub or a
+  spinner, whose normals have no azimuthal part, is excluded. The default
+  stations are 21 equal steps from the root to the tip, and 0.7.
+- The root and tip cuts stay 0.2 percent of the radius inside the blade, so
+  they cut no cap; the table at a station beyond them is extrapolated from
+  the cuts by a cubic in r/R, and the row records the cut it came from.
+- An OBJ is cut as its polygons (unit `--unit`, default mm). An IGES is
+  imported by the gmsh kernel in a worker process, triangulated with
+  curvature refinement, and every section point is projected alternately
+  onto the nearest face and back onto the plane, so its sections lie on the
+  exact surfaces.
+
+A round trip on a three-blade G17 propeller with chord, twist, thickness,
+skew and rake all varying along the span (tested) recovers, at every station:
+chord, thickness and camber within 0.5 percent of the tip chord, beta within
+0.1 deg, skew arc and rake within 0.5 percent of the radius from an OBJ of
+161 by 121 points per surface, and five times closer from the IGES. The
+rebuilt blade lies within 0.5 percent of the tip chord of the original (0.1
+percent from the IGES). Measured on that propeller, both inputs recover chord
+and thickness within 0.03 percent of the tip chord, beta within 0.01 deg and
+skew and rake within 0.005 percent of the radius; the dense OBJ is as close as
+the IGES, whose sections lie on the exact faces whatever their triangulation.
+
+Missing files, other suffixes, a blade count that is not a positive integer
+or that differs from the blades found, and a surface where no closed blade
+section is found are refused by name and nothing is written.

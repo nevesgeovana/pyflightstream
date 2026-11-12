@@ -880,6 +880,15 @@ warn that the group is their home.
 `<geometry>.<family>.beam.pdf`. See
 [Sections from the mesh](fsi-workspace.md#sections-from-the-mesh).
 
+`pyfs-workspace geometry prop-slice --geometry <file>.obj|.igs --blades N
+[--axis DX DY DZ] [--origin X Y Z] [--blade-dir DX DY DZ] [--stations R_R ...]
+[--unit mm|cm|m|in] --out <folder>` cuts one blade of a propeller at radial
+stations and writes the G17 definition that rebuilds it (`propeller.toml`),
+one normalized profile per station (`sections/sNN.dat`), the table of chord,
+pitch angle, thickness, camber, skew and rake over r/R (`table.csv`) and the
+record `prop-slice.json`; an IGES is read with the gmsh kernel. See
+[Slicing an existing propeller](propeller.md#slicing-an-existing-propeller).
+
 ## Matrix geometry
 
 `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
