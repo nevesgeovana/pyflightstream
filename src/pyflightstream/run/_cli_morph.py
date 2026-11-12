@@ -3,10 +3,12 @@
 Pipeline role: the run layer's parsers and handlers for the verbs a morphing control file
 drives, ``repitch``, ``collapse-te``, ``hub-rings`` and ``morph`` (PFS-2189, PFS-2193), and for
 the verbs that read named IGES files, ``iges-grid`` and ``iges-convert`` (PFS-2198, PFS-2199,
-on the gmsh kernel). The work is the workspace layer's
+on the gmsh kernel), and ``prop-slice``, which cuts a propeller into sections (PFS-2223). The
+work is the workspace layer's
 (:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
 :mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`,
-:mod:`pyflightstream.workspace.iges_grid`, :mod:`pyflightstream.workspace.iges_convert`); this
+:mod:`pyflightstream.workspace.iges_grid`, :mod:`pyflightstream.workspace.iges_convert`,
+:mod:`pyflightstream.workspace.prop_slice`); this
 module only reads the command line, calls it, prints the checks or the record it returns and
 gives the exit code: 0 when the output was written, 2 when the input is refused or the gmsh
 library cannot load, with the message on standard error and nothing written. Each parser names its
@@ -287,6 +289,75 @@ def run_mesh_generated(args: argparse.Namespace) -> int:
     return report_of(work)
 
 
+def add_prop_slice_parser(subparsers: Any) -> None:
+    """Add the verb that slices a propeller into sections and the G17 builder's inputs."""
+    parser = subparsers.add_parser(
+        "prop-slice",
+        help="cut a propeller OBJ or IGES into blade sections and a G17 definition",
+        description=(
+            "Isolates one blade about the axis, cuts it at radial stations by the planes the "
+            "G17 builder places its sections in, and writes to --out the normalized profile of "
+            "each station (sections/sNN.dat), the table over r/R of chord, pitch angle, "
+            "thickness, camber, skew and rake (table.csv), the G17 definition that rebuilds "
+            "the propeller (propeller.toml) and the record prop-slice.json. An IGES is read "
+            "by the gmsh kernel (docs/propeller.md)."
+        ),
+    )
+    parser.add_argument("--geometry", required=True, help="the propeller, .obj, .igs or .iges")
+    parser.add_argument("--blades", required=True, type=int, help="the number of blades")
+    parser.add_argument(
+        "--axis",
+        nargs=3,
+        type=float,
+        metavar=("DX", "DY", "DZ"),
+        help="thrust direction, the builder's frame.thrust_dir (default -1 0 0)",
+    )
+    parser.add_argument(
+        "--origin",
+        nargs=3,
+        type=float,
+        metavar=("X", "Y", "Z"),
+        help="a point of the shaft in mm (default 0 0 0)",
+    )
+    parser.add_argument(
+        "--blade-dir",
+        nargs=3,
+        type=float,
+        metavar=("DX", "DY", "DZ"),
+        help="reference blade direction; blade 0 is the nearest (default 0 0 1)",
+    )
+    parser.add_argument(
+        "--stations",
+        nargs="+",
+        type=float,
+        metavar="R_R",
+        help="r/R of the sections (default 21 steps from the root to the tip, and 0.7)",
+    )
+    parser.add_argument(
+        "--unit", default="mm", choices=("mm", "cm", "m", "in"), help="OBJ length unit (mm)"
+    )
+    parser.add_argument("--out", required=True, help="the folder to write")
+    parser.set_defaults(mesh_command=run_prop_slice)
+
+
+def run_prop_slice(args: argparse.Namespace) -> int:
+    """Run prop-slice and print the record written to the folder."""
+    from pyflightstream.workspace.prop_slice import slice_propeller
+
+    return print_checks(
+        lambda: slice_propeller(
+            args.geometry,
+            blades=args.blades,
+            out=args.out,
+            axis=args.axis,
+            origin=args.origin,
+            blade_dir=args.blade_dir,
+            stations=args.stations,
+            unit=args.unit,
+        )
+    )
+
+
 #: The parser of each verb this module adds, by its name in the group.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
@@ -296,6 +367,7 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
     "iges-grid": add_iges_grid_parser,
     "iges-convert": add_iges_convert_parser,
     "mesh-generated": add_mesh_generated_parser,
+    "prop-slice": add_prop_slice_parser,
 }
 
 #: The verbs this module adds to the group.

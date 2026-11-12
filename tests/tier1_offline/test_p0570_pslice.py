@@ -11,6 +11,7 @@ rake within 0.5 percent of the radius; on the IGES five times tighter.
 from __future__ import annotations
 
 import csv
+import json
 import math
 import tomllib
 from pathlib import Path
@@ -240,6 +241,37 @@ def test_p0570_pslice_iges_recovers_the_builder_inputs_tighter(tmp_path):
     compare(record["table"], prop, 0.2)
     _, distance = rebuilt_distance(tmp_path / "out", prop)
     assert distance <= 1e-3 * 0.07 * 500.0, distance
+
+
+def test_p0570_pslice_cli_writes_the_folder(tmp_path, capsys):
+    """P0570-PSLICE-CLI: pyfs-workspace geometry prop-slice writes the table, sections and TOML."""
+    from pyflightstream.workspace.cli import main
+
+    obj = write_rotor_obj(tmp_path / "rotor.obj", design(), nu=81, nv=61)
+    capsys.readouterr()
+    code = main(
+        [
+            "geometry",
+            "prop-slice",
+            "--geometry",
+            str(obj),
+            "--blades",
+            "3",
+            "--axis",
+            "-1",
+            "0",
+            "0",
+            "--stations",
+            *map(str, R_R),
+            "--out",
+            str(tmp_path / "out"),
+        ]
+    )
+    printed = capsys.readouterr()
+    assert code == 0, printed.err
+    assert json.loads(printed.out)["table"][0]["r_R"] == pytest.approx(0.2)
+    for name in ("propeller.toml", "table.csv", "prop-slice.json"):
+        assert (tmp_path / "out" / name).is_file()
 
 
 @pytest.mark.parametrize(
