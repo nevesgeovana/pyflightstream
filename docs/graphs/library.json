@@ -651,6 +651,11 @@
       "path": "geometry/_continuity.py"
     },
     {
+      "id": "pyflightstream.geometry._control_curves",
+      "layer": 3.25,
+      "path": "geometry/_control_curves.py"
+    },
+    {
       "id": "pyflightstream.geometry._control_span",
       "layer": 3.25,
       "path": "geometry/_control_span.py"
@@ -674,6 +679,21 @@
       "id": "pyflightstream.geometry._fillet",
       "layer": 3.25,
       "path": "geometry/_fillet.py"
+    },
+    {
+      "id": "pyflightstream.geometry._fowler",
+      "layer": 3.25,
+      "path": "geometry/_fowler.py"
+    },
+    {
+      "id": "pyflightstream.geometry._fowler_motion",
+      "layer": 3.25,
+      "path": "geometry/_fowler_motion.py"
+    },
+    {
+      "id": "pyflightstream.geometry._fowler_section",
+      "layer": 3.25,
+      "path": "geometry/_fowler_section.py"
     },
     {
       "id": "pyflightstream.geometry._generation",
@@ -701,6 +721,11 @@
       "path": "geometry/_mesh_rules.py"
     },
     {
+      "id": "pyflightstream.geometry._mesh_schema",
+      "layer": 3.25,
+      "path": "geometry/_mesh_schema.py"
+    },
+    {
       "id": "pyflightstream.geometry._mesh_topology",
       "layer": 3.25,
       "path": "geometry/_mesh_topology.py"
@@ -714,6 +739,31 @@
       "id": "pyflightstream.geometry._placement",
       "layer": 3.25,
       "path": "geometry/_placement.py"
+    },
+    {
+      "id": "pyflightstream.geometry._propeller",
+      "layer": 3.25,
+      "path": "geometry/_propeller.py"
+    },
+    {
+      "id": "pyflightstream.geometry._propeller_build",
+      "layer": 3.25,
+      "path": "geometry/_propeller_build.py"
+    },
+    {
+      "id": "pyflightstream.geometry._propeller_checks",
+      "layer": 3.25,
+      "path": "geometry/_propeller_checks.py"
+    },
+    {
+      "id": "pyflightstream.geometry._propeller_input",
+      "layer": 3.25,
+      "path": "geometry/_propeller_input.py"
+    },
+    {
+      "id": "pyflightstream.geometry._propeller_sections",
+      "layer": 3.25,
+      "path": "geometry/_propeller_sections.py"
     },
     {
       "id": "pyflightstream.geometry._records",
@@ -1776,6 +1826,11 @@
       "path": "workspace/_geom_control.py"
     },
     {
+      "id": "pyflightstream.workspace._geom_control_assembly",
+      "layer": 2,
+      "path": "workspace/_geom_control_assembly.py"
+    },
+    {
       "id": "pyflightstream.workspace._geom_control_build",
       "layer": 2,
       "path": "workspace/_geom_control_build.py"
@@ -1784,6 +1839,11 @@
       "id": "pyflightstream.workspace._geom_control_edit",
       "layer": 2,
       "path": "workspace/_geom_control_edit.py"
+    },
+    {
+      "id": "pyflightstream.workspace._geom_control_group",
+      "layer": 2,
+      "path": "workspace/_geom_control_group.py"
     },
     {
       "id": "pyflightstream.workspace._geom_export",
@@ -1806,6 +1866,11 @@
       "path": "workspace/_geom_parts.py"
     },
     {
+      "id": "pyflightstream.workspace._geom_propeller",
+      "layer": 2,
+      "path": "workspace/_geom_propeller.py"
+    },
+    {
       "id": "pyflightstream.workspace._geom_reader",
       "layer": 2,
       "path": "workspace/_geom_reader.py"
@@ -1824,6 +1889,11 @@
       "id": "pyflightstream.workspace._geom_run",
       "layer": 2,
       "path": "workspace/_geom_run.py"
+    },
+    {
+      "id": "pyflightstream.workspace._geom_variant",
+      "layer": 2,
+      "path": "workspace/_geom_variant.py"
     },
     {
       "id": "pyflightstream.workspace._geometry_build",
@@ -1864,6 +1934,11 @@
       "id": "pyflightstream.workspace._geometry_mesh_occ",
       "layer": 2,
       "path": "workspace/_geometry_mesh_occ.py"
+    },
+    {
+      "id": "pyflightstream.workspace._geometry_mesh_s1",
+      "layer": 2,
+      "path": "workspace/_geometry_mesh_s1.py"
     },
     {
       "id": "pyflightstream.workspace._geometry_record",
@@ -6009,6 +6084,11 @@
     },
     {
       "source": "pyflightstream.geometry",
+      "target": "pyflightstream.geometry._propeller",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry",
       "target": "pyflightstream.geometry.component",
       "kind": "module"
     },
@@ -6154,6 +6234,11 @@
     },
     {
       "source": "pyflightstream.geometry._component_keys",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._component_keys",
       "target": "pyflightstream.geometry._schema",
       "kind": "module"
     },
@@ -6178,6 +6263,21 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._control_curves",
+      "target": "pyflightstream.geometry._bspline",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._control_curves",
+      "target": "pyflightstream.geometry._patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._control_curves",
+      "target": "pyflightstream.geometry._trims",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._control_span",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6199,7 +6299,22 @@
     },
     {
       "source": "pyflightstream.geometry._control_surfaces",
+      "target": "pyflightstream.geometry._component_keys",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._control_surfaces",
+      "target": "pyflightstream.geometry._control_curves",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._control_surfaces",
       "target": "pyflightstream.geometry._control_span",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._control_surfaces",
+      "target": "pyflightstream.geometry._fowler",
       "kind": "module"
     },
     {
@@ -6308,6 +6423,66 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream.geometry._bspline",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream.geometry._control_curves",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream.geometry._fowler_motion",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream.geometry._records",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler",
+      "target": "pyflightstream.geometry._trims",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_motion",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_motion",
+      "target": "pyflightstream.geometry._control_curves",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_motion",
+      "target": "pyflightstream.geometry._fowler_section",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_motion",
+      "target": "pyflightstream.geometry._records",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_section",
+      "target": "pyflightstream.geometry._bspline",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._fowler_section",
+      "target": "pyflightstream.geometry._control_curves",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._generation",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6339,6 +6514,11 @@
     },
     {
       "source": "pyflightstream.geometry._generation",
+      "target": "pyflightstream.geometry._control_surfaces",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.geometry._generation",
       "target": "pyflightstream.geometry._fairings",
       "kind": "module"
     },
@@ -6365,6 +6545,11 @@
     {
       "source": "pyflightstream.geometry._generation",
       "target": "pyflightstream.geometry._placement",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._generation",
+      "target": "pyflightstream.geometry._propeller",
       "kind": "module"
     },
     {
@@ -6458,6 +6643,16 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._mesh_schema",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._mesh_schema",
+      "target": "pyflightstream.geometry._mesh_rules",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._mesh_topology",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6485,6 +6680,81 @@
     {
       "source": "pyflightstream.geometry._placement",
       "target": "pyflightstream.geometry._patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream.geometry._propeller_build",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream.geometry._propeller_checks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_build",
+      "target": "pyflightstream.geometry._patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_build",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_build",
+      "target": "pyflightstream.geometry._propeller_sections",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_checks",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_checks",
+      "target": "pyflightstream.geometry._records",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_input",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_input",
+      "target": "pyflightstream.geometry._schema",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_sections",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_sections",
+      "target": "pyflightstream.geometry._airfoils",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_sections",
+      "target": "pyflightstream.geometry._sections",
       "kind": "module"
     },
     {
@@ -6704,6 +6974,11 @@
     },
     {
       "source": "pyflightstream.geometry.config",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.config",
       "target": "pyflightstream.geometry._schema",
       "kind": "module"
     },
@@ -6789,6 +7064,11 @@
     },
     {
       "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._mesh_schema",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
       "target": "pyflightstream.geometry._mesh_topology",
       "kind": "module"
     },
@@ -6800,6 +7080,16 @@
     {
       "source": "pyflightstream.geometry.stages",
       "target": "pyflightstream.geometry._placement",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._propeller_checks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry.stages",
+      "target": "pyflightstream.geometry._propeller_input",
       "kind": "module"
     },
     {
@@ -15063,6 +15353,31 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geom_control_assembly",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_assembly",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_assembly",
+      "target": "pyflightstream.workspace._geom_assembly",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_assembly",
+      "target": "pyflightstream.workspace._geom_control",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_assembly",
+      "target": "pyflightstream.workspace._gmsh",
+      "kind": "deferred"
+    },
+    {
       "source": "pyflightstream.workspace._geom_control_build",
       "target": "pyflightstream.geometry.stages",
       "kind": "module"
@@ -15113,6 +15428,26 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geom_control_group",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_group",
+      "target": "pyflightstream.workspace._geom_assembly",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_group",
+      "target": "pyflightstream.workspace._geom_control",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_control_group",
+      "target": "pyflightstream.workspace._geom_control_build",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._geom_export",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -15146,6 +15481,11 @@
       "source": "pyflightstream.workspace._geom_export",
       "target": "pyflightstream.workspace._geom_parts",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_export",
+      "target": "pyflightstream.workspace._geom_propeller",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geom_export",
@@ -15211,6 +15551,56 @@
       "source": "pyflightstream.workspace._geom_parts",
       "target": "pyflightstream.workspace._cad",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.geometry",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._geom_assembly",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._geom_gate",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._gmsh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._gmsh_worker",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._iges_names",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.workspace._iges_write",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geom_reader",
@@ -15329,12 +15719,22 @@
     },
     {
       "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_control_assembly",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._geom_control_build",
       "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._geom_control_edit",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_control_group",
       "kind": "deferred"
     },
     {
@@ -15349,6 +15749,16 @@
     },
     {
       "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_propeller",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_variant",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._gmsh",
       "kind": "deferred"
     },
@@ -15356,6 +15766,26 @@
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._gmsh_worker",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_variant",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_variant",
+      "target": "pyflightstream.geometry.stages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_variant",
+      "target": "pyflightstream.workspace._geom_export",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_variant",
+      "target": "pyflightstream.workspace._geom_run",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geometry_build",
@@ -15590,6 +16020,11 @@
     {
       "source": "pyflightstream.workspace._geometry_mesh",
       "target": "pyflightstream.geometry.stages",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
     {
@@ -15620,6 +16055,16 @@
     {
       "source": "pyflightstream.workspace._geometry_mesh_occ",
       "target": "pyflightstream.workspace._gmsh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh_s1",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh_s1",
+      "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
     {
@@ -17636,6 +18081,11 @@
       "source": "pyflightstream.workspace.iges_convert",
       "target": "pyflightstream.workspace._iges_names",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.iges_convert",
+      "target": "pyflightstream.workspace._iges_write",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.iges_grid",
