@@ -19,7 +19,8 @@ whatever it renames: a module (:class:`DeprecatedModule`), a parameter
 of a function or an attribute of a class (:class:`DeprecatedParameter`),
 a command-line flag (:class:`DeprecatedFlag`), a key of the run manifest
 (:class:`DeprecatedManifestKey`) or a column of a run matrix
-(:class:`DeprecatedColumn`). A function retiring without an equivalent
+(:class:`DeprecatedColumn`). A whole header of a run matrix, read under its
+frozen layout, is :class:`DeprecatedLayout`. A function retiring without an equivalent
 replacement uses :class:`DeprecatedFunction`. Every kind records the
 release that introduced the shim and the release that removes it, and
 :func:`expired_promise` judges every kind the same way.
@@ -374,6 +375,59 @@ class DeprecatedColumn:
 
 
 @dataclass(frozen=True)
+class DeprecatedLayout:
+    """The whole header of a run matrix, read under its frozen layout.
+
+    A column renamed is :class:`DeprecatedColumn`; this kind is the promise made when the
+    layout gains a column. The old header still reads, with a warning and the new column
+    unstated, until the removal version, and ``pyfs-workspace migrate`` rewrites the file.
+
+    Attributes
+    ----------
+    layout : str
+        The release whose header is frozen (``0.56.0``).
+    added : str
+        The column the current layout adds, which an old file does not state.
+    deprecated_since : str
+        Package version (SemVer) whose release changed the layout.
+    removal_version : str
+        First package version (SemVer) whose matrix reader must no longer accept the old
+        header.
+    extra : str
+        Optional extra sentence appended to the warning message.
+    """
+
+    layout: str
+    added: str
+    deprecated_since: str
+    removal_version: str
+    extra: str = ""
+
+    kind: ClassVar[str] = "layout"
+
+    @property
+    def new(self) -> str:
+        """The column the current layout adds, which is what the old header lacks."""
+        return self.added
+
+    @property
+    def subject(self) -> str:
+        """The frozen layout, as the deadline guard names it in a refusal."""
+        return f"matrix layout of v{self.layout}"
+
+    def message(self) -> str:
+        """Render the DeprecationWarning text the matrix reader emits."""
+        text = (
+            f"the {self.subject} (no {self.added} column) was superseded in "
+            f"v{self.deprecated_since} and will be removed in v{self.removal_version}; "
+            f"the file reads until then with {self.added} unstated, and "
+            "pyfs-workspace migrate --apply rewrites its header"
+            "."
+        )
+        return f"{text} {self.extra}" if self.extra else text
+
+
+@dataclass(frozen=True)
 class DeprecatedFunction:
     """A callable retained until its removal release, with migration advice."""
 
@@ -403,6 +457,7 @@ Deprecation = (
     | DeprecatedFlag
     | DeprecatedManifestKey
     | DeprecatedColumn
+    | DeprecatedLayout
     | DeprecatedFunction
 )
 
@@ -692,6 +747,15 @@ MATRIX_GEOMETRY_ALIASES = (
 )
 
 
+#: The matrix header of 0.56.0, which lacks MESH_ROUTE (PFS-2214, lane G10). It reads
+#: with this warning, the route unstated, and ``pyfs-workspace migrate`` rewrites it.
+MATRIX_LAYOUT_0_56_0 = DeprecatedLayout(
+    layout="0.56.0",
+    added="MESH_ROUTE",
+    deprecated_since="0.57.0",
+    removal_version="0.60.0",
+)
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
@@ -699,4 +763,5 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     RUN_MATRIX_FS_VERSION,
     INFLOW_STATION_HARMONICS,
     *MATRIX_GEOMETRY_ALIASES,
+    MATRIX_LAYOUT_0_56_0,
 )

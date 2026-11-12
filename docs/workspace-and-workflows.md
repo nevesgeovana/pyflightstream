@@ -81,11 +81,11 @@ initializes the solver under the row's `SYMMETRY`.
 This is the matrix the suite runs for `steady`, `unsteady` and `unsteady_rotor`, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
-POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW       | VAR_NAMES_VALUES
+POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | MESH_ROUTE | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 |    1   |  1  | RotorRig  | -             | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady_rotor | RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / LAST_REVS_AVG: 0.25
-7002 |    1   |  1  | RotorRig  | -             | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0        | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | steady         |
-7003 |    1   |  1  | RotorRig  | -             | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady       | DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480 / LAST_ITERS_AVG: 480
+7001 |    1   |  1  | RotorRig  | -             | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | NA         | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady_rotor | RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / LAST_REVS_AVG: 0.25
+7002 |    1   |  1  | RotorRig  | -             | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0        | -        | NA         | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | steady         |
+7003 |    1   |  1  | RotorRig  | -             | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | NA         | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady       | DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480 / LAST_ITERS_AVG: 480
 ```
 
 **NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This

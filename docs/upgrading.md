@@ -59,6 +59,17 @@ The verdict uses unrounded saved midpoints; observation reports retain their exi
 An empty or wrong-edge result is False; missing or incomparable saves and already-marked
 baselines are None. Additional marked edges do not invalidate a target match.
 
+## Run-matrix header gains MESH_ROUTE (0.57)
+
+The run matrix has a new column, `MESH_ROUTE`, right after `GEOMETRY`. A matrix written at the
+0.56.0 layout, without it, still reads: it warns (`PyflightstreamDeprecationWarning`, removal in
+0.60.0) and every row reads as if it stated `NA`, so the script of each row is the one it emitted
+before. `pyfs-workspace migrate` shows which `*.fs` files of the workspace root carry the old
+header, and `pyfs-workspace migrate --apply` rewrites each one with an exact `.bak` beside it:
+only the header and one `NA` cell per row are added, and no other byte changes. A matrix
+you keep elsewhere is migrated by running the command on its workspace or by adding the
+column by hand.
+
 ## Which version are you on
 
 Read the section for each release after the version used by the workspace, in
