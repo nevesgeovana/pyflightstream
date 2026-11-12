@@ -862,6 +862,19 @@ def _summary(plan, digest):
     }
 
 
+def _strategy(controls: Any) -> Any:
+    """Return ``mesh.strategy`` of the controls (a mapping or a TOML path), 1 when absent."""
+    import tomllib
+
+    raw = (
+        tomllib.loads(Path(controls).read_text(encoding="utf-8"))
+        if isinstance(controls, (str, Path))
+        else controls
+    )
+    mesh = raw.get("mesh", {}) if isinstance(raw, dict) else {}
+    return mesh.get("strategy", 1) if isinstance(mesh, dict) else 1
+
+
 def mesh_configuration(
     config: Any,
     controls: Any,
@@ -872,7 +885,10 @@ def mesh_configuration(
     fsm_template: str | Path | None = None,
     obj: str | Path | None = None,
 ) -> ConfigurationMesh:
-    """Mesh a generated configuration with strategy 1 from its mesh controls (PFS-2214).
+    """Mesh a generated configuration from its mesh controls (PFS-2214).
+
+    Strategy 1 is meshed here; ``mesh.strategy = 2`` (full grid) goes to
+    :func:`~pyflightstream.workspace._geometry_mesh_s2.mesh_full_grid` with the same arguments.
 
     Parameters
     ----------
@@ -916,6 +932,21 @@ def mesh_configuration(
         surface_only_check,
     )
 
+    if _strategy(controls) == 2:
+        from pyflightstream.workspace._geometry_mesh_s2 import mesh_full_grid
+
+        result = mesh_full_grid(
+            config,
+            controls,
+            dry_run=dry_run,
+            out=out,
+            descriptor=descriptor,
+            fsm_template=fsm_template,
+        )
+        if obj is not None and result.mesh is not None:
+            write_obj(obj, result.mesh)
+            result.written["obj"] = str(obj)
+        return result
     base = Path(controls).parent if isinstance(controls, (str, Path)) else None
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     plan = plan_strategy1(resolved, controls, base=base)

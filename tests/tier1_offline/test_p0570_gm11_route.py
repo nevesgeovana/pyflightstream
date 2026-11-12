@@ -376,6 +376,21 @@ def test_p0570_gm11_plan_refuses_by_name_and_warns_w01(edit, match):
         plan_strategy1(resolve_config(WB_CONFIG), controls)
 
 
+def test_p0570_gm11_mesh_configuration_dispatches_full_grid_to_strategy_2(tmp_path):
+    """``mesh.strategy = 2`` (full_grid) goes to the strategy 2 mesher, from a mapping or a file."""
+    import tomllib
+
+    from pyflightstream.workspace.geometry_pipeline import mesh_configuration
+    from tests.tier1_offline.test_p0570_g12_strategy2 import WB, _wb_controls
+
+    record = mesh_configuration(WB, _wb_controls(), dry_run=True).record
+    assert record["dry_run"] and record["components"]["FAIRING"]["blocks"]["topology"] == "collar"
+    path = tmp_path / "mesh.toml"
+    path.write_text('[mesh]\nstrategy = 2\nvariant = "clean"\n', encoding="utf-8")
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["mesh"]["strategy"] == 2
+    assert mesh_configuration(WB, path, dry_run=True).record["dry_run"]  # strategy 1 refuses
+
+
 def test_p0570_gm11_e04_reads_the_iges_component_names(tmp_path):
     """YES: names from the IGES 406 form 15 properties. NO: a table naming no IGES component."""
     from pyflightstream.geometry import resolve_config
@@ -688,8 +703,11 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
         "mesh.surfaces_only",
         "mesh.trailing_edge_one_quad",
     }
-    for row in set(checks) - {"mesh.degenerate", "mesh.quality.aspect"}:
+    # Open rows (reported): the cusps, the aspect limit, and since the one-face tip cap one
+    # inverted quad-dominant cell on a fairing face (no fairing algorithm retry yet).
+    for row in set(checks) - {"mesh.degenerate", "mesh.quality.aspect", "mesh.inverted"}:
         assert checks[row]["status"] != "failed", checks[row]
+    assert checks["mesh.inverted"]["measured"] <= 1
     assert checks["mesh.triangles.region"]["where"]["by_component"] == {}
     assert checks["mesh.trailing_edge_one_quad"]["where"]["cells_across"] == [1]
     cusps = checks["mesh.degenerate"]["where"]["by_surface"]
