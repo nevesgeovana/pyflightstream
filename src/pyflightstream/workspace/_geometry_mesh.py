@@ -82,7 +82,9 @@ __all__ = [
 ]
 
 JUNCTION_BAYS = ("inner", "outer", "outboard")
-RING_ALGORITHMS = (8,)
+#: Quad-dominant algorithms of a transition face, in the order a defective face retries them:
+#: frontal-Delaunay for quads, frontal-Delaunay, Delaunay, then MeshAdapt.
+RING_ALGORITHMS = (8, 6, 5, 1)
 
 
 @dataclass
@@ -570,6 +572,8 @@ def _mesh_wb(
     ring_plan,
     blocks=False,
 ):
+    from pyflightstream.workspace._geometry_mesh_s1 import sliver_surfaces
+
     model = gmsh.model
     model.add("assembly")
     state = _wb_model(model, resolved, member_names, blocks=blocks)
@@ -595,6 +599,7 @@ def _mesh_wb(
         if not history:
             rows, failures = _wb_spacing_rules(model, state, controls, patches, member_names)
         bad = {mesh.surfaces[i] for i in record["inverted_cells"] + record["degenerate_cells"]}
+        bad |= sliver_surfaces(mesh, rings)
         history.append({"defective_surfaces": sorted(int(x) for x in bad)})
         if not bad or not bad <= rings:
             break
@@ -969,7 +974,15 @@ def mesh_configuration(
         checks=checks,
         accepted=all(c["status"] != "failed" for c in checks),
         kernel={
-            k: kernel[k] for k in ("orientation", "spacing_rules", "junction_faces") if k in kernel
+            k: kernel[k]
+            for k in (
+                "orientation",
+                "spacing_rules",
+                "junction_faces",
+                "ring_algorithms",
+                "ring_algorithm_history",
+            )
+            if k in kernel
         },
     )
     written: dict[str, str] = {}
