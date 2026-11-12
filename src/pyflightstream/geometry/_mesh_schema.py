@@ -271,8 +271,23 @@ def _components(
 def mesh_controls(source: Any, *, members: set[str], names: set[str]) -> dict[str, Any]:
     """Validate a mapping or TOML using actual configuration and IGES membership.
 
-    Returns a fresh mapping with warnings and dependency order. Unknown keys warn
-    and are skipped; contradictory or unsafe mesh controls refuse by error code.
+    Parameters
+    ----------
+    source : mapping or path
+        The controls mapping, or the TOML file holding it.
+    members, names : set of str
+        The component and IGES membership names the controls may refer to.
+
+    Returns
+    -------
+    dict
+        A fresh mapping with warnings and dependency order. Unknown keys warn and
+        are skipped.
+
+    Raises
+    ------
+    InputValueError
+        When mesh controls are contradictory or unsafe, by error code.
     """
     raw = (
         tomllib.loads(Path(source).read_text(encoding="utf-8"))
@@ -323,7 +338,28 @@ def mesh_measurements(code: str, where: str, measured: Any, threshold: Any) -> d
     """Refuse a realized topology or quality defect with its schema error name.
 
     E02 uses mismatch <= limit, E08/E09 equal counts, E10 growth <= limit,
-    and E14 an inclusive aspect band. Returns the measurement for stage records.
+    and E14 an inclusive aspect band.
+
+    Parameters
+    ----------
+    code : str
+        The schema error name the check belongs to.
+    where : str
+        The input the measurement describes.
+    measured : float or sequence
+        The measured value (a sequence of counts for E08/E09).
+    threshold : float or tuple
+        The limit, or the inclusive band for E14.
+
+    Returns
+    -------
+    dict
+        The measurement for stage records.
+
+    Raises
+    ------
+    InputValueError
+        When the measurement violates its threshold or the code is unsupported.
     """
     if code in {"E08", "E09"}:
         passed = len(set(measured)) == 1

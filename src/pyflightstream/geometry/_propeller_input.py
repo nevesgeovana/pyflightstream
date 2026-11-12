@@ -69,7 +69,18 @@ TABLE_KEYS = {
 
 
 def adopt_propeller(data):
-    """Wrap standalone schema 1 data as one geometry component, retaining its own units."""
+    """Wrap standalone schema 1 data as one geometry component, retaining its own units.
+
+    Parameters
+    ----------
+    data : mapping
+        Standalone propeller schema 1 data, or a configuration that is returned unchanged.
+
+    Returns
+    -------
+    mapping
+        The configuration holding the data as one propeller component.
+    """
     if "schema_version" not in data and "propeller" not in data:
         return data
     strict_table(data, DEFINITION_KEYS, "definition")

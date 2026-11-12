@@ -14,6 +14,26 @@ from ._records import check_entry
 
 
 def measured(name, value, limit, unit="", *, bound="max", note=""):
+    """Return one check entry comparing a measured value with its limit.
+
+    Parameters
+    ----------
+    name : str
+        The check identifier.
+    value, limit : float
+        The measured value and its limit.
+    unit : str
+        The unit recorded with the entry.
+    bound : str
+        ``"max"`` passes when value <= limit; any other value passes when value >= limit.
+    note : str
+        Text recorded with the entry.
+
+    Returns
+    -------
+    dict
+        The check entry, passed or failed.
+    """
     within = value <= limit if bound == "max" else value >= limit
     return check_entry(
         name,
@@ -27,7 +47,20 @@ def measured(name, value, limit, unit="", *, bound="max", note=""):
 
 
 def evaluate(patch, u, v):
-    """Evaluate matching lists of patch parameters, with no resampling or fitting."""
+    """Evaluate matching lists of patch parameters, with no resampling or fitting.
+
+    Parameters
+    ----------
+    patch : Patch
+        The B-spline patch.
+    u, v : array_like
+        Matching parameter values in the two directions.
+
+    Returns
+    -------
+    numpy.ndarray
+        The points of the patch, one row per parameter pair.
+    """
     net = patch.controls
     bu = BSpline(
         np.repeat(patch.knots_u, patch.multiplicities_u), np.eye(net.shape[0]), patch.degree_u

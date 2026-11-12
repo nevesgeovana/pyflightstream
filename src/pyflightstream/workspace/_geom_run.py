@@ -1015,6 +1015,15 @@ def run_geometry(
         that was not measured), failed (its ``stage``, ``check``, ``measured`` and ``limit``
         name the first failed check) or refused (the input, or the kernel, is not usable).
         Never raised for a failed or a refused run.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pyflightstream.workspace._geom_run import run_geometry
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     report = run_geometry({"type": "lifting_surface"}, out=folder, until="S0")
+    >>> report["status"]
+    'accepted'
     """
     last = stage_index(until)
     folder = Path(out)
