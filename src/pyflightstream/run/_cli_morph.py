@@ -1,7 +1,8 @@
 """The ``pyfs-workspace geometry`` verbs that write a new mesh and print its record.
 
 Pipeline role: the run layer's parsers and handlers for the verbs a morphing control file
-drives, ``repitch``, ``collapse-te``, ``hub-rings`` and ``morph`` (PFS-2189, PFS-2193), and for
+drives, ``repitch``, ``collapse-te``, ``hub-rings``, ``morph`` and ``scale`` (PFS-2189, PFS-2193,
+PFS-2222), and for
 the verbs that read named IGES files, ``iges-grid`` and ``iges-convert`` (PFS-2198, PFS-2199,
 on the gmsh kernel). The work is the workspace layer's
 (:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
@@ -154,6 +155,39 @@ def run_morph(args: argparse.Namespace) -> int:
     return print_checks(lambda: morph_mesh(args.mesh, args.morphing, args.out))
 
 
+def add_scale_parser(subparsers: Any) -> None:
+    """Add the verb that scales an OBJ uniformly into a new output folder."""
+    parser = subparsers.add_parser(
+        "scale",
+        help="scale every vertex of an OBJ by a factor about a point, into a new folder",
+        description=(
+            "FACTOR is a positive number (0.5 halves every length). Every vertex of the OBJ "
+            "given by --mesh is scaled about the origin, or about --about x,y,z; face order, "
+            "groups, normals and comments stay byte for byte. --out names an output folder, "
+            "created with its parents, that receives the scaled OBJ under the input name and "
+            "<name>.scale.json (input digest, factor, centre, counts, bounding boxes before "
+            "and after). Default folder: <stem>_scaled<factor> beside the input. The input is "
+            "never overwritten; an existing same-name file in the folder is refused unless "
+            "--force (docs/geometry.md)."
+        ),
+    )
+    parser.add_argument("factor", help="positive uniform scale factor, for example 0.5")
+    parser.add_argument("--mesh", required=True, help="source .obj, read only")
+    parser.add_argument("--out", help="output folder, created; default <stem>_scaled<factor>")
+    parser.add_argument("--about", help="scale centre x,y,z (default 0,0,0)")
+    parser.add_argument("--force", action="store_true", help="replace same-name files in --out")
+    parser.set_defaults(mesh_command=run_scale)
+
+
+def run_scale(args: argparse.Namespace) -> int:
+    """Run scale and print the record written beside the scaled OBJ."""
+    from pyflightstream.workspace.scale import scale_mesh
+
+    return print_checks(
+        lambda: scale_mesh(args.mesh, args.factor, out=args.out, about=args.about, force=args.force)
+    )
+
+
 def _add_name_encoding(parser: Any) -> None:
     parser.add_argument(
         "--name-encoding",
@@ -293,6 +327,7 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
     "collapse-te": add_collapse_te_parser,
     "hub-rings": add_hub_rings_parser,
     "morph": add_morph_parser,
+    "scale": add_scale_parser,
     "iges-grid": add_iges_grid_parser,
     "iges-convert": add_iges_convert_parser,
     "mesh-generated": add_mesh_generated_parser,
