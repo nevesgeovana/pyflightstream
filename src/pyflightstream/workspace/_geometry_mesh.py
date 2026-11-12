@@ -578,7 +578,7 @@ def mesh_generated(
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     if isinstance(controls, dict) and "mesh" in controls:
-        from pyflightstream.geometry._mesh_schema import mesh_controls
+        from pyflightstream.geometry.stages import mesh_controls
 
         names = set(unpack(resolved)["components"])
         mesh_controls(controls, members=names, names=names)

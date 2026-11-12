@@ -14,9 +14,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._mesh_schema import mesh_measurements
-from pyflightstream.geometry._mesh_topology import Mesh
-from pyflightstream.geometry._records import check_entry
+from pyflightstream.geometry.stages import Mesh, check_entry, mesh_measurements
 
 
 def follower_edges(controls: Mapping[str, Any], edge_nodes: Mapping) -> dict:
