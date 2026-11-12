@@ -285,13 +285,49 @@ def corner_angles(gmsh: Any, loop: list[int]) -> list[float]:
     return angles
 
 
-def _four_sides(gmsh: Any, face: int) -> list[int] | None:
+def _four_sides(gmsh: Any, face: int) -> list[list[int]] | None:
+    """Return the four sides of a face as lists of curves, or ``None`` when it has no four sides.
+
+    A face of four curves has a corner at each of them. A face of more curves is four-sided when
+    exactly four of its points are corners and the others are points on a side (a side the join
+    cut in two, as the vertex of the one-face tip cap cuts a skin edge): the side is then a
+    composite of the curves between two corners.
+    """
     loop = [abs(t) for _, t in gmsh.model.getBoundary([(2, face)], combined=False, oriented=True)]
-    if len(loop) != 4 or len(set(loop)) != 4:
+    if len(loop) < 4 or len(set(loop)) != len(loop):
         return None
-    if max(corner_angles(gmsh, loop)) >= CORNER_LIMIT_DEG:
+    angles = corner_angles(gmsh, loop)
+    corners = [i for i, a in enumerate(angles) if a < CORNER_LIMIT_DEG]
+    if len(corners) != 4:
         return None
-    return loop
+    sides = []
+    for k in range(4):
+        start, stop = corners[k - 1] + 1, corners[k] + 1
+        sides.append(loop[start:stop] if stop > start else loop[start:] + loop[:stop])
+    return sides
+
+
+def _corner_points(gmsh: Any, face: int, sides: list[list[int]]) -> list[int]:
+    """Return the point tag of each corner of a four-sided face: the start of each side."""
+    signed = [t for _, t in gmsh.model.getBoundary([(2, face)], combined=False, oriented=True)]
+    first = {abs(t): t for t in signed}
+    corners = []
+    for side in sides:
+        curve = side[0]
+        _, down = gmsh.model.getAdjacencies(1, curve)
+        corners.append(int(down[0] if first[curve] > 0 else down[1]))
+    return corners
+
+
+def _shares(counts: int, lengths: list[float]) -> list[int]:
+    """Split a cell count over the curves of a composite side in proportion to their lengths."""
+    total = sum(lengths)
+    parts = [max(1, round(counts * length / total)) for length in lengths]
+    while sum(parts) > counts and max(parts) > 1:
+        parts[parts.index(max(parts))] -= 1
+    while sum(parts) < counts:
+        parts[max(range(len(parts)), key=lambda i: lengths[i] / parts[i])] += 1
+    return parts
 
 
 def _bump(
@@ -334,23 +370,39 @@ def _sides(
     *,
     size: float,
     warnings: list[str],
+    corners: dict[int, list[int]] | None = None,
 ) -> tuple[list[_Side], list[int]]:
-    """Return the two sides of every four-sided patch of a component, and those patches."""
+    """Return the two sides of every four-sided patch of a component, and those patches.
+
+    A patch with a composite side (a side of several curves) is given its four corner points in
+    ``corners``, by face, and the cells of that side are shared over its curves by length.
+    """
     axis = _span_axis(gmsh, faces, grid)
     sides: list[_Side] = []
     patches: list[int] = []
     strips: dict[tuple[str, int], int] = {}
+
+    def long(side: list[int]) -> int:
+        return max(side, key=lambda c: gmsh.model.occ.getMass(1, c))
+
+    def span_of(side: list[int]) -> float:
+        return sum(gmsh.model.occ.getMass(1, c) for c in side)
+
     for face in faces:
         loop = _four_sides(gmsh, face)
         if loop is None or not grid.structured:
             continue
-        pairs = [(loop[0], loop[2]), (loop[1], loop[3])]
+        pairs_of = [(loop[0], loop[2]), (loop[1], loop[3])]
+        pairs = [(long(a), long(b)) for a, b in pairs_of]
         span_index = _span_pair(gmsh, pairs, axis)
         patches.append(face)
-        for index, pair in enumerate(pairs):
+        if corners is not None and any(len(side) > 1 for side in loop):
+            corners[face] = _corner_points(gmsh, face, loop)
+        for index, pair_of in enumerate(pairs_of):
+            pair = pairs[index]
             direction = "span" if index == span_index else "chord"
             spec = getattr(grid, direction) or Direction(count=None)
-            length = max(gmsh.model.occ.getMass(1, c) for c in pair)
+            length = max(span_of(side) for side in pair_of)
             if length < size:
                 # A side shorter than the component's size is a strip, such as the base of a
                 # blunt trailing edge: one cell across it, whatever the law of its direction.
@@ -364,7 +416,26 @@ def _sides(
                 ratio = _bump(spec, count, grid, direction, warnings)
             elif spec.law in DEFAULT_RATIO and ratio is None:
                 ratio = DEFAULT_RATIO[spec.law]
-            sides.append(_Side(name, pair, direction, count, spec.law, ratio, axis))
+            if all(len(side) == 1 for side in pair_of):
+                sides.append(_Side(name, pair, direction, count, spec.law, ratio, axis))
+                continue
+            count = max(count, *(len(side) for side in pair_of))
+            if spec.law != "uniform" and count > 1:
+                warnings.append(
+                    f"{name}: face {face} has a {direction} side of several curves, whose "
+                    f"{count} cells are shared over them by length, uniform on each"
+                )
+            for side in pair_of:
+                if len(side) == 1:
+                    sides.append(
+                        _Side(name, (side[0], side[0]), direction, count, spec.law, ratio, axis)
+                    )
+                    continue
+                shares = _shares(count, [float(gmsh.model.occ.getMass(1, c)) for c in side])
+                for curve, share in zip(side, shares, strict=True):
+                    sides.append(
+                        _Side(name, (curve, curve), direction, share, "uniform", None, axis)
+                    )
     for (direction, asked), patches_cut in sorted(strips.items()):
         warnings.append(
             f"{name}: {patches_cut} patch(es) with a {direction} side shorter than the size "
@@ -519,18 +590,24 @@ def mesh_model(
     fragment["warned"] = len(warnings)
     sides: list[_Side] = []
     patches: dict[str, list[int]] = {}
+    corners: dict[int, list[int]] = {}
     for name in order:
         grid = config.components.get(name, ComponentGrid(name=name))
         if not faces[name]:
             continue
-        found, four = _sides(gmsh, name, grid, faces[name], size=sizes[name], warnings=warnings)
+        found, four = _sides(
+            gmsh, name, grid, faces[name], size=sizes[name], warnings=warnings, corners=corners
+        )
         sides += found
         patches[name] = four
     overrides = _transfinite(gmsh, sides)
     _point_sizes(gmsh, faces, order, sizes)
     for name in order:
         for face in patches.get(name, []):
-            gmsh.model.mesh.setTransfiniteSurface(face)
+            if face in corners:
+                gmsh.model.mesh.setTransfiniteSurface(face, "Left", corners[face])
+            else:
+                gmsh.model.mesh.setTransfiniteSurface(face)
         for face in faces[name]:
             gmsh.model.mesh.setRecombine(2, face)
     gmsh.option.setNumber("Mesh.Algorithm", _MESH_ADAPT)
