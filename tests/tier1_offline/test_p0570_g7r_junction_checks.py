@@ -72,6 +72,7 @@ def test_p0570_g7r_the_substeps_run_in_the_order_of_execution():
         "S10.D1", "S10.C5", "S10.C6", "S10.C8", "S10.C9", "S10.D2", "S10.C7", "S10.D3",
         "S10.D4", "S10.E1", "S10.D5", "S10.D6", "S10.D8", "S10.D8b", "S10.C1", "S10.C2",
         "S10.C3", "S10.C4", "S10.D9", "S10.D10", "S10.E2",
+        "S10.FW1", "S10.FW2", "S10.FW3", "S10.FW4",
         "S10.F0", "S10.F1", "S10.F2", "S10.F3", "S10.F4", "S10.F5", "S10.F6", "S10.F7",
     ]  # fmt: skip
     assert order == expected
