@@ -69,6 +69,22 @@ _LEGACY = "LEGACY"
 #: the published import path and home of its resolver.
 GEOMETRY_VARIABLE = "GEOMETRY"
 
+#: The keys a row whose GEOMETRY is a generated configuration (``<name>.geom.toml``) reads
+#: (PFS-2214, lane G10). ``MESH_ROUTE`` is a COLUMN of the matrix, folded into the row's
+#: variables as GEOMETRY is; the other four are free-cell keys.
+MESH_ROUTE_VARIABLE = "MESH_ROUTE"
+GEOM_CONFIGURATION_VARIABLE = "GEOM_CONFIGURATION"
+GEOM_VARIANT_VARIABLE = "GEOM_VARIANT"
+GEOM_PARAMS_VARIABLE = "GEOM_PARAMS"
+MESH_CONTROLS_VARIABLE = "MESH_CONTROLS"
+GEOMETRY_ROW_KEYS: tuple[str, ...] = (
+    MESH_ROUTE_VARIABLE,
+    GEOM_CONFIGURATION_VARIABLE,
+    GEOM_VARIANT_VARIABLE,
+    GEOM_PARAMS_VARIABLE,
+    MESH_CONTROLS_VARIABLE,
+)
+
 #: Free case variables a workflow reads off the row. Each is a KEY of the
 #: matrix ``VAR_NAMES_VALUES`` cell and arrives as a string.
 VELOCITY_VARIABLE = "VELOCITY"
@@ -852,6 +868,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     *MATRIX_FACTORS,
     *MATRIX_START_KEYS,
     GEOMETRY_VARIABLE,
+    *GEOMETRY_ROW_KEYS,
     SYMMETRY_VARIABLE,
     # FR-66: registered on every run type, because whether the solver
     # reports the sector's loads or the wheel's is a per-row choice
@@ -1060,6 +1077,31 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "GEOMETRY column.",
             "a file name with its extension",
             "OPEN, IMPORT",
+        ),
+        MESH_ROUTE_VARIABLE: InputKey(
+            "How a row whose geometry is a generated configuration or an IGES file becomes a "
+            "mesh the solver opens; written in the MESH_ROUTE column. Stated on a row with an "
+            "FSM, OBJ or STL it is warned and skipped.",
+            "native, full_grid or quad_dominant; NA leaves the row as it is",
+        ),
+        GEOM_CONFIGURATION_VARIABLE: InputKey(
+            "The entry of the configuration registry a .geom.toml row builds; required when "
+            "the file declares more than one.",
+            "a configuration name of the file",
+        ),
+        GEOM_VARIANT_VARIABLE: InputKey(
+            "The variant of the configuration a .geom.toml row builds; clean when absent.",
+            "clean, or any variant the file declares",
+        ),
+        GEOM_PARAMS_VARIABLE: InputKey(
+            "Parameter overrides of a .geom.toml row, a brace list of component.key=value "
+            "pairs; a name the file does not hold refuses that row.",
+            "{main.planform.span=12, main.planform.taper=0.6}",
+        ),
+        MESH_CONTROLS_VARIABLE: InputKey(
+            "The mesh controls of the row's quad_dominant or full_grid route, a file of "
+            "inputs/geometries/; <stem>.mesh.toml of the geometry when absent.",
+            "a file name with its extension",
         ),
         SYMMETRY_VARIABLE: InputKey(
             "The symmetry the solver is initialized under, which states what was "

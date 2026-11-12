@@ -185,6 +185,13 @@ class RunStatus(enum.StrEnum):
     #: named in ``residual_note`` as unavailable, and the point is never
     #: CONVERGED by assumption.
     RAN_MISSING_LOG = "RAN_MISSING_LOG"
+    #: PFS-2214 (G10): the row's GEOMETRY is generated (a .geom.toml, or an IGES with a
+    #: MESH_ROUTE) and the generation failed or was refused, so no point of the row
+    #: could be planned. The record names the row, its stage and check, and the path of
+    #: the generation's report; the other rows of the matrix run as they would have.
+    #: Not a FAILED_ value: nothing ran, and a reader that counts failed SOLVES must not
+    #: count it. A manifest holding it is refused by a reader older than 0.57.0.
+    GEOMETRY_FAILED = "GEOMETRY_FAILED"
 
 
 COST_EXCLUDED_STATUSES = frozenset(

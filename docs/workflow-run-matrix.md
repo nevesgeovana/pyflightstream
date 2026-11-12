@@ -13,10 +13,10 @@ solver preset and the boundary group it should be resolved against.
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
+POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | MESH_ROUTE | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 |    0   |  1  | TestWing  | -             | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0,2.0        | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
-8002 |    1   |  1  | TestWing  | -             | REGISTRY_BETA          | MACH:0.0890, REmi:3.10, BETA:sweep | -3.0,3.0       | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8001 |    0   |  1  | TestWing  | -             | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0,2.0        | -        | NA         | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8002 |    1   |  1  | TestWing  | -             | REGISTRY_BETA          | MACH:0.0890, REmi:3.10, BETA:sweep | -3.0,3.0       | -        | NA         | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
@@ -52,7 +52,19 @@ four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
 `AIRCRAFT`; it labels and configures nothing, and it reaches two places you
 open: the first line of the emitted script, as a comment, and the title line
 of the custom polar file after ` - `.
-`GEOMETRY` names the mesh file. `SYMMETRY` says what was MESHED, a mirrored
+`GEOMETRY` names the mesh file, or a `.geom.toml` configuration file the row
+generates. `MESH_ROUTE` says how a generated geometry (or an IGES file) becomes the mesh the
+solver opens: `NA` leaves a row with a mesh file as it is, `native` hands the generated IGES to
+the solver's CAD importer, `quad_dominant` meshes it with strategy 1 and `full_grid` with
+strategy 2. A route stated on a row that opens an FSM, an OBJ or an STL is warned and skipped.
+A generated row also reads `GEOM_CONFIGURATION` (required when the file declares several),
+`GEOM_VARIANT` (`clean` by default), `GEOM_PARAMS` (`{main.planform.span=12}`, one override per
+name, an unknown name refuses that row) and `MESH_CONTROLS` (the mesh controls file, by default
+`<stem>.mesh.toml`). The generated files live in one folder of `inputs/geometries/` named by the
+parameters' identity, so equal parameters reuse it; a row whose generation fails is recorded as
+`GEOMETRY_FAILED` with the path of its report, and the other rows run. A matrix at the 0.56.0
+layout (no `MESH_ROUTE` column) still reads, with a warning; `pyfs-workspace migrate --apply`
+rewrites it. `SYMMETRY` says what was MESHED, a mirrored
 half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that
 come back are the whole aircraft's or the modelled slice's. `NCPUS` is the
 processor count, ONE number that reaches the solver's thread count and, on
