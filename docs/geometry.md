@@ -51,9 +51,20 @@ The input is never overwritten, and a same-name file already in the folder is re
 `--force` is given. A factor that is zero, negative or not a number, and a missing file, are
 refused by name and nothing is written.
 
+A FlightStream `.fsm` is scaled the same way, chosen by the file suffix, with the same output
+folder, record and refusals. An `.fsm` is text, and only the x, y and z rows of the node block
+in its mesh block (the three rows after the node count) are rewritten, each number in the
+solver's 17-digit exponent form; every other byte of the file, line endings included, is kept,
+so scaling by 1 returns the file unchanged. The record adds nothing to its shape: `vertices` is
+the node count and `faces` the face count of the mesh block. A `<stem>.boundaries.toml` beside
+the `.fsm` is neither read nor copied: it records the mesh sha256 and, in its import
+operations, node vectors in the old coordinates, so it has to be regenerated for the scaled
+mesh. A file with no mesh block, or whose node rows are not found, is refused by name.
+
 ```text
 pyfs-workspace geometry scale 0.5 --mesh wing.obj --out wing_half
 pyfs-workspace geometry scale 2 --mesh wing.obj --about 0,0,1.5
+pyfs-workspace geometry scale 0.5 --mesh wing.fsm --out wing_fsm_half
 ```
 
 From Python: `pyflightstream.workspace.scale.scale_mesh(mesh, factor, out=None, about=None)`.
