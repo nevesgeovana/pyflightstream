@@ -138,6 +138,24 @@ def block_from_walk(
     edges, or with fewer than four corners, is not a block: strategy 2 reports it by name as
     not full grid (delta F.2) instead of refusing. A cusp (the walk turning back) is a corner
     only when the face has too few other corners, and never with ``cusps=False``.
+
+    Parameters
+    ----------
+    name : str
+        The block name.
+    component : str
+        The component the face belongs to.
+    walk : sequence of int
+        The closed signed edge walk of the face.
+    turns : sequence of float
+        The turn in degrees at the start vertex of each edge of ``walk``.
+    cusps : bool, optional
+        Whether a cusp may serve as a corner when the face has too few other corners.
+
+    Returns
+    -------
+    Block or None
+        The block with its four sides and corner indices, or ``None`` when the face is not one.
     """
     sharp = sum(t < _CUSP_DEG for t in turns)
     if len(walk) < 4 or (not cusps and sharp < 4):
@@ -153,7 +171,20 @@ def block_from_walk(
 
 
 def ring_count(chord_cells: int, te_cells: int) -> int:
-    """Return the node count around a lifting root ring: both sides plus the base (2.5)."""
+    """Return the node count around a lifting root ring: both sides plus the base (2.5).
+
+    Parameters
+    ----------
+    chord_cells : int
+        The cells along the chord on each side.
+    te_cells : int
+        The cells across the trailing edge base.
+
+    Returns
+    -------
+    int
+        Twice ``chord_cells`` plus ``te_cells``.
+    """
     return 2 * int(chord_cells) + int(te_cells)
 
 
@@ -284,6 +315,30 @@ def solve_counts(
     cell size ``target_m`` per edge (relative deviation summed) is returned. Each loop of
     ``even`` holds an even total, so a face that is not a block closes with quads only.
 
+    Parameters
+    ----------
+    blocks : sequence of Block
+        The blocks of the graph.
+    lengths : mapping of int to float
+        The length of each edge.
+    target_m : mapping of int to float
+        The target cell size of each edge.
+    fixed : mapping of int to int, optional
+        Edges pinned to a count.
+    totals : sequence of tuple, optional
+        Rows of ``(edges, total)`` pinning the sum of counts over a set of edges.
+    carry : sequence of tuple of int, optional
+        Pairs of edges that continue one grid line across a junction.
+    max_growth : float, optional
+        The largest width ratio kept over a carry pair.
+    even : sequence of sequence of int, optional
+        Loops of edges whose total count is even.
+
+    Returns
+    -------
+    dict of int to int
+        The cell count of each edge.
+
     Raises
     ------
     InputValueError
@@ -327,7 +382,22 @@ def solve_counts(
 def carry_pairs_growth(
     counts: Mapping[int, int], lengths: Mapping[int, float], carry: Sequence[tuple[int, int]]
 ) -> float:
-    """Return the largest width ratio over the carry pairs (1.0 when there is none)."""
+    """Return the largest width ratio over the carry pairs (1.0 when there is none).
+
+    Parameters
+    ----------
+    counts : mapping of int to int
+        The cell count of each edge.
+    lengths : mapping of int to float
+        The length of each edge.
+    carry : sequence of tuple of int
+        The pairs of edges that continue one grid line across a junction.
+
+    Returns
+    -------
+    float
+        The largest ratio of the wider to the narrower cell width over the pairs.
+    """
     ratios = [1.0]
     for a, b in carry:
         wa, wb = lengths[a] / counts[a], lengths[b] / counts[b]
@@ -381,6 +451,20 @@ def azimuth_split(total: int, arcs: Sequence[float], *, floor: int = 1) -> list[
 
     Largest remainders take the leftover cells; every sector holds at least ``floor`` cells.
 
+    Parameters
+    ----------
+    total : int
+        The half-body azimuth cell count to distribute.
+    arcs : sequence of float
+        The finite positive arc length of each sector.
+    floor : int, optional
+        The fewest cells any sector holds.
+
+    Returns
+    -------
+    list of int
+        One cell count per sector; they sum to ``total``.
+
     Raises
     ------
     InputValueError
@@ -431,6 +515,23 @@ def irregular_nodes(
     ``valence3``); a node within ``tolerance_m`` of one of them with valence 3 is a pole. Every
     other interior node of valence other than four is returned as ``(node, valence)``. Open
     boundary nodes (the symmetry plane) are not counted.
+
+    Parameters
+    ----------
+    xyz : numpy.ndarray
+        The node coordinates, one row per node.
+    cells : sequence of sequence of int
+        The node indices of each cell.
+    poles : sequence of sequence of float
+        The declared pole points.
+    tolerance_m : float
+        The distance within which a node is taken to be a declared pole.
+
+    Returns
+    -------
+    tuple of int and list of tuple of int
+        The count of valence 3 poles, and the other irregular interior nodes as
+        ``(node, valence)``.
     """
     points = np.asarray(xyz, dtype=float)
     declared = np.asarray(poles, dtype=float).reshape(-1, 3)
@@ -476,7 +577,20 @@ def check_poles(
 
 
 def check_triangles(cells: Sequence[Sequence[int]], components: Sequence[str]) -> None:
-    """Refuse any triangle (E07): strategy 2 is a full quad grid everywhere."""
+    """Refuse any triangle (E07): strategy 2 is a full quad grid everywhere.
+
+    Parameters
+    ----------
+    cells : sequence of sequence of int
+        The node indices of each cell.
+    components : sequence of str
+        The component name of each cell, in the order of ``cells``.
+
+    Raises
+    ------
+    InputValueError
+        E07 when any cell has three nodes, naming the count per component.
+    """
     by_component: dict[str, int] = {}
     for cell, name in zip(cells, components, strict=True):
         if len(cell) == 3:

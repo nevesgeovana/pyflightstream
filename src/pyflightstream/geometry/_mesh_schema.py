@@ -466,6 +466,28 @@ def azimuth_count(stations, rule: Mapping[str, Any], *, ring_count: int = 0) -> 
 
     A numeric reference must be a measured station. This boundary never invents
     an unmeasured perimeter or silently moves the requested reference station.
+
+    Parameters
+    ----------
+    stations : array_like
+        Measured rows of ``(x, half perimeter, axial step)``, all finite.
+    rule : mapping
+        The azimuth rule: ``target_aspect`` (default 1.0) and ``reference``
+        (``"max_perimeter"`` or a measured station ``x``).
+    ring_count : int, optional
+        The count the result may not fall below.
+
+    Returns
+    -------
+    tuple of int and float
+        The half-body azimuth count and the reference station ``x``.
+
+    Raises
+    ------
+    InputValueError
+        When the rows are malformed or not positive, the aspect is not positive,
+        ``ring_count`` is not a nonnegative integer, or the reference is not
+        exactly one measured station.
     """
     rows = np.asarray(stations, dtype=float)
     if rows.ndim != 2 or rows.shape[1] != 3 or not len(rows) or not np.all(np.isfinite(rows)):
