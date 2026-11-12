@@ -159,6 +159,41 @@ is written and the exit is 0 even when a check fails, so read `accepted` and
 `spacing_rules.passed` in the record. Python:
 `mesh_generated`.
 
+## Mesh from per-component controls (strategy 1)
+
+```text
+pyfs-workspace geometry mesh wing-body.toml --controls mesh.toml --dry-run
+pyfs-workspace geometry mesh wing-body.toml --controls mesh.toml --out meshes --fsm-template fresh.fsm
+```
+
+The mesh controls hold a `[mesh]` table (`strategy = 1`, `configuration`, `variant` clean, cs or
+csf, `iges`, `output.descriptor`), a `[defaults]` table (`lifting_surface`, `body`, `quality`,
+`transition`) and one `[components.<name>]` table per member. A primary or flexible lifting
+surface states `chordwise` and `spanwise`, each with at least `cells` and `law` (error E15);
+the other keys come from `defaults.lifting_surface`. A body takes `x_cells` or `x_step_m`, and
+`azimuth_cells` or `azimuth_step_deg`. A fairing or fillet with no table follows its hosts.
+Membership comes from `mesh.configuration` and the component names from the 406 names of
+`mesh.iges` (the generated names when it is absent): a table naming a component outside the
+configuration is warned (W01) and ignored, one naming no IGES component is refused (E04).
+`chordwise.hinge_rows` pins node rows at those chord fractions without changing the cell
+count. `trailing_edge = "collapsed"` with `collapse_tolerance_m` closes the blunt base to one
+line of nodes in the mesh only.
+
+`--dry-run` validates, prints each component's counts and the warnings, and writes nothing. A
+run measures the acceptance table on the realized mesh: inverted and degenerate cells, edges
+used by more than two cells, free edges off the symmetry plane, quad aspect and skew outside
+the transition components (`defaults.quality`), triangles only in transition components under
+their `max_triangle_fraction`, irregular nodes inside a structured surface, the spacing laws,
+the distance to the source, each follower sharing a curve with every neighbour it follows,
+surfaces only, and the cells across each trailing-edge base. A limit that is not given is
+recorded as skipped with its measured value. `--out` writes `<descriptor>.obj`,
+`<descriptor>.mesh.json` (controls hash, plan, counts, every check, `accepted`, the hashes of
+the files) and, with `--fsm-template`, `<descriptor>.fsm`: the template's blocks with its mesh
+block replaced, one boundary per component, quads as partner triangle pairs, and the trailing
+edges marked. The template must be a fresh saved simulation with no base region,
+trailing-edge group or termination. Exit 0 planned or accepted, 1 not accepted, 2 refused.
+Python: `mesh_configuration`.
+
 ## Identify a lifting surface
 
 ```text

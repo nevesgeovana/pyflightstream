@@ -7,14 +7,22 @@ realized mesh, independently of the requested controls.
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from pyflightstream._errors import InputValueError
-from pyflightstream.geometry.stages import Mesh, check_entry, mesh_measurements
+from pyflightstream._errors import InputArtifactError, InputValueError
+from pyflightstream.geometry.stages import (
+    Mesh,
+    check_entry,
+    load_mesh_controls,
+    mesh_controls,
+    mesh_measurements,
+)
 
 
 def follower_edges(controls: Mapping[str, Any], edge_nodes: Mapping) -> dict:
@@ -248,32 +256,53 @@ def body_aspect_checks(xyz, node_ids, band) -> list[dict]:
     return checks
 
 
-def _collapsed_nodes(mesh: Mesh, pairs, tolerance_m: float):
+def _collapsed_nodes(mesh: Mesh, groups, tolerance_m: float):
     xyz = mesh.xyz.copy()
     if not np.all(np.isfinite(xyz)):
         raise InputValueError("collapse distance: mesh coordinates must be finite")
     representatives = np.arange(len(xyz))
     used: set[int] = set()
     distance = 0.0
-    for a, b in pairs:
-        if a == b or min(a, b) < 0 or max(a, b) >= len(xyz) or {a, b} & used:
+    for group in groups:
+        nodes = [int(v) for v in group]
+        if (
+            len(nodes) < 2
+            or len(set(nodes)) != len(nodes)
+            or min(nodes) < 0
+            or max(nodes) >= len(xyz)
+            or set(nodes) & used
+        ):
             raise InputValueError("collapse: disjoint valid upper/lower TE pairs required")
-        used.update((a, b))
-        distance = max(distance, float(np.linalg.norm(xyz[a] - xyz[b]) / 2))
+        used.update(nodes)
+        middle = (xyz[nodes[0]] + xyz[nodes[-1]]) / 2
+        distance = max(distance, float(np.max(np.linalg.norm(xyz[nodes] - middle, axis=1))))
         if not np.isfinite(distance) or distance > tolerance_m:
             raise InputValueError(f"collapse distance {distance} exceeds tolerance {tolerance_m} m")
-        xyz[a] = (xyz[a] + xyz[b]) / 2
-        representatives[b] = a
+        xyz[nodes[0]] = middle
+        representatives[nodes[1:]] = nodes[0]
     return xyz, representatives, used, distance
 
 
-def collapse_trailing_edge(
-    mesh: Mesh, pairs, base_cells: set[int], *, tolerance_m: float
-) -> tuple[Mesh, list[dict]]:
-    """Collapse explicit upper/lower TE pairs at their midpoints in a new mesh.
+def _reduced(cell: tuple[int, ...]) -> tuple[int, ...]:
+    """Drop a node repeated next to itself (a quad with one collapsed edge becomes a triangle)."""
+    result = [v for i, v in enumerate(cell) if v != cell[i - 1]]
+    return tuple(result)
 
-    Only declared base cells are removed. The source geometry and source mesh
-    are untouched; any unintended degenerate skin cell refuses the operation.
+
+def collapse_trailing_edge(
+    mesh: Mesh,
+    pairs,
+    base_cells: set[int],
+    *,
+    tolerance_m: float,
+    reducible: frozenset = frozenset(),
+) -> tuple[Mesh, list[dict]]:
+    """Collapse explicit upper/lower TE node groups at their midpoints in a new mesh.
+
+    A group is an upper node, any nodes across the base, and a lower node; it collapses to
+    the midpoint of its two ends. Only declared base cells are removed. A ``reducible`` cell
+    (a cap or transition cell) that loses one edge becomes a triangle; any other cell that
+    would degenerate refuses the operation. The source geometry and mesh are untouched.
     """
     if not np.isfinite(tolerance_m) or tolerance_m <= 0 or not pairs or not base_cells:
         raise InputValueError(
@@ -290,7 +319,10 @@ def collapse_trailing_edge(
             if not degenerate or not set(cell) <= used:
                 raise InputValueError("collapse: declared base cell does not collapse to its TE")
             continue
-        if degenerate:
+        reduced = _reduced(new_cell)
+        if degenerate and i in reducible and len(set(reduced)) == len(reduced) >= 3:
+            new_cell = reduced
+        elif degenerate:
             raise InputValueError("collapse: undeclared base or skin cell would degenerate")
         cells.append(new_cell)
         components.append(mesh.components[i])
@@ -308,3 +340,533 @@ def collapse_trailing_edge(
         _check("mesh.te.collapse_distance", distance, tolerance_m, unit="m"),
         _check("mesh.te.base_removed", abs(len(mesh.cells) - len(cells) - len(base_cells))),
     ]
+
+
+#: Tolerance of a free edge on the symmetry plane y = 0 (MESH_STRATEGY section 5), m.
+SYMMETRY_TOLERANCE_M = 1e-7
+#: Smallest corner sine of a cell that is not degenerate (MESH_STRATEGY section 5).
+DEGENERATE_SINE = 0.02
+
+
+def edge_uses(mesh: Mesh) -> dict[tuple[int, int], list[int]]:
+    """Map every undirected mesh edge to the cells that use it."""
+    uses: dict[tuple[int, int], list[int]] = {}
+    for index, cell in enumerate(mesh.cells):
+        for a, b in zip(cell, cell[1:] + cell[:1], strict=True):
+            uses.setdefault((min(a, b), max(a, b)), []).append(index)
+    return uses
+
+
+def shared_curves(mesh: Mesh) -> dict[tuple[str, str], list[tuple[int, int]]]:
+    """Discover the curves two components share: the edges used by a cell of each."""
+    curves: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    for edge, cells in edge_uses(mesh).items():
+        names = sorted({mesh.components[c] for c in cells})
+        for i, a in enumerate(names):
+            for b in names[i + 1 :]:
+                curves.setdefault((a, b), []).append(edge)
+    return curves
+
+
+def _on_symmetry(mesh: Mesh, edge) -> bool:
+    return bool(np.all(np.abs(mesh.xyz[list(edge), 1]) <= SYMMETRY_TOLERANCE_M))
+
+
+def follower_checks(mesh: Mesh, controls: Mapping[str, Any]) -> list[dict]:
+    """Check each follower shares a curve, node to node, with every neighbour it follows.
+
+    The shared curves are discovered on the realized mesh (edges used by a cell of each
+    component); a neighbour with none is named. Hanging edges are the free-edge check's.
+    """
+    curves = shared_curves(mesh)
+    checks = []
+    for name, component in controls["components"].items():
+        if component["role"] != "follower" or name not in mesh.components:
+            continue
+        missing = [n for n in component["follows"] if not curves.get(tuple(sorted((name, n))))]
+        found = {n: len(curves.get(tuple(sorted((name, n))), [])) for n in component["follows"]}
+        checks.append(
+            _check(
+                "mesh.follower.shared_curves",
+                len(missing),
+                where={"component": name, "missing_neighbours": missing, "shared_edges": found},
+            )
+        )
+    return checks
+
+
+def _corner_measures(points: np.ndarray) -> tuple[float, float, float]:
+    """Return the smallest corner sine, the edge aspect and the largest skew of one cell."""
+    edges = np.roll(points, -1, axis=0) - points
+    lengths = np.linalg.norm(edges, axis=1)
+    if min(lengths) <= 0:
+        return 0.0, float("inf"), 90.0
+    previous = -np.roll(edges, 1, axis=0)
+    norms = np.roll(lengths, 1) * lengths
+    sines = np.linalg.norm(np.cross(previous, edges), axis=1) / norms
+    angles = np.degrees(np.arccos(np.clip(np.sum(previous * edges, axis=1) / norms, -1, 1)))
+    skew = float(np.max(np.abs(angles - 90))) if len(points) == 4 else 0.0
+    return float(np.min(sines)), float(max(lengths) / min(lengths)), skew
+
+
+def _limit_check(check_id: str, value: float, table: Mapping, key: str, unit: str = "") -> dict:
+    if key in table:
+        return _check(check_id, value, float(table[key]), unit=unit)
+    return check_entry(check_id, "skipped", note=f"no {key} given; measured {value:.6g}", unit=unit)
+
+
+def _quality(mesh: Mesh, transition: set[str], quality: Mapping[str, Any]) -> list[dict]:
+    degenerate, aspect, skew = 0, 0.0, 0.0
+    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+        sine, ratio, angle = _corner_measures(mesh.xyz[list(cell)])
+        degenerate += int(sine < DEGENERATE_SINE)
+        if name not in transition and len(cell) == 4:
+            aspect, skew = max(aspect, ratio), max(skew, angle)
+    return [
+        _check("mesh.degenerate", degenerate),
+        _limit_check("mesh.quality.aspect", aspect, quality, "max_aspect"),
+        _limit_check("mesh.quality.skew", skew, quality, "max_skew_deg", "deg"),
+    ]
+
+
+def _triangle_checks(mesh: Mesh, limits: Mapping[str, Mapping]) -> list[dict]:
+    """Triangles only in transition components, each under its stated fraction."""
+    totals: dict[str, list[int]] = {}
+    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+        counts = totals.setdefault(name, [0, 0])
+        counts[0] += int(len(cell) == 3)
+        counts[1] += 1
+    outside = {n: c[0] for n, c in totals.items() if n not in limits and c[0]}
+    checks = [
+        _check("mesh.triangles.region", sum(outside.values()), where={"by_component": outside})
+    ]
+    for name, table in sorted(limits.items()):
+        if name in totals:
+            fraction = totals[name][0] / totals[name][1]
+            entry = _limit_check(
+                "mesh.triangles.fraction", fraction, table, "max_triangle_fraction"
+            )
+            entry["where"] = {"component": name}
+            checks.append(entry)
+    return checks
+
+
+def _irregular_nodes(mesh: Mesh, transition: set[str]) -> dict:
+    """Count interior nodes of one structured surface whose valence is not four."""
+    boundary: set[int] = set()
+    for edge, cells in edge_uses(mesh).items():
+        if len(cells) == 1 or len({mesh.surfaces[c] for c in cells}) != 1:
+            boundary.update(edge)
+    incident: dict[int, list[int]] = {}
+    for index, cell in enumerate(mesh.cells):
+        for v in cell:
+            incident.setdefault(v, []).append(index)
+    irregular = sum(
+        1
+        for node, cells in incident.items()
+        if node not in boundary
+        and not any(mesh.components[c] in transition for c in cells)
+        and len(cells) != 4
+    )
+    return _check("mesh.irregular_nodes", irregular)
+
+
+def _topology(mesh: Mesh) -> list[dict]:
+    uses = edge_uses(mesh)
+    over = sum(1 for cells in uses.values() if len(cells) > 2)
+    free = sum(1 for e, cells in uses.items() if len(cells) == 1 and not _on_symmetry(mesh, e))
+    return [
+        _check("mesh.node_to_node", over),
+        _check("mesh.free_edges", free, where={"tolerance_m": SYMMETRY_TOLERANCE_M}),
+    ]
+
+
+def acceptance_checks(
+    mesh: Mesh, record: Mapping[str, Any], controls: Mapping[str, Any], transition: Mapping
+) -> list[dict]:
+    """Measure the strategy 1 acceptance table of the surface-mesh design on a realized mesh.
+
+    ``record`` is the kernel record (inverted cells, source distance, spacing rules);
+    ``transition`` maps each transition component to its transition table. Every other check
+    is measured here on the cells and nodes, independently of the requested controls.
+    """
+    names = set(transition)
+    checks = [_check("mesh.inverted", int(record["inverted_count"]))]
+    checks += _quality(mesh, names, controls.get("defaults", {}).get("quality", {}))
+    checks += _topology(mesh)
+    checks += _triangle_checks(mesh, transition)
+    checks.append(_irregular_nodes(mesh, names))
+    failures = record.get("spacing_rules", {}).get("failures", [None])
+    checks.append(_check("mesh.spacing_laws", len(failures)))
+    checks.append(
+        _check(
+            "mesh.source_distance",
+            float(record["source_distance_max_m"]),
+            float(record["source_distance_tolerance_m"]),
+            unit="m",
+        )
+    )
+    return checks + follower_checks(mesh, controls)
+
+
+#: Component types the generated route meshes as followers of their hosts when the controls
+#: give them no table (MESH_STRATEGY 2.3, followers by default).
+_DEFAULT_FOLLOWERS = {"wing_fuselage_fairing": "quad_dominant", "fillet": "full_quad"}
+#: Keys of a direction table the generated route cannot honour, refused by name.
+_ROUTE_REFUSED = {
+    "chordwise": ("first_cell", "root_cells"),
+    "spanwise": ("first_cell", "root_cells"),
+}
+_ROUTE = "strategy 1 on the generated route"
+
+
+def iges_names(path: str | Path) -> set[str]:
+    """Return the component names an IGES file carries as 406 form 15 NAME properties."""
+    from pyflightstream.workspace._iges_write import read_iges
+
+    try:
+        document = read_iges(path)
+    except (OSError, UnicodeDecodeError, ValueError, IndexError) as error:
+        raise InputArtifactError(f"mesh.iges {Path(path).name}: cannot be read: {error}") from error
+    names = set()
+    for entity in document["entities"]:
+        if entity["type"] == 406 and int(entity["d2"][4]) == 15 and len(entity["parameters"]) > 2:
+            text = entity["parameters"][2]
+            names.add(text.split("H", 1)[1] if "H" in text else text)
+    return names
+
+
+def _members(resolved: Mapping, mesh: Mapping) -> list[str]:
+    components = list(resolved["components"])
+    configuration = mesh.get("configuration")
+    if configuration is None:
+        return components
+    table = resolved.get("configurations", {})
+    if configuration not in table:
+        raise InputValueError(
+            f"mesh.configuration {configuration!r}: unknown; available {sorted(table)}"
+        )
+    return list(table[configuration])
+
+
+def _with_default_followers(raw: dict, components: Mapping, members, warnings) -> dict:
+    tables = raw.setdefault("components", {})
+    strategy = raw.get("mesh", {}).get("strategy", 1) if isinstance(raw.get("mesh"), dict) else 1
+    for name in members:
+        kind = components[name]["type"]
+        if name not in tables and kind in _DEFAULT_FOLLOWERS:
+            hosts = list(components[name].get("hosts", []))
+            fill = _DEFAULT_FOLLOWERS[kind] if strategy == 1 else "full_quad"
+            tables[name] = {"role": "follower", "follows": hosts, "fill": fill}
+            warnings.append(
+                f"{name}: no mesh table; follower of {hosts}, fill {tables[name]['fill']}"
+            )
+        elif name not in tables and kind == "body":
+            tables[name] = {"role": "primary"}
+            warnings.append(f"{name}: no mesh table; primary body from defaults.body")
+        elif name in tables and kind in _DEFAULT_FOLLOWERS:
+            tables[name].setdefault("type", kind)
+    for name, table in tables.items():
+        if name in components and isinstance(table, dict):
+            kind = components[name]["type"]
+            if kind in ("lifting_surface", "body"):
+                table.setdefault("type", kind)
+    return raw
+
+
+def _direction(component: Mapping, defaults: Mapping, direction: str, name: str) -> dict:
+    table = {**defaults.get("lifting_surface", {}).get(direction, {}), **component[direction]}
+    for key in _ROUTE_REFUSED[direction]:
+        if table.get(key):
+            raise InputValueError(f"{name}.{direction}.{key}: not available in {_ROUTE}")
+    return table
+
+
+def _lifting_controls(component: Mapping, defaults: Mapping, name: str) -> dict:
+    chord = _direction(component, defaults, "chordwise", name)
+    span = _direction(component, defaults, "spanwise", name)
+    if chord["law"] not in ("geometric_cap", "constant"):
+        raise InputValueError(
+            f"{name}.chordwise.law {chord['law']!r}: {_ROUTE} meshes geometric_cap or constant"
+        )
+    if span["law"] != "constant":
+        raise InputValueError(
+            f"{name}.spanwise.law {span['law']!r}: {_ROUTE} meshes constant "
+            "spanwise cells with an optional tip run"
+        )
+    controls: dict[str, Any] = load_mesh_controls()["lifting_surface"]
+    controls.update(
+        chord_cells=chord["cells"],
+        chord_growth=1.0 if chord["law"] == "constant" else chord.get("ratio", 1.15),
+        growth_until=chord.get("growth_until", controls["growth_until"]),
+        span_cells=span["cells"],
+        tip_cells=span.get("tip_cells", controls["tip_cells"]),
+        tip_ratio=span.get("tip_ratio", controls["tip_ratio"]),
+        thickness_cells=chord.get("te_cells", controls["thickness_cells"]),
+    )
+    if chord.get("hinge_rows"):
+        controls["hinge_rows"] = tuple(sorted(set(chord["hinge_rows"])))
+    return controls
+
+
+def _body_controls(component: Mapping, spec: Mapping, defaults: Mapping, name: str) -> dict:
+    table = {**defaults.get("body", {}), **component}
+    if "azimuth_rule" in table:
+        raise InputValueError(
+            f"{name}.azimuth_rule: {_ROUTE} takes azimuth_cells or "
+            "azimuth_step_deg; the derived rule is strategy 2's"
+        )
+    controls = load_mesh_controls()["body"]
+    if "x_step_m" in table:
+        controls["x_cells"] = max(1, round(spec["length"] / table["x_step_m"]))
+    elif "x_cells" in table:
+        controls["x_cells"] = table["x_cells"]
+    if "azimuth_step_deg" in table:
+        controls["azimuth_cells"] = max(1, round(180.0 / table["azimuth_step_deg"]))
+    elif "azimuth_cells" in table:
+        controls["azimuth_cells"] = table["azimuth_cells"]
+    return controls
+
+
+def _transition(controls: Mapping, components: Mapping) -> dict[str, dict]:
+    """Return the components that may hold triangles, with their transition tables.
+
+    Lifting surfaces stay structured even when marked flexible; a follower filled
+    quad-dominant and a flexible body are transition components.
+    """
+    result = {}
+    default = controls["defaults"].get("transition", {})
+    for name, c in controls["components"].items():
+        kind = components[name]["type"]
+        if kind == "lifting_surface":
+            continue
+        if c["role"] == "flexible" or c.get("fill") == "quad_dominant":
+            result[name] = {**default, **c.get("transition", {})}
+    return result
+
+
+def _route_members(components: Mapping, members: list[str]) -> list[str]:
+    """Return the route's member order: one component alone, or body, wing and fairing."""
+    if len(members) == 1 and components[members[0]]["type"] in ("body", "lifting_surface"):
+        return members
+    fairings = [m for m in members if components[m]["type"] == "wing_fuselage_fairing"]
+    if len(fairings) == 1:
+        body, wing = components[fairings[0]]["hosts"]
+        if set(members) == {body, wing, fairings[0]}:
+            return [body, wing, fairings[0]]
+    raise InputValueError(
+        f"mesh.configuration: {_ROUTE} meshes one body or lifting surface alone, or a body, "
+        f"its wing and their wing_fuselage_fairing; members {sorted(members)} are not meshed yet"
+    )
+
+
+def _planned_rows(controls: Mapping, l4: Mapping, components: Mapping) -> dict[str, dict]:
+    rows = {}
+    for name, c in controls["components"].items():
+        kind = components[name]["type"]
+        row: dict[str, Any] = {"type": kind, "role": c["role"]}
+        if c["role"] == "follower":
+            row.update(follows=c["follows"], fill=c.get("fill", "full_quad"))
+        elif kind == "lifting_surface":
+            lc = l4["lifting_surface"]
+            row.update(
+                chord_cells_per_side=lc["chord_cells"],
+                span_cells=lc["span_cells"],
+                tip_cells=lc["tip_cells"],
+                te_cells=lc["thickness_cells"],
+                hinge_rows=list(lc.get("hinge_rows", ())),
+                trailing_edge=c.get("trailing_edge", "blunt"),
+            )
+        elif kind == "body":
+            bc = l4["body"]
+            row.update(
+                x_cells=bc["x_cells"],
+                x_step_m=components[name]["length"] / bc["x_cells"],
+                azimuth_cells=bc["azimuth_cells"],
+            )
+        rows[name] = row
+    return rows
+
+
+def plan_strategy1(resolved: Mapping, source: Any, *, base: Path | None = None) -> dict:
+    """Validate mesh controls against the configuration and plan strategy 1, without a kernel.
+
+    Membership comes from ``mesh.configuration`` (every component when absent), the IGES names
+    from ``mesh.iges`` (the generated component names when absent). A fairing or fillet with no
+    table follows its hosts. Returns the validated controls, the kernel controls, the realized
+    counts per component, the transition components and every warning; nothing is written.
+    """
+    raw = (
+        tomllib.loads(Path(source).read_text(encoding="utf-8"))
+        if isinstance(source, (str, Path))
+        else deepcopy(dict(source))
+    )
+    from pyflightstream.geometry.stages import unpack
+
+    components = unpack(resolved)["components"]
+    mesh = raw.get("mesh", {}) if isinstance(raw.get("mesh", {}), Mapping) else {}
+    members = _members({**resolved, "components": components}, mesh)
+    names = set(components)
+    if "iges" in mesh:
+        names = iges_names(Path(base or ".") / mesh["iges"])
+    warnings: list[str] = []
+    raw = _with_default_followers(raw, components, members, warnings)
+    controls = mesh_controls(raw, members=set(members), names=names)
+    if controls["mesh"]["strategy"] != 1:
+        raise InputValueError("mesh.strategy 2: the full-grid strategy is not on this route")
+    order = _route_members(components, members)
+    missing = [m for m in order if m not in controls["components"]]
+    if missing:
+        raise InputValueError(f"{missing}: no mesh controls; give a table per member")
+    l4: dict[str, dict[str, Any]] = load_mesh_controls()
+    defaults = controls["defaults"]
+    for name, c in controls["components"].items():
+        kind = components[name]["type"]
+        if c["role"] != "follower" and kind == "lifting_surface":
+            l4["lifting_surface"] = _lifting_controls(c, defaults, name)
+        elif c["role"] != "follower" and kind == "body":
+            l4["body"] = _body_controls(c, components[name], defaults, name)
+        if "families" in c:
+            warnings.append(f"{name}.families: per-family overrides are not applied by {_ROUTE}")
+    return {
+        "strategy": 1,
+        "variant": controls["mesh"]["variant"],
+        "configuration": mesh.get("configuration"),
+        "members": order,
+        "order": controls["order"],
+        "controls": controls,
+        "kernel_controls": l4,
+        "components": _planned_rows(controls, l4, components),
+        "transition": _transition(controls, components),
+        "warnings": [*controls["warnings"], *warnings],
+    }
+
+
+def _te_sides(mesh: Mesh, family: list[str]) -> dict[int, str]:
+    side: dict[int, str] = {}
+    for i, f in enumerate(family):
+        for prefix in ("upper", "lower"):
+            if f.startswith(prefix):
+                side.update(dict.fromkeys(mesh.cells[i], prefix))
+    return side
+
+
+def _te_links(mesh: Mesh, base: set[int], side: Mapping[int, str]):
+    links: dict[int, set[int]] = {}
+    lines: set[tuple[int, int]] = set()
+    for i in base:
+        cell = mesh.cells[i]
+        for a, b in zip(cell, cell[1:] + cell[:1], strict=True):
+            sa, sb = side.get(a, "inside"), side.get(b, "inside")
+            if sa == sb and sa != "inside":
+                lines.add((min(a, b), max(a, b)))
+            elif sa != sb:
+                links.setdefault(a, set()).add(b)
+                links.setdefault(b, set()).add(a)
+    return links, lines
+
+
+def _te_chain(start: int, links: Mapping[int, set[int]], side: Mapping[int, str]) -> list[int]:
+    chain, previous, node = [start], None, start
+    while side.get(node) != "lower":
+        following = [v for v in links[node] if v != previous and v not in chain]
+        if len(following) != 1:
+            break
+        previous, node = node, following[0]
+        chain.append(node)
+    return chain
+
+
+def trailing_edge_groups(
+    mesh: Mesh, families: Mapping[int, str], component: str
+) -> tuple[set[int], list[list[int]], list[tuple[int, int]]]:
+    """Find a lifting component's TE base cells, its across-base node groups and TE lines.
+
+    Base cells are the component's ``trailing*`` family cells. A node on the upper (lower)
+    TE line also belongs to an ``upper*`` (``lower*``) skin cell; a node in base cells only is
+    inside the base. A group is a connected run of base edges joining different classes,
+    ordered upper to lower; the TE line edges join two nodes of the same skin class.
+    """
+    family = [
+        families.get(int(s), "") if name == component else ""
+        for s, name in zip(mesh.surfaces, mesh.components, strict=True)
+    ]
+    base = {i for i, f in enumerate(family) if f.startswith("trailing")}
+    side = _te_sides(mesh, family)
+    links, lines = _te_links(mesh, base, side)
+    groups: list[list[int]] = []
+    seen: set[int] = set()
+    for start in sorted(v for v in links if side.get(v) == "upper"):
+        chain = [] if start in seen else _te_chain(start, links, side)
+        if chain and side.get(chain[-1]) == "lower":
+            groups.append(chain)
+            seen.update(chain)
+    return base, groups, sorted(lines)
+
+
+def cells_across(groups: list[list[int]]) -> dict:
+    """Measure the base cells across every TE station (the settled rule: one quad across)."""
+    counts = sorted({len(group) - 1 for group in groups}) or [0]
+    worst = max(abs(c - 1) for c in counts)
+    return _check("mesh.trailing_edge_one_quad", worst, where={"cells_across": counts})
+
+
+def _single_valued(values: np.ndarray, over: np.ndarray, tolerance: float) -> bool:
+    """Whether ``values`` is a function of ``over``: ``over`` strictly monotone along the curve."""
+    steps = np.diff(over)
+    return bool(len(steps)) and (
+        bool(np.all(steps > tolerance)) or bool(np.all(steps < -tolerance))
+    )
+
+
+def junction_blocks(
+    faces: Mapping[str, Mapping[str, Any]],
+    junctions: Mapping[str, Any],
+    *,
+    tolerance: float = 1e-9,
+) -> dict[str, list[dict]]:
+    """Classify each layout block of each face against the junction curves crossing it.
+
+    ``faces`` follows the layout sidecar of the design (face name to ``{"u": [...], "v":
+    [...]}``, the iso lines bounding its blocks, each a sorted list of parameters with both
+    ends); ``junctions`` maps a face name to the (n, 2) (u, v) samples of each junction
+    pcurve on it. A block no junction enters is ``transfinite``; a block a junction crosses as
+    a function of one parameter keeps four sides with one curved side
+    (``transfinite_curved``, naming the parameter the curve is single valued in); any other
+    crossing is ``quad_dominant``, which strategy 2 reports as not full grid.
+    """
+    result: dict[str, list[dict]] = {}
+    for name, layout in faces.items():
+        u_lines = np.asarray(layout["u"], dtype=float)
+        v_lines = np.asarray(layout["v"], dtype=float)
+        curves = [np.asarray(c, dtype=float).reshape(-1, 2) for c in junctions.get(name, [])]
+        blocks = []
+        for i in range(len(u_lines) - 1):
+            for j in range(len(v_lines) - 1):
+                box = (u_lines[i], u_lines[i + 1], v_lines[j], v_lines[j + 1])
+                blocks.append(_block_kind(name, (i, j), box, curves, tolerance=tolerance))
+        result[name] = blocks
+    return result
+
+
+def _block_kind(name, index, box, curves, *, tolerance) -> dict:
+    u0, u1, v0, v1 = box
+    inside = [
+        c[
+            (c[:, 0] > u0 + tolerance)
+            & (c[:, 0] < u1 - tolerance)
+            & (c[:, 1] > v0 + tolerance)
+            & (c[:, 1] < v1 - tolerance)
+        ]
+        for c in curves
+    ]
+    inside = [c for c in inside if len(c)]
+    entry: dict[str, Any] = {"face": name, "block": list(index), "box": [u0, u1, v0, v1]}
+    if not inside:
+        return {**entry, "kind": "transfinite"}
+    if len(inside) == 1:
+        c = inside[0]
+        for parameter, over, values in (("u", c[:, 0], c[:, 1]), ("v", c[:, 1], c[:, 0])):
+            if _single_valued(values, over, tolerance):
+                return {**entry, "kind": "transfinite_curved", "single_valued_in": parameter}
+    return {**entry, "kind": "quad_dominant"}

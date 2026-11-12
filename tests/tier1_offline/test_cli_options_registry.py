@@ -268,6 +268,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-geom", "config_out"): OUTPUT,  # geometry parametric verb.
     ("pyfs-geom", "configuration"): SUBJECT,  # geometry parametric verb.
     ("pyfs-workspace", "controls"): SUBJECT,  # geometry parametric verb.
+    ("pyfs-workspace", "dry_run"): SWITCH,  # geometry mesh: plan and print only.
+    ("pyfs-workspace", "descriptor"): OUTPUT,  # geometry mesh: stem of the written files.
+    ("pyfs-workspace", "fsm_template"): SUBJECT,  # geometry mesh: the fresh saved file.
     ("pyfs-geom", "converge"): SWITCH,  # geometry parametric verb.
     ("pyfs-geom", "cut"): SWITCH,  # geometry parametric verb.
     ("pyfs-geom", "edge_count"): SWITCH,  # geometry parametric verb.
@@ -1082,7 +1085,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
         "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
-        "visual-inspect iges-grid iges-convert mesh-generated scale prop-slice".split()
+        "visual-inspect iges-grid iges-convert mesh-generated scale prop-slice mesh".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -1223,7 +1226,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-geom", "chords_m"): frozenset({"check"}),
     ("pyfs-geom", "config_out"): frozenset({"identify"}),
     ("pyfs-geom", "configuration"): frozenset({"doe", "run"}),
-    ("pyfs-workspace", "controls"): frozenset({"mesh-generated"}),
+    ("pyfs-workspace", "controls"): frozenset({"mesh-generated", "mesh"}),
+    ("pyfs-workspace", "dry_run"): frozenset({"mesh"}),
+    ("pyfs-workspace", "descriptor"): frozenset({"mesh"}),
+    ("pyfs-workspace", "fsm_template"): frozenset({"mesh"}),
     ("pyfs-geom", "converge"): frozenset({"identify"}),
     ("pyfs-geom", "cut"): frozenset({"identify"}),
     ("pyfs-geom", "edge_count"): frozenset({"check"}),
@@ -1273,7 +1279,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "simulation_unit"): frozenset({"identify-te"}),
     ("pyfs-workspace", "per_family"): frozenset({"convert2midnodes"}),
     ("pyfs-workspace", "keep_first_row"): frozenset({"refine"}),
-    ("pyfs-workspace", "config"): frozenset({"mesh-generated", "refine"}),
+    ("pyfs-workspace", "config"): frozenset({"mesh-generated", "mesh", "refine"}),
     ("pyfs-workspace", "out_dir"): frozenset({"refine"}),
     ("pyfs-workspace", "against"): frozenset({"audit"}),
     ("pyfs-workspace", "csv_file"): frozenset({"audit"}),

@@ -68,7 +68,13 @@ from pyflightstream.workspace._geometry_mesh_occ import (
 )
 from pyflightstream.workspace._gmsh import session
 
-__all__ = ["GeneratedMesh", "junction_bays", "mesh_generated"]
+__all__ = [
+    "ConfigurationMesh",
+    "GeneratedMesh",
+    "junction_bays",
+    "mesh_configuration",
+    "mesh_generated",
+]
 
 JUNCTION_BAYS = ("inner", "outer", "outboard")
 RING_ALGORITHMS = (8,)
@@ -287,6 +293,11 @@ def _mesh_component(gmsh, name, component, controls, source):
         "rows": rows,
     }
     record["cap_cells"] = sum(1 for s in mesh.surfaces if s == CAP_SURFACE)
+    record["surface_families"] = {
+        **{int(s): r["family"] for s, r in roles.items()},
+        **{int(s): "tip_cap" for s in cap},
+        CAP_SURFACE: "tip_cap",
+    }
     return mesh, record
 
 
@@ -521,6 +532,10 @@ def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, *, ring_size_l
         "non_ring_nonquadrilateral_faces",
     )
     record["audit"] = {k: state["audit"][k] for k in keys}
+    record["surface_families"] = {
+        **{int(s): r["family"] for s, r in state["roles"].items() if "family" in r},
+        CAP_SURFACE: "tip_cap",
+    }
     return mesh, record
 
 
@@ -578,11 +593,9 @@ def mesh_generated(
     """
     resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
     if isinstance(controls, dict) and "mesh" in controls:
-        from pyflightstream.geometry.stages import mesh_controls
-
-        names = set(unpack(resolved)["components"])
-        mesh_controls(controls, members=names, names=names)
-        raise InputValueError("strategy controls: configuration meshing is not available")
+        result = mesh_configuration(resolved, controls, obj=obj)
+        assert result.mesh is not None
+        return GeneratedMesh(mesh=result.mesh, record=result.record)
     values = load_mesh_controls(controls)
     components = unpack(resolved)["components"]
     if component is not None and component not in components:
@@ -606,3 +619,213 @@ def mesh_generated(
     if obj is not None:
         write_obj(obj, mesh)
     return GeneratedMesh(mesh=mesh, record={**record, "warnings": list(resolved["warnings"])})
+
+
+@dataclass
+class ConfigurationMesh:
+    """A strategy 1 mesh of a configuration (None on a dry run), its record and written files."""
+
+    mesh: Mesh | None
+    record: dict[str, Any]
+    written: dict[str, str]
+
+
+def _kernel_mesh(plan, resolved):
+    """Mesh the planned members in one kernel session; return mesh, record, entity dimensions."""
+    components = unpack(resolved)["components"]
+    members = plan["members"]
+    values = plan["kernel_controls"]
+    with session("meshing a configuration with strategy 1") as gmsh:
+        if len(members) == 1:
+            name = members[0]
+            spec = components[name]
+            source = body(spec) if spec["type"] == "body" else lifting_surface(spec) + tip_cap(spec)
+            mesh, record = _mesh_component(gmsh, name, spec, values[spec["type"]], source)
+        else:
+            mesh, record = _mesh_wb(
+                gmsh, resolved, values, members, 0.15, ring_size_limits=(0.06, 0.3), ring_plan=None
+            )
+        dims = [dim for dim, _ in gmsh.model.getEntities() if dim >= 2]
+    return mesh, record, dims
+
+
+def _trailing_edges(mesh, record, plan):
+    """Collapse the bases asked for and return the mesh, its TE checks and the TE line edges."""
+    from pyflightstream.workspace._geometry_mesh_s1 import (
+        cells_across,
+        collapse_trailing_edge,
+        trailing_edge_groups,
+    )
+
+    checks, marks = [], []
+    families = record.get("surface_families", {})
+    for name, row in plan["components"].items():
+        if (
+            row["type"] != "lifting_surface"
+            or row["role"] == "follower"
+            or name not in mesh.components
+        ):
+            continue
+        base, groups, lines = trailing_edge_groups(mesh, families, name)
+        checks.append(cells_across(groups))
+        if row.get("trailing_edge") != "collapsed":
+            marks += lines
+            continue
+        tolerance = plan["controls"]["components"][name].get("collapse_tolerance_m")
+        if tolerance is None:
+            raise InputValueError(
+                f"{name}.collapse_tolerance_m: required with trailing_edge collapsed"
+            )
+        cap = {i for i, s in enumerate(mesh.surfaces) if families.get(int(s)) == "tip_cap"}
+        soft = cap | {i for i, n in enumerate(mesh.components) if n in plan["transition"]}
+        upper = {g[0] for g in groups}
+        before = [mesh.node_tags[[a, b]] for a, b in lines if a in upper and b in upper]
+        mesh, collapsed = collapse_trailing_edge(
+            mesh, groups, base, tolerance_m=float(tolerance), reducible=frozenset(soft)
+        )
+        checks += collapsed
+        tags = {int(t): i for i, t in enumerate(mesh.node_tags)}
+        marks = [(tags[int(a)], tags[int(b)]) for a, b in before]
+    return mesh, checks, marks
+
+
+def _counts(mesh):
+    quads = sum(len(c) == 4 for c in mesh.cells)
+    tris = sum(len(c) == 3 for c in mesh.cells)
+    return {
+        "vertices": len(mesh.xyz),
+        "quads": quads,
+        "tris": tris,
+        "pct_quad": 100.0 * quads / max(1, len(mesh.cells)),
+        "by_component": {n: mesh.components.count(n) for n in dict.fromkeys(mesh.components)},
+    }
+
+
+def _write_outputs(mesh, record, marks, *, out, descriptor, fsm_template):
+    import json
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace._fsm_write import write_fsm
+
+    folder = Path(out)
+    targets = {"obj": folder / f"{descriptor}.obj", "record": folder / f"{descriptor}.mesh.json"}
+    if fsm_template is not None:
+        targets["fsm"] = folder / f"{descriptor}.fsm"
+    taken = [str(p) for p in targets.values() if p.exists()]
+    if taken:
+        raise InputValueError(f"out: {taken} exist; nothing was written")
+    folder.mkdir(parents=True, exist_ok=True)
+    write_obj(targets["obj"], mesh)
+    if fsm_template is not None:
+        write_fsm(targets["fsm"], mesh, template=fsm_template, trailing_edges=marks)
+    written = {k: str(v) for k, v in targets.items() if k != "record"}
+    record["outputs"] = {
+        k: {"path": Path(v).name, "sha256": file_sha256(v)} for k, v in written.items()
+    }
+    targets["record"].write_text(
+        json.dumps(record, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
+    return {**written, "record": str(targets["record"])}
+
+
+def _summary(plan, digest):
+    return {
+        "strategy": plan["strategy"],
+        "variant": plan["variant"],
+        "configuration": plan["configuration"],
+        "members": plan["members"],
+        "order": plan["order"],
+        "controls_sha256": digest,
+        "components": plan["components"],
+        "transition_components": sorted(plan["transition"]),
+        "warnings": plan["warnings"],
+    }
+
+
+def mesh_configuration(
+    config: Any,
+    controls: Any,
+    *,
+    dry_run: bool = False,
+    out: str | Path | None = None,
+    descriptor: str | None = None,
+    fsm_template: str | Path | None = None,
+    obj: str | Path | None = None,
+) -> ConfigurationMesh:
+    """Mesh a generated configuration with strategy 1 from its mesh controls (PFS-2214).
+
+    Parameters
+    ----------
+    config : mapping or path
+        A configuration (resolved or not) or the path of its TOML file.
+    controls : mapping or path
+        The mesh controls: ``[mesh]`` (strategy 1, configuration, variant, iges, output),
+        ``[defaults]`` and one ``[components.<name>]`` table per member.
+    dry_run : bool
+        Validate and plan only: the record lists the realized counts and the warnings, no
+        kernel is opened and nothing is written.
+    out : str or Path, optional
+        Folder for ``<descriptor>.obj``, ``<descriptor>.mesh.json`` and, with
+        ``fsm_template``, ``<descriptor>.fsm``; an existing file is refused.
+    descriptor : str, optional
+        File stem; ``mesh.output.descriptor`` when absent, else ``mesh``.
+    fsm_template : str or Path, optional
+        A fresh saved simulation of the target build (see :func:`write_fsm`).
+    obj : str or Path, optional
+        Write only the OBJ here.
+
+    Returns
+    -------
+    ConfigurationMesh
+        The mesh (None on a dry run), the generation record (plan, counts, every acceptance
+        check with its measured value, ``accepted``) and the written files.
+
+    Raises
+    ------
+    InputValueError
+        For a schema error (named E01 to E16) or a control this route cannot honour.
+    pyflightstream.extras.MissingExtraError
+        When the gmsh library cannot load (``KernelUnavailableError``).
+    """
+    import hashlib
+    import json
+
+    from pyflightstream.workspace._geometry_mesh_s1 import (
+        acceptance_checks,
+        plan_strategy1,
+        surface_only_check,
+    )
+
+    base = Path(controls).parent if isinstance(controls, (str, Path)) else None
+    resolved = load_config(config) if isinstance(config, (str, Path)) else resolve_config(config)
+    plan = plan_strategy1(resolved, controls, base=base)
+    raw = (
+        Path(controls).read_bytes()
+        if base is not None
+        else json.dumps(controls, sort_keys=True, default=str).encode()
+    )
+    record: dict[str, Any] = _summary(plan, hashlib.sha256(raw).hexdigest())
+    record["warnings"] = [*resolved["warnings"], *record["warnings"]]
+    if dry_run:
+        return ConfigurationMesh(None, {**record, "dry_run": True}, {})
+    mesh, kernel, dims = _kernel_mesh(plan, resolved)
+    mesh, te_checks, marks = _trailing_edges(mesh, kernel, plan)
+    checks = acceptance_checks(mesh, kernel, plan["controls"], plan["transition"])
+    checks += [surface_only_check(dims), *te_checks]
+    record.update(
+        dry_run=False,
+        counts=_counts(mesh),
+        checks=checks,
+        accepted=all(c["status"] != "failed" for c in checks),
+        kernel={k: kernel[k] for k in ("orientation", "spacing_rules") if k in kernel},
+    )
+    written: dict[str, str] = {}
+    if obj is not None:
+        write_obj(obj, mesh)
+        written["obj"] = str(obj)
+    if out is not None:
+        stem = descriptor or plan["controls"]["mesh"].get("output", {}).get("descriptor", "mesh")
+        written.update(
+            _write_outputs(mesh, record, marks, out=out, descriptor=stem, fsm_template=fsm_template)
+        )
+    return ConfigurationMesh(mesh, record, written)
