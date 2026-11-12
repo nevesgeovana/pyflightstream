@@ -91,13 +91,50 @@ def exposed_faces(model, groups, inside):
     return result
 
 
+def is_degenerate_edge(model, edge, tolerance=1e-12):
+    """Whether an edge is a point: the collapsed leading-edge end of a planar cap face."""
+    return model.occ.getMass(1, edge) <= tolerance
+
+
+def is_planar_face(model, tag, tolerance=1e-9):
+    """Whether a face lies in one plane: the one-face tip cap, whose boundary has many edges."""
+    bounds = model.getParametrizationBounds(2, tag)
+    grid = np.linspace(0.0, 1.0, 7)
+    points = np.asarray(
+        [
+            model.getValue(
+                2,
+                tag,
+                [
+                    bounds[0][0] + u * (bounds[1][0] - bounds[0][0]),
+                    bounds[0][1] + v * (bounds[1][1] - bounds[0][1]),
+                ],
+            )
+            for u in grid
+            for v in grid
+        ]
+    ).reshape(-1, 3)
+    centred = points - points.mean(axis=0)
+    size = float(np.ptp(points, axis=0).max())
+    if size <= 0.0:
+        return False
+    normal = np.linalg.svd(centred, full_matrices=False)[2][-1]
+    return float(np.abs(centred @ normal).max()) <= tolerance * size
+
+
 def edge_audit(model, groups, tolerance=1e-7, intersection_owners=None):
     surfaces = {tag for tags in groups.values() for tag in tags}
     free, nonmanifold, shared, nonquad = [], [], [], []
     edges = set()
     for tag in surfaces:
-        boundary = model.getBoundary([(2, tag)], oriented=False)
-        if len(boundary) != 4:
+        boundary = [
+            (d, e)
+            for d, e in model.getBoundary([(2, tag)], oriented=False)
+            if not is_degenerate_edge(model, e)
+        ]
+        # A planar face is the tip cap, one face on the whole outline; its boundary is divided
+        # where the skin and the trailing-edge strips are, so the four-edge rule is not its own.
+        if len(boundary) != 4 and not is_planar_face(model, tag):
             nonquad.append({"surface": tag, "edges": len(boundary)})
         edges.update(edge for _, edge in boundary)
     owners = {tag: sorted(name for name, tags in groups.items() if tag in tags) for tag in surfaces}

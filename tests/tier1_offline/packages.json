@@ -237,6 +237,7 @@
       "tests/tier1_offline/test_p0570_iges_decisions.py",
       "tests/tier1_offline/test_p0570_iges_select.py",
       "tests/tier1_offline/test_p0570_pslice.py",
+      "tests/tier1_offline/test_p0570_tipcap.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
       "tests/tier1_offline/test_reference_vocabulary.py",

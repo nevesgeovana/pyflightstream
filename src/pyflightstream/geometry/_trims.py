@@ -98,11 +98,17 @@ def loop_area(trim: Trim) -> float:
 
 def _rectangle(trim):
     """Return ``((u0, u1), (v0, v1))`` of an axis-aligned loop, or None for any other loop."""
-    us = sorted({p[0] for piece in trim.loop for p in piece})
-    vs = sorted({p[1] for piece in trim.loop for p in piece})
-    if len(us) != 2 or len(vs) != 2 or not _is_iso(trim):
+    points = [p for piece in trim.loop for p in piece]
+    us = sorted({p[0] for p in points})
+    vs = sorted({p[1] for p in points})
+    if not _is_iso(trim):
         return None
-    return (us[0], us[1]), (vs[0], vs[1])
+    u0, u1, v0, v1 = us[0], us[-1], vs[0], vs[-1]
+    # A side divided at interior points (a cap's rims) still bounds a rectangle: every vertex
+    # lies on the bounding box and each piece runs along one of its sides.
+    if u0 == u1 or v0 == v1 or any(p[0] not in (u0, u1) and p[1] not in (v0, v1) for p in points):
+        return None
+    return (u0, u1), (v0, v1)
 
 
 def _is_iso(trim):

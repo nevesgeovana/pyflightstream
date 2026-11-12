@@ -219,10 +219,10 @@ def test_rounded_cap_ridge_length_scales_with_the_half_thickness():
     assert 0.5 - start == pytest.approx(expected, rel=1e-3)
 
 
-def test_flat_cap_is_nine_patches_and_none_is_empty():
+def test_flat_cap_is_one_patch_and_none_is_empty():
     c = component({"cap": {"type": "flat"}})
     flat = tip_cap(c)
-    assert len(flat) == 9 and all(p.family == "tip_cap" for p in flat)
+    assert len(flat) == 1 and flat[0].family == "tip_cap"
     assert tip_cap(component({"cap": {"type": "none"}})) == []
 
 

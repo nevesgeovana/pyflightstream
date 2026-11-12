@@ -315,9 +315,16 @@ def face_patches(model: ControlPartition, trims) -> list[Patch]:
     """
     patches = []
     for trim in trims:
-        us = sorted({p[0] for edge in trim.loop for p in edge})
-        vs = sorted({p[1] for edge in trim.loop for p in edge})
-        if len(us) != 2 or len(vs) != 2 or trim.inner:
+        points = [p for edge in trim.loop for p in edge]
+        us = [min(p[0] for p in points), max(p[0] for p in points)]
+        vs = [min(p[1] for p in points), max(p[1] for p in points)]
+        # A side may be divided at interior points (a cap's rims); every vertex stays on the box.
+        if (
+            us[0] == us[1]
+            or vs[0] == vs[1]
+            or trim.inner
+            or any(p[0] not in us and p[1] not in vs for p in points)
+        ):
             raise InputValueError("control face: require rectangular iso trims for a source hull")
         p = _interval(model.bases[trim.base], "u", *us)
         patches.append(replace(_interval(p, "v", *vs), family=trim.face, role=trim.role))

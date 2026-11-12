@@ -1,7 +1,8 @@
 """Tip caps and the root fillet of a lifting surface.
 
 Pipeline role: pure numerical stage of the geometry package. The tip cap
-closes the wing tip (flat, rounded, ridged or none); the root fillet blends
+closes the wing tip (flat, rounded, ridged or none; flat, the default, is the one
+planar face bounded by the tip section outline); the root fillet blends
 the skin into a host surface given as a signed distance and a unit normal.
 The ridged cap is a superellipse rounding whose start, ridge height and
 exponent follow a profile given per chord station.
@@ -60,6 +61,7 @@ __all__ = [
     "junction_normal",
     "lifting_model",
     "map_cap_grid",
+    "outline_cap",
     "ridge_arc",
     "ridge_cross",
     "ridge_profile",
@@ -412,7 +414,8 @@ def cap_patch_grids(component, section, maximum):
 def tip_cap(component) -> list[Patch]:
     """Return the tip cap of a lifting-surface component as bicubic patches.
 
-    The list is empty for the kind ``none``.
+    The list is empty for the kind ``none``; for ``flat`` it holds one planar face bounded by
+    the tip section outline (:func:`outline_cap`).
 
     Parameters
     ----------
@@ -427,8 +430,12 @@ def tip_cap(component) -> list[Patch]:
     if component["tip_cap"]["kind"] == "none":
         return []
     section = tip_section(component)
-    maximum = max_thickness_x(section)
     component = {**component, "_tip": cap_fraction(component, section)}
+    if component["tip_cap"]["kind"] == "flat":
+        poles = np.asarray(section.poles, float)
+        space = cap_to_space(component, poles[:, 0], poles[:, 1], np.zeros(len(poles)))
+        return [outline_cap(space, np.asarray(section.knots, float), "tip_cap")]
+    maximum = max_thickness_x(section)
     return [
         interpolate_patch(grid, family=family)
         for family, grid in cap_patch_grids(component, section, maximum)
@@ -561,10 +568,10 @@ def cap_edge_gap(model: LiftingModel) -> float:
     """
     gaps = [0.0]
     for end, column in (("tip", -1), ("root", 0)):
-        if f"{end}_cap_nose" in model.caps:
+        if f"{end}_cap" in model.caps:
             gaps += [
                 float(np.linalg.norm(a - b, axis=1).max())
-                for a, b in _flat_pairs(model, end, column)
+                for a, b in _outline_pairs(model, end, column)
             ]
             continue
         if f"{end}_cap_upper" not in model.caps:
@@ -636,8 +643,16 @@ def rim_halves(poles, knots):
         ``(lower_poles, upper_poles, knots)``.
     """
     lower, upper = split_patch(_curve_patch(poles, knots), "u", 0.5)
-    lower = _curve_patch(np.asarray(lower.controls)[::-1, 0], 1.0 - _u_knots(lower)[::-1])
-    common = union_knots(_u_knots(lower), _u_knots(upper))
+    mirrored = 1.0 - _u_knots(lower)[::-1]
+    known = _u_knots(upper)
+    # Reflecting the lower half moves a knot by rounding (1e-16); a knot of the two halves that
+    # coincide must stay one knot, not become two a hair apart, or the kernel refuses the face.
+    for i, knot in enumerate(mirrored):
+        near = known[np.abs(known - knot) < 1e-12]
+        if len(near):
+            mirrored[i] = near[0]
+    lower = _curve_patch(np.asarray(lower.controls)[::-1, 0], mirrored)
+    common = union_knots(_u_knots(lower), known)
     lower, upper = _refined(lower, common), _refined(upper, common)
     return np.asarray(lower.controls)[:, 0], np.asarray(upper.controls)[:, 0], common
 
@@ -695,78 +710,45 @@ def _across_patch(track, knots_u, family) -> Patch:
     )
 
 
-def _flat_rim(poles, knots):
-    """Six exact perimeter curves on their own bases, starting at the leading edge."""
+def outline_cap(poles, knots, family) -> Patch:
+    """Return the one planar face bounded by a closed section outline.
+
+    ``poles`` and ``knots`` are the section curve (lower trailing edge, leading edge at
+    u = 0.5, upper trailing edge) in any affine frame. The face is the ruled surface between
+    the two halves of the outline, which run from the leading edge to the trailing edge on one
+    knot vector: its rows are the two sides, its far end is the trailing-edge base (a point for
+    a sharp trailing edge) and its near end collapses at the leading edge. It is planar when
+    the outline is, and its boundary curves are the outline's own curves.
+    """
     low, up, common = rim_halves(poles, knots)
-    up_a, up_b = split_patch(_curve_patch(up, common), "u", 0.5)
-    low_a, low_b = split_patch(_curve_patch(low, common), "u", 0.5)
-    lower = [
-        _curve_patch(np.asarray(p.controls)[::-1, 0], 1 - _u_knots(p)[::-1]) for p in (low_b, low_a)
+    distinct, mult = np.unique(common, return_counts=True)
+    return Patch(
+        family=family,
+        controls=np.stack((low, up), axis=1),
+        knots_u=tuple(float(k) for k in distinct),
+        knots_v=(0.0, 1.0),
+        multiplicities_u=tuple(int(m) for m in mult),
+        multiplicities_v=(2, 2),
+        degree_u=int(len(common) - len(low) - 1),
+        degree_v=1,
+        role="cap",
+    )
+
+
+def _outline_pairs(model, end, column):
+    """Pairs of 4001 samples that must coincide: cap rims and rung against the skin and face."""
+    skin = np.asarray(model.skin.controls)
+    low, up, knots = rim_halves(skin[:, column], _u_knots(model.skin))
+    degree = len(knots) - len(low) - 1
+    parameters = np.linspace(knots[degree], knots[-degree - 1], 4001)
+    cap = model.caps[f"{end}_cap"]
+    te = np.asarray(model.trailing_edge.controls)[:, column]
+    rung = te[0] + np.linspace(0.0, 1.0, 4001)[:, None] * (te[1] - te[0])
+    return [
+        (_edge_samples(cap, "u", 0), BSpline(knots, low, degree)(parameters)),
+        (_edge_samples(cap, "u", -1), BSpline(knots, up, degree)(parameters)),
+        (_edge_samples(cap, "v", -1), rung),
     ]
-    top, bottom = np.asarray(up_b.controls)[-1, 0], np.asarray(lower[0].controls)[0, 0]
-    middle = (top + bottom) / 2
-    linear = [
-        _curve_patch(np.array([a, b]), np.array([0.0, 0.0, 1.0, 1.0]))
-        for a, b in ((top, middle), (middle, bottom))
-    ]
-    return [up_a, up_b, *linear, *lower]
-
-
-def _greville(patch):
-    knots, degree = _u_knots(patch), patch.degree_u
-    return np.array([np.mean(knots[i + 1 : i + degree + 1]) for i in range(len(patch.controls))])
-
-
-def _flat_caps(poles, knots, end):
-    """Three Coons quadrilaterals with exact perimeter curves and straight shared spokes."""
-    curves = _flat_rim(poles, knots)
-    centre = (np.asarray(curves[0].controls)[-1, 0] + np.asarray(curves[4].controls)[-1, 0]) / 2
-    faces = {}
-    for side, index in (("nose", 5), ("upper", 1), ("lower", 3)):
-        basis_u, basis_v = curves[index], curves[(index + 1) % 6]
-        bottom, right = np.asarray(basis_u.controls)[:, 0], np.asarray(basis_v.controls)[:, 0]
-        tu, tv = _greville(basis_u), _greville(basis_v)
-        u, v = tu[:, None, None], tv[None, :, None]
-        a, b, c, d = bottom[0], bottom[-1], right[-1], centre
-        top = (1 - tu[:, None]) * d + tu[:, None] * c
-        left = (1 - tv[:, None]) * a + tv[:, None] * d
-        net = (
-            (1 - v) * bottom[:, None]
-            + v * top[:, None]
-            + (1 - u) * left[None]
-            + u * right[None]
-            - ((1 - u) * (1 - v) * a + u * (1 - v) * b + u * v * c + (1 - u) * v * d)
-        )
-        faces[f"{end}_cap_{side}"] = replace(
-            basis_u,
-            family=f"{end}_cap",
-            controls=net,
-            knots_v=basis_v.knots_u,
-            multiplicities_v=basis_v.multiplicities_u,
-            degree_v=basis_v.degree_u,
-            role="cap",
-        )
-    return faces
-
-
-def _flat_pairs(model, end, column):
-    """Compare cap rims to the independent skin split, and shared spokes to each other."""
-    curves = _flat_rim(np.asarray(model.skin.controls)[:, column], _u_knots(model.skin))
-    samples = [
-        BSpline(_u_knots(c), np.asarray(c.controls)[:, 0], c.degree_u)(np.linspace(0, 1, 4001))
-        for c in curves
-    ]
-    faces = [model.caps[f"{end}_cap_{side}"] for side in ("nose", "upper", "lower")]
-    pairs = []
-    for i, (face, index) in enumerate(zip(faces, (5, 1, 3), strict=True)):
-        pairs.extend(
-            [
-                (_edge_samples(face, "u", 0), samples[index]),
-                (_edge_samples(face, "v", -1), samples[(index + 1) % 6]),
-                (_edge_samples(face, "u", -1), _edge_samples(faces[(i + 1) % 3], "v", 0)[::-1]),
-            ]
-        )
-    return pairs
 
 
 def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict[str, Patch]:
@@ -779,8 +761,8 @@ def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict
     across the base, closes the blunt trailing edge between the two faces' last pole tracks, so
     its rim is the trailing-edge face's end edge. ``section`` is the chord-frame section at that
     end. The tip end takes ``tip_cap.kind``; the root end takes ``root`` (``open`` gives none).
-    Flat ends instead use three Coons quadrilaterals around a common interior point,
-    retaining the exact rim without collapsing a boundary edge at the leading edge.
+    A flat end is instead the one planar face bounded by the end outline (:func:`outline_cap`),
+    named ``<end>_cap``.
     """
     kind = component["tip_cap"]["kind"] if end == "tip" else component.get("root", "open")
     if kind in ("none", "open"):
@@ -788,7 +770,8 @@ def skin_caps(component, model: LiftingModel, section, end: str = "tip") -> dict
     column, sign, eta = (-1, 1.0, 1.0) if end == "tip" else (0, -1.0, 0.0)
     skin = model.skin
     if kind == "flat":
-        return _flat_caps(np.asarray(skin.controls)[:, column], _u_knots(skin), end)
+        poles = np.asarray(skin.controls)[:, column]
+        return {f"{end}_cap": outline_cap(poles, _u_knots(skin), f"{end}_cap")}
     low3, up3, common = rim_halves(np.asarray(skin.controls)[:, column], _u_knots(skin))
     low2, up2, _ = rim_halves(np.asarray(section.poles, float), np.asarray(section.knots, float))
     tip = {**component, "_tip": model.fraction}
@@ -835,10 +818,10 @@ def rim_shared(model: LiftingModel) -> dict:
         np.linalg.norm(te[1] - skin[-1], axis=-1).max(),
     ]
     for end, column in (("tip", -1), ("root", 0)):
-        if f"{end}_cap_nose" in model.caps:
+        if f"{end}_cap" in model.caps:
             gaps += [
                 float(np.linalg.norm(a - b, axis=1).max())
-                for a, b in _flat_pairs(model, end, column)
+                for a, b in _outline_pairs(model, end, column)
             ]
             continue
         if f"{end}_cap_upper" not in model.caps:
@@ -864,6 +847,26 @@ def rim_shared(model: LiftingModel) -> dict:
     }
 
 
+def _cap_trim(name):
+    """Return the whole-base trim of a cap face.
+
+    The outline cap collapses to a point at the leading edge, so its two curved rims are each
+    divided at their midpoint: the face's outer wire then keeps the form the reader profile
+    supports, as the propeller's planar cap does.
+    """
+    trim = iso_trim(name, name, (0.0, 1.0), (0.0, 1.0), role="cap")
+    if name not in ("tip_cap", "root_cap"):
+        return trim
+    loop = []
+    for i, (a, b) in enumerate(trim.loop):
+        if i in (0, 2):
+            middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+            loop.extend(((a, middle), (middle, b)))
+        else:
+            loop.append((a, b))
+    return replace(trim, loop=tuple(loop))
+
+
 def lifting_model(component, warnings=None) -> LiftingModel:
     """Return the whole geometry of a lifting surface: skin, trailing-edge face, caps and faces.
 
@@ -886,9 +889,7 @@ def lifting_model(component, warnings=None) -> LiftingModel:
     caps = {}
     for end in ("tip", "root"):
         caps.update(skin_caps(component, model, model.ends[end], end))
-    trims = model.trims + tuple(
-        iso_trim(name, name, (0.0, 1.0), (0.0, 1.0), role="cap") for name in caps
-    )
+    trims = model.trims + tuple(_cap_trim(name) for name in caps)
     model = replace(model, caps=caps, trims=trims)
     records = [*model.records, rim_shared(model)]
     records += [continuity_internal(patch, name) for name, patch in caps.items()]
