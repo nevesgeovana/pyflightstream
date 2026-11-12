@@ -218,6 +218,23 @@ def test_p0570_empty_variant_reaches_the_export_api(tmp_path):
     assert [p["component"] for p in manifest["pieces"]] == ["shell"]
 
 
+def test_p0570_selected_host_cut_does_not_run_unrequested_control_stages(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+
+    kernel_or_skip()
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S10.F5")
+    ]
+    report = _geom_run.run_geometry(
+        _applied_config(), variant="deployed", out=tmp_path, until="S10.F5", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    assert not (tmp_path / "control-inputs.json").exists(), (
+        "an inapplicable selected host cut must not run the earlier control builders"
+    )
+
+
 @pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
 def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
     from pyflightstream.geometry.stages import stage_row

@@ -554,6 +554,8 @@ def _control_step(stage: str) -> StageFn:
     def run(context: RunContext) -> StageOutcome:
         row = next(r for r in STAGE_ROWS if r.stage == stage)
         short = stage.split(".")[-1]
+        if short == "F5" and short not in context.state.get("control_inputs", {}):
+            return _trimmed_control_step(context, short, row)
         if "control_inputs" not in context.state:
             components = unpack(context.resolved)["components"]
             arguments = {
