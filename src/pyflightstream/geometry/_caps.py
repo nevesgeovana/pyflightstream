@@ -647,8 +647,16 @@ def rim_halves(poles, knots):
         ``(lower_poles, upper_poles, knots)``.
     """
     lower, upper = split_patch(_curve_patch(poles, knots), "u", 0.5)
-    lower = _curve_patch(np.asarray(lower.controls)[::-1, 0], 1.0 - _u_knots(lower)[::-1])
-    common = union_knots(_u_knots(lower), _u_knots(upper))
+    mirrored = 1.0 - _u_knots(lower)[::-1]
+    known = _u_knots(upper)
+    # Reflecting the lower half moves a knot by rounding (1e-16); a knot of the two halves that
+    # coincide must stay one knot, not become two a hair apart, or the kernel refuses the face.
+    for i, knot in enumerate(mirrored):
+        near = known[np.abs(known - knot) < 1e-12]
+        if len(near):
+            mirrored[i] = near[0]
+    lower = _curve_patch(np.asarray(lower.controls)[::-1, 0], mirrored)
+    common = union_knots(_u_knots(lower), known)
     lower, upper = _refined(lower, common), _refined(upper, common)
     return np.asarray(lower.controls)[:, 0], np.asarray(upper.controls)[:, 0], common
 
