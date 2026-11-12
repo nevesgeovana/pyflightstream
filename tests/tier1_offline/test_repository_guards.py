@@ -88,8 +88,9 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the merge of PFS-2201.02 (parallel runs) in review round 23: 2290, measured (+3);
 #: then the merge of G7R and DOCS1 in review round 24: 2299, measured (+9).
 #: then INTG11's changelog fragment: 2300 tracked files, measured (+1).
+#: then the merge of G8, G9, G11 and G17 into land/0.57.0: 2326 tracked files, measured (+26).
 LEAN_CAPS = {
-    "tracked_files": 2300,
+    "tracked_files": 2326,
     "reports_files": 121,
     "reports_lines": 208338,
     "tests_files": 1167,
