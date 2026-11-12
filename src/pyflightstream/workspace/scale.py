@@ -23,6 +23,8 @@ from typing import Any
 from pyflightstream import _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, InputValueError
+from pyflightstream._fsm import MeshReadError, mesh_face_counts
+from pyflightstream.workspace._scale_fsm import scale_fsm_nodes
 
 __all__ = ["scale_mesh"]
 
@@ -123,6 +125,28 @@ def _rewrite(data: bytes, factor: float, about: tuple[float, ...]) -> tuple[byte
     return b"\n".join(lines), facts
 
 
+def _rewrite_fsm(
+    source: Path, data: bytes, factor: float, about: tuple[float, ...]
+) -> tuple[bytes, dict[str, Any]]:
+    """Return the scaled .fsm bytes and the counts and bounding boxes before and after."""
+    scaled, rows_before, rows_after = scale_fsm_nodes(data, factor, about)
+    faces = None
+    try:
+        counted = mesh_face_counts(source)
+        faces = counted[0] if counted is not None else None
+    except MeshReadError:
+        faces = None
+    before = [list(p) for p in zip(*rows_before, strict=True)]
+    after = [list(p) for p in zip(*rows_after, strict=True)]
+    facts = {
+        "vertices": len(before),
+        "faces": faces,
+        "bounding_box_before": _bounds(before),
+        "bounding_box_after": _bounds(after),
+    }
+    return scaled, facts
+
+
 def _output_folder(source: Path, factor: float, out: str | Path | None) -> Path:
     if out is not None:
         return Path(out)
@@ -152,12 +176,16 @@ def scale_mesh(
     about: str | tuple[float, float, float] | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Scale every vertex of an OBJ by ``factor`` about a point and write it to a new folder.
+    """Scale every vertex of an OBJ or .fsm by ``factor`` about a point into a new folder.
+
+    The file suffix chooses the format: ``.fsm`` scales only the x, y and z node rows of its mesh
+    block (the sidecar ``<stem>.boundaries.toml`` is neither read nor copied), anything else is
+    read as an OBJ.
 
     Parameters
     ----------
     mesh : str or Path
-        The source OBJ, read only.
+        The source OBJ or .fsm, read only.
     factor : float or str
         The uniform length multiplier, finite and above zero (text such as ``"0.5"`` is read).
     out : str or Path, optional
@@ -195,7 +223,10 @@ def scale_mesh(
     target, record_path = folder / source.name, folder / f"{source.name}.scale.json"
     _check_targets(source, [target, record_path], force)
     data = source.read_bytes()
-    scaled, facts = _rewrite(data, value, centre)
+    if source.suffix.lower() == ".fsm":
+        scaled, facts = _rewrite_fsm(source, data, value, centre)
+    else:
+        scaled, facts = _rewrite(data, value, centre)
     record = {
         "input": source.name,
         "input_sha256": file_sha256(source),

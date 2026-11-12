@@ -163,7 +163,8 @@ def add_scale_parser(subparsers: Any) -> None:
         description=(
             "FACTOR is a positive number (0.5 halves every length). Every vertex of the OBJ "
             "given by --mesh is scaled about the origin, or about --about x,y,z; face order, "
-            "groups, normals and comments stay byte for byte. --out names an output folder, "
+            "groups, normals and comments stay byte for byte; for a .fsm only the x, y and z "
+            "node rows of the mesh block change. --out names an output folder, "
             "created with its parents, that receives the scaled OBJ under the input name and "
             "<name>.scale.json (input digest, factor, centre, counts, bounding boxes before "
             "and after). Default folder: <stem>_scaled<factor> beside the input. The input is "
@@ -172,7 +173,7 @@ def add_scale_parser(subparsers: Any) -> None:
         ),
     )
     parser.add_argument("factor", help="positive uniform scale factor, for example 0.5")
-    parser.add_argument("--mesh", required=True, help="source .obj, read only")
+    parser.add_argument("--mesh", required=True, help="source .obj or .fsm, read only")
     parser.add_argument("--out", help="output folder, created; default <stem>_scaled<factor>")
     parser.add_argument("--about", help="scale centre x,y,z (default 0,0,0)")
     parser.add_argument("--force", action="store_true", help="replace same-name files in --out")
