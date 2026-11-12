@@ -8,6 +8,7 @@ cannot be read is refused before anything is imported, with nothing written.
 
 from __future__ import annotations
 
+import json
 import math
 import tomllib
 from dataclasses import dataclass, field
@@ -16,7 +17,18 @@ from typing import Any
 
 from pyflightstream._errors import InputValueError, NotApplicableWarning, warn
 
-__all__ = ["LAWS", "ComponentGrid", "Direction", "GridConfig", "read_grid"]
+__all__ = [
+    "LAWS",
+    "TE_ROLES",
+    "ComponentGrid",
+    "Direction",
+    "FaceLayout",
+    "GridConfig",
+    "Layout",
+    "read_grid",
+    "read_layout",
+    "sidecar_path",
+]
 
 #: The spacing laws a direction may name.
 LAWS = ("cosine", "geometric", "tanh", "uniform")
@@ -247,3 +259,161 @@ def read_grid(path: str | Path) -> GridConfig:
         remove_inner_faces=inner,
         symmetry=symmetry,
     )
+
+
+#: The roles of a layout sidecar's faces that are the blunt trailing-edge base of a lifting
+#: surface; the trailing edge of the component is the rim of such a face.
+TE_ROLES = frozenset({"trailing_edge", "te"})
+#: Two lines of a base are one when they differ by less than this in parameter.
+_LINE_TOLERANCE = 1e-9
+
+
+@dataclass(frozen=True)
+class FaceLayout:
+    """One face of a layout sidecar: its base, role and the iso lines that cut it into blocks.
+
+    ``u`` and ``v`` hold the lines inside the face's own parameter bounds with both bounds
+    included, ascending; ``u_names`` and ``v_names`` give the named lines strictly inside.
+    """
+
+    name: str
+    base: str
+    role: str
+    area_m2: float | None
+    u: tuple[float, ...]
+    v: tuple[float, ...]
+    u_names: dict[str, float] = field(default_factory=dict)
+    v_names: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Layout:
+    """A layout sidecar read: the component it belongs to and its faces in the IGES's order."""
+
+    path: Path
+    component: str
+    faces: tuple[FaceLayout, ...]
+
+    def faces_by_name(self) -> dict[str, dict[str, Any]]:
+        """Return ``{face: {"base", "role", "u", "v", "u_names", "v_names"}}``.
+
+        The ``u`` and ``v`` lists are the form the strategy 1 junction block classifier reads.
+        """
+        return {
+            f.name: {
+                "base": f.base,
+                "role": f.role,
+                "u": list(f.u),
+                "v": list(f.v),
+                "u_names": dict(f.u_names),
+                "v_names": dict(f.v_names),
+            }
+            for f in self.faces
+        }
+
+
+def sidecar_path(iges: str | Path) -> Path:
+    """Return the layout sidecar of an IGES file: ``<stem>.layout.json`` beside it."""
+    path = Path(iges)
+    return path.with_name(f"{path.stem}.layout.json")
+
+
+def _bounds(entry: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the (u0, u1, v0, v1) box of the face's source trims, or the unit square."""
+    trims = [
+        t for t in entry["source_faces"] if isinstance(t, dict) and t.get("base") == entry["base"]
+    ]
+    same = [t for t in trims if t.get("role") == entry["role"]] or trims
+    points = [p for t in same for pair in t["loop"] for p in pair]
+    if not points:
+        return 0.0, 1.0, 0.0, 1.0
+    us, vs = [float(p[0]) for p in points], [float(p[1]) for p in points]
+    return min(us), max(us), min(vs), max(vs)
+
+
+def _inside(values: set[float], low: float, high: float) -> tuple[float, ...]:
+    kept = sorted(v for v in values if low + _LINE_TOLERANCE < v < high - _LINE_TOLERANCE)
+    return (low, *kept, high)
+
+
+def _face(entry: dict[str, Any], ends: dict[str, dict[str, set[float]]], names: dict[str, Any]):
+    u0, u1, v0, v1 = _bounds(entry)
+    held = ends.get(entry["base"], {"u": set(), "v": set()})
+    u, v = _inside(held["u"], u0, u1), _inside(held["v"], v0, v1)
+
+    def named(direction: str, lines: tuple[float, ...]) -> dict[str, float]:
+        inner = lines[1:-1]
+        return {
+            str(k): float(x)
+            for k, x in names.get(direction, {}).items()
+            if any(abs(float(x) - y) <= _LINE_TOLERANCE for y in inner)
+        }
+
+    area = entry.get("area_m2")
+    return FaceLayout(
+        name=str(entry["name"]),
+        base=str(entry["base"]),
+        role=str(entry["role"]),
+        area_m2=None if area is None else float(area),
+        u=u,
+        v=v,
+        u_names=named("u", u),
+        v_names=named("v", v),
+    )
+
+
+class _UnusableError(Exception):
+    """A layout sidecar that cannot be used; the message says why."""
+
+
+def _layout_of(data: Any, path: Path) -> Layout:
+    """Build the layout from the decoded sidecar, or raise :class:`_UnusableError` (why not)."""
+    if not isinstance(data, dict):
+        raise _UnusableError("it is not a JSON object")
+    entries = data.get("faces")
+    if not isinstance(entries, list) or not entries:
+        raise _UnusableError("it lists no faces")
+    blocks = data.get("blocks", [])
+    if not isinstance(blocks, list):
+        raise _UnusableError("its blocks are not a list")
+    ends: dict[str, dict[str, set[float]]] = {}
+    for block in blocks:
+        held = ends.setdefault(str(block["base"]), {"u": set(), "v": set()})
+        held["u"].update(float(x) for x in block["u"])
+        held["v"].update(float(x) for x in block["v"])
+    lines = data.get("lines", {})
+    names = lines if isinstance(lines, dict) else {}
+    faces = []
+    for entry in entries:
+        for key in ("name", "base", "role", "source_faces"):
+            if not isinstance(entry, dict) or key not in entry:
+                raise _UnusableError(f"a face lacks {key!r}")
+        faces.append(_face(entry, ends, names))
+    components = {f.name.rpartition("_")[0] for f in faces}
+    if len(components) != 1 or "" in components:
+        raise _UnusableError("its faces do not belong to one component")
+    return Layout(path=path, component=components.pop(), faces=tuple(faces))
+
+
+def read_layout(iges: str | Path, notes: list[str]) -> Layout | None:
+    """Read the layout sidecar beside an IGES file; ``None`` for a file that has none.
+
+    A file with no sidecar is a foreign file and is handled with no layout, silently. A sidecar
+    that cannot be used (not JSON, no faces, faces of two components, a trim missing) is warned
+    by a line appended to ``notes`` and the file is handled as a foreign one: nothing is refused.
+    """
+    path = sidecar_path(iges)
+    if not path.is_file():
+        return None
+    try:
+        return _layout_of(json.loads(path.read_text(encoding="utf-8")), path)
+    except json.JSONDecodeError as error:
+        reason = f"it is not JSON ({error})"
+    except (OSError, UnicodeDecodeError) as error:
+        reason = f"it cannot be read ({error})"
+    except (_UnusableError, KeyError, TypeError) as error:
+        reason = str(error.args[0]) if isinstance(error, _UnusableError) else f"it lacks {error}"
+    notes.append(
+        f"{path.name}: {reason}; no layout is used and the file is gridded as a foreign one"
+    )
+    return None

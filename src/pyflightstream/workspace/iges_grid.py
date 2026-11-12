@@ -37,8 +37,14 @@ from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace._gmsh import gmsh_module, import_named, keep_components, session
 from pyflightstream.workspace._gmsh_worker import run_isolated
-from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid
-from pyflightstream.workspace._iges_mesh import junction_checks, junction_warnings, mesh_model
+from pyflightstream.workspace._iges_grid_config import GridConfig, read_grid, read_layout
+from pyflightstream.workspace._iges_mesh import (
+    assign_layouts,
+    cut_layout,
+    junction_checks,
+    junction_warnings,
+    mesh_model,
+)
 from pyflightstream.workspace._iges_names import (
     DEFAULT_NAME_ENCODING,
     named_curves,
@@ -191,9 +197,18 @@ def conformal(faces: Faces, boundary: set[tuple[int, int]]) -> dict[str, int]:
 
 
 def _compact(
-    nodes: NDArray[np.float64], families: dict[str, Faces], boundary: set[tuple[int, int]]
-) -> tuple[NDArray[np.float64], dict[str, Faces], set[tuple[int, int]]]:
-    """Keep the nodes the faces use, renumbered in order of first use, with the boundary."""
+    nodes: NDArray[np.float64],
+    families: dict[str, Faces],
+    boundary: set[tuple[int, int]],
+    marked: dict[str, set[tuple[int, int]]] | None = None,
+) -> tuple[
+    NDArray[np.float64], dict[str, Faces], set[tuple[int, int]], dict[str, set[tuple[int, int]]]
+]:
+    """Keep the nodes the faces use, renumbered in order of first use, with the boundary.
+
+    ``marked`` is more sets of edges by component (the trailing-edge rims of a layout role),
+    renumbered the same way.
+    """
     order: dict[int, int] = {}
     for faces in families.values():
         for face in faces:
@@ -201,12 +216,15 @@ def _compact(
                 order.setdefault(v, len(order))
     keep = np.fromiter(order, dtype=np.int64, count=len(order))
     out = {n: [[order[v] for v in f] for f in fs] for n, fs in families.items()}
-    edges = {
-        (min(order[a], order[b]), max(order[a], order[b]))
-        for a, b in boundary
-        if a in order and b in order
-    }
-    return nodes[keep], out, edges
+
+    def renumber(pairs: set[tuple[int, int]]) -> set[tuple[int, int]]:
+        return {
+            (min(order[a], order[b]), max(order[a], order[b]))
+            for a, b in pairs
+            if a in order and b in order
+        }
+
+    return nodes[keep], out, renumber(boundary), {n: renumber(e) for n, e in (marked or {}).items()}
 
 
 def _corners(p: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -473,12 +491,17 @@ def _grid(
     """Run the grid in this process; :func:`grid_iges` calls it in a worker."""
     target = Path(out)
     config = read_grid(grid)
+    notes: list[str] = []
     with session(_PURPOSE) as gmsh:
+        layouts = [read_layout(source, notes) for source in sources]
         model = import_named(gmsh, sources, name_encoding=name_encoding)
         known = list(model.components())
         found = known if components is None else resolve_components(known, components)
+        assigned, laid = assign_layouts(gmsh, model, layouts, notes)
         if components is not None:
             model = keep_components(gmsh, model, found)
+        roles = cut_layout(gmsh, model, assigned, laid)
+        model.notes.extend(notes)
         order = _order(config, found, known)
         box = gmsh.model.getBoundingBox(-1, -1)
         diagonal = math.dist(box[:3], box[3:])
@@ -498,9 +521,15 @@ def _grid(
         def reopen() -> Any:
             gmsh.clear()
             again = import_named(gmsh, sources, name_encoding=name_encoding)
-            return again if components is None else keep_components(gmsh, again, found)
+            held, again_laid = assign_layouts(gmsh, again, layouts, [])
+            again = again if components is None else keep_components(gmsh, again, found)
+            roles[:] = cut_layout(gmsh, again, held, again_laid)
+            return again
 
-        meshed = mesh_model(gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen)
+        meshed = mesh_model(
+            gmsh, model, config, order, sizes, tolerance=tolerance, reopen=reopen, roles=roles
+        )
+        meshed.record["layout"] = {"sidecars": laid} if laid else None
         originals: dict[str, list[int]] = {}
 
         def distance(name: str, points: NDArray[np.float64]) -> float:
@@ -599,10 +628,19 @@ def _trailing(
     *,
     curves: dict[str, list[NDArray[np.float64]]],
     size: float,
-) -> tuple[set[tuple[int, int]], list[str], int]:
-    """Return the trailing edges a component asks for, what to warn and the rim edges dropped."""
+    role: tuple[set[tuple[int, int]], int] | None = None,
+) -> tuple[set[tuple[int, int]], list[str], int, str]:
+    """Return the trailing edges a component asks for, what to warn, the rim edges dropped, source.
+
+    ``"auto"`` takes the rim of the face a layout sidecar gives the trailing-edge role (``role``:
+    its edges, already renumbered, and the edges of the other rim) and, when there is none, the
+    geometric search; the source says which.
+    """
     name = grid.name
     if grid.trailing_edge == "auto":
+        used = {(min(a, b), max(a, b)) for f in faces for a, b in _edges(f)}
+        if role is not None and role[0] & used:
+            return role[0] & used, [], role[1], "layout role"
         angle = grid.te_angle_deg or config.te_angle_deg
         found, dropped = one_rim(verts, faces, trailing_edges(verts, faces, angle))
         said = (
@@ -610,7 +648,12 @@ def _trailing(
             if found
             else [f'{name}: trailing_edge = "auto" found no edge sharper than {angle:g} degrees']
         )
-        return found, said, dropped
+        if role is not None:
+            said.append(
+                f"{name}: the layout's trailing-edge face has no rim on the grid, "
+                "so the search was used"
+            )
+        return found, said, dropped, "geometric search"
     lines: list[NDArray[np.float64]] = []
     said = []
     for curve in grid.trailing_edge:
@@ -621,7 +664,7 @@ def _trailing(
     found = edges_on(verts, faces, lines, _ON_CURVE_SHARE * size)
     if lines and not found:
         said.append(f"{name}: no edge of the grid lies on {', '.join(grid.trailing_edge)}")
-    return found, said, 0
+    return found, said, 0, "named curves"
 
 
 #: The characters a file name cannot hold on any platform the package runs on.
@@ -660,7 +703,9 @@ def _write(
     joined = meshed.record["fragment"]["warned"]
     warnings = list(model.notes) + list(meshed.warnings)
     families, removed, skin = _inner(config, meshed, order, warnings)
-    verts, families, boundary = _compact(meshed.nodes, families, meshed.boundary)
+    verts, families, boundary, rims = _compact(
+        meshed.nodes, families, meshed.boundary, meshed.te_edges
+    )
     flips: dict[str, int] = {}
     for name in families:
         families[name], flips[name] = orient(verts, families[name])
@@ -669,7 +714,8 @@ def _write(
     junctions = [] if junction is None else junction_checks(verts, families, *junction)
     per: dict[str, Any] = {}
     te: dict[str, set[tuple[int, int]]] = {}
-    rims: dict[str, int] = {}
+    dropped: dict[str, int] = {}
+    sources: dict[str, str] = {}
     for name, faces in families.items():
         stats = quality(verts, faces)
         stats["least_scaled_jacobian"] = meshed.jacobian.get(name)
@@ -681,9 +727,16 @@ def _write(
         warnings += _quality_warnings(name, stats)
         grid = config.components.get(name)
         if grid is not None and grid.trailing_edge is not None:
-            found, said, rims[name] = _trailing(
-                verts, faces, grid, config, curves=curves, size=sizes[name]
+            found, said, dropped[name], source = _trailing(
+                verts,
+                faces,
+                grid,
+                config,
+                curves=curves,
+                size=sizes[name],
+                role=(rims[name], meshed.te_dropped.get(name, 0)) if name in rims else None,
             )
+            sources[name] = source
             warnings += said
             if found:
                 te[name] = found
@@ -747,7 +800,8 @@ def _write(
             name: {
                 "file": te_files[name],
                 "edges": len(te[name]),
-                "dropped_rim_edges": rims.get(name, 0),
+                "dropped_rim_edges": dropped.get(name, 0),
+                "source": sources[name],
             }
             for name in te_files
         },

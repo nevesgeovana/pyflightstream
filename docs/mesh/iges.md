@@ -168,9 +168,31 @@ from named IGES curves is marked as named. An open trailing edge, with no base f
 found this way. If more than one cell spans the blunt base thickness, the rims share no
 base face and both remain marked.
 
+When the IGES file has a layout sidecar beside it (see Layout sidecar), `"auto"` takes the
+rim of the face the sidecar gives the `trailing_edge` role instead of searching by angle: the
+curves along which that face meets the upper or lower skin, the longer side when the base is
+blunt (the first by role name on a tie, `lower`), with the other side's edge count under
+`dropped_rim_edges`; a cap's end of the base is not a rim. The record names the way each
+component's edge was found under `trailing_edges.<component>.source`: `layout role`,
+`geometric search` or `named curves`.
+
 With a list, each name is the NAME of a level holding curves at the top level of an IGES file
 (lines, B-spline curves and composite curves); the edges of the component whose nodes lie on
 those curves, within a hundredth of the component's size, are the trailing edge.
+
+### Layout sidecar
+
+A wing written by `geometry generate` has a sidecar `<piece>.layout.json` beside its IGES
+(same stem). `iges-grid` reads it when present: each face is cut along the iso lines the
+sidecar names for its base (the maximum thickness lines, the leading edge, the hinges, the
+section lines, the two halves of the blunt base) before the four-sided test, so every block of
+the layout is a four-sided patch meshed transfinite. The cut is exact, an iso line of the face's
+own surface, and the geometry file is never changed. The faces of the file take the sidecar's
+faces in order; when the number of faces, the component or the area of any face differs, the
+sidecar is warned as not belonging to the file and the file is gridded as a foreign one, and
+so is a sidecar that cannot be read. An IGES with no sidecar is gridded as always. The record
+lists each sidecar under `layout.sidecars` (`file`, `component`, `faces`, `used`,
+`split_faces`, `pieces`) and `layout` is `null` when none was found.
 
 ### Checks and warnings
 
