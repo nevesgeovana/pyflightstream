@@ -29,3 +29,7 @@ Regeneration from stored B-splines checks their source identity.
 IGES conversion retains a compatible named NURBS source without rounding its
 coefficients through another native write. A second kernel import still checks
 the retained faces, names and geometry before output is written.
+
+Every selected control position exports separately and runs all export checks.
+Declared variants with no active control export their geometry. Trimmed assembly
+records retain their inputs per position in the run log.

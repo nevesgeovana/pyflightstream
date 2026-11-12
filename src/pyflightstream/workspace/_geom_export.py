@@ -177,6 +177,27 @@ def write_assembly(
 
 def check_export(stage, resolved, *, configuration, members, out, source) -> dict[str, Any]:
     """Measure one export sub-step against the retained source record."""
+    result = _check_one(
+        stage, resolved, configuration=configuration, members=members, out=out, source=source
+    )
+    for index, alternative in enumerate(source.get("alternatives", []), 1):
+        measured = _check_one(
+            stage,
+            resolved,
+            configuration=configuration,
+            members=members,
+            out=Path(alternative["manifest"]).parent,
+            source=alternative,
+        )
+        result["checks"].extend(
+            {**c, "where": {**c["where"], "position": index}} for c in measured["checks"]
+        )
+        result.setdefault("warnings", []).extend(measured.get("warnings", []))
+        result["outputs"].setdefault("positions", {})[str(index)] = measured["outputs"]
+    return result
+
+
+def _check_one(stage, resolved, *, configuration, members, out, source):
     manifest = json.loads((Path(out) / "manifest.json").read_text(encoding="utf-8"))
     if stage == "S11":
         return write_checks(Path(out), manifest)

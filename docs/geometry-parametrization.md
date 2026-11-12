@@ -102,10 +102,14 @@ assert set(pieces.pieces) == {"main", "flap-d0", "flap-d15"}
 Use these component tables in a TOML file and run `pyfs-geom run wing.toml
 --out out --until S10.F4` to write and check the control pieces. F0 compares
 written and read face counts; F1 and F2 check sewn closure; F3 measures clearance
-to configured body hosts; F4 checks the combined angle choices. F5 and F6 need
-the trimmed assembly boundary and remain incomplete when that input is pending.
-The applied pieces and `applied-controls.json` do not yet replace the clean
-assembly export. An applied variant requested through S11 remains incomplete.
+to configured body hosts; F4 checks the combined angle choices. F5 and F6 use
+the trimmed body and engine cuts and compare their free edges and junction
+lengths with an independently assembled clean reference. A failed reference
+stops the applied cut.
+An applied variant exports each selected combination of control positions
+separately, with its own manifest and source identity. The export checks run
+for every position. S13.R regenerates the stored B-spline sections without a
+fit; reverse identification of an applied assembly is reported as unsupported.
 Sewn control check IDs include their sub-step, for example
 `control.f1.free_edges` for the main piece and `control.f2.free_edges` for the
 control alone, so records and run logs identify the failing operation.

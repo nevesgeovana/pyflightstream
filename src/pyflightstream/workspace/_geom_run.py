@@ -156,8 +156,6 @@ def _generate_record(config: Any, path: str, configuration: str | None) -> dict[
 
 def _export(context: RunContext) -> StageOutcome:
     """S11: the exposed skin of the selected members as one named IGES, read by the profile gate."""
-    if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
-        return _waiting_variant(context, "S11")
     name = context.configuration or str(
         unpack(context.resolved["aircraft"]).get("name", "geometry")
     )
@@ -187,6 +185,7 @@ def _export(context: RunContext) -> StageOutcome:
             "build_id": written["build_id"],
             "faces": written["faces"],
             "audit": written["audit"],
+            "variant_exports": written.get("variant_exports", []),
         },
     )
 
@@ -197,8 +196,6 @@ def _export_step(stage: str) -> StageFn:
     def run(context: RunContext) -> StageOutcome:
         from pyflightstream.workspace._geom_export import check_export
 
-        if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
-            return _waiting_variant(context, stage)
         return StageOutcome(
             **check_export(
                 stage,
@@ -216,29 +213,19 @@ def _export_step(stage: str) -> StageFn:
 def _generate_variant(context, target):
     if context.variant == "clean":
         return _generate(context.resolved, target, context.configuration)
-    from pyflightstream.workspace._geom_export import generate_record
+    from pyflightstream.workspace._geom_variant import generate
 
     arguments = {
         "config": context.resolved,
         "path": str(target),
         "configuration": context.configuration,
         "variant": context.variant,
+        "members": context.members,
     }
     return (
-        generate_record(**arguments)
+        generate(**arguments)
         if os.environ.get(WORKER_ENV) == "1"
-        else run_isolated(
-            "pyflightstream.workspace._geom_export:generate_record", arguments, generate_record
-        )
-    )
-
-
-def _waiting_variant(context: RunContext, stage: str) -> StageOutcome:
-    note = f"waiting for G9: applied-control variant {context.variant}"
-    row = next(r for r in STAGE_ROWS if r.stage == stage)
-    return StageOutcome(
-        checks=[check_entry(cid, "skipped", note=note) for cid, _ in row.checks],
-        outputs={"state": "waiting", "waiting_for": "G9", "variant": context.variant},
+        else run_isolated("pyflightstream.workspace._geom_variant:generate", arguments, generate)
     )
 
 
@@ -355,7 +342,10 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
     None when no dominance row applies to the members: nothing is assembled, no kernel opens.
     """
     if "assembly" not in context.state:
+        from pyflightstream.workspace._geom_variant import assemble_positions
+
         plan, _ = _plan(context)
+        operation = _assembly_record if context.variant == "clean" else assemble_positions
         arguments: dict[str, Any] = {
             "config": context.resolved,
             "members": context.members,
@@ -366,10 +356,10 @@ def _assembly(context: RunContext) -> dict[str, Any] | None:
         if not plan:
             context.state["assembly"] = None
         elif os.environ.get(WORKER_ENV) == "1":
-            context.state["assembly"] = _assembly_record(**arguments)
+            context.state["assembly"] = operation(**arguments)
         else:
             context.state["assembly"] = run_isolated(
-                f"{__name__}:_assembly_record", arguments, _assembly_record
+                f"{operation.__module__}:{operation.__name__}", arguments, operation
             )
     return context.state["assembly"]
 
@@ -380,17 +370,29 @@ def _assembly_record(
     out: str,
     configuration: str | None = None,
     variant: str = "clean",
+    *,
+    selection=None,
 ) -> dict[str, Any]:
     """Build the members on a kernel and run the S10 sub-steps; return their records as JSON."""
     from pyflightstream.geometry import resolve_config
-    from pyflightstream.geometry.stages import GeneratedPiece, generate_pieces
+    from pyflightstream.geometry.stages import GeneratedPiece, generate_components, generate_pieces
     from pyflightstream.workspace._geom_assembly import Assembly
     from pyflightstream.workspace._geom_export import write_assembly
     from pyflightstream.workspace._gmsh import open_kernel
 
     resolved = resolve_config(copy.deepcopy(config))
-    every = generate_pieces(resolved, variant=variant)
-    again = generate_pieces(resolve_config(copy.deepcopy(config)), variant=variant)
+    every = (
+        generate_components(resolved, trimmed=True)
+        if variant == "clean"
+        else generate_pieces(resolved, variant=variant, selection=selection)
+    )
+    again = (
+        generate_components(resolve_config(copy.deepcopy(config)), trimmed=True)
+        if variant == "clean"
+        else generate_pieces(
+            resolve_config(copy.deepcopy(config)), variant=variant, selection=selection
+        )
+    )
     plain = unpack(resolved)
     pieces = {name: every[name] for name in members if name in every}
     half = all(
@@ -430,6 +432,7 @@ def _assembly_record(
                 resolved=resolved,
                 configuration=configuration,
                 variant=variant,
+                selection=selection,
             )
             written["sections"] = {
                 n: p.layout["sections"]
@@ -447,8 +450,6 @@ def _assembly_step(stage: str) -> StageFn:
     """Return the function of one sub-step of S10: its record from the assembly's run."""
 
     def run(context: RunContext) -> StageOutcome:
-        if context.variant != "clean" and not unpack(context.resolved)["variants"][context.variant]:
-            return _waiting_variant(context, stage)
         ids = [cid for cid, _ in next(r for r in STAGE_ROWS if r.stage == stage).checks]
         result = _assembly(context)
         if result is None:
