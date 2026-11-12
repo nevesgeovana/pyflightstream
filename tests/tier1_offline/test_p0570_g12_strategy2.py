@@ -152,7 +152,7 @@ def test_g12_e07_trips_on_a_planted_triangle_and_a_quad_dominant_fill():
 
     with pytest.raises(InputValueError, match="E07.*FAIRING"):
         check_triangles([(0, 1, 2, 3), (3, 4, 5)], ["WING", "FAIRING"])
-    assert check_triangles([(0, 1, 2, 3)], ["WING"]) == {"triangles": 0}
+    assert check_triangles([(0, 1, 2, 3)], ["WING"]) is None
     controls = _wb_controls()
     controls["components"]["FAIRING"] = {
         "role": "follower",

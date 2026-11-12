@@ -475,7 +475,7 @@ def check_poles(
     return {"valence3_poles": found, "irregular": 0}
 
 
-def check_triangles(cells: Sequence[Sequence[int]], components: Sequence[str]) -> dict[str, Any]:
+def check_triangles(cells: Sequence[Sequence[int]], components: Sequence[str]) -> None:
     """Refuse any triangle (E07): strategy 2 is a full quad grid everywhere."""
     by_component: dict[str, int] = {}
     for cell, name in zip(cells, components, strict=True):
@@ -483,4 +483,3 @@ def check_triangles(cells: Sequence[Sequence[int]], components: Sequence[str]) -
             by_component[name] = by_component.get(name, 0) + 1
     if by_component:
         raise _refuse("E07", f"realized triangles {by_component}")
-    return {"triangles": 0}
