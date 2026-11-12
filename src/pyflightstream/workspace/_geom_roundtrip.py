@@ -80,6 +80,19 @@ def identify_record(file, component, options):
     return result.to_dict()
 
 
+def _reverse_limit(component, name, manifest, variants):
+    if component["type"] != "lifting_surface":
+        return f"no reverse capability for {component['type']}"
+    selected = set(manifest.get("control_selection", {}))
+    selected.update(variants.get(manifest.get("variant", "clean"), []))
+    if any(key.rsplit(".", 1)[0] == name for key in selected):
+        return (
+            "no reverse capability for applied controls; "
+            "stored-surface regeneration is measured at S13.R"
+        )
+    return ""
+
+
 def identify(resolved, folder, manifest):
     """Measure reverse identification where a component type has that capability."""
     config = unpack(resolved)
@@ -88,13 +101,14 @@ def identify(resolved, folder, manifest):
     for piece in manifest["pieces"]:
         name = piece["component"]
         component = components[name]
-        if component["type"] != "lifting_surface":
+        limitation = _reverse_limit(component, name, manifest, config.get("variants", {}))
+        if limitation:
             checks.append(
                 check_entry(
                     "roundtrip.identify",
                     "skipped",
                     where={"component": name},
-                    note=f"no reverse capability for {component['type']}",
+                    note=limitation,
                 )
             )
             continue

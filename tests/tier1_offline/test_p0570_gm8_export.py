@@ -230,10 +230,10 @@ def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path
     kernel_or_skip()
     selected = [
         _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s])
-        for s in ("S0", "S11", "S11.V", "S11.P", "S11.R", "S11.S", "S13.R")
+        for s in ("S0", "S11", "S11.V", "S11.P", "S11.R", "S11.S", "S13.R", "S13")
     ]
     report = _geom_run.run_geometry(
-        _applied_config(), variant="deployed", out=tmp_path, until="S13.R", stages=selected
+        _applied_config(), variant="deployed", out=tmp_path, until="S13", stages=selected
     )
     assert report["status"] == "accepted", report
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
@@ -250,6 +250,9 @@ def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path
         c["status"] == "passed"
         for c in json.loads((tmp_path / "S13.R.json").read_text(encoding="utf-8"))["checks"]
     )
+    reverse = json.loads((tmp_path / "S13.json").read_text(encoding="utf-8"))
+    assert reverse["checks"][0]["status"] == "skipped"
+    assert "no reverse capability for applied controls" in reverse["checks"][0]["note"]
 
 
 @pytest.mark.parametrize("u", [0.001, 0.999], ids=["P0570-low-bound", "P0570-high-bound"])

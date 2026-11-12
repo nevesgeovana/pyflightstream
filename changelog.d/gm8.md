@@ -22,3 +22,6 @@ searches on folded surfaces, retaining the closest measured iterate.
 
 Fowler variants retain their fitted cove pins in the stored B-spline sections
 for exact regeneration.
+
+Reverse identification of applied control assemblies is reported as unsupported.
+Regeneration from stored B-splines checks their source identity.
