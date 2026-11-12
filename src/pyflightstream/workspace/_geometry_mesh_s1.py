@@ -841,12 +841,12 @@ def junction_blocks(
         for i in range(len(u_lines) - 1):
             for j in range(len(v_lines) - 1):
                 box = (u_lines[i], u_lines[i + 1], v_lines[j], v_lines[j + 1])
-                blocks.append(_block_kind(name, i, j, box, curves, tolerance))
+                blocks.append(_block_kind(name, (i, j), box, curves, tolerance=tolerance))
         result[name] = blocks
     return result
 
 
-def _block_kind(name, i, j, box, curves, tolerance) -> dict:
+def _block_kind(name, index, box, curves, *, tolerance) -> dict:
     u0, u1, v0, v1 = box
     inside = [
         c[
@@ -858,7 +858,7 @@ def _block_kind(name, i, j, box, curves, tolerance) -> dict:
         for c in curves
     ]
     inside = [c for c in inside if len(c)]
-    entry: dict[str, Any] = {"face": name, "block": [i, j], "box": [u0, u1, v0, v1]}
+    entry: dict[str, Any] = {"face": name, "block": list(index), "box": [u0, u1, v0, v1]}
     if not inside:
         return {**entry, "kind": "transfinite"}
     if len(inside) == 1:
