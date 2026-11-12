@@ -11,3 +11,5 @@ faces stay outside the host operations.
 Curved source classification uses a finer parity hull away from near-face
 decisions, retaining the independent removal-area limit. Failed references
 stop before the applied cut.
+
+Junction arc lengths integrate native curve derivatives at floating-point accuracy.
