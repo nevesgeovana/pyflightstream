@@ -19,3 +19,6 @@ segments in both coordinate spaces.
 
 The reader profile uses bounded boundary parameters to initialize closest-point
 searches on folded surfaces, retaining the closest measured iterate.
+
+Fowler variants retain their fitted cove pins in the stored B-spline sections
+for exact regeneration.

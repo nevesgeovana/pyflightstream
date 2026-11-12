@@ -65,6 +65,25 @@ def test_p0570_triangular_face_keeps_its_surface_with_four_boundary_segments(tmp
         kernel.close()
 
 
+def test_p0570_fowler_variant_regenerates_its_actual_pinned_sections(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+    from tests.tier1_offline.test_p0570_gm9_controls import _fowler_config
+
+    kernel_or_skip()
+    raw = _fowler_config()
+    raw["variants"] = {"deployed": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S11", "S13.R")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S13.R", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    record = json.loads((tmp_path / "S13.R.json").read_text(encoding="utf-8"))
+    assert all(c["status"] == "passed" for c in record["checks"]), record
+
+
 def test_p0570_fowler_boundary_distance_uses_bounded_pcurve_starts(tmp_path):
     from pyflightstream.geometry.stages import stage_row
     from pyflightstream.workspace import _geom_run

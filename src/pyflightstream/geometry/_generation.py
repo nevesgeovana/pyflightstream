@@ -254,6 +254,9 @@ def generate_pieces(config, *, variant="clean", selection=None) -> dict[str, Gen
         kind, frame = component["type"], name
         layout: dict[str, Any] = {"lines": {"u": {}, "v": {}}}
         if kind == "lifting_surface":
+            from ._control_surfaces import with_pins
+
+            component = with_pins(component)
             model = lifting_model(component)
             bases, trims = model.bases(), model.trims
             layout = layout_record(model)
