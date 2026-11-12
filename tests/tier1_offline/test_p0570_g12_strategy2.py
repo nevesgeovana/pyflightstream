@@ -262,13 +262,31 @@ def test_g12_wb_every_block_is_all_quad_and_triangles_only_on_named_faces(wb_run
     """Triangles are counted; every one lies on a face reported as not full grid."""
     mesh, record = wb_run.mesh, wb_run.record
     named = {int(item.rsplit(".", 1)[1]) for item in record["not_full_grid"]}
-    on = {s for c, s in zip(mesh.cells, mesh.surfaces, strict=True) if len(c) == 3}
+    on = {s for c, s in zip(mesh.cells, mesh.surfaces, strict=True) if len(c) == 3 and s != -1}
     assert on <= named
-    assert _checks(record)["E07.triangles"]["measured"] == record["counts"]["tris"] == 0
+    assert _checks(record)["E07.triangles"]["measured"] == 0
     # The one-face tip cap and a body uncut at the tangent fairing ends leave 66 faces (the
     # legacy fixture had 87); every one is a block but the fairing's tangent sliver.
     assert record["not_full_grid"] == ["FAIRING.88"]
     assert record["blocks"] > 60 and record["components"]["FUS"]["azimuth_count"] >= 24
+
+
+def test_g12e_wb_tip_cap_is_quad_dominant_and_reported_apart(wb_run):
+    """The one-face cap is meshed free and quad-dominant, as strategy 1 does (design section 8).
+
+    Its cells carry the cap surface -1 and are reported apart; no cell is inverted or
+    degenerate, and no triangle lies outside the cap.
+    """
+    mesh, record = wb_run.mesh, wb_run.record
+    checks = _checks(record)
+    cap = [i for i, s in enumerate(mesh.surfaces) if s == -1]
+    assert len(cap) > 10 and {mesh.components[i] for i in cap} == {"WING"}
+    quads = sum(len(mesh.cells[i]) == 4 for i in cap)
+    assert quads > len(cap) // 2
+    assert checks["E07.triangles"]["where"]["tip_cap"] == len(cap) - quads
+    assert checks["mesh.inverted"]["measured"] == 0, checks["mesh.inverted"]
+    assert checks["mesh.degenerate"]["measured"] == 0, checks["mesh.degenerate"]
+    assert not any(f.endswith(".61") for f in record["not_full_grid"])
 
 
 def test_g12_wb_nodes_lie_on_their_sources_and_the_planar_cap_on_its_plane(wb_run):
