@@ -205,7 +205,8 @@ reported apart.
 
 `--dry-run` validates, prints each component's counts and the warnings, and writes nothing. A
 run measures the acceptance table on the realized mesh: inverted and degenerate cells, edges
-used by more than two cells, free edges off the symmetry plane, quad aspect and skew outside
+used by more than two cells, free edges off the symmetry plane, quad aspect (the cell across a blunt trailing-edge base is exempt from the limit and reported with
+its count and largest aspect) and skew outside
 the transition components (`defaults.quality`), triangles only in transition components under
 their `max_triangle_fraction`, irregular nodes inside a structured surface, the spacing laws,
 the distance to the source, each follower sharing a curve with every neighbour it follows,
@@ -242,7 +243,10 @@ of every lifting root junction (E08), the valence 3 poles at the body closures (
 irregular nodes, the not-full-grid faces, inverted and degenerate cells, edges used by more
 than two cells (each with the faces holding them), the distance to the source (a planar face,
 such as the one-face tip cap, against its plane) and surfaces only. A collapsed edge of a face
-(the cap's leading-edge side) bounds no cells and takes no count. The matrix route calls it.
+(the cap's leading-edge side) bounds no cells and takes no count. The one-face tip cap is meshed
+apart from the blocks on its rim nodes, quad-dominant as in strategy 1: its triangles are
+reported under E07 (`tip_cap`) and left out of the triangle and irregular-node rows. The matrix
+route calls it.
 
 ## Identify a lifting surface
 

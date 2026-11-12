@@ -671,6 +671,9 @@ def wb_run(tmp_path_factory):
     # The body stations (the wing root, 0.4 to 0.525 m) are on the 6.25 mm grid, as the body
     # bands require; 48 azimuth cells keep the pole steps in their band.
     controls["components"]["FUS"].update(x_step_m=0.00625, azimuth_cells=48)
+    # The outboard leading-edge cells (0.4 mm along the chord) take a spanwise width of at most
+    # 30 times that: 46 spanwise cells (32 gave aspect 43 on WING.60 and WING.45).
+    controls["components"]["WING"]["spanwise"]["cells"] = 46
     return mesh_configuration(
         WB_CONFIG, controls, out=out, descriptor="wb", fsm_template=FRESH
     ), out
@@ -706,8 +709,8 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
     The junction blocks keep the wing and fuselage full grid with the fairing alone
     quad-dominant, and the blunt base is one quad across. No body station touches a tangent
     fairing end, so no face has a cusp, and a transition face holding an inverted or sliver
-    cell is meshed again with its next algorithm. One row stays open (reported, a limit the
-    owner sets): the fixture's leading-edge and base cells exceed the aspect limit 30.
+    cell is meshed again with its next algorithm. The aspect limit 30 holds on every cell but
+    the TE base cells, which are exempt and reported.
     """
     result, _ = wb_run
     checks = {c["id"]: c for c in result.record["checks"]}
@@ -726,9 +729,12 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
         "mesh.surfaces_only",
         "mesh.trailing_edge_one_quad",
     }
-    # Open row (reported): the aspect limit, an owner question.
-    for row in set(checks) - {"mesh.quality.aspect"}:
+    for row in checks:
         assert checks[row]["status"] != "failed", checks[row]
+    aspect = checks["mesh.quality.aspect"]
+    assert aspect["measured"] <= 30.0
+    exempt = aspect["where"]["te_base_exempt"]
+    assert exempt["cells"] > 0 and exempt["max_aspect"] > 30.0
     assert checks["mesh.inverted"]["measured"] == 0
     assert checks["mesh.degenerate"]["measured"] == 0
     assert checks["mesh.triangles.region"]["where"]["by_component"] == {}
