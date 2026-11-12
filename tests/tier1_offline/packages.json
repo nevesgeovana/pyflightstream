@@ -185,6 +185,7 @@
       "tests/tier1_offline/test_p0570_fix6_attached_flow_cp.py",
       "tests/tier1_offline/test_p0570_fix6_long_resolved_output.py",
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
+      "tests/tier1_offline/test_p0570_g12_strategy2.py",
       "tests/tier1_offline/test_p0570_g13d_trim_flags.py",
       "tests/tier1_offline/test_p0570_g13p_reader_profile.py",
       "tests/tier1_offline/test_p0570_g16_iges_grid_layout.py",
