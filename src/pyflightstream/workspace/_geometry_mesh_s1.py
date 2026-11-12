@@ -23,6 +23,7 @@ from pyflightstream.geometry.stages import (
     mesh_controls,
     mesh_measurements,
 )
+from pyflightstream.workspace._geometry_mesh_body import azimuth_from_rule, body_aspect_band
 
 
 def follower_edges(controls: Mapping[str, Any], edge_nodes: Mapping) -> dict:
@@ -342,6 +343,50 @@ def collapse_trailing_edge(
     ]
 
 
+def merge_trailing_edge_base(
+    mesh: Mesh, groups, base_cells: set[int], *, reducible: frozenset = frozenset()
+) -> Mesh:
+    """Leave one quad across a blunt base (MESH_DESIGN section 8) in a new mesh.
+
+    A group is an upper node, the nodes across the base and a lower node, as
+    :func:`trailing_edge_groups` finds them. In each span strip the base cell holding two
+    upper nodes takes the two lower nodes in place of its nodes across the base, and the other
+    base cells of the strip go. A node across the base left in a ``reducible`` cell (a cap or
+    transition cell) merges onto its upper node, a quad losing a corner becoming a triangle; in
+    any other cell the merge refuses. A base already one quad across is returned unchanged.
+    """
+    head = {int(g[0]): g for g in groups}
+    across = {int(v): g for g in groups for v in g[1:-1]}
+    if not across:
+        return mesh
+    lower = {int(g[-1]) for g in groups}
+    cells, components, surfaces = [], [], []
+    for i, cell in enumerate(mesh.cells):
+        if i in base_cells:
+            if sum(int(v) in head for v in cell) != 2:
+                if not {int(v) for v in cell} <= set(across) | lower:
+                    raise InputValueError("merge: a base cell is outside the TE groups")
+                continue
+            new_cell = tuple(int(across[v][-1]) if v in across else int(v) for v in cell)
+        else:
+            new_cell = _reduced(tuple(int(across[v][0]) if v in across else int(v) for v in cell))
+            touched = any(int(v) in across for v in cell)
+            if touched and (i not in reducible or len(set(new_cell)) < 3):
+                raise InputValueError("merge: a skin cell holds a node across the base")
+        cells.append(new_cell)
+        components.append(mesh.components[i])
+        surfaces.append(mesh.surfaces[i])
+    keep = sorted({j for cell in cells for j in cell})
+    indices = {node: k for k, node in enumerate(keep)}
+    return Mesh(
+        mesh.xyz[keep],
+        [tuple(indices[j] for j in cell) for cell in cells],
+        components,
+        surfaces,
+        mesh.node_tags[keep].copy(),
+    )
+
+
 #: Tolerance of a free edge on the symmetry plane y = 0 (MESH_STRATEGY section 5), m.
 SYMMETRY_TOLERANCE_M = 1e-7
 #: Smallest corner sine of a cell that is not degenerate (MESH_STRATEGY section 5).
@@ -416,29 +461,48 @@ def _limit_check(check_id: str, value: float, table: Mapping, key: str, unit: st
 
 
 def _quality(mesh: Mesh, transition: set[str], quality: Mapping[str, Any]) -> list[dict]:
-    degenerate, aspect, skew = 0, 0.0, 0.0
-    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+    degenerate: dict[str, int] = {}
+    aspect, skew, worst = 0.0, 0.0, ""
+    for cell, name, surface in zip(mesh.cells, mesh.components, mesh.surfaces, strict=True):
         sine, ratio, angle = _corner_measures(mesh.xyz[list(cell)])
-        degenerate += int(sine < DEGENERATE_SINE)
+        if sine < DEGENERATE_SINE:
+            degenerate[f"{name}.{int(surface)}"] = degenerate.get(f"{name}.{int(surface)}", 0) + 1
         if name not in transition and len(cell) == 4:
+            worst = f"{name}.{int(surface)}" if ratio > aspect else worst
             aspect, skew = max(aspect, ratio), max(skew, angle)
+    aspect_check = _limit_check("mesh.quality.aspect", aspect, quality, "max_aspect")
+    aspect_check["where"] = {"surface": worst}
     return [
-        _check("mesh.degenerate", degenerate),
-        _limit_check("mesh.quality.aspect", aspect, quality, "max_aspect"),
+        _check("mesh.degenerate", sum(degenerate.values()), where={"by_surface": degenerate}),
+        aspect_check,
         _limit_check("mesh.quality.skew", skew, quality, "max_skew_deg", "deg"),
     ]
 
 
-def _triangle_checks(mesh: Mesh, limits: Mapping[str, Mapping]) -> list[dict]:
-    """Triangles only in transition components, each under its stated fraction."""
+def _triangle_checks(
+    mesh: Mesh, limits: Mapping[str, Mapping], caps: frozenset = frozenset()
+) -> list[dict]:
+    """Triangles only in transition components and tip caps, each under its stated fraction.
+
+    A tip cap may be quad-dominant (MESH_DESIGN section 8): the lifting-triangle check
+    excludes cap faces only; their triangles are reported apart.
+    """
     totals: dict[str, list[int]] = {}
-    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+    in_caps = 0
+    for cell, name, surface in zip(mesh.cells, mesh.components, mesh.surfaces, strict=True):
+        if int(surface) in caps:
+            in_caps += int(len(cell) == 3)
+            continue
         counts = totals.setdefault(name, [0, 0])
         counts[0] += int(len(cell) == 3)
         counts[1] += 1
     outside = {n: c[0] for n, c in totals.items() if n not in limits and c[0]}
     checks = [
-        _check("mesh.triangles.region", sum(outside.values()), where={"by_component": outside})
+        _check(
+            "mesh.triangles.region",
+            sum(outside.values()),
+            where={"by_component": outside, "tip_caps": in_caps},
+        )
     ]
     for name, table in sorted(limits.items()):
         if name in totals:
@@ -451,8 +515,12 @@ def _triangle_checks(mesh: Mesh, limits: Mapping[str, Mapping]) -> list[dict]:
     return checks
 
 
-def _irregular_nodes(mesh: Mesh, transition: set[str]) -> dict:
-    """Count interior nodes of one structured surface whose valence is not four."""
+def _irregular_nodes(mesh: Mesh, transition: set[str], caps: frozenset = frozenset()) -> dict:
+    """Count interior nodes of one structured surface whose valence is not four.
+
+    Nodes of transition components and of tip caps (quad-dominant, MESH_DESIGN section 8)
+    are free.
+    """
     boundary: set[int] = set()
     for edge, cells in edge_uses(mesh).items():
         if len(cells) == 1 or len({mesh.surfaces[c] for c in cells}) != 1:
@@ -461,14 +529,17 @@ def _irregular_nodes(mesh: Mesh, transition: set[str]) -> dict:
     for index, cell in enumerate(mesh.cells):
         for v in cell:
             incident.setdefault(v, []).append(index)
-    irregular = sum(
-        1
-        for node, cells in incident.items()
-        if node not in boundary
-        and not any(mesh.components[c] in transition for c in cells)
-        and len(cells) != 4
-    )
-    return _check("mesh.irregular_nodes", irregular)
+    found: dict[str, int] = {}
+    for node, cells in incident.items():
+        if (
+            node not in boundary
+            and not any(mesh.components[c] in transition for c in cells)
+            and not any(int(mesh.surfaces[c]) in caps for c in cells)
+            and len(cells) != 4
+        ):
+            where = f"{mesh.components[cells[0]]}.{int(mesh.surfaces[cells[0]])}"
+            found[where] = found.get(where, 0) + 1
+    return _check("mesh.irregular_nodes", sum(found.values()), where={"by_surface": found})
 
 
 def _topology(mesh: Mesh) -> list[dict]:
@@ -491,11 +562,16 @@ def acceptance_checks(
     is measured here on the cells and nodes, independently of the requested controls.
     """
     names = set(transition)
+    caps = frozenset(
+        int(s) for s, f in record.get("surface_families", {}).items() if f == "tip_cap"
+    )
     checks = [_check("mesh.inverted", int(record["inverted_count"]))]
     checks += _quality(mesh, names, controls.get("defaults", {}).get("quality", {}))
     checks += _topology(mesh)
-    checks += _triangle_checks(mesh, transition)
-    checks.append(_irregular_nodes(mesh, names))
+    checks += _triangle_checks(mesh, transition, caps)
+    checks.append(_irregular_nodes(mesh, names, caps))
+    families = {int(k): v for k, v in record.get("surface_families", {}).items()}
+    checks += body_aspect_band(mesh, families, controls)
     failures = record.get("spacing_rules", {}).get("failures", [None])
     checks.append(_check("mesh.spacing_laws", len(failures)))
     checks.append(
@@ -611,17 +687,14 @@ def _lifting_controls(component: Mapping, defaults: Mapping, name: str) -> dict:
 
 def _body_controls(component: Mapping, spec: Mapping, defaults: Mapping, name: str) -> dict:
     table = {**defaults.get("body", {}), **component}
-    if "azimuth_rule" in table:
-        raise InputValueError(
-            f"{name}.azimuth_rule: {_ROUTE} takes azimuth_cells or "
-            "azimuth_step_deg; the derived rule is strategy 2's"
-        )
     controls = load_mesh_controls()["body"]
     if "x_step_m" in table:
         controls["x_cells"] = max(1, round(spec["length"] / table["x_step_m"]))
     elif "x_cells" in table:
         controls["x_cells"] = table["x_cells"]
-    if "azimuth_step_deg" in table:
+    if "azimuth_rule" in table:
+        controls.update(azimuth_from_rule(spec, table["azimuth_rule"], controls["x_cells"]))
+    elif "azimuth_step_deg" in table:
         controls["azimuth_cells"] = max(1, round(180.0 / table["azimuth_step_deg"]))
     elif "azimuth_cells" in table:
         controls["azimuth_cells"] = table["azimuth_cells"]

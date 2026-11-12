@@ -53,6 +53,11 @@ from pyflightstream.geometry.stages import (
     write_obj,
 )
 from pyflightstream.workspace._geometry_generate import add_occ_patch, assemble
+from pyflightstream.workspace._geometry_mesh_junction import (
+    VIRTUAL_BASE,
+    distribute,
+    junction_faces,
+)
 from pyflightstream.workspace._geometry_mesh_occ import (
     CAP_SURFACE,
     MeshPatch,
@@ -310,8 +315,13 @@ def _wb_sources(resolved, member_names):
     return components, sources, bays, (body_name, wing_name), roles
 
 
-def _wb_model(model, resolved, member_names):
-    """Add, fragment and audit the members; return the state the ring meshing reads."""
+def _wb_model(model, resolved, member_names, *, blocks=False):
+    """Add, fragment and audit the members; return the state the ring meshing reads.
+
+    With ``blocks`` (strategy 1, delta F.2) the primary faces next to the fairing are
+    classified: a block that stays four-sided is meshed structured and only the fairing, with
+    the faces that cannot be, is meshed quad-dominant (``junction`` rows in the state).
+    """
     components, sources, bays, (body_name, wing_name), roles = _wb_sources(resolved, member_names)
     regions = assembly_regions(resolved, sources)
     groups = {}
@@ -339,9 +349,18 @@ def _wb_model(model, resolved, member_names):
         for s, name in owner.items()
         if name == wing_name and roles.get(s, {}).get("family") == "tip_cap" and s not in rings
     ]
+    junction: dict[int, dict] = {}
+    mesh_owner = dict(owner)
+    if blocks and len(member_names) > 2:
+        junction = junction_faces(model, rings, owner, member_names[2])
+        for s, row in junction.items():
+            if row["mesh"] == "structured":
+                rings.discard(s)
+            else:
+                mesh_owner[s] = member_names[2]
     structured = [s for s in owner if s not in rings and s not in cap]
     for s in structured:
-        if s not in roles:
+        if s not in roles and s not in junction:
             raise InputValueError(f"face {s}: structured face lost its source roles")
     host_wing = wing_in_body_frame(components, body_name, wing_name)
     return {
@@ -353,7 +372,54 @@ def _wb_model(model, resolved, member_names):
         "owner": owner,
         "cap": cap,
         "structured": structured,
+        "junction": junction,
+        "mesh_owner": mesh_owner,
     }
+
+
+def _junction_loops(model, state, lengths):
+    """Add the count loops of the structured junction faces; return loops and composite sides.
+
+    A face of four curves is walked from UV (0, 0) like a source patch; a side of several
+    curves becomes one virtual curve of the count classes, split afterwards by length.
+    """
+    loops, composite = {}, {}
+    for s, row in state["junction"].items():
+        if row["mesh"] != "structured":
+            continue
+        if "sides" not in row:
+            loops[s] = uv_edges(model, s)
+            continue
+        loop = []
+        for side in row["sides"]:
+            if len(side) == 1:
+                loop.append(side[0])
+                continue
+            virtual = VIRTUAL_BASE + len(composite)
+            composite[virtual] = (s, [abs(e) for e in side])
+            lengths[virtual] = sum(lengths[abs(e)] for e in side)
+            loop.append(virtual)
+        loops[s] = tuple(loop)
+    return loops, composite
+
+
+def _carry_junction_seeds(model, state, seeds):
+    """Give the free side of a four-curve junction block the law of its opposite side.
+
+    The junction curve of a wing bay next to the fairing carries no law of its own; walked in
+    the same parameter direction as the opposite side, it takes that side's nodes, so the
+    chordwise rows of the block stay the rows of the wing.
+    """
+    for s, row in state.get("junction", {}).items():
+        if row["mesh"] != "structured" or "sides" in row:
+            continue
+        e = uv_edges(model, s)
+        for i in range(4):
+            mine, other = e[i], -e[(i + 2) % 4]
+            if abs(mine) in seeds or abs(other) not in seeds:
+                continue
+            nodes = seeds[abs(other)]
+            insert_seed(seeds, mine, nodes if other > 0 else 1 - nodes[::-1])
 
 
 def _wb_nodes(model, state, controls, member_names, ring_cell_m):
@@ -366,10 +432,11 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
         state["roles"],
         state["cap"],
     )
-    loops = {s: uv_edges(model, s) for s in structured}
+    junction = state.get("junction", {})
+    loops = {s: uv_edges(model, s) for s in structured if s not in junction}
     seeds: dict[int, np.ndarray] = {}
     body_c, wing_c = components[names["body"]], components[names["wing"]]
-    outboard = [s for s in structured if roles[s].get("junction_bay") == "outboard"]
+    outboard = [s for s in structured if roles.get(s, {}).get("junction_bay") == "outboard"]
     lc = controls["lifting_surface"]
     law = np.diff(np.asarray(tip_refinement(lc["span_cells"], lc["tip_cells"], lc["tip_ratio"])))
     width = float(law[0]) * wing_c["planform"]["span"] / 2
@@ -386,6 +453,8 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
         else None
     )
     for s in structured:
+        if s in junction:
+            continue
         is_body = owner[s] == names["body"]
         seed_patch(
             model,
@@ -397,11 +466,14 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
             strict=False,
             span_count=span_count,
         )
+    _carry_junction_seeds(model, state, seeds)
     all_edges = {
         t for s in owner if s not in cap for _, t in model.getBoundary([(2, s)], oriented=False)
     }
     lengths = {e: model.occ.getMass(1, e) for e in all_edges}
     x_step = body_c["length"] / controls["body"]["x_cells"]
+    extra, composite = _junction_loops(model, state, lengths)
+    loops.update(extra)
     counts = count_classes(
         loops,
         seeds,
@@ -410,7 +482,17 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
         x_step,
     )
     nodes = {}
+    for virtual, (surface, edges) in composite.items():
+        cells = distribute(counts[virtual], [lengths[e] for e in edges])
+        if cells is None:
+            raise InputValueError(
+                f"face {surface}: junction side of {len(edges)} curves takes "
+                f"{counts[virtual]} cells; mesh the face with the transition"
+            )
+        nodes.update({e: constant(c) for e, c in zip(edges, cells, strict=True)})
     for e in all_edges:
+        if e in nodes:
+            continue
         if e in seeds:
             nodes[e] = seeds[e]
         elif e in counts:
@@ -422,16 +504,18 @@ def _wb_nodes(model, state, controls, member_names, ring_cell_m):
 
 def _wb_patches(model, state, nodes, loops, member_names):
     patches = []
+    owners = state.get("mesh_owner", state["owner"])
     for s in sorted(state["structured"]):
-        boundary = {abs(t): nodes[abs(t)] for t in loops[s]}
+        sides = state.get("junction", {}).get(s, {}).get("sides")
+        walk = tuple(side[0] for side in sides) if sides else loops[s]
+        edges = [e for side in sides for e in side] if sides else loops[s]
+        boundary = {abs(t): nodes[abs(t)] for t in edges}
         patches.append(
-            MeshPatch(s, loops[s], constant(1), constant(1), state["owner"][s], boundary)
+            MeshPatch(s, walk, constant(1), constant(1), owners[s], boundary, sides=sides)
         )
     for s in sorted(state["rings"]):
         edges = [t for _, t in model.getBoundary([(2, s)], oriented=False)]
-        patches.append(
-            Transition(s, {t: nodes[t] for t in edges}, "wing-fuselage", state["owner"][s])
-        )
+        patches.append(Transition(s, {t: nodes[t] for t in edges}, "wing-fuselage", owners[s]))
     return patches
 
 
@@ -461,8 +545,10 @@ def _wb_pass(model, state, controls, patches, rim, *, member_names):
 def _wb_spacing_rules(model, state, controls, patches, member_names):
     body_name, wing_name = member_names[0], member_names[1]
     roles = state["roles"]
-    bodies = [p for p in patches if isinstance(p, MeshPatch) and p.component == body_name]
-    wings = [p for p in patches if isinstance(p, MeshPatch) and p.component == wing_name]
+    # A junction block cut from a source patch carries no source law of its own.
+    kept = [p for p in patches if isinstance(p, MeshPatch) and p.surface in roles]
+    bodies = [p for p in kept if p.component == body_name]
+    wings = [p for p in kept if p.component == wing_name]
     poly = _edge_polylines(model, {abs(e) for p in bodies + wings for e in p.edges})
     body_rows, body_fail = check_body(
         state["components"][body_name], controls["body"], _patch_items(bodies, roles), poly
@@ -473,10 +559,20 @@ def _wb_spacing_rules(model, state, controls, patches, member_names):
     return body_rows + wing_rows, body_fail + wing_fail
 
 
-def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, *, ring_size_limits, ring_plan):
+def _mesh_wb(
+    gmsh,
+    resolved,
+    controls,
+    member_names,
+    ring_cell_m,
+    *,
+    ring_size_limits,
+    ring_plan,
+    blocks=False,
+):
     model = gmsh.model
     model.add("assembly")
-    state = _wb_model(model, resolved, member_names)
+    state = _wb_model(model, resolved, member_names, blocks=blocks)
     nodes, loops = _wb_nodes(model, state, controls, member_names, ring_cell_m)
     patches = _wb_patches(model, state, nodes, loops, member_names)
     rim = rim_edges(model, state["cap"])
@@ -515,6 +611,11 @@ def _mesh_wb(gmsh, resolved, controls, member_names, ring_cell_m, *, ring_size_l
     record["transition_surfaces"] = sorted(rings)
     record["component_cells"] = {n: mesh.components.count(n) for n in member_names}
     record["structured_faces"] = len(state["structured"])
+    if state["junction"]:
+        record["junction_faces"] = [
+            {k: v for k, v in row.items() if k != "sides"}
+            for _, row in sorted(state["junction"].items())
+        ]
     record["triangles_by_surface"] = {
         int(s): sum(1 for i, c in enumerate(mesh.cells) if len(c) == 3 and mesh.surfaces[i] == s)
         for s in rings
@@ -642,8 +743,17 @@ def _kernel_mesh(plan, resolved):
             source = body(spec) if spec["type"] == "body" else lifting_surface(spec) + tip_cap(spec)
             mesh, record = _mesh_component(gmsh, name, spec, values[spec["type"]], source)
         else:
+            # The fairing is meshed from the sizes of its structured neighbours (delta F.2).
+            body_spec = components[members[0]]
             mesh, record = _mesh_wb(
-                gmsh, resolved, values, members, 0.15, ring_size_limits=(0.06, 0.3), ring_plan=None
+                gmsh,
+                resolved,
+                values,
+                members,
+                body_spec["length"] / values["body"]["x_cells"],
+                ring_size_limits=None,
+                ring_plan=None,
+                blocks=True,
             )
         dims = [dim for dim, _ in gmsh.model.getEntities() if dim >= 2]
     return mesh, record, dims
@@ -654,10 +764,11 @@ def _trailing_edges(mesh, record, plan):
     from pyflightstream.workspace._geometry_mesh_s1 import (
         cells_across,
         collapse_trailing_edge,
+        merge_trailing_edge_base,
         trailing_edge_groups,
     )
 
-    checks, marks = [], []
+    checks, marked = [], []
     families = record.get("surface_families", {})
     for name, row in plan["components"].items():
         if (
@@ -667,26 +778,35 @@ def _trailing_edges(mesh, record, plan):
         ):
             continue
         base, groups, lines = trailing_edge_groups(mesh, families, name)
-        checks.append(cells_across(groups))
+        cap = {i for i, s in enumerate(mesh.surfaces) if families.get(int(s)) == "tip_cap"}
+        soft = frozenset(
+            cap | {i for i, n in enumerate(mesh.components) if n in plan["transition"]}
+        )
         if row.get("trailing_edge") != "collapsed":
-            marks += lines
+            # A base generated as two patches is merged to one quad across (MESH_DESIGN 8).
+            mesh = merge_trailing_edge_base(mesh, groups, base, reducible=soft)
+            base, groups, lines = trailing_edge_groups(mesh, families, name)
+            checks.append(cells_across(groups))
+            marked += [tuple(int(t) for t in mesh.node_tags[[a, b]]) for a, b in lines]
             continue
+        checks.append(cells_across(groups))
         tolerance = plan["controls"]["components"][name].get("collapse_tolerance_m")
         if tolerance is None:
             raise InputValueError(
                 f"{name}.collapse_tolerance_m: required with trailing_edge collapsed"
             )
-        cap = {i for i, s in enumerate(mesh.surfaces) if families.get(int(s)) == "tip_cap"}
-        soft = cap | {i for i, n in enumerate(mesh.components) if n in plan["transition"]}
         upper = {g[0] for g in groups}
-        before = [mesh.node_tags[[a, b]] for a, b in lines if a in upper and b in upper]
+        marked += [
+            tuple(int(t) for t in mesh.node_tags[[a, b]])
+            for a, b in lines
+            if a in upper and b in upper
+        ]
         mesh, collapsed = collapse_trailing_edge(
-            mesh, groups, base, tolerance_m=float(tolerance), reducible=frozenset(soft)
+            mesh, groups, base, tolerance_m=float(tolerance), reducible=soft
         )
         checks += collapsed
-        tags = {int(t): i for i, t in enumerate(mesh.node_tags)}
-        marks = [(tags[int(a)], tags[int(b)]) for a, b in before]
-    return mesh, checks, marks
+    tags = {int(t): i for i, t in enumerate(mesh.node_tags)}
+    return mesh, checks, [(tags[a], tags[b]) for a, b in marked]
 
 
 def _counts(mesh):
@@ -817,7 +937,9 @@ def mesh_configuration(
         counts=_counts(mesh),
         checks=checks,
         accepted=all(c["status"] != "failed" for c in checks),
-        kernel={k: kernel[k] for k in ("orientation", "spacing_rules") if k in kernel},
+        kernel={
+            k: kernel[k] for k in ("orientation", "spacing_rules", "junction_faces") if k in kernel
+        },
     )
     written: dict[str, str] = {}
     if obj is not None:

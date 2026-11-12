@@ -60,7 +60,11 @@ from pyflightstream.geometry._mesh_rules import (
     load_mesh_controls,
     tip_refinement,
 )
-from pyflightstream.geometry._mesh_schema import mesh_controls, mesh_measurements  # noqa: F401
+from pyflightstream.geometry._mesh_schema import (  # noqa: F401
+    azimuth_count,
+    mesh_controls,
+    mesh_measurements,
+)
 from pyflightstream.geometry._mesh_topology import (
     Mesh,
     check_mesh,
@@ -126,6 +130,7 @@ __all__ = [
     "adopt_surface_file",
     "assembly_regions",
     "blister_model",
+    "azimuth_count",
     "body",
     "check_body",
     "check_entry",
