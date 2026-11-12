@@ -12,7 +12,7 @@ opens the ``.fsm`` that the existing geometry stage builds from the instruction 
 The route of the row (``MESH_ROUTE``) chooses what the instruction is: ``native`` hands the
 generated IGES to the solver's CAD importer (``[cad]``), ``quad_dominant`` meshes it with
 strategy 1 of PFS-2214 and hands that mesh over (``[mesh]``), and ``full_grid`` meshes it with
-strategy 2, which has no entry in :data:`MESH_STRATEGIES` until its lane lands.
+strategy 2 (:func:`mesh_with_strategy_2`) and hands that mesh over the same way.
 
 An entry that does not apply to a row is warned and skipped, never refused (her rule of
 2026-10-27); what is refused is an input the row cannot be built from: an unknown route, a file
@@ -58,6 +58,7 @@ __all__ = [
     "GeometryRowRequest",
     "RowGeometry",
     "mesh_with_strategy_1",
+    "mesh_with_strategy_2",
     "failure_record",
     "generate_row_geometries",
     "plan_row_geometry",
@@ -452,6 +453,22 @@ def mesh_with_strategy_1(
             f"matrix row POL {request.pol}: MESH_ROUTE quad_dominant needs strategy 1 of "
             "PFS-2214, which this tree does not carry."
         )
+    _mesh_with(request, folder, name, mesh_configuration)
+
+
+def mesh_with_strategy_2(
+    request: GeometryRowRequest, folder: Path, name: str, report, mesh_full_grid=None
+) -> None:
+    """Mesh the configuration by strategy 2 of PFS-2214 (full grid) for the full_grid route."""
+    if mesh_full_grid is None:
+        from pyflightstream.workspace import _geometry_mesh_s2
+
+        mesh_full_grid = _geometry_mesh_s2.mesh_full_grid
+    _mesh_with(request, folder, name, mesh_full_grid)
+
+
+def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> None:
+    """Mesh a generated row with its controls file and write the ``[mesh]`` instruction."""
     controls = request.controls or request.source.with_name(
         request.source.name[: -len(GEOMETRY_ROW_SUFFIX)] + ".mesh.toml"
     )
@@ -463,17 +480,17 @@ def mesh_with_strategy_1(
     from pyflightstream.workspace._geom_run import _resolve
 
     resolved = _resolve(request.source, request.overrides)
-    result = mesh_configuration(resolved, controls, out=folder, descriptor=name)
+    result = mesher(resolved, controls, out=folder, descriptor=name)
     members = list(result.record.get("members") or [name])
     written = Path(result.written.get("obj", folder / f"{name}.obj"))
     _write_instruction(folder, name, request, ("mesh", written.name, "METER"), members)
 
 
-#: The meshers of the routes that mesh. ``full_grid`` is strategy 2 of PFS-2214 and its lane
-#: sets its entry here; until then the route is refused, by name, on a tree that has none.
+#: The meshers of the routes that mesh: strategy 1 of PFS-2214 for ``quad_dominant`` and
+#: strategy 2 for ``full_grid``. An entry set to None is refused, by name, before generating.
 MESH_STRATEGIES: dict[str, Callable[..., None] | None] = {
     "quad_dominant": mesh_with_strategy_1,
-    "full_grid": None,
+    "full_grid": mesh_with_strategy_2,
 }
 
 #: The instruction writers, per route.
@@ -484,10 +501,11 @@ def _check_the_route_runs(request: GeometryRowRequest) -> None:
     """Refuse, before anything is generated, a route this tree has no code for."""
     if request.route in _ROUTES or MESH_STRATEGIES.get(request.route) is not None:
         return
+    running = sorted([*_ROUTES, *(k for k, v in MESH_STRATEGIES.items() if v is not None)])
     raise GeometryRowError(
-        f"matrix row POL {request.pol}: MESH_ROUTE {request.route} is strategy 2 of "
-        "PFS-2214, which this tree does not carry; the routes that run are native and "
-        "quad_dominant."
+        f"matrix row POL {request.pol}: MESH_ROUTE {request.route} has no mesher on this tree "
+        f"(strategy 2 of PFS-2214 meshes full_grid); the routes that run are "
+        f"{', '.join(running)}."
     )
 
 

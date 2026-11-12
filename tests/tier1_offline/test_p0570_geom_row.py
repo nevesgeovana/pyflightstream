@@ -433,9 +433,11 @@ def test_quad_dominant_with_no_controls_file_is_refused_by_name(tmp_path, librar
         mesher(_request(library, route="quad_dominant"), tmp_path, "x", {})
 
 
-def test_full_grid_is_refused_by_name_before_anything_is_generated(tmp_path, library):
+def test_full_grid_is_refused_by_name_before_anything_is_generated(tmp_path, library, monkeypatch):
+    """A route whose mesher entry is None (a tree without strategy 2) is refused by name."""
     from pyflightstream.workspace import _geometry_row as row_module
 
+    monkeypatch.setitem(row_module.MESH_STRATEGIES, "full_grid", None)
     calls: list = []
     with pytest.raises(row_module.GeometryRowError, match="strategy 2"):
         row_module.prepare_row_geometry(
