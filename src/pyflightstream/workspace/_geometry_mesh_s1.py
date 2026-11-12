@@ -310,3 +310,170 @@ def collapse_trailing_edge(
         _check("mesh.te.collapse_distance", distance, tolerance_m, unit="m"),
         _check("mesh.te.base_removed", abs(len(mesh.cells) - len(cells) - len(base_cells))),
     ]
+
+
+#: Tolerance of a free edge on the symmetry plane y = 0 (MESH_STRATEGY section 5), m.
+SYMMETRY_TOLERANCE_M = 1e-7
+#: Smallest corner sine of a cell that is not degenerate (MESH_STRATEGY section 5).
+DEGENERATE_SINE = 0.02
+
+
+def edge_uses(mesh: Mesh) -> dict[tuple[int, int], list[int]]:
+    """Map every undirected mesh edge to the cells that use it."""
+    uses: dict[tuple[int, int], list[int]] = {}
+    for index, cell in enumerate(mesh.cells):
+        for a, b in zip(cell, cell[1:] + cell[:1], strict=True):
+            uses.setdefault((min(a, b), max(a, b)), []).append(index)
+    return uses
+
+
+def shared_curves(mesh: Mesh) -> dict[tuple[str, str], list[tuple[int, int]]]:
+    """Discover the curves two components share: the edges used by a cell of each."""
+    curves: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    for edge, cells in edge_uses(mesh).items():
+        names = sorted({mesh.components[c] for c in cells})
+        for i, a in enumerate(names):
+            for b in names[i + 1 :]:
+                curves.setdefault((a, b), []).append(edge)
+    return curves
+
+
+def _on_symmetry(mesh: Mesh, edge) -> bool:
+    return bool(np.all(np.abs(mesh.xyz[list(edge), 1]) <= SYMMETRY_TOLERANCE_M))
+
+
+def follower_checks(mesh: Mesh, controls: Mapping[str, Any]) -> list[dict]:
+    """Check each follower shares a curve, node to node, with every neighbour it follows.
+
+    The shared curves are discovered on the realized mesh (edges used by a cell of each
+    component); a neighbour with none is named. Hanging edges are the free-edge check's.
+    """
+    curves = shared_curves(mesh)
+    checks = []
+    for name, component in controls["components"].items():
+        if component["role"] != "follower" or name not in mesh.components:
+            continue
+        missing = [n for n in component["follows"] if not curves.get(tuple(sorted((name, n))))]
+        found = {n: len(curves.get(tuple(sorted((name, n))), [])) for n in component["follows"]}
+        checks.append(
+            _check(
+                "mesh.follower.shared_curves",
+                len(missing),
+                where={"component": name, "missing_neighbours": missing, "shared_edges": found},
+            )
+        )
+    return checks
+
+
+def _corner_measures(points: np.ndarray) -> tuple[float, float, float]:
+    """Return the smallest corner sine, the edge aspect and the largest skew of one cell."""
+    edges = np.roll(points, -1, axis=0) - points
+    lengths = np.linalg.norm(edges, axis=1)
+    if min(lengths) <= 0:
+        return 0.0, float("inf"), 90.0
+    previous = -np.roll(edges, 1, axis=0)
+    norms = np.roll(lengths, 1) * lengths
+    sines = np.linalg.norm(np.cross(previous, edges), axis=1) / norms
+    angles = np.degrees(np.arccos(np.clip(np.sum(previous * edges, axis=1) / norms, -1, 1)))
+    skew = float(np.max(np.abs(angles - 90))) if len(points) == 4 else 0.0
+    return float(np.min(sines)), float(max(lengths) / min(lengths)), skew
+
+
+def _limit_check(check_id: str, value: float, table: Mapping, key: str, unit: str = "") -> dict:
+    if key in table:
+        return _check(check_id, value, float(table[key]), unit=unit)
+    return check_entry(check_id, "skipped", note=f"no {key} given; measured {value:.6g}", unit=unit)
+
+
+def _quality(mesh: Mesh, transition: set[str], quality: Mapping[str, Any]) -> list[dict]:
+    degenerate, aspect, skew = 0, 0.0, 0.0
+    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+        sine, ratio, angle = _corner_measures(mesh.xyz[list(cell)])
+        degenerate += int(sine < DEGENERATE_SINE)
+        if name not in transition and len(cell) == 4:
+            aspect, skew = max(aspect, ratio), max(skew, angle)
+    return [
+        _check("mesh.degenerate", degenerate),
+        _limit_check("mesh.quality.aspect", aspect, quality, "max_aspect"),
+        _limit_check("mesh.quality.skew", skew, quality, "max_skew_deg", "deg"),
+    ]
+
+
+def _triangle_checks(mesh: Mesh, limits: Mapping[str, Mapping]) -> list[dict]:
+    """Triangles only in transition components, each under its stated fraction."""
+    totals: dict[str, list[int]] = {}
+    for cell, name in zip(mesh.cells, mesh.components, strict=True):
+        counts = totals.setdefault(name, [0, 0])
+        counts[0] += int(len(cell) == 3)
+        counts[1] += 1
+    outside = {n: c[0] for n, c in totals.items() if n not in limits and c[0]}
+    checks = [
+        _check("mesh.triangles.region", sum(outside.values()), where={"by_component": outside})
+    ]
+    for name, table in sorted(limits.items()):
+        if name in totals:
+            fraction = totals[name][0] / totals[name][1]
+            entry = _limit_check(
+                "mesh.triangles.fraction", fraction, table, "max_triangle_fraction"
+            )
+            entry["where"] = {"component": name}
+            checks.append(entry)
+    return checks
+
+
+def _irregular_nodes(mesh: Mesh, transition: set[str]) -> dict:
+    """Count interior nodes of one structured surface whose valence is not four."""
+    boundary: set[int] = set()
+    for edge, cells in edge_uses(mesh).items():
+        if len(cells) == 1 or len({mesh.surfaces[c] for c in cells}) != 1:
+            boundary.update(edge)
+    incident: dict[int, list[int]] = {}
+    for index, cell in enumerate(mesh.cells):
+        for v in cell:
+            incident.setdefault(v, []).append(index)
+    irregular = sum(
+        1
+        for node, cells in incident.items()
+        if node not in boundary
+        and not any(mesh.components[c] in transition for c in cells)
+        and len(cells) != 4
+    )
+    return _check("mesh.irregular_nodes", irregular)
+
+
+def _topology(mesh: Mesh) -> list[dict]:
+    uses = edge_uses(mesh)
+    over = sum(1 for cells in uses.values() if len(cells) > 2)
+    free = sum(1 for e, cells in uses.items() if len(cells) == 1 and not _on_symmetry(mesh, e))
+    return [
+        _check("mesh.node_to_node", over),
+        _check("mesh.free_edges", free, where={"tolerance_m": SYMMETRY_TOLERANCE_M}),
+    ]
+
+
+def acceptance_checks(
+    mesh: Mesh, record: Mapping[str, Any], controls: Mapping[str, Any], transition: Mapping
+) -> list[dict]:
+    """Measure the strategy 1 acceptance table of the surface-mesh design on a realized mesh.
+
+    ``record`` is the kernel record (inverted cells, source distance, spacing rules);
+    ``transition`` maps each transition component to its transition table. Every other check
+    is measured here on the cells and nodes, independently of the requested controls.
+    """
+    names = set(transition)
+    checks = [_check("mesh.inverted", int(record["inverted_count"]))]
+    checks += _quality(mesh, names, controls.get("defaults", {}).get("quality", {}))
+    checks += _topology(mesh)
+    checks += _triangle_checks(mesh, transition)
+    checks.append(_irregular_nodes(mesh, names))
+    failures = record.get("spacing_rules", {}).get("failures", [None])
+    checks.append(_check("mesh.spacing_laws", len(failures)))
+    checks.append(
+        _check(
+            "mesh.source_distance",
+            float(record["source_distance_max_m"]),
+            float(record["source_distance_tolerance_m"]),
+            unit="m",
+        )
+    )
+    return checks + follower_checks(mesh, controls)

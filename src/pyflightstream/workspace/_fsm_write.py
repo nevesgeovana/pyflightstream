@@ -41,7 +41,7 @@ from pyflightstream.geometry._mesh_topology import Mesh
 
 __all__ = ["paired_triangles", "write_fsm"]
 
-_ROWS = 25
+_PER_FACE_ROWS = 25
 _EDGE_ROWS = {21: (0, 1), 22: (1, 2), 23: (2, 0)}
 _SET_ROWS = (20, 24)
 _MESH_END = "$MESH_END$"
@@ -135,7 +135,7 @@ def _mesh_block(mesh: Mesh, colour: str, trailing_edges) -> list[str]:
         raise InputValueError(f"fsm: component names {names} must be non-numeric single lines")
     ids = {name: i + 1 for i, name in enumerate(names)}
     count = len(triangles)
-    rows: dict[int, list] = {k: [0] * count for k in range(_ROWS)}
+    rows: dict[int, list] = {k: [0] * count for k in range(_PER_FACE_ROWS)}
     rows[0] = list(range(1, count + 1))
     rows[1] = [3] * count
     for k in range(3):
@@ -147,7 +147,7 @@ def _mesh_block(mesh: Mesh, colour: str, trailing_edges) -> list[str]:
     for i, name in enumerate(names):
         block += [f"{i + 1}, T, F, F", name, colour]
     block.append(str(count))
-    for k in range(_ROWS):
+    for k in range(_PER_FACE_ROWS):
         if k in _SET_ROWS:
             block.append(_flags([True] * count))
         elif k in flags:

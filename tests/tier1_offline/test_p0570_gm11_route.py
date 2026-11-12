@@ -102,3 +102,170 @@ def test_p0570_gm11_fsm_refuses_by_name(tmp_path):
     with pytest.raises(InputArtifactError, match="exists"):
         write_fsm(tmp_path / "d.fsm", mesh, template=FRESH)
     assert not (tmp_path / "a.fsm").exists() and not (tmp_path / "b.fsm").exists()
+
+
+# ---- section 5 acceptance and followers with shared-curve discovery ----------------------------
+
+_KERNEL = {
+    "inverted_count": 0,
+    "source_distance_max_m": 1e-9,
+    "source_distance_tolerance_m": 5e-4,
+    "spacing_rules": {"failures": []},
+}
+
+
+def _controls(follows=("WING",)):
+    return {
+        "defaults": {"quality": {"max_aspect": 8.0, "max_skew_deg": 50.0}},
+        "components": {
+            "WING": {"role": "primary", "follows": []},
+            "FAIR": {"role": "follower", "follows": list(follows)},
+        },
+    }
+
+
+N_PSI, N_PHI = 8, 8
+
+
+def _two_part_mesh(*, conforming=True):
+    """A half torus cut by y = 0: free edges only on the symmetry plane, all quads.
+
+    WING holds the first half of the big circle and FAIR the second; they share the ring at
+    its middle node to node, or (not conforming) FAIR carries its own copy of that ring.
+    """
+    psi = np.linspace(0.0, np.pi, N_PSI + 1)
+    phi = np.linspace(0.0, 2 * np.pi, N_PHI, endpoint=False)
+    xyz = [
+        [(3 + np.cos(f)) * np.cos(p), (3 + np.cos(f)) * np.sin(p), np.sin(f)]
+        for p in psi
+        for f in phi
+    ]
+    xyz = np.array(xyz)
+    xyz[np.abs(xyz[:, 1]) < 1e-12, 1] = 0.0
+    half = N_PSI // 2
+    copy = len(xyz)
+    if not conforming:
+        xyz = np.vstack([xyz, xyz[half * N_PHI : (half + 1) * N_PHI] + [0.0, 0.0, 1e-3]])
+
+    def node(i, j, owner):
+        if owner == "FAIR" and i == half and not conforming:
+            return copy + j % N_PHI
+        return i * N_PHI + j % N_PHI
+
+    cells, names = [], []
+    for i in range(N_PSI):
+        owner = "WING" if i < half else "FAIR"
+        for j in range(N_PHI):
+            cells.append(
+                (
+                    node(i, j, owner),
+                    node(i + 1, j, owner),
+                    node(i + 1, j + 1, owner),
+                    node(i, j + 1, owner),
+                )
+            )
+            names.append(owner)
+    surfaces = [1 if n == "WING" else 2 for n in names]
+    return Mesh(xyz, cells, names, surfaces, np.arange(len(xyz)))
+
+
+def _by_id(checks):
+    return {c["check"] if "check" in c else c["id"]: c for c in checks}
+
+
+def test_p0570_gm11_shared_curves_are_discovered_on_the_realized_mesh():
+    from pyflightstream.workspace._geometry_mesh_s1 import shared_curves
+
+    ring = set(range(N_PSI // 2 * N_PHI, (N_PSI // 2 + 1) * N_PHI))
+    edges = shared_curves(_two_part_mesh())[("FAIR", "WING")]
+    assert len(edges) == N_PHI and {v for e in edges for v in e} == ring
+    assert shared_curves(_two_part_mesh(conforming=False)) == {}
+
+
+def test_p0570_gm11_follower_shares_a_curve_with_each_neighbour_yes_no():
+    """YES: welded follower of WING. NO: a copied ring (no shared curve), an absent neighbour."""
+    from pyflightstream.workspace._geometry_mesh_s1 import follower_checks
+
+    yes = follower_checks(_two_part_mesh(), _controls())
+    assert [c["status"] for c in yes] == ["passed"]
+    gap = follower_checks(_two_part_mesh(conforming=False), _controls())
+    assert gap[0]["status"] == "failed" and gap[0]["where"]["missing_neighbours"] == ["WING"]
+    other = follower_checks(_two_part_mesh(), _controls(("WING", "FUS")))
+    assert other[0]["where"]["missing_neighbours"] == ["FUS"]
+
+
+def test_p0570_gm11_acceptance_table_yes_no():
+    """YES: a conforming structured mesh passes every row. NO: each planted defect fails its row."""
+    from pyflightstream.workspace._geometry_mesh_s1 import acceptance_checks
+
+    mesh = _two_part_mesh()
+    checks = _by_id(acceptance_checks(mesh, _KERNEL, _controls(), {"FAIR": {}}))
+    expected = {
+        "mesh.inverted",
+        "mesh.degenerate",
+        "mesh.quality.aspect",
+        "mesh.quality.skew",
+        "mesh.node_to_node",
+        "mesh.free_edges",
+        "mesh.triangles.region",
+        "mesh.triangles.fraction",
+        "mesh.irregular_nodes",
+        "mesh.spacing_laws",
+        "mesh.source_distance",
+        "mesh.follower.shared_curves",
+    }
+    assert set(checks) == expected
+    assert all(c["status"] in {"passed", "skipped"} for c in checks.values()), checks
+    assert checks["mesh.triangles.fraction"]["status"] == "skipped"
+    # A triangle on the primary lifting surface.
+    tri = _two_part_mesh()
+    a, b, c, d = tri.cells[0]
+    tri.cells[0:1] = [(a, b, c), (a, c, d)]
+    tri.components.insert(0, "WING")
+    tri.surfaces.insert(0, 1)
+    bad = _by_id(acceptance_checks(tri, _KERNEL, _controls(), {"FAIR": {}}))
+    assert bad["mesh.triangles.region"]["status"] == "failed"
+    # A stretched cell beyond max_aspect, a free edge off y = 0, a spacing failure.
+    stretched = _two_part_mesh()
+    stretched.xyz[N_PHI + 3] *= [40.0, 40.0, 1.0]
+    bad = _by_id(
+        acceptance_checks(
+            stretched, {**_KERNEL, "spacing_rules": {"failures": [1]}}, _controls(), {"FAIR": {}}
+        )
+    )
+    assert bad["mesh.quality.aspect"]["status"] == "failed"
+    assert bad["mesh.spacing_laws"]["status"] == "failed"
+    gap = _by_id(acceptance_checks(_two_part_mesh(conforming=False), _KERNEL, _controls(), {}))
+    assert gap["mesh.free_edges"]["status"] == "failed"
+    over = _two_part_mesh()
+    over.cells.append(over.cells[0])
+    over.components.append("WING")
+    over.surfaces.append(1)
+    assert (
+        _by_id(acceptance_checks(over, _KERNEL, _controls(), {}))["mesh.node_to_node"]["status"]
+        == "failed"
+    )
+
+
+def test_p0570_gm11_irregular_node_inside_a_structured_surface_is_counted():
+    from pyflightstream.workspace._geometry_mesh_s1 import acceptance_checks
+
+    mesh = _two_part_mesh()
+    centre = N_PHI + 1  # an interior node of the wing half
+    cells = [
+        c for c in mesh.cells if centre in c and mesh.components[mesh.cells.index(c)] == "WING"
+    ]
+    first = cells[0]
+    i = first.index(centre)
+    split = (
+        [first[i], first[(i + 1) % 4], first[(i + 2) % 4]],
+        [first[i], first[(i + 2) % 4], first[(i + 3) % 4]],
+    )
+    k = mesh.cells.index(first)
+    mesh.cells[k : k + 1] = [tuple(split[0]), tuple(split[1])]
+    mesh.components.insert(k, "WING")
+    mesh.surfaces.insert(k, 1)
+    checks = _by_id(acceptance_checks(mesh, _KERNEL, _controls(), {"WING": {}, "FAIR": {}}))
+    assert checks["mesh.irregular_nodes"]["status"] == "passed"  # inside a transition component
+    checks = _by_id(acceptance_checks(mesh, _KERNEL, _controls(), {"FAIR": {}}))
+    assert checks["mesh.irregular_nodes"]["status"] == "failed"
