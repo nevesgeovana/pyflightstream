@@ -317,6 +317,8 @@ PUBLIC_MODULES = [
     # 0.33.0 (AD-11): the rule on empty entity selections, cut out of
     # workspace.inputs, which re-exports every public name of it.
     "pyflightstream.workspace.repitch",
+    # 0.57.0 (PFS-2222): the uniform mesh scale behind `geometry scale`.
+    "pyflightstream.workspace.scale",
     "pyflightstream.workspace.selections",
     "pyflightstream.workspace.setup_inspection",
     "pyflightstream.workspace.setup_standards",

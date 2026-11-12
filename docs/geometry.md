@@ -38,6 +38,37 @@ pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out ring
 The [how-to](mesh/how-to.md#morph-a-sector-or-a-wheel) gives both files, the sector's and
 the wheel's, and the [reference](mesh/reference.md#morph-control) lists the keys and checks.
 
+## Scaling a mesh
+
+`geometry scale` multiplies every vertex of an OBJ by one positive factor about the origin, or
+about the point given by `--about x,y,z`, without a solver. Only the three coordinates of each
+`v` line change: face order, groups, normals, comments and line endings stay byte for byte,
+because the solver's results depend on face order. `--out` names an output folder; the verb
+creates it, with its parents, and writes the scaled OBJ there under the input name, with
+`<name>.scale.json` beside it (input sha256, factor, centre, vertex and face counts, bounding
+boxes before and after). Without `--out` the folder is `<stem>_scaled<factor>` beside the input.
+The input is never overwritten, and a same-name file already in the folder is refused unless
+`--force` is given. A factor that is zero, negative or not a number, and a missing file, are
+refused by name and nothing is written.
+
+A FlightStream `.fsm` is scaled the same way, chosen by the file suffix, with the same output
+folder, record and refusals. An `.fsm` is text, and only the x, y and z rows of the node block
+in its mesh block (the three rows after the node count) are rewritten, each number in the
+solver's 17-digit exponent form; every other byte of the file, line endings included, is kept,
+so scaling by 1 returns the file unchanged. The record adds nothing to its shape: `vertices` is
+the node count and `faces` the face count of the mesh block. A `<stem>.boundaries.toml` beside
+the `.fsm` is neither read nor copied: it records the mesh sha256 and, in its import
+operations, node vectors in the old coordinates, so it has to be regenerated for the scaled
+mesh. A file with no mesh block, or whose node rows are not found, is refused by name.
+
+```text
+pyfs-workspace geometry scale 0.5 --mesh wing.obj --out wing_half
+pyfs-workspace geometry scale 2 --mesh wing.obj --about 0,0,1.5
+pyfs-workspace geometry scale 0.5 --mesh wing.fsm --out wing_fsm_half
+```
+
+From Python: `pyflightstream.workspace.scale.scale_mesh(mesh, factor, out=None, about=None)`.
+
 ## Collapsing a blunt trailing edge
 
 `geometry collapse-te` merges the two sides of a one-cell base strip of named blades into one
