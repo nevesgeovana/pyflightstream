@@ -28,19 +28,20 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.geometry._mesh_blocks import (
+from pyflightstream.geometry.stages import (
+    Mesh,
+    azimuth_count,
     azimuth_split,
     block_from_walk,
     carry_pairs_growth,
+    check_entry,
     check_triangles,
     component_topology,
     irregular_nodes,
+    mesh_controls,
     ring_count,
     solve_counts,
 )
-from pyflightstream.geometry._mesh_schema import azimuth_count, mesh_controls
-from pyflightstream.geometry._mesh_topology import Mesh
-from pyflightstream.geometry._records import check_entry
 
 __all__ = ["mesh_full_grid", "plan_strategy2"]
 

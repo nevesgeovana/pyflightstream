@@ -49,6 +49,16 @@ from pyflightstream.geometry._generation import (
 )
 from pyflightstream.geometry._identity import build_id, parameter_id, surface_id
 from pyflightstream.geometry._lifting import lifting_surface
+from pyflightstream.geometry._mesh_blocks import (  # noqa: F401  strategy 2 planning (G12)
+    azimuth_split,
+    block_from_walk,
+    carry_pairs_growth,
+    check_triangles,
+    component_topology,
+    irregular_nodes,
+    ring_count,
+    solve_counts,
+)
 from pyflightstream.geometry._mesh_rules import (
     check_body,
     check_lifting,
@@ -60,7 +70,11 @@ from pyflightstream.geometry._mesh_rules import (
     load_mesh_controls,
     tip_refinement,
 )
-from pyflightstream.geometry._mesh_schema import mesh_controls, mesh_measurements  # noqa: F401
+from pyflightstream.geometry._mesh_schema import (  # noqa: F401
+    azimuth_count,
+    mesh_controls,
+    mesh_measurements,
+)
 from pyflightstream.geometry._mesh_topology import (
     Mesh,
     check_mesh,
@@ -154,6 +168,15 @@ __all__ = [
     "lifting_surface",
     "load_mesh_controls",
     "mesh_controls",
+    "azimuth_count",
+    "azimuth_split",
+    "block_from_walk",
+    "carry_pairs_growth",
+    "check_triangles",
+    "component_topology",
+    "irregular_nodes",
+    "ring_count",
+    "solve_counts",
     "manifest_checks",
     "orient_mesh",
     "oriented_source_normals",
