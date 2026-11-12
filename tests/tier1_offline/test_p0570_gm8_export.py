@@ -41,6 +41,30 @@ def _applied_config():
     }
 
 
+def test_p0570_triangular_face_keeps_its_surface_with_four_boundary_segments(tmp_path):
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel_or_skip()
+    kernel = open_kernel("a retained triangular face")
+    path = tmp_path / "triangle.igs"
+    try:
+        face = kernel.add_planar_face([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
+        kernel.export_iges({"triangle": [face]}, path)
+        profile = check_profile(path)
+        assert profile.passed, profile.failed
+        topology = kernel.inspect_file(path, None)
+        assert len(topology.areas) == 1
+        assert topology.areas[0] == pytest.approx(0.5, rel=1e-9)
+        document = read_iges(path)
+        by_id = {e["id"]: e for e in document["entities"]}
+        boundary = next(e for e in document["entities"] if e["type"] == 142)
+        for pointer in boundary["parameters"][3:5]:
+            assert by_id[int(pointer)]["parameters"][1] == "4"
+        assert boundary["parameters"][5] == "1"
+    finally:
+        kernel.close()
+
+
 @pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
 def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
     from pyflightstream.geometry.stages import stage_row

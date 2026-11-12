@@ -13,3 +13,6 @@ decisions, retaining the independent removal-area limit. Failed references
 stop before the applied cut.
 
 Junction arc lengths integrate native curve derivatives at floating-point accuracy.
+
+Triangular retained faces keep their original surface and use four exact boundary
+segments in both coordinate spaces.
