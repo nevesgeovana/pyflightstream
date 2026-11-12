@@ -91,6 +91,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "name_encoding"): CASE,
     ("pyfs-workspace", "unit"): CASE,
     ("pyfs-workspace", "sections"): CASE,
+    # 0.57.0 (PFS-2223): the shaft point and reference blade of geometry prop-slice.
+    ("pyfs-workspace", "origin"): CASE,
+    ("pyfs-workspace", "blade_dir"): CASE,
     # 0.35.0 QV1: read-only query subjects and per-invocation filters.
     ("pyfs-matrix", "target"): SUBJECT,
     ("pyfs-matrix", "point"): SUBJECT,
@@ -721,13 +724,22 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "matrices"): frozenset({"preview"}),
     ("pyfs-workspace", "direction"): frozenset({"preview"}),
     ("pyfs-workspace", "axis"): frozenset(
-        {"sector-to-wheel", "sector-remesh", "power-off-body", "trailing-edge"}
+        {"sector-to-wheel", "sector-remesh", "power-off-body", "trailing-edge", "prop-slice"}
     ),
+    ("pyfs-workspace", "origin"): frozenset({"prop-slice"}),
+    ("pyfs-workspace", "blade_dir"): frozenset({"prop-slice"}),
     ("pyfs-workspace", "hub"): frozenset({"sector-to-wheel", "trailing-edge"}),
     ("pyfs-workspace", "center"): frozenset({"sector-to-wheel"}),
     ("pyfs-workspace", "name_encoding"): frozenset({"iges-convert", "iges-grid"}),
     ("pyfs-workspace", "unit"): frozenset(
-        {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine", "visual-inspect"}
+        {
+            "trailing-edge",
+            "convert2midnodes",
+            "identify-te",
+            "prepare-to-refine",
+            "visual-inspect",
+            "prop-slice",
+        }
     ),
     ("pyfs-workspace", "sections"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "from_nodes"): frozenset({"trailing-edge"}),
@@ -1070,7 +1082,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "out"): frozenset(
         "audit fill-interior merge power-off-body sector-remesh sector-to-wheel mirror move "
         "profile refine repitch collapse-te hub-rings morph subtract time-mean trailing-edge "
-        "visual-inspect iges-grid iges-convert mesh-generated scale".split()
+        "visual-inspect iges-grid iges-convert mesh-generated scale prop-slice".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -1125,14 +1137,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "family"): frozenset({"profile"}),
     ("pyfs-workspace", "component"): frozenset({"mesh-generated", "profile"}),
     ("pyfs-workspace", "sign"): frozenset({"profile"}),
-    ("pyfs-workspace", "stations"): frozenset({"beam", "profile"}),
+    ("pyfs-workspace", "stations"): frozenset({"beam", "profile", "prop-slice"}),
     ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
     ("pyfs-workspace", "ref"): frozenset({"profile"}),
     ("pyfs-workspace", "disc"): frozenset({"profile"}),
     ("pyfs-workspace", "tip_radius"): frozenset({"sector-remesh", "power-off-body", "profile"}),
     ("pyfs-workspace", "hub_radius"): frozenset({"profile"}),
     ("pyfs-workspace", "blades"): frozenset(
-        {"sector-to-wheel", "sector-remesh", "power-off-body", "profile"}
+        {"sector-to-wheel", "sector-remesh", "power-off-body", "profile", "prop-slice"}
     ),
     ("pyfs-workspace", "thrust"): frozenset({"profile"}),
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
@@ -1178,7 +1190,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "rows"): frozenset({"build"}),
     ("pyfs-workspace", "matrix"): frozenset({"build", "calibrate"}),
     ("pyfs-workspace", "names"): frozenset({"accept"}),
-    ("pyfs-workspace", "geometry"): frozenset({"beam", "degenerate", "from-sidecar", "inventory"}),
+    ("pyfs-workspace", "geometry"): frozenset(
+        {"beam", "degenerate", "from-sidecar", "inventory", "prop-slice"}
+    ),
     ("pyfs-workspace", "mesh"): frozenset(
         {
             "audit",

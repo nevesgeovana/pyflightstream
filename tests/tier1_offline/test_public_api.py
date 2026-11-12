@@ -304,6 +304,8 @@ PUBLIC_MODULES = [
     # 0.56.0 (PFS-2193): the morphing chain on the OBJ.
     "pyflightstream.workspace.morph",
     "pyflightstream.workspace.naming",
+    # 0.57.0 (PFS-2223): the propeller slicer behind `geometry prop-slice`.
+    "pyflightstream.workspace.prop_slice",
     "pyflightstream.workspace.record_document",
     # v0.23.0 item 14: the migration that moves a workspace's polar products
     # from the numbered group suffix onto the group's own name. PUBLIC
