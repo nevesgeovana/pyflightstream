@@ -124,6 +124,70 @@ def test_p0570_fowler_boundary_distance_uses_bounded_pcurve_starts(tmp_path):
     assert {f.check for f in check_profile(damaged).failed} == {"profile.loop_surface"}
 
 
+def test_p0570_converter_retains_compatible_named_nurbs_coefficients(tmp_path, monkeypatch):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace._geom_gate import base_displacement, read_bases
+    from pyflightstream.workspace._gmsh import gmsh_module, open_kernel
+    from pyflightstream.workspace.iges_convert import convert_iges
+
+    kernel_or_skip()
+    source, target = tmp_path / "source.igs", tmp_path / "converted.igs"
+    kernel = open_kernel("a compatible named B-spline at a translated datum")
+    try:
+        face = kernel.add_bspline_surface(
+            [[(0, 0, 0), (0, 1, 0)], [(1, 0, 0), (1, 1, 0.2)]],
+            knots_u=[0, 1],
+            knots_v=[0, 1],
+            mult_u=[2, 2],
+            mult_v=[2, 2],
+            deg_u=1,
+            deg_v=1,
+        )
+        kernel.export_iges({"part": [face]}, source)
+    finally:
+        kernel.close()
+    document = read_iges(source)
+    offset = 10000.123456789013
+    for entity in document["entities"]:
+        values, kind = entity["parameters"], entity["type"]
+        if kind == 128:
+            ku, kv, du, dv = map(int, values[1:5])
+            count = (ku + 1) * (kv + 1)
+            start = 10 + ku + du + 2 + kv + dv + 2 + count
+            indices = range(start, start + 3 * count, 3)
+        elif kind == 126 and entity["d1"][8][4:6] != "05":
+            k, degree = map(int, values[1:3])
+            start = 7 + k + degree + 2 + k + 1
+            indices = range(start, start + 3 * (k + 1), 3)
+        elif kind == 110 and entity["d1"][8][4:6] != "05":
+            indices = (1, 4)
+        else:
+            continue
+        for index in indices:
+            values[index] = format(float(values[index]) + offset, ".17g")
+    document["global"][19] = str(offset + 1)
+    source.write_text(serialize_iges(document), encoding="ascii")
+    expected = {name: [base] for name, base in read_bases(source).items()}
+    record = convert_iges([source], target)
+    assert record["faces"] == 1 and record["components"] == {"part": 1}
+    assert base_displacement(target, expected) <= 1e-12
+    assert record["readback"]["retained_compatible_nurbs"] is True
+    gmsh = gmsh_module("a retained-file count mutation")
+    importing, calls = gmsh.model.occ.importShapes, []
+
+    def drop_second_read(path, *args, **kwargs):
+        calls.append(path)
+        faces = importing(path, *args, **kwargs)
+        return faces if len(calls) == 1 else []
+
+    monkeypatch.setattr(gmsh.model.occ, "importShapes", drop_second_read)
+    monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
+    refused = tmp_path / "lost-face.igs"
+    with pytest.raises(InputArtifactError, match="faces"):
+        convert_iges([source], refused)
+    assert not refused.exists()
+
+
 @pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
 def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
     from pyflightstream.geometry.stages import stage_row

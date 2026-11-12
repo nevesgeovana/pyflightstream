@@ -25,3 +25,7 @@ for exact regeneration.
 
 Reverse identification of applied control assemblies is reported as unsupported.
 Regeneration from stored B-splines checks their source identity.
+
+IGES conversion retains a compatible named NURBS source without rounding its
+coefficients through another native write. A second kernel import still checks
+the retained faces, names and geometry before output is written.
