@@ -264,8 +264,21 @@ def test_g12_wb_every_block_is_all_quad_and_triangles_only_on_named_faces(wb_run
     named = {int(item.rsplit(".", 1)[1]) for item in record["not_full_grid"]}
     on = {s for c, s in zip(mesh.cells, mesh.surfaces, strict=True) if len(c) == 3}
     assert on <= named
-    assert _checks(record)["E07.triangles"]["measured"] == record["counts"]["tris"]
-    assert record["blocks"] > 70 and record["components"]["FUS"]["azimuth_count"] >= 24
+    assert _checks(record)["E07.triangles"]["measured"] == record["counts"]["tris"] == 0
+    # The one-face tip cap and a body uncut at the tangent fairing ends leave 66 faces (the
+    # legacy fixture had 87); every one is a block but the fairing's tangent sliver.
+    assert record["not_full_grid"] == ["FAIRING.88"]
+    assert record["blocks"] > 60 and record["components"]["FUS"]["azimuth_count"] >= 24
+
+
+def test_g12_wb_nodes_lie_on_their_sources_and_the_planar_cap_on_its_plane(wb_run):
+    """The one-face cap is measured on its plane: no node of the base 0.125 m off its source.
+
+    The kernel's closest point on the cap, whose leading-edge side is a collapsed edge, runs to
+    the leading edge from the base midpoint; that edge also bounds no cells and takes no count.
+    """
+    check = _checks(wb_run.record)["mesh.source_distance"]
+    assert check["status"] == "passed" and check["measured"] < 1e-6
 
 
 def test_g12_wb_poles_are_valence_3_at_the_body_closures(wb_run):

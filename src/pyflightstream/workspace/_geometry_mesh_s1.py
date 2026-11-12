@@ -454,6 +454,20 @@ def _corner_measures(points: np.ndarray) -> tuple[float, float, float]:
     return float(np.min(sines)), float(max(lengths) / min(lengths)), skew
 
 
+def sliver_surfaces(mesh: Mesh, faces) -> set[int]:
+    """Return the faces among ``faces`` holding a cell the ``mesh.degenerate`` row refuses.
+
+    A cell is refused when its smallest corner sine is under :data:`DEGENERATE_SINE`; the
+    strategy 1 mesher retries such a transition face with its next algorithm.
+    """
+    faces = set(faces)
+    return {
+        int(surface)
+        for cell, surface in zip(mesh.cells, mesh.surfaces, strict=True)
+        if surface in faces and _corner_measures(mesh.xyz[list(cell)])[0] < DEGENERATE_SINE
+    }
+
+
 def _limit_check(check_id: str, value: float, table: Mapping, key: str, unit: str = "") -> dict:
     if key in table:
         return _check(check_id, value, float(table[key]), unit=unit)

@@ -176,8 +176,8 @@ the other keys come from `defaults.lifting_surface`. A body takes `x_cells` or `
 `azimuth_cells`, `azimuth_step_deg` or `azimuth_rule` (the count from the largest half
 perimeter over `target_aspect` times the axial step, raised to a multiple of the body's half
 sectors; the realized band quads are then measured against `aspect_band`). The body's station
-lines at the wing and fairing extremes must fall on the axial step for the spacing rows to
-pass. A fairing or fillet with no table follows its hosts.
+lines at the wing root (and at a fairing end, when it is a station) must fall on the axial
+step for the spacing rows to pass. A fairing or fillet with no table follows its hosts.
 Membership comes from `mesh.configuration` and the component names from the 406 names of
 `mesh.iges` (the generated names when it is absent): a table naming a component outside the
 configuration is warned (W01) and ignored, one naming no IGES component is refused (E04).
@@ -186,12 +186,20 @@ count. `trailing_edge = "collapsed"` with `collapse_tolerance_m` closes the blun
 line of nodes in the mesh only; the default blunt base is left one quad across, whatever the
 number of faces it was generated as.
 
+A body carrying a wing is cut at the root leading and trailing edges. A fairing end is a cut
+too only when its footprint leaves the end at an angle to the ring there (`start_exponent` or
+`end_exponent` of 1 or more): the default rounded nose and tail (0.5) are tangent to the ring,
+and a cut through them would leave two fuselage faces with a cusp.
+
 Next to the fairing, each wing and fuselage face is one block of the layout crossed or bounded
 by the junction curve. A block that keeps four corners (none sharper than 20 degrees), with the
 junction as one curved side, is meshed structured like the rest of its component; any other
 (five corners, a cusp, a junction that is not single valued) is meshed with the fairing,
 quad-dominant, so the wing and fuselage stay full grid and the fairing adapts. The record lists
-each such face with its decision and reason (`junction_faces`). A tip cap may be
+each such face with its decision and reason (`junction_faces`). A face of the fairing zone
+whose mesh holds an inverted cell or a corner sine under 0.02 is meshed again with the next
+quad-dominant algorithm (frontal-Delaunay for quads, frontal-Delaunay, Delaunay, MeshAdapt);
+the record keeps each pass's defective faces (`ring_algorithm_history`). A tip cap may be
 quad-dominant: its triangles and nodes are left out of the triangle and irregular-node rows and
 reported apart.
 
@@ -232,7 +240,9 @@ meshed with quads from an even boundary and listed by name as not full grid. The
 measures triangles (E07), opposite sides (E09), carry growth (E10), the ring count on each side
 of every lifting root junction (E08), the valence 3 poles at the body closures (E11), the other
 irregular nodes, the not-full-grid faces, inverted and degenerate cells, edges used by more
-than two cells, the distance to the source and surfaces only. The matrix route calls it.
+than two cells (each with the faces holding them), the distance to the source (a planar face,
+such as the one-face tip cap, against its plane) and surfaces only. A collapsed edge of a face
+(the cap's leading-edge side) bounds no cells and takes no count. The matrix route calls it.
 
 ## Identify a lifting surface
 

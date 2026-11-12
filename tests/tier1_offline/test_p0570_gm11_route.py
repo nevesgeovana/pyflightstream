@@ -646,8 +646,8 @@ def wb_run(tmp_path_factory):
     controls = _wb_controls()
     del controls["components"]["WING"]["chordwise"]["hinge_rows"]
     controls["defaults"]["quality"] = {"max_aspect": 30.0, "max_skew_deg": 60.0}
-    # The body stations (wing and fairing extremes, 0.36875 to 0.55625 m) are on a 6.25 mm
-    # grid, as the body bands require; 48 azimuth cells keep the pole steps in their band.
+    # The body stations (the wing root, 0.4 to 0.525 m) are on the 6.25 mm grid, as the body
+    # bands require; 48 azimuth cells keep the pole steps in their band.
     controls["components"]["FUS"].update(x_step_m=0.00625, azimuth_cells=48)
     return mesh_configuration(
         WB_CONFIG, controls, out=out, descriptor="wb", fsm_template=FRESH
@@ -682,9 +682,10 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
     """Every row of the strategy 1 table is measured; the rows this route meets pass.
 
     The junction blocks keep the wing and fuselage full grid with the fairing alone
-    quad-dominant, and the blunt base is one quad across. Two rows stay open (reported): the
-    fuselage station at the fairing nose leaves a 1 degree cusp in four faces the fairing
-    meshes, and the fixture's leading-edge and base cells exceed the aspect limit 30.
+    quad-dominant, and the blunt base is one quad across. No body station touches a tangent
+    fairing end, so no face has a cusp, and a transition face holding an inverted or sliver
+    cell is meshed again with its next algorithm. One row stays open (reported, a limit the
+    owner sets): the fixture's leading-edge and base cells exceed the aspect limit 30.
     """
     result, _ = wb_run
     checks = {c["id"]: c for c in result.record["checks"]}
@@ -703,19 +704,78 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
         "mesh.surfaces_only",
         "mesh.trailing_edge_one_quad",
     }
-    # Open rows (reported): the cusps, the aspect limit, and since the one-face tip cap one
-    # inverted quad-dominant cell on a fairing face (no fairing algorithm retry yet).
-    for row in set(checks) - {"mesh.degenerate", "mesh.quality.aspect", "mesh.inverted"}:
+    # Open row (reported): the aspect limit, an owner question.
+    for row in set(checks) - {"mesh.quality.aspect"}:
         assert checks[row]["status"] != "failed", checks[row]
-    assert checks["mesh.inverted"]["measured"] <= 1
+    assert checks["mesh.inverted"]["measured"] == 0
+    assert checks["mesh.degenerate"]["measured"] == 0
     assert checks["mesh.triangles.region"]["where"]["by_component"] == {}
     assert checks["mesh.trailing_edge_one_quad"]["where"]["cells_across"] == [1]
-    cusps = checks["mesh.degenerate"]["where"]["by_surface"]
-    assert all(k.startswith("FAIRING.") for k in cusps) and sum(cusps.values()) <= 4
     junction = result.record["kernel"]["junction_faces"]
     structured = [r["component"] for r in junction if r["mesh"] == "structured"]
-    assert structured.count("WING") == 6 and structured.count("FUS") == 2
+    # The fuselage faces the fairing nose and tail reach stay four-sided and structured.
+    assert structured.count("WING") == 6 and structured.count("FUS") == 6
+    assert not any("cusp" in r.get("reason", "") for r in junction)
     assert result.record["accepted"] is all(c["status"] != "failed" for c in checks.values())
+
+
+def test_p0570_gm11d_sliver_surfaces_name_the_faces_the_degenerate_row_refuses():
+    """YES: a triangle with a 0.1 degree corner; NO: a square on another face, or not asked."""
+    from pyflightstream.workspace._geometry_mesh_s1 import sliver_surfaces
+
+    xyz = np.array(
+        [[0, 0, 0], [1, 0, 0], [0.5, 0.0008, 0], [0, 1, 0], [1, 1, 0], [0, 2, 0], [1, 2, 0]],
+        dtype=float,
+    )
+    mesh = Mesh(xyz, [(0, 1, 2), (3, 4, 6, 5)], ["FAIR", "FAIR"], [5, 6], np.arange(7))
+    assert sliver_surfaces(mesh, {5, 6}) == {5}
+    assert sliver_surfaces(mesh, {6}) == set()
+
+
+def _naca_rim(points=12, y=0.5, te_half=0.0016):
+    """A planar NACA 0012 tip outline with a blunt base: base midpoint, upper, lower."""
+    x = 0.5 * (1 - np.cos(np.linspace(0.0, np.pi, points)))[::-1]  # 1 to 0, cosine spaced
+    t = 0.6 * (0.2969 * np.sqrt(x) - 0.126 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1036 * x**4)
+    t[0] = te_half
+    upper = np.c_[x, np.full_like(x, y), t]
+    lower = np.c_[x[::-1][1:], np.full(points - 1, y), -t[::-1][1:]]
+    return np.vstack([[1.0, y, 0.0], upper, lower])
+
+
+def test_p0570_gm11d_the_cap_restores_every_kernel_option_it_sets():
+    """The planar cap meshes in its own model and leaves the caller's options as it found them.
+
+    A transition face retried with another algorithm meshes the whole model again, so an option
+    the cap leaked (smoothing above all) would move the structured faces of the second pass.
+    """
+    from tests.tier1_offline._kernel_support import kernel_or_skip
+
+    kernel_or_skip()
+    from pyflightstream.workspace._geometry_mesh_occ import mesh_cap
+    from pyflightstream.workspace._gmsh import session
+
+    options = (
+        "Mesh.Algorithm",
+        "Mesh.RecombinationAlgorithm",
+        "Mesh.RecombineMinimumQuality",
+        "Mesh.RecombineOptimizeTopology",
+        "Mesh.Smoothing",
+        "Mesh.MeshSizeFromPoints",
+        "Mesh.MeshSizeExtendFromBoundary",
+    )
+    ring = _naca_rim()
+    mesh = Mesh(ring, [], [], [], np.arange(len(ring)))
+    with session("testing the planar cap options") as gmsh:
+        gmsh.model.add("caller")
+        before = {k: gmsh.option.getNumber(k) for k in options}
+        # Every variant runs the cap's own options; a cap refused at the end restores them too.
+        try:
+            mesh_cap(mesh, list(range(len(ring))), "WING")
+        except InputValueError as exc:
+            assert "cap:" in str(exc)
+        after = {k: gmsh.option.getNumber(k) for k in options}
+        assert gmsh.model.getCurrent() == "caller"
+    assert after == before
 
 
 # ---- delta F.2: junction blocks on the layout sidecar interface (G16 supplies the sidecar) -----

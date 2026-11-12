@@ -38,6 +38,14 @@ __all__ = [
 CAP_SURFACE = -1
 ALGORITHMS = (8, 6, 5)
 MIN_SIN = 0.02  # smallest sine of a cap quadrilateral corner (about 1.1 degrees)
+#: Global kernel options the planar cap sets for its own model and restores afterwards.
+CAP_OPTIONS = (
+    "Mesh.Algorithm",
+    "Mesh.RecombinationAlgorithm",
+    "Mesh.RecombineMinimumQuality",
+    "Mesh.RecombineOptimizeTopology",
+    "Mesh.Smoothing",
+)
 TRANSITION_INTERFACES = (
     "wing-fuselage",
     "L1-nacelle-wing",
@@ -460,6 +468,9 @@ def _mesh_cap_once(mesh, loop, component, cut_shift=0, algorithms=None):
         "Mesh.MeshSizeFromPoints",
         "Mesh.MeshSizeExtendFromBoundary",
         "Mesh.MeshSizeFromCurvature",
+        # The cap's algorithm and recombination options are restored too, so a later pass of
+        # the caller's model (a transition face retried) meshes as the first pass did.
+        *CAP_OPTIONS,
     )
     saved_options = {k: gmsh.option.getNumber(k) for k in keys}
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1)

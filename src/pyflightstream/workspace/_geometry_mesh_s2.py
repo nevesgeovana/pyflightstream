@@ -239,6 +239,20 @@ def _points(model, edge: int, count: int = 9) -> np.ndarray:
     return xyz if edge > 0 else xyz[::-1]
 
 
+def face_edges(model, face: int) -> list[int]:
+    """Return the tags of a face's boundary edges, leaving out a degenerated edge.
+
+    A patch with one side collapsed to a point (the one-face planar tip cap closing at the
+    leading edge) keeps that side as an edge with no end vertices; it bounds no cells and takes
+    no count, so the walk and the count classes skip it.
+    """
+    return [
+        abs(t)
+        for _, t in model.getBoundary([(2, face)], oriented=False)
+        if model.getBoundary([(1, abs(t))], oriented=False)
+    ]
+
+
 def _ends(model, edge: int) -> tuple[int, int]:
     """Return the edge's (start, end) vertex tags in its native parameter direction."""
     tags = [t for _, t in model.getBoundary([(1, abs(edge))], oriented=False)]
@@ -249,7 +263,7 @@ def _ends(model, edge: int) -> tuple[int, int]:
 
 def _walk(model, face: int, ends: dict) -> list[int]:
     """Return the closed signed edge walk of a face (one outer loop)."""
-    pending = sorted(abs(t) for _, t in model.getBoundary([(2, face)], oriented=False))
+    pending = sorted(face_edges(model, face))
     first = pending.pop(0)
     walk, current = [first], ends[first][1]
     while pending:
@@ -277,7 +291,7 @@ def _turns(model, walk: list[int]) -> list[float]:
 
 def _faces(model, state: dict) -> dict:
     """Walk every face once: edge ends, walks, turns and lengths."""
-    edges = {abs(t) for s in state["owner"] for _, t in model.getBoundary([(2, s)], oriented=False)}
+    edges = {e for s in state["owner"] for e in face_edges(model, s)}
     ends = {e: _ends(model, e) for e in edges}
     walks = {face: _walk(model, face, ends) for face in sorted(state["owner"])}
     return {
@@ -308,8 +322,8 @@ def _blocks(state: dict, *, cusps: bool) -> None:
 def _edge_owners(model, state: dict) -> dict[int, set[str]]:
     result: dict[int, set[str]] = {}
     for face, name in state["owner"].items():
-        for _, t in model.getBoundary([(2, face)], oriented=False):
-            result.setdefault(abs(t), set()).add(name)
+        for e in face_edges(model, face):
+            result.setdefault(e, set()).add(name)
     return result
 
 
@@ -534,16 +548,47 @@ def _poles(model, plan: dict, state: dict) -> list[list[float]]:
 # ---- checks -----------------------------------------------------------------------------------
 
 
+#: Largest distance, m, of a face's sampled points from their plane for the face to be planar.
+PLANAR_TOLERANCE_M = 1e-9
+
+
+def planar_faces(model, faces) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Return ``{face: (point, unit normal)}`` for the planar faces among ``faces``.
+
+    A planar face is measured against its plane, as strategy 1 measures its tip cap: the
+    kernel's closest point on the one-face cap, whose leading-edge side is collapsed to a
+    point, can converge to that point from a node on the trailing-edge base (measured: the
+    base midpoint projected 0.125 m away, on the leading edge).
+    """
+    planes = {}
+    for face in sorted(int(f) for f in faces):
+        lo, hi = model.getParametrizationBounds(2, face)
+        uv = [(u, v) for u in np.linspace(lo[0], hi[0], 5) for v in np.linspace(lo[1], hi[1], 5)]
+        points = np.asarray(model.getValue(2, face, np.ravel(uv))).reshape(-1, 3)
+        centre = points.mean(axis=0)
+        normal = np.linalg.svd(points - centre)[2][2]
+        if np.max(np.abs((points - centre) @ normal)) <= PLANAR_TOLERANCE_M:
+            planes[face] = (centre, normal)
+    return planes
+
+
 def _quality_checks(model, mesh: Mesh) -> list[dict]:
     from pyflightstream.geometry.stages import check_mesh, orient_mesh, oriented_source_normals
     from pyflightstream.workspace._geometry_mesh_occ import source_metrics
 
     oriented, _ = orient_mesh(mesh, "mirror_volume")
-    normals, distances = source_metrics(model, oriented)
+    normals, distances = source_metrics(model, oriented, planar_faces(model, set(mesh.surfaces)))
     record = check_mesh(oriented, oriented_source_normals(oriented, normals), distances)
+
+    def faces(cells):
+        names = (f"{oriented.components[i]}.{int(oriented.surfaces[i])}" for i in cells)
+        return {"by_surface": sorted(set(names))}
+
     return [
-        _check("mesh.inverted", record["inverted_count"]),
-        _check("mesh.degenerate", record["degenerate_count"]),
+        _check("mesh.inverted", record["inverted_count"], where=faces(record["inverted_cells"])),
+        _check(
+            "mesh.degenerate", record["degenerate_count"], where=faces(record["degenerate_cells"])
+        ),
         _check("mesh.node_to_node", record["non_manifold_count"]),
         _check(
             "mesh.source_distance",
