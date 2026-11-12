@@ -151,7 +151,9 @@ pyfs-workspace geometry mesh-generated wing.toml --obj wing.obj --component WING
 
 Each patch is meshed from its role: constant width across the span with a refined tip, growth
 along the chord from the leading edge, a constant azimuth and axial step on a body, a planar
-all-quad flat tip cap and, for a wing on a body, the fairing as one quad-dominant transition
+all-quad flat tip cap (one planar face bounded by the tip section outline: both sides and, for a
+blunt trailing edge, the base segment; every tip cap is this face unless `cap.type` names
+`rounded`, `ridged` or `exact_loft`) and, for a wing on a body, the fairing as one quad-dominant transition
 ring (the only triangles). The orientation is outward and the record carries the acceptance
 checks: inverted and degenerate cells, non-manifold edges, free edges off the symmetry plane and
 the spacing rules measured on the realized nodes. The OBJ has one group per component. The OBJ

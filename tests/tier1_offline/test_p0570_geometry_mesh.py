@@ -162,7 +162,7 @@ components = unpack(config)["components"]
 out = {}
 for name in ("FUS", "WING"):
     c = components[name]
-    src = lifting_surface(c) + tip_cap(c) if c["type"] == "lifting_surface" else body(c)
+    src = lifting_surface(c) + tip_cap(c, "quads") if c["type"] == "lifting_surface" else body(c)
     mesh, _, _ = mesh_component(name, c, controls[c["type"]], src)
     out[name] = mesh
 mesh, _ = mesh_wb(config, controls, member_names=("FUS", "WING", "FAIRING"))

@@ -444,11 +444,11 @@ def generate_components(
                 body_name = fairing["hosts"][0]
                 host_wing = wing_in_body_frame(components, body_name, name)
                 patches = junction_lifting_surface(host_wing, components[body_name], fairing)
-                patches += tip_cap(host_wing)
+                patches += tip_cap(host_wing, "quads")
                 rotation, translation = placement_transform(components, body_name)
                 result[name] = move(patches, rotation, translation)
                 continue
-            patches = lifting_surface(component) + tip_cap(component)
+            patches = lifting_surface(component) + tip_cap(component, "quads")
         elif kind == "wing_fuselage_fairing":
             body_name, wing_name = component["hosts"]
             wing = wing_in_body_frame(components, body_name, wing_name)
