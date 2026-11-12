@@ -664,6 +664,10 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
         # lookup key into the reference's declared rotors and not the recorded block.
         # Only the far-field modules, and only that word, are admitted.
         package / "cases" / "farfield_inputs.py": {"rotor"},
+        # 0.57.0 (PFS-2220 G17): `Propeller.rotor()` of the propeller geometry builder
+        # returns the built rotor geometry; it is a method of the geometry model and
+        # never reads the recorded `[rotor]` block of a case.
+        package / "geometry" / "_generation.py": {"rotor"},
         package / "cases" / "_farfield_spec.py": {"rotor"},
         package / "cases" / "workflows" / "_farfield.py": {"rotor"},
         package / "post" / "farfield_fields.py": {"rotor"},

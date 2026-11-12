@@ -198,6 +198,11 @@ def test_no_shipped_artifact_carries_a_retired_spelling():
     roots = [repo / "tests" / "tier3_licensed" / "inputs", repo / "examples", repo / "tests"]
     paths = sorted({path for root in roots for path in root.rglob("*.toml")})
     assert len(paths) >= 40, f"the walk found only {len(paths)} shipped tomls"
+    # 0.57.0 (PFS-2220 G17): a propeller GEOMETRY input of the builder is a different
+    # file from a case workspace, and `[propeller]` is that file's own table; the
+    # retired case spelling does not apply to it. Only the builder's fixture folder.
+    builder_inputs = repo / "tests" / "tier1_offline" / "fixtures" / "propeller"
+    paths = [p for p in paths if not p.is_relative_to(builder_inputs)]
     offenders: list[str] = []
     for path in paths:
         try:
