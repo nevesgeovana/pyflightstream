@@ -153,8 +153,72 @@ def test_p0570_tipcap_blade_cap_is_one_planar_face_on_the_tip_outline(te):
         )
 
 
-def test_p0570_tipcap_assembly_sources_keep_the_conforming_quad_layout():
-    """P0570-TIPCAP-QUADS: the sewing and mesher sources keep the nine four-edge patches."""
-    component, _ = wing_model("blunt")
-    quads = tip_cap(component, "quads")
-    assert len(quads) == 9 and all(p.family == "tip_cap" for p in quads)
+WB = {
+    "components": {
+        "FUS": {"type": "body"},
+        "WING": {
+            "type": "lifting_surface",
+            "attach": {"parent": "FUS", "station": 0.4},
+            "stations": [{"eta": 0.0, "section": {"kind": "naca", "code": "0012"}}],
+        },
+        "FAIRING": {
+            "type": "wing_fuselage_fairing",
+            "hosts": ["FUS", "WING"],
+            "attach": {"parent": "FUS", "station": 0.0},
+        },
+    },
+    "configurations": {"WB": ["FUS", "WING", "FAIRING"]},
+}
+ALONE = {"components": {"WING": {"type": "lifting_surface"}}}
+
+
+def test_p0570_tipcap_assembly_sources_hold_one_cap_patch():
+    """P0570-TIPCAP-SOURCES: the legacy patch lists carry the one-face cap, never nine patches."""
+    from pyflightstream.geometry.stages import generate_components
+
+    for raw in (ALONE, WB):
+        sources = generate_components(resolve_config(raw))
+        caps = [p for p in sources["WING"] if p.family == "tip_cap"]
+        assert len(caps) == 1 and caps[0].degree_v == 1
+
+
+@pytest.mark.parametrize("raw", [ALONE, WB], ids=["wing-alone", "wing-body"])
+def test_p0570_tipcap_generated_iges_sews_audits_and_passes_the_reader_profile(tmp_path, raw):
+    """P0570-TIPCAP-IGES: one cap face is written, sewn, audited clean and read back."""
+    from tests.tier1_offline._kernel_support import kernel_or_skip
+
+    kernel_or_skip()
+    from pyflightstream.workspace._geometry_generate import generate_iges
+
+    result = generate_iges(raw, tmp_path / "out.igs", configuration="WB" if raw is WB else None)
+    audit = result["audit"]
+    assert audit["free_edges_off_symmetry"] == []
+    assert audit["nonmanifold_edges"] == []
+    assert audit["non_ring_nonquadrilateral_faces"] == []
+    # Only the fairing's own surfaces (degree 6, an open (u, v) loop by 1e-4) draw reader-profile
+    # notes, identically with the nine-patch cap; the wing alone draws none.
+    fairing = ("profile.degree", "profile.loop_open") if raw is WB else ()
+    notes = [
+        w for w in result["warnings"] if "reader profile" in w and not any(k in w for k in fairing)
+    ]
+    assert not notes, notes
+    from pyflightstream.workspace._geom_gate import check_profile
+
+    assert check_profile(tmp_path / "out.igs").passed
+
+
+def test_p0570_tipcap_the_mesher_closes_the_one_face_cap_with_a_planar_mesh():
+    """P0570-TIPCAP-MESH: the cap meshes as one planar face; all quad, accepted."""
+    from tests.tier1_offline._kernel_support import kernel_or_skip
+
+    kernel_or_skip()
+    from pyflightstream.workspace._geometry_mesh import mesh_generated
+
+    for raw, component in ((WB, "WING"), (ALONE, "WING")):
+        record = mesh_generated(raw, component=component).record
+        assert record["accepted"] is True
+        assert record["non_quad_count"] == 0
+        assert record["cap_cells"] > 0
+    whole = mesh_generated(WB).record
+    assert whole["non_manifold_count"] == 0
+    assert whole["free_edges_off_y0_count"] == 0

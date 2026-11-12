@@ -596,7 +596,7 @@ def mesh_generated(
             if spec["type"] == "body":
                 source = body(spec)
             else:
-                source = lifting_surface(spec) + tip_cap(spec, "quads")
+                source = lifting_surface(spec) + tip_cap(spec)
             mesh, record = _mesh_component(gmsh, component, spec, values[spec["type"]], source)
         else:
             assert members is not None

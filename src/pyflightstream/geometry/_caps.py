@@ -411,20 +411,16 @@ def cap_patch_grids(component, section, maximum):
     ]
 
 
-def tip_cap(component, layout: str = "face") -> list[Patch]:
+def tip_cap(component) -> list[Patch]:
     """Return the tip cap of a lifting-surface component as bicubic patches.
 
-    The list is empty for the kind ``none``.
+    The list is empty for the kind ``none``; for ``flat`` it holds one planar face bounded by
+    the tip section outline (:func:`outline_cap`).
 
     Parameters
     ----------
     component : dict
         Resolved lifting-surface component, whose ``tip_cap`` entry names the kind.
-    layout : {"face", "quads"}, optional
-        For the ``flat`` kind: ``"face"`` (the default) is the one planar face bounded by the
-        tip section outline. ``"quads"`` is the nine-patch four-edge layout that the legacy
-        assembly and mesher sources need (conforming edges for sewing and the four-edge face
-        audit); it covers the same planar region. Other kinds ignore it.
 
     Returns
     -------
@@ -435,7 +431,7 @@ def tip_cap(component, layout: str = "face") -> list[Patch]:
         return []
     section = tip_section(component)
     component = {**component, "_tip": cap_fraction(component, section)}
-    if component["tip_cap"]["kind"] == "flat" and layout == "face":
+    if component["tip_cap"]["kind"] == "flat":
         poles = np.asarray(section.poles, float)
         space = cap_to_space(component, poles[:, 0], poles[:, 1], np.zeros(len(poles)))
         return [outline_cap(space, np.asarray(section.knots, float), "tip_cap")]

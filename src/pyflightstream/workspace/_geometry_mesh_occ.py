@@ -299,7 +299,8 @@ def rim_edges(model, cap_surfaces):
     count: dict[int, int] = {}
     for s in cap_surfaces:
         for _, e in model.getBoundary([(2, s)], oriented=False):
-            count[e] = count.get(e, 0) + 1
+            if model.occ.getMass(1, e) > 1e-12:  # the collapsed end of a one-face cap is a point
+                count[e] = count.get(e, 0) + 1
     return sorted(e for e, n in count.items() if n == 1)
 
 
