@@ -74,6 +74,13 @@ from pyflightstream.geometry._placement import placement_transform, wing_in_body
 from pyflightstream.geometry._propeller_checks import evaluate as evaluate_propeller_patch
 from pyflightstream.geometry._propeller_checks import measured as propeller_measurement
 from pyflightstream.geometry._propeller_input import adopt_propeller
+from pyflightstream.geometry._propeller_slice import (  # noqa: F401
+    BladeFrame,
+    BladeSurface,
+    definition_text,
+    profile_text,
+    slice_blade,
+)
 from pyflightstream.geometry._records import (
     CheckFailedError,
     check_entry,

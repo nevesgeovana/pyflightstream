@@ -24,7 +24,7 @@ from scipy.spatial import cKDTree
 from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream._textio import write_text
 from pyflightstream.geometry import Propeller
-from pyflightstream.geometry._propeller_slice import (
+from pyflightstream.geometry.stages import (
     BladeFrame,
     BladeSurface,
     definition_text,
