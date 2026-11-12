@@ -138,6 +138,7 @@ nav:
           - Removing surfaces: removing-surfaces.md
           - Geometry units and starts: geometry-units-and-starts.md
           - Parametric aircraft geometry: geometry-parametrization.md
+          - Propeller definitions: propeller.md
       - 2. Set up the study:
           - Matrix, library and presets:
               - Run matrix: workflow-run-matrix.md
