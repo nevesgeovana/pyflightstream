@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._errors import InputValueError
-from pyflightstream.workspace._geometry_mesh_occ import curve_endpoints
+from pyflightstream.workspace._geometry_mesh_occ import curve_endpoints, uv_edges
 
 __all__ = [
     "CORNER_DEG",
@@ -186,11 +186,24 @@ def junction_faces(
                 changed = True
         if not changed:
             break
-    for row in rows.values():
+    for s, row in rows.items():
         row["mesh"] = "transition" if "reason" in row else "structured"
-        if row["mesh"] == "structured" and row["curves"] == 4:
+        if row["mesh"] == "structured" and row["curves"] == 4 and _tensor(model, s):
             row.pop("sides")
     return rows
+
+
+def _tensor(model: Any, surface: int) -> bool:
+    """Whether the four curves of a face join at its parameter corners (an untrimmed patch).
+
+    A trimmed face can keep four curves with a corner off the parameter box (a footprint end
+    on an azimuth line); it is walked by its measured sides, not from UV (0, 0).
+    """
+    try:
+        uv_edges(model, surface)
+    except InputValueError:
+        return False
+    return True
 
 
 def distribute(count: int, lengths: list[float]) -> list[int] | None:

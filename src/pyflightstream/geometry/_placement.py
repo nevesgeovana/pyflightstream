@@ -132,7 +132,17 @@ def wing_in_body_frame(components, body_name, wing_name):
 
 
 def body_junctions(components, body_name):
-    """Return the axial fractions where attached wings and their fairings start and end."""
+    """Return the axial fractions where attached wings start and end, and non-tangent fairing ends.
+
+    A fairing footprint closes at its start and its end with the axial fraction going as the
+    square of the contour angle and the azimuth as its power ``2 n`` (``n`` the start or end
+    exponent). Below ``n = 1`` the footprint leaves its end point tangent to the station ring
+    there, so a ring through that point would bound two body faces with a cusp (a zero corner).
+    Such an end is no station: the footprint end then lies inside a band (on an azimuth seam
+    there, it meets the seam square), and the band stays cut at the wing root and the body's
+    own stations.
+    An end with an exponent of 1 or more is a station.
+    """
     stations = []
     for name, component in components.items():
         if component["type"] != "lifting_surface" or component["attach"]["parent"] != body_name:
@@ -142,7 +152,9 @@ def body_junctions(components, body_name):
         fractions = [0.0, 1.0]
         for other in components.values():
             if other["type"] == "wing_fuselage_fairing" and other["hosts"] == [body_name, name]:
-                fractions += [other["start"], other["end"]]
+                fractions += [
+                    other[end] for end in ("start", "end") if float(other[f"{end}_exponent"]) >= 1
+                ]
         stations += [
             (float(root["leading_edge_x"]) + fraction * float(root["chord"]))
             / components[body_name]["length"]

@@ -249,10 +249,21 @@ def test_p0570_wing_in_body_frame_moves_the_leading_edge_and_refuses_bad_roots()
 
 def test_p0570_body_junctions_are_the_wing_root_and_fairing_ends():
     components = wb_components()
-    junctions = body_junctions(components, "FUS")
-    assert len(junctions) == 4
-    assert all(0.0 < j < 1.0 for j in junctions)
     assert body_junctions(components, "WING") == []
+    for exponent in (1.0, 2.0):
+        components["FAIRING"].update(start_exponent=exponent, end_exponent=exponent)
+        junctions = body_junctions(components, "FUS")
+        assert len(junctions) == 4 and all(0.0 < j < 1.0 for j in junctions)
+
+
+def test_p0570_body_junctions_leave_out_a_tangent_fairing_end():
+    """Below exponent 1 the footprint end is tangent to the ring there: no station (no cusp)."""
+    components = wb_components()
+    assert components["FAIRING"]["start_exponent"] == 0.5  # the default rounded nose
+    root = [0.4, 0.525]  # wing leading and trailing edge at the root, fractions of the body
+    assert body_junctions(components, "FUS") == pytest.approx(root)
+    components["FAIRING"]["end_exponent"] = 1.0
+    assert body_junctions(components, "FUS") == pytest.approx([*root, 0.55625])
 
 
 def test_p0570_regions_classify_points():
