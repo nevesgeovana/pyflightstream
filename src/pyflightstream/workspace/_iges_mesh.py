@@ -20,15 +20,28 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream.workspace._gmsh import NamedModel
+from pyflightstream._lengths import METRES_PER_UNIT
+from pyflightstream.workspace._cad import Face
+from pyflightstream.workspace._gmsh import GmshKernel, NamedModel
 from pyflightstream.workspace._iges_grid_config import (
     DEFAULT_RATIO,
+    TE_ROLES,
     ComponentGrid,
     Direction,
+    FaceLayout,
     GridConfig,
+    Layout,
 )
 
-__all__ = ["JUNCTION_SAMPLES", "Meshed", "junction_checks", "junction_warnings", "mesh_model"]
+__all__ = [
+    "JUNCTION_SAMPLES",
+    "Meshed",
+    "assign_layouts",
+    "cut_layout",
+    "junction_checks",
+    "junction_warnings",
+    "mesh_model",
+]
 
 #: gmsh's mesh element type numbers of the linear triangle and quadrangle.
 _TRIANGLE, _QUAD = 2, 3
@@ -57,6 +70,11 @@ class Meshed:
     #: The mesh edges on true boundaries of the body, as sorted node index pairs.
     boundary: set[tuple[int, int]] = field(default_factory=set)
     record: dict[str, Any] = field(default_factory=dict)
+    #: The mesh edges on the rims of each component's trailing-edge face (a layout role), as
+    #: sorted node index pairs; empty for a component with no such face.
+    te_edges: dict[str, set[tuple[int, int]]] = field(default_factory=dict)
+    #: The edges of each component's other trailing-edge rim, which is not marked.
+    te_dropped: dict[str, int] = field(default_factory=dict)
 
 
 class _Groups:
@@ -110,6 +128,17 @@ def _heal(gmsh: Any, model: NamedModel, tolerance: float) -> str:
     return "healing changed the faces and was not kept"
 
 
+def _by_tag(model: NamedModel, roles: list[str] | None) -> dict[int, str] | None:
+    """Return the layout role of each face of the model by tag, or ``None`` when there is none.
+
+    The roles follow the faces' order, which healing keeps when it keeps one face per face; a
+    healing that changed the faces leaves them unmatched and no role is used.
+    """
+    if not roles or len(roles) != len(model.faces):
+        return None
+    return {tag: role for tag, role in zip(model.faces, roles, strict=True) if role}
+
+
 def _crossings(gmsh: Any, owner: dict[int, str], warnings: list[str]) -> dict[tuple[str, ...], int]:
     """Count and warn the curves more than two faces meet along, by the components that meet."""
     crossings: dict[tuple[str, ...], int] = {}
@@ -146,17 +175,26 @@ def _fragment(
     order: list[str],
     tolerance: float,
     warnings: list[str],
-) -> tuple[dict[str, list[int]], dict[str, Any]]:
-    """Fragment every face against every other; return the faces of each component after."""
+    *,
+    roles: dict[int, str] | None = None,
+) -> tuple[dict[str, list[int]], dict[str, Any], dict[int, str]]:
+    """Fragment every face against every other; return the faces of each component after.
+
+    ``roles`` gives the layout role of some input faces, by tag; the third result gives the role
+    of every face left, each piece taking the role of the face it came from.
+    """
     inputs = [(name, t) for name in order for t in by_name[name]]
     gmsh.option.setNumber("Geometry.ToleranceBoolean", tolerance)
     mapping = _join(gmsh, [t for _, t in inputs])
     owner: dict[int, str] = {}
+    piece_role: dict[int, str] = {}
     overlaps: dict[tuple[str, str], int] = {}
-    for (name, _), pieces in zip(inputs, mapping, strict=True):
+    for (name, source), pieces in zip(inputs, mapping, strict=True):
         for dim, tag in pieces:
             if dim != 2:
                 continue
+            if roles and source in roles and tag not in owner:
+                piece_role[tag] = roles[source]
             if tag in owner and owner[tag] != name:
                 key = (owner[tag], name)
                 overlaps[key] = overlaps.get(key, 0) + 1
@@ -178,7 +216,7 @@ def _fragment(
         "split": sum(1 for pieces in mapping if sum(1 for d, _ in pieces if d == 2) > 1),
         "crossings": [{"components": list(k), "curves": v} for k, v in sorted(crossings.items())],
     }
-    return faces, record
+    return faces, record, piece_role
 
 
 def _ends(gmsh: Any, curve: int) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
@@ -436,6 +474,7 @@ def mesh_model(
     *,
     tolerance: float,
     reopen: Callable[[], NamedModel] | None = None,
+    roles: list[str] | None = None,
 ) -> Meshed:
     """Join, mesh and read back every component of an imported model.
 
@@ -443,10 +482,16 @@ def mesh_model(
     gap the files leave between faces that should meet is measured after the first join and,
     when :data:`_CLOSE_FACTOR` times the widest is above that join's tolerance, the files are
     imported and joined again at it (:func:`_near_miss_gaps`).
+
+    ``roles`` is the layout role of each face of ``model``, in its order (an empty string for a
+    face with none); ``reopen`` refreshes it in place when it imports the files again. A face
+    with the trailing-edge role gives the component's trailing-edge rims in ``te_edges``.
     """
     warnings: list[str] = []
     healing = _heal(gmsh, model, tolerance)
-    faces, fragment = _fragment(gmsh, model.components(), order, tolerance, warnings)
+    faces, fragment, piece_role = _fragment(
+        gmsh, model.components(), order, tolerance, warnings, roles=_by_tag(model, roles)
+    )
     closed: list[dict[str, Any]] = []
     if config.tolerance is None and reopen is not None:
         closed, joined = _near_miss_gaps(gmsh, faces, sizes)
@@ -455,7 +500,9 @@ def mesh_model(
             model, tolerance = reopen(), joined
             warnings.clear()
             healing = _heal(gmsh, model, tolerance)
-            faces, fragment = _fragment(gmsh, model.components(), order, tolerance, warnings)
+            faces, fragment, piece_role = _fragment(
+                gmsh, model.components(), order, tolerance, warnings, roles=_by_tag(model, roles)
+            )
             fragment["first_join"] = first
             for entry in closed:
                 warnings.append(
@@ -509,6 +556,7 @@ def mesh_model(
     )
     owner = {f: n for n, fs in faces.items() for f in fs}
     meshed.boundary, meshed.record["unsewn_curves"] = _boundary_edges(gmsh, owner, sizes)
+    meshed.te_edges, meshed.te_dropped = _role_edges(gmsh, faces, order, piece_role)
     return meshed
 
 
@@ -726,3 +774,176 @@ def junction_warnings(junctions: list[dict[str, Any]]) -> list[str]:
         for entry in junctions
         if not entry["within_tolerance"]
     ]
+
+
+def _role_edges(
+    gmsh: Any, faces: dict[str, list[int]], order: list[str], piece_role: dict[int, str]
+) -> tuple[dict[str, set[tuple[int, int]]], dict[str, int]]:
+    """Return the mesh edges of each component's trailing edge from its layout roles.
+
+    A rim is a curve of a face with a trailing-edge role (:data:`TE_ROLES`) that a skin face of
+    the same component also bounds: the line along which the blunt base meets the upper or the
+    lower skin (a cap's curve is the end of the base, not a rim). A blunt base has two rims and
+    one is marked: the side whose curves are longer, the first by role name on a tie, as the
+    geometric search keeps the longer of two opposite rims. The edges are sorted node index
+    pairs of the mesh, as :func:`_boundary_edges`; the second result counts the edges of the
+    rim not marked.
+    """
+    base_faces = {
+        name: {t for t in faces[name] if piece_role.get(t) in TE_ROLES}
+        for name in order
+        if any(piece_role.get(t) in TE_ROLES for t in faces[name])
+    }
+    if not base_faces:
+        return {}, {}
+    tags, _, _ = gmsh.model.mesh.getNodes()
+    index = {int(t): i for i, t in enumerate(tags)}
+    out: dict[str, set[tuple[int, int]]] = {}
+    dropped: dict[str, int] = {}
+    for name, base in base_faces.items():
+        skin = {t for t in faces[name] if t not in base and piece_role.get(t) != "cap"}
+        sides: dict[str, set[int]] = {}
+        for face in base:
+            for _, curve in gmsh.model.getBoundary(
+                [(2, face)], combined=False, oriented=False, recursive=False
+            ):
+                up, _ = gmsh.model.getAdjacencies(1, curve)
+                for tag in skin & {int(t) for t in up}:
+                    sides.setdefault(piece_role.get(tag, ""), set()).add(curve)
+        length = {
+            side: sum(float(gmsh.model.occ.getMass(1, c)) for c in curves)
+            for side, curves in sides.items()
+        }
+        longest = max(length.values(), default=0.0)
+        kept = min((s for s, v in length.items() if v >= longest * (1.0 - _RIM_TIE)), default=None)
+        edges = {side: _curve_edges(gmsh, curves, index) for side, curves in sides.items()}
+        out[name] = edges[kept] if kept is not None else set()
+        dropped[name] = sum(len(e) for s, e in edges.items() if s != kept)
+    return out, dropped
+
+
+def _curve_edges(gmsh: Any, curves: set[int], index: dict[int, int]) -> set[tuple[int, int]]:
+    """Return the mesh edges of the curves as sorted node index pairs."""
+    edges: set[tuple[int, int]] = set()
+    for curve in curves:
+        types, _, enodes = gmsh.model.mesh.getElements(1, curve)
+        for kind, nodes in zip(types, enodes, strict=True):
+            if int(kind) != 1:
+                continue
+            for a, b in np.asarray(nodes, dtype=np.int64).reshape(-1, 2):
+                i, j = index[int(a)], index[int(b)]
+                edges.add((min(i, j), max(i, j)))
+    return edges
+
+
+#: Two rims whose lengths differ by less than this share are of one length.
+_RIM_TIE = 1e-9
+
+
+#: A re-imported face's area matches the sidecar's within this share of it.
+_AREA_MATCH = 1e-4
+
+
+def assign_layouts(
+    gmsh: Any, model: NamedModel, layouts: list[Layout | None], notes: list[str]
+) -> tuple[dict[int, tuple[FaceLayout, int]], list[dict[str, Any]]]:
+    """Match the faces of each source file to the faces of its layout sidecar, by order.
+
+    ``layouts`` holds one entry per source file, in the files' order. A file's faces take its
+    sidecar's faces in order when the count, the component of every face and the area of every
+    face agree; any disagreement leaves the whole file with no layout and a line in ``notes``
+    (the file is a foreign one). Return the layout face of each matched face by tag with the
+    index of its sidecar in the summaries, and one summary per sidecar read.
+    """
+    assigned: dict[int, tuple[FaceLayout, int]] = {}
+    summaries: list[dict[str, Any]] = []
+    scale = float(METRES_PER_UNIT[model.unit]) ** 2
+    offset = 0
+    for source, layout in zip(model.sources, layouts, strict=True):
+        count = int(source["faces"])
+        tags = model.faces[offset : offset + count]
+        names = model.names[offset : offset + count]
+        offset += count
+        if layout is None:
+            continue
+        summary: dict[str, Any] = {
+            "file": layout.path.name,
+            "component": layout.component,
+            "faces": len(layout.faces),
+            "used": False,
+            "split_faces": 0,
+            "pieces": 0,
+        }
+        summaries.append(summary)
+        why = _mismatch(gmsh, layout, source["file"], tags, names, scale=scale)
+        if why is not None:
+            summary["reason"] = why
+            notes.append(
+                f"{layout.path.name}: {why}; it does not belong to this file, no layout is "
+                "used and the file is gridded as a foreign one"
+            )
+            continue
+        summary["used"] = True
+        for tag, face in zip(tags, layout.faces, strict=True):
+            assigned[tag] = (face, len(summaries) - 1)
+    return assigned, summaries
+
+
+def _mismatch(
+    gmsh: Any, layout: Layout, file: str, tags: list[int], names: list[str], *, scale: float
+) -> str | None:
+    """Say why a sidecar's faces are not the faces of the file, or ``None`` when they are."""
+    if len(tags) != len(layout.faces):
+        return f"it lists {len(layout.faces)} faces and {file} holds {len(tags)}"
+    if set(names) != {layout.component}:
+        return f"its component {layout.component} is not the one {file} names"
+    for tag, face in zip(tags, layout.faces, strict=True):
+        area = float(gmsh.model.occ.getMass(2, tag)) * scale
+        if face.area_m2 is not None and abs(area - face.area_m2) > _AREA_MATCH * face.area_m2:
+            return f"its face {face.name} has area {face.area_m2:.6g} m2 and {file} {area:.6g} m2"
+    return None
+
+
+def cut_layout(
+    gmsh: Any,
+    model: NamedModel,
+    assigned: dict[int, tuple[FaceLayout, int]],
+    summaries: list[dict[str, Any]],
+) -> list[str]:
+    """Split each face of the model that has a layout at its lines; return each face's role.
+
+    Every line strictly inside a face's own parameter bounds cuts it along the iso line of its
+    own base, keeping its trims (:meth:`GmshKernel.split_imported_face_uv`), so the pieces are
+    the layout's blocks. ``model`` is changed in place: a face becomes its pieces, in order, each
+    with the face's component. The roles are the sidecar's, one per face of the changed model,
+    an empty string for a face with no layout.
+    """
+    kernel = GmshKernel(gmsh)  # never closed here: the caller's session owns gmsh
+    faces: list[int] = []
+    names: list[str] = []
+    roles: list[str] = []
+    for tag, name in zip(model.faces, model.names, strict=True):
+        found = assigned.get(tag)
+        if found is None:
+            faces.append(tag)
+            names.append(name)
+            roles.append("")
+            continue
+        face, index = found
+        pieces = [Face(tag)]
+        for direction, lines in (("u", face.u), ("v", face.v)):
+            for value in lines[1:-1]:
+                cut = [kernel.split_imported_face_uv(p, direction, value) for p in pieces]
+                pieces = [p for group in cut for p in group]
+        summaries[index]["split_faces"] += int(len(pieces) > 1)
+        summaries[index]["pieces"] += len(pieces)
+        faces += [p.tag for p in pieces]
+        names += [name] * len(pieces)
+        roles += [face.role] * len(pieces)
+    gmsh.model.occ.synchronize()
+    # In ascending tag order, as the import gave them: healing returns its faces in that order
+    # whatever order they were given in, and the roles follow the faces by position.
+    ordered = sorted(range(len(faces)), key=faces.__getitem__)
+    model.faces[:] = [faces[i] for i in ordered]
+    model.names[:] = [names[i] for i in ordered]
+    return [roles[i] for i in ordered]

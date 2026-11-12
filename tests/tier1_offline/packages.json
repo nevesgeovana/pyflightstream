@@ -187,6 +187,7 @@
       "tests/tier1_offline/test_p0570_fix6_moment_point.py",
       "tests/tier1_offline/test_p0570_g13d_trim_flags.py",
       "tests/tier1_offline/test_p0570_g13p_reader_profile.py",
+      "tests/tier1_offline/test_p0570_g16_iges_grid_layout.py",
       "tests/tier1_offline/test_p0570_g1r2_keys.py",
       "tests/tier1_offline/test_p0570_g2r_trims.py",
       "tests/tier1_offline/test_p0570_g3l_run_log.py",
