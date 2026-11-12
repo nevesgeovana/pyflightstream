@@ -639,8 +639,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(str(error), file=sys.stderr)
                 return 2
             for change in changes:
+                what = (
+                    "MESH_ROUTE column added after GEOMETRY, unstated"
+                    if change.get("kind") == "matrix"
+                    else "schema_version=4, id, artifacts and shared definition ids"
+                )
                 print(
-                    f"{change['file']}: schema_version=4, id, artifacts and shared definition ids; "
+                    f"{change['file']}: {what}; "
                     f"{change['before_bytes']} -> {change['after_bytes']} bytes; "
                     f"backup {change['backup']}"
                 )

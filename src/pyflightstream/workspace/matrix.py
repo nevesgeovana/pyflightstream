@@ -123,6 +123,10 @@ from pyflightstream.workspace import matrix_by_stem as matrix_by_stem
 from pyflightstream.workspace import wake_edges as wake_edges
 from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._batches import job_of as job_of
+from pyflightstream.workspace._geometry_row import generate_row_geometries
+from pyflightstream.workspace._geometry_row import (
+    record_geometry_failures as record_geometry_failures,
+)
 from pyflightstream.workspace._matrix_binding import (
     _FLIGHT_CONDITION_TABLE as _FLIGHT_CONDITION_TABLE,
 )
@@ -711,6 +715,7 @@ def resolve_matrix(
     if not rows:
         raise MatrixError(f"{path} has no active rows (RUN = 1); nothing to resolve or run")
     _refuse_a_repeated_pol(path, workspace)
+    rows, geometry_failures = generate_row_geometries(rows, workspace)
     binding = _bind_build(
         rows,
         workspace,
@@ -734,4 +739,5 @@ def resolve_matrix(
         row_builds=binding.row_builds,
         additional_pprocs=binding.additional_pprocs,
         fsis=binding.fsis,
+        geometry_failures=geometry_failures,
     )

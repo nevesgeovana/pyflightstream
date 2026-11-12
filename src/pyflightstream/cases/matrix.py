@@ -52,12 +52,15 @@ from __future__ import annotations
 import difflib
 import math
 import re
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import MATRIX_LAYOUT_0_56_0
 from pyflightstream._errors import NotApplicableWarning as NotApplicableWarning
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._errors import demote as demote
 from pyflightstream._matrix_identifiers import (
@@ -85,6 +88,7 @@ from pyflightstream.cases._matrix_layouts import _COLUMNS as _COLUMNS
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_9_0 as _LAYOUT_0_9_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_11_0 as _LAYOUT_0_11_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_15_0 as _LAYOUT_0_15_0
+from pyflightstream.cases._matrix_layouts import _LAYOUT_0_56_0 as _LAYOUT_0_56_0
 from pyflightstream.cases._matrix_layouts import _LEGACY_COLUMNS_15 as _LEGACY_COLUMNS_15
 from pyflightstream.cases._matrix_layouts import _LEGACY_COLUMNS_16 as _LEGACY_COLUMNS_16
 from pyflightstream.cases._matrix_layouts import _RECIPE_REFERENCE as _RECIPE_REFERENCE
@@ -96,6 +100,7 @@ from pyflightstream.cases._matrix_layouts import (
 )
 from pyflightstream.cases._matrix_layouts import LEGACY_WORKFLOW as LEGACY_WORKFLOW
 from pyflightstream.cases._matrix_layouts import MATRIX_COLUMNS as MATRIX_COLUMNS
+from pyflightstream.cases._matrix_layouts import MESH_ROUTES as MESH_ROUTES
 from pyflightstream.cases._matrix_layouts import OUTPUTS_VARIABLE as OUTPUTS_VARIABLE
 from pyflightstream.cases._matrix_layouts import RECIPE_VARIABLE as RECIPE_VARIABLE
 from pyflightstream.cases._matrix_layouts import (
@@ -121,6 +126,7 @@ from pyflightstream.cases._matrix_upgrade import _peel_terminator as _peel_termi
 from pyflightstream.cases._matrix_upgrade import _refuse_an_earlier_layout
 from pyflightstream.cases._matrix_upgrade import _retag_cell as _retag_cell
 from pyflightstream.cases._matrix_upgrade import rewrite_codes as rewrite_codes
+from pyflightstream.cases._matrix_upgrade import upgrade_layout_bytes as upgrade_layout_bytes
 from pyflightstream.cases._sweep_names import _HELD_POINT_KEYS as _HELD_POINT_KEYS
 from pyflightstream.cases._sweep_names import ATTITUDE_KEYS as ATTITUDE_KEYS
 from pyflightstream.cases._sweep_names import FLIGHT_CONDITION_KEYS as FLIGHT_CONDITION_KEYS
@@ -1027,7 +1033,17 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
         raise MatrixError(f"{path} holds no matrix content")
     header = tuple(cell.strip() for cell in content[0].split("|"))
     _refuse_an_earlier_layout(header, path)
-    if header != _COLUMNS:
+    layout = _COLUMNS
+    if header == _LAYOUT_0_56_0:
+        # THE FROZEN LAYOUT OF 0.56.0 READS: its route is unstated and the file says
+        # how to be migrated. The promise is the ledger's, and so is its sentence.
+        layout = _LAYOUT_0_56_0
+        warnings.warn(
+            f"{path}: {MATRIX_LAYOUT_0_56_0.message()}",
+            PyflightstreamDeprecationWarning,
+            stacklevel=4,
+        )
+    elif header != _COLUMNS:
         # Exact tuple equality recognises legacy layouts above. A partially
         # edited header can match neither those nor the current layout; name
         # the converter in the refusal so the user has a supported way forward.
@@ -1079,16 +1095,18 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
     data: list[tuple[int, list[str]]] = []
     for row_number, line in enumerate(content[1:], start=1):
         cells = [cell.strip() for cell in line.split("|")]
-        if len(cells) != len(_COLUMNS):
+        if len(cells) != len(layout):
             raise MatrixError(
                 f"data row {row_number} of {path} holds {len(cells)} cells against "
-                f"the {len(_COLUMNS)} verified columns: {line.strip()[:60]}..."
+                f"the {len(layout)} verified columns: {line.strip()[:60]}..."
                 + (
                     " A pipe ends a cell, so an IDENTIFIERS value cannot hold one."
                     if IDENTIFIERS_VARIABLE in line
                     else ""
                 )
             )
+        if layout is _LAYOUT_0_56_0:
+            cells.insert(_COLUMNS.index("MESH_ROUTE"), UNSTATED_CELL)
         data.append((row_number, cells))
     return data
 
@@ -1432,6 +1450,7 @@ def renumber_pols(
     source = str(path)
     data = Path(path).read_bytes()
     index = _COLUMNS.index("POL")
+    layout: tuple[str, ...] = _COLUMNS
     rebuilt: list[bytes] = []
     header_seen = False
     row_number = 0
@@ -1442,14 +1461,15 @@ def renumber_pols(
             rebuilt.append(line)
             continue
         parts = body.split(b"|")
-        if header_seen and len(parts) != len(_COLUMNS):
+        if header_seen and len(parts) != len(layout):
             raise MatrixError(
                 f"data row {row_number + 1} of {source} holds {len(parts)} cells against "
-                f"the {len(_COLUMNS)} verified columns; repair the row first."
+                f"the {len(layout)} verified columns; repair the row first."
             )
         if not header_seen:
             header_seen = True
-            if _header_names(parts) != _COLUMNS:
+            layout = _header_names(parts)
+            if layout not in (_COLUMNS, _LAYOUT_0_56_0):
                 raise MatrixError(
                     f"{source} is not a run matrix at the verified layout, so its POL "
                     "cells cannot be found; upgrade it first."
@@ -1458,10 +1478,10 @@ def renumber_pols(
             continue
         row_number += 1
         if row_number in changes:
-            if len(parts) != len(_COLUMNS):
+            if len(parts) != len(layout):
                 raise MatrixError(
                     f"data row {row_number} of {source} holds {len(parts)} cells against "
-                    f"the {len(_COLUMNS)} verified columns; repair the row first."
+                    f"the {len(layout)} verified columns; repair the row first."
                 )
             old = parts[index].strip().decode("utf-8", "replace")
             parts[index], _ = _retag_cell(parts[index], {old: str(changes[row_number])})

@@ -138,7 +138,7 @@ def owner_matrix(folder: Path, sims: tuple[str, ...] = SIMS) -> Path:
             continue
         if row.startswith("7001"):
             row = row.replace("| 0.0            |", "| 0.0,2.0        |")
-        row = row.replace("| -        | r003", "| wing_clean.fsm | r003")
+        row = row.replace("| -        | NA         | r003", "| wing_clean.fsm | NA         | r003")
         build = f"| 8     | -        | {grouped_run.BUILD}"
         row = row.replace("| -     | -        | 26.120", build)
         kept.append(row)

@@ -208,6 +208,7 @@
       "tests/tier1_offline/test_p0570_geom_bspline.py",
       "tests/tier1_offline/test_p0570_geom_cli.py",
       "tests/tier1_offline/test_p0570_geom_oracles.py",
+      "tests/tier1_offline/test_p0570_geom_row.py",
       "tests/tier1_offline/test_p0570_geom_run.py",
       "tests/tier1_offline/test_p0570_geom_schema.py",
       "tests/tier1_offline/test_p0570_geometry_bodies.py",

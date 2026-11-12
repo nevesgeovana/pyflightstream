@@ -271,7 +271,7 @@ def test_a_swept_row_with_no_values_is_refused(tmp_path):
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified 19-column layout"):
+    with pytest.raises(MatrixError, match="verified 20-column layout"):
         read_matrix(bad)
 
 
@@ -308,7 +308,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(
-        MatrixError, match=r"data row 1 of .* holds 18 cells against the 19 verified"
+        MatrixError, match=r"data row 1 of .* holds 19 cells against the 20 verified"
     ):
         read_matrix(bad)
 
@@ -437,7 +437,7 @@ def test_every_held_key_is_a_key_the_release_can_sweep():
     assert set(matrix_mod._HELD_POINT_KEYS) == {"ALPHA", "BETA"}
 
 
-def test_the_verified_layout_names_nineteen_columns_and_no_sweep_type():
+def test_the_verified_layout_names_twenty_columns_and_no_sweep_type():
     """FR-93, the run matrix carries nineteen columns, and FR-94, a row may name
     its configuration.
 
@@ -456,7 +456,7 @@ def test_the_verified_layout_names_nineteen_columns_and_no_sweep_type():
     assert "WORKFLOW" in matrix_mod._COLUMNS
     assert "FLIGHT_CONDITION" in matrix_mod._COLUMNS
     assert "PPROC" in matrix_mod._COLUMNS
-    assert len(matrix_mod._COLUMNS) == 19
+    assert len(matrix_mod._COLUMNS) == 20
     # SWEEP_TYPE is gone at 0.15.0 (FR-69): the flight-condition cell says
     # which variable varies by carrying the word `sweep` on it, and a
     # column naming the same fact is a second home for one fact. The
@@ -490,7 +490,7 @@ def test_the_verified_layout_names_nineteen_columns_and_no_sweep_type():
     # the only cell whose width is not fixed by the format. The flight
     # condition takes the slot the two numeric columns had.
     assert matrix_mod._COLUMNS[-1] == "VAR_NAMES_VALUES"
-    assert matrix_mod._COLUMNS.index("WORKFLOW") == 17
+    assert matrix_mod._COLUMNS.index("WORKFLOW") == 18
     assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 6
 
 
@@ -581,7 +581,7 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     message = str(caught.value)
-    assert "does not match the verified 19-column layout" in message
+    assert "does not match the verified 20-column layout" in message
     assert "pyfs-workspace migrate" not in message
 
 
@@ -1372,7 +1372,7 @@ def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
         read_matrix(half)
     message = str(caught.value)
     assert "pyfs-workspace migrate" in message, message
-    assert "15" in message and "19" in message
+    assert "15" in message and "20" in message
 
 
 # --- PFS-2029.11.01: the variables cell reads a list of records ------------------------

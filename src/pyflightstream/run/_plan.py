@@ -959,8 +959,15 @@ def resolved_plan_error(resolved, workspace, path, *, default, fs_exe, accepted)
 def preflight_resolved_matrix(
     resolved, workspace, path, *, recipes, default, fs_exe, accepted, require_plan
 ):
-    """Validate the resolved receipt and rehearse its point scripts before execution."""
+    """Validate the resolved receipt and rehearse its point scripts before execution.
+
+    A row whose generated geometry failed is recorded first, as GEOMETRY_FAILED, so the
+    manifest names it whatever the rest of the pre-flight finds (PFS-2214).
+    """
     from pyflightstream.cases.matrix import MatrixError
+    from pyflightstream.workspace.matrix import record_geometry_failures
+
+    record_geometry_failures(resolved.geometry_failures, workspace, resolved.campaign, default)
 
     if require_plan:
         refusal = resolved_plan_error(

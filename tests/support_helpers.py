@@ -162,7 +162,7 @@ def rotor_row(tmp_path, *, sweep="0.0,2.0,4.0", extra=""):
     )
     for before, after in (
         ("| 0.0            |", f"| {sweep:<14} |"),
-        ("| -        | r003", "| wing_clean.fsm | r003"),
+        ("| -        | NA         | r003", "| wing_clean.fsm | NA         | r003"),
         ("| -     | -        | 26.120", f"| 8     | 1h       | {ROTOR_BUILD}"),
         ("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25" + extra),
     ):
