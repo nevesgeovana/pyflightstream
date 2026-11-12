@@ -16,3 +16,6 @@ Junction arc lengths integrate native curve derivatives at floating-point accura
 
 Triangular retained faces keep their original surface and use four exact boundary
 segments in both coordinate spaces.
+
+The reader profile uses bounded boundary parameters to initialize closest-point
+searches on folded surfaces, retaining the closest measured iterate.

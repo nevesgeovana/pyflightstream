@@ -308,12 +308,15 @@ class _Surface:
         weighted = nv[:, None] * nu[None, :] * self.weights
         return np.asarray(np.tensordot(weighted, self.points, axes=2) / weighted.sum())
 
-    def distance(self, point: np.ndarray) -> float:
+    def distance(self, point: np.ndarray, *, seeds: np.ndarray | None = None) -> float:
         """Return the distance from ``point`` to the surface: grid start, then Newton steps."""
         u0, u1, v0, v1 = self.domain
         grid = [(u, v) for u in np.linspace(u0, u1, _GRID) for v in np.linspace(v0, v1, _GRID)]
+        if seeds is not None:
+            grid.extend(tuple(uv) for uv in np.clip(seeds, [u0, v0], [u1, v1]))
         best = min(grid, key=lambda uv: float(np.linalg.norm(self.at(*uv) - point)))
         u, v = float(best[0]), float(best[1])
+        closest = float(np.linalg.norm(self.at(u, v) - point))
         ranges = np.array([u1 - u0, v1 - v0])
         steps = 1e-6 * ranges
         for _ in range(_REFINE):
@@ -323,12 +326,25 @@ class _Surface:
             du = (self.at(ub, v) - self.at(ua, v)) / (ub - ua)
             dv = (self.at(u, vb) - self.at(u, va)) / (vb - va)
             jacobian = np.stack([du, dv], axis=1)
-            move = np.linalg.lstsq(jacobian, point - here, rcond=None)[0]
             previous = np.array([u, v])
+            move = _bounded_move(jacobian, point - here, previous, [u0, v0], [u1, v1])
             u, v = float(np.clip(u + move[0], u0, u1)), float(np.clip(v + move[1], v0, v1))
+            closest = min(closest, float(np.linalg.norm(self.at(u, v) - point)))
             if np.max(np.abs((np.array([u, v]) - previous) / ranges)) <= 1e-12:
                 break
-        return float(np.linalg.norm(self.at(u, v) - point))
+        return closest
+
+
+def _bounded_move(jacobian, residual, position, low, high):
+    """Solve again in the free direction when a bound removes a Newton direction."""
+    move = np.linalg.lstsq(jacobian, residual, rcond=None)[0]
+    fixed = ((position <= low) & (move < 0)) | ((position >= high) & (move > 0))
+    if fixed.any():
+        move[fixed] = 0.0
+        free = ~fixed
+        if free.any():
+            move[free] = np.linalg.lstsq(jacobian[:, free], residual, rcond=None)[0]
+    return move
 
 
 # --- the findings of one trimmed face --------------------------------------------------------
@@ -387,9 +403,14 @@ def _in_domain(
 
 
 def _on_surface(
-    ident: int, pieces: list[_Spline], surface: _Surface, resolution: float
+    ident: int,
+    pieces: list[_Spline],
+    surface: _Surface,
+    resolution: float,
+    *,
+    seeds: np.ndarray | None = None,
 ) -> list[GateFinding]:
-    worst = max(surface.distance(p) for p in _samples(pieces))
+    worst = max(surface.distance(p, seeds=seeds) for p in _samples(pieces))
     if worst <= resolution:
         return []
     return [
@@ -429,7 +450,8 @@ def _loop_findings(
     )
     found += _in_domain(ident, pieces, surface.domain, profile.loop_gap) if pieces else []
     model = _pieces(by_id[spatial], by_id) if spatial in by_id else None
-    return found + (_on_surface(ident, model, surface, resolution) if model else [])
+    seeds = _samples(pieces)[:, :2] if pieces else None
+    return found + (_on_surface(ident, model, surface, resolution, seeds=seeds) if model else [])
 
 
 #: Entity use flag (status digits 5 and 6) of a curve in a surface's parameter space.

@@ -65,6 +65,46 @@ def test_p0570_triangular_face_keeps_its_surface_with_four_boundary_segments(tmp
         kernel.close()
 
 
+def test_p0570_fowler_boundary_distance_uses_bounded_pcurve_starts(tmp_path):
+    from pyflightstream.geometry.stages import stage_row
+    from pyflightstream.workspace import _geom_run
+    from tests.tier1_offline.test_p0570_gm9_controls import _fowler_config
+
+    kernel_or_skip()
+    raw = _fowler_config()
+    raw["variants"] = {"deployed": ["panel.flap"]}
+    selected = [
+        _geom_run.Stage(stage_row(s), _geom_run.STAGE_FUNCTIONS[s]) for s in ("S0", "S11", "S11.P")
+    ]
+    report = _geom_run.run_geometry(
+        raw, variant="deployed", out=tmp_path, until="S11.P", stages=selected
+    )
+    assert report["status"] == "accepted", report
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    cove = next(f for f in manifest["pieces"][0]["face_records"] if f["role"] == "cove_roof")
+    document = read_iges(tmp_path / cove["iges"])
+    by_id = {e["id"]: e for e in document["entities"]}
+    outer = next(e for e in document["entities"] if e["type"] == 142)
+    pending = [int(outer["parameters"][4])]
+    while pending:
+        curve = by_id[pending.pop()]
+        values = curve["parameters"]
+        if curve["type"] == 102:
+            pending.extend(map(int, values[2 : 2 + int(values[1])]))
+        elif curve["type"] == 126:
+            k, degree = map(int, values[1:3])
+            start = 7 + k + degree + 2 + k + 1
+            for pole in range(k + 1):
+                z = start + 3 * pole + 2
+                values[z] = str(float(values[z]) + 0.01)
+        elif curve["type"] == 110:
+            for z in (3, 6):
+                values[z] = str(float(values[z]) + 0.01)
+    damaged = tmp_path / "displaced-cove-boundary.igs"
+    damaged.write_text(serialize_iges(document), encoding="ascii")
+    assert {f.check for f in check_profile(damaged).failed} == {"profile.loop_surface"}
+
+
 @pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
 def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
     from pyflightstream.geometry.stages import stage_row
@@ -194,7 +234,8 @@ def test_p0570_applied_variant_exports_original_bases_and_trimmed_faces(tmp_path
 
 
 @pytest.mark.parametrize("u", [0.001, 0.999], ids=["P0570-low-bound", "P0570-high-bound"])
-def test_p0570_anisotropic_surface_distance(tmp_path, u):
+@pytest.mark.parametrize("quadratic", [False, True], ids=["P0570-uniform", "P0570-independent"])
+def test_p0570_anisotropic_surface_distance(tmp_path, u, quadratic):
     values = [128, 1, 1, 1, 1, 0, 0, 1, 0, 0]
     values += [0, 0, 1, 1, 0, 0, 10000, 10000]
     values += [1, 1, 1, 1]
@@ -218,6 +259,17 @@ def test_p0570_anisotropic_surface_distance(tmp_path, u):
             _entity(15 + 4 * i, 110, [110, x, y, 0, xx, yy, 0]),
         ]
         entities[-2]["d1"][8] = "00000500"
+        if quadratic:
+            # Same straight physical edge with a quadratic time parameter.
+            # Its nine samples differ from those of the linear pcurve, so the
+            # distance search must refine an independently sampled point.
+            model = entities[-1]
+            a, b = [x, y, 0], [xx, yy, 0]
+            values = [126, 2, 2, 1, 0, 1, 0]
+            values += [0, 0, 0, 1, 1, 1] + [1, 1, 1]
+            values += [*a, *a, *b, 0, 1, 0, 0, 1]
+            model.update(type=126, parameters=[str(v) for v in values])
+            model["d1"][0] = model["d2"][0] = f"{126:8d}"
     globals_ = ["0"] * 25
     globals_[18] = str(1e-9 * np.sqrt(2))
     document = {"start": ["distance fixture"], "global": globals_, "entities": entities}
@@ -228,7 +280,8 @@ def test_p0570_anisotropic_surface_distance(tmp_path, u):
     # A parallel displacement must still be detected at the same resolution.
     for entity in entities:
         if entity["id"] in (15, 19, 23, 27):
-            entity["parameters"][3] = entity["parameters"][6] = "0.00001"
+            for z in (18, 21, 24) if quadratic else (3, 6):
+                entity["parameters"][z] = "0.00001"
     path.write_text(serialize_iges(document), encoding="ascii")
     assert {f.check for f in check_profile(path, profile).failed} == {"profile.loop_surface"}
 
