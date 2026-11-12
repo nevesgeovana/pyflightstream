@@ -151,7 +151,9 @@ pyfs-workspace geometry mesh-generated wing.toml --obj wing.obj --component WING
 
 Each patch is meshed from its role: constant width across the span with a refined tip, growth
 along the chord from the leading edge, a constant azimuth and axial step on a body, a planar
-all-quad flat tip cap and, for a wing on a body, the fairing as one quad-dominant transition
+all-quad flat tip cap (one planar face bounded by the tip section outline: both sides and, for a
+blunt trailing edge, the base segment; every tip cap is this face unless `cap.type` names
+`rounded`, `ridged` or `exact_loft`) and, for a wing on a body, the fairing as one quad-dominant transition
 ring (the only triangles). The orientation is outward and the record carries the acceptance
 checks: inverted and degenerate cells, non-manifold edges, free edges off the symmetry plane and
 the spacing rules measured on the realized nodes. The OBJ has one group per component. The OBJ
@@ -207,6 +209,30 @@ block replaced, one boundary per component, quads as partner triangle pairs, and
 edges marked. The template must be a fresh saved simulation with no base region,
 trailing-edge group or termination. Exit 0 planned or accepted, 1 not accepted, 2 refused.
 Python: `mesh_configuration`.
+
+## Mesh as one structured grid (strategy 2)
+
+A matrix row with `MESH_ROUTE` `full_grid` meshes its generated configuration by strategy 2
+from controls with `strategy = 2`. Every face of the fragmented configuration becomes a block:
+its four sharpest corners make four sides, and a face trimmed by a junction keeps the junction
+curve as one side even when the curve is cut in several pieces, which builds the collar around a
+wing root and the topology around a footprint from the faces themselves. One cell count per
+edge is solved for the whole configuration: opposite sides of every block equal (E09), the
+lifting root ring holding `2 chordwise.cells` plus the base cells on every side (E08, or
+`[[junctions]] ring_count` when given), the body azimuth ring holding its count (`azimuth_cells`,
+or `azimuth_rule`, which derives it from the measured half perimeter and `x_step_m` and splits
+it over the body's sectors by arc length), and the cell width carried across every junction
+under `defaults.junction.max_growth`, 1.2 when not given (E10). A component's `blocks` table
+names its topology (`O` for a body, `C` for a lifting surface, `collar` for a fairing or
+fillet, `H`, `cap`) and its poles (`valence3` or `open`; any other is refused, E11). Any
+triangle allowance in the controls is refused (E07).
+
+Each block is meshed transfinite and recombined. A face with fewer than four corners is
+meshed with quads from an even boundary and listed by name as not full grid. The record
+measures triangles (E07), opposite sides (E09), carry growth (E10), the ring count on each side
+of every lifting root junction (E08), the valence 3 poles at the body closures (E11), the other
+irregular nodes, the not-full-grid faces, inverted and degenerate cells, edges used by more
+than two cells, the distance to the source and surfaces only. The matrix route calls it.
 
 ## Identify a lifting surface
 

@@ -236,7 +236,7 @@ def _word_order(word: str) -> tuple[int, int, str]:
     position = order.index(word) if word in order else len(order)
     if word in {status.value for status in _CONCLUDED}:
         group = 0
-    elif word.startswith("FAILED"):
+    elif word.startswith("FAILED") or word == RunStatus.GEOMETRY_FAILED.value:
         group = 1
     elif word == RunStatus.SUBMITTED.value:
         group = 2

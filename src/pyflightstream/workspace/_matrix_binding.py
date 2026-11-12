@@ -123,8 +123,13 @@ class ResolvedMatrix:
         The additional pproc of every row stating ``ADDITIONAL_PPROC`` (G12),
         keyed by its id, resolved and judged at plan so a key the
         additional post could not honour is refused before the run spends a
-        seat. Empty for a matrix whose rows state none. LAST, so a caller
-        building this by position keeps working.
+        seat. Empty for a matrix whose rows state none.
+    geometry_failures : dict of str to dict of str to str
+        The rows whose generated geometry could not be produced, keyed by POL, with
+        the ``message`` and the ``report`` path of the failed generation. Such a row
+        is absent from ``campaign``; the others are bound as they were, so one failed
+        row does not stop the matrix. LAST, so a caller building this by position
+        keeps working.
     """
 
     campaign: Campaign
@@ -137,6 +142,7 @@ class ResolvedMatrix:
     row_builds: tuple[str | None, ...] = ()
     additional_pprocs: dict[str, PprocArtifact] = field(default_factory=dict)
     fsis: dict[str, ResolvedFsiSetup] = field(default_factory=dict)
+    geometry_failures: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 ResolvedMatrix.__module__ = "pyflightstream.workspace.matrix"

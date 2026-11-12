@@ -111,7 +111,7 @@ def _matrix(tmp_path: Path) -> Path:
         if row.startswith("7001"):
             row = row.replace("| 0.0            |", "| 0.0,2.0        |")
         for before, after in (
-            ("| -        | r003", "| wing_clean.fsm | r003"),
+            ("| -        | NA         | r003", "| wing_clean.fsm | NA         | r003"),
             ("| -     | -        | 26.120", f"| 8     | -        | {BUILD}"),
         ):
             assert before in row, (before, row)

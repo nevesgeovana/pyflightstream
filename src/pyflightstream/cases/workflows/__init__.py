@@ -390,10 +390,28 @@ from ._vocabulary import (
     FULL_POLAR_STEM as FULL_POLAR_STEM,
 )
 from ._vocabulary import (
+    GEOM_CONFIGURATION_VARIABLE as GEOM_CONFIGURATION_VARIABLE,
+)
+from ._vocabulary import (
+    GEOM_PARAMS_VARIABLE as GEOM_PARAMS_VARIABLE,
+)
+from ._vocabulary import (
+    GEOM_VARIANT_VARIABLE as GEOM_VARIANT_VARIABLE,
+)
+from ._vocabulary import (
+    GEOMETRY_ROW_KEYS as GEOMETRY_ROW_KEYS,
+)
+from ._vocabulary import (
     JOB_END_SUFFIX as JOB_END_SUFFIX,
 )
 from ._vocabulary import (
     JOB_LOG_SUFFIX as JOB_LOG_SUFFIX,
+)
+from ._vocabulary import (
+    MESH_CONTROLS_VARIABLE as MESH_CONTROLS_VARIABLE,
+)
+from ._vocabulary import (
+    MESH_ROUTE_VARIABLE as MESH_ROUTE_VARIABLE,
 )
 from ._vocabulary import (
     MOVING_BC_ALIAS_VARIABLE as MOVING_BC_ALIAS_VARIABLE,
@@ -508,6 +526,12 @@ __all__ = [
     "EXPORT_UNSTEADY_LAST_ITER_VARIABLE",
     "EXPORT_UNSTEADY_LAST_REV_VARIABLE",
     "GEOMETRY_VARIABLE",
+    "GEOM_CONFIGURATION_VARIABLE",
+    "GEOM_PARAMS_VARIABLE",
+    "GEOM_VARIANT_VARIABLE",
+    "GEOMETRY_ROW_KEYS",
+    "MESH_CONTROLS_VARIABLE",
+    "MESH_ROUTE_VARIABLE",
     "EXPORT_LOG_VARIABLE",
     "IGNORE_MISSING_FAMILIES_VARIABLE",
     "LOG_OUTPUT_VARIABLE",

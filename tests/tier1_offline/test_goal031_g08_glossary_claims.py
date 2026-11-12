@@ -64,6 +64,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.acoustics import with_acoustic_signals
 from pyflightstream.cases.sixdof import SixDofSpec
 from pyflightstream.cases.workflows import (
+    GEOMETRY_ROW_KEYS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     ROW_KEY_MEANINGS,
@@ -1155,7 +1156,9 @@ def meanings() -> dict[tuple[tuple[str, str], str], str]:
 def test_every_row_key_and_every_setting_has_two_values_here():
     """A key the package gains arrives with the two values this module builds it at."""
     # IDENTIFIERS reaches no case and no script, by what it is, so no two values measure it here.
-    meant = set(ROW_KEY_MEANINGS) - {"IDENTIFIERS"}
+    # The geometry-row keys choose which geometry a row opens (PFS-2214): what the script carries
+    # is the resulting .fsm, which GEOMETRY measures, so no two values of theirs differ in a script.
+    meant = set(ROW_KEY_MEANINGS) - {"IDENTIFIERS", *GEOMETRY_ROW_KEYS}
     assert set(ROW_KEY_VARIATIONS) == meant, (
         f"row keys with no variation: {sorted(meant - set(ROW_KEY_VARIATIONS))}; "
         f"variations of no row key: {sorted(set(ROW_KEY_VARIATIONS) - meant)}"

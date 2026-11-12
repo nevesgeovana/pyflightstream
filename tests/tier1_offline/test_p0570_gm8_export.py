@@ -584,16 +584,17 @@ def test_p0570_r26_flat_cap_passes_reader_profile_with_exact_closed_rims(tmp_pat
     model = lifting_model(unpack(resolve_config(raw))["components"]["wing"])
     assert next(c for c in model.records if c["id"] == "closure.rim_shared")["value"] <= 1e-12
     assert cap_edge_gap(model) <= 1e-12
-    nose = model.caps[f"{end}_cap_nose"]
+    nose = model.caps[f"{end}_cap"]
     for cap in model.caps.values():
         grid = cap.evaluate(31)
-        for edge in (grid[0], grid[-1], grid[:, 0], grid[:, -1]):
+        # The leading-edge end of the one-face outline cap is a point; its other edges are curves.
+        for edge in (grid[-1], grid[:, 0], grid[:, -1]):
             assert np.linalg.norm(np.diff(edge, axis=0), axis=1).sum() > 1e-6
         normals = np.cross(np.diff(grid, axis=0)[:, :-1], np.diff(grid, axis=1)[:-1])
         assert np.all(normals[1:-1, 1:-1, 1] > 0) or np.all(normals[1:-1, 1:-1, 1] < 0)
     changed = np.array(nose.controls, copy=True)
     changed[0, :, 2] += 1e-4
-    broken = replace(model, caps={**model.caps, f"{end}_cap_nose": replace(nose, controls=changed)})
+    broken = replace(model, caps={**model.caps, f"{end}_cap": replace(nose, controls=changed)})
     assert cap_edge_gap(broken) >= 9e-5
     report = run_geometry(raw, out=tmp_path, until="S11.P")
     assert report["status"] in ("accepted", "incomplete"), report

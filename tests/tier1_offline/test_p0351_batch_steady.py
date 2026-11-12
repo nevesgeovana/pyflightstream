@@ -142,7 +142,7 @@ def test_p0351_restated_sections_are_created_once(tmp_path, steady, polar_count)
 def _placed(row: str) -> str:
     """Give a fixture row the staged geometry, eight processors, a wall clock and the build."""
     for before, after in (
-        ("| -        | r003", "| wing_clean.fsm | r003"),
+        ("| -        | NA         | r003", "| wing_clean.fsm | NA         | r003"),
         ("| -     | -        | 26.120", f"| 8     | 10m      | {BUILD}"),
     ):
         assert before in row, (before, row)

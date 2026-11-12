@@ -92,7 +92,7 @@ def _p0460_matrix(tmp_path, geometry="wing.fsm"):
     matrix = tmp_path / "marked.fs"
     source = (FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8")
     header, rule, *rows = source.splitlines()
-    row = rows[1].replace("| -        | r003", f"| {geometry} | r003")
+    row = rows[1].replace("| -        | NA         | r003", f"| {geometry} | NA         | r003")
     matrix.write_text("\n".join([header, rule, row]) + "\n", encoding="utf-8")
     return workspace, matrix, saved
 
@@ -4212,7 +4212,7 @@ def _two_matrices(tmp_path):
     def row(pol, description):
         return (
             f"{pol} | 0 | 1 | TestWing  | - | {description:22} | TASmps:68.058, ALPHA:sweep "
-            "| -2.0 | - | r003 | s002 | "
+            "| -2.0 | - | - | r003 | s002 | "
             "p001 | - | - | - | - | 26.120 | LEGACY "
             "| FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
             "/ RECIPE: 003"
