@@ -308,6 +308,28 @@ def insert_seed(seeds, signed_edge, nodes):
     seeds[tag] = x
 
 
+def pin_fractions(nodes, fractions):
+    """Move the nearest nodes of a normalized law onto exact fractions, keeping the cell count.
+
+    Each fraction takes its own node in order; the law between pinned nodes is mapped linearly,
+    so no strip is added or removed (hinge rows of a control surface's parent).
+    """
+    nodes = np.asarray(nodes, dtype=float)
+    pins = sorted({float(f) for f in fractions})
+    count = len(nodes) - 1
+    if any(not 0 < f < 1 for f in pins) or len(pins) >= count:
+        raise InputValueError("hinge rows: fractions inside (0, 1) and more cells than rows needed")
+    indices = [0]
+    for i, value in enumerate(pins):
+        nearest = int(np.argmin(np.abs(nodes - value)))
+        indices.append(max(indices[-1] + 1, min(count - len(pins) + i, nearest)))
+    indices.append(count)
+    result = np.interp(nodes, nodes[indices], [0.0, *pins, 1.0])
+    if np.any(np.diff(result) <= 0):
+        raise InputValueError("hinge rows: spacing below floating point resolution")
+    return result
+
+
 def chord_nodes(component, controls, family, eta):
     """Return the chordwise nodes of a fore or aft skin patch at span fraction ``eta``, or None.
 
@@ -333,6 +355,8 @@ def chord_nodes(component, controls, family, eta):
     global_x = geometric_cap(
         controls["chord_cells"], controls["chord_growth"], growth_until=controls["growth_until"]
     )
+    if controls.get("hinge_rows"):
+        global_x = pin_fractions(global_x, controls["hinge_rows"])
     split = int(np.argmin(abs(global_x - mid)))
     if family.endswith("fore"):
         x = global_x[: split + 1] / global_x[split]

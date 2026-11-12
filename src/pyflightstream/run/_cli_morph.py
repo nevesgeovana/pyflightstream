@@ -12,7 +12,8 @@ gives the exit code: 0 when the output was written, 2 when the input is refused 
 library cannot load, with the message on standard error and nothing written. Each parser names its
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
 the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
-:data:`MORPH_VERBS`, which also carries ``mesh-generated``.
+:data:`MORPH_VERBS`, which also carries ``mesh-generated`` and ``mesh`` (strategy 1 from
+per-component mesh controls, PFS-2214).
 """
 
 from __future__ import annotations
@@ -287,6 +288,64 @@ def run_mesh_generated(args: argparse.Namespace) -> int:
     return report_of(work)
 
 
+def add_mesh_parser(subparsers: Any) -> None:
+    """Add ``geometry mesh``: a configuration meshed by strategy 1 from its mesh controls."""
+    mesh = subparsers.add_parser(
+        "mesh",
+        help="mesh a parametric configuration from its mesh controls (strategy 1, gmsh kernel)",
+        description=(
+            "Validates the mesh controls against the configuration (errors E01 to E16 refuse "
+            "by name, W01 warns), plans every component's counts, meshes the configuration "
+            "with strategy 1 and measures the acceptance table on the realized mesh. With "
+            "--dry-run it prints the plan and the warnings and writes nothing. With --out it "
+            "writes <descriptor>.obj, <descriptor>.mesh.json and, with --fsm-template, "
+            "<descriptor>.fsm (docs/geometry-mesh.md)."
+        ),
+    )
+    mesh.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
+    mesh.add_argument("--controls", required=True, metavar="TOML", help="the mesh controls")
+    mesh.add_argument(
+        "--dry-run", action="store_true", help="validate and print the planned counts only"
+    )
+    mesh.add_argument("--out", metavar="DIR", help="folder of the written mesh and record")
+    mesh.add_argument("--descriptor", metavar="NAME", help="file stem (mesh.output.descriptor)")
+    mesh.add_argument(
+        "--fsm-template",
+        metavar="FSM",
+        help="a fresh saved simulation of the target build; writes <descriptor>.fsm",
+    )
+    mesh.set_defaults(mesh_command=run_mesh)
+
+
+def run_mesh(args: argparse.Namespace) -> int:
+    """Plan or mesh a configuration; exit 0 accepted or planned, 1 not accepted, 2 refused."""
+    from pyflightstream.workspace.geometry_pipeline import mesh_configuration
+
+    try:
+        result = mesh_configuration(
+            args.config,
+            args.controls,
+            dry_run=args.dry_run,
+            out=args.out,
+            descriptor=args.descriptor,
+            fsm_template=args.fsm_template,
+        )
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    record = result.record
+    for warning in record["warnings"]:
+        print(f"warning: {warning}", file=sys.stderr)
+    shown = {k: record[k] for k in ("strategy", "variant", "members", "components")}
+    if not args.dry_run:
+        shown.update(counts=record["counts"], accepted=record["accepted"])
+        shown["failed"] = [c["id"] for c in record["checks"] if c["status"] == "failed"]
+    print(json.dumps(shown, indent=2, default=str))
+    for path in result.written.values():
+        print(path)
+    return 0 if args.dry_run or record["accepted"] else 1
+
+
 #: The parser of each verb this module adds, by its name in the group.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
@@ -296,6 +355,7 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
     "iges-grid": add_iges_grid_parser,
     "iges-convert": add_iges_convert_parser,
     "mesh-generated": add_mesh_generated_parser,
+    "mesh": add_mesh_parser,
 }
 
 #: The verbs this module adds to the group.

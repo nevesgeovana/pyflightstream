@@ -18,7 +18,7 @@ import numpy as np
 
 from pyflightstream._errors import InputValueError
 
-from ._mesh_rules import constant, geometric_cap
+from ._mesh_rules import constant, geometric_cap, pin_fractions
 
 ERRORS = {
     "E01": "follows names an absent component",
@@ -466,16 +466,9 @@ def azimuth_count(stations, rule: Mapping[str, Any], *, ring_count: int = 0) -> 
 def hinge_nodes(table: Mapping[str, Any]) -> np.ndarray:
     """Pin chord fractions at exact nodes without adding cells or deleting strips."""
     nodes = spacing_nodes(table, direction="chordwise")
-    hinges = sorted(set(table.get("hinge_rows", [])))
-    count = len(nodes) - 1
-    if len(hinges) >= count:
+    hinges = table.get("hinge_rows", [])
+    if not hinges:
+        return nodes
+    if len(set(hinges)) >= len(nodes) - 1:
         raise InputValueError("hinge rows: more cells are needed to keep every interval nonempty")
-    indices = [0]
-    for i, value in enumerate(hinges):
-        nearest = int(np.argmin(np.abs(nodes - value)))
-        indices.append(max(indices[-1] + 1, min(count - len(hinges) + i, nearest)))
-    indices.append(count)
-    result = np.interp(nodes, nodes[indices], [0.0, *hinges, 1.0])
-    if np.any(np.diff(result) <= 0):
-        raise InputValueError("hinge rows: spacing below floating point resolution")
-    return result
+    return pin_fractions(nodes, hinges)
