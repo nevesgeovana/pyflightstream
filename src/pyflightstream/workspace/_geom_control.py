@@ -20,6 +20,8 @@ __all__ = ["check_stage"]
 
 # Stage F closure tolerance; each operation records this value with its inputs.
 _SEW_M = 1e-5
+# Junction-length agreement with the clean reference, relative to the model size (roundoff).
+_JUNCTION_RELATIVE = 1e-9
 
 
 def _maximum(name, measured, limit=0, *, unit="count", where=None):
@@ -135,11 +137,13 @@ def _sewn(kernel, stage, inputs):
             raise InputValueError(
                 f"{stage}.junctions: supply the same nonempty named pairs as the clean reference"
             )
+        limit = _JUNCTION_RELATIVE * max(abs(value) for value in reference.values())
         for pair, expected in reference.items():
             checks.append(
                 _maximum(
                     f"control.{stage.lower()}.junction_length",
                     abs(measured[pair] - expected),
+                    limit,
                     unit="m",
                     where={"pair": pair},
                 )

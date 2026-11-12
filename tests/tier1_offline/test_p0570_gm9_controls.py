@@ -234,6 +234,27 @@ def test_p0570_gm9_f4_requires_names_for_slot_openings(kernel, tmp_path, named):
 
 
 @pytest.mark.parametrize("stage", ["F5", "F6"], ids=["P0570-F5", "P0570-F6"])
+@pytest.mark.parametrize(
+    ("delta", "accepted"),
+    [(5.3e-14, True), (4e-9, False)],
+    ids=["roundoff-YES", "real-delta-NO"],
+)
+def test_p0570_gm9_junction_length_tolerance_is_relative_to_size(
+    kernel, tmp_path, stage, delta, accepted
+):
+    faces = _closed_box(kernel)
+    path = tmp_path / "after_cut.igs"
+    kernel.export_iges({"main": faces}, path)
+    inputs = {
+        "path": str(path),
+        "previous_free": 0,
+        "junction_lengths_m": {"main/body": 4.0 + delta},
+        "clean_junction_lengths_m": {"main/body": 4.0},
+    }
+    assert _passed(_fcheck(kernel, stage, inputs)) is accepted
+
+
+@pytest.mark.parametrize("stage", ["F5", "F6"], ids=["P0570-F5", "P0570-F6"])
 @pytest.mark.parametrize("missing", [False, True], ids=["YES", "NO"])
 def test_p0570_gm9_trimmed_assembly_boundary(kernel, tmp_path, stage, missing):
     from pyflightstream.workspace import _geom_run
