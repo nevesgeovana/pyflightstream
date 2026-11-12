@@ -1001,7 +1001,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         frozenset(
             {
                 "campbell",
-                "mesh",
                 "accept",
                 "apply",
                 "archive",
