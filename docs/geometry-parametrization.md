@@ -173,13 +173,27 @@ csf, `iges`, `output.descriptor`), a `[defaults]` table (`lifting_surface`, `bod
 `transition`) and one `[components.<name>]` table per member. A primary or flexible lifting
 surface states `chordwise` and `spanwise`, each with at least `cells` and `law` (error E15);
 the other keys come from `defaults.lifting_surface`. A body takes `x_cells` or `x_step_m`, and
-`azimuth_cells` or `azimuth_step_deg`. A fairing or fillet with no table follows its hosts.
+`azimuth_cells`, `azimuth_step_deg` or `azimuth_rule` (the count from the largest half
+perimeter over `target_aspect` times the axial step, raised to a multiple of the body's half
+sectors; the realized band quads are then measured against `aspect_band`). The body's station
+lines at the wing and fairing extremes must fall on the axial step for the spacing rows to
+pass. A fairing or fillet with no table follows its hosts.
 Membership comes from `mesh.configuration` and the component names from the 406 names of
 `mesh.iges` (the generated names when it is absent): a table naming a component outside the
 configuration is warned (W01) and ignored, one naming no IGES component is refused (E04).
 `chordwise.hinge_rows` pins node rows at those chord fractions without changing the cell
 count. `trailing_edge = "collapsed"` with `collapse_tolerance_m` closes the blunt base to one
-line of nodes in the mesh only.
+line of nodes in the mesh only; the default blunt base is left one quad across, whatever the
+number of faces it was generated as.
+
+Next to the fairing, each wing and fuselage face is one block of the layout crossed or bounded
+by the junction curve. A block that keeps four corners (none sharper than 20 degrees), with the
+junction as one curved side, is meshed structured like the rest of its component; any other
+(five corners, a cusp, a junction that is not single valued) is meshed with the fairing,
+quad-dominant, so the wing and fuselage stay full grid and the fairing adapts. The record lists
+each such face with its decision and reason (`junction_faces`). A tip cap may be
+quad-dominant: its triangles and nodes are left out of the triangle and irregular-node rows and
+reported apart.
 
 `--dry-run` validates, prints each component's counts and the warnings, and writes nothing. A
 run measures the acceptance table on the realized mesh: inverted and degenerate cells, edges

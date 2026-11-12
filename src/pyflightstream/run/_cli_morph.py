@@ -398,11 +398,12 @@ def add_mesh_parser(subparsers: Any) -> None:
     """Add ``geometry mesh``: a configuration meshed by strategy 1 from its mesh controls."""
     mesh = subparsers.add_parser(
         "mesh",
-        help="mesh a parametric configuration from its mesh controls (strategy 1, gmsh kernel)",
+        help="mesh a parametric configuration from its mesh controls (strategy 1 or 2, gmsh)",
         description=(
             "Validates the mesh controls against the configuration (errors E01 to E16 refuse "
             "by name, W01 warns), plans every component's counts, meshes the configuration "
-            "with strategy 1 and measures the acceptance table on the realized mesh. With "
+            "with strategy 1, or strategy 2 (full grid) when mesh.strategy = 2, and measures the "
+            "acceptance table of that strategy on the realized mesh. With "
             "--dry-run it prints the plan and the warnings and writes nothing. With --out it "
             "writes <descriptor>.obj, <descriptor>.mesh.json and, with --fsm-template, "
             "<descriptor>.fsm (docs/geometry-mesh.md)."

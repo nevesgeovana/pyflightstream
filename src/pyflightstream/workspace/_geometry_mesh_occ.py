@@ -48,7 +48,13 @@ TRANSITION_INTERFACES = (
 
 @dataclass
 class MeshPatch:
-    """A four-sided source surface with its signed edge walk and its edge node requests."""
+    """A four-sided source surface with its signed edge walk and its edge node requests.
+
+    ``sides`` gives, for a face with more than four boundary curves (a block a junction curve
+    crosses, delta F.2), its four sides in walk order, each a run of signed curves; the face
+    is transfinite between the first vertices of the sides, and opposite sides carry equal
+    node intervals.
+    """
 
     surface: int
     edges: tuple[int, int, int, int]
@@ -56,6 +62,7 @@ class MeshPatch:
     v: np.ndarray
     component: str = "COMPONENT"
     boundary_nodes: dict | None = None
+    sides: tuple[tuple[int, ...], ...] | None = None
 
 
 @dataclass
@@ -209,10 +216,11 @@ def _register_patch(model, patch, requests):
             raise InputValueError(f"curve {edge}: shared curve has incompatible spacing requests")
         requests[edge] = x
     if not isinstance(patch, Transition):
-        sizes = [len(requested[abs(e)]) for e in patch.edges]
+        sides = patch.sides or tuple((e,) for e in patch.edges)
+        sizes = [sum(len(requested[abs(e)]) - 1 for e in side) for side in sides]
         if sizes[0] != sizes[2] or sizes[1] != sizes[3]:
             raise InputValueError(f"surface {patch.surface}: opposite edge counts differ")
-        corners = [curve_endpoints(model, e)[0 if e > 0 else 1] for e in patch.edges]
+        corners = [curve_endpoints(model, side[0])[0 if side[0] > 0 else 1] for side in sides]
         model.mesh.setTransfiniteSurface(patch.surface, cornerTags=corners)
     model.mesh.setRecombine(2, patch.surface)
 

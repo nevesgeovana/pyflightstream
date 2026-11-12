@@ -140,6 +140,7 @@ __all__ = [
     "adopt_surface_file",
     "assembly_regions",
     "blister_model",
+    "azimuth_count",
     "body",
     "check_body",
     "check_entry",

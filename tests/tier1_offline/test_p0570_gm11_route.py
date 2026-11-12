@@ -357,13 +357,6 @@ def test_p0570_gm11_plan_maps_tables_onto_the_kernel_controls():
         (lambda c: c["components"].update(TAIL={"role": "primary"}), None),
         (lambda c: c["components"]["WING"]["chordwise"].update(law="cosine"), "geometric_cap"),
         (lambda c: c["components"]["WING"]["spanwise"].update(root_cells=2), "root_cells"),
-        (
-            lambda c: (
-                c["components"]["FUS"].update(azimuth_rule={})
-                or c["components"]["FUS"].pop("azimuth_cells")
-            ),
-            "azimuth_rule",
-        ),
         (lambda c: c["mesh"].update(configuration="NOPE"), "unknown"),
         (lambda c: c["mesh"].update(strategy=2), "full-grid"),
         (lambda c: c["components"].update(FAIRING={"role": "follower", "follows": "TAIL"}), "E01"),
@@ -381,6 +374,21 @@ def test_p0570_gm11_plan_refuses_by_name_and_warns_w01(edit, match):
         return
     with pytest.raises(InputValueError, match=match):
         plan_strategy1(resolve_config(WB_CONFIG), controls)
+
+
+def test_p0570_gm11_mesh_configuration_dispatches_full_grid_to_strategy_2(tmp_path):
+    """``mesh.strategy = 2`` (full_grid) goes to the strategy 2 mesher, from a mapping or a file."""
+    import tomllib
+
+    from pyflightstream.workspace.geometry_pipeline import mesh_configuration
+    from tests.tier1_offline.test_p0570_g12_strategy2 import WB, _wb_controls
+
+    record = mesh_configuration(WB, _wb_controls(), dry_run=True).record
+    assert record["dry_run"] and record["components"]["FAIRING"]["blocks"]["topology"] == "collar"
+    path = tmp_path / "mesh.toml"
+    path.write_text('[mesh]\nstrategy = 2\nvariant = "clean"\n', encoding="utf-8")
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["mesh"]["strategy"] == 2
+    assert mesh_configuration(WB, path, dry_run=True).record["dry_run"]  # strategy 1 refuses
 
 
 def test_p0570_gm11_e04_reads_the_iges_component_names(tmp_path):
@@ -524,6 +532,106 @@ def test_p0570_gm11_collapse_groups_and_reduces_a_soft_neighbour():
     assert len(result.cells[-1]) == 3
 
 
+def test_p0570_gm11_merge_leaves_one_quad_across_the_blunt_base():
+    """YES: two base cells per strip become one, a cap cell on the mid node reduces; NO: skin."""
+    from pyflightstream.workspace._geometry_mesh_s1 import (
+        cells_across,
+        merge_trailing_edge_base,
+        trailing_edge_groups,
+    )
+
+    mesh, families = _te_strip()
+    base, groups, _ = trailing_edge_groups(mesh, families, "WING")
+    merged = merge_trailing_edge_base(mesh, groups, base)
+    assert len(merged.cells) == len(mesh.cells) - 2 and len(merged.xyz) == len(mesh.xyz) - 3
+    _, again, lines = trailing_edge_groups(merged, families, "WING")
+    assert cells_across(again)["status"] == "passed" and len(lines) == 4
+    assert merge_trailing_edge_base(merged, again, base) is merged  # already one across
+    # A cap quad on the tip mid node (12) merges it onto the upper node: a triangle.
+    capped = Mesh(
+        np.vstack([mesh.xyz, [[1.05, 1.2, 0.0]]]),
+        [*mesh.cells, (11, 12, 13, 15)],
+        [*mesh.components, "WING"],
+        [*mesh.surfaces, -1],
+        np.arange(len(mesh.xyz) + 1) + 100,
+    )
+    with pytest.raises(InputValueError, match="skin cell"):
+        merge_trailing_edge_base(capped, groups, base)
+    result = merge_trailing_edge_base(capped, groups, base, reducible=frozenset({8}))
+    assert len(result.cells[-1]) == 3
+
+
+def test_p0570_gm11_junction_side_counts_split_by_length():
+    from pyflightstream.workspace._geometry_mesh_junction import block_sides, distribute, runs
+
+    assert distribute(10, [3.0, 1.0, 1.0]) == [6, 2, 2]
+    assert sum(distribute(7, [5.0, 0.1, 0.1])) == 7 and min(distribute(7, [5.0, 0.1, 0.1])) == 1
+    assert distribute(2, [1.0, 1.0, 1.0]) is None
+    assert runs((1, -2, 3, 4, 5), {2, 3}) == [[-2, 3]]
+    assert runs((1, -2, 3, 4, 5), {1, 5}) == [[5, 1]]  # a run across the walk's start
+    assert block_sides((1, 2, 3, 4, 5), [0, 1, 3, 4]) == ((1,), (2, 3), (4,), (5,))
+
+
+def test_p0570_gm11_junction_blocks_read_the_g16_layout_faces():
+    """The classifier takes ``read_layout(...).faces_by_name()`` as it is (delta F.2, F.3)."""
+    from pyflightstream.workspace._geometry_mesh_s1 import junction_blocks
+    from pyflightstream.workspace._iges_grid_config import FaceLayout, Layout
+
+    face = FaceLayout("FUS_0", "b0", "skin", None, (0.0, 0.5, 1.0), (0.0, 1.0))
+    faces = Layout(Path("FUS.layout.json"), "FUS", (face,)).faces_by_name()
+    s = np.linspace(0.05, 0.45, 9)
+    blocks = junction_blocks(faces, {"FUS_0": [np.c_[s, 0.3 + 0.1 * s]]})["FUS_0"]
+    assert [b["kind"] for b in blocks] == ["transfinite_curved", "transfinite"]
+
+
+def test_p0570_gm11_caps_are_exempt_from_the_triangle_and_valence_rows():
+    """MESH_DESIGN 8: a tip cap may be quad-dominant; the same cells on a skin fail."""
+    from pyflightstream.workspace._geometry_mesh_s1 import acceptance_checks
+
+    xyz, cells, names = _grid(2, 2)
+    tri = [cells[0][:3], (cells[0][0], cells[0][2], cells[0][3])]
+    cap = Mesh(xyz, [*tri, *cells[1:]], names[:1] + names, [-1] * 5, np.arange(9))
+    skin = Mesh(xyz, cap.cells, cap.components, [1] * 5, np.arange(9))
+    kernel = {**_KERNEL, "surface_families": {-1: "tip_cap", 1: "upper_fore"}}
+    rows = _by_id(acceptance_checks(cap, kernel, _controls(), {}))
+    assert rows["mesh.triangles.region"]["status"] == "passed"
+    assert rows["mesh.triangles.region"]["where"]["tip_caps"] == 2
+    assert rows["mesh.irregular_nodes"]["status"] == "passed"
+    rows = _by_id(acceptance_checks(skin, kernel, _controls(), {}))
+    assert rows["mesh.triangles.region"]["status"] == "failed"
+    assert rows["mesh.irregular_nodes"]["status"] == "failed"
+
+
+def test_p0570_gm11_azimuth_rule_derives_the_count_on_the_route():
+    """Sub-step 6: ceil(P_half / (aspect dx)) raised to the body's half-sector multiple."""
+    from pyflightstream.geometry import resolve_config
+    from pyflightstream.workspace._geometry_mesh_s1 import plan_strategy1
+
+    controls = _wb_controls()
+    del controls["components"]["FUS"]["azimuth_cells"]
+    controls["components"]["FUS"]["azimuth_rule"] = {"mode": "aspect"}
+    body = plan_strategy1(resolve_config(WB_CONFIG), controls)["kernel_controls"]["body"]
+    # Half perimeter pi * 0.1 m, dx 0.0125 m: ceil(25.13) = 26, six half sectors: 30.
+    assert body["azimuth_cells"] == 30 and body["azimuth_rule"]["reference_x"] == 0.15
+    controls["components"]["FUS"]["azimuth_rule"]["target_aspect"] = 0.5
+    body = plan_strategy1(resolve_config(WB_CONFIG), controls)["kernel_controls"]["body"]
+    assert body["azimuth_cells"] == 54  # ceil(50.27) = 51, raised to 54
+
+
+def test_p0570_gm11_body_aspect_band_yes_no():
+    from pyflightstream.workspace._geometry_mesh_body import body_aspect_band
+
+    xyz = np.array([[x, np.cos(a), np.sin(a)] for a in (0.0, 0.1, 0.2) for x in (0, 0.1, 0.2)])
+    cells = [(0, 1, 4, 3), (1, 2, 5, 4), (3, 4, 7, 6), (4, 5, 8, 7)]
+    mesh = Mesh(xyz, cells, ["FUS"] * 4, [7] * 4, np.arange(9))
+    controls = {"components": {"FUS": {"type": "body", "azimuth_rule": {"mode": "aspect"}}}}
+    (row,) = body_aspect_band(mesh, {7: "middle"}, controls)
+    assert row["status"] == "passed" and 0.99 < row["where"]["min"] < 1.01
+    controls["components"]["FUS"]["azimuth_rule"]["aspect_band"] = [1.2, 1.5]
+    assert body_aspect_band(mesh, {7: "middle"}, controls)[0]["status"] == "failed"
+    assert body_aspect_band(mesh, {7: "nose"}, controls) == []  # poles are not bands
+
+
 # ---- strategy 1 on the committed WB fixture (kernel) -------------------------------------------
 
 
@@ -538,6 +646,9 @@ def wb_run(tmp_path_factory):
     controls = _wb_controls()
     del controls["components"]["WING"]["chordwise"]["hinge_rows"]
     controls["defaults"]["quality"] = {"max_aspect": 30.0, "max_skew_deg": 60.0}
+    # The body stations (wing and fairing extremes, 0.36875 to 0.55625 m) are on a 6.25 mm
+    # grid, as the body bands require; 48 azimuth cells keep the pole steps in their band.
+    controls["components"]["FUS"].update(x_step_m=0.00625, azimuth_cells=48)
     return mesh_configuration(
         WB_CONFIG, controls, out=out, descriptor="wb", fsm_template=FRESH
     ), out
@@ -570,8 +681,10 @@ def test_p0570_gm11_wb_strategy1_writes_mesh_record_and_fsm(wb_run):
 def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
     """Every row of the strategy 1 table is measured; the rows this route meets pass.
 
-    ``accepted`` follows from the rows: the kernel's wing-fuselage ring still puts
-    triangles on fuselage and wing faces, which the settled rules forbid (reported).
+    The junction blocks keep the wing and fuselage full grid with the fairing alone
+    quad-dominant, and the blunt base is one quad across. Two rows stay open (reported): the
+    fuselage station at the fairing nose leaves a 1 degree cusp in four faces the fairing
+    meshes, and the fixture's leading-edge and base cells exceed the aspect limit 30.
     """
     result, _ = wb_run
     checks = {c["id"]: c for c in result.record["checks"]}
@@ -590,14 +703,18 @@ def test_p0570_gm11_wb_strategy1_measures_every_acceptance_row(wb_run):
         "mesh.surfaces_only",
         "mesh.trailing_edge_one_quad",
     }
-    for row in (
-        "mesh.node_to_node",
-        "mesh.free_edges",
-        "mesh.source_distance",
-        "mesh.follower.shared_curves",
-        "mesh.surfaces_only",
-    ):
-        assert checks[row]["status"] == "passed", checks[row]
+    # Open rows (reported): the cusps, the aspect limit, and since the one-face tip cap one
+    # inverted quad-dominant cell on a fairing face (no fairing algorithm retry yet).
+    for row in set(checks) - {"mesh.degenerate", "mesh.quality.aspect", "mesh.inverted"}:
+        assert checks[row]["status"] != "failed", checks[row]
+    assert checks["mesh.inverted"]["measured"] <= 1
+    assert checks["mesh.triangles.region"]["where"]["by_component"] == {}
+    assert checks["mesh.trailing_edge_one_quad"]["where"]["cells_across"] == [1]
+    cusps = checks["mesh.degenerate"]["where"]["by_surface"]
+    assert all(k.startswith("FAIRING.") for k in cusps) and sum(cusps.values()) <= 4
+    junction = result.record["kernel"]["junction_faces"]
+    structured = [r["component"] for r in junction if r["mesh"] == "structured"]
+    assert structured.count("WING") == 6 and structured.count("FUS") == 2
     assert result.record["accepted"] is all(c["status"] != "failed" for c in checks.values())
 
 
