@@ -36,3 +36,7 @@ records retain their inputs per position in the run log.
 
 Selecting the body-cut sub-step alone no longer builds unrequested earlier
 control geometry.
+
+Body and engine cut records retain selected positions and native junction
+integrals. The existing exact length comparison can reject native roundoff;
+numerical acceptance of those cuts remains unresolved.

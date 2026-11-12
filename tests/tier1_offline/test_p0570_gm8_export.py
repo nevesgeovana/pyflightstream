@@ -235,8 +235,12 @@ def test_p0570_selected_host_cut_does_not_run_unrequested_control_stages(tmp_pat
     )
 
 
-@pytest.mark.parametrize("stage", ["F5"], ids=["P0570-body-cut"])
-def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage):
+@pytest.mark.parametrize(
+    "stage,bay_width",
+    [("F5", None), ("F6", 110), ("F6", 100)],
+    ids=["P0570-body-cut", "P0570-engine-cut", "P0570-engine-loop-gap"],
+)
+def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage, bay_width):
     from pyflightstream.geometry.stages import stage_row
     from pyflightstream.workspace import _geom_run
 
@@ -248,7 +252,7 @@ def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage)
     raw["components"]["host"] = {"type": "body", "length_mm": 2000, "symmetry": "full"}
     raw["dominance"] = [{"dominant": ["host"], "dominated": ["panel"], "operation": "cut"}]
     if stage == "F6":
-        panel["engine"] = [{"name": "pod", "eta_axis": 0.8, "half_width_mm": 100}]
+        panel["engine"] = [{"name": "pod", "eta_axis": 0.8, "half_width_mm": bay_width}]
         raw["components"]["pod"] = {
             "type": "body",
             "length_mm": 2000,
@@ -262,6 +266,15 @@ def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage)
     report = _geom_run.run_geometry(
         raw, variant="deployed", out=tmp_path, until=f"S10.{stage}", stages=selected
     )
+    if bay_width == 100:
+        assert (report["status"], report["stage"], report["check"]) == (
+            "failed",
+            "S10.F6",
+            "junction.loop_closure",
+        )
+        assert report["measured"] > report["limit"] == 5e-6
+        assert not (tmp_path / "F6-boundary" / "applied").exists()
+        return
     assert report["status"] == "accepted", report
     record = json.loads((tmp_path / f"S10.{stage}.json").read_text(encoding="utf-8"))
     assert record["checks"] and all(c["status"] == "passed" for c in record["checks"]), record

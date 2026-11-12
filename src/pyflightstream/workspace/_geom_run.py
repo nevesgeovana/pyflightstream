@@ -554,7 +554,7 @@ def _control_step(stage: str) -> StageFn:
     def run(context: RunContext) -> StageOutcome:
         row = next(r for r in STAGE_ROWS if r.stage == stage)
         short = stage.split(".")[-1]
-        if short == "F5" and short not in context.state.get("control_inputs", {}):
+        if short in ("F5", "F6") and short not in context.state.get("control_inputs", {}):
             return _trimmed_control_step(context, short, row)
         if "control_inputs" not in context.state:
             components = unpack(context.resolved)["components"]
@@ -574,17 +574,14 @@ def _control_step(stage: str) -> StageFn:
                 else {}
             )
         inputs = context.state.get("control_inputs", {}).get(short)
-        if inputs is None and short == "F5":
-            return _trimmed_control_step(context, short, row)
         if inputs is None:
-            waiting = bool(context.state.get("control_inputs")) and bool(_plan(context)[0])
-            reason = (
-                "waits for the trimmed assembly of G8"
-                if short in ("F5", "F6") and waiting
-                else "no control geometry supplied for this sub-step"
-            )
             return StageOutcome(
-                checks=[check_entry(cid, "skipped", note=reason) for cid, _ in row.checks]
+                checks=[
+                    check_entry(
+                        cid, "skipped", note="no control geometry supplied for this sub-step"
+                    )
+                    for cid, _ in row.checks
+                ]
             )
         arguments = {"stage": short, "inputs": inputs}
         result = (
@@ -597,11 +594,11 @@ def _control_step(stage: str) -> StageFn:
     return run
 
 
-def trimmed_control_assembly(config, members, variant, out, stage):
+def trimmed_control_assembly(config, members, variant, out, stage, *, selection=None):
     """Measure an applied host-cut boundary using the existing trimmed assembly."""
     from pyflightstream.workspace._geom_control_assembly import trimmed_control_assembly as build
 
-    return build(config, members, variant, out, stage)
+    return build(config, members, variant, out, stage, selection=selection)
 
 
 def _trimmed_control_step(context, short, row):
@@ -612,12 +609,46 @@ def _trimmed_control_step(context, short, row):
                 for cid, _ in row.checks
             ]
         )
+    from pyflightstream.workspace._geom_variant import control_selections
+
+    selections = control_selections(context.resolved, context.members, context.variant)
+    results = []
+    for index, selection in enumerate(selections):
+        result = _trimmed_position(context, short, selection, index)
+        if result:
+            results.append(result)
+        if result and any(c["status"] == "failed" for c in result["checks"]):
+            return StageOutcome(**result)
+    if len(results) == 1:
+        return StageOutcome(**results[0])
+    if results:
+        return StageOutcome(
+            checks=[
+                {**c, "where": {**c["where"], "position": i}}
+                for i, r in enumerate(results)
+                for c in r["checks"]
+            ],
+            outputs={
+                "positions": [r["outputs"] for r in results],
+                "inputs": {"selections": selections},
+            },
+        )
+    return StageOutcome(
+        checks=[check_entry(cid, "skipped", note="no host cut applies") for cid, _ in row.checks]
+    )
+
+
+def _trimmed_position(context, short, selection, index):
+    folder = context.out / f"{short}-boundary"
+    if index:
+        folder = folder / f"position-{index}"
     arguments = {
         "config": context.resolved,
         "members": context.members,
         "variant": context.variant,
-        "out": str(context.out / f"{short}-boundary" / "record.json"),
+        "out": str(folder / "record.json"),
         "stage": short,
+        "selection": selection,
     }
     result = (
         trimmed_control_assembly(**arguments)
@@ -626,11 +657,7 @@ def _trimmed_control_step(context, short, row):
             f"{__name__}:trimmed_control_assembly", arguments, trimmed_control_assembly
         )
     )
-    if result:
-        return StageOutcome(**result)
-    return StageOutcome(
-        checks=[check_entry(cid, "skipped", note="no host cut applies") for cid, _ in row.checks]
-    )
+    return result
 
 
 def _control_group_record(resolved: dict, members: list, variant: str, out: str) -> dict:

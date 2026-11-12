@@ -7,6 +7,7 @@ introduced at F6; other selected dominance rows form the F5 boundary.
 
 from __future__ import annotations
 
+from math import fsum
 from pathlib import Path
 
 from pyflightstream._digest import file_sha256
@@ -30,8 +31,8 @@ def _boundary(kernel, pieces, rows, components, folder):
         if any(c["status"] == "failed" for c in record["checks"]):
             break
     lengths = {
-        f"{op.dominant}/{op.dominated}": sum(
-            assembly._length(e) for e in assembly._junction(op.dominant, op.dominated)
+        f"{op.dominant}/{op.dominated}": fsum(
+            kernel.edge_length(e) for e in assembly._junction(op.dominant, op.dominated)
         )
         for op in assembly.plan
     }
@@ -74,7 +75,7 @@ def _boundaries(kernel, clean, applied, selected, *, before_rows, components, fo
     return states, None
 
 
-def trimmed_control_assembly(config, members, variant, out, stage):
+def trimmed_control_assembly(config, members, variant, out, stage, *, selection=None):
     """Return the measured F5 or F6 boundary and its clean junction reference.
 
     Parameters
@@ -89,6 +90,8 @@ def trimmed_control_assembly(config, members, variant, out, stage):
         Output record location; geometry is written beside it.
     stage : str
         F5 for body cuts, F6 for the additional engine cuts.
+    selection : dict, optional
+        One selected position label per active component.control.
 
     Returns
     -------
@@ -108,10 +111,10 @@ def trimmed_control_assembly(config, members, variant, out, stage):
     rows = [r for r in plain["dominance"] if set((*r["dominant"], *r["dominated"])) <= set(members)]
     body_rows = [r for r in rows if not engines.intersection((*r["dominant"], *r["dominated"]))]
     selected = body_rows if stage == "F5" else rows
-    if not selected:
+    if not selected or (stage == "F6" and selected == body_rows):
         return {}
     clean = generate_pieces(config)
-    applied = generate_pieces(config, variant=variant)
+    applied = generate_pieces(config, variant=variant, selection=selection)
     clean, applied = ({n: p[n] for n in members} for p in (clean, applied))
     folder = Path(out).parent
     kernel = open_kernel(f"measuring trimmed control {stage}")
@@ -127,6 +130,7 @@ def trimmed_control_assembly(config, members, variant, out, stage):
             folder=folder,
         )
         if stopped is not None:
+            stopped["outputs"]["inputs"]["control_selection"] = selection or {}
             return stopped
         before, reference, path = (states[n]["path"] for n in ("before", "clean", "applied"))
         expected, measured = (states[n]["lengths"] for n in ("clean", "applied"))
@@ -160,6 +164,8 @@ def trimmed_control_assembly(config, members, variant, out, stage):
             )
         )
         result["outputs"]["assembly_records"] = boundaries
+        result["outputs"]["length_method"] = "integral of native curve derivatives"
+        result["outputs"]["inputs"]["control_selection"] = selection or {}
         result["outputs"]["inputs"]["clean_geometry"] = {
             "path": str(reference),
             "sha256": file_sha256(reference),
