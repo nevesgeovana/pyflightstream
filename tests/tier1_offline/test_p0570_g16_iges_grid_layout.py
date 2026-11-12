@@ -226,6 +226,16 @@ def test_p0570_g16_every_layout_block_of_a_generated_wing_is_transfinite(laid_ou
     assert not any("could not be meshed" in w for w in record["warnings"])
 
 
+def test_p0570_g16_a_stray_curve_of_the_import_does_not_inflate_the_join_tolerance(laid_out):
+    """The join tolerance is a share of the faces' diagonal, not of the whole model's.
+
+    The one-face tip cap has a collapsed leading-edge end; gmsh imports it as a free curve at
+    y = 2000 for a wing 2 m long. Taken from the whole model, the tolerance became 2 mm, the two
+    halves of the 4 mm blunt base were joined into one face and no layout block stayed four-sided.
+    """
+    assert laid_out[1]["tolerance"] < 1e-4
+
+
 def test_p0570_g16_the_layout_beats_the_geometric_search_on_four_sided_blocks(laid_out, foreign):
     assert laid_out[1]["transfinite_patches"]["panel"] > foreign[1]["transfinite_patches"]["panel"]
 

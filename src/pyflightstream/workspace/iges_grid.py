@@ -503,8 +503,13 @@ def _grid(
         roles = cut_layout(gmsh, model, assigned, laid)
         model.notes.extend(notes)
         order = _order(config, found, known)
-        box = gmsh.model.getBoundingBox(-1, -1)
-        diagonal = math.dist(box[:3], box[3:])
+        # The faces' own extent, not the model's: a degenerate edge of an imported face can leave a
+        # free curve far outside the part (y = 2000 for a 2 m wing), and every tolerance below
+        # is a share of the diagonal.
+        boxes = [gmsh.model.getBoundingBox(2, tag) for tag in model.faces]
+        low = [min(b[k] for b in boxes) for k in range(3)]
+        high = [max(b[k + 3] for b in boxes) for k in range(3)]
+        diagonal = math.dist(low, high)
         default = config.size or _DEFAULT_SIZE_SHARE * diagonal
         sizes = {}
         for name in order:
