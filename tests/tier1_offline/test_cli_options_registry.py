@@ -1124,6 +1124,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "mirror",
             "move",
             "profile",
+            "prop-slice",
             "refine",
             "subtract",
             "time-mean",

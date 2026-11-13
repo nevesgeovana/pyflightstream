@@ -107,14 +107,16 @@ are `blade_dir`, `thrust_dir`, `rotation_dir_at_blade`, and
 that rebuilds it:
 
 ```console
-pyfs-workspace geometry prop-slice --geometry rotor.igs --blades 3 --out sliced
-pyfs-workspace geometry prop-slice --geometry rotor.obj --blades 5 --stations 0.25 0.4 0.55 0.7 0.85 1.0 --out sliced
+pyfs-workspace geometry prop-slice --geometry rotor.igs --blades 3 --out sliced_igs
+pyfs-workspace geometry prop-slice --geometry rotor.obj --blades 5 --stations 0.25 0.4 0.55 0.7 0.85 1.0 --out sliced_obj
 ```
 
 The folder holds `propeller.toml` (schema 1, read by `Propeller.from_toml`),
 one normalized profile per station in `sections/sNN.dat` (leading edge at
 0, trailing-edge midpoint at 1, upper surface from the trailing edge to the
 leading edge, then the lower), `table.csv` and the record `prop-slice.json`.
+A folder that already holds any of these is refused and nothing is written;
+`--overwrite` (`overwrite=True`) replaces them.
 The table gives, over r/R, `c_R`, `beta_deg`, `t_c`, `camber` (the largest
 mean-line ordinate in chords), `te_gap_c`, `skew_deg` and `rake_x_R`. From
 Python, `pyflightstream.workspace.prop_slice.slice_propeller` does the same

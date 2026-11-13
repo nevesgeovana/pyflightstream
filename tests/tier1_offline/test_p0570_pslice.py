@@ -306,3 +306,26 @@ def test_p0570_pslice_refusals_name_the_problem(tmp_path, case, match):
     with pytest.raises(PyflightstreamError, match=match):
         slice_propeller(source, blades=blades, out=tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("held", ["propeller.toml", "table.csv", "prop-slice.json", "sections"])
+def test_p0570_pslice_existing_outputs_need_overwrite(tmp_path, held):
+    """API-002: an out folder holding any output is refused untouched; overwrite replaces it."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.prop_slice import slice_propeller
+
+    obj = write_rotor_obj(tmp_path / "rotor.obj", design(), nu=41, nv=31)
+    out = tmp_path / "out"
+    out.mkdir()
+    if held == "sections":
+        (out / held).mkdir()
+        (out / held / "s99.dat").write_text("stale\n", encoding="ascii")
+    else:
+        (out / held).write_text("kept\n", encoding="ascii")
+    with pytest.raises(InputArtifactError, match=f"already holds {held}.*--overwrite"):
+        slice_propeller(obj, blades=3, out=out, stations=R_R)
+    assert sorted(p.name for p in out.iterdir()) == [held]
+    record = slice_propeller(obj, blades=3, out=out, stations=R_R, overwrite=True)
+    assert record["measured"]["blades_found"] == 3
+    assert not (out / "sections" / "s99.dat").exists()
+    assert (out / "table.csv").read_text(encoding="utf-8").startswith("r_R")

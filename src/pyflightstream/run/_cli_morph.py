@@ -373,6 +373,11 @@ def add_prop_slice_parser(subparsers: Any) -> None:
         "--unit", default="mm", choices=("mm", "cm", "m", "in"), help="OBJ length unit (mm)"
     )
     parser.add_argument("--out", required=True, help="the folder to write")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace the outputs --out already holds (refused without it)",
+    )
     parser.set_defaults(mesh_command=run_prop_slice)
 
 
@@ -390,6 +395,7 @@ def run_prop_slice(args: argparse.Namespace) -> int:
             blade_dir=args.blade_dir,
             stations=args.stations,
             unit=args.unit,
+            overwrite=args.overwrite,
         )
     )
 

@@ -508,7 +508,8 @@ must match `--blades`; a hub and a spinner are excluded. Python:
 `pyflightstream.workspace.prop_slice.slice_propeller`. A round trip on a
 three-blade propeller recovers chord and thickness within 0.5 percent of the
 tip chord, beta within 0.1 deg, and skew and rake within 0.5 percent of the
-radius from an OBJ, five times closer from an IGES.
+radius from an OBJ, five times closer from an IGES. An `--out` folder that
+already holds any of its outputs is refused unless `--overwrite` is given.
 
 ### Changed
 

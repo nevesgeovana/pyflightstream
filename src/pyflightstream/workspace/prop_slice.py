@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,8 @@ TABLE_COLUMNS = (
     "rake_x_R",
     "airfoil",
 )
+#: The outputs ``out`` receives; any of them already there is refused without overwrite.
+_OUTPUTS = ("propeller.toml", "table.csv", "prop-slice.json", "sections")
 _PURPOSE = "slicing a propeller IGES"
 #: Element size of the IGES triangulation, as a fraction of the model's diagonal.
 _MESH_FRACTION = 0.003
@@ -208,6 +211,7 @@ def slice_propeller(
     blade_dir: Sequence[float] | None = None,
     stations: Sequence[float] | None = None,
     unit: str = "mm",
+    overwrite: bool = False,
 ) -> dict[str, Any]:
     """Cut one blade of a propeller at radial stations and write its G17 parametrization.
 
@@ -233,6 +237,9 @@ def slice_propeller(
     unit : str, optional
         The length unit of an OBJ: ``mm`` (default), ``cm``, ``m`` or ``in``. An IGES states
         its own unit.
+    overwrite : bool, default False
+        Replace ``propeller.toml``, ``table.csv``, ``prop-slice.json`` and ``sections/``
+        when ``out`` already holds any of them; without it they are refused.
 
     Returns
     -------
@@ -243,7 +250,8 @@ def slice_propeller(
     Raises
     ------
     InputArtifactError
-        The file is missing, its suffix is not .obj, .igs or .iges, or no blade is found.
+        The file is missing, its suffix is not .obj, .igs or .iges, no blade is found, or
+        ``out`` already holds an output and ``overwrite`` is not given.
     InputValueError
         The blade count is not a positive integer or does not match the blades found, or a
         station or a direction is invalid.
@@ -260,6 +268,13 @@ def slice_propeller(
         raise InputValueError(f"blades: expected a positive integer, got {blades!r}")
     if unit not in OBJ_UNITS:
         raise InputValueError(f"unit: expected one of {sorted(OBJ_UNITS)}, got {unit!r}")
+    folder = Path(out)
+    present = [name for name in _OUTPUTS if (folder / name).exists()]
+    if present and not overwrite:
+        raise _refuse(
+            f"{folder}: already holds {', '.join(present)}; name another out (CLI: --out) "
+            "folder or pass overwrite (CLI: --overwrite) to replace them"
+        )
     arguments = {
         "axis": _vector(axis, (-1.0, 0.0, 0.0), "axis"),
         "origin": _vector(origin, (0.0, 0.0, 0.0), "origin"),
@@ -278,11 +293,13 @@ def slice_propeller(
             {"path": str(source), "blades": blades, **arguments},
             _iges_slice,
         )
-    return _write(source, Path(out), frame, result, {"blades": blades, "unit": unit, **arguments})
+    return _write(source, folder, frame, result, {"blades": blades, "unit": unit, **arguments})
 
 
 def _write(source, folder, frame, result, inputs):
     sections = folder / "sections"
+    if sections.is_dir():
+        shutil.rmtree(sections)
     sections.mkdir(parents=True, exist_ok=True)
     names = []
     for i, row in enumerate(result["table"]):
