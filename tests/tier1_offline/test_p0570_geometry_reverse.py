@@ -479,7 +479,7 @@ def test_p0570_the_reverse_module_refuses_without_gmsh(monkeypatch):
     from pyflightstream.workspace.geometry_pipeline import identify_lifting_surface
 
     monkeypatch.setattr(builtins, "__import__", refuse)
-    with pytest.raises(MissingExtraError, match=r"gmsh>=4.15"):
+    with pytest.raises(MissingExtraError, match=r"gmsh>=4\.15\.1"):
         identify_lifting_surface(Path("x.igs"), "WING")
 
 

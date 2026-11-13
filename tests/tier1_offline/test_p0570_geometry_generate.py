@@ -270,9 +270,9 @@ def test_p0570_the_generate_and_check_modules_refuse_without_gmsh(monkeypatch, t
         return real(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", no_gmsh)
-    with pytest.raises(MissingExtraError, match=r"gmsh>=4.15"):
+    with pytest.raises(MissingExtraError, match=r"gmsh>=4\.15\.1"):
         _geometry_generate.generate_iges(WB, tmp_path / "x.igs")
-    with pytest.raises(MissingExtraError, match=r"gmsh>=4.15"):
+    with pytest.raises(MissingExtraError, match=r"gmsh>=4\.15\.1"):
         _geometry_check.check_against_original([1], [2], {"chord_m": 1.0})
     assert not (tmp_path / "x.igs").exists()
 
