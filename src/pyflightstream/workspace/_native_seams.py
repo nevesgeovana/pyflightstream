@@ -14,6 +14,7 @@ unexplained, so a zero-area face inside a source face still fails.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +103,7 @@ class _SourceEdges:
 
     def _named(self, faces: Any) -> list[str]:
         names = self.topology.names
-        return sorted({names[f] or f"face {f}" for f in faces})
+        return sorted({f"{names[f] or 'unnamed'} [face {f}]" for f in faces})
 
     def lying_on(self, points: np.ndarray) -> list[str] | None:
         """Name the source faces when the segments follow one source edge, else None."""
@@ -164,6 +165,8 @@ def _explain(obj: str, iges: str) -> dict[str, Any]:
     many = [edge for edge, owners in edge_faces(faces).items() if len(owners) > 2]
     source = _SourceEdges(iges, EDGE_FRACTION * mesh.size)
     sources: dict[str, int] = {}
+    explained_faces: list[dict[str, Any]] = []
+    identities = [(name, i) for name, group in mesh.families.items() for i in range(len(group))]
     loose: list[list[float]] = []
     for row in np.nonzero(zero)[0]:
         corners = mesh.verts[faces[row]]
@@ -171,6 +174,8 @@ def _explain(obj: str, iges: str) -> dict[str, Any]:
         if named is None:
             loose.append([round(float(x), 6) for x in corners.mean(axis=0)])
         else:
+            name, index = identities[int(row)]
+            explained_faces.append({"family": name, "face": index, "source_faces": named})
             key = " / ".join(named)
             sources[key] = sources.get(key, 0) + 1
     explained_many = sum(source.lying_on(mesh.verts[list(edge)]) is not None for edge in many)
@@ -184,6 +189,7 @@ def _explain(obj: str, iges: str) -> dict[str, Any]:
         "unexplained": left,
         "duplicate_faces": duplicates,
         "sources": sources,
+        "explained_faces": explained_faces,
         "off_edge_centroids": loose[:8],
         "tolerance_m": source.tolerance,
     }
@@ -215,8 +221,10 @@ def native_verdict(audit: Any, obj: str | Path, iges: str | Path) -> tuple[bool,
             f"faces and {seams['nonmanifold']} edges of more than two faces",
         )
     named = ", ".join(f"{n} on the edges of {k}" for k, n in sorted(seams["sources"].items()))
+    face_list = json.dumps(seams["explained_faces"], sort_keys=True)
     note = (
         f"native G1: {seams['zero_area']} zero-area faces ({named}) and {seams['nonmanifold']} "
-        "edges of more than two faces lie on source edges: the solver's tessellation of the seams"
+        "edges of more than two faces lie on source edges: the solver's tessellation of the seams; "
+        f"excused faces (zero-based by family): {face_list}"
     )
     return True, [], note

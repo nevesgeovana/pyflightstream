@@ -109,3 +109,22 @@ def test_duplicate_face_is_refused_even_when_g1_passed(tmp_path):
         SimpleNamespace(passed=True, failures=[]), obj, "unused.igs"
     )
     assert not passed
+
+
+def test_each_excused_face_is_identified_in_the_build_note(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    iges, obj = tmp_path / "square.igs", tmp_path / "square.obj"
+    _square_iges(iges)
+    _mesh(obj, [(0.1, 0, 0), (0.2, 0, 0), (0.3, 0, 0)], [(17, 18, 19)])
+    module = importlib.import_module("pyflightstream.workspace._native_seams")
+    record = module.explain_g1(obj, iges)
+    assert record["explained_faces"][0]["family"] == "square"
+    assert record["explained_faces"][0]["face"] == 18
+    assert record["explained_faces"][0]["source_faces"]
+    monkeypatch.setattr(module, "explain_g1", lambda *args: record)
+    audit = SimpleNamespace(
+        passed=False, failures=[SimpleNamespace(name="G1", family="whole", values={})]
+    )
+    passed, _, note = module.native_verdict(audit, obj, iges)
+    assert passed and '"face": 18' in note and '"family": "square"' in note
