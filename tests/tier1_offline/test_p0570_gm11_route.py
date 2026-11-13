@@ -824,3 +824,19 @@ def test_p0570_gm11_junction_blocks_classify_untouched_curved_and_quad_dominant(
     blocks = junction_blocks(faces, {"FUS.p0": [footprint]})["FUS.p0"]
     assert [b["kind"] for b in blocks] == ["transfinite", "quad_dominant"]
     assert [b["kind"] for b in junction_blocks(faces, {})["FUS.p0"]] == ["transfinite"] * 2
+
+
+@pytest.mark.parametrize("strategy", [1, 2])
+@pytest.mark.parametrize("variant", ["cs", "csf"])
+def test_r27_generated_mesh_refuses_unimplemented_control_variants(strategy, variant):
+    from pyflightstream.workspace.geometry_pipeline import mesh_configuration
+
+    config = {"components": {"FUS": {"type": "body"}}}
+    controls = {
+        "mesh": {"strategy": strategy, "variant": variant},
+        "components": {"FUS": {"type": "body", "role": "primary"}},
+    }
+    with pytest.raises(InputValueError, match="mesh.variant.*clean"):
+        mesh_configuration(config, controls, dry_run=True)
+    controls["mesh"]["variant"] = "clean"
+    assert mesh_configuration(config, controls, dry_run=True).record["variant"] == "clean"

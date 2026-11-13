@@ -195,6 +195,8 @@ def plan_strategy2(resolved: Mapping, source: Any, *, base: Path | None = None) 
         raise InputValueError("mesh.strategy: the full_grid route meshes strategy 2 controls")
     members = _members(resolved, mesh)
     controls = mesh_controls(raw, members=set(members), names=_names(raw, members, base))
+    if controls["mesh"]["variant"] != "clean":
+        raise InputValueError("mesh.variant: the generated mesh route supports only clean")
     components = unpack(resolved)["components"]
     junction = controls["defaults"].get("junction", {})
     max_growth = float(junction.get("max_growth", DEFAULT_MAX_GROWTH))

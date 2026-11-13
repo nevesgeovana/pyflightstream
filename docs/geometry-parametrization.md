@@ -276,3 +276,6 @@ SHA-256 and entry number), the construction method, the trailing-edge base and t
 deviation. `pyfs-geom schema` prints its JSON Schema, and
 `pyfs-geom schema --validate RECORD --asset-root DIR` checks a record and re-reads every file it
 pins against its SHA-256 (exit 1 when a pin fails).
+
+Generated configuration mesh routes currently require `mesh.variant = "clean"`.
+They refuse `cs` and `csf` before meshing because these routes do not yet apply control-surface variants.
