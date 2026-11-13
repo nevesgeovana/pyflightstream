@@ -398,7 +398,7 @@ def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
     seen: dict = {}
 
     class Result:
-        record = {"members": ["FUS"]}
+        record = {"members": ["FUS"], "accepted": True}
         written: dict = {}
 
     def strategy_1(config, controls, *, out, descriptor, **_):
@@ -495,3 +495,37 @@ def test_a_matrix_whose_every_row_failed_is_refused_naming_each(tmp_path, librar
     ]
     with pytest.raises(MatrixError, match="7001.*warp.*7002.*drive"):
         _resolve(_matrix(tmp_path, rows), library)
+
+
+@pytest.mark.parametrize("route", ["quad_dominant", "full_grid"])
+def test_r27_rejected_mesh_never_gets_a_build_instruction(tmp_path, library, monkeypatch, route):
+    from functools import partial
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    def rejected(config, controls, *, out, descriptor):
+        obj = Path(out) / f"{descriptor}.obj"
+        obj.write_text("o FUS\n", encoding="utf-8")
+        return SimpleNamespace(
+            record={
+                "members": ["FUS"],
+                "accepted": False,
+                "checks": [{"id": "mesh.inverted", "status": "failed"}],
+            },
+            written={"obj": str(obj)},
+        )
+
+    writer = (
+        partial(row_module.mesh_with_strategy_1, mesh_configuration=rejected)
+        if route == "quad_dominant"
+        else partial(row_module.mesh_with_strategy_2, mesh_full_grid=rejected)
+    )
+    monkeypatch.setitem(row_module.MESH_STRATEGIES, route, writer)
+    geometries = library.inputs_dir / "geometries"
+    (geometries / "demo.mesh.toml").write_text("[mesh]\n", encoding="utf-8")
+    with pytest.raises(row_module.GeometryRowError, match="mesh.inverted"):
+        row_module.prepare_row_geometry(
+            _request(library, route=route), geometries, generate=_fake_generation([])
+        )
+    assert not list(geometries.glob("gen-*/*.geometry.toml"))

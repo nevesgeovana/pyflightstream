@@ -481,6 +481,13 @@ def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> 
 
     resolved = _resolve(request.source, request.overrides)
     result = mesher(resolved, controls, out=folder, descriptor=name)
+    if result.record.get("accepted") is not True:
+        failed = [c["id"] for c in result.record.get("checks", []) if c["status"] == "failed"]
+        error = GeometryRowError(
+            f"matrix row POL {request.pol}: mesh was not accepted; failed checks {failed}."
+        )
+        error.report_path = folder / f"{name}.mesh.json"
+        raise error
     members = list(result.record.get("members") or [name])
     written = Path(result.written.get("obj", folder / f"{name}.obj"))
     _write_instruction(folder, name, request, ("mesh", written.name, "METER"), members)
