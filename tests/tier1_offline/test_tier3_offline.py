@@ -218,11 +218,11 @@ def _plan(root, matrix):
 
 
 STEADY = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 | p002 "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | - | r001 | s001 | p002 "
     "| - | - | - | - | 26.120 | steady | "
 )
 ROTOR = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p099 "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | - | r004 | s002 | p099 "
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
     "ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
@@ -237,7 +237,7 @@ ROTOR = (
 #: that shape the row is the ONLY home the hand has, so `RPM_SIGN` beside `RPM`
 #: is correct there and refused here.
 ROTOR_BY_ALIAS = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | - | r004 | s002 | p001 "
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
     "BASE_REGIONS: Base / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
     "LAST_REVS_AVG: 1 / "
@@ -251,7 +251,7 @@ REFUSALS = {
     ),
     "a reference code the library does not hold": (
         "7002 | 0 | 1 | Wing | - | REFUSED "
-        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r999 | s001 "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | - | r999 | s001 "
         "| p002 | - | - | - | - | 26.120 "
         "| steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("r999", "references"),
@@ -266,14 +266,14 @@ REFUSALS = {
     ),
     "a LEGACY row with a bare recipe code and no mapping": (
         "7005 | 0 | 1 | Wing | - | REFUSED "
-        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | - | r001 | s001 "
         "| p002 | - | - | - | - | 26.120 "
         "| LEGACY | RECIPE: 003 / GEOMETRY: 10_WING.fsm / OUTPUTS: loads_{point}.txt",
         ("recipe mapping",),
     ),
     "a build the registry does not hold": (
         "7006 | 0 | 1 | Wing | - | REFUSED "
-        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | - | r001 | s001 "
         "| p002 | - | - | - | - | 27.000 "
         "| steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("27.000", "executables.toml"),
@@ -391,7 +391,7 @@ def _pproc(root, name, text):
 
 
 WING_ROW = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 | {pproc} "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | - | r001 | s001 | {pproc} "
     "| - | - | - | - | 26.120 | steady | "
 )
 

@@ -31,7 +31,7 @@ HEADER, RULE, *_ = REGISTRY_FIXTURE.read_text(encoding="utf-8").splitlines()
 def row(pol, run=1, desc="ROW"):
     return (
         f"{pol} | 0 | {run} | TestWing  | - | {desc:22} | TASmps:68.058, ALPHA:sweep "
-        "| -2.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY "
+        "| -2.0 | - | - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY "
         "| FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
     )
 

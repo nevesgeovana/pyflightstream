@@ -63,7 +63,7 @@ def _row(pol: int, workflow: str, geometry: str, reference: str, pproc: str) -> 
     setup = "s001" if workflow == "steady" else "s002"
     return (
         f"{pol} | 0 | 1 | Pusher | - | P0461 | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 "
-        f"| {geometry} | {reference} | {setup} | {pproc} | {_TAIL[workflow]}"
+        f"| {geometry} | - | {reference} | {setup} | {pproc} | {_TAIL[workflow]}"
     )
 
 
@@ -388,7 +388,7 @@ def _point_cases(tmp_path, rows, condition="MACH:0.1, REmi:2.3, ALPHA:sweep", pp
     )
     header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
     lines = [
-        f"{pol} | 0 | 1 | Pusher | - | P0500 | {condition} | 0.0 | {geometry} | {reference} "
+        f"{pol} | 0 | 1 | Pusher | - | P0500 | {condition} | 0.0 | {geometry} | - | {reference} "
         f"| s002 | p061 | NONE | - | - | - | 26.124 | {workflow} | {cell}"
         for pol, workflow, (geometry, reference), cell in rows
     ]
@@ -619,7 +619,8 @@ def _spinner_row(turn: float) -> str:
     """The owner's power-off row: elevator, ring and pusher turned, the spinner at J."""
     return (
         "7701 | 0 | 1 | Pusher | - | P2185 | MACH:0.157, ALTFT:3600, ALPHA:sweep, BETA:0 | 0.0 "
-        "| 92_SPINNER_ONLY.fsm | r912 | s002 | p912 | NONE | - | - | - | 26.124 | unsteady_rotor "
+        "| 92_SPINNER_ONLY.fsm | - | r912 | s002 | p912 | NONE | - | - | - | 26.124 "
+        "| unsteady_rotor "
         "| ROTATE: {ANGLE: -2.5 / AXIS: HINGE_ELEV-Y / ALIAS: elev_LH},"
         "{ANGLE: 0.0 / AXIS: ENGTILT_DN-Y / ALIAS: morph_push},"
         f"{{ANGLE: {turn} / AXIS: ENGTILT_DN-Y / ALIAS: PUSHER}} / DELTA_THETA: 10.0 / "
