@@ -1485,6 +1485,7 @@
     "_parallel",
     "_campaign_report",
     "_batch_exec",
+    "_native_rows",
     "_executors",
     "_runtime",
     "_ids",

@@ -10,6 +10,7 @@ meshers are replaced where a test is about the route, not the geometry.
 
 from __future__ import annotations
 
+import importlib
 import json
 import warnings
 from pathlib import Path
@@ -383,7 +384,13 @@ def test_native_writes_a_cad_instruction_over_the_generated_iges(tmp_path, libra
     )
     instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
     assert instruction.kind == "cad" and instruction.cad.file == "demo.igs"
-    assert instruction.fs_build == "26.120" and calls[0]["until"] == "S12"
+    assert instruction.fs_build == "26.120" and calls[0]["until"] == "S12.C"
+    # The importer names the one body it converts "Model 0"; the instruction renames it to the
+    # one word its boundaries state (record tests/tier3_licensed/data/g13-native-import.json).
+    assert instruction.boundaries == ("demo",)
+    assert [(o.op, o.surface, o.to) for o in instruction.operations] == [
+        ("rename", "Model 0", "demo")
+    ]
 
 
 def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
@@ -495,3 +502,87 @@ def test_a_matrix_whose_every_row_failed_is_refused_naming_each(tmp_path, librar
     ]
     with pytest.raises(MatrixError, match="7001.*warp.*7002.*drive"):
         _resolve(_matrix(tmp_path, rows), library)
+
+
+class _Item:
+    def __init__(self, passed, gates=()):
+        self.passed = passed
+        self.failed_gates = gates
+
+
+def _native_matrix(tmp_path, geometry="demo.geom.toml", route="native"):
+    return _matrix(tmp_path, [_cells(geometry=geometry, route=route)])
+
+
+def test_a_run_builds_the_native_geometry_that_is_missing_with_the_solver(tmp_path, library):
+    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+
+    asked: list = []
+
+    def solver(folder, build, fs_exe):
+        asked.append((folder.name, build))
+        return (_Item(True),)
+
+    calls: list = []
+    names = build_native_rows(
+        _native_matrix(tmp_path),
+        library,
+        default_build="26.120",
+        build=solver,
+        generate=_fake_generation(calls),
+    )
+    assert len(names) == 1 and names[0].startswith("gen-demo-")
+    assert asked == [(names[0], "26.120")]
+
+
+def test_a_native_geometry_already_built_is_not_built_again(tmp_path, library):
+    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+
+    calls: list = []
+    matrix = _native_matrix(tmp_path)
+    build_native_rows(
+        matrix,
+        library,
+        default_build="26.120",
+        build=lambda *a: (_Item(True),),
+        generate=_fake_generation(calls),
+    )
+    folder = next((library.inputs_dir / "geometries").glob("gen-demo-*"))
+    (folder / f"{folder.name}.fsm").write_bytes(b"fake simulation")
+
+    def solver(*_):
+        pytest.fail("a seat was spent on a geometry that is built")
+
+    assert (
+        build_native_rows(
+            matrix, library, default_build="26.120", build=solver, generate=_fake_generation(calls)
+        )
+        == []
+    )
+
+
+def test_a_native_build_that_fails_its_audit_warns_and_lists_nothing(tmp_path, library):
+    from pyflightstream.exceptions import PyflightstreamWarning
+
+    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+
+    calls: list = []
+    with pytest.warns(PyflightstreamWarning, match="G1 on"):
+        names = build_native_rows(
+            _native_matrix(tmp_path),
+            library,
+            default_build="26.120",
+            build=lambda *a: (_Item(False, ("G1 on (whole mesh)",)),),
+            generate=_fake_generation(calls),
+        )
+    assert names == []
+
+
+def test_a_row_that_is_not_native_is_not_built_by_the_solver(tmp_path, library):
+    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+
+    def solver(*_):
+        pytest.fail("a seat was spent")
+
+    matrix = _native_matrix(tmp_path, geometry="wing.fsm", route="NA")
+    assert build_native_rows(matrix, library, default_build="26.120", build=solver) == []

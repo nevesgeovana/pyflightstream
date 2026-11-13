@@ -67,6 +67,20 @@ def runner_for(args: argparse.Namespace, default: Callable[..., Any]) -> Callabl
     return functools.partial(grouped, mode=mode, batch=args.batch)
 
 
+def build_native_geometries(args: argparse.Namespace, workspace: CampaignWorkspace) -> list[str]:
+    """Build, with the solver, the native geometry the matrix of ``run`` still lacks (G13).
+
+    A run spends the licence a plan never does: every row of ``MESH_ROUTE`` ``native`` whose
+    ``.fsm`` is not built yet is built here, and the names built are returned. The module that
+    does it is imported only when a run asks, as the grouped modes are.
+    """
+    native = importlib.import_module("pyflightstream.run._native_rows")
+    names: list[str] = native.build_native_rows(
+        args.matrix, workspace, default_build=args.fs_version, fs_exe=args.fs_exe
+    )
+    return names
+
+
 def planner_for(args: argparse.Namespace, default: Callable[..., Any]) -> Callable[..., Any]:
     """Return the function ``plan`` calls to plan the matrix.
 
