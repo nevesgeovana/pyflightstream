@@ -293,13 +293,13 @@ def _solve(problem: _Problem) -> np.ndarray | None:
     low = np.r_[np.ones(n), np.zeros(n), np.full(m, 2.0)]  # a loop of four nodes is one quad
     high = np.r_[np.full(n, 1e5), np.full(n, 1e7), np.full(m, 1e5)]
     integer = np.r_[np.ones(n), np.zeros(n), np.ones(m)]
-    problem = {"constraints": constraints, "integrality": integer, "bounds": Bounds(low, high)}
-    result = milp(cost, **problem)
+    posed = {"constraints": constraints, "integrality": integer, "bounds": Bounds(low, high)}
+    result = milp(cost, **posed)
     if result.status == _MILP_INFEASIBLE:
         # The presolve of the HiGHS in scipy 1.15, the declared floor, calls the WB ring rows
         # infeasible; the same rows reach the same optimum with the presolve off (1.15 and 1.18)
         # and with it on (1.18). An infeasible verdict is taken only from the solve without it.
-        result = milp(cost, **problem, options={"presolve": False})
+        result = milp(cost, **posed, options={"presolve": False})
     return None if result.x is None else np.round(result.x[:n]).astype(int)
 
 
