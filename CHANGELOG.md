@@ -519,6 +519,8 @@ already holds any of its outputs is refused unless `--overwrite` is given.
 
 ### Fixed
 
+Solve the cell counts of the wing-body full grid at the scipy floor 1.15: its integer solver's presolve called the junction ring rows infeasible (E08), so an infeasible verdict is now taken only from a solve without the presolve, which reaches the same counts as scipy 1.18.
+
 Return an exception of the isolated geometry worker that is not a refusal of this package as its own type with the worker's traceback, instead of as an input refusal that dropped both; a failure the geometry kernel reports is still `InputArtifactError`, says the kernel failed and carries the traceback; `MissingExtraError` from the worker keeps its `extra`, `package` and `remedy`; a builtin warning of the worker stays `PyflightstreamWarning` and names its original category in the message.
 
 Publish the outputs of an isolated geometry conversion (`iges-convert`, `iges-grid`) only after the worker has answered: they are written to a staging folder and moved beside the requested output, the record last, so a worker that is killed, times out or refuses part way leaves no partial outputs behind.

@@ -88,6 +88,26 @@ def test_g12_e08_trips_on_a_planted_ring_that_cannot_hold():
         solve_counts(blocks, lengths, {}, totals=[([1, 6], 9)])
 
 
+def test_g12_a_presolve_that_calls_a_ring_infeasible_is_not_believed(monkeypatch):
+    """The HiGHS presolve of scipy 1.15 (the floor) called the WB ring rows infeasible."""
+    import scipy.optimize
+
+    solve, presolved = scipy.optimize.milp, []
+
+    def floor_presolve(cost, **kwargs):
+        if kwargs.get("options", {}).get("presolve", True):
+            presolved.append(True)
+            return scipy.optimize.OptimizeResult(x=None, status=2, success=False)
+        return solve(cost, **kwargs)
+
+    monkeypatch.setattr(scipy.optimize, "milp", floor_presolve)
+    blocks, lengths = _strip()
+    counts = solve_counts(blocks, lengths, dict.fromkeys(lengths, 0.25), totals=[([1, 6], 10)])
+    assert presolved and counts[1] + counts[6] == 10
+    with pytest.raises(InputValueError, match="E08"):
+        solve_counts(blocks, lengths, {}, totals=[([1, 6], 9)])
+
+
 # ---- sub-step 3: carry rows -------------------------------------------------------------------
 
 
