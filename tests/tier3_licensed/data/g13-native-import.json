@@ -105,5 +105,29 @@
       }
     },
     "acceptance": "one row of the generated wing, MESH_ROUTE native, FS_BUILD 26.127: run_matrix generated it, built its .fsm with the solver (audit passed with the native note), the geometry was accepted with `geometry accept`, and the steady point M0.1 alpha 0 ran to CONVERGED on build 26.127; one FlightStream process at a time, free RAM 2.9 to 3.5 GB before each launch."
+  },
+  "round3": {
+    "date": "2026-11-13",
+    "tree": "c9e489c8b (review R28 merged: exact CAD curve distance in the native seam rule)",
+    "route": "run_matrix, MESH_ROUTE native, FS_BUILD 26.127, hidden, one process of this lane at a time, free RAM 3.2 to 4.5 GB before each launch",
+    "wing": {
+      "zero_area": 43,
+      "explained": 43,
+      "on_source_curves": 41,
+      "largest_distance_m": 5.545e-05,
+      "collapsed_at_a_vertex": 2,
+      "tolerance_m": 0.000669,
+      "row_status": "CONVERGED"
+    },
+    "body_of_revolution": {
+      "zero_area": 498,
+      "explained": 498,
+      "nonmanifold_edges": 22,
+      "explained_edges": 22,
+      "on_source_curves": 498,
+      "largest_distance_m": 0.001194,
+      "tolerance_m": 0.002012,
+      "row_status": "CONVERGED"
+    }
   }
 }
