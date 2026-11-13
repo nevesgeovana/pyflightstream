@@ -10,7 +10,7 @@ the face order. The scaled OBJ is written under the input's own name into an out
 verb creates (``<stem>_scaled<factor>`` beside the input by default), with a JSON record beside
 it: the input digest, the factor, the centre, the vertex and face counts and the bounding boxes
 before and after. The input is never overwritten, and an output folder that already holds a file
-of that name is refused unless ``force`` is given.
+of that name is refused unless ``overwrite`` is given.
 """
 
 from __future__ import annotations
@@ -153,18 +153,18 @@ def _output_folder(source: Path, factor: float, out: str | Path | None) -> Path:
     return source.parent / f"{source.stem}_scaled{factor:g}"
 
 
-def _check_targets(source: Path, targets: list[Path], force: bool) -> None:
+def _check_targets(source: Path, targets: list[Path], overwrite: bool) -> None:
     for target in targets:
         if target.exists() and target.resolve() == source.resolve():
             raise InputValueError(
                 f"scale: the output {str(target)!r} is the input file itself and the input is "
                 "never overwritten. Give out (CLI: --out) a different folder; no file was written."
             )
-        if target.exists() and not force:
+        if target.exists() and not overwrite:
             raise InputValueError(
                 f"scale: {str(target)!r} already exists in the output folder. Remove it, give "
-                "another out (CLI: --out) folder or pass force (CLI: --force) to replace it; "
-                "no file was written."
+                "another out (CLI: --out) folder or pass overwrite (CLI: --overwrite) to "
+                "replace it; no file was written."
             )
 
 
@@ -174,7 +174,7 @@ def scale_mesh(
     *,
     out: str | Path | None = None,
     about: str | tuple[float, float, float] | None = None,
-    force: bool = False,
+    overwrite: bool = False,
 ) -> dict[str, Any]:
     """Scale every vertex of an OBJ or .fsm by ``factor`` about a point into a new folder.
 
@@ -194,7 +194,7 @@ def scale_mesh(
         beside the input.
     about : str or tuple of float, optional
         The scale centre ``x,y,z``; default the origin.
-    force : bool, default False
+    overwrite : bool, default False
         Replace a same-name file already in the output folder instead of refusing.
 
     Returns
@@ -207,7 +207,7 @@ def scale_mesh(
     ------
     InputValueError
         The factor or centre is unusable, the OBJ holds no usable vertex, or the output would
-        overwrite a file without ``force``; nothing is written.
+        overwrite a file without ``overwrite``; nothing is written.
     InputArtifactError
         The mesh file does not exist.
     """
@@ -221,7 +221,7 @@ def scale_mesh(
         )
     folder = _output_folder(source, value, out)
     target, record_path = folder / source.name, folder / f"{source.name}.scale.json"
-    _check_targets(source, [target, record_path], force)
+    _check_targets(source, [target, record_path], overwrite)
     data = source.read_bytes()
     if source.suffix.lower() == ".fsm":
         scaled, facts = _rewrite_fsm(source, data, value, centre)

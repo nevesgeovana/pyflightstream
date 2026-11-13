@@ -257,7 +257,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "mesh"): SUBJECT,
     ("pyfs-workspace", "morphing"): SUBJECT,  # Control input for this geometry operation.
     ("pyfs-workspace", "about"): SUBJECT,  # The scale centre of `geometry scale`.
-    ("pyfs-workspace", "force"): SWITCH,  # `geometry scale` replaces a same-name output file.
     ("pyfs-workspace", "iges"): SUBJECT,  # The IGES files iges-grid and iges-convert read.
     ("pyfs-workspace", "grid"): SUBJECT,  # Control input of iges-grid.
     ("pyfs-workspace", "components"): SUBJECT,  # The components of the IGES iges-grid grids.
@@ -1126,6 +1125,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "profile",
             "prop-slice",
             "refine",
+            "scale",
             "subtract",
             "time-mean",
         }
@@ -1214,9 +1214,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine", "scale"}),
-    # 0.57.0 (PFS-2222): `geometry scale --about X,Y,Z --force`.
+    # 0.57.0 (PFS-2222): `geometry scale --about X,Y,Z --overwrite`.
     ("pyfs-workspace", "about"): frozenset({"scale"}),
-    ("pyfs-workspace", "force"): frozenset({"scale"}),
     ("pyfs-workspace", "morphing"): frozenset({"repitch", "collapse-te", "hub-rings", "morph"}),
     ("pyfs-workspace", "iges"): frozenset({"iges-convert", "iges-grid"}),
     ("pyfs-workspace", "grid"): frozenset({"iges-grid"}),

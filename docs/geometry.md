@@ -48,7 +48,7 @@ creates it, with its parents, and writes the scaled OBJ there under the input na
 `<name>.scale.json` beside it (input sha256, factor, centre, vertex and face counts, bounding
 boxes before and after). Without `--out` the folder is `<stem>_scaled<factor>` beside the input.
 The input is never overwritten, and a same-name file already in the folder is refused unless
-`--force` is given. A factor that is zero, negative or not a number, and a missing file, are
+`--overwrite` is given. A factor that is zero, negative or not a number, and a missing file, are
 refused by name and nothing is written.
 
 A FlightStream `.fsm` is scaled the same way, chosen by the file suffix, with the same output

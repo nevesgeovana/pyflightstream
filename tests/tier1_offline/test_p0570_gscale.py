@@ -111,25 +111,25 @@ def test_a_missing_file_is_refused_by_name(tmp_path):
     assert not (tmp_path / "o").exists()
 
 
-def test_an_existing_output_is_refused_unless_forced(mesh, tmp_path):
+def test_an_existing_output_is_refused_unless_overwrite(mesh, tmp_path):
     from pyflightstream.workspace.scale import scale_mesh
 
     out = tmp_path / "o"
     scale_mesh(mesh, 0.5, out=out)
     first = (out / "part.obj").read_bytes()
-    with pytest.raises(InputValueError, match=r"already exists in the output folder.*force"):
+    with pytest.raises(InputValueError, match=r"already exists in the output folder.*--overwrite"):
         scale_mesh(mesh, 0.25, out=out)
     assert (out / "part.obj").read_bytes() == first
-    scale_mesh(mesh, 0.25, out=out, force=True)
+    scale_mesh(mesh, 0.25, out=out, overwrite=True)
     assert (out / "part.obj").read_bytes() != first
 
 
 def test_the_input_folder_as_output_never_overwrites_the_input(mesh):
     from pyflightstream.workspace.scale import scale_mesh
 
-    for force in (False, True):
+    for overwrite in (False, True):
         with pytest.raises(InputValueError, match="never overwritten"):
-            scale_mesh(mesh, 0.5, out=mesh.parent, force=force)
+            scale_mesh(mesh, 0.5, out=mesh.parent, overwrite=overwrite)
     assert mesh.read_bytes() == OBJ
 
 
@@ -263,17 +263,17 @@ def test_fsm_the_input_is_never_modified_and_the_record_matches(fsm, tmp_path):
     assert set(record["bounding_box_before"]) == {"min", "max"}
 
 
-def test_fsm_default_folder_force_and_refusals(fsm, tmp_path):
+def test_fsm_default_folder_overwrite_and_refusals(fsm, tmp_path):
     from pyflightstream.workspace.scale import scale_mesh
 
     record = scale_mesh(fsm, 0.5)
     folder = fsm.parent / "part_scaled0.5"
     assert Path(record["output"]) == folder / "part.fsm"
-    with pytest.raises(InputValueError, match=r"already exists in the output folder.*force"):
+    with pytest.raises(InputValueError, match=r"already exists in the output folder.*--overwrite"):
         scale_mesh(fsm, 0.5)
-    scale_mesh(fsm, 0.5, force=True)
+    scale_mesh(fsm, 0.5, overwrite=True)
     with pytest.raises(InputValueError, match="never overwritten"):
-        scale_mesh(fsm, 0.5, out=fsm.parent, force=True)
+        scale_mesh(fsm, 0.5, out=fsm.parent, overwrite=True)
     with pytest.raises(InputValueError, match=r"scale: the factor"):
         scale_mesh(fsm, 0, out=tmp_path / "z")
     assert not (tmp_path / "z").exists()

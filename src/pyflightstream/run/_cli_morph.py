@@ -172,14 +172,14 @@ def add_scale_parser(subparsers: Any) -> None:
             "<name>.scale.json (input digest, factor, centre, counts, bounding boxes before "
             "and after). Default folder: <stem>_scaled<factor> beside the input. The input is "
             "never overwritten; an existing same-name file in the folder is refused unless "
-            "--force (docs/geometry.md)."
+            "--overwrite (docs/geometry.md)."
         ),
     )
     parser.add_argument("factor", help="positive uniform scale factor, for example 0.5")
     parser.add_argument("--mesh", required=True, help="source .obj or .fsm, read only")
     parser.add_argument("--out", help="output folder, created; default <stem>_scaled<factor>")
     parser.add_argument("--about", help="scale centre x,y,z (default 0,0,0)")
-    parser.add_argument("--force", action="store_true", help="replace same-name files in --out")
+    parser.add_argument("--overwrite", action="store_true", help="replace same-name files in --out")
     parser.set_defaults(mesh_command=run_scale)
 
 
@@ -188,7 +188,9 @@ def run_scale(args: argparse.Namespace) -> int:
     from pyflightstream.workspace.scale import scale_mesh
 
     return print_checks(
-        lambda: scale_mesh(args.mesh, args.factor, out=args.out, about=args.about, force=args.force)
+        lambda: scale_mesh(
+            args.mesh, args.factor, out=args.out, about=args.about, overwrite=args.overwrite
+        )
     )
 
 
