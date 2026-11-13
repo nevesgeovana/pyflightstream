@@ -303,3 +303,17 @@ def test_fsm_through_the_cli_and_a_sidecar_is_left_alone(fsm, tmp_path, capsys):
     assert "bounding_box_after" in capsys.readouterr().out
     assert (out / "part.fsm").is_file()
     assert side.read_bytes() == b'file = "part.fsm"\n'
+
+
+def test_r27_scale_moves_indented_vertices_and_preserves_their_prefixes(tmp_path):
+    from pyflightstream.workspace.scale import scale_mesh
+
+    source = tmp_path / "indent.obj"
+    original = b"v 1 0 0\r\n  v 0 2 0\r\n\tv 0 0 3\r\n  f 1 2 3\r\n"
+    source.write_bytes(original)
+    record = scale_mesh(source, 2, out=tmp_path / "scaled")
+    assert (tmp_path / "scaled" / source.name).read_bytes() == (
+        b"v 2.0 0.0 0.0\r\n  v 0.0 4.0 0.0\r\n\tv 0.0 0.0 6.0\r\n  f 1 2 3\r\n"
+    )
+    assert record["vertices"] == 3 and record["faces"] == 1
+    assert source.read_bytes() == original
