@@ -484,7 +484,7 @@ def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> 
     from pyflightstream.workspace._geom_run import _resolve
 
     resolved = _resolve(request.source, request.overrides)
-    result = mesher(resolved, controls, out=folder, descriptor=name)
+    result = mesher(resolved, _row_controls(request, controls), out=folder, descriptor=name)
     if result.record.get("accepted") is not True:
         failed = [c["id"] for c in result.record.get("checks", []) if c["status"] == "failed"]
         error = GeometryRowError(
@@ -495,6 +495,19 @@ def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> 
     members = list(result.record.get("members") or [name])
     written = Path(result.written.get("obj", folder / f"{name}.obj"))
     _write_instruction(folder, name, request, ("mesh", written.name, "METER"), members)
+
+
+def _row_controls(request: GeometryRowRequest, path: Path) -> dict:
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    mesh = raw.setdefault("mesh", {})
+    mesh.update(strategy=1 if request.route == "quad_dominant" else 2, variant=request.variant)
+    if request.configuration is not None:
+        mesh["configuration"] = request.configuration
+    else:
+        mesh.pop("configuration", None)
+    if "iges" in mesh:
+        mesh["iges"] = str((path.parent / mesh["iges"]).resolve())
+    return raw
 
 
 #: The meshers of the routes that mesh: strategy 1 of PFS-2214 for ``quad_dominant`` and

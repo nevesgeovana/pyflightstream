@@ -402,7 +402,7 @@ def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
         written: dict = {}
 
     def strategy_1(config, controls, *, out, descriptor, **_):
-        seen.update(controls=Path(controls).name, descriptor=descriptor)
+        seen.update(controls=controls, descriptor=descriptor)
         (Path(out) / f"{descriptor}.obj").write_text("o FUS\n", encoding="utf-8")
         return Result()
 
@@ -419,7 +419,8 @@ def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
     )
     instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
     assert instruction.kind == "mesh" and instruction.mesh.file == f"{built.name}.obj"
-    assert seen["controls"] == "demo.mesh.toml" and seen["descriptor"] == built.name
+    assert seen["controls"]["mesh"] == {"strategy": 1, "variant": "clean"}
+    assert seen["descriptor"] == built.name
     assert calls[0]["until"] == "S11"
 
 
@@ -585,3 +586,37 @@ def test_r27_bad_geometry_input_does_not_abort_healthy_rows(tmp_path, library, b
     assert [case.sim_id for case in resolved.campaign.sims] == ["7002"]
     assert "7001" in resolved.geometry_failures
     assert resolved.geometry_failures["7001"]["message"]
+
+
+@pytest.mark.parametrize("route,strategy", [("quad_dominant", 1), ("full_grid", 2)])
+def test_r27_row_selection_reaches_mesh_controls(library, tmp_path, route, strategy):
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    (geometries / "demo.geom.toml").write_text(
+        BODY_TOML + '[configurations.chosen]\nmembers = ["FUS"]\n', encoding="utf-8"
+    )
+    controls_path = geometries / "demo.mesh.toml"
+    original = '[mesh]\nstrategy = 2\nconfiguration = "other"\n'
+    controls_path.write_text(original, encoding="utf-8")
+    seen = {}
+
+    def mesher(config, controls, *, out, descriptor):
+        import tomllib
+
+        raw = tomllib.loads(Path(controls).read_text()) if isinstance(controls, Path) else controls
+        seen.update(raw["mesh"])
+        (Path(out) / f"{descriptor}.obj").write_text("o FUS\n", encoding="utf-8")
+        return SimpleNamespace(record={"accepted": True, "members": ["FUS"]}, written={})
+
+    request = _request(library, route=route, free={"GEOM_CONFIGURATION": "chosen"})
+    if strategy == 1:
+        row_module.mesh_with_strategy_1(request, tmp_path, "mesh", {}, mesh_configuration=mesher)
+    else:
+        row_module.mesh_with_strategy_2(request, tmp_path, "mesh", {}, mesh_full_grid=mesher)
+    assert seen["configuration"] == "chosen"
+    assert seen["strategy"] == strategy
+    assert seen["variant"] == "clean"
+    assert controls_path.read_text(encoding="utf-8") == original
