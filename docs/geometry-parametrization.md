@@ -129,6 +129,27 @@ span intervals strictly inside (0, 1), and rigid deflection needs a straight
 hinge. The destination must differ from the source. Read the returned `status`
 and `checks`: writing a file alone does not establish sewn closure at 0.01 mm.
 
+## Cut a full model to a half model
+
+```text
+pyfs-geom split-symmetry full.igs --out half.igs
+```
+
+The command reads a full model, cuts every face that crosses the symmetry plane on it with the
+geometry kernel, and writes the half on the positive side: `--plane y` (the default) keeps
+y >= 0, `x` and `z` name the other planes through the origin. The faces keep their component
+names, the cut edges are left open on the plane as the symmetry boundary, and only surfaces are
+written. `--component NAME` cuts that one component and writes the others whole; a component
+written whole that crosses the plane is refused by name, and so is a named component that does
+not cross it. A model with nothing on the negative side is refused as not a full model. Nothing
+is written when the command refuses.
+
+The Python equivalent is `split_symmetry("full.igs", "half.igs", plane="y")` from
+`pyflightstream.workspace.geometry_pipeline`. The record gives the face counts (`before`,
+`after`, `cut`, `removed`), the length of the cut edges in metres (`cut_length`), the same per
+component with the areas kept and removed, and `warnings`, which name each component whose two
+sides differ in area by more than 1e-6 relative (an aileron deflected on one side, for example).
+
 ## Check against an original
 
 ```text

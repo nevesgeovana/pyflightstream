@@ -1294,10 +1294,6 @@ def run_doe(
         yield from pool.map(_one_set, jobs)
 
 
-def _not_built(what: str) -> InputValueError:
-    return InputValueError(f"{what}: not built yet in this tree; nothing was written")
-
-
 def add_control_surfaces(
     iges: str | Path, component: str, entries: Sequence[Mapping[str, Any]], out: str | Path
 ) -> dict[str, Any]:
@@ -1374,32 +1370,37 @@ def _control_edit_record(iges: str, component: str, entries: list, out: str) -> 
 def split_symmetry(
     iges: str | Path, out: str | Path, *, plane: str = "y", component: str | None = None
 ) -> dict[str, Any]:
-    """Cut a full model at its symmetry plane and write the half model (C8); not built yet.
+    """Cut a full model at its symmetry plane and write the half model (C8).
 
-    The faces that cross the plane are to be trimmed exactly on it and the plane edges left
-    open and marked as symmetry. The geometry belongs to another lane of the release.
+    Every face that crosses the plane ``plane`` = 0 is cut on it by the kernel, the pieces on
+    the positive side are kept with their component names, and the cut edges are left open on
+    the plane as the symmetry boundary. Surfaces only; the source is read, never changed.
 
     Parameters
     ----------
     iges : str or Path
         The full model to read.
     out : str or Path
-        The half model to write.
+        The half model to write; it must differ from ``iges``.
     plane : str, optional
         The symmetry plane, ``"x"``, ``"y"`` (default) or ``"z"``.
     component : str, optional
-        The component to cut; None cuts every one.
+        The one component to cut, the others being written whole; None cuts every one.
 
     Returns
     -------
     dict
-        The record of the cut, once built.
+        ``faces`` (before, after, cut, removed), ``cut_length`` in metres, ``components``
+        with the same per component and the areas kept and removed, and ``warnings``, which
+        name each component whose two sides differ in area by more than 1e-6 relative.
 
     Raises
     ------
     InputValueError
-        If ``plane`` is not ``x``, ``y`` or ``z``, and always for now otherwise: the verb is
-        not built in this tree and writes nothing.
+        If ``plane`` is not ``x``, ``y`` or ``z``, the source is missing or is the
+        destination, the component is unknown, a component written whole crosses the plane,
+        the named component does not cross it, or nothing of the model lies on the negative
+        side. Nothing is written then.
 
     Examples
     --------
@@ -1411,4 +1412,30 @@ def split_symmetry(
     """
     if plane not in ("x", "y", "z"):
         raise InputValueError(f"plane: one of x, y, z required, got {plane!r}")
-    raise _not_built("split_symmetry")
+    if not Path(iges).is_file():
+        raise InputValueError(f"split source: file does not exist: {iges}")
+    if Path(iges).resolve() == Path(out).resolve():
+        raise InputValueError("split out: source and destination must differ")
+    arguments: dict[str, Any] = {
+        "iges": str(iges),
+        "out": str(out),
+        "plane": plane,
+        "component": component,
+    }
+    return (
+        _split_record(**arguments)
+        if os.environ.get(WORKER_ENV) == "1"
+        else run_isolated(f"{__name__}:_split_record", arguments, _split_record)
+    )
+
+
+def _split_record(iges: str, out: str, plane: str, component: str | None) -> dict:
+    """Cut the model at its symmetry plane inside a guarded kernel worker."""
+    from pyflightstream.workspace._geom_split import split
+    from pyflightstream.workspace._gmsh import open_kernel
+
+    kernel = open_kernel("cutting a model at its symmetry plane")
+    try:
+        return split(kernel, iges, out, plane, component)
+    finally:
+        kernel.close()

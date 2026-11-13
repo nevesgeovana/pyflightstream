@@ -11,6 +11,8 @@ FlightStream versions.
 
 ### Added
 
+`pyfs-geom split-symmetry` and `split_symmetry` cut a full model at its symmetry plane (y = 0 by default) and write the positive half: the faces crossing the plane are cut on it by the kernel, the names are kept, the cut edges stay open on the plane, and the record gives the face counts, the cut length and the areas per component.
+
 Add explicit runtime setup policies for topology-aware local thread counts and solver subprocess affinity, retaining the resolution in run evidence. Unset runtime settings preserve the existing serialized case and record shapes.
 
 Clear stale Windows last-error state before enumerating solver windows, preserving refusal on a new enumeration error.

@@ -260,7 +260,7 @@ def test_p0570_g3_workers_below_one_and_an_unknown_until_are_refused(tmp_path):
 def test_p0570_g3_unbuilt_geometry_entries_refuse_and_write_nothing(tmp_path):
     with pytest.raises(InputValueError, match="file does not exist"):
         _geom_run.add_control_surfaces(tmp_path / "a.igs", "WING", [{}], tmp_path / "o")
-    with pytest.raises(InputValueError, match="not built yet"):
+    with pytest.raises(InputValueError, match="file does not exist"):
         _geom_run.split_symmetry(tmp_path / "a.igs", tmp_path / "half.igs")
     with pytest.raises(InputValueError, match="plane"):
         _geom_run.split_symmetry(tmp_path / "a.igs", tmp_path / "half.igs", plane="q")
