@@ -62,7 +62,7 @@ A generated row also reads `GEOM_CONFIGURATION` (required when the file declares
 name, an unknown name refuses that row) and `MESH_CONTROLS` (the mesh controls file, by default
 `<stem>.mesh.toml`). The generated files live in one folder of `inputs/geometries/` named by the
 parameters' identity, so equal parameters reuse it; a row whose generation fails is recorded as
-`GEOMETRY_FAILED` with the path of its report, and the other rows run. A matrix at the 0.56.0
+`GEOMETRY_FAILED` with the path of its report, and the other rows run. A matrix at the older
 layout (no `MESH_ROUTE` column) still reads, with a warning; `pyfs-workspace migrate --apply`
 rewrites it. `SYMMETRY` says what was MESHED, a mirrored
 half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that

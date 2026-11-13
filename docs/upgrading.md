@@ -1,5 +1,9 @@
 # Upgrading
 
+## 0.57.0
+
+The changes that need an action or a decision when moving from 0.56.0 to 0.57.0 follow, one section each.
+
 ## gmsh is a dependency of the package (0.57)
 
 `pip install pyflightstream` now installs gmsh, the geometry kernel, so the whole geometry
@@ -69,6 +73,28 @@ header, and `pyfs-workspace migrate --apply` rewrites each one with an exact `.b
 only the header and one `NA` cell per row are added, and no other byte changes. A matrix
 you keep elsewhere is migrated by running the command on its workspace or by adding the
 column by hand.
+
+A row whose geometry cannot be generated is recorded with the status `GEOMETRY_FAILED`, and
+a reader older than 0.57.0 refuses a `runs.json` that holds it. Read such a record with
+0.57.0 or later.
+
+## One-face tip cap (0.57)
+
+The default `flat` tip and root cap of a lifting surface is one planar face bounded by the end
+section outline, named `tip_cap` (`root_cap`), where earlier versions wrote three faces
+(`tip_cap_nose`, `tip_cap_upper`, `tip_cap_lower`) and the mesher read nine patches. A script
+or a mesh control that names the three old faces must name the one cap face. The `rounded`,
+`ridged` and `exact_loft` cap types are unchanged.
+
+## New geometry commands (0.57)
+
+`pyfs-geom` runs the geometry pipeline (`run`, `doe`, `validate`, `configurations`, `stages`,
+`schema`, `identify`, `check`, `add-control-surface`, `split-symmetry`). It replaces the
+`generate`, `identify`, `check` and `schema` verbs of `pyfs-workspace geometry`, which were
+never released. `pyfs-workspace geometry` gains `mesh` (meshes a parametric configuration by
+strategy 1), `scale` (scales an OBJ or an `.fsm` about a point) and `prop-slice` (cuts a
+propeller at radial stations and writes the definition that rebuilds it). Nothing existing
+changes; each is a new command.
 
 ## Which version are you on
 

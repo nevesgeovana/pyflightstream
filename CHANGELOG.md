@@ -7,6 +7,485 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-13
+
+### Added
+
+Add explicit runtime setup policies for topology-aware local thread counts and solver subprocess affinity, retaining the resolution in run evidence. Unset runtime settings preserve the existing serialized case and record shapes.
+
+Clear stale Windows last-error state before enumerating solver windows, preserving refusal on a new enumeration error.
+
+A campaign can run several of its simulations at once on one machine. `pyfs-matrix run --parallel N|auto`, `run_matrix(parallel=...)`, `run_campaign(parallel=...)` and the `parallel`, `licence_seats` and `ram_floor_gb` keys of the setup `[runtime]` block bound the solver runs alive at once (default 1, at most 8; `auto` is 2 on a multi-core machine, within the configured licence seats and the free memory). A further run waits while free memory is below the floor, and a run that fails on the licence lowers the bound to one and is repeated once. Every case is staged first, manifest appends are serialised, a read of `runs.json` in the process is kept out of its replace (on Windows a file held open cannot be replaced), a read or a replace that meets another process's brief hold of it on Windows is retried for about a second, and a failed run does not stop the others. migration: none; without the option or the key the run is serial and records the same rows.
+
+Record unsteady callback wall timestamps, per-step intervals and the last-20 mean in run and cost evidence. A launch wrapper records timing separately from the count-only program, whose state remains only the step count.
+
+Add `pyfs-matrix search-log-batch`, which writes the log of a batch point that has every other file but neither its log nor its cumulative log, cutting the segment of its order from the job's master log (`<job stem>.job-log.txt`, the scheduler's `FTS<first sim>.l*`, or the only `FTS*.l*`; a profile's `native_log` is read first). It previews unless `--apply` is given, leaves `runs.json` untouched so that `collect` then judges the point from its log, and names several candidate master logs, no master log or a master log with too few points without writing anything; `--master` chooses the file.
+
+Added the `pyflightstream.geometry` package: a validated component parameter record (`ComponentRecord`, with an exported JSON Schema and SHA-256 pin check), a TOML geometry configuration boundary (`load_config`, `resolve_config`), and, in private modules behind them, NACA and CST sections, spanwise spline distributions, lifting surfaces with root fillet and flat, rounded or ridged tip caps and the B-spline patch exchange type. Pure numpy and scipy; no geometry kernel is imported.
+
+Added generation of a named IGES file from a parametric configuration: bodies of revolution and superellipse bodies as a quadrilateral curve network, the wing-fuselage fairing, component placement with parent attachment, and `generate_iges` (public in `pyflightstream.workspace.geometry_pipeline`, command `geometry generate`; assembly by surface fragment with a transition ring, an edge audit, and one 406 NAME per component on its own level). Added `check_against_original` (same module, command `geometry check`), the forward and restricted reverse deviation of a rebuilt surface from an original under the named profile `study_default`. The OpenCASCADE parts use the gmsh kernel and stop with a message naming the library when it cannot load; the pure geometry math stays importable without it.
+
+Added `mesh_generated` (public in `pyflightstream.workspace.geometry_pipeline`, command `geometry mesh-generated`), the all-quad surface mesh of a generated parametric configuration: structured patches meshed from their role (spanwise constant width with a refined tip, chordwise growth from the leading edge, constant azimuth and axial step on a body band), a planar all-quad flat tip cap, the wing-fuselage transition ring as the only triangles, orientation outward, the acceptance checks (inverted, degenerate, non-manifold, free edges off the symmetry plane, distance to the source) and OBJ output with one group per component. The spacing laws, rules and checks are pure numpy in `pyflightstream.geometry._mesh_rules` and `_mesh_topology`; the meshing uses the gmsh kernel and stops with a message naming the library when it cannot load. Equal to the research mesher node for node on a comparison test (tier 2).
+
+Added the geometry verbs of the parametric aircraft pipeline to `pyfs-workspace geometry`: `generate` (a named IGES from a configuration), `identify` (the planform and the root, middle and tip CST sections of a lifting surface read from an original IGES, with `--config-out` writing a configuration that rebuilds it), `check` (forward and restricted reverse distance of a rebuilt IGES to an original under the named profile `study_default`; exit 1 when rejected), `mesh-generated` (an all-quad OBJ with its acceptance checks) and `schema` (the JSON Schema of `ComponentRecord`, or the validation of a record and its pins). Their Python entry points `generate_iges`, `check_against_original`, `mesh_generated` and `identify_lifting_surface` are public in `pyflightstream.workspace.geometry_pipeline` (provisional). Identification covers lifting surfaces; bodies, rings and propellers are not identified in this release. A page, `docs/geometry-parametrization.md`, describes the pipeline.
+
+Fix the IGES reader-profile distance check for surfaces with unequal parameter
+ranges and for points near a parameter bound.
+
+migration: No input change; valid boundary curves near parameter bounds no longer
+fail the surface-distance check because of finite-difference scaling.
+
+Measure shared cap boundaries at S8, including the corner-cap side edges, and
+stop the run with `closure.cap_edge_gap` when the gap exceeds 0.005 mm.
+
+migration: IGES export writes PREF 1 for requests for either model space (2)
+or either space (3), with a warning naming the replacement.
+
+The closure stage measures lifting models handed to it by preceding custom
+stages through `RunContext.state["lifting_models"]`; absent models are built
+once and retained for subsequent checks.
+
+The geometry run exports the retained assembly faces, with one IGES and layout
+sidecar per source piece and a manifest recording its generated version,
+surface identity, kept-face ownership and measured trimmed areas. Lifting
+skins, fillets and blisters carry their original bases and UV loops into the
+assembly instead of sampled layout patches.
+
+migration: S11 writes `manifest.json`, per-piece IGES and layout files, and
+isolated face files for read-back checks beside the combined IGES.
+
+S11.V checks manifest membership, piece versions and source identities against
+the selected registry and the separately retained generation record.
+
+migration: A configuration now refuses variants excluded by its own registry
+entry, even when the variant exists elsewhere in the configuration file.
+Applied-control variant export is recorded as not yet supported, without
+publishing clean geometry under the requested variant.
+
+S11.R reimports every component and each isolated face in fresh kernel
+processes, comparing face counts, sewn free edges and per-face trimmed areas.
+It rejects a relative face-area difference above 1e-3 and component area
+above the source area plus `acceptance.area_excess`.
+
+migration: Read-back checks now have their own S11.R stage record and run-log
+entries; `--until S11` stops after writing and does not claim read-back checks.
+
+S11.S imports the combined file in one operation at each sewing tolerance,
+1e-5 m and 5e-5 m. It reports introduced free edges against the input curves,
+triple edges and new sub-5 mm slivers, listing the thin faces in each import.
+Unassembled pieces now retain their original sliver count as well as their
+free edges, so existing thin faces do not become export defects.
+
+Source coverage checks the distance to kept faces in world space, respects
+original trim exclusions and integrates cell areas against the kernel's
+source area. It records covered, legitimately removed and missing areas,
+including the largest missing region and its centroid.
+
+migration: S10.D8b uses `acceptance.coverage_spacing` and reports
+`coverage.area_sum` with a relative limit of 1e-3. A displaced face cannot
+pass coverage merely because its parameter coordinates contain the source.
+
+The export manifest uses `pyflightstream-geom-manifest/1`, with piece records,
+file digests, parameter, surface and build identities, junction rows and
+measured areas. Reimport fills its measured area; an unperformed measurement
+stays null. Layout sidecars preserve the original base order and all source
+trim loops, including those with no retained face.
+
+migration: The provisional manifest's component mapping is now the specified
+`pieces` list. Each piece has an integer `faces` count and a `face_records`
+list containing its retained-face measurements.
+
+S11 counts the faces actually emitted in every file and rejects solid
+entities. S11.P measures reader compatibility, requires both boundary
+curves with PREF 1 and parameter-space use 05, and compares the written
+copies of each base at 1e-12. It independently verifies the sidecar's
+original bases and loops against the generated source identity.
+
+migration: Reader and shared-base checks have their own S11.P stage and log
+record. `--until S11` performs the write audit; a complete run continues
+through the profile, reimport and sewing audits.
+
+S13.R stores the fitted defining sections as B-splines in resolved TOML,
+reloads them in a pure regeneration, and compares every piece's bases and
+trim loops with the independently retained source identities. This works
+in a fresh process without a section refit. S13 independently identifies
+written lifting pieces; unsupported component types are explicitly skipped.
+Run reports retain the written surface and build identities.
+
+migration: The regeneration and reverse identification checks have separate
+S13.R and S13 records. Applied-control variants remain not yet supported.
+
+S12.C exercises the existing IGES converter and checks retained face counts.
+S12.G grids the retained named faces through the existing mesher, checks its
+CAD boundary audit, and records a boundary reference. S12 re-reads that mesh
+to reject introduced open seams and triple edges, then finds each lifting
+piece's upper trailing-edge rim from its sidecar roles.
+
+migration: Reader conversion, gridding and the final audit have separate
+records and named checks. This diagnostic grid uses 16 cells in each
+structured direction and does not replace a user's production grid.
+Conversion checks reject a written face-count mismatch before invoking the
+native IGES reader, returning a failed `gate.convert` check for a missing face.
+
+Control-stage kernel support now splits imported faces along their own parameter
+lines while retaining existing trims, and measures minimum clearance between
+trimmed face sets with the native kernel distance operation.
+
+The provisional geometry stages facade also supplies a pinned-skin partition:
+stationary and moving pieces share the original skin through iso trims, with
+separate exact boundary-matched closure bases. Physical gaps, motion and the
+control-surface command are not supplied by this partition helper.
+
+Migration: none for existing callers; two kernel adapter operations are additive.
+
+Control sub-step checks measure written/read face counts, sewn free and triple
+edges at 0.01 mm, native clearance to hosts, and named slot openings. Post-cut
+checks accept named junction lengths and clean-reference lengths; their shared
+trimmed-assembly integration remains pending.
+Each F check has its own stage-table row and runner callback. Supplied control
+boundaries produce stage records and geom-run.log lines; a failed check stops
+the runner before the next sub-step.
+
+Resolved plain-flap and aileron entries now produce stationary iso trims,
+closed moving pieces, span gaps and rigid deflections in the placed component
+frame. F0, F1, F2 and F4 read and measure those files; applied-controls.json
+carries the numerical bases and trims for subsequent export integration.
+
+The add-control-surface verb and API now apply plain controls to normalized
+polynomial IGES skins. Native iso splitting retains source trims and unrelated
+components; new boundary closures and rigid motions produce separate named
+pieces. The returned record reports sewn closure and the input digest.
+
+Configured body hosts now feed F3 automatically. Native face-set distances
+and the source-file digests appear in the stage record and run log. Applicable
+F5/F6 waits remain incomplete until the trimmed assembly boundary is supplied.
+
+Combined checks now include one angle choice from every control, so a second
+control cannot disappear from an otherwise closed main/control configuration.
+
+Explicit exposed roots map eta into the planform semispan. Named engine
+bounding sections split a control into closed inboard and outboard pieces;
+missing bounds retain one piece with a recorded warning. Host-derived limits
+without a measured boundary refuse instead of using an invented station.
+
+Distinct control deflections retain distinct piece names even when they differ
+after six significant digits. Integer angle labels such as `flap-d15` stay unchanged.
+
+The body-generation example uses the unit-bearing configuration keys `length_mm` and
+`radius_mm`, preserving the example's dimensions.
+
+The patch sampler and stage-table lookup document their parameters and results;
+the lookup also documents its typed refusal for an unknown stage.
+
+The geometry stages facade imports its junction implementation directly and exposes
+it under the existing public `junctions` name.
+
+Assembly documentation states the dominance and removal requirements directly.
+
+Comparing incompatible pole nets raises `InputValueError` naming `first` and `again`,
+the incompatible sizes, and the matching-net requirement.
+
+The parity fallback is documented by the dominant component's role.
+
+The generated library graph includes the junction checks' typed-error dependency.
+
+migration: incompatible pole-net comparisons raise the package's `InputValueError`,
+which remains a `ValueError` subclass.
+
+A named IGES file written by the package now imports directly into the solver's CAD import: every curve a trimming boundary (142) names in parameter space, and each member of its composite, carries entity use flag 05 (2D parametric), and the 142 itself 00. A face the kernel would write with no parameter-space outer boundary (a surface's natural boundary, or a plane or other analytic surface) is written as a B-spline copy that carries one; the copies leave the model after the write. The solver reads no face from a boundary that states PREF 2 (model space preferred), so a PREF 2 asked of the writer is warned about and written as PREF 1.
+
+The IGES reader profile now states the degrees the solver was observed to read (1, 3 and 5 in either direction, from a licensed probe on build 26.127), so the degree warning no longer fires on the degrees a generated skin carries. It also records inner loops as read, so a face with inner boundaries is no longer warned about: the probe face with a hole read with the hole subtracted, converted and imported directly.
+
+migration: none; a degree outside 1, 3 and 5 still warns.
+
+The geometry TOML takes the keys of the one-skin parametrization. A lifting surface reads `sections.items` entries of the form `{eta, bspline}` (degree, clamped knots and 2-D poles, kept exact), `sections.form` (`bspline`, the only stored form; `cst` is read as an input route with a warning, `cubic` stays refused), `sections.continuity` (`C2`), `sections.tolerance` (2e-5 of chord for analytic sections, 1e-4 for a coordinates file), `sections.pin` (chordwise x/c lines), `spanwise.law` (`ruled` or `smooth`), `spanwise.lines` and `root` (`open` or a cap kind). A body reads `regions`, `nose_cap_fraction`, `tolerance` and `degree`. Planform parameters plus sections stay the input of every lifting surface, with flap and aileron spans and nacelle bounds stated as fractions of the semi-span. `base_strip` is removed: it is skipped with a warning like any unknown key. migration: delete `base_strip` from a geometry TOML; the trailing-edge strips follow the one-skin layout.
+
+A geometry file takes the key names of the published input form. A lifting surface: `planform` with `sref_m2`, `aspect_ratio` and `taper` (or `semispan_mm`, `root_chord_mm` and `tip_chord_mm`; the semispan includes the tip cap; Sref is the published area of the whole surface, of one surface for a single fin on the plane), `root_le_mm`, `le_sweep_deg`, `dihedral_deg`, a `[surface]` table (`span_axis`, `twist_axis`, `model`, `section_type`), `[[stations]]` (`eta`, `twist_deg`, `section` of kind `bspline`, `naca`, `cst` or `coords`; a B-spline section may name a JSON file with `degree`, `knots` and `poles`), `[cap]` (`type`), `[[control]]` (`eta = [inner, outer]`) and `[[engine]]` (`eta_axis`, `half_width_mm`). `eta` is a fraction of the span station where the tip cap starts. A body: `length_mm`, `nose = {kind}`, `tail = {kind}`, `parts` and sections with `half_width_mm`, `half_height_mm`, `centre_z_mm` and `radius_mm`. A file with `[surface]` or `[body]` and no `type` is read as one component. The earlier names were never released and are refused with the new name; every message names the key as written. A key without an implementation yet (`[[bay]]`, a cap template, a tabulated flap cove, per-station trailing edge thickness, a nacelle spinner) warns by name and is skipped. migration: rename `planform.span`, `height`, `area`, `root_chord`, `tip_chord`, `sweep`, `dihedral`, `orientation` and `twist_axis`, `tip_cap` (with `kind`), `control_surfaces` (with `eta_in` and `eta_out`), `sections.items`, `sections.airfoils`, `sections.eta`, `sections.nacelle_bounds`, and a body's `length`, `rear`, `nose`, `stations` and section `width`, `height`, `centre_height`, `radius` to the names above; give one complete planform set.
+
+Every `pyfs-geom` run and every doe set now writes `geom-run.log`, a plain-text log beside the stage records, written as the run proceeds. It names the configuration file and the package version, then lists each sub-step in order with its inputs, each check with its measured value, threshold, unit and verdict, its wall time and its warnings, and ends with the sub-step where the run stopped and why, or that it completed, with the sub-steps not reached and the checks not measured. A refused run, and a doe set whose worker faulted or was refused, now leave `report.json` and `geom-run.log` in their set folder, and a set run again into the same folder starts without the earlier run's report and log; a stage record carries its wall time.
+
+migration: none; the log is a new file in the run folder.
+
+Body regions for the geometry package: a fuselage is cut only where its definition changes and a nacelle in bays, each face fitted with the fewest spans that hold the law within a tolerance, and faces that share an edge share its curve so the tangent plane is continuous. Internal; no user-visible change until the body verb takes the new plan.
+
+The geometry package stores a lifting-surface section as one direct degree 5 B-spline with C2 interior knots, converted from a NACA 4 or 5 digit designation, a coordinates file or CST coefficients on one common knot vector with the fewest spans that meet each conversion limit, or read exactly from a `bspline` input. A coordinates file with a sharp trailing edge takes the section base, with a warning, and the resolved input records the base each file section uses.
+
+migration: no user-facing change yet; the lifting skin still reads the CST form until the skin switches to the B-spline form.
+
+The geometry package builds a lifting surface as one B-spline skin from its defining sections, ruled by default (degree 1 spanwise, one pole row per defining section, a section inserted where the twist or a non-linear planform law departs from the ruled loft by more than the section tolerance) or smooth (cubic). Its upper and lower faces are trims of that skin in parameter space, cut at the nacelle bounds; the blunt trailing edge is a face of its own that shares both edges with the skin; the caps take the skin's tip curve as their rim; nacelle bounds, control-surface ends and listed span lines are iso lines of the skin, hinges are pinned iso lines; and the mesh layout is the skin split at those lines, recorded beside the geometry. The planform span includes the tip cap. The stage records add `law.ruled_twist`, `skin.section_exact`, `trim.closed`, `trim.in_domain`, `trim.iso_exact`, `trim.partition`, `trim.outer_only`, `closure.rim_shared` and `continuity.internal`, and the surface identity includes the faces' trim loops.
+
+migration: generated lifting surfaces change shape within the section conversion limit (2e-5 chords), a surface with a rounded, ridged or lofted tip cap now ends its skin where the cap starts so that the cap ends at the stated half span, and nacelle bounds no longer add face edges to the generated faces.
+
+The geometry package builds a `fillet` between a lifting surface and a body or a blister, and a `blister` under a body, and `generate` writes both. The fillet follows the line where the lifting surface meets its host, each section a cubic blend tangent to both and set by the laws `radius`, `handle` and `setback` (one value or a list along the spine; the radius defaults to 0.05 of the root chord); its base surface runs past both contact lines by `host_band` and `wing_band`, and its lower and upper faces are trims of that base, the lower one from the trailing edge unless `extend_lower_to_te = false`, which starts it at the thickest point. A closing face shuts the fillet at the trailing edge against the wing's blunt trailing-edge face and the host. The lifting surface may be rolled, so a fin fillet builds on both sides of a fin. On a blister the fillet lies on the blister's face, outside the body the blister lies on. The blister is a loft of sections in planes of constant x, superellipses or the sections of a `sections_file` (CSV columns `station`, `y`, `z` in metres whatever `[units]` declares, which a configuration with another length unit is warned about; keel to a point inside the host), closed in a pole at each end, split at its deepest station into a front and a rear base that share one edge, each running into the host and trimmed where it leaves it; `profile.depth` may be given per station, and `of = "host_length"` reads stations and depth as ratios of the host length. A `pyfs-geom` run builds each piece in its own sub-steps of the stage table, `S8.B1` to `S8.B3` for a blister and then `S8.F1` to `S8.F3` for a fillet, which may lie on a blister (build, trim by host, closure), each writing its record with the piece's inputs and stopping the run at its first failed check; a piece whose build cannot go on (hosts that do not meet, a blister section that does not enter its host) fails the run at the sub-step whose check that is, with the value measured. The checks are `fillet.spine`, `closure.tangent_host`, `closure.tangent_wing`, `closure.contact_gap_host`, `closure.contact_gap_wing`, `closure.base_present`, `fillet.host_footprint`, `fillet.contact_on_face`, `closure.free_edges`, `section.residual`, `continuity.bluff_jump`, `blister.crease_on_host`, `trim.closed`, `trim.in_domain` and `trim.area_removed`. The keys `mesh_zone` and `spine` of a fillet and `profile.plateau` and `profile.mirror_x` of a blister, which this version does not apply, are reported in the warnings and skipped, as are a blister's width, exponent and depth when a sections file gives its shape. A blister with fewer than three stations is warned about when the configuration is resolved and refused when it is built.
+
+migration: a configuration with a fillet or a blister component, refused by `generate` before, now generates them.
+
+The junction stage S10 of a `pyfs-geom` run now assembles the members of a configuration by its `[[dominance]]` rows, as a sequence of sub-steps each with its own measured check, record and log lines: the pieces loaded and touching, each piece regenerated, its symmetry edges, the open rims of a dominated piece buried in its dominant, the openings of a dominant on the piece it lets through, each piece alone written, read back and sewn at 0.01 mm and at 0.001 mm, body joins and cuts by one fragment per group of pieces (junction on both surfaces, chains closed, loops closed, one curve per junction, a shared vertex where faces meet, its parameter-space curve on each face, its length), groups of three pieces or more, projected junctions (a fillet's contact edges imprinted on its hosts and closing on the cut), the hosts split, the inside removed region by region from each piece's own exposed side with the area checked against what lies inside or under the dominants, the skin coverage of every source patch in parameter space, the joins written and sewn in one import, and the whole written, read back and sewn at 0.01 and 0.05 mm with the free edges, triple edges and slivers it introduced, and the clearance of pieces in no row. The run stops at the first failed check and names the sub-step and its class (strategy or bug). A configuration whose members no dominance row joins skips the sub-steps with that reason and opens no kernel.
+
+migration: none; a run with no `[[dominance]]` row is unchanged, and S10 no longer reports its checks as not measured.
+
+Sewn control checks use sub-step-specific IDs in the stage table, records and
+run logs, such as `control.f1.free_edges` and `control.f2.free_edges`.
+Migration: consumers of control topology check IDs must include `f1`, `f2`,
+`f4`, `f5`, `f6` or `f7` after `control.`. Face-read and host-contact IDs are unchanged.
+
+Flat lifting-surface caps use three quadrilateral patches with exact skin rims
+and shared interior edges. Their written boundaries pass the reader profile
+without a collapsed leading-edge side. Migration: flat-cap layout names are
+`tip_cap_nose`, `tip_cap_upper` and `tip_cap_lower` (or the corresponding `root_`
+names). All three cap faces are nondegenerate; the default wing exports six
+faces instead of five.
+
+Stated Fowler entries now construct a square cove, an elliptic nose and a
+closed nested flap. Cove faces split at every skin span knot. Each deployed
+flap uses one rigid pivot-axis rotation and translation; gap and overlap are
+measured on the polynomial section curves at 49 span stations. Exterior
+identity is measured outside the nose and lip gap bands. The single cove p3
+station specifies a constant normalized roof-wall height over the span.
+
+Fowler cove bays, nesting, motion laws and retracted exterior each have a
+separate stage record and run-log entry. The imported-skin edit also builds
+the cove and nose, preserving source trims on the retained exterior faces.
+
+F7 builds the requested registry variant automatically, retaining all selected
+components and all angle combinations of the active controls. A standalone
+vertical surface receives a planar root cap; its measured area and the
+combined files' sewn free and triple edges appear in the F7 record.
+
+Fowler measurements now inspect the actual applied bases. A changed flap
+position, altered exterior, reduced nesting clearance or missing cove bay
+fails its own check. A failing nesting check stops at FW2 before motion-law
+records are written. The strict 0.01 percent chord law threshold is recorded.
+
+F7 applies configured host junctions using exact restricted control faces
+and the existing measured assembly operations. Junction lengths and the
+assembly sub-step records accompany each angle combination; sewn closure
+alone cannot stand in for a junction that was never formed.
+
+Imported-control validation preserves caller tables. A swapped file/table
+input raises InputValueError, and unknown nested keys remain visible in
+the returned warnings without being removed from the caller's data.
+
+For example, apply a stated Fowler entry to a normalized polynomial skin
+whose lower trailing edge is u=0, leading edge u=0.5 and upper trailing edge
+u=1, with v running along the span. This entry is exercised by the public
+edit regression test:
+
+```toml
+[[control]]
+name = "flap"
+kind = "fowler"
+eta = [0.2, 0.7]
+chord_ratio = 0.25
+gap_span = 0.01
+deflection_deg = [0, 15]
+cove = {wall_x = 0.72, lip_x = 0.94, p3 = {eta = 0.45, z_over_c = 0.035}}
+nose = {kind = "elliptic", radius = 0.01}
+nested_dz_pct = -0.2
+clearance_pct = 0.1
+kinematics = [{deflection_deg = 15, pivot_x = 0.75, pivot_z = -0.1, gap_pct = 2.0, overlap_pct = 1.0}]
+```
+
+Read the entry with `tomllib` and pass its `control` list to
+`workspace.geometry_pipeline.add_control_surfaces("panel.igs", "panel", entries, "fowler.igs")`.
+The returned record includes the Fowler measurements and warnings; the output
+contains separately named main and angle alternatives. Registry variants
+select the active controls and F7 checks each angle combination separately.
+
+Add the CAD kernel interface of the geometry stages and its first adapter. The named IGES writer now fixes the time stamps and empties the author of the global section, so two processes write byte-identical files and no account name reaches a file; kernel initialization works off the main thread; a kernel library that is missing or cannot load raises `KernelUnavailableError`, a `MissingExtraError` that names the failing library; and a reader profile gate reports rational, unclamped, three-sided and unnamed faces and refuses solid entities.
+
+migration: none; the kernel stages are unreleased and `MissingExtraError` handlers still catch the new error.
+
+The new `pyfs-geom` command line runs the geometry pipeline as stages S0 to S13 (`run`, `doe`, `validate`, `configurations`, `stages`, `schema`, `identify`, `check`, `add-control-surface`, `split-symmetry`), and `run_geometry` and `run_doe` in `pyflightstream.workspace.geometry_pipeline` do the same from Python: a run stops at the first failed check and returns a report that names its stage and its check, a run with a check of the stage table not measured is `incomplete` (exit 3) and lists it under `not_run`, and a loop of parameter sets continues after a failed or refused set, each set in a worker process of its own. migration: none, `generate`, `identify`, `check` and `schema` of `pyfs-workspace geometry` were never released and are replaced by `pyfs-geom run`, `identify`, `check` and `schema`.
+
+The lifting-surface sections of a geometry configuration can be given as CST coefficients (`cst_upper`, `cst_lower`, `te`) or as a file of x, z ordinates (`file`, read from the folder of the input, keeping the file's own trailing-edge thickness, against which the S1 residual is measured), beside a NACA designation; a section is held behind one `SectionForm` interface with CST as its stored form.
+
+A section can also be given by its physical numbers, `sections.physical` with `nose_radius` (chord lengths), `boat_tail_deg` (each surface to the chord at the trailing edge) and `thickness_at` (the maximum thickness, chord lengths), all three required. `sections.nacelle_bounds` adds the two control sections that bound a nacelle.
+
+A lifting surface takes `planform.slope_breaks` (interior stations where a supplied planform law changes slope without ringing), `planform.twist_axis` anywhere on the chord (0 to 1, default 0.25), `planform.height` with `planform.orientation = "vertical"` for a fin (with `height`, `planform.area` is the area of that one surface, not of a mirrored pair), `base_strip = "linear"` for a straight trailing-edge base (bicubic stays the default), and `tip_cap.kind = "exact_loft"` with `tip_cap.extent` to set the reach of a rounded or lofted cap in model units.
+
+An identified wing with dihedral now rebuilds on the symmetry plane and to the tip end plane: the root is no longer lowered to the lowest sample along the tilted span axis, and the tip is extended to the end plane the leading edge reaches, as far as the dihedral explains, so the outer end of a rounded or lofted cap does not lengthen the span.
+
+gmsh, the geometry kernel, is now a dependency of the package: a default install delivers the whole geometry path, the code stays MIT and the wheel does not embed gmsh. The `gmsh` extra stays, empty, and is removed at 0.60.0. A kernel library that cannot load stops each verb with a message that names the failing library and `pip install "gmsh>=4.13,<5"`, and that error keeps its type when it comes from the kernel worker.
+
+migration: replace `pip install "pyflightstream[gmsh]"` with `pip install pyflightstream`; the old line still resolves until 0.60.0.
+
+The IGES reader profile gate now reads each trimmed face from its parameter list and measures its outer boundary: the loop must close in the surface's parameter space, stay inside its domain and have a model-space curve that lies on the surface within the resolution the file states (`profile.loop_open`, `profile.loop_domain`, `profile.loop_surface`). A face with an inner boundary and a surface of revolution (120) warn. A foreign file with an associativity before its property pointers no longer fails `profile.name`. The profile observes degrees per direction and can state a net size limit. The CAD kernel interface adds trimmed faces from parameter-space loops, exact iso splits, edge reparametrization and the edge two faces share, and IGES export states the preference of every trimmed face (parameter space by default).
+
+migration: none for a user; a written file now states PREF 1 on its trimmed faces.
+
+Read IGES NAME properties byte for byte and decode them with an explicit `--name-encoding` (default `latin-1`) on `iges-grid` and `iges-convert`; names written in UTF-8 decode deterministically with `utf-8`, undecodable names are refused, and converted files count Hollerith lengths in bytes.
+
+Make half-model symmetry explicit in `iges-grid`: `[defaults] symmetry` (`none` by default, or `x`, `y`, `z`) replaces the plane inferred from open-node counts, and the record states it.
+
+`geometry iges-grid` takes `--component NAME` (repeatable; Python: `grid_iges(..., components=[...])`) to grid only the named components: a name is resolved against the 406 NAME index, an exact name wins, a name that differs only in case or blanks selects the one component it matches, and an unknown or ambiguous name is refused with the names found and nothing is written. The faces of the components left out leave the model before the join, and the healed faces keep their component when the first faces are dropped. The record now measures each junction of two components against the original faces of both (`junctions`) and lists the selection (`selection`); a junction past the join tolerance is warned.
+
+`geometry iges-grid` reads the layout sidecar `<piece>.layout.json` that a generated wing carries beside its IGES. Each named face is cut along its base's iso lines (exact, the geometry file is never changed) before the four-sided test, so every layout block is meshed transfinite, and with `trailing_edge = "auto"` the trailing edge is the rim of the face with the `trailing_edge` role instead of the angle search. A sidecar that cannot be read, or that does not match the file (faces, component or area), is warned and the file is gridded as a foreign one; an IGES with no sidecar is gridded exactly as before. The record gains `layout` (the sidecars used, `null` when none) and `trailing_edges.<component>.source`. The sidecar reader `read_layout` returns the faces with their `u` and `v` lines in the shape the strategy 1 junction block classifier reads. A face with more than four curves is a block when exactly four of its points are corners (a skin edge the one-face tip cap cuts in two): the cells of a composite side are shared over its curves by length and the patch is given its corner points. The default join tolerance is taken from the faces' own extent, so a stray curve of an imported collapsed edge cannot inflate it.
+
+The geometry TOML reads the full key set of the parametrization: aircraft, units (m or mm, deg or rad), acceptance, reader, dominance rows, variants, a configuration registry with `extends`, section items, control surfaces, fillet and blister components, boat-tail rears and the exact-loft tip cap. An unknown key at any level is skipped and listed in `warnings` instead of refused; a `tip_cap.shape` key is skipped and listed in `findings`. The `hosts` default of a fairing and the component-name station defaults are gone, so no aircraft value or name is in library code. Resolved geometry carries a parameter identity (SHA-256 of the resolved values, data files by content), and stage records and run reports name the package version, the identity of the inputs, and each check with its limit and measured value. migration: a fairing, fillet or blister with no host is refused; an unknown key in a geometry TOML now warns instead of raising.
+
+A body is now one skinned surface cut at its stations by knot insertion, not a surface per bay: the pieces are the same surface as the whole, so the tangent plane is continuous across every cut. New `geometry/_bspline.py` (knot insertion, patch split), `_skin.py` and `_continuity.py`, a jump audit of every shared edge that reports the turn per edge kind and passes under 1 degree, or within 1 degree of the angle of a declared crease; an edge two patches name as shared but that does not coincide fails. Body patches carry a `role` and the names of their four edges, so a mesher or an assembly reads them instead of list order. Bodies gain a boat-tail rear (`rear.boat_tail`, a closure law tangent to the run and limited in slope on the side, crown and keel), a `rings_file` of measured sections (CSV with x, width, height), a whole body about its axis (`symmetry = "full"`, azimuths 0 to 360, off-centre sections allowed) and open ends (`nose = "open"`, `rear = "open"`) whose rim a parent and a child can share. A cap quadrilateral and a band bay are sampled with a count that grows until the pole seams turn by at most 0.8 degrees. The research reference comparison of bodies is retired, because a body's patches are now the skinned form; a `rings_file` that is not a rings table warns and is skipped.
+
+Applied control variants retain placed B-spline bases, UV trims, source versions
+and surface identities through per-component export. The export records measure
+the written profile, trimmed read-back areas and sewing against input openings.
+Resolved B-spline sections regenerate the selected applied geometry without a fit.
+
+migration: Applied variants with active controls now export their selected geometry.
+
+F5 records the trimmed body-cut boundary, sewn free-edge change and junction
+lengths against an independently assembled clean reference. Moving and cove
+faces stay outside the host operations.
+Curved source classification uses a finer parity hull away from near-face
+decisions, retaining the independent removal-area limit. Failed references
+stop before the applied cut.
+
+Junction arc lengths integrate native curve derivatives at floating-point accuracy.
+
+Triangular retained faces keep their original surface and use four exact boundary
+segments in both coordinate spaces.
+
+The reader profile uses bounded boundary parameters to initialize closest-point
+searches on folded surfaces, retaining the closest measured iterate.
+
+Fowler variants retain their fitted cove pins in the stored B-spline sections
+for exact regeneration.
+
+Reverse identification of applied control assemblies is reported as unsupported.
+Regeneration from stored B-splines checks their source identity.
+
+IGES conversion retains a compatible named NURBS source without rounding its
+coefficients through another native write. A second kernel import still checks
+the retained faces, names and geometry before output is written.
+
+Every selected control position exports separately and runs all export checks.
+Declared variants with no active control export their geometry. Trimmed assembly
+records retain their inputs per position in the run log.
+
+Selecting the body-cut sub-step alone no longer builds unrequested earlier
+control geometry.
+
+Body and engine cut records retain selected positions and native junction
+integrals. The existing exact length comparison can reject native roundoff;
+numerical acceptance of those cuts remains unresolved.
+
+The run matrix gains a `MESH_ROUTE` column after `GEOMETRY` and a geometry row: a row whose `GEOMETRY` is a `.geom.toml` (or an IGES with a route) is generated by the same runner as the API, so a row and the API give one identity, into one folder of `inputs/geometries/` named by it that equal parameters reuse. The row reads `GEOM_CONFIGURATION`, `GEOM_VARIANT`, `GEOM_PARAMS` and `MESH_CONTROLS`; a route or one of these on a row that opens an FSM, OBJ or STL is warned and skipped, and an unknown route, a file with several configurations and none named, or an unknown parameter refuses that row only. A row whose generation fails is recorded as `GEOMETRY_FAILED` with its report path and the other rows run. migration: the 0.56.0 header (without `MESH_ROUTE`) still reads, with a warning promised to 0.60.0, every row reading as `NA`; `pyfs-workspace migrate --apply` rewrites the `*.fs` files of the workspace root with an exact `.bak`, and the tracked example, fixture and documentation matrices are migrated.
+
+Mesh controls gain per-component schema validation before meshing, with named
+input errors and warnings for ignored tables and keys.
+Chordwise and spanwise tables build independent spacing laws, including root
+and tip runs. Coarse distributions are computed again from their own controls.
+Follower boundary plans preserve neighbour node identities and declared priority.
+Surface acceptance measures structured cells, flow-aligned rows, the blunt base,
+uniform fuselage stations and transition region and quality limits.
+Fillet and fairing checks measure shared refinement, keel stations, boundary
+rows, aft growth below 1.2, TE-cut continuity and mesh-only tip omission.
+Body azimuth counts use measured half-perimeters and axial spacing, with the
+junction-ring count as a floor; E14 measures the realized body edges.
+Hinge nodes are pinned exactly while retaining the chordwise cell count.
+Control surfaces inherit the parent's boundary distribution as full-quad followers.
+An explicit first chord cell solves a fresh growth law with a plateau.
+
+`pyfs-workspace geometry mesh` and `mesh_configuration` mesh a parametric
+configuration by strategy 1 from per-component mesh controls, validated against
+the configuration's membership and the IGES component names. `--dry-run` prints
+the planned counts and warnings and writes nothing. A run measures the strategy 1
+acceptance table on the realized mesh, including followers sharing a discovered
+curve with each neighbour, surfaces only and the cells across each trailing-edge
+base, and writes the OBJ, a generation record and, from a fresh saved simulation
+as template, an FSM whose mesh and trailing-edge marks read back exactly.
+Hinge rows pin the chord law of the route; a collapsed trailing edge closes the
+blunt base within a stated tolerance in the mesh only.
+
+migration: Mesh strategy controls use explicit chordwise and spanwise tables for
+primary lifting surfaces. Legacy mesh-generated controls remain accepted; passing
+strategy controls to mesh_generated now meshes by strategy 1.
+
+Strategy 1 meshes the wing and fuselage faces next to the fairing as structured
+blocks of the layout when the junction leaves them four-sided, and meshes any
+other such face with the fairing, quad-dominant; the record lists each decision
+and its reason. A blunt trailing-edge base generated as two faces is left one
+quad across. Tip caps may be quad-dominant and are reported apart from the
+triangle and irregular-node rows. A body `azimuth_rule` derives the azimuth
+count on this route and its realized band quads are measured against
+`aspect_band`.
+
+A body is no longer cut at a fairing end whose footprint is tangent to the
+station ring there (the default rounded nose and tail), so no fuselage face
+next to the fairing has a cusp; those faces stay four-sided and are meshed
+structured. Strategy 1 meshes a fairing face again with the next quad-dominant
+algorithm when its cells hold an inverted cell or a corner sine under 0.02, and
+the record keeps the algorithms used and each pass's defective faces. The
+planar tip cap restores every meshing option it sets, so a later pass meshes
+the structured faces exactly as the first did. Strategy 2 meshes a
+configuration whose tip cap is one face: the cap's collapsed leading-edge edge
+takes no count, a planar face is measured against its plane, and the inverted
+and degenerate rows name the faces holding those cells.
+
+The strategy 1 quad aspect limit now applies to every cell except the one quad
+across a blunt trailing-edge base (found from the trailing family of the face);
+those cells are left out of the limit and reported with their count, faces and
+largest aspect. Strategy 2 meshes the one-face tip cap apart from the blocks on
+its rim nodes, quad-dominant as strategy 1 does: no inverted cell is left, the
+cap's triangles are reported apart under E07 and are not counted with the
+full-grid rows.
+
+The `full_grid` value of `MESH_ROUTE` now meshes a generated configuration by
+strategy 2, a full quad structured grid. Every face becomes a block with four
+sides, a junction curve staying one side of the block it trims; one cell count
+per edge holds opposite sides equal, the lifting root ring at twice the chordwise
+cells plus the base cells on every side, the body azimuth ring at its count or
+the count derived from the measured perimeter, and the cell width across every
+junction under `defaults.junction.max_growth`. Controls with a triangle
+allowance, a pole other than valence 3 or open, contradicting counts, a ring
+that cannot hold, or carry rows above the growth limit are refused with E07 to
+E11. The mesh record measures triangles, rings, opposite sides, carry growth,
+valence 3 poles and the faces that are not full grid, by name.
+
+The native route of a generated matrix row is wired: `pyfs-matrix run` builds, with the solver, the `.fsm` of every `MESH_ROUTE native` row that has none yet (`plan` spends no licence), reading the generated IGES directly through `IMPORT_CAD` and `CONVERT_CAD_TO_MESH`. The generation of a native row stops at the conversion check S12.C (the library gridding of the reader is not the solver route), and its instruction renames the one body the solver converts, `Model 0` (the component names of the IGES are not boundaries; measured on build 26.127), to one word. A build whose audit fails promotes nothing and the row is recorded as `GEOMETRY_FAILED` while the others run. The reader profile cites the licensed record `tests/tier3_licensed/data/g13-native-import.json`; `docs/geometry-parametrization.md` and `docs/geometry.md` describe the route.
+The native route builds its geometry at a run: `run_matrix` and the grouped run build, with the solver, the `.fsm` of every `MESH_ROUTE native` row that has none (`pyfs-matrix plan` spends no licence and binds such a row only once it is built). The audit of a native build (a `[cad]` source) passes gate G1 when every zero-area face and every edge of more than two faces is the solver tessellation of a source seam, found on the edges and vertices of the source IGES and named by the source face in the build record; any zero-area face away from a source edge still fails. A native row ran end to end on build 26.127 (record `tests/tier3_licensed/data/g13-native-import.json`).
+
+Added strict schema 1 propeller definitions under a `propeller` component's `definition` table. Invalid keys and units are refused by their dotted input name.
+
+Added `geometry.Propeller` for planar, centroid-stacked sections, immutable pitch, skew and rake changes, cubic C2 radial lofts, blade and rotor surfaces, and measured numerical checks.
+
+Standalone schema 1 TOML now runs through `pyfs-geom run` and `workspace.geometry_pipeline.run_geometry`, with separate fit, design-measure, placement, loft, closure, written-trim and sewn-topology records. IGES output uses the library writer with both trim curves and PREF 1.
+
+Naturally sharp input profiles close directly without a zero-area trailing face.
+
+Handedness and section-planarity checks measure every defining station, and the beta check bounds its magnitude on both sides of the propeller plane.
+
+Runs without a propeller definition keep their existing stage sequence. Generic export-stage overrides remain generic; the runner selects propeller sub-steps from the complete registered table when required.
+
+Resolved propeller metadata retains mm, pitch and declared distribution units, with supplied and default sources distinguished inside the definition.
+
+Mixed file, CST and NACA stations retain their actual sharp or blunt open rim. A trailing face with a collapsed end keeps a reader-compatible wire without changing its surface.
+
+Propeller IGES files honor schema 1 mm output through an optional unit setting in the library writer. The kernel model stays in metres and reimport preserves the physical size.
+
+Explicit stage plans stop at the named `until` row even when the plan omits component-specific rows.
+
+Pitch reference and 0.7 R are actual loft sections within the supplied span. Beta checks measure the surface chord, avoiding interpolation bias between defining sections.
+
+migration: Existing deferred propeller parameters remain readable. New propeller designs use the `definition` table. Explicit stage-plan cutoffs follow the named row. Pitch checks measure the actual loft.
+
+The default (`flat`) tip and root cap of a lifting surface is now one planar face bounded exactly by the end section outline: the suction side, the pressure side and, for a blunt trailing edge, the base segment. Its boundary curves are the skin's own end curves, so it is watertight with the side surfaces. The face is named `tip_cap` (`root_cap`), replacing the three Coons faces `tip_cap_nose`, `tip_cap_upper` and `tip_cap_lower`, and the patch list the mesher reads holds one cap patch in place of nine. The propeller blade tip cap, already one planar face, is now covered by the same tests. The `rounded`, `ridged` and `exact_loft` cap types remain as options because they are public configuration values.
+
+`pyfs-workspace geometry scale <factor> --mesh <file>.obj|<file>.fsm [--out <folder>] [--about x,y,z] [--force]` scales every vertex of an OBJ, or every node of a FlightStream .fsm, uniformly about the origin or a point, writing the scaled file under the input name and a `<name>.scale.json` record (input hash, factor, centre, counts, bounding boxes before and after) into an output folder it creates (default `<stem>_scaled<factor>` beside the input). The format follows the file suffix. For an OBJ, face order, groups, normals and comments are unchanged byte for byte; for an .fsm only the x, y and z node rows of the mesh block change and every other byte, line endings included, is kept (a `<stem>.boundaries.toml` beside it is not copied). The input is never overwritten, and a zero, negative or non-numeric factor, a missing file, an .fsm without a mesh block and an existing same-name output without `--force` are refused. The Python entry is `pyflightstream.workspace.scale.scale_mesh`.
+
+`pyfs-workspace geometry prop-slice` cuts one blade of a propeller OBJ
+or IGES at radial stations and writes the propeller definition that rebuilds
+it, one normalized profile per station, a table over r/R of chord, pitch angle,
+maximum thickness, camber, skew and rake, and its record. Sections are cut in the
+planes the propeller builder places them in, with the skew found so the area centroid
+lies on the plane's radial line; an IGES is triangulated by the gmsh kernel and
+every section point is projected onto its exact face. The blades are counted and
+must match `--blades`; a hub and a spinner are excluded. Python:
+`pyflightstream.workspace.prop_slice.slice_propeller`. A round trip on a
+three-blade propeller recovers chord and thickness within 0.5 percent of the
+tip chord, beta within 0.1 deg, and skew and rake within 0.5 percent of the
+radius from an OBJ, five times closer from an IGES.
+
 ### Changed
 
 - Hub-ring controls use `band_width`; `width` remains a deprecated alias.
@@ -20,6 +499,25 @@ FlightStream versions.
   once per operating system.
 
 ### Fixed
+
+Return an exception of the isolated geometry worker that is not a refusal of this package as its own type with the worker's traceback, instead of as an input refusal that dropped both; a failure the geometry kernel reports is still `InputArtifactError`, says the kernel failed and carries the traceback; `MissingExtraError` from the worker keeps its `extra`, `package` and `remedy`; a builtin warning of the worker stays `PyflightstreamWarning` and names its original category in the message.
+
+Publish the outputs of an isolated geometry conversion (`iges-convert`, `iges-grid`) only after the worker has answered: they are written to a staging folder and moved beside the requested output, the record last, so a worker that is killed, times out or refuses part way leaves no partial outputs behind.
+
+A finished point is no longer refused as `FAILED_INCOMPLETE_OUTPUT` with "those names are already in datapoints" when a junction makes an output's resolved path reach the Windows limit of 260 characters. `Path.resolve` returned that one file with the `\\?\` prefix, so it no longer compared as a child of its own folder, and collection read the file the run had just written as evidence of an earlier run. The records of such a point are now collected.
+
+Correct the definition of the sections table's `My_int` (and the sloads `Moment` it integrates): without a separation model, the export's `Moment` is about the simulation's moment reference point, not each station's local quarter chord. On one wing on build 26.127, over 132 rows without separation, a section-pressure integration leaves a residual over dynamic pressure of mean +0.007 m^2, largest magnitude 0.013 m^2, about that point, against mean -0.186 m^2, largest magnitude 0.215 m^2, about the quarter chord. With airfoil separation on, the exported section Cp is the attached-flow Cp and the exported loads are not, so the integration does not decide the point. A rotating blade and a cut frame other than the loads frame are not measured.
+
+Behaviour change: the fixed-wing FSI route now moves the cut's `Moment` to the section's quarter chord with `X_QC Fz - Z_QC Fx`, and from there to the pitch axis where the blade carries its section contours, so `moment_pa_nm_per_m`, `moment_ea_nm_per_m` and the beam's torsion load change for a wing whose cut frame sits off the pitch axis; a frame on the pitch axis is unaffected. The rotor route, `SectionBlock.moment_qc_nm_per_m` (the raw column, under its existing name) and every value of the sections table are unchanged.
+
+migration: A `My_int` column read as a moment about the station's quarter chord is, without separation, a moment about the moment reference point; add `X_QC Fz - Z_QC Fx` (times the strip length) for the quarter chord. A fixed-wing FSI run whose cut frame is off the pitch axis gives a different torsion load and twist than before.
+
+A row with airfoil separation on that exports the section Cp is warned when its script is built: `_cp.txt` stays the attached-flow Cp and does not match the exported loads. The definitions page says so. No solver value is altered.
+
+`iges-grid` and `iges-convert` run the geometry kernel in a disposable worker process: a native kernel fault ends only the worker, is reported with its cause and nothing is written, and the kernel is never reused after a fault.
+
+Keep trailing-edge entries and base regions in separate role-qualified namespaces: a shared name no longer overwrites a declaration, lends the entry the base ordering, or makes wheel point files replace one another (paths are collision-safe and case-insensitive).
+
 
 - FSI load transfer warns about unverified rotor-frame and section-frame moment
   references, missing contour-based pitch-axis positions, and the unsupported
@@ -337,6 +835,55 @@ FlightStream versions.
   it warns that the hub shape near the root changes by that amount. Every moved
   non-root hub node is checked against source faces at a tolerance of `1e-8` local
   edges; an escape refuses and names the node. Distances are printed and saved.
+
+### Internal checks and corrections
+
+Far-field table projection treats a declaration mapping containing only empty
+entry lists as unavailable declarations, warns once and uses the table-entry union.
+
+The parity allowance for unavailable blade contributions requires the diagnostic
+key and message to name the same rotor in logs and product metadata.
+
+The post-processing artifact and unsteady-polar guides now describe far-field
+entry suffixes from the row's declared method count, including absent companions.
+
+Internal post-processing refactor keeps far-field reference pressure and recorded
+scalar copying in focused helpers. Products, column order and cell formatting are unchanged.
+
+### Internal checks
+
+- Keep architecture limits unchanged: test collision names through the public
+  allocator, simplify blade-load selection and lower the improved reduction
+  size baseline.
+- Make mandatory regex captures explicit to the CI type checker in saved-file
+  block parsing and refinement-product indexing, preserving runtime behavior.
+- Name the 0.55.1 parity differences by unavailable B target columns, specific
+  diagnostic records and equivalent-origin wake provenance. Keep every other
+  cell and metadata field checked, with controls for unrelated changes.
+
+### CI integration corrections
+
+- Rotor section modules load on lean installations. Surface matching requires
+  SciPy only when requested and names the missing dependency in a package error.
+- Blade-order and rotor-section refusals use package errors and retain their
+  ValueError base. Repitch and far-field warnings declare their package category.
+- Shared wake arithmetic and reference dynamic pressure have internal homes;
+  the wheel symmetry measurement is named for its returned result.
+- The public module inventory, docstrings, dimensionless chord-fraction entry,
+  input-template omissions and exact repitch hash representation are declared.
+- The retained single-sheet wake crossing Python API is recorded separately
+  from the workspace's multiple-sheet route.
+- Product snapshots reflect FR-1062's polar stage following far-field projection.
+  Only JSON manifest key order changes: every parsed JSON field and every other
+  product byte is unchanged, including archived manifests.
+
+Migration: no new numerical or input-format change. Code catching ValueError
+continues to catch these input refusals. Submitted-point reruns require the
+existing explicit `redo_submitted=True`; the old scheduler job is not cancelled.
+
+Far-field polar and super columns retain one source identity across a simulation row: declared method multiplicity controls entry suffixes, and collision reservations use the row's target union. Missing projected cells are empty; table-only projection warns once and uses the union of entries.
+
+migration: Repost stored exports and update selectors for methods with multiple declared entries; their columns keep entry suffixes even where a companion is absent.
 
 ## [0.55.0] - 2026-11-04
 

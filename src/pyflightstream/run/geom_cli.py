@@ -296,3 +296,7 @@ def main(argv: list[str] | None = None) -> int:
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

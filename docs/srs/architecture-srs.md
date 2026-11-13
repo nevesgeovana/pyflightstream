@@ -496,3 +496,12 @@ surface chart, the remesher and quad pairing of `refine` and the same attachment
 `workspace.morph` runs hub-rings, repitch, collapse-te and sector-to-wheel in one fixed
 order through a private staging folder and adds no geometry of its own; the run layer's
 parsers for the four morphing verbs live in `run._cli_morph`.
+
+The parametric geometry pipeline sits above a pure-numpy `geometry` package (component records,
+TOML configuration, sections, lifting surfaces, bodies, propellers, stage table and the IGES reader
+profile), which imports no geometry kernel. The kernel (gmsh) is reached only through the
+workspace layer's kernel adapter and its disposable worker process. `workspace.geometry_pipeline`
+runs stages S0 to S13 and the strategy 1 and 2 meshers; `run.geom_cli` is the `pyfs-geom` command
+line over it and runs as `python -m pyflightstream.run.geom_cli`. `workspace.scale` and
+`workspace.prop_slice` are independent mesh and propeller utilities that take files in and write
+files out, and the run matrix reaches generated geometry through the `MESH_ROUTE` column.

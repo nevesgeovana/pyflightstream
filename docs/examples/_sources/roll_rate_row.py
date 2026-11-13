@@ -82,13 +82,14 @@ print(f"workspace: {workspace.root}")
 # %%
 HEADER = (
     "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION "
-    "| SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS "
+    "| SWEEP_VALUES | GEOMETRY | MESH_ROUTE | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS "
+    "| NCPUS "
     "| WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES"
 )
 ROW = (
     "2001 | 0 | 1 | Wing | - | roll_damping "
     "| MACH:0.1, REmi:2.3, ALPHA:4.0, roll_rate:sweep "
-    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.fsm | r001 | s001 | p001 "
+    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.fsm | NA | r001 | s001 | p001 "
     f"| NONE | - | - | - | {BUILD} | steady |"
 )
 matrix = workspace.root / "roll.fs"

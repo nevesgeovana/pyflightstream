@@ -27,6 +27,7 @@ MATURITY = {
     "pyflightstream.workspace.geometry_pipeline": "provisional",
     "pyflightstream.workspace.iges_grid": "provisional",
     "pyflightstream.workspace.morph": "provisional",
+    "pyflightstream.workspace.prop_slice": "provisional",
     "pyflightstream.workspace.repitch": "provisional",
     "pyflightstream.workspace.scale": "provisional",
     "pyflightstream.cases": "stable",

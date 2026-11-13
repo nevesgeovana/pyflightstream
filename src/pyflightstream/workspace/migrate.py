@@ -66,7 +66,7 @@ def migrate_workspace(root: str | Path, *, apply: bool = False) -> list[dict[str
     Archives, products and solver state remain evidence. Every candidate is
     validated before the first backup or replacement. A repeated apply skips
     already migrated files. The run matrices of the workspace (``matrix_files``) written at the
-    0.56.0 layout get the MESH_ROUTE column, unstated, with an exact ``.bak``
+    older layout, without the column, get the MESH_ROUTE column, unstated, with an exact ``.bak``
     beside each. Migration instructions are in docs/upgrading.md.
     """
     root = Path(root).resolve()
@@ -207,7 +207,7 @@ def _change_description(item: tuple, apply: bool) -> dict[str, Any]:
 
 
 def _migrate_matrices(root: Path, *, apply: bool) -> list[dict[str, Any]]:
-    """Give each root matrix at the 0.56.0 layout its MESH_ROUTE column, copy first.
+    """Give each root matrix at the older layout its MESH_ROUTE column, copy first.
 
     A matrix already at the current layout, and any other ``.fs`` file, is not a candidate.
     Every rewrite is prepared before the first backup or replacement, and a backup that
