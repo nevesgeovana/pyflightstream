@@ -609,7 +609,7 @@ def _check_the_route_runs(request: GeometryRowRequest) -> None:
     running = sorted([*_ROUTES, *(k for k, v in MESH_STRATEGIES.items() if v is not None)])
     raise GeometryRowError(
         f"matrix row POL {request.pol}: MESH_ROUTE {request.route} has no mesher on this tree "
-        f"(strategy 2 of PFS-2214 meshes full_grid); the routes that run are "
+        f"(the route that meshes full_grid is mesh strategy 2); the routes that run are "
         f"{', '.join(running)}."
     )
 

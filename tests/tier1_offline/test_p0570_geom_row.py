@@ -482,12 +482,13 @@ def test_full_grid_is_refused_by_name_before_anything_is_generated(tmp_path, lib
 
     monkeypatch.setitem(row_module.MESH_STRATEGIES, "full_grid", None)
     calls: list = []
-    with pytest.raises(row_module.GeometryRowError, match="strategy 2"):
+    with pytest.raises(row_module.GeometryRowError, match="strategy 2") as refused:
         row_module.prepare_row_geometry(
             _request(library, route="full_grid"),
             library.inputs_dir / "geometries",
             generate=_fake_generation(calls),
         )
+    assert "PFS-" not in str(refused.value)  # API-013: no internal node id in the sentence
     assert not calls
 
 
