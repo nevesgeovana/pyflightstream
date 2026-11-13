@@ -256,6 +256,24 @@ CANONICAL_FORMS = {
         "level folder whose automatic tag is too long; refine.json lists the "
         "selected families as tag_selection, not the text."
     ),
+    "workspace/_geometry_mesh.py": (
+        "controls_sha256: the raw bytes of the mesh controls file as read, or, for controls "
+        "passed as a mapping, the UTF-8 bytes of json.dumps with sorted keys and default=str; "
+        "each written mesh file enters by file_sha256 of its raw bytes. No path or filesystem "
+        "metadata is added."
+    ),
+    "workspace/_geometry_mesh_s2.py": (
+        "controls_sha256: the raw bytes of the mesh controls file as read, or, for controls "
+        "passed as a mapping, the UTF-8 bytes of json.dumps with sorted keys and default=str; "
+        "each written mesh file enters by file_sha256 of its raw bytes. No path or filesystem "
+        "metadata is added."
+    ),
+    "workspace/_geometry_row.py": (
+        "the parameter id is the SHA-256 of the raw bytes of the row's GEOMETRY source file; the "
+        "build key is the SHA-256 of the UTF-8 encoding of json.dumps, sorted keys, of the "
+        "parameter id, configuration, variant, route, fs_build and the SHA-256 of the raw mesh "
+        "controls bytes (null on the native route), shortened for the folder name."
+    ),
 }
 
 __all__ = [

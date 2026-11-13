@@ -20,10 +20,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pyflightstream import _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream._fsm import MeshReadError, mesh_face_counts
+from pyflightstream._textio import write_bytes, write_json
 from pyflightstream.workspace._scale_fsm import scale_fsm_nodes
 
 __all__ = ["scale_mesh"]
@@ -236,7 +236,7 @@ def scale_mesh(
         **facts,
     }
     folder.mkdir(parents=True, exist_ok=True)
-    _textio.write_bytes(target, scaled)
-    _textio.write_json(record_path, record)
+    write_bytes(target, scaled)
+    write_json(record_path, record)
     record["record"] = str(record_path)
     return record

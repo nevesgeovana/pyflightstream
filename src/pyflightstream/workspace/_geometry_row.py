@@ -513,14 +513,11 @@ def mesh_with_strategy_1(
 ) -> None:
     """Mesh the configuration by strategy 1 of PFS-2214 for the quad_dominant route."""
     if mesh_configuration is None:
-        from pyflightstream.workspace import _geometry_mesh
-
-        mesh_configuration = getattr(_geometry_mesh, "mesh_configuration", None)
-    if mesh_configuration is None:
-        raise GeometryRowError(
-            f"matrix row POL {request.pol}: MESH_ROUTE quad_dominant needs strategy 1 of "
-            "PFS-2214, which this tree does not carry."
+        from pyflightstream.workspace._geometry_mesh import (
+            mesh_configuration as _strategy_1,
         )
+
+        mesh_configuration = _strategy_1
     _mesh_with(request, folder, name, mesh_configuration)
 
 
@@ -529,9 +526,11 @@ def mesh_with_strategy_2(
 ) -> None:
     """Mesh the configuration by strategy 2 of PFS-2214 (full grid) for the full_grid route."""
     if mesh_full_grid is None:
-        from pyflightstream.workspace import _geometry_mesh_s2
+        from pyflightstream.workspace._geometry_mesh_s2 import (
+            mesh_full_grid as _strategy_2,
+        )
 
-        mesh_full_grid = _geometry_mesh_s2.mesh_full_grid
+        mesh_full_grid = _strategy_2
     _mesh_with(request, folder, name, mesh_full_grid)
 
 
