@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream._fsm import (
     MESH_MARKER,
@@ -200,5 +201,5 @@ def write_fsm(
     lines, newline, start, end, colour = _template_lines(Path(template))
     block = _mesh_block(mesh, colour, trailing_edges)
     text = newline.join([*lines[:start], *block, *lines[end + 1 :]])
-    target.write_bytes(text.encode("latin-1"))
+    _textio.write_text(target, text, encoding="latin-1")
     return target

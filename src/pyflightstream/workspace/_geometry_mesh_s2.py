@@ -27,6 +27,7 @@ from typing import Any
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry.stages import (
     Mesh,
@@ -754,9 +755,7 @@ def _write(mesh: Mesh, record: dict, *, out, descriptor: str, fsm_template) -> d
     record["outputs"] = {
         k: {"path": Path(v).name, "sha256": file_sha256(v)} for k, v in written.items()
     }
-    targets["record"].write_text(
-        json.dumps(record, indent=2, sort_keys=True, default=str), encoding="utf-8"
-    )
+    _textio.write_text(targets["record"], json.dumps(record, indent=2, sort_keys=True, default=str))
     return {**written, "record": str(targets["record"])}
 
 

@@ -11,7 +11,6 @@ station under ``sections/``, the table ``table.csv`` and the record ``prop-slice
 
 from __future__ import annotations
 
-import csv
 import io
 import json
 from collections.abc import Sequence
@@ -22,7 +21,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from pyflightstream._errors import InputArtifactError, InputValueError
-from pyflightstream._textio import write_text
+from pyflightstream._textio import csv_writer, write_text
 from pyflightstream.geometry import Propeller
 from pyflightstream.geometry.stages import (
     BladeFrame,
@@ -299,7 +298,7 @@ def _write(source, folder, frame, result, inputs):
     )
     Propeller.from_toml(folder / "propeller.toml")
     buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
+    writer = csv_writer(buffer)
     writer.writerow(TABLE_COLUMNS)
     for row in result["table"]:
         writer.writerow([row[key] if key == "airfoil" else repr(row[key]) for key in TABLE_COLUMNS])

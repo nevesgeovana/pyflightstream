@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
@@ -441,14 +442,14 @@ def _relocate_records(work: Path, folder: Path) -> None:
             continue
         moved = _relocated(data, work, folder)
         if moved != data:
-            path.write_text(json.dumps(moved, indent=2) + "\n", encoding="utf-8")
+            _textio.write_text(path, json.dumps(moved, indent=2) + "\n")
     log = work / LOG_NAME
     if log.is_file():
         text = log.read_text(encoding="utf-8")
         for before, after in ((str(work), str(folder)), (work.as_posix(), folder.as_posix())):
             quoted = (json.dumps(before)[1:-1], json.dumps(after)[1:-1])
             text = text.replace(quoted[0], quoted[1]).replace(before, after)
-        log.write_text(text, encoding="utf-8")
+        _textio.write_text(log, text)
 
 
 def _refuse_unnamed_configuration(request: GeometryRowRequest) -> None:
@@ -482,7 +483,8 @@ def _write_instruction(folder: Path, name: str, request, table, boundaries) -> P
     from pyflightstream.workspace._geometry_instruction import read_geometry_instruction
 
     path = folder / f"{name}.geometry.toml"
-    path.write_text(
+    _textio.write_text(
+        path,
         _instruction_text(name, request.fs_build, table, boundaries),
         encoding="utf-8",
     )
