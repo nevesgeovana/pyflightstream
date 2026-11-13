@@ -155,3 +155,37 @@ def test_p0570_c8_source_and_destination_must_differ(tmp_path):
 def test_p0570_c8_a_missing_source_is_refused(tmp_path):
     with pytest.raises(InputValueError, match="file does not exist"):
         _split(tmp_path / "a.igs", tmp_path / "h.igs")
+
+
+def test_p0570_c8_shallow_crossing_is_cut_and_kept(kernel, tmp_path):
+    source = _model(kernel, tmp_path / "full.igs", wing_y=(-2e-6, 3.0))
+    record = _split(source, tmp_path / "half.igs")
+    assert record["components"]["WING"]["cut"] == 4
+    assert record["components"]["WING"]["faces_after"] == 5
+    half = kernel.inspect_file(tmp_path / "half.igs", 1e-7)
+    assert "WING" in half.names
+
+
+def test_p0570_c8_refuses_uncut_component_with_interior_crossing(kernel, tmp_path):
+    dome = kernel.add_bspline_surface(
+        [
+            [(float(x), -12.0 if x == 1 and z == 1 else 1.0, float(z)) for z in range(3)]
+            for x in range(3)
+        ],
+        knots_u=[0.0, 1.0],
+        knots_v=[0.0, 1.0],
+        mult_u=[3, 3],
+        mult_v=[3, 3],
+        deg_u=2,
+        deg_v=2,
+    )
+    source = tmp_path / "full.igs"
+    kernel.export_iges({"BODY": _box(kernel, (4, -1, 0), (5, 1, 1)), "DOME": [dome]}, source)
+    out = tmp_path / "half.igs"
+    with pytest.raises(InputValueError, match="'DOME' crosses the plane"):
+        _split(source, out, component="BODY")
+    assert not out.exists()
+    record = _split(source, out)
+    assert record["components"]["DOME"]["cut"] == 1
+    assert record["components"]["DOME"]["area_removed"] > 0
+    assert record["components"]["DOME"]["area_kept"] > 0

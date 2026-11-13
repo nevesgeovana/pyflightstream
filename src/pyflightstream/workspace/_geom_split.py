@@ -31,9 +31,6 @@ _SYMMETRY_LIMIT = 1e-6
 #: Distance to the plane, as a fraction of the model's extent (at least 1 m), within which a
 #: point of an edge lies on it.
 _ON_PLANE = 1e-9
-#: The same for a bounding box, which the kernel takes from the untrimmed surface and widens by
-#: its own tolerance: a face whose box stays inside this on one side is not offered to the cut.
-_BOX = 1e-6
 #: Points sampled along an edge to place it against the plane.
 _EDGE_SAMPLES = 17
 
@@ -114,14 +111,19 @@ class _Plane:
         self.kernel, self.name, self.axis = kernel, plane, _AXES[plane]
         extent = max((abs(c) for box in boxes for corner in box for c in corner), default=0.0)
         self.tolerance = _ON_PLANE * max(extent, 1.0)
-        self.loose = _BOX * max(extent, 1.0)
 
     def offered(self, box: Box) -> bool:
         """Return True when the bounding box reaches past the plane on both sides."""
-        return box[0][self.axis] < -self.loose and box[1][self.axis] > self.loose
+        return box[0][self.axis] < 0.0 and box[1][self.axis] > 0.0
 
     def crosses(self, face: Face) -> bool:
-        """Return True when the trimmed boundary of ``face`` has points on both sides."""
+        """Test a copy with the kernel so interior crossings are not missed."""
+        copy = self.kernel.copy([face])[0]
+        pieces = _cut(self.kernel, copy, self.axis)
+        crossed = len(pieces) > 1
+        self.kernel.remove(pieces)
+        if crossed:
+            return True
         low, high = _span(self.kernel, face, self.axis)
         return low < -self.tolerance and high > self.tolerance
 
@@ -137,7 +139,7 @@ class _Plane:
 
     def kept(self, piece: Face) -> bool:
         """Return True when ``piece`` lies on the positive side or in the plane."""
-        return _span(self.kernel, piece, self.axis)[0] >= -self.tolerance
+        return self.kernel.centroid(piece)[self.axis] >= -self.tolerance
 
 
 def _check_selection(
