@@ -43,7 +43,9 @@ the wheel's, and the [reference](mesh/reference.md#morph-control) lists the keys
 `geometry scale` multiplies every vertex of an OBJ by one positive factor about the origin, or
 about the point given by `--about x,y,z`, without a solver. Only the three coordinates of each
 `v` line change: face order, groups, normals, comments and line endings stay byte for byte,
-because the solver's results depend on face order. `--out` names an output folder; the verb
+because the solver's results depend on face order. Indented vertex and face records are
+recognized too; their leading spaces and tabs are kept, and every vertex is scaled even when
+the file mixes indented and unindented lines. `--out` names an output folder; the verb
 creates it, with its parents, and writes the scaled OBJ there under the input name, with
 `<name>.scale.json` beside it (input sha256, factor, centre, vertex and face counts, bounding
 boxes before and after). Without `--out` the folder is `<stem>_scaled<factor>` beside the input.
@@ -915,7 +917,7 @@ warn that the group is their home.
 [--axis DX DY DZ] [--origin X Y Z] [--blade-dir DX DY DZ] [--stations R_R ...]
 [--unit mm|cm|m|in] [--overwrite] --out <folder>` (the unit also as `MILLIMETER`,
 `CENTIMETER`, `METER` or `INCH`, in any case) cuts one blade of a propeller at radial
-stations and writes the G17 definition that rebuilds it (`propeller.toml`),
+stations and writes the propeller definition that rebuilds it (`propeller.toml`),
 one normalized profile per station (`sections/sNN.dat`), the table of chord,
 pitch angle, thickness, camber, skew and rake over r/R (`table.csv`) and the
 record `prop-slice.json`; an IGES is read with the gmsh kernel. See
@@ -923,9 +925,12 @@ record `prop-slice.json`; an IGES is read with the gmsh kernel. See
 
 ## Matrix geometry
 
-`GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
-matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
-name the FSM in the matrix:
+For a mesh file, `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag
+enables an OBJ matrix row. `GEOMETRY` may also name a `.geom.toml`
+configuration, or an IGES file, that the row generates through its
+`MESH_ROUTE` (see [the run matrix](workflow-run-matrix.md#what-a-run-matrix-is)).
+Prepare and mark the OBJ once, inspect the saved geometry, and name the FSM in
+the matrix:
 
 ```text
 pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply

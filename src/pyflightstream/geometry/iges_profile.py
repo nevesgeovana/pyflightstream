@@ -10,17 +10,17 @@ Observed: non-rational, clamped, bicubic parametric surfaces (entity 128), trimm
 boundary (entities 142 and 102) and, where a face has holes, inner boundaries, each face named by
 a 406 form 15 property. The observed
 degrees are a set per direction and the observed net size a limit, both filled from the licensed
-reader probe (record ``tests/tier1_offline/data/g13p-reads.json``, build 26.127, lane G13P): the
+reader probe (record ``tests/tier1_offline/data/g13p-reads.json``, build 26.127): the
 solver read faces of degree 1, 3 and 5 in either direction, and a net of 111 by 18, from files
 written by ``iges-convert``; the same probe files as the package writes them, imported directly,
-read with the same areas (record ``tests/tier1_offline/data/g13d-reads.json``, lane G13D, the
+read with the same areas (record ``tests/tier1_offline/data/g13d-reads.json``, the
 P2 file of PREF 2 excepted). The direct route reads a
 face only when its outer boundary has parameter-space curves flagged 2D parametric (entity use 05)
 and a PREF other than 2; the writer states both, and a PREF 2 asked of it is warned about and
 written as 1. No net limit is stated
 because the largest net probed was not a failing one. The native route's import of a generated
 wing and of a body, directly, through ``IMPORT_CAD`` and ``CONVERT_CAD_TO_MESH`` on build 26.127,
-is recorded in ``tests/tier3_licensed/data/g13-native-import.json`` (lane G13): the solver reads
+is recorded in ``tests/tier3_licensed/data/g13-native-import.json``: the solver reads
 the faces the profile states and names the one body it converts ``Model 0``.
 """
 

@@ -14,7 +14,8 @@ A TOML file with one table per component under `[components]`. Every value is re
 its source (`given` or `default`), so a result can say which numbers you stated; the quantities
 computed from them (area, mean chord) are kept apart under `derived`.
 A parameter this release does not know warns and is skipped: it appears under `warnings` in what
-`generate` and `mesh-generated` print and in the resolved configuration. Python reads the file with
+`pyfs-geom run` and `pyfs-workspace geometry mesh-generated` print and in the resolved
+configuration. Python reads the file with
 `pyflightstream.geometry.load_config` and `resolve_config`.
 
 ```toml
@@ -329,6 +330,7 @@ A zero-area face with a point off every source edge, or any other failed gate, s
 nothing is
 promoted, the row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run.
 The measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
-`run_matrix` and the grouped run build the missing native geometry; `pyfs-matrix plan` binds
-nothing for such a row until it is built, so build once with `pyfs-workspace geometry build NAME
---apply` (and `geometry accept NAME` after looking at its preview), then plan and run.
+`run_matrix` and the grouped run (`pyfs-matrix run`) build the missing native geometry with
+the solver. `pyfs-matrix plan` spends no licence and binds such a row only once it is built;
+to see the row in a plan before the run, build it once with `pyfs-workspace geometry build
+NAME --apply` (and `geometry accept NAME` after looking at its preview).

@@ -1096,7 +1096,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         GEOM_PARAMS_VARIABLE: InputKey(
             "Parameter overrides of a .geom.toml row, a brace list of component.key=value "
             "pairs; a name the file does not hold refuses that row.",
-            "{main.planform.span=12, main.planform.taper=0.6}",
+            "{WING.planform.aspect_ratio=8, WING.planform.taper=0.6}",
         ),
         MESH_CONTROLS_VARIABLE: InputKey(
             "The mesh controls of the row's quad_dominant or full_grid route, a file of "

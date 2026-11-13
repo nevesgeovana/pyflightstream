@@ -88,6 +88,24 @@ section outline, named `tip_cap` (`root_cap`), where earlier versions wrote thre
 or a mesh control that names the three old faces must name the one cap face. The `rounded`,
 `ridged` and `exact_loft` cap types are unchanged.
 
+## FSI torsion load and the section moment (0.57)
+
+Without a separation model, the exported section `Moment`, and the sections table's `My_int`
+that integrates it, is about the simulation's moment reference point, not each station's
+quarter chord. A `My_int` read as a quarter-chord moment needs `X_QC Fz - Z_QC Fx` (times the
+strip length) added. The fixed-wing FSI route now moves the moment to the quarter chord with
+that transfer, and from there to the pitch axis, so `moment_pa_nm_per_m`,
+`moment_ea_nm_per_m`, the beam's torsion load and the twist change for a wing whose cut frame
+sits off the pitch axis: rerun such a fixed-wing FSI study. A cut frame on the pitch axis, the
+rotor route and the values of the sections table are unchanged.
+
+## Mesh controls and IGES model space (0.57)
+
+`mesh_generated` (`geometry mesh-generated`) given mesh controls in the strategy form (explicit
+chordwise and spanwise tables) now meshes by strategy 1; the earlier controls are still
+accepted. An IGES export asked for model space (PREF 2) or either space (PREF 3) now writes
+PREF 1, with a warning naming the replacement.
+
 ## New geometry commands (0.57)
 
 `pyfs-geom` runs the geometry pipeline (`run`, `doe`, `validate`, `configurations`, `stages`,

@@ -4,7 +4,7 @@ Pipeline role: the run layer's parsers and handlers for the verbs a morphing con
 drives, ``repitch``, ``collapse-te``, ``hub-rings``, ``morph`` and ``scale`` (PFS-2189, PFS-2193,
 PFS-2222), and for
 the verbs that read named IGES files, ``iges-grid`` and ``iges-convert`` (PFS-2198, PFS-2199,
-on the gmsh kernel), and ``prop-slice``, which cuts a propeller into sections (PFS-2223). The
+on the gmsh kernel), and ``prop-slice``, which cuts a propeller into sections. The
 work is the workspace layer's
 (:mod:`pyflightstream.workspace.repitch`, :mod:`pyflightstream.workspace.collapse_te`,
 :mod:`pyflightstream.workspace.hub_rings`, :mod:`pyflightstream.workspace.morph`,
@@ -335,15 +335,15 @@ def run_mesh_generated(args: argparse.Namespace) -> int:
 
 
 def add_prop_slice_parser(subparsers: Any) -> None:
-    """Add the verb that slices a propeller into sections and the G17 builder's inputs."""
+    """Add the verb that slices a propeller into sections and its propeller definition."""
     parser = subparsers.add_parser(
         "prop-slice",
-        help="cut a propeller OBJ or IGES into blade sections and a G17 definition",
+        help="cut a propeller OBJ or IGES into blade sections and a propeller definition",
         description=(
             "Isolates one blade about the axis, cuts it at radial stations by the planes the "
-            "G17 builder places its sections in, and writes to --out the normalized profile of "
-            "each station (sections/sNN.dat), the table over r/R of chord, pitch angle, "
-            "thickness, camber, skew and rake (table.csv), the G17 definition that rebuilds "
+            "propeller builder places its sections in, and writes to --out the normalized "
+            "profile of each station (sections/sNN.dat), the table over r/R of chord, pitch angle, "
+            "thickness, camber, skew and rake (table.csv), the propeller definition that rebuilds "
             "the propeller (propeller.toml) and the record prop-slice.json. An IGES is read "
             "by the gmsh kernel (docs/propeller.md)."
         ),

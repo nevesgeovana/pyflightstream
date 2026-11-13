@@ -1,9 +1,9 @@
-"""Slice a propeller OBJ or IGES into blade sections and the G17 builder's inputs (PFS-2223).
+"""Slice a propeller OBJ or IGES into blade sections and the propeller definition.
 
 Pipeline role: the workspace layer's reader and writer around the pure slicer
 :mod:`pyflightstream.geometry._propeller_slice`. An OBJ is read as its polygons; an IGES is
 imported by the gmsh kernel in a worker process of its own, triangulated finely and every
-section point is projected back onto its exact face. The folder written holds the G17
+section point is projected back onto its exact face. The folder written holds the propeller
 definition ``propeller.toml`` that rebuilds the propeller, one normalized profile per
 station under ``sections/``, the table ``table.csv`` and the record ``prop-slice.json``
 (docs/propeller.md, "Slicing an existing propeller").
@@ -222,7 +222,7 @@ def slice_propeller(
     unit: str = "mm",
     overwrite: bool = False,
 ) -> dict[str, Any]:
-    """Cut one blade of a propeller at radial stations and write its G17 parametrization.
+    """Cut one blade of a propeller at radial stations and write its propeller definition.
 
     Parameters
     ----------

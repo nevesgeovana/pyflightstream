@@ -543,7 +543,7 @@ def test_configuration_entries_on_an_iges_row_are_warned_and_skipped(library):
         "MESH_ROUTE": "native",
         "GEOM_CONFIGURATION": "clean",
         "GEOM_VARIANT": "cs",
-        "GEOM_PARAMS": "{main.planform.span=12}",
+        "GEOM_PARAMS": "{WING.planform.taper=0.6}",
     }
     with pytest.warns(NotApplicableWarning) as caught:
         request = row_module.plan_row_geometry(variables, "7001", library.resolve_geometry)

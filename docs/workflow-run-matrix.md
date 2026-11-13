@@ -58,7 +58,7 @@ solver opens: `NA` leaves a row with a mesh file as it is, `native` hands the ge
 the solver's CAD importer, `quad_dominant` meshes it with strategy 1 and `full_grid` with
 strategy 2. A route stated on a row that opens an FSM, an OBJ or an STL is warned and skipped.
 A generated row also reads `GEOM_CONFIGURATION` (required when the file declares several),
-`GEOM_VARIANT` (`clean` by default), `GEOM_PARAMS` (`{main.planform.span=12}`, one override per
+`GEOM_VARIANT` (`clean` by default), `GEOM_PARAMS` (`{WING.planform.taper=0.6}`, `<component>.<key>`, one override per
 name, an unknown name refuses that row) and `MESH_CONTROLS` (the mesh controls file, by default
 `<stem>.mesh.toml`). The generated files live in one folder of `inputs/geometries/` named by the
 parameters' identity, so equal parameters reuse it; a row whose generation fails is recorded as

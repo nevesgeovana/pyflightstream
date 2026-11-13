@@ -157,7 +157,7 @@ geometry it was cut from:
   onto the nearest face and back onto the plane, so its sections lie on the
   exact surfaces.
 
-A round trip on a three-blade G17 propeller with chord, twist, thickness,
+A round trip on a three-blade built propeller with chord, twist, thickness,
 skew and rake all varying along the span (tested) recovers, at every station:
 chord, thickness and camber within 0.5 percent of the tip chord, beta within
 0.1 deg, skew arc and rake within 0.5 percent of the radius from an OBJ of

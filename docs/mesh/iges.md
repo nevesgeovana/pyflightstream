@@ -190,7 +190,7 @@ those curves, within a hundredth of the component's size, are the trailing edge.
 
 ### Layout sidecar
 
-A wing written by `geometry generate` has a sidecar `<piece>.layout.json` beside its IGES
+A wing written by `pyfs-geom run` (`generate_iges`) has a sidecar `<piece>.layout.json` beside its IGES
 (same stem). `iges-grid` reads it when present: each face is cut along the iso lines the
 sidecar names for its base (the maximum thickness lines, the leading edge, the hinges, the
 section lines, the two halves of the blunt base) before the four-sided test, so every block of

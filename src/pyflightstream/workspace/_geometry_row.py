@@ -178,7 +178,7 @@ def _parse_params(text: str, pol: str) -> dict[str, Any]:
     if not (body.startswith("{") and body.endswith("}")):
         raise GeometryRowError(
             f"matrix row POL {pol}: {GEOM_PARAMS_VARIABLE} is {text!r}; write the overrides in "
-            "braces as {main.planform.span=12, main.planform.taper=0.6}."
+            "braces as {WING.planform.aspect_ratio=8, WING.planform.taper=0.6}."
         )
     overrides: dict[str, Any] = {}
     for pair in (part for part in body[1:-1].split(",") if part.strip()):
