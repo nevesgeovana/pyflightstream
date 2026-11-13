@@ -651,7 +651,11 @@ def test_p0390_iterlimit_a_0_38_reader_refuses_the_new_value(tmp_path):
 
     import pydantic
 
-    assert {member.value for member in RunStatus} == RUN_STATUS_0380 | {"MAX_ITER_REACHED"}
+    # 0.57.0 added GEOMETRY_FAILED (PFS-2214, G10); the 0.38.0 reader refuses it the same way.
+    assert {member.value for member in RunStatus} == RUN_STATUS_0380 | {
+        "MAX_ITER_REACHED",
+        "GEOMETRY_FAILED",
+    }
     old = enum.Enum("RunStatus0380", {name: name for name in sorted(RUN_STATUS_0380)})
     reader = pydantic.create_model("Record0380", status=(old, ...))
     row = _rows(_limit_workspace(tmp_path).root)[0]

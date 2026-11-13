@@ -1342,6 +1342,9 @@ _STATUS_SEVERITY: tuple[RunStatus, ...] = (
     RunStatus.WALLTIME_REACHED,
     # FR-413: the outputs are present and the log is not; no verdict either way.
     RunStatus.RAN_MISSING_LOG,
+    # PFS-2214 (G10): the row's generated geometry failed and nothing ran; worse than any
+    # point that ran, and below every FAILED_ value, which is a solve that failed.
+    RunStatus.GEOMETRY_FAILED,
     RunStatus.FAILED_SCRIPT,
     RunStatus.FAILED_EXECUTION,
     RunStatus.FAILED_INCOMPLETE_OUTPUT,

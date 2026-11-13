@@ -198,7 +198,14 @@ COST_EXCLUDED_STATUSES = frozenset(
     status
     for status in RunStatus
     if status.name.startswith("FAILED")
-    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
+    or status
+    in {
+        RunStatus.WALLTIME_REACHED,
+        RunStatus.SUBMITTED,
+        RunStatus.RAN_MISSING_LOG,
+        # PFS-2214 (G10): nothing ran, so there is no wall clock to sample.
+        RunStatus.GEOMETRY_FAILED,
+    }
 )
 """Statuses whose wall clock is not a completed-run cost sample."""
 

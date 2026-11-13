@@ -49,6 +49,9 @@ CLOSED_SET = {
     # 0.39.0 (FR-434), amended in by the owner: a steady run that stopped at its requested
     # iteration limit without settling; minted by the assessor, never by collect's own rules.
     "MAX_ITER_REACHED",
+    # 0.57.0 (PFS-2214, G10): a row whose generated geometry failed, so nothing ran;
+    # minted by the geometry binding, never by collect.
+    "GEOMETRY_FAILED",
 }
 
 

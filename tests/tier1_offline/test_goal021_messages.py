@@ -29,7 +29,9 @@ def test_goal021_loads_message_the_allow_list_is_every_status_that_ran_without_f
     ran = {
         status.value
         for status in RunStatus
-        if not status.value.startswith("FAILED") and status is not RunStatus.SUBMITTED
+        if not status.value.startswith("FAILED")
+        # SUBMITTED is queued and GEOMETRY_FAILED (PFS-2214) never ran: neither owes a table.
+        and status not in (RunStatus.SUBMITTED, RunStatus.GEOMETRY_FAILED)
     }
     assert set(tables_module._RAN_TO_OUTPUTS) == ran, (
         f"_RAN_TO_OUTPUTS is {tables_module._RAN_TO_OUTPUTS} and the statuses that finish "
