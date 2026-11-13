@@ -287,8 +287,8 @@ def slice_propeller(
     folder = Path(out)
     if source.resolve().is_relative_to((folder / "sections").resolve()):
         raise _refuse(
-            f"{source}: input is inside the output sections directory; choose another --out "
-            "folder to keep the input"
+            f"{source}: input is inside the output sections directory; choose another "
+            "out (CLI: --out) folder to keep the input"
         )
     present = [name for name in _OUTPUTS if (folder / name).exists()]
     if present and not overwrite:
