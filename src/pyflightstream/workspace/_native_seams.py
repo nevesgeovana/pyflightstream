@@ -8,7 +8,8 @@ the source: a fan of slivers at a pole, a sliver pair folded along the seam of t
 source IGES and decides, for each such face or edge, whether every node lies on an edge of a
 source face (or two nodes collapse onto a source vertex, a pole fan); one that does is named by the
 source faces whose edge it lies on and is explained, and one
-with a node off every source edge is not. A caller passes a build only when nothing is left
+with a point off every source edge is not. Distances are exact distances to the CAD curves,
+never to sampled chords (R28-006). A caller passes a build only when nothing is left
 unexplained, so a zero-area face inside a source face still fails.
 """
 
@@ -32,7 +33,15 @@ from pyflightstream.workspace._refine._obj import read_obj
 
 __all__ = ["explain_g1"]
 
-#: A node is on a source edge when it is within this fraction of the mesh size of the edge.
+#: A point is on a source edge when it is within this fraction of the mesh size (the diagonal of
+#: the OBJ's bounding box) of the CAD curve, measured exactly. Why this value: the solver places
+#: its seam nodes on the curve to its own geometric precision, several orders below this, so the
+#: tolerance only has to absorb that and the OBJ's printed digits; it has to stay well below a
+#: panel edge, so that a sliver it excuses lies in a strip of width ``2 * tolerance`` around a
+#: source curve and cannot hide a fold across a panel. Its ratio to the panel edges of the
+#: licensed native meshes is not measurable offline (the record keeps counts, not meshes) and is
+#: owed by a licensed replay. Any off-curve sliver wider than the tolerance fails; the reviewer's
+#: disk chord (0.019 m inside a 1 m radius, several tolerances) is refused.
 EDGE_FRACTION = 1e-3
 
 _PURPOSE = "naming the native tessellation seams"
@@ -82,52 +91,87 @@ def _densified(samples: np.ndarray, spacing: float) -> np.ndarray:
 
 
 class _SourceEdges:
-    """The edges and vertices of the faces of one source IGES, with the faces that own each."""
+    """The edges and vertices of the faces of one source IGES, with the faces that own each.
+
+    Distances are measured to the CAD curve itself (the kernel's closest point on the curve,
+    ``edge_project``), never to a polyline of samples: a chord of a curved edge can lie farther
+    inside the face than the tolerance, and a defect along it would pass (review finding
+    R28-006). The kernel stays open until :meth:`close`.
+    """
 
     def __init__(self, iges: str, tolerance: float) -> None:
-        kernel = open_kernel(_PURPOSE)
+        self.kernel = open_kernel(_PURPOSE)
         try:
-            self.topology = kernel.inspect_file(iges, None)
-        finally:
-            kernel.close()
+            read = self.kernel.import_iges(iges)
+            index = {face.tag: i for i, face in enumerate(read.faces)}
+            self.names = read.names
+            tags = sorted({abs(e) for face in read.faces for e in self.kernel.boundary(face)})
+            self.edges: list[tuple[int, tuple[int, ...], np.ndarray, np.ndarray]] = []
+            ends, self.end_owner = [], []
+            for tag in tags:
+                owners = tuple(index[f.tag] for f in self.kernel.adjacent(tag) if f.tag in index)
+                low, high = (np.asarray(b, float) for b in self.kernel.edge_bbox(tag))
+                self.edges.append((tag, owners, low, high))
+                ends.append(self.kernel.edge_values(tag, self.kernel.edge_bounds(tag)))
+                self.end_owner += [owners, owners]
+        except BaseException:
+            self.kernel.close()
+            raise
         self.tolerance = tolerance
-        points, self.edge_index = [], []
-        for edge, (samples, _owners) in enumerate(self.topology.edges):
-            dense = _densified(np.asarray(samples, float), tolerance / 2)
-            points.append(dense)
-            self.edge_index.extend([edge] * len(dense))
-        self.tree = cKDTree(np.vstack(points)) if points else None
-        ends = [np.asarray(s, float)[[0, -1]] for s, _ in self.topology.edges]
-        self.end_owner = [owners for _, owners in self.topology.edges for _ in range(2)]
         self.end_tree = cKDTree(np.vstack(ends)) if ends else None
 
+    def close(self) -> None:
+        """Close the kernel."""
+        self.kernel.close()
+
     def _named(self, faces: Any) -> list[str]:
-        names = self.topology.names
-        return sorted({f"{names[f] or 'unnamed'} [face {f}]" for f in faces})
+        return sorted({f"{self.names[f] or 'unnamed'} [face {f}]" for f in faces})
+
+    def _distance(self, edge: tuple[int, Any, np.ndarray, np.ndarray], points: np.ndarray) -> Any:
+        """Return the exact distance of each point to the curve of ``edge``."""
+        tag, _owners, low, high = edge
+        if np.linalg.norm(high - low) <= 1e-12 * max(1.0, float(np.abs(high).max())):
+            # A curve of zero length (a collapsed loop edge) is its one point.
+            return np.linalg.norm(points - (low + high) / 2, axis=1)
+        try:
+            on = self.kernel.edge_project(tag, [tuple(p) for p in points.tolist()])
+        except Exception:  # noqa: BLE001 - a curve the kernel cannot project explains nothing
+            return np.full(len(points), np.inf)
+        return np.linalg.norm(points - on, axis=1)
 
     def lying_on(self, points: np.ndarray) -> list[str] | None:
-        """Name the source faces when the segments follow one source edge, else None."""
-        if self.tree is None:
+        """Name the source faces when the segments follow one source edge, else None.
+
+        Every point of each mesh segment (closed polygon) must lie within the tolerance of one
+        and the same source curve; checking only the endpoints admits a diagonal across a source
+        face (R28-001). The segments are sampled at spacing ``s = tolerance / 2`` and each sample
+        must be within ``tolerance - s / 2`` of the curve: the distance to a curve is 1-Lipschitz
+        and every point of a segment is within ``s / 2`` of a sample, so every point of every
+        segment is then within ``tolerance`` of the curve. The bound is proved, not sampled.
+        """
+        spacing = self.tolerance / 2
+        if len(points) < 2:
+            dense = np.asarray(points, float)
+        else:
+            dense = np.vstack(
+                [
+                    _densified(np.asarray([a, b]), spacing)
+                    for a, b in zip(points, np.roll(points, -1, axis=0), strict=True)
+                ]
+            )
+        box_low, box_high = dense.min(axis=0), dense.max(axis=0)
+        common: list[tuple[int, ...]] = []
+        for edge in self.edges:
+            _tag, owners, low, high = edge
+            # The curve lies in its box, so a point farther than the tolerance from the box is
+            # farther from the curve: only a box that reaches every point can explain them.
+            if np.any(low - self.tolerance > box_high) or np.any(high + self.tolerance < box_low):
+                continue
+            if float(self._distance(edge, dense).max()) <= self.tolerance - spacing / 2:
+                common.append(owners)
+        if not common:
             return None
-        # Every point of each mesh segment must follow one and the same source edge.
-        # Checking only the endpoints admits a diagonal across a source face.
-        segments = (
-            [points]
-            if len(points) < 2
-            else [
-                _densified(np.asarray([a, b]), self.tolerance / 2)
-                for a, b in zip(points, np.roll(points, -1, axis=0), strict=True)
-            ]
-        )
-        common: set[int] | None = None
-        for point in np.vstack(segments):
-            near = self.tree.query_ball_point(point, self.tolerance)
-            edges = {self.edge_index[i] for i in near}
-            common = edges if common is None else common & edges
-            if not common:
-                return None
-        assert common is not None
-        return self._named(f for edge in common for f in self.topology.edges[edge][1])
+        return self._named(f for owners in common for f in owners)
 
     def collapsed_at_a_vertex(self, points: np.ndarray) -> list[str] | None:
         """Name the source faces of a vertex that two of the points collapse onto."""
@@ -164,6 +208,15 @@ def _explain(obj: str, iges: str) -> dict[str, Any]:
     zero = (area < ZERO_AREA_FRACTION * mesh.size**2) | below_family_area(area, family)
     many = [edge for edge, owners in edge_faces(faces).items() if len(owners) > 2]
     source = _SourceEdges(iges, EDGE_FRACTION * mesh.size)
+    try:
+        return _judge(mesh, faces, zero, many, source)
+    finally:
+        source.close()
+
+
+def _judge(
+    mesh: Any, faces: list[list[int]], zero: Any, many: list[Any], source: _SourceEdges
+) -> dict[str, Any]:
     sources: dict[str, int] = {}
     explained_faces: list[dict[str, Any]] = []
     identities = [(name, i) for name, group in mesh.families.items() for i in range(len(group))]
