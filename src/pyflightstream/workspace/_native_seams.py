@@ -140,6 +140,21 @@ class _SourceEdges:
         return None
 
 
+def _duplicate_faces(faces: list[list[int]]) -> int:
+    """Count repeated polygon loops, independent of starting point and orientation."""
+    seen: set[tuple[int, ...]] = set()
+    duplicates = 0
+    for face in faces:
+        loop = tuple(face)
+        reverse = loop[::-1]
+        key = min(
+            sequence[i:] + sequence[:i] for sequence in (loop, reverse) for i in range(len(loop))
+        )
+        duplicates += key in seen
+        seen.add(key)
+    return duplicates
+
+
 def _explain(obj: str, iges: str) -> dict[str, Any]:
     mesh = read_obj(obj)
     faces = [face for group in mesh.families.values() for face in group]
@@ -159,13 +174,15 @@ def _explain(obj: str, iges: str) -> dict[str, Any]:
             key = " / ".join(named)
             sources[key] = sources.get(key, 0) + 1
     explained_many = sum(source.lying_on(mesh.verts[list(edge)]) is not None for edge in many)
-    left = len(loose) + len(many) - explained_many
+    duplicates = _duplicate_faces(faces)
+    left = len(loose) + len(many) - explained_many + duplicates
     return {
         "zero_area": int(zero.sum()),
         "explained_zero_area": int(zero.sum()) - len(loose),
         "nonmanifold": len(many),
         "explained_nonmanifold": int(explained_many),
         "unexplained": left,
+        "duplicate_faces": duplicates,
         "sources": sources,
         "off_edge_centroids": loose[:8],
         "tolerance_m": source.tolerance,
@@ -181,6 +198,10 @@ def native_verdict(audit: Any, obj: str | Path, iges: str | Path) -> tuple[bool,
     leaves the audit as it was.
     """
     failed = [f"{item.name} on {item.family}" for item in audit.failures]
+    mesh = read_obj(obj)
+    duplicates = _duplicate_faces([face for group in mesh.families.values() for face in group])
+    if duplicates:
+        return False, [*failed, "G1 duplicate faces"], f"native G1: {duplicates} duplicate faces"
     if audit.passed or [item.name for item in audit.failures] != ["G1"]:
         return audit.passed, failed, ""
     if audit.failures[0].values.get("node_pairs_at_one_position"):

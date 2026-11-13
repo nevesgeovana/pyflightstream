@@ -89,3 +89,23 @@ def test_nonmanifold_edge_between_different_source_edges_is_not_explained(tmp_pa
     record = _explain(obj, iges)
     assert record["nonmanifold"] > 0
     assert record["unexplained"] > 0
+
+
+def test_duplicate_seam_face_is_not_explained(tmp_path):
+    iges, obj = tmp_path / "square.igs", tmp_path / "square.obj"
+    _square_iges(iges)
+    _mesh(obj, [(0.1, 0, 0), (0.2, 0, 0), (0.3, 0, 0)], [(17, 18, 19), (19, 18, 17)])
+    record = _explain(obj, iges)
+    assert record["unexplained"] > 0
+
+
+def test_duplicate_face_is_refused_even_when_g1_passed(tmp_path):
+    from types import SimpleNamespace
+
+    obj = tmp_path / "square.obj"
+    _mesh(obj, [], [(1, 2, 6)])
+    module = importlib.import_module("pyflightstream.workspace._native_seams")
+    passed, _, _ = module.native_verdict(
+        SimpleNamespace(passed=True, failures=[]), obj, "unused.igs"
+    )
+    assert not passed
