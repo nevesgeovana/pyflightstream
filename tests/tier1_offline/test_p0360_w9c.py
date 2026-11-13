@@ -69,4 +69,8 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     # PFS-2170 records rejected default pins; these fixtures reject none.
     for condition in expected[fixture]["conditions"].values():
         condition["dropped_defaults"] = {}
+    # PFS-2214 (0.57.0) records the rows whose generated geometry failed; these
+    # fixtures generate none, so the one new field is empty and nothing else moved.
+    assert "geometry_failures" not in expected[fixture]
+    expected[fixture]["geometry_failures"] = {}
     assert actual == expected[fixture]
