@@ -515,7 +515,9 @@ def _native_matrix(tmp_path, geometry="demo.geom.toml", route="native"):
 
 
 def test_a_run_builds_the_native_geometry_that_is_missing_with_the_solver(tmp_path, library):
-    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+    build_native_rows = importlib.import_module(
+        "pyflightstream.workspace._native_rows"
+    ).build_native_rows
 
     asked: list = []
 
@@ -536,7 +538,9 @@ def test_a_run_builds_the_native_geometry_that_is_missing_with_the_solver(tmp_pa
 
 
 def test_a_native_geometry_already_built_is_not_built_again(tmp_path, library):
-    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+    build_native_rows = importlib.import_module(
+        "pyflightstream.workspace._native_rows"
+    ).build_native_rows
 
     calls: list = []
     matrix = _native_matrix(tmp_path)
@@ -564,7 +568,9 @@ def test_a_native_geometry_already_built_is_not_built_again(tmp_path, library):
 def test_a_native_build_that_fails_its_audit_warns_and_lists_nothing(tmp_path, library):
     from pyflightstream.exceptions import PyflightstreamWarning
 
-    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+    build_native_rows = importlib.import_module(
+        "pyflightstream.workspace._native_rows"
+    ).build_native_rows
 
     calls: list = []
     with pytest.warns(PyflightstreamWarning, match="G1 on"):
@@ -579,7 +585,9 @@ def test_a_native_build_that_fails_its_audit_warns_and_lists_nothing(tmp_path, l
 
 
 def test_a_row_that_is_not_native_is_not_built_by_the_solver(tmp_path, library):
-    build_native_rows = importlib.import_module("pyflightstream.run._native_rows").build_native_rows
+    build_native_rows = importlib.import_module(
+        "pyflightstream.workspace._native_rows"
+    ).build_native_rows
 
     def solver(*_):
         pytest.fail("a seat was spent")

@@ -13,32 +13,19 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Sequence
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.matrix import read_matrix
-from pyflightstream.exceptions import PyflightstreamWarning
-from pyflightstream.run._executors import LocalExecutor
-from pyflightstream.workspace._geometry_build import (
-    GeometryBuildError,
-    SolverOutcome,
-    apply_geometry_build,
-    plan_geometry_build,
-    refuse_before_running,
-)
+from pyflightstream.workspace._geometry_build import GeometryBuildError
 from pyflightstream.workspace._geometry_row import (
     GEOMETRY_VARIABLE,
     plan_row_geometry,
     prepare_row_geometry,
 )
-from pyflightstream.workspace.builds import resolve_build
 
 __all__ = ["build_native_rows"]
-
-#: The longest the solver may take to import and save one geometry, in seconds.
-_SOLVER_TIMEOUT_S = 30 * 60.0
 
 
 def build_native_rows(
@@ -48,7 +35,7 @@ def build_native_rows(
     default_build: str | None,
     fs_exe: str | Path | None = None,
     rows: Sequence[Any] | None = None,
-    build: Callable[[Path, str | None, str | Path | None], tuple[Any, ...]] | None = None,
+    build: Callable[[Path, str | None, str | Path | None], tuple[Any, ...]],
     generate: Callable[..., dict[str, Any]] | None = None,
 ) -> list[str]:
     """Build, with the solver, the geometry of every native row whose ``.fsm`` is missing.
@@ -65,9 +52,9 @@ def build_native_rows(
         An executable that replaces the registered one of the build.
     rows : sequence of MatrixRow, optional
         The rows to consider, instead of the matrix's active rows.
-    build : callable, optional
-        ``build(folder, build_id, fs_exe)`` returning the geometry build results; the solver's
-        own geometry build by default.
+    build : callable
+        ``build(folder, build_id, fs_exe)`` runs the solver's geometry build of a folder and
+        returns its results (the run layer supplies it).
     generate : callable, optional
         The generation runner, with the signature of ``run_geometry``; that function by default.
 
@@ -87,7 +74,7 @@ def build_native_rows(
                 workspace,
                 row.fs_build.strip() or default_build,
                 fs_exe,
-                solver=build or _solver,
+                solver=build,
                 generate=generate,
             )
         except (PyflightstreamError, OSError, ValueError) as error:
@@ -100,34 +87,6 @@ def build_native_rows(
         if name:
             built.append(name)
     return built
-
-
-def _solver(folder: Path, build: str | None, fs_exe: str | Path | None) -> tuple[Any, ...]:
-    """Run the geometry build of ``folder`` with the solver and return its results."""
-    plan = plan_geometry_build(folder, build=build)
-    refuse_before_running(plan, overwrite=False)
-    executable = (
-        Path(fs_exe) if fs_exe else resolve_build(plan.root / "inputs", plan.build_id).fs_exe
-    )
-    executor = LocalExecutor(executable)
-
-    def run(script: Path, work: Path) -> SolverOutcome:
-        result = executor.run_script(script, working_dir=work, timeout_s=_SOLVER_TIMEOUT_S)
-        log = "\n".join(text for text in (result.log_text, result.stdout, result.stderr) if text)
-        return SolverOutcome(
-            failed=result.failed,
-            return_code=result.return_code,
-            wall_s=result.wall_time_s,
-            log=log,
-            diagnosis="failed: " + result.diagnosis() if result.failed else "",
-            executable=str(executable),
-        )
-
-    try:
-        package = version("pyflightstream")
-    except PackageNotFoundError:
-        package = ""
-    return apply_geometry_build(plan, runner=run, package_version=package)
 
 
 def _build_one(
