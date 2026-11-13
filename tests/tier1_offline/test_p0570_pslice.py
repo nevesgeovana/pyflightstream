@@ -342,3 +342,22 @@ def test_p0570_pslice_unit_words_are_read_in_any_case(tmp_path):
     with pytest.raises(InputValueError, match=r"--unit\): got 'parsec'.*METER"):
         slice_propeller(obj, blades=3, out=tmp_path / "b", unit="parsec")
     assert not (tmp_path / "b").exists()
+
+
+@pytest.mark.parametrize(
+    "name, value, match",
+    [
+        ("axis", (1, 0), r"axis \(CLI: --axis\): got \(1, 0\)"),
+        ("blade_dir", ("up", 0, 1), r"blade_dir \(CLI: --blade-dir\): got \('up', 0, 1\)"),
+        ("origin", 5.0, r"origin \(CLI: --origin\): got 5.0"),
+    ],
+)
+def test_p0570_pslice_vector_refusals_name_the_flag_and_the_value(tmp_path, name, value, match):
+    """API-009: a bad direction or point names its CLI flag and the value received."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace.prop_slice import slice_propeller
+
+    obj = write_rotor_obj(tmp_path / "rotor.obj", design(), nu=41, nv=31)
+    with pytest.raises(InputValueError, match=match):
+        slice_propeller(obj, blades=3, out=tmp_path / "o", **{name: value})
+    assert not (tmp_path / "o").exists()

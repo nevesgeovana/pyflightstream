@@ -197,10 +197,17 @@ def _onto_section(model, owner, points, *, plane, size):
 
 
 def _vector(value: Sequence[float] | None, default: tuple[float, ...], name: str) -> list[float]:
-    vector = list(default if value is None else value)
+    flag = "--" + name.replace("_", "-")
+    try:
+        vector = [float(v) for v in (default if value is None else value)]
+    except (TypeError, ValueError):
+        vector = []
     if len(vector) != 3:
-        raise InputValueError(f"{name}: expected three numbers")
-    return [float(v) for v in vector]
+        raise InputValueError(
+            f"{name} (CLI: {flag}): got {value!r}, expected three numbers such as "
+            f"{' '.join(f'{v:g}' for v in default)}"
+        )
+    return vector
 
 
 def slice_propeller(
