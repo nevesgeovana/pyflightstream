@@ -406,7 +406,8 @@ def add_mesh_parser(subparsers: Any) -> None:
             "acceptance table of that strategy on the realized mesh. With "
             "--dry-run it prints the plan and the warnings and writes nothing. With --out it "
             "writes <descriptor>.obj, <descriptor>.mesh.json and, with --fsm-template, "
-            "<descriptor>.fsm (docs/geometry-mesh.md)."
+            "<descriptor>.fsm. One of --out and --dry-run is required, and --descriptor and "
+            "--fsm-template need --out (docs/geometry-mesh.md)."
         ),
     )
     mesh.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
@@ -424,8 +425,29 @@ def add_mesh_parser(subparsers: Any) -> None:
     mesh.set_defaults(mesh_command=run_mesh)
 
 
+def _mesh_arguments_refusal(args: argparse.Namespace) -> str:
+    """Return why the arguments of ``geometry mesh`` cannot run, before the kernel opens."""
+    stated = (("--descriptor", args.descriptor), ("--fsm-template", args.fsm_template))
+    named = [flag for flag, value in stated if value is not None]
+    if named and (args.dry_run or args.out is None):
+        return (
+            f"geometry mesh: {' and '.join(named)} name written files, so they need --out DIR "
+            "and no --dry-run. Nothing was meshed."
+        )
+    if not args.dry_run and args.out is None:
+        return (
+            "geometry mesh: give --out DIR to write the mesh and its record, or --dry-run to "
+            "print the plan only. Nothing was meshed."
+        )
+    return ""
+
+
 def run_mesh(args: argparse.Namespace) -> int:
     """Plan or mesh a configuration; exit 0 accepted or planned, 1 not accepted, 2 refused."""
+    refusal = _mesh_arguments_refusal(args)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 2
     from pyflightstream.workspace.geometry_pipeline import mesh_configuration
 
     try:
