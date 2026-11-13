@@ -164,11 +164,23 @@ jobs:
           PYFS_SHARD: ${{ matrix.shard }}/3
           # The every-push Linux leg: a kernel that cannot load fails here too.
           PYFS_REQUIRE_KERNEL: "1"
+          # A failed applied host cut copies its boundary folder here
+          # (test_p0570_gm8_export.py); the step below uploads it.
+          PYFS_GEOM_DIAG: ${{ runner.temp }}/geom-diag
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
         # absent fixture). What this leg buys is that the extra-gated
         # ones are not among them.
         run: pytest -n auto
+      - name: Keep a failed host-cut boundary for reading
+        # The clean junction chain failed on some runners only (shard 2,
+        # 2 of 3 runs); the boundary IGES and its report show why.
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: geom-diag-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/geom-diag
+          if-no-files-found: ignore
       - name: Lean repository caps
         # Runs once, on Linux: the Windows leg of the test job does not carry it.
         if: matrix.shard == 1

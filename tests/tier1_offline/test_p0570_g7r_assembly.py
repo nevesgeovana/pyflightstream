@@ -295,6 +295,13 @@ def test_p0570_g7r_s4_no_an_open_dominated_piece_leaves_lonely_junction_ends(ker
     record = asm.step("S10.D4")
     assert checks_of(record)["junction.chain_ends"]["status"] == "failed"
     assert checks_of(record)["junction.chain_ends"]["measured"] == 2
+    # the record names where the chain stops, so a failure on another machine can be read
+    where = checks_of(record)["junction.chain_ends"]["where"]
+    assert where["pair"] and where["count"] == len(where["curves"]) > 0
+    assert len(where["lonely_ends"]) == 2
+    for end in where["lonely_ends"]:
+        assert end["curve"] in where["curves"] and len(end["xyz_m"]) == 3
+        assert end["nearest_m"] > 2e-5
 
 
 def test_p0570_g7r_w4_no_a_junction_of_10_mm_is_refused_as_no_intersection(kernel, tmp_path):

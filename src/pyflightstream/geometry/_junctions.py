@@ -63,6 +63,7 @@ __all__ = [
     "drop_zero_width",
     "flood",
     "introduced",
+    "lonely_ends",
     "loop_closure",
     "mean_width",
     "measured",
@@ -228,6 +229,33 @@ def chain(
     for k in range(len(curves)):
         groups.setdefault(root(k), []).append(k)
     return list(groups.values()), lonely
+
+
+def lonely_ends(
+    curves: Sequence[tuple[Sequence[float], Sequence[float]]],
+    lonely: Sequence[tuple[int, int]],
+    tags: Sequence[int],
+) -> dict[str, Any]:
+    """Describe the lonely ends of a chain for a failure record: where each is, how far it is.
+
+    ``curves`` and ``lonely`` are the input and the second result of :func:`chain`; ``tags``
+    names each curve. Each end carries its curve tag, its side, its point and the distance to
+    the nearest other end of the chain, so a record read later shows why the chain stops.
+    """
+    ends = [np.asarray(e, float) for c in curves for e in c]
+    described = []
+    for curve, side in lonely:
+        i = 2 * curve + side
+        gaps = [float(np.linalg.norm(ends[i] - ends[j])) for j in range(len(ends)) if j != i]
+        described.append(
+            {
+                "curve": int(tags[curve]),
+                "side": int(side),
+                "xyz_m": [float(v) for v in ends[i]],
+                "nearest_m": min(gaps, default=None),
+            }
+        )
+    return {"curves": [int(t) for t in tags], "count": len(tags), "lonely_ends": described}
 
 
 def loop_closure(loop: Sequence[tuple[Sequence[float], Sequence[float]]]) -> float:

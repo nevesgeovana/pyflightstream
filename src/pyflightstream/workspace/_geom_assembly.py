@@ -672,6 +672,7 @@ class Assembly(RemovalSteps):
         if not ops:
             return skip(ids, "no cut row other than body joins"), {}
         m = {"gap": 0.0, "lonely": 0, "closure": 0.0, "dup": 0, "vertex": 0, "pcurve": 0.0}
+        m["chain"] = {}
         ratio, shortest, limit, where, lengths = np.inf, 0.0, 0.0, {}, {}
         for op in ops:
             edges = self._junction(op.dominant, op.dominated)
@@ -695,6 +696,7 @@ class Assembly(RemovalSteps):
                 m["lonely"],
                 0,
                 unit="ends",
+                where=m["chain"],
                 cause="BUG: a junction chain stops with no partner",
             ),
             jn.measured(
@@ -741,7 +743,10 @@ class Assembly(RemovalSteps):
         m["gap"] = max(m["gap"], self._gap_to_faces(edges))
         ends = [(s[0], s[-1]) for s in (self._samples(e, 3) for e in edges)]
         _, lonely = jn.chain(ends, jn.CHAIN_END_GAP_M)
-        m["lonely"] += sum(1 for c, side in lonely if not self._on_plane(ends[c][side]))
+        kept = [(c, side) for c, side in lonely if not self._on_plane(ends[c][side])]
+        m["lonely"] += len(kept)
+        if kept and not m["chain"]:  # the first chain that stops, for a record read later
+            m["chain"] = {"pair": self._op_name(op), **jn.lonely_ends(ends, kept, edges)}
         faces = {f for e in edges for f in edge_map.get(e, [])}
         m["closure"] = max([m["closure"], *(self._loop_gap(f) for f in faces)])
         m["dup"] += self._duplicates(op)

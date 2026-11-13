@@ -235,6 +235,23 @@ def test_p0570_selected_host_cut_does_not_run_unrequested_control_stages(tmp_pat
     )
 
 
+def _keep_boundary_for_ci(report, folder, stage):
+    """Copy a failed run's boundary folder to ``PYFS_GEOM_DIAG`` (CI uploads it on failure).
+
+    The clean junction chain failed on some Linux runners only (2 of 3 runs of one shard) and
+    passed on every machine it could be measured on, so the failing boundary is kept for reading.
+    """
+    import os
+    import shutil
+    from pathlib import Path
+
+    target = os.environ.get("PYFS_GEOM_DIAG")
+    if target and report["status"] != "accepted" and folder.exists():
+        destination = Path(target) / f"{stage}-boundary"
+        shutil.copytree(folder, destination, dirs_exist_ok=True)
+        (destination / "report.json").write_text(json.dumps(report, default=str), "utf-8")
+
+
 @pytest.mark.parametrize(
     "stage,bay_width",
     [("F5", None), ("F6", 110), ("F6", 100)],
@@ -275,6 +292,7 @@ def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage,
         assert report["measured"] > report["limit"] == 5e-6
         assert not (tmp_path / "F6-boundary" / "applied").exists()
         return
+    _keep_boundary_for_ci(report, tmp_path / f"{stage}-boundary", stage)
     # a str message is printed whole; a dict one is cut to a short repr
     assert report["status"] == "accepted", "; ".join(
         f"{k}={report.get(k)!r}"
