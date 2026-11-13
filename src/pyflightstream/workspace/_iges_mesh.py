@@ -362,6 +362,48 @@ def _span_pair(gmsh: Any, pairs: list[tuple[int, int]], axis: NDArray[np.float64
     return int(np.argmax(align))
 
 
+def _side_law(gmsh, grid, direction, pair_of, *, size, strips, warnings):
+    """Choose the requested spacing law, including the one-cell thin-strip rule."""
+    spec = getattr(grid, direction) or Direction(count=None)
+    length = max(sum(gmsh.model.occ.getMass(1, c) for c in side) for side in pair_of)
+    if length < size:
+        # A side shorter than the component's size is a strip, such as the base of a
+        # blunt trailing edge: one cell across it, whatever the law of its direction.
+        if spec.count is not None and spec.count != 1:
+            key = (direction, spec.count)
+            strips[key] = strips.get(key, 0) + 1
+        spec = Direction(count=1)
+    count = spec.count or max(1, round(length / size))
+    ratio = spec.ratio
+    if spec.law == "cosine":
+        ratio = _bump(spec, count, grid, direction, warnings)
+    elif spec.law in DEFAULT_RATIO and ratio is None:
+        ratio = DEFAULT_RATIO[spec.law]
+    return spec, count, ratio
+
+
+def _composite_sides(gmsh, name, pair_of, law, *, pair, axis, direction, face, warnings):
+    """Distribute opposite composite sides while preserving each curve request."""
+    spec, count, ratio = law
+    sides = []
+    if all(len(side) == 1 for side in pair_of):
+        return [_Side(name, pair, direction, count, spec.law, ratio, axis)]
+    count = max(count, *(len(side) for side in pair_of))
+    if spec.law != "uniform" and count > 1:
+        warnings.append(
+            f"{name}: face {face} has a {direction} side of several curves, whose "
+            f"{count} cells are shared over them by length, uniform on each"
+        )
+    for side in pair_of:
+        if len(side) == 1:
+            sides.append(_Side(name, (side[0], side[0]), direction, count, spec.law, ratio, axis))
+            continue
+        shares = _shares(count, [float(gmsh.model.occ.getMass(1, c)) for c in side])
+        for curve, share in zip(side, shares, strict=True):
+            sides.append(_Side(name, (curve, curve), direction, share, "uniform", None, axis))
+    return sides
+
+
 def _sides(
     gmsh: Any,
     name: str,
@@ -385,9 +427,6 @@ def _sides(
     def long(side: list[int]) -> int:
         return max(side, key=lambda c: gmsh.model.occ.getMass(1, c))
 
-    def span_of(side: list[int]) -> float:
-        return sum(gmsh.model.occ.getMass(1, c) for c in side)
-
     for face in faces:
         loop = _four_sides(gmsh, face)
         if loop is None or not grid.structured:
@@ -401,41 +440,20 @@ def _sides(
         for index, pair_of in enumerate(pairs_of):
             pair = pairs[index]
             direction = "span" if index == span_index else "chord"
-            spec = getattr(grid, direction) or Direction(count=None)
-            length = max(span_of(side) for side in pair_of)
-            if length < size:
-                # A side shorter than the component's size is a strip, such as the base of a
-                # blunt trailing edge: one cell across it, whatever the law of its direction.
-                if spec.count is not None and spec.count != 1:
-                    key = (direction, spec.count)
-                    strips[key] = strips.get(key, 0) + 1
-                spec = Direction(count=1)
-            count = spec.count or max(1, round(length / size))
-            ratio = spec.ratio
-            if spec.law == "cosine":
-                ratio = _bump(spec, count, grid, direction, warnings)
-            elif spec.law in DEFAULT_RATIO and ratio is None:
-                ratio = DEFAULT_RATIO[spec.law]
-            if all(len(side) == 1 for side in pair_of):
-                sides.append(_Side(name, pair, direction, count, spec.law, ratio, axis))
-                continue
-            count = max(count, *(len(side) for side in pair_of))
-            if spec.law != "uniform" and count > 1:
-                warnings.append(
-                    f"{name}: face {face} has a {direction} side of several curves, whose "
-                    f"{count} cells are shared over them by length, uniform on each"
-                )
-            for side in pair_of:
-                if len(side) == 1:
-                    sides.append(
-                        _Side(name, (side[0], side[0]), direction, count, spec.law, ratio, axis)
-                    )
-                    continue
-                shares = _shares(count, [float(gmsh.model.occ.getMass(1, c)) for c in side])
-                for curve, share in zip(side, shares, strict=True):
-                    sides.append(
-                        _Side(name, (curve, curve), direction, share, "uniform", None, axis)
-                    )
+            law = _side_law(
+                gmsh, grid, direction, pair_of, size=size, strips=strips, warnings=warnings
+            )
+            sides += _composite_sides(
+                gmsh,
+                name,
+                pair_of,
+                law,
+                pair=pair,
+                axis=axis,
+                direction=direction,
+                face=face,
+                warnings=warnings,
+            )
     for (direction, asked), patches_cut in sorted(strips.items()):
         warnings.append(
             f"{name}: {patches_cut} patch(es) with a {direction} side shorter than the size "
@@ -536,6 +554,18 @@ def _point_sizes(
         gmsh.model.mesh.field.setAsBackgroundMesh(least)
 
 
+def _set_surfaces(gmsh, faces, order, patches, corners):
+    """Apply transfinite corner constraints and recombination to the planned surfaces."""
+    for name in order:
+        for face in patches.get(name, []):
+            if face in corners:
+                gmsh.model.mesh.setTransfiniteSurface(face, "Left", corners[face])
+            else:
+                gmsh.model.mesh.setTransfiniteSurface(face)
+        for face in faces[name]:
+            gmsh.model.mesh.setRecombine(2, face)
+
+
 def mesh_model(
     gmsh: Any,
     model: NamedModel,
@@ -602,14 +632,7 @@ def mesh_model(
         patches[name] = four
     overrides = _transfinite(gmsh, sides)
     _point_sizes(gmsh, faces, order, sizes)
-    for name in order:
-        for face in patches.get(name, []):
-            if face in corners:
-                gmsh.model.mesh.setTransfiniteSurface(face, "Left", corners[face])
-            else:
-                gmsh.model.mesh.setTransfiniteSurface(face)
-        for face in faces[name]:
-            gmsh.model.mesh.setRecombine(2, face)
+    _set_surfaces(gmsh, faces, order, patches, corners)
     gmsh.option.setNumber("Mesh.Algorithm", _MESH_ADAPT)
     gmsh.option.setNumber("Mesh.RecombinationAlgorithm", _BLOSSOM)
     gmsh.option.setNumber("Mesh.RecombineMinimumQuality", _RECOMBINE_QUALITY)
