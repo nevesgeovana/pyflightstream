@@ -318,6 +318,13 @@ def sidecar_path(iges: str | Path) -> Path:
     return path.with_name(f"{path.stem}.layout.json")
 
 
+def _finite(value: Any) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise _UnusableError("layout numbers must be finite")
+    return number
+
+
 def _bounds(entry: dict[str, Any]) -> tuple[float, float, float, float]:
     """Return the (u0, u1, v0, v1) box of the face's source trims, or the unit square."""
     trims = [
@@ -327,7 +334,7 @@ def _bounds(entry: dict[str, Any]) -> tuple[float, float, float, float]:
     points = [p for t in same for pair in t["loop"] for p in pair]
     if not points:
         return 0.0, 1.0, 0.0, 1.0
-    us, vs = [float(p[0]) for p in points], [float(p[1]) for p in points]
+    us, vs = [_finite(p[0]) for p in points], [_finite(p[1]) for p in points]
     return min(us), max(us), min(vs), max(vs)
 
 
@@ -344,9 +351,9 @@ def _face(entry: dict[str, Any], ends: dict[str, dict[str, set[float]]], names: 
     def named(direction: str, lines: tuple[float, ...]) -> dict[str, float]:
         inner = lines[1:-1]
         return {
-            str(k): float(x)
+            str(k): _finite(x)
             for k, x in names.get(direction, {}).items()
-            if any(abs(float(x) - y) <= _LINE_TOLERANCE for y in inner)
+            if any(abs(_finite(x) - y) <= _LINE_TOLERANCE for y in inner)
         }
 
     area = entry.get("area_m2")
@@ -354,7 +361,7 @@ def _face(entry: dict[str, Any], ends: dict[str, dict[str, set[float]]], names: 
         name=str(entry["name"]),
         base=str(entry["base"]),
         role=str(entry["role"]),
-        area_m2=None if area is None else float(area),
+        area_m2=None if area is None else _finite(area),
         u=u,
         v=v,
         u_names=named("u", u),
@@ -379,8 +386,8 @@ def _layout_of(data: Any, path: Path) -> Layout:
     ends: dict[str, dict[str, set[float]]] = {}
     for block in blocks:
         held = ends.setdefault(str(block["base"]), {"u": set(), "v": set()})
-        held["u"].update(float(x) for x in block["u"])
-        held["v"].update(float(x) for x in block["v"])
+        held["u"].update(_finite(x) for x in block["u"])
+        held["v"].update(_finite(x) for x in block["v"])
     lines = data.get("lines", {})
     names = lines if isinstance(lines, dict) else {}
     faces = []
@@ -413,6 +420,8 @@ def read_layout(iges: str | Path, notes: list[str]) -> Layout | None:
         reason = f"it cannot be read ({error})"
     except (_UnusableError, KeyError, TypeError) as error:
         reason = str(error.args[0]) if isinstance(error, _UnusableError) else f"it lacks {error}"
+    except (ValueError, IndexError, AttributeError) as error:
+        reason = f"invalid layout data ({error})"
     notes.append(
         f"{path.name}: {reason}; no layout is used and the file is gridded as a foreign one"
     )
