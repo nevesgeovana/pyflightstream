@@ -981,3 +981,13 @@ the solver returns, so it needs a synchronous executor: an executor that submits
 is refused by name, before anything is submitted, with the command that builds the geometry on a
 machine with the solver (`pyfs-workspace geometry build <folder> --apply --build <id>`); run it,
 then run the matrix again.
+
+`pyfs-matrix run` (and `run_matrix`) takes such a matrix in three phases, so a refusal that does
+not depend on the geometry never spends a seat:
+
+1. Independent pre-flight, before any build: the plan receipt (it exists and measured this
+   matrix, and the executables and inputs it read are unchanged) and, when a selected row is on
+   the `native` route, every selected row's recipe and its `REF`, `SET` and `PPROC` codes.
+2. The native build of every selected row whose `.fsm` is missing, through the run's executor.
+3. The pre-flight that needs the built geometry: the binding, the receipt's per-simulation build
+   contract and the dry run of every point; a blocked point is refused here and nothing runs.

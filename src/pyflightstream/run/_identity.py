@@ -1229,3 +1229,34 @@ class _SubmittedBuild(Exception):  # noqa: N818 - a signal, caught above, never 
     def __init__(self, folder: Path, build: str | None) -> None:
         super().__init__(str(folder))
         self.folder, self.build = Path(folder), build
+
+
+def refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> None:
+    """Refuse, before any point is submitted, a build the profile cannot name.
+
+    PFS-2010.01.06. A build the profile's [builds] table does not map fails every
+    point of its rows the same way, so it is refused for the whole campaign
+    rather than at the first descriptor after earlier rows spent the queue.
+    ASKED OF WHATEVER EXECUTOR THE CAMPAIGN RUNS ON, the one the platform chose
+    or one a caller passed, and it lived inside the platform's branch only
+    until the independent review of the release measured a caller's own
+    submitting executor submitting a first row before the refusal.
+    """
+    from pyflightstream.run._executors import SubmittingExecutor
+
+    if not isinstance(executor, SubmittingExecutor):
+        return
+    campaign = resolved.campaign
+    # Read each row's build from its binding. case.fs_build is populated only
+    # later by _bind_row_builds, so it cannot identify the row's build here.
+    row_builds = resolved.row_builds
+    if len(row_builds) != len(campaign.sims):
+        row_builds = tuple(None for _ in campaign.sims)
+    refusal = executor.build_alias_refusal(
+        [
+            row_build or case.fs_build or campaign.fs_version
+            for case, row_build in zip(campaign.sims, row_builds, strict=True)
+        ]
+    )
+    if refusal is not None:
+        raise InputArtifactError(refusal)

@@ -15,6 +15,7 @@ Size exemption: one plan receipt, written and compared with the resolved matrix 
 from __future__ import annotations
 
 import enum
+import importlib
 import json
 import warnings
 from collections.abc import Collection, Mapping, Sequence
@@ -954,6 +955,68 @@ def resolved_plan_error(resolved, workspace, path, *, default, fs_exe, accepted)
             resolved.row_builds,
         ),
     )
+
+
+def preflight_before_native_build(
+    path: str | Path,
+    workspace: Any,
+    rows: Sequence[Any] | None,
+    *,
+    recipes: Mapping[str, str],
+    registry: Mapping[str, Any] | None,
+    fs_exe: str | Path | None,
+    require_plan: bool,
+) -> None:
+    """Run the pre-flight that needs no built geometry, before any native build (phase one).
+
+    A run whose rows build native geometry has three phases, so a refusal that does not depend on
+    the geometry never spends a seat (review finding R28-008):
+
+    1. Independent pre-flight, here. With ``require_plan``, the plan receipt exists, reads,
+       measured this matrix, and the executables and inputs it read are unchanged. When a selected
+       row is on the ``native`` route, every selected row's recipe also maps (and a LEGACY
+       reference imports) and its REF, SET and PPROC codes resolve in the input library.
+    2. The native build (``build_native_geometries``), through the run's executor; one that
+       submits jobs is refused there before anything is submitted.
+    3. The geometry-dependent pre-flight: the binding (``resolve_matrix``) and
+       ``preflight_resolved_matrix``, with the receipt's per-simulation build contract and the
+       dry run of every point (a blocked point, a missing geometry).
+
+    Raises
+    ------
+    pyflightstream.cases.matrix.MatrixError
+        A missing or stale receipt, or a recipe that maps to nothing or does not import.
+    pyflightstream.workspace.InputArtifactError
+        A REF, SET or PPROC code the input library cannot resolve.
+    """
+    from pyflightstream.cases import CampaignConfigError, resolve_recipe
+    from pyflightstream.cases.matrix import LEGACY_WORKFLOW, MatrixError, read_matrix, row_recipe
+
+    if require_plan:
+        refusal = plan_receipt_error(workspace, path, Path(path).stem, fs_exe=fs_exe)
+        if refusal is not None:
+            raise MatrixError(f"{refusal} Nothing was built or executed.")
+    native = importlib.import_module("pyflightstream.workspace._native_rows")
+    rows = read_matrix(path) if rows is None else rows  # None selects every active row
+    if not native.has_native_rows(rows, workspace):
+        return
+    for row in rows:
+        recipe = row_recipe(row, recipes)
+        try:
+            if row.workflow == LEGACY_WORKFLOW and recipe not in (registry or {}):
+                resolve_recipe(recipe)
+        except CampaignConfigError as error:
+            raise MatrixError(
+                f"pre-flight blocked POL {row.pol}: {error}; nothing was built or executed"
+            ) from error
+        codes = (
+            (workspace.resolve_reference, row.ref_code),
+            (workspace.resolve_setup, row.set_code),
+            (workspace.resolve_pproc, row.pproc_code),
+        )
+        for resolver, code in codes:
+            if code:
+                resolver(code)
 
 
 def preflight_resolved_matrix(

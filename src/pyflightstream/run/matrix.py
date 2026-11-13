@@ -111,6 +111,7 @@ from pyflightstream.run._additional import (
 from pyflightstream.run._identity import (
     build_native_geometries,
     entry_accepted_builds,
+    refuse_an_unmapped_build,
     settle_the_matrix_default,
 )
 from pyflightstream.run._ids import (
@@ -126,7 +127,7 @@ from pyflightstream.run._matrix_warnings import (
     _warn_when_a_quasi_steady_point_leaves_its_assumption,
     _warn_when_the_points_may_not_fit,
 )
-from pyflightstream.run._plan import preflight_resolved_matrix
+from pyflightstream.run._plan import preflight_before_native_build, preflight_resolved_matrix
 from pyflightstream.run._plan import row_versions as _row_versions
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
@@ -168,35 +169,6 @@ def _cluster_executor(
     if profile is None:
         return None
     return SubmittingExecutor(profile, values={"fs_build": resolved.campaign.fs_version or ""})
-
-
-def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> None:
-    """Refuse, before any point is submitted, a build the profile cannot name.
-
-    PFS-2010.01.06. A build the profile's [builds] table does not map fails every
-    point of its rows the same way, so it is refused for the whole campaign
-    rather than at the first descriptor after earlier rows spent the queue.
-    ASKED OF WHATEVER EXECUTOR THE CAMPAIGN RUNS ON, the one the platform chose
-    or one a caller passed, and it lived inside the platform's branch only
-    until the independent review of the release measured a caller's own
-    submitting executor submitting a first row before the refusal.
-    """
-    if not isinstance(executor, SubmittingExecutor):
-        return
-    campaign = resolved.campaign
-    # Read each row's build from its binding. case.fs_build is populated only
-    # later by _bind_row_builds, so it cannot identify the row's build here.
-    row_builds = resolved.row_builds
-    if len(row_builds) != len(campaign.sims):
-        row_builds = tuple(None for _ in campaign.sims)
-    refusal = executor.build_alias_refusal(
-        [
-            row_build or case.fs_build or campaign.fs_version
-            for case, row_build in zip(campaign.sims, row_builds, strict=True)
-        ]
-    )
-    if refusal is not None:
-        raise InputArtifactError(refusal)
 
 
 __all__ = [
@@ -688,7 +660,7 @@ def _campaign_executor(
             "local=True keeps the run on this machine, and the executor given is a "
             "submitting one; drop one of the two"
         )
-    _refuse_an_unmapped_build(executor, resolved)
+    refuse_an_unmapped_build(executor, resolved)
     windowless = bool(hidden)
 
     def executor_for(exe: Path) -> Executor:
@@ -782,6 +754,16 @@ def run_matrix(
     A row whose build declares a version of its own pre-flights and runs
     under that version (PFS-2009.05.02; :func:`plan_matrix` says how the
     version is read).
+
+    A matrix whose rows build native geometry with the solver runs in three
+    phases, so no refusal that does not depend on the geometry spends a seat
+    (R28-008): first the independent pre-flight (the plan receipt when
+    ``require_plan``, and, with a native row selected, every row's recipe and
+    its REF, SET and PPROC codes; ``preflight_before_native_build``), then
+    the native build through the run's executor (a submitting executor is
+    refused before anything is submitted), then the pre-flight that needs the
+    built geometry (the binding, the receipt's per-simulation build contract
+    and the dry run of every point, which refuses a blocked point).
 
     Parameters
     ----------
@@ -953,6 +935,16 @@ def run_matrix(
     )
     default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
+    )
+    # Phase one, then the build, then the pre-flight the built geometry needs (R28-008).
+    preflight_before_native_build(
+        path,
+        workspace,
+        selected_rows,
+        recipes=recipes,
+        registry=recipe_registry,
+        fs_exe=fs_exe,
+        require_plan=require_plan,
     )
     build_native_geometries(
         path, workspace, fs_exe, default_build=default, rows=selected_rows, executor=executor

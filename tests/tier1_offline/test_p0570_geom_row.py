@@ -603,7 +603,7 @@ class _StopError(Exception):
 
 def test_run_matrix_passes_selected_rows_to_native_builder(monkeypatch):
     module = importlib.import_module("pyflightstream.run.matrix")
-    rows = [SimpleNamespace(pol="7001")]
+    rows = [SimpleNamespace(pol="7001", variables={})]
     monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]))
     monkeypatch.setattr(module, "settle_the_matrix_default", lambda *a, **kw: ("26.120", rows))
 
@@ -620,10 +620,11 @@ def test_run_matrix_passes_selected_rows_to_native_builder(monkeypatch):
 
 def test_grouped_run_passes_receipt_selection_to_native_builder(monkeypatch):
     module = importlib.import_module("pyflightstream.run._batch_run")
-    rows = [SimpleNamespace(pol="7001")]
+    rows = [SimpleNamespace(pol="7001", variables={})]
     monkeypatch.setattr(module, "read_matrix", lambda path: rows)
     monkeypatch.setattr(module, "refuse_silent_rows_without_default", lambda *args: None)
     monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]), raising=False)
+    monkeypatch.setattr(module, "preflight_before_native_build", lambda *a, **kw: None)
 
     def build(*args, **kwargs):
         assert kwargs["rows"] is rows
@@ -638,7 +639,7 @@ def test_grouped_run_passes_receipt_selection_to_native_builder(monkeypatch):
 def test_run_matrix_passes_its_executor_to_native_builder(monkeypatch):
     """R28-007: the executor a caller gives run_matrix also runs the native build."""
     module = importlib.import_module("pyflightstream.run.matrix")
-    rows, supplied = [SimpleNamespace(pol="7001")], object()
+    rows, supplied = [SimpleNamespace(pol="7001", variables={})], object()
     monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]))
     monkeypatch.setattr(module, "settle_the_matrix_default", lambda *a, **kw: ("26.120", rows))
 
@@ -655,10 +656,11 @@ def test_run_matrix_passes_its_executor_to_native_builder(monkeypatch):
 
 def test_grouped_run_passes_its_executor_to_native_builder(monkeypatch):
     module = importlib.import_module("pyflightstream.run._batch_run")
-    rows, supplied = [SimpleNamespace(pol="7001")], object()
+    rows, supplied = [SimpleNamespace(pol="7001", variables={})], object()
     monkeypatch.setattr(module, "read_matrix", lambda path: rows)
     monkeypatch.setattr(module, "refuse_silent_rows_without_default", lambda *args: None)
     monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]), raising=False)
+    monkeypatch.setattr(module, "preflight_before_native_build", lambda *a, **kw: None)
 
     def build(*args, **kwargs):
         assert kwargs["executor"] is supplied
@@ -669,6 +671,45 @@ def test_grouped_run_passes_its_executor_to_native_builder(monkeypatch):
     kw = {"name": "test", "fs_version": "26.120", "executor": supplied}
     with pytest.raises(_StopError):
         module._bound_matrix("unused", object(), receipt, kw)
+
+
+def test_missing_plan_receipt_is_refused_before_native_build(monkeypatch, library):
+    """R28-008: with require_plan, a missing receipt is refused before any build call."""
+    from pyflightstream.cases.matrix import MatrixError
+
+    module = importlib.import_module("pyflightstream.run.matrix")
+    rows, built = [SimpleNamespace(pol="7001", variables={})], []
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]))
+    monkeypatch.setattr(module, "settle_the_matrix_default", lambda *a, **kw: ("26.120", rows))
+    monkeypatch.setattr(module, "build_native_geometries", lambda *a, **kw: built.append(True))
+    monkeypatch.setattr(module, "resolve_matrix", lambda *a, **kw: built.append("bound"))
+    with pytest.raises(MatrixError, match="no plan for this matrix"):
+        module.run_matrix(
+            library.root / "matrix.txt",
+            library,
+            name="test",
+            recipes={},
+            assess=object(),
+            require_plan=True,
+        )
+    assert built == []
+
+
+def test_grouped_run_refuses_a_missing_plan_receipt_before_native_build(monkeypatch, library):
+    from pyflightstream.cases.matrix import MatrixError
+
+    module = importlib.import_module("pyflightstream.run._batch_run")
+    rows, built = [SimpleNamespace(pol="7001", variables={})], []
+    monkeypatch.setattr(module, "read_matrix", lambda path: rows)
+    monkeypatch.setattr(module, "refuse_silent_rows_without_default", lambda *args: None)
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]), raising=False)
+    monkeypatch.setattr(module, "build_native_geometries", lambda *a, **kw: built.append(True))
+    receipt = SimpleNamespace(jobs=[SimpleNamespace(sims=["7001"])])
+    with pytest.raises(MatrixError, match="no plan for this matrix"):
+        module._bound_matrix(
+            library.root / "matrix.txt", library, receipt, {"name": "test", "fs_version": "26.120"}
+        )
+    assert built == []
 
 
 def _one_pending_build(monkeypatch, tmp_path):

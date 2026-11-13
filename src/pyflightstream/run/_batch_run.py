@@ -79,7 +79,11 @@ from pyflightstream.run._identity import (
     entry_accepted_builds,
 )
 from pyflightstream.run._ids import CampaignErrors, _selected, narrow_to_selection
-from pyflightstream.run._plan import plan_campaign, resolved_plan_error
+from pyflightstream.run._plan import (
+    plan_campaign,
+    preflight_before_native_build,
+    resolved_plan_error,
+)
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
@@ -233,6 +237,17 @@ def _bound_matrix(
     sims: Sequence[str] | None = [sim for job in receipt.jobs for sim in job.sims]
     rows, sims = _selected(
         path, workspace, kw["name"], kw.get("recipes", {}), sims=sims, points=kw.get("points")
+    )
+    # Phase one before the build (R28-008): the plan receipt the grouped run always requires
+    # (its full contract is compared after the binding), the recipes and the input codes.
+    preflight_before_native_build(
+        path,
+        workspace,
+        rows,
+        recipes=kw.get("recipes", {}),
+        registry=kw.get("recipe_registry"),
+        fs_exe=kw.get("fs_exe"),
+        require_plan=True,
     )
     build_native_geometries(
         path,
