@@ -18,7 +18,10 @@ P2 file of PREF 2 excepted). The direct route reads a
 face only when its outer boundary has parameter-space curves flagged 2D parametric (entity use 05)
 and a PREF other than 2; the writer states both, and a PREF 2 asked of it is warned about and
 written as 1. No net limit is stated
-because the largest net probed was not a failing one.
+because the largest net probed was not a failing one. The native route's import of a generated
+wing and of a body, directly, through ``IMPORT_CAD`` and ``CONVERT_CAD_TO_MESH`` on build 26.127,
+is recorded in ``tests/tier3_licensed/data/g13-native-import.json`` (lane G13): the solver reads
+the faces the profile states and names the one body it converts ``Model 0``.
 """
 
 from __future__ import annotations

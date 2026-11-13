@@ -276,3 +276,31 @@ SHA-256 and entry number), the construction method, the trailing-edge base and t
 deviation. `pyfs-geom schema` prints its JSON Schema, and
 `pyfs-geom schema --validate RECORD --asset-root DIR` checks a record and re-reads every file it
 pins against its SHA-256 (exit 1 when a pin fails).
+
+## From a matrix row, through the solver's CAD import (`native`)
+
+A row with `GEOMETRY` naming a `.geom.toml` and `MESH_ROUTE` `native` generates the configuration
+to the IGES and its conversion check (`--until S12.C`; the library's own gridding of the reader,
+S12.G, is not asked, because the solver meshes the IGES itself) and writes a geometry
+instruction beside it: a `[cad]` source over the IGES in `FILE` units. `pyfs-matrix run` builds
+the `.fsm` with the solver before it binds the rows, once, for every native row whose `.fsm`
+is missing; `plan` spends no licence. The solver is told `IMPORT_CAD` and `CONVERT_CAD_TO_MESH -1`
+and reads the IGES directly, with no `iges-convert` pass.
+
+The solver names the one body it converts `Model 0`, whatever the components of the IGES are:
+the component names are not boundaries of the saved simulation. A boundary name cannot carry a
+space, so the instruction renames `Model 0` to the file's stem (`[[operations]]` `rename`), and
+that is the boundary the row's references use.
+
+The solver's own tessellation leaves triangles of zero area along the seams of the source faces
+(a fan at the vertex where the leading-edge end of a tip cap collapses, slivers along a patch
+edge) and a pair of slivers folded on an edge two patches share. Gate G1 of the build audit
+would refuse them, so for a `[cad]` source the build reads the IGES and passes G1 only when every
+such face has its nodes on an edge of a source face (or two nodes on one source vertex) and every
+such edge lies on a source edge; the build record names them by the source faces. A zero-area
+face with a node off every source edge, or any other failed gate, still fails: nothing is
+promoted, the row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run.
+The measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
+`run_matrix` and the grouped run build the missing native geometry; `pyfs-matrix plan` binds
+nothing for such a row until it is built, so build once with `pyfs-workspace geometry build NAME
+--apply` (and `geometry accept NAME` after looking at its preview), then plan and run.

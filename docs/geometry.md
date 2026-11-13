@@ -966,3 +966,11 @@ Repitch accepts a reference installation-axis table, for example
 physical shaft and projects `blade1.zero` into its disk plane, using the same
 frame convention for automatic pitch axes, the hub chart and wheel checks.
 A datum parallel to the shaft cannot define the blade plane and must be fixed.
+
+## Routes of a generated geometry
+
+A matrix row that generates its geometry (`GEOMETRY` naming a `.geom.toml`) states a `MESH_ROUTE`:
+`native` hands the generated IGES to the solver's CAD importer through an instruction built for
+it (`[cad]` over the IGES, `Model 0` renamed to one word), `quad_dominant` meshes it with
+strategy 1 and `full_grid` with strategy 2 (`docs/geometry-parametrization.md`). The native
+build runs at `pyfs-matrix run`, not at `plan`.

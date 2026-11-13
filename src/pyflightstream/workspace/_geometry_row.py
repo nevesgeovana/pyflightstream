@@ -75,9 +75,14 @@ _REUSABLE = ("accepted", "incomplete")
 
 #: The last stage each route needs: the native route stops where the IGES is checked, a mesh
 #: route stops before the export it replaces with its own mesh.
-_UNTIL = {"native": "S12", "quad_dominant": "S11", "full_grid": "S11"}
+_UNTIL = {"native": "S12.C", "quad_dominant": "S11", "full_grid": "S11"}
 
 _IGES_SUFFIXES = (".igs", ".iges")
+
+#: The one boundary the solver's CAD importer gives the body it converts, whatever the members of
+#: the IGES are (record ``tests/tier3_licensed/data/g13-native-import.json``, build 26.127: a one
+#: member file and a two member file both save one boundary named ``Model 0``).
+NATIVE_BOUNDARY = "Model 0"
 
 
 class GeometryRowError(InputArtifactError):
@@ -411,6 +416,11 @@ def _instruction_text(name: str, build: str | None, table: tuple[str, str, str],
     names = ", ".join(json.dumps(item) for item in boundaries)
     lines += ['outputs = ["fsm"]', f"boundaries = [{names}]", "", f"[{kind}]"]
     lines += [f'file = "{source}"', f'units = "{units}"']
+    if kind == "cad":
+        # The importer's one boundary is named with a space, which a boundary name cannot carry:
+        # the instruction renames it to the one word it states (the first boundary).
+        lines += ["", "[[operations]]", 'op = "rename"']
+        lines += [f'surface = "{NATIVE_BOUNDARY}"', f"to = {json.dumps(boundaries[0])}"]
     return "\n".join(lines) + "\n"
 
 
@@ -436,8 +446,9 @@ def _native(request: GeometryRowRequest, folder: Path, name: str, report) -> Non
             f"matrix row POL {request.pol}: the generation wrote no IGES, so the native route "
             "has nothing to build."
         )
-    members = list(outputs.get("members") or outputs.get("components") or [])
-    _write_instruction(folder, name, request, ("cad", iges, "FILE"), members or [name])
+    _write_instruction(
+        folder, name, request, ("cad", iges, "FILE"), [request.source.name.split(".")[0]]
+    )
 
 
 def mesh_with_strategy_1(
@@ -576,7 +587,7 @@ def _from_iges(request: GeometryRowRequest, geometries: Path) -> RowGeometry:
         shutil.copy2(request.source, work / request.source.name)
         work.replace(folder)
         table = ("cad", request.source.name, "FILE")
-        _write_instruction(folder, name, request, table, [request.source.stem])
+        _write_instruction(folder, name, request, table, [request.source.stem.split(".")[0]])
     return RowGeometry(folder, name, folder / f"{name}.fsm", {"status": "accepted"}, False)
 
 

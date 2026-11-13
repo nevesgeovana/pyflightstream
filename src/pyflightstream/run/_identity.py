@@ -11,6 +11,7 @@ on whether each file still hashes to what the record says (NFR-07).
 from __future__ import annotations
 
 import copy
+import importlib
 import inspect
 import os
 import re
@@ -1135,3 +1136,51 @@ def _warn_accepted(build: str, chosen: FsVersion, source: str) -> None:
         PyflightstreamWarning,
         stacklevel=4,
     )
+
+
+def build_native_geometries(
+    matrix: str | Path,
+    workspace: Any,
+    *,
+    default_build: str | None,
+    fs_exe: str | Path | None = None,
+) -> list[str]:
+    """Build, with the solver, the native geometry the matrix of a run still lacks.
+
+    Every row of ``MESH_ROUTE`` ``native`` whose ``.fsm`` is not built yet is built; a build that
+    fails warns and leaves that row to be recorded as ``GEOMETRY_FAILED`` by the binding.
+
+    Parameters
+    ----------
+    matrix : str or Path
+        The matrix file.
+    workspace : CampaignWorkspace
+        Whose ``inputs/geometries`` library holds the generated folders.
+    default_build : str or None
+        The build a row with no ``FS_BUILD`` uses.
+    fs_exe : str or Path, optional
+        An executable that replaces the registered one of the build.
+
+    Returns
+    -------
+    list of str
+        The names of the geometries this call built.
+    """
+    native = importlib.import_module("pyflightstream.workspace._native_rows")
+    verbs = importlib.import_module("pyflightstream.run._cli_geometry")
+
+    def solver(folder: Path, build: str | None, exe: str | Path | None) -> tuple[Any, ...]:
+        plan = verbs.plan_geometry_build(folder, build=build)
+        verbs.refuse_before_running(plan, overwrite=False)
+        executable = (
+            Path(exe) if exe else verbs.resolve_build(plan.root / "inputs", plan.build_id).fs_exe
+        )
+        built: tuple[Any, ...] = verbs.apply_geometry_build(
+            plan, runner=verbs._runner(executable), package_version=verbs._package_version()
+        )
+        return built
+
+    names: list[str] = native.build_native_rows(
+        matrix, workspace, default_build=default_build, fs_exe=fs_exe, build=solver
+    )
+    return names

@@ -38,7 +38,6 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from itertools import zip_longest
 from pathlib import Path, PurePath
 from typing import Any
 
@@ -102,6 +101,8 @@ from pyflightstream.run._additional import (
     archive_extraction_folder,
     complete_extraction,
     discard_extraction_copy,
+    first_difference,
+    first_of_the_chain,
     layout_of,
     own_sections_layout,
     sections_numbering_refusal,
@@ -110,7 +111,11 @@ from pyflightstream.run._additional import (
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
-from pyflightstream.run._identity import entry_accepted_builds, settle_the_matrix_default
+from pyflightstream.run._identity import (
+    build_native_geometries,
+    entry_accepted_builds,
+    settle_the_matrix_default,
+)
 from pyflightstream.run._ids import _selected, narrow_to_selection, whole_sweeps
 from pyflightstream.run._matrix_warnings import (
     _warn_matrix_inputs,
@@ -1020,6 +1025,7 @@ def run_matrix(
     default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
     )
+    build_native_geometries(path, workspace, default_build=default, fs_exe=fs_exe)
     resolved = resolve_matrix(
         path,
         workspace,
@@ -1261,43 +1267,6 @@ def _row_build(resolved: ResolvedMatrix, index: int, default: str | None) -> tup
     )
     exe = Path(registered.fs_exe) if registered is not None else Path(resolved.fs_exe)
     return _canonical(str(version)), exe
-
-
-def _first_of_the_chain(point: RunRecord, by_run: Mapping[str, RunRecord]) -> RunRecord | None:
-    """Walk ``continues`` back to the run that started the chain, or None if a link is gone."""
-    seen = {point.run_id}
-    current = point
-    while current.continues:
-        previous = by_run.get(current.continues)
-        if previous is None or previous.run_id in seen:
-            return None
-        seen.add(previous.run_id)
-        current = previous
-    return current
-
-
-def _first_difference(
-    recorded: tuple[tuple[str, ...], ...], today: tuple[tuple[str, ...], ...]
-) -> str:
-    """Name the first line where the run's frame commands and the row's part."""
-    for at, (was, now) in enumerate(zip(recorded, today, strict=False)):
-        if was == now:
-            continue
-        said, says = next(
-            (one, other)
-            for one, other in zip_longest(was, now, fillvalue="nothing")
-            if one != other
-        )
-        return (
-            f"frame command {at + 1} of the run ({', '.join(was[:3])}) said {said} where "
-            f"the row says {says} today"
-        )
-    if len(recorded) != len(today):
-        return (
-            f"the run's script carries {len(recorded)} frame command(s) and the row's "
-            f"carries {len(today)} today"
-        )
-    return "no frame differs"
 
 
 def _latest_extractions(records: list[AdditionalRecord]) -> dict[str, AdditionalRecord]:
@@ -1670,7 +1639,7 @@ def _script_drift(
     the point is refused naming why: an index read off today's file would cut
     whichever surface holds that index in the saved one.
     """
-    first = _first_of_the_chain(point, by_run)
+    first = first_of_the_chain(point, by_run)
     if first is None:
         return (
             f"the run {point.run_id} continues a run the manifest no longer holds, so the "
@@ -1693,7 +1662,7 @@ def _script_drift(
     if was != now:
         return (
             f"the row creates other frames today than the run created, so a distribution "
-            f"would be cut in the wrong one: {_first_difference(was, now)}"
+            f"would be cut in the wrong one: {first_difference(was, now)}"
         )
     held = workspace.recorded_inventory(point)
     if held is None and first is not point:

@@ -16,6 +16,7 @@ PFS-2130.051).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from itertools import zip_longest
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, TypeGuard
 
@@ -469,3 +470,40 @@ def layout_of(
         entry["pproc"] = pproc
         added.append(entry)
     return own + added, leading
+
+
+def first_of_the_chain(point: RunRecord, by_run: Mapping[str, RunRecord]) -> RunRecord | None:
+    """Walk ``continues`` back to the run that started the chain, or None if a link is gone."""
+    seen = {point.run_id}
+    current = point
+    while current.continues:
+        previous = by_run.get(current.continues)
+        if previous is None or previous.run_id in seen:
+            return None
+        seen.add(previous.run_id)
+        current = previous
+    return current
+
+
+def first_difference(
+    recorded: tuple[tuple[str, ...], ...], today: tuple[tuple[str, ...], ...]
+) -> str:
+    """Name the first line where the run's frame commands and the row's part."""
+    for at, (was, now) in enumerate(zip(recorded, today, strict=False)):
+        if was == now:
+            continue
+        said, says = next(
+            (one, other)
+            for one, other in zip_longest(was, now, fillvalue="nothing")
+            if one != other
+        )
+        return (
+            f"frame command {at + 1} of the run ({', '.join(was[:3])}) said {said} where "
+            f"the row says {says} today"
+        )
+    if len(recorded) != len(today):
+        return (
+            f"the run's script carries {len(recorded)} frame command(s) and the row's "
+            f"carries {len(today)} today"
+        )
+    return "no frame differs"
