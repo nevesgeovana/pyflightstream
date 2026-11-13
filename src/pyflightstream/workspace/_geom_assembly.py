@@ -39,6 +39,21 @@ from pyflightstream.workspace._geom_removal import RemovalSteps
 __all__ = ["BLUFF", "Assembly", "assemble", "sewn_free_edges"]
 
 
+#: A piece of this many faces or fewer is fused in one call; a larger one face by face (see
+#: ``Assembly._fragment_in_turn``). The faces of a lifting surface and its controls fuse in one
+#: call in a few seconds; a body of sixty faces did not return.
+_ONE_CALL_FACES = 24
+#: Boxes closer than this, in metres, are taken to touch.
+_BOX_GAP_M = 1e-6
+
+
+def _boxes_meet(a: tuple, b: tuple) -> bool:
+    """Whether two axis-aligned boxes, each ``(minimum, maximum)``, touch or overlap."""
+    return all(
+        a[0][k] <= b[1][k] + _BOX_GAP_M and b[0][k] <= a[1][k] + _BOX_GAP_M for k in range(3)
+    )
+
+
 class Assembly(RemovalSteps):
     """The pieces of one configuration on a kernel, and the sub-steps of S10 run on them.
 
@@ -265,8 +280,44 @@ class Assembly(RemovalSteps):
         active = [f for f in built if not self._inert(f)]
         if len(active) < 2:
             return active + inert
+        if len(active) > _ONE_CALL_FACES:
+            return self._fragment_in_turn(active) + inert
         result = self.k.fragment(active[:1], active[1:])
         return self._inherit(active, [*result.from_a, *result.from_b]) + inert
+
+    def _fragment_in_turn(self, faces: Sequence[Face]) -> list[Face]:
+        """Fragment many faces by adding each to the set made so far, against its neighbours only.
+
+        One call of the kernel's general fuse on every face of a body (about 60 B-spline faces
+        that touch along their seams) did not return in twenty minutes, while the same faces fuse
+        pairwise in seconds in all: the cost of the call grows much faster than the number of
+        faces. A face that touches nothing already placed is set down as it is; one that touches
+        some is fused with those only, and the pieces replace them. The pieces are the same as
+        from the one call, since a face crosses only the faces its box meets.
+        """
+        done: list[Face] = []
+        rank: dict[Face, int] = {}
+        for position, face in enumerate(faces):
+            box = self.k.bbox(face)
+            near = [p for p in done if _boxes_meet(box, self.k.bbox(p))]
+            if not near:
+                done.append(face)
+                rank[face] = position
+                continue
+            inputs = [face, *near]
+            before = {f: rank[f] if f in rank else position for f in inputs}
+            result = self.k.fragment([face], near)
+            rows = [*result.from_a, *result.from_b]
+            self._inherit(inputs, rows)
+            for p in near:
+                rank.pop(p, None)
+            fresh: dict[Face, int] = {}
+            for source, row in zip(inputs, rows, strict=True):
+                for piece in row:
+                    fresh[piece] = min(fresh.get(piece, before[source]), before[source])
+            done = [p for p in done if p not in near] + list(fresh)
+            rank.update(fresh)
+        return sorted(done, key=lambda f: rank[f])
 
     def _inherit(
         self,
