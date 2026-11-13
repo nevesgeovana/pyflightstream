@@ -25,7 +25,27 @@ from pyflightstream.workspace._geometry_row import (
     prepare_row_geometry,
 )
 
-__all__ = ["build_native_rows"]
+__all__ = ["build_native_rows", "has_native_rows"]
+
+
+def has_native_rows(rows: Sequence[Any], workspace: Any) -> bool:
+    """Whether any of ``rows`` generates its geometry on the ``native`` route.
+
+    Reads the rows' cells only: nothing is generated and the solver is not asked. A row whose
+    geometry cells cannot be read is not counted; the binding reports it.
+    """
+    for row in rows:
+        if not str(row.variables.get(GEOMETRY_VARIABLE, "")).strip():
+            continue
+        try:
+            request = plan_row_geometry(
+                row.variables, row.pol, workspace.resolve_geometry, fs_build=row.fs_build or None
+            )
+        except (PyflightstreamError, OSError, ValueError):
+            continue
+        if request is not None and request.route == "native":
+            return True
+    return False
 
 
 def build_native_rows(

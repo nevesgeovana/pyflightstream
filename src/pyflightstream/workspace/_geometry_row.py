@@ -447,7 +447,11 @@ def _native(request: GeometryRowRequest, folder: Path, name: str, report) -> Non
             "has nothing to build."
         )
     _write_instruction(
-        folder, name, request, ("cad", iges, "FILE"), [request.source.name.split(".")[0]]
+        folder,
+        name,
+        request,
+        ("cad", iges, "FILE"),
+        [request.source.name[: -len(GEOMETRY_ROW_SUFFIX)]],
     )
 
 
@@ -587,7 +591,7 @@ def _from_iges(request: GeometryRowRequest, geometries: Path) -> RowGeometry:
         shutil.copy2(request.source, work / request.source.name)
         work.replace(folder)
         table = ("cad", request.source.name, "FILE")
-        _write_instruction(folder, name, request, table, [request.source.stem.split(".")[0]])
+        _write_instruction(folder, name, request, table, [request.source.stem])
     return RowGeometry(folder, name, folder / f"{name}.fsm", {"status": "accepted"}, False)
 
 

@@ -296,9 +296,12 @@ The solver's own tessellation leaves triangles of zero area along the seams of t
 (a fan at the vertex where the leading-edge end of a tip cap collapses, slivers along a patch
 edge) and a pair of slivers folded on an edge two patches share. Gate G1 of the build audit
 would refuse them, so for a `[cad]` source the build reads the IGES and passes G1 only when every
-such face has its nodes on an edge of a source face (or two nodes on one source vertex) and every
-such edge lies on a source edge; the build record names them by the source faces. A zero-area
-face with a node off every source edge, or any other failed gate, still fails: nothing is
+such face lies, every point of its sides, on one edge of a source face (or has two nodes on one
+source vertex) and every such edge lies on a source edge; the build record names them by the
+source faces. "On" means within 1e-3 of the mesh size (the diagonal of its bounding box) of the
+CAD curve itself, measured exactly, so a chord across a curved edge is not taken for the edge.
+A zero-area face with a point off every source edge, or any other failed gate, still fails:
+nothing is
 promoted, the row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run.
 The measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
 `run_matrix` and the grouped run build the missing native geometry; `pyfs-matrix plan` binds

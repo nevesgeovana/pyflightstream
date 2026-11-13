@@ -1141,14 +1141,21 @@ def _warn_accepted(build: str, chosen: FsVersion, source: str) -> None:
 def build_native_geometries(
     matrix: str | Path,
     workspace: Any,
+    fs_exe: str | Path | None = None,
     *,
     default_build: str | None,
-    fs_exe: str | Path | None = None,
+    rows: Sequence[Any] | None = None,
+    executor: Executor | None = None,
 ) -> list[str]:
     """Build, with the solver, the native geometry the matrix of a run still lacks.
 
     Every row of ``MESH_ROUTE`` ``native`` whose ``.fsm`` is not built yet is built; a build that
     fails warns and leaves that row to be recorded as ``GEOMETRY_FAILED`` by the binding.
+
+    The build runs through ``executor`` when the caller supplied one, never through a local
+    executor made here. A build reads its outputs back as soon as the solver returns, so the
+    executor must be synchronous: one that submits jobs (a cluster) is refused by name before
+    anything is submitted, until a collection contract for a geometry build exists.
 
     Parameters
     ----------
@@ -1160,27 +1167,96 @@ def build_native_geometries(
         The build a row with no ``FS_BUILD`` uses.
     fs_exe : str or Path, optional
         An executable that replaces the registered one of the build.
+    rows : sequence of MatrixRow, optional
+        The selected rows; None reads all active rows.
+    executor : Executor, optional
+        The run's executor, which then runs every build; None runs them on a local executor.
 
     Returns
     -------
     list of str
         The names of the geometries this call built.
+
+    Raises
+    ------
+    pyflightstream.run.ExecutorConfigurationError
+        ``executor`` submits jobs and a native geometry is still to be built.
     """
+    from pyflightstream.run._executors import submits_jobs
+
     native = importlib.import_module("pyflightstream.workspace._native_rows")
     verbs = importlib.import_module("pyflightstream.run._cli_geometry")
+    submitting = executor is not None and submits_jobs(executor)
 
     def solver(folder: Path, build: str | None, exe: str | Path | None) -> tuple[Any, ...]:
+        if submitting:
+            raise _SubmittedBuild(folder, build)
         plan = verbs.plan_geometry_build(folder, build=build)
         verbs.refuse_before_running(plan, overwrite=False)
+        # A supplied executor runs its own installation: the record names it, or the executor.
+        stated = exe or getattr(executor, "fs_exe", None) or type(executor).__name__
         executable = (
-            Path(exe) if exe else verbs.resolve_build(plan.root / "inputs", plan.build_id).fs_exe
+            Path(stated)
+            if exe or executor is not None
+            else verbs.resolve_build(plan.root / "inputs", plan.build_id).fs_exe
         )
         built: tuple[Any, ...] = verbs.apply_geometry_build(
-            plan, runner=verbs._runner(executable), package_version=verbs._package_version()
+            plan,
+            runner=verbs._runner(executable, executor),
+            package_version=verbs._package_version(),
         )
         return built
 
-    names: list[str] = native.build_native_rows(
-        matrix, workspace, default_build=default_build, fs_exe=fs_exe, build=solver
-    )
+    try:
+        names: list[str] = native.build_native_rows(
+            matrix, workspace, default_build=default_build, fs_exe=fs_exe, rows=rows, build=solver
+        )
+    except _SubmittedBuild as held:
+        build_flag = f" --build {held.build}" if held.build else ""
+        raise ExecutorConfigurationError(
+            f"native geometry needs a synchronous build first: the executor "
+            f"{type(executor).__name__} submits jobs, and a geometry build reads its outputs "
+            f"back as soon as the solver returns, so {held.folder.name} was not built and "
+            "nothing was submitted. Build it on a machine with the solver: "
+            f"pyfs-workspace geometry build {held.folder} --apply{build_flag}, then run again."
+        ) from None
     return names
+
+
+class _SubmittedBuild(Exception):  # noqa: N818 - a signal, caught above, never raised to a caller
+    """A native build a submitting executor cannot run; carries the folder to name."""
+
+    def __init__(self, folder: Path, build: str | None) -> None:
+        super().__init__(str(folder))
+        self.folder, self.build = Path(folder), build
+
+
+def refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> None:
+    """Refuse, before any point is submitted, a build the profile cannot name.
+
+    PFS-2010.01.06. A build the profile's [builds] table does not map fails every
+    point of its rows the same way, so it is refused for the whole campaign
+    rather than at the first descriptor after earlier rows spent the queue.
+    ASKED OF WHATEVER EXECUTOR THE CAMPAIGN RUNS ON, the one the platform chose
+    or one a caller passed, and it lived inside the platform's branch only
+    until the independent review of the release measured a caller's own
+    submitting executor submitting a first row before the refusal.
+    """
+    from pyflightstream.run._executors import SubmittingExecutor
+
+    if not isinstance(executor, SubmittingExecutor):
+        return
+    campaign = resolved.campaign
+    # Read each row's build from its binding. case.fs_build is populated only
+    # later by _bind_row_builds, so it cannot identify the row's build here.
+    row_builds = resolved.row_builds
+    if len(row_builds) != len(campaign.sims):
+        row_builds = tuple(None for _ in campaign.sims)
+    refusal = executor.build_alias_refusal(
+        [
+            row_build or case.fs_build or campaign.fs_version
+            for case, row_build in zip(campaign.sims, row_builds, strict=True)
+        ]
+    )
+    if refusal is not None:
+        raise InputArtifactError(refusal)

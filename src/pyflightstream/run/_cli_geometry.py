@@ -587,8 +587,9 @@ def _print_plan(plan: GeometryBuildPlan) -> None:
         )
 
 
-def _runner(executable: Path):  # noqa: ANN202
-    executor = LocalExecutor(executable)
+def _runner(executable: Path, executor: Any = None):  # noqa: ANN202
+    """Return the solver pass of a geometry build: ``executor`` when given, else a local one."""
+    executor = LocalExecutor(executable) if executor is None else executor
 
     def run(script: Path, work: Path) -> SolverOutcome:
         result = executor.run_script(script, working_dir=work, timeout_s=_TIMEOUT_S)

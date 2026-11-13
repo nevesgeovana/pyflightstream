@@ -13,6 +13,7 @@ import argparse
 import os
 import shlex
 import subprocess
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -771,3 +772,76 @@ def _selected_rows(
     selected = narrow_to_selection(scratch, sims, points, workspace, redoing=redoing)
     kept = {case.sim_id for case in selected.campaign.sims}
     return [row for row in rows if row.pol in kept]
+
+
+def everything_recorded(
+    resolved: ResolvedMatrix,
+    workspace: CampaignWorkspace,
+    *,
+    sims: Sequence[str] | None,
+    force_rerun: Sequence[str] | None,
+    resume: bool,
+) -> tuple[list[str], ResolvedMatrix]:
+    """Resolve ``force_rerun_all`` into the recorded ids to redo, and the run's simulations.
+
+    G44: redo the whole matrix with one switch. Every
+    recorded point of the matrix, or of the simulations ``sims`` names, is named
+    to the forced re-run it already is point by point: a steady row recorded as
+    one job is named by its job id, so it runs again as one job; every other
+    recorded point by its own run_id. With ``sims`` the campaign is narrowed to
+    those simulations, so the run touches nothing else. The count is said before
+    anything runs, because the count is the licences it spends.
+    """
+    if resume or force_rerun:
+        raise MatrixError(
+            "force_rerun_all (CLI: --force-rerun-all) redoes every recorded point, so it is "
+            "refused together with "
+            + (
+                "resume (CLI: --resume), which skips them"
+                if resume
+                else "force_rerun (CLI: --force-rerun), which names some of them"
+            )
+            + ". Give one or the other."
+        )
+    campaign = resolved.campaign
+    wanted = set(sims or (case.sim_id for case in campaign.sims))
+    recorded = {record.run_id for record in workspace.read_manifest()}
+    names: list[str] = []
+    points = jobs = archived = 0
+    for case in campaign.sims:
+        if case.sim_id not in wanted:
+            continue
+        job = f"{campaign.name}/sim_{case.sim_id}/{_WORKSPACE_JOB_TAG}"
+        point_ids = [
+            f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
+            for point in case.sweep.points()
+        ]
+        if job in recorded:
+            # The job's re-run also retires a point of it recorded on its own.
+            names.append(job)
+            points += len(point_ids)
+            jobs += 1
+            archived += 1 + sum(run_id in recorded for run_id in point_ids)
+            continue
+        chosen = [run_id for run_id in point_ids if run_id in recorded]
+        names.extend(chosen)
+        points += len(chosen)
+        archived += len(chosen)
+        # Points recorded one by one still run again as ONE warm job when the row is
+        # a steady sweep over the attitude (reading A29): the count says what runs.
+        jobs += 1 if len(chosen) > 1 and runs_as_one_job(campaign, case) else len(chosen)
+    if not names:
+        raise MatrixError(
+            "force_rerun_all found no recorded point of campaign "
+            f"{campaign.name!r} in "
+            + (f"simulation(s) {', '.join(sorted(wanted))}" if sims else "this matrix")
+            + f" in {workspace.root}; there is nothing to redo. Run without it."
+        )
+    # Said on stderr before anything runs, as every progress line of a run is.
+    print(
+        f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {archived} "
+        "recorded record(s) will be archived and run again.",
+        file=sys.stderr,
+        flush=True,
+    )
+    return names, resolved

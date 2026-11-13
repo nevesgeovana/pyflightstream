@@ -1647,6 +1647,43 @@ def _raw_without_a_workspace(row: MatrixRow, *, defer_files: bool) -> list[RawCo
     return entries
 
 
+def row_recipe(row: MatrixRow, recipes: Mapping[str, str]) -> str:
+    """Return the recipe a row is built with: its WORKFLOW's, or its RECIPE code's reference.
+
+    Raises
+    ------
+    MatrixError
+        A LEGACY row whose RECIPE code maps to nothing and is not a reference itself.
+    """
+    # A ROW NAMING A REGISTERED RUN TYPE NAMES ITS BUILDER (PFS-2029.02):
+    # the WORKFLOW cell is the recipe, resolved through the workflow
+    # registry, and no option repeats it. A LEGACY row is built by a
+    # function of the user's own, which its RECIPE code must map to.
+    if row.workflow != LEGACY_WORKFLOW:
+        return recipes.get(row.script_code, row.workflow) if row.script_code else row.workflow
+    if row.script_code in recipes:
+        return recipes[row.script_code]
+    if _RECIPE_REFERENCE.match(row.script_code or ""):
+        # THE CELL CARRIES THE REFERENCE ITSELF (PFS-2031.11): a matrix
+        # whose LEGACY rows name their recipe as package.module:function
+        # plans and runs with no --recipe option, which is what FR-50
+        # promises of a matrix. A mapping for that same string, if one is
+        # given, wins above, so nothing a user mapped changes meaning.
+        return row.script_code
+    stated = (
+        f"code {row.script_code!r} has no recipe mapping" if row.script_code else "cell is empty"
+    )
+    raise MatrixError(
+        f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} {stated}; "
+        "a LEGACY row is built by a function of your own: write the reference itself "
+        f"in the cell, {RECIPE_VARIABLE}: package.module:function, or map the code "
+        "with recipes={code: 'package.module:function'} in Python, or --recipe "
+        "CODE=package.module:function on the pyfs-matrix command line. A row "
+        "that wants a run type this package builds itself writes the type in "
+        f"its WORKFLOW cell instead, one of: {', '.join(workflow_names())}"
+    )
+
+
 def to_campaign(
     path: str | Path,
     *,
@@ -1708,36 +1745,7 @@ def to_campaign(
     refuse_silent_rows_without_default(rows, fs_version, path)
     sims = []
     for row in rows:
-        # A ROW NAMING A REGISTERED RUN TYPE NAMES ITS BUILDER (PFS-2029.02):
-        # the WORKFLOW cell is the recipe, resolved through the workflow
-        # registry, and no option repeats it. A LEGACY row is built by a
-        # function of the user's own, which its RECIPE code must map to.
-        if row.workflow != LEGACY_WORKFLOW:
-            recipe = recipes.get(row.script_code, row.workflow) if row.script_code else row.workflow
-        elif row.script_code in recipes:
-            recipe = recipes[row.script_code]
-        elif _RECIPE_REFERENCE.match(row.script_code or ""):
-            # THE CELL CARRIES THE REFERENCE ITSELF (PFS-2031.11): a matrix
-            # whose LEGACY rows name their recipe as package.module:function
-            # plans and runs with no --recipe option, which is what FR-50
-            # promises of a matrix. A mapping for that same string, if one is
-            # given, wins above, so nothing a user mapped changes meaning.
-            recipe = row.script_code
-        else:
-            stated = (
-                f"code {row.script_code!r} has no recipe mapping"
-                if row.script_code
-                else "cell is empty"
-            )
-            raise MatrixError(
-                f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} {stated}; "
-                "a LEGACY row is built by a function of your own: write the reference itself "
-                f"in the cell, {RECIPE_VARIABLE}: package.module:function, or map the code "
-                "with recipes={code: 'package.module:function'} in Python, or --recipe "
-                "CODE=package.module:function on the pyfs-matrix command line. A row "
-                "that wants a run type this package builds itself writes the type in "
-                f"its WORKFLOW cell instead, one of: {', '.join(workflow_names())}"
-            )
+        recipe = row_recipe(row, recipes)
         variables: dict[str, str | float | int | bool] = dict(row.variables)
         variables.update(
             matrix_ref=row.ref_code,
