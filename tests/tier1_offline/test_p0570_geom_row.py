@@ -165,6 +165,32 @@ def test_old_header_warns_and_migrates_with_no_byte_lost(tmp_path):
     assert not any(c.get("kind") == "matrix" for c in migrate_workspace(workspace.root, apply=True))
 
 
+def test_r27_matrix_backup_conflict_prevents_manifest_migration(tmp_path):
+    from pyflightstream.workspace.manifest import WorkspaceError
+    from pyflightstream.workspace.migrate import migrate_workspace
+
+    workspace = make_library(tmp_path)
+    matrix = _matrix(workspace.root, [_cells()], old=True)
+    original = matrix.read_bytes()
+    manifest = workspace.root / "runs.json"
+    manifest.write_bytes(b"[]\r\n")
+    backup = matrix.with_suffix(".fs.bak")
+    backup.write_bytes(b"a different preserved matrix")
+    with pytest.raises(WorkspaceError, match="different backup"):
+        migrate_workspace(workspace.root, apply=True)
+    assert manifest.read_bytes() == b"[]\r\n"
+    assert not manifest.with_suffix(".json.bak").exists()
+    assert matrix.read_bytes() == original
+    assert backup.read_bytes() == b"a different preserved matrix"
+
+    backup.write_bytes(original)
+    changes = migrate_workspace(workspace.root, apply=True)
+    assert {row["file"] for row in changes} == {"runs.json", "matrix.fs"}
+    assert manifest.with_suffix(".json.bak").read_bytes() == b"[]\r\n"
+    assert matrix.with_suffix(".fs.bak").read_bytes() == original
+    assert b"MESH_ROUTE" in matrix.read_bytes()
+
+
 def test_every_tracked_matrix_file_is_at_the_current_layout():
     from pyflightstream.cases.matrix import MATRIX_COLUMNS
 
