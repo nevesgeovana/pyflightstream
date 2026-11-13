@@ -223,10 +223,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     migration = subparsers.add_parser(
         "migrate",
-        help=(
-            "preview the record migration from 0.38.0 and the MESH_ROUTE column added after "
-            "GEOMETRY in root matrices; --apply writes backups and the migrated files"
-        ),
+        help="preview the 0.38.0 record and MESH_ROUTE matrix migration; --apply writes it",
         description=(
             "Previews the changes: record manifests from 0.38.0, and root *.fs matrices of the "
             "0.56.0 layout, which get the MESH_ROUTE column after GEOMETRY, unstated (NA). "

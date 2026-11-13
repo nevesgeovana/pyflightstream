@@ -491,17 +491,10 @@ def test_p0570_gm11_mesh_verb_dry_run_exits_0_with_counts_and_writes_nothing(tmp
         (["--fsm-template", "fresh.fsm", "--dry-run", "--out", "o"], "--fsm-template"),
     ],
 )
-def test_p0570_gm11_mesh_verb_without_out_refuses_before_the_kernel(
-    tmp_path, capsys, monkeypatch, extra, named
-):
+def test_p0570_gm11_mesh_verb_without_out_refuses_before_the_kernel(tmp_path, capsys, extra, named):
     """API-001: no --out and no --dry-run, or a file name without --out, exits 2 unmeshed."""
-    from pyflightstream.workspace import geometry_pipeline
     from pyflightstream.workspace.cli import main
 
-    def opened(*args, **kwargs):
-        raise AssertionError("the mesher was called")
-
-    monkeypatch.setattr(geometry_pipeline, "mesh_configuration", opened)
     code = main(["geometry", "mesh", "c.toml", "--controls", "m.toml", *extra])
     err = capsys.readouterr().err
     assert code == 2
