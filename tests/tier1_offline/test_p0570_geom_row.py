@@ -14,6 +14,7 @@ import importlib
 import json
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -594,3 +595,41 @@ def test_a_row_that_is_not_native_is_not_built_by_the_solver(tmp_path, library):
 
     matrix = _native_matrix(tmp_path, geometry="wing.fsm", route="NA")
     assert build_native_rows(matrix, library, default_build="26.120", build=solver) == []
+
+
+class _StopError(Exception):
+    pass
+
+
+def test_run_matrix_passes_selected_rows_to_native_builder(monkeypatch):
+    module = importlib.import_module("pyflightstream.run.matrix")
+    rows = [SimpleNamespace(pol="7001")]
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]))
+    monkeypatch.setattr(module, "settle_the_matrix_default", lambda *a, **kw: ("26.120", rows))
+
+    def build(*args, **kwargs):
+        assert kwargs["rows"] is rows
+        raise _StopError
+
+    monkeypatch.setattr(module, "build_native_geometries", build)
+    with pytest.raises(_StopError):
+        module.run_matrix(
+            "unused", object(), name="test", recipes={}, assess=object(), sims=["7001"]
+        )
+
+
+def test_grouped_run_passes_receipt_selection_to_native_builder(monkeypatch):
+    module = importlib.import_module("pyflightstream.run._batch_run")
+    rows = [SimpleNamespace(pol="7001")]
+    monkeypatch.setattr(module, "read_matrix", lambda path: rows)
+    monkeypatch.setattr(module, "refuse_silent_rows_without_default", lambda *args: None)
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]), raising=False)
+
+    def build(*args, **kwargs):
+        assert kwargs["rows"] is rows
+        raise _StopError
+
+    monkeypatch.setattr(module, "build_native_geometries", build)
+    receipt = SimpleNamespace(jobs=[SimpleNamespace(sims=["7001"])])
+    with pytest.raises(_StopError):
+        module._bound_matrix("unused", object(), receipt, {"name": "test", "fs_version": "26.120"})

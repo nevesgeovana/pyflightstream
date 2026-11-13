@@ -78,7 +78,7 @@ from pyflightstream.run._identity import (
     build_native_geometries,
     entry_accepted_builds,
 )
-from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
+from pyflightstream.run._ids import CampaignErrors, _selected, narrow_to_selection
 from pyflightstream.run._plan import plan_campaign, resolved_plan_error
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -230,7 +230,13 @@ def _bound_matrix(
     """Resolve the matrix, narrowed to the receipt's simulations and the user's points."""
     default = _default_version(kw)
     refuse_silent_rows_without_default(read_matrix(path), default, path)
-    build_native_geometries(path, workspace, default_build=default, fs_exe=kw.get("fs_exe"))
+    sims: Sequence[str] | None = [sim for job in receipt.jobs for sim in job.sims]
+    rows, sims = _selected(
+        path, workspace, kw["name"], kw.get("recipes", {}), sims=sims, points=kw.get("points")
+    )
+    build_native_geometries(
+        path, workspace, default_build=default, fs_exe=kw.get("fs_exe"), rows=rows
+    )
     resolved = resolve_matrix(
         path,
         workspace,
@@ -239,8 +245,8 @@ def _bound_matrix(
         recipes=kw.get("recipes", {}),
         fs_exe=kw.get("fs_exe"),
         ignore_missing_families=kw.get("ignore_missing_families", True),
+        rows=rows,
     )
-    sims = [sim for job in receipt.jobs for sim in job.sims]
     resolved = narrow_to_selection(resolved, sims, kw.get("points"), workspace)
     campaign = resolved.campaign
     grouped = campaign.model_copy(update={"sims": [grouped_case(c) for c in campaign.sims]})

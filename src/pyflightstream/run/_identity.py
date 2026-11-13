@@ -1141,9 +1141,10 @@ def _warn_accepted(build: str, chosen: FsVersion, source: str) -> None:
 def build_native_geometries(
     matrix: str | Path,
     workspace: Any,
+    fs_exe: str | Path | None = None,
     *,
     default_build: str | None,
-    fs_exe: str | Path | None = None,
+    rows: Sequence[Any] | None = None,
 ) -> list[str]:
     """Build, with the solver, the native geometry the matrix of a run still lacks.
 
@@ -1160,6 +1161,8 @@ def build_native_geometries(
         The build a row with no ``FS_BUILD`` uses.
     fs_exe : str or Path, optional
         An executable that replaces the registered one of the build.
+    rows : sequence of MatrixRow, optional
+        The selected rows; None reads all active rows.
 
     Returns
     -------
@@ -1181,6 +1184,6 @@ def build_native_geometries(
         return built
 
     names: list[str] = native.build_native_rows(
-        matrix, workspace, default_build=default_build, fs_exe=fs_exe, build=solver
+        matrix, workspace, default_build=default_build, fs_exe=fs_exe, rows=rows, build=solver
     )
     return names

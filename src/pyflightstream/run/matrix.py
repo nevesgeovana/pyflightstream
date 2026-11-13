@@ -1025,7 +1025,7 @@ def run_matrix(
     default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
     )
-    build_native_geometries(path, workspace, default_build=default, fs_exe=fs_exe)
+    build_native_geometries(path, workspace, fs_exe, default_build=default, rows=selected_rows)
     resolved = resolve_matrix(
         path,
         workspace,
