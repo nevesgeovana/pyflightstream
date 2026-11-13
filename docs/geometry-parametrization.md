@@ -180,7 +180,8 @@ checks: inverted and degenerate cells, non-manifold edges, free edges off the sy
 the spacing rules measured on the realized nodes. The OBJ has one group per component. The OBJ
 is written and the exit is 0 even when a check fails, so read `accepted` and
 `spacing_rules.passed` in the record. Python:
-`mesh_generated`.
+`mesh_generated`. Here `--out` names the JSON file the record is also written to, unlike
+`geometry mesh --out`, which names the folder of the mesh and its record.
 
 ## Mesh from per-component controls (strategy 1)
 

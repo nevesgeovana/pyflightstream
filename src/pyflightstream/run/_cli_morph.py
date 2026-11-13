@@ -306,7 +306,14 @@ def add_mesh_generated_parser(subparsers: Any) -> None:
         help="mesh controls overriding the defaults, by table: lifting_surface, body, checks, "
         "assembly",
     )
-    parser.add_argument("--out", metavar="JSON", help="also write the record to this file")
+    parser.add_argument(
+        "--out",
+        metavar="JSON",
+        help=(
+            "also write the record to this file (a file, unlike geometry mesh --out, "
+            "which is a folder)"
+        ),
+    )
     parser.set_defaults(mesh_command=run_mesh_generated)
 
 

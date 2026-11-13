@@ -508,6 +508,16 @@ def test_p0570_gm11_mesh_verb_without_out_refuses_before_the_kernel(
     assert named in err and "Nothing was meshed" in err
 
 
+def test_p0570_gm11_mesh_generated_help_says_out_is_a_record_file(capsys):
+    """API-011: mesh-generated --out stays a record file and its help says so."""
+    from pyflightstream.workspace.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["geometry", "mesh-generated", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--out JSON also write the record to this file (a file, unlike geometry mesh" in text
+
+
 # ---- sub-steps 7 and 8: hinge rows in the chord law, TE groups and collapse --------------------
 
 
