@@ -532,6 +532,26 @@ def test_an_iges_row_with_a_route_builds_through_cad_and_without_one_is_refused_
         row_module.prepare_row_geometry(mesh, library.inputs_dir / "geometries")
 
 
+def test_configuration_entries_on_an_iges_row_are_warned_and_skipped(library):
+    """API-005: GEOM_CONFIGURATION, GEOM_VARIANT and GEOM_PARAMS on an IGES row are skipped."""
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    (library.inputs_dir / "geometries" / "wing.igs").write_text("iges", encoding="utf-8")
+    variables = {
+        "GEOMETRY": "wing.igs",
+        "MESH_ROUTE": "native",
+        "GEOM_CONFIGURATION": "clean",
+        "GEOM_VARIANT": "cs",
+        "GEOM_PARAMS": "{main.planform.span=12}",
+    }
+    with pytest.warns(NotApplicableWarning) as caught:
+        request = row_module.plan_row_geometry(variables, "7001", library.resolve_geometry)
+    said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
+    for key in ("GEOM_CONFIGURATION", "GEOM_VARIANT", "GEOM_PARAMS"):
+        assert any(key in text and "wing.igs" in text for text in said), key
+    assert request.kind == "iges" and not request.overrides and request.configuration is None
+
+
 def test_a_matrix_whose_every_row_failed_is_refused_naming_each(tmp_path, library):
     from pyflightstream.cases.matrix import MatrixError
 

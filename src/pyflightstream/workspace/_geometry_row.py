@@ -237,7 +237,8 @@ def plan_row_geometry(
     """Read the geometry cells of one row; None when the row generates nothing.
 
     A ``.geom.toml`` row generates, and states its route or is read as ``native`` with a
-    warning. An IGES row with a route generates from that file; without a route it is the
+    warning. An IGES row with a route generates from that file and skips, with a warning, a
+    stated configuration, variant or parameter override; without a route it is the
     existing refusal's, untouched. A row opening an FSM, an OBJ or an STL skips every entry
     that would generate, with a warning.
 
@@ -263,6 +264,9 @@ def plan_row_geometry(
         return _configuration_request(variables, pol, resolve(name), fs_build)
     if lowered.endswith(_IGES_SUFFIXES) and _stated(variables, MESH_ROUTE_VARIABLE):
         route = _route_of(variables, pol, default=None)
+        for key in (GEOM_CONFIGURATION_VARIABLE, GEOM_VARIANT_VARIABLE, GEOM_PARAMS_VARIABLE):
+            if _stated(variables, key):
+                _skip(pol, key, f"the row generates from the IGES file {name}, not a configuration")
         return GeometryRowRequest(
             pol,
             resolve(name),
