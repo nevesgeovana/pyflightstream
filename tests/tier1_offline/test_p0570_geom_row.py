@@ -453,6 +453,9 @@ def test_a_mesher_set_for_full_grid_is_the_one_called(tmp_path, library, monkeyp
     from pyflightstream.workspace import _geometry_row as row_module
 
     reached: list = []
+    (library.inputs_dir / "geometries" / "demo.mesh.toml").write_text(
+        "[mesh]\nstrategy = 2\n", encoding="utf-8"
+    )
     monkeypatch.setitem(
         row_module.MESH_STRATEGIES, "full_grid", lambda *args: reached.append("full_grid")
     )
@@ -529,3 +532,43 @@ def test_r27_rejected_mesh_never_gets_a_build_instruction(tmp_path, library, mon
             _request(library, route=route), geometries, generate=_fake_generation([])
         )
     assert not list(geometries.glob("gen-*/*.geometry.toml"))
+
+
+@pytest.mark.parametrize("kind", ["configuration", "iges"])
+def test_r27_build_specific_instructions_do_not_share_a_cache(library, kind):
+    from dataclasses import replace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+    from pyflightstream.workspace._geometry_instruction import read_geometry_instruction
+
+    request = _request(library, route="native")
+    geometries = library.inputs_dir / "geometries"
+    if kind == "iges":
+        source = geometries / "blade.igs"
+        source.write_text("iges", encoding="utf-8")
+        request = replace(request, kind="iges", source=source)
+    first = row_module.prepare_row_geometry(request, geometries, generate=_fake_generation([]))
+    second = row_module.prepare_row_geometry(
+        replace(request, fs_build="26.121"), geometries, generate=_fake_generation([])
+    )
+    assert first.folder != second.folder
+    assert (
+        read_geometry_instruction(second.folder / f"{second.name}.geometry.toml").fs_build
+        == "26.121"
+    )
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_r27_mesh_control_bytes_are_part_of_the_row_cache_key(library, explicit):
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    controls = geometries / ("custom.mesh.toml" if explicit else "demo.mesh.toml")
+    controls.write_text("[mesh]\nstrategy = 1\n", encoding="utf-8")
+    free = {"MESH_CONTROLS": controls.name} if explicit else {}
+    request = _request(library, route="quad_dominant", free=free)
+    before = row_module.row_identity(request)
+    controls.write_text("[mesh]\nstrategy = 1\n[defaults.body]\nx_cells = 100\n", encoding="utf-8")
+    after = row_module.row_identity(request)
+    assert before[0] == after[0]  # geometric parameters are unchanged
+    assert before[1] != after[1]  # the realized mesh must not be reused

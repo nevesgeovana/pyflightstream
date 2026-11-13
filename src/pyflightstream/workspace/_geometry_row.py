@@ -313,6 +313,25 @@ def _short(digest: str) -> str:
     return digest[:16]
 
 
+def _mesh_controls_path(request: GeometryRowRequest) -> Path:
+    return request.controls or request.source.with_name(
+        request.source.name[: -len(GEOMETRY_ROW_SUFFIX)] + ".mesh.toml"
+    )
+
+
+def _build_key(request: GeometryRowRequest, parameter: str) -> str:
+    controls = _mesh_controls_path(request) if request.route != "native" else None
+    payload = {
+        "parameter_id": parameter,
+        "configuration": request.configuration,
+        "variant": request.variant,
+        "route": request.route,
+        "fs_build": request.fs_build,
+        "controls_sha256": hashlib.sha256(controls.read_bytes()).hexdigest() if controls else None,
+    }
+    return _short(hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest())
+
+
 def row_identity(request: GeometryRowRequest) -> tuple[str, str]:
     """Return the ``parameter_id`` the API would give these cells, and the folder's key.
 
@@ -325,20 +344,7 @@ def row_identity(request: GeometryRowRequest) -> tuple[str, str]:
     resolved = _resolve(request.source, request.overrides)
     _members(resolved, request.configuration, request.variant)
     parameter = parameter_id(resolved)
-    key = _short(
-        hashlib.sha256(
-            json.dumps(
-                {
-                    "parameter_id": parameter,
-                    "configuration": request.configuration,
-                    "variant": request.variant,
-                    "route": request.route,
-                },
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest()
-    )
-    return parameter, key
+    return parameter, _build_key(request, parameter)
 
 
 def _folder_name(request: GeometryRowRequest, key: str) -> str:
@@ -469,9 +475,7 @@ def mesh_with_strategy_2(
 
 def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> None:
     """Mesh a generated row with its controls file and write the ``[mesh]`` instruction."""
-    controls = request.controls or request.source.with_name(
-        request.source.name[: -len(GEOMETRY_ROW_SUFFIX)] + ".mesh.toml"
-    )
+    controls = _mesh_controls_path(request)
     if not controls.is_file():
         raise GeometryRowError(
             f"matrix row POL {request.pol}: the mesh controls {controls.name} are not in the "
@@ -574,7 +578,8 @@ def _from_iges(request: GeometryRowRequest, geometries: Path) -> RowGeometry:
             f"matrix row POL {request.pol}: MESH_ROUTE {request.route} meshes an IGES file "
             "directly, which this tree does not carry; the route that runs on an IGES is native."
         )
-    name = _folder_name(request, _short(hashlib.sha256(request.source.read_bytes()).hexdigest()))
+    parameter = hashlib.sha256(request.source.read_bytes()).hexdigest()
+    name = _folder_name(request, _build_key(request, parameter))
     folder = geometries / name
     if not (folder / f"{name}.geometry.toml").is_file():
         work = folder.with_name(f".{name}.{os.getpid()}.part")
