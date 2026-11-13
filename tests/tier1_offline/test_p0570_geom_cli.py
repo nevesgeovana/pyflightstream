@@ -246,7 +246,7 @@ def test_p0570_g3_configurations_and_stages_list_what_they_hold(demo, capsys):
     assert all(r["checks"] for r in rows)
 
 
-def test_p0570_g3_the_geometry_edits_that_are_not_built_refuse_with_code_2(tmp_path, capsys):
+def test_p0570_g3_the_geometry_edits_refuse_a_missing_input_with_code_2(tmp_path, capsys):
     entry = tmp_path / "entry.toml"
     entry.write_text("kind = 'aileron'\n", encoding="utf-8")
     code, _, err = geom(
@@ -254,7 +254,7 @@ def test_p0570_g3_the_geometry_edits_that_are_not_built_refuse_with_code_2(tmp_p
     )
     assert code == 2 and "file does not exist" in err
     code, _, err = geom(["split-symmetry", tmp_path / "a.igs", "--out", tmp_path / "h.igs"], capsys)
-    assert code == 2 and "not built yet" in err
+    assert code == 2 and "file does not exist" in err
     code, _, err = geom(
         ["split-symmetry", tmp_path / "a.igs", "--out", tmp_path / "h.igs", "--plane", "q"], capsys
     )
