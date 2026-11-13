@@ -100,7 +100,7 @@ dependencies = [
     # embedded in this wheel, and imported only by workspace/_gmsh.py, only
     # when a kernel stage runs. This package stays MIT (NFR-02; license
     # evidence in docs/install.md). Measured on 4.15.2.
-    "gmsh>=4.13,<5",
+    "gmsh>=4.15,<5",
 ]
 
 [project.optional-dependencies]

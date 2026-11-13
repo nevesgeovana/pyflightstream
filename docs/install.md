@@ -28,7 +28,7 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | pandas | `>=2.3,<3` | `pandas` extra |
 | PyNiteFEA | `>=3.0,<4` | `fsi` extra |
 | XlsxWriter | `>=3.2.9,<4` | `excel` extra |
-| gmsh | `>=4.13,<5` | Base |
+| gmsh | `>=4.15,<5` | Base |
 
 PyYAML gains its first explicit floor, 6.0.1. The NumPy floor rises to 2.4, the Pydantic floor to 2.10.4 and the rtree floor to
 1.1 (see [upgrading](upgrading.md)); the other floors are unchanged.

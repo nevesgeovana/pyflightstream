@@ -306,7 +306,7 @@ A lifting surface takes `planform.slope_breaks` (interior stations where a suppl
 
 An identified wing with dihedral now rebuilds on the symmetry plane and to the tip end plane: the root is no longer lowered to the lowest sample along the tilted span axis, and the tip is extended to the end plane the leading edge reaches, as far as the dihedral explains, so the outer end of a rounded or lofted cap does not lengthen the span.
 
-gmsh, the geometry kernel, is now a dependency of the package: a default install delivers the whole geometry path, the code stays MIT and the wheel does not embed gmsh. The `gmsh` extra stays, empty, and is removed at 0.60.0. A kernel library that cannot load stops each verb with a message that names the failing library and `pip install "gmsh>=4.13,<5"`, and that error keeps its type when it comes from the kernel worker.
+gmsh, the geometry kernel, is now a dependency of the package: a default install delivers the whole geometry path, the code stays MIT and the wheel does not embed gmsh. The `gmsh` extra stays, empty, and is removed at 0.60.0. A kernel library that cannot load stops each verb with a message that names the failing library and `pip install "gmsh>=4.15,<5"`, and that error keeps its type when it comes from the kernel worker.
 
 migration: replace `pip install "pyflightstream[gmsh]"` with `pip install pyflightstream`; the old line still resolves until 0.60.0.
 
@@ -510,6 +510,7 @@ radius from an OBJ, five times closer from an IGES.
 
 ### Changed
 
+- The gmsh floor is 4.15: the wing-body meshing of 0.57.0 fails on gmsh 4.13.
 - Hub-ring controls use `band_width`; `width` remains a deprecated alias.
 - Sector-to-wheel uses CLI `--center` and Python `center=` for a rotor-axis point;
   `--hub` and `hub=` remain deprecated coordinate aliases. Equal duplicates are

@@ -14,6 +14,8 @@ GPL-2.0-or-later and comes from its own distribution; the package code stays MIT
 wheel does not embed gmsh. On Linux, gmsh needs the system libraries `libglu1-mesa`,
 `libxcursor1`, `libxft2` and `libxinerama1`; without them the kernel stages stop with a
 message naming the library that failed, and the stages before the kernel still run.
+The floor is gmsh 4.15: the wing-body meshing of 0.57.0 fails on gmsh 4.13;
+upgrade an older gmsh with `pip install "gmsh>=4.15,<5"`.
 
 ## IGES kernel runs in a worker (0.57)
 

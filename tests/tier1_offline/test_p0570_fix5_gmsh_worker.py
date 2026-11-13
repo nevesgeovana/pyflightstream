@@ -117,7 +117,7 @@ def test_p0570_gm15_a_kernel_unavailable_error_in_the_worker_keeps_its_type_and_
         run_isolated(f"{_HERE}:worker_kernel_unavailable", {}, _direct)
     assert isinstance(raised.value, MissingExtraError)
     assert raised.value.reason == "libGLU.so.1: cannot open"
-    assert raised.value.remedy == 'pip install "gmsh>=4.13,<5"'
+    assert raised.value.remedy == 'pip install "gmsh>=4.15,<5"'
     assert "libGLU.so.1: cannot open" in str(raised.value)
     assert "libglu1-mesa" in str(raised.value)
 
