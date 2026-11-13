@@ -361,3 +361,19 @@ def test_p0570_pslice_vector_refusals_name_the_flag_and_the_value(tmp_path, name
     with pytest.raises(InputValueError, match=match):
         slice_propeller(obj, blades=3, out=tmp_path / "o", **{name: value})
     assert not (tmp_path / "o").exists()
+
+
+def test_p0570_pslice_refuses_input_inside_replaced_sections(tmp_path, monkeypatch):
+    """Overwrite must not remove the geometry input when replacing sections."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import prop_slice
+
+    out = tmp_path / "out"
+    sections = out / "sections"
+    sections.mkdir(parents=True)
+    source = sections / "rotor.obj"
+    source.write_text("input geometry", encoding="ascii")
+    monkeypatch.setattr(prop_slice, "_obj_surface", lambda *args: pytest.fail("input was read"))
+    with pytest.raises(InputArtifactError, match="input.*sections"):
+        prop_slice.slice_propeller(source, blades=3, out=out, overwrite=True)
+    assert source.read_text(encoding="ascii") == "input geometry"

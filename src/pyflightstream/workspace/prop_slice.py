@@ -285,6 +285,11 @@ def slice_propeller(
             "MILLIMETER, CENTIMETER, METER, INCH (any case)"
         )
     folder = Path(out)
+    if source.resolve().is_relative_to((folder / "sections").resolve()):
+        raise _refuse(
+            f"{source}: input is inside the output sections directory; choose another --out "
+            "folder to keep the input"
+        )
     present = [name for name in _OUTPUTS if (folder / name).exists()]
     if present and not overwrite:
         raise _refuse(
