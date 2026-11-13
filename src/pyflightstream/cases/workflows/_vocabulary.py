@@ -70,7 +70,7 @@ _LEGACY = "LEGACY"
 GEOMETRY_VARIABLE = "GEOMETRY"
 
 #: The keys a row whose GEOMETRY is a generated configuration (``<name>.geom.toml``) reads
-#: (PFS-2214, lane G10). ``MESH_ROUTE`` is a COLUMN of the matrix, folded into the row's
+#: ``MESH_ROUTE`` is a COLUMN of the matrix, folded into the row's
 #: variables as GEOMETRY is; the other four are free-cell keys.
 MESH_ROUTE_VARIABLE = "MESH_ROUTE"
 GEOM_CONFIGURATION_VARIABLE = "GEOM_CONFIGURATION"

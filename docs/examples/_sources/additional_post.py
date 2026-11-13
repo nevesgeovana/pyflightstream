@@ -106,7 +106,8 @@ print(f"workspace: {workspace.root}")
 # %%
 HEADER = (
     "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION "
-    "| SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS "
+    "| SWEEP_VALUES | GEOMETRY | MESH_ROUTE | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS "
+    "| NCPUS "
     "| WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES"
 )
 
@@ -119,7 +120,7 @@ def write_matrix(path: Path, additional: str, pol: int = 3001) -> Path:
     """
     row = (
         f"{pol} | 0 | 1 | Wing | - | sections_after_the_run | MACH:0.1, REmi:2.3, ALPHA:sweep "
-        f"| {ALPHA_DEG} | wing.fsm | r001 | s001 | p001 | NONE | - | - | - | {BUILD} | steady "
+        f"| {ALPHA_DEG} | wing.fsm | NA | r001 | s001 | p001 | NONE | - | - | - | {BUILD} | steady "
         f"| ADDITIONAL_PPROC: {additional}"
     )
     path.write_text("\n".join([HEADER, "-" * len(HEADER), row]) + "\n", encoding="utf-8")

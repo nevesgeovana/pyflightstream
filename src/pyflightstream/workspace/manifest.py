@@ -190,7 +190,7 @@ class RunStatus(enum.StrEnum):
     #: could be planned. The record names the row, its stage and check, and the path of
     #: the generation's report; the other rows of the matrix run as they would have.
     #: Not a FAILED_ value: nothing ran, and a reader that counts failed SOLVES must not
-    #: count it. A manifest holding it is refused by a reader older than 0.57.0.
+    #: count it. A manifest holding it is refused by a reader that predates this status.
     GEOMETRY_FAILED = "GEOMETRY_FAILED"
 
 

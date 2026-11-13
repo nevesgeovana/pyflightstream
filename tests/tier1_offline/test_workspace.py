@@ -258,7 +258,7 @@ def test_the_manifest_record_refuses_an_unknown_field():
         make_record(provenance_note="not a field of this model")
 
 
-def test_the_terminal_status_set_is_exactly_the_eleven_it_declares():
+def test_the_terminal_status_set_is_exactly_the_twelve_it_declares():
     """FR-46: an eleventh status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
@@ -302,6 +302,7 @@ def test_the_terminal_status_set_is_exactly_the_eleven_it_declares():
         "FAILED_MARKED",
         "RAN_MISSING_LOG",
         "MAX_ITER_REACHED",
+        "GEOMETRY_FAILED",
     }
 
 

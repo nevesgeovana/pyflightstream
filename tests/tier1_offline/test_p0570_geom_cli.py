@@ -279,3 +279,20 @@ def test_p0570_g3_an_unknown_verb_is_refused_and_the_moved_verbs_are_listed(caps
     ):
         assert verb in out
     assert "split-symmetry" in out and "add-control-surface" in out
+
+
+def test_python_dash_m_runs_the_geometry_command_line():
+    """`python -m pyflightstream.run.geom_cli` reaches `main` and returns its exit code."""
+    import os
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, "-m", "pyflightstream.run.geom_cli", "validate", "no-such-file.toml"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=dict(os.environ),
+    )
+    assert done.returncode == 2, done.stderr
+    assert "no-such-file.toml" in done.stderr
