@@ -97,12 +97,16 @@ def strict_table(value, keys, path):
         raise InputValueError(f"{path}: expected a table")
     for key in value:
         if key not in keys:
-            raise InputValueError(f"{path}.{key}: unknown key")
+            raise InputValueError(
+                f"{path}.{key}: unknown key; the keys are {', '.join(sorted(keys))}"
+            )
 
 
 def _choice(table, key, choices, path):
     if table[key] not in choices:
-        raise InputValueError(f"{path}.{key}: expected one of {choices}")
+        raise InputValueError(
+            f"{path}.{key}: got {table[key]!r}, expected one of {', '.join(map(str, choices))}"
+        )
 
 
 def _airfoils(table, base):
@@ -163,7 +167,10 @@ def _columns(data):
         for value in values:
             if key == "airfoil":
                 if not isinstance(value, str) or value not in data["airfoils"]:
-                    raise InputValueError("stations.airfoil: unknown profile id")
+                    raise InputValueError(
+                        f"stations.airfoil: unknown profile id {value!r}; the [airfoils] "
+                        f"table defines {', '.join(sorted(data['airfoils']))}"
+                    )
             else:
                 number(
                     value,
@@ -290,7 +297,7 @@ def validate_definition(supplied, base=Path()):
     strict_table(supplied, DEFINITION_KEYS, "definition")
     data = deepcopy(supplied)
     if type(data.get("schema_version")) is not int or data["schema_version"] != 1:
-        raise InputValueError("schema_version: expected 1")
+        raise InputValueError(f"schema_version: got {data.get('schema_version')!r}, expected 1")
     for key, keys in TABLE_KEYS.items():
         strict_table(data.setdefault(key, {}), keys, key)
     p = data["propeller"]

@@ -576,3 +576,23 @@ def test_p0570_gm17_reference_pitch_is_on_actual_loft(fixture, reference):
                 assert at(patch, u, r) @ radial == pytest.approx(prop["radius"] * r, abs=1e-8)
     actual = np.rad2deg(np.arctan2(chord[0], -chord @ tangent))
     assert model.report()["pitch"]["beta_0p7R_deg"] == pytest.approx(actual, abs=1e-10)
+
+
+@pytest.mark.parametrize(
+    "path, value, match",
+    [
+        (("stations", "airfoil"), ["n9999"] * 7, r"unknown profile id 'n9999'.*defines n4412"),
+        (("propeller", "rotation"), "clockwise", r"got 'clockwise', expected one of positive_x"),
+        (("schema_version",), 2, r"schema_version: got 2, expected 1"),
+        (("propeller", "misspelt"), 1, r"misspelt: unknown key; the keys are .*blades"),
+    ],
+)
+def test_p0570_gm17_refusals_name_the_value_and_the_choices(path, value, match):
+    """API-004: a refusal names the received value and the valid choices or keys."""
+    raw = definition()
+    node = raw
+    for key in path[:-1]:
+        node = node.setdefault(key, {})
+    node[path[-1]] = value
+    with pytest.raises(ValueError, match=match):
+        geometry.Propeller(raw)
