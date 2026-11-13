@@ -638,6 +638,29 @@ def without_flag_kind_columns(text: str) -> str:
     )
 
 
+def without_mesh_route_column(text: str) -> str:
+    """Return a post table without its ``MESH_ROUTE`` column, which 0.57.0 adds on purpose.
+
+    The 0.57.0 matrix layout gains the column (PFS-2214 G10.1); a post table repeats the
+    matrix columns, so it carries one more than the 0.38.0 capture. The column is taken
+    out only where the header names it and every row states it as not applicable, so a
+    table that gives it a value (a route the 0.38.0 run could not have) is still refused.
+    """
+    lines = text.split("\n")
+    header = lines[0].split(",")
+    if "MESH_ROUTE" not in header:
+        return text
+    at = header.index("MESH_ROUTE")
+    rows = [line.split(",") for line in lines[1:] if line]
+    assert all(len(r) == len(header) and r[at] == "NA" for r in rows), (
+        "MESH_ROUTE is stated in a table 0.38.0 could not have written it in"
+    )
+    return "\n".join(
+        ",".join(cell for i, cell in enumerate(line.split(",")) if i != at) if line else line
+        for line in lines
+    )
+
+
 def settings_spelling_admitted(new: str, captured: str) -> bool:
     """Whether a settings table differs from its 0.38.0 capture by the PFS-2105.020 spelling only.
 
@@ -1206,6 +1229,8 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 # The post-1 review (087ffceb) added one ``f<id>_kind`` column per flag; the
                 # captured table has none, so those columns are taken out of the new one.
                 text = without_flag_kind_columns(text)
+            if name.startswith("tree/post/"):
+                text = without_mesh_route_column(text)
             assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
             continue
         assert text.encode("utf-8") == captured[name], (
