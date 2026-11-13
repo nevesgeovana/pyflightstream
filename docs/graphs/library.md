@@ -2260,6 +2260,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_log">pyflightstream.workspace._geom_log</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geom_run">pyflightstream.workspace._geom_run</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_instruction">pyflightstream.workspace._geometry_instruction</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh">pyflightstream.workspace._geometry_mesh</a> (deferred)</li>

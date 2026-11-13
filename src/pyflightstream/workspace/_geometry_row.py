@@ -396,12 +396,59 @@ def _generate(request: GeometryRowRequest, folder: Path, generate) -> dict[str, 
             overrides=request.overrides,
             until=_UNTIL[request.route],
         )
+        _relocate_records(work, folder)
         if folder.exists():
             shutil.rmtree(folder)  # a failed earlier generation of this identity: replaced
         work.replace(folder)
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    return _read_report(folder) or report
+    return _read_report(folder) or _relocated(report, work, folder)
+
+
+def _relocated(value: Any, old: Path, new: Path) -> Any:
+    """Return ``value`` with every path inside ``old`` naming the same file inside ``new``.
+
+    Only a string that is a path inside ``old`` changes; any other string, such as an input
+    file outside it or a hash, and every other value are returned as they are.
+    """
+    if isinstance(value, dict):
+        return {key: _relocated(item, old, new) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_relocated(item, old, new) for item in value]
+    if not isinstance(value, str) or not value:
+        return value
+    try:
+        inside = Path(value).relative_to(old)
+    except ValueError:
+        return value
+    return str(new / inside)
+
+
+def _relocate_records(work: Path, folder: Path) -> None:
+    """Point the output references of a generation at the folder it is published as.
+
+    The generator writes absolute paths inside ``work`` into its report, its stage records and
+    its run log; ``work`` is renamed to ``folder``, so each reference is moved there first. A
+    JSON record is rewritten value by value (:func:`_relocated`); in the log, the folder's own
+    path is replaced in the spellings the log writes it in (as is and JSON-quoted).
+    """
+    from pyflightstream.workspace._geom_log import LOG_NAME
+
+    for path in sorted(work.rglob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        moved = _relocated(data, work, folder)
+        if moved != data:
+            path.write_text(json.dumps(moved, indent=2) + "\n", encoding="utf-8")
+    log = work / LOG_NAME
+    if log.is_file():
+        text = log.read_text(encoding="utf-8")
+        for before, after in ((str(work), str(folder)), (work.as_posix(), folder.as_posix())):
+            quoted = (json.dumps(before)[1:-1], json.dumps(after)[1:-1])
+            text = text.replace(quoted[0], quoted[1]).replace(before, after)
+        log.write_text(text, encoding="utf-8")
 
 
 def _refuse_unnamed_configuration(request: GeometryRowRequest) -> None:

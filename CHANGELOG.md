@@ -385,6 +385,8 @@ A generated matrix row passes its selected configuration, variant and route into
 
 Workspace migration validates both record manifests and matrix backups before writing either kind of file. All original bytes are backed up before the first replacement.
 
+The report, the persisted summary, the stage records and the run log of a generated matrix row name the outputs in the published geometry folder, both when the folder is first published and when it is reused. Input paths outside the folder and recorded hashes are kept as they were.
+
 Mesh controls gain per-component schema validation before meshing, with named
 input errors and warnings for ignored tables and keys.
 Chordwise and spanwise tables build independent spacing laws, including root

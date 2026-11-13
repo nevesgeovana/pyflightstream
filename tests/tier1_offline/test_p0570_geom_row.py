@@ -978,3 +978,61 @@ def test_r27_row_selection_reaches_mesh_controls(library, tmp_path, route, strat
     assert seen["strategy"] == strategy
     assert seen["variant"] == "clean"
     assert controls_path.read_text(encoding="utf-8") == original
+
+
+def _generation_with_records(source_path):
+    """A runner that writes the report, a stage record and the run log, all naming its outputs
+    by absolute path inside the folder it is given, as the geometry runner does."""
+
+    def fake(config, *, out, configuration=None, variant="clean", overrides=None, until="S13", **_):
+        folder = Path(out)
+        folder.mkdir(parents=True, exist_ok=True)
+        iges = folder / "demo.igs"
+        iges.write_text("iges", encoding="utf-8")
+        outputs = {
+            "iges": str(iges),
+            "files": [str(iges)],
+            "source": str(source_path),
+            "iges_sha256": "a" * 64,
+        }
+        record = {"stage": "S12", "name": "export", "status": "passed", "outputs": outputs}
+        (folder / "S12.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        report = {
+            "status": "accepted",
+            "parameter_id": "p" * 64,
+            "outputs": {**outputs, "members": ["FUS"]},
+        }
+        (folder / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        (folder / "geom-run.log").write_text(
+            f"configuration file: {source_path}\n  file or output iges: {json.dumps(str(iges))}\n",
+            encoding="utf-8",
+        )
+        return report
+
+    return fake
+
+
+def test_r27_013_published_row_records_name_the_published_folder(library):
+    """After the rename, every output reference of the report, the stage records and the run
+    log points into the published folder; the input path and the hash are kept as they were,
+    on the first publication and when the folder is reused."""
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    request = _request(library, route="native")
+    fake = _generation_with_records(request.source)
+    for expected_reuse in (False, True):
+        built = row_module.prepare_row_geometry(request, geometries, generate=fake)
+        assert built.reused is expected_reuse
+        published = built.folder / "demo.igs"
+        stage = json.loads((built.folder / "S12.json").read_text(encoding="utf-8"))
+        persisted = json.loads((built.folder / "report.json").read_text(encoding="utf-8"))
+        for outputs in (built.report["outputs"], persisted["outputs"], stage["outputs"]):
+            assert Path(outputs["iges"]) == published and Path(outputs["iges"]).is_file()
+            assert [Path(p) for p in outputs["files"]] == [published]
+            assert outputs["source"] == str(request.source)
+            assert outputs["iges_sha256"] == "a" * 64
+        log = (built.folder / "geom-run.log").read_text(encoding="utf-8")
+        assert ".part" not in log
+        assert json.dumps(str(published)) in log
+        assert f"configuration file: {request.source}" in log
