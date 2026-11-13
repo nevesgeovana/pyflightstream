@@ -272,3 +272,21 @@ SHA-256 and entry number), the construction method, the trailing-edge base and t
 deviation. `pyfs-geom schema` prints its JSON Schema, and
 `pyfs-geom schema --validate RECORD --asset-root DIR` checks a record and re-reads every file it
 pins against its SHA-256 (exit 1 when a pin fails).
+
+## From a matrix row, through the solver's CAD import (`native`)
+
+A row with `GEOMETRY` naming a `.geom.toml` and `MESH_ROUTE` `native` generates the configuration
+to the IGES and its conversion check (`--until S12.C`; the library's own gridding of the reader,
+S12.G, is not asked, because the solver meshes the IGES itself) and writes a geometry
+instruction beside it: a `[cad]` source over the IGES in `FILE` units. `pyfs-matrix run` builds
+the `.fsm` with the solver before it binds the rows, once, for every native row whose `.fsm`
+is missing; `plan` spends no licence. The solver is told `IMPORT_CAD` and `CONVERT_CAD_TO_MESH -1`
+and reads the IGES directly, with no `iges-convert` pass.
+
+The solver names the one body it converts `Model 0`, whatever the components of the IGES are:
+the component names are not boundaries of the saved simulation. A boundary name cannot carry a
+space, so the instruction renames `Model 0` to the file's stem (`[[operations]]` `rename`), and
+that is the boundary the row's references use. A build whose audit fails (the solver's own
+tessellation of a thin blunt trailing edge gives triangles of zero area) promotes nothing: the
+row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run. The
+measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
