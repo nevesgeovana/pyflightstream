@@ -117,7 +117,13 @@ class _Plane:
         return box[0][self.axis] < 0.0 and box[1][self.axis] > 0.0
 
     def crosses(self, face: Face) -> bool:
-        """Return True when the trimmed boundary of ``face`` has points on both sides."""
+        """Test a copy with the kernel so interior crossings are not missed."""
+        copy = self.kernel.copy([face])[0]
+        pieces = _cut(self.kernel, copy, self.axis)
+        crossed = len(pieces) > 1
+        self.kernel.remove(pieces)
+        if crossed:
+            return True
         low, high = _span(self.kernel, face, self.axis)
         return low < -self.tolerance and high > self.tolerance
 
@@ -133,7 +139,7 @@ class _Plane:
 
     def kept(self, piece: Face) -> bool:
         """Return True when ``piece`` lies on the positive side or in the plane."""
-        return _span(self.kernel, piece, self.axis)[0] >= -self.tolerance
+        return self.kernel.centroid(piece)[self.axis] >= -self.tolerance
 
 
 def _check_selection(
