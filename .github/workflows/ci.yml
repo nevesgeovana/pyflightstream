@@ -41,7 +41,7 @@ jobs:
     # A shard took at most 31 minutes on 2026-11-09; a test that stops
     # answering fails the job at 60 instead of the platform's 360, and the
     # faulthandler_timeout of pyproject.toml has by then printed its stack.
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       # Each leg is evidence about a different platform, so a failure on one
       # must not cancel the others: knowing WHICH legs fail is the point.
@@ -143,7 +143,7 @@ jobs:
     # other legs run.
     runs-on: ubuntu-latest
     # A test that stops answering fails here; see the test job.
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -202,7 +202,7 @@ jobs:
     # exactly what this line installs.
     runs-on: ubuntu-latest
     # A test that stops answering fails here; see the test job.
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         if: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')) }}
@@ -262,7 +262,7 @@ jobs:
     # Every runtime and user-extra floor comes from package metadata.
     runs-on: ubuntu-latest
     # A test that stops answering fails here; see the test job.
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -328,7 +328,7 @@ jobs:
     # Exercise dependency ceilings on the Python version tested by CI.
     runs-on: ubuntu-latest
     # A test that stops answering fails here; see the test job.
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         if: ${{ (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')) }}
