@@ -54,6 +54,10 @@ def _boxes_meet(a: tuple, b: tuple) -> bool:
     )
 
 
+#: Fuzzy value of a two-piece cut, as a fraction of the smaller piece's extent.
+PAIR_FUZZY_FRACTION = 2e-5
+
+
 class Assembly(RemovalSteps):
     """The pieces of one configuration on a kernel, and the sub-steps of S10 run on them.
 
@@ -558,11 +562,29 @@ class Assembly(RemovalSteps):
         self.groups = self._cut_groups()
         with self._active_faces():
             for group in self.groups:
-                fuzzy = 0.0 if len(group) == 2 else jn.GROUP_FUZZY_M
                 a = list(self.faces[group[0]])
                 b = [f for name in group[1:] for f in self.faces[name]]
-                result = self.k.fragment(a, b, fuzzy=fuzzy)
+                result = self.k.fragment(a, b, fuzzy=self._group_fuzzy(group))
                 self._regroup(group, a + b, [*result.from_a, *result.from_b])
+
+    def _group_fuzzy(self, group: Sequence[str]) -> float:
+        """Return the fuzzy value of one group's fragment.
+
+        Only a body join of two pieces is cut exactly: its crease gap is what ``join.crease_gap``
+        measures, and a fuzzy value would close it. Every other cut takes the group value, a
+        pair too: a body seam lying in the plane of a blunt trailing-edge base is a curve on a
+        face, which an exact fragment resolves by the last bits of the arithmetic, and on some
+        processors it lost every junction curve but those across that base.
+        """
+        if len(group) == 2 and all(self.kinds.get(name) in BLUFF for name in group):
+            return 0.0
+        if len(group) == 2:
+            # Relative to the smaller piece, so a model scaled by any factor keeps its
+            # junctions: 2e-5 of a 2.5 m wing is the group value, a 0.2 mm junction of a model
+            # at a hundredth of that size is not merged away.
+            smaller = min(self.extents[name] for name in group)
+            return min(jn.GROUP_FUZZY_M, PAIR_FUZZY_FRACTION * smaller)
+        return jn.GROUP_FUZZY_M
 
     def _remove(self):
         with self._active_faces():

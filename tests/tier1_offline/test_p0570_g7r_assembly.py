@@ -775,3 +775,43 @@ def test_p0570_g7r_s6_no_through_run_geometry_an_imprint_that_splits_no_host(tmp
     assert _stopped(report) == ("failed", "S10.D6", "junction.on_host_loops"), report
     record = json.loads((run / "S10.D6.json").read_text(encoding="utf-8"))
     assert checks_of(record)["junction.on_host_loops"]["measured"] > 5e-6
+
+
+@pytest.mark.parametrize(
+    ("kinds", "extent", "fuzzy"),
+    [
+        ({"host": "body", "panel": "lifting_surface"}, 2.5, 5e-5),
+        ({"host": "body", "panel": "lifting_surface"}, 0.025, 5e-7),
+        ({"BODY": "body", "BLISTER": "blister"}, 2.5, 0.0),
+    ],
+    ids=["P0570-wing-body-pair-fuzzy", "P0570-pair-fuzzy-scales", "P0570-body-join-pair-exact"],
+)
+def test_p0570_g7r_a_wing_body_pair_is_cut_with_the_group_fuzzy_value(kinds, extent, fuzzy):
+    """CI run 43484118433: the exact fragment of a body and a wing whose blunt trailing-edge
+    base lies in the plane of a body seam kept only the 2.52 mm junction across that base on one
+    runner. A pair cut takes the group fuzzy value; only a body join stays exact."""
+    import contextlib
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._geom_assembly import Assembly
+
+    calls = []
+    names = list(kinds)
+
+    def fragment(a, b, *, fuzzy=0.0):
+        calls.append(fuzzy)
+        return SimpleNamespace(from_a=[(f,) for f in a], from_b=[(f,) for f in b])
+
+    stub = SimpleNamespace(
+        cut_done=False,
+        kinds=kinds,
+        extents=dict.fromkeys(kinds, extent),
+        faces={names[0]: [1, 2], names[1]: [3]},
+        k=SimpleNamespace(fragment=fragment),
+        _cut_groups=lambda: [names],
+        _active_faces=contextlib.nullcontext,
+        _regroup=lambda group, inputs, rows: None,
+    )
+    stub._group_fuzzy = lambda group: Assembly._group_fuzzy(stub, group)
+    Assembly._cut_all(stub)
+    assert calls == [pytest.approx(fuzzy, rel=1e-12)]
