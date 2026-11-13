@@ -261,7 +261,7 @@ def plan_row_geometry(
     name = _stated(variables, GEOMETRY_VARIABLE)
     lowered = name.lower()
     if lowered.endswith(GEOMETRY_ROW_SUFFIX):
-        return _configuration_request(variables, pol, resolve(name), fs_build)
+        return _configuration_request(variables, pol, resolve(name), fs_build, resolve)
     if lowered.endswith(_IGES_SUFFIXES) and _stated(variables, MESH_ROUTE_VARIABLE):
         route = _route_of(variables, pol, default=None)
         for key in (GEOM_CONFIGURATION_VARIABLE, GEOM_VARIANT_VARIABLE, GEOM_PARAMS_VARIABLE):
@@ -272,7 +272,7 @@ def plan_row_geometry(
             resolve(name),
             "iges",
             route,
-            controls=_controls(variables, resolve),
+            controls=_controls(variables, resolve, pol),
             fs_build=fs_build,
         )
     if name:
@@ -280,13 +280,28 @@ def plan_row_geometry(
     return None
 
 
-def _controls(variables: Mapping[str, str], resolve: Callable[[str], Path]) -> Path | None:
+def _controls(
+    variables: Mapping[str, str], resolve: Callable[[str], Path], pol: str
+) -> Path | None:
+    """Resolve a stated MESH_CONTROLS file through the geometry library, as GEOMETRY is."""
     stated = _stated(variables, MESH_CONTROLS_VARIABLE)
-    return resolve(stated) if stated else None
+    if not stated:
+        return None
+    try:
+        return resolve(stated)
+    except InputArtifactError as error:
+        raise GeometryRowError(
+            f"matrix row POL {pol}: {MESH_CONTROLS_VARIABLE} names {stated!r}, which the "
+            "geometry library does not hold; write the controls file there or name another."
+        ) from error
 
 
 def _configuration_request(
-    variables: Mapping[str, str], pol: str, source: Path, fs_build: str | None
+    variables: Mapping[str, str],
+    pol: str,
+    source: Path,
+    fs_build: str | None,
+    resolve: Callable[[str], Path],
 ) -> GeometryRowRequest:
     stated = _stated(variables, MESH_ROUTE_VARIABLE)
     if not stated:
@@ -297,7 +312,6 @@ def _configuration_request(
             stacklevel=2,
         )
     params = _stated(variables, GEOM_PARAMS_VARIABLE)
-    controls = _stated(variables, MESH_CONTROLS_VARIABLE)
     return GeometryRowRequest(
         pol,
         source,
@@ -306,7 +320,7 @@ def _configuration_request(
         configuration=_stated(variables, GEOM_CONFIGURATION_VARIABLE) or None,
         variant=_stated(variables, GEOM_VARIANT_VARIABLE) or "clean",
         overrides=_parse_params(params, pol) if params else {},
-        controls=source.with_name(controls) if controls else None,
+        controls=_controls(variables, resolve, pol),
         fs_build=fs_build,
     )
 

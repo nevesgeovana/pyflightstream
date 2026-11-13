@@ -563,6 +563,18 @@ def test_migrate_help_names_the_mesh_route_column_and_apply(capsys):
     assert "--apply write the .bak backups" in text
 
 
+def test_mesh_controls_resolve_through_the_library_for_a_configuration_row(library):
+    """API-007: a .geom.toml row finds MESH_CONTROLS as an IGES row does, or names it refused."""
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    (geometries / "custom.mesh.toml").write_text("[mesh]\nstrategy = 1\n", encoding="utf-8")
+    request = _request(library, route="quad_dominant", free={"MESH_CONTROLS": "custom.mesh.toml"})
+    assert request.controls == library.resolve_geometry("custom.mesh.toml")
+    with pytest.raises(row_module.GeometryRowError, match="MESH_CONTROLS names 'absent.mesh.toml'"):
+        _request(library, route="quad_dominant", free={"MESH_CONTROLS": "absent.mesh.toml"})
+
+
 def test_a_matrix_whose_every_row_failed_is_refused_naming_each(tmp_path, library):
     from pyflightstream.cases.matrix import MatrixError
 
