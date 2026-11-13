@@ -81,6 +81,7 @@ from pyflightstream.workspace._geometry_vtk import (
     write_preview_vtk,
     write_sweep_vtk,
 )
+from pyflightstream.workspace._native_seams import native_verdict
 from pyflightstream.workspace._refine._audit import audit_mesh
 from pyflightstream.workspace.builds import resolve_build
 from pyflightstream.workspace.sidecars import inventory_sidecar
@@ -849,6 +850,7 @@ def _build_one(
         mesh_name=mesh_name,
         midpoints=saved["midpoints"],
         unit=saved["unit"],
+        source=plan.path.parent / instruction.cad.file if instruction.cad is not None else None,
     )
     write_preview_vtk(
         work / f"{name}{PREVIEW_SUFFIX}",
@@ -965,8 +967,13 @@ def _audit(
     mesh_name: str,
     midpoints: tuple[tuple[float, float, float], ...] | None,
     unit: str,
+    source: Path | None = None,
 ) -> dict[str, Any]:
-    """Audit the exported mesh beside the sidecar and points file a built OBJ carries (FR-426)."""
+    """Audit the exported mesh beside the sidecar and points file a built OBJ carries (FR-426).
+
+    ``source`` is the IGES a native build imported: a G1 failure that lies wholly on its edges is
+    the solver's tessellation of the seams and passes (:func:`native_verdict`).
+    """
     target = mesh_dir / f"{mesh_name}.obj"
     if not obj.is_file():
         raise GeometryBuildError(f"the build exported no {obj.name}; nothing was promoted")
@@ -978,11 +985,16 @@ def _audit(
         audit = audit_mesh(target)
     except InputArtifactError as error:
         return {"file": None, "passed": False, "failed": [f"not audited: {error}"], "notes": notes}
+    passed, failed, note = (
+        native_verdict(audit, target, source)
+        if source is not None
+        else (audit.passed, [f"{item.name} on {item.family}" for item in audit.failures], "")
+    )
     return {
-        "notes": notes,
+        "notes": [*notes, note] if note else notes,
         "file": f"{variant.instruction.name}.audit.json",
-        "passed": audit.passed,
-        "failed": [f"{item.name} on {item.family}" for item in audit.failures],
+        "passed": passed,
+        "failed": failed,
     }
 
 

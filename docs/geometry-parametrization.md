@@ -286,7 +286,17 @@ and reads the IGES directly, with no `iges-convert` pass.
 The solver names the one body it converts `Model 0`, whatever the components of the IGES are:
 the component names are not boundaries of the saved simulation. A boundary name cannot carry a
 space, so the instruction renames `Model 0` to the file's stem (`[[operations]]` `rename`), and
-that is the boundary the row's references use. A build whose audit fails (the solver's own
-tessellation of a thin blunt trailing edge gives triangles of zero area) promotes nothing: the
-row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run. The
-measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
+that is the boundary the row's references use.
+
+The solver's own tessellation leaves triangles of zero area along the seams of the source faces
+(a fan at the vertex where the leading-edge end of a tip cap collapses, slivers along a patch
+edge) and a pair of slivers folded on an edge two patches share. Gate G1 of the build audit
+would refuse them, so for a `[cad]` source the build reads the IGES and passes G1 only when every
+such face has its nodes on an edge of a source face (or two nodes on one source vertex) and every
+such edge lies on a source edge; the build record names them by the source faces. A zero-area
+face with a node off every source edge, or any other failed gate, still fails: nothing is
+promoted, the row is recorded as `GEOMETRY_FAILED` with the gate named, and the other rows run.
+The measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
+`run_matrix` and the grouped run build the missing native geometry; `pyfs-matrix plan` binds
+nothing for such a row until it is built, so build once with `pyfs-workspace geometry build NAME
+--apply` (and `geometry accept NAME` after looking at its preview), then plan and run.

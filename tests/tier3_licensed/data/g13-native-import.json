@@ -9,36 +9,65 @@
     {
       "geometry": "one lifting surface, NACA 0012, sref 0.24 m2, AR 6, taper 0.5, sweep 15 deg (4 IGES faces)",
       "density": "MEDIUM",
-      "boundaries_saved": ["Model 0"],
-      "obj_objects": ["Model 0"],
+      "boundaries_saved": [
+        "Model 0"
+      ],
+      "obj_objects": [
+        "Model 0"
+      ],
       "obj_vertices": 1703,
-      "audit_G1": {"edges_of_more_than_two_faces": 0, "node_pairs_at_one_position": 0, "faces_of_zero_area": 43, "faces_under_1_degree": 261, "passed": false}
+      "audit_G1": {
+        "edges_of_more_than_two_faces": 0,
+        "node_pairs_at_one_position": 0,
+        "faces_of_zero_area": 43,
+        "faces_under_1_degree": 261,
+        "passed": false
+      }
     },
     {
       "geometry": "the same wing",
       "density": "HIGH",
-      "audit_G1": {"faces_of_zero_area": 90, "faces_under_1_degree": 530, "passed": false}
+      "audit_G1": {
+        "faces_of_zero_area": 90,
+        "faces_under_1_degree": 530,
+        "passed": false
+      }
     },
     {
       "geometry": "the same wing",
       "density": "LOW",
-      "audit_G1": {"faces_of_zero_area": 40, "faces_under_1_degree": 33, "passed": false}
+      "audit_G1": {
+        "faces_of_zero_area": 40,
+        "faces_under_1_degree": 33,
+        "passed": false
+      }
     },
     {
       "geometry": "two lifting surfaces named WING and TAIL in one IGES",
       "density": "MEDIUM",
-      "boundaries_saved": ["Model 0"],
-      "obj_objects": ["Model 0"]
+      "boundaries_saved": [
+        "Model 0"
+      ],
+      "obj_objects": [
+        "Model 0"
+      ]
     },
     {
       "geometry": "one body of revolution, length 2.0 m",
       "density": "MEDIUM",
-      "audit_G1": {"edges_of_more_than_two_faces": 22, "faces_of_zero_area": 498, "faces_under_1_degree": 393, "passed": false}
+      "audit_G1": {
+        "edges_of_more_than_two_faces": 22,
+        "faces_of_zero_area": 498,
+        "faces_under_1_degree": 393,
+        "passed": false
+      }
     },
     {
       "geometry": "the wing, with the instruction renaming Model 0 to demo (SURFACE_RENAME 1 demo before the save)",
       "density": "MEDIUM and LOW",
-      "boundaries_saved": ["demo"],
+      "boundaries_saved": [
+        "demo"
+      ],
       "read_back": "passed: the saved boundaries equal the instruction's"
     }
   ],
@@ -46,5 +75,35 @@
     "The importer names the one body it converts 'Model 0' whatever the members of the IGES are: a one member and a two member file both save one boundary and one OBJ object named 'Model 0'. The names of the IGES components (406 NAME levels) are not boundaries of the saved model.",
     "A boundary name cannot carry a space (the instruction model refuses it), so the native instruction renames 'Model 0' to one word.",
     "The audit G1 of the geometry build fails on the importer's own tessellation of the generated wing (triangles of zero area on the blunt trailing edge strip, x near the trailing edge, z near 0) at LOW, MEDIUM and HIGH density, and on the body (edges of more than two faces, zero-area faces); a failed audit promotes nothing, so no .fsm reaches the row."
-  ]
+  ],
+  "round2": {
+    "date": "2026-11-13",
+    "cause_of_the_g1_failures": {
+      "wing": "The tip cap is one ruled outline patch (geometry/_caps.py outline_cap) whose near end collapses at the leading edge: its IGES loop carries a zero-length edge (kernel curve of length 0, no end vertices) beside the four outline curves and the trailing edge base. The 43 zero-area faces at MEDIUM density lie on edges of source faces or collapse two nodes onto a source vertex: the fan at the tip leading-edge vertex (about 25 faces, areas near 1.6e-8 m2 against a median of 4e-5), the root leading-edge corner and a few faces 12 mm inboard of the tip leading edge. No face inside a source face is degenerate.",
+      "body": "The 30 faces of the body are four-sided patches with no degenerate edge and no duplicate. All 498 zero-area faces lie on patch edges (nose patches, the x = 0.3 m ring and the seam lines, 6 per station); the 22 edges of more than two faces are 4 triangles each, a normal triangle and a sliver from each of the two patches that meet on the seam."
+    },
+    "fix_at_the_source": "none applied: the collapsed leading-edge end is the specified one-face outline cap and the body writes no degenerate entity, so what is left is the solver's tessellation of correct surfaces along their seams",
+    "native_audit_rule": "workspace/_native_seams.py: a G1 failure of a native build (only zero-area faces and edges of more than two faces, no two nodes at one position) passes when every such face has all its nodes within 1e-3 of the mesh size of an edge of a source face, or two of its nodes within that distance of one source vertex, and every such edge has both nodes on a source edge; the faces are named by the source faces whose edges they lie on and the count is written in the build record. A zero-area face with a node off every source edge still fails (test test_p0570_g13_native_seams.py).",
+    "after_the_rule": {
+      "wing_medium": {
+        "zero_area": 43,
+        "explained": 43,
+        "unexplained": 0,
+        "sources": {
+          "WING": 43
+        }
+      },
+      "body": {
+        "zero_area": 498,
+        "explained": 498,
+        "nonmanifold_edges": 22,
+        "explained_edges": 22,
+        "unexplained": 0,
+        "sources": {
+          "HULL": 498
+        }
+      }
+    },
+    "acceptance": "one row of the generated wing, MESH_ROUTE native, FS_BUILD 26.127: run_matrix generated it, built its .fsm with the solver (audit passed with the native note), the geometry was accepted with `geometry accept`, and the steady point M0.1 alpha 0 ran to CONVERGED on build 26.127; one FlightStream process at a time, free RAM 2.9 to 3.5 GB before each launch."
+  }
 }
