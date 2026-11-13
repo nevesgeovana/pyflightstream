@@ -528,18 +528,98 @@ def test_p0560_the_cosine_ratio_is_documented_as_the_grid_measures_it(tmp_path, 
 
 @pytest.mark.requirement("FR-3702")
 def test_p0560_grid_other_patches_are_quad_dominant_at_the_component_size(tmp_path, capsys):
-    target, record, _ = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
-    # The plate's top edge is cut where the flap ends, so it has five sides.
-    assert record["transfinite_patches"]["Plate"] == 0
-    plate = record["components"]["Plate"]
-    assert plate["quad_share"] >= 0.8
+    """A patch with three corners is no block: it is meshed quad-dominant at its size."""
+    text = "[defaults]\nsize = 0.25\n[component.Tri]\n[component.Tab]\n"
+    target, record, _ = run_grid(tmp_path, capsys, [triangle_and_tab(tmp_path)], text)
+    assert record["transfinite_patches"]["Tri"] == 0
+    assert record["components"]["Tri"]["quad_share"] >= 0.8
     mesh = read_obj(target)
     edges = [
         np.linalg.norm(mesh.verts[a] - mesh.verts[b])
-        for f in mesh.families["Plate"]
+        for f in mesh.families["Tri"]
         for a, b in zip(f, f[1:] + f[:1], strict=True)
     ]
     assert 0.1 < float(np.median(edges)) < 0.4
+
+
+def _intervals_on(mesh, family, y):
+    """Count the mesh edges of a family that lie on the line of constant ``y``."""
+    edges = {
+        tuple(sorted((a, b)))
+        for f in mesh.families[family]
+        for a, b in zip(f, f[1:] + f[:1], strict=True)
+        if abs(mesh.verts[a][1] - y) < 1e-9 and abs(mesh.verts[b][1] - y) < 1e-9
+    }
+    return len(edges)
+
+
+@pytest.mark.requirement("FR-3702")
+def test_r27_015_a_shared_curve_override_keeps_opposite_composite_totals_equal(tmp_path, capsys):
+    """The plate's top side is cut in two where the flap ends, and the flap's count wins on the
+    shared half. The plate's bottom side follows the new total, so the plate is one structured
+    block of quads only, and the record counts it because the mesh is structured."""
+    target, record, caught = run_grid(tmp_path, capsys, [plate_and_flap(tmp_path)], PLATE_GRID)
+    mesh = read_obj(target)
+    bottom, top = _intervals_on(mesh, "Plate", 0.0), _intervals_on(mesh, "Plate", 1.0)
+    assert bottom == top
+    plate = mesh.families["Plate"]
+    assert all(len(f) == 4 for f in plate)
+    assert record["transfinite_patches"]["Plate"] == 1
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("Plate" in s and "opposite sides" in s for s in said), said
+
+
+@pytest.mark.requirement("FR-3702")
+def test_r27_015_a_block_the_mesh_does_not_structure_is_warned_and_not_counted():
+    """Control: the planned plate block came out as the unequal-count mesh the review measured,
+    42 quads and 2 triangles; it is not counted and a warning names the face. A block meshed
+    as exactly its planned quads is counted. A patch that cannot hold equal totals is dropped
+    from the blocks with a warning."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._iges_mesh import drop_unbalanced, structured_blocks
+
+    elements = {11: ([3, 2], [list(range(42)), [0, 1]]), 12: ([3], [list(range(80))])}
+    gmsh = SimpleNamespace(
+        model=SimpleNamespace(
+            mesh=SimpleNamespace(getElements=lambda dim, face: (*elements[face], None))
+        )
+    )
+    warned: list[str] = []
+    counted = structured_blocks(
+        gmsh, {"Plate": [11], "Flap": [12]}, {11: (10, 4), 12: (10, 8)}, warned
+    )
+    assert counted == {"Plate": 0, "Flap": 1}
+    assert len(warned) == 1 and "Plate: face 11" in warned[0]
+    assert "not counted as transfinite" in warned[0]
+    patches, corners = {"Plate": [11, 13]}, {11: [1, 2, 3, 4]}
+    drop_unbalanced(patches, corners, {11}, warned)
+    assert patches == {"Plate": [13]} and corners == {}
+    assert "Plate: face 11 cannot hold equal cell totals" in warned[-1]
+
+
+def test_r27_015_unequal_totals_that_no_raise_can_fix_are_reported():
+    """A side whose curves are all tied to the other side cannot be raised alone; a side with
+    a free curve is raised until the totals are equal, sparing a curve another component asks
+    for while another curve can take the raise."""
+    from pyflightstream.workspace._iges_mesh import balance_counts
+
+    class Groups:
+        def __init__(self, tied):
+            self.tied = tied
+
+        def find(self, curve):
+            return self.tied.get(curve, curve)
+
+    lengths = dict.fromkeys((1, 2, 3, 4, 5), 1.0)
+    tied = Groups({4: 1})
+    counts = dict.fromkeys((1, 2, 3, 5), 3)
+    assert balance_counts(tied, counts, {7: [[1, 2], [3], [4], [5]]}, lengths) == {7}
+    free = Groups({})
+    counts = {1: 3, 2: 3, 3: 3, 4: 2, 5: 2}
+    loops = {9: [[1, 2], [3], [4, 5], [3]]}
+    assert balance_counts(free, counts, loops, lengths, pinned=frozenset({4})) == set()
+    assert counts == {1: 3, 2: 3, 3: 3, 4: 2, 5: 4}
 
 
 @pytest.mark.requirement("FR-3702")

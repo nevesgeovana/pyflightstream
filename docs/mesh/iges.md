@@ -111,11 +111,19 @@ Lengths are in the unit of the first IGES file.
 | `trailing_edge` | `"auto"`, or a list of IGES curve names |
 | `te_angle_deg` | The angle of `"auto"` for this component |
 
-A patch is four-sided when it has four distinct curves and each of its four corners is below 160
-degrees. A curve that continues the next nearly straight on is a point on a side, not a corner:
-a side the join cut in two, or a three-cornered patch, is meshed quad-dominant, since a
-transfinite map flattens the cell at such a point. 160 degrees leaves a margin above the real
+A patch is four-sided when exactly four of its points are corners below 160 degrees. A curve
+that continues the next nearly straight on is a point on a side, not a corner: a side the join
+cut in two is one side of several curves, whose cells are shared over them by length, and a
+three-cornered patch is meshed quad-dominant. 160 degrees leaves a margin above the real
 corners of wing, tail and body panels.
+
+The two opposite sides of a four-sided patch always hold the same number of cells. When the
+count another component imposes on a shared curve leaves them unequal, the side with fewer cells
+takes more, on a curve no other component asks for when it has one, and the change is warned.
+A patch whose opposite sides cannot be made equal is meshed quad-dominant and warned. The
+record's transfinite patches count only the patches whose mesh came out as the planned
+structured grid, all quads and exactly the planned number of them; any other planned patch is
+warned by face.
 
 The span pair of a four-sided patch is the pair of opposite sides closer to the span axis; the
 other pair is the chord. A side shorter than the component's size is a strip, such as the base

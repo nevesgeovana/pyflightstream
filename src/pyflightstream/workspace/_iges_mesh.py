@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -37,10 +37,13 @@ __all__ = [
     "JUNCTION_SAMPLES",
     "Meshed",
     "assign_layouts",
+    "balance_counts",
     "cut_layout",
+    "drop_unbalanced",
     "junction_checks",
     "junction_warnings",
     "mesh_model",
+    "structured_blocks",
 ]
 
 #: gmsh's mesh element type numbers of the linear triangle and quadrangle.
@@ -462,31 +465,170 @@ def _sides(
     return sides, patches
 
 
-def _transfinite(gmsh: Any, sides: list[_Side]) -> list[dict[str, Any]]:
-    """Give every group of curves one count and law; return the overridden requests."""
+def _transfinite(
+    gmsh: Any, sides: list[_Side], loops: dict[int, list[list[int]]], warnings: list[str]
+) -> tuple[list[dict[str, Any]], dict[int, tuple[int, int]], set[int]]:
+    """Give every group of curves one count and law, with equal opposite totals on each patch.
+
+    The first request of a group sets its count. A patch with a composite side can then hold
+    unequal totals on two opposite sides; :func:`balance_counts` raises the smaller side until
+    they are equal, and a raise is warned. Return the overridden requests, the two totals of
+    every patch that holds, and the patches that cannot hold equal totals.
+    """
     groups = _Groups()
     for side in sides:
         groups.union(*side.curves)
     chosen: dict[int, _Side] = {}
     overrides: dict[tuple[str, str, int, int], int] = {}
     for side in sides:
-        root = groups.find(side.curves[0])
-        first = chosen.setdefault(root, side)
+        first = chosen.setdefault(groups.find(side.curves[0]), side)
         if first.count != side.count:
             key = (side.component, first.component, side.count, first.count)
             overrides[key] = overrides.get(key, 0) + 1
+    counts = {root: side.count for root, side in chosen.items()}
+    lengths = {
+        c: float(gmsh.model.occ.getMass(1, c)) for loop in loops.values() for s in loop for c in s
+    }
+    owners: dict[int, set[str]] = {}
+    for side in sides:
+        owners.setdefault(groups.find(side.curves[0]), set()).add(side.component)
+    pinned = frozenset(root for root, names in owners.items() if len(names) > 1)
+    unbalanced = balance_counts(groups, counts, loops, lengths, pinned=pinned)
+    _warn_raised(chosen, counts, warnings)
     done: set[int] = set()
     for side in sides:
-        first = chosen[groups.find(side.curves[0])]
+        root = groups.find(side.curves[0])
         for curve in side.curves:
-            if curve in done:
-                continue
-            done.add(curve)
-            _set_curve(gmsh, curve, first)
-    return [
+            if curve not in done:
+                done.add(curve)
+                _set_curve(gmsh, curve, replace(chosen[root], count=counts[root]))
+    totals = {
+        face: (_total(groups, counts, loop[0]), _total(groups, counts, loop[1]))
+        for face, loop in loops.items()
+        if face not in unbalanced
+    }
+    report = [
         {"component": a, "wanted": w, "used": u, "from": b, "pairs": n}
         for (a, b, w, u), n in sorted(overrides.items())
     ]
+    return report, totals, unbalanced
+
+
+#: The passes :func:`balance_counts` makes over the patches before it gives up on equal totals.
+_BALANCE_PASSES = 1000
+
+
+def _total(groups: _Groups, counts: dict[int, int], side: list[int]) -> int:
+    return sum(counts[groups.find(c)] for c in side)
+
+
+def balance_counts(
+    groups: _Groups,
+    counts: dict[int, int],
+    loops: dict[int, list[list[int]]],
+    lengths: dict[int, float],
+    *,
+    pinned: frozenset[int] = frozenset(),
+) -> set[int]:
+    """Raise group counts until the opposite sides of every patch hold equal totals.
+
+    ``counts`` (by group root) is changed in place. A count is only ever raised, one cell at a
+    time, on the side with the smaller total, on the curve of that side with the longest cells
+    whose group does not run as often along the other side. A group in ``pinned`` (one that
+    several components ask for) is raised only when no other curve of the side can be. Return
+    the faces whose opposite totals are still unequal: no raise can fix them, or the passes ran
+    out.
+    """
+    pairs = [(face, loop[k], loop[k + 2]) for face, loop in loops.items() for k in (0, 1)]
+    for _ in range(_BALANCE_PASSES):
+        moved = [_raise_smaller(groups, counts, lengths, (a, b), pinned) for _, a, b in pairs]
+        if not any(moved):
+            break
+    return {f for f, a, b in pairs if _total(groups, counts, a) != _total(groups, counts, b)}
+
+
+def _raise_smaller(
+    groups: _Groups,
+    counts: dict[int, int],
+    lengths: dict[int, float],
+    pair: tuple[list[int], list[int]],
+    pinned: frozenset[int],
+) -> bool:
+    """Raise one group of the smaller of two opposite sides by one cell; False when none can."""
+    a, b = pair
+    ta, tb = _total(groups, counts, a), _total(groups, counts, b)
+    if ta == tb:
+        return False
+    small, big = (a, b) if ta < tb else (b, a)
+    gain: dict[int, int] = {}
+    for curve in small:
+        gain[groups.find(curve)] = gain.get(groups.find(curve), 0) + 1
+    for curve in big:
+        gain[groups.find(curve)] = gain.get(groups.find(curve), 0) - 1
+    free = [c for c in small if gain[groups.find(c)] > 0]
+    if not free:
+        return False
+    curve = max(
+        free,
+        key=lambda c: (groups.find(c) not in pinned, lengths[c] / counts[groups.find(c)]),
+    )
+    counts[groups.find(curve)] += 1
+    return True
+
+
+def _warn_raised(chosen: dict[int, _Side], counts: dict[int, int], warnings: list[str]) -> None:
+    for root, side in sorted(chosen.items()):
+        if counts[root] != side.count:
+            warnings.append(
+                f"{side.component}: a {side.direction} curve takes {counts[root]} cells, not "
+                f"{side.count}, so that the opposite sides of its patch hold equal totals"
+            )
+
+
+def structured_blocks(
+    gmsh: Any,
+    patches: dict[str, list[int]],
+    totals: dict[int, tuple[int, int]],
+    warnings: list[str],
+) -> dict[str, int]:
+    """Count, by component, the planned blocks the mesh realized as structured grids.
+
+    A block is counted when its face holds only quads and exactly the product of its two
+    totals of them; any other planned block is warned by face and not counted.
+    """
+    counted: dict[str, int] = {}
+    for name, four in patches.items():
+        counted[name] = 0
+        for face in four:
+            types, tags, _ = gmsh.model.mesh.getElements(2, face)
+            cells = sum(len(t) for t in tags)
+            quads = sum(len(t) for k, t in zip(types, tags, strict=True) if k == _QUAD)
+            a, b = totals[face]
+            if quads == cells == a * b:
+                counted[name] += 1
+                continue
+            warnings.append(
+                f"{name}: face {face} was planned as a {a} x {b} block but its mesh has "
+                f"{quads} quads in {cells} cells; it is not counted as transfinite"
+            )
+    return counted
+
+
+def drop_unbalanced(
+    patches: dict[str, list[int]],
+    corners: dict[int, list[int]],
+    unbalanced: set[int],
+    warnings: list[str],
+) -> None:
+    """Mesh the patches without equal opposite totals quad-dominant, and say so by face."""
+    for name, four in patches.items():
+        for face in [f for f in four if f in unbalanced]:
+            four.remove(face)
+            corners.pop(face, None)
+            warnings.append(
+                f"{name}: face {face} cannot hold equal cell totals on its opposite sides; "
+                "it is meshed quad-dominant and not counted as transfinite"
+            )
 
 
 def _set_curve(gmsh: Any, curve: int, side: _Side) -> None:
@@ -630,7 +772,9 @@ def mesh_model(
         )
         sides += found
         patches[name] = four
-    overrides = _transfinite(gmsh, sides)
+    loops = {f: _four_sides(gmsh, f) or [] for four in patches.values() for f in four}
+    overrides, totals, unbalanced = _transfinite(gmsh, sides, loops, warnings)
+    drop_unbalanced(patches, corners, unbalanced, warnings)
     _point_sizes(gmsh, faces, order, sizes)
     _set_surfaces(gmsh, faces, order, patches, corners)
     gmsh.option.setNumber("Mesh.Algorithm", _MESH_ADAPT)
@@ -640,6 +784,7 @@ def mesh_model(
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
     gmsh.option.setNumber("Mesh.MeshSizeMax", max(sizes.values()))
     gmsh.model.mesh.generate(2)
+    structured = structured_blocks(gmsh, patches, totals, warnings)
     meshed = _read(
         gmsh,
         faces,
@@ -650,7 +795,7 @@ def mesh_model(
             "fragment": fragment,
             "tolerance": tolerance,
             "closed_gaps": closed,
-            "transfinite_patches": {n: len(p) for n, p in patches.items()},
+            "transfinite_patches": structured,
             "count_overrides": overrides,
         },
     )
