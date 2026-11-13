@@ -155,3 +155,12 @@ def test_p0570_c8_source_and_destination_must_differ(tmp_path):
 def test_p0570_c8_a_missing_source_is_refused(tmp_path):
     with pytest.raises(InputValueError, match="file does not exist"):
         _split(tmp_path / "a.igs", tmp_path / "h.igs")
+
+
+def test_p0570_c8_shallow_crossing_is_cut_and_kept(kernel, tmp_path):
+    source = _model(kernel, tmp_path / "full.igs", wing_y=(-2e-6, 3.0))
+    record = _split(source, tmp_path / "half.igs")
+    assert record["components"]["WING"]["cut"] == 4
+    assert record["components"]["WING"]["faces_after"] == 5
+    half = kernel.inspect_file(tmp_path / "half.igs", 1e-7)
+    assert "WING" in half.names
