@@ -99,8 +99,8 @@ dependencies = [
     # gmsh is GPL-2.0-or-later: installed from its own distribution, not
     # embedded in this wheel, and imported only by workspace/_gmsh.py, only
     # when a kernel stage runs. This package stays MIT (NFR-02; license
-    # evidence in docs/install.md). Measured on 4.15.2.
-    "gmsh>=4.15,<5",
+    # evidence in docs/install.md). Measured on 4.15.2; 4.15.0 fails the wing-body meshing.
+    "gmsh>=4.15.1,<5",
 ]
 
 [project.optional-dependencies]

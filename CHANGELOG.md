@@ -506,7 +506,7 @@ already holds any of its outputs is refused unless `--overwrite` is given.
 
 ### Changed
 
-- The gmsh floor is 4.15: the wing-body meshing of 0.57.0 fails on gmsh 4.13.
+- The gmsh floor is 4.15.1: the wing-body meshing of 0.57.0 fails on gmsh 4.13 and 4.15.0.
 - Hub-ring controls use `band_width`; `width` remains a deprecated alias.
 - Sector-to-wheel uses CLI `--center` and Python `center=` for a rotor-axis point;
   `--hub` and `hub=` remain deprecated coordinate aliases. Equal duplicates are

@@ -802,7 +802,7 @@ class TestFarfieldNumpy:
             "matplotlib>=3.10,<4",
             "rtree>=1.1,<2",
             "scipy>=1.15,<2",
-            "gmsh>=4.15,<5",
+            "gmsh>=4.15.1,<5",
         ]
         assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3,<3"]
 
