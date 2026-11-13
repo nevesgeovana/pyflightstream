@@ -39,7 +39,7 @@ jobs:
     # for either is added when it is measured, and the classifier with it.
     runs-on: ${{ matrix.os }}
     # A shard took at most 31 minutes on 2026-11-09; a test that stops
-    # answering fails the job at 60 instead of the platform's 360, and the
+    # answering fails the job at 90 instead of the platform's 360, and the
     # faulthandler_timeout of pyproject.toml has by then printed its stack.
     timeout-minutes: 90
     strategy:
