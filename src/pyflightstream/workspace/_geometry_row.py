@@ -1,4 +1,4 @@
-"""A matrix row whose geometry is generated (PFS-2214, lane G10 of 0.57.0).
+"""A matrix row whose geometry is generated from a configuration or IGES file.
 
 Pipeline role: the workspace row, called by the matrix binding beside
 :func:`pyflightstream.workspace._geometry_record.judge_the_row_geometry`. A row whose
@@ -14,8 +14,8 @@ generated IGES to the solver's CAD importer (``[cad]``), ``quad_dominant`` meshe
 strategy 1 of PFS-2214 and hands that mesh over (``[mesh]``), and ``full_grid`` meshes it with
 strategy 2 (:func:`mesh_with_strategy_2`) and hands that mesh over the same way.
 
-An entry that does not apply to a row is warned and skipped, never refused (her rule of
-2026-10-27); what is refused is an input the row cannot be built from: an unknown route, a file
+An entry that does not apply to a row is warned and skipped. Inputs the row cannot be built
+from are refused: an unknown route, a file
 with several configurations and none named, a parameter the file does not hold.
 """
 

@@ -21,6 +21,14 @@ from tests.support_helpers import make_library, stage_geometry
 
 BODY_TOML = '[components.FUS]\ntype = "body"\nlength_mm = 2000.0\n'
 
+
+def test_r27_row_documentation_describes_behavior_without_personal_provenance():
+    from pyflightstream.workspace import _geometry_row
+
+    assert "her rule" not in _geometry_row.__doc__
+    assert "warned and skipped" in _geometry_row.__doc__
+
+
 #: The header of 0.56.0, written out, so the frozen layout is held against a literal.
 OLD_HEADER = (
     "POL HIDDEN RUN AIRCRAFT CONFIGURATION DESCRIPTION FLIGHT_CONDITION SWEEP_VALUES GEOMETRY "
