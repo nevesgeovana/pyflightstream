@@ -552,6 +552,17 @@ def test_configuration_entries_on_an_iges_row_are_warned_and_skipped(library):
     assert request.kind == "iges" and not request.overrides and request.configuration is None
 
 
+def test_migrate_help_names_the_mesh_route_column_and_apply(capsys):
+    """API-006: pyfs-workspace migrate --help says what it migrates and what --apply does."""
+    from pyflightstream.workspace.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["migrate", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "MESH_ROUTE" in text
+    assert "--apply write the .bak backups" in text
+
+
 def test_a_matrix_whose_every_row_failed_is_refused_naming_each(tmp_path, library):
     from pyflightstream.cases.matrix import MatrixError
 

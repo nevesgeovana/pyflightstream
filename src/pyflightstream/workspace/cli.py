@@ -223,10 +223,25 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     migration = subparsers.add_parser(
         "migrate",
-        help="preview the record migration from 0.38.0; --apply writes backups and records",
+        help=(
+            "preview the record migration from 0.38.0 and the MESH_ROUTE column added after "
+            "GEOMETRY in root matrices; --apply writes backups and the migrated files"
+        ),
+        description=(
+            "Previews the changes: record manifests from 0.38.0, and root *.fs matrices of the "
+            "0.56.0 layout, which get the MESH_ROUTE column after GEOMETRY, unstated (NA). "
+            "--apply writes an exact .bak beside each file and then the migrated file "
+            "(docs/upgrading.md)."
+        ),
     )
-    migration.add_argument("root", nargs="?", default=".")
-    migration.add_argument("--apply", action="store_true")
+    migration.add_argument(
+        "root", nargs="?", default=".", help="workspace root (default: the current directory)"
+    )
+    migration.add_argument(
+        "--apply",
+        action="store_true",
+        help="write the .bak backups and the migrated files (default: preview only)",
+    )
 
     init = subparsers.add_parser(
         "init",
