@@ -59,7 +59,7 @@ class Propeller:
     >>> Propeller({})
     Traceback (most recent call last):
     ...
-    pyflightstream._errors.InputValueError: schema_version: expected 1
+    pyflightstream._errors.InputValueError: schema_version: got None, expected 1
     """
 
     def __init__(
