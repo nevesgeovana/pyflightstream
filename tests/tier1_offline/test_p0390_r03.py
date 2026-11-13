@@ -1180,9 +1180,38 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     log_name = "tree/post/polars/post.log"
     head = b"(refuse instead of warn)\n"
     assert captured[log_name].count(head) == 1
-    captured[log_name] = (
-        captured[log_name].replace(head, head + b"sims=7002\n") + captured[log_name]
+    assert captured[log_name].endswith(head)
+    # PFS-2214 G10.1 (0.57.0): the matrix written here has the v0.56.0 layout (no MESH_ROUTE
+    # column), so each post warns once that the layout is superseded; the capture of v0.38.0
+    # stays as it was printed and the reviewed warning line is added after each block head.
+    layout = (
+        b"WARNING point=campaign product=stage: <ROOT>/polars.fs: the matrix layout of v0.56.0"
+        b" (no MESH_ROUTE column) was superseded in v<V> and will be removed in v0.60.0; the"
+        b" file reads until then with MESH_ROUTE unstated, and pyfs-workspace migrate --apply"
+        b" rewrites its header.\n"
     )
+    captured[log_name] = (
+        captured[log_name].replace(head, head + b"sims=7002\n")
+        + layout
+        + captured[log_name]
+        + layout
+    )
+    record_name = "tree/post/polars/post.log.json"
+    record = json.loads(captured[record_name])
+    assert record["records"] == []
+    record["records"] = [
+        {
+            "point": "campaign",
+            "product": "stage",
+            "message": layout.decode()
+            .removeprefix("WARNING point=campaign product=stage: ")
+            .rstrip("\n"),
+            "remedy": None,
+            "category": "section-layout",
+            "severity": "warning",
+        }
+    ]
+    captured[record_name] = json.dumps(record, indent=1).encode() + b"\n"
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":
