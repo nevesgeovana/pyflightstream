@@ -81,7 +81,6 @@ from pyflightstream.workspace._geometry_vtk import (
     write_preview_vtk,
     write_sweep_vtk,
 )
-from pyflightstream.workspace._native_seams import native_verdict
 from pyflightstream.workspace._refine._audit import audit_mesh
 from pyflightstream.workspace.builds import resolve_build
 from pyflightstream.workspace.sidecars import inventory_sidecar
@@ -985,6 +984,10 @@ def _audit(
         audit = audit_mesh(target)
     except InputArtifactError as error:
         return {"file": None, "passed": False, "failed": [f"not audited: {error}"], "notes": notes}
+    # Imported here: the native judge reads the IGES through the kernel and scipy, and this
+    # module is on the base import path, which loads with scipy absent (F-861).
+    from pyflightstream.workspace._native_seams import native_verdict
+
     passed, failed, note = (
         native_verdict(audit, target, source)
         if source is not None
