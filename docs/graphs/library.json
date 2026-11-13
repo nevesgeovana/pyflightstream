@@ -1906,6 +1906,11 @@
       "path": "workspace/_geom_run.py"
     },
     {
+      "id": "pyflightstream.workspace._geom_split",
+      "layer": 2,
+      "path": "workspace/_geom_split.py"
+    },
+    {
       "id": "pyflightstream.workspace._geom_variant",
       "layer": 2,
       "path": "workspace/_geom_variant.py"
@@ -15444,6 +15449,11 @@
     },
     {
       "source": "pyflightstream.workspace._fsm_write",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._fsm_write",
       "target": "pyflightstream.geometry.stages",
       "kind": "module"
     },
@@ -15884,6 +15894,11 @@
     },
     {
       "source": "pyflightstream.workspace._geom_run",
+      "target": "pyflightstream.workspace._geom_split",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._geom_variant",
       "kind": "deferred"
     },
@@ -15895,6 +15910,21 @@
     {
       "source": "pyflightstream.workspace._geom_run",
       "target": "pyflightstream.workspace._gmsh_worker",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_split",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_split",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_split",
+      "target": "pyflightstream.workspace._cad",
       "kind": "module"
     },
     {
@@ -15980,7 +16010,7 @@
     {
       "source": "pyflightstream.workspace._geometry_build",
       "target": "pyflightstream.workspace._native_seams",
-      "kind": "module"
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._geometry_build",
@@ -16154,6 +16184,11 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_mesh",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh",
       "target": "pyflightstream.geometry.config",
       "kind": "module"
     },
@@ -16269,6 +16304,11 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_mesh_s2",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_mesh_s2",
       "target": "pyflightstream.geometry.config",
       "kind": "deferred"
     },
@@ -16360,6 +16400,11 @@
     {
       "source": "pyflightstream.workspace._geometry_row",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_row",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
