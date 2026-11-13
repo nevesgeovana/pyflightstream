@@ -717,8 +717,13 @@ def generate_row_geometries(
                 row.fs_build.strip() or None,
                 generate=generate,
             )
-        except GeometryRowError as error:
-            failures[pol] = failure_record(error)
+        except (PyflightstreamError, OSError, ValueError) as error:
+            failure = (
+                error
+                if isinstance(error, GeometryRowError)
+                else GeometryRowError(f"matrix row POL {pol}: {error}")
+            )
+            failures[pol] = failure_record(failure)
             continue
         if path is None:
             kept.append(row)

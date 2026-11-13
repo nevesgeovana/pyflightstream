@@ -572,3 +572,16 @@ def test_r27_mesh_control_bytes_are_part_of_the_row_cache_key(library, explicit)
     after = row_module.row_identity(request)
     assert before[0] == after[0]  # geometric parameters are unchanged
     assert before[1] != after[1]  # the realized mesh must not be reused
+
+
+@pytest.mark.parametrize("bad", ["missing", "malformed"])
+def test_r27_bad_geometry_input_does_not_abort_healthy_rows(tmp_path, library, bad):
+    source = library.inputs_dir / "geometries" / "demo.geom.toml"
+    if bad == "malformed":
+        source.write_text("[components.FUS\n", encoding="utf-8")
+    geometry = "missing.geom.toml" if bad == "missing" else source.name
+    rows = [_cells(geometry=geometry, route="native"), _cells(pol="7002")]
+    resolved = _resolve(_matrix(tmp_path, rows), library)
+    assert [case.sim_id for case in resolved.campaign.sims] == ["7002"]
+    assert "7001" in resolved.geometry_failures
+    assert resolved.geometry_failures["7001"]["message"]
