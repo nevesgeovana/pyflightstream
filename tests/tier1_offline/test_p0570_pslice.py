@@ -329,3 +329,16 @@ def test_p0570_pslice_existing_outputs_need_overwrite(tmp_path, held):
     assert record["measured"]["blades_found"] == 3
     assert not (out / "sections" / "s99.dat").exists()
     assert (out / "table.csv").read_text(encoding="utf-8").startswith("r_R")
+
+
+def test_p0570_pslice_unit_words_are_read_in_any_case(tmp_path):
+    """API-008: MILLIMETER, METER and their kin are read, normalised, in any case."""
+    from pyflightstream._errors import InputValueError
+    from pyflightstream.workspace.prop_slice import slice_propeller
+
+    obj = write_rotor_obj(tmp_path / "rotor.obj", design(), nu=41, nv=31)
+    record = slice_propeller(obj, blades=3, out=tmp_path / "a", stations=R_R, unit="Millimeter")
+    assert record["inputs"]["unit"] == "mm"
+    with pytest.raises(InputValueError, match=r"--unit\): got 'parsec'.*METER"):
+        slice_propeller(obj, blades=3, out=tmp_path / "b", unit="parsec")
+    assert not (tmp_path / "b").exists()

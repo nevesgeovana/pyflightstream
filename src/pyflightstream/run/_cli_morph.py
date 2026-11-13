@@ -372,7 +372,9 @@ def add_prop_slice_parser(subparsers: Any) -> None:
         help="r/R of the sections (default 21 steps from the root to the tip, and 0.7)",
     )
     parser.add_argument(
-        "--unit", default="mm", choices=("mm", "cm", "m", "in"), help="OBJ length unit (mm)"
+        "--unit",
+        default="mm",
+        help="OBJ length unit: mm (default), cm, m, in, or MILLIMETER, CENTIMETER, METER, INCH",
     )
     parser.add_argument("--out", required=True, help="the folder to write")
     parser.add_argument(

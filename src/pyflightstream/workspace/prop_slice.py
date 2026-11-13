@@ -39,6 +39,8 @@ __all__ = ["OBJ_UNITS", "TABLE_COLUMNS", "slice_propeller"]
 
 #: Millimetres per unit of an OBJ, which states no unit of its own.
 OBJ_UNITS = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4}
+#: The unit words the other geometry verbs take, read as the short names above.
+_UNIT_WORDS = {"millimeter": "mm", "centimeter": "cm", "meter": "m", "inch": "in"}
 #: The columns of ``table.csv``, in order.
 TABLE_COLUMNS = (
     "r_R",
@@ -235,8 +237,9 @@ def slice_propeller(
         r/R of the sections, at least four, increasing, up to 1; default 21 equal steps from
         the blade root to the tip, and 0.7.
     unit : str, optional
-        The length unit of an OBJ: ``mm`` (default), ``cm``, ``m`` or ``in``. An IGES states
-        its own unit.
+        The length unit of an OBJ: ``mm`` (default), ``cm``, ``m`` or ``in``, or the words
+        ``MILLIMETER``, ``CENTIMETER``, ``METER`` and ``INCH``, in any case; the record keeps
+        the short name. An IGES states its own unit.
     overwrite : bool, default False
         Replace ``propeller.toml``, ``table.csv``, ``prop-slice.json`` and ``sections/``
         when ``out`` already holds any of them; without it they are refused.
@@ -266,8 +269,14 @@ def slice_propeller(
         raise _refuse(f"{source}: unsupported geometry suffix {suffix!r}; give .obj, .igs or .iges")
     if type(blades) is not int or blades < 1:
         raise InputValueError(f"blades: expected a positive integer, got {blades!r}")
+    given = unit
+    unit = str(unit).strip().lower()
+    unit = _UNIT_WORDS.get(unit, unit)
     if unit not in OBJ_UNITS:
-        raise InputValueError(f"unit: expected one of {sorted(OBJ_UNITS)}, got {unit!r}")
+        raise InputValueError(
+            f"unit (CLI: --unit): got {given!r}, expected one of mm, cm, m, in or "
+            "MILLIMETER, CENTIMETER, METER, INCH (any case)"
+        )
     folder = Path(out)
     present = [name for name in _OUTPUTS if (folder / name).exists()]
     if present and not overwrite:

@@ -913,7 +913,8 @@ warn that the group is their home.
 
 `pyfs-workspace geometry prop-slice --geometry <file>.obj|.igs --blades N
 [--axis DX DY DZ] [--origin X Y Z] [--blade-dir DX DY DZ] [--stations R_R ...]
-[--unit mm|cm|m|in] --out <folder>` cuts one blade of a propeller at radial
+[--unit mm|cm|m|in] [--overwrite] --out <folder>` (the unit also as `MILLIMETER`,
+`CENTIMETER`, `METER` or `INCH`, in any case) cuts one blade of a propeller at radial
 stations and writes the G17 definition that rebuilds it (`propeller.toml`),
 one normalized profile per station (`sections/sNN.dat`), the table of chord,
 pitch angle, thickness, camber, skew and rake over r/R (`table.csv`) and the
