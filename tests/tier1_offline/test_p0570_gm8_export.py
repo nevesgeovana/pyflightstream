@@ -275,7 +275,11 @@ def test_p0570_applied_host_cut_is_measured_at_its_own_boundary(tmp_path, stage,
         assert report["measured"] > report["limit"] == 5e-6
         assert not (tmp_path / "F6-boundary" / "applied").exists()
         return
-    assert report["status"] == "accepted", report
+    # a str message is printed whole; a dict one is cut to a short repr
+    assert report["status"] == "accepted", "; ".join(
+        f"{k}={report.get(k)!r}"
+        for k in ("stage", "check", "measured", "limit", "where", "message")
+    )
     record = json.loads((tmp_path / f"S10.{stage}.json").read_text(encoding="utf-8"))
     assert record["checks"] and all(c["status"] == "passed" for c in record["checks"]), record
     assert any(c["id"] == f"control.{stage.lower()}.junction_length" for c in record["checks"])
