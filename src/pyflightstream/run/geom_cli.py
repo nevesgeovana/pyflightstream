@@ -256,7 +256,7 @@ def _build_parser() -> argparse.ArgumentParser:
     control.add_argument("iges", metavar="IGES")
     control.add_argument("component", metavar="COMPONENT")
     control.add_argument("entry", metavar="ENTRY", help="the entry (TOML)")
-    control.add_argument("--out", required=True, metavar="DIR")
+    control.add_argument("--out", required=True, metavar="IGES", help="the IGES file to write")
     control.set_defaults(handler=_add_control_surface)
 
     split = verbs.add_parser("split-symmetry", help="cut a full model at its symmetry plane")

@@ -281,6 +281,14 @@ def test_p0570_g3_an_unknown_verb_is_refused_and_the_moved_verbs_are_listed(caps
     assert "split-symmetry" in out and "add-control-surface" in out
 
 
+def test_add_control_surface_help_says_out_is_an_iges_file(capsys):
+    """API-010: --out of add-control-surface is the IGES file written, not a folder."""
+    with pytest.raises(SystemExit):
+        main(["add-control-surface", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--out IGES the IGES file to write" in text
+
+
 def test_python_dash_m_runs_the_geometry_command_line():
     """`python -m pyflightstream.run.geom_cli` reaches `main` and returns its exit code."""
     import os
