@@ -52,7 +52,6 @@ from __future__ import annotations
 import difflib
 import math
 import re
-import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -63,6 +62,7 @@ from pyflightstream._errors import NotApplicableWarning as NotApplicableWarning
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._errors import demote as demote
+from pyflightstream._errors import warn as _warn
 from pyflightstream._matrix_identifiers import (
     IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
 )
@@ -1038,7 +1038,7 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
         # THE FROZEN LAYOUT OF 0.56.0 READS: its route is unstated and the file says
         # how to be migrated. The promise is the ledger's, and so is its sentence.
         layout = _LAYOUT_0_56_0
-        warnings.warn(
+        _warn(
             f"{path}: {MATRIX_LAYOUT_0_56_0.message()}",
             PyflightstreamDeprecationWarning,
             stacklevel=4,
