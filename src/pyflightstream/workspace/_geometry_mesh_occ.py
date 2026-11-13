@@ -544,3 +544,128 @@ def mesh_cap(mesh, loop, component):
     raise InputValueError(
         f"cap: no meshing variant gave an all-quad mesh without collinear corners; {last}"
     )
+
+
+def _dominant_algorithm(gmsh: Any, algorithms, n: int):
+    """Mesh the open ``cap`` surface with the first algorithm whose cells are all sound."""
+    last = None
+    for algorithm in algorithms:
+        gmsh.model.mesh.clear()
+        gmsh.option.setNumber("Mesh.Algorithm", algorithm)
+        try:
+            gmsh.model.mesh.generate(2)
+        except Exception as exc:  # gmsh raises its own untyped error on a failed meshing
+            last = f"algorithm {algorithm}: {exc}"
+            continue
+        kinds, _, blocks = gmsh.model.mesh.getElements(2, 1)
+        if len(kinds) and set(int(k) for k in kinds) <= {2, 3}:
+            return
+        last = f"algorithm {algorithm}: element types {[int(k) for k in kinds]}"
+    raise InputValueError(f"cap: no quad-dominant mesh of the rim ({n} nodes); {last}")
+
+
+def _split_collinear_quads(coords, position, cells):
+    """Split each quad holding a collinear corner along the diagonal from that corner.
+
+    A quad that closes over a straight run of the rim (the base midpoint, a smooth outline node)
+    has a corner near 180 degrees; as two triangles the corner is divided and both are sound.
+    """
+    result = []
+    for cell in cells:
+        cell = [int(t) for t in cell]
+        if len(cell) == 4:
+            sines = _corner_sines(coords, [[position[t] for t in cell]])[0]
+            k = int(np.argmin(sines))
+            if sines[k] < MIN_SIN:
+                a, b, c, d = (cell[(k + j) % 4] for j in range(4))
+                result += [[a, b, c], [a, c, d]]
+                continue
+        result.append(cell)
+    return result
+
+
+def mesh_cap_dominant(mesh, loop, component):
+    """Append a quad-dominant mesh of the planar region bounded by ``loop``.
+
+    MESH_DESIGN section 8 lets the tip cap be quad-dominant: the region is meshed free, recombined
+    with the blossom pairing, and the triangles it keeps are reported apart from the structured
+    rows. The boundary nodes are the rim nodes; each variant is refused when a corner of any cell
+    is collinear (smallest sine under :data:`MIN_SIN`). Returns ``(mesh, normal)``.
+    """
+    gmsh = gmsh_module("meshing the planar tip cap")
+    ring = mesh.xyz[loop]
+    centre = ring.mean(axis=0)
+    normal = np.linalg.svd(ring - centre)[2][2]
+    if np.max(np.abs((ring - centre) @ normal)) > 1e-8:
+        raise InputValueError("cap: the rim is not planar")
+    previous = gmsh.model.getCurrent()
+    keys = ("Mesh.MeshSizeFromPoints", "Mesh.MeshSizeExtendFromBoundary", *CAP_OPTIONS)
+    saved_options = {k: gmsh.option.getNumber(k) for k in keys}
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
+    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 1)
+    gmsh.option.setNumber("Mesh.RecombineMinimumQuality", 0.0)
+    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
+    gmsh.option.setNumber("Mesh.Smoothing", 5)
+    gmsh.model.add("cap")
+    n = len(ring)
+    try:
+        g = gmsh.model.geo
+        size = [
+            0.5
+            * (np.linalg.norm(ring[i] - ring[i - 1]) + np.linalg.norm(ring[(i + 1) % n] - ring[i]))
+            for i in range(n)
+        ]
+        points = [g.addPoint(*ring[i], size[i]) for i in range(n)]
+        lines = [g.addLine(points[i], points[(i + 1) % n]) for i in range(n)]
+        g.addPlaneSurface([g.addCurveLoop(lines)], 1)
+        g.synchronize()
+        for line in lines:
+            gmsh.model.mesh.setTransfiniteCurve(line, 2)
+        gmsh.model.mesh.setRecombine(2, 1)
+        best = None
+        for algorithms in ((8, 6, 5), (6, 8, 5), (5, 6, 8)):
+            _dominant_algorithm(gmsh, algorithms, n)
+            tags, coords, _ = gmsh.model.mesh.getNodes()
+            coords = np.asarray(coords).reshape(-1, 3)
+            position = {int(t): i for i, t in enumerate(tags)}
+            cells = []
+            for kind, block in zip(*gmsh.model.mesh.getElements(2, 1)[::2], strict=True):
+                cells.extend(np.asarray(block).reshape(-1, 3 if kind == 2 else 4))
+            cells = _split_collinear_quads(coords, position, cells)
+            smallest = min(
+                float(_corner_sines(coords, [[position[int(t)] for t in c]]).min()) for c in cells
+            )
+            if best is None or smallest > best[0]:
+                boundary = {}
+                for i in range(n):
+                    t, _, _ = gmsh.model.mesh.getNodes(0, points[i])
+                    boundary[int(t[0])] = loop[i]
+                best = (smallest, position, coords, cells, boundary)
+            if smallest >= MIN_SIN:
+                break
+        if best[0] < MIN_SIN:
+            raise InputValueError(f"cap: smallest corner sine {best[0]:.4g} on every variant")
+        _, position, coords, cells, boundary = best
+    finally:
+        gmsh.model.remove()
+        gmsh.model.setCurrent(previous)
+        for k, v in saved_options.items():
+            gmsh.option.setNumber(k, v)
+    new_xyz, index = [], {}
+    base = len(mesh.xyz)
+    for t in position:
+        if t in boundary:
+            index[t] = boundary[t]
+        else:
+            index[t] = base + len(new_xyz)
+            new_xyz.append(coords[position[t]])
+    new_cells = [tuple(index[int(t)] for t in c) for c in cells]
+    return replace(
+        mesh,
+        xyz=np.vstack([mesh.xyz, np.array(new_xyz).reshape(-1, 3)]),
+        node_tags=np.r_[mesh.node_tags, -np.arange(1, len(new_xyz) + 1)],
+        cells=mesh.cells + new_cells,
+        components=mesh.components + [component] * len(new_cells),
+        surfaces=mesh.surfaces + [CAP_SURFACE] * len(new_cells),
+    ), normal

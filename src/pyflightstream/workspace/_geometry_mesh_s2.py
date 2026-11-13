@@ -42,6 +42,13 @@ from pyflightstream.geometry.stages import (
     ring_count,
     solve_counts,
 )
+from pyflightstream.workspace._geometry_mesh_occ import (
+    CAP_SURFACE,
+    mesh_cap,
+    mesh_cap_dominant,
+    rim_edges,
+    rim_loop,
+)
 
 __all__ = ["mesh_full_grid", "plan_strategy2"]
 
@@ -229,7 +236,9 @@ def _assembly(model, resolved: Mapping, members: list[str]) -> dict:
     if audit["free_edges_off_symmetry"] or audit["nonmanifold_edges"]:
         raise InputValueError("assembly: source topology gate failed (free or non-manifold edges)")
     owner = {int(s): name for name, tags in exposed.items() for s in tags}
-    return {"owner": owner, "family": family, "audit": audit}
+    # The one-face tip cap is meshed apart, quad-dominant (MESH_DESIGN section 8), not as a block.
+    cap = {s: owner.pop(s) for s in sorted(owner) if family.get(s) == "tip_cap"}
+    return {"owner": owner, "family": family, "audit": audit, "cap": cap}
 
 
 def _points(model, edge: int, count: int = 9) -> np.ndarray:
@@ -497,6 +506,20 @@ def _generate(gmsh, state: dict, counts: Mapping[int, int]) -> None:
     model.mesh.generate(2)
 
 
+def _mesh_cap(model, state: dict, mesh: Mesh, rim: list[int]) -> Mesh:
+    """Mesh the removed tip cap on the rim nodes, all quad when it can be, else quad-dominant."""
+    if not rim:
+        return mesh
+    (name,) = set(state["cap"].values())
+    loop = rim_loop(model, mesh, rim)
+    try:
+        mesh, normal = mesh_cap(mesh, loop, name)
+    except InputValueError:
+        mesh, normal = mesh_cap_dominant(mesh, loop, name)
+    state["cap_plane"] = (mesh.xyz[loop].mean(axis=0), normal)
+    return mesh
+
+
 def _extract(model, owner: Mapping[int, str]) -> Mesh:
     tags, xyz, _ = model.mesh.getNodes()
     tags, xyz = np.asarray(tags), np.asarray(xyz).reshape(-1, 3)
@@ -572,12 +595,15 @@ def planar_faces(model, faces) -> dict[int, tuple[np.ndarray, np.ndarray]]:
     return planes
 
 
-def _quality_checks(model, mesh: Mesh) -> list[dict]:
+def _quality_checks(model, mesh: Mesh, cap_plane=None) -> list[dict]:
     from pyflightstream.geometry.stages import check_mesh, orient_mesh, oriented_source_normals
     from pyflightstream.workspace._geometry_mesh_occ import source_metrics
 
     oriented, _ = orient_mesh(mesh, "mirror_volume")
-    normals, distances = source_metrics(model, oriented, planar_faces(model, set(mesh.surfaces)))
+    planes = planar_faces(model, {s for s in set(mesh.surfaces) if s != CAP_SURFACE})
+    if cap_plane is not None:
+        planes[CAP_SURFACE] = cap_plane
+    normals, distances = source_metrics(model, oriented, planes)
     record = check_mesh(oriented, oriented_source_normals(oriented, normals), distances)
 
     def faces(cells):
@@ -628,13 +654,18 @@ def _ring_checks(plan: dict, state: dict, solved: dict) -> list[dict]:
 
 def _acceptance(model, plan: dict, state: dict, solved: dict, mesh: Mesh) -> list[dict]:
     counts, lengths = solved["counts"], state["kernel"]["lengths"]
-    triangles = sum(len(c) == 3 for c in mesh.cells)
+    skin = [i for i, s in enumerate(mesh.surfaces) if s != CAP_SURFACE]
+    triangles = sum(len(mesh.cells[i]) == 3 for i in skin)
+    in_cap = sum(
+        len(c) == 3 for c, s in zip(mesh.cells, mesh.surfaces, strict=True) if s == CAP_SURFACE
+    )
+    skin_cells = [mesh.cells[i] for i in skin]
     try:
-        check_triangles(mesh.cells, mesh.components)
+        check_triangles(skin_cells, [mesh.components[i] for i in skin])
     except InputValueError:
         pass
     poles, other = irregular_nodes(
-        mesh.xyz, mesh.cells, _poles(model, plan, state), tolerance_m=1e-6
+        mesh.xyz, skin_cells, _poles(model, plan, state), tolerance_m=1e-6
     )
     opposite = 0
     for _, block in state["kernel"]["blocks"]:
@@ -642,7 +673,7 @@ def _acceptance(model, plan: dict, state: dict, solved: dict, mesh: Mesh) -> lis
         opposite += int(sums[0] != sums[2] or sums[1] != sums[3])
     growth = carry_pairs_growth(counts, lengths, solved["carry"])
     checks = [
-        _check("E07.triangles", triangles),
+        _check("E07.triangles", triangles, where={"tip_cap": in_cap}),
         _check("E09.opposite_sides", opposite),
         _check(
             "E10.carry_growth", growth, plan["max_growth"], where={"pairs": len(solved["carry"])}
@@ -658,7 +689,8 @@ def _acceptance(model, plan: dict, state: dict, solved: dict, mesh: Mesh) -> lis
         _check("mesh.irregular_nodes.junction", len(other)),
         _check("mesh.not_full_grid_faces", len(state["kernel"]["other"])),
     ]
-    return checks + _ring_checks(plan, state, solved) + _quality_checks(model, mesh)
+    quality = _quality_checks(model, mesh, state.get("cap_plane"))
+    return checks + _ring_checks(plan, state, solved) + quality
 
 
 # ---- entry ------------------------------------------------------------------------------------
@@ -673,8 +705,10 @@ def _kernel(plan: dict, resolved: Mapping) -> tuple[Mesh, dict]:
         state = _assembly(model, resolved, plan["members"])
         state["kernel"] = _faces(model, state)
         solved = _solve(model, plan, state)
+        rim = rim_edges(model, list(state["cap"]))
+        model.removeEntities([(2, s) for s in state["cap"]])
         _generate(gmsh, state, solved["counts"])
-        mesh = _extract(model, state["owner"])
+        mesh = _mesh_cap(model, state, _extract(model, state["owner"]), rim)
         checks = _acceptance(model, plan, state, solved, mesh)
         dims = sorted({dim for dim, _ in model.getEntities() if dim >= 2})
     record = {
