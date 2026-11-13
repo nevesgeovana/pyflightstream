@@ -974,3 +974,10 @@ A matrix row that generates its geometry (`GEOMETRY` naming a `.geom.toml`) stat
 it (`[cad]` over the IGES, `Model 0` renamed to one word), `quad_dominant` meshes it with
 strategy 1 and `full_grid` with strategy 2 (`docs/geometry-parametrization.md`). The native
 build runs at `pyfs-matrix run`, not at `plan`.
+
+The native build runs through the executor the run was given (`run_matrix(executor=...)`, or the
+grouped run's), never through a local one made for it. A build reads its outputs back as soon as
+the solver returns, so it needs a synchronous executor: an executor that submits jobs to a cluster
+is refused by name, before anything is submitted, with the command that builds the geometry on a
+machine with the solver (`pyfs-workspace geometry build <folder> --apply --build <id>`); run it,
+then run the matrix again.

@@ -235,7 +235,12 @@ def _bound_matrix(
         path, workspace, kw["name"], kw.get("recipes", {}), sims=sims, points=kw.get("points")
     )
     build_native_geometries(
-        path, workspace, default_build=default, fs_exe=kw.get("fs_exe"), rows=rows
+        path,
+        workspace,
+        default_build=default,
+        fs_exe=kw.get("fs_exe"),
+        rows=rows,
+        executor=kw.get("executor"),
     )
     resolved = resolve_matrix(
         path,

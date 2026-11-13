@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import enum
 import shutil
-import sys
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -77,7 +76,6 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
-    JOB_TAG,
     PROGRESS_EVERY_DEFAULT,
     CampaignPlan,
     Executor,
@@ -92,7 +90,6 @@ from pyflightstream.run import (
     package_vcs_state,
     plan_campaign,
     run_campaign,
-    runs_as_one_job,
 )
 from pyflightstream.run._additional import (
     _LOG_SUFFIX,
@@ -116,7 +113,12 @@ from pyflightstream.run._identity import (
     entry_accepted_builds,
     settle_the_matrix_default,
 )
-from pyflightstream.run._ids import _selected, narrow_to_selection, whole_sweeps
+from pyflightstream.run._ids import (
+    _selected,
+    everything_recorded,
+    narrow_to_selection,
+    whole_sweeps,
+)
 from pyflightstream.run._matrix_warnings import (
     _warn_matrix_inputs,
     _warn_the_rows_whose_additional_post_is_one_instant,
@@ -739,79 +741,6 @@ def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
     return all(stated.values())
 
 
-def _everything_recorded(
-    resolved: ResolvedMatrix,
-    workspace: CampaignWorkspace,
-    *,
-    sims: Sequence[str] | None,
-    force_rerun: Sequence[str] | None,
-    resume: bool,
-) -> tuple[list[str], ResolvedMatrix]:
-    """Resolve ``force_rerun_all`` into the recorded ids to redo, and the run's simulations.
-
-    G44: redo the whole matrix with one switch. Every
-    recorded point of the matrix, or of the simulations ``sims`` names, is named
-    to the forced re-run it already is point by point: a steady row recorded as
-    one job is named by its job id, so it runs again as one job; every other
-    recorded point by its own run_id. With ``sims`` the campaign is narrowed to
-    those simulations, so the run touches nothing else. The count is said before
-    anything runs, because the count is the licences it spends.
-    """
-    if resume or force_rerun:
-        raise MatrixError(
-            "force_rerun_all (CLI: --force-rerun-all) redoes every recorded point, so it is "
-            "refused together with "
-            + (
-                "resume (CLI: --resume), which skips them"
-                if resume
-                else "force_rerun (CLI: --force-rerun), which names some of them"
-            )
-            + ". Give one or the other."
-        )
-    campaign = resolved.campaign
-    wanted = set(sims or (case.sim_id for case in campaign.sims))
-    recorded = {record.run_id for record in workspace.read_manifest()}
-    names: list[str] = []
-    points = jobs = archived = 0
-    for case in campaign.sims:
-        if case.sim_id not in wanted:
-            continue
-        job = f"{campaign.name}/sim_{case.sim_id}/{JOB_TAG}"
-        point_ids = [
-            f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
-            for point in case.sweep.points()
-        ]
-        if job in recorded:
-            # The job's re-run also retires a point of it recorded on its own.
-            names.append(job)
-            points += len(point_ids)
-            jobs += 1
-            archived += 1 + sum(run_id in recorded for run_id in point_ids)
-            continue
-        chosen = [run_id for run_id in point_ids if run_id in recorded]
-        names.extend(chosen)
-        points += len(chosen)
-        archived += len(chosen)
-        # Points recorded one by one still run again as ONE warm job when the row is
-        # a steady sweep over the attitude (reading A29): the count says what runs.
-        jobs += 1 if len(chosen) > 1 and runs_as_one_job(campaign, case) else len(chosen)
-    if not names:
-        raise MatrixError(
-            "force_rerun_all found no recorded point of campaign "
-            f"{campaign.name!r} in "
-            + (f"simulation(s) {', '.join(sorted(wanted))}" if sims else "this matrix")
-            + f" in {workspace.root}; there is nothing to redo. Run without it."
-        )
-    # Said on stderr before anything runs, as every progress line of a run is.
-    print(
-        f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {archived} "
-        "recorded record(s) will be archived and run again.",
-        file=sys.stderr,
-        flush=True,
-    )
-    return names, resolved
-
-
 @with_refusal_policy
 def run_matrix(
     path: str | Path,
@@ -1025,7 +954,9 @@ def run_matrix(
     default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
     )
-    build_native_geometries(path, workspace, fs_exe, default_build=default, rows=selected_rows)
+    build_native_geometries(
+        path, workspace, fs_exe, default_build=default, rows=selected_rows, executor=executor
+    )
     resolved = resolve_matrix(
         path,
         workspace,
@@ -1038,7 +969,7 @@ def run_matrix(
     )
     resolved = narrow_to_selection(resolved, sims, points, workspace, redoing=force_rerun_all)
     if force_rerun_all:
-        force_rerun, resolved = _everything_recorded(
+        force_rerun, resolved = everything_recorded(
             resolved, workspace, sims=sims, force_rerun=force_rerun, resume=resume
         )
     plan = preflight_resolved_matrix(

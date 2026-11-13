@@ -635,6 +635,115 @@ def test_grouped_run_passes_receipt_selection_to_native_builder(monkeypatch):
         module._bound_matrix("unused", object(), receipt, {"name": "test", "fs_version": "26.120"})
 
 
+def test_run_matrix_passes_its_executor_to_native_builder(monkeypatch):
+    """R28-007: the executor a caller gives run_matrix also runs the native build."""
+    module = importlib.import_module("pyflightstream.run.matrix")
+    rows, supplied = [SimpleNamespace(pol="7001")], object()
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]))
+    monkeypatch.setattr(module, "settle_the_matrix_default", lambda *a, **kw: ("26.120", rows))
+
+    def build(*args, **kwargs):
+        assert kwargs["executor"] is supplied
+        raise _StopError
+
+    monkeypatch.setattr(module, "build_native_geometries", build)
+    with pytest.raises(_StopError):
+        module.run_matrix(
+            "unused", object(), name="test", recipes={}, assess=object(), executor=supplied
+        )
+
+
+def test_grouped_run_passes_its_executor_to_native_builder(monkeypatch):
+    module = importlib.import_module("pyflightstream.run._batch_run")
+    rows, supplied = [SimpleNamespace(pol="7001")], object()
+    monkeypatch.setattr(module, "read_matrix", lambda path: rows)
+    monkeypatch.setattr(module, "refuse_silent_rows_without_default", lambda *args: None)
+    monkeypatch.setattr(module, "_selected", lambda *a, **kw: (rows, ["7001"]), raising=False)
+
+    def build(*args, **kwargs):
+        assert kwargs["executor"] is supplied
+        raise _StopError
+
+    monkeypatch.setattr(module, "build_native_geometries", build)
+    receipt = SimpleNamespace(jobs=[SimpleNamespace(sims=["7001"])])
+    kw = {"name": "test", "fs_version": "26.120", "executor": supplied}
+    with pytest.raises(_StopError):
+        module._bound_matrix("unused", object(), receipt, kw)
+
+
+def _one_pending_build(monkeypatch, tmp_path):
+    """Make the real row loop ask the solver for one build of the folder ``wing``."""
+    native = importlib.import_module("pyflightstream.workspace._native_rows")
+    folder = tmp_path / "geometries" / "wing"
+
+    def one(row, workspace, build, exe, *, solver, generate):
+        solver(folder, build, exe)
+        return "wing"
+
+    monkeypatch.setattr(native, "_build_one", one)
+    return [SimpleNamespace(pol="7001", fs_build="26.127", variables={"GEOMETRY": "wing"})]
+
+
+def test_native_builder_runs_a_supplied_synchronous_executor(monkeypatch, tmp_path):
+    identity = importlib.import_module("pyflightstream.run._identity")
+    verbs = importlib.import_module("pyflightstream.run._cli_geometry")
+    rows, ran = _one_pending_build(monkeypatch, tmp_path), []
+
+    class Synchronous:
+        submits = False
+
+        def run_script(self, script, working_dir, timeout_s=None):
+            ran.append(script)
+            return SimpleNamespace(
+                log_text="", stdout="", stderr="", failed=False, return_code=0, wall_time_s=1.0
+            )
+
+    def never(*args, **kwargs):
+        raise AssertionError("a local executor or a local executable was asked for")
+
+    plan = SimpleNamespace(root=tmp_path, build_id="26.127")
+    monkeypatch.setattr(verbs, "plan_geometry_build", lambda folder, build: plan)
+    monkeypatch.setattr(verbs, "refuse_before_running", lambda plan, overwrite: None)
+    monkeypatch.setattr(verbs, "resolve_build", never)
+    monkeypatch.setattr(verbs, "LocalExecutor", never)
+
+    def apply(plan, runner, package_version):
+        runner(tmp_path / "build.txt", tmp_path)
+        return (SimpleNamespace(passed=True),)
+
+    monkeypatch.setattr(verbs, "apply_geometry_build", apply)
+    names = identity.build_native_geometries(
+        "unused", object(), default_build="26.127", rows=rows, executor=Synchronous()
+    )
+    assert names == ["wing"] and ran == [tmp_path / "build.txt"]
+
+
+def test_native_builder_refuses_a_submitting_executor_by_name(monkeypatch, tmp_path):
+    from pyflightstream.run import ExecutorConfigurationError
+
+    identity = importlib.import_module("pyflightstream.run._identity")
+    verbs = importlib.import_module("pyflightstream.run._cli_geometry")
+    rows = _one_pending_build(monkeypatch, tmp_path)
+
+    def never(*args, **kwargs):
+        raise AssertionError("a submitting executor reached the geometry build")
+
+    monkeypatch.setattr(verbs, "apply_geometry_build", never)
+    monkeypatch.setattr(verbs, "plan_geometry_build", never)
+
+    class Cluster:
+        submits = True
+
+    with pytest.raises(ExecutorConfigurationError) as raised:
+        identity.build_native_geometries(
+            "unused", object(), default_build="26.127", rows=rows, executor=Cluster()
+        )
+    message = str(raised.value)
+    assert "native geometry needs a synchronous build first" in message
+    assert "Cluster submits jobs" in message
+    assert "pyfs-workspace geometry build" in message and "--apply --build 26.127" in message
+
+
 def test_native_boundary_keeps_dots_in_configuration_stem(tmp_path, library):
     from dataclasses import replace
 
