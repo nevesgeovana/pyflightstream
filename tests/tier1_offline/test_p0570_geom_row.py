@@ -23,6 +23,14 @@ from tests.support_helpers import make_library, stage_geometry
 
 BODY_TOML = '[components.FUS]\ntype = "body"\nlength_mm = 2000.0\n'
 
+
+def test_r27_row_documentation_describes_behavior_without_personal_provenance():
+    from pyflightstream.workspace import _geometry_row
+
+    assert "her rule" not in _geometry_row.__doc__
+    assert "warned and skipped" in _geometry_row.__doc__
+
+
 #: The header of 0.56.0, written out, so the frozen layout is held against a literal.
 OLD_HEADER = (
     "POL HIDDEN RUN AIRCRAFT CONFIGURATION DESCRIPTION FLIGHT_CONDITION SWEEP_VALUES GEOMETRY "
@@ -157,6 +165,32 @@ def test_old_header_warns_and_migrates_with_no_byte_lost(tmp_path):
         assert after == before
     assert [r.pol for r in read_matrix(path)] == ["7001", "7002"]
     assert not any(c.get("kind") == "matrix" for c in migrate_workspace(workspace.root, apply=True))
+
+
+def test_r27_matrix_backup_conflict_prevents_manifest_migration(tmp_path):
+    from pyflightstream.workspace.manifest import WorkspaceError
+    from pyflightstream.workspace.migrate import migrate_workspace
+
+    workspace = make_library(tmp_path)
+    matrix = _matrix(workspace.root, [_cells()], old=True)
+    original = matrix.read_bytes()
+    manifest = workspace.root / "runs.json"
+    manifest.write_bytes(b"[]\r\n")
+    backup = matrix.with_suffix(".fs.bak")
+    backup.write_bytes(b"a different preserved matrix")
+    with pytest.raises(WorkspaceError, match="different backup"):
+        migrate_workspace(workspace.root, apply=True)
+    assert manifest.read_bytes() == b"[]\r\n"
+    assert not manifest.with_suffix(".json.bak").exists()
+    assert matrix.read_bytes() == original
+    assert backup.read_bytes() == b"a different preserved matrix"
+
+    backup.write_bytes(original)
+    changes = migrate_workspace(workspace.root, apply=True)
+    assert {row["file"] for row in changes} == {"runs.json", "matrix.fs"}
+    assert manifest.with_suffix(".json.bak").read_bytes() == b"[]\r\n"
+    assert matrix.with_suffix(".fs.bak").read_bytes() == original
+    assert b"MESH_ROUTE" in matrix.read_bytes()
 
 
 def test_every_tracked_matrix_file_is_at_the_current_layout():
@@ -406,11 +440,11 @@ def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
     seen: dict = {}
 
     class Result:
-        record = {"members": ["FUS"]}
+        record = {"members": ["FUS"], "accepted": True}
         written: dict = {}
 
     def strategy_1(config, controls, *, out, descriptor, **_):
-        seen.update(controls=Path(controls).name, descriptor=descriptor)
+        seen.update(controls=controls, descriptor=descriptor)
         (Path(out) / f"{descriptor}.obj").write_text("o FUS\n", encoding="utf-8")
         return Result()
 
@@ -427,7 +461,8 @@ def test_quad_dominant_meshes_with_strategy_1_and_hands_the_mesh_over(
     )
     instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
     assert instruction.kind == "mesh" and instruction.mesh.file == f"{built.name}.obj"
-    assert seen["controls"] == "demo.mesh.toml" and seen["descriptor"] == built.name
+    assert seen["controls"]["mesh"] == {"strategy": 1, "variant": "clean"}
+    assert seen["descriptor"] == built.name
     assert calls[0]["until"] == "S11"
 
 
@@ -461,6 +496,9 @@ def test_a_mesher_set_for_full_grid_is_the_one_called(tmp_path, library, monkeyp
     from pyflightstream.workspace import _geometry_row as row_module
 
     reached: list = []
+    (library.inputs_dir / "geometries" / "demo.mesh.toml").write_text(
+        "[mesh]\nstrategy = 2\n", encoding="utf-8"
+    )
     monkeypatch.setitem(
         row_module.MESH_STRATEGIES, "full_grid", lambda *args: reached.append("full_grid")
     )
@@ -819,3 +857,124 @@ def test_native_boundary_keeps_dots_in_iges_stem(tmp_path, library):
     built = row_module.prepare_row_geometry(request, library.inputs_dir / "geometries")
     instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
     assert instruction.boundaries == ("wing.extra",)
+
+
+@pytest.mark.parametrize("route", ["quad_dominant", "full_grid"])
+def test_r27_rejected_mesh_never_gets_a_build_instruction(tmp_path, library, monkeypatch, route):
+    from functools import partial
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    def rejected(config, controls, *, out, descriptor):
+        obj = Path(out) / f"{descriptor}.obj"
+        obj.write_text("o FUS\n", encoding="utf-8")
+        return SimpleNamespace(
+            record={
+                "members": ["FUS"],
+                "accepted": False,
+                "checks": [{"id": "mesh.inverted", "status": "failed"}],
+            },
+            written={"obj": str(obj)},
+        )
+
+    writer = (
+        partial(row_module.mesh_with_strategy_1, mesh_configuration=rejected)
+        if route == "quad_dominant"
+        else partial(row_module.mesh_with_strategy_2, mesh_full_grid=rejected)
+    )
+    monkeypatch.setitem(row_module.MESH_STRATEGIES, route, writer)
+    geometries = library.inputs_dir / "geometries"
+    (geometries / "demo.mesh.toml").write_text("[mesh]\n", encoding="utf-8")
+    with pytest.raises(row_module.GeometryRowError, match="mesh.inverted"):
+        row_module.prepare_row_geometry(
+            _request(library, route=route), geometries, generate=_fake_generation([])
+        )
+    assert not list(geometries.glob("gen-*/*.geometry.toml"))
+
+
+@pytest.mark.parametrize("kind", ["configuration", "iges"])
+def test_r27_build_specific_instructions_do_not_share_a_cache(library, kind):
+    from dataclasses import replace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+    from pyflightstream.workspace._geometry_instruction import read_geometry_instruction
+
+    request = _request(library, route="native")
+    geometries = library.inputs_dir / "geometries"
+    if kind == "iges":
+        source = geometries / "blade.igs"
+        source.write_text("iges", encoding="utf-8")
+        request = replace(request, kind="iges", source=source)
+    first = row_module.prepare_row_geometry(request, geometries, generate=_fake_generation([]))
+    second = row_module.prepare_row_geometry(
+        replace(request, fs_build="26.121"), geometries, generate=_fake_generation([])
+    )
+    assert first.folder != second.folder
+    assert (
+        read_geometry_instruction(second.folder / f"{second.name}.geometry.toml").fs_build
+        == "26.121"
+    )
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_r27_mesh_control_bytes_are_part_of_the_row_cache_key(library, explicit):
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    controls = geometries / ("custom.mesh.toml" if explicit else "demo.mesh.toml")
+    controls.write_text("[mesh]\nstrategy = 1\n", encoding="utf-8")
+    free = {"MESH_CONTROLS": controls.name} if explicit else {}
+    request = _request(library, route="quad_dominant", free=free)
+    before = row_module.row_identity(request)
+    controls.write_text("[mesh]\nstrategy = 1\n[defaults.body]\nx_cells = 100\n", encoding="utf-8")
+    after = row_module.row_identity(request)
+    assert before[0] == after[0]  # geometric parameters are unchanged
+    assert before[1] != after[1]  # the realized mesh must not be reused
+
+
+@pytest.mark.parametrize("bad", ["missing", "malformed"])
+def test_r27_bad_geometry_input_does_not_abort_healthy_rows(tmp_path, library, bad):
+    source = library.inputs_dir / "geometries" / "demo.geom.toml"
+    if bad == "malformed":
+        source.write_text("[components.FUS\n", encoding="utf-8")
+    geometry = "missing.geom.toml" if bad == "missing" else source.name
+    rows = [_cells(geometry=geometry, route="native"), _cells(pol="7002")]
+    resolved = _resolve(_matrix(tmp_path, rows), library)
+    assert [case.sim_id for case in resolved.campaign.sims] == ["7002"]
+    assert "7001" in resolved.geometry_failures
+    assert resolved.geometry_failures["7001"]["message"]
+
+
+@pytest.mark.parametrize("route,strategy", [("quad_dominant", 1), ("full_grid", 2)])
+def test_r27_row_selection_reaches_mesh_controls(library, tmp_path, route, strategy):
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+
+    geometries = library.inputs_dir / "geometries"
+    (geometries / "demo.geom.toml").write_text(
+        BODY_TOML + '[configurations.chosen]\nmembers = ["FUS"]\n', encoding="utf-8"
+    )
+    controls_path = geometries / "demo.mesh.toml"
+    original = '[mesh]\nstrategy = 2\nconfiguration = "other"\n'
+    controls_path.write_text(original, encoding="utf-8")
+    seen = {}
+
+    def mesher(config, controls, *, out, descriptor):
+        import tomllib
+
+        raw = tomllib.loads(Path(controls).read_text()) if isinstance(controls, Path) else controls
+        seen.update(raw["mesh"])
+        (Path(out) / f"{descriptor}.obj").write_text("o FUS\n", encoding="utf-8")
+        return SimpleNamespace(record={"accepted": True, "members": ["FUS"]}, written={})
+
+    request = _request(library, route=route, free={"GEOM_CONFIGURATION": "chosen"})
+    if strategy == 1:
+        row_module.mesh_with_strategy_1(request, tmp_path, "mesh", {}, mesh_configuration=mesher)
+    else:
+        row_module.mesh_with_strategy_2(request, tmp_path, "mesh", {}, mesh_full_grid=mesher)
+    assert seen["configuration"] == "chosen"
+    assert seen["strategy"] == strategy
+    assert seen["variant"] == "clean"
+    assert controls_path.read_text(encoding="utf-8") == original

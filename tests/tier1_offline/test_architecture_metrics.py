@@ -251,3 +251,15 @@ def test_a_definition_in_a_facade_root_is_red(measured):
         assert red(facade, "\nfrom pyflightstream._errors import *\n"), facade
         assert any("holds none" in f for f in red(facade, "\n" + logic)), facade
         assert red(facade, getattr_only) == [], facade
+
+
+def test_r27_geometry_stages_fan_out_holds(measured):
+    tree, _ = measured
+    assert am.fan_out_findings(tree, BASELINES["fan_out"], BASELINES["fan_out_deferred"]) == []
+
+
+def test_r27_mesh_function_limits_hold(measured):
+    tree, _ = measured
+    assert (
+        am.function_findings(tree, BASELINES["function_lines"], BASELINES["function_limits"]) == []
+    )

@@ -86,10 +86,14 @@ def migrate_workspace(root: str | Path, *, apply: bool = False) -> list[dict[str
                 )
             )
         prepared = [_prepare_file(path) for path in candidates]
-        changes = [_change_description(item, apply) for item in prepared]
+        matrices = _prepare_matrices(root)
+        changes = [
+            *[_change_description(item, apply) for item in prepared],
+            *[{**_change_description(item, apply), "kind": "matrix"} for item in matrices],
+        ]
         if apply:
-            _write_prepared(prepared)
-    return [*changes, *_migrate_matrices(root, apply=apply)]
+            _write_prepared([*prepared, *matrices])
+    return changes
 
 
 def _candidates(root: Path):
@@ -173,7 +177,7 @@ def _prepare_file(path: Path):
 
 
 def _write_prepared(prepared: list):
-    """Secure all original bytes before replacing any live manifest."""
+    """Secure all original bytes before replacing any live file."""
     # All original bytes are secured before any live file changes.
     for _, backup, before, _ in prepared:
         if not backup.exists():
@@ -188,7 +192,7 @@ def _write_prepared(prepared: list):
     for path, _, _, after in prepared:
         temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
-            _textio.write_text(temporary, after.decode("utf-8"))
+            _textio.write_bytes(temporary, after)
             temporary.replace(path)
         finally:
             temporary.unlink(missing_ok=True)
@@ -206,8 +210,8 @@ def _change_description(item: tuple, apply: bool) -> dict[str, Any]:
     }
 
 
-def _migrate_matrices(root: Path, *, apply: bool) -> list[dict[str, Any]]:
-    """Give each root matrix at the older layout its MESH_ROUTE column, copy first.
+def _prepare_matrices(root: Path) -> list[tuple]:
+    """Prepare each root matrix's MESH_ROUTE column without changing any file.
 
     A matrix already at the current layout, and any other ``.fs`` file, is not a candidate.
     Every rewrite is prepared before the first backup or replacement, and a backup that
@@ -231,9 +235,4 @@ def _migrate_matrices(root: Path, *, apply: bool) -> list[dict[str, Any]]:
                 f"{backup}: a different backup already exists; preserve it before migrating again"
             )
         prepared.append((path, backup, before, after))
-    if apply:
-        for path, backup, before, after in prepared:
-            if not backup.exists():
-                backup.write_bytes(before)
-            _textio.write_bytes(path, after)
-    return [{**_change_description(item, apply), "kind": "matrix"} for item in prepared]
+    return prepared

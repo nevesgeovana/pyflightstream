@@ -28,8 +28,8 @@ from pyflightstream.workspace._scale_fsm import scale_fsm_nodes
 
 __all__ = ["scale_mesh"]
 
-_VERTEX = re.compile(rb"^(v[ \t]+)(\S+)([ \t]+)(\S+)([ \t]+)(\S+)(.*)$", re.DOTALL)
-_FACE = re.compile(rb"^f[ \t]")
+_VERTEX = re.compile(rb"^([ \t]*v[ \t]+)(\S+)([ \t]+)(\S+)([ \t]+)(\S+)(.*)$", re.DOTALL)
+_FACE = re.compile(rb"^[ \t]*f[ \t]")
 
 
 def parse_factor(factor: object) -> float:
@@ -105,7 +105,7 @@ def _rewrite(data: bytes, factor: float, about: tuple[float, ...]) -> tuple[byte
     after: list[list[float]] = []
     faces = 0
     for index, line in enumerate(lines):
-        if line.startswith((b"v ", b"v\t")):
+        if line.lstrip(b" \t").startswith((b"v ", b"v\t")):
             lines[index], moved = _scaled_line(line, factor, about)
             after.append(moved)
             before.append([float(c) for c in _VERTEX.match(line).group(2, 4, 6)])  # type: ignore[union-attr]

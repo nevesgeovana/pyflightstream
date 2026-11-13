@@ -9,9 +9,10 @@ OBJ writer, the mathematics of reading a lifting surface back from sections, the
 boundary (schema export, pin verification, configuration writing), and ``junctions``, the
 namespace of the measured checks and limits of the S10 junction sub-steps.
 
-The pin check of a component record and the configuration writer are defined here; the other
-names are defined in the private modules of this package and re-exported, so a caller in
-another package imports this module and no private path. The functions import no geometry
+The pin check of a component record is defined here; configuration writing delegates to the
+file boundary, and the other names are defined in the private modules of this package and
+re-exported, so a caller in another package imports this module and no private path. The functions
+import no geometry
 kernel and no solver; they need numpy and scipy only. The names that matter to a user are the
 entry points of :mod:`pyflightstream.workspace.geometry_pipeline` and the configuration
 boundary of :mod:`pyflightstream.geometry`; the rest is the contract between the two
@@ -26,17 +27,14 @@ Examples
 
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
 
 import pyflightstream.geometry._control_surfaces as controls
 import pyflightstream.geometry._junctions as junctions
-from pyflightstream._errors import InputValueError
-from pyflightstream._textio import write_text
 from pyflightstream.geometry._blister import blister_model
 from pyflightstream.geometry._bodies import body
 from pyflightstream.geometry._boundary import export_schema, sha256_file, unpack
+from pyflightstream.geometry._boundary import write_config as _write_config
 from pyflightstream.geometry._caps import CAP_EDGE_GAP, cap_edge_gap, lifting_model, tip_cap
 from pyflightstream.geometry._fillet import fillet_model
 from pyflightstream.geometry._generation import (
@@ -200,23 +198,6 @@ __all__ = [
 ]
 
 
-def _toml_value(value):
-    """Render a plain value as an inline TOML value."""
-    if isinstance(value, dict):
-        return (
-            "{ " + ", ".join(f"{json.dumps(k)} = {_toml_value(v)}" for k, v in value.items()) + " }"
-        )
-    if isinstance(value, list):
-        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return json.dumps(value)
-    if isinstance(value, (int, float)) and math.isfinite(value):
-        return repr(value)
-    raise InputValueError(f"Unsupported TOML value: {value!r}")
-
-
 def write_config(config, path):
     """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged.
 
@@ -227,8 +208,7 @@ def write_config(config, path):
     path : str or Path
         File to write.
     """
-    text = "\n".join(f"{json.dumps(k)} = {_toml_value(v)}" for k, v in config.items()) + "\n"
-    write_text(path, text)
+    _write_config(config, path)
 
 
 def verify_pins(record: ComponentRecord, asset_root: str | Path) -> list[str]:

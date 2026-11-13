@@ -280,3 +280,19 @@ def test_p0570_g16_the_geometry_iges_is_never_changed(wing):
     before = (wing / "panel.igs").read_bytes()
     _grid(wing, "panel.igs", wing / "again.obj")
     assert (wing / "panel.igs").read_bytes() == before
+
+
+@pytest.mark.parametrize("damage", ["area", "coordinate", "short-point", "nan-area"])
+def test_r27_unusable_numeric_layout_falls_back_to_foreign(tmp_path, damage):
+    data = _sidecar()
+    if damage == "area":
+        data["faces"][0]["area_m2"] = "not-a-number"
+    elif damage == "coordinate":
+        data["blocks"][0]["u"][1] = "not-a-number"
+    elif damage == "short-point":
+        data["faces"][0]["source_faces"][0]["loop"][0][0] = []
+    else:
+        data["faces"][0]["area_m2"] = float("nan")
+    notes = []
+    assert cfg.read_layout(_write(tmp_path, data), notes) is None
+    assert len(notes) == 1 and "foreign" in notes[0]

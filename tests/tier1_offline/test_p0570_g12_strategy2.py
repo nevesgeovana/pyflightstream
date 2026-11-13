@@ -302,3 +302,10 @@ def test_g12_wb_nodes_lie_on_their_sources_and_the_planar_cap_on_its_plane(wb_ru
 def test_g12_wb_poles_are_valence_3_at_the_body_closures(wb_run):
     poles = _checks(wb_run.record)["E11.valence3_poles"]
     assert poles["measured"] == 6
+
+
+def test_r27_e11_measures_the_valence_of_a_declared_pole():
+    xyz, cells = _star(4)
+    assert check_poles(xyz, cells, [], tolerance_m=1e-9)["irregular"] == 0
+    with pytest.raises(InputValueError, match="E11.*valence 4"):
+        check_poles(xyz, cells, [xyz[0].tolist()], tolerance_m=1e-9)

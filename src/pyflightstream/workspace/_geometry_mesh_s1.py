@@ -819,6 +819,8 @@ def plan_strategy1(resolved: Mapping, source: Any, *, base: Path | None = None) 
     warnings: list[str] = []
     raw = _with_default_followers(raw, components, members, warnings)
     controls = mesh_controls(raw, members=set(members), names=names)
+    if controls["mesh"]["variant"] != "clean":
+        raise InputValueError("mesh.variant: the generated mesh route supports only clean")
     if controls["mesh"]["strategy"] != 1:
         raise InputValueError("mesh.strategy 2: the full-grid strategy is not on this route")
     order = _route_members(components, members)

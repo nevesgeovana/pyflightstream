@@ -608,45 +608,8 @@ def mesh_cap_dominant(mesh, loop, component):
     gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
     gmsh.option.setNumber("Mesh.Smoothing", 5)
     gmsh.model.add("cap")
-    n = len(ring)
     try:
-        g = gmsh.model.geo
-        size = [
-            0.5
-            * (np.linalg.norm(ring[i] - ring[i - 1]) + np.linalg.norm(ring[(i + 1) % n] - ring[i]))
-            for i in range(n)
-        ]
-        points = [g.addPoint(*ring[i], size[i]) for i in range(n)]
-        lines = [g.addLine(points[i], points[(i + 1) % n]) for i in range(n)]
-        g.addPlaneSurface([g.addCurveLoop(lines)], 1)
-        g.synchronize()
-        for line in lines:
-            gmsh.model.mesh.setTransfiniteCurve(line, 2)
-        gmsh.model.mesh.setRecombine(2, 1)
-        best = None
-        for algorithms in ((8, 6, 5), (6, 8, 5), (5, 6, 8)):
-            _dominant_algorithm(gmsh, algorithms, n)
-            tags, coords, _ = gmsh.model.mesh.getNodes()
-            coords = np.asarray(coords).reshape(-1, 3)
-            position = {int(t): i for i, t in enumerate(tags)}
-            cells = []
-            for kind, block in zip(*gmsh.model.mesh.getElements(2, 1)[::2], strict=True):
-                cells.extend(np.asarray(block).reshape(-1, 3 if kind == 2 else 4))
-            cells = _split_collinear_quads(coords, position, cells)
-            smallest = min(
-                float(_corner_sines(coords, [[position[int(t)] for t in c]]).min()) for c in cells
-            )
-            if best is None or smallest > best[0]:
-                boundary = {}
-                for i in range(n):
-                    t, _, _ = gmsh.model.mesh.getNodes(0, points[i])
-                    boundary[int(t[0])] = loop[i]
-                best = (smallest, position, coords, cells, boundary)
-            if smallest >= MIN_SIN:
-                break
-        if best[0] < MIN_SIN:
-            raise InputValueError(f"cap: smallest corner sine {best[0]:.4g} on every variant")
-        _, position, coords, cells, boundary = best
+        position, coords, cells, boundary = _dominant_cap_cells(gmsh, ring, loop)
     finally:
         gmsh.model.remove()
         gmsh.model.setCurrent(previous)
@@ -669,3 +632,44 @@ def mesh_cap_dominant(mesh, loop, component):
         components=mesh.components + [component] * len(new_cells),
         surfaces=mesh.surfaces + [CAP_SURFACE] * len(new_cells),
     ), normal
+
+
+def _dominant_cap_cells(gmsh, ring, loop):
+    """Build the planar polygon and retain the best sound quad-dominant variant."""
+    n = len(ring)
+    g = gmsh.model.geo
+    size = [
+        0.5 * (np.linalg.norm(ring[i] - ring[i - 1]) + np.linalg.norm(ring[(i + 1) % n] - ring[i]))
+        for i in range(n)
+    ]
+    points = [g.addPoint(*ring[i], size[i]) for i in range(n)]
+    lines = [g.addLine(points[i], points[(i + 1) % n]) for i in range(n)]
+    g.addPlaneSurface([g.addCurveLoop(lines)], 1)
+    g.synchronize()
+    for line in lines:
+        gmsh.model.mesh.setTransfiniteCurve(line, 2)
+    gmsh.model.mesh.setRecombine(2, 1)
+    best = None
+    for algorithms in ((8, 6, 5), (6, 8, 5), (5, 6, 8)):
+        _dominant_algorithm(gmsh, algorithms, n)
+        tags, coords, _ = gmsh.model.mesh.getNodes()
+        coords = np.asarray(coords).reshape(-1, 3)
+        position = {int(t): i for i, t in enumerate(tags)}
+        cells = []
+        for kind, block in zip(*gmsh.model.mesh.getElements(2, 1)[::2], strict=True):
+            cells.extend(np.asarray(block).reshape(-1, 3 if kind == 2 else 4))
+        cells = _split_collinear_quads(coords, position, cells)
+        smallest = min(
+            float(_corner_sines(coords, [[position[int(t)] for t in c]]).min()) for c in cells
+        )
+        if best is None or smallest > best[0]:
+            boundary = {}
+            for i in range(n):
+                t, _, _ = gmsh.model.mesh.getNodes(0, points[i])
+                boundary[int(t[0])] = loop[i]
+            best = (smallest, position, coords, cells, boundary)
+        if smallest >= MIN_SIN:
+            break
+    if best[0] < MIN_SIN:
+        raise InputValueError(f"cap: smallest corner sine {best[0]:.4g} on every variant")
+    return best[1:]

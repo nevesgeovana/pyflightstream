@@ -177,7 +177,8 @@ def test_p0410_canonical_graph_bytes_and_planted_drift(family, tmp_path):
     gen = generator()
     artifacts = gen.generate(ROOT, family)
     assert artifacts, "every graph family has committed artifacts"
-    assert gen.drift(ROOT, artifacts) == []
+    stale = gen.drift(ROOT, artifacts)
+    assert stale == [], f"Regenerate {family} graph artifacts: {', '.join(stale)}"
     for name, content in artifacts.items():
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)

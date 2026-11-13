@@ -1,4 +1,4 @@
-"""A matrix row whose geometry is generated.
+"""A matrix row whose geometry is generated from a configuration or IGES file.
 
 Pipeline role: the workspace row, called by the matrix binding beside
 :func:`pyflightstream.workspace._geometry_record.judge_the_row_geometry`. A row whose
@@ -14,8 +14,8 @@ generated IGES to the solver's CAD importer (``[cad]``), ``quad_dominant`` meshe
 strategy 1 of PFS-2214 and hands that mesh over (``[mesh]``), and ``full_grid`` meshes it with
 strategy 2 (:func:`mesh_with_strategy_2`) and hands that mesh over the same way.
 
-An entry that does not apply to a row is warned and skipped, never refused;
-what is refused is an input the row cannot be built from: an unknown route, a file
+An entry that does not apply to a row is warned and skipped. Inputs the row cannot be built
+from are refused: an unknown route, a file
 with several configurations and none named, a parameter the file does not hold.
 """
 
@@ -318,6 +318,25 @@ def _short(digest: str) -> str:
     return digest[:16]
 
 
+def _mesh_controls_path(request: GeometryRowRequest) -> Path:
+    return request.controls or request.source.with_name(
+        request.source.name[: -len(GEOMETRY_ROW_SUFFIX)] + ".mesh.toml"
+    )
+
+
+def _build_key(request: GeometryRowRequest, parameter: str) -> str:
+    controls = _mesh_controls_path(request) if request.route != "native" else None
+    payload = {
+        "parameter_id": parameter,
+        "configuration": request.configuration,
+        "variant": request.variant,
+        "route": request.route,
+        "fs_build": request.fs_build,
+        "controls_sha256": hashlib.sha256(controls.read_bytes()).hexdigest() if controls else None,
+    }
+    return _short(hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest())
+
+
 def row_identity(request: GeometryRowRequest) -> tuple[str, str]:
     """Return the ``parameter_id`` the API would give these cells, and the folder's key.
 
@@ -330,20 +349,7 @@ def row_identity(request: GeometryRowRequest) -> tuple[str, str]:
     resolved = _resolve(request.source, request.overrides)
     _members(resolved, request.configuration, request.variant)
     parameter = parameter_id(resolved)
-    key = _short(
-        hashlib.sha256(
-            json.dumps(
-                {
-                    "parameter_id": parameter,
-                    "configuration": request.configuration,
-                    "variant": request.variant,
-                    "route": request.route,
-                },
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest()
-    )
-    return parameter, key
+    return parameter, _build_key(request, parameter)
 
 
 def _folder_name(request: GeometryRowRequest, key: str) -> str:
@@ -484,9 +490,7 @@ def mesh_with_strategy_2(
 
 def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> None:
     """Mesh a generated row with its controls file and write the ``[mesh]`` instruction."""
-    controls = request.controls or request.source.with_name(
-        request.source.name[: -len(GEOMETRY_ROW_SUFFIX)] + ".mesh.toml"
-    )
+    controls = _mesh_controls_path(request)
     if not controls.is_file():
         raise GeometryRowError(
             f"matrix row POL {request.pol}: the mesh controls {controls.name} are not in the "
@@ -495,10 +499,30 @@ def _mesh_with(request: GeometryRowRequest, folder: Path, name: str, mesher) -> 
     from pyflightstream.workspace._geom_run import _resolve
 
     resolved = _resolve(request.source, request.overrides)
-    result = mesher(resolved, controls, out=folder, descriptor=name)
+    result = mesher(resolved, _row_controls(request, controls), out=folder, descriptor=name)
+    if result.record.get("accepted") is not True:
+        failed = [c["id"] for c in result.record.get("checks", []) if c["status"] == "failed"]
+        error = GeometryRowError(
+            f"matrix row POL {request.pol}: mesh was not accepted; failed checks {failed}."
+        )
+        error.report_path = folder / f"{name}.mesh.json"
+        raise error
     members = list(result.record.get("members") or [name])
     written = Path(result.written.get("obj", folder / f"{name}.obj"))
     _write_instruction(folder, name, request, ("mesh", written.name, "METER"), members)
+
+
+def _row_controls(request: GeometryRowRequest, path: Path) -> dict:
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    mesh = raw.setdefault("mesh", {})
+    mesh.update(strategy=1 if request.route == "quad_dominant" else 2, variant=request.variant)
+    if request.configuration is not None:
+        mesh["configuration"] = request.configuration
+    else:
+        mesh.pop("configuration", None)
+    if "iges" in mesh:
+        mesh["iges"] = str((path.parent / mesh["iges"]).resolve())
+    return raw
 
 
 #: The meshers of the routes that mesh: strategy 1 of PFS-2214 for ``quad_dominant`` and
@@ -582,7 +606,8 @@ def _from_iges(request: GeometryRowRequest, geometries: Path) -> RowGeometry:
             f"matrix row POL {request.pol}: MESH_ROUTE {request.route} meshes an IGES file "
             "directly, which this tree does not carry; the route that runs on an IGES is native."
         )
-    name = _folder_name(request, _short(hashlib.sha256(request.source.read_bytes()).hexdigest()))
+    parameter = hashlib.sha256(request.source.read_bytes()).hexdigest()
+    name = _folder_name(request, _build_key(request, parameter))
     folder = geometries / name
     if not (folder / f"{name}.geometry.toml").is_file():
         work = folder.with_name(f".{name}.{os.getpid()}.part")
@@ -720,8 +745,13 @@ def generate_row_geometries(
                 row.fs_build.strip() or None,
                 generate=generate,
             )
-        except GeometryRowError as error:
-            failures[pol] = failure_record(error)
+        except (PyflightstreamError, OSError, ValueError) as error:
+            failure = (
+                error
+                if isinstance(error, GeometryRowError)
+                else GeometryRowError(f"matrix row POL {pol}: {error}")
+            )
+            failures[pol] = failure_record(failure)
             continue
         if path is None:
             kept.append(row)

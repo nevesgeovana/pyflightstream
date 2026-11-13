@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "49fa12998b4d131abb0da4019c1f8befa0d62402eb69309cfae6322d44bac846"
+      "source_sha256": "f9047b78bf285ecfd4dbc5ea0e5cbcd685cb7455a26e9c7fb7fd1aa4c9262241"
     },
     {
       "id": "plan",
@@ -127,7 +127,7 @@
       ],
       "products": "Steady polar coefficients, sections and provenance",
       "example_sha256": {
-        "workspace": "d4ca5d4c811b6b74cfa4c5602b81165ddac60a60a576f11f663ca6fb3d6147c3",
+        "workspace": "77b877a20f093b761f6d6075895aec600257379678c58852b97accc8187130b9",
         "api": "cd387231f0b0ebc3bc3b4281195cdf2a42769895b592442a6bc558b4bffede36"
       }
     },
@@ -146,7 +146,7 @@
       ],
       "products": "Windowed rotor coefficients and configured unsteady reductions",
       "example_sha256": {
-        "workspace": "d4b54434c877ba6d23a0dcd9f305a8d7133f530d124f74611413512e471818d7",
+        "workspace": "7e3013bba3b43b38a43677255b0d97aa442c5eb53a355b9beb68c73d83b031c3",
         "api": "78b2fcddc1d0c18e09e022410e19b4d9f9db3ba797313056263064c2065d9428"
       }
     },
@@ -166,7 +166,7 @@
       ],
       "products": "Comparable polar tables for the original and refined mesh",
       "example_sha256": {
-        "workspace": "eccbb4b7ee4144a8097abd45faea13bef5d49e38a8203e0f21bde1e8cfb616ca",
+        "workspace": "aed9674f030aae4880485543f3af41f731490c4a63b7f90d81b9e3c09d8accfa",
         "api": "e574cb3ff658eb9e217f7344077b6e2715543f4e5a994265474897acb6604ae6"
       }
     }

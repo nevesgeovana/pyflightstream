@@ -12,11 +12,13 @@ compared with it in the test suite).
 from __future__ import annotations
 
 import json
+import math
 from copy import deepcopy
 from pathlib import Path
 
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import InputValueError
+from pyflightstream._textio import write_text
 from pyflightstream.geometry.component import DEVIATION_PROFILES, ComponentRecord
 
 _DEG_KEYS = frozenset(
@@ -203,3 +205,34 @@ def schema_digest() -> str:
     """Return the SHA-256 of the exported schema in its canonical JSON form."""
     text = json.dumps(export_schema(), sort_keys=True, separators=(",", ":"))
     return text_sha256(text)
+
+
+def _toml_value(value):
+    """Render a plain value as an inline TOML value."""
+    if isinstance(value, dict):
+        return (
+            "{ " + ", ".join(f"{json.dumps(k)} = {_toml_value(v)}" for k, v in value.items()) + " }"
+        )
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, (int, float)) and math.isfinite(value):
+        return repr(value)
+    raise InputValueError(f"Unsupported TOML value: {value!r}")
+
+
+def write_config(config, path):
+    """Write a resolved configuration as TOML that :func:`load_config` reads back unchanged.
+
+    Parameters
+    ----------
+    config : dict
+        Resolved configuration of plain values.
+    path : str or Path
+        File to write.
+    """
+    text = "\n".join(f"{json.dumps(k)} = {_toml_value(v)}" for k, v in config.items()) + "\n"
+    write_text(path, text)

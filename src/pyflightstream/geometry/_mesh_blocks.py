@@ -513,7 +513,8 @@ def irregular_nodes(
 
     ``poles`` are the declared pole points (the nose and base closures whose poles are
     ``valence3``); a node within ``tolerance_m`` of one of them with valence 3 is a pole. Every
-    other interior node of valence other than four is returned as ``(node, valence)``. Open
+    other interior node of valence other than four, and any declared pole with a different
+    valence, is returned as ``(node, valence)``. Open
     boundary nodes (the symmetry plane) are not counted.
 
     Parameters
@@ -538,14 +539,14 @@ def irregular_nodes(
     boundary = _boundary_nodes(cells)
     found, other = 0, []
     for node, valence in sorted(node_valence(cells).items()):
-        if node in boundary or valence == 4:
+        if node in boundary:
             continue
         near = bool(len(declared)) and bool(
             np.min(np.linalg.norm(declared - points[node], axis=1)) <= tolerance_m
         )
         if valence == 3 and near:
             found += 1
-        else:
+        elif valence != 4 or near:
             other.append((node, valence))
     return found, other
 
@@ -557,7 +558,7 @@ def check_poles(
     *,
     tolerance_m: float,
 ) -> dict[str, Any]:
-    """Refuse an interior node of valence other than four that is not a valence 3 pole (E11).
+    """Refuse irregular interior nodes or a declared pole whose valence is not three (E11).
 
     Returns
     -------

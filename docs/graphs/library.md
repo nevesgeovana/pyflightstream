@@ -1308,7 +1308,9 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.iges_convert">pyflightstream.workspace.iges_convert</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.iges_grid">pyflightstream.workspace.iges_grid</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.morph">pyflightstream.workspace.morph</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.prop_slice">pyflightstream.workspace.prop_slice</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.repitch">pyflightstream.workspace.repitch</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.scale">pyflightstream.workspace.scale</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.run._cli_parsers"><summary><code>pyflightstream.run._cli_parsers</code></summary><ul>
@@ -1561,6 +1563,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._skipped_families">pyflightstream.cases._skipped_families</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.blade_order">pyflightstream.cases.blade_order</a> (deferred)</li>
@@ -1586,6 +1589,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._settings_file">pyflightstream.workspace._settings_file</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.costs">pyflightstream.workspace.costs</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.matrix">pyflightstream.workspace.matrix</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
 </ul></details>
 
@@ -1972,6 +1976,12 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._fsm_write"><summary><code>pyflightstream.workspace._fsm_write</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._geom_assembly"><summary><code>pyflightstream.workspace._geom_assembly</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._cad">pyflightstream.workspace._cad</a> (module)</li>
@@ -2128,6 +2138,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_instruction">pyflightstream.workspace._geometry_instruction</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_sidecar">pyflightstream.workspace._geometry_sidecar</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_vtk">pyflightstream.workspace._geometry_vtk</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._native_seams">pyflightstream.workspace._native_seams</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._audit">pyflightstream.workspace._refine._audit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.builds">pyflightstream.workspace.builds</a> (module)</li>
@@ -2178,13 +2189,27 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_mesh"><summary><code>pyflightstream.workspace._geometry_mesh</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.config">pyflightstream.geometry.config</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._fsm_write">pyflightstream.workspace._fsm_write</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_generate">pyflightstream.workspace._geometry_generate</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_junction">pyflightstream.workspace._geometry_mesh_junction</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_occ">pyflightstream.workspace._geometry_mesh_occ</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_s1">pyflightstream.workspace._geometry_mesh_s1</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_s2">pyflightstream.workspace._geometry_mesh_s2</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._geometry_mesh_body"><summary><code>pyflightstream.workspace._geometry_mesh_body</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._geometry_mesh_junction"><summary><code>pyflightstream.workspace._geometry_mesh_junction</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_occ">pyflightstream.workspace._geometry_mesh_occ</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_s1">pyflightstream.workspace._geometry_mesh_s1</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_mesh_occ"><summary><code>pyflightstream.workspace._geometry_mesh_occ</code></summary><ul>
@@ -2195,7 +2220,25 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._geometry_mesh_s1"><summary><code>pyflightstream.workspace._geometry_mesh_s1</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_body">pyflightstream.workspace._geometry_mesh_body</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._iges_write">pyflightstream.workspace._iges_write</a> (deferred)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._geometry_mesh_s2"><summary><code>pyflightstream.workspace._geometry_mesh_s2</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.config">pyflightstream.geometry.config</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._fsm_write">pyflightstream.workspace._fsm_write</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_generate">pyflightstream.workspace._geometry_generate</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh">pyflightstream.workspace._geometry_mesh</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_occ">pyflightstream.workspace._geometry_mesh_occ</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_occ">pyflightstream.workspace._geometry_mesh_occ</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_s1">pyflightstream.workspace._geometry_mesh_s1</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_record"><summary><code>pyflightstream.workspace._geometry_record</code></summary><ul>
@@ -2210,6 +2253,18 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_check">pyflightstream.workspace._geometry_check</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._geometry_row"><summary><code>pyflightstream.workspace._geometry_row</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geom_run">pyflightstream.workspace._geom_run</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_instruction">pyflightstream.workspace._geometry_instruction</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh">pyflightstream.workspace._geometry_mesh</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_mesh_s2">pyflightstream.workspace._geometry_mesh_s2</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_sidecar"><summary><code>pyflightstream.workspace._geometry_sidecar</code></summary><ul>
@@ -2261,6 +2316,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._iges_mesh"><summary><code>pyflightstream.workspace._iges_mesh</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._cad">pyflightstream.workspace._cad</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._iges_grid_config">pyflightstream.workspace._iges_grid_config</a> (module)</li>
 </ul></details>
@@ -2400,6 +2457,20 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.workspace._missing_log"><summary><code>pyflightstream.workspace._missing_log</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.cases.pproc">pyflightstream.cases.pproc</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._native_rows"><summary><code>pyflightstream.workspace._native_rows</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_build">pyflightstream.workspace._geometry_build</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_row">pyflightstream.workspace._geometry_row</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._native_seams"><summary><code>pyflightstream.workspace._native_seams</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh_worker">pyflightstream.workspace._gmsh_worker</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._pitch_axis"><summary><code>pyflightstream.workspace._pitch_axis</code></summary><ul>
@@ -2586,6 +2657,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.script.toggles">pyflightstream.script.toggles</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._scale_fsm"><summary><code>pyflightstream.workspace._scale_fsm</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._script_comparison"><summary><code>pyflightstream.workspace._script_comparison</code></summary><ul>
@@ -2906,6 +2981,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._batches">pyflightstream.workspace._batches</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._geometry_row">pyflightstream.workspace._geometry_row</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._matrix_binding">pyflightstream.workspace._matrix_binding</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._matrix_homes">pyflightstream.workspace._matrix_homes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._matrix_phases">pyflightstream.workspace._matrix_phases</a> (module)</li>
@@ -2920,6 +2996,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace.migrate"><summary><code>pyflightstream.workspace.migrate</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._layout">pyflightstream.workspace._layout</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.record_document">pyflightstream.workspace.record_document</a> (module)</li>
 </ul></details>
@@ -2944,6 +3022,16 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace.prop_slice"><summary><code>pyflightstream.workspace.prop_slice</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry">pyflightstream.geometry</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh">pyflightstream.workspace._gmsh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._gmsh_worker">pyflightstream.workspace._gmsh_worker</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace.record_document"><summary><code>pyflightstream.workspace.record_document</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
 </ul></details>
@@ -2963,6 +3051,14 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._repitch_io">pyflightstream.workspace._repitch_io</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel">pyflightstream.workspace._wheel</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._wheel_fsm">pyflightstream.workspace._wheel_fsm</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace.scale"><summary><code>pyflightstream.workspace.scale</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._scale_fsm">pyflightstream.workspace._scale_fsm</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.selections"><summary><code>pyflightstream.workspace.selections</code></summary><ul>
@@ -3233,6 +3329,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.cases.matrix"><summary><code>pyflightstream.cases.matrix</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._deprecations">pyflightstream._deprecations</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._matrix_identifiers">pyflightstream._matrix_identifiers</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
@@ -3899,6 +3996,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.geometry._boundary"><summary><code>pyflightstream.geometry._boundary</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.component">pyflightstream.geometry.component</a> (module)</li>
 </ul></details>
 
@@ -4042,6 +4140,11 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._trims">pyflightstream.geometry._trims</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.geometry._mesh_blocks"><summary><code>pyflightstream.geometry._mesh_blocks</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._mesh_schema">pyflightstream.geometry._mesh_schema</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.geometry._mesh_rules"><summary><code>pyflightstream.geometry._mesh_rules</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._distributions">pyflightstream.geometry._distributions</a> (module)</li>
@@ -4096,6 +4199,12 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._airfoils">pyflightstream.geometry._airfoils</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._sections">pyflightstream.geometry._sections</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.geometry._propeller_slice"><summary><code>pyflightstream.geometry._propeller_slice</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._propeller">pyflightstream.geometry._propeller</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.geometry._records"><summary><code>pyflightstream.geometry._records</code></summary><ul>
@@ -4190,8 +4299,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.geometry.stages"><summary><code>pyflightstream.geometry.stages</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._blister">pyflightstream.geometry._blister</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._bodies">pyflightstream.geometry._bodies</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._boundary">pyflightstream.geometry._boundary</a> (module)</li>
@@ -4202,6 +4309,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._identity">pyflightstream.geometry._identity</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._junctions">pyflightstream.geometry._junctions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._lifting">pyflightstream.geometry._lifting</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._mesh_blocks">pyflightstream.geometry._mesh_blocks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._mesh_rules">pyflightstream.geometry._mesh_rules</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._mesh_schema">pyflightstream.geometry._mesh_schema</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._mesh_topology">pyflightstream.geometry._mesh_topology</a> (module)</li>
@@ -4209,6 +4317,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.geometry._placement">pyflightstream.geometry._placement</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._propeller_checks">pyflightstream.geometry._propeller_checks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._propeller_input">pyflightstream.geometry._propeller_input</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._propeller_slice">pyflightstream.geometry._propeller_slice</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._records">pyflightstream.geometry._records</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._registry">pyflightstream.geometry._registry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry._reverse">pyflightstream.geometry._reverse</a> (module)</li>
