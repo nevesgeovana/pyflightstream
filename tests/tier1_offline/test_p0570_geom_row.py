@@ -633,3 +633,39 @@ def test_grouped_run_passes_receipt_selection_to_native_builder(monkeypatch):
     receipt = SimpleNamespace(jobs=[SimpleNamespace(sims=["7001"])])
     with pytest.raises(_StopError):
         module._bound_matrix("unused", object(), receipt, {"name": "test", "fs_version": "26.120"})
+
+
+def test_native_boundary_keeps_dots_in_configuration_stem(tmp_path, library):
+    from dataclasses import replace
+
+    from pyflightstream.workspace import _geometry_row as row_module
+    from pyflightstream.workspace._geometry_instruction import read_geometry_instruction
+
+    request = _request(library, route="native")
+    source = request.source.with_name("demo.extra.geom.toml")
+    source.write_text(request.source.read_text(encoding="utf-8"), encoding="utf-8")
+    built = row_module.prepare_row_geometry(
+        replace(request, source=source),
+        library.inputs_dir / "geometries",
+        generate=_fake_generation([]),
+    )
+    instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
+    assert instruction.boundaries == ("demo.extra",)
+    assert instruction.operations[0].to == "demo.extra"
+
+
+def test_native_boundary_keeps_dots_in_iges_stem(tmp_path, library):
+    from pyflightstream.workspace import _geometry_row as row_module
+    from pyflightstream.workspace._geometry_instruction import read_geometry_instruction
+
+    source = library.inputs_dir / "geometries" / "wing.extra.igs"
+    source.write_text("iges", encoding="utf-8")
+    request = row_module.plan_row_geometry(
+        {"GEOMETRY": source.name, "MESH_ROUTE": "native"},
+        "7001",
+        library.resolve_geometry,
+        fs_build="26.120",
+    )
+    built = row_module.prepare_row_geometry(request, library.inputs_dir / "geometries")
+    instruction = read_geometry_instruction(built.folder / f"{built.name}.geometry.toml")
+    assert instruction.boundaries == ("wing.extra",)
