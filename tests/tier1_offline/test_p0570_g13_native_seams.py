@@ -79,3 +79,13 @@ def test_the_control_mesh_with_no_degenerate_face_has_nothing_to_explain(tmp_pat
     _mesh(obj, [], [])
     record = _explain(obj, iges)
     assert record["zero_area"] == 0 and record["unexplained"] == 0
+
+
+def test_nonmanifold_edge_between_different_source_edges_is_not_explained(tmp_path):
+    iges, obj = tmp_path / "square.igs", tmp_path / "square.obj"
+    _square_iges(iges)
+    # The diagonal connects two boundary vertices but lies inside the source face.
+    _mesh(obj, [], [(1, 4, 16), (1, 16, 13), (1, 16, 7)])
+    record = _explain(obj, iges)
+    assert record["nonmanifold"] > 0
+    assert record["unexplained"] > 0

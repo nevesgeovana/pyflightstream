@@ -90,11 +90,11 @@ class _SourceEdges:
         finally:
             kernel.close()
         self.tolerance = tolerance
-        points, self.owner = [], []
-        for samples, owners in self.topology.edges:
+        points, self.edge_index = [], []
+        for edge, (samples, _owners) in enumerate(self.topology.edges):
             dense = _densified(np.asarray(samples, float), tolerance / 2)
             points.append(dense)
-            self.owner.extend([owners] * len(dense))
+            self.edge_index.extend([edge] * len(dense))
         self.tree = cKDTree(np.vstack(points)) if points else None
         ends = [np.asarray(s, float)[[0, -1]] for s, _ in self.topology.edges]
         self.end_owner = [owners for _, owners in self.topology.edges for _ in range(2)]
@@ -105,13 +105,28 @@ class _SourceEdges:
         return sorted({names[f] or f"face {f}" for f in faces})
 
     def lying_on(self, points: np.ndarray) -> list[str] | None:
-        """Name the source faces whose edges every point lies on, None when one is off them."""
+        """Name the source faces when the segments follow one source edge, else None."""
         if self.tree is None:
             return None
-        distance, index = self.tree.query(points)
-        if (distance > self.tolerance).any():
-            return None
-        return self._named(f for i in index for f in self.owner[int(i)])
+        # Every point of each mesh segment must follow one and the same source edge.
+        # Checking only the endpoints admits a diagonal across a source face.
+        segments = (
+            [points]
+            if len(points) < 2
+            else [
+                _densified(np.asarray([a, b]), self.tolerance / 2)
+                for a, b in zip(points, np.roll(points, -1, axis=0), strict=True)
+            ]
+        )
+        common: set[int] | None = None
+        for point in np.vstack(segments):
+            near = self.tree.query_ball_point(point, self.tolerance)
+            edges = {self.edge_index[i] for i in near}
+            common = edges if common is None else common & edges
+            if not common:
+                return None
+        assert common is not None
+        return self._named(f for edge in common for f in self.topology.edges[edge][1])
 
     def collapsed_at_a_vertex(self, points: np.ndarray) -> list[str] | None:
         """Name the source faces of a vertex that two of the points collapse onto."""
