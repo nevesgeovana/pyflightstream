@@ -107,7 +107,7 @@ from pyflightstream.run._cli_print import (
 )
 from pyflightstream.run._cli_query import QUERY_COMMANDS, run_query
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
-from pyflightstream.run._grouped import build_native_geometries, planner_for, runner_for
+from pyflightstream.run._grouped import planner_for, runner_for
 from pyflightstream.run._ids import _AlreadyRecordedError, post_stage_options
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
@@ -1234,8 +1234,6 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         return 2
     records: list = []
     try:
-        # The native route's solver import happens here, at a run, never at a plan.
-        build_native_geometries(args, workspace)
         records = runner_for(args, run_matrix)(
             args.matrix,
             workspace,

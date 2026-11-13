@@ -73,7 +73,11 @@ from pyflightstream.run._grouped import (
     read_receipt,
     refuse_grouped_options,
 )
-from pyflightstream.run._identity import _check_scheduled_builds, entry_accepted_builds
+from pyflightstream.run._identity import (
+    _check_scheduled_builds,
+    build_native_geometries,
+    entry_accepted_builds,
+)
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
 from pyflightstream.run._plan import plan_campaign, resolved_plan_error
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
@@ -226,6 +230,7 @@ def _bound_matrix(
     """Resolve the matrix, narrowed to the receipt's simulations and the user's points."""
     default = _default_version(kw)
     refuse_silent_rows_without_default(read_matrix(path), default, path)
+    build_native_geometries(path, workspace, default_build=default, fs_exe=kw.get("fs_exe"))
     resolved = resolve_matrix(
         path,
         workspace,
