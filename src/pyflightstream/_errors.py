@@ -325,8 +325,11 @@ class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning
     ``DeprecationWarning`` could not be without promoting every
     dependency's deprecations too. Through ``DeprecationWarning``, the
     interpreter's own default of hiding deprecations outside
-    ``__main__`` still applies, so an ordinary user of a released
-    version is not shouted at by a rename that does not affect them yet.
+    ``__main__`` still applies to a Python caller, so an ordinary user of a
+    released version is not shouted at by a rename that does not affect them
+    yet. A command-line entry point is the exception: it shows this category
+    once under the default filters, so a person who states a deprecated key or
+    flag sees the new name (a warning option she chose is left alone).
 
     Use it where this package deprecates one of its OWN arguments,
     names or behaviours. An upstream deprecation this package merely

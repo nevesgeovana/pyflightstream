@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters (the `hub_rings` key `width`, `--hub`); the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
+
 ## [0.57.0] - 2026-11-13
 
 ### Added
