@@ -1,7 +1,7 @@
 """P0390-REV38 (NFR-45): the mesh command findings of the 0.38.0 review, API-05 and PUSH-IND-ARCH-6.
 
 API-05: the mesh verbs name the file they write ``--out`` as their sibling
-commands do: ``pyfs-matrix refine --out DIR`` and ``pyfs-matrix audit-mesh
+commands do: ``pyfs-workspace geometry refine --out DIR`` and ``pyfs-workspace geometry audit
 --out FILE``. The names of 0.38.0, ``--out-dir`` and ``--csv``, are kept as
 deprecated aliases: each gives the byte-identical result and warns once.
 
@@ -22,10 +22,10 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.run import cli
 from pyflightstream.workspace import MeshAudit, refine_mesh
 from pyflightstream.workspace.sidecars import read_trailing_edges
 from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
+from tests.tier1_offline import _geometry_verbs as cli
 
 REPO = Path(__file__).resolve().parents[2]
 CLI_MESH = REPO / "src" / "pyflightstream" / "run" / "_cli_mesh.py"
@@ -45,12 +45,6 @@ def _run(capsys, *argv: str) -> tuple[int, str, str, list[str]]:
         code = cli.main(list(argv))
     out = capsys.readouterr()
     said = [str(w.message) for w in caught if "deprecated" in str(w.message)]
-    # FR-477 and API-002: the command alias now has its own dated warning,
-    # independently of the old option aliases this module compares.
-    command = [message for message in said if message.startswith(f"pyfs-matrix {argv[0]} ")]
-    assert len(command) == 1, said
-    assert "pyfs-workspace geometry" in command[0] and "removed in v1.0.0" in command[0]
-    said = [message for message in said if message not in command]
     return code, out.out, out.err, said
 
 

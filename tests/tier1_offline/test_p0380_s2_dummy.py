@@ -19,7 +19,6 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.run import cli
 from pyflightstream.workspace import refine_mesh
 from tests.p0380_mesh_fixtures import (
     face_coordinates,
@@ -29,6 +28,7 @@ from tests.p0380_mesh_fixtures import (
     sheet_with_strips,
     write_source,
 )
+from tests.tier1_offline import _geometry_verbs as cli
 
 #: The row spacings of T beyond G's tip station, growing so a moved node shows.
 STRIP = (0.03, 0.04, 0.05, 0.065, 0.08)

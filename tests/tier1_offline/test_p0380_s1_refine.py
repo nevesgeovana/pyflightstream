@@ -1,4 +1,4 @@
-"""P0380-REFINE (FR-915 to FR-928): a level written by refine_mesh and by pyfs-matrix refine.
+"""P0380-REFINE (FR-915 to FR-928): a level written by refine_mesh and by geometry refine.
 
 Every source is synthetic (tests/p0380_mesh_fixtures.py): the cambered sheet
 grid ``G`` alone, or followed by strips extruded from its tip station that
@@ -32,7 +32,6 @@ import pytest
 import pyflightstream
 import pyflightstream.workspace as workspace
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._refine._grid import recover_grid
@@ -47,6 +46,7 @@ from tests.p0380_mesh_fixtures import (
     sheet_with_strips,
     write_source,
 )
+from tests.tier1_offline import _geometry_verbs as cli
 
 PACKAGE = Path(pyflightstream.__file__).resolve().parent
 #: The row spacings of the triangle strip T beyond the grid's tip station.
@@ -168,7 +168,7 @@ def _refused(root: Path, src: Path, *args, error=InputArtifactError, **kwargs) -
 
 
 def _command(capsys, *argv: str) -> tuple[int, str, str]:
-    """Run ``pyfs-matrix refine`` in-process; return the exit status, stdout and stderr."""
+    """Run ``geometry refine`` in-process; return the exit status, stdout and stderr."""
     capsys.readouterr()
     code = cli.main(["refine", *argv])
     out = capsys.readouterr()
@@ -511,7 +511,7 @@ def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tm
 
 
 def test_the_command_raises_a_factor_below_the_least_by_default(tmp_path, capsys):
-    """ARCH48-R6: pyfs-matrix refine warns and writes the level; --strict-factors refuses."""
+    """ARCH48-R6: geometry refine warns and writes the level; --strict-factors refuses."""
     src = _source(tmp_path)
     with pytest.warns(PyflightstreamWarning, match="raised to 0.0555556"):
         code, _, _ = _command(capsys, str(src), "0.05")
@@ -1331,13 +1331,15 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     warning the control asserts.
     """
     src = _source(tmp_path, WITH_TU)
-    script = "import sys\nfrom pyflightstream.run.cli import main\nsys.exit(main(sys.argv[1:]))"
+    script = (
+        "import sys\nfrom pyflightstream.workspace.cli import main\nsys.exit(main(sys.argv[1:]))"
+    )
     root = str(PACKAGE.parent)
     runs = []
     for seed in ("1", "2"):
         out = tmp_path / f"run{seed}"
         env = {**os.environ, "PYTHONPATH": root, "PYTHONHASHSEED": seed}
-        argv = ["refine", str(src), "2", "--families", "G,T", "--out-dir", str(out)]
+        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out-dir", str(out)]
         done = subprocess.run(
             [sys.executable, "-c", script, *argv], capture_output=True, env=env, timeout=300
         )

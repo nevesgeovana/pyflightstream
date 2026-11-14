@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.run import _alias, cli
+from pyflightstream.run import _alias
 from pyflightstream.run._cli_parsers import _build_parser, parsed
 from pyflightstream.workspace import CampaignWorkspace, MeshAudit, costs, hpc
+from tests.tier1_offline import _geometry_verbs as cli
 from tests.tier1_offline import test_p0350_run_id_alias as _run_1_cli_query__alias_tests
 from tests.tier1_offline.test_p0390_rev38_mesh_cli import _run as _run_1_cli_mesh___run
 from tests.tier1_offline.test_p0390_rev38_mesh_cli import _source as _run_1_cli_mesh___source
@@ -66,7 +67,7 @@ class TestRun1Cli:
 
 
 class TestRun1CliMesh:
-    """Tier 1, 0.40.0 lane run-1: ``pyfs-matrix audit-mesh``, in process.
+    """Tier 1, 0.40.0 lane run-1: ``pyfs-workspace geometry audit``, in process.
 
     The synthetic panel meshes of the 0.38.0 tests; no solver runs.
     """

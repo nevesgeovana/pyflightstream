@@ -673,8 +673,8 @@ def test_p0410_pc_refine_refusal_names_explicit_config(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """PFS-2109.014: direct the user to the selected file without writing a level."""
-    from pyflightstream.run import cli
     from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
+    from tests.tier1_offline import _geometry_verbs as cli
 
     source = write_source(tmp_path / "src", "wing", sheet_with_strips(()))
     config = tmp_path / "selected.toml"

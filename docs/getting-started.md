@@ -225,7 +225,7 @@ public shape laws by a committed generator, with a `.provenance.toml`
 beside each recording the generator and the specification it was built
 from. `41_TWIN.fsm` is a body with two rotors and carries four boundaries:
 `Body`, `Base`, `Blade1`, `Blade2`. Its inventory is written out beside it
-in `41_TWIN.boundaries.toml`, which is what `pyfs-matrix inventory` prints
+in `41_TWIN.boundaries.toml`, which is what `pyfs-workspace geometry inventory` prints
 for a geometry of your own.
 
 You will refer to those boundary names in the next file, so open the

@@ -780,7 +780,8 @@ end = [{X_END_R}, 0.0, {SLIP_R}]
 
 _MATRIX_HEADER = (
     "POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | "
-    "SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | "
+    "SWEEP_VALUES | GEOMETRY | MESH_ROUTE | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | "
+    "NCPUS | "
     "WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 96 + "\n"
 )
 
@@ -803,7 +804,7 @@ def matrix_text() -> str:
     """The two rows of LQ5: the DEFAULT plane, and the plane moved to 8 R."""
     row = (
         "{pol} | 1 | 1 | Rotor | - | {desc} | TASmps:{v:g}, RHOkgm3:{rho}, ALPHA:sweep | 0.0 | "
-        f"{GEOMETRY}.fsm | r530 | s530 | p530 | PERIODIC | - | 8 | 4h | {BUILD} | "
+        f"{GEOMETRY}.fsm | - | r530 | s530 | p530 | PERIODIC | - | 8 | 4h | {BUILD} | "
         "unsteady_rotor | {cells}\n"
     )
     moved = f"{MOVED_PLANE_R * R_M:.4f}"

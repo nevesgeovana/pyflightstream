@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import enum
 import shutil
-import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -41,17 +40,16 @@ from pathlib import Path, PurePath
 from typing import Any
 
 import pyflightstream
-from pyflightstream._deprecations import MATRIX_FS_VERSION
 from pyflightstream._digest import file_sha256, optional_file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
     with_refusal_policy,
 )
 from pyflightstream._progress import workspace_activity
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
@@ -190,22 +188,21 @@ def _default_version(
     *,
     caller: str,
 ) -> str | None:
-    """Resolve the campaign default from the new keyword or the old one.
+    """Return the campaign default, and refuse the retired keyword.
 
     The argument answers for rows whose FS_BUILD column names no build.
     Calling it ``fs_version`` beside a per-row build column reads as an
     OVERRIDE of that column, and nobody reads a docstring to check a
     name they think they understand, so the parameter is
-    ``default_fs_version`` (PFS-2009.08.01). The old spelling still
-    works and says so once, because callers of these two entry points
-    exist outside this package.
+    ``default_fs_version`` (PFS-2009.08.01). The old spelling is refused,
+    naming the new one.
 
     Parameters
     ----------
     default_fs_version : str or None
         The new keyword, as passed.
     fs_version : str or None
-        The retired keyword, as passed.
+        The retired keyword, as passed; any value other than None is refused.
     caller : str, keyword-only
         Name of the entry point, so the message names the call the user
         actually made.
@@ -220,24 +217,10 @@ def _default_version(
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
-        The two keywords given and disagreeing.
+        The retired keyword ``fs_version`` given.
     """
     if fs_version is not None:
-        if default_fs_version is not None and default_fs_version != fs_version:
-            raise MatrixError(
-                f"{caller}() was given default_fs_version={default_fs_version!r} and "
-                f"fs_version={fs_version!r}, which are two names for one argument and "
-                "disagree; pass default_fs_version alone."
-            )
-        # The text comes from the ledger row of this entry point, so the
-        # release it names (1.0.0, PFS-2021.02) is the one the deadline
-        # guard enforces.
-        warnings.warn(
-            MATRIX_FS_VERSION[caller].message(),
-            PyflightstreamDeprecationWarning,
-            stacklevel=3,
-        )
-        return fs_version
+        raise MatrixError(REMOVED_FORMS[f"{caller}.fs_version"].message())
     # A default is unnecessary when every active row supplies FS_BUILD
     # (PFS-2029.01). refuse_silent_rows_without_default names rows with empty
     # cells before binding anything.
@@ -408,11 +391,10 @@ def plan_matrix(
         FlightStream version for rows whose FS_BUILD column names no
         build; a DEFAULT rather than an override, which is what the
         name says (PFS-2009.08.01). Required in practice: it defaults
-        to None only so the former spelling below can still be given.
-    fs_version : str, optional
-        The former name of ``default_fs_version``. Still accepted, with
-        a DeprecationWarning, until v1.0.0 (the ledger row
-        ``PLAN_MATRIX_FS_VERSION``, PFS-2021.02); the ``pyfs-matrix``
+        to None only so the former spelling below can be refused by name.
+    fs_version : None
+        The former name of ``default_fs_version``: any other value is refused with
+        a :class:`MatrixError` naming ``default_fs_version``; the ``pyfs-matrix``
         command line keeps ``--fs-version``.
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable) consulted before
@@ -777,10 +759,9 @@ def run_matrix(
     default_fs_version : str
         FlightStream version for rows whose FS_BUILD column names no
         build; a DEFAULT rather than an override (PFS-2009.08.01).
-    fs_version : str, optional
-        The former name of ``default_fs_version``, still accepted with
-        a DeprecationWarning until v1.0.0 (the ledger row
-        ``RUN_MATRIX_FS_VERSION``, PFS-2021.02).
+    fs_version : None
+        The former name of ``default_fs_version``: any other value is refused with
+        a :class:`MatrixError` naming ``default_fs_version``.
     assess : pyflightstream.run.OutcomeAssessor
         Solver-quality judgment, for example
         :class:`pyflightstream.run.LoadsAssessor`; required because

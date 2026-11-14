@@ -218,7 +218,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "fs_exe"): SOLVER,
     ("pyfs-workspace", "png"): SWITCH,
     ("pyfs-workspace", "visual_inspect"): SWITCH,
-    ("pyfs-matrix", "visual_inspect"): SWITCH,
     # 0.53.0 (PFS-2185.11): `geometry beam --visual-inspection` draws one more file.
     ("pyfs-workspace", "visual_inspection"): SWITCH,
     # 0.54.0 (PFS-2186.01, .06): the sector verbs name a sector and the numbers of one mesh.
@@ -245,9 +244,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "adapt"): SUBJECT,
     ("pyfs-workspace", "threshold"): CASE,
     ("pyfs-workspace", "keep_within_component"): SWITCH,
-    ("pyfs-matrix", "keep_within_component"): SWITCH,
     ("pyfs-workspace", "audit_off"): SWITCH,
-    ("pyfs-matrix", "audit_off"): SWITCH,
     ("pyfs-workspace", "parallel"): (
         "how many variants of one sweep this call builds at once, 1 or 2 (FR-1117); a "
         "variant refused a seat beside another is built again alone, so it changes the "
@@ -361,7 +358,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "refresh"): SWITCH,
     ("pyfs-workspace", "root_offset"): (
         "a parameter of one derivation, written into the output's sidecar, as on "
-        "pyfs-matrix degenerate (FR-477); it defines the geometry written, so it is "
+        "pyfs-workspace geometry degenerate (FR-477); it defines the geometry written, so it is "
         "stated per call and never a machine default"
     ),
     ("pyfs-matrix", "matrix"): SUBJECT,
@@ -369,7 +366,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "matrices"): SUBJECT,
     ("pyfs-matrix", "params"): CASE,
     ("pyfs-matrix", "finished_by"): CASE,
-    ("pyfs-matrix", "geometry"): SUBJECT,
     ("pyfs-matrix", "workspace"): SUBJECT,
     ("pyfs-matrix", "name"): CASE,
     ("pyfs-matrix", "recipe"): CASE,
@@ -384,16 +380,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # recorded in the output's sidecar; `--boundary` names which body of the
     # file is the blade, so it is the subject; `--kind` (above) names the
     # derivation and `--geometry` (above) the mesh.
-    ("pyfs-matrix", "root_offset"): (
-        "a parameter of one derivation, written into the output's sidecar; it defines "
-        "the geometry written, so it is stated per call and never a machine default"
-    ),
-    ("pyfs-matrix", "boundary"): SUBJECT,
     # 0.33.0 (FR-308): `inventory --clean` rewrites THIS geometry once; a
     # default would rewrite every geometry a machine ever inventories.
-    ("pyfs-matrix", "clean"): SWITCH,
     # 0.54.0 (FR-3479): `inventory --refresh` rewrites the counted keys of THIS OBJ's sidecar.
-    ("pyfs-matrix", "refresh"): SWITCH,
     # 0.33.0 (FR-309): why THIS call marks these runs failed, recorded in
     # each record as given; a default would put one sentence on every mark.
     ("pyfs-matrix", "reason"): RECORD,
@@ -578,25 +567,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "csv"): SWITCH,
     # 0.38.0 (the mesh audit): `audit-mesh` audits the OBJ it is given against the source it
     # names, and `--csv FILE` is where this one audit's figures are written.
-    ("pyfs-matrix", "mesh"): SUBJECT,
-    ("pyfs-matrix", "against"): SUBJECT,
-    ("pyfs-matrix", "csv_file"): OUTPUT,
     ("pyfs-matrix", "kind"): SUBJECT,
     # 0.38.0 (the mesh refinement): `refine` changes the density of a panel mesh. The factors
     # and the families are written into the level's refine.json, so they are stated per call.
-    ("pyfs-matrix", "factor"): FIELD_OPERATION,
-    ("pyfs-matrix", "families"): FIELD_OPERATION,
-    ("pyfs-matrix", "chordwise"): FIELD_OPERATION,
-    ("pyfs-matrix", "spanwise"): FIELD_OPERATION,
     ("pyfs-matrix", "parallel"): FIELD_OPERATION,
-    ("pyfs-matrix", "accept_remesh"): FIELD_OPERATION,
-    ("pyfs-matrix", "accept_unknown"): FIELD_OPERATION,
-    ("pyfs-matrix", "force_factors"): FIELD_OPERATION,
-    ("pyfs-matrix", "normal"): FIELD_OPERATION,
     # 0.39.0 (FR-430): the families that keep their interface rows, written into refine.json.
-    ("pyfs-matrix", "keep_first_row"): FIELD_OPERATION,
-    ("pyfs-matrix", "config"): SUBJECT,
-    ("pyfs-matrix", "out_dir"): OUTPUT,
     ("pyfs-matrix", "stamp"): SUBJECT,
     ("pyfs-matrix", "out"): OUTPUT,
     ("pyfs-matrix", "all_sims"): SWITCH,
@@ -784,14 +759,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "verbose"): frozenset(
         {
             "noise",
-            "audit-mesh",
             "collect",
-            "degenerate",
             "inspect-setups",
-            "inventory",
             "plan",
             "post",
-            "refine",
             "run",
             "visual-inspect",
         }
@@ -800,14 +771,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "log_level"): frozenset(
         {
             "noise",
-            "audit-mesh",
             "collect",
-            "degenerate",
             "inspect-setups",
-            "inventory",
             "plan",
             "post",
-            "refine",
             "run",
             "visual-inspect",
         }
@@ -815,9 +782,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "fs_version"): frozenset({"inspect-setups", "plan", "post", "run"}),
-    ("pyfs-matrix", "geometry"): frozenset({"degenerate", "inventory"}),
-    ("pyfs-matrix", "root_offset"): frozenset({"degenerate"}),
-    ("pyfs-matrix", "boundary"): frozenset({"degenerate"}),
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
@@ -832,11 +796,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run", "visual-inspect"}),
-    ("pyfs-matrix", "overwrite"): frozenset(
-        {"degenerate", "inventory", "noise", "refine", "sync", "visual-inspect"}
-    ),
-    ("pyfs-matrix", "clean"): frozenset({"inventory"}),
-    ("pyfs-matrix", "refresh"): frozenset({"inventory"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"noise", "sync", "visual-inspect"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
@@ -958,24 +918,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
     ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
     ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
-    ("pyfs-matrix", "mesh"): frozenset({"audit-mesh", "refine"}),
-    ("pyfs-matrix", "factor"): frozenset({"refine"}),
-    ("pyfs-matrix", "families"): frozenset({"refine"}),
-    ("pyfs-matrix", "chordwise"): frozenset({"refine"}),
-    ("pyfs-matrix", "spanwise"): frozenset({"refine"}),
-    ("pyfs-matrix", "parallel"): frozenset({"refine", "run"}),
-    ("pyfs-matrix", "accept_remesh"): frozenset({"refine"}),
-    ("pyfs-matrix", "accept_unknown"): frozenset({"refine"}),
-    ("pyfs-matrix", "force_factors"): frozenset({"refine"}),
-    ("pyfs-matrix", "normal"): frozenset({"refine"}),
-    ("pyfs-matrix", "keep_first_row"): frozenset({"refine"}),
-    ("pyfs-matrix", "config"): frozenset({"refine"}),
-    ("pyfs-matrix", "out_dir"): frozenset({"refine"}),
-    ("pyfs-matrix", "against"): frozenset({"audit-mesh"}),
-    ("pyfs-matrix", "csv_file"): frozenset({"audit-mesh"}),
-    ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
+    ("pyfs-matrix", "parallel"): frozenset({"run"}),
+    ("pyfs-matrix", "kind"): frozenset({"restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
-    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "rebuild", "refine"}),
+    ("pyfs-matrix", "out"): frozenset({"rebuild"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
     ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),
@@ -1162,7 +1108,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh", "mark-boundaries"}),
     ("pyfs-workspace", "png"): frozenset({"build", "visual-inspect"}),
     ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine", "refine"}),
-    ("pyfs-matrix", "visual_inspect"): frozenset({"refine"}),
     ("pyfs-workspace", "visual_inspection"): frozenset({"beam"}),
     # 0.54.0 (PFS-2186.01, .06): the sector verbs.
     ("pyfs-workspace", "sector"): frozenset({"sector-to-wheel", "sector-remesh", "power-off-body"}),
@@ -1186,9 +1131,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "threshold"): frozenset({"merge"}),
     ("pyfs-workspace", "adapt"): frozenset({"merge"}),
     ("pyfs-workspace", "keep_within_component"): frozenset({"prepare-to-refine", "refine"}),
-    ("pyfs-matrix", "keep_within_component"): frozenset({"refine"}),
     ("pyfs-workspace", "audit_off"): frozenset({"refine"}),
-    ("pyfs-matrix", "audit_off"): frozenset({"refine"}),
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build", "refine"}),
     ("pyfs-workspace", "rows"): frozenset({"build"}),

@@ -1,7 +1,7 @@
 """Tier 1, 0.38.0: the audit of a panel mesh, alone or against its source (FR-426, P0380-AUDIT).
 
 Pipeline role: quality gate on :func:`pyflightstream.workspace.audit_mesh` and
-``pyfs-matrix audit-mesh``. Every mesh is built here: a curved sheet of two
+``pyfs-workspace geometry audit``. Every mesh is built here: a curved sheet of two
 grid families (one in triangles, one in quadrilaterals) sharing a row of
 nodes, a closed box beside it, and a trailing edge along one side. Each gate
 and each relative check is shown failing on a mesh built to fail it (the
@@ -22,9 +22,10 @@ from pathlib import Path
 import numpy
 import pytest
 
+import pyflightstream.run as run_package
 from pyflightstream.exceptions import PyflightstreamWarning
-from pyflightstream.run import cli
 from pyflightstream.workspace import InputArtifactError, MeshAudit, audit_mesh
+from tests.tier1_offline import _geometry_verbs as cli
 
 NX, NY = 6, 6
 
@@ -474,10 +475,8 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
     table = tmp_path / "audit.csv"
     code, said = _run("audit-mesh", str(level), "--against", str(src), "--out", str(table))
     out = capsys.readouterr().out
-    from pyflightstream.run._cli_geometry import alias_warning
-
-    # 0.40.0: the verb is an alias of `pyfs-workspace geometry audit` and says so, once.
-    assert code == 0 and said == [alias_warning("audit-mesh")]
+    # 0.58.0: the verb lives in `pyfs-workspace geometry audit` and warns of nothing.
+    assert code == 0 and said == []
     assert "every gate and check judged passed; " in out and " not judged yet" in out
     assert str(level.with_suffix(".audit.json")) in out
     with table.open(encoding="utf-8", newline="") as handle:
@@ -557,7 +556,7 @@ def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, ca
 def test_the_command_reaches_the_audit_only_through_the_public_function():
     """P0380-AUDIT (FR-426, FR-928): no module of ``run`` imports the refinement package; the
     mesh verbs import ``audit_mesh`` from ``pyflightstream.workspace``."""
-    run = Path(cli.__file__).parent
+    run = Path(run_package.__file__).parent
     imported = {}
     for module in sorted(run.glob("*.py")):
         names = set()

@@ -1,4 +1,4 @@
-"""`pyfs-matrix inventory` writes the boundary sidecar from the file (PFS-2029.06.02)."""
+"""`geometry inventory` writes the boundary sidecar from the file (PFS-2029.06.02)."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from pyflightstream._fsm_fresh import (
     common_blocks,
     reset_to_fresh_import,
 )
-from pyflightstream.run.cli import main
 from pyflightstream.workspace.inputs import InputArtifactError, clean_saved_actions
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
+from tests.tier1_offline._geometry_verbs import main
 
 
 def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):

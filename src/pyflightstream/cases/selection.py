@@ -17,9 +17,9 @@ from typing import Annotated, NoReturn
 
 from pydantic import AfterValidator
 
-from pyflightstream._deprecations import ROW_AIRFRAME_SELECTOR, ROW_BLADES_SELECTOR, refusal_text
 from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import names_of
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases.reference_blocks import (
     AliasCycleError,
     CampaignConfigError,
@@ -34,12 +34,12 @@ __all__ = [
 ]
 
 
-#: The two retired selector words, each mapped to its ledger entry.
+#: The two retired selector words, each mapped to its removed-form entry.
 #: They are the two that decide what a BLADE is from a pattern over the
 #: family name; `all` and `each` guess nothing and remain supported.
 _SELECTORS_THAT_GUESS = {
-    "airframe": ROW_AIRFRAME_SELECTOR,
-    "blades": ROW_BLADES_SELECTOR,
+    "airframe": REMOVED_FORMS["families.airframe"],
+    "blades": REMOVED_FORMS["families.blades"],
 }
 
 
@@ -49,8 +49,8 @@ def warn_a_selector_that_guesses(word: str) -> NoReturn:
     The name is the one it was published under, when the selector still
     warned; it has refused since, and it never returns.
     """
-    # The ledger entry already names its owner, so no prefix is needed.
-    raise CampaignConfigError(refusal_text(_SELECTORS_THAT_GUESS[word]))
+    # The entry already names its owner, so no prefix is needed.
+    raise CampaignConfigError(_SELECTORS_THAT_GUESS[word].message())
 
 
 def _literal_names(token: str, inventory: Sequence[str]) -> list[str]:

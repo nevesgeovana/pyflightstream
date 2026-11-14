@@ -1802,16 +1802,13 @@ def test_p0500_audit_off_skips_the_call_and_allows_a_later_audit(tmp_path, monke
     assert later.path.is_file()
 
 
-@pytest.mark.parametrize("command", ["workspace", "matrix"])
-def test_p0500_audit_off_cli_writes_a_level_and_names_the_later_command(tmp_path, capsys, command):
-    """P0500-AUDIT: both CLI entry points accept the owner's --audit-off flag."""
-    from pyflightstream.run import cli as matrix
+def test_p0500_audit_off_cli_writes_a_level_and_names_the_later_command(tmp_path, capsys):
+    """P0500-AUDIT: the geometry group's refine accepts the --audit-off flag."""
     from pyflightstream.workspace import cli as workspace
 
     source = write_source(tmp_path / "src", "sheet", sheet_with_strips(()))
-    main, prefix = (workspace.main, ["geometry"]) if command == "workspace" else (matrix.main, [])
     try:
-        code = main([*prefix, "refine", str(source), "1", "--audit-off"])
+        code = workspace.main(["geometry", "refine", str(source), "1", "--audit-off"])
     except SystemExit as error:
         code = error.code
     assert code == 0

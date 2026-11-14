@@ -21,6 +21,7 @@ import pytest
 
 from pyflightstream.cases import RawCommand
 from pyflightstream.cases.matrix import MatrixError, read_matrix
+from tests.support_matrix_layout import current_layout
 
 HEADER = (
     "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION "
@@ -38,7 +39,7 @@ def matrix_with(tmp_path: Path, cell: str, pol: str = "9001") -> Path:
         f"| {cell}"
     )
     path = tmp_path / "m.fs"
-    path.write_text(HEADER + row + "\n", encoding="utf-8")
+    path.write_text(current_layout(HEADER + row + "\n"), encoding="utf-8")
     return path
 
 
@@ -566,10 +567,12 @@ def test_a_link_inside_the_inputs_pointing_out_is_refused(tmp_path):
 
     path = tmp_path / "linked.fs"
     path.write_text(
-        HEADER
-        + "9001 | 0 | 1 | WORK | - | LINK | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 "
-        + "| 0,2 | - | r011 | s010 | p011 | - | - | - | - | 26.123 | unsteady_rotor | "
-        + f"{BASE} / RAW: {{FILE: raw/extra.txt / BEFORE: init}}\n",
+        current_layout(
+            HEADER
+            + "9001 | 0 | 1 | WORK | - | LINK | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 "
+            + "| 0,2 | - | r011 | s010 | p011 | - | - | - | - | 26.123 | unsteady_rotor | "
+            + f"{BASE} / RAW: {{FILE: raw/extra.txt / BEFORE: init}}\n"
+        ),
         encoding="utf-8",
     )
     row = read_matrix(path)[0]

@@ -2849,6 +2849,11 @@
     },
     {
       "source": "pyflightstream.cases._matrix_upgrade",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._matrix_upgrade",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -3219,11 +3224,6 @@
     },
     {
       "source": "pyflightstream.cases.matrix",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.matrix",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -3294,11 +3294,6 @@
     },
     {
       "source": "pyflightstream.cases.pproc",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.pproc",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -3359,17 +3354,17 @@
     },
     {
       "source": "pyflightstream.cases.selection",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.selection",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
       "source": "pyflightstream.cases.selection",
       "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.selection",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
@@ -4074,11 +4069,6 @@
     },
     {
       "source": "pyflightstream.cases.workflows._frames",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._frames",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -4299,7 +4289,7 @@
     },
     {
       "source": "pyflightstream.cases.workflows._motion",
-      "target": "pyflightstream._deprecations",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
@@ -12169,11 +12159,6 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -14089,6 +14074,11 @@
     },
     {
       "source": "pyflightstream.run.cli",
+      "target": "pyflightstream._retired_names",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run.cli",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -14131,11 +14121,6 @@
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.run._alias",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.cli",
-      "target": "pyflightstream.run._cli_geometry",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run.cli",
@@ -14384,11 +14369,6 @@
     },
     {
       "source": "pyflightstream.run.matrix",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.matrix",
       "target": "pyflightstream._digest",
       "kind": "module"
     },
@@ -14400,6 +14380,11 @@
     {
       "source": "pyflightstream.run.matrix",
       "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.matrix",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
@@ -14869,17 +14854,17 @@
     },
     {
       "source": "pyflightstream.script.helpers",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.script.helpers",
       "target": "pyflightstream._digest",
       "kind": "module"
     },
     {
       "source": "pyflightstream.script.helpers",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script.helpers",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
@@ -17869,6 +17854,11 @@
     },
     {
       "source": "pyflightstream.workspace._wheel",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._wheel",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -18405,6 +18395,11 @@
     {
       "source": "pyflightstream.workspace.hub_rings",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.hub_rings",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {

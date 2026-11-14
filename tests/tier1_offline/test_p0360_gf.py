@@ -9,6 +9,7 @@ import pytest
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.fsi_setup import FSI_TEMPLATE
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline.test_aeroelastic_typed_setup import (
     verified_marking_registry as verified_marking_registry,
 )
@@ -75,7 +76,7 @@ def test_p0360_gf_coupled_steady_stays_out(tmp_path, capsys, options, run_type):
         f"0.15,0.2 | coupled_wing.obj | r340 | s340 | p340 | {symmetry} | - | 8 | - | {BUILD} | "
         f"{run_type} | {variables}\n"
     )
-    matrix.write_text(_MATRIX_HEADER + row, encoding="utf-8")
+    matrix.write_text(current_layout(_MATRIX_HEADER + row), encoding="utf-8")
     assert main(["plan", str(matrix), "--workspace", str(root), *options]) == 0
     output = capsys.readouterr().out
     payload = json.loads((workspace.plan_dir("gf") / "plan.json").read_text("utf-8"))

@@ -1,4 +1,4 @@
-"""Write a level: the orchestration behind ``pyfs-matrix refine`` and ``refine_mesh``.
+"""Write a level: the orchestration behind ``pyfs-workspace geometry refine`` and ``refine_mesh``.
 
 FR-424 and FR-425.
 

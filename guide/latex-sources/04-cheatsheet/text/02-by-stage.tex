@@ -50,11 +50,11 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \opt{--workspace DIR}{the workspace root.}
 \opt{--apply}{apply the conversion with backups.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.<kind>.boundaries.toml} beside a saved simulation (kind \texttt{fsm}, from its mesh block) or an OBJ (\texttt{obj}, from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
+\begin{cmdblock}{pyfs-workspace geometry inventory}{<geometry>}{Write \file{<stem>.<kind>.boundaries.toml} beside a saved simulation (kind \texttt{fsm}, from its mesh block) or an OBJ (\texttt{obj}, from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
 \opt{--clean}{remove the saved solver actions, keeping \file{<file>.bak-<stamp>} (stage 8).}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix degenerate}{<geometry>}{Derive the thin blade of a blade mesh (a saved simulation or an OBJ): the sheet midway between its two sides, written beside the source with its boundary inventory. Needs no executable.}
+\begin{cmdblock}{pyfs-workspace geometry degenerate}{<geometry>}{Derive the thin blade of a blade mesh (a saved simulation or an OBJ): the sheet midway between its two sides, written beside the source with its boundary inventory. Needs no executable.}
 \opt{--root-offset LENGTH}{required: how far the root moves outward along the span, in the mesh's unit.}
 \opt{--kind thin-blade}{the one kind, the default.}
 \opt{--boundary NAME}{the blade's boundary, for a file that also holds a spinner or a nacelle.}
@@ -95,7 +95,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \cmd{pyfs-workspace profile} sections (\fl{--pol}), uni or bp writes \file{inputs/profiles/<STEM>.csv}, a row's \texttt{PROFILE}, scaled to \fl{--thrust} or \fl{--ct}. ELLIPTICAL needs no file.
 
 \hd{Mesh levels}
-\begin{cmdblock}{pyfs-matrix refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
+\begin{cmdblock}{pyfs-workspace geometry refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
 \opt{--families A,B}{only these; \fl{--parallel F}, \fl{--normal F}: one direction of the grid families.}
 \opt{--keep-within-component}{prepare-to-refine and refine: share parallel and normal governors across each component's grid patches, including disconnected layouts.}
 \opt{--audit-off}{Write the level without running its audit; print the command for auditing it later.}
@@ -103,12 +103,12 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{parallel\_factor}, \texttt{normal\_factor}, \texttt{method}, \texttt{elements}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[[perimeter]]} \texttt{file}, \texttt{export\_te\_per\_family}.}
 \opt{--out DIR}{default: beside the source's folder (\fl{--out-dir DIR}, deprecated, warns); \fl{--overwrite} replaces a level.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix audit-mesh}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
+\begin{cmdblock}{pyfs-workspace geometry audit}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
 \opt{--out FILE}{also the figures as CSV, never a file the audit reads (\fl{--csv FILE}, deprecated).}
 \end{cmdblock}
 
 \hd{Files}
-\rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-matrix inventory} reads.}
+\rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-workspace geometry inventory} reads.}
 \wf{<stem>.<kind>.boundaries.toml}{beside the geometry, kind \texttt{fsm} or \texttt{obj}: the boundary names every alias and pproc family cites.}
 \wf{inputs/executables.toml}{the build registry template: each build a row may name, its executable.}
 \rd{pyfs.toml}{with \file{pyfs.local.toml} (this machine's, read over it): \texttt{[defaults]} of the options, \texttt{[log] console}; a typed option wins. \texttt{accept\_unregistered\_build = true} on an \file{inputs/executables.local.toml} entry accepts that build only.}
@@ -392,7 +392,7 @@ A job asks for the sum of its points' \texttt{WALLTIME} cells (each budgets ONE 
 \err{A POL repeats one stated in another matrix or earlier in this file.}{\fl{--update-ids} renumbers the repeated rows; a row whose POL already has runs of this matrix is refused rather than moved.}
 \err{The plan warns: helical Mach of 1 or more on some points.}{a warning, not a refusal: check the rotor speed of those points.}
 \err{The plan lists points a \texttt{RESTART} key does not continue.}{\texttt{FINISH\_PENDING} on a CONVERGED run is refused with the reason; use \texttt{ADDITIONAL\_REVS} or \texttt{ADDITIONAL\_ITERS}.}
-\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-matrix inventory} \fl{--clean} (stage 8); only a grouped plan blocks on it.}
+\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-workspace geometry inventory} \fl{--clean} (stage 8); only a grouped plan blocks on it.}
 \err{A polar is \textit{left out of the grouping}.}{named, never refused: LEGACY, \texttt{RESTART}, \texttt{COLD\_START} false and coupled \texttt{steady}/\texttt{qsteady\_rotor} rows; unsteady rows on a build without the action command; polars that do not splice or are recorded. Run them point by point.}
 
 \hd{Where to read more}
@@ -690,7 +690,7 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \node[box,text width=3.0cm,minimum height=3.3cm,fill=ok!12,draw=ok,font=\fontsize{6.6}{7.6}\selectfont] at (4.35,-1.42) {never touched by a recipe: \pth{inputs/}, a matrix, \pth{storage_management.json}, a saved \pth{.fsm}, \pth{scripts/}, every log, every file a record names or hashes};
 \end{tikzpicture}
 
-\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Clean a saved simulation that keeps a previous run's unsteady solver actions.}
+\begin{cmdblock}{pyfs-workspace geometry inventory}{<geometry>}{Clean a saved simulation that keeps a previous run's unsteady solver actions.}
 \opt{--clean}{remove them, keeping \file{<file>.bak-<stamp>}; a 26.120 file in meters is also reset to a fresh import, meshes and boundary conditions kept.}
 \opt{--overwrite}{also rewrite the existing sidecar.}
 \end{cmdblock}

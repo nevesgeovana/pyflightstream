@@ -386,7 +386,7 @@ records = run_matrix(
     "matrix_registry.fs",
     workspace,
     name="matrix",
-    fs_version="26.120",
+    default_fs_version="26.120",
     recipes={"003": "steady"},
     assess=converged,
     executor=executor,

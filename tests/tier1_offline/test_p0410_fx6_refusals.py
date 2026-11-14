@@ -39,14 +39,21 @@ def test_p0410_shedding_refusal_names_the_distinct_ccs_route():
     assert "planned for" not in message
 
 
-def test_p0410_refusal_catalog_contains_only_live_refusals():
-    assert set(_deprecations.REFUSED_IN_0_15_0) == {
-        _deprecations.ROW_MOVING_BOUNDARIES,
-        _deprecations.ROW_ROTATE_FAMILIES,
-        _deprecations.ROW_EACH_BLADE,
-        _deprecations.ROW_AIRFRAME_SELECTOR,
-        _deprecations.ROW_BLADES_SELECTOR,
+def test_p0410_the_ledger_holds_no_refusal_and_each_refusal_names_its_replacement():
+    """PFS-2237: a refusal is not a promise, so the deprecation ledger holds none."""
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    assert _deprecations.DEPRECATIONS == ()
+    since_0_15_0 = [form for form in REMOVED_FORMS.values() if form.retired_in == "0.15.0"]
+    assert {form.old for form in since_0_15_0} == {
+        "MOVING_BOUNDARIES",
+        "FAMILIES",
+        "families = 'each_blade'",
+        "families = 'airframe'",
+        "families = 'blades'",
     }
+    for form in since_0_15_0:
+        assert form.new in form.message() and "no longer accepted" in form.message()
 
 
 # ---- lane E1, 0.50.0 (FR-3374 to FR-3380): the cases subpackage's refusals ----

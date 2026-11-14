@@ -90,7 +90,8 @@ class BuildSolver(LocalExecutor):
 
 HEADER = (
     "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | "
-    "SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | "
+    "SWEEP_VALUES | GEOMETRY | MESH_ROUTE | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | "
+    "NCPUS | "
     "WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 120 + "\n"
 )
 
@@ -98,7 +99,7 @@ HEADER = (
 def matrix_row(pol: str, build: str = " ") -> str:
     """One steady matrix row, POL ``pol``, naming ``build`` (none when blank)."""
     return (
-        f"{pol} | 1 | 1 | Rig | - | STEADY | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0 | - | "
+        f"{pol} | 1 | 1 | Rig | - | STEADY | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0 | - | - | "
         f"r003 | s002 | p001 | - | - | - | - | {build} | steady | VELOCITY: 30.0\n"
     )
 

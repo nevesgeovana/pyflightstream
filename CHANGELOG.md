@@ -9,9 +9,29 @@ FlightStream versions.
 
 ### Changed
 
-A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters (the `hub_rings` key `width`, `--hub`); the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
+A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters; the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
 
 The setup page now states how a Python user builds runtime settings: `SolverSettings(runtime={...})` validates a mapping, and `RuntimeSettings` stays a private type (naming it public would add it to the `pyflightstream.cases` root, whose names are fixed). migration: none.
+
+### Removed
+
+Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
+
+`analysis_setup(vorticity_drag_boundaries=...)` is refused. migration: pass the selection to `solver_settings(vorticity_drag_boundaries=...)`.
+
+`plan_matrix(fs_version=...)` and `run_matrix(fs_version=...)` are refused. migration: write `default_fs_version=`; the `pyfs-matrix` command line keeps `--fs-version`.
+
+`pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` are refused. migration: write `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`, which take the same arguments and give the same results.
+
+`pyflightstream.post.inflow_tools.StationHarmonics` is refused. migration: write `InflowStationHarmonics`.
+
+A run matrix at the header of v0.56.0 (no `MESH_ROUTE` column) is no longer read; the reader refuses it, naming the current header. migration: run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else.
+
+The `[hub_rings]` key `width` is refused. migration: write `band_width`.
+
+`sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
+
+The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 
 ### Fixed
 

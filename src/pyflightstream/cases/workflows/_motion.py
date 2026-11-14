@@ -16,10 +16,7 @@ from collections.abc import (
     Sequence,
 )
 
-from pyflightstream._deprecations import (
-    ROW_MOVING_BOUNDARIES,
-    refusal_text,
-)
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases import (
     AXIS_UNIT_VECTORS,
     CampaignConfigError,
@@ -462,18 +459,14 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
 
 
 def _warn_a_record_still_naming_its_boundaries(case: SimCase, record: Mapping[str, str]) -> None:
-    """Warn from the ledger for a record using MOVING_BOUNDARIES (FR-61).
+    """Refuse a record using MOVING_BOUNDARIES (FR-61), naming MOVING_BC_ALIAS.
 
-    ROW_MOVING_BOUNDARIES owns the removal version and migration message.
-    Every record stating the key receives that deprecation message.
-
-    The text is the LEDGER ENTRY'S OWN, so the release it names is the one
-    the deadline guard enforces rather than a second copy that nothing
-    keeps equal.
+    The text is the removed-form entry's own, so there is one home for the words.
     """
     if MOVING_BOUNDARIES_VARIABLE not in record:
         return
-    raise CampaignConfigError(f"case {case.sim_id!r}: {refusal_text(ROW_MOVING_BOUNDARIES)}")
+    removed = REMOVED_FORMS["motions.MOVING_BOUNDARIES"]
+    raise CampaignConfigError(f"case {case.sim_id!r}: {removed.message()}")
 
 
 def _refuse_two_rotor_identities(case: SimCase, record: Mapping[str, str]) -> None:

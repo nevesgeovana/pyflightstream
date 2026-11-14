@@ -13,7 +13,7 @@
 {\large\bfseries\color{acc} pyfs-matrix cheatsheet} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option, by stage \quad \texttt{pyfs-matrix <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
 \textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix or pyfs-workspace restores demoted refusals.\\[1pt]
 \textbf{Console warnings:} \fl{--warning-off} before any subcommand of all five programs hides warnings, keeping logs and other output. Matrix and workspace also read \texttt{[log] warnings = false}; Python uses \texttt{console\_warnings}. Strict refusals still raise.\\[1pt]
-\textbf{Typical flow:} \cmd{inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
+\textbf{Typical flow:} \cmd{geometry inventory} (new mesh, in pyfs-workspace) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
 \vspace{-3pt}
@@ -23,41 +23,6 @@
 \begin{multicols}{4}
 
 \stage{1. PREPARE THE WORKSPACE AND THE MATRIX}
-\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
-\begin{flags}
-\item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
-\item \fl{--clean} remove the saved solver actions; copy kept as \texttt{<file>.bak-<stamp>}
-\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
-\end{flags}
-\sub{degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
-\begin{flags}
-\item \fl{--root-offset LENGTH} required: the root moved outward along the span, in the mesh's unit, off the spinner
-\item \fl{--kind thin-blade} the one kind (the default)
-\item \fl{--boundary NAME} the blade's boundary, for a file that also holds a spinner or a nacelle
-\item \fl{--overwrite} rewrite an existing output
-\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
-\end{flags}
-\sub{audit-mesh <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
-\begin{flags}
-\item \fl{--against SOURCE} judge against the mesh it was made from (alone: G1, G2, G4 only)
-\item \fl{--out FILE} also write the figures as CSV, one row per family and figure; never a file the audit reads; \fl{--csv FILE} is its deprecated alias
-\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
-\end{flags}
-\sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
-\begin{flags}
-\item \fl{--families A,B} only these families (default: all)
-\item \fl{--keep-within-component} share directional governors across each component's grid patches
-\item \fl{--audit-off} skip the level audit; print the command to run it later
-\item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)
-\item \fl{--accept-remesh} a family that states parallel and normal factors, or \texttt{method = "grid"}, but recovers no grid is warned and remeshed with its \texttt{factor}, instead of refused
-\item \fl{--accept-unknown} an entry of the refinement file it does not know or cannot read, and a \fl{--families} name the mesh does not hold, are warned and skipped, instead of refused
-\item \fl{--visual-inspect} write \texttt{<level>.refine-governors.pdf} beside the level OBJ: a page per governing family and direction (PARALLEL or NORMAL) with the families it governs, then patches and planner directions per output component, P/N labels and recorded continuity changes; a refusal after reading the mesh attempts a diagnostic PDF beside the source
-\item \fl{--strict-factors} a grid factor below the least its grid allows is refused; by default it is raised to it, warned (\fl{--force-factors}, the default, is still read)
-\item \fl{--config FILE} the refinement file (default: \texttt{<stem>.refine.toml} beside the mesh)
-\item \fl{--out DIR} where the level folder goes (default: the parent of the source's folder); \fl{--out-dir DIR} is its deprecated alias
-\item \fl{--overwrite} replace an existing level folder
-\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
-\end{flags}
 \sub{visual-inspect}{draw the design of experiments of run matrices as a pair plot of their parameters; reads the matrices only, no executable needed}
 \begin{flags}
 \item \fl{--name NAME} (required) the figure's file name; it is written to \texttt{post/visual-inspect/NAME.pdf} (a \texttt{.pdf} ending is not doubled, a folder in the name is refused)
@@ -255,7 +220,7 @@ See the website's Upgrading page for supported workspace conversion.
 
 \vspace{2pt}
 \begin{tcolorbox}[colback=flag!6,colframe=flag,boxrule=0.3pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
-\textbf{Before a licensed run:} \cmd{plan} with \fl{--cost}; read the warnings; \cmd{inventory} \fl{--clean} a geometry that carries saved actions. \textbf{Trace:} \texttt{runs.json}, \texttt{plan.json}, \texttt{post/}, \texttt{logs/}.
+\textbf{Before a licensed run:} \cmd{plan} with \fl{--cost}; read the warnings; \cmd{geometry inventory} \fl{--clean} (pyfs-workspace) a geometry that carries saved actions. \textbf{Trace:} \texttt{runs.json}, \texttt{plan.json}, \texttt{post/}, \texttt{logs/}.
 \end{tcolorbox}
 {\tiny \guidefootnotice. \pkgrepo. Page 2: every other command-line tool.}
 \end{multicols}
@@ -366,7 +331,7 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{flags}
 \item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
 \end{flags}
-\sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
+\sub{geometry refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
 \fl{--keep-within-component} share directional governors across each declared component's grid patches.
 \fl{--audit-off} writes the level without auditing it and prints the later audit command.
 \fl{--visual-inspect} writes \texttt{<level>.refine-governors.pdf} beside its OBJ: the governing families per direction, then the patches and directions pages.
@@ -375,16 +340,16 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
-\sub{geometry audit <OBJ>}{as \cmd{audit-mesh} of \texttt{pyfs-matrix}, whose home this group is}
+\sub{geometry audit <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
 \begin{flags}
 \item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
-\sub{geometry inventory <geometry>}{as \cmd{inventory} of \texttt{pyfs-matrix}, whose home this group is; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
+\sub{geometry inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
 \begin{flags}
 \item \fl{--overwrite} \quad \fl{--clean} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
-\sub{geometry degenerate <geometry>}{as \cmd{degenerate} of \texttt{pyfs-matrix}, whose home this group is}
+\sub{geometry degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
 \begin{flags}
 \item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}

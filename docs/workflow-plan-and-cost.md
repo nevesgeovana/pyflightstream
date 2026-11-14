@@ -242,7 +242,7 @@ Two things differ from a point run alone, and the plan says so:
 
 A grouped plan still refuses a polar whose geometry is a saved simulation that
 carries unsteady solver actions, naming the file and the command that removes
-them, `pyfs-matrix inventory <file> --clean`. Opening such a file loads
+them, `pyfs-workspace geometry inventory <file> --clean`. Opening such a file loads
 its actions, which then run beside the ones the job registers (twice the runtime
 commands in the licensed measurement) and survive into every later polar of the
 job; the job's step counter, which must fire once a step to tell the points

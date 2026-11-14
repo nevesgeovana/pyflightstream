@@ -1105,12 +1105,11 @@ class TestPost1Review:
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-REVIEW-INFLOW-NAME")])
-    def test_p0400_inflow_type_has_a_distinct_name_and_deprecated_alias():
+    def test_p0400_inflow_type_has_a_distinct_name_and_the_old_name_is_refused():
         current = getattr(inflow_tools, "InflowStationHarmonics", None)
         assert current is not None
-        with pytest.warns(DeprecationWarning, match="1.0.0"):
-            old = inflow_tools.StationHarmonics
-        assert old is current
+        with pytest.raises(AttributeError, match="InflowStationHarmonics"):
+            _ = inflow_tools.StationHarmonics
         assert current.__name__ == "InflowStationHarmonics"
 
     @staticmethod

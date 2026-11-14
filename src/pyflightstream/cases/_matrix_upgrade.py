@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases._matrix_layouts import (
     _COLUMNS,
     _LAYOUT_0_9_0,
@@ -34,7 +35,9 @@ def _header_names(parts: list[bytes]) -> tuple[str, ...]:
 
 
 def _refuse_an_earlier_layout(header: tuple[str, ...], path: object) -> None:
-    """Refuse layouts older than the supported migration baseline."""
+    """Refuse layouts older than the supported migration baseline, and the 0.56.0 one."""
+    if header == _LAYOUT_0_56_0:
+        raise MatrixError(f"{path}: {REMOVED_FORMS['matrix.layout-0.56.0'].message()}")
     if header in (
         _LEGACY_COLUMNS_15,
         _LEGACY_COLUMNS_16,

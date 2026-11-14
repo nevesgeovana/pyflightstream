@@ -37,7 +37,6 @@ _SPEC.loader.exec_module(am)
 
 #: The retained subcommands in their original order; N3 removes upgrade and rename.
 V0330_SUBCOMMANDS = [
-    "inventory",
     "space-in-use",
     "free-space",
     "delete-sims",
@@ -83,15 +82,14 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # Verifies AD-18.
     parser = capture_parser("pyflightstream.run.cli:main")
     choices = list(parser._subparsers._group_actions[0].choices)
-    # 0.34.0 appends `degenerate` (FR-330), last, as every later command is;
     # 0.35.0 appends the read-only `status` (FR-379); 0.37.0 appends `mark-converged`
-    # (FR-414, the owner's requirement); 0.38.0 appends `refine` (FR-424) and
-    # `audit-mesh` (FR-426); 0.53.0 appends `visual-inspect` (FR-3440);
-    # 0.57.0 appends `search-log-batch` (PFS-2218).
+    # (FR-414, the owner's requirement); 0.53.0 appends `visual-inspect` (FR-3440);
+    # 0.57.0 appends `search-log-batch` (PFS-2218). The geometry verbs `inventory`,
+    # `degenerate`, `refine` and `audit-mesh` left at 0.58.0 (PFS-2237): their home is
+    # `pyfs-workspace geometry`.
     assert choices == [
         *V0330_SUBCOMMANDS,
         "noise",
-        "degenerate",
         "support",
         "status",
         "show",
@@ -100,8 +98,6 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
         "history",
         "diff",
         "mark-converged",
-        "refine",
-        "audit-mesh",
         "visual-inspect",
         "search-log-batch",
     ]

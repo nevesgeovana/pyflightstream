@@ -1,6 +1,6 @@
 """Tier 1, 0.34.0: the thin-blade command and its --boundary option (FR-330, P0340-THIN-BLADE).
 
-Pipeline role: quality gate on ``pyfs-matrix degenerate --kind thin-blade``
+Pipeline role: quality gate on ``pyfs-workspace geometry degenerate --kind thin-blade``
 (FR-628, FR-634 and FR-636): the parser of the family, the command that runs it, its
 refusals by name, the selection of the blade among the bodies of one file, and
 the two places that must name it (the generated command-line reference and the
@@ -20,10 +20,10 @@ from pathlib import Path
 import numpy
 import pytest
 
-from pyflightstream.run import cli
 from pyflightstream.workspace import InputArtifactError, _degenerate
 from pyflightstream.workspace._degenerate import derive_thin_blade, thin_blade_path
 from pyflightstream.workspace.sidecars import read_inventory
+from tests.tier1_offline import _geometry_verbs as cli
 from tests.tier1_offline.test_p0340_thin_blade import _blade, _read_obj, _sha, _write_obj
 
 REPO = Path(__file__).resolve().parents[2]
@@ -79,7 +79,7 @@ def _run(capsys, *argv: str) -> tuple[int, str, str]:
 def test_the_command_derives_the_thin_blade_beside_the_source(tmp_path, capsys):
     """FR-628 and FR-631 (P0340-THIN-BLADE): the command writes what the library writes,
     beside the source, names both files, and leaves the source's bytes alone."""
-    # P0340-THIN-BLADE, FR-628: pyfs-matrix degenerate GEOMETRY --kind thin-blade --root-offset.
+    # P0340-THIN-BLADE, FR-628: geometry degenerate GEOMETRY --kind thin-blade --root-offset.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     before = _sha(source)
@@ -302,7 +302,7 @@ def test_the_cli_reference_and_the_cheatsheet_name_the_command_and_its_options()
     finally:
         sys.path.pop(0)
     pages = cli_reference_pages()
-    matrix = next(text for path, text in pages.items() if path.endswith("pyfs-matrix.md"))
+    matrix = next(text for path, text in pages.items() if path.endswith("pyfs-workspace.md"))
     for word in (
         "degenerate",
         "--kind",

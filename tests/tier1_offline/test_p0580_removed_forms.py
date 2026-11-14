@@ -57,3 +57,120 @@ def test_p0580_sector_to_wheel_hub_flag_is_refused_naming_center(tmp_path, capsy
     said = capsys.readouterr().err
     assert code == 2 and "--center" in said and "no longer accepted" in said, said
     assert not out.exists()
+
+
+# --- the keywords, the verbs, the header and the names the ledger held --------------------
+
+
+@pytest.mark.parametrize("entry_point", ["plan_matrix", "run_matrix"])
+def test_p0580_matrix_fs_version_keyword_is_refused_naming_default_fs_version(
+    tmp_path, entry_point
+):
+    from pyflightstream.cases.matrix import MatrixError
+    from pyflightstream.run import LoadsAssessor
+    from pyflightstream.run import matrix as matrix_module
+    from tests.support_helpers import REGISTRY_FIXTURE, make_library
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    call = getattr(matrix_module, entry_point)
+    extra = {"assess": LoadsAssessor()} if entry_point == "run_matrix" else {}
+    with pytest.raises(MatrixError, match="default_fs_version") as refused:
+        call(
+            REGISTRY_FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes={"003": "steady", "004": "steady"},
+            **extra,
+        )
+    assert "no longer accepted" in str(refused.value)
+    assert "--fs-version" in str(refused.value), "the command line keeps its spelling"
+
+
+def test_p0580_analysis_setup_vorticity_argument_is_refused_naming_solver_settings():
+    from pyflightstream.script import CommandArgumentError, Script, helpers
+
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match=r"solver_settings\(") as refused:
+        helpers.analysis_setup(script, vorticity_drag_boundaries="all")
+    assert "no longer accepted" in str(refused.value)
+    assert "SET_VORTICITY_DRAG_BOUNDARIES" not in script.render()
+
+
+def test_p0580_station_harmonics_is_refused_naming_inflow_station_harmonics():
+    from pyflightstream.post import inflow_tools
+
+    with pytest.raises(AttributeError, match="InflowStationHarmonics") as refused:
+        _ = inflow_tools.StationHarmonics
+    assert "no longer accepted" in str(refused.value)
+    assert inflow_tools.InflowStationHarmonics is not None
+
+
+@pytest.mark.parametrize(
+    ("verb", "home"),
+    [
+        ("refine", "refine"),
+        ("audit-mesh", "audit"),
+        ("inventory", "inventory"),
+        ("degenerate", "degenerate"),
+    ],
+)
+def test_p0580_pyfs_matrix_geometry_verb_is_refused_naming_its_home(verb, home, capsys):
+    from pyflightstream.run import cli
+
+    assert cli.main([verb, "mesh.obj"]) == 2
+    said = capsys.readouterr().err
+    assert f"pyfs-workspace geometry {home}" in said and "no longer accepted" in said, said
+
+
+def test_p0580_matrix_header_of_0_56_0_is_refused_naming_migrate(tmp_path):
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
+
+    columns = [c for c in MATRIX_COLUMNS if c != "MESH_ROUTE"]
+    path = tmp_path / "old.fs"
+    path.write_text(" | ".join(columns) + "\n" + "-" * 40 + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match="MESH_ROUTE") as refused:
+        read_matrix(path)
+    assert "pyfs-workspace migrate --apply" in str(refused.value)
+    assert "no longer accepted" in str(refused.value)
+
+
+@pytest.mark.parametrize(
+    ("key", "new"),
+    [
+        ("motions.MOVING_BOUNDARIES", "MOVING_BC_ALIAS"),
+        ("rotation.FAMILIES", "ALIAS"),
+        ("pproc.each_blade", "LOCAL_AXIS"),
+        ("families.airframe", "alias"),
+        ("families.blades", "alias"),
+    ],
+)
+def test_p0580_the_rotor_row_refusals_keep_naming_the_new_spelling(key, new):
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    message = REMOVED_FORMS[key].message()
+    assert new in message and "no longer accepted" in message
+
+
+def test_p0580_the_deprecation_ledger_holds_no_entry_and_no_form_is_promised():
+    from pyflightstream import _deprecations
+
+    assert _deprecations.DEPRECATIONS == ()
+    assert _deprecations.DEPRECATED_MODULES == ()
+    for gone in (
+        "ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES",
+        "PLAN_MATRIX_FS_VERSION",
+        "RUN_MATRIX_FS_VERSION",
+        "ROW_MOVING_BOUNDARIES",
+        "ROW_ROTATE_FAMILIES",
+        "ROW_EACH_BLADE",
+        "ROW_AIRFRAME_SELECTOR",
+        "ROW_BLADES_SELECTOR",
+        "INFLOW_STATION_HARMONICS",
+        "MATRIX_REFINE",
+        "MATRIX_AUDIT_MESH",
+        "MATRIX_INVENTORY",
+        "MATRIX_DEGENERATE",
+        "MATRIX_LAYOUT_0_56_0",
+    ):
+        assert not hasattr(_deprecations, gone), gone

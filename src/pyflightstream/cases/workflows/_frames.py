@@ -18,15 +18,12 @@ from collections.abc import (
     Sequence,
 )
 
-from pyflightstream._deprecations import (
-    ROW_ROTATE_FAMILIES,
-    refusal_text,
-)
 from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
 from pyflightstream._retired_names import (
+    REMOVED_FORMS,
     retired_frame,
 )
 from pyflightstream.cases import (
@@ -985,7 +982,7 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
     words = sorted({*case.aliases, *case.rotors})
     raise CampaignConfigError(
         f"case {case.sim_id!r}, {ROTATE_VARIABLE} record {{{written}}}: "
-        f"{refusal_text(ROW_ROTATE_FAMILIES)} It is not a rename of the key alone: the "
+        f"{REMOVED_FORMS['rotation.FAMILIES'].message()} It is not a rename of the key alone: the "
         f"VALUE becomes one word the reference declares, of "
         f"{', '.join(repr(name) for name in words) or 'none'}, and a families list "
         "spanning two of them becomes one record per alias."

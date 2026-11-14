@@ -18,7 +18,7 @@ one:
 * a sidecar that exists is never rewritten, and one whose list disagrees with
   the groups is cited as written with a warning naming both lists, measured
   beside an agreeing control that draws none;
-* ``pyfs-matrix inventory`` writes the same file for an OBJ and refuses its
+* ``pyfs-workspace geometry inventory`` writes the same file for an OBJ and refuses its
   existing sidecar, ``--overwrite`` or not;
 * an STL is unchanged: nothing is written beside it, and its refusals are the
   ones it had.
@@ -36,10 +36,10 @@ import pytest
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.workflows import workflow_registry
-from pyflightstream.run.cli import main as pyfs_matrix
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import InputArtifactError
 from pyflightstream.workspace import inputs as sidecar_reader
+from tests.tier1_offline._geometry_verbs import main as pyfs_matrix
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     geometry_matrix,
@@ -145,7 +145,7 @@ def test_g30_a_comment_on_a_group_line_is_not_part_of_the_name(tmp_path):
 # --- the plan writes the sidecar -----------------------------------------------------
 
 
-# --- pyfs-matrix inventory ---------------------------------------------------------
+# --- pyfs-workspace geometry inventory ---------------------------------------------------------
 
 
 def test_g30_inventory_writes_an_objs_sidecar_and_never_rewrites_it(tmp_path, capsys):

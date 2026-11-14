@@ -105,13 +105,13 @@ def test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys
 
 
 def test_the_inventory_command_counts_each_group_of_an_obj_fr_348(tmp_path, capsys):
-    """P0340-MESH-FACES, FR-348: ``pyfs-matrix inventory`` counts an OBJ's faces by group.
+    """P0340-MESH-FACES, FR-348: ``geometry inventory`` counts an OBJ's faces by group.
 
     The faces before the first group are a boundary of their own, an empty
     group is none, and each count stands beside the boundary its group makes.
     """
     requirement = "FR-348"
-    from pyflightstream.run.cli import main
+    from tests.tier1_offline._geometry_verbs import main
 
     mesh = tmp_path / "rotor.obj"
     vertices = "v 0 0 0\nv 1 0 0\nv 0 1 0\n"

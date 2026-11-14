@@ -150,7 +150,7 @@ knowing.
    `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
    `significant_digits`, which gained its emitter. `mesh_order_list` is
    refused outright, since the boundary order belongs to the file
-   (`pyfs-matrix inventory`).
+   (`pyfs-workspace geometry inventory`).
 
  That list is maintained by hand and this page is not generated, so
  **read the warning your own preset prints** rather than this

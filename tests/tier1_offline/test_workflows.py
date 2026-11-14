@@ -6597,7 +6597,7 @@ class TestFr313PlanGeometryWarning:
                 and _FR313_PLAN_GEOMETRY_WARNING__CLOCK in text
             ), text
             assert "pfs_walltime_stop [SCRIPT]" in text, text
-            assert f"pyfs-matrix inventory {staged} --clean" in text, text
+            assert f"pyfs-workspace geometry inventory {staged} --clean" in text, text
         else:
             assert "cannot be read" in text, text
 

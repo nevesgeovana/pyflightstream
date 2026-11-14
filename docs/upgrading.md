@@ -1,5 +1,23 @@
 # Upgrading
 
+## 0.58.0
+
+Every form that 0.57.0 and earlier still accepted with a deprecation warning is removed.
+Each old form is now refused, and the refusal names the new spelling, so the migration is
+one edit. Nothing else changes.
+
+## Removed forms (0.58)
+
+| Old form | Write instead |
+| --- | --- |
+| `analysis_setup(script, vorticity_drag_boundaries=...)` | `solver_settings(script, vorticity_drag_boundaries=...)` |
+| `plan_matrix(..., fs_version=...)`, `run_matrix(..., fs_version=...)` | `default_fs_version=...` (the `pyfs-matrix` option `--fs-version` is unchanged) |
+| `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-workspace geometry refine`, `audit`, `inventory`, `degenerate`, with the same arguments |
+| `pyflightstream.post.inflow_tools.StationHarmonics` | `InflowStationHarmonics` |
+| a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
+| `[hub_rings] width` | `[hub_rings] band_width` |
+| `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
+
 ## 0.57.0
 
 The changes that need an action or a decision when moving from 0.56.0 to 0.57.0 follow, one section each.
@@ -49,12 +67,11 @@ replaced.
 
 ## Coordinate and band names (0.57)
 
-Use `[hub_rings] band_width` instead of the deprecated `width`, and
-`geometry sector-to-wheel --center X Y Z` instead of the deprecated `--hub`.
-Python callers can use `sector_to_wheel(..., center=(x, y, z))`; `hub=` still
-accepts coordinates. Equal old/new values are accepted once; conflicts are refused.
-Deprecation warnings use `PyflightstreamDeprecationWarning`. No removal release is set.
-Reports retain their existing keys. Each hub-band route keeps its units, defaults and
+Use `[hub_rings] band_width` and `geometry sector-to-wheel --center X Y Z`; Python
+callers use `sector_to_wheel(..., center=(x, y, z))`. The former `[hub_rings] width` key
+and the former `--hub` flag and `hub=` argument were accepted with a warning in 0.57.0;
+from 0.58.0 each is refused, and the refusal names the new spelling. Reports retain their
+existing keys. Each hub-band route keeps its units, defaults and
 capping. `wheel.center` remains independent of `repitch.reference_point`; a missing
 center uses the origin, never the pitch datum.
 

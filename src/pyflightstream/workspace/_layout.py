@@ -514,7 +514,7 @@ when a library is laid out this way.
 
 ## Why the folder, and not the file on its own
 
-A mesh brings a sidecar with it: `pyfs-matrix inventory` reads the boundary
+A mesh brings a sidecar with it: `pyfs-workspace geometry inventory` reads the boundary
 order out of the saved simulation and writes `<stem>.boundaries.toml` beside
 it, and a run whose sidecar disagrees with its mesh is refused before the
 solver starts. An `.obj` with no sidecar gets one from the first plan, its
