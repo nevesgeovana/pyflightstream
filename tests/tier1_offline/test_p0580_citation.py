@@ -22,7 +22,3 @@ def _archives() -> dict[str, str]:
 
 def test_p0580_citation_lists_the_archive_of_release_0_57_0():
     assert _archives().get("v0.57.0") == "10.5281/zenodo.24210551"
-
-
-def test_p0580_citation_version_is_0_57_0_until_the_next_release_updates_it():
-    assert re.search(r"^version:\s*0\.57\.0\s*$", CFF, re.M)
