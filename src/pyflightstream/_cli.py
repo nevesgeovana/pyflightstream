@@ -30,7 +30,7 @@ from typing import Any, TextIO
 import pyflightstream._progress as _progress
 import pyflightstream._signature as _signature
 from pyflightstream._console import CONSOLE_WARNINGS, console_warnings, warning_text
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
 from pyflightstream._progress import command_terminal
 
 _ACTIVE: ContextVar[bool] = ContextVar("pyflightstream_cli_active", default=False)
@@ -270,7 +270,13 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         outcome = "failed"
         terminal = None
         try:
-            with command_terminal(verbose=verbose) as terminal:
+            with command_terminal(verbose=verbose) as terminal, warnings.catch_warnings():
+                # A person at the command line who states a deprecated key or flag must
+                # see the rename, once, under the interpreter's default filters, which
+                # hide a DeprecationWarning raised in library code. A warning option or
+                # PYTHONWARNINGS the person chose is theirs and is left untouched.
+                if not sys.warnoptions:
+                    warnings.filterwarnings("default", category=PyflightstreamDeprecationWarning)
                 result = function(*args, **kwargs)
             outcome = "success" if result is None or result == 0 else "failed"
             return result
