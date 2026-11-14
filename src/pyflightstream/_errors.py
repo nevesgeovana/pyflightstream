@@ -329,7 +329,7 @@ class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning
     released version is not shouted at by a rename that does not affect them
     yet. A command-line entry point is the exception: it shows this category
     once under the default filters, so a person who states a deprecated key or
-    flag sees the new name (a warning option she chose is left alone).
+    flag sees the new name (a warning option the user chose is left alone).
 
     Use it where this package deprecates one of its OWN arguments,
     names or behaviours. An upstream deprecation this package merely
