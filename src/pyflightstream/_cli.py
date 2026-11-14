@@ -21,7 +21,8 @@ from __future__ import annotations
 import random
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
 from io import StringIO
@@ -221,6 +222,31 @@ def _visible_warnings(show: Callable[..., None]) -> Callable[..., None]:
     return shown
 
 
+@contextmanager
+def _deprecations_shown() -> Iterator[None]:
+    """Show a deprecation of the package once during one command.
+
+    A person at the command line who states a deprecated key or flag must see
+    the rename, once, under the interpreter's default filters, which hide a
+    DeprecationWarning raised in library code. A warning option or
+    PYTHONWARNINGS the person chose is theirs and is left untouched.
+
+    Yields
+    ------
+    None
+        The filters stay in force until the block ends.
+
+    Examples
+    --------
+    >>> with _deprecations_shown():
+    ...     pass
+    """
+    with warnings.catch_warnings():
+        if not sys.warnoptions:
+            warnings.filterwarnings("default", category=PyflightstreamDeprecationWarning)
+        yield
+
+
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     """Report the actual CLI outcome once, without changing CLI semantics.
 
@@ -270,13 +296,7 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         outcome = "failed"
         terminal = None
         try:
-            with command_terminal(verbose=verbose) as terminal, warnings.catch_warnings():
-                # A person at the command line who states a deprecated key or flag must
-                # see the rename, once, under the interpreter's default filters, which
-                # hide a DeprecationWarning raised in library code. A warning option or
-                # PYTHONWARNINGS the person chose is theirs and is left untouched.
-                if not sys.warnoptions:
-                    warnings.filterwarnings("default", category=PyflightstreamDeprecationWarning)
+            with command_terminal(verbose=verbose) as terminal, _deprecations_shown():
                 result = function(*args, **kwargs)
             outcome = "success" if result is None or result == 0 else "failed"
             return result
