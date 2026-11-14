@@ -11,7 +11,6 @@ hub = ["Spinner"]
 [hub_rings]
 rings = 4
 # band_width = 0.02  # total height in mesh units; default rings x median hub edge at the root
-# width is a deprecated alias; equal duplicates are accepted, conflicting values are refused.
 
 # Small rigid blade pitch change. Coordinates use the mesh frame and unit.
 [repitch]

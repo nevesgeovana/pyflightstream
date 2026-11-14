@@ -372,6 +372,161 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         why=_REQUIRES_EULER_CFD_FIELDS,
         instead="Look in",
     ),
+    "pyflightstream.post.inflow_tools.StationHarmonics": RetiredName(
+        owner="pyflightstream.post.inflow_tools",
+        old="StationHarmonics",
+        new="pyflightstream.post.inflow_tools.InflowStationHarmonics",
+        retired_in="0.58.0",
+        why="It is the same record under the name that says it belongs to the inflow tools.",
+    ),
+}
+
+_MATRIX_DEFAULT_BUILD = (
+    "The argument is the version rows whose FS_BUILD column names no build fall back to, "
+    "so it is a DEFAULT rather than the version the matrix runs under; a row that names a "
+    "build is authoritative. The pyfs-matrix command line keeps --fs-version."
+)
+_GEOMETRY_GROUP = (
+    "Every geometry command lives in the pyfs-workspace geometry group, which gives the "
+    "identical result."
+)
+
+#: THE FORMS REMOVED, each a refusal that names the new spelling. They are keyed
+#: by the call, flag, key or header the user wrote. They are not in :data:`RETIRED`,
+#: which the input readers match a file's text against, and they are not Python
+#: attributes (those are in :data:`RETIRED_ATTRIBUTES`): each is refused where its
+#: own reader meets it, with :meth:`RetiredName.message`.
+REMOVED_FORMS: dict[str, RetiredName] = {
+    "analysis_setup.vorticity_drag_boundaries": RetiredName(
+        owner="analysis_setup",
+        old="vorticity_drag_boundaries",
+        new="solver_settings(vorticity_drag_boundaries=)",
+        retired_in="0.58.0",
+        why=(
+            "The induced-drag boundary selection is a parameter of solver_settings, and "
+            "analysis_setup only forwarded it."
+        ),
+    ),
+    "plan_matrix.fs_version": RetiredName(
+        owner="plan_matrix",
+        old="fs_version",
+        new="default_fs_version",
+        retired_in="0.58.0",
+        why=_MATRIX_DEFAULT_BUILD,
+    ),
+    "run_matrix.fs_version": RetiredName(
+        owner="run_matrix",
+        old="fs_version",
+        new="default_fs_version",
+        retired_in="0.58.0",
+        why=_MATRIX_DEFAULT_BUILD,
+    ),
+    "pyfs-matrix.refine": RetiredName(
+        owner="pyfs-matrix",
+        old="refine",
+        new="pyfs-workspace geometry refine",
+        retired_in="0.58.0",
+        why=_GEOMETRY_GROUP,
+    ),
+    "pyfs-matrix.audit-mesh": RetiredName(
+        owner="pyfs-matrix",
+        old="audit-mesh",
+        new="pyfs-workspace geometry audit",
+        retired_in="0.58.0",
+        why=_GEOMETRY_GROUP,
+    ),
+    "pyfs-matrix.inventory": RetiredName(
+        owner="pyfs-matrix",
+        old="inventory",
+        new="pyfs-workspace geometry inventory",
+        retired_in="0.58.0",
+        why=_GEOMETRY_GROUP,
+    ),
+    "pyfs-matrix.degenerate": RetiredName(
+        owner="pyfs-matrix",
+        old="degenerate",
+        new="pyfs-workspace geometry degenerate",
+        retired_in="0.58.0",
+        why=_GEOMETRY_GROUP,
+    ),
+    "matrix.layout-0.56.0": RetiredName(
+        owner="a run matrix",
+        old="the header of v0.56.0 (no MESH_ROUTE column)",
+        new=(
+            "the current header, which adds MESH_ROUTE after GEOMETRY; "
+            "pyfs-workspace migrate --apply rewrites the file's header"
+        ),
+        retired_in="0.58.0",
+        why="A file at that header no longer reads, so no route is assumed for its rows.",
+        instead="Use",
+    ),
+    "hub_rings.width": RetiredName(
+        owner="the [hub_rings] table",
+        old="width",
+        new="band_width",
+        retired_in="0.58.0",
+        why="One key states the total height of the rings.",
+    ),
+    "sector_to_wheel.hub": RetiredName(
+        owner="sector_to_wheel",
+        old="hub (CLI: --hub)",
+        new="center (CLI: --center)",
+        retired_in="0.58.0",
+        why="One spelling states the rotor-axis point, in the mesh's unit.",
+    ),
+    "motions.MOVING_BOUNDARIES": RetiredName(
+        owner="a MOTIONS record",
+        old="MOVING_BOUNDARIES",
+        new="MOVING_BC_ALIAS",
+        retired_in="0.15.0",
+        why=(
+            "A MOTIONS record names a rotor alias from the reference. "
+            "Flat rotor row keys remain accepted."
+        ),
+    ),
+    "rotation.FAMILIES": RetiredName(
+        owner="a rotation record",
+        old="FAMILIES",
+        new="ALIAS",
+        retired_in="0.15.0",
+        why=(
+            "A rotation and a motion cite a set the same way, so the reference is the one "
+            "place a study says what its groups are. A record listing families is a record "
+            "that has to be edited when the mesh is renamed, and the alias is what stops that."
+        ),
+    ),
+    "pproc.each_blade": RetiredName(
+        owner="a post-processing entry",
+        old="families = 'each_blade'",
+        new="frame = 'LOCAL_AXIS'",
+        retired_in="0.15.0",
+        why=(
+            "The FRAME decides how an entry expands, and a blade's own axes are one per "
+            "blade, so the selector that said so is a second statement of one fact."
+        ),
+    ),
+    "families.airframe": RetiredName(
+        owner="a families cell",
+        old="families = 'airframe'",
+        new="an alias the reference declares, for example airframe = [...]",
+        retired_in="0.15.0",
+        why=(
+            "The selector decides what is NOT a blade from a pattern over the family name, "
+            "so a mesh whose blades are spelled another way gets an airframe with blades in "
+            "it and nothing says so. An alias names the surfaces, and a study that named "
+            "them cannot be guessed wrong."
+        ),
+    ),
+    "families.blades": RetiredName(
+        owner="a families cell",
+        old="families = 'blades'",
+        new="the rotor's own alias, or an alias the reference declares",
+        retired_in="0.15.0",
+        why=(
+            "A rotor's block lists families_blades, so naming the rotor in a frame that "
+            "expands per blade gives one emission per blade with no pattern in it."
+        ),
+    ),
 }
 
 

@@ -321,7 +321,7 @@ def test_p0540_a_boundary_named_as_a_copy_is_refused_on_the_saved_route(tmp_path
 @pytest.mark.requirement("FR-3469")
 @pytest.mark.parametrize(
     "ask",
-    [{"axis": "y"}, {"copies": 4}, {"copies": 12}, {"hub": (0.0, 0.2, 0.0)}],
+    [{"axis": "y"}, {"copies": 4}, {"copies": 12}, {"center": (0.0, 0.2, 0.0)}],
 )
 @pytest.mark.parametrize("kind", ["fsm", "obj"])
 def test_p0540_a_sector_that_is_not_one_nth_of_a_turn_about_the_axis_is_warned(tmp_path, ask, kind):
@@ -361,7 +361,7 @@ def test_p0540_a_true_sector_gets_no_warning_about_its_angle(tmp_path, shape, ki
             copies=built.copies,
             blades=["Blade1"],
             axis=built.axis,
-            hub=built.hub,
+            center=built.hub,
             out=tmp_path / f"w.{kind}",
         )
     assert not [w for w in caught if "about the axis" in str(w.message)]

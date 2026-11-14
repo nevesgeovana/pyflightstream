@@ -64,7 +64,7 @@ def _add_sector_to_wheel(verbs: Any) -> None:
         nargs=3,
         type=float,
         metavar=("X", "Y", "Z"),
-        help="deprecated alias for --center; both may be given only with equal values",
+        help=argparse.SUPPRESS,
     )
     wheel.add_argument(
         "--tolerance",

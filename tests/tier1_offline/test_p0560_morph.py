@@ -214,14 +214,14 @@ def test_p0560_kept_hub_faces_keep_their_order_and_new_faces_take_the_first_plac
 @pytest.mark.requirement("FR-3670")
 def test_p0560_rings_that_do_not_fit_are_refused_naming_a_width_that_fits(tmp_path, capsys):
     source = build(tmp_path)
-    cfg = control(tmp_path, "[hub_rings]\nrings = 4\nwidth = 1.5\n")
+    cfg = control(tmp_path, "[hub_rings]\nrings = 4\nband_width = 1.5\n")
     out = tmp_path / "wide.obj"
     assert invoke("hub-rings", source, cfg, out) == 2
     err = capsys.readouterr().err
     assert "do not fit" in err and "a width of" in err
     assert not out.exists() and not Path(f"{out}.hub_rings.json").exists()
     width = float(err.split("a width of ")[1].split(" fits")[0])
-    cfg.write_text(cfg.read_text().replace("width = 1.5", f"width = {width}"))
+    cfg.write_text(cfg.read_text().replace("band_width = 1.5", f"band_width = {width}"))
     assert invoke("hub-rings", source, cfg, tmp_path / "fits.obj") == 0
 
 
@@ -231,7 +231,7 @@ def test_mor1_5_two_holes_that_touch_keep_the_nodes_they_share(tmp_path):
     nodes whose every face one hole or the other takes. Those nodes were removed while both
     annuli still named them, so their faces took the last node and were refused as folds."""
     source = build(tmp_path, columns=[6, 11])
-    cfg = control(tmp_path, "[hub_rings]\nrings = 3\nwidth = 0.04\n")
+    cfg = control(tmp_path, "[hub_rings]\nrings = 3\nband_width = 0.04\n")
     cfg.write_text(cfg.read_text().replace('["Blade1"]', '["Blade1", "Blade2"]'))
     out = tmp_path / "touch.obj"
     assert invoke("hub-rings", source, cfg, out) == 0
@@ -255,7 +255,7 @@ def test_mor1_3_the_width_a_refusal_names_fits_every_blade(tmp_path, capsys):
     assert "do not fit" in err
     if "a width of" in err:
         width = float(err.split("a width of ")[1].split(" fits")[0])
-        cfg.write_text(cfg.read_text() + f"width = {width}\n")
+        cfg.write_text(cfg.read_text() + f"band_width = {width}\n")
         assert invoke("hub-rings", source, cfg, tmp_path / "fits.obj") == 0, capsys.readouterr()
 
 
@@ -264,7 +264,7 @@ def test_mor1_3_the_width_a_refusal_names_fits_every_blade(tmp_path, capsys):
     ("table", "text"),
     [
         ("[hub_rings]\nrings = 0\n", "whole number of rings"),
-        ("[hub_rings]\nrings = 4\nwidth = -1\n", "positive length"),
+        ("[hub_rings]\nrings = 4\nband_width = -1\n", "positive length"),
         ('[hub_rings]\nrings = 4\nblades = ["Absent"]\n', "absent families"),
     ],
 )
@@ -685,70 +685,40 @@ def test_mor2_1_a_seam_split_differently_on_its_two_sides_is_refused(tmp_path, c
     assert not out.exists()
 
 
-@pytest.mark.parametrize("spelling", ["band_width", "width", "both"])
-def test_p0570_band_width_alias_parser(tmp_path, spelling):
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_p0570_band_width_parser(tmp_path):
     from pyflightstream.workspace.hub_rings import read_config
 
     mesh = read_obj(build(tmp_path))
-    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"]}
-    cfg.update(
-        {key: 0.04 for key in (["width", "band_width"] if spelling == "both" else [spelling])}
-    )
+    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], "band_width": 0.04}
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         parsed = read_config({"hub_rings": cfg}, mesh)
     assert parsed["band_width"] == 0.04
-    assert len([w for w in caught if issubclass(w.category, PyflightstreamDeprecationWarning)]) == (
-        spelling != "band_width"
-    )
-    assert (
-        read_config(
-            {"hub_rings": {k: v for k, v in cfg.items() if k not in ("width", "band_width")}}, mesh
-        )["band_width"]
-        is None
-    )
+    assert not caught
+    unstated = {k: v for k, v in cfg.items() if k != "band_width"}
+    assert read_config({"hub_rings": unstated}, mesh)["band_width"] is None
 
 
 @pytest.mark.parametrize("value", [-1, 0, True, "wide", float("nan"), float("inf"), None])
-@pytest.mark.parametrize("key", ["width", "band_width"])
-def test_p0570_band_width_invalid(tmp_path, value, key):
+def test_p0570_band_width_invalid(tmp_path, value):
     from pyflightstream.workspace.hub_rings import read_config
 
-    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], key: value}
+    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], "band_width": value}
     with pytest.raises(InputValueError, match="positive length"):
         read_config({"hub_rings": cfg}, read_obj(build(tmp_path)))
 
 
-def test_p0570_band_width_conflict(tmp_path):
-    from pyflightstream.workspace.hub_rings import read_config
-
-    cfg = {"rings": 4, "blades": ["Blade1"], "hub": ["Spinner"], "width": 0.04, "band_width": 0.05}
-    with pytest.raises(InputValueError, match="conflict"):
-        read_config({"hub_rings": cfg}, read_obj(build(tmp_path)))
-
-
 @pytest.mark.parametrize("verb", ["hub-rings", "morph"])
-def test_p0570_band_width_alias_same_mesh_and_legacy_report(tmp_path, verb):
+def test_p0570_band_width_reports_the_stated_value(tmp_path, verb):
     source = build(tmp_path)
-    outputs = []
-    for spelling in ("width", "band_width", "both"):
-        text = "[hub_rings]\nrings = 3\n"
-        text += (
-            "width = 0.04\nband_width = 0.04\n" if spelling == "both" else f"{spelling} = 0.04\n"
-        )
-        if verb == "morph":
-            text += '[wheel]\naxis = "x"\ncenter = [0, 0, 0]\n'
-        cfg = control(tmp_path, text)
-        out = tmp_path / f"{spelling}.obj"
-        assert invoke(verb, source, cfg, out) == 0
-        outputs.append(read_obj(out))
-        report = record(out, "hub_rings" if verb == "hub-rings" else "morph")
-        if verb == "hub-rings":
-            assert report["width_stated"] == 0.04
-    for mesh in outputs[1:]:
-        np.testing.assert_array_equal(mesh.verts, outputs[0].verts)
-        assert mesh.families == outputs[0].families
+    text = "[hub_rings]\nrings = 3\nband_width = 0.04\n"
+    if verb == "morph":
+        text += '[wheel]\naxis = "x"\ncenter = [0, 0, 0]\n'
+    out = tmp_path / "banded.obj"
+    assert invoke(verb, source, control(tmp_path, text), out) == 0
+    report = record(out, "hub_rings" if verb == "hub-rings" else "morph")
+    if verb == "hub-rings":
+        assert report["width_stated"] == 0.04
 
 
 @pytest.mark.parametrize("point", [1.0123, [1.0123, 0.3, 0.4]])

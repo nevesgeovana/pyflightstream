@@ -27,10 +27,10 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     InputValueError,
     NotApplicableWarning,
-    PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.workspace._hub_remesh import (
     PASSES_TRIED,
     SHRINK,
@@ -113,35 +113,25 @@ def read_config(data: dict[str, Any], mesh: ObjMesh) -> dict[str, Any]:
     """Return the ``[hub_rings]`` table of a morphing file, checked against a mesh."""
     cfg = morphing_table(data, "hub_rings", ("blades", "hub"))
     _need(isinstance(cfg, dict), "the morphing file needs a [hub_rings] table")
-    for key in sorted(set(cfg) - {"blades", "hub", "rings", "band_width", "width"}):
+    _need("width" not in cfg, REMOVED_FORMS["hub_rings.width"].message())
+    for key in sorted(set(cfg) - {"blades", "hub", "rings", "band_width"}):
         warn(f"hub_rings.{key} does not apply and is skipped", NotApplicableWarning)
     count = cfg.get("rings")
     _need(
         isinstance(count, int) and not isinstance(count, bool) and count >= 1,
         f"hub_rings.rings must be a whole number of rings, 1 or more, not {count!r}",
     )
-    for key in ("band_width", "width"):
-        value = cfg.get(key)
-        _need(
-            key not in cfg
-            or (
-                isinstance(value, (int, float))
-                and not isinstance(value, bool)
-                and math.isfinite(value)
-                and value > 0.0
-            ),
-            f"hub_rings.{key} must be a positive length in the mesh's unit, not {value!r}",
-        )
-    if "width" in cfg:
-        warn(
-            "hub_rings.width is deprecated; use hub_rings.band_width",
-            PyflightstreamDeprecationWarning,
-        )
-        _need(
-            "band_width" not in cfg or cfg["width"] == cfg["band_width"],
-            "hub_rings.width and hub_rings.band_width conflict; state one value",
-        )
-    width = cfg.get("band_width", cfg.get("width"))
+    width = cfg.get("band_width")
+    _need(
+        "band_width" not in cfg
+        or (
+            isinstance(width, (int, float))
+            and not isinstance(width, bool)
+            and math.isfinite(width)
+            and width > 0.0
+        ),
+        f"hub_rings.band_width must be a positive length in the mesh's unit, not {width!r}",
+    )
     blades, hubs = _names(cfg, "blades", mesh), _names(cfg, "hub", mesh)
     _need(not set(blades) & set(hubs), "hub_rings.blades and hub must be disjoint")
     return {"blades": blades, "hub": hubs, "rings": count, "band_width": width}
