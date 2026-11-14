@@ -114,3 +114,42 @@ def test_p0580_unequal_extents_a_small_wing_keeps_its_base_on_a_large_body(kerne
     assert_cut_keeps_the_base(
         asm, record, base=base, chord=0.01, t=0.001, inside=0.01, outside=0.015
     )
+
+
+# ---- PFS-2226: the fuzzy value is bounded by the thinnest face it cuts ---------------------
+
+
+@pytest.mark.parametrize(
+    "base",
+    [4e-5, 1e-4],
+    ids=["P0580-THIN-BASE-BELOW-GROUP-FUZZY", "P0580-THIN-BASE-ABOVE-GROUP-FUZZY"],
+)
+def test_p0580_a_base_thinner_than_the_group_fuzzy_value_is_not_merged(kernel, tmp_path, base):
+    """R32-001: the full-size CI case with a blunt base of 40 and of 100 micrometres, below and
+    above the 50 micrometre value a pair of 2.5 m pieces takes from its extent. A fuzzy value
+    larger than the base merges its two edges: the base faces vanish and the junction loses the
+    curve across them. The cut keeps both bases, whole and split at the body side."""
+    pieces = {"BODY": body(2.5), "WING": blunt_wing(base)}
+    asm, record = cut(kernel, tmp_path, pieces)
+    assert_cut_keeps_the_base(asm, record, base=base, chord=1.0, t=0.1, inside=0.5, outside=2.0)
+
+
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [(4e-5, 4e-6), (DEFAULT_BASE_M, 5e-5)],
+    ids=["P0580-FUZZY-A-TENTH-OF-THE-BASE", "P0580-FUZZY-THE-EXTENT-VALUE-ABOVE-IT"],
+)
+def test_p0580_the_cut_fuzzy_value_is_a_tenth_of_the_thinnest_face(
+    kernel, tmp_path, base, expected
+):
+    """R32-001: the fuzzy value of the cut is a tenth of the narrowest mean width of the faces
+    the pieces bring to it where that is the smaller (the 40 micrometre base), and stays the
+    extent value where every face is wider than ten times it (the 2.52 mm base)."""
+    from pyflightstream.workspace._geom_assembly import Assembly
+
+    pieces = {"BODY": body(2.5), "WING": blunt_wing(base)}
+    asm = Assembly(kernel, pieces, [CUT], out=tmp_path, kinds=KINDS)
+    asm.step("S10.D1")
+    with asm._active_faces():
+        fuzzy = asm._group_fuzzy(["BODY", "WING"])
+    assert fuzzy == pytest.approx(expected, rel=1e-3)
