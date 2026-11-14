@@ -13,6 +13,10 @@ A command-line user of a deprecated key or flag now sees the deprecation, once, 
 
 The setup page now states how a Python user builds runtime settings: `SolverSettings(runtime={...})` validates a mapping, and `RuntimeSettings` stays a private type (naming it public would add it to the `pyflightstream.cases` root, whose names are fixed). migration: none.
 
+### Fixed
+
+The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none; a model whose faces are all wider than 0.5 mm is cut as before.
+
 ## [0.57.0] - 2026-11-13
 
 ### Added

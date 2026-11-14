@@ -777,19 +777,43 @@ def test_p0570_g7r_s6_no_through_run_geometry_an_imprint_that_splits_no_host(tmp
     assert checks_of(record)["junction.on_host_loops"]["measured"] > 5e-6
 
 
+WING_BODY = {"host": "body", "panel": "lifting_surface"}
+
+
 @pytest.mark.parametrize(
-    ("kinds", "extent", "fuzzy"),
+    ("kinds", "extents", "thinnest", "fuzzy"),
     [
-        ({"host": "body", "panel": "lifting_surface"}, 2.5, 5e-5),
-        ({"host": "body", "panel": "lifting_surface"}, 0.025, 5e-7),
-        ({"BODY": "body", "BLISTER": "blister"}, 2.5, 0.0),
+        (WING_BODY, (2.5, 2.5), 1.0, 5e-5),
+        (WING_BODY, (0.025, 0.025), 1.0, 5e-7),
+        ({"BODY": "body", "BLISTER": "blister"}, (2.5, 2.5), 1.0, 0.0),
+        (WING_BODY, (4.0, 0.025), 1.0, 5e-7),
+        (WING_BODY, (2.5, 2.5), 4e-5, 4e-6),
+        (
+            {"BODY": "body", "WING": "lifting_surface", "FIN": "lifting_surface"},
+            (4, 2.5, 1),
+            4e-5,
+            4e-6,
+        ),
+        ({"BODY": "body", "BLISTER": "blister"}, (2.5, 2.5), 4e-5, 0.0),
     ],
-    ids=["P0570-wing-body-pair-fuzzy", "P0570-pair-fuzzy-scales", "P0570-body-join-pair-exact"],
+    ids=[
+        "P0570-wing-body-pair-fuzzy",
+        "P0570-pair-fuzzy-scales",
+        "P0570-body-join-pair-exact",
+        "P0580-pair-fuzzy-from-the-smaller-of-unequal-extents",
+        "P0580-pair-fuzzy-bounded-by-the-thinnest-face",
+        "P0580-group-fuzzy-bounded-by-the-thinnest-face",
+        "P0580-body-join-exact-whatever-its-faces",
+    ],
 )
-def test_p0570_g7r_a_wing_body_pair_is_cut_with_the_group_fuzzy_value(kinds, extent, fuzzy):
+def test_p0570_g7r_a_wing_body_pair_is_cut_with_the_group_fuzzy_value(
+    kinds, extents, thinnest, fuzzy
+):
     """CI run 43484118433: the exact fragment of a body and a wing whose blunt trailing-edge
     base lies in the plane of a body seam kept only the 2.52 mm junction across that base on one
-    runner. A pair cut takes the group fuzzy value; only a body join stays exact."""
+    runner. A pair cut takes the group fuzzy value; only a body join stays exact. Review R32 of
+    0.57.0: the value is taken from the smaller of two unequal pieces, and no cut takes more than
+    a tenth of the thinnest face its pieces bring (the stub says how thin that is)."""
     import contextlib
     from types import SimpleNamespace
 
@@ -805,12 +829,13 @@ def test_p0570_g7r_a_wing_body_pair_is_cut_with_the_group_fuzzy_value(kinds, ext
     stub = SimpleNamespace(
         cut_done=False,
         kinds=kinds,
-        extents=dict.fromkeys(kinds, extent),
-        faces={names[0]: [1, 2], names[1]: [3]},
+        extents=dict(zip(names, extents, strict=True)),
+        faces={name: [2 * k + 1, 2 * k + 2] for k, name in enumerate(names)},
         k=SimpleNamespace(fragment=fragment),
         _cut_groups=lambda: [names],
         _active_faces=contextlib.nullcontext,
         _regroup=lambda group, inputs, rows: None,
+        _thinnest_face=lambda group: thinnest,
     )
     stub._group_fuzzy = lambda group: Assembly._group_fuzzy(stub, group)
     Assembly._cut_all(stub)

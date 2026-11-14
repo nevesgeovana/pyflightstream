@@ -56,6 +56,10 @@ def _boxes_meet(a: tuple, b: tuple) -> bool:
 
 #: Fuzzy value of a two-piece cut, as a fraction of the smaller piece's extent.
 PAIR_FUZZY_FRACTION = 2e-5
+#: The largest fuzzy value of any cut, as a fraction of the narrowest mean width of the faces
+#: its pieces bring to it: a fuzzy value merges the edges of a face narrower than itself (a
+#: 40 micrometre trailing-edge base under 50 micrometres), and a tenth keeps that face whole.
+FEATURE_FUZZY_FRACTION = 0.1
 
 
 class Assembly(RemovalSteps):
@@ -575,16 +579,34 @@ class Assembly(RemovalSteps):
         pair too: a body seam lying in the plane of a blunt trailing-edge base is a curve on a
         face, which an exact fragment resolves by the last bits of the arithmetic, and on some
         processors it lost every junction curve but those across that base.
+
+        No cut takes more than :data:`FEATURE_FUZZY_FRACTION` of the narrowest face its pieces
+        bring to it, so a face thinner than the group value (a thin trailing-edge base) keeps
+        its edges apart instead of being merged away with the junction across it.
         """
         if len(group) == 2 and all(self.kinds.get(name) in BLUFF for name in group):
             return 0.0
+        value = jn.GROUP_FUZZY_M
         if len(group) == 2:
             # Relative to the smaller piece, so a model scaled by any factor keeps its
             # junctions: 2e-5 of a 2.5 m wing is the group value, a 0.2 mm junction of a model
             # at a hundredth of that size is not merged away.
             smaller = min(self.extents[name] for name in group)
-            return min(jn.GROUP_FUZZY_M, PAIR_FUZZY_FRACTION * smaller)
-        return jn.GROUP_FUZZY_M
+            value = min(value, PAIR_FUZZY_FRACTION * smaller)
+        return min(value, FEATURE_FUZZY_FRACTION * self._thinnest_face(group))
+
+    def _thinnest_face(self, group: Sequence[str]) -> float:
+        """Return the narrowest mean width of the faces the pieces of ``group`` bring to a cut.
+
+        The faces are those in :attr:`faces` when the cut runs, the active ones: an inert face
+        takes no part in the fragment. A group with no face has no width to keep.
+        """
+        widths = [
+            jn.mean_width(self.k.area(f), sum(self._length(abs(e)) for e in self.k.boundary(f)))
+            for name in group
+            for f in self.faces[name]
+        ]
+        return min(widths, default=float("inf"))
 
     def _remove(self):
         with self._active_faces():
