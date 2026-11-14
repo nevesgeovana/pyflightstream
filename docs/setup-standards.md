@@ -317,6 +317,19 @@ topology is refused. Submitted jobs cannot use the submit host as evidence for
 a compute node, so `max_threads` and `affinity` require a local launch on the solver
 machine; the concurrency keys below do not, and a submitted run ignores them.
 
+A Python user builds the same settings through `SolverSettings(runtime=...)`, which
+validates a mapping with the keys above and refuses an unknown key. The type behind it,
+`RuntimeSettings`, is not a public name: it is not in any module's `__all__`, and naming
+it public would put it in the `pyflightstream.cases` root, whose names are fixed. Build
+it from the mapping, as the setup block does:
+
+```python
+from pyflightstream.cases import SolverSettings
+
+solver = SolverSettings(runtime={"max_threads": 4, "parallel": 2})
+assert solver.runtime.max_threads == 4
+```
+
 The run record's `solver_setup.runtime` stores the resolved count, requested
 affinity, applied KMP environment and topology (physical and logical cores,
 P/E classification, per-core SMT, sockets and NUMA membership).
