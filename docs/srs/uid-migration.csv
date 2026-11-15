@@ -483,7 +483,7 @@ FR-348,kept,,FR-2128,docs/unpublished/requirements/dred.md
 FR-704,kept,,FR-1485,docs/unpublished/requirements/spcm.md
 FR-705,kept,,,docs/unpublished/requirements/spcm.md
 FR-706,l3,FR-348,FR-2129 FR-2130,tests/requirements_l3.csv
-FR-707,l3,FR-348,FR-2131,tests/requirements_l3.csv
+FR-707,retired,,FR-2131 FR-2128,docs/unpublished/requirements/retired.md
 FR-708,l3,FR-32,,tests/requirements_l3.csv
 FR-710,l3,FR-36,FR-2288,tests/requirements_l3.csv
 FR-349,l3,FR-114,,tests/requirements_l3.csv
