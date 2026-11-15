@@ -2,8 +2,7 @@
 
 API-05: the mesh verbs name the file they write ``--out`` as their sibling
 commands do: ``pyfs-workspace geometry refine --out DIR`` and ``pyfs-workspace geometry audit
---out FILE``. The names of 0.38.0, ``--out-dir`` and ``--csv``, are kept as
-deprecated aliases: each gives the byte-identical result and warns once.
+--out FILE``.
 
 PUSH-IND-ARCH-6: the mesh command reads the boundaries file's trailing-edge
 points entry through the one reader the refinement and the audit use
@@ -52,62 +51,31 @@ def _tree(folder: Path) -> dict[str, bytes]:
     return {p.name: p.read_bytes() for p in sorted(folder.iterdir())}
 
 
-def test_refine_out_and_its_deprecated_alias_out_dir_write_the_same_level(tmp_path, capsys):
-    """P0390-REV38 (NFR-45, API-05): ``refine --out DIR``; ``--out-dir`` is its alias.
+def test_refine_out_writes_the_level_folder_under_the_directory_it_names(tmp_path, capsys):
+    """P0390-REV38 (NFR-45, API-05): ``refine --out DIR`` writes the level folder under DIR.
 
-    Both write the level folder under the directory they name, file for file
-    byte-identical; the alias warns once that it is deprecated and names
-    ``--out``, and ``--out`` warns of nothing. Both together are refused
-    naming both, exit 2, with nothing written.
+    The level is written whole, and ``--out`` warns of nothing.
     """
     src = _source(tmp_path)
     code, out, _, said = _run(capsys, "refine", str(src), "2", "--out", str(tmp_path / "new"))
     assert code == 0 and said == []
     level = next((tmp_path / "new").iterdir())
-    code, _, _, said = _run(capsys, "refine", str(src), "2", "--out-dir", str(tmp_path / "old"))
-    assert code == 0
-    assert len(said) == 1 and "--out-dir" in said[0] and "--out " in said[0]
-    assert _tree(tmp_path / "old" / level.name) == _tree(level)
     assert str(level / "wing_R2.obj") in out
-    code, _, err, _ = _run(
-        capsys,
-        "refine",
-        str(src),
-        "2",
-        "--out",
-        str(tmp_path / "a"),
-        "--out-dir",
-        str(tmp_path / "b"),
-    )
-    assert code == 2 and "--out-dir" in err and "--out" in err and "Nothing was written." in err
-    assert not (tmp_path / "a").exists() and not (tmp_path / "b").exists()
 
 
-def test_audit_mesh_out_and_its_deprecated_alias_csv_write_the_same_figures(tmp_path, capsys):
-    """P0390-REV38 (NFR-45, API-05): ``audit-mesh --out FILE``; ``--csv`` is its alias.
+def test_audit_mesh_out_writes_the_figures_and_refuses_a_folder(tmp_path, capsys):
+    """P0390-REV38 (NFR-45, API-05): ``audit-mesh --out FILE`` writes the CSV of the figures.
 
-    Both write the CSV of the figures byte for byte the same and print the
-    same summary; the alias warns once that it is deprecated and names
-    ``--out``. A refusal of the file names the option the user typed: the
-    same folder is refused as ``--out`` and as ``--csv``. Both together are
-    refused naming both, exit 2.
+    The summary names the file, ``--out`` warns of nothing, and a folder given as
+    ``--out`` is refused, exit 2.
     """
     src = _source(tmp_path)
-    code, out_new, _, said = _run(capsys, "audit-mesh", str(src), "--out", str(tmp_path / "n.csv"))
+    code, out, _, said = _run(capsys, "audit-mesh", str(src), "--out", str(tmp_path / "n.csv"))
     assert code == 0 and said == []
-    code, out_old, _, said = _run(capsys, "audit-mesh", str(src), "--csv", str(tmp_path / "o.csv"))
-    assert code == 0
-    assert len(said) == 1 and "--csv" in said[0] and "--out " in said[0]
-    assert (tmp_path / "n.csv").read_bytes() == (tmp_path / "o.csv").read_bytes()
-    assert out_new.replace("n.csv", "o.csv") == out_old
-    for flag in ("--out", "--csv"):
-        code, _, err, _ = _run(capsys, "audit-mesh", str(src), flag, str(tmp_path))
-        assert code == 2 and f"{flag} names a folder" in err
-    code, _, err, _ = _run(
-        capsys, "audit-mesh", str(src), "--out", str(tmp_path / "x.csv"), "--csv", "y.csv"
-    )
-    assert code == 2 and "--csv y.csv and --out" in err and "Nothing was written." in err
-    assert not (tmp_path / "x.csv").exists()
+    assert (tmp_path / "n.csv").read_text(encoding="utf-8").startswith("family,figure,value")
+    assert str(tmp_path / "n.csv") in out
+    code, _, err, _ = _run(capsys, "audit-mesh", str(src), "--out", str(tmp_path))
+    assert code == 2 and "--out names a folder" in err
 
 
 def test_the_mesh_command_names_no_key_of_the_boundaries_layout():

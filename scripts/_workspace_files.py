@@ -752,20 +752,6 @@ def workspace_data(root):
         ),
     )
     add(
-        "sweep",
-        "post/<matrix>/campaign_sweep.csv",
-        "Campaign sweep outcomes and collected metrics.",
-        "pyflightstream.run._campaign:_leave_sweep_table",
-        "pyflightstream.post.products:_sweep_rows",
-        token="campaign_sweep.csv",
-        step="steps-30",
-        delete=(
-            "Yes, if reproducible from retained records and exports. The next pyfs-matrix run "
-            "writes it again, and a post does not; a rebuild loses the versions it reads there, "
-            "and the inventory may otherwise name missing files."
-        ),
-    )
-    add(
         "products-json",
         "post/<matrix>/products.json",
         "Product inventory, provenance links, skips, warnings and completion state.",
@@ -1128,7 +1114,7 @@ STEP_FILES = {
     10: ["runs-json", "sim", "post-plan"],
     11: ["input-file-geometries"],
     12: ["input-file-geometries", "input-file-setups"],
-    13: ["root-matrix", "post-plan", "runs-json", "sweep"],
+    13: ["root-matrix", "post-plan", "runs-json"],
     14: ["root-matrix", "inputs", "runs-json"],
     15: ["executables", "inputs-hpc"],
     16: ["runs-json"],
@@ -1145,10 +1131,10 @@ STEP_FILES = {
     27: ["datapoint", "runs-json"],
     28: ["runs-json", "manifest-lock"],
     29: ["runs-json", "manifest-temp", "manifest-guard"],
-    30: ["runs-json", "sweep", "products-json"],
+    30: ["runs-json", "products-json"],
     31: ["runs-json", "products-json"],
     32: ["runs-json", "post-log", "post-log-json", "products-json"],
-    33: ["runs-json", "datapoint", "root-matrix", "products-json", "sweep"],
+    33: ["runs-json", "datapoint", "root-matrix", "products-json"],
     34: ["export-loads", "input-file-pproc", "product-0", "product-2", "product-3"],
     35: ["export-loads", "product-0", "product-1"],
     36: ["runs-json", "products-json", "reports"],

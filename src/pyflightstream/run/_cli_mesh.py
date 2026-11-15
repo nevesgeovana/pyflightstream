@@ -28,8 +28,7 @@ the error on standard error names the audit file that was written.
 The written file is named by ``--out`` on both verbs, as on their sibling
 commands (``rebuild --out``, ``pyfs-workspace ... --out``): ``refine --out
 DIR`` and ``audit-mesh --out FILE``. The former names ``--out-dir`` and
-``--csv`` are kept as deprecated aliases (NFR-45): each gives the identical
-result and warns once that it is deprecated.
+``--csv`` are refused by name.
 """
 
 from __future__ import annotations
@@ -43,8 +42,9 @@ from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._progress import say_line
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases.workflows._vocabulary import RAW_MESH_FORMATS
 from pyflightstream.workspace import MeshAudit, audit_mesh, derive_thin_blade, refine_mesh
 from pyflightstream.workspace.cli import add_console_arguments
@@ -103,39 +103,23 @@ def add_mesh_parsers(subparsers: Any) -> None:
         "--csv",
         dest="csv_file",
         metavar="FILE",
-        help="deprecated alias of --out, with the identical result",
+        help=argparse.SUPPRESS,
     )
     add_console_arguments(audit, _VERBOSE_HELP)
     audit.set_defaults(mesh_command=run_audit_mesh)
 
 
-def _chosen(
-    args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str], *, since: str = "0.39.0"
-) -> tuple[str | None, str, str | None]:
-    """Return an option's value, the flag that gave it, and a refusal (NFR-45).
+def _removed_form(args: argparse.Namespace, *forms: tuple[str, str]) -> str | None:
+    """Return the refusal of the first removed flag the command line gave, or None.
 
-    ``new`` and ``old`` are each ``(flag, dest)``: the option's name and its
-    deprecated alias. The alias gives the identical value and warns once
-    that it is deprecated; both together are refused, naming both.
-    ``since`` is the release that deprecated the alias.
+    Each item of ``forms`` is ``(key, dest)``: the flag's key in ``REMOVED_FORMS`` and the
+    attribute its parser keeps, hidden from the help, so that the flag is refused by name,
+    with what it became, in place of an argparse usage error.
     """
-    value, alias = getattr(args, new[1]), getattr(args, old[1])
-    if alias is None:
-        return value, new[0], None
-    if value is not None:
-        return (
-            None,
-            new[0],
-            f"{old[0]} {alias} and {new[0]} {value}: {old[0]} is a deprecated alias of "
-            f"{new[0]}. Give {new[0]} alone and run again. Nothing was written.",
-        )
-    warn(
-        f"{old[0]} is deprecated since {since} and will be removed; it is an alias of "
-        f"{new[0]}, which gives the identical result: write {new[0]} {alias}.",
-        PyflightstreamWarning,
-        stacklevel=2,
-    )
-    return alias, old[0], None
+    for key, dest in forms:
+        if getattr(args, dest, None) is not None:
+            return f"{REMOVED_FORMS[key].message()} Nothing was written."
+    return None
 
 
 def _refused_csv(csv: str | None, flag: str = "--out") -> str | None:
@@ -231,12 +215,13 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
     """Audit one OBJ, alone or against its source, and write its audit beside it (FR-426).
 
     The summary goes to standard output, then the audit written and the CSV
-    of ``--out`` (or its deprecated alias ``--csv``), one path per line.
+    of ``--out``, one path per line.
     Every refusal, an error of the file system included, is printed in the
     standard shape (the object, the reason, what to do), ending "Nothing was
     written." only when that holds.
     """
-    csv_file, flag, refused = _chosen(args, ("--out", "out"), ("--csv", "csv_file"))
+    csv_file, flag = args.out, "--out"
+    refused = _removed_form(args, ("audit-mesh.--csv", "csv_file"))
     if refused is None:
         refused = _csv_collision(csv_file, args.mesh, args.against, flag)
     if refused is None:
@@ -332,7 +317,7 @@ def _add_refine_parser(subparsers: Any) -> None:
         type=_number,
         help="the factor of the grid families across their reference perimeter",
     )
-    # The earlier names of --normal and --parallel, read with a warning.
+    # The earlier names of --normal and --parallel, refused by name.
     refine.add_argument("--chordwise", type=_number, help=argparse.SUPPRESS)
     refine.add_argument("--spanwise", type=_number, help=argparse.SUPPRESS)
     refine.add_argument(
@@ -368,7 +353,7 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--keep-first-row",
         metavar="FAMILY[,FAMILY...]",
-        # An earlier option, warned and skipped: a row kept at an interface is its own family.
+        # A removed option, refused by name.
         help=argparse.SUPPRESS,
     )
     refine.add_argument(
@@ -380,7 +365,7 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--out-dir",
         metavar="DIR",
-        help="deprecated alias of --out, with the identical result",
+        help=argparse.SUPPRESS,
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
     refine.add_argument(
@@ -425,7 +410,13 @@ def run_refine(args: argparse.Namespace) -> int:
     Exit 0 when the level is written (a failed audit is a warning), 2 when the
     request is refused; a refusal writes nothing.
     """
-    out_dir, _, refused = _chosen(args, ("--out", "out"), ("--out-dir", "out_dir"))
+    refused = _removed_form(
+        args,
+        ("refine.--chordwise", "chordwise"),
+        ("refine.--spanwise", "spanwise"),
+        ("refine.--keep-first-row", "keep_first_row"),
+        ("refine.--out-dir", "out_dir"),
+    )
     if refused is not None:
         print(refused, file=sys.stderr)
         return EXIT_REFUSED
@@ -436,12 +427,9 @@ def run_refine(args: argparse.Namespace) -> int:
             families=_names(args.families),
             parallel=args.parallel,
             normal=args.normal,
-            chordwise=args.chordwise,
-            spanwise=args.spanwise,
             config=args.config,
-            out_dir=out_dir,
+            out_dir=args.out,
             overwrite=args.overwrite,
-            keep_first_row=_names(args.keep_first_row),
             progress=_progress_printer(),
             accept_remesh=args.accept_remesh,
             accept_unknown=args.accept_unknown,

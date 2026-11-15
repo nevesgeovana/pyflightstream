@@ -181,7 +181,6 @@ CAMPAIGNS = {
         _matriz_two_polars,
         "matriz",
         (
-            r"^campaign_sweep\.csv$",
             r"^polars/P6001-g01-ACOEF\.csv$",
             r"^polars/P6002-g01-ACOEF\.csv$",
             r"^polars/FAM-ACOEF-P6001\.csv$",
@@ -303,12 +302,10 @@ def _problems_of(workspace: CampaignWorkspace, out: Path) -> tuple[list[str], li
         for number, row in enumerate(body, start=2):
             if len(row) != len(header):
                 problems.append(f"{relative} line {number}: {len(row)} cells, {len(header)} names")
-        # A table spanning the matrix names its run per row: the sweep table by `run_id`, the
-        # settings table (FR-419) by `RUN_ID`; neither belongs to one simulation.
-        run_column = "run_id" if relative == "campaign_sweep.csv" else "RUN_ID"
-        if relative == "campaign_sweep.csv" or (
-            relative.startswith("settings/") and run_column in header
-        ):
+        # A table spanning the matrix names its run per row: the settings table (FR-419) by
+        # `RUN_ID`; it belongs to no one simulation.
+        run_column = "RUN_ID"
+        if relative.startswith("settings/") and run_column in header:
             at = header.index(run_column)
             for number, row in enumerate(body, start=2):
                 wanted = sim_of_run.get(row[at])

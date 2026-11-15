@@ -469,7 +469,7 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
     """P0380-AUDIT (FR-937): ``audit-mesh OBJ --against SOURCE --out FILE`` exits 0, prints
     the summary and the files written, and the CSV holds one row per family and figure.
 
-    0.39.0 (NFR-45, API-05): the CSV option is ``--out``; its deprecated alias ``--csv``,
+    0.39.0 (NFR-45, API-05): the CSV option is ``--out``; its deprecated alias ``--out``,
     which warns, is held in tests/tier1_offline/test_p0390_rev38_mesh_cli.py."""
     level, src = _pair(tmp_path, Mesh())
     table = tmp_path / "audit.csv"
@@ -514,7 +514,7 @@ def test_the_command_exits_2_on_a_refusal_and_writes_nothing(tmp_path, capsys):
         ([str(tmp_path / "none.obj")], "none.obj: no such OBJ file"),
         ([str(empty)], "the file holds no face"),
         ([str(level), "--against", str(tmp_path / "gone.obj")], "gone.obj: no such OBJ file"),
-        ([str(level), "--csv", str(tmp_path / "no" / "a.csv")], "--csv names a folder"),
+        ([str(level), "--out", str(tmp_path / "no" / "a.csv")], "--out names a folder"),
     ]
     for argv, refusal in cases:
         code, _ = _run("audit-mesh", *argv)
@@ -542,14 +542,14 @@ def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, ca
     try:
         if os.access(target, os.W_OK):
             pytest.skip("this account writes read-only files")
-        code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+        code, _ = _run("audit-mesh", str(level), "--against", str(src), "--out", str(target))
         err = capsys.readouterr().err
-        assert code == 2 and f"{target}: --csv names a file that cannot be written" in err
+        assert code == 2 and f"{target}: --out names a file that cannot be written" in err
         assert "and run again. Nothing was written." in err, err
         assert not list(tmp_path.rglob("*.audit.json")) and target.read_text() == "kept\n"
     finally:
         os.chmod(target, stat.S_IREAD | stat.S_IWRITE)
-    code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+    code, _ = _run("audit-mesh", str(level), "--against", str(src), "--out", str(target))
     assert code == 0 and target.read_text(encoding="utf-8").startswith("family,figure,value")
 
 

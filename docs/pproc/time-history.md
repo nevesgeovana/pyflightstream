@@ -11,7 +11,7 @@ replaces it.
 | --- | --- |
 | the run block | [the run block](../definitions/the-run-block.md#the-run-block), in its order; the window columns state the window the point's averages use |
 | `Time-step` | the solver step of the row, the clock of the table |
-| the plots | one column per plotted quantity, named `<PARAMETER>_<FRAME>_<GROUP>` as the plot group names it (`FX_MRP_TOTAL`), or as the pproc's `[names]` dictionary renames it |
+| the plots | one column per plotted quantity, named `<PARAMETER>_<FRAME>_<GROUP>` as the plot group names it (`FX_MRP_TOTAL`); the pproc's `[names]` dictionary does not rename them |
 
 Forces are in N and moments in N m, in the frame the plot group declares. The
 coefficient columns (`CL_`, `CDI_`, `CDO_`, `CDP_`, `CDV_`, `CD_`) are brought from the

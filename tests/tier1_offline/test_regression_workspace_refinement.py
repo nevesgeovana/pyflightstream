@@ -223,16 +223,6 @@ class TestWorkspace1Refine:
         assert level.obj.read_bytes() == plain.obj.read_bytes()
 
     @staticmethod
-    def test_p0400_wsrefine_a_keep_first_row_only_table_is_warned_and_skipped(tmp_path):
-        """P0400-WSREFINE: keep_first_row is no longer read; a table stating it alone is skipped."""
-        src = _workspace_1_refine___source(
-            tmp_path, refine_toml="[families.G]\nkeep_first_row = true\nfactor = 2\n"
-        )
-        with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
-            level = refine_mesh(src, out_dir=tmp_path / "out")
-        assert level.report["G"]["method"] == "grid"
-
-    @staticmethod
     def test_p0400_wsrefine_a_trailing_edge_file_that_is_not_utf8_is_refused(tmp_path):
         """P0400-WSREFINE (PFS-2099.004): the second reader refuses cp1252 by name."""
         path = tmp_path / "edge.txt"
@@ -562,7 +552,7 @@ class TestWorkspace2RefineWing:
         mesh = _workspace_2_refine_wing__wing(root=False)
         level = refine_mesh(
             _workspace_2_refine_wing___source(tmp_path, mesh),
-            chordwise=2,
+            normal=2,
             families=["U"],
             out_dir=tmp_path,
         )
@@ -638,7 +628,7 @@ class TestWorkspace2RefineWing:
         mesh = _Workspace2RefineWingComposite(vertices, mesh.families, mesh.te, {})
         level = refine_mesh(
             _workspace_2_refine_wing___source(tmp_path, mesh),
-            chordwise=2,
+            normal=2,
             families=["U"],
             out_dir=tmp_path / "out",
         )

@@ -995,7 +995,6 @@
   "exceptions.py": 36,
   "post/products.py": 26,
   "run/_plan.py": 26,
-  "run/_campaign.py": 26,
   "workspace/__init__.py": 28
  },
  "fan_out_deferred": {},
@@ -1115,7 +1114,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 166,
+ "monkeypatch_targets": 165,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1157,7 +1156,7 @@
   "pyflightstream.run._additional": 2,
   "pyflightstream.run._assessment": 1,
   "pyflightstream.run._batch_plan": 1,
-  "pyflightstream.run._campaign": 5,
+  "pyflightstream.run._campaign": 4,
   "pyflightstream.run._cli_geometry": 2,
   "pyflightstream.run._cli_print": 1,
   "pyflightstream.run._executors": 4,

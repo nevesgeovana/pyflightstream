@@ -54,9 +54,33 @@ def test_p0580_reductions_go_to_reductions_and_two_are_retired(tmp_path):
     everywhere = [p.name for p in products.rglob("*.csv")]
     assert not [name for name in everywhere if "time_average" in name or "per_blade" in name]
     assert not [name for name in _files(products, "probes") if "phase_locked" in name]
-    assert any("time_average table is retired" in text for text in messages)
-    assert any("per_blade table is retired" in text for text in messages)
+    # The plan records the averaging windows of every row; none of that asks for a retired table.
+    assert not [text for text in messages if "table is retired" in text], messages
     assert all("reductions/AL-020_phase_locked.csv" in manifest["products"] for _ in (0,))
+
+
+@pytest.mark.requirement("FR-3777")
+@pytest.mark.parametrize("name", ["time_average", "per_blade"])
+def test_a_pproc_that_asks_for_a_retired_reduction_is_warned_once_and_never_refused(name):
+    from pyflightstream.cases.pproc import PprocSpec
+    from pyflightstream.post._tree_migration import POINTER
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        spec = PprocSpec.model_validate({name: {"windows": [[1, 2]]}})
+    said = [str(w.message) for w in caught if f"The {name} table is retired" in str(w.message)]
+    assert len(said) == 1 and said[0].endswith(POINTER), said
+    assert not hasattr(spec, name)
+
+
+@pytest.mark.requirement("FR-3777")
+def test_a_pproc_that_asks_for_none_is_never_warned_of_them():
+    from pyflightstream.cases.pproc import PprocSpec
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        PprocSpec.model_validate({})
+    assert not [w for w in caught if "table is retired" in str(w.message)]
 
 
 @pytest.mark.requirement("FR-3788")

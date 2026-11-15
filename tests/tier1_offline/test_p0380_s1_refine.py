@@ -108,7 +108,7 @@ def test_p0500_retired_refine_requirements_reserve_their_uids():
 
 @pytest.mark.parametrize(
     "key",
-    ["keep_first_row", "trailing_edge_direction", "axial", "circumferential", "axis", "origin"],
+    ["trailing_edge_direction", "axial", "circumferential", "axis", "origin"],
 )
 def test_p0500_retired_refine_family_keys_warn_and_skip(tmp_path, key):
     """Even malformed retired values leave the resolved family specification unchanged."""
@@ -127,8 +127,7 @@ def test_p0500_short_factor_tags_keep_exact_record_factors(tmp_path):
     """The retired keep-row suffix is absent while the record retains the exact factor."""
     value = 1.000001
     mesh = source(tmp_path, perimeter=False)
-    with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
-        level = refine_mesh(mesh, value, keep_first_row=["G"])
+    level = refine_mesh(mesh, value)
     assert level.folder.name == "wing_R1"
     assert _json(_record(level))["specs"]["G"]["factor"] == value
 
@@ -363,7 +362,7 @@ def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, cap
     assert len(lf["A"]) == 4 * len(sf["A"])
     assert face_coordinates(lv, lf["B"]) == face_coordinates(sv, sf["B"])
     assert level.folder.name == "tubes_R-A2" and level.report["B"] == {"method": "copied"}
-    code, _, _ = _command(capsys, str(src), "--families", "A", "--out-dir", str(tmp_path / "cmd"))
+    code, _, _ = _command(capsys, str(src), "--families", "A", "--out", str(tmp_path / "cmd"))
     assert code == 0
     assert len(read_mesh(tmp_path / "cmd" / "tubes_R-A2" / "tubes_R-A2.obj")[1]["B"]) == 144
     both = refine_mesh(src, out_dir=tmp_path / "all")
@@ -751,7 +750,7 @@ def test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes(tmp_path
     [
         ((), None, {"factor": 2.0}, "wing_R2"),
         ((), None, {"factor": 0.5}, "wing_R0p5"),
-        ((), None, {"chordwise": 1.5, "spanwise": 0.7}, "wing_R1c1p5s0p7"),
+        ((), None, {"normal": 1.5, "parallel": 0.7}, "wing_R1c1p5s0p7"),
         (WITH_T, None, {"factor": 2.0, "families": ["G"]}, "wing_R-G2"),
         ((), '[refine]\ntag = "fine"\n', {"factor": 2.0}, "wing_fine"),
     ],
@@ -1339,7 +1338,7 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     for seed in ("1", "2"):
         out = tmp_path / f"run{seed}"
         env = {**os.environ, "PYTHONPATH": root, "PYTHONHASHSEED": seed}
-        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out-dir", str(out)]
+        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out", str(out)]
         done = subprocess.run(
             [sys.executable, "-c", script, *argv], capture_output=True, env=env, timeout=300
         )
@@ -1754,15 +1753,6 @@ def source(tmp_path: Path, config: str = "", *, perimeter: bool = True) -> Path:
     return mesh
 
 
-def test_the_keep_first_row_keyword_is_warned_and_skipped(tmp_path):
-    """keep_first_row is no longer read: the call warns and writes the level without it."""
-    mesh = source(tmp_path, perimeter=False)
-    with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
-        level = refine_mesh(mesh, 2, keep_first_row=["G"], out_dir=tmp_path / "kept")
-    plain = refine_mesh(mesh, 2, out_dir=tmp_path / "plain")
-    assert level.report == plain.report
-
-
 @pytest.mark.parametrize("option", ["normal", "parallel"])
 def test_parallel_and_normal_factors_need_no_trailing_edge(tmp_path, option):
     """A grid family with no [[perimeter]] still takes parallel and normal factors."""
@@ -2048,23 +2038,16 @@ def test_a_perimeter_node_off_the_mesh_is_warned_and_skipped(tmp_path):
     assert not (level.folder / f"{level.obj.stem}.G.te.txt").exists()
 
 
-def test_chordwise_and_spanwise_are_read_as_normal_and_parallel_with_a_warning(tmp_path):
-    """The earlier key names still refine, warned; the level is the one the new names give."""
-    new = refine_mesh(
+def test_parallel_and_normal_factors_of_the_file_and_of_the_call_give_one_level(tmp_path):
+    """The family keys and the keywords of the two directions give the same level."""
+    from_file = refine_mesh(
         _source(
             tmp_path / "a", refine_toml="[families.G]\nparallel_factor = 2\nnormal_factor = 3\n"
         ),
         out_dir=tmp_path / "x",
     )
-    with pytest.warns(PyflightstreamWarning, match="chordwise is read as normal_factor"):
-        old = refine_mesh(
-            _source(tmp_path / "b", refine_toml="[families.G]\nspanwise = 2\nchordwise = 3\n"),
-            out_dir=tmp_path / "y",
-        )
-    assert _same_level(old.obj, new.obj)
-    with pytest.warns(PyflightstreamWarning, match="spanwise is read as parallel"):
-        call = refine_mesh(_source(tmp_path / "c"), spanwise=2, chordwise=3, out_dir=tmp_path / "z")
-    assert _same_level(call.obj, new.obj)
+    call = refine_mesh(_source(tmp_path / "c"), parallel=2, normal=3, out_dir=tmp_path / "z")
+    assert _same_level(call.obj, from_file.obj)
 
 
 def test_convert2midnodes_orders_a_scrambled_list_of_two_lines(tmp_path, capsys):

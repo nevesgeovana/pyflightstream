@@ -133,7 +133,7 @@ def test_ind01_a_level_holding_the_source_is_refused_before_any_work(tmp_path, c
     pdf = src.with_suffix(".refine-refusal.pdf")
     assert "holds the source's folder" in text and text.endswith(f"A diagnostic PDF: {pdf}.")
     assert pdf.read_bytes().startswith(b"%PDF")
-    code = cli.main(["refine", str(src), "2", "--out-dir", str(tmp_path / "study"), "--overwrite"])
+    code = cli.main(["refine", str(src), "2", "--out", str(tmp_path / "study"), "--overwrite"])
     assert code == 2 and text in capsys.readouterr().err
     assert _tree(tmp_path / "study", ignore=pdf) == before
 
@@ -439,7 +439,7 @@ def test_ind05_each_trailing_edge_row_holds_three_numbers(tmp_path, capsys, rows
     _both_commands_refuse(capsys, src, f"{te}: line {row} ", refine=False)
 
 
-# --------------------------------------------- IND-06 --csv names no input
+# --------------------------------------------- IND-06 --out names no input
 
 
 def _csv_case(tmp_path: Path) -> tuple[Path, Path]:
@@ -480,7 +480,7 @@ def _csv_case(tmp_path: Path) -> tuple[Path, Path]:
     ],
 )
 def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, capsys, target):
-    """P0380-AUDIT (FR-937, IND-06): ``--csv`` never overwrites an input or the audit JSON.
+    """P0380-AUDIT (FR-937, IND-06): ``--out`` never overwrites an input or the audit JSON.
 
     The mesh, the source given by ``--against``, their boundaries and points
     files, the audit JSON, a path spelled otherwise and a hard link to the
@@ -497,14 +497,14 @@ def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, 
     before = _tree(tmp_path)
     csv = tmp_path / target
     capsys.readouterr()
-    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--csv", str(csv)])
+    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--out", str(csv)])
     err = capsys.readouterr().err
     assert code == 2, err
-    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --csv names ")]
+    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --out names ")]
     assert len(said) == 1 and said[0].endswith("Nothing was written."), err
     assert _tree(tmp_path) == before
     code = cli.main(
-        ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
+        ["audit-mesh", str(level), "--against", str(src), "--out", str(tmp_path / "f.csv")]
     )
     assert code == 0 and (tmp_path / "f.csv").is_file()
 
@@ -679,7 +679,7 @@ def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
     text = str(caught.value)
     assert f"the family {family!r}" in text and "one folder name" in text, text
     assert text.endswith(f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}.")
-    argv = ["refine", str(src), "1", "--families", family, "--out-dir", str(levels)]
+    argv = ["refine", str(src), "1", "--families", family, "--out", str(levels)]
     capsys.readouterr()
     assert cli.main(argv + (["--overwrite"] if overwrite else [])) == 2
     assert text in capsys.readouterr().err
@@ -876,15 +876,15 @@ def test_ind11_the_audit_json_never_overwrites_a_file_the_audit_reads(tmp_path, 
     assert plain.with_name("wing.audit.json").is_file()
 
 
-# ------------------------------- IND2-01 --csv never names the level's record
+# ------------------------------- IND2-01 --out never names the level's record
 
 
 @pytest.mark.parametrize("target", ["level/wing.refine.json", "level/../level/wing.refine.json"])
 def test_ind2_01_csv_naming_the_levels_refine_json_is_refused(tmp_path, capsys, target):
-    """P0380-AUDIT (FR-937, IND2-01): ``--csv`` never truncates the record the audit reads.
+    """P0380-AUDIT (FR-937, IND2-01): ``--out`` never truncates the record the audit reads.
 
     The audited level holds ``<stem>.refine.json``, which the audit reads
-    for its components and unchanged grids. ``--csv`` naming it, directly or
+    for its components and unchanged grids. ``--out`` naming it, directly or
     spelled otherwise, is refused before the audit: exit 2, the refusal names
     the record, and every file is kept byte for byte. Control: a CSV
     elsewhere is written and the command exits 0.
@@ -894,15 +894,15 @@ def test_ind2_01_csv_naming_the_levels_refine_json_is_refused(tmp_path, capsys, 
     before = _tree(tmp_path)
     csv = tmp_path / target
     capsys.readouterr()
-    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--csv", str(csv)])
+    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--out", str(csv)])
     err = capsys.readouterr().err
     assert code == 2, err
-    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --csv names ")]
+    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --out names ")]
     assert len(said) == 1 and "refinement record" in said[0], err
     assert said[0].endswith("Nothing was written.")
     assert _tree(tmp_path) == before
     code = cli.main(
-        ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
+        ["audit-mesh", str(level), "--against", str(src), "--out", str(tmp_path / "f.csv")]
     )
     assert code == 0 and (tmp_path / "f.csv").is_file()
 

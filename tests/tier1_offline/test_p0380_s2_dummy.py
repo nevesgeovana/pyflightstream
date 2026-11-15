@@ -273,7 +273,7 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
 
 @pytest.mark.parametrize(
     "kwargs",
-    [{"factor": 1.0}, {"chordwise": 1.0, "spanwise": 2.0}],
+    [{"factor": 1.0}, {"normal": 1.0, "parallel": 2.0}],
     ids=["factor-1", "spanwise-only"],
 )
 def test_r3_when_the_grids_curve_nodes_do_not_change_nothing_of_the_neighbour_changes(
@@ -293,7 +293,7 @@ def test_r3_when_the_grids_curve_nodes_do_not_change_nothing_of_the_neighbour_ch
         assert face_coordinates(lv, lf[name]) == face_coordinates(sv, sf[name])
         assert level.report[name] == {"method": "copied"}
     assert "interfaces" not in level.report["G"]
-    assert len(lf["G"]) == len(sf["G"]) * (2 if "spanwise" in kwargs else 1)
+    assert len(lf["G"]) == len(sf["G"]) * (2 if "parallel" in kwargs else 1)
 
 
 # ------------------------------------------------------------- FR-935 components

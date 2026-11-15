@@ -5,8 +5,6 @@ time=<TIME>
 check_frozen=False (refuse instead of warn)
 WARNING point=campaign product=stage: sections/AL-020_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
 WARNING point=campaign product=stage: sections/AL-020_sloads#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
-WARNING point=campaign product=stage: The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.
-WARNING point=campaign product=stage: The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.
 WARNING point=AL-020 product=reductions/AL-020_per_revolution.csv: the plots table holds 61 time steps, 15 complete revolution(s) of 4 and 1 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing
 WARNING point=campaign product=stage: Rotor PUSHER declares its axis aft; 0.58.0 counts thrust positive forward, so CT, CQ, ETA, T and the in-plane signs of this rotor are opposite to 0.57.0. See docs/upgrading.md#0580-post-tree.
 WARNING point=campaign product=stage: polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).

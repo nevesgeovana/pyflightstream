@@ -63,11 +63,10 @@ pyfs-matrix run matriz.fs --workspace . --fs-version 26.123
   -> fts-workspace/sim_0001/M144AL+000BE+000J+100  [unsteady_rotor]  building and running
      fts-workspace/sim_0001/M144AL+000BE+000J+100  CONVERGED
   ...
-sweep table: <workspace>\post\matriz\campaign_sweep.csv
 \end{lstlisting}
 \begin{itemize}
   \item Each line names the \textbf{run id}; the point tag ends it.
-  \item The last line is the table most people open.
+  \item The products are under \file{post/matriz/}; the \code{TOTAL} group files hold each polar.
   \item Read \code{skipped}: it may name an inapplicable reduction or missing
         data needed by a product.
 \end{itemize}

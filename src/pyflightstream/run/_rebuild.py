@@ -29,7 +29,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT, SCRIPT_ARGUMENT
 from pyflightstream.run._mark_converged import RunsManifestError, keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
@@ -1239,6 +1239,14 @@ def _rebuild_all(
                         name, name_from = (
                             (planned, planned_from) if planned else (base.name, "directory")
                         )
+                        if not planned:
+                            said = (
+                                f"no surviving record names the campaign or version of sim_{sim} "
+                                "(no archived manifest, provenance sheet or plan receipt): it is "
+                                f"rebuilt under the folder name {base.name!r}"
+                            )
+                            sim_notes[sim].append(said)
+                            warnings.warn(said, PyflightstreamWarning, stacklevel=2)
                     order = (
                         [identity.point_name_template]
                         if identity is not None and identity.point_name_template

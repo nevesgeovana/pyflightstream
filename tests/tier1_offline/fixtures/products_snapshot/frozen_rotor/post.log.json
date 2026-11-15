@@ -30,22 +30,6 @@
    "severity": "warning"
   },
   {
-   "point": "campaign",
-   "product": "stage",
-   "message": "The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "campaign",
-   "product": "stage",
-   "message": "The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
    "point": "AL-020",
    "product": "reductions/AL-020_phase_locked.csv",
    "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",

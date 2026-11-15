@@ -69,13 +69,12 @@ def test_p0350_cli_refusals(tmp_path, capsys) -> None:
             main(["run", "none.fs", "--workspace", str(tmp_path), *argv])
         assert stop.value.code == 2
         assert named in capsys.readouterr().err
-    assert refuse_grouped_options(force_rerun=None, force_rerun_all=False, sweep_csv=None) is None
+    assert refuse_grouped_options(force_rerun=None, force_rerun_all=False) is None
     for kwargs, flag in (
         ({"force_rerun": ["2006"]}, "--force-rerun"),
         ({"force_rerun_all": True}, "--force-rerun-all"),
-        ({"sweep_csv": "t.csv"}, "--sweep-csv"),
     ):
-        base = {"force_rerun": None, "force_rerun_all": False, "sweep_csv": None, **kwargs}
+        base = {"force_rerun": None, "force_rerun_all": False, **kwargs}
         assert flag in (refuse_grouped_options(**base) or "")
 
 

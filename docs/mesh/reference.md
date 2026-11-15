@@ -301,7 +301,7 @@ and assumes metres.
 ## Refinement controls
 
 Refinement files warn and skip the retired `[periodic]` and `[trailing_edge]`
-tables and the family keys `keep_first_row`, `trailing_edge_direction`, `axial`,
+tables and the family keys `trailing_edge_direction`, `axial`,
 `circumferential`, `axis` and `origin`, including empty or malformed values. Use
 `[[perimeter]]` for reference node lists and trailing-edge export. A row that
 must stay unchanged is a separate family with `method = "keep"`; continuity
@@ -656,12 +656,12 @@ pyfs-workspace geometry audit OBJ [--against SOURCE] [--out FILE]
 | `MESH` | `refine` | the source OBJ; it and its folder are never modified |
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
-| `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. `--spanwise F` and `--chordwise F` are read as `--parallel` and `--normal`, with a warning |
+| `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. |
 | `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal`, or stated `method = "grid"`, whose grid is not recovered, and a later grid whose layout the blocks refuse (a shared curve counted apart), with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
 | `--accept-unknown` | `refine` | warn and skip, in place of refusing, an unknown table or key of the refinement file, a value it cannot read (the key takes its default, a table left with no factor is skipped, a bad tag gives the built one), an implicit refinement file that cannot be read, a family table or `[components]` member the mesh does not hold, and a `--families` name it does not hold; the `accept_unknown` keyword of `refine_mesh` in Python |
 | `--strict-factors` | `refine` | refuse a grid factor below the least its grid allows (one interval per side, or what a tube's caps carry); by default it is raised to that least with a warning; `force_factors=False` of `refine_mesh` in Python |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
-| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
+| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python |
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
@@ -678,14 +678,9 @@ A level is written into a staging folder, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
 
-`--out-dir` and `--csv` are deprecated aliases of `--out` on their command: each
-gives the identical result and warns once that it is deprecated, and an alias
-given together with `--out` is refused, naming both.
-
 An option the refinement no longer offers is warned and skipped, never
 refused: the `[trailing_edge]` and `[periodic]` tables of the refinement file,
-`keep_first_row` (the family key, the command flag and the `refine_mesh`
-keyword), `trailing_edge_direction`, and the keys `axial`, `circumferential`,
+`trailing_edge_direction`, and the keys `axial`, `circumferential`,
 `axis` and `origin` of a family table. A family table that states `factor`
 beside the last four is refined by `factor`; one that states only them is
 skipped.
@@ -751,7 +746,7 @@ aft = [1.0, 0.0, 0.0]
 | `[refine]` | `elements` | `"triangles"` (default) or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
 | `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
-| `[families.<name>]` | `parallel_factor`, `normal_factor` | number above zero | the factor of one direction of a grid, replacing `factor` there: along the family's reference perimeter and across it. They need no trailing edge. `spanwise` and `chordwise` are read as `parallel_factor` and `normal_factor`, with a warning |
+| `[families.<name>]` | `parallel_factor`, `normal_factor` | number above zero | the factor of one direction of a grid, replacing `factor` there: along the family's reference perimeter and across it. They need no trailing edge. |
 | `[families.<name>]` | `method` | `"auto"` (default), `"grid"`, `"remesh"`, `"grid_auto"` or `"keep"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it; `"grid_auto"` takes no factor: the family is refined as a grid with each factor from the governing family for that direction in its own grid-connected layout, choosing the largest perimeter and then source order when several govern; a mixed patch does not connect layouts, with parallel and normal directions propagated from that family through shared curves. Conflicting or unlinked directions warn and use the follower's own geometric reference; `refine.json` records `directions` as `from <governing>`, `own reference: conflict` or `own reference: unlinked`. The family is kept unchanged when it is not a grid or when no family is governing (warned) |
 | `[families.<name>]` | `governing_parallel`, `governing_normal` | boolean, default false | lead parallel or normal bands independently; one family may lead both. Each band takes its count from its directional governor, else the declared family of the largest perimeter; ties use source order. Grid-auto followers take each factor from their own layout's lead in that direction, falling back to the largest declared perimeter when that direction has no governor. Directions propagate through shared curves; conflicting governing patches retain their own geometric orientation, warned per patch. Undeclared families use `"keep"` and change only for continuity. Governing on a grid-auto or keep family is warned and skipped |
 | `[families.<name>]` | `governing` | boolean, default false | earlier spelling: true means both governing directions, with a warning; it remains accepted. On a `"grid_auto"` family governing is warned and skipped |
@@ -1131,7 +1126,7 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=True, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal |
+| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=True, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors; `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `geometry prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
 | `wake_edges.write_trailing_edge_midnodes(source, path, *, unit="METER", overwrite=False)` | the function behind `geometry convert2midnodes`: writes one mid-point per neighbouring pair of the node list's lines, under a line naming `unit`, and returns the path |

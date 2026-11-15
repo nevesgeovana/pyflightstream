@@ -75,7 +75,7 @@ steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-step
 
 The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. See [Upgrading](upgrading.md) for older matrices.
 
-## Probes: unsteady or normal
+## Probes: instantaneous or default
 
 A `[[probes]]` entry defaults to `kind = "default"`: probe points imported
 after the march, updated and exported once at the last step. State

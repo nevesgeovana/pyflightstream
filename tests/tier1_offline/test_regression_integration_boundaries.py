@@ -14,7 +14,6 @@ import pytest
 import pyflightstream
 import pyflightstream.farfield as ff
 from pyflightstream import farfield
-from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
 from pyflightstream.cases._setup_link import family_indices
 from pyflightstream.farfield import (
@@ -62,7 +61,6 @@ class TestArchiveRoot:
     """P0400-ARCHROOT (PFS-2089.004): archive selects the campaign like its siblings.
 
     Usage: pyfs-workspace archive 9001 --workspace campaign
-    Compatibility: pyfs-workspace archive campaign 9001
     """
 
     @staticmethod
@@ -88,16 +86,12 @@ class TestArchiveRoot:
 
     @staticmethod
     @pytest.mark.parametrize("relative", [False, True])
-    def test_legacy_positional_archives_and_warns(tmp_path, monkeypatch, relative):
-        _archive_root__recorded_campaign(tmp_path, "legacy\n")
+    def test_workspace_named_by_option_archives_from_any_directory(tmp_path, monkeypatch, relative):
+        _archive_root__recorded_campaign(tmp_path, "named\n")
         monkeypatch.chdir(tmp_path)
         root = "." if relative else str(tmp_path)
-        with pytest.warns(
-            PyflightstreamWarning, match="positional root.*deprecated.*--workspace"
-        ) as caught:
-            assert main(["archive", root, "9001"]) == 0
-        assert len(caught) == 1
-        _archive_root__assert_archived(tmp_path, "legacy\n")
+        assert main(["archive", "9001", "--workspace", root]) == 0
+        _archive_root__assert_archived(tmp_path, "named\n")
 
     @staticmethod
     def test_archive_defaults_to_the_current_campaign(tmp_path, monkeypatch):
@@ -107,23 +101,17 @@ class TestArchiveRoot:
         _archive_root__assert_archived(tmp_path, "current\n")
 
     @staticmethod
-    def test_different_campaign_names_are_refused_without_archiving(tmp_path, capsys):
+    def test_the_positional_root_is_refused_naming_workspace_without_archiving(tmp_path, capsys):
         first, second = tmp_path / "first", tmp_path / "second"
         scripts = [
             _archive_root__recorded_campaign(first, "first\n"),
             _archive_root__recorded_campaign(second, "second\n"),
         ]
         assert main(["archive", str(first), "9001", "--workspace", str(second)]) == 2
-        assert "named twice" in capsys.readouterr().err
+        said = capsys.readouterr().err
+        assert "no longer accepted" in said and "archive SIM_ID --workspace ROOT" in said, said
         assert all(script.is_file() for script in scripts)
         assert not list(tmp_path.glob("*/archive/*.zip"))
-
-    @staticmethod
-    def test_identical_campaign_names_keep_the_legacy_call_working(tmp_path):
-        _archive_root__recorded_campaign(tmp_path, "same\n")
-        with pytest.warns(PyflightstreamWarning, match="positional root.*deprecated"):
-            assert main(["archive", str(tmp_path), "9001", "--workspace", str(tmp_path)]) == 0
-        _archive_root__assert_archived(tmp_path, "same\n")
 
 
 _BG_REGRESSIONS__RHO = 1.2

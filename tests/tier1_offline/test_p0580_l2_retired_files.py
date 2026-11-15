@@ -96,3 +96,37 @@ def test_the_retired_layout_is_told_from_the_new():
         "P6001-WING-ACOEF.dat",
     ):
         assert not is_retired_layout(f"polars/{name}"), name
+
+
+SWEEP_SENTENCE = (
+    "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
+    "(docs/pproc/index.md#joining-polars) joins several."
+)
+
+
+@pytest.mark.requirement("FR-3777")
+def test_a_campaign_sweep_table_of_0570_is_left_untouched_and_said_once(tmp_path):
+    polars, _said, _rho = _posted(tmp_path)
+    out = polars.parent
+    sweep = out / "campaign_sweep.csv"
+    sweep.write_text("POL,run_id\n6001,camp/sim_6001/AL+000\n", encoding="utf-8")
+    kept = sweep.read_bytes()
+    from pyflightstream.workspace import CampaignWorkspace
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(
+            CampaignWorkspace(out.parent.parent), matrix_stem="matriz", overwrite=True
+        )
+    assert sweep.read_bytes() == kept, "the post rewrote or widened the retired table"
+    holding = [str(w.message) for w in caught if SWEEP_SENTENCE in str(w.message)]
+    assert len(holding) == 1 and holding[0].endswith(POINTER), holding
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    assert "campaign_sweep.csv" in manifest["migrated"]
+
+
+@pytest.mark.requirement("FR-3777")
+def test_a_post_with_no_campaign_sweep_table_writes_none_and_says_nothing_of_it(tmp_path):
+    polars, said, _rho = _posted(tmp_path)
+    assert not (polars.parent / "campaign_sweep.csv").exists()
+    assert not [text for text in said if "campaign_sweep" in text]

@@ -97,18 +97,18 @@ CL_MRP_TOTAL = "CL_TOTAL"
 FX_HUB_PUSHER = "FX_PUSHER"
 ```
 
-- It renames columns of the unsteady polar and of the averaged reductions
-  (`time_average`, and the passage series). The plots table
+- It renames the plotted columns of the reduction tables under `reductions/`
+  (`phase_locked` and `per_revolution`). The plots table
   `time_history/<point>_plots.csv` stays as the export prints it, because it is the
-  source the others are read from; the per-blade and azimuthal tables carry
-  columns that are no longer the export's own names and are not renamed.
+  source the others are read from; the columns of the family and group files under
+  `polars/` are fixed by [the output catalogue](../pproc/index.md) and are not renamed.
 - Undeclared, every name passes through exactly as printed.
 - The axes and the `[equations]` read the export's names; the dictionary is
   applied last, to the heading alone.
 - **The whole dictionary applies or none of it does.** An entry naming a column
   no plot of the point prints, or giving a column a name the table ALREADY
   carries, leaves every column under the export's name and is said in
-  `products.json` (`polars/<file>#names`, `probes/<point>#names`) and as a
+  `products.json` (`reductions/<file>#names`, `probes/<point>#names`) and as a
   warning. It never becomes a column of `NA`.
 - **`CL` is taken.** The unsteady polar carries the native export's last-step
   `CL`, `CDi`, `CDo`, `Cx` and the rest in its setup content, as a health

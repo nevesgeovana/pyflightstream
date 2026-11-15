@@ -53,6 +53,7 @@ from pyflightstream._errors import (
     with_refusal_policy,
 )
 from pyflightstream._lengths import scale as length_scale
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.workspace._inspect_pages import Inspection
 from pyflightstream.workspace._refine import (
     _blocks,
@@ -1174,19 +1175,6 @@ def _write(
 # ---------------------------------------------------------------------- entry
 
 
-def _renamed_keyword(
-    old: str, old_value: float | None, new: str, value: float | None
-) -> float | None:
-    """Return a factor given under its earlier keyword, warning that it was renamed."""
-    if old_value is None:
-        return value
-    if value is not None:
-        warn(f"refine_mesh: {old} is skipped; {new} is given", PyflightstreamWarning, stacklevel=3)
-        return value
-    warn(f"refine_mesh: {old} is read as {new}; pass {new}", PyflightstreamWarning, stacklevel=3)
-    return old_value
-
-
 @with_refusal_policy
 def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     mesh: str | os.PathLike[str],
@@ -1199,7 +1187,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     config: str | Path | None = None,
     out_dir: str | Path | None = None,
     overwrite: bool = False,
-    keep_first_row: Sequence[str] | None = None,
+    keep_first_row: object = None,
     progress: Callable[[str], None] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
@@ -1207,8 +1195,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     visual_inspect: bool = False,
     keep_within_component: bool | None = None,
     audit: bool = True,
-    chordwise: float | None = None,
-    spanwise: float | None = None,
+    chordwise: object = None,
+    spanwise: object = None,
 ) -> RefinedMesh | None:
     """Refine or coarsen a panel mesh from its OBJ into a new geometry folder (FR-424, FR-425).
 
@@ -1232,9 +1220,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         Where the level folder goes (default: the parent of the source's folder).
     overwrite : bool
         Replace an existing level folder.
-    keep_first_row : sequence of str, optional
-        An earlier option, warned and skipped when given: a row kept at an
-        interface is a family of its own.
+    keep_first_row, chordwise, spanwise : optional
+        Removed keywords, refused by name when given: ``normal`` and ``parallel`` give the
+        directional factors, and a row kept at an interface is a family of its own.
     progress : callable, optional
         Called with one line per stage and per family as the work goes (read,
         decide, grid, remesh, write, audit), so a long refinement shows it is
@@ -1263,9 +1251,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     audit : bool
         Audit the written level against its source. False skips the audit and records
         that choice; the level can be audited later with geometry audit (FR-3321).
-    chordwise, spanwise : float, optional
-        The earlier names of ``normal`` and ``parallel``, read with a warning;
-        beside the new name, the earlier one is warned and skipped.
 
     Returns
     -------
@@ -1285,13 +1270,15 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     >>> level.folder.name  # doctest: +SKIP
     'W1_R2'
     """
+    removed = (("chordwise", chordwise), ("spanwise", spanwise), ("keep_first_row", keep_first_row))
+    for key, given in removed:
+        if given is not None:
+            raise _refuse(str(mesh), REMOVED_FORMS[f"refine.{key}"].message(f"the keyword {key}"))
     source = Path(mesh)
     if not source.is_file():
         raise _refuse(str(source), "no such OBJ file; name an existing OBJ and run again")
     obj = _obj.read_obj(source)
     with Inspection(source, obj, visual_inspect) as inspection:
-        parallel = _renamed_keyword("spanwise", spanwise, "parallel", parallel)
-        normal = _renamed_keyword("chordwise", chordwise, "normal", normal)
         request = _config.resolve_request(
             source,
             list(obj.families),
@@ -1300,7 +1287,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             parallel=parallel,
             normal=normal,
             config=config,
-            keep_first_row=keep_first_row,
             accept_remesh=accept_remesh,
             accept_unknown=accept_unknown,
             force_factors=force_factors,

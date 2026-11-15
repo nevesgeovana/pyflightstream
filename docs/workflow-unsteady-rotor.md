@@ -366,7 +366,7 @@ See [Upgrading](upgrading.md#older-layouts) for retired artifact and matrix layo
 
 A `[[probes]]` entry defaults to last-step probe points (`kind = "default"`).
 Use `kind = "instantaneous"` for fluid plots sampled at every step. Both kinds
-may coexist, as on the [unsteady run type](workflow-unsteady.md#probes-unsteady-or-normal).
+may coexist, as on the [unsteady run type](workflow-unsteady.md#probes-instantaneous-or-default).
 Export thresholds do not move default entries into the march. Far-field
 `avg_window` sets have their own window-start import.
 

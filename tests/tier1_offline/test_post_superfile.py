@@ -429,21 +429,10 @@ def _workspace(tmp_path: Path):
 
 
 def _post(workspace):
-    """Run the post stage over the matrix and leave the campaign sweep table beside it."""
+    """Run the post stage over the matrix; no campaign sweep table is written (FR-3777)."""
     from pyflightstream.post.products import write_campaign_products
-    from pyflightstream.results.tables import sweep_table, write_table
 
-    written = write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    # What `run` leaves beside the products (FR-90), written here because the
-    # superfile cites it as one of its sources and the union below READS it.
-    # Rewritten on every post, as `run` rewrites it (write_table keeps an existing
-    # file unless told, PFS-2096.030).
-    write_table(
-        sweep_table(workspace, require_loads=False, matrix_stem="matriz"),
-        workspace.sweep_dir("matriz") / "campaign_sweep.csv",
-        overwrite=True,
-    )
-    return written
+    return write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
 
 
 # ---------------------------------------------------------------------------

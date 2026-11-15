@@ -622,11 +622,11 @@ def _add_run_parsers(subparsers: Any) -> None:
     """Add the run subcommand."""
     run = subparsers.add_parser(
         "run",
-        help="run every active point of the matrix and write the sweep table (a point "
+        help="run every active point of the matrix (a point "
         "submitted to a scheduler is posted by `collect` once its outputs land)",
         description=(
-            "Runs every active point of the matrix and writes the sweep table; a point "
-            "submitted to a scheduler is posted, with the products and the table, by "
+            "Runs every active point of the matrix; a point "
+            "submitted to a scheduler is posted, with the products, by "
             "`pyfs-matrix collect` once its outputs land. "
             "THIS NEEDS A PLAN: run `pyfs-matrix plan <matrix>` "
             "first and this command will not release without it. The plan is "
@@ -739,13 +739,6 @@ def _add_run_option_parsers(subparsers: Any) -> None:
     )
     _add_selection_arguments(run)
     _add_grouping_arguments(run)
-    run.add_argument(
-        "--sweep-csv",
-        help="write the campaign sweep table here (default: "
-        "post/<matrix stem>/campaign_sweep.csv in the workspace, so each matrix of a "
-        "workspace keeps its own; the run writes that one file and never a second copy "
-        "of it under another name)",
-    )
     _add_switch(
         run,
         "--local",

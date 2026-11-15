@@ -10,7 +10,7 @@
 solver already exported, downstream of the body, and states a number the solver
 does not compute: the solver reports no force in a Trefftz plane (its log's
 "Trefftz plane location" is where it clips the wake). The polar retains its
-near-field values and appends far-field estimates; `campaign_sweep.csv` is unchanged.
+near-field values and appends far-field estimates.
 
 The analyses and where they are written:
 
@@ -150,7 +150,7 @@ entry only when a velocity plane is also wanted.
 
 `<group>` is the stem of the simulation's polar table. Every row of these files, and
 of the spanwise files, ends with `STATUS`, the point's solver termination status as
-`campaign_sweep.csv` writes it, so a point that is not converged says so on its rows. On an unsteady row each
+the run record states it, so a point that is not converged says so on its rows. On an unsteady row each
 file has `<group>_<analysis>_instant.csv` (the last time step), and under
 `"avg_window"`, `<group>_<analysis>_average.csv` (the entry's window average).
 Each manifest entry states `reduction` as `instant` or `average`.

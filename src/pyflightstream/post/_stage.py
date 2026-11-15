@@ -257,8 +257,8 @@ _POST_LOG_JSON = "post.log.json"
 
 
 #: The matrix's per-polar CSV and .dat folder (FR-88). Campaign-level
-#: products.json and campaign_sweep.csv stay at the campaign level because
-#: they describe more than one polar.
+#: products.json stays at the campaign level because it describes more than
+#: one polar.
 POLARS_DIR = "polars"
 
 

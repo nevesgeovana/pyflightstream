@@ -101,10 +101,10 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \opt{--audit-off}{Write the level without running its audit; print the command for auditing it later.}
 \opt{--accept-remesh}{a directional family with no grid is remeshed, warned, not refused.}
 \opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{parallel\_factor}, \texttt{normal\_factor}, \texttt{method}, \texttt{elements}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[[perimeter]]} \texttt{file}, \texttt{export\_te\_per\_family}.}
-\opt{--out DIR}{default: beside the source's folder (\fl{--out-dir DIR}, deprecated, warns); \fl{--overwrite} replaces a level.}
+\opt{--out DIR}{default: beside the source's folder; \fl{--overwrite} replaces a level.}
 \end{cmdblock}
 \begin{cmdblock}{pyfs-workspace geometry audit}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
-\opt{--out FILE}{also the figures as CSV, never a file the audit reads (\fl{--csv FILE}, deprecated).}
+\opt{--out FILE}{also the figures as CSV, never a file the audit reads.}
 \end{cmdblock}
 
 \hd{Files}
@@ -435,7 +435,7 @@ On Linux with a profile the run submits every point and returns; collect then sw
 One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need \fl{--hpc NAME} (else refused rather than guessed): the descriptor and its fields, the submit command, \texttt{[builds]} (the scheduler's name of each build, e.g. \texttt{"26.123" = "26.1"}), \texttt{[application\_ids]} (the application name of a build where it differs from \texttt{application\_id}), \texttt{[log]} (\texttt{export\_log}, \texttt{native\_log}, \texttt{job\_end\_files}) and \texttt{max\_walltime}.
 
 \hd{A grouped run: one solver, many points}
-\fl{--batch N} or \fl{--polar-sweep} runs the jobs of the plan's receipt, refusing one made for another mode, N or selection, one with no job, or one whose job folders hold files: plan again. A polar's job is \file{sims/sim_<POL>/FULL-POLAR.txt}; a batch's is \file{BATCH-<first>-<last>.txt} in \file{sims/batch/<matrix>_b<ID>/}, the ID the package's. The job's clock replaces each point's WALLTIME. Every point is recorded \texttt{SUBMITTED}, also when the job runs here (one instance, one license, one job at a time): collect, then post. Not with \fl{--force-rerun}, \fl{--force-rerun-all} or \fl{--sweep-csv}.
+\fl{--batch N} or \fl{--polar-sweep} runs the jobs of the plan's receipt, refusing one made for another mode, N or selection, one with no job, or one whose job folders hold files: plan again. A polar's job is \file{sims/sim_<POL>/FULL-POLAR.txt}; a batch's is \file{BATCH-<first>-<last>.txt} in \file{sims/batch/<matrix>_b<ID>/}, the ID the package's. The job's clock replaces each point's WALLTIME. Every point is recorded \texttt{SUBMITTED}, also when the job runs here (one instance, one license, one job at a time): collect, then post. Not with \fl{--force-rerun} or \fl{--force-rerun-all}.
 
 \columnbreak
 \hd{Commands}
@@ -449,7 +449,6 @@ One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need
 \opt{--polar-sweep}{run the receipt's jobs, one per polar; \fl{--batch N}: its N jobs (left).}
 \opt{--hpc NAME}{\file{inputs/hpc/NAME.toml}, when several exist.}
 \opt{--progress-every N}{a local unsteady point reports every N steps (default 10; 0 is silent).}
-\opt{--sweep-csv FILE}{the sweep table (default \file{post/<matrix>/campaign_sweep.csv}).}
 \opt{--workflow CODE=NAME}{a legacy script code to a run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor} (repeatable).}
 \opt{--workspace DIR}{\fl{--name NAME}, \fl{--fs-version V}, \fl{--fs-exe PATH}, \fl{--recipe CODE=MODULE:FUNCTION}, \fl{--point-name TPL}: as in plan; give the plan's values.}
 \opt{--ignore-missing-families [true|false]}{and \fl{--no-ignore-missing-families}: as in plan.}
@@ -469,7 +468,6 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \wf{sims/sim_<POL>/scripts/}{the generated solver scripts, \file{P<sim>-<point>.txt}.}
 \wf{sims/sim_<POL>/datapoints/DP-<point>/}{the point's outputs, its descriptor when submitted, its wall-clock state.}
 \wf{runs.json}{one record per point or steady job; \file{runs.json.lock} while it is written.}
-\wf{post/<matrix>/campaign_sweep.csv}{the sweep table of this matrix.}
 \wf{archive/runs-<stamp>.json}{the manifest before a forced re-run; each redone point's outputs go to its own \file{archive/<stamp>/}.}
 
 \hd{Common errors}
@@ -592,22 +590,21 @@ Collect reads the job's descriptor, log and end files in its folder and complete
 \begin{tikzpicture}
 \tn{0}{0}{post/<matrix>/}{}
 \tn{1}{1}{plan.json}{the plan receipt (stage 4)}
-\tn{1}{2}{campaign_sweep.csv}{the sweep table}
-\tn{1}{3}{products.json}{every file, its run ids, skips}
-\tn{1}{4}{post.log post.log.json}{warnings and refusals}
-\tn{1}{5}{polars/}{one polar table per group}
-\tn{1}{6}{sections/}{\pth{<point>_sections.csv}}
-\tn{1}{7}{probes/}{\pth{<point>_plots.csv}, \pth{<point>_probes.csv}}
-\tn{1}{8}{series/}{per-step series of an unsteady point}
-\tn{1}{9}{fields/}{sampled velocity fields}
-\tn{2}{10}{<stem>.vtk}{VTK vertex cloud}
-\tn{2}{11}{<stem>.dat}{Tecplot}
-\tn{2}{12}{<stem>.inflow.dat}{reusable inflow, SI}
-\tn{2}{13}{<file>.provenance.json}{beside each field file}
-\tn{1}{14}{archive/<stamp>/}{what each rebuild replaced}
-\tn{0}{15}{post/<matrix>@sims/}{products of \fl{--from-sims}}
-\tv{0}{1}{14}
-\tv{1}{10}{13}
+\tn{1}{2}{products.json}{every file, its run ids, skips}
+\tn{1}{3}{post.log post.log.json}{warnings and refusals}
+\tn{1}{4}{polars/}{one polar table per group}
+\tn{1}{5}{sections/}{\pth{<point>_sections.csv}}
+\tn{1}{6}{probes/}{\pth{<point>_plots.csv}, \pth{<point>_probes.csv}}
+\tn{1}{7}{series/}{per-step series of an unsteady point}
+\tn{1}{8}{fields/}{sampled velocity fields}
+\tn{2}{9}{<stem>.vtk}{VTK vertex cloud}
+\tn{2}{10}{<stem>.dat}{Tecplot}
+\tn{2}{11}{<stem>.inflow.dat}{reusable inflow, SI}
+\tn{2}{12}{<file>.provenance.json}{beside each field file}
+\tn{1}{13}{archive/<stamp>/}{what each rebuild replaced}
+\tn{0}{14}{post/<matrix>@sims/}{products of \fl{--from-sims}}
+\tv{0}{1}{13}
+\tv{1}{9}{12}
 \end{tikzpicture}
 
 \hd{Sampled fields and their provenance}
@@ -748,7 +745,7 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \opt{--build-alias BUILD=ALIAS}{the scheduler's name of a build then (repeatable).}
 \opt{--inputs-from FOLDER}{another origin's \file{inputs/} for inputs changed after the run; \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-workspace archive}{<root> <sim_id>}{Zip one recorded simulation under \file{archive/} and remove its folder.}
+\begin{cmdblock}{pyfs-workspace archive}{<sim_id>}{Zip one recorded simulation under \file{archive/} and remove its folder.}
 \end{cmdblock}
 
 \hd{Files}

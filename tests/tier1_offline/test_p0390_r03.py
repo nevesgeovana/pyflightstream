@@ -1080,10 +1080,14 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # F-1898 (0.43.0): the run help says who posts a submitted point. One line of the
     # v0.38.0 console changes; the capture itself stays as v0.38.0 printed it.
     captured["run.console"] = captured["run.console"].replace(
-        b"write the sweep table\n",
-        b"write the sweep table (a point\n"
-        b"           submitted to a scheduler is posted by `collect` once its outputs land)\n",
+        b" and write the sweep table\n",
+        b" (a point submitted to a scheduler is\n"
+        b"           posted by `collect` once its outputs land)\n",
     )
+    # FR-3777: the run names no sweep table, which it no longer writes.
+    named = b"sweep table: <ROOT>/post/polars/campaign_sweep.csv\n"
+    assert named in captured["run.console"]
+    captured["run.console"] = captured["run.console"].replace(named, b"", 1)
     # PFS-2185.18: `run` posts each simulation as it finishes, so the post block of the
     # console comes before the sweep table instead of after the executed-rows line.
     post_block = (
@@ -1162,13 +1166,8 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b'    "flight_condition_defaults_from": "",\n'
         b'    "angles_not_stated": [\n      "BETA"\n    ],\n',
     )
-    # F-251: a declined cell of the sweep table is the NA token, no longer an empty field.
-    sweep_name = "tree/post/polars/campaign_sweep.csv"
-    captured[sweep_name] = b"".join(
-        b",".join(cell or b"NA" for cell in line.rstrip(b"\r\n").split(b","))
-        + line[len(line.rstrip(b"\r\n")) :]
-        for line in captured[sweep_name].splitlines(keepends=True)
-    )
+    # FR-3777: the 0.38.0 capture holds a campaign sweep table; 0.58.0 writes none.
+    del captured["tree/post/polars/campaign_sweep.csv"]
     # Public command prose is also serialized into plan evidence. Keep the
     # historical fixture intact and specify the intended text changes;
     # command status, grammar, scientific values and every other byte still compare.

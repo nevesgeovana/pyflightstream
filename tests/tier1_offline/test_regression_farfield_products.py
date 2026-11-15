@@ -62,7 +62,6 @@ from pyflightstream.post.polar import PolarPoint, farfield_column_names
 from pyflightstream.post.products import ReferenceValues, write_campaign_products
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results import parse_loads, sweep_table, write_table
-from pyflightstream.run import SWEEP_TABLE_NAME
 from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -1580,15 +1579,14 @@ class TestFfproofPost:
     # ----------------------------------------------------------------- FR-1009
     @pytest.mark.requirement("FR-450")
     def test_p0400_ffproof_the_sweep_table_keeps_its_bytes(tmp_path):
-        """P0400-FFPROOF (FR-1009): ``campaign_sweep.csv`` byte-identical with and without it.
+        """P0400-FFPROOF (FR-1009): the derived sweep table byte-identical with and without it.
 
         The same point recorded twice: once by a row selecting the three Trefftz
         variants, which the plan gave the sectional loads, wake and probe exports,
         and once by the row without ``[farfield]``, which recorded the loads and
-        the saved simulation only. Both are posted, then the sweep table is written
-        as the run stage writes it (``results.sweep_table`` through
-        ``results.write_table`` to ``post/campaign_sweep.csv``): the two files are
-        the same bytes, and the far field wrote its own table.
+        the saved simulation only. Both are posted, then the sweep table is derived
+        and written (``results.sweep_table`` through ``results.write_table``): the
+        two files are the same bytes, and the far field wrote its own table.
         """
         far = _ffproof_post__wing._farfield_products___workspace(tmp_path / "with", farfield=True)
         plain = _ffproof_post__wing._farfield_products___workspace(
@@ -1601,7 +1599,8 @@ class TestFfproofPost:
         tables = []
         for workspace in (far, plain):
             _ffproof_post___post(workspace)
-            target = workspace.sweep_dir(None) / SWEEP_TABLE_NAME
+            target = Path(workspace.root) / "derived" / "sweep.csv"
+            target.parent.mkdir(parents=True, exist_ok=True)
             write_table(sweep_table(workspace, require_loads=False), target, overwrite=True)
             tables.append(target.read_bytes())
         assert list(Path(far.root).rglob("farfield/*_trefftz.csv")), "the far field was posted"

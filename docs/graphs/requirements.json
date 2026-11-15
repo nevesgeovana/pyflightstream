@@ -3772,7 +3772,7 @@
       "parent": "",
       "area": "DRED",
       "hid": "DRED-19",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3772",
@@ -3814,7 +3814,7 @@
       "parent": "FR-3771",
       "area": "DRED",
       "hid": "DRED-19.6",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3778",

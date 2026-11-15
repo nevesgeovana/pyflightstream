@@ -5,8 +5,7 @@ directory. For example,
 ``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
 ``init`` and ``migrate`` take the positional root, and naming
 two different folders is refused. ``archive SIM_ID --workspace ROOT`` names
-the campaign the same way; ``archive ROOT SIM_ID`` still works and warns that
-the positional root is deprecated.
+the campaign by ``--workspace`` alone; ``archive ROOT SIM_ID`` is refused.
 
 Pipeline role: drives the managed campaign workspace from a terminal.
 ``pyfs-workspace init <root>`` creates the full campaign tree (the
@@ -86,8 +85,8 @@ from typing import Any
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_help
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream._textio import resolved_plain
 from pyflightstream.options import get_option, option_context
 from pyflightstream.workspace import (
@@ -267,7 +266,7 @@ def _build_parser() -> argparse.ArgumentParser:
     archive.add_argument(
         "root",
         nargs="?",
-        help="deprecated positional alias of --workspace; still accepted with a warning",
+        help=argparse.SUPPRESS,
     )
     archive.add_argument(
         "sim_id",
@@ -1017,15 +1016,12 @@ def _cmd_init(args: argparse.Namespace) -> int:
 def _cmd_archive(args: argparse.Namespace) -> int:
     """Archive one recorded simulation; the refusals are ``archive_sim``'s own."""
     try:
-        workspace = CampaignWorkspace(_campaign_root(args))
         if args.root is not None:
-            warn(
-                "archive's positional root is deprecated since 0.40.0; it is an alias of "
-                "--workspace, which gives the identical result: write "
-                f"pyfs-workspace archive {args.sim_id} --workspace {args.root}.",
-                PyflightstreamWarning,
-                stacklevel=2,
+            print(
+                f"{REMOVED_FORMS['archive.root'].message()} Nothing was archived.", file=sys.stderr
             )
+            return 2
+        workspace = CampaignWorkspace(_campaign_root(args))
         bundle = workspace.archive_sim(args.sim_id)
     except (OSError, WorkspaceError) as error:
         print(str(error), file=sys.stderr)

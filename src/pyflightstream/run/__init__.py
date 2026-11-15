@@ -19,17 +19,10 @@ recorded in the manifest; the manifest's append-only duplicate
 rejection is what makes the skip safe, and with ``resume=False`` a
 duplicate point raises before anything executes.
 
-Every campaign that records a point also LEAVES ITS TABLE: at the end
-of the loop, and before any failure is raised, :func:`run_campaign`
-writes the sweep csv into the workspace's ``post/`` folder under
-:data:`SWEEP_TABLE_NAME`, one line per point with the integrated
-forces and with each line stating whether it is a raw integration or a
-reduction and over what window (PFS-2014.03). Nobody has to ask for
-it, and a campaign whose points all failed still leaves the file,
-because the identity rows are the record of what was attempted. The
-exception is a call that submitted points to a scheduler: a queued point
-has no outputs yet, so that call writes no product and no table and
-names the ``pyfs-matrix collect`` command that posts once they land.
+A call that submitted points to a scheduler writes no product: a queued point
+has no outputs yet, so the call names the ``pyfs-matrix collect`` command that
+posts once they land. The campaign leaves no table of its own; the family and
+group files of each polar hold every point.
 
 The local mechanism is the documented command-line script execution:
 ``FlightStream.exe -script <file>``, with the
@@ -110,6 +103,7 @@ from __future__ import annotations
 
 import sys
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._retired_names import imported_by_from
 from pyflightstream.run._assessment import (
     Assessment,
@@ -122,7 +116,6 @@ from pyflightstream.run._assessment import (
 from pyflightstream.run._campaign import (
     FS_VERSION_FROM_DEFAULT,
     FS_VERSION_FROM_ROW,
-    SWEEP_TABLE_NAME,
     run_campaign,
 )
 from pyflightstream.run._continuation import (
@@ -229,7 +222,7 @@ def __getattr__(name: str) -> object:
         if imported_by_from(2):
             raise ImportError(message, name=name)
         raise AttributeError(message, name=name, obj=sys.modules[__name__])
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return removed_names_hook(__name__)(name)
 
 
 __all__ = [
@@ -241,7 +234,6 @@ __all__ = [
     "FS_VERSION_FROM_DEFAULT",
     "FS_VERSION_FROM_ROW",
     "SCRIPT_ARGUMENT",
-    "SWEEP_TABLE_NAME",
     "Assessment",
     "CampaignErrors",
     "CampaignPlan",

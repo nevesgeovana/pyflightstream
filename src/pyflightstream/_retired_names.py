@@ -302,7 +302,31 @@ _THE_GEOMETRY_ENGINE_IS_CORE = (
     "rtree and scipy are core dependencies, so nothing raises or needs it."
 )
 _THE_0580_POLAR_FILES = "the FAM and group files under polars/ (docs/upgrading.md#0580-post-tree)"
+_THE_CAMPAIGN_SWEEP_SENTENCE = (
+    "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
+    "(docs/pproc/index.md#joining-polars) joins several."
+)
+#: The two reductions 0.58.0 retires, each with the sentence the post-outputs design states;
+#: a pproc that asks for one is warned with it, and a file of the earlier layout is named by it.
+RETIRED_REDUCTION_SENTENCES: dict[str, str] = {
+    "time_average": (
+        "The time_average table is retired; the window average of every family and group is "
+        "its row in polars/FAM-*-P<POL>.csv and the group files."
+    ),
+    "per_blade": (
+        "The per_blade table is retired; each blade is a family row of "
+        "polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv."
+    ),
+}
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
+    "pyflightstream.run.SWEEP_TABLE_NAME": RetiredName(
+        owner="pyflightstream.run",
+        old="SWEEP_TABLE_NAME",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
     "pyflightstream.exceptions.GeometryEngineMissingError": RetiredName(
         owner="pyflightstream.exceptions",
         old="GeometryEngineMissingError",
@@ -472,6 +496,16 @@ _GEOMETRY_GROUP = (
     "identical result."
 )
 
+_REFINE_DIRECTIONS = (
+    "The two directions are named by the reference perimeter, --parallel along it and "
+    "--normal across it."
+)
+_PROBE_KINDS = (
+    "A kind is one of 'default' (probe points sampled once, at the last time step) or "
+    "'instantaneous' (fluid plots at every time step)."
+)
+_ONE_OUTPUT_FLAG = "The written file is named by --out on every command that writes one."
+
 #: THE FORMS REMOVED, each a refusal that names the new spelling. They are keyed
 #: by the call, flag, key or header the user wrote. They are not in :data:`RETIRED`,
 #: which the input readers match a file's text against, and they are not Python
@@ -502,6 +536,30 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         retired_in="0.58.0",
         why=_MATRIX_DEFAULT_BUILD,
     ),
+    "pyfs-matrix.--sweep-csv": RetiredName(
+        owner="pyfs-matrix run",
+        old="--sweep-csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
+    "run_matrix.sweep_csv": RetiredName(
+        owner="run_matrix",
+        old="sweep_csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
+    "run_campaign.sweep_csv": RetiredName(
+        owner="run_campaign",
+        old="sweep_csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
     "pyfs-matrix.refine": RetiredName(
         owner="pyfs-matrix",
         old="refine",
@@ -529,6 +587,85 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         new="pyfs-workspace geometry degenerate",
         retired_in="0.58.0",
         why=_GEOMETRY_GROUP,
+    ),
+    "refine.chordwise": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="chordwise",
+        new="normal (keyword) or normal_factor (family key)",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.spanwise": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="spanwise",
+        new="parallel (keyword) or parallel_factor (family key)",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.keep_first_row": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="keep_first_row",
+        new="nothing: a row kept at an interface is its own family, which families selects",
+        retired_in="0.58.0",
+        why="The refinement no longer offers a kept first row.",
+        instead="Use",
+    ),
+    "refine.--chordwise": RetiredName(
+        owner="the refine command",
+        old="--chordwise",
+        new="--normal",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.--spanwise": RetiredName(
+        owner="the refine command",
+        old="--spanwise",
+        new="--parallel",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.--keep-first-row": RetiredName(
+        owner="the refine command",
+        old="--keep-first-row",
+        new="nothing: a row kept at an interface is its own family, which --families selects",
+        retired_in="0.58.0",
+        why="The refinement no longer offers a kept first row.",
+        instead="Use",
+    ),
+    "refine.--out-dir": RetiredName(
+        owner="the refine command",
+        old="--out-dir",
+        new="--out",
+        retired_in="0.58.0",
+        why=_ONE_OUTPUT_FLAG,
+    ),
+    "audit-mesh.--csv": RetiredName(
+        owner="the audit-mesh command",
+        old="--csv",
+        new="--out",
+        retired_in="0.58.0",
+        why=_ONE_OUTPUT_FLAG,
+    ),
+    "kind.normal": RetiredName(
+        owner="a [[probes]] or [volume_section] entry",
+        old='kind = "normal"',
+        new='kind = "default"',
+        retired_in="0.58.0",
+        why=_PROBE_KINDS,
+    ),
+    "kind.unsteady": RetiredName(
+        owner="a [[probes]] or [volume_section] entry",
+        old='kind = "unsteady"',
+        new='kind = "instantaneous"',
+        retired_in="0.58.0",
+        why=_PROBE_KINDS,
+    ),
+    "archive.root": RetiredName(
+        owner="pyfs-workspace archive",
+        old="the positional root (archive ROOT SIM_ID)",
+        new="archive SIM_ID --workspace ROOT",
+        retired_in="0.58.0",
+        why="Every subcommand names its campaign with --workspace, so archive does too.",
     ),
     "matrix.layout-0.56.0": RetiredName(
         owner="a run matrix",

@@ -504,29 +504,32 @@ def test_the_route_writes_lf_with_text_mode_forced_to_crlf(tmp_path: Path) -> No
     assert not (tmp_path / "never.txt").exists()
 
 
-def test_the_campaign_sweep_table_a_run_writes_holds_no_cr_with_crlf_forced(
+def test_the_sweep_table_derived_from_a_run_holds_no_cr_with_crlf_forced(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """P0340-LF-PRODUCTS, FR-1154: the sweep table the RUN writes is LF where Windows is CRLF.
+    """P0340-LF-PRODUCTS, FR-1154: the sweep table written from a run is LF where Windows is CRLF.
 
-    ``campaign_sweep.csv`` is written by the run stage (``write_table``, after the points
-    ran), so the campaigns posted above never read it. pandas ends a row with
+    The run stage writes no ``campaign_sweep.csv`` since 0.58.0 (FR-3777); the table
+    ``results.write_sweep_table`` writes from the run's manifest is the one measured. pandas
+    ends a row with
     ``os.linesep`` unless told otherwise, which is set to CRLF here as Windows has it,
     beside text mode forced to CRLF. The control: under the same forcing a ``to_csv``
     that states no line terminator writes a CR, so the check can fail.
     """
     pd = pytest.importorskip("pandas", reason="needs the optional extra: pandas")
 
-    from pyflightstream.run import SWEEP_TABLE_NAME
+    from pyflightstream.results.tables import sweep_table, write_sweep_table
     from tests.tier1_offline.test_goal028_hpc_sweep_csv import _run
     from tests.tier1_offline.test_products_snapshot import crlf_text_mode
 
     monkeypatch.setattr(os, "linesep", "\r\n")
     with crlf_text_mode():
         workspace = _run(tmp_path)
+        derived = tmp_path / "derived.csv"
+        write_sweep_table(sweep_table(workspace, require_loads=False, matrix_stem="warm"), derived)
         control = tmp_path / "control.csv"
         pd.DataFrame({"a": [1]}).to_csv(control, index=False)
-    data = (workspace.sweep_dir("warm") / SWEEP_TABLE_NAME).read_bytes()
+    data = derived.read_bytes()
     assert data.count(b"\n") >= 2, data[:200]
     assert _textio.count_cr(data) == 0, data[:200]
     assert _textio.file_cr_count(control) == 2, "the forcing does not reach pandas: no control"

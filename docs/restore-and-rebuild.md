@@ -100,7 +100,7 @@ What a rebuild decides, and how:
 
 - **Only the version that ran rebuilds a record.** The proof is the script
  this version renders, so a record a known run of another version wrote (in
- an archived `runs.json` or in a matrix's `campaign_sweep.csv`) is refused,
+ an archived `runs.json` or in the `campaign_sweep.csv` a matrix of an earlier layout left) is refused,
  naming both versions.
 - **An edited or drifted script is refused, and the refusal says which
  input.** Each changed line is named with what it is (a VTK export line, the

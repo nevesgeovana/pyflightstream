@@ -32,6 +32,13 @@ _NEW = re.compile(
     r"^(FAM-(DIM|ACOEF|RCOEF)-P.+\.csv|P[^-]+-.+-(DIM|ACOEF|RCOEF)(_trim|_at_[^/]+|_merge)?\.(csv|dat))$"
 )
 
+#: The campaign sweep table of 0.57.0, beside the products of a matrix (design section 2.2).
+_SWEEP_TABLE = "campaign_sweep.csv"
+_SWEEP_SENTENCE = (
+    "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
+    "(docs/pproc/index.md#joining-polars) joins several."
+)
+
 _SUPER = re.compile(r"^SUPER-(?P<sim>[^-]+)-.+\.(csv|dat)$")
 _UNSTEADY = re.compile(r"^P(?P<sim>[^_/-]+)_(?P<name>.+)_uns_avg\.csv$")
 _ROTOR = re.compile(r"^P(?P<sim>[^-]+)-(?P<alias>.+)_rotor\.csv$")
@@ -93,6 +100,13 @@ def _classify(file: str, rotor_id: Callable[[str, str], int | None]) -> RetiredP
     old = f"polars/{file}"
     if _CURRENT.match(file):
         return None
+    if file == _SWEEP_TABLE:
+        return RetiredPolar(
+            "campaign_sweep",
+            old,
+            "polars/P<POL>-TOTAL-ACOEF.csv",
+            _SWEEP_SENTENCE,
+        )
     if match := _SUPER.match(file):
         pol = match["sim"]
         return RetiredPolar(
@@ -169,10 +183,16 @@ def retired_polar_files(
         The files found, each with its kind, its new counterpart and its sentence.
     """
     folder = out / "polars"
-    if not folder.is_dir():
-        return []
     lookup = rotor_id or (lambda _pol, _alias: None)
     found: list[RetiredPolar] = []
+    if (out / _SWEEP_TABLE).is_file():
+        found.append(
+            RetiredPolar(
+                "campaign_sweep", _SWEEP_TABLE, "polars/P<POL>-TOTAL-ACOEF.csv", _SWEEP_SENTENCE
+            )
+        )
+    if not folder.is_dir():
+        return found
     for path in sorted(folder.iterdir()):
         if not path.is_file() or _NEW.match(path.name):
             continue

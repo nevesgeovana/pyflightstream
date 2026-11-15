@@ -59,8 +59,7 @@ def test_p0500_warning_off_preserves_post_and_refine_records(tmp_path, capsys, m
         mesh_dir.mkdir()
         mesh = _two_tubes(mesh_dir, BOTH_TABLES)
         assert (
-            matrix_main([*flags, "refine", str(mesh), "1", "--out-dir", str(folder / "refined")])
-            == 0
+            matrix_main([*flags, "refine", str(mesh), "1", "--out", str(folder / "refined")]) == 0
         )
         output = capsys.readouterr()
         assert ("[warning]" in output.err) is (not disabled)

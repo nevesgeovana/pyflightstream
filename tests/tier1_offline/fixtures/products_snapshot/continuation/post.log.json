@@ -16,14 +16,6 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "campaign",
-   "product": "stage",
    "message": "polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).",
    "remedy": null,
    "category": "configuration",

@@ -79,7 +79,6 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--progress-every N} local unsteady progress every N steps (default 10; 0 = silent)
 \item \fl{--parallel N|auto} local simulations run at once (default 1, at most 8; \texttt{auto} = 2 within seats and memory)
-\item \fl{--sweep-csv FILE} sweep table path (default \texttt{post/<matrix>/campaign\_sweep.csv})
 \item \fl{--workflow CODE=NAME} run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor}
 \item \fl{--workspace}, \fl{--name}, \fl{--fs-version}, \fl{--fs-exe}, \fl{--recipe}, \fl{--point-name}, \fl{--ignore-missing-families}, \fl{--no-ignore-missing-families}, \fl{--accept-unregistered-build}: as in \cmd{plan}
 \item \fl{--pproc-warnings} print grouped post-processing warnings
@@ -240,7 +239,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
-\sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
+\sub{archive <sim\_id> --workspace <root>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{migrate [root]}{preview conversion of a workspace from the 0.38.0 format; see Upgrading for the format boundary}
@@ -337,12 +336,12 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--visual-inspect} writes \texttt{<level>.refine-governors.pdf} beside its OBJ: the governing families per direction, then the patches and directions pages.
 \begin{flags}
 \item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}
-\item \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
+\item \fl{--out DIR} \quad \fl{--overwrite}
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry audit <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
 \begin{flags}
-\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
+\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}

@@ -13,8 +13,7 @@ the current directory as its default. For example,
 folders in `campaign`. `init` and `migrate` also take the folder as
 a positional root; naming two different folders is refused. To archive one recorded
 simulation and remove its run folder, use
-`pyfs-workspace archive 9001 --workspace campaign`. The old `archive ROOT SIM_ID`
-form still works and warns that the positional root is deprecated.
+`pyfs-workspace archive 9001 --workspace campaign`.
 
 Two things live in a workspace and they are worth separating in your
 head before anything else.

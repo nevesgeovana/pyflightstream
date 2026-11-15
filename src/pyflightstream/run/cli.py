@@ -5,7 +5,7 @@ of the file-managed modality from a terminal. The matrix is the campaign
 declaration; campaign-file conversion is refused. ``pyfs-matrix plan`` binds the matrix codes
 to the workspace input library and pre-flights every point without
 executing anything; ``pyfs-matrix run`` takes the same matrix all the
-way to manifest records and a sweep table.
+way to manifest records and products.
 
 The assessor is :class:`pyflightstream.run.LoadsAssessor`; no flag selects
 another one. ``--workflow CODE=NAME`` names a run type from the package's
@@ -50,7 +50,7 @@ from pyflightstream._console import (
 )
 from pyflightstream._console import table as table
 from pyflightstream._console import wrap as wrap
-from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
@@ -71,10 +71,7 @@ from pyflightstream.cases.workflows import read_a_choice as read_a_choice
 from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
 from pyflightstream.cases.workflows import workflow_names as workflow_names
 from pyflightstream.options import option_context
-from pyflightstream.results import MalformedOutputError
-from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_sweep_table
 from pyflightstream.run import (
-    SWEEP_TABLE_NAME,
     CampaignErrors,
     LoadsAssessor,
     plan_receipt_error,
@@ -229,6 +226,19 @@ def _refused_geometry_verb(argv: list[str] | None) -> bool:
     return True
 
 
+def _refused_sweep_csv(argv: list[str] | None) -> bool:
+    """Name the successor of ``run --sweep-csv``, retired with the table it named."""
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments or arguments[0] != "run":
+        return False
+    if not any(item == "--sweep-csv" or item.startswith("--sweep-csv=") for item in arguments):
+        return False
+    print(REMOVED_FORMS["pyfs-matrix.--sweep-csv"].message(), file=sys.stderr)
+    return True
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code.
@@ -245,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
-    if _refused_campaign_file(argv) or _refused_geometry_verb(argv):
+    if _refused_campaign_file(argv) or _refused_geometry_verb(argv) or _refused_sweep_csv(argv):
         return 2
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.
@@ -1218,7 +1228,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
 
 def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
-    """Run every active point, then write the sweep table.
+    """Run every active point; each simulation is posted as it finishes.
 
     The assessor is hard-wired and the recipe registry is this
     package's own workflow table; neither reaches this function from
@@ -1262,11 +1272,6 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
             local=args.local,
-            # THE CHOSEN PATH GOES TO THE ONE WRITER. The library leaves the
-            # table on its own, so choosing a path here and writing it below
-            # left TWO: the default one from the library and the chosen one
-            # from this command, against a help text promising one.
-            sweep_csv=args.sweep_csv,
         )
     except _AlreadyRecordedError as error:
         # FR-327: the refusal of a second run names the command that continues it.
@@ -1306,47 +1311,12 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     else:
         status = 0
 
-    # G43: a run that submits anything posts nothing and writes no table.
+    # G43: a run that submits anything posts nothing.
     # The library reports what was submitted and what to run next.
     if any(record.status is RunStatus.SUBMITTED for record in records):
         return status
 
-    # The matrix's own folder, so several matrices of one workspace keep
-    # their own table (PFS-2031.04); the table holds this matrix's records.
     stem = matrix_stem(args.matrix)
-    # FR-90: use run.SWEEP_TABLE_NAME, the same campaign_sweep.csv path the
-    # library writes. Rewriting that path is deliberate: both writes derive
-    # from the manifest, and this gives a library-side write failure another
-    # attempt with this command's own refusal.
-    target = args.sweep_csv or str(workspace.sweep_dir(stem) / SWEEP_TABLE_NAME)
-    # Exclude records naming no matrix (PFS-2031.04) and announce their count.
-    unnamed = sum(1 for record in workspace.read_manifest() if record.matrix_stem is None)
-    if unnamed:
-        print(
-            f"{unnamed} recorded point(s) name no matrix and are "
-            f"not in this table; their own products live under {workspace.products_dir(None)}",
-            file=sys.stderr,
-        )
-    try:
-        # require_loads=False retains identity rows when no run yields coefficients.
-        # Use write_table to enforce tabular provenance instead of bypassing it with
-        # a direct to_csv call.
-        Path(target).parent.mkdir(parents=True, exist_ok=True)
-        # THE LIBRARY HAS ALREADY SAID IT. Every path that reaches this line
-        # went through `run_matrix`, which left the same table from the same
-        # manifest a moment ago and emitted whatever warning deriving it
-        # raises; deriving it again here emitted each of those a second time
-        # from a second location, so one invocation printed the same
-        # complaint twice. The refusals below still speak, because they are
-        # exceptions and not warnings.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", PyflightstreamWarning)
-            table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
-        write_sweep_table(table, target)
-    except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
-        print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
-        return 2
-    print(f"sweep table: {target}")
     _report_skips(workspace, [stem])
     return status
 

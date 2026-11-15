@@ -200,11 +200,10 @@ same input library: a tour, a setup study, a time-convergence study. A `--matrix
 value loses only its final extension (`wing.v2.fs` is the matrix `wing.v2`, and a
 bare `wing.v2` is itself), so a dot inside the name stays in the name. The
 rule that keeps them apart is one folder per matrix: `plan`
-writes `post/<stem>/plan.json`, `run` writes
-`post/<stem>/campaign_sweep.csv` ONCE, and the products of that matrix's points
-land beside them. `runs.json` stays the one manifest of the workspace, and
-every record in it names the matrix its point came from, so the sweep table
-and the products of one matrix are rebuilt from its own records alone. From
+writes `post/<stem>/plan.json`, and the products of that matrix's points
+land beside it. `runs.json` stays the one manifest of the workspace, and
+every record in it names the matrix its point came from, so the products
+of one matrix are rebuilt from its own records alone. From
 Python the same identity is the `matrix_stem` keyword of `sweep_table` and
 `write_campaign_products`, and the `matrix_stem` field of a run record.
 
@@ -212,8 +211,7 @@ Python the same identity is the `matrix_stem` keyword of `sweep_table` and
 point of this run is recorded, before the next simulation's points run, and
 only that simulation is rebuilt, as `post --sims` rebuilds it: every other
 simulation's product files and `products.json` entries stay as they were.
-`campaign_sweep.csv`, the simulation's super files (written under the column
-set the other super files carry), the settings table and `products.json` are
+the polar files of that simulation, the settings table and `products.json` are
 rewritten each time, so after every polar `post/<stem>/` holds every
 simulation finished so far. Nothing is posted again when the run ends. A
 simulation whose post fails is warned and the run goes on to the next. A
@@ -479,14 +477,13 @@ From the terminal, a matrix's whole study is one command:
 
 ```text
 pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --workspace . \
-    --sweep-csv sweep.csv
+    --name rotor --workspace .
 ```
 
 No Python is written, no notebook is opened, and nothing sits between
-the file and the result. The sweep table lands as `campaign_sweep.csv`
-under `post/<matrix stem>/` in the workspace when you do not say where, so a
-second matrix of the same workspace keeps its own.
+the file and the result. The products land under `post/<matrix stem>/` in the
+workspace, so a second matrix of the same workspace keeps its own. There is no
+campaign table and no `--sweep-csv`: each polar's `TOTAL` group file is complete.
 
 **Each point keeps its outputs in its own folder**, and that is what lets
 a swept row be judged point by point. `run` judges each finished point
@@ -595,8 +592,8 @@ simulations;
 **Two simulations of one matrix on two machines or two terminals** are two lanes
 of one workspace: plan once, then run `pyfs-matrix run <matrix> --workspace . --sims 2031`
 in one terminal and `--sims 2032` in the other, at the same time. Each lane writes
-its own simulation folder, so the two solvers run side by side; `runs.json`, the
-sweep table `campaign_sweep.csv` and `products.json` end holding both
+its own simulation folder, so the two solvers run side by side; `runs.json` and
+`products.json` end holding both
 simulations, the plan is not rewritten, and the geometry of a row is linked into
 each simulation, never copied. No option is needed. Use `--sims` with distinct
 ids in each lane: the same id in two lanes is the same simulation.

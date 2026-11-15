@@ -10,9 +10,7 @@ from __future__ import annotations
 import csv
 import dataclasses
 import json
-import re
 import shutil
-import sys
 import warnings
 from pathlib import Path
 
@@ -513,46 +511,6 @@ def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(
     assert any("FLAP" in _table(path)[0] for path in (out / "polars").glob("P6001-*.csv"))
 
 
-def test_p0550_the_sweep_table_carries_each_row_s_own_and_follows_the_matrix(tmp_path):
-    workspace, matrix = _superfile_campaign(tmp_path)
-    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
-    write_campaign_products(workspace, matrix_stem="matriz")
-    header, rows = _table(sweep)
-    assert header[:3] == ["POL", "FLAP", "TESTE"]
-    assert {row["FLAP"] for row in rows if row["POL"] == "6001"} == {"1"}
-    assert {row["FLAP"] for row in rows if row["POL"] != "6001"} == {"NA"}
-    assert {row["TESTE"] for row in rows if row["POL"] == "6002"} == {"2"}
-
-    # Removed from the matrix: the next post takes the columns back out.
-    matrix.write_text(
-        re.sub(r"\s*/?\s*IDENTIFIERS: \{[^}]*\}", "", matrix.read_text(encoding="utf-8")),
-        encoding="utf-8",
-    )
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    assert "FLAP" not in _table(sweep)[0]
-    assert "TESTE" not in _table(sweep)[0]
-
-
-def test_p0550_the_sweep_table_keeps_the_identifiers_of_a_polar_the_matrix_left(tmp_path):
-    workspace, matrix = _superfile_campaign(tmp_path)
-    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    write_table(sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep)
-    write_campaign_products(workspace, matrix_stem="matriz")
-    lines = matrix.read_text(encoding="utf-8").splitlines()
-    matrix.write_text(
-        "\n".join(line for line in lines if not line.startswith("6002")) + "\n", encoding="utf-8"
-    )
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, sims=["6001"])
-    _, rows = _table(sweep)
-    assert {row["TESTE"] for row in rows if row["POL"] == "6002"} == {"2"}
-    assert {row["TESTE"] for row in rows if row["POL"] == "6001"} == {"NA"}
-
-
 def test_p0550_a_table_opening_without_pol_carries_them_as_its_last_columns(tmp_path):
     """The acoustic tables of one point open with their own columns."""
     workspace = _unsteady_rotor_workspace(tmp_path, listed=True)
@@ -718,27 +676,6 @@ def test_p0550_a_column_the_frame_lost_is_no_identifier(tmp_path):
     assert target.read_bytes() == plain
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="only Windows locks a file held open")
-def test_p0550_a_locked_sweep_table_costs_its_columns_and_not_the_post(tmp_path):
-    workspace = _three_sims(tmp_path)
-    matrix = find_matrix(workspace.root, "matriz")
-    _state(matrix, {"6001": STATED})
-    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    write_table(
-        sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
-    )
-    with sweep.open("rb"), pytest.warns(PyflightstreamWarning, match="not updated.*--sims"):
-        write_campaign_products(workspace, matrix_stem="matriz")
-    assert sweep.is_file(), "a table held open is warned, never retired"
-    # REL55-3: what the warning promises. With every simulation posted, a plain post writes none.
-    root = str(workspace.root)
-    assert main(["post", "matriz", "--workspace", root]) == 0
-    assert "FLAP" not in _table(sweep)[0]
-    assert main(["post", "matriz", "--workspace", root, "--sims", "6001"]) == 0
-    assert "FLAP" in _table(sweep)[0]
-
-
 def _sweep_of(workspace: CampaignWorkspace) -> Path:
     sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
     sweep.parent.mkdir(parents=True, exist_ok=True)
@@ -746,20 +683,6 @@ def _sweep_of(workspace: CampaignWorkspace) -> Path:
         sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
     )
     return sweep
-
-
-def test_p0550_a_sweep_table_saved_in_another_encoding_costs_its_columns_and_not_the_post(tmp_path):
-    """REL55-2: read as UTF-8 it raised out of the post, past the handler of a locked file."""
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
-    sweep = _sweep_of(workspace)
-    saved = sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1)
-    sweep.write_bytes(saved)
-    with pytest.warns(PyflightstreamWarning, match="cannot be read as UTF-8"):
-        write_campaign_products(workspace, matrix_stem="matriz")
-    manifest = workspace.products_dir("matriz") / "products.json"
-    assert json.loads(manifest.read_text(encoding="utf-8"))["complete"] is True
-    assert sweep.read_bytes() == saved, "what cannot be read is left as it is"
 
 
 def test_p0550_the_run_replaces_a_sweep_table_saved_in_another_encoding(tmp_path):
@@ -771,16 +694,6 @@ def test_p0550_the_run_replaces_a_sweep_table_saved_in_another_encoding(tmp_path
     with pytest.warns(PyflightstreamWarning, match="cannot be read as UTF-8"):
         write_sweep_table(frame, sweep)
     assert sweep.read_text(encoding="utf-8").startswith("POL,run_id,")
-
-
-def test_p0550_a_sweep_table_saved_with_a_signature_takes_the_columns(tmp_path):
-    """REL55-2: the signature hid POL, so the post said nothing and wrote nothing."""
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
-    sweep = _sweep_of(workspace)
-    sweep.write_bytes(b"\xef\xbb\xbf" + sweep.read_bytes())
-    write_campaign_products(workspace, matrix_stem="matriz")
-    assert sweep.read_text(encoding="utf-8").startswith("POL,FLAP,TESTE,run_id,")
 
 
 @pytest.mark.parametrize(
@@ -918,26 +831,6 @@ def test_p0550_the_guide_says_how_the_columns_reach_a_posted_simulation():
     assert "next post" not in text[at : at + 320]
 
 
-def test_p0550_a_sweep_table_saved_with_semicolons_is_warned(tmp_path):
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
-    sweep = _sweep_of(workspace)
-    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
-    with pytest.warns(PyflightstreamWarning, match="semicolons.*--sims"):
-        write_campaign_products(workspace, matrix_stem="matriz")
-
-
-def test_p0550_an_unreadable_sweep_table_warns_once_and_names_the_route(tmp_path):
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
-    sweep = _sweep_of(workspace)
-    sweep.write_bytes(sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1))
-    with pytest.warns(PyflightstreamWarning, match="cannot be read") as caught:
-        write_campaign_products(workspace, matrix_stem="matriz")
-    said = [str(w.message) for w in caught if "cannot be read" in str(w.message)]
-    assert len(said) == 1 and "--sims" in said[0]
-
-
 @pytest.mark.parametrize("label", ["up", "5"])
 def test_p0550_a_label_named_as_a_time_column_is_no_clock(tmp_path, label):
     from pyflightstream.post.products import plots_table_series
@@ -945,23 +838,6 @@ def test_p0550_a_label_named_as_a_time_column_is_no_clock(tmp_path, label):
     table = tmp_path / "AL-020_plots.csv"
     table.write_text(f"POL,Time,Time-step,CL\n7001,{label},1,1.0\n", encoding="utf-8")
     assert plots_table_series(table)[0] == ("Time-step", "CL")
-
-
-def test_p0550_a_saved_table_adds_no_replaced_name_to_the_report(tmp_path):
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": "IDENTIFIERS: {AN\u00c7A:0}"})
-    sweep = _sweep_of(workspace)
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    sweep.write_bytes(sweep.read_text(encoding="utf-8").encode("cp1252"))
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    # The super file report is retired: the names the post holds are read off the tables.
-    names = [
-        name
-        for path in _tables(workspace.products_dir("matriz") / "polars")
-        for name in _table(path)[0]
-    ]
-    assert names
-    assert not [name for name in names if "\ufffd" in name]
 
 
 def test_p0550_a_label_named_time_beside_time_sec_is_no_clock(tmp_path):
@@ -986,23 +862,6 @@ def test_p0550_a_saved_table_s_warning_names_no_folder_as_a_matrix(tmp_path):
     with pytest.warns(PyflightstreamWarning, match="<matrix> --sims") as caught:
         sweep_identifiers_held(table)
     assert all(f"post {tmp_path.name}" not in str(w.message) for w in caught)
-
-
-def test_p0550_a_semicolon_table_adds_no_name_to_the_report(tmp_path):
-    workspace = _three_sims(tmp_path)
-    _state(find_matrix(workspace.root, "matriz"), {"6001": STATED})
-    sweep = _sweep_of(workspace)
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
-    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    # The super file report is retired: the names the post holds are read off the tables.
-    names = [
-        name
-        for path in _tables(workspace.products_dir("matriz") / "polars")
-        for name in _table(path)[0]
-    ]
-    assert names
-    assert not [name for name in names if ";" in name]
 
 
 def test_p0550_an_empty_pair_is_not_a_space(tmp_path):

@@ -46,7 +46,6 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.workflows import workflow_names
 from pyflightstream.run import (
-    SWEEP_TABLE_NAME,
     CampaignErrors,
     LocalExecutor,
     plan_receipt_error,
@@ -209,7 +208,7 @@ def plan_args(workspace: CampaignWorkspace, matrix: Path = FIXTURE, *extra: str)
     #: The flags `run` has and `plan` does not. A plan that was handed one
     #: exits 2 on an unrecognised argument, which reads as the gate refusing
     #: when it is argparse.
-    run_only_with_value = {"--sweep-csv"}
+    run_only_with_value: set[str] = set()
     run_only_switches = {"--resume"}
     argv = run_args(workspace, matrix, *extra)[1:]
     kept: list[str] = []
@@ -255,22 +254,14 @@ def single_point_matrix(tmp_path: Path) -> Path:
     return target
 
 
-def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
-    """One command, no Python, runs and a table."""
+def test_run_executes_the_matrix_and_leaves_no_sweep_table(tmp_path, capsys):
+    """One command, no Python, runs every row and writes no campaign table (FR-3777)."""
     workspace = make_workspace(tmp_path)
-    target = tmp_path / "sweep.csv"
     matrix = single_point_matrix(tmp_path)
-    assert main(planned(workspace, matrix, "--sweep-csv", str(target))) == 0
+    assert main(planned(workspace, matrix)) == 0
     out = capsys.readouterr().out
-    assert str(target) in out, f"the command never said where the table went; got {out!r}"
-    assert target.is_file()
-
-    header = target.read_text(encoding="utf-8").splitlines()[0].split(",")
-    for column in ("run_id", "sim_id"):
-        assert column in header, f"the sweep table has no {column} column; got {header}"
-    assert any(column.startswith("CL") for column in header), (
-        f"the sweep table carries no coefficient column at all; got {header}"
-    )
+    assert "sweep table" not in out
+    assert list(workspace.root.rglob("campaign_sweep.csv")) == []
     records = workspace.read_manifest()
     assert len(records) == 3, "the run did not execute every active row of the matrix"
     assert {record.run_id for record in records} == {
@@ -310,13 +301,12 @@ def test_the_post_stage_writes_no_file_twice(tmp_path):
     assert not duplicates, (
         f"the post stage wrote the same bytes under more than one name: {duplicates}"
     )
-    assert (post / "campaign_sweep.csv").is_file(), (
-        "campaign_sweep.csv is the name that survives: it says the table is about the "
-        "campaign rather than about one polar's sweep, and FR-89 cites it as a source"
-    )
+    assert not (post / "campaign_sweep.csv").exists(), "the retired sweep table was written"
 
 
-def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkeypatch):
+def test_a_campaign_with_a_failing_point_still_reports_it_and_keeps_its_records(
+    tmp_path, monkeypatch
+):
     """The half of PFS-2014.03 the first pass inverted.
 
     A run that executes and has failing points raises `CampaignErrors`
@@ -332,7 +322,6 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
     """
     workspace = make_workspace(tmp_path)
     matrix = single_point_matrix(tmp_path)
-    target = tmp_path / "sweep.csv"
 
     # The failure is INJECTED rather than provoked, and that is a choice
     # worth stating. Every cheap way of making the stub solver fail on
@@ -352,7 +341,7 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
         raise CampaignErrors(workspace.read_manifest()[:1])
 
     monkeypatch.setattr(cli_module, "run_matrix", run_then_fail)
-    status = main(planned(workspace, matrix, "--sweep-csv", str(target)))
+    status = main(planned(workspace, matrix))
 
     records = workspace.read_manifest()
     assert records, (
@@ -360,38 +349,16 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
         "not exercising the after-the-loop arm it was written for"
     )
     assert status == 2, "a campaign with failing points must still report a failure"
-    assert target.is_file(), (
-        "the campaign ran and recorded points, and left no sweep table. The "
-        "after-the-loop failure arm is being caught with the refusals that fire "
-        "before anything ran, so the evidence of the points that did run is "
-        "discarded with the exit status"
-    )
-    header = target.read_text(encoding="utf-8").splitlines()[0].split(",")
-    for column in ("run_id", "sim_id", "data_origin", "reduction"):
-        assert column in header, (
-            f"the table written past a failure has no {column} column; got {header}. "
-            "It must go through the one write path like any other table"
-        )
 
 
-def test_the_default_sweep_table_lands_under_post_and_the_matrix_stem(tmp_path, capsys):
-    """ "One command" has to include the table, so it has a default name, and the
-    place is the matrix's own folder so several matrices of one workspace keep
-    their own (PFS-2031.04).
-
-    THE DEFAULT NAME CHANGED AT 0.16.0 (FR-90): it is the one name the
-    library already writes under that folder, because the two spellings
-    were the same bytes twice.
-    """
+def test_the_command_names_no_sweep_table_and_writes_none_under_the_matrix_stem(tmp_path, capsys):
+    """The matrix's own folder holds its products and no campaign table (FR-3777)."""
     workspace = make_workspace(tmp_path)
     matrix = single_point_matrix(tmp_path)
     assert main(planned(workspace, matrix)) == 0
-    assert (workspace.root / "post" / matrix.stem / SWEEP_TABLE_NAME).is_file(), (
-        "no --sweep-csv was given and no table was written under post/<matrix>/, so the "
-        "one command did not produce the study's table where the matrix keeps it"
-    )
-    assert not (workspace.root / SWEEP_TABLE_NAME).exists(), "the table landed in the root"
-    assert SWEEP_TABLE_NAME in capsys.readouterr().out
+    assert not (workspace.root / "post" / matrix.stem / "campaign_sweep.csv").exists()
+    assert not (workspace.root / "campaign_sweep.csv").exists(), "the table landed in the root"
+    assert "campaign_sweep" not in capsys.readouterr().out
 
 
 def test_a_swept_row_runs_end_to_end(tmp_path):
@@ -1261,24 +1228,3 @@ def test_p0550_identifiers_added_to_a_campaign_that_ran_launch_nothing_and_refus
     assert "changed since it was planned" not in err
     assert "IDENTIFIERS" not in err.replace(control_err, "")
     assert workspace.manifest_path.read_bytes() == recorded, "a point ran"
-
-
-@pytest.mark.requirement("FR-3564")
-def test_p0550_the_run_keeps_what_the_post_put_in_the_sweep_table(tmp_path, capsys):
-    """The run rewrites the sweep table from its records, and reads no identifier to do so."""
-    workspace = make_workspace(tmp_path)
-    matrix = _matrix_of(workspace)
-    assert main(plan_args(workspace, matrix)) == 0
-    assert main(run_args(workspace, matrix)) == 0
-    sweep = workspace.sweep_dir(matrix.stem) / SWEEP_TABLE_NAME
-    assert "FLAP" not in sweep.read_text(encoding="utf-8").splitlines()[0]
-    matrix.write_text(_with_identifiers(matrix.read_text(encoding="utf-8")), encoding="utf-8")
-    # Stated and not posted: the run does not put it there.
-    assert main(run_args(workspace, matrix, "--resume")) == 0
-    assert "FLAP" not in sweep.read_text(encoding="utf-8").splitlines()[0]
-    assert main(["post", str(matrix), "--sims", "7001", "--workspace", str(workspace.root)]) == 0
-    assert sweep.read_text(encoding="utf-8").splitlines()[0].startswith("POL,FLAP,TESTE,")
-    # The run again: it writes its table from its records and the columns stay.
-    assert main(run_args(workspace, matrix, "--resume")) == 0
-    assert sweep.read_text(encoding="utf-8").splitlines()[0].startswith("POL,FLAP,TESTE,")
-    capsys.readouterr()

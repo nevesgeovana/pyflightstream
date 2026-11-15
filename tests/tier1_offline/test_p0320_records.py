@@ -145,6 +145,28 @@ def _local_campaign(tmp_path, monkeypatch):
     return workspace, at_root, record
 
 
+def test_rebuild_takes_the_campaign_name_and_version_from_the_post_provenance(
+    tmp_path, monkeypatch
+):
+    """No sweep table is written now: the post's provenance sheet carries the run id and version."""
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    assert not list(workspace.root.rglob("campaign_sweep.csv"))
+    _lose_the_manifest(workspace)
+    (rebuilt,) = records.rebuild(workspace.root)["records"]
+    assert rebuilt["run_id"] == original["run_id"]
+    assert rebuilt["run_id"].startswith("local/")
+
+
+def test_rebuild_names_what_no_record_carried_and_uses_the_folder_name(tmp_path, monkeypatch):
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    for sheet in (workspace.root / "post").rglob("*.prov.json"):
+        sheet.unlink()
+    _lose_the_manifest(workspace)
+    with pytest.warns(Warning, match="no surviving record names the campaign or version"):
+        (rebuilt,) = records.rebuild(workspace.root)["records"]
+    assert rebuilt["run_id"].startswith(f"{workspace.root.name}/")
+
+
 def _submitted_campaign(tmp_path):
     """A workspace whose one point was submitted and then written by its job."""
     workspace, matrix = _matrix(tmp_path)

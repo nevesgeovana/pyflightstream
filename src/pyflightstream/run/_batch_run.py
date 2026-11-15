@@ -644,7 +644,6 @@ def run_grouped_matrix(
     refusal = refuse_grouped_options(
         force_rerun=kw.get("force_rerun"),
         force_rerun_all=bool(kw.get("force_rerun_all")),
-        sweep_csv=kw.get("sweep_csv"),
     )
     stem = Path(path).stem
     refusal = refusal or batch_receipt_error(
@@ -770,7 +769,6 @@ def _run_receipt(
         name_from=kw.get("name_from"),
         quiet=True,
         accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
-        sweep_csv=None,
         accepted_builds=accepted,
     )
     _resolve_campaign_schedule(preview)

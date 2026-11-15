@@ -46,7 +46,11 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
-from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, REMOVED_FORMS
+from pyflightstream._retired_names import (
+    PROBE_SCALE_PROPELLER_RADIUS,
+    REMOVED_FORMS,
+    RETIRED_REDUCTION_SENTENCES,
+)
 from pyflightstream._tokens import REDUCTION_COLUMNS, file_name_part
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
@@ -212,6 +216,8 @@ STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes"})
 #: PFS-2167: default samples once; instantaneous requests an unsteady history.
 ProbeKind = Literal["default", "instantaneous"]
 PROBE_KINDS: tuple[str, ...] = get_args(ProbeKind)
+#: The two spellings of a kind that are refused by name (REMOVED_FORMS, keys ``kind.<name>``).
+_REMOVED_KINDS = ("normal", "unsteady")
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
@@ -755,7 +761,7 @@ class VolumeSectionSpec(_LocatedSpec):
         (unstated) samples it by fluid plots at every step and writes each
         step as a field; ``default`` samples it once by probe points at the
         last step and writes one field. A steady row samples once whatever the
-        kind. Aliases ``normal`` and ``unsteady`` are deprecated.
+        kind.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -778,22 +784,14 @@ class VolumeSectionSpec(_LocatedSpec):
     @classmethod
     def _a_known_section_kind(cls, value: object) -> object:
         """Refuse a volume section kind other than the two, naming both."""
-        aliases = {"normal": "default", "unsteady": "instantaneous"}
-        if isinstance(value, str) and value in aliases:
-            canonical = aliases[value]
-            warn(
-                f"volume section kind {value!r} is deprecated; use kind = {canonical!r} instead.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-            return canonical
+        if isinstance(value, str) and value in _REMOVED_KINDS:
+            raise InputValueError(REMOVED_FORMS[f"kind.{value}"].message())
         if value not in PROBE_KINDS:
             raise InputValueError(
                 f"volume section kind {value!r} is not one of "
                 f"{' or '.join(map(repr, PROBE_KINDS))}: "
                 'write kind = "instantaneous" for fluid plots at every time step, '
-                'or kind = "default" for probe points sampled once, at the last time step. '
-                "Deprecated aliases: 'unsteady' and 'normal', respectively."
+                'or kind = "default" for probe points sampled once, at the last time step.'
             )
         return value
 
@@ -1450,15 +1448,8 @@ class ProbesSpec(_LocatedSpec):
     @classmethod
     def _a_known_probe_kind(cls, value: object) -> object:
         """Refuse a probe kind other than the two, naming both (FR-888)."""
-        aliases = {"normal": "default", "unsteady": "instantaneous"}
-        if isinstance(value, str) and value in aliases:
-            canonical = aliases[value]
-            warn(
-                f"probe kind {value!r} is deprecated; use kind = {canonical!r} instead.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-            return canonical
+        if isinstance(value, str) and value in _REMOVED_KINDS:
+            raise InputValueError(REMOVED_FORMS[f"kind.{value}"].message())
         if value not in PROBE_KINDS:
             raise InputValueError(
                 f"probe kind {value!r} is not one of {' or '.join(map(repr, PROBE_KINDS))}: "
@@ -2472,6 +2463,27 @@ class PprocSpec(_SuggestsKeys):
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
     #: FR-454: the far-field family's table; absent, nothing changes.
     farfields: list[FarfieldSpec] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _a_retired_reduction_is_warned_and_dropped(cls, value: object) -> object:
+        """Warn once, with the retirement sentence, of a table asking for a retired reduction.
+
+        The post writes neither the time_average nor the per_blade table. A pproc that
+        states one is warned and the table is dropped: it never refuses the pproc, and a
+        pproc that does not state one is never warned (the averaging windows the plan
+        records ask for nothing).
+        """
+        if not isinstance(value, dict):
+            return value
+        asked = [name for name in RETIRED_REDUCTION_SENTENCES if name in value]
+        for name in asked:
+            warn(
+                f"{RETIRED_REDUCTION_SENTENCES[name]} See docs/upgrading.md#0580-post-tree.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        return {key: item for key, item in value.items() if key not in asked}
 
     @model_validator(mode="before")
     @classmethod

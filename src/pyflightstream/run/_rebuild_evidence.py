@@ -261,9 +261,11 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
     """Per simulation: the campaign, the version and the template a surviving file names.
 
     Read, first found wins: the manifest's own rows, the archived manifests
-    newest first, then each matrix's sweep table (``campaign_sweep.csv``,
-    which carries the run id and the package version of every point it
-    tabled) and plan receipt.
+    newest first, then the post's provenance sheets (the run id and the version that ran) and
+    the sweep table of a matrix of an earlier layout
+    (``campaign_sweep.csv``, retired in 0.58.0 and no longer written, which
+    carries the run id and the package version of every point it tabled) and
+    plan receipt.
     """
     known: dict[str, _Known] = {}
 
@@ -296,7 +298,43 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
             with table.open(encoding="utf-8-sig", errors="replace", newline="") as handle:
                 for row in csv.DictReader(handle):
                     take({**row, "matrix_stem": folder.name}, _relative(base, table))
+    for folder in sorted(post.iterdir()) if post.is_dir() else []:
+        for sheet in sorted((folder / "provenance").glob("*.prov.json")):
+            provenance = _provenance_row(sheet)
+            if provenance is not None:
+                take({**provenance, "matrix_stem": folder.name}, _relative(base, sheet))
     return known
+
+
+def _provenance_row(path: Path) -> dict[str, Any] | None:
+    """Return the run id, simulation and package version a post's provenance sheet states.
+
+    The sheet is the post's own record of the run: its activity names ``pyfs:run_id`` and
+    ``pyfs:sim_id`` and its package agent the version that ran. A field it does not carry is
+    left out, never invented.
+    """
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(document, dict):
+        return None
+    activities = document.get("activity")
+    if not isinstance(activities, dict):
+        return None
+    for activity in activities.values():
+        if isinstance(activity, dict) and activity.get("pyfs:run_id"):
+            row: dict[str, Any] = {"run_id": activity["pyfs:run_id"]}
+            if activity.get("pyfs:sim_id"):
+                row["sim_id"] = activity["pyfs:sim_id"]
+            break
+    else:
+        return None
+    for key, agent in (document.get("agent") or {}).items():
+        if str(key).startswith("pyfs:package/") and isinstance(agent, dict):
+            if agent.get("pyfs:version"):
+                row["package_version"] = agent["pyfs:version"]
+    return row
 
 
 def _plan_campaign_name(base: Path, stem: str) -> tuple[str | None, str | None]:

@@ -719,7 +719,7 @@ def run_matrix(
     name_from: str | None = None,
     ignore_missing_families: bool = True,
     accept_unregistered_build: bool = False,
-    sweep_csv: str | Path | None = None,
+    sweep_csv: object = None,
     local: bool = False,
     require_plan: bool = False,
     parallel: int | str | None = None,
@@ -821,11 +821,9 @@ def run_matrix(
         :func:`pyflightstream.workspace.matrix.resolve_matrix`
         (PFS-2035.13); the command line spells it
         ``--ignore-missing-families``.
-    sweep_csv : str or Path, optional
-        Where to leave the campaign's sweep table instead of the default
-        place; forwarded to :func:`pyflightstream.run.run_campaign`, which
-        writes ONE table either way. The command line spells it
-        ``--sweep-csv``.
+    sweep_csv : object, optional
+        Retired with the table it named; any value but None is refused
+        naming the successor.
     local : bool
         Keep the run on this machine: the cluster is not asked,
         so a Linux box carrying a submission profile runs the solver
@@ -910,6 +908,8 @@ def run_matrix(
     ...     assess=LoadsAssessor(),
     ... )
     """
+    if sweep_csv is not None:
+        raise MatrixError(REMOVED_FORMS["run_matrix.sweep_csv"].message())
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
     selected_rows, sims = _selected(
         path, workspace, name, recipes, sims=sims, points=points, redoing=force_rerun_all
@@ -993,7 +993,6 @@ def run_matrix(
         builds=builds,
         name_from=name_from,
         accept_unregistered_build=accept_unregistered_build,
-        sweep_csv=sweep_csv,
         # FR-998: a build entry of this machine's overlay accepting its own build.
         accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
         redo_submitted=force_rerun_all,

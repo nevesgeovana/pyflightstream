@@ -734,7 +734,7 @@ def test_the_junction_coarsened_chordwise_only_keeps_its_spanwise_counts(tmp_pat
     """
     toml = (
         f"[families.W]\nfactor = {FACTOR}\n\n[families.C]\nfactor = {FACTOR}\n\n"
-        f"[families.J]\nchordwise = {FACTOR}\nspanwise = 1\n"
+        f"[families.J]\nnormal_factor = {FACTOR}\nparallel_factor = 1\n"
     )
     src = _source(tmp_path, toml, strip=False)
     level = refine_mesh(src)

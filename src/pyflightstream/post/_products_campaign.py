@@ -16,11 +16,6 @@ from typing import TYPE_CHECKING, Any
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream._identifier_columns import (
-    SWEEP_TABLE_NAME,
-    state_in_sweep_table,
-    sweep_identifiers_held,
-)
 from pyflightstream._identifier_columns import stated_identifiers as stated_identifiers
 from pyflightstream._identifier_columns import tables_of_polar as tables_of_polar
 from pyflightstream._tokens import MESH_FACES_COLUMN
@@ -678,27 +673,3 @@ def _refinement_row(
 def _identifiers_of(rows_of_the_matrix: Mapping[str, MatrixRow]) -> dict[str, dict[str, str]]:
     """Return what each polar of the current matrix states as ``IDENTIFIERS``."""
     return {polar: row.identifiers for polar, row in rows_of_the_matrix.items()}
-
-
-def _state_in_the_sweep_table(ctx: _CampaignProducts) -> None:
-    """Give the sweep table beside the products what the current matrix states (FR-3564).
-
-    A point whose POL the matrix no longer holds keeps what the table says of it. With no matrix,
-    or a table that cannot be derived, the file stays as it is. A file that cannot be written, one
-    open in a spreadsheet, costs this table its columns and not the post.
-    """
-    if not ctx.rows_of_the_matrix or not ctx.sweep_rows:
-        return
-    path = ctx.workspace.sweep_dir(ctx.matrix_stem) / SWEEP_TABLE_NAME
-    try:
-        stated = _identifiers_of(ctx.rows_of_the_matrix)
-        held = sweep_identifiers_held(path, warned=not any(stated.values()))
-        state_in_sweep_table(path, {**held, **stated})
-    except OSError as error:
-        # Not a skipped product: a name listed there is retired, which would delete this table.
-        warn(
-            f"{path} not updated: {error}. Its IDENTIFIERS columns arrive with the file closed, "
-            f"at a post that writes a simulation: pyfs-matrix post {ctx.matrix_stem} --sims <sim>.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )

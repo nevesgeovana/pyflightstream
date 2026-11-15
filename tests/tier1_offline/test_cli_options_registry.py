@@ -371,7 +371,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "recipe"): CASE,
     ("pyfs-matrix", "workflow"): CASE,
     ("pyfs-matrix", "point_name"): CASE,
-    ("pyfs-matrix", "sweep_csv"): CASE,
     ("pyfs-matrix", "fs_version"): SOLVER,
     ("pyfs-matrix", "fs_exe"): SOLVER,
     ("pyfs-matrix", "overwrite"): SWITCH,
@@ -844,7 +843,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "accept_unregistered_build"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "update_ids"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "strict"): frozenset({"post"}),
-    ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
