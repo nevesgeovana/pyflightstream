@@ -42,6 +42,7 @@ from pyflightstream._errors import (
     demote,
     suggest_name,
 )
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
@@ -71,16 +72,14 @@ FAMILY_KEYS = (
 #: Keys a [families.<name>] table may still state from earlier releases; each is warned
 #: and skipped: a row kept at an interface is a family of its own.
 RETIRED_FAMILY_KEYS = (
-    "keep_first_row",
     "trailing_edge_direction",
     "axial",
     "circumferential",
     "axis",
     "origin",
 )
-#: The earlier names of a grid's two factors, still read with a warning: the factor
-#: along the reference perimeter (``spanwise``) and the one across it (``chordwise``).
-FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
+#: The family keys that are refused by name (REMOVED_FORMS, keys ``refine.<key>``).
+REMOVED_FAMILY_KEYS = ("chordwise", "spanwise", "keep_first_row")
 #: The keys of a ``[[perimeter]]`` table: one ANSA node list of reference perimeters.
 PERIMETER_KEYS = ("file", "export_te_per_family", "te_families", "aft")
 #: The keys of ``[refine]``.
@@ -295,7 +294,6 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
     Under ``accept`` a key the refinement cannot read is warned and skipped
     (its default taken); a table left with no factor is warned and skipped.
     """
-    table = _renamed_factors(where, table)
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
         _unknown(
@@ -395,25 +393,6 @@ def _read_factors(where: str, table: Mapping[str, Any], accept: bool) -> dict[st
                 raise
             _skip(f"{where} {key}", f"{table[key]!r} is not a number above zero")
     return factors
-
-
-def _renamed_factors(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a family table with ``chordwise`` and ``spanwise`` read as their new names.
-
-    An earlier name is warned and read; beside its new name it is warned and skipped.
-    """
-    out = dict(table)
-    for old, new in FACTOR_ALIASES.items():
-        if old not in out:
-            continue
-        value = out.pop(old)
-        if new in out:
-            text = f"{where}: {old} is skipped; {new} is stated and gives the factor"
-        else:
-            text = f"{where}: {old} is read as {new}; rename the key to {new}"
-            out[new] = value
-        warnings.warn(text, PyflightstreamWarning, stacklevel=4)
-    return out
 
 
 def _components(
@@ -516,7 +495,13 @@ def _family_tables(
 
 
 def _without_retired(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a family table without its retired keys, each warned and skipped."""
+    """Return a family table without its retired keys, each warned and skipped.
+
+    A removed key (``chordwise``, ``spanwise``, ``keep_first_row``) is refused by name.
+    """
+    for key in REMOVED_FAMILY_KEYS:
+        if key in table:
+            raise _refuse(where, REMOVED_FORMS[f"refine.{key}"].message(f"the key {key}"))
     for key in RETIRED_FAMILY_KEYS:
         if key in table:
             _skip(f"{where} {key}", "is no longer read")
@@ -836,7 +821,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     parallel: float | None = None,
     normal: float | None = None,
     config: str | Path | None = None,
-    keep_first_row: Sequence[str] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
     force_factors: bool = True,
@@ -844,7 +828,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
 ) -> RefineRequest | None:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
-    ``keep_first_row``, an earlier option, is warned and skipped when given.
     Under ``accept_unknown`` a selected family the mesh does not hold, and an
     unknown entry of the refinement file, are warned and skipped.
     """
@@ -925,8 +908,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             PyflightstreamWarning,
             stacklevel=3,
         )
-    if keep_first_row:
-        _skip(f"{mesh} keep_first_row", "is no longer read; keep such a row as a family of its own")
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],

@@ -253,3 +253,30 @@ def test_p0580_archive_positional_root_is_refused_naming_workspace(tmp_path, cap
     assert "no longer accepted" in said, said
     assert not (root / "archive" / "sim_8001.zip").exists()
     assert (root / "sims" / "sim_8001").exists()
+
+
+@pytest.mark.parametrize(
+    ("name", "successor"),
+    [("chordwise", "normal"), ("spanwise", "parallel"), ("keep_first_row", "own family")],
+)
+def test_p0580_refine_keyword_and_family_key_are_refused_naming_the_current_form(
+    tmp_path, name, successor
+):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import refine_mesh
+    from tests.tier1_offline.test_p0380_s1_refine import _source
+
+    src = _source(tmp_path)
+    with pytest.raises(InputArtifactError) as keyword:
+        refine_mesh(
+            src, 2, out_dir=tmp_path / "k", **{name: ["G"] if name == "keep_first_row" else 2}
+        )
+    assert f"the keyword {name}" in str(keyword.value), keyword.value
+    assert successor in str(keyword.value) and "no longer accepted" in str(keyword.value)
+    assert not (tmp_path / "k").exists()
+    src.with_name("wing.refine.toml").write_text(f"[families.G]\n{name} = 2\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError) as key:
+        refine_mesh(src, out_dir=tmp_path / "f")
+    assert f"the key {name}" in str(key.value), key.value
+    assert successor in str(key.value) and "no longer accepted" in str(key.value)
+    assert not (tmp_path / "f").exists()

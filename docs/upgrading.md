@@ -110,6 +110,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | `[hub_rings] width` | `[hub_rings] band_width` |
 | `geometry refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
 | `geometry audit --csv` | `--out` |
+| `refine_mesh(chordwise=, spanwise=, keep_first_row=)`; family keys `chordwise`, `spanwise`, `keep_first_row` | `normal=`, `parallel=`; keys `normal_factor`, `parallel_factor`; a kept row is its own family |
 | `kind = "normal"`, `kind = "unsteady"` of `[[probes]]` and `[volume_section]` | `kind = "default"`, `kind = "instantaneous"` |
 | `pyfs-workspace archive ROOT SIM_ID` | `archive SIM_ID --workspace ROOT` |
 | `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |

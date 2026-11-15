@@ -71,6 +71,8 @@ The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 
 `pyfs-workspace geometry refine --chordwise`, `--spanwise`, `--keep-first-row` and `--out-dir` are refused. migration: write `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, which `--families` selects) and `--out`.
 
+`refine_mesh(chordwise=, spanwise=, keep_first_row=)` and the family keys `chordwise`, `spanwise` and `keep_first_row` of a refinement file are refused. migration: write `normal=` and `parallel=` (keys `normal_factor` and `parallel_factor`); a row kept at an interface is its own family.
+
 `pyfs-workspace geometry audit --csv` is refused. migration: write `--out`.
 
 `pyfs-workspace archive ROOT SIM_ID` is refused. migration: write `archive SIM_ID --workspace ROOT`.

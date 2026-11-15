@@ -588,6 +588,28 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         retired_in="0.58.0",
         why=_GEOMETRY_GROUP,
     ),
+    "refine.chordwise": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="chordwise",
+        new="normal (keyword) or normal_factor (family key)",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.spanwise": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="spanwise",
+        new="parallel (keyword) or parallel_factor (family key)",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.keep_first_row": RetiredName(
+        owner="refine_mesh and a [families.<name>] table",
+        old="keep_first_row",
+        new="nothing: a row kept at an interface is its own family, which families selects",
+        retired_in="0.58.0",
+        why="The refinement no longer offers a kept first row.",
+        instead="Use",
+    ),
     "refine.--chordwise": RetiredName(
         owner="the refine command",
         old="--chordwise",
