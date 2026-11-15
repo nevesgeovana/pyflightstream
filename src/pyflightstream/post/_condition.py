@@ -32,7 +32,13 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, w
 from pyflightstream.cases import PprocSpec, classify_outputs
 from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import averaging_span
-from pyflightstream.cases.workflows import BLADE_FAMILIES_KEY, QSTEADY_ROTOR
+from pyflightstream.cases.workflows import (
+    BLADE_FAMILIES_KEY,
+    QSTEADY_ROTOR,
+    advancing_tip_mach_number,
+    free_stream_direction_at,
+    rotor_mach_numbers,
+)
 from pyflightstream.post._stage import _POST_REFUSES
 from pyflightstream.post._tables import ProductError, ReferenceValues, rotor_advance_ratio
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, MalformedOutputError, labeled_value
@@ -946,3 +952,45 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
     loads = point.loads
     v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
     return 0.5 * rho * float(v_ref) ** 2
+
+
+def mach_cells(
+    air: object,
+    rpm: float,
+    diameter: float,
+    angles: tuple[float | None, float | None],
+    shaft: tuple[float, float, float],
+) -> tuple[tuple[float | None, float | None], float | None]:
+    """Return the tip, helical and advancing-tip Mach of a row; NA where the air is unresolved."""
+    if not (
+        isinstance(air, tuple)
+        and len(air) == 2
+        and all(isinstance(value, int | float) for value in air)
+    ):
+        return (None, None), None
+    try:
+        machs = rotor_mach_numbers(
+            rpm=rpm,
+            diameter_m=diameter,
+            velocity_m_per_s=float(air[0]),
+            sonic_velocity_m_per_s=float(air[1]),
+        )
+        # FR-1201: the advancing tip, on the rotor's own axis and the row's attitude.
+        # An unstated ALPHA or BETA is 0.0, stated as the default (FR-69), so MADV is
+        # computed, not NA.
+        madv = advancing_tip_mach_number(
+            rpm=rpm,
+            diameter_m=diameter,
+            velocity_m_per_s=float(air[0]),
+            sonic_velocity_m_per_s=float(air[1]),
+            flow_direction=free_stream_direction_at(
+                angles[0] if angles[0] is not None else 0.0,
+                angles[1] if angles[1] is not None else 0.0,
+            ),
+            axis=shaft,
+        )[0]
+    except ValueError:
+        # A speed of sound or a velocity that is not a positive
+        # finite number costs these cells and never the row.
+        return (None, None), None
+    return machs, madv

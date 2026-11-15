@@ -35,11 +35,6 @@ from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import (
     select_group_members,
 )
-from pyflightstream.cases.workflows import (
-    advancing_tip_mach_number,
-    free_stream_direction_at,
-    rotor_mach_numbers,
-)
 from pyflightstream.post._tables import (
     NOT_APPLICABLE,
     ProductError,
@@ -926,48 +921,6 @@ def _row_refusal(
             "axes, and this frame's rotation is unknown"
         )
     return None
-
-
-def _mach_cells(
-    air: object,
-    rpm: float,
-    diameter: float,
-    angles: tuple[float | None, float | None],
-    shaft: tuple[float, float, float],
-) -> tuple[tuple[float | None, float | None], float | None]:
-    """Return the tip, helical and advancing-tip Mach of a row; NA where the air is unresolved."""
-    if not (
-        isinstance(air, tuple)
-        and len(air) == 2
-        and all(isinstance(value, int | float) for value in air)
-    ):
-        return (None, None), None
-    try:
-        machs = rotor_mach_numbers(
-            rpm=rpm,
-            diameter_m=diameter,
-            velocity_m_per_s=float(air[0]),
-            sonic_velocity_m_per_s=float(air[1]),
-        )
-        # FR-1201: the advancing tip, on the rotor's own axis and the row's attitude.
-        # An unstated ALPHA or BETA is 0.0, stated as the default (FR-69), so MADV is
-        # computed, not NA.
-        madv = advancing_tip_mach_number(
-            rpm=rpm,
-            diameter_m=diameter,
-            velocity_m_per_s=float(air[0]),
-            sonic_velocity_m_per_s=float(air[1]),
-            flow_direction=free_stream_direction_at(
-                angles[0] if angles[0] is not None else 0.0,
-                angles[1] if angles[1] is not None else 0.0,
-            ),
-            axis=shaft,
-        )[0]
-    except ValueError:
-        # A speed of sound or a velocity that is not a positive
-        # finite number costs these cells and never the row.
-        return (None, None), None
-    return machs, madv
 
 
 # The names retired with their products answer by name (FR-457).

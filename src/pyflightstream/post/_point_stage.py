@@ -73,8 +73,7 @@ def _speeds(ctx: SimContext, point: PolarPoint) -> dict[str, float | None]:
 def _machs(
     record: object, block: object, rpm: float | None, point: PolarPoint, shaft: tuple[float, ...]
 ) -> tuple[float | None, float | None]:
-    from pyflightstream.post._condition import _free_stream_and_sound
-    from pyflightstream.post.rotor_table import _mach_cells
+    from pyflightstream.post._condition import _free_stream_and_sound, mach_cells
 
     if record is None or rpm is None:
         return None, None
@@ -82,7 +81,7 @@ def _machs(
         air = _free_stream_and_sound(record)  # type: ignore[arg-type]
     except (PyflightstreamError, ValueError):
         return None, None
-    (mtip, mhel), _madv = _mach_cells(
+    (mtip, mhel), _madv = mach_cells(
         air,
         float(rpm),
         float(getattr(block, "diameter_m", 0.0) or 0.0),
