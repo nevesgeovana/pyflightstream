@@ -1313,6 +1313,16 @@ def _the_run_types_that_read(word: str) -> list[str]:
     return sorted(taken)
 
 
+def _refuse_removed_setup_keys(artifact_id: str, path: Path, data: Mapping[str, Any]) -> None:
+    """Refuse a setup key whose condition has another home, naming that home (PFS-2176)."""
+    removed = removed_setup_forms(data)
+    if removed:
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}): "
+            + " ".join(entry.message() for entry in removed)
+        )
+
+
 def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     """Load the solver-setup preset one id names.
 
@@ -1345,13 +1355,7 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
         raise _miss("setup", artifact_id, directory)
     data = load_toml(path, "setup")
     refuse_empty_selections("setup", path, data)
-    removed = removed_setup_forms(data)
-    if removed:
-        # PFS-2176: a condition with another home is refused by name, naming that home.
-        raise InputArtifactError(
-            f"setup preset {artifact_id!r} ({path}): "
-            + " ".join(entry.message() for entry in removed)
-        )
+    _refuse_removed_setup_keys(artifact_id, path, data)
     try:
         SolverSettings.model_validate(
             {key: value for key, value in data.items() if key in SolverSettings.model_fields}
