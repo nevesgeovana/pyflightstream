@@ -103,6 +103,7 @@ from pyflightstream._fsm import boundary_names as boundary_names
 from pyflightstream._retired_names import (
     BLOCK_KIND_ENGINE,
     POINT_KIND_ENGINE,
+    removed_setup_forms,
     retired_key,
 )
 from pyflightstream._tokens import MAX_ROTOR_ID
@@ -1343,6 +1344,13 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
         raise _miss("setup", artifact_id, directory)
     data = load_toml(path, "setup")
     refuse_empty_selections("setup", path, data)
+    removed = removed_setup_forms(data)
+    if removed:
+        # PFS-2176: a condition with another home is refused by name, naming that home.
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}): "
+            + " ".join(entry.message() for entry in removed)
+        )
     try:
         SolverSettings.model_validate(
             {key: value for key, value in data.items() if key in SolverSettings.model_fields}

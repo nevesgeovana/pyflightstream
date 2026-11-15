@@ -510,7 +510,6 @@ UNSUPPORTED_ON_26124 = {
     "crossflow_separation_axisymmetric": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
     "legacy_solver_model": "SET_SOLVER_MODEL",
     "sonic_velocity_m_per_s": "SONIC_VELOCITY",
-    "physics_auto_trailing_edges": "PHYSICS",
 }
 
 

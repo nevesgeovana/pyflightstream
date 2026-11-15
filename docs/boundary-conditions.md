@@ -5,6 +5,15 @@ role; each MATRIX row supplies operating values. Use the
 [three-artifact example](setup-standards.md#uniform-inlet-and-outlet-boundaries)
 for a complete geometry, setup and condition declaration.
 
+## One home per condition
+
+Each boundary condition is declared in one place. A key that also reached a
+condition at another home is refused by name, and the refusal names the home.
+
+| Condition | Its home | Refused elsewhere |
+| --- | --- | --- |
+| Automatic trailing-edge and wake-termination detection | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) | setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` |
+
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
 `inputs/setups/s<>.toml` file, use ordered `[[ports]]` tables with `port`,
 `kind` and optional `velocity_variable` / `profile_variable` selectors.

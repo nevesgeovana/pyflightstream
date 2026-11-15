@@ -55,6 +55,50 @@ def test_p0580_pfs2249_bluntness_angle_emits_its_command_where_the_build_has_a_r
     assert lines[blunt].split()[-1].startswith("120")
 
 
+def _setup_refusal(tmp_path: Path, text: str) -> str:
+    """Read ``text`` as setup s001 the way a row's SET cell does; return the refusal."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.inputs import resolve_setup
+
+    (tmp_path / "setups").mkdir(exist_ok=True)
+    (tmp_path / "setups" / "s001.toml").write_text(text, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        resolve_setup(tmp_path, "s001")
+    return str(refused.value)
+
+
+def _binding_refusal(settings: dict) -> str:
+    """Bind ``settings`` as a preset a matrix row names; return the refusal."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace._matrix_binding import _solver_from_setup
+    from pyflightstream.workspace.inputs import SetupArtifact
+
+    with pytest.raises(InputArtifactError) as refused:
+        _solver_from_setup(SetupArtifact(settings=settings), "s001")
+    return str(refused.value)
+
+
+def _python_refusal(**settings) -> str:
+    from pyflightstream.cases import SolverSettings
+
+    with pytest.raises(ValueError) as refused:
+        SolverSettings(**settings)
+    return str(refused.value)
+
+
+@pytest.mark.parametrize("key", ["physics_auto_trailing_edges", "physics_auto_wake_nodes"])
+def test_p0580_pfs2250_physics_switches_are_refused_naming_the_detection(tmp_path, key):
+    """PFS-2250: each PHYSICS switch is refused by name, naming the boundaries-file detection."""
+    for said in (
+        _setup_refusal(tmp_path, f"{key} = true\n"),
+        _binding_refusal({key: True}),
+        _python_refusal(**{key: False}),
+    ):
+        assert key in said and "no longer accepted" in said, said
+        assert '[trailing_edges] detect = "auto"' in said, said
+        assert '[wake_termination] detect = "auto"' in said, said
+
+
 @pytest.mark.parametrize("build", ["26.122", "26.127"])
 def test_p0580_pfs2249_bluntness_angle_is_refused_on_a_build_with_no_row(tmp_path, build):
     """PFS-2249: 26.122 removed the command and 26.127 has no row, so the build refuses it."""

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import dis
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
 from pyflightstream._errors import PyflightstreamError
@@ -505,6 +506,15 @@ _PROBE_KINDS = (
     "'instantaneous' (fluid plots at every time step)."
 )
 _ONE_OUTPUT_FLAG = "The written file is named by --out on every command that writes one."
+_THE_DETECTION_HOME = (
+    'the detection in the boundaries file: [trailing_edges] detect = "auto" for the '
+    'trailing edges and [wake_termination] detect = "auto" (wake_termination_nodes = '
+    '"auto" on a named entry) for the wake-termination nodes'
+)
+_THE_PHYSICS_COMMAND = (
+    "The PHYSICS command has no row on the current builds, and the detection is declared "
+    "with the geometry."
+)
 
 #: THE FORMS REMOVED, each a refusal that names the new spelling. They are keyed
 #: by the call, flag, key or header the user wrote. They are not in :data:`RETIRED`,
@@ -745,7 +755,42 @@ REMOVED_FORMS: dict[str, RetiredName] = {
             "expands per blade gives one emission per blade with no pattern in it."
         ),
     ),
+    # THE SETUP KEYS OF THE BOUNDARY-CONDITION REVIEW (PFS-2176, 2026-11-15): each
+    # condition has one home, and the setup key that also reached it is refused by
+    # name, naming that home. Keyed ``setup.<key>``; read by removed_setup_forms.
+    "setup.physics_auto_trailing_edges": RetiredName(
+        owner="a setup",
+        old="physics_auto_trailing_edges",
+        new=_THE_DETECTION_HOME,
+        retired_in="0.58.0",
+        why=_THE_PHYSICS_COMMAND,
+        instead="Declare",
+    ),
+    "setup.physics_auto_wake_nodes": RetiredName(
+        owner="a setup",
+        old="physics_auto_wake_nodes",
+        new=_THE_DETECTION_HOME,
+        retired_in="0.58.0",
+        why=_THE_PHYSICS_COMMAND,
+        instead="Declare",
+    ),
 }
+
+
+def removed_setup_forms(keys: Iterable[str]) -> tuple[RetiredName, ...]:
+    """Return the removals the setup keys ``keys`` name, in their order.
+
+    Parameters
+    ----------
+    keys : iterable of str
+        The keys a setup states, as written.
+
+    Returns
+    -------
+    tuple of RetiredName
+        One entry per key that 0.58.0 moved to another home; empty when none did.
+    """
+    return tuple(entry for key in keys if (entry := REMOVED_FORMS.get(f"setup.{key}")) is not None)
 
 
 def retired_attribute(module: str, name: str) -> RetiredName | None:
@@ -822,6 +867,7 @@ __all__ = [
     "RetiredName",
     "WORKSPACE_ENGINE_POINT",
     "imported_by_from",
+    "removed_setup_forms",
     "retired_attribute",
     "retired_frame",
     "retired_key",

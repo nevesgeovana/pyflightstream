@@ -115,6 +115,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | `pyfs-workspace archive ROOT SIM_ID` | `archive SIM_ID --workspace ROOT` |
 | `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
 | `pyfs-matrix run --sweep-csv`, `run_matrix(..., sweep_csv=...)`, `run_campaign(..., sweep_csv=...)`, `pyflightstream.run.SWEEP_TABLE_NAME` | none: the run writes no campaign table; join the `TOTAL` group files of the polars ([joining polars](pproc/index.md#joining-polars)) |
+| setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) ([one home per condition](boundary-conditions.md#one-home-per-condition)) |
 
 ## 0.57.0
 

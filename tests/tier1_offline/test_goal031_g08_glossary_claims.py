@@ -989,13 +989,6 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         ),
         refusal="SONIC_VELOCITY",
     ),
-    # PHYSICS takes both arguments, so each is varied with the other held.
-    "physics_auto_trailing_edges": _setting_on(
-        _plain, "physics_auto_trailing_edges", True, False, physics_auto_wake_nodes=True
-    ),
-    "physics_auto_wake_nodes": _setting_on(
-        _plain, "physics_auto_wake_nodes", True, False, physics_auto_trailing_edges=True
-    ),
     # Normalisation and the free-stream input, on a case whose fluid is resolved.
     "freestream_input": _setting_on(_mach_resolved, "freestream_input", "velocity", "mach"),
     "reference_mach": _setting_on(_plain, "reference_mach", 0.1, 0.2),

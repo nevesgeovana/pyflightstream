@@ -312,13 +312,6 @@ _MEANINGS: dict[str, str] = {
         "Selects a distinct vorticity-field lift model where supported; not the same "
         "command as Kutta-Joukowski lift."
     ),
-    "physics_auto_trailing_edges": (
-        "Legacy automatic trailing-edge detection, paired with physics_auto_wake_nodes. "
-        "Modern BC markings remain geometry-specific."
-    ),
-    "physics_auto_wake_nodes": (
-        "Legacy automatic wake-node detection, paired with physics_auto_trailing_edges."
-    ),
     "crossflow_separation_axisymmetric": (
         "Chooses an axisymmetric assumption for crossflow separation where supported."
     ),
@@ -424,8 +417,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "laminar_separation": False,
         "valarezo_criterion": False,
         "crossflow_separation_axisymmetric": False,
-        "physics_auto_trailing_edges": False,
-        "physics_auto_wake_nodes": False,
         "wall_collision_avoidance": False,
         "mesh_induced_wake_velocity": True,
         "unsteady_pressure_and_kutta": True,

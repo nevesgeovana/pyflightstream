@@ -245,9 +245,6 @@ def _settings(
         script.emit("DELETE_OUTLET", outlet)
     for trip in solver.delete_transition_trips or ():
         script.emit("DELETE_TRANSITION_TRIP", trip)
-    physics = (solver.physics_auto_trailing_edges, solver.physics_auto_wake_nodes)
-    if any(value is not None for value in physics):
-        script.emit("PHYSICS", *(bool(value) for value in physics))
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),

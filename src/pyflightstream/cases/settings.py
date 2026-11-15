@@ -33,6 +33,7 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._errors import InputValueError
+from pyflightstream._retired_names import removed_setup_forms
 from pyflightstream.cases._runtime_settings import RuntimeSettings
 
 # The setup keys' command table and the tables FR-319 added; its module imports
@@ -449,6 +450,16 @@ class SolverSettings(BaseModel):
     # own: every comparison against NaN is false, so ge and gt pass it.
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_removed_keys(cls, data: object) -> object:
+        """Refuse by name a setup key whose condition moved to another home (PFS-2176)."""
+        if isinstance(data, Mapping):
+            removed = removed_setup_forms(str(key) for key in data)
+            if removed:
+                raise InputValueError(" ".join(entry.message() for entry in removed))
+        return data
+
     #: Explicit measured simulation unit, applied after geometry and before frames.
     simulation_length_unit: Literal["METER", "MILLIMETER"] | None = None
     #: Vertex merge distance in metres; converted to the selected simulation unit.
@@ -560,10 +571,6 @@ class SolverSettings(BaseModel):
     #: command, rather than read as a setting a run applied; with
     #: ``freestream_input = "mach"`` a differing value is refused before that.
     sonic_velocity_m_per_s: float | None = Field(default=None, gt=0)
-    #: Legacy PHYSICS automatic trailing-edge detection; state with physics_auto_wake_nodes.
-    physics_auto_trailing_edges: bool | None = None
-    #: Legacy PHYSICS wake-node detection; state with physics_auto_trailing_edges.
-    physics_auto_wake_nodes: bool | None = None
     max_threads: int | None = Field(default=None, ge=1)
     runtime: RuntimeSettings | None = None
 
