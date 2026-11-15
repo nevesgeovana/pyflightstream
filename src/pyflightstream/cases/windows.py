@@ -398,7 +398,11 @@ def passages(window: tuple[int, int], period: float) -> list[tuple[int, int]]:
     """Cut an inclusive step window into successive passages of ``period`` steps.
 
     From the first step forward, a trailing partial passage dropped rather than
-    averaged against a shorter one.
+    averaged against a shorter one. A passage counts as whole when its length,
+    rounded to the step the solver takes, fits the window: the rule
+    :func:`whole_passage_refusals` judges the window by, so a window the gate
+    accepts is cut into the passages it was accepted for (``LAST_REVS_AVG =
+    0.166667`` of 500 steps over six blades is 83 steps, one passage of 83.33).
 
     Parameters
     ----------
@@ -418,9 +422,9 @@ def passages(window: tuple[int, int], period: float) -> list[tuple[int, int]]:
     if not math.isfinite(period) or period < 1:
         return cut
     start = first
-    complete = int(math.floor((last - first + 1) / period + 1e-9))
+    complete = int(math.floor((last - first + 1.5) / period + 1e-9))
     for number in range(1, complete + 1):
-        end = first - 1 + int(math.floor(number * period + 1e-9))
+        end = min(first - 1 + int(math.floor(number * period + 1e-9)), last)
         cut.append((start, end))
         start = end + 1
     return cut

@@ -60,6 +60,8 @@ meshed sector stands for the whole wheel), and the window of
 solver can take. A row that fails for any rotor is refused at plan, naming the window, the
 passages it spans, each failing rotor and the nearest valid window, as `LAST_REVS_AVG` in
 revolutions or `LAST_ITERS_AVG` in steps. A row with no window key, and a row whose clock is
-unknown, are judged where they were before.
+unknown, are judged where they were before. The phase-locked passages are cut by the same
+rounding: a passage counts as whole when its length, rounded to the step the solver takes,
+fits the window, so a window this check accepts is cut into the passages it was accepted for.
 
 ---

@@ -105,6 +105,29 @@ def test_p0580_l4_a_periodic_sector_counts_the_wheels_blades_as_passages():
     )
 
 
+def test_p0580_l4_a_window_the_gate_accepts_is_cut_into_the_passages_it_was_accepted_for():
+    """VV-F1: a six-blade block at 500 steps a revolution, a passage of 83.33 steps.
+
+    The gate accepts ``LAST_REVS_AVG = 0.166667`` (83 steps, one passage on the
+    steps the solver takes); the phase-locked cut must give that one passage
+    rather than skip the window as shorter than 83.33 steps.
+    """
+    from pyflightstream.cases.workflows._reductions import reduction_windows
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
+
+    six = FIXTURE_ROTOR.model_copy(update={"families_blades": [f"Blade{n}" for n in range(1, 7)]})
+    case = rotor_case(BLADES=None, LAST_REVS_AVG="0.166667")
+    case = case.model_copy(update={"rotors": {six.alias: six}})
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None and plan["blades"] == 6
+    phase_locked = plan["phase_locked"]
+    assert isinstance(phase_locked, dict)
+    assert "skipped" not in phase_locked, phase_locked
+    assert phase_locked["period_steps"] == pytest.approx(500 / 6)
+    assert phase_locked["windows"] == [[638, 720]]
+
+
 def test_p0580_l4_without_periodic_symmetry_the_copies_are_not_blades():
     case = _sector_case(LAST_REVS_AVG="0.166667", SYMMETRY="NONE")
     with pytest.raises(CampaignConfigError, match="`1` blades"):
