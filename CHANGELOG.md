@@ -85,6 +85,8 @@ The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS recor
 
 ### Fixed
 
+The quasi-steady corrections of a rotor group's RCOEF file read the calibration's `THRUST` and `TORQUE` as its `T` and `Q`, and read every component with the sense of the rotor frame, so a 0.57.0 calibration of a rotor declared aft (whose RCOEF `CT`, `T` and in-plane set count opposite to 0.57.0) keeps the sign the corrections page gives (`CT' = GAIN_0P CT - OFFSET_0P` there); `CT` and `CQ` are `NA` where only `THRUST` or `TORQUE` is corrected. migration: none.
+
 A group of the polar files that selects no family of one point's loads (a tail-only point and a `WING` group, a rotor whose blades one export does not state) has no row at that point and is named under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>` with its selector, never a row of `NA`; `TOTAL` and `AIRFRAME` sum the families the point states, and a FAM file has no row for a family the point does not state. migration: none.
 
 A point whose loads export states an analysis frame of unknown rotation is no row of the polar files, never an all-`NA` row: it is warned with the 0.57.0 reason (the frame it states) and named under each group's `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`. migration: none.

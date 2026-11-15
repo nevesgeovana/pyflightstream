@@ -689,7 +689,12 @@ def _zero_p_calibration() -> str:
 
 
 def _offset(component: str, alpha: float) -> float:
-    a, b = {"CT": (0.001, 0.0005), "CQ": (0.0002, 0.00001), "THRUST": (5.0, 1.0)}[component]
+    a, b = {
+        "CT": (0.001, 0.0005),
+        "CQ": (0.0002, 0.00001),
+        "THRUST": (5.0, 1.0),
+        "TORQUE": (1.0, 0.25),
+    }[component]
     return a + b * alpha
 
 
@@ -706,15 +711,26 @@ def test_route_4_corrects_the_rotor_and_average_tables_beside_them(tmp_path):
         tmp_path, pproc_extra=extra, files={"c001.toml": _zero_p_calibration()}
     )
     products, folder, _ = _post_recorded(workspace)
-    # 0.58.0: the rotor table is the rotor group's RCOEF file (bare CT, CQ, CP, ETA, ETAW).
+    # 0.58.0: the rotor table is the rotor group's RCOEF file (bare CT, CQ, T, Q, CP, ETA,
+    # ETAW). THRUST and TORQUE are its T and Q. The recorded rotor's axis is export +x,
+    # declared aft, so its frame turns it (sense -1): RCOEF counts CT, CQ, T and Q opposite
+    # to the 0.57.0 rotor table the calibration's signs are stated in (design of the post
+    # outputs, the migration map), and q' = GAIN q - OFFSET there. The average table keeps
+    # the declared axis's sense.
     rotor = "polars/P6001-PROP-RCOEF.csv"
     (average,) = [name for name in products["products"] if name.endswith("PROP_qs_avg.csv")]
-    for raw_name, pairs, derived in (
-        (rotor, {"CT": "CT", "CQ": "CQ"}, ("CP", "ETA", "ETAW")),
+    for raw_name, pairs, derived, sense in (
+        (
+            rotor,
+            {"CT": "CT", "CQ": "CQ", "T": "THRUST", "Q": "TORQUE"},
+            ("CP", "ETA", "ETAW"),
+            -1.0,
+        ),
         (
             average,
             {"THRUST_PROP": "THRUST", "CT_PROPELLER": "CT"},
             ("CT_ROTOR", "LAMBDA_I", "CHI_DEG"),
+            1.0,
         ),
     ):
         corrected_name = raw_name.replace(".csv", "_corrected.csv")
@@ -727,8 +743,8 @@ def test_route_4_corrects_the_rotor_and_average_tables_beside_them(tmp_path):
                     assert after[column] == "NA"
                     continue
                 assert float(after[column]) == pytest.approx(
-                    1.1 * float(before[column]) + _offset(component, alpha), abs=1.5e-5
-                )
+                    1.1 * float(before[column]) + sense * _offset(component, alpha), abs=1.5e-5
+                ), column
             for column in derived:
                 assert after[column] == "NA", column
             assert (

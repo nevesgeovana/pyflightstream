@@ -151,8 +151,16 @@ RCOEF_SUFFIX = "-RCOEF.csv"
 #: with: the components keep their 0.57.0 rotor-table names, and the in-plane
 #: set is in the R<id> axes (CFZ = CN, CFY = -CS, CMZ = -CMN, CMY = -CMS, the
 #: migration map of the column families), so a corrected ``CS`` is
-#: ``CFY' = -(GAIN (-CFY) + OFFSET) = GAIN CFY - OFFSET``.
+#: ``CFY' = -(GAIN (-CFY) + OFFSET) = GAIN CFY - OFFSET``. ``THRUST`` and
+#: ``TORQUE`` are the dimensional ``T`` and ``Q``. Every sign is also multiplied
+#: by the rotor frame's sense (:attr:`~pyflightstream.post.axes.RotorFrame.sense`,
+#: :attr:`WheelPointRef.sense`): a rotor whose declared axis the sense rule
+#: turned (declared aft) counts CT, T and the in-plane set opposite to the
+#: declared axis, so a calibration stated in the declared axis's sense keeps the
+#: sign the page gives.
 _ROTOR_TABLE_COMPONENTS: Mapping[str, tuple[str, float]] = {
+    "THRUST": ("T", 1.0),
+    "TORQUE": ("Q", 1.0),
     "CT": ("CT", 1.0),
     "CQ": ("CQ", 1.0),
     "CN": ("CFZ", 1.0),
@@ -164,32 +172,26 @@ _ROTOR_TABLE_COMPONENTS: Mapping[str, tuple[str, float]] = {
 #: ``CT<f>``, ``CQ<f>`` and ``ETA<f>`` are added from the file's header
 #: (:func:`_rcoef_derived`).
 _ROTOR_TABLE_DERIVED: Mapping[str, tuple[str, ...]] = {
+    "CT": ("THRUST",),
     "T": ("CT",),
-    "TC": ("CT",),
-    "TCA": ("CT",),
+    **dict.fromkeys(("TC", "TCA"), ("CT", "THRUST")),
+    "CQ": ("TORQUE",),
     "Q": ("CQ",),
-    "P": ("CQ",),
-    "CP": ("CQ",),
-    "QC": ("CQ",),
-    "QCA": ("CQ",),
-    "ETA": ("CT", "CQ"),
-    "ZC": ("CN",),
-    "ZCA": ("CN",),
-    "YC": ("CS",),
-    "YCA": ("CS",),
-    "NC": ("CMN",),
-    "NCA": ("CMN",),
-    "MC": ("CMS",),
-    "MCA": ("CMS",),
+    **dict.fromkeys(("P", "CP", "QC", "QCA"), ("CQ", "TORQUE")),
+    "ETA": ("CT", "CQ", "THRUST", "TORQUE"),
+    **dict.fromkeys(("ZC", "ZCA"), ("CN",)),
+    **dict.fromkeys(("YC", "YCA"), ("CS",)),
+    **dict.fromkeys(("NC", "NCA"), ("CMN",)),
+    **dict.fromkeys(("MC", "MCA"), ("CMS",)),
 }
 #: The components each per-frame RCOEF column turns: a frame's thrust is the
 #: whole force along its forward axis, its torque the whole hub moment about it.
 _PER_FRAME_DERIVED: Mapping[str, tuple[str, ...]] = {
-    "CT": ("CT", "CN", "CS"),
-    "CQ": ("CQ", "CMN", "CMS"),
+    "CT": ("CT", "THRUST", "CN", "CS"),
+    "CQ": ("CQ", "TORQUE", "CMN", "CMS"),
     # THE WHOLE FORCE, turned into the frame, in-plane components included: a
     # calibration of CN or CS alone left ETAW raw beside them.
-    "ETA": ("CT", "CQ", "CN", "CS"),
+    "ETA": ("CT", "CQ", "THRUST", "TORQUE", "CN", "CS"),
 }
 
 
@@ -212,14 +214,9 @@ def _a_frame(name: str) -> bool:
 
 #: The average table's column of each component, alias-suffixed or as named.
 _AVERAGE_COMPONENTS: Mapping[str, str] = {
-    "THRUST": "THRUST_{alias}",
-    "TORQUE": "TORQUE_{alias}",
-    "FX": "FX_{alias}",
-    "FY": "FY_{alias}",
-    "FZ": "FZ_{alias}",
-    "MX": "MX_{alias}",
-    "MY": "MY_{alias}",
-    "MZ": "MZ_{alias}",
+    **{
+        name: name + "_{alias}" for name in ("THRUST", "TORQUE", "FX", "FY", "FZ", "MX", "MY", "MZ")
+    },
     "CT": "CT_PROPELLER",
     "CT_ROTOR": "CT_ROTOR",
 }
@@ -282,11 +279,29 @@ def _read(path: Path, alias: str | None = None) -> tuple[tuple[str, ...], list[d
 
 @dataclass(frozen=True)
 class WheelPointRef:
-    """A quasi-steady wheel point of the simulation: its name, run id and rotor alias."""
+    """A quasi-steady wheel point of the simulation: its name, run id and rotor alias.
+
+    ``sense`` is its rotor frame's sense (``+1``, or ``-1`` where the sense rule
+    turned the declared axis), the sign the RCOEF file's components are read with
+    against a calibration stated in the declared axis's sense.
+    """
 
     name: str
     run_id: str
     rotor_alias: str
+    sense: int = 1
+
+    @classmethod
+    def of_record(cls, name: str, run_id: str, record: Any) -> WheelPointRef:
+        """Return the point of a quasi-steady record, its sense from the record's shaft.
+
+        A shaft naming no finite direction has no frame and is read with ``+1``.
+        """
+        from pyflightstream.post.axes import rotor_frame
+
+        axis = record.axis_vector
+        sense = rotor_frame(axis).sense if any(axis) and all(map(math.isfinite, axis)) else 1
+        return cls(name, run_id, record.rotor_alias, sense)
 
 
 @dataclass
@@ -1066,7 +1081,8 @@ def _corrected_tables(
             signs = None
             if derived is None:
                 derived = _rcoef_derived(columns)
-                signs = {name: sign for name, (_c, sign) in _ROTOR_TABLE_COMPONENTS.items()}
+                sense = next((p.sense for p in by_run.values() if p.rotor_alias == alias), 1)
+                signs = {name: sign * sense for name, (_c, sign) in _ROTOR_TABLE_COMPONENTS.items()}
             if not any(
                 column in columns and name in calibration.grids
                 for name, column in components.items()

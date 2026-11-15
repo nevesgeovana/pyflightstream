@@ -941,7 +941,7 @@ def _qsteady_corrections(
             # The record's refusal is named under the products that need it.
             continue
         if quasi.case == "wheel":
-            wheel.append(_corrections.WheelPointRef(point.name, record.run_id, quasi.rotor_alias))
+            wheel.append(_corrections.WheelPointRef.of_record(point.name, record.run_id, quasi))
     if stated and not wheel:
         skipped[f"qsteady_correction#sim={sim_id}"] = (
             f"the pproc states [qsteady_correction] and simulation {sim_id} holds no "
