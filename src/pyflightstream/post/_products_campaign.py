@@ -27,6 +27,7 @@ from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._condition import warn_pinned_states
 from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
+from pyflightstream.post._retired_polars import is_retired_layout
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
@@ -438,6 +439,9 @@ def _name_unsupplied_products(
             name.startswith(f"{_stage.POLARS_DIR}/")
             and entry.get("sim_id") in by_sim
             and name not in products_index
+            # A FILE OF THE 0.57.0 POLAR LAYOUT IS LEFT UNTOUCHED (PFS-2231): said
+            # once per kind by the campaign, never retired here.
+            and not is_retired_layout(name)
         ):
             skipped.setdefault(
                 name,
