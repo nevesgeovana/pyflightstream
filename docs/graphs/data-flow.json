@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: object=None, accepted_builds: Collection[str]=(), redo_submitted: bool=False, parallel: int | str | None=None",
       "returns": "list[RunRecord]",
-      "source_sha256": "fae42248546e2e1706079eb696d205c7ffa8c1b3232431abfae6163a291189a0"
+      "source_sha256": "7d521490f28567ec1da9657fa9df8798071f80cb678f96b48fe46999b040a7be"
     },
     {
       "id": "collect",
@@ -106,9 +106,9 @@
       "outputs": [
         "geometry"
       ],
-      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, warning_refusals: bool | None=None, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None",
+      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, warning_refusals: bool | None=None, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: object=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: object=None, spanwise: object=None",
       "returns": "RefinedMesh | None",
-      "source_sha256": "66e07853e112789c144c4fd1cf3d52257ec2941c202084cb2dbc1e650b2d89ad"
+      "source_sha256": "83168809571b721e1940485aef6e2f83f2f7e2fa29a67458005f7b6eda8816d9"
     }
   ],
   "cases": [

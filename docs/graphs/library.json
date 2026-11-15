@@ -7695,11 +7695,6 @@
     {
       "source": "pyflightstream.post._manifest_schema",
       "target": "pyflightstream.post._run_block",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.post._manifest_schema",
-      "target": "pyflightstream.post._run_block",
       "kind": "module"
     },
     {
@@ -8213,6 +8208,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._retired_polars",
+      "target": "pyflightstream.post._tree_migration",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._rotor_plan",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -8224,37 +8224,7 @@
     },
     {
       "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.cases.matrix",
-      "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.cases.qsteady",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.cases.windows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.post._family_polar",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.post._stage",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.post._tables",
       "kind": "module"
     },
     {
@@ -8264,27 +8234,7 @@
     },
     {
       "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.post.qsteady",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.post.unsteady",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.results",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
       "target": "pyflightstream.workspace",
-      "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post._rotor_plan",
-      "target": "pyflightstream.workspace.inputs",
       "kind": "typing"
     },
     {
@@ -8310,6 +8260,11 @@
     {
       "source": "pyflightstream.post._rotor_products",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._rotor_products",
+      "target": "pyflightstream.post._block_scope",
       "kind": "module"
     },
     {
@@ -8994,6 +8949,16 @@
     },
     {
       "source": "pyflightstream.post.corrections",
+      "target": "pyflightstream.cases.qsteady",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post.corrections",
+      "target": "pyflightstream.post._block_scope",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.corrections",
       "target": "pyflightstream.post._stage",
       "kind": "module"
     },
@@ -9006,6 +8971,11 @@
       "source": "pyflightstream.post.corrections",
       "target": "pyflightstream.post._transfer_functions",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.corrections",
+      "target": "pyflightstream.post.axes",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post.corrections",
@@ -9065,6 +9035,11 @@
     {
       "source": "pyflightstream.post.disc_maps",
       "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.disc_maps",
+      "target": "pyflightstream.post._block_scope",
       "kind": "module"
     },
     {
@@ -9225,6 +9200,11 @@
     {
       "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.farfield.wake_sheets",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post._block_scope",
       "kind": "module"
     },
     {
@@ -9654,6 +9634,11 @@
     },
     {
       "source": "pyflightstream.post.polar",
+      "target": "pyflightstream.post._block_scope",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.polar",
       "target": "pyflightstream.post._condition",
       "kind": "module"
     },
@@ -9771,6 +9756,11 @@
       "source": "pyflightstream.post.products",
       "target": "pyflightstream.post._additional",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.products",
+      "target": "pyflightstream.post._block_scope",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post.products",
@@ -10055,6 +10045,11 @@
     {
       "source": "pyflightstream.post.rotor_sections_products",
       "target": "pyflightstream.farfield.rotor_sections",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.rotor_sections_products",
+      "target": "pyflightstream.post._block_scope",
       "kind": "module"
     },
     {
@@ -14103,6 +14098,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.run._points",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.run._post_selection",
       "target": "pyflightstream._progress",
       "kind": "module"
@@ -17520,6 +17520,11 @@
     {
       "source": "pyflightstream.workspace._mesh_frame",
       "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mesh_frame",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
