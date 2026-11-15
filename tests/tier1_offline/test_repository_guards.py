@@ -96,8 +96,12 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: added since are tests (PFS-2177), the other two the approved spinner module and its example.
 #: then the I5 integration of 0.58.0: 2391 tracked files, measured (+4): three tests of the
 #: merged lanes (PFS-2177) and the PFS-2254 motion-table module.
+#: Owner decision, 2026-11-15: raise to the measured 2406 for the new 0.58.0 tests,
+#: series/farfield docs pages, custom-motion module and changelog fragment.
+#: Final integration folds changelog.d/xfix.md into the release notes (-1):
+#: 2405 tracked files, measured; the cap follows that final count.
 LEAN_CAPS = {
-    "tracked_files": 2391,
+    "tracked_files": 2405,
     "reports_files": 121,
     "reports_lines": 208338,
     # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto
