@@ -329,12 +329,10 @@ class TestResultsTables:
         }
 
     @staticmethod
-    @pytest.mark.skip(
-        reason="STOPPED (lane reach): the refusal of a frame that cannot say what it is has no "
-        "public route since results.write_table is private; the orchestrator decides"
-    )
     def test_p0400_results_the_last_step_tokens_are_appended_and_paired(tmp_path):
         """P0400-RESULTS (PFS-2105.043): appended codes, and each token refuses another partner."""
+        from pyflightstream.results.tables import _write_table as write_table
+
         pd = pytest.importorskip("pandas")
         assert REDUCTION_CODES["last_step"] == 3
         assert REDUCTION_WINDOW_CODES["last_time_step"] == 3
@@ -348,7 +346,7 @@ class TestResultsTables:
                 }
             )
             with pytest.raises(MalformedOutputError, match="last_step with last_time_step"):
-                write_table(frame, tmp_path / f"{reduction}.csv")  # noqa: F821
+                write_table(frame, tmp_path / f"{reduction}.csv")
 
     @staticmethod
     def test_p0400_results_a_sweep_labels_its_recorded_unsteady_loads_last_step(tmp_path):

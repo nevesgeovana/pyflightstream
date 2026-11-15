@@ -1053,10 +1053,6 @@ def test_every_written_table_says_what_produced_its_numbers(tmp_path):
         )
 
 
-@pytest.mark.skip(
-    reason="STOPPED (lane reach): the refusal of a frame that cannot say what it is has no "
-    "public route since results.write_table is private; the orchestrator decides"
-)
 def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
     """Absence is refused; MULTIPLICITY is not, and that is the whole design.
 
@@ -1064,6 +1060,8 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
     (data_origin, reduction) pair, which would have refused the mixed
     sweep this item exists to make writable.
     """
+    from pyflightstream.results.tables import _write_table as write_table
+
     pd = pytest.importorskip("pandas")
     mixed = pd.DataFrame(
         {
@@ -1073,7 +1071,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
             "reduction_window": ["not_applicable", "not_printed"],
         }
     )
-    assert write_table(mixed, tmp_path / "mixed.csv").is_file()  # noqa: F821
+    assert write_table(mixed, tmp_path / "mixed.csv").is_file()
 
     for frame, expected in (
         (pd.DataFrame({"CL": [0.4]}), "no data_origin"),
@@ -1128,7 +1126,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
         ),
     ):
         with pytest.raises(MalformedOutputError, match=expected):
-            write_table(frame, tmp_path / "refused.csv")  # noqa: F821
+            write_table(frame, tmp_path / "refused.csv")
 
 
 def test_to_csv_can_be_told_not_to_replace_a_file(tmp_path):

@@ -1048,7 +1048,7 @@
   "pyflightstream.qa.matrix": 4,
   "pyflightstream.qa.probes": 5,
   "pyflightstream.reference": 9,
-  "pyflightstream.results.tables": 4,
+  "pyflightstream.results.tables": 5,
   "pyflightstream.run._alias": 1,
   "pyflightstream.run._assessment": 4,
   "pyflightstream.run._batch_collect": 1,
