@@ -90,14 +90,16 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then INTG11's changelog fragment: 2300 tracked files, measured (+1).
 #: then the merge of G8, G9, G11 and G17 into land/0.57.0: 2326 tracked files, measured (+26).
 #: then the merge of G10, G12, G16 and the tip cap into land/0.57.0: 2351 tracked files (+25).
+#: then land/0.58.0 after its CI round: 2384 tracked files, measured (+33), the excess over
+#: the cap being the tests' growth the owner opened on 2026-10-26 (PFS-2177).
 LEAN_CAPS = {
-    "tracked_files": 2351,
+    "tracked_files": 2384,
     "reports_files": 121,
     "reports_lines": 208338,
     # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto
     # que voce precisar ... por enquanto segue sem esse limite"): the measured 0.58.0 values.
     "tests_files": 1298,
-    "tests_lines": 475485,
+    "tests_lines": 475487,
 }
 
 #: Measured and reported, not enforced, in 0.46.0: the tests review before 1.0.0 (PFS-2177)
