@@ -2258,12 +2258,10 @@ def test_f3_0203_pfs2126_017_every_alias_that_reaches_a_file_goes_through_one_sa
     assert not [path for path in tmp_path.iterdir() if path.name != "acoustics"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="REL1-004 follow-up: the post notes the coarse check once per record and reference "
-    "block (5 times for 2 points); the retired recorded writer noted it once per call",
-)
-def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely(tmp_path):
+@pytest.mark.parametrize("campaigns", [("first", "second")], ids=["P0580-REFERENCE-NOTE-ONCE"])
+def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely(
+    tmp_path, campaigns
+):
     """PFS-2124.029: on a small model the check is noted as only +-N% precise, once."""
     from tests.tier1_offline.test_post_products import LOADS, posted_polar
 
@@ -2272,10 +2270,11 @@ def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely
         "Reference area (m^2)                        .001",
     )
     points = [("P0", -2.0, text), ("P1", 0.0, text)]
-    with pytest.warns(Warning, match=r"SREF 0.001\) could only be checked to \+-50%") as caught:
-        posted_polar(tmp_path, {"1": "W"}, points=points, sref_m2=0.001)
-    assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
-    assert not any("CREF" in str(w.message) for w in caught)
+    for campaign in campaigns:
+        with pytest.warns(Warning, match=r"SREF 0.001\) could only be checked to \+-50%") as caught:
+            posted_polar(tmp_path / campaign, {"1": "W"}, points=points, sref_m2=0.001)
+        assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
+        assert not any("CREF" in str(w.message) for w in caught)
 
 
 def _f3_polar(tmp_path, *, description="CRUISE", rows=None, columns=None, name="p.dat"):

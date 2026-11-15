@@ -167,6 +167,7 @@ from pyflightstream.post._stage import (
     _manifest_skip_records,
     _partial_post,
     _PartialPost,
+    _reference_check_context,
     _replay_held_warnings,
     _run_log_records,
     _surface_export_skip,
@@ -586,6 +587,7 @@ def write_campaign_products(
     caught: list[warnings.WarningMessage] = []
     try:
         with (
+            _reference_check_context(),
             _textio.open_text(out / _POST_LOG, "a") as stream,
             collecting_warnings() as caught,
             post_notes() as notes,

@@ -39,7 +39,7 @@ from pyflightstream.cases.workflows import (
     free_stream_direction_at,
     rotor_mach_numbers,
 )
-from pyflightstream.post._stage import _POST_REFUSES
+from pyflightstream.post._stage import _POST_REFUSES, _reference_check_notes
 from pyflightstream.post._tables import ProductError, ReferenceValues, rotor_advance_ratio
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, MalformedOutputError, labeled_value
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
@@ -564,9 +564,9 @@ def _refuse_a_reference_the_solver_did_not_use(
     An export that prints neither line is not refused; there is nothing to compare.
     Where the band of the comparison is wider than half a percent of the stated value (a
     small model, whose printed digits are few), the agreement is noted as only that
-    precise, once per simulation.
+    precise, once per stated reference quantity and value in a post.
     """
-    said: set[tuple[str, str]] = set()
+    said = _reference_check_notes()
     for point in points:
         loads = point.loads
         if loads is None:
@@ -599,12 +599,12 @@ def _refuse_a_reference_the_solver_did_not_use(
                 )
             elif (
                 allowed > _REFERENCE_UNCHECKABLE_FRACTION * abs(stated)
-                and (label, column) not in said
+                and (label, column, stated) not in said
             ):
                 # THE BAND IS WIDER THAN THE DIFFERENCE IT HAS TO CATCH: on a small model the
                 # printed digits cannot tell a wrong reference from the right one, and the
-                # agreement above proves less than it seems. Said once per simulation.
-                said.add((label, column))
+                # agreement above proves less than it seems. Said once per post and value.
+                said.add((label, column, stated))
                 band = f"+-{100.0 * allowed / abs(stated):.3g}%" if stated else "no relative band"
                 warn(
                     f"point={point.name} product=simulation/{sim_id}: the reference {label} "

@@ -93,7 +93,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None, keep_unrebuilt: bool=False",
       "returns": "list[Path]",
-      "source_sha256": "a008518049eb53ca66fb80c05e0c55071b60427059ec59bfb1a465daf53fabaa"
+      "source_sha256": "b5c5fc1da80c08329976f2892bf65a89011c8737d5045fd702836f062264ba30"
     },
     {
       "id": "refine",

@@ -91,6 +91,10 @@ in `post.polar`, `post.products` and `post`:
 
 ### The tree
 
+Repeated checks of the same coarse reference quantity and value now produce one
+precision note per post. A later post reports its own note; mismatch warnings
+and refusals keep their existing behavior. No input change is required.
+
 | 0.57.0 file | 0.58.0 |
 | --- | --- |
 | `probes/<point>_plots.csv` | `time_history/<point>_plots.csv` |

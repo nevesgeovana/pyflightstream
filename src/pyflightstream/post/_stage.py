@@ -161,7 +161,7 @@ def _window_the_reduction_reads(
     return read
 
 
-# THE CONTEXT VARIABLES OF A POST IN PROGRESS, all three, in one place. They are set by
+# THE CONTEXT VARIABLES OF A POST IN PROGRESS, in one place. They are set by
 # ``write_campaign_products`` for the length of one post and reset when it ends, so a
 # writer reached directly, outside a post, sees the defaults below.
 #
@@ -171,6 +171,7 @@ def _window_the_reduction_reads(
 # * ``_POST_VERDICTS``: the frozen-solve verdict of each (loads file, unsteady) pair read so
 #   far in this post, so a file is judged once. None outside a post.
 # * ``_POST_NOTES``: the INFO records of the post (FR-419). None outside a post.
+# * ``_POST_REFERENCE_NOTES``: coarse checks already noted for a quantity and stated value.
 _POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=False)
 
 
@@ -182,6 +183,26 @@ _POST_VERDICTS: ContextVar[dict[tuple[Path, bool], FrozenSolve | None] | None] =
 #: The INFO records of the post in progress (FR-419): what a post says in ``post.log``
 #: that is neither a warning nor a skip. None outside a post, where nothing is kept.
 _POST_NOTES: ContextVar[list[dict[str, str | None]] | None] = ContextVar("post_notes", default=None)
+
+_POST_REFERENCE_NOTES: ContextVar[set[tuple[str, str, float]] | None] = ContextVar(
+    "post_reference_notes", default=None
+)
+
+
+def _reference_check_notes() -> set[tuple[str, str, float]]:
+    """Share coarse-check notes within a post; direct writers keep their own local set."""
+    shared = _POST_REFERENCE_NOTES.get()
+    return set() if shared is None else shared
+
+
+@contextmanager
+def _reference_check_context() -> Iterator[None]:
+    """Keep repeated reference facts for one post, resetting even when a writer fails."""
+    token = _POST_REFERENCE_NOTES.set(set())
+    try:
+        yield
+    finally:
+        _POST_REFERENCE_NOTES.reset(token)
 
 
 def _judge_average(
