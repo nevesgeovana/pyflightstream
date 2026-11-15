@@ -364,7 +364,10 @@ def polar_groups(
     by_alias = {rotor.alias.casefold(): rotor.alias for rotor in rotors}
     for position, (name, members) in enumerate(declared.items(), start=1):
         clash = by_alias.get(str(name).casefold())
-        if clash is not None:
+        default = str(name).strip().casefold() in {"total", "airframe"}
+        if clash is not None or default:
+            # Groups set in Python, past the pproc reader, can still hold the name of a
+            # default group; the name is refused here too, never written twice.
             if refused is not None:
                 refused[str(name)] = default_group_message(str(name), rotor=clash)
             continue

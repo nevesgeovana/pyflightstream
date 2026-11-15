@@ -75,9 +75,6 @@ __all__ = [
     "AXES_PLOT_COMPONENTS",
     "global_frame_plot_declarations",
     "AXES_PLOT_GROUP",
-    "DEFAULT_GROUPS",
-    "default_group_message",
-    "refuse_a_group_name",
     "ROTOR_PLOT_GROUP_PREFIX",
     "FORCE_PLOT_PARAMETERS",
     "PPROC_FRAMES",
@@ -1587,7 +1584,7 @@ class ProductsSpec(_SuggestsKeys):
     polar_format : str
         The format the FAM and group files of ``polars/`` are written in:
         ``csv`` (the default) or ``legacy_polar``, the fixed-width form. The
-        0.57.0 key ``superfile_format`` is read as this one, with a warning.
+        former key ``superfile_format`` is read as this one, with a warning.
     settings_codebook : bool
         Writes, per matrix, the all-numeric settings table of every recorded
         point and its codebook under ``settings/`` (FR-419). On by default.
@@ -1612,7 +1609,7 @@ class ProductsSpec(_SuggestsKeys):
     #: to ``"<alias>:<AXIS>"``, the record's ALIAS and AXIS as the matrix row states them.
     rotate_columns: dict[str, str] = Field(default_factory=dict)
     #: Numeric moment column whose zero defines the trimmed polar (FR-3340), a
-    #: column of the group ACOEF file it is read from. A 0.57.0 spelling
+    #: column of the group ACOEF file it is read from. A former spelling
     #: (``CMB25``) is read under its new name, with a warning.
     trim_moment: str = Field(default="CmB", min_length=1)
     #: Numeric column ordering the trim search; unknown columns warn and skip (FR-3341).
@@ -1682,7 +1679,7 @@ class ProductsSpec(_SuggestsKeys):
     @model_validator(mode="before")
     @classmethod
     def _the_keys_of_0570_read_under_their_new_names(cls, data: Any) -> Any:
-        """Read ``superfile_format`` as ``polar_format`` and the 0.57.0 trim moment names.
+        """Read ``superfile_format`` as ``polar_format`` and the former trim moment names.
 
         Both are accepted for one release, each with one warning naming the
         new spelling (the post-output migration map).
@@ -1728,7 +1725,7 @@ class ProductsSpec(_SuggestsKeys):
         return value
 
 
-#: The 0.57.0 moment column names and their 0.58.0 spelling (the post-output
+#: The former moment column names and their current spelling (the post-output
 #: migration map): ``CR<f>25 -> Cl<f>``, ``CM<f>25 -> Cm<f>``, ``CN<f>25 -> Cn<f>``.
 _MOMENT_RENAMES_0580: dict[str, str] = {
     f"{old}{frame}25": f"{new}{frame}"

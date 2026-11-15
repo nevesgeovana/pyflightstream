@@ -121,23 +121,26 @@ def _rotor_speeds(
 def _machs(
     record: object, rotor: PolarRotor, rpm: float | None, point: PolarPoint
 ) -> tuple[object, object]:
+    from pyflightstream.cases.workflows import rotor_mach_numbers
     from pyflightstream.post._condition import _free_stream_and_sound
-    from pyflightstream.post.rotor_table import _mach_cells
 
     if record is None or rpm is None:
         return None, None
     try:
         air = _free_stream_and_sound(record)  # type: ignore[arg-type]
+        if air is None:
+            return None, None
+        # The tip and helical Mach numbers of the rotor tables (M1), at the point's
+        # own free stream and speed of sound; a value that is not a positive finite
+        # number costs these two cells and never the row.
+        mtip, mhel = rotor_mach_numbers(
+            rpm=float(rpm),
+            diameter_m=rotor.diameter_m,
+            velocity_m_per_s=float(air[0]),
+            sonic_velocity_m_per_s=float(air[1]),
+        )
     except (PyflightstreamError, ValueError):
         return None, None
-    shaft = tuple(float(v) for v in rotor.frame.body_to_rotor[0])
-    (mtip, mhel), _madv = _mach_cells(
-        air,
-        float(rpm),
-        rotor.diameter_m,
-        (point.alpha_deg, point.beta_deg),
-        shaft,  # type: ignore[arg-type]
-    )
     return mtip, mhel
 
 
@@ -609,9 +612,9 @@ def _faces(ctx: SimContext, point: PolarPoint) -> object:
 def _write(ctx: SimContext, polar: PolarFile) -> Path:
     target = ctx.target(ctx.out / POLARS_DIR / polar.name)
     if ctx.pproc.products.polar_format == "legacy_polar":
-        from pyflightstream.post.superfile import _write_legacy_polar
+        from pyflightstream.post._tables import write_fixed_width_table
 
-        return _write_legacy_polar(target, polar.columns, polar.rows)
+        return write_fixed_width_table(target, polar.columns, polar.rows)
     return write_csv_table(target, polar.columns, polar.rows)
 
 

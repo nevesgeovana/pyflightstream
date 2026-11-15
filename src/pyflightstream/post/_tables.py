@@ -1468,3 +1468,39 @@ def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, pa
                 warn(idle, PyflightstreamWarning, stacklevel=2)
             return march.text
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _legacy_field(text: str) -> str:
+    """Return one field of the legacy polar format: no whitespace inside it."""
+    return "_".join(text.split()) or text
+
+
+def write_fixed_width_table(
+    path: Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
+) -> Path:
+    """Write a table in the legacy polar format: fixed-width fields, no commas.
+
+    The SAME columns and the same values as the csv form; only the rendering
+    differs, which is what `SUPERFILE_FORMATS` promises. Each column is padded
+    to one width, which is what makes the format readable by a tool that
+    splits on position rather than on a delimiter.
+
+    THE WIDTH IS 16 OR ONE MORE THAN THE COLUMN'S LONGEST NAME OR CELL, and a
+    space inside a cell is written ``_``, so at least one space separates every
+    two fields and a reader splitting on whitespace reads one field per
+    column. At a fixed 16 a name of 16 characters or more ran into its
+    neighbour (``POLSET_SOLVER_VISCOUS_COUPLING``), and a superfile always
+    carries such names; a description ``wing at cruise`` split into three.
+    """
+    header = [_legacy_field(str(name)) for name in columns]
+    body = [[_legacy_field(_cell(value)) for value in row] for row in rows]
+    widths = [
+        max(16, len(name) + 1, *(len(cells[index]) + 1 for cells in body))
+        for index, name in enumerate(header)
+    ]
+    lines = ["".join(name.rjust(width) for name, width in zip(header, widths, strict=True))]
+    for cells in body:
+        lines.append("".join(cell.rjust(width) for cell, width in zip(cells, widths, strict=True)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _textio.write_text(path, "\n".join(lines) + "\n")
+    return path

@@ -9,8 +9,8 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   ``FAM-DIM``, ``FAM-ACOEF`` and ``FAM-RCOEF-P<POL>.csv``, one row per point and
   family, and ``P<POL>-<GROUP>-<KIND>.csv`` for TOTAL, AIRFRAME, every rotor and
   every ``[groups]`` key, one row per point, each opening with the run block
-  (:mod:`pyflightstream.post._polar_stage`). The super file of earlier releases
-  is not written; a file of that layout found in ``polars/`` is left untouched
+  (:mod:`pyflightstream.post._polar_stage`). The super file is not
+  written; a file of that layout found in ``polars/`` is left untouched
   and said (:mod:`pyflightstream.post._retired_polars`);
 * a SECTIONS table per point, ``sections/<point>_sections.csv``: the
   sectional loads export re-tabled, when the run defined sections at all;
@@ -1093,7 +1093,7 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
 
     The settings table and the refinement studies. The super files are retired
     (PFS-2231): every family of a polar is in its FAM files, the run condition in
-    their run block and the setup codes in ``settings/``. A file of the 0.57.0
+    their run block and the setup codes in ``settings/``. A file of the former
     polar layout found under ``polars/`` is left untouched and named once per
     kind (:func:`pyflightstream.post._retired_polars.warn_retired_polar_files`).
     """
