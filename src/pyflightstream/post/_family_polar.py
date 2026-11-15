@@ -656,7 +656,7 @@ def polar_files(
     # FAM-RCOEF HOLDS THE FAMILIES DECLARED INSIDE A ROTOR (design 4.3): no such
     # family, no file, never a header with no row.
     family_tables = assembler.tables(
-        "family", with_rcoef=any(family.rotor_id is not None for family in families)
+        "family", with_rcoef=any(family.rotor_id in by_id for family in families)
     )
     for index, point in enumerate(points):
         for family in families:

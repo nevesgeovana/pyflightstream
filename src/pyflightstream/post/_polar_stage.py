@@ -324,9 +324,42 @@ def _layout(
                 f"{ctx.sim_id!r} ({', '.join(surfaces)}): {_selector(ctx, group)} names no "
                 "surface or alias there; its files are not written."
             )
+    rotors = _bladed(ctx, rotors)
     for rotor in rotors:
         warn_rotor_declared_aft(rotor.alias, rotor.frame)
     return families, rotors, [group for group in groups if group.members]
+
+
+def _bladed(ctx: SimContext, rotors: Sequence[PolarRotor]) -> list[PolarRotor]:
+    """Return the rotors a record states with blades; refuse, by name, one of none.
+
+    A rotor turns at least one blade: a record whose plan states ``blades = 0``
+    for it describes no rotor the solver can have run, so the rotor's RCOEF rows
+    and its frame columns are not written, and the refusal names it (batch 2 of
+    lane I2; the retired per-blade writer refused it too).
+    """
+    kept: list[PolarRotor] = []
+    for rotor in rotors:
+        stated = [
+            block.get("blades")
+            for record in ctx.records
+            if isinstance(plan := getattr(record, "reductions", None), Mapping)
+            and isinstance(plan.get("rotors"), Mapping)
+            for alias, block in plan["rotors"].items()
+            if str(alias).casefold() == rotor.alias.casefold() and isinstance(block, Mapping)
+        ]
+        none = [value for value in stated if _number(value) is not None and float(value) < 1]  # type: ignore[arg-type]
+        if not none:
+            kept.append(rotor)
+            continue
+        said = (
+            f"rotor {rotor.alias} (id {rotor.rotor_id}) of simulation {ctx.sim_id} is refused: "
+            f"its record states blades = {none[0]!r}, and a rotor turns at least one blade, so "
+            "its RCOEF rows and its R frame columns are not written"
+        )
+        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}#rotor={rotor.alias}"] = said
+        warn(said, PyflightstreamWarning, stacklevel=4)
+    return kept
 
 
 def _say_no_reference(ctx: SimContext) -> None:
