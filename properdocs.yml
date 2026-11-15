@@ -232,7 +232,10 @@ nav:
               - Averaging window: definitions/the-averaging-window.md
               - Warnings: definitions/warnings-and-recorded-diagnostics.md
               - What the package does not judge: definitions/what-the-package-does-not-judge.md
+              - The run block: definitions/the-run-block.md
+              - Axes and signs: definitions/axes-and-signs.md
           - Steady and common products:
+              - Airframe coefficients: definitions/airframe-coefficients.md
               - Steady polar axes: definitions/the-axes-of-a-steady-polar.md
               - Sections table: definitions/the-sections-table-and-which-row-is-which.md
               - Probe table: definitions/the-probes-table.md

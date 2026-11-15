@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -196,6 +197,9 @@ class RotorBlock(BaseModel):
         carrying one blade of four still reduces over four.
     blade1 : BladeDatum
         Where blade one sits, and the axis its azimuth is measured from.
+    id : int
+        The rotor's integer id, 0 or more, unique within the reference,
+        default 0: the ``<id>`` of its frame ``R<id>`` and of its columns.
     kind : str
         ``"rotor"``, which is what makes a top-level table of the reference
         a rotor block.
@@ -214,6 +218,11 @@ class RotorBlock(BaseModel):
     families_general: list[str] = Field(default_factory=list)
     blade1: BladeDatum = Field(default_factory=BladeDatum)
     kind: str = "rotor"
+    #: The rotor's integer id, ``>= 0`` and unique within the reference; it
+    #: names the rotor's frame ``R<id>`` and its run block and file columns
+    #: (``RPM0``, ``CTR0``). Unstated, it is 0, which one rotor only may take
+    #: (:func:`refuse_duplicate_rotor_ids`).
+    id: int = Field(default=0, ge=0, strict=True)
 
     @property
     def blade_count(self) -> int:
@@ -355,6 +364,43 @@ class RotorBlock(BaseModel):
                 "so it is refused rather than reported. Choose a datum square to the disk"
             )
         return self
+
+
+def refuse_duplicate_rotor_ids(rotors: Mapping[str, RotorBlock]) -> None:
+    """Refuse two rotors of one reference that carry one id, naming both aliases.
+
+    A rotor that writes no id takes 0, so two rotors without ids are refused
+    the same way: one rotor only may rely on the default.
+
+    Parameters
+    ----------
+    rotors : mapping of str to RotorBlock
+        The reference's rotors, keyed by alias, in the order written.
+
+    Raises
+    ------
+    InputValueError
+        If two rotors carry one id; the message names both aliases and the id.
+
+    Examples
+    --------
+    >>> blade = {"axis": "Z", "diameter_m": 1.0, "families_blades": ["B1"]}
+    >>> refuse_duplicate_rotor_ids({
+    ...     "LEFT": RotorBlock(alias="LEFT", id=1, **blade),
+    ...     "RIGHT": RotorBlock(alias="RIGHT", id=2, **blade),
+    ... })
+    """
+    seen: dict[int, str] = {}
+    for alias, block in rotors.items():
+        first = seen.get(block.id)
+        if first is not None:
+            raise InputValueError(
+                f"rotors {first} and {alias} both carry id = {block.id} (a rotor that writes "
+                "no id takes 0); a rotor id names the frame R<id> and the rotor's columns, so "
+                "it must be unique within the reference. Write a distinct id = <int> in one "
+                "of the two rotor blocks."
+            )
+        seen[block.id] = alias
 
 
 class ActuatorOperation(BaseModel):

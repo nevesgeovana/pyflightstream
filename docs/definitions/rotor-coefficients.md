@@ -179,3 +179,108 @@ Reynolds number of the solve, so two hover runs that differ only in `VREF` can
 differ in their solution and not only in their normalisation; the measured
 hover arms behind this definition are in the hover normalisation report under
 `reports/`. A hover figure of merit is not a column of the table.
+
+<a id="the-rotor-frame-set"></a>
+
+### The rotor frame set (`RCOEF`)
+
+The `RCOEF` polar files hold the coefficients of every family inside a rotor
+(one row per point and family) and of every group whose members all sit inside
+one rotor (one row per point). After the run block and the identity columns
+comes `ROTOR_ID`, then the columns below, then `MESH_FACES`. Every value is in
+the frame `R<id>` of the row's own rotor
+([the rotor frame](axes-and-signs.md#the-rotor-frame)) except the per-frame
+set, which repeats three of them in every frame.
+
+The symbols: `F_R` and `M_R` are the force and the moment about the rotor's
+hub (`x_m, y_m, z_m`, transferred from the moment reference point by
+`M_hub = M_mrp + (r_mrp - r_hub) x F`), in the axes of `R<id>`; `n` is the
+rate in rev/s, signed about `x_R` (`n = s RPM<id> / 60`, see the sense rule);
+`D = D<id>`; `A = ADISC<id> = pi D^2 / 4`; `q = 0.5 RHO VINF^2`, the free
+stream's dynamic pressure, which is zero at a static point; and
+`J = J<id> = VINF / (|n| D)`.
+
+<a id="rotor-id"></a>
+
+`ROTOR_ID` is the rotor's declared `id`, 0 when the rotor block writes none.
+
+<a id="thrust-torque-and-power"></a>
+
+**Thrust, torque and power.** `T = F_R,x` in N, the thrust, positive forward;
+`Q = M_R,x` in N m, the torque about the hub, right-hand about `x_R`; and
+`P = 2 pi n Q / 1000` in kW, the shaft power, by the sign rule
+`CP = 2 pi CQ sign(n)`. The thrust and the torque are stated in the rotor frame
+only.
+
+<a id="rotor-frame-coefficients"></a>
+
+**The rotor coefficients.**
+
+```text
+CT  = T / (RHO n^2 D^4)
+CQ  = Q / (RHO n^2 D^5)
+CP  = 2 pi CQ sign(n)
+ETA = J CT / CP
+```
+
+<a id="in-plane-coefficients-in-r"></a>
+
+**The in-plane coefficients**, with `Z = -F_R,z` (positive up),
+`Y = F_R,y` (positive right), `N = M_R,z` and `M = M_R,y`:
+
+```text
+CFZ = Z / (RHO n^2 D^4)      CFY = Y / (RHO n^2 D^4)
+CMZ = N / (RHO n^2 D^5)      CMY = M / (RHO n^2 D^5)
+```
+
+They replace the rotor table's `CN, CS, CMN, CMS` of the rotor's `(T, S, N)` axes:
+`CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS`.
+
+<a id="disc-loadings"></a>
+
+**The loadings over the disc.**
+
+```text
+TC = T / (q A)      YC = Y / (q A)      ZC = Z / (q A)
+QC = Q / (q A D)    NC = N / (q A D)    MC = M / (q A D)
+```
+
+<a id="airframe-loadings"></a>
+
+**The loadings over the airframe reference.**
+
+```text
+TCA = T / (q SREF)      YCA = Y / (q SREF)      ZCA = Z / (q SREF)
+QCA = Q / (q SREF BREF) NCA = N / (q SREF BREF) MCA = M / (q SREF CREF)
+```
+
+<a id="per-frame"></a>
+
+**The per-frame set.** For every frame f of the file, W, S, B, R0, R1, ...:
+
+```text
+CT<f>  = F_f,x / (RHO n^2 D^4)
+CQ<f>  = M_hub,f,x / (RHO n^2 D^5)
+ETA<f> = J CT<f> / CP
+```
+
+with `x_f` the frame's forward axis. In the row's own rotor frame they repeat
+the bare values: `CTR<id> = CT`, `CQR<id> = CQ`, `ETAR<id> = ETA`. In another
+rotor's frame (`CTR1` of a blade of rotor 0) the value is the same force along
+that rotor's axis, still normalised by the row's own rotor's `n` and `D`.
+`ETAW`, the efficiency in wind axes (see [`ETAW`](#etaw)), is the `ETA<f>` of
+`f = W`. Every other column of the set is in the rotor frame only.
+
+<a id="na-rules-of-the-rotor-frame-set"></a>
+
+**When a value does not exist (`NA`).**
+
+- A static point, `VINF = 0` (so `q = 0` and `J = 0`): `ETA`, every
+  `ETA<f>`, and `TC` to `MCA` are `NA`; `T`, `Q`, `P`, `CT`, `CQ`, `CP`,
+  `CFZ`, `CFY`, `CMZ`, `CMY` and every `CT<f>` and `CQ<f>` are written.
+- A rotor not turning, or of unknown speed (`RPM<id>` is 0 or `NA`): every
+  coefficient over `n^2` and `ETA` are `NA`; `T` and `Q` are written; `P` is 0
+  at `RPM<id> = 0` and `NA` when the speed is unknown; `TC` to `MCA` are
+  written when `q > 0`.
+- Loads the export states in a frame that is not a translation of the
+  geometry's give `NA` loads, and every value formed from them is `NA`.

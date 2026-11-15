@@ -28,6 +28,21 @@
     },
     {
       "level": 2,
+      "slug": "the-run-block",
+      "title": "The run block"
+    },
+    {
+      "level": 2,
+      "slug": "axes-and-signs",
+      "title": "Axes and signs"
+    },
+    {
+      "level": 2,
+      "slug": "airframe-coefficients",
+      "title": "Airframe coefficients"
+    },
+    {
+      "level": 2,
       "slug": "the-axes-of-a-steady-polar",
       "title": "The axes of a steady polar"
     },

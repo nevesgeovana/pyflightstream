@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+A rotor block of the reference states an integer `id`, 0 or more, 0 when unwritten: the `<id>` of the rotor's frame `R<id>` and of its columns (`RPM0`, `CTR0`). `refuse_duplicate_rotor_ids` refuses two rotors of one reference that carry one id, two rotors without ids included, naming both aliases. migration: none for a reference with one rotor; a reference with several rotors gives each a distinct `id`.
+
+The axes of the 0.58.0 polar files: `post.axes.rotor_frame` builds the frame `R<id>` of a rotor, its body axes turned by the toe and the pitch of the declared shaft, with the shaft's sense chosen so thrust is positive forward (up for a lift rotor); `frame_rotations` gives the frames W, S, B and every `R<id>` from the export frame, and `airframe_axis_coefficients` the six coefficients of each, `CD` positive aft and `CL` positive up in every frame. New definition pages: axes and signs, airframe coefficients. migration: none; no product writes them yet.
+
+The rotor coefficients of the 0.58.0 RCOEF files: `post.rotor_table.rotor_frame_coefficients` gives thrust, torque and power (kW), `CT`, `CQ`, `CP`, the in-plane `CFZ`, `CFY`, `CMZ`, `CMY` in the rotor frame, `ETA`, the disc loadings `TC` to `MC`, the airframe loadings `TCA` to `MCA`, and `CT<f>`, `CQ<f>`, `ETA<f>` in every frame, with the static-point and not-turning `NA` rules of the rotor coefficients page; `warn_rotor_declared_aft` warns that a rotor declared with its axis aft reads with the thrust sign opposite to 0.57.0. migration: none; the 0.57.0 rotor table is unchanged.
+
+The column registry of the 0.58.0 family, group, sections and Cp files (`post._family_columns`): the name, unit, frame, quantity, sign and definition of every column of the DIM, ACOEF and RCOEF files, of the sections and Cp identity, and the `GROUP_ID` numbering (0 TOTAL, 1 AIRFRAME, 10 + id a rotor, 100 + k a declared group). migration: none; no product writes them yet.
+
+The canonical run block every csv of the post will open with (`post._run_block`): its columns in order, with the rotor columns by id (`RPM<id>`, `J<id>`, `MTIP<id>`, `MHEL<id>`, `D<id>`, `ADISC<id>`, `PITCH<id>`, `TOE<id>`), `NA` for a column that does not apply and the window `NA` on a steady row. New definition page: the run block, with `J_CLOCK` and `RPM_CLOCK`. migration: none; no product writes it yet.
+
 ### Changed
 
 A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters; the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
