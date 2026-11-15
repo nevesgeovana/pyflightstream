@@ -6,20 +6,9 @@ import pytest
 
 from pyflightstream.post.products import ProductError, plots_table_series, write_reduction_table
 
-
-@pytest.mark.parametrize("notes", [False, True])
-def test_polar_names_locator(tmp_path, notes):
-    from tests.tier1_offline.test_goal028_names_dictionary import _polar
-
-    if notes:
-        refusals = []
-        _polar(tmp_path, {"GHOST": "MISSING"}, refusals)
-        message = refusals[0]
-    else:
-        with pytest.raises(ProductError) as caught:
-            _polar(tmp_path, {"GHOST": "MISSING"})
-        message = str(caught.value)
-    assert message.startswith("polars/P0001_x_uns_avg.csv#names: "), message
+# 0.58.0: the unsteady polar P<sim>_<name>_uns_avg.csv is retired (D14) and its
+# writer with it, so its names locator has no file to name; the names refusal
+# lives on the reductions, pinned below and in the campaign case.
 
 
 def test_reduction_names_locator(tmp_path):
