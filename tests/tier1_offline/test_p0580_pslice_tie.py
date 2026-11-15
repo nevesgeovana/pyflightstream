@@ -65,15 +65,20 @@ def test_p0580_pslice_tie_follows_the_motion_sense(skew):
 def test_p0580_pslice_round_nose_keeps_the_rounder_end_rule(sense):
     """Control: a real nose (a third wider than the other end, outside the tie) decides.
 
-    The x' = 0 end is the rounder one, so it leads whichever way the section moves, as before
-    the fix.
+    The x' = 0 end is the rounder one. Moving toward -x (sense -1) it is the end ahead and
+    leads by the rounder-end rule alone. Moving toward +x it trails, a pitch beyond 90 degrees
+    that prop-slice does not support: the section is turned about its mid-chord (PFS-2262,
+    second rule), so beta folds into (-90, 90] instead of coming out 180 degrees off.
     """
     loop = lens(-1.2)
     widths = _widths(loop)
     assert widths[0] > 3 * widths[1]
     for start in _starts(loop):
         row = section_parameters(start, sense, 300.0, 500.0)
-        assert row["beta_deg"] == pytest.approx(_rounder_leads_beta(sense), abs=0.05)
+        expected = _rounder_leads_beta(sense)
+        if abs(expected) > 90:
+            expected -= math.copysign(180.0, expected)
+        assert row["beta_deg"] == pytest.approx(expected, abs=0.05)
 
 
 def _rounder_leads_beta(sense):
@@ -94,3 +99,19 @@ def _widths(loop):
         inside = (along >= lo) & (along <= hi)
         out.append(float(np.ptp(across[inside])))
     return out
+
+
+@pytest.mark.parametrize("sense, skew", [(1, -0.095), (-1, 0.095)])
+def test_p0580_pslice_beta_folds_into_plus_minus_90(sense, skew):
+    """Ends just outside the tie, the rounder one trailing in motion: beta stays within 90 degrees.
+
+    The widths differ by about 8 percent of the wider, so the tie rule does not apply and the
+    rounder-end rule picks the end behind in the motion; the section is then turned about its
+    mid-chord so the end ahead leads, and beta is the in-range value, not 180 degrees off.
+    """
+    widths = _widths(lens(skew))
+    assert 0.06 < abs(widths[0] - widths[1]) / max(widths) < 0.1
+    for loop in _starts(lens(skew)):
+        row = section_parameters(loop, sense, 300.0, 500.0)
+        assert row["beta_deg"] == pytest.approx(sense * ANGLE, abs=0.05)
+        assert row["c_R"] == pytest.approx(100.0 / 500.0, rel=0.01)
