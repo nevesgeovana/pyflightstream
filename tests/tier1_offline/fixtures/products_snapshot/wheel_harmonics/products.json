@@ -98,6 +98,7 @@
   },
   "sections/DP_sections.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -106,6 +107,7 @@
   },
   "reductions/DP_harmonics.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -120,6 +122,7 @@
   },
   "reductions/DP_disc_PROP_Fx.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -133,6 +136,7 @@
   },
   "reductions/DP_disc_PROP_Fz.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -146,6 +150,7 @@
   },
   "reductions/DP_disc_PROP_Moment.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -160,6 +165,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "sections/DP_cp_Blade1.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
   "sections/DP_cp_Blade2.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
@@ -246,6 +252,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }

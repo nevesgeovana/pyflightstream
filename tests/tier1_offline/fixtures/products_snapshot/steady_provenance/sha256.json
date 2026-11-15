@@ -1,10 +1,15 @@
 {
- "products/polars/P3207-AL-020_g01.csv": "051e998e1c2c87e7d3f789f443629721a55d6aeb9f8759726ab8873fa511de84",
- "products/polars/SUPER-3207-AL-020_g01.csv": "a908ec3ee35797c4014297570c2dd95690a82b78add84adbb81a4be1d057c249",
+ "products/polars/FAM-ACOEF-P3207.csv": "5ea9737986d9ae777ab2a3d47d08407c5052e0f0dfaa3a46058de8ca79ce7a5d",
+ "products/polars/FAM-DIM-P3207.csv": "9e325d1e8beaaee114d92e740b5c941647226855d4cb837e1361b4261e00b3e8",
+ "products/polars/P3207-AIRFRAME-ACOEF.csv": "aeed34b3e5ffb667d04a4b5e3c21286d7d9fab7c7a8557abce08eb7cf32ed28f",
+ "products/polars/P3207-AIRFRAME-DIM.csv": "9fa4c757c938d344b677cfb58423f710b85282e1fee3b34d06c1a50f90f69c01",
+ "products/polars/P3207-TOTAL-ACOEF.csv": "81912d167b5406c844f17b23694bfa378a89a5d8cd785a5b4e70f9c47a1f87ce",
+ "products/polars/P3207-TOTAL-DIM.csv": "8dc1714fb2f96831dec5d2cd2c5d893b3674c3d1dbc1cb24767d012a5808eb6a",
+ "products/polars/P3207-g01-ACOEF.csv": "bd9509da0b332f75f2a375e9e4d11328851005193918ea2b163242a9d9114405",
+ "products/polars/P3207-g01-DIM.csv": "35f6afcc1429c821d2c29f940ce49d9cd3614627324057e6d43f9a6ac723d882",
  "products/post.log": "7b38906b7aea3007e413c5d3137d70bd731962ac8edff4e085f2a9544023f79b",
  "products/post.log.json": "2707195168059730215aff0c687ccf0e8176d104e3146caa30fa191137388b5e",
- "products/products.json": "5624752608c728850ae502f45f0b2911c9481affd137000f18da933797b4f91c",
+ "products/products.json": "ad7964f8fe1eebc75d0a9f61e0abf491228dca1c69b71816fa89b2a07cb4c5eb",
  "products/provenance/camp_sim_3207_AL+020.prov.json": "2251d80f82898c2330b1907ff25ff35d788291743505352e25757f8708d7463c",
- "products/provenance/camp_sim_3207_AL-020.prov.json": "e28c5b86053829e4052e94648f8d77d54ab094505ac10848f65b79504892c3d4",
- "products/reports/superfile-<TAG>.json": "0f73b5afe0b8d137b6e11cda72922cb41a6e7ce1a50773805f7789559e98470d"
+ "products/provenance/camp_sim_3207_AL-020.prov.json": "e28c5b86053829e4052e94648f8d77d54ab094505ac10848f65b79504892c3d4"
 }

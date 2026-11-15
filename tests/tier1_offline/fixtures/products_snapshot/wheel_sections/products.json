@@ -70,6 +70,7 @@
   },
   "sections/DP_sections.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -78,6 +79,7 @@
   },
   "reductions/DP_disc_PROP_Fx.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -91,6 +93,7 @@
   },
   "reductions/DP_disc_PROP_Fz.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -104,6 +107,7 @@
   },
   "reductions/DP_disc_PROP_Moment.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -117,6 +121,7 @@
   },
   "sections/DP_cp.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/DP"
@@ -126,6 +131,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "reductions/DP_harmonics.csv#rotor=PROP#station=1": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
   "reductions/DP_harmonics.csv": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
@@ -208,6 +214,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }

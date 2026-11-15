@@ -68,14 +68,6 @@
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"
-  },
-  {
-   "point": "polars/0001#rotor_tables",
-   "product": "polars/0001#rotor_tables",
-   "message": "no matrix row for this simulation; rotor tables cannot be planned",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "postprocessing",
-   "severity": "warning"
   }
  ]
 }

@@ -202,6 +202,7 @@
   },
   "sections/AL-020_sections.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -210,6 +211,7 @@
   },
   "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -217,6 +219,7 @@
   },
   "reductions/AL-020_per_revolution_PROP.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -239,6 +242,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "sections/AL-020_cp_Blade1.csv#step=1": "missing AL-020_cp_iteration=1.txt",
   "sections/AL-020_cp_Blade2.csv#step=1": "missing AL-020_cp_iteration=1.txt",
@@ -368,6 +372,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }

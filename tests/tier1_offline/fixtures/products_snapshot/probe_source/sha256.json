@@ -1,11 +1,16 @@
 {
- "products/polars/P7001-AL-020_g01.csv": "d3beab0610649222b8423358c90e0c489860c8b35098ab3abc8055fa532c8cd8",
- "products/polars/SUPER-7001-AL-020_g01.csv": "0e8ba8349a69b8944cc01470b562f31b920d742469c548e8cd7b8dc9b0a25445",
- "products/post.log": "e1f7014749c17d3f9b8e1294a1659a6e487bdfa278c95fb21700a4341b3af2e3",
- "products/post.log.json": "d6c5b828a4f4028486d70d479f3d1d41494ccaf27a93a5362910362ff01e4a0a",
+ "products/polars/FAM-ACOEF-P7001.csv": "acfa974e14e80c4c9c26f5f8527c7530e7ffd7afd769c3cb266a055cbb15846f",
+ "products/polars/FAM-DIM-P7001.csv": "85ee2693ae497b4738103a1cd101bb44831dbf4edce53545632923c86cfbce95",
+ "products/polars/P7001-AIRFRAME-ACOEF.csv": "123e9d2135764b81b93dbd7ce4c085da7a7bcaf62b2725db67ea96ef20d62a4a",
+ "products/polars/P7001-AIRFRAME-DIM.csv": "0f62e26f8cb054363bdf542deb7eeb8d49169f85049d48b3ad143e15e1925a79",
+ "products/polars/P7001-TOTAL-ACOEF.csv": "b9a3684ba10cb61166a6b17756862628b42b0eafcf92f10e19f8f544c14643c9",
+ "products/polars/P7001-TOTAL-DIM.csv": "4ab832f9393822b3557ac66d436ef4090d2f22449158c62dbb29b85a1cca295b",
+ "products/polars/P7001-g01-ACOEF.csv": "5f8b55013c58e9e0f354983c29759adf859da4da2c3201a1f8d8aaf1f81ec085",
+ "products/polars/P7001-g01-DIM.csv": "082d15a665d46164e1077fccb976f841fe56c097f8877d370ff88cd16cd18d1f",
+ "products/post.log": "de3717e0069c728091a25ae193f1281d7a5c1c3a0a68dec7fe0574928143bbb1",
+ "products/post.log.json": "1de5c25eeef9f9735053e73033cd8b0688d325d58d6fe18d320e14dbab47b699",
  "products/probes/AL-020_probes.csv": "8c10ba7f1da296d749b32289e7b5b4c6a8f1cfe518cd3df7009d40d6e44eb6f2",
- "products/products.json": "388d4fc5a720aed1e5f01dff2c2b7726966eb9e4006ca8bd603f12ac9672c856",
+ "products/products.json": "9dca373da7727f1a73e825b3952cff6ac3c8193e084780f50e25245289f24219",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "9bc997aa06cf32a4816610f40bf94014354db5ddfbd0d5d6e09f010faf1ecc7e",
- "products/reports/superfile-<TAG>.json": "80fc71ac8bb0588f6eb1cf5e21eaa71dc47af9867aebfde0d37b9e08d8b9516b",
  "products/time_history/AL-020_plots.csv": "cf0fe4838c9181839a3bbdbe7aee0924979170c91ffec610138e89d63a781a76"
 }

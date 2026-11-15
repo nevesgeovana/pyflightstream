@@ -1,10 +1,17 @@
 {
- "products/polars/P7001_AL-020_uns_avg.csv": "bcdf3119fca6577373d0b2382cd9f570064595b25be942bef120bee8b03fa4df",
- "products/post.log": "c2a8b054fc8a49170bd6c123007f514f673ad2838eb095f81990d9620ef0ea16",
- "products/post.log.json": "556ad19690fd5590e67c114ebb073742f95f54f5c954fbfdf7366c3982904323",
- "products/products.json": "1ca4a8b51a5bfb722478a8e215218e3bc4dd4e5b884540d81c257ddaa1dd5f85",
+ "products/polars/FAM-ACOEF-P7001.csv": "ef818dcf8c5d4abaf48ac22bdff494a6f744bece19f1e29e3410cdf8aa1e0e56",
+ "products/polars/FAM-DIM-P7001.csv": "05a95f59cd5a92ce825ab63a35eddfc2cc3670b023aac5ad90209236bfffc7a2",
+ "products/polars/P7001-AIRFRAME-ACOEF.csv": "8f2dc26400d78e6783850c5e424ef30700d423976ce4ab23eb78d6f8e1d41cea",
+ "products/polars/P7001-AIRFRAME-DIM.csv": "1e26297a85ef9fe48b6d48f8e0f784ccd16d1f296ce2149be919925544fdd264",
+ "products/polars/P7001-TOTAL-ACOEF.csv": "9aeb3a09e3c10ede17b86724c2e6385f8ef7259466683c80017ac9b428e812ff",
+ "products/polars/P7001-TOTAL-DIM.csv": "6fa985b9e7754816503c81da5f0dd31d82670fdf585627cd1c47d6a755e9720c",
+ "products/polars/P7001-g01-ACOEF.csv": "2f08981ccb47d0ceb19ad09c389211967dc3ae8f49689312c01f2b29d4f49cb2",
+ "products/polars/P7001-g01-DIM.csv": "f161f4dc5eeeebe629c39dbf14b89c27e61659df67d30576448a1d50175f8d6f",
+ "products/post.log": "51671aec1a08ac28db7bd2752f7b545a331d060cb775c5128ba196b4a00e8a55",
+ "products/post.log.json": "bef92d897c21bc833b791d35ad259739678a14f30a4a843ef7a6940cdd41c331",
+ "products/products.json": "1d94df7b09237822c3a1c93fe9b65c6fdca1f9a023181787782b9863fe0c545f",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "c5499d59b7552d325ecb3a847087d7b4a35c687405cf1f2cb28e6e4b5b7ce93f",
  "products/reductions/AL-020_phase_locked.csv": "8cc65a5c13f1ae56f5d78e2cc161e8e2f2e9fea4830544c35fdccf04ab41441e",
- "products/sections/AL-020_sections.csv": "8be2aa21be17b9ee106b20ad4c2eb8850a39d26e4711ffda8b14d9effc543494",
+ "products/sections/AL-020_sections.csv": "ce50dd78c2eea354484f76e37a50670c8d304cf4a21942aef65dfd07be66ba17",
  "products/time_history/AL-020_plots.csv": "f474fee0591ca5359e4f9583d3698825aee699c529fff0b0f5e5ebece5f09363"
 }

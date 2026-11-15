@@ -102,27 +102,88 @@
    "step": 5,
    "kind": "instant"
   },
-  "polars/P7001-AL-020_g01.csv": {
+  "polars/FAM-DIM-P7001.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
    ],
    "kind": "instant"
   },
-  "polars/SUPER-7001-AL-020_g01.csv": {
+  "polars/FAM-ACOEF-P7001.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
    ],
-   "group": "1",
-   "rows": 1
+   "kind": "instant"
+  },
+  "polars/P7001-TOTAL-DIM.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "TOTAL"
+  },
+  "polars/P7001-TOTAL-ACOEF.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "TOTAL"
+  },
+  "polars/P7001-AIRFRAME-DIM.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "AIRFRAME"
+  },
+  "polars/P7001-AIRFRAME-ACOEF.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "AIRFRAME"
+  },
+  "polars/P7001-g01-DIM.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "g01"
+  },
+  "polars/P7001-g01-ACOEF.csv": {
+   "sim_id": "7001",
+   "polar": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant",
+   "group": "g01"
   }
  },
  "log": "post.log",
  "log_json": "post.log.json",
- "superfile_report": "post/products/reports/superfile-<TAG>.json",
+ "migrated": {},
  "skipped": {
   "sections/AL-020_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "sections/AL-020_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
@@ -207,5 +268,1094 @@
    ]
   }
  },
- "migrated": {}
+ "kinds": {
+  "FAM-DIM": {
+   "rows": "one per point and family",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "FAMILY_ID"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "FAMILY",
+     "unit": "-",
+     "frame": null,
+     "quantity": "family name in the OBJ or FSM",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "FAMILY_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "1-based boundary index",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "FX_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along x",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "FY_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along y",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "FZ_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along z",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MX_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about x",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MY_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about y",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MZ_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about z",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MESH_FACES",
+     "unit": "-",
+     "frame": null,
+     "quantity": "mesh face count",
+     "definition": "docs/definitions/airframe-coefficients.md#mesh-faces"
+    }
+   ]
+  },
+  "FAM-ACOEF": {
+   "rows": "one per point and family",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "FAMILY_ID"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "FAMILY",
+     "unit": "-",
+     "frame": null,
+     "quantity": "family name in the OBJ or FSM",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "FAMILY_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "1-based boundary index",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "CDW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CDS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CDB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CD0",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag split component",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-split"
+    },
+    {
+     "name": "CDI",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag split component",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-split"
+    },
+    {
+     "name": "MESH_FACES",
+     "unit": "-",
+     "frame": null,
+     "quantity": "mesh face count",
+     "definition": "docs/definitions/airframe-coefficients.md#mesh-faces"
+    }
+   ]
+  },
+  "DIM": {
+   "rows": "one per point",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "GROUP_ID"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "GROUP",
+     "unit": "-",
+     "frame": null,
+     "quantity": "group name",
+     "definition": "docs/definitions/airframe-coefficients.md#group"
+    },
+    {
+     "name": "GROUP_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "group number",
+     "definition": "docs/definitions/airframe-coefficients.md#group"
+    },
+    {
+     "name": "FX_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along x",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "FY_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along y",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "FZ_MRP",
+     "unit": "N",
+     "frame": "MRP",
+     "quantity": "force along z",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MX_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about x",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MY_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about y",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MZ_MRP",
+     "unit": "N m",
+     "frame": "MRP",
+     "quantity": "moment about z",
+     "definition": "docs/definitions/airframe-coefficients.md#dim"
+    },
+    {
+     "name": "MESH_FACES",
+     "unit": "-",
+     "frame": null,
+     "quantity": "mesh face count",
+     "definition": "docs/definitions/airframe-coefficients.md#mesh-faces"
+    }
+   ]
+  },
+  "ACOEF": {
+   "rows": "one per point",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "GROUP_ID"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "GROUP",
+     "unit": "-",
+     "frame": null,
+     "quantity": "group name",
+     "definition": "docs/definitions/airframe-coefficients.md#group"
+    },
+    {
+     "name": "GROUP_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "group number",
+     "definition": "docs/definitions/airframe-coefficients.md#group"
+    },
+    {
+     "name": "CDW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnW",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CDS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnS",
+     "unit": "-",
+     "frame": "S",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CDB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "drag coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-coefficient",
+     "sign": "positive aft"
+    },
+    {
+     "name": "CYB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "side force coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#side-force-coefficient",
+     "sign": "positive right"
+    },
+    {
+     "name": "CLB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "lift coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#lift-coefficient",
+     "sign": "positive up"
+    },
+    {
+     "name": "ClB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "rolling moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#rolling-moment-coefficient",
+     "sign": "right-hand about x"
+    },
+    {
+     "name": "CmB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "pitching moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#pitching-moment-coefficient",
+     "sign": "right-hand about y"
+    },
+    {
+     "name": "CnB",
+     "unit": "-",
+     "frame": "B",
+     "quantity": "yawing moment coefficient",
+     "definition": "docs/definitions/airframe-coefficients.md#yawing-moment-coefficient",
+     "sign": "right-hand about z"
+    },
+    {
+     "name": "CD0",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag split component",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-split"
+    },
+    {
+     "name": "CDI",
+     "unit": "-",
+     "frame": "W",
+     "quantity": "drag split component",
+     "definition": "docs/definitions/airframe-coefficients.md#drag-split"
+    },
+    {
+     "name": "MESH_FACES",
+     "unit": "-",
+     "frame": null,
+     "quantity": "mesh face count",
+     "definition": "docs/definitions/airframe-coefficients.md#mesh-faces"
+    }
+   ]
+  },
+  "sections": {
+   "rows": "one per cut station of a distribution",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "FAMILY_ID",
+    "STEP",
+    "PLANE",
+    "ROTOR_ID",
+    "AZIMUTH"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "FAMILY",
+     "unit": "-",
+     "frame": null,
+     "quantity": "family name in the OBJ or FSM",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "FAMILY_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "1-based boundary index",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "STEP",
+     "unit": "-",
+     "frame": null,
+     "quantity": "solver step, NA on a steady point",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "PLANE",
+     "unit": "-",
+     "frame": null,
+     "quantity": "cutting plane of the distribution",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "ROTOR_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "the rotor's declared id, NA off a rotor",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "AZIMUTH",
+     "unit": "deg",
+     "frame": null,
+     "quantity": "blade azimuth, NA off a rotor",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Offset",
+     "unit": "m",
+     "frame": "section",
+     "quantity": "station position along the cut normal",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Chord",
+     "unit": "m",
+     "frame": "section",
+     "quantity": "local chord",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "X_QC",
+     "unit": "m",
+     "frame": "section",
+     "quantity": "quarter-chord x",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Z_QC",
+     "unit": "m",
+     "frame": "section",
+     "quantity": "quarter-chord z",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Fx",
+     "unit": "N/m",
+     "frame": "section",
+     "quantity": "sectional force along the section x",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Fz",
+     "unit": "N/m",
+     "frame": "section",
+     "quantity": "sectional force along the section z",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Moment",
+     "unit": "N m/m",
+     "frame": "section",
+     "quantity": "sectional moment",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    }
+   ]
+  },
+  "cp": {
+   "rows": "one per surface point of a cut",
+   "keys": [
+    "POL",
+    "POINT_ID",
+    "FAMILY_ID",
+    "STEP",
+    "PLANE",
+    "ROTOR_ID",
+    "AZIMUTH",
+    "SECTION"
+   ],
+   "run_block": true,
+   "columns": [
+    {
+     "name": "FAMILY",
+     "unit": "-",
+     "frame": null,
+     "quantity": "family name in the OBJ or FSM",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "FAMILY_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "1-based boundary index",
+     "definition": "docs/definitions/airframe-coefficients.md#family"
+    },
+    {
+     "name": "STEP",
+     "unit": "-",
+     "frame": null,
+     "quantity": "solver step, NA on a steady point",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "PLANE",
+     "unit": "-",
+     "frame": null,
+     "quantity": "cutting plane of the distribution",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "ROTOR_ID",
+     "unit": "-",
+     "frame": null,
+     "quantity": "the rotor's declared id, NA off a rotor",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "AZIMUTH",
+     "unit": "deg",
+     "frame": null,
+     "quantity": "blade azimuth, NA off a rotor",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "SECTION",
+     "unit": "-",
+     "frame": null,
+     "quantity": "index of the cut in its distribution",
+     "definition": "docs/definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which"
+    },
+    {
+     "name": "Section_direction_value",
+     "unit": "model length",
+     "frame": "section",
+     "quantity": "station along the section's direction",
+     "definition": "docs/pproc/cp.md#section-direction-value"
+    },
+    {
+     "name": "X",
+     "unit": "model length",
+     "frame": "reference",
+     "quantity": "x of the cut point",
+     "definition": "docs/pproc/cp.md#x"
+    },
+    {
+     "name": "Y",
+     "unit": "model length",
+     "frame": "reference",
+     "quantity": "y of the cut point",
+     "definition": "docs/pproc/cp.md#y"
+    },
+    {
+     "name": "Z",
+     "unit": "model length",
+     "frame": "reference",
+     "quantity": "z of the cut point",
+     "definition": "docs/pproc/cp.md#z"
+    },
+    {
+     "name": "nx",
+     "unit": "-",
+     "frame": "reference",
+     "quantity": "x of the unit surface normal",
+     "definition": "docs/pproc/cp.md#nx"
+    },
+    {
+     "name": "ny",
+     "unit": "-",
+     "frame": "reference",
+     "quantity": "y of the unit surface normal",
+     "definition": "docs/pproc/cp.md#ny"
+    },
+    {
+     "name": "nz",
+     "unit": "-",
+     "frame": "reference",
+     "quantity": "z of the unit surface normal",
+     "definition": "docs/pproc/cp.md#nz"
+    },
+    {
+     "name": "L",
+     "unit": "-",
+     "frame": null,
+     "quantity": "normalized position along the cut",
+     "definition": "docs/pproc/cp.md#l"
+    },
+    {
+     "name": "Cp",
+     "unit": "-",
+     "frame": null,
+     "quantity": "pressure coefficient against the free stream",
+     "definition": "docs/pproc/cp.md#cp"
+    },
+    {
+     "name": "Mach",
+     "unit": "-",
+     "frame": null,
+     "quantity": "local Mach number",
+     "definition": "docs/pproc/cp.md#mach"
+    },
+    {
+     "name": "vx",
+     "unit": "m/s",
+     "frame": "reference",
+     "quantity": "x velocity at the point",
+     "definition": "docs/pproc/cp.md#vx"
+    },
+    {
+     "name": "vy",
+     "unit": "m/s",
+     "frame": "reference",
+     "quantity": "y velocity at the point",
+     "definition": "docs/pproc/cp.md#vy"
+    },
+    {
+     "name": "vz",
+     "unit": "m/s",
+     "frame": "reference",
+     "quantity": "z velocity at the point",
+     "definition": "docs/pproc/cp.md#vz"
+    },
+    {
+     "name": "vtot",
+     "unit": "m/s",
+     "frame": null,
+     "quantity": "speed at the point",
+     "definition": "docs/pproc/cp.md#vtot"
+    },
+    {
+     "name": "Cp_ref",
+     "unit": "-",
+     "frame": null,
+     "quantity": "pressure coefficient against the reference velocity",
+     "definition": "docs/pproc/cp.md#cp-ref"
+    },
+    {
+     "name": "Theta",
+     "unit": "model length",
+     "frame": null,
+     "quantity": "momentum thickness",
+     "definition": "docs/pproc/cp.md#theta"
+    },
+    {
+     "name": "CF",
+     "unit": "-",
+     "frame": null,
+     "quantity": "skin-friction coefficient",
+     "definition": "docs/pproc/cp.md#cf"
+    },
+    {
+     "name": "Delta*",
+     "unit": "model length",
+     "frame": null,
+     "quantity": "displacement thickness",
+     "definition": "docs/pproc/cp.md#delta-star"
+    },
+    {
+     "name": "Delta",
+     "unit": "model length",
+     "frame": null,
+     "quantity": "boundary-layer thickness",
+     "definition": "docs/pproc/cp.md#delta"
+    },
+    {
+     "name": "H",
+     "unit": "-",
+     "frame": null,
+     "quantity": "shape factor",
+     "definition": "docs/pproc/cp.md#h"
+    }
+   ]
+  }
+ },
+ "run_block": [
+  {
+   "name": "POL",
+   "unit": "-",
+   "source": "the matrix row's polar",
+   "definition": "docs/definitions/the-run-block.md#pol"
+  },
+  {
+   "name": "POINT_ID",
+   "unit": "-",
+   "source": "1-based position of the point in its polar's sweep order",
+   "definition": "docs/definitions/the-run-block.md#point-id"
+  },
+  {
+   "name": "POINT",
+   "unit": "-",
+   "source": "the point name the per-point files carry",
+   "definition": "docs/definitions/the-run-block.md#point"
+  },
+  {
+   "name": "RUN_TYPE",
+   "unit": "-",
+   "source": "the workflow selected for the row",
+   "definition": "docs/definitions/the-run-block.md#run-type"
+  },
+  {
+   "name": "ALPHA",
+   "unit": "deg",
+   "source": "angle of attack as written",
+   "definition": "docs/definitions/the-run-block.md#alpha"
+  },
+  {
+   "name": "BETA",
+   "unit": "deg",
+   "source": "sideslip as written",
+   "definition": "docs/definitions/the-run-block.md#beta"
+  },
+  {
+   "name": "MACH",
+   "unit": "-",
+   "source": "the point's Mach number",
+   "definition": "docs/definitions/the-run-block.md#mach"
+  },
+  {
+   "name": "RE",
+   "unit": "-",
+   "source": "the point's Reynolds number, in millions",
+   "definition": "docs/definitions/the-run-block.md#re"
+  },
+  {
+   "name": "VINF",
+   "unit": "m/s",
+   "source": "free-stream speed of the point",
+   "definition": "docs/definitions/the-run-block.md#vinf"
+  },
+  {
+   "name": "VREF",
+   "unit": "m/s",
+   "source": "the loads export's reference velocity",
+   "definition": "docs/definitions/the-run-block.md#vref"
+  },
+  {
+   "name": "J",
+   "unit": "-",
+   "source": "advance ratio the row requested",
+   "definition": "docs/definitions/the-run-block.md#j"
+  },
+  {
+   "name": "J_CLOCK",
+   "unit": "-",
+   "source": "advance ratio the clock rotor ran at",
+   "definition": "docs/definitions/the-run-block.md#j-clock"
+  },
+  {
+   "name": "RPM_CLOCK",
+   "unit": "rev/min",
+   "source": "speed of the clock rotor, with its hand",
+   "definition": "docs/definitions/the-run-block.md#rpm-clock"
+  },
+  {
+   "name": "THRUST",
+   "unit": "N",
+   "source": "thrust condition the row states",
+   "definition": "docs/definitions/the-run-block.md#thrust"
+  },
+  {
+   "name": "ALT",
+   "unit": "m",
+   "source": "altitude of the resolved atmosphere",
+   "definition": "docs/definitions/the-run-block.md#alt"
+  },
+  {
+   "name": "RHO",
+   "unit": "kg/m^3",
+   "source": "density of the point",
+   "definition": "docs/definitions/the-run-block.md#rho"
+  },
+  {
+   "name": "TEMP",
+   "unit": "K",
+   "source": "temperature of the point",
+   "definition": "docs/definitions/the-run-block.md#temp"
+  },
+  {
+   "name": "MU",
+   "unit": "Pa s",
+   "source": "dynamic viscosity, in scientific notation",
+   "definition": "docs/definitions/the-run-block.md#mu"
+  },
+  {
+   "name": "SREF",
+   "unit": "m^2",
+   "source": "reference area",
+   "definition": "docs/definitions/the-run-block.md#sref"
+  },
+  {
+   "name": "CREF",
+   "unit": "m",
+   "source": "reference chord",
+   "definition": "docs/definitions/the-run-block.md#cref"
+  },
+  {
+   "name": "BREF",
+   "unit": "m",
+   "source": "reference span",
+   "definition": "docs/definitions/the-run-block.md#bref"
+  },
+  {
+   "name": "XMOM",
+   "unit": "m",
+   "source": "moment reference point x, mesh frame",
+   "definition": "docs/definitions/the-run-block.md#xmom"
+  },
+  {
+   "name": "YMOM",
+   "unit": "m",
+   "source": "moment reference point y, mesh frame",
+   "definition": "docs/definitions/the-run-block.md#ymom"
+  },
+  {
+   "name": "ZMOM",
+   "unit": "m",
+   "source": "moment reference point z, mesh frame",
+   "definition": "docs/definitions/the-run-block.md#zmom"
+  },
+  {
+   "name": "FIRST_STEP",
+   "unit": "-",
+   "source": "first step of the averaging window, 1-based",
+   "definition": "docs/definitions/the-run-block.md#first-step"
+  },
+  {
+   "name": "LAST_STEP",
+   "unit": "-",
+   "source": "last step of the averaging window, inclusive",
+   "definition": "docs/definitions/the-run-block.md#last-step"
+  },
+  {
+   "name": "STEPS",
+   "unit": "-",
+   "source": "steps in the averaging window",
+   "definition": "docs/definitions/the-run-block.md#steps"
+  },
+  {
+   "name": "WINDOW_REVS",
+   "unit": "-",
+   "source": "clock rotor revolutions the window spans",
+   "definition": "docs/definitions/the-run-block.md#window-revs"
+  },
+  {
+   "name": "WINDOW_PASSAGES",
+   "unit": "-",
+   "source": "clock rotor blade passages the window spans",
+   "definition": "docs/definitions/the-run-block.md#window-passages"
+  }
+ ],
+ "frames": {
+  "E": {
+   "name": "MRP",
+   "axes": "x aft, y right, z up"
+  },
+  "B": {
+   "from": "E",
+   "dcm": "C2(pi)"
+  },
+  "S": {
+   "from": "B",
+   "dcm": "C2(-alpha_s)"
+  },
+  "W": {
+   "from": "B",
+   "dcm": "C3(beta_w) C2(-alpha_s)"
+  },
+  "mesh": {
+   "declared": [
+    "aft",
+    "right",
+    "up"
+   ],
+   "converted": false
+  }
+ },
+ "families": [
+  {
+   "FAMILY_ID": 1,
+   "FAMILY": "W",
+   "ROTOR_ID": null
+  },
+  {
+   "FAMILY_ID": 2,
+   "FAMILY": "B",
+   "ROTOR_ID": null
+  }
+ ],
+ "groups": [
+  {
+   "GROUP_ID": 0,
+   "GROUP": "TOTAL",
+   "origin": "default",
+   "members": [
+    1,
+    2
+   ]
+  },
+  {
+   "GROUP_ID": 1,
+   "GROUP": "AIRFRAME",
+   "origin": "default",
+   "members": [
+    1,
+    2
+   ]
+  },
+  {
+   "GROUP_ID": 101,
+   "GROUP": "g01",
+   "origin": "declared",
+   "members": [
+    1,
+    2
+   ]
+  }
+ ],
+ "polars": {
+  "7001": {
+   "description": "ROTOR_UNSTEADY",
+   "run_type": "unsteady_rotor"
+  }
+ }
 }

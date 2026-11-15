@@ -2,6 +2,7 @@
  "products": {
   "sections/AL-020_sections.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -10,6 +11,7 @@
   },
   "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -18,13 +20,13 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "sections/AL-020_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "sections/AL-020_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "reductions/AL-020_phase_locked.csv": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
   "reductions/AL-020_per_revolution.csv": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 1 to 60",
-  "polars/P7001-PUSHER_rotor.csv": "these points of the sweep are not rows of the PUSHER rotor table: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
-  "polars/P7001_AL-020_uns_avg.csv": "these points of the sweep are not rows of the unsteady polar: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61"
+  "polars/P7001": "these points of the sweep are not rows of the polar files: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61"
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
@@ -103,6 +105,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }

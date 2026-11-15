@@ -62,16 +62,16 @@
    "severity": "warning"
   },
   {
-   "point": "AL-020",
-   "product": "polars/P7001-PUSHER_rotor.csv",
-   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "point": "campaign",
+   "product": "stage",
+   "message": "Rotor PUSHER declares its axis aft; 0.58.0 counts thrust positive forward, so CT, CQ, ETA, T and the in-plane signs of this rotor are opposite to 0.57.0. See docs/upgrading.md#0580-post-tree.",
    "remedy": null,
-   "category": "postprocessing",
+   "category": "reference-frame",
    "severity": "warning"
   },
   {
    "point": "AL-020",
-   "product": "<ROOT>/post/products/polars/P7001_AL-020_uns_avg.csv",
+   "product": "polars/FAM-P7001",
    "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
    "remedy": null,
    "category": "postprocessing",
@@ -126,17 +126,9 @@
    "severity": "warning"
   },
   {
-   "point": "polars/P7001-PUSHER_rotor.csv",
-   "product": "polars/P7001-PUSHER_rotor.csv",
-   "message": "these points of the sweep are not rows of the PUSHER rotor table: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "polars/P7001_AL-020_uns_avg.csv",
-   "product": "polars/P7001_AL-020_uns_avg.csv",
-   "message": "these points of the sweep are not rows of the unsteady polar: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "point": "polars/P7001",
+   "product": "polars/P7001",
+   "message": "these points of the sweep are not rows of the polar files: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"

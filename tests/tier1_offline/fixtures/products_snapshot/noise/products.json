@@ -83,6 +83,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "../../sims/sim_7010/p.vtk": "the recorded vtk surface export is missing: <ROOT>/sims/sim_7010/p.vtk",
   "sections/p_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
@@ -166,6 +167,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }

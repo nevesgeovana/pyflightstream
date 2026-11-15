@@ -1,12 +1,17 @@
 {
- "products/polars/P7001-AL-020_g01.csv": "d3beab0610649222b8423358c90e0c489860c8b35098ab3abc8055fa532c8cd8",
- "products/polars/SUPER-7001-AL-020_g01.csv": "92c04aedca1c3fade8cc2b465988a655d3c2020c1cfa008ba330ae6abc50d371",
- "products/post.log": "40aacfdcf0b1be2753083925fce5c360a5426600146c10e8bddea69200e19844",
- "products/post.log.json": "3e945b3afd750b324cf6f303a0e71d19a3b9530c6c3e27978f13af13aef87af1",
- "products/products.json": "b78b7bac1a68608a8be24adcc750ecc8f19f3bb609028715490c2e076ac13a53",
+ "products/polars/FAM-ACOEF-P7001.csv": "86bb650b5f7a9fa33387c011de0b93e2b51bbd61ffddb8df19b29034adafb854",
+ "products/polars/FAM-DIM-P7001.csv": "e5b12a0d36242a4af19876a313d9428337b3fea21ec44550f7800828e2b7c8f5",
+ "products/polars/P7001-AIRFRAME-ACOEF.csv": "48dfd3b90f0c21fafb29c33a75c9d59242c28efde8d22197d1cf11b20dbe829e",
+ "products/polars/P7001-AIRFRAME-DIM.csv": "00d061e88be76ad973b3db890bef1eedb2298fd0feacd08a6e075d091138ac9b",
+ "products/polars/P7001-TOTAL-ACOEF.csv": "060265412b2b8e0bfde4ea95e9aa547783500dd44e1f7dac39e3f9d2062b8e2c",
+ "products/polars/P7001-TOTAL-DIM.csv": "d65a613416d610ef0e6c67d42b0eb556b13d3ef45883b864c11a199bab532fb9",
+ "products/polars/P7001-g01-ACOEF.csv": "96e0f6599dcfc3d93634fd05e3293c6ef12d44054e62a98cb23252d0187e1a2d",
+ "products/polars/P7001-g01-DIM.csv": "80b65cb418a1b9703a458cafd23740d1798ca7e9b64f5450b4d5b546be8f217d",
+ "products/post.log": "de5e42775c8360dc5612f3430e907e37214751118ae5795e56b1d901fe302843",
+ "products/post.log.json": "3963f61aacd559d5ea4d48e9885a541aee3f9759cede23b5b0fdd11a7c46a341",
+ "products/products.json": "58523c83f14cf4361e4771134871e993e4815c69de10b5255e7801402f8be0bc",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "636b1f7f545cc99a009349af30b5f9a516f7032d74ed41a694e8e265d0e3421c",
- "products/reports/superfile-<TAG>.json": "1bad8950690327da34cb345d4bfe38887fcc816e70ae4154b9441c579b227192",
- "products/series/AL-020_loads_series.csv": "530b9f4de7c7f700353c4301fc07bb3b2cbf8e20307cada883262c7dd032b566",
- "products/series/AL-020_probes_series.csv": "1ff0033456e474512e6798b28f5ced8179db0b4708ddf5b010e4a9c0c9752dd5",
- "products/series/AL-020_sections_series.csv": "51c1f2d0fe0ea9f36ab022c669693d32f85d3a9db0448139bce924f9693674df"
+ "products/series/AL-020_loads_series.csv": "ee8fd70adcdf6a9d2ea2b131a7c9539b2c9cb0a5305a93f9ebc8240b0ebcfe1a",
+ "products/series/AL-020_probes_series.csv": "6f4ab855af307a65aba53c4a08726db482d4dcf5d6021b246d07dd92b858ad2b",
+ "products/series/AL-020_sections_series.csv": "371f9b73175358fca28a45c86310ec7afa65761bf26390a6bea48564bf1214c0"
 }

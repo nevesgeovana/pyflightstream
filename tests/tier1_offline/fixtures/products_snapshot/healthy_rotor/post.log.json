@@ -46,6 +46,22 @@
    "severity": "warning"
   },
   {
+   "point": "campaign",
+   "product": "stage",
+   "message": "Rotor PUSHER declares its axis aft; 0.58.0 counts thrust positive forward, so CT, CQ, ETA, T and the in-plane signs of this rotor are opposite to 0.57.0. See docs/upgrading.md#0580-post-tree.",
+   "remedy": null,
+   "category": "reference-frame",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "warning"
+  },
+  {
    "point": "camp/sim_7001/AL-020",
    "product": "settings/products_settings.csv",
    "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",

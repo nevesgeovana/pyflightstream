@@ -116,6 +116,7 @@
   },
   "sections/AL-020_sections.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -124,6 +125,7 @@
   },
   "sections/AL-020_cp.csv": {
    "sim_id": "7001",
+   "polar": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
@@ -133,6 +135,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
+ "migrated": {},
  "skipped": {
   "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table"
  },
@@ -213,6 +216,5 @@
     "provenance"
    ]
   }
- },
- "migrated": {}
+ }
 }
