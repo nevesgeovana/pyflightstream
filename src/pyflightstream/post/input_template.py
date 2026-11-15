@@ -1251,7 +1251,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                     )
                 },
                 "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
-                    {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
+                    {_IN_THE_COMMENT: ("surfaces", "sweep_angle", "bluntness_angle")}
                 ),
                 # Beside a CCS file only, which the
                 # CCS geometry page shows with every key.
