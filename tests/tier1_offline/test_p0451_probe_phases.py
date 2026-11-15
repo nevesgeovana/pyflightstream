@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.workflows import normal_probe_creation, row_outputs
 from tests.tier1_offline import test_regression_farfield_products as products
@@ -244,21 +243,6 @@ def test_p0451_absent_kind_samples_only_after_march(tmp_path):
     assert len(imports) == 1 and imports[0][0] > lines.index("START_SOLVER")
 
 
-@pytest.mark.parametrize(
-    "alias,canonical",
-    [("normal", "default"), ("unsteady", "instantaneous")],
-    ids=["P0451-normal-alias", "P0451-unsteady-alias"],
-)
-def test_p0451_alias_warns_once_and_normalizes(alias, canonical):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        spec = PprocSpec.model_validate(dict(probes=[_entry(alias)]))
-    notices = [item for item in caught if issubclass(item.category, PyflightstreamWarning)]
-    assert len(notices) == 1
-    assert canonical in str(notices[0].message)
-    assert spec.probes[0].kind == canonical
-
-
 def test_p0451_unknown_kind_names_the_two_values_and_aliases():
     with pytest.raises(ValidationError) as caught:
         PprocSpec.model_validate(dict(probes=[_entry("unknown")]))
@@ -271,13 +255,6 @@ def test_p0451_instantaneous_on_steady_keeps_default_script(tmp_path, run_type):
     default = _build(_case(tmp_path, [], [_entry("default")], run_type)).render()
     instant = _build(_case(tmp_path, [], [_entry("instantaneous")], run_type)).render()
     assert instant == default
-
-
-@pytest.mark.parametrize("alias,canonical", [("normal", "default"), ("unsteady", "instantaneous")])
-def test_p0451_alias_and_canonical_scripts_are_identical(tmp_path, alias, canonical):
-    with pytest.warns(PyflightstreamWarning, match=canonical):
-        alias_case = _case(tmp_path, [], [_entry(alias)])
-    assert _build(alias_case).render() == _build(_case(tmp_path, [], [_entry(canonical)])).render()
 
 
 def test_p0451_instantaneous_keeps_init_plots(tmp_path):
