@@ -805,6 +805,20 @@ _GEOMETRY_VERB_HOMES = {
 }
 
 
+#: The pyfs-matrix verbs pyfs-workspace holds (PFS-2261), each under its own name.
+_WORKSPACE_VERB_HOMES = {
+    verb: f"pyfs-workspace {verb}"
+    for verb in (
+        "space-in-use free-space delete-sims sync restore rebuild mark-failed mark-converged "
+        "search-log-batch show log trace history diff"
+    ).split()
+}
+_WORKSPACE_VERBS_WHY = (
+    "pyfs-matrix runs matrices; the workspace's records, storage and queries live in "
+    "pyfs-workspace, the same verbs as cfd-workspace; the result is identical."
+)
+
+
 def _command_moves(owner: str, homes: dict[str, str], why: str) -> dict[str, RetiredName]:
     """Return the 0.58.0 refusals of the commands ``owner`` gave up, keyed ``<owner>.<old>``."""
     return {
@@ -1135,6 +1149,8 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         instead="Use",
     ),
     **_command_moves("pyfs-workspace geometry", _GEOMETRY_VERB_HOMES, _GEOMETRY_TOOLS),
+    # 0.58.0 (PFS-2261): the records, storage and query verbs, the flag form included.
+    **_command_moves("pyfs-matrix", _WORKSPACE_VERB_HOMES, _WORKSPACE_VERBS_WHY),
 }
 
 

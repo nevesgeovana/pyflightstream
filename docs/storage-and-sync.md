@@ -14,7 +14,7 @@ pass `--apply`. Run the preview first, read it, then apply.
 ### space-in-use
 
 ```bash
-pyfs-matrix space-in-use --workspace .
+pyfs-workspace space-in-use --workspace .
 ```
 
 Prints the sizes on disk in three groupings, in this order: by top level
@@ -32,7 +32,7 @@ pyfs-matrix --workspace . --space-in-use
 ### free-space
 
 ```bash
-pyfs-matrix free-space m001 --workspace . --apply
+pyfs-workspace free-space m001 --workspace . --apply
 ```
 
 On Windows a file whose path passes 260 characters (an archived attempt lengthens every path
@@ -56,7 +56,7 @@ pyfs-matrix --workspace . --free-space m001
 Add `--list` to see the detail:
 
 ```bash
-pyfs-matrix free-space m001 --workspace . --list
+pyfs-workspace free-space m001 --workspace . --list
 ```
 
 Without it the preview of `post_archives` (and of the other tables) shows only
@@ -72,7 +72,7 @@ lines are read from the entry the call records in `storage_management.json`;
 ### delete-sims
 
 ```bash
-pyfs-matrix delete-sims --sims 4001 2009 --workspace . --apply
+pyfs-workspace delete-sims --sims 4001 2009 --workspace . --apply
 ```
 
 Deletes the named simulations outright: the `sims/sim_<id>` folder (or its
@@ -106,7 +106,7 @@ row in `runs.json` and whether its id can be used again.
 ### sync
 
 ```bash
-pyfs-matrix sync post --workspace . --apply
+pyfs-workspace sync post --workspace . --apply
 ```
 
 Brings runs and results from the other workspaces named in
@@ -116,7 +116,7 @@ the configuration file, the levels, and how a conflict is settled.
 ## The recipe file
 
 A recipe lives at `inputs/management/m<id>.toml`, where `<id>` is anything
-after the leading `m` (so the file for `pyfs-matrix free-space m001` is
+after the leading `m` (so the file for `pyfs-workspace free-space m001` is
 `inputs/management/m001.toml`). It holds four tables, each a list of
 steps, run in the order the sections below list them. A table you leave
 out simply runs no steps of that kind.
@@ -326,7 +326,7 @@ takes their place:
  "deleted_sim": "4001",
  "deleted_at": "2026-09-28T10:15:00+00:00",
  "deleted_run_ids": ["camp/sim_4001/AL+000"],
- "note": "this simulation id belonged to a simulation deleted by pyfs-matrix delete-sims; the full entry is call 7 of storage_management.json",
+ "note": "this simulation id belonged to a simulation deleted by pyfs-workspace delete-sims; the full entry is call 7 of storage_management.json",
  "storage_entry": 7
 }
 ```

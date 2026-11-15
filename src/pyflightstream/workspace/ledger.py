@@ -729,7 +729,7 @@ def _read_records(path: Path) -> _Records:
     except (OSError, ValueError) as error:
         raise WorkspaceError(
             f"runs (CLI: --runs): the manifest {path} cannot be read as JSON: {error}. "
-            "No row of it can be shown; restore it with `pyfs-matrix restore runs`."
+            "No row of it can be shown; restore it with `pyfs-workspace restore runs`."
         ) from error
     if not isinstance(raw, list):
         raise WorkspaceError(f"runs (CLI: --runs): the manifest {path} is not a list of rows")

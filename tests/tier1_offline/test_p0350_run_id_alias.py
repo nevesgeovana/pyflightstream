@@ -19,9 +19,10 @@ from __future__ import annotations
 import json
 import re
 
-from pyflightstream.run import cli
 from pyflightstream.workspace import RunRecord, RunStatus
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_p0340_run_usability import (
     _argv,
     _names,
@@ -64,7 +65,7 @@ def test_p0440_failure_alias_requires_a_structural_simulation_folder():
 def _aliases(capsys, workspace, matrix):
     """Plan through main and return {alias: point name} the plan prints."""
     capsys.readouterr()
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     return {alias: name for alias, _sim, name in _ALIAS_LINE.findall(capsys.readouterr().out)}
 
 
@@ -118,7 +119,9 @@ def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
     found = _aliases(capsys, workspace, matrix)
     assert [found[f"5001_{index}"] for index in (1, 2, 3)] == names
     capsys.readouterr()
-    assert cli.main(["mark-failed", "--sims", "5001_3", "--workspace", str(workspace.root)]) == 0
+    assert (
+        workspace_main(["mark-failed", "--sims", "5001_3", "--workspace", str(workspace.root)]) == 0
+    )
     # 0.40.0 (PFS-2103.009): the job's third point alone, by its own run id.
     out = capsys.readouterr().out
     assert f"warm/sim_5001/{names[2]}" in out and f"warm/sim_5001/{names[0]}" not in out
@@ -128,13 +131,13 @@ def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, cap
     """P0350-RUN-ID-ALIAS (FR-794): ``--points 5002_2`` plans that point alone, no ``--sims``."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
-    assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_2")) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix, "--points", "5002_2")) == 0
     planned = json.dumps(
         json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8"))["points"]
     )
     assert names[1] in planned and names[0] not in planned and "5001" not in planned, planned
     capsys.readouterr()
-    assert cli.main(_argv("plan", workspace, matrix, "--sims", "5001", "--points", "5002_2")) == 2
+    assert pyfs_main(_argv("plan", workspace, matrix, "--sims", "5001", "--points", "5002_2")) == 2
     assert "5002" in capsys.readouterr().err
 
 
@@ -144,10 +147,12 @@ def test_fr395_an_alias_that_names_no_point_is_named_on_standard_error(
     """P0350-RUN-ID-ALIAS (FR-797): index 9 of a three-point polar is refused by name."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     capsys.readouterr()
-    assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_9")) == 2
+    assert pyfs_main(_argv("plan", workspace, matrix, "--points", "5002_9")) == 2
     assert "5002_9" in capsys.readouterr().err
     _record_points(workspace, "5002", _names(workspace, matrix, "5002"))
-    assert cli.main(["mark-failed", "--sims", "5002_9", "--workspace", str(workspace.root)]) == 2
+    assert (
+        workspace_main(["mark-failed", "--sims", "5002_9", "--workspace", str(workspace.root)]) == 2
+    )
     assert "5002_9" in capsys.readouterr().err
 
 
@@ -155,11 +160,11 @@ def test_fr395_mark_failed_marks_the_point_of_the_alias_alone(tmp_path, monkeypa
     """P0350-RUN-ID-ALIAS (FR-794): the control is an alias both readings agree on."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", names)
     capsys.readouterr()
     argv = ["mark-failed", "--sims", "5002_2", "--workspace", str(workspace.root), "--apply"]
-    assert cli.main(argv) == 0
+    assert pyfs_main(argv) == 0
     status = {row["run_id"]: row["status"] for row in _read_record_rows(workspace.manifest_path)}
     assert status[f"warm/sim_5002/{names[1]}"] == "FAILED_MARKED"
     assert status[f"warm/sim_5002/{names[0]}"] == "CONVERGED"
@@ -176,12 +181,12 @@ def test_fr395_a_destructive_verb_refuses_an_alias_the_two_readings_disagree_on(
     """
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", [names[1]])
     before = workspace.manifest_path.read_bytes()
     capsys.readouterr()
     argv = ["mark-failed", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"]
-    assert cli.main(argv) == 2
+    assert pyfs_main(argv) == 2
     err = capsys.readouterr().err
     assert names[0] in err and names[1] in err and "5002_1" in err, err
     assert workspace.manifest_path.read_bytes() == before
@@ -191,12 +196,16 @@ def test_fr395_delete_sims_refuses_an_alias_and_names_the_simulation(tmp_path, m
     """P0350-RUN-ID-ALIAS (FR-794): a partial alias is refused, never read as the whole."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", names)
     capsys.readouterr()
-    assert cli.main(["delete-sims", "--sims", "5002_2", "--workspace", str(workspace.root)]) == 2
+    assert (
+        workspace_main(["delete-sims", "--sims", "5002_2", "--workspace", str(workspace.root)]) == 2
+    )
     assert "5002" in capsys.readouterr().err
-    assert cli.main(["delete-sims", "--sims", "5002", "--workspace", str(workspace.root)]) == 0
+    assert (
+        workspace_main(["delete-sims", "--sims", "5002", "--workspace", str(workspace.root)]) == 0
+    )
 
 
 def test_p0420_delete_sims_and_rebuild_read_every_alias_of_a_simulation_as_that_simulation(
@@ -211,13 +220,15 @@ def test_p0420_delete_sims_and_rebuild_read_every_alias_of_a_simulation_as_that_
 
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", names)
     every = [f"5002_{n}" for n in range(1, len(names) + 1)]
     assert split_typed_ids(every, workspace.root, whole_only=True) == (["5002"], {})
     assert split_typed_ids(["5002", every[0]], workspace.root, whole_only=True) == (["5002"], {})
     capsys.readouterr()
-    code = cli.main(["delete-sims", "--sims", ",".join(every), "--workspace", str(workspace.root)])
+    code = workspace_main(
+        ["delete-sims", "--sims", ",".join(every), "--workspace", str(workspace.root)]
+    )
     said = capsys.readouterr()
     assert code == 0 and "5002" in said.out and "5001" not in said.out
 
@@ -229,7 +240,7 @@ def test_p0420_a_selection_naming_part_of_a_simulation_is_refused_with_its_point
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert len(names) > 1
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", names)
     before = workspace.manifest_path.read_bytes()
     for argv in (
@@ -237,7 +248,7 @@ def test_p0420_a_selection_naming_part_of_a_simulation_is_refused_with_its_point
         ["rebuild", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
     ):
         capsys.readouterr()
-        assert cli.main(argv) == 2, argv
+        assert pyfs_main(argv) == 2, argv
         err = capsys.readouterr().err
         assert "simulation 5002" in err and all(name in err for name in names), err
         assert "5002_1" in err and "Nothing was done" in err

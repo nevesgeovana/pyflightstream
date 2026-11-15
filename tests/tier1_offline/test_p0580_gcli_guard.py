@@ -1,4 +1,4 @@
-"""PFS-2260 guard: no source, page, guide or requirement row names a moved geometry command.
+"""PFS-2260 and PFS-2261 guard: no source, page, guide or requirement row names a moved command.
 
 The geometry group of ``pyfs-workspace`` and the four ``pyfs-matrix`` mesh verbs are refused
 since 0.58.0, so a message, a page or a cheatsheet line that still tells a user to type one
@@ -28,11 +28,17 @@ _MOVED = (
     "mark-boundaries|export-surface-mesh|build|accept|from-sidecar|iges-convert|beam"
 )
 
+#: The records, storage and query verbs pyfs-workspace holds since 0.58.0 (PFS-2261).
+_RECORDS = (
+    "space-in-use|free-space|delete-sims|sync|restore|rebuild|mark-failed|mark-converged|"
+    "search-log-batch|show|log|trace|history|diff"
+)
+
 #: The old spellings: the group with or without a verb, the four pyfs-matrix mesh verbs, and
 #: the short ``geometry <verb>`` a code span or a cheatsheet entry writes as a command.
 _OLD = re.compile(
     r"pyfs-workspace\s+geometry\b"
-    r"|pyfs-matrix\s+(?:refine|audit-mesh|inventory|degenerate)(?![\w-])"
+    r"|pyfs-matrix\s+(?:refine|audit-mesh|inventory|degenerate|" + _RECORDS + r")(?![\w-])"
     r"|(?:`{1,2}|\\sub\{|\\cmd\{|\\code\{|\\pyfs\{)geometry\s+(?:" + _MOVED + r")(?![\w-])"
 )
 
@@ -73,7 +79,7 @@ def test_p0580_no_file_names_a_moved_geometry_command():
 def test_p0580_the_guard_sees_each_old_spelling():
     planted = (
         "run `pyfs-workspace geometry refine wing.obj 2`; "
-        "pyfs-matrix audit-mesh wing.obj; "
+        "pyfs-matrix audit-mesh wing.obj; pyfs-matrix sync runs; "
         r"\sub{geometry inventory <geometry>}{...}; "
         "``geometry beam``; "
         "pyfs-workspace geometry --help"
@@ -81,6 +87,7 @@ def test_p0580_the_guard_sees_each_old_spelling():
     assert _old_forms(planted) == [
         "pyfs-workspace geometry",
         "pyfs-matrix audit-mesh",
+        "pyfs-matrix sync",
         r"\sub{geometry inventory",
         "``geometry beam",
         "pyfs-workspace geometry",
@@ -88,6 +95,8 @@ def test_p0580_the_guard_sees_each_old_spelling():
     for new in (
         "pyfs-mesh refine",
         "pyfs-matrix plan",
+        "pyfs-matrix status",
+        "pyfs-workspace sync",
         "a geometry build of a body",
         "pyfs-geom iges-convert",
         "`pyfs-mesh audit`",

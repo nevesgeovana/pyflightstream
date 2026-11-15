@@ -14,12 +14,12 @@ from zipfile import ZipFile
 
 import pytest
 
-from pyflightstream.run.cli import main
 from pyflightstream.workspace import RunRecord, RunStatus
 from pyflightstream.workspace.ledger import read_ledger
 from pyflightstream.workspace.record_document import encode_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import STORAGE_SCHEMA
+from tests.tier1_offline._geometry_verbs import main
 
 RUN = "synthetic/sim_9101/A0"
 PRODUCT = "post/demo/polars/polar.csv"

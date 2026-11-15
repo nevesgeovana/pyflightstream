@@ -20,12 +20,12 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.run import _cli_print
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import StorageError
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_goal035_storage import _linked_sim, _sync_pair, _write
 from tests.tier1_offline.test_goal035_storage import _record as _storage_record
 
@@ -148,9 +148,9 @@ def test_cli_force_flag_reaches_the_library(tmp_path):
     # Verifies FR-306.
     workspace = _workspace(tmp_path)
     args = ["delete-sims", "--sims", "6001", "--workspace", str(workspace.root)]
-    assert matrix_cli.main([*args, "--apply"]) != 0
+    assert pyfs_main([*args, "--apply"]) != 0
     assert workspace.sim_dir("6001").exists()
-    assert matrix_cli.main([*args, "--force", "--apply"]) == 0
+    assert pyfs_main([*args, "--force", "--apply"]) == 0
     assert not workspace.sim_dir("6001").exists()
 
 

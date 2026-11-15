@@ -177,7 +177,7 @@ its copy lies in an archive. Archiving is deliberately safe here (it
 refuses to overwrite an existing archive, and refuses to touch a
 simulation the manifest does not record), so the zip under `archive/` is
 where to look, and the refusal names both `sims/sim_<id>.zip` and
-`archive/`. A simulation that `pyfs-matrix free-space` compacted into
+`archive/`. A simulation that `pyfs-workspace free-space` compacted into
 `sims/sim_<id>.zip` is not refused: `reconstruct` expands it in place
 first, as `post` and `collect` do, and reads it as if it had never been
 compacted.

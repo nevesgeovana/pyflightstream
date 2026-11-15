@@ -268,7 +268,7 @@ def grouped_facts(facts: dict[str, Any], grouped: GroupedPoint | None) -> str | 
         return (
             f"its files are still in the batch folder {where} and no plan receipt "
             "(post/<matrix>/plan.json) names its job, so collect could not move them home; "
-            f"{said}restore the plan receipt (CLI: pyfs-matrix restore plan --matrix STEM) and "
+            f"{said}restore the plan receipt (CLI: pyfs-workspace restore plan --matrix STEM) and "
             "rebuild again"
         )
     facts.setdefault(

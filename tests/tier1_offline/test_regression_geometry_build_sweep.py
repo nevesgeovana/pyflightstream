@@ -77,6 +77,7 @@ from pyflightstream.workspace._geometry_instruction import read_geometry_instruc
 from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._settings_file import read_workspace_settings
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.hpc import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.record_document import encode_rows
@@ -85,6 +86,7 @@ from tests.support_matrix_layout import current_layout
 from tests.tier1_offline._docs_site import (
     requirements_text,
 )
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_matrix_run import RECIPES as _RFIXG_RECORD__RECIPES
 from tests.tier1_offline.test_matrix_run import make_library as _rfixg_record__make_library
 from tests.tier1_offline.test_matrix_run import write_matrix as _rfixg_record__write_matrix
@@ -1722,7 +1724,7 @@ class TestSweep1Cli:
     def test_p0400_failure_alias_caller(tmp_path, monkeypatch, capsys):
         """P0400-SWEEP-FAILURE-CALLER: the CLI gives the alias reader its workspace."""
         workspace, matrix, _ = _sweep_1_cli___two_simulations(tmp_path, monkeypatch)
-        assert cli.main(_sweep_1_cli___argv("plan", workspace, matrix)) == 0
+        assert pyfs_main(_sweep_1_cli___argv("plan", workspace, matrix)) == 0
         capsys.readouterr()
         point = SimpleNamespace(
             sim_id="5002",
@@ -1736,7 +1738,7 @@ class TestSweep1Cli:
         monkeypatch.setattr(
             cli, "failure_alias_lines", lambda failures, rows, root=None: roots.append(root) or []
         )
-        assert cli.main(_sweep_1_cli___argv("run", workspace, matrix)) == 2
+        assert pyfs_main(_sweep_1_cli___argv("run", workspace, matrix)) == 2
         capsys.readouterr()
         assert roots == [workspace.root]
 
@@ -1759,7 +1761,7 @@ class TestSweep1Cli:
         ]
         (tmp_path / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
         assert (
-            cli.main(
+            workspace_main(
                 [
                     "mark-failed",
                     "--workspace",

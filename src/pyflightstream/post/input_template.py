@@ -822,7 +822,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
     TemplateSection(
         heading="Storage recipe, `inputs/management/m<id>.toml`",
         intro=(
-            "Optional: what `pyfs-matrix free-space m001 --workspace . --apply` runs. "
+            "Optional: what `pyfs-workspace free-space m001 --workspace . --apply` runs. "
             "Up to four tables, each a list of steps run in this order."
         ),
         examples=(

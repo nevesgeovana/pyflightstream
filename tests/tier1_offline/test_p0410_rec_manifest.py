@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from pyflightstream.workspace.cli import main as workspace_main
 
 
 def _record(run_id="run-1", **changes):
@@ -339,12 +340,11 @@ def test_p0410_rec_mark_transition_replaces_manifest_once(tmp_path, monkeypatch,
 
 
 def test_p0410_rec_show_resolves_historical_definitions(tmp_path, capsys):
-    from pyflightstream.run.cli import main
 
     ws = CampaignWorkspace(tmp_path)
     record = _record("sample/sim_1/a", fs_build="1234")
     ws.append_record(record)
-    assert main(["show", record.run_id, "--workspace", str(tmp_path), "--json"]) == 0
+    assert workspace_main(["show", record.run_id, "--workspace", str(tmp_path), "--json"]) == 0
     document = json.loads(capsys.readouterr().out)["rows"][0]
     assert "record" in document
     assert document["record"]["solver_setup"] == record.solver_setup

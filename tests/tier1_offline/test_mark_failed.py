@@ -17,12 +17,13 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.run import _record_files as records_module
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import worse_of
 from pyflightstream.run.records import RunsManifestError, mark_failed
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import delete_sims
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 
 
 def _record(sim_id: str, run_id: str, status: RunStatus) -> RunRecord:
@@ -189,11 +190,11 @@ def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
     # Verifies FR-309.
     workspace = _workspace(tmp_path)
     args = ["mark-failed", "--sims", "[2006,2008]", "--workspace", str(workspace.root)]
-    assert matrix_cli.main(args) == 0
+    assert pyfs_main(args) == 0
     out = capsys.readouterr().out
     assert "would mark FAILED_MARKED: sim 2008 camp/sim_2008/AL+000 (was CONVERGED)" in out
     assert "preview: nothing was written" in out
-    assert matrix_cli.main([*args, "--reason", "bad wake", "--apply"]) == 0
+    assert pyfs_main([*args, "--reason", "bad wake", "--apply"]) == 0
     out = capsys.readouterr().out
     assert "marked FAILED_MARKED: sim 2006 camp/sim_2006/AL+005 (was COMPLETED_MAX_ITER)" in out
     assert "runs.json as it was: archive/runs-" in out
@@ -201,7 +202,7 @@ def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
         "FAILED_MARKED"
     }
     assert (
-        matrix_cli.main(["mark-failed", "--sims", "9999", "--workspace", str(workspace.root)]) == 2
+        workspace_main(["mark-failed", "--sims", "9999", "--workspace", str(workspace.root)]) == 2
     )
     assert "9999" in capsys.readouterr().err
 

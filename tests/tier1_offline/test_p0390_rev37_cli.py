@@ -9,6 +9,7 @@ assertion of ``test_p0370_s1_sims_shapes.py``.)
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -86,7 +87,7 @@ def test_listed_sims_reads_blank_and_comma_forms_alike(value):
 def _body(result):
     """The exit code and what the command said before its banner (which echoes the log name)."""
     code, said = result
-    return code, said.split("pyfs-matrix ", 1)[0]
+    return code, re.split(r"pyfs-(?:matrix|workspace) ", said, maxsplit=1)[0]
 
 
 def _named(text: str) -> list[str]:

@@ -93,6 +93,7 @@ from pyflightstream.run._cli_parsers import (
     cmd_search_log_batch,
     collect_interval_error,
     parsed,
+    records_parser,
     resume_hint,
     watch_interval_error,
 )
@@ -248,11 +249,41 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
-    # A removed command (the mesh verbs, PFS-2260) is named past the global flags.
-    removed = refused_command("pyfs-matrix", argv)
+    # A removed command (the mesh verbs, PFS-2260; the records, storage and query verbs and
+    # their flag form, PFS-2261) is named past the global flags.
+    removed = refused_command("pyfs-matrix", _storage_flag_form(argv))
     if removed or _refused_campaign_file(argv) or _refused_sweep_csv(argv):
         return 2
-    parser = _build_parser()
+    return _run_command("pyfs-matrix", _build_parser(), argv)
+
+
+@cli_entrypoint
+def _records_main(argv: list[str] | None = None) -> int:
+    """Run a records, storage or query verb of ``pyfs-workspace``.
+
+    Through the same steps as the ``pyfs-matrix`` verbs: the flag form of the storage
+    verbs, the workspace's settings files (FR-436), the two homes of a ``--matrix``
+    argument (FR-310), the ``--runs`` check and the live log of ``sync``, ``restore``,
+    ``free-space`` and ``delete-sims``. ``pyfs-workspace`` hands its command
+    line here, before parsing, when the command is one of
+    :data:`~pyflightstream.run._cli_parsers.WORKSPACE_VERBS`.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The ``pyfs-workspace`` command line without the program name; None reads
+        ``sys.argv``.
+
+    Returns
+    -------
+    int
+        The exit code of the verb.
+    """
+    return _run_command("pyfs-workspace", records_parser(), argv)
+
+
+def _run_command(program: str, parser: argparse.ArgumentParser, argv: list[str] | None) -> int:
+    """Parse ``argv`` with ``parser`` and run the command, the console opened for ``program``."""
     # FR-436: what the command line does not state, the workspace files may.
     args = parsed(parser, _storage_flag_form(argv))
     # Console contract (FR-200 to FR-204): titled opening, final warnings,
@@ -260,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     with (
         option_context("warning_refusals", args.warning_refusals),
         command_console(
-            "pyfs-matrix",
+            program,
             args.subcommand,
             what=command_help(parser, [args.subcommand]),
             workspace=getattr(args, "workspace", None),

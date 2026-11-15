@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.run import _cli_print
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 
 RECIPE = """
@@ -79,7 +79,7 @@ def _workspace(tmp_path: Path, name: str = "camp") -> CampaignWorkspace:
 
 def _run(workspace: CampaignWorkspace, capsys, *extra: str) -> str:
     capsys.readouterr()
-    code = matrix_cli.main(["free-space", "m001", "--workspace", str(workspace.root), *extra])
+    code = workspace_main(["free-space", "m001", "--workspace", str(workspace.root), *extra])
     assert code == 0
     return capsys.readouterr().out
 

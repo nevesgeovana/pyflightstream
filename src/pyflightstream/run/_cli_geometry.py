@@ -21,6 +21,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from pyflightstream._cli import register_delegated_commands
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream._progress import command_console
 from pyflightstream.commands import CommandNotInVersionError
@@ -1041,8 +1042,17 @@ HANDLERS: dict[str, Any] = {
 
 
 def _registered() -> None:
-    """Register ``beam`` into ``pyfs-fsi`` (module import does it once)."""
+    """Register ``beam`` into ``pyfs-fsi`` and the records verbs into ``pyfs-workspace``.
+
+    Module import does it once. The records, storage and query verbs (PFS-2261) are parsed
+    and run by :func:`pyflightstream.run.cli._records_main`, named here and imported when
+    one is listed or run.
+    """
     register_fsi_command("beam", _add_beam, _cmd_beam)
+    register_delegated_commands(
+        "pyflightstream.run._cli_parsers:records_parser",
+        "pyflightstream.run.cli:_records_main",
+    )
 
 
 _registered()

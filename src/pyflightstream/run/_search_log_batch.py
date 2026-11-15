@@ -231,7 +231,7 @@ def add_search_log_batch_parser(subparsers: Any) -> None:
 
 
 def cmd_search_log_batch(args: argparse.Namespace) -> int:
-    """Run ``pyfs-matrix search-log-batch`` and print what it did, or would do."""
+    """Run ``pyfs-workspace search-log-batch`` and print what it did, or would do."""
     from pyflightstream.run._alias import listed_ids
 
     try:

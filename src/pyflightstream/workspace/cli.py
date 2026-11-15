@@ -82,7 +82,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._cli import cli_entrypoint, refused_command
+from pyflightstream._cli import add_delegated, cli_entrypoint, delegated_entry, refused_command
 from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_help
 from pyflightstream._digest import file_sha256
 from pyflightstream._progress import command_console, say_summary
@@ -297,8 +297,11 @@ def _build_parser() -> argparse.ArgumentParser:
     _excel.add_excel_actions(excel)
     for _, add, _ in _COMMAND_GROUPS:
         add(subparsers)
+    add_delegated(subparsers)
     for leaf in _leaf_parsers(parser):
-        if not any(action.dest == "log_level" for action in leaf._actions):
+        # A delegated command keeps exactly the options its own parser gives it.
+        delegated = leaf._defaults.get("delegated", False)
+        if not delegated and not any(action.dest == "log_level" for action in leaf._actions):
             add_console_arguments(
                 leaf, "print every value taken from the settings files and more detail"
             )
@@ -651,6 +654,9 @@ def main(argv: list[str] | None = None) -> int:
     # A removed form (the geometry group, PFS-2260) names its new command before parsing.
     if refused_command("pyfs-workspace", argv):
         return 2
+    # The records, storage and query verbs run through the pyfs-matrix pipeline (PFS-2261).
+    if (entry := delegated_entry(argv)) is not None:
+        return entry(argv)
     parser = _build_parser()
     args = parser.parse_args(argv)
     _take_the_console_level(args)

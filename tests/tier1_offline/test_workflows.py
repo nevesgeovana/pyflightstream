@@ -133,7 +133,6 @@ from pyflightstream.post.unsteady import (
 )
 from pyflightstream.run import PlanStatus
 from pyflightstream.run._actions_counter import render_count_program, render_program
-from pyflightstream.run.cli import main
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import (
     CommandArgumentError,
@@ -147,6 +146,7 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 from tests.support_tier3 import read_golden
+from tests.tier1_offline._geometry_verbs import main
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 from tests.tier1_offline.test_fsm_saved_actions import (
     ACTIONS as _FR313_PLAN_GEOMETRY_WARNING__ACTIONS,

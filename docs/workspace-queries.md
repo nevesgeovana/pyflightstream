@@ -60,14 +60,14 @@ their digests.
 
 Every query verb writes no file and takes no lock.
 
-`pyfs-matrix history 2006 --workspace campaign` prints the recorded attempts
+`pyfs-workspace history 2006 --workspace campaign` prints the recorded attempts
 of simulation 2006. A point name or a full run id narrows the selection.
 Each row keeps its source, archive stamp, status and continuation link.
 Present records, archived manifests and record documents in datapoint archives
 remain distinguishable. Identical records in different sources remain separate
 history rows.
 
-`pyfs-matrix diff sample/sim_2006/A0@20261001-120000 sample/sim_2006/A0 --workspace campaign`
+`pyfs-workspace diff sample/sim_2006/A0@20261001-120000 sample/sim_2006/A0 --workspace campaign`
 compares an archived run with its current record. A stamp includes a collision
 suffix when the archive has one. An absent or ambiguous selector is an error.
 The comparison reports changed fields, including versions, digests, solver flags,

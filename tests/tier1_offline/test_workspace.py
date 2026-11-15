@@ -27,6 +27,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace.cli import main as workspace_cli
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.inputs import resolve_build
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._workflow_docs import workflow_docs_text
@@ -3121,15 +3122,14 @@ def query_workspace(tmp_path):
 
 
 def test_x_f_1309_a_truncated_query_record_names_its_file(query_workspace, capsys):
-    from pyflightstream.run.cli import main
     from tests.tier1_offline.test_p0350_query_point import PRODUCT
 
     provenance = query_workspace / "post" / "demo" / "provenance" / "A0.prov.json"
     provenance.write_text('{"a": ', encoding="utf-8")
-    assert main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) != 0
+    assert workspace_main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) != 0
     assert "A0.prov.json: not readable JSON" in capsys.readouterr().err
     provenance.unlink()
-    assert main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) == 0
+    assert workspace_main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) == 0
     capsys.readouterr()
 
 

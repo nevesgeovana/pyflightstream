@@ -17,7 +17,7 @@ simulations a record names. The preview prints:
 "Without a record" names every folder main holds, or will hold once the
 sync is applied, that no record of the merged manifest carries: typically
 folders copied by hand from a cluster. A folder whose simulation was
-deleted with `pyfs-matrix delete-sims` is accounted for by its note and is
+deleted with `pyfs-workspace delete-sims` is accounted for by its note and is
 not listed, and neither is a simulation of the other workspace that the
 level does not bring (a compacted one below `all`, or a folder holding
 nothing the level copies): it is counted in the other workspace only.
@@ -27,14 +27,14 @@ nothing the level copies): it is counted in the other workspace only.
 The sync never writes a record it did not merge unless asked:
 
 ```text
-pyfs-matrix sync runs --workspace .                     # preview: lists the folders
-pyfs-matrix sync runs --workspace . --restore           # preview: says they would be restored
-pyfs-matrix sync runs --workspace . --restore --apply   # copies, then rebuilds their records
+pyfs-workspace sync runs --workspace .                     # preview: lists the folders
+pyfs-workspace sync runs --workspace . --restore           # preview: says they would be restored
+pyfs-workspace sync runs --workspace . --restore --apply   # copies, then rebuilds their records
 ```
 
 With `--restore --apply`, once the files are copied and the `runs.json`
 lease is released, the sync rebuilds the records of those folders through
-`pyfs-matrix rebuild`, which proves each record and marks it `REBUILT`.
+`pyfs-workspace rebuild`, which proves each record and marks it `REBUILT`.
 A refusal of the rebuild is printed and recorded in `storage_management.json`; the files the sync
 copied stand. `--restore` is refused with `--runs` naming another
 manifest, because the rebuild appends to `runs.json` only.
@@ -63,14 +63,14 @@ its replacement is whole.
 ## One writer at a time
 
 The sync holds the `runs.json` lease (`runs.json.lock`) from the merge of
-the records to the end of the copy. A `pyfs-matrix restore` refuses while
+the records to the end of the copy. A `pyfs-workspace restore` refuses while
 the lease is held, and a run, a collect or another sync waits for it or is
 refused. A sync started while the lease is held is refused.
 
 ## Another manifest: `--runs NAME`
 
 `sync`, `free-space` and `delete-sims` take `--runs NAME`, a JSON file
-directly in the workspace root, such as one `pyfs-matrix rebuild --out`
+directly in the workspace root, such as one `pyfs-workspace rebuild --out`
 wrote:
 
 | command | what `--runs NAME` does |

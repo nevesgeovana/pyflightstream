@@ -14,7 +14,7 @@
 \textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix, pyfs-workspace or pyfs-mesh restores demoted refusals.\\[1pt]
 \textbf{Console warnings:} \fl{--warning-off} before any subcommand of every program hides warnings, keeping logs and other output. Matrix and workspace also read \texttt{[log] warnings = false}; Python uses \texttt{console\_warnings}. Strict refusals still raise.\\[1pt]
 \textbf{Typical flow:} \cmd{pyfs-mesh inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
-\textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
+\textbf{Safe by default:} the pyfs-workspace storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
 \vspace{-3pt}
 % Page 1 holds every subcommand and option of pyfs-matrix: four columns at a
@@ -109,32 +109,6 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--additional} lists the additional register; \fl{--points} one row per datapoint \quad \fl{--json} \quad \fl{--csv} \quad \fl{--workspace}, \fl{--runs NAME}
 \end{flags}
 
-\sub{show <run id or alias>}{outcome first, then evidence tails, logs, continuation chain, identity and inputs; coupled points also show the FSI record and last exchange row}
-\begin{flags}
-\item \cmd{pyfs-matrix show} \texttt{9101\_1}; a simulation id alone lists its points and failed cards; \fl{--point NAME} selects one
-\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
-\end{flags}
-\sub{log}{read recorded activity oldest first, including running batches and compacted simulations}
-\begin{flags}
-\item \cmd{pyfs-matrix log} \fl{--sims IDS} \fl{--run ID} \fl{--stage NAME} \fl{--since 2h} \fl{--problems} \fl{--open}
-\item \fl{--post MATRIX}: groups by category, product family and message shape, with counts and examples; \fl{--sims IDS} narrows them
-\item \fl{--storage}: storage calls as recorded; \fl{--stage} selects the recorded action
-\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}; \fl{--since} also accepts an ISO time
-\end{flags}
-\sub{trace <product path>}{follow the products index to the simulation, post options, effective run identities, digests and provenance paths}
-\begin{flags}
-\item \cmd{pyfs-matrix trace} \texttt{post/demo/polars/polar.csv}; or \fl{--run ID} for the provenance tree (aliases accepted)
-\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
-\end{flags}
-\sub{history <simulation or point>}{\texttt{pyfs-matrix history} reads every present and archived record, its continuation and archive stamp; batch folders and compacted simulations are read in place}
-\begin{flags}
-\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}
-\end{flags}
-\sub{diff <run-a> <run-b>}{\texttt{pyfs-matrix diff} compares versions, digests, solver flags, flight condition and outcome; \texttt{run-id@<archive stamp>} selects an archived copy; script differences name lines and inputs}
-\begin{flags}
-\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}; reads only, writes nothing
-\end{flags}
-
 \stage{5. POST-PROCESS (NO SOLVER, NO SEAT)}
 \sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Overwrite in place by default; \fl{--archive} keeps replaced products}
 \begin{flags}
@@ -155,69 +129,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{noise <matrix>}{rebuild exploratory loading-noise products and list comparisons}
 \fl{--workspace ROOT}, \fl{--sims IDS}, \fl{--overwrite}, \fl{--verbose}, \fl{--log-level LEVEL}.
 
-\stage{6. SYNC WORKSPACES (E.G. CLUSTER TO WINDOWS)}
-\sub{sync \{runs|post|fsm|all\}}{run on the MAIN workspace; peers in \texttt{inputs/sync-workspaces.toml}; levels cumulative, runs $<$ post $<$ fsm $<$ all. Nothing in main is deleted; \texttt{inputs/} untouched but a declared matrix}
-\begin{flags}
-\item \fl{--apply} change files (default: preview)
-\item \fl{--from NAME} one peer (default: every non-main one)
-\item \fl{--prefer-other} on a record conflict take the peer's (default: main wins)
-\item \fl{--overwrite} on a file conflict archive main's copy and take the peer's
-\item \fl{--restore} with \fl{--apply}: rebuild records of \texttt{sims/} folders no record carries
-\item \fl{--include-archives} also bring \texttt{archive} folders (skipped by default)
-\item \fl{--workspace}, \fl{--runs NAME}
-\end{flags}
-
-\stage{7. RECOVER AND MARK RECORDS}
-\sub{restore \{runs|storage|products|plan|additional\}}{restore a file from \texttt{archive/}}
-\begin{flags}
-\item \fl{--apply} (default: preview) \quad \fl{--stamp STAMP} archive to restore from
-\item \fl{--matrix STEM} for products and plan, when several matrices have archives
-\item \fl{--workspace}
-\end{flags}
-\sub{rebuild}{rebuild run records from the folders under \texttt{sims/}}
-\begin{flags}
-\item \fl{--apply} (default: preview) \quad \fl{--out NAME} write records to another manifest (compare before replacing)
-\item \fl{--all-sims} every simulation folder, recorded or not \quad \fl{--sims 4001,2009} only these
-\item \fl{--matrix FILE} the matrix the simulations ran from
-\item \fl{--build-alias BUILD=ALIAS} scheduler name of a build (repeatable), e.g. \texttt{26.124=26.12}
-\item \fl{--inputs-from FOLDER} another origin's \texttt{inputs/} for inputs changed after the run
-\item \fl{--workspace}
-\end{flags}
-\sub{mark-failed}{every record of the named simulations becomes FAILED\_MARKED, its old status kept under \texttt{marked}; \texttt{runs.json} archived first}
-\begin{flags}
-\item \fl{--sims 2006,2007} the simulations \quad \fl{--reason TEXT} why, recorded as given
-\item \fl{--points P1,P2} only these points within the selected simulations
-\item \fl{--apply} (default: preview) \quad \fl{--workspace}
-\end{flags}
-\sub{mark-converged}{the named points become CONVERGED by your reading, their old status kept under \texttt{marked}; \texttt{runs.json} archived first}
-\begin{flags}
-\item \fl{--sims 2006 2007} \quad \fl{--points AL+020} only these points \quad \fl{--reason TEXT} \quad \fl{--apply} \quad \fl{--workspace}
-\end{flags}
-\sub{search-log-batch}{writes the log of a batch point that has every other file, cut from the job's master log; \texttt{runs.json} untouched, then \texttt{collect} judges the point}
-\begin{flags}
-\item \fl{--sims 2006 2007} only these \quad \fl{--master FILE} the master log in the job folder (several candidates are named, nothing written) \quad \fl{--apply} (default: preview) \quad \fl{--workspace}
-\end{flags}
-
-\stage{8. DISK SPACE (EVERY CALL LOGGED IN storage\_management.json)}
-\sub{space-in-use}{sizes by top folder, by \texttt{sims/sim\_*}, by extension; changes nothing}
-\begin{flags}
-\item \fl{--top N} rows per grouping (default 15) \quad \fl{--workspace}
-\end{flags}
-\sub{free-space <m-id>}{run storage recipe \texttt{inputs/management/m<id>.toml}: \texttt{prune\_step\_exports}, \texttt{compact\_sims} (zip, restored automatically), \texttt{delete\_extensions}, \texttt{post\_archives}}
-\begin{flags}
-\item \fl{--apply} (default: preview) \quad \fl{--runs NAME} \quad \fl{--workspace}
-\item \fl{--list} every path each step touches, with its size and what happens to it
-\end{flags}
-\sub{delete-sims <ids>}{delete simulations, their products and records, e.g. \texttt{4001,2009}; a note row remains}
-\begin{flags}
-\item \fl{--sims ID [ID ...]} the simulations to delete (required), e.g. \texttt{--sims 4001 2009}
-\item \fl{--apply} (default: preview) \quad \fl{--runs NAME} \quad \fl{--workspace}
-\item \fl{--force} also a simulation whose run is still SUBMITTED (refused without it)
-\item \fl{--matrix-products \{points-only|regenerate\}} for a matrix product that also holds the deleted points: leave it (marked stale) or rerun its post without them
-\item \fl{--archive} archive each simulation before deletion; off by default
-\end{flags}
-
-\vspace{2pt}
+\stage{6 TO 8. SYNC, RECORDS AND DISK SPACE: \texttt{pyfs-workspace}, PAGE 2}
 \begin{tcolorbox}[colback=flag!6,colframe=flag,boxrule=0.3pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 \textbf{Before a licensed run:} \cmd{plan} with \fl{--cost}; read the warnings; \cmd{pyfs-mesh inventory} \fl{--clean} a geometry that carries saved actions. \textbf{Trace:} \texttt{runs.json}, \texttt{plan.json}, \texttt{post/}, \texttt{logs/}.
 \end{tcolorbox}
@@ -233,7 +145,7 @@ See the website's Upgrading page for supported workspace conversion.
 \vspace{-2pt}
 \begin{multicols}{3}
 
-\tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles}
+\tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles, and the records, storage and queries of a workspace: sync, restore, rebuild, mark-failed, mark-converged, search-log-batch, show, log, trace, history, diff, space-in-use, free-space, delete-sims}
 \fl{--warning-refusals} before the subcommand restores demoted refusals.
 \fl{--warning-off} before the subcommand hides console warnings only.
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
@@ -309,6 +221,92 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{profile <shape> [table]}{the actuator-disc profile a row's \texttt{PROFILE} names, \texttt{inputs/profiles/<STEM>.csv}, scaled to \fl{--thrust} or \fl{--ct} \fl{--rho} \fl{--rpm}; ELLIPTICAL needs none. sections: \fl{--pol} \fl{--family} \fl{--component} \fl{--sign} \fl{--last}; bp: \fl{--advance-ratio}; uni, bp: \fl{--stations}; disc: \fl{--ref} \fl{--disc}, or \fl{--tip-radius} \fl{--hub-radius} \fl{--blades}; \fl{--out} \fl{--workspace} \fl{--apply} \fl{--overwrite}}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\sub{show <run id or alias>}{outcome first, then evidence tails, logs, continuation chain, identity and inputs; coupled points also show the FSI record and last exchange row}
+\begin{flags}
+\item \cmd{pyfs-workspace show} \texttt{9101\_1}; a simulation id alone lists its points and failed cards; \fl{--point NAME} selects one
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
+\end{flags}
+\sub{log}{read recorded activity oldest first, including running batches and compacted simulations}
+\begin{flags}
+\item \cmd{pyfs-workspace log} \fl{--sims IDS} \fl{--run ID} \fl{--stage NAME} \fl{--since 2h} \fl{--problems} \fl{--open}
+\item \fl{--post MATRIX}: groups by category, product family and message shape, with counts and examples; \fl{--sims IDS} narrows them
+\item \fl{--storage}: storage calls as recorded; \fl{--stage} selects the recorded action
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}; \fl{--since} also accepts an ISO time
+\end{flags}
+\sub{trace <product path>}{follow the products index to the simulation, post options, effective run identities, digests and provenance paths}
+\begin{flags}
+\item \cmd{pyfs-workspace trace} \texttt{post/demo/polars/polar.csv}; or \fl{--run ID} for the provenance tree (aliases accepted)
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
+\end{flags}
+\sub{history <simulation or point>}{\texttt{pyfs-workspace history} reads every present and archived record, its continuation and archive stamp; batch folders and compacted simulations are read in place}
+\begin{flags}
+\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}
+\end{flags}
+\sub{diff <run-a> <run-b>}{\texttt{pyfs-workspace diff} compares versions, digests, solver flags, flight condition and outcome; \texttt{run-id@<archive stamp>} selects an archived copy; script differences name lines and inputs}
+\begin{flags}
+\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}; reads only, writes nothing
+\end{flags}
+
+\sub{sync \{runs|post|fsm|all\}}{run on the MAIN workspace; peers in \texttt{inputs/sync-workspaces.toml}; levels cumulative, runs $<$ post $<$ fsm $<$ all. Nothing in main is deleted; \texttt{inputs/} untouched but a declared matrix}
+\begin{flags}
+\item \fl{--apply} change files (default: preview)
+\item \fl{--from NAME} one peer (default: every non-main one)
+\item \fl{--prefer-other} on a record conflict take the peer's (default: main wins)
+\item \fl{--overwrite} on a file conflict archive main's copy and take the peer's
+\item \fl{--restore} with \fl{--apply}: rebuild records of \texttt{sims/} folders no record carries
+\item \fl{--include-archives} also bring \texttt{archive} folders (skipped by default)
+\item \fl{--workspace}, \fl{--runs NAME}
+\end{flags}
+
+\sub{restore \{runs|storage|products|plan|additional\}}{restore a file from \texttt{archive/}}
+\begin{flags}
+\item \fl{--apply} (default: preview) \quad \fl{--stamp STAMP} archive to restore from
+\item \fl{--matrix STEM} for products and plan, when several matrices have archives
+\item \fl{--workspace}
+\end{flags}
+\sub{rebuild}{rebuild run records from the folders under \texttt{sims/}}
+\begin{flags}
+\item \fl{--apply} (default: preview) \quad \fl{--out NAME} write records to another manifest (compare before replacing)
+\item \fl{--all-sims} every simulation folder, recorded or not \quad \fl{--sims 4001,2009} only these
+\item \fl{--matrix FILE} the matrix the simulations ran from
+\item \fl{--build-alias BUILD=ALIAS} scheduler name of a build (repeatable), e.g. \texttt{26.124=26.12}
+\item \fl{--inputs-from FOLDER} another origin's \texttt{inputs/} for inputs changed after the run
+\item \fl{--workspace}
+\end{flags}
+\sub{mark-failed}{every record of the named simulations becomes FAILED\_MARKED, its old status kept under \texttt{marked}; \texttt{runs.json} archived first}
+\begin{flags}
+\item \fl{--sims 2006,2007} the simulations \quad \fl{--reason TEXT} why, recorded as given
+\item \fl{--points P1,P2} only these points within the selected simulations
+\item \fl{--apply} (default: preview) \quad \fl{--workspace}
+\end{flags}
+\sub{mark-converged}{the named points become CONVERGED by your reading, their old status kept under \texttt{marked}; \texttt{runs.json} archived first}
+\begin{flags}
+\item \fl{--sims 2006 2007} \quad \fl{--points AL+020} only these points \quad \fl{--reason TEXT} \quad \fl{--apply} \quad \fl{--workspace}
+\end{flags}
+\sub{search-log-batch}{writes the log of a batch point that has every other file, cut from the job's master log; \texttt{runs.json} untouched, then \texttt{collect} judges the point}
+\begin{flags}
+\item \fl{--sims 2006 2007} only these \quad \fl{--master FILE} the master log in the job folder (several candidates are named, nothing written) \quad \fl{--apply} (default: preview) \quad \fl{--workspace}
+\end{flags}
+
+\sub{space-in-use}{sizes by top folder, by \texttt{sims/sim\_*}, by extension; changes nothing}
+\begin{flags}
+\item \fl{--top N} rows per grouping (default 15) \quad \fl{--workspace}
+\end{flags}
+\sub{free-space <m-id>}{run storage recipe \texttt{inputs/management/m<id>.toml}: \texttt{prune\_step\_exports}, \texttt{compact\_sims} (zip, restored automatically), \texttt{delete\_extensions}, \texttt{post\_archives}}
+\begin{flags}
+\item \fl{--apply} (default: preview) \quad \fl{--runs NAME} \quad \fl{--workspace}
+\item \fl{--list} every path each step touches, with its size and what happens to it
+\end{flags}
+\sub{delete-sims <ids>}{delete simulations, their products and records, e.g. \texttt{4001,2009}; a note row remains}
+\begin{flags}
+\item \fl{--sims ID [ID ...]} the simulations to delete (required), e.g. \texttt{--sims 4001 2009}
+\item \fl{--apply} (default: preview) \quad \fl{--runs NAME} \quad \fl{--workspace}
+\item \fl{--force} also a simulation whose run is still SUBMITTED (refused without it)
+\item \fl{--matrix-products \{points-only|regenerate\}} for a matrix product that also holds the deleted points: leave it (marked stale) or rerun its post without them
+\item \fl{--archive} archive each simulation before deletion; off by default
+\end{flags}
+
+\vspace{2pt}
 
 \tool{pyfs-mesh}{every mesh operation and the workspace geometry build, mirroring \texttt{cfd-mesh}: refine, audit, inventory and derive panel meshes, trailing edges, morph, repitch, scale, merge, sector to wheel, IGES and parametric meshing; only \cmd{build}, \cmd{mark-boundaries} and \cmd{export-surface-mesh} with \fl{--apply} run the solver}
 \fl{--warning-refusals} and \fl{--warning-off} before the subcommand, as in pyfs-workspace.

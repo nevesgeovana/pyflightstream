@@ -5,8 +5,9 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.run import _alias
-from pyflightstream.run._cli_parsers import _build_parser, parsed
+from pyflightstream.run._cli_parsers import parsed, records_parser
 from pyflightstream.workspace import CampaignWorkspace, MeshAudit, costs, hpc
+from pyflightstream.workspace.cli import main as workspace_main
 from tests.tier1_offline import _geometry_verbs as cli
 from tests.tier1_offline import test_p0350_run_id_alias as _run_1_cli_query__alias_tests
 from tests.tier1_offline.test_p0390_rev38_mesh_cli import _run as _run_1_cli_mesh___run
@@ -43,7 +44,7 @@ class TestRun1Cli:
         workspace = str(tmp_path)
         for given in ("inputs/matrices/m001.fs", "m001"):
             args = parsed(
-                _build_parser(), ["restore", "plan", "--matrix", given, "--workspace", workspace]
+                records_parser(), ["restore", "plan", "--matrix", given, "--workspace", workspace]
             )
             assert args.matrix == "m001"
 
@@ -133,12 +134,12 @@ class TestRun1CliQuery:
                 _run_1_cli_query__alias_tests._record("2006", f"warm/sim_2006/{tag}")
             )
         root = str(workspace.root)
-        code = cli.main(["show", "2006", "--point", "NOPE", "--workspace", root])
+        code = workspace_main(["show", "2006", "--point", "NOPE", "--workspace", root])
         err = capsys.readouterr().err
         assert code == 1
         assert "'2006'" in err and "'NOPE'" in err and "--run" not in err, err
         assert "AL+000 (2006_1)" in err and "AL+020 (2006_2)" in err, err
-        assert cli.main(["show", "2006", "--point", "AL+020", "--workspace", root]) == 0
+        assert workspace_main(["show", "2006", "--point", "AL+020", "--workspace", root]) == 0
 
 
 _RUN_2_CLI___TRIANGLE_STL = (

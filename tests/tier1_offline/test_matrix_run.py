@@ -52,7 +52,7 @@ from pyflightstream.run import (
     LocalExecutor,
     PlanStatus,
 )
-from pyflightstream.run.cli import _build_parser, main
+from pyflightstream.run.cli import _build_parser
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import helpers
 from pyflightstream.versions import resolve
@@ -79,6 +79,7 @@ from tests.support_helpers import make_library as make_library
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation_with
 from tests.support_helpers import stage_geometry as stage_geometry
 from tests.support_matrix_layout import current_layout
+from tests.tier1_offline._geometry_verbs import main, parser_for
 from tests.tier1_offline.test_excel_sync import blank as _fr310_matrix_homes_all__blank
 from tests.tier1_offline.test_excel_sync import matrix as _fr310_matrix_homes_all__excel_matrix
 
@@ -5825,7 +5826,8 @@ class TestFr310MatrixHomesAll:
             if command in _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE
             else ["--workspace", str(ws)]
         )
-        args = _build_parser().parse_args([*_FR310_MATRIX_HOMES_ALL__ARGV[command], *where])
+        argv = [*_FR310_MATRIX_HOMES_ALL__ARGV[command], *where]
+        args = parser_for(argv).parse_args(argv)
         refused = resolve_matrix_arguments(args)
         value = getattr(args, command[1])
         if layout == "both-different":

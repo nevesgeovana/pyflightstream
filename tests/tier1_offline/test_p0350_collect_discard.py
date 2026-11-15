@@ -9,12 +9,12 @@ import pytest
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import SubmittingExecutor
 from pyflightstream.run._batch_run import run_grouped_matrix
-from pyflightstream.run.cli import main
 from pyflightstream.run.collect import collect_and_post
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.record_document import read_rows
 from tests.support_helpers import grouped_plan_fixture as plan_fixture
+from tests.tier1_offline._geometry_verbs import main
 from tests.tier1_offline.test_matrix_run import HPC_PROFILE
 from tests.tier1_offline.test_matrix_run import converged as run_converged
 from tests.tier1_offline.test_p0350_batch_collect import (

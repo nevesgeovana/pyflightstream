@@ -22,6 +22,8 @@ from pyflightstream import exceptions
 from pyflightstream._errors import ContractNotImplementedError, PyflightstreamError
 from pyflightstream._progress import StageProgress, stage_progress
 from pyflightstream.run import cli, records
+from pyflightstream.workspace.cli import main as workspace_main
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 
 EMPTY = inspect.Parameter.empty
 KW = inspect.Parameter.KEYWORD_ONLY
@@ -182,8 +184,16 @@ def test_the_acoustic_signals_contract():
 
 
 def test_the_cli_registers_restore_and_rebuild_with_their_flags():
-    parser = cli._build_parser()
-    choices = next(action.choices for action in parser._actions if isinstance(action.choices, dict))
+    # PFS-2261: restore, rebuild and the storage verbs are pyfs-workspace's since 0.58.0.
+    from pyflightstream.run._cli_parsers import records_parser
+
+    choices = {
+        name: parser
+        for root in (cli._build_parser(), records_parser())
+        for action in root._actions
+        if isinstance(action.choices, dict)
+        for name, parser in action.choices.items()
+    }
     flags = {
         name: {option for action in choices[name]._actions for option in action.option_strings}
         for name in ("restore", "rebuild")
@@ -206,9 +216,9 @@ def test_the_cli_registers_restore_and_rebuild_with_their_flags():
 
 
 def test_the_records_commands_reach_the_bodies_and_exit_two(tmp_path, capsys):
-    assert cli.main(["restore", "runs", "--workspace", str(tmp_path)]) == 2
+    assert workspace_main(["restore", "runs", "--workspace", str(tmp_path)]) == 2
     assert "no archived copy of runs.json" in capsys.readouterr().err
-    code = cli.main(
+    code = workspace_main(
         ["rebuild", "--workspace", str(tmp_path), "--sims", "4001,2009", "--build-alias", "a=b"]
     )
     assert code == 2
@@ -217,7 +227,7 @@ def test_the_records_commands_reach_the_bodies_and_exit_two(tmp_path, capsys):
 
 def test_rebuild_refuses_a_build_alias_without_its_equals_sign(tmp_path, capsys):
     with pytest.raises(SystemExit) as stop:
-        cli.main(["rebuild", "--workspace", str(tmp_path), "--build-alias", "26.123"])
+        workspace_main(["rebuild", "--workspace", str(tmp_path), "--build-alias", "26.123"])
     assert stop.value.code == 2
     assert "BUILD=ALIAS" in capsys.readouterr().err
 
@@ -234,13 +244,13 @@ def test_runs_name_is_checked_by_resolve_manifest_then_reaches_the_command(
     tmp_path, capsys, command, words
 ):
     base = [*command, "--workspace", str(tmp_path)]
-    assert cli.main([*base, "--runs", "sub/runs.json"]) == 2
+    assert pyfs_main([*base, "--runs", "sub/runs.json"]) == 2
     assert "not a file name" in capsys.readouterr().err
     # Filled by B2 for sync (tests/tier1_offline/test_p0320_sync_matrices.py):
     # the name reaches the command, which refuses tmp_path as no workspace.
     # Filled by B3 for post and collect: a named manifest that is not there is
     # refused by its name (test_p0320_b3_post_records.py reads one that is).
-    assert cli.main([*base, "--runs", "runs-rebuilt.json"]) == 2
+    assert pyfs_main([*base, "--runs", "runs-rebuilt.json"]) == 2
     err = capsys.readouterr().err
     # A valid name passes resolve_manifest (no name refusal) and is refused,
     # if at all, by the command that reads it.

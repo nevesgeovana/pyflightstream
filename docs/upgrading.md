@@ -8,7 +8,7 @@ one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).
 
 A grouped job submitted by an earlier version, on a machine whose profile states
 `[log] export_log = false`, ends without the closing marker line, so its last point has no
-log of its own. `pyfs-matrix search-log-batch` writes the last point's log for such a job.
+log of its own. `pyfs-workspace search-log-batch` writes the last point's log for such a job.
 
 ## 0.58.0 post tree
 
@@ -145,6 +145,24 @@ Only `build`, `mark-boundaries` and `export-surface-mesh` with `--apply` need th
 other `pyfs-mesh` verb runs without one. Scripts that call `pyflightstream.run.mesh_cli.main`,
 `pyflightstream.run.geom_cli.main` or `pyflightstream.fsi.cli.main` take the same argument
 lists without the leading `geometry`.
+
+## The records, storage and query verbs move to pyfs-workspace (0.58)
+
+`pyfs-matrix` keeps the verbs that need a matrix to know what to do, and `status`: `plan`
+(and `inspect-setups`), `run`, `collect`, `post`, `noise`, `visual-inspect`, `support` and
+`status`. The verbs that act on what the workspace already holds, whichever matrix wrote
+it, are `pyfs-workspace`'s, with the same names, arguments, defaults, outputs and exit
+codes; the settings files, the two matrix homes of `--matrix`, the `--runs` check and the
+live log of `sync`, `restore`, `free-space` and `delete-sims` apply as before. Every old
+form, the flag form `pyfs-matrix --workspace W --free-space m001` included, is refused by
+name, naming its new command. Replace the program and keep the rest of the line.
+
+| Old form | Write instead |
+| --- | --- |
+| `pyfs-matrix space-in-use`, `free-space`, `delete-sims`, `sync` | `pyfs-workspace space-in-use`, `free-space`, `delete-sims`, `sync` |
+| `pyfs-matrix --workspace W --free-space m001` (and `--space-in-use`, `--delete-sims`, `--sync`) | `pyfs-workspace --workspace W --free-space m001` |
+| `pyfs-matrix restore`, `rebuild`, `mark-failed`, `mark-converged`, `search-log-batch` | `pyfs-workspace restore`, `rebuild`, `mark-failed`, `mark-converged`, `search-log-batch` |
+| `pyfs-matrix show`, `log`, `trace`, `history`, `diff` | `pyfs-workspace show`, `log`, `trace`, `history`, `diff` |
 
 ## Removed forms (0.58)
 

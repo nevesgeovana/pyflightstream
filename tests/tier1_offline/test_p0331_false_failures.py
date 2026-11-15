@@ -48,12 +48,12 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import MATRIX_COLUMNS
 from pyflightstream.cases.workflows import row_outputs, workflow_registry
 from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run._wake_edge_verdict import collected_solver_log
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_matrix_run import STUB_BODY, make_library
 from tests.tier1_offline.test_raw_mesh_conditions import (
     FILE_ROUTE,
@@ -67,6 +67,7 @@ from tests.tier1_offline.test_raw_mesh_conditions import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
 
 #: The recorded log of point 2 of a steady job: two solves, one import line.
 TWO_SOLVES = FIXTURES / "log_steady_job_two_solves_26.124.txt"
@@ -485,7 +486,7 @@ def _old_record_through_the_commands(workspace, matrix: Path, sim: str, capsys) 
     failed = recorded[sim].count(RunStatus.FAILED_INCOMPLETE_OUTPUT.value)
     assert failed, recorded
 
-    assert matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root)]) == 0
+    assert pyfs_main(["post", str(matrix), "--workspace", str(workspace.root)]) == 0
     post = workspace.root / "post" / matrix.stem
     # 0.58.0: one TOTAL group file per polar, a row per point (the failed ones included).
     polar = post / "polars" / f"P{sim}-TOTAL-ACOEF.csv"
@@ -501,18 +502,18 @@ def _old_record_through_the_commands(workspace, matrix: Path, sim: str, capsys) 
     assert len(warned) == failed, warned
     assert _statuses(workspace) == recorded, "post changed a recorded status"
 
-    assert matrix_cli.main(["collect", "--workspace", str(workspace.root), "--no-post"]) == 0
+    assert pyfs_main(["collect", "--workspace", str(workspace.root), "--no-post"]) == 0
     assert _statuses(workspace) == recorded, "collect changed a recorded status"
 
     capsys.readouterr()
     rebuild = ["rebuild", "--workspace", str(workspace.root), "--out", "rebuilt.json"]
     rebuild += ["--all-sims", "--matrix", str(matrix)]
-    assert matrix_cli.main(rebuild) == 0
+    assert pyfs_main(rebuild) == 0
     said = capsys.readouterr().out.splitlines()
     assert any("0 record(s) rebuilt" in line for line in said), said
     refusals = [line for line in said if line.strip().startswith(f"sim_{sim}: NOT RECOVERABLE")]
     assert len(refusals) == 1, said
-    assert matrix_cli.main([*rebuild, "--apply"]) == 2
+    assert pyfs_main([*rebuild, "--apply"]) == 2
     assert not (workspace.root / "rebuilt.json").exists()
     assert _statuses(workspace) == recorded, "the rebuild changed a recorded status"
     return refusals

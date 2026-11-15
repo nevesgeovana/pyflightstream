@@ -44,6 +44,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from pyflightstream._cli import WORKSPACE_VERBS
 from pyflightstream.cases.settings import ReferenceData
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.fsi import driver
@@ -220,6 +221,10 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # P0340-KILL-P1..P5: a changed default, a dropped choice or a dropped
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
+    # PFS-2261: the records, storage and query verbs left pyfs-matrix for pyfs-workspace,
+    # each action unchanged under the same key.
+    if program == "pyfs-matrix" and key.split("|", 1)[0].split(" ", 1)[0] in WORKSPACE_VERBS:
+        current = _current()["pyfs-workspace"]
     # PFS-2141.031 / N3: only the explicit 0.38.0 workspace migration remains.
     # PFS-2237: `inventory` left pyfs-matrix for `pyfs-mesh inventory`.
     retired = {
@@ -253,7 +258,8 @@ def test_the_comparison_would_see_a_changed_default_and_a_dropped_choice():
 
 def test_the_matrix_parser_parses_the_choices_and_defaults_the_pass_named():
     # P0340-KILL-P2/P4/P5: the surface the golden pins, parsed end to end.
-    parser = _capture_parser("pyflightstream.run.cli")
+    # PFS-2261: these verbs are pyfs-workspace's since 0.58.0.
+    parser = _capture_parser("pyflightstream.workspace.cli")
     assert parser.parse_args(["sync", "fsm"]).level == "fsm"
     deleted = parser.parse_args(["delete-sims", "--sims", "1", "--matrix-products", "regenerate"])
     assert deleted.matrix_products == "regenerate"

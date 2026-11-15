@@ -99,15 +99,15 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-mesh", "origin"): CASE,
     ("pyfs-mesh", "blade_dir"): CASE,
     # 0.35.0 QV1: read-only query subjects and per-invocation filters.
-    ("pyfs-matrix", "target"): SUBJECT,
-    ("pyfs-matrix", "point"): SUBJECT,
-    ("pyfs-matrix", "product"): SUBJECT,
-    ("pyfs-matrix", "run"): SUBJECT,
-    ("pyfs-matrix", "storage"): SWITCH,
-    ("pyfs-matrix", "stage"): SUBJECT,
-    ("pyfs-matrix", "since"): SUBJECT,
-    ("pyfs-matrix", "problems"): SWITCH,
-    ("pyfs-matrix", "open_only"): SWITCH,
+    ("pyfs-workspace", "target"): SUBJECT,
+    ("pyfs-workspace", "point"): SUBJECT,
+    ("pyfs-workspace", "product"): SUBJECT,
+    ("pyfs-workspace", "run"): SUBJECT,
+    ("pyfs-workspace", "storage"): SWITCH,
+    ("pyfs-workspace", "stage"): SUBJECT,
+    ("pyfs-workspace", "since"): SUBJECT,
+    ("pyfs-workspace", "problems"): SWITCH,
+    ("pyfs-workspace", "open_only"): SWITCH,
     ("pyfs-matrix", "additional"): SWITCH,
     ("pyfs-qa", "fs_version"): SOLVER,
     ("pyfs-matrix", "build"): SOLVER,
@@ -392,6 +392,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "workspace"): SUBJECT,
     ("pyfs-matrix", "name"): CASE,
     ("pyfs-matrix", "recipe"): CASE,
+    ("pyfs-workspace", "recipe"): CASE,
     ("pyfs-matrix", "workflow"): CASE,
     ("pyfs-matrix", "point_name"): CASE,
     ("pyfs-matrix", "fs_version"): SOLVER,
@@ -407,10 +408,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.54.0 (FR-3479): `inventory --refresh` rewrites the counted keys of THIS OBJ's sidecar.
     # 0.33.0 (FR-309): why THIS call marks these runs failed, recorded in
     # each record as given; a default would put one sentence on every mark.
-    ("pyfs-matrix", "reason"): RECORD,
+    ("pyfs-workspace", "reason"): RECORD,
     # 0.57.0 (PFS-2218): the master log THIS job's points are cut from, chosen when the
     # search finds several candidates; a default would pick one silently.
-    ("pyfs-matrix", "master"): RECORD,
+    ("pyfs-workspace", "master"): RECORD,
     # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
     # both on `post` alone: explicit no-archive rebuilding still asks for
     # confirmation, and `--yes` answers it. `inventory` keeps the plain
@@ -420,6 +421,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "force_overwrite"): SWITCH,
     # 0.35.0 (FR-397): the post keeps no archive unless asked; a switch of one call.
     ("pyfs-matrix", "archive"): SWITCH,
+    ("pyfs-workspace", "archive"): SWITCH,
     ("pyfs-matrix", "yes"): SWITCH,
     # FR-99 at 0.18.0, the collect stage. `watch` is the loop around the
     # one-shot primitive and `post` is whether the products are rebuilt
@@ -431,6 +433,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "watch"): SWITCH,
     ("pyfs-matrix", "discard_walltime"): SWITCH,
     ("pyfs-matrix", "post"): SWITCH,
+    ("pyfs-workspace", "post"): SWITCH,
     # Since 0.26.0 both modes read the log and warn. This invocation's
     # switch asks to refuse affected averages instead of warning alone.
     ("pyfs-matrix", "check_frozen"): SWITCH,
@@ -486,10 +489,12 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # THIS call rebuilds or sweeps, the same SUBJECT; a default would limit
     # every post of a machine to simulations a registry happened to hold.
     ("pyfs-matrix", "sims"): SUBJECT,
+    ("pyfs-workspace", "sims"): SUBJECT,
     # 0.34.0 (FR-326): `plan --sims` and `run --sims` name the simulations THIS call
     # plans or runs, the same SUBJECT, and `--points` names the points of those
     # simulations: what the command works on, never a machine knob.
     ("pyfs-matrix", "points"): SUBJECT,
+    ("pyfs-workspace", "points"): SUBJECT,
     # 0.28.0, G43: how often THIS local run says its progress. A SWITCH of the
     # invocation: how much a person wants to read, not a machine setting.
     ("pyfs-matrix", "progress_every"): SWITCH,
@@ -541,34 +546,33 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # and `force_overwrite` above: a property of THIS invocation, never a
     # machine default a registry could hold, because previewing is always
     # safe and applying is always a decision made at the call site.
-    ("pyfs-matrix", "apply"): SWITCH,
     # How many rows `space-in-use` prints per grouping is presentation of
     # this invocation, like `progress_every`; a machine-wide default would
     # not know whether the reader wants a terminal-width table or a log.
-    ("pyfs-matrix", "top"): SWITCH,
+    ("pyfs-workspace", "top"): SWITCH,
     # 0.33.0, `free-space --list`: how much of the recipe's detail this call
     # prints (every path of each step), presentation of THIS invocation like
     # `top`; the detail is always in the entry and in storage_management.json.
-    ("pyfs-matrix", "list_paths"): SWITCH,
+    ("pyfs-workspace", "list_paths"): SWITCH,
     # 0.33.0, `delete-sims --force` (FR-306): delete a simulation whatever the
     # status of its records, SUBMITTED included. A decision of THIS call, taken
     # because the named runs failed; a default would delete unattended.
-    ("pyfs-matrix", "force"): SWITCH,
+    ("pyfs-workspace", "force"): SWITCH,
     # `sync`'s positional: which level to bring over (runs/post/fsm/all) is
     # what the command works on, a SUBJECT, not a knob a workspace defaults.
-    ("pyfs-matrix", "level"): SUBJECT,
+    ("pyfs-workspace", "level"): SUBJECT,
     # `sync --from`: one workspace name out of sync-workspaces.toml, a
     # SUBJECT naming which source this call reads.
-    ("pyfs-matrix", "source"): SUBJECT,
+    ("pyfs-workspace", "source"): SUBJECT,
     # `sync --prefer-other`: on a runs.json conflict, take the other
     # workspace's record instead of main's. A SWITCH of THIS call: which
     # side is trusted is a decision made at the call site, not a default.
-    ("pyfs-matrix", "prefer_other"): SWITCH,
+    ("pyfs-workspace", "prefer_other"): SWITCH,
     # `delete-sims --matrix-products`: what happens to a matrix product that
     # also holds the deleted points (points-only or regenerate) is the
     # invocation's own choice, forced explicit by the function when a shared
     # product exists; never a default a registry could hold.
-    ("pyfs-matrix", "matrix_products"): SWITCH,
+    ("pyfs-workspace", "matrix_products"): SWITCH,
     # 0.32.0 preparation, the records commands and the manifest a command
     # reads (pyflightstream.run.records). `--runs NAME` and `restore`'s
     # positional kind and `--stamp` name WHICH file this call works on, a
@@ -576,9 +580,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # mode of this call; `--build-alias` states the scheduler name a build
     # ran under, a fact of the recorded run the rebuilt record carries.
     ("pyfs-matrix", "runs"): SUBJECT,
+    ("pyfs-workspace", "runs"): SUBJECT,
     # FR-390/FR-391: the history subject and the two compared run identities.
-    ("pyfs-matrix", "run_a"): SUBJECT,
-    ("pyfs-matrix", "run_b"): SUBJECT,
+    ("pyfs-workspace", "run_a"): SUBJECT,
+    ("pyfs-workspace", "run_b"): SUBJECT,
     # 0.35.0, the read-only `status` (FR-379 to FR-385). `--status WORD` and
     # `--failed` select WHICH polars this call shows, a SUBJECT like `--sims`;
     # `--points`, `--json` and `--csv` are the form of this one answer.
@@ -586,27 +591,28 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "failed"): SUBJECT,
     ("pyfs-matrix", "per_point"): SWITCH,
     ("pyfs-matrix", "json"): SWITCH,
+    ("pyfs-workspace", "json"): SWITCH,
     ("pyfs-matrix", "csv"): SWITCH,
+    ("pyfs-workspace", "csv"): SWITCH,
     # 0.38.0 (the mesh audit): `audit-mesh` audits the OBJ it is given against the source it
     # names, and `--csv FILE` is where this one audit's figures are written.
-    ("pyfs-matrix", "kind"): SUBJECT,
+    ("pyfs-workspace", "kind"): SUBJECT,
     # 0.38.0 (the mesh refinement): `refine` changes the density of a panel mesh. The factors
     # and the families are written into the level's refine.json, so they are stated per call.
     ("pyfs-matrix", "parallel"): FIELD_OPERATION,
     # 0.39.0 (FR-430): the families that keep their interface rows, written into refine.json.
-    ("pyfs-matrix", "stamp"): SUBJECT,
-    ("pyfs-matrix", "out"): OUTPUT,
-    ("pyfs-matrix", "all_sims"): SWITCH,
-    ("pyfs-matrix", "build_alias"): CASE,
+    ("pyfs-workspace", "stamp"): SUBJECT,
+    ("pyfs-workspace", "all_sims"): SWITCH,
+    ("pyfs-workspace", "build_alias"): CASE,
     # 0.32.0, P0 and B1: `rebuild --inputs-from` names the other origin's inputs/
     # folder THIS call reads the inputs that ran from, a SUBJECT; `restore
     # --matrix` names the matrix whose archived file this call restores.
-    ("pyfs-matrix", "inputs_from"): SUBJECT,
+    ("pyfs-workspace", "inputs_from"): SUBJECT,
     # 0.32.0, package B2. `sync --restore` rebuilds the records of the folders
     # no record carries, and `sync --include-archives` brings the archive
     # folders; both are modes of THIS call, off by default in her words.
-    ("pyfs-matrix", "restore"): SWITCH,
-    ("pyfs-matrix", "include_archives"): SWITCH,
+    ("pyfs-workspace", "restore"): SWITCH,
+    ("pyfs-workspace", "include_archives"): SWITCH,
     # 0.32.0, B3: `post --from-sims` is a mode of this call (the records come
     # from sims/, not from a manifest); `--steps-per-revolution` states the clock
     # a run outside the package turned at, a fact of the case its record carries.
@@ -767,15 +773,15 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-mesh", "from_nodes"): frozenset({"trailing-edge"}),
     ("pyfs-matrix", "build"): frozenset({"support"}),
     ("pyfs-matrix", "additional"): frozenset({"status"}),
-    ("pyfs-matrix", "target"): frozenset({"show", "history"}),
-    ("pyfs-matrix", "point"): frozenset({"show"}),
-    ("pyfs-matrix", "product"): frozenset({"trace"}),
-    ("pyfs-matrix", "run"): frozenset({"log", "trace"}),
-    ("pyfs-matrix", "storage"): frozenset({"log"}),
-    ("pyfs-matrix", "stage"): frozenset({"log"}),
-    ("pyfs-matrix", "since"): frozenset({"log"}),
-    ("pyfs-matrix", "problems"): frozenset({"log"}),
-    ("pyfs-matrix", "open_only"): frozenset({"log"}),
+    ("pyfs-workspace", "target"): frozenset({"history", "show"}),
+    ("pyfs-workspace", "point"): frozenset({"show"}),
+    ("pyfs-workspace", "product"): frozenset({"trace"}),
+    ("pyfs-workspace", "run"): frozenset({"log", "trace"}),
+    ("pyfs-workspace", "storage"): frozenset({"log"}),
+    ("pyfs-workspace", "stage"): frozenset({"log"}),
+    ("pyfs-workspace", "since"): frozenset({"log"}),
+    ("pyfs-workspace", "problems"): frozenset({"log"}),
+    ("pyfs-workspace", "open_only"): frozenset({"log"}),
     ("pyfs-fsi", "dir"): frozenset({"external", "init-dummy", "step"}),
     ("pyfs-fsi", "legacy_dir"): frozenset({"init-dummy", "step"}),
     ("pyfs-fsi", "geometry"): frozenset({"beam"}),
@@ -809,25 +815,65 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # which is what shows the [continuation] lines on the console.
     ("pyfs-matrix", "verbose"): frozenset(
         {
-            "noise",
             "collect",
             "inspect-setups",
+            "noise",
             "plan",
             "post",
             "run",
             "visual-inspect",
         }
     ),
+    ("pyfs-workspace", "verbose"): frozenset(
+        {
+            "apply",
+            "archive",
+            "calibrate",
+            "campbell",
+            "cancel",
+            "check",
+            "create",
+            "fill-interior",
+            "init",
+            "migrate",
+            "mirror",
+            "move",
+            "preview",
+            "profile",
+            "subtract",
+            "time-mean",
+        }
+    ),
     # 0.39.0 (FR-997): every command that takes --verbose takes --log-level.
     ("pyfs-matrix", "log_level"): frozenset(
         {
-            "noise",
             "collect",
             "inspect-setups",
+            "noise",
             "plan",
             "post",
             "run",
             "visual-inspect",
+        }
+    ),
+    ("pyfs-workspace", "log_level"): frozenset(
+        {
+            "apply",
+            "archive",
+            "calibrate",
+            "campbell",
+            "cancel",
+            "check",
+            "create",
+            "fill-interior",
+            "init",
+            "migrate",
+            "mirror",
+            "move",
+            "preview",
+            "profile",
+            "subtract",
+            "time-mean",
         }
     ),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
@@ -836,31 +882,32 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
-            "noise",
             "inspect-setups",
+            "noise",
             "plan",
             "post",
-            "rebuild",
-            "restore",
             "run",
             "status",
         }
     ),
     ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run", "visual-inspect"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"noise", "sync", "visual-inspect"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"noise", "visual-inspect"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
-    ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
+    ("pyfs-matrix", "archive"): frozenset({"collect", "post"}),
+    ("pyfs-workspace", "archive"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "discard_walltime"): frozenset({"collect"}),
-    ("pyfs-matrix", "post"): frozenset({"collect", "log"}),
+    ("pyfs-matrix", "post"): frozenset({"collect"}),
+    ("pyfs-workspace", "post"): frozenset({"log"}),
     ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
     ("pyfs-matrix", "local"): frozenset({"post", "run"}),
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "recipe"): frozenset({"free-space", "inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "recipe"): frozenset({"inspect-setups", "plan", "post", "run"}),
+    ("pyfs-workspace", "recipe"): frozenset({"free-space"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
@@ -870,24 +917,27 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
-            "noise",
-            "log",
             "collect",
-            "delete-sims",
             "inspect-setups",
-            "mark-converged",
-            "mark-failed",
+            "noise",
             "plan",
             "post",
-            "rebuild",
             "run",
-            "search-log-batch",
             "status",
         }
     ),
-    ("pyfs-matrix", "points"): frozenset(
-        {"inspect-setups", "mark-converged", "mark-failed", "plan", "run"}
+    ("pyfs-workspace", "sims"): frozenset(
+        {
+            "delete-sims",
+            "log",
+            "mark-converged",
+            "mark-failed",
+            "rebuild",
+            "search-log-batch",
+        }
     ),
+    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "plan", "run"}),
+    ("pyfs-workspace", "points"): frozenset({"mark-converged", "mark-failed"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "cost_file"): frozenset({"inspect-setups", "plan"}),
@@ -898,85 +948,58 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
-            "noise",
-            "show",
-            "log",
-            "trace",
-            "history",
-            "diff",
             "collect",
-            "delete-sims",
-            "free-space",
             "inspect-setups",
-            "mark-converged",
-            "mark-failed",
+            "noise",
             "plan",
             "post",
-            "rebuild",
-            "restore",
             "run",
-            "search-log-batch",
-            "space-in-use",
             "status",
-            "sync",
             "visual-inspect",
         }
     ),
     ("pyfs-matrix", "matrices"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "params"): frozenset({"visual-inspect"}),
     ("pyfs-matrix", "finished_by"): frozenset({"visual-inspect"}),
-    ("pyfs-matrix", "apply"): frozenset(
+    ("pyfs-workspace", "reason"): frozenset({"mark-converged", "mark-failed"}),
+    ("pyfs-workspace", "master"): frozenset({"search-log-batch"}),
+    ("pyfs-workspace", "top"): frozenset({"space-in-use"}),
+    ("pyfs-workspace", "list_paths"): frozenset({"free-space"}),
+    ("pyfs-workspace", "force"): frozenset({"delete-sims"}),
+    ("pyfs-workspace", "level"): frozenset({"sync"}),
+    ("pyfs-workspace", "source"): frozenset({"sync"}),
+    ("pyfs-workspace", "prefer_other"): frozenset({"sync"}),
+    ("pyfs-workspace", "matrix_products"): frozenset({"delete-sims"}),
+    ("pyfs-matrix", "runs"): frozenset({"collect", "post", "status"}),
+    ("pyfs-workspace", "runs"): frozenset(
         {
             "delete-sims",
-            "free-space",
-            "mark-converged",
-            "mark-failed",
-            "rebuild",
-            "restore",
-            "search-log-batch",
-            "sync",
-        }
-    ),
-    ("pyfs-matrix", "reason"): frozenset({"mark-converged", "mark-failed"}),
-    ("pyfs-matrix", "master"): frozenset({"search-log-batch"}),
-    ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
-    ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
-    ("pyfs-matrix", "force"): frozenset({"delete-sims"}),
-    ("pyfs-matrix", "level"): frozenset({"sync"}),
-    ("pyfs-matrix", "source"): frozenset({"sync"}),
-    ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
-    ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
-    ("pyfs-matrix", "runs"): frozenset(
-        {
-            "collect",
-            "delete-sims",
-            "free-space",
-            "post",
-            "status",
-            "sync",
-            "show",
-            "log",
-            "trace",
-            "history",
             "diff",
+            "free-space",
+            "history",
+            "log",
+            "show",
+            "sync",
+            "trace",
         }
     ),
-    ("pyfs-matrix", "run_a"): frozenset({"diff"}),
-    ("pyfs-matrix", "run_b"): frozenset({"diff"}),
+    ("pyfs-workspace", "run_a"): frozenset({"diff"}),
+    ("pyfs-workspace", "run_b"): frozenset({"diff"}),
     ("pyfs-matrix", "statuses"): frozenset({"status"}),
     ("pyfs-matrix", "failed"): frozenset({"status"}),
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
-    ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
-    ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
+    ("pyfs-matrix", "json"): frozenset({"status"}),
+    ("pyfs-workspace", "json"): frozenset({"diff", "history", "log", "show", "trace"}),
+    ("pyfs-matrix", "csv"): frozenset({"status"}),
+    ("pyfs-workspace", "csv"): frozenset({"diff", "history", "log", "show", "trace"}),
     ("pyfs-matrix", "parallel"): frozenset({"run"}),
-    ("pyfs-matrix", "kind"): frozenset({"restore"}),
-    ("pyfs-matrix", "stamp"): frozenset({"restore"}),
-    ("pyfs-matrix", "out"): frozenset({"rebuild"}),
-    ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
-    ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
-    ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),
-    ("pyfs-matrix", "restore"): frozenset({"sync"}),
-    ("pyfs-matrix", "include_archives"): frozenset({"sync"}),
+    ("pyfs-workspace", "kind"): frozenset({"restore"}),
+    ("pyfs-workspace", "stamp"): frozenset({"restore"}),
+    ("pyfs-workspace", "all_sims"): frozenset({"rebuild"}),
+    ("pyfs-workspace", "build_alias"): frozenset({"rebuild"}),
+    ("pyfs-workspace", "inputs_from"): frozenset({"rebuild"}),
+    ("pyfs-workspace", "restore"): frozenset({"sync"}),
+    ("pyfs-workspace", "include_archives"): frozenset({"sync"}),
     ("pyfs-matrix", "from_sims"): frozenset({"post"}),
     ("pyfs-matrix", "steps_per_revolution"): frozenset({"post"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
@@ -1059,15 +1082,29 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "calibrate",
             "campbell",
             "create",
+            "delete-sims",
+            "diff",
             "fill-interior",
+            "free-space",
+            "history",
             "init",
+            "log",
+            "mark-converged",
+            "mark-failed",
             "migrate",
             "mirror",
             "move",
             "preview",
             "profile",
+            "rebuild",
+            "restore",
+            "search-log-batch",
+            "show",
+            "space-in-use",
             "subtract",
+            "sync",
             "time-mean",
+            "trace",
         }
     ),
     ("pyfs-mesh", "workspace"): frozenset({"accept", "from-sidecar"}),
@@ -1089,6 +1126,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "mirror",
             "move",
             "profile",
+            "rebuild",
             "subtract",
             "time-mean",
         }
@@ -1116,12 +1154,20 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
+            "delete-sims",
             "fill-interior",
+            "free-space",
+            "mark-converged",
+            "mark-failed",
             "migrate",
             "mirror",
             "move",
             "profile",
+            "rebuild",
+            "restore",
+            "search-log-batch",
             "subtract",
+            "sync",
             "time-mean",
         }
     ),
@@ -1142,6 +1188,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "move",
             "profile",
             "subtract",
+            "sync",
             "time-mean",
         }
     ),
@@ -1233,7 +1280,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-mesh", "only"): frozenset({"build"}),
     ("pyfs-mesh", "parallel"): frozenset({"build", "refine"}),
     ("pyfs-mesh", "rows"): frozenset({"build"}),
-    ("pyfs-workspace", "matrix"): frozenset({"calibrate"}),
+    ("pyfs-workspace", "matrix"): frozenset({"calibrate", "rebuild", "restore"}),
     ("pyfs-mesh", "matrix"): frozenset({"build"}),
     ("pyfs-mesh", "names"): frozenset({"accept"}),
     ("pyfs-mesh", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory", "prop-slice"}),

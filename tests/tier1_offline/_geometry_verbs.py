@@ -24,8 +24,15 @@ VERBS = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run a mesh verb through ``pyfs-mesh``, else the command through ``pyfs-matrix``."""
+    """Run a command line through the program that holds its verb since 0.58.0.
+
+    A mesh verb goes to ``pyfs-mesh``, a records, storage or query verb (PFS-2261) to
+    ``pyfs-workspace``, the flag form of the storage verbs included, and every other
+    command to ``pyfs-matrix``.
+    """
+    from pyflightstream._cli import WORKSPACE_VERBS
     from pyflightstream.run.mesh_cli import main as mesh_main
+    from pyflightstream.workspace.cli import main as workspace_main
 
     arguments = list(argv or [])
     # The global flags that stand before the subcommand (``--warning-off``) keep their place.
@@ -33,7 +40,24 @@ def main(argv: list[str] | None = None) -> int:
     if at is not None and arguments[at] in VERBS:
         head, verb, rest = arguments[:at], arguments[at], arguments[at + 1 :]
         return int(mesh_main([*head, VERBS[verb], *rest]))
+    flags = {f"--{verb}" for verb in ("space-in-use", "free-space", "delete-sims", "sync")}
+    flag_form = any(word.split("=", 1)[0] in flags for word in arguments)
+    if (at is not None and arguments[at] in WORKSPACE_VERBS) or flag_form:
+        return int(workspace_main(argv))
     return int(_matrix_cli.main(argv))
+
+
+def parser_for(argv: list[str]) -> Any:
+    """Return the parser of the program that holds the verb ``argv`` names since 0.58.0.
+
+    ``pyflightstream.run._cli_parsers.records_parser`` for a records, storage or query
+    verb (PFS-2261), the ``pyfs-matrix`` parser for every other.
+    """
+    from pyflightstream._cli import WORKSPACE_VERBS
+    from pyflightstream.run._cli_parsers import _build_parser, records_parser
+
+    word = next((w for w in argv if not w.startswith("-")), None)
+    return records_parser() if word in WORKSPACE_VERBS else _build_parser()
 
 
 def mesh_parser() -> Any:
