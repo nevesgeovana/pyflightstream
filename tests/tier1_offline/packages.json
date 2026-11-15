@@ -248,6 +248,7 @@
       "tests/tier1_offline/test_p0580_citation.py",
       "tests/tier1_offline/test_p0580_custom_motion_table.py",
       "tests/tier1_offline/test_p0580_cut_blunt_base.py",
+      "tests/tier1_offline/test_p0580_api_cli_words.py",
       "tests/tier1_offline/test_p0580_doc_cli_verbs.py",
       "tests/tier1_offline/test_p0580_doc_pproc_tree.py",
       "tests/tier1_offline/test_p0580_doc_retired_files.py",

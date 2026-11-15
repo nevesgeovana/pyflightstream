@@ -209,7 +209,8 @@ def _confirmed_destruction(yes: bool) -> bool:
 def _refused_campaign_file(argv: list[str] | None) -> bool:
     """Name the matrix replacement before parsing a retired convert invocation."""
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments[0] != "convert":
+    # The command is the first word past the global flags, none of which takes a value.
+    if next((item for item in arguments if not item.startswith("-")), None) != "convert":
         return False
     print(
         "Campaign-file conversion is not supported; the matrix is the sole campaign "
