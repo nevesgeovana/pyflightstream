@@ -1,4 +1,4 @@
-## Group files: P<POL>-<GROUP>-<KIND>.csv
+## Group files
 
 <a id="group-files"></a>
 
