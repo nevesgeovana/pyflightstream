@@ -1,6 +1,6 @@
 """P0551-REPITCH: rigid blades and a rebuilt hub through the real CLI.
 
-Usage: pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
+Usage: pyfs-mesh repitch sector.obj --morphing morphing.toml --out pitched.obj
 """
 
 import json
@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj
-from pyflightstream.workspace.cli import main
 
 
 def source_mesh(folder: Path, *, sharp: bool = False) -> Path:
@@ -52,9 +52,7 @@ max_angle_deg = 5.0
 
 def invoke(source, config, out):
     try:
-        return main(
-            ["geometry", "repitch", str(source), "--morphing", str(config), "--out", str(out)]
-        )
+        return mesh_main(["repitch", str(source), "--morphing", str(config), "--out", str(out)])
     except SystemExit as error:
         return error.code
 

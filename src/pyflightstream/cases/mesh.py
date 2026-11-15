@@ -482,7 +482,7 @@ class BoundaryBaseRegion(BaseModel):
 
 
 class BoundaryDeclarations(BaseModel):
-    """Ordered declarations consumed only by geometry mark-boundaries."""
+    """Ordered declarations consumed only by pyfs-mesh mark-boundaries."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     fs_build: str | None = None

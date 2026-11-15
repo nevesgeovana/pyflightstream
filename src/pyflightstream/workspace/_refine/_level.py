@@ -1,4 +1,4 @@
-"""Write a level: the orchestration behind ``pyfs-workspace geometry refine`` and ``refine_mesh``.
+"""Write a level: the orchestration behind ``pyfs-mesh refine`` and ``refine_mesh``.
 
 FR-424 and FR-425.
 
@@ -1257,7 +1257,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         Without components the existing layout behavior is retained.
     audit : bool
         Audit the written level against its source. False skips the audit and records
-        that choice; the level can be audited later with geometry audit (FR-3321).
+        that choice; the level can be audited later with pyfs-mesh audit (FR-3321).
 
     Returns
     -------
@@ -1360,7 +1360,7 @@ def _audit_level(work: _Work, obj: Path, folder: Path) -> MeshAudit | None:
     """Audit a staged level when requested, otherwise name the later audit command."""
     if not work.audit_enabled:
         work.say(
-            f'audit skipped (--audit-off); run pyfs-workspace geometry audit "{folder / obj.name}" '
+            f'audit skipped (--audit-off); run pyfs-mesh audit "{folder / obj.name}" '
             f'--against "{work.source}"'
         )
         return None

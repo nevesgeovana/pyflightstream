@@ -1,7 +1,7 @@
 """Full-quad spinner and nacelle sectors, and the power-off body made of them (PFS-2186.06).
 
-Pipeline role: the body half of ``pyfs-workspace geometry sector-remesh`` and the whole of
-``pyfs-workspace geometry power-off-body``. A sector spans its own angle about the axis; the two
+Pipeline role: the body half of ``pyfs-mesh sector-remesh`` and the whole of
+``pyfs-mesh power-off-body``. A sector spans its own angle about the axis; the two
 seam sides of every surface carry nodes at the same meridian positions, so the copies merge and
 the mesh has the sector's periodicity. A pole is closed by a kite of quads, the sectors meeting
 at the pole node. The nacelle is built by one function, called with the same arguments by both

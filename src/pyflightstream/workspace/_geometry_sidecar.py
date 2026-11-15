@@ -154,7 +154,7 @@ def sidecar_text(
     carried = carried or {}
     notes: list[str] = []
     rows = [
-        "# Written by pyfs-workspace geometry build.",
+        "# Written by pyfs-mesh build.",
         "boundaries = " + toml_value(list(names)),
     ]
     if mesh is not None:

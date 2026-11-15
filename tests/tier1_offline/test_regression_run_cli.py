@@ -67,7 +67,7 @@ class TestRun1Cli:
 
 
 class TestRun1CliMesh:
-    """Tier 1, 0.40.0 lane run-1: ``pyfs-workspace geometry audit``, in process.
+    """Tier 1, 0.40.0 lane run-1: ``pyfs-mesh audit``, in process.
 
     The synthetic panel meshes of the 0.38.0 tests; no solver runs.
     """

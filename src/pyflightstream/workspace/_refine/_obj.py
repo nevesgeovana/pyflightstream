@@ -1078,7 +1078,7 @@ def stale_declaration_message(declared: str, folder: Path) -> str:
         f"review {level_file} and point the declaration's file at the desired one"
         if (folder / level_file).is_file()
         else f"this level holds no {level_file}, so write it with "
-        f"pyfs-workspace geometry identify-te {folder.name}.obj in the level's folder and point "
+        f"pyfs-mesh identify-te {folder.name}.obj in the level's folder and point "
         "the declaration's file at it"
     )
     return (

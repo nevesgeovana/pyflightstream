@@ -1,6 +1,6 @@
 """The blade of a sector rebuilt as full quads, with its distribution (PFS-2186.06).
 
-Pipeline role: ``pyfs-workspace geometry sector-remesh``. The saved sector supplies the surface
+Pipeline role: ``pyfs-mesh sector-remesh``. The saved sector supplies the surface
 only, never the distribution: the blade's chord rings are read from its quad grid, each section
 is a monotonic spline of arc length on each side, and the new rows are placed by
 

@@ -29,6 +29,7 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 from pyflightstream.workspace.wake_edges import (
     _METRES_PER_UNIT,
@@ -51,12 +52,10 @@ ONE_NODE = (PointXyz(x_m=1.0, y_m=0.0, z_m=0.0),)
 
 
 def _ansa_cli(source, output, *options):
-    from pyflightstream.workspace.cli import main
 
     try:
-        return main(
+        return mesh_main(
             [
-                "geometry",
                 "trailing-edge",
                 "--from-nodes",
                 str(source),
@@ -109,11 +108,11 @@ def test_p0440_ansa_list_refuses_bad_rows_before_writing(tmp_path, capsys, rows,
 
 def test_arch48_accept_empty_writes_nothing_for_a_list_with_fewer_than_two_nodes(tmp_path, capsys):
     """ARCH48-R4: an empty list is refused; --accept-empty warns, writes nothing and exits 0."""
-    from pyflightstream.workspace.cli import main
+    from pyflightstream.run.mesh_cli import main
 
     source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
     source.write_text("#  Id, Name, X , Y, Z\n1, a, 0, 0, 0\n", encoding="utf-8")
-    argv = ["geometry", "convert2midnodes", str(source), str(output)]
+    argv = ["convert2midnodes", str(source), str(output)]
     assert main(argv) == 2
     assert "fewer than two nodes" in capsys.readouterr().err
     with pytest.warns(PyflightstreamWarning, match="fewer than two nodes.*nothing is written"):
@@ -135,12 +134,12 @@ def test_p0440_ansa_list_preserves_existing_output(tmp_path, capsys):
 
 
 def test_p0440_ansa_default_output_is_beside_input_and_requires_overwrite(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main
+    from pyflightstream.run.mesh_cli import main
 
     source = tmp_path / "nodes.csv"
     output = tmp_path / "nodes.te.txt"
     source.write_text("1, a, 0, 0, 0\n2, b, 2, 4, 6\n")
-    args = ["geometry", "trailing-edge", "--from-nodes", str(source)]
+    args = ["trailing-edge", "--from-nodes", str(source)]
     try:
         result = main(args)
     except SystemExit as error:

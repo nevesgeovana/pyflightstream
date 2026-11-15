@@ -1,6 +1,6 @@
 """The verbs that remesh a saved sector and build its power-off body (PFS-2186.06).
 
-Pipeline role: ``pyfs-workspace geometry sector-remesh`` and ``power-off-body`` call
+Pipeline role: ``pyfs-mesh sector-remesh`` and ``power-off-body`` call
 :func:`sector_remesh` and :func:`power_off_body`. The geometry is in
 :mod:`pyflightstream.workspace._sector_remesh` (blade) and
 :mod:`pyflightstream.workspace._sector_body` (spinner, nacelle), the reading in

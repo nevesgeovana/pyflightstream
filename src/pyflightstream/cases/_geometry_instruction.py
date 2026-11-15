@@ -2,7 +2,7 @@
 
 Pipeline role: the cases row, beside the import models of the run. A
 geometry folder of the workspace (``inputs/geometries/<folder>/``) may hold
-one ``<name>.geometry.toml``; ``pyfs-workspace geometry build`` reads it,
+one ``<name>.geometry.toml``; ``pyfs-mesh build`` reads it,
 emits the script that makes the body (:mod:`pyflightstream.cases._geometry_emit`)
 and records the build. This module holds the models of the file and their
 own refusals; the file is read and its trailing-edge points resolved by

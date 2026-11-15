@@ -23,7 +23,7 @@ their residual tolerance.
 Each function raises ``KernelUnavailableError`` (gmsh is a dependency of the package) when the
 kernel library cannot load, and the message names the library that failed. The command line is
 ``pyfs-geom run | doe | validate | schema | configurations | stages | identify | check |
-add-control-surface | split-symmetry`` and ``pyfs-workspace geometry mesh-generated | mesh``.
+add-control-surface | split-symmetry`` and ``pyfs-mesh mesh-generated | mesh``.
 
 Examples
 --------

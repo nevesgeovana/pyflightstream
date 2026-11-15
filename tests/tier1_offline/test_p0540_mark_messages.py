@@ -24,7 +24,7 @@ def _generated(tmp_path):
 
 
 def _run(args):
-    from pyflightstream.workspace.cli import main
+    from pyflightstream.run.mesh_cli import main
 
     try:
         return main(args)
@@ -42,7 +42,7 @@ def test_p0540_a_stale_hash_names_the_refresh_and_the_refresh_lets_the_marking_p
         plan_mark_boundaries(mesh)
     message = str(caught.value)
     assert "mesh_sha256 is stale" in message
-    found = re.search(r"`pyfs-workspace (geometry inventory (\S+) --refresh)`", message)
+    found = re.search(r"`pyfs-mesh (inventory (\S+) --refresh)`", message)
     assert found, message
     before = sidecar.read_text()
     assert _run(found.group(1).replace(found.group(2), str(mesh)).split()) == 0
@@ -70,8 +70,8 @@ def test_p0540_missing_face_counts_name_the_refresh_and_it_restores_them(tmp_pat
     sidecar.write_text("\n".join(kept) + "\n")
     with pytest.raises(InputArtifactError) as caught:
         plan_mark_boundaries(mesh)
-    assert f"pyfs-workspace geometry inventory {mesh.resolve()} --refresh" in str(caught.value)
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert f"pyfs-mesh inventory {mesh.resolve()} --refresh" in str(caught.value)
+    assert _run(["inventory", str(mesh), "--refresh"]) == 0
     assert plan_mark_boundaries(mesh).faces == (1,)
 
 
@@ -80,7 +80,7 @@ def test_p0540_refresh_refuses_a_boundary_list_that_changed_and_writes_nothing(t
     mesh, sidecar = _generated(tmp_path)
     mesh.write_text(OBJ + "g flap\nf 2 4 3\n")
     before = sidecar.read_bytes()
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 2
+    assert _run(["inventory", str(mesh), "--refresh"]) == 2
     assert "boundaries differ" in capsys.readouterr().err
     assert sidecar.read_bytes() == before
 
@@ -96,7 +96,7 @@ def test_p0540_refresh_rewrites_the_legacy_sidecar_the_marking_reads(tmp_path):
     mesh.write_text(OBJ + "f 2 4 3\n")
     with pytest.raises(InputArtifactError, match="--refresh"):
         plan_mark_boundaries(mesh)
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert _run(["inventory", str(mesh), "--refresh"]) == 0
     assert not sidecar.exists()
     assert plan_mark_boundaries(mesh).faces == (2,)
 
@@ -112,7 +112,7 @@ def test_p0540_refresh_replaces_a_counted_key_written_over_several_lines(tmp_pat
     assert wrapped != text
     sidecar.write_text(wrapped)
     mesh.write_text(OBJ + "f 2 4 3\n")
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert _run(["inventory", str(mesh), "--refresh"]) == 0
     stated = tomllib.loads(sidecar.read_text())
     assert stated["boundary_faces"] == [2] and stated["mesh_faces"] == 2
     assert stated["fs_build"] == "26.125" and stated["trailing_edges"] == {"none": True}
@@ -129,7 +129,7 @@ def test_p0540_refresh_counts_no_bracket_of_a_comment_and_keeps_other_comments(t
     assert wrapped != text
     sidecar.write_text(wrapped.replace('fs_build = "26.125"', 'fs_build = "26.125" # kept'))
     mesh.write_text(OBJ + "f 2 4 3\n")
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 0
+    assert _run(["inventory", str(mesh), "--refresh"]) == 0
     assert tomllib.loads(sidecar.read_text())["boundary_faces"] == [2]
     assert 'fs_build = "26.125" # kept' in sidecar.read_text()
 
@@ -145,7 +145,7 @@ def test_p0540_refresh_writes_nothing_when_the_result_would_not_read_back(
     before = sidecar.read_bytes()
     mesh.write_text(OBJ + "f 2 4 3\n")
     monkeypatch.setattr(sidecars, "_with_counted_keys", lambda lines, fresh: ["not toml ["])
-    assert _run(["geometry", "inventory", str(mesh), "--refresh"]) == 2
+    assert _run(["inventory", str(mesh), "--refresh"]) == 2
     assert "nothing was changed" in capsys.readouterr().err
     assert sidecar.read_bytes() == before
 
@@ -154,5 +154,5 @@ def test_p0540_refresh_writes_nothing_when_the_result_would_not_read_back(
 def test_p0540_plain_inventory_still_leaves_an_existing_obj_sidecar_alone(tmp_path):
     mesh, sidecar = _generated(tmp_path)
     before = sidecar.read_bytes()
-    assert _run(["geometry", "inventory", str(mesh)]) == 2
+    assert _run(["inventory", str(mesh)]) == 2
     assert sidecar.read_bytes() == before

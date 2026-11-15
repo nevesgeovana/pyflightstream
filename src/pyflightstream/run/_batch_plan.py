@@ -213,7 +213,7 @@ def _pristine_refusal(case: SimCase) -> str | None:
     2). The job's counter re-indexes ONE invocation per step into (point, step) (FR-355), so a
     saved counter beside it misplaces every point's steps, exports and clock, and a saved action
     of another name would run on every later polar of the job.
-    ``pyfs-workspace geometry inventory <file> --clean`` (FR-308) removes the saved actions,
+    ``pyfs-mesh inventory <file> --clean`` (FR-308) removes the saved actions,
     and the cleaned polar groups.
     """
     geometry = case.geometry

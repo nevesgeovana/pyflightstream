@@ -1,8 +1,51 @@
 # Mesh input reference
 
+## The pyfs-mesh commands
+
+`pyfs-mesh` holds every mesh operation and the build of a workspace geometry, the same verbs
+as `cfd-mesh`. `pyfs-mesh <verb> --help` prints each verb's options; this page and the pages
+it links say what the verbs read and write. Only `build`, `mark-boundaries` and
+`export-surface-mesh` with `--apply` run the solver. The CAD rewrite is `pyfs-geom
+iges-convert` ([IGES inputs](iges.md)) and the FSI beam cut is `pyfs-fsi beam`
+([FSI workspace](../fsi-workspace.md)).
+
+| Verb | What it does |
+|---|---|
+| `mark-boundaries` | mark an OBJ's declared boundaries into an FSM |
+| `export-surface-mesh` | preview a saved body's surface export for probes, or run it with --apply |
+| `trailing-edge` | extract trailing-edge midpoint coordinates |
+| `convert2midnodes` | write a .te.txt from an ANSA SET node list, in any node order; no mesh needed |
+| `identify-te` | find the trailing edges of an OBJ and write their points and solver node files |
+| `prepare-to-refine` | split a mesh's families into grid and mixed patches and write a refine file for them |
+| `visual-inspect` | draw a mesh in three views and an isometric view, with marked points, into a PDF |
+| `merge` | join two trimmed OBJ along their open boundaries within a threshold |
+| `sector-to-wheel` | copy one sector about an axis into a full wheel, an OBJ or a saved simulation |
+| `sector-remesh` | rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces |
+| `power-off-body` | write the power-off body of a saved sector: a closed spinner and the remesh nacelle |
+| `repitch` | rigidly repitch blades and rebuild the named hub around their roots |
+| `collapse-te` | collapse the blunt trailing edge of named blades of an OBJ |
+| `hub-rings` | rebuild the named hub around blade roots as rings of quads, on an OBJ |
+| `morph` | apply the morphing file's tables in order: hub rings, repitch, collapse, wheel |
+| `scale` | scale every vertex of an OBJ by a factor about a point, into a new folder |
+| `iges-grid` | grid the named components of IGES files into one OBJ (uses the gmsh kernel) |
+| `mesh-generated` | mesh a parametric configuration into an all-quad OBJ (uses the gmsh kernel) |
+| `prop-slice` | cut a propeller OBJ or IGES into blade sections and a propeller definition |
+| `mesh` | mesh a parametric configuration from its mesh controls (strategy 1 or 2, gmsh) |
+| `build` | preview a geometry's build, or run it with --apply |
+| `accept` | record that a built geometry was inspected |
+| `from-sidecar` | write the instruction of a geometry a matrix builds in the row |
+| `refine` | refine or coarsen a panel mesh from its OBJ into a new geometry folder |
+| `audit` | audit a panel mesh's topology, trailing edge and panel quality, alone or against the source it was made from |
+| `inventory` | write <stem>.fsm.boundaries.toml beside a saved simulation, from its mesh block, or <stem>.obj.boundaries.toml beside an OBJ, from its groups |
+| `degenerate` | derive a degenerate geometry, the thin blade first, from a blade mesh and write it beside the source |
+
+`--warning-refusals` and `--warning-off` stand before the verb, as for `pyfs-workspace`; the
+verbs that take `--verbose` and `--log-level` read the console level of the workspace
+settings files as `pyfs-workspace` does.
+
 ## Morph control
 
-`geometry morph MESH --morphing FILE --out OUTPUT` accepts an OBJ only, a sector or a full
+`pyfs-mesh morph MESH --morphing FILE --out OUTPUT` accepts an OBJ only, a sector or a full
 wheel, and writes a new OBJ with its boundaries file, the points files that file names and
 `<out>.morph.json`. A saved `.fsm` is refused. The morphing file, read by `morph`, `hub-rings`,
 `repitch` and `collapse-te`, and the `[repitch] reference` file are UTF-8 TOML; a byte order mark
@@ -35,7 +78,7 @@ output and the files written.
 `center` is a rotor-axis point, independent of `[repitch] reference_point`, which can be a
 scalar pitch-plane datum or an off-axis point. Neither is an alias or fallback for the other.
 
-The wheel reuses `geometry sector-to-wheel` with its default tolerance. Its seams must close:
+The wheel reuses `pyfs-mesh sector-to-wheel` with its default tolerance. Its seams must close:
 the wheel's open edges must be the copies of the sector's open edges that are no seam, which a
 wrong `center`, axis or `copies` breaks; otherwise the chain refuses. A seam edge is an open
 edge whose ends, turned one copy either way, land within half the sector's shortest open edge
@@ -44,7 +87,7 @@ sector with open edges and no seam at all is refused.
 
 ## Hub rings control
 
-`geometry hub-rings MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new OBJ,
+`pyfs-mesh hub-rings MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new OBJ,
 its boundaries file and `<out>.hub_rings.json`.
 
 | `[hub_rings]` key | Meaning |
@@ -98,7 +141,7 @@ source hub are reported.
 
 ## Collapse trailing-edge control
 
-`geometry collapse-te MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new
+`pyfs-mesh collapse-te MESH --morphing FILE --out OUTPUT` accepts an OBJ only and writes a new
 OBJ. A saved `.fsm` is refused with a message that the operation works on the OBJ.
 
 | `[collapse_te]` key | Meaning |
@@ -132,15 +175,15 @@ the midpoint of its pair; the written bytes read back as the mesh in memory; and
 boundaries file reads back through the declaration reader. A face near the edge that the merge
 turns over (its normal against the source's) is quality, not a refusal: it is warned with the
 count, the worst cosine and the family, face and place of the worst, the mesh is written,
-`checks.passed` is false and `checks.warnings` lists it, inside `geometry morph` as alone. The
+`checks.passed` is false and `checks.warnings` lists it, inside `pyfs-mesh morph` as alone. The
 total area against the source minus the strip, the smallest cosine between the normals before
 and after and `turned_faces` are reported. `<out>.collapse.json` also holds the digests of source and output.
 
 ## IGES grid control
 
-`geometry iges-grid IGES... --grid FILE --out OUTPUT` reads named IGES files and writes an OBJ
+`pyfs-mesh iges-grid IGES... --grid FILE --out OUTPUT` reads named IGES files and writes an OBJ
 with one family per component, its boundaries file, one points file per trailing edge found
-and `<out>.json`; `geometry iges-convert IGES... --out OUTPUT` writes one IGES of B-spline
+and `<out>.json`; `pyfs-geom iges-convert IGES... --out OUTPUT` writes one IGES of B-spline
 faces with one NAME per component and `<out>.json`. Both use the gmsh kernel, a dependency of the package. The grid
 control file's keys, the spacing laws, the name rule, the checks and the limits are in
 [Grid and convert a named IGES](iges.md). An input refused writes nothing; quality is warned
@@ -148,7 +191,7 @@ with its numbers and never refused.
 
 ## Repitch control
 
-`geometry repitch MESH --morphing FILE --out OUTPUT` accepts OBJ and FSM, retaining
+`pyfs-mesh repitch MESH --morphing FILE --out OUTPUT` accepts OBJ and FSM, retaining
 the input kind. The standalone morphing control belongs beside the geometry; it
 is not a matrix input identifier. Relative reference paths resolve from that file.
 
@@ -311,7 +354,7 @@ Refinement audits each written level by default. `refine --audit-off` (also
 available through `pyfs-matrix`) or `refine_mesh(..., audit=False)` skips that
 call and returns a level with `audit=None`. Its `refine.json` records
 `"audit": "skipped (--audit-off)"`; no audit file is written. The command prints
-how to audit the level later with `pyfs-workspace geometry audit <level.obj>
+how to audit the level later with `pyfs-mesh audit <level.obj>
 --against <source.obj>`. The skipped record does not prevent later inspection
 or auditing (FR-3321).
 
@@ -451,7 +494,7 @@ after the run's frames have been defined.
 
 ### The boundary conditions of a raw mesh
 
-Use the named declarations above with `geometry mark-boundaries`. Each
+Use the named declarations above with `pyfs-mesh mark-boundaries`. Each
 trailing-edge entry has its own label and type. The marking pass checks the
 saved result before publishing it; runs perform no per-point wake-edge
 import-count verdict. An intentional absence of trailing edges is written:
@@ -559,14 +602,14 @@ by hand: a setup artifact that carries `mesh_order_list` is
 refused, and the order is written from the file itself:
 
 ```text
-pyfs-workspace geometry inventory inputs/geometries/30_WB.fsm
+pyfs-mesh inventory inputs/geometries/30_WB.fsm
 ```
 
 writes `inputs/geometries/30_WB.fsm.boundaries.toml`, a `boundaries` list in the
 file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm`, has it inside that folder, and the run reads it
-from there. `pyfs-workspace geometry inventory` reads an `.obj`'s order from its groups
+from there. `pyfs-mesh inventory` reads an `.obj`'s order from its groups
 instead ([above](#the-surface-names)), and refuses any other file without a
 mesh block (an `.stl`, or a file the solver never saved) by name, because it
 has no block to read the order from.
@@ -590,11 +633,11 @@ the script creates an action with the name of a saved one, the saved one
 stays and the solver runs ITS command, so a geometry saved on a workstation
 after an unsteady run carries that workstation's walltime clock, interpreter
 path included, and every unsteady run of it on a cluster aborts when the
-clock fires. `pyfs-workspace geometry inventory` names each saved action, on every call,
+clock fires. `pyfs-mesh inventory` names each saved action, on every call,
 with the command that removes them:
 
 ```text
-pyfs-workspace geometry inventory inputs/geometries/30_WB/30_WB.fsm --clean
+pyfs-mesh inventory inputs/geometries/30_WB/30_WB.fsm --clean
 ```
 
 `--clean` reduces the file to its meshes and the boundary conditions
@@ -630,7 +673,7 @@ boundaries it lists did not change, unless `--overwrite` is given too. To
 clean every geometry of a workspace kept one per folder:
 
 ```text
-for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-workspace geometry inventory "$f" --clean; done
+for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-mesh inventory "$f" --clean; done
 ```
 
 **The plan warns too.** `pyfs-matrix plan` reads the geometry of
@@ -644,17 +687,17 @@ warnings.
 
 ## The refinement file and the audit
 
-This section is the reference of `pyfs-workspace geometry refine` and `pyfs-matrix
+This section is the reference of `pyfs-mesh refine` and `pyfs-matrix
 audit-mesh`; the walk-through is
 [Refining or coarsening a mesh](how-to.md#refining-or-coarsening-a-mesh).
 
 ### The two commands
 
 ```text
-pyfs-workspace geometry refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
+pyfs-mesh refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
                    [--accept-remesh] [--accept-unknown] [--strict-factors] [--config FILE]
                    [--out DIR] [--overwrite]
-pyfs-workspace geometry audit OBJ [--against SOURCE] [--out FILE]
+pyfs-mesh audit OBJ [--against SOURCE] [--out FILE]
 ```
 
 | argument | of | meaning |
@@ -1042,17 +1085,17 @@ every listed edge lies on, with a warning naming the edges added.
 - **Record.** The family's entry of `refine.json` holds `trailing_edge`
   (`"perimeter"` or `"detected"`) and `trailing_edge_points`.
 
-### The geometry commands for trailing edges
+### The pyfs-mesh commands for trailing edges
 
-Three commands of `pyfs-workspace geometry` prepare the lists and files above.
+Three commands of `pyfs-mesh` prepare the lists and files above.
 None needs a solver.
 
 ```text
-pyfs-workspace geometry convert2midnodes NODES OUTPUT [--unit U] [--per-family MESH] [--accept-empty] [--overwrite]
-pyfs-workspace geometry identify-te OBJ [NODES] [--families A,B] [--max-angle DEG] [--aft X Y Z]
+pyfs-mesh convert2midnodes NODES OUTPUT [--unit U] [--per-family MESH] [--accept-empty] [--overwrite]
+pyfs-mesh identify-te OBJ [NODES] [--families A,B] [--max-angle DEG] [--aft X Y Z]
                                     [--unit U] [--simulation-unit U] [--accept-empty]
                                     [--all-families] [--overwrite]
-pyfs-workspace geometry prepare-to-refine OBJ [--max-angle DEG] [--aft X Y Z] [--overwrite]
+pyfs-mesh prepare-to-refine OBJ [--max-angle DEG] [--aft X Y Z] [--overwrite]
 ```
 
 | command | what it writes |
@@ -1134,15 +1177,15 @@ Each of these is imported from `pyflightstream.workspace`.
 |---|---|
 | `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=True, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors; `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
-| `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `geometry prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
-| `wake_edges.write_trailing_edge_midnodes(source, path, *, unit="METER", overwrite=False)` | the function behind `geometry convert2midnodes`: writes one mid-point per neighbouring pair of the node list's lines, under a line naming `unit`, and returns the path |
+| `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `pyfs-mesh prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
+| `wake_edges.write_trailing_edge_midnodes(source, path, *, unit="METER", overwrite=False)` | the function behind `pyfs-mesh convert2midnodes`: writes one mid-point per neighbouring pair of the node list's lines, under a line naming `unit`, and returns the path |
 | `wake_edges.write_trailing_edge_midnodes_per_family(source, mesh, path, *, unit="METER", overwrite=False)` | the function behind `convert2midnodes --per-family`: one points file per family of `mesh`, the edges whose two ends are listed |
-| `wake_edges.write_trailing_edges_identified(mesh, source=None, families=None, *, aft=(1.0, 0.0, 0.0), max_angle=45.0, unit=None, simulation_unit=None, overwrite=False, accept_empty=False, all_families=False)` | the function behind `geometry identify-te`: writes the solver node files, the package points files and, without `source`, the ANSA node list, and returns their paths; without `families` it maps the quad families only, every family with `all_families` |
+| `wake_edges.write_trailing_edges_identified(mesh, source=None, families=None, *, aft=(1.0, 0.0, 0.0), max_angle=45.0, unit=None, simulation_unit=None, overwrite=False, accept_empty=False, all_families=False)` | the function behind `pyfs-mesh identify-te`: writes the solver node files, the package points files and, without `source`, the ANSA node list, and returns their paths; without `families` it maps the quad families only, every family with `all_families` |
 | `wake_edges.quad_families(families)` | the names of the families, a mapping of name to faces, whose faces are quadrilaterals for at least `QUAD_FAMILY_SHARE` (0.8) of them |
 | `PreparedMesh` | frozen: `obj`, `config` (the refine file) and `nodes` (the node list) written, and `patches`, the patch names of each original family in order |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `degenerate_faces` (as in `audit.json`), `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
-| `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-workspace geometry degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
+| `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-mesh degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
 
 ### Limits of the refinement
 
@@ -1259,7 +1302,7 @@ three name three different axes. An absent key is `["aft", "right", "up"]`, with
 - A saved simulation (`.fsm`) that declares another frame is refused, naming the
   declaration: the solver's own file is not rewritten offline. So is a mesh format other
   than OBJ.
-- `pyfs-workspace geometry mark-boundaries` and the FSI route do not convert a mesh to the
+- `pyfs-mesh mark-boundaries` and the FSI route do not convert a mesh to the
   expected frame yet: an OBJ that declares another frame is refused there at plan, naming
   the declared and the expected frame.
 - The run record carries `mesh_frame` (`declared`, `matrix`, `source_sha256`,
@@ -1302,7 +1345,7 @@ mesh's, the sense is the propeller's, and the row is where the two meet.
 
 ## Applying named boundary declarations
 
-Run `pyfs-workspace geometry mark-boundaries <mesh>.obj` to preview the
+Run `pyfs-mesh mark-boundaries <mesh>.obj` to preview the
 declarations, then add `--apply` on a licensed machine. The verb requires a
 current OBJ inventory, explicit `[import] units`, and `fs_build`. Each named
 file entry becomes one import; detection remains STANDARD only. Source points

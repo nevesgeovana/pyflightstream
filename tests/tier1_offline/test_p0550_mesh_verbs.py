@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.workspace import cli as workspace_cli
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import plan_mark_boundaries, refine_mesh
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +36,7 @@ def _wing(path: Path) -> Path:
 
 def _declared(path: Path, points: str) -> None:
     """Inventory the mesh and declare its trailing edge by the points file named."""
-    assert workspace_cli.main(["geometry", "inventory", str(path)]) == 0
+    assert mesh_main(["inventory", str(path)]) == 0
     side = path.with_name(f"{path.name}.boundaries.toml")
     side.write_text(
         side.read_text(encoding="utf-8")
@@ -60,7 +60,7 @@ def _instruction(tmp_path: Path, build: str, boundaries: str, operation: str) ->
 @pytest.mark.requirement("FR-3288")
 def test_p0550_the_points_file_the_how_to_names_is_the_one_marking_reads(tmp_path):
     mesh = _wing(tmp_path / "W1" / "W1.obj")
-    assert workspace_cli.main(["geometry", "identify-te", str(mesh)]) == 0
+    assert mesh_main(["identify-te", str(mesh)]) == 0
     _declared(mesh, "W1.te.txt")
     assert plan_mark_boundaries(mesh).script
     # the other file identify-te writes is the solver's format: it is the one marking refuses
@@ -78,7 +78,7 @@ def test_p0550_the_points_file_the_how_to_names_is_the_one_marking_reads(tmp_pat
 @pytest.mark.requirement("FR-3510")
 def test_p0550_a_stale_declaration_names_a_way_to_a_file_that_exists(tmp_path):
     mesh = _wing(tmp_path / "W1" / "W1.obj")
-    assert workspace_cli.main(["geometry", "identify-te", str(mesh)]) == 0
+    assert mesh_main(["identify-te", str(mesh)]) == 0
     _declared(mesh, "W1.te.txt")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -89,7 +89,7 @@ def test_p0550_a_stale_declaration_names_a_way_to_a_file_that_exists(tmp_path):
     assert stale, texts
     assert not (level / "W1_R2.te.txt").exists()
     # the folder is a staging one when the warning is written, so no path of it may be printed
-    assert "geometry identify-te W1_R2.obj in the level's folder" in stale[0]
+    assert "pyfs-mesh identify-te W1_R2.obj in the level's folder" in stale[0]
     assert ".partial" not in stale[0]
     assert "point the declaration's file at it in W1_R2.obj.boundaries.toml" in stale[0]
     assert "review W1_R2.te.txt" not in stale[0]
@@ -120,7 +120,7 @@ def test_p0550_a_command_with_no_script_is_refused_at_the_preview(
     folder = _instruction(tmp_path, build, boundaries, operation)
     before = sorted(p.name for p in folder.iterdir())
     monkeypatch.chdir(folder)
-    assert workspace_cli.main(["geometry", "build", "--build", build]) == 2
+    assert mesh_main(["build", "--build", build]) == 2
     err = capsys.readouterr().err
     assert command in err
     assert "--build" in err
@@ -131,7 +131,7 @@ def test_p0550_a_command_with_no_script_is_refused_at_the_preview(
 @pytest.mark.requirement("FR-424")
 def test_p0550_the_refine_help_reads(capsys):
     with pytest.raises(SystemExit):
-        workspace_cli.main(["geometry", "refine", "--help"])
+        mesh_main(["refine", "--help"])
     text = " ".join(capsys.readouterr().out.split())
     assert "else a the" not in text
     assert "else the family's longest boundary side" in text
@@ -158,7 +158,7 @@ def test_p0550_the_cutter_paragraph_says_a_broken_cutter_refuses_at_the_preview(
 @pytest.mark.requirement("FR-3288")
 def test_p0550_the_identify_te_help_names_both_files(capsys):
     with pytest.raises(SystemExit):
-        workspace_cli.main(["geometry", "identify-te", "--help"])
+        mesh_main(["identify-te", "--help"])
     text = " ".join(capsys.readouterr().out.split())
     assert "one file each" not in text
     assert "a points file and a solver node file each" in text
@@ -174,5 +174,5 @@ def test_p0550_an_argument_the_build_refuses_is_a_refusal(tmp_path, monkeypatch,
 
     monkeypatch.setattr(_cli_geometry, "plan_geometry_build", refuse)
     monkeypatch.chdir(tmp_path)
-    assert workspace_cli.main(["geometry", "build"]) == 2
+    assert mesh_main(["build"]) == 2
     assert "SOME_COMMAND: bad argument" in capsys.readouterr().err

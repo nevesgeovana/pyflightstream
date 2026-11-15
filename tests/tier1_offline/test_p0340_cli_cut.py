@@ -86,7 +86,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # (FR-414, the owner's requirement); 0.53.0 appends `visual-inspect` (FR-3440);
     # 0.57.0 appends `search-log-batch` (PFS-2218). The geometry verbs `inventory`,
     # `degenerate`, `refine` and `audit-mesh` left at 0.58.0 (PFS-2237): their home is
-    # `pyfs-workspace geometry`.
+    # `pyfs-mesh` (PFS-2260).
     assert choices == [
         *V0330_SUBCOMMANDS,
         "noise",
@@ -169,12 +169,12 @@ def test_p0430_f1564_an_empty_only_is_refused_not_an_unrestricted_build(capsys, 
     """F-1564: --only with no tag exits 2 and names the fix, writing nothing."""
     import argparse
 
-    from pyflightstream.run._cli_geometry import run_geometry
+    from pyflightstream.run.mesh_cli import run_mesh_verb
 
     args = argparse.Namespace(
-        geometry_command="build", only=" , ", target=str(tmp_path), build=None, apply=True
+        verb="build", only=" , ", target=str(tmp_path), build=None, apply=True
     )
-    assert run_geometry(args) == 2
+    assert run_mesh_verb(args) == 2
     assert "--only names no variant" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
 

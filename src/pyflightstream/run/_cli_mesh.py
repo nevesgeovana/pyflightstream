@@ -1,7 +1,7 @@
 """The geometry verbs: ``refine``, ``audit-mesh``, ``inventory`` and ``degenerate``.
 
-They are also the verbs of ``pyfs-workspace geometry`` (FR-477)
-(:mod:`pyflightstream.run._cli_geometry`), which copies these parsers and calls
+They are the verbs of ``pyfs-mesh`` refine, audit, inventory and degenerate (FR-477)
+(:mod:`pyflightstream.run.mesh_cli`), which copies these parsers and calls
 these handlers. ``inventory`` and ``degenerate`` live here so that
 both commands reach them without importing the ``pyfs-matrix`` dispatcher.
 
@@ -292,7 +292,7 @@ def _number(text: str) -> float | str:
 
 
 def _add_refine_parser(subparsers: Any) -> None:
-    """Add ``pyfs-workspace geometry refine`` (FR-424)."""
+    """Add ``pyfs-mesh refine`` (FR-424)."""
     refine = subparsers.add_parser(
         "refine",
         help="refine or coarsen a panel mesh from its OBJ into a new geometry folder",
@@ -645,7 +645,7 @@ GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 def cmd_geometry(args: argparse.Namespace) -> int:
     """Run the geometry command ``args`` names."""
     # Every geometry verb's parser names its handler, shared with
-    # `pyfs-workspace geometry` (FR-477).
+    # `pyfs-mesh` (FR-477).
     return int(args.mesh_command(args))
 
 

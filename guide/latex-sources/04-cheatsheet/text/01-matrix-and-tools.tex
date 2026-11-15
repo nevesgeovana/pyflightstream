@@ -11,9 +11,9 @@
 \fontsize{7.1}{8.1}\selectfont\raggedright
 \begin{tcolorbox}[colback=acc!8,colframe=acc,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{acc} pyfs-matrix cheatsheet} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option, by stage \quad \texttt{pyfs-matrix <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
-\textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix or pyfs-workspace restores demoted refusals.\\[1pt]
-\textbf{Console warnings:} \fl{--warning-off} before any subcommand of all five programs hides warnings, keeping logs and other output. Matrix and workspace also read \texttt{[log] warnings = false}; Python uses \texttt{console\_warnings}. Strict refusals still raise.\\[1pt]
-\textbf{Typical flow:} \cmd{geometry inventory} (new mesh, in pyfs-workspace) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
+\textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix, pyfs-workspace or pyfs-mesh restores demoted refusals.\\[1pt]
+\textbf{Console warnings:} \fl{--warning-off} before any subcommand of every program hides warnings, keeping logs and other output. Matrix and workspace also read \texttt{[log] warnings = false}; Python uses \texttt{console\_warnings}. Strict refusals still raise.\\[1pt]
+\textbf{Typical flow:} \cmd{pyfs-mesh inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
 \vspace{-3pt}
@@ -219,7 +219,7 @@ See the website's Upgrading page for supported workspace conversion.
 
 \vspace{2pt}
 \begin{tcolorbox}[colback=flag!6,colframe=flag,boxrule=0.3pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
-\textbf{Before a licensed run:} \cmd{plan} with \fl{--cost}; read the warnings; \cmd{geometry inventory} \fl{--clean} (pyfs-workspace) a geometry that carries saved actions. \textbf{Trace:} \texttt{runs.json}, \texttt{plan.json}, \texttt{post/}, \texttt{logs/}.
+\textbf{Before a licensed run:} \cmd{plan} with \fl{--cost}; read the warnings; \cmd{pyfs-mesh inventory} \fl{--clean} a geometry that carries saved actions. \textbf{Trace:} \texttt{runs.json}, \texttt{plan.json}, \texttt{post/}, \texttt{logs/}.
 \end{tcolorbox}
 {\tiny \guidefootnotice. \pkgrepo. Page 2: every other command-line tool.}
 \end{multicols}
@@ -228,7 +228,7 @@ See the website's Upgrading page for supported workspace conversion.
 \fontsize{5.9}{6.7}\selectfont
 \begin{tcolorbox}[colback=tool!8,colframe=tool,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{tool} Every other command-line tool} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option \quad \texttt{<tool> <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
-\textbf{The tools:} \texttt{pyfs-workspace} builds the campaign tree and custom free-stream fields; \texttt{pyfs-qa} is the evidence tooling of the command database (probes and physics runs need a licensed machine); \texttt{pyfs-fsi} is the coupling executable the solver calls; \texttt{pyfs-manual} is a maintainer tool (the \texttt{[manual]} extra); the two \texttt{python -m} entries keep an optional workbook (the \texttt{[excel]} extra). \textbf{Safe by default:} the field operations preview until \fl{--apply}; \texttt{pyfs-manual} writes only with \fl{--write}.
+\textbf{The tools:} \texttt{pyfs-workspace} builds the campaign tree and custom free-stream fields; \texttt{pyfs-mesh} holds every mesh operation and the workspace geometry build; \texttt{pyfs-geom} runs the parametric geometry and rewrites IGES; \texttt{pyfs-qa} is the evidence tooling of the command database (probes and physics runs need a licensed machine); \texttt{pyfs-fsi} is the coupling executable the solver calls; \texttt{pyfs-manual} is a maintainer tool (the \texttt{[manual]} extra); the two \texttt{python -m} entries keep an optional workbook (the \texttt{[excel]} extra). \textbf{Safe by default:} the field operations preview until \fl{--apply}; \texttt{pyfs-manual} writes only with \fl{--write}.
 \end{tcolorbox}
 \vspace{-2pt}
 \begin{multicols}{3}
@@ -266,92 +266,10 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{excel check <workbook>}{validate its Runs and Dictionary}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\sub{geometry mark-boundaries <OBJ>}{preview boundary marking from the OBJ sidecar; \fl{--apply} runs the licensed solver and saves the marked FSM; \fl{--fs-exe PATH} overrides the executable; \fl{--overwrite} permits replacing existing products after validation}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\sub{geometry export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{fsi}{structural-only workspace studies}
 \sub{fsi campbell <fsi-id>}{write natural frequencies, Southwell fits and crossing provenance}
 \fl{--rpm START STOP COUNT}, \fl{--modes N}, \fl{--workspace ROOT}, \fl{--overwrite}.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level.
-\sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
-\fl{--from-nodes FILE} import explicit nodes; \fl{--out FILE} name the output.
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
-\sub{geometry convert2midnodes <nodes> <output>}{write a .te.txt from an ANSA SET node list, in any node order}
-\fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}; \fl{--accept-empty} an empty list writes nothing, exit 0; \fl{--verbose}, \fl{--log-level LEVEL}.
-\sub{geometry prepare-to-refine <mesh>}{optional: families of an OBJ, or of an ANSA NASTRAN export cut along its FE perimeters, split into <family>\_<NNN>\_grid or \_mixed patches, a refine file and a node list}
-\fl{--keep-within-component} select parallel and normal governors per original family, across disconnected layouts.
-\fl{--max-angle DEG} (45); \fl{--aft X Y Z}; \fl{--unit UNIT} the NASTRAN unit (MILLIMETER), \fl{--obj-unit UNIT} (METER); \fl{--visual-inspect} a PDF with patches then directions per original family, blue parallel and orange normal arcs, P/N labels and bold framed dominant labels; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
-\sub{geometry visual-inspect <mesh>}{a PDF of the top, front, side and isometric views, one color per patch, with marked points and a table}
-\fl{--nodes FILE...}, \fl{--te FILE...}; \fl{--cmap NAME}; \fl{--families A,B}; \fl{--box X0 X1 Y0 Y1 Z0 Z1}; \fl{--mesh-unit}, \fl{--points-unit}, \fl{--unit UNIT}; \fl{--iso-from X Y Z}; \fl{--labels}; \fl{--no-edges}; \fl{--perimeter-width PT}; \fl{--dpi N}; \fl{--png}; \fl{--out}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
-\sub{geometry beam <geometry>}{cut each blade family's sections from the mesh into \texttt{<geometry>.<family>.beam.toml}; \fl{--families A,B}, \fl{--stations N}; \fl{--visual-inspection} also draws \texttt{.beam.pdf}; \fl{--verbose}, \fl{--log-level LEVEL}}
-\sub{geometry sector-to-wheel <sector>}{copy one sector (an OBJ with its boundaries file, or a saved simulation, no solver) about an axis into a full wheel of the same kind: seam nodes merged, one blade surface per copy, a boundaries file and rim points files for an OBJ, \texttt{<out stem>.wheel.json} with the checks; exit 2 for a refusal or a saved layout not recognized}
-\fl{--copies N} required; \fl{--blades FAMILY...} required, the surfaces that are blades; \fl{--axis x|y|z|X,Y,Z} (x); \fl{--center X Y Z} (origin; deprecated alias \fl{--hub}); \fl{--tolerance METRES} (1e-4); \fl{--out PATH}; \fl{--overwrite}; \fl{--no-wake-terminations} drops the wake terminations an OBJ sector declares (carried by default); \fl{--verbose}, \fl{--log-level LEVEL}
-\sub{geometry sector-remesh <sector.fsm>}{rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces (blunt trailing edge, one blade per sector, a nacelle with a flat base; no solver): chord clustered at the leading edge only, constant span cells, every row at one radius from mid blade out, the spinner adapting to the root row; \texttt{<out stem>.remesh.json} with the checks; a sector of another topology is warned, nothing is written and the exit is 2; \fl{--verbose}, \fl{--log-level LEVEL}}
-\fl{--blades FAMILY} required, the one blade; \fl{--chord-cells N}, \fl{--le F}, \fl{--span-cell METRES} required; \fl{--axis x|y|z} (x); \fl{--tip-ratio} (0.6); \fl{--tip-length METRES} (0.2); \fl{--tip-radius METRES} (the blade's largest radius, warned); \fl{--spinner-theta N} (12), \fl{--spinner-layers N} (4), \fl{--spinner-rings N} (7); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--root-margin-r F} and \fl{--nose-radius-r F} fractions of the tip radius (0.038); \fl{--out PATH}; \fl{--overwrite}
-\sub{geometry power-off-body <sector.fsm>}{write the power-off body of a saved sector as a saved simulation: a closed spinner and the nacelle of \texttt{sector-remesh} (the same nodes), \fl{--copies} sectors merged across the seams, full quad, no blade; \texttt{<out stem>.body.json}; \fl{--verbose}, \fl{--log-level LEVEL}}
-\fl{--blades FAMILY} and \fl{--copies N} required; \fl{--axis x|y|z} (x); \fl{--spinner-theta N} (6), \fl{--spinner-rings N} (12); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--nose-radius-r F} (0.038); \fl{--tip-radius METRES}; \fl{--out PATH}; \fl{--overwrite}
-\sub{geometry merge <a.obj> <b.obj>}{join two trimmed OBJ along their open boundaries within a distance; \fl{--threshold LENGTH}, \fl{--adapt OBJ} (the part adapted, the other kept unchanged), \fl{--out OBJ}, \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}}
-\sub{geometry identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
-\fl{--families A,B} one file each (default: one file of the quad families; without nodes also <obj>.nodes.txt); \fl{--all-families} every family, not only the quad ones; \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty}; \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}.
-\sub{geometry repitch <mesh>}{rigid blade pitch change; rebuild the named hub's source quad rings; preserve face order and saved markings; no solver. Requires \fl{--morphing FILE} and \fl{--out PATH}; checks in \texttt{<out>.repitch.json}.}
-\sub{geometry collapse-te <mesh.obj>}{collapse the blunt trailing edge of named blades on an OBJ, after any repitch: rim pairs merge at midpoints, the base strip leaves, the face order holds; no solver. Requires \fl{--morphing FILE} (a \texttt{[collapse\_te]} table) and \fl{--out PATH}; checks in \texttt{<out>.collapse.json}.}
-\sub{geometry hub-rings <mesh.obj>}{rebuild a quad-dominant hub around each blade root as complete rings of quads, the hole remeshed quad-dominant, every other family and the seams kept; no solver. Requires \fl{--morphing FILE} (a \texttt{[hub\_rings]} table) and \fl{--out PATH}; checks in \texttt{<out>.hub\_rings.json}.}
-\sub{geometry morph <mesh.obj>}{morph a sector or a full wheel on the OBJ from one control file: \texttt{[hub\_rings]}, \texttt{[repitch]}, \texttt{[collapse\_te]}, \texttt{[wheel]} in that order; nothing is written when a step refuses. Requires \fl{--morphing FILE} and \fl{--out PATH}; record in \texttt{<out>.morph.json}.}
-\sub{geometry scale <factor> --mesh <mesh.obj>}{scale every vertex of an OBJ uniformly (a positive factor, 0.5 halves every length) about the origin or about \fl{--about X,Y,Z}; face order, groups, normals and comments kept byte for byte; no solver. \fl{--out FOLDER} is created and receives the scaled OBJ under the input name and \texttt{<name>.scale.json} (input hash, factor, centre, counts, bounding boxes before and after); default folder \texttt{<stem>\_scaled<factor>/} beside the input. The input is never overwritten; \fl{--overwrite} replaces a same-name file in the folder.}
-\sub{geometry iges-grid <a.igs> [<b.igs> ...]}{grid the components named on the IGES levels into one OBJ, one family each, junctions conformal, four-sided patches as quads with the chord and span laws; uses the gmsh kernel; no solver. Requires \fl{--grid FILE} and \fl{--out PATH}; writes the boundaries file and \texttt{<out>.json}. \fl{--component NAME} (repeatable) grids only the named components, an unknown or ambiguous name refused with the names found; the junction of two components is measured against both originals. \fl{--name-encoding ENC} (latin-1; utf-8 for UTF-8 names; never guessed).}
-\sub{geometry iges-convert <a.igs> [<b.igs> ...]}{rewrite IGES files as one IGES of B-spline faces, one NAME per component on its own level, the first file's unit; uses the gmsh kernel. Requires \fl{--out PATH}; record in \texttt{<out>.json}. \fl{--name-encoding ENC} (latin-1; utf-8 for UTF-8 names; never guessed).}
-\sub{geometry mesh-generated <config.toml>}{mesh a parametric configuration into an all-quad OBJ, one group per component, with the acceptance checks in the record; uses the gmsh kernel. Requires \fl{--obj PATH}; \fl{--component NAME} meshes one body or lifting surface alone, \fl{--controls TOML} overrides the mesh controls, \fl{--out JSON} writes the record.}
-\sub{geometry prop-slice}{cut one blade of a propeller OBJ or IGES at radial stations; write the propeller definition that rebuilds it, one normalized profile per station and the table of chord, pitch, thickness, camber, skew and rake. Requires \fl{--geometry FILE}, \fl{--blades N}, \fl{--out DIR}; \fl{--axis DX DY DZ} thrust (-1 0 0), \fl{--origin X Y Z} (mm), \fl{--blade-dir DX DY DZ} (0 0 1), \fl{--stations R\_R ...}, \fl{--unit} of an OBJ (mm). A folder already holding an output is refused unless \fl{--overwrite}.}
-\sub{geometry mesh <config.toml>}{mesh a parametric configuration by strategy 1 from its per-component mesh controls; errors E01 to E16 refuse by name, W01 warns; uses the gmsh kernel. Requires \fl{--controls TOML}; \fl{--dry-run} prints the planned counts and the warnings and writes nothing; \fl{--out DIR} writes \texttt{<descriptor>.obj} and \texttt{<descriptor>.mesh.json}, \fl{--descriptor NAME} names them, \fl{--fsm-template FSM} also writes \texttt{<descriptor>.fsm} from a fresh saved simulation. Exit 0 planned or accepted, 1 not accepted, 2 refused.}
-\sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
-\sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\begin{flags}
-\item \fl{--apply} run the solver and write the geometry \quad \fl{--overwrite} replace the outputs of an earlier build
-\item \fl{--build ID} the build id, over the instruction's \texttt{fs\_build} \quad \fl{--fs-exe PATH} the executable, over the registry
-\item \fl{--png} also draw \texttt{<name>.preview.png}
-\item \fl{--only A,B} build only these variants of a \texttt{[sweep]}, such as AIL+100 \quad \fl{--parallel N} up to N variants at once, 1 or 2 (default 1)
-\item \fl{--rows} print, per built geometry, the row POL of \fl{--matrix} with its CONFIGURATION, GEOMETRY and POL cells set; nothing is written into the matrix \quad \fl{--matrix FILE} the run matrix \fl{--rows} copies from
-\end{flags}
-\sub{geometry accept <names>}{record who inspected each named geometry folder and when, in its \texttt{<name>.build.json}}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\begin{flags}
-\item \fl{--workspace DIR} the workspace root (default: the current folder)
-\end{flags}
-\sub{geometry mark-boundaries <OBJ>}{preview offline the marking of the named \texttt{[trailing\_edges.<label>]} and \texttt{[base\_regions.<family>]} declarations of \texttt{<stem>.obj.boundaries.toml}; with \fl{--apply} run the licensed solver once and save \texttt{<stem>.fsm}, the file a matrix row names, with its \texttt{.fsm.boundaries.toml} and \texttt{<stem>.mark.json}}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\begin{flags}
-\item \fl{--apply} import, mark and save \quad \fl{--overwrite} mark again after an input changed \quad \fl{--fs-exe PATH} the executable, over the registry
-\end{flags}
-\sub{geometry from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
-\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
-\begin{flags}
-\item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
-\end{flags}
-\sub{geometry refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
-\fl{--keep-within-component} share directional governors across each declared component's grid patches.
-\fl{--audit-off} writes the level without auditing it and prints the later audit command.
-\fl{--visual-inspect} writes \texttt{<level>.refine-governors.pdf} beside its OBJ: the governing families per direction, then the patches and directions pages.
-\begin{flags}
-\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}
-\item \fl{--out DIR} \quad \fl{--overwrite}
-\item \fl{--verbose} \quad \fl{--log-level LEVEL}
-\end{flags}
-\sub{geometry audit <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
-\begin{flags}
-\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV
-\item \fl{--verbose} \quad \fl{--log-level LEVEL}
-\end{flags}
-\sub{geometry inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
-\begin{flags}
-\item \fl{--overwrite} \quad \fl{--clean} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
-\end{flags}
-\sub{geometry degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
-\begin{flags}
-\item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
-\end{flags}
 \sub{field}{build a custom free-stream file of \texttt{inputs/freestreams/} from other fields. Every operation below previews until \fl{--apply}, writes the file \texttt{<STEM>} (\texttt{.txt} STRUCTURED, \texttt{.dat} UNSTRUCTURED, the form decides) and its provenance record, and takes \fl{--out STEM} (required), \fl{--workspace DIR}, \fl{--apply}, \fl{--overwrite} (replace an existing \texttt{<STEM>} file and its record)}
 \sub{field mirror <field>}{mirror a field through the plane x = 0, y = 0 or z = 0}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
@@ -392,6 +310,88 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{profile <shape> [table]}{the actuator-disc profile a row's \texttt{PROFILE} names, \texttt{inputs/profiles/<STEM>.csv}, scaled to \fl{--thrust} or \fl{--ct} \fl{--rho} \fl{--rpm}; ELLIPTICAL needs none. sections: \fl{--pol} \fl{--family} \fl{--component} \fl{--sign} \fl{--last}; bp: \fl{--advance-ratio}; uni, bp: \fl{--stations}; disc: \fl{--ref} \fl{--disc}, or \fl{--tip-radius} \fl{--hub-radius} \fl{--blades}; \fl{--out} \fl{--workspace} \fl{--apply} \fl{--overwrite}}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 
+\tool{pyfs-mesh}{every mesh operation and the workspace geometry build, mirroring \texttt{cfd-mesh}: refine, audit, inventory and derive panel meshes, trailing edges, morph, repitch, scale, merge, sector to wheel, IGES and parametric meshing; only \cmd{build}, \cmd{mark-boundaries} and \cmd{export-surface-mesh} with \fl{--apply} run the solver}
+\fl{--warning-refusals} and \fl{--warning-off} before the subcommand, as in pyfs-workspace.
+\sub{mark-boundaries <OBJ>}{preview boundary marking from the OBJ sidecar; \fl{--apply} runs the licensed solver and saves the marked FSM; \fl{--fs-exe PATH} overrides the executable; \fl{--overwrite} permits replacing existing products after validation}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\sub{export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\sub{trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
+\fl{--from-nodes FILE} import explicit nodes; \fl{--out FILE} name the output.
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
+\sub{convert2midnodes <nodes> <output>}{write a .te.txt from an ANSA SET node list, in any node order}
+\fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}; \fl{--accept-empty} an empty list writes nothing, exit 0; \fl{--verbose}, \fl{--log-level LEVEL}.
+\sub{prepare-to-refine <mesh>}{optional: families of an OBJ, or of an ANSA NASTRAN export cut along its FE perimeters, split into <family>\_<NNN>\_grid or \_mixed patches, a refine file and a node list}
+\fl{--keep-within-component} select parallel and normal governors per original family, across disconnected layouts.
+\fl{--max-angle DEG} (45); \fl{--aft X Y Z}; \fl{--unit UNIT} the NASTRAN unit (MILLIMETER), \fl{--obj-unit UNIT} (METER); \fl{--visual-inspect} a PDF with patches then directions per original family, blue parallel and orange normal arcs, P/N labels and bold framed dominant labels; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
+\sub{visual-inspect <mesh>}{a PDF of the top, front, side and isometric views, one color per patch, with marked points and a table}
+\fl{--nodes FILE...}, \fl{--te FILE...}; \fl{--cmap NAME}; \fl{--families A,B}; \fl{--box X0 X1 Y0 Y1 Z0 Z1}; \fl{--mesh-unit}, \fl{--points-unit}, \fl{--unit UNIT}; \fl{--iso-from X Y Z}; \fl{--labels}; \fl{--no-edges}; \fl{--perimeter-width PT}; \fl{--dpi N}; \fl{--png}; \fl{--out}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
+\sub{sector-to-wheel <sector>}{copy one sector (an OBJ with its boundaries file, or a saved simulation, no solver) about an axis into a full wheel of the same kind: seam nodes merged, one blade surface per copy, a boundaries file and rim points files for an OBJ, \texttt{<out stem>.wheel.json} with the checks; exit 2 for a refusal or a saved layout not recognized}
+\fl{--copies N} required; \fl{--blades FAMILY...} required, the surfaces that are blades; \fl{--axis x|y|z|X,Y,Z} (x); \fl{--center X Y Z} (origin; deprecated alias \fl{--hub}); \fl{--tolerance METRES} (1e-4); \fl{--out PATH}; \fl{--overwrite}; \fl{--no-wake-terminations} drops the wake terminations an OBJ sector declares (carried by default); \fl{--verbose}, \fl{--log-level LEVEL}
+\sub{sector-remesh <sector.fsm>}{rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces (blunt trailing edge, one blade per sector, a nacelle with a flat base; no solver): chord clustered at the leading edge only, constant span cells, every row at one radius from mid blade out, the spinner adapting to the root row; \texttt{<out stem>.remesh.json} with the checks; a sector of another topology is warned, nothing is written and the exit is 2; \fl{--verbose}, \fl{--log-level LEVEL}}
+\fl{--blades FAMILY} required, the one blade; \fl{--chord-cells N}, \fl{--le F}, \fl{--span-cell METRES} required; \fl{--axis x|y|z} (x); \fl{--tip-ratio} (0.6); \fl{--tip-length METRES} (0.2); \fl{--tip-radius METRES} (the blade's largest radius, warned); \fl{--spinner-theta N} (12), \fl{--spinner-layers N} (4), \fl{--spinner-rings N} (7); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--root-margin-r F} and \fl{--nose-radius-r F} fractions of the tip radius (0.038); \fl{--out PATH}; \fl{--overwrite}
+\sub{power-off-body <sector.fsm>}{write the power-off body of a saved sector as a saved simulation: a closed spinner and the nacelle of \texttt{sector-remesh} (the same nodes), \fl{--copies} sectors merged across the seams, full quad, no blade; \texttt{<out stem>.body.json}; \fl{--verbose}, \fl{--log-level LEVEL}}
+\fl{--blades FAMILY} and \fl{--copies N} required; \fl{--axis x|y|z} (x); \fl{--spinner-theta N} (6), \fl{--spinner-rings N} (12); \fl{--nacelle-theta N} (6), \fl{--nacelle-cells N} (28); \fl{--nose-radius-r F} (0.038); \fl{--tip-radius METRES}; \fl{--out PATH}; \fl{--overwrite}
+\sub{merge <a.obj> <b.obj>}{join two trimmed OBJ along their open boundaries within a distance; \fl{--threshold LENGTH}, \fl{--adapt OBJ} (the part adapted, the other kept unchanged), \fl{--out OBJ}, \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}}
+\sub{identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
+\fl{--families A,B} one file each (default: one file of the quad families; without nodes also <obj>.nodes.txt); \fl{--all-families} every family, not only the quad ones; \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty}; \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}.
+\sub{repitch <mesh>}{rigid blade pitch change; rebuild the named hub's source quad rings; preserve face order and saved markings; no solver. Requires \fl{--morphing FILE} and \fl{--out PATH}; checks in \texttt{<out>.repitch.json}.}
+\sub{collapse-te <mesh.obj>}{collapse the blunt trailing edge of named blades on an OBJ, after any repitch: rim pairs merge at midpoints, the base strip leaves, the face order holds; no solver. Requires \fl{--morphing FILE} (a \texttt{[collapse\_te]} table) and \fl{--out PATH}; checks in \texttt{<out>.collapse.json}.}
+\sub{hub-rings <mesh.obj>}{rebuild a quad-dominant hub around each blade root as complete rings of quads, the hole remeshed quad-dominant, every other family and the seams kept; no solver. Requires \fl{--morphing FILE} (a \texttt{[hub\_rings]} table) and \fl{--out PATH}; checks in \texttt{<out>.hub\_rings.json}.}
+\sub{morph <mesh.obj>}{morph a sector or a full wheel on the OBJ from one control file: \texttt{[hub\_rings]}, \texttt{[repitch]}, \texttt{[collapse\_te]}, \texttt{[wheel]} in that order; nothing is written when a step refuses. Requires \fl{--morphing FILE} and \fl{--out PATH}; record in \texttt{<out>.morph.json}.}
+\sub{scale <factor> --mesh <mesh.obj>}{scale every vertex of an OBJ uniformly (a positive factor, 0.5 halves every length) about the origin or about \fl{--about X,Y,Z}; face order, groups, normals and comments kept byte for byte; no solver. \fl{--out FOLDER} is created and receives the scaled OBJ under the input name and \texttt{<name>.scale.json} (input hash, factor, centre, counts, bounding boxes before and after); default folder \texttt{<stem>\_scaled<factor>/} beside the input. The input is never overwritten; \fl{--overwrite} replaces a same-name file in the folder.}
+\sub{iges-grid <a.igs> [<b.igs> ...]}{grid the components named on the IGES levels into one OBJ, one family each, junctions conformal, four-sided patches as quads with the chord and span laws; uses the gmsh kernel; no solver. Requires \fl{--grid FILE} and \fl{--out PATH}; writes the boundaries file and \texttt{<out>.json}. \fl{--component NAME} (repeatable) grids only the named components, an unknown or ambiguous name refused with the names found; the junction of two components is measured against both originals. \fl{--name-encoding ENC} (latin-1; utf-8 for UTF-8 names; never guessed).}
+\sub{mesh-generated <config.toml>}{mesh a parametric configuration into an all-quad OBJ, one group per component, with the acceptance checks in the record; uses the gmsh kernel. Requires \fl{--obj PATH}; \fl{--component NAME} meshes one body or lifting surface alone, \fl{--controls TOML} overrides the mesh controls, \fl{--out JSON} writes the record.}
+\sub{prop-slice}{cut one blade of a propeller OBJ or IGES at radial stations; write the propeller definition that rebuilds it, one normalized profile per station and the table of chord, pitch, thickness, camber, skew and rake. Requires \fl{--geometry FILE}, \fl{--blades N}, \fl{--out DIR}; \fl{--axis DX DY DZ} thrust (-1 0 0), \fl{--origin X Y Z} (mm), \fl{--blade-dir DX DY DZ} (0 0 1), \fl{--stations R\_R ...}, \fl{--unit} of an OBJ (mm). A folder already holding an output is refused unless \fl{--overwrite}.}
+\sub{mesh <config.toml>}{mesh a parametric configuration by strategy 1 from its per-component mesh controls; errors E01 to E16 refuse by name, W01 warns; uses the gmsh kernel. Requires \fl{--controls TOML}; \fl{--dry-run} prints the planned counts and the warnings and writes nothing; \fl{--out DIR} writes \texttt{<descriptor>.obj} and \texttt{<descriptor>.mesh.json}, \fl{--descriptor NAME} names them, \fl{--fsm-template FSM} also writes \texttt{<descriptor>.fsm} from a fresh saved simulation. Exit 0 planned or accepted, 1 not accepted, 2 refused.}
+\sub{build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\begin{flags}
+\item \fl{--apply} run the solver and write the geometry \quad \fl{--overwrite} replace the outputs of an earlier build
+\item \fl{--build ID} the build id, over the instruction's \texttt{fs\_build} \quad \fl{--fs-exe PATH} the executable, over the registry
+\item \fl{--png} also draw \texttt{<name>.preview.png}
+\item \fl{--only A,B} build only these variants of a \texttt{[sweep]}, such as AIL+100 \quad \fl{--parallel N} up to N variants at once, 1 or 2 (default 1)
+\item \fl{--rows} print, per built geometry, the row POL of \fl{--matrix} with its CONFIGURATION, GEOMETRY and POL cells set; nothing is written into the matrix \quad \fl{--matrix FILE} the run matrix \fl{--rows} copies from
+\end{flags}
+\sub{accept <names>}{record who inspected each named geometry folder and when, in its \texttt{<name>.build.json}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\begin{flags}
+\item \fl{--workspace DIR} the workspace root (default: the current folder)
+\end{flags}
+\sub{mark-boundaries <OBJ>}{preview offline the marking of the named \texttt{[trailing\_edges.<label>]} and \texttt{[base\_regions.<family>]} declarations of \texttt{<stem>.obj.boundaries.toml}; with \fl{--apply} run the licensed solver once and save \texttt{<stem>.fsm}, the file a matrix row names, with its \texttt{.fsm.boundaries.toml} and \texttt{<stem>.mark.json}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\begin{flags}
+\item \fl{--apply} import, mark and save \quad \fl{--overwrite} mark again after an input changed \quad \fl{--fs-exe PATH} the executable, over the registry
+\end{flags}
+\sub{from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
+\begin{flags}
+\item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
+\end{flags}
+\sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
+\fl{--keep-within-component} share directional governors across each declared component's grid patches.
+\fl{--audit-off} writes the level without auditing it and prints the later audit command.
+\fl{--visual-inspect} writes \texttt{<level>.refine-governors.pdf} beside its OBJ: the governing families per direction, then the patches and directions pages.
+\begin{flags}
+\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}
+\item \fl{--out DIR} \quad \fl{--overwrite}
+\item \fl{--verbose} \quad \fl{--log-level LEVEL}
+\end{flags}
+\sub{audit <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
+\begin{flags}
+\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV
+\item \fl{--verbose} \quad \fl{--log-level LEVEL}
+\end{flags}
+\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}
+\begin{flags}
+\item \fl{--overwrite} \quad \fl{--clean} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
+\end{flags}
+\sub{degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
+\begin{flags}
+\item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
+\end{flags}
+
 \tool{pyfs-geom}{the parametric geometry pipeline outside the run matrix: run, loop, inspect and move a configuration. Exit 0 accepted, 1 a run failed at a stage, 2 an input refused, 3 incomplete (a check of the stage table not measured). The record is printed as JSON.}
 \sub{run <config.toml>}{run the stages S0 to S13 of a configuration and write one record per stage and the report. Requires \fl{--out DIR}; \fl{--set K=V} overrides one value, \texttt{component.key=value} (repeatable; the value is TOML), \fl{--configuration NAME} picks an entry of the registry, \fl{--variant V} (clean), \fl{--until Sxx} ends at that stage (S13; S9 needs no kernel).}
 \sub{doe <config.toml> <sets.toml>}{run one report per \texttt{[[sets]]} table of the second file, each in its own worker process, and continue after a failed set; the exit code is the worst of the sets. Requires \fl{--out DIR} (set-0001, set-0002, \ldots); \fl{--workers N} sets in parallel, \fl{--configuration NAME}, \fl{--variant V}, \fl{--until Sxx}.}
@@ -403,6 +403,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{schema}{print the JSON Schema of the component parameter record; no \texttt{gmsh}. \fl{--out JSON} writes it, \fl{--validate RECORD} checks a record instead (exit 1 on a failed pin), \fl{--asset-root DIR} re-reads every pinned file against its SHA-256.}
 \sub{add-control-surface <iges> <component> <entry.toml>}{add one control surface, the entry of a \texttt{[[control]]} table, to a component of an IGES file and write the edited IGES, with the closure checks measured at 0.01 mm; the source is never changed. \fl{--out IGES} the file to write.}
 \sub{split-symmetry <iges>}{cut a full model at its symmetry plane and write the half model: faces crossing the plane are cut on it, the positive side is kept with its component names and the cut edges stay open as the symmetry boundary; surfaces only, the source is never changed. \fl{--out IGES}, \fl{--plane x|y|z} (y), \fl{--component NAME} cuts one component only.}
+\sub{iges-convert <a.igs> [<b.igs> ...]}{rewrite IGES files as one IGES of B-spline faces, one NAME per component on its own level, the first file's unit; uses the gmsh kernel. Requires \fl{--out PATH}; record in \texttt{<out>.json}. \fl{--name-encoding ENC} (latin-1; utf-8 for UTF-8 names; never guessed).}
 
 \tool{pyfs-fsi}{the coupling executable the solver's aeroelastic toolbox calls once per time step. With no arguments it runs one coupling step in the current folder: coupled when \texttt{config.json} is there, the dummy (zero displacements) otherwise}
 \fl{--warning-off} before the subcommand hides console warnings only.
@@ -418,6 +419,7 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{flags}
 \item \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
 \end{flags}
+\sub{beam <geometry>}{cut each blade family's sections from the mesh into \texttt{<geometry>.<family>.beam.toml}; \fl{--families A,B}, \fl{--stations N}; \fl{--visual-inspection} also draws \texttt{.beam.pdf}; \fl{--verbose}, \fl{--log-level LEVEL}}
 
 \tool{pyfs-qa}{evidence tooling of the command database: probes run the solver locally on a licensed machine}
 \fl{--warning-off} before the subcommand hides console warnings only.

@@ -36,7 +36,12 @@ import warnings
 from pathlib import Path
 from typing import NoReturn
 
-from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
+from pyflightstream._cli import (
+    cli_entrypoint,
+    note_post_ran,
+    post_warning_policy,
+    refused_command,
+)
 
 # Re-export the console helpers and plan types at this public dotted path
 # (parity arm R1, AD-15): blocks, table, wrap, print_held_warnings,
@@ -83,7 +88,6 @@ from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
 from pyflightstream.run._cli_parsers import (
-    GEOMETRY_COMMANDS,
     _build_parser,
     cmd_mark_converged,
     cmd_search_log_batch,
@@ -215,17 +219,6 @@ def _refused_campaign_file(argv: list[str] | None) -> bool:
     return True
 
 
-def _refused_geometry_verb(argv: list[str] | None) -> bool:
-    """Name the ``pyfs-workspace geometry`` home of a geometry verb ``pyfs-matrix`` once had."""
-    from pyflightstream._retired_names import REMOVED_FORMS
-
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments[0] not in GEOMETRY_COMMANDS:
-        return False
-    print(REMOVED_FORMS[f"pyfs-matrix.{arguments[0]}"].message(), file=sys.stderr)
-    return True
-
-
 def _refused_sweep_csv(argv: list[str] | None) -> bool:
     """Name the successor of ``run --sweep-csv``, retired with the table it named."""
     from pyflightstream._retired_names import REMOVED_FORMS
@@ -255,7 +248,9 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
-    if _refused_campaign_file(argv) or _refused_geometry_verb(argv) or _refused_sweep_csv(argv):
+    # A removed command (the mesh verbs, PFS-2260) is named past the global flags.
+    removed = refused_command("pyfs-matrix", argv)
+    if removed or _refused_campaign_file(argv) or _refused_sweep_csv(argv):
         return 2
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.

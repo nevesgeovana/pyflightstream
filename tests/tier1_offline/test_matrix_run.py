@@ -3808,7 +3808,7 @@ def test_mesh_order_list_is_refused_naming_the_inventory_command():
     with pytest.raises(InputArtifactError) as caught:
         _resolve(setup, "s001")
     message = str(caught.value)
-    assert "mesh_order_list" in message and "pyfs-workspace geometry inventory" in message
+    assert "mesh_order_list" in message and "pyfs-mesh inventory" in message
     assert ".boundaries.toml" in message
 
 

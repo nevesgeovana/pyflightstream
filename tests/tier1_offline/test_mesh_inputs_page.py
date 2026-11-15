@@ -38,6 +38,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._ccs import CcsImportOptions
 from pyflightstream.run.cli import main as pyfs_matrix
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import CampaignWorkspace
 
 # The sidecar readers are workspace.sidecars since 0.33.0 (AD-11); workspace.inputs
@@ -249,7 +250,6 @@ def test_every_name_a_python_block_on_the_page_imports_exists():
 
 
 def test_p0460_mesh_example_previews_and_refuses_an_unmarked_plan(tmp_path, monkeypatch):
-    from pyflightstream.workspace.cli import main as workspace_main
 
     CampaignWorkspace.init(tmp_path)
     text = PAGE.read_text(encoding="utf-8")
@@ -262,6 +262,6 @@ def test_p0460_mesh_example_previews_and_refuses_an_unmarked_plan(tmp_path, monk
             path.write_text(block.body, encoding="utf-8")
         elif block.language == "python":
             exec(compile(block.body, "documented preparation", "exec"), {})
-    assert workspace_main(["geometry", "mark-boundaries", "inputs/geometries/wing.obj"]) == 0
+    assert mesh_main(["mark-boundaries", "inputs/geometries/wing.obj"]) == 0
     assert not (tmp_path / "inputs/geometries/wing.fsm").exists()
     assert pyfs_matrix(["plan", "wing.fs", "--fs-exe", sys.executable]) == 2

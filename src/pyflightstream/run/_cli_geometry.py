@@ -1,16 +1,13 @@
-"""The ``pyfs-workspace geometry`` command group (FR-471 to FR-477).
+"""The verbs of ``pyfs-mesh`` and their handlers (FR-471 to FR-477), and ``pyfs-fsi beam``.
 
 Pipeline role: the run row, because ``build --apply`` runs the solver and the
-executor is the run layer's. The group is registered into ``pyfs-workspace``
-at import (:func:`pyflightstream.workspace.cli.register_command_group`), the
-way the post stages are registered, so the workspace layer never imports this
-one. The work itself is the workspace layer's:
+executor is the run layer's. :mod:`pyflightstream.run.mesh_cli` builds the
+``pyfs-mesh`` program from :func:`add_geometry_verbs` and dispatches to
+:data:`HANDLERS`; ``beam`` is registered into ``pyfs-fsi`` at import
+(:func:`pyflightstream.fsi.cli.register_command`), so the fsi side branch never
+imports this layer. The work itself is the workspace layer's:
 :mod:`pyflightstream.workspace._geometry_build` plans, builds, reads back and
 records, :mod:`pyflightstream.workspace._geometry_convert` converts a sidecar.
-
-``refine``, ``audit``, ``inventory`` and ``degenerate`` are the verbs this group
-holds (FR-477): the parsers are the mesh parsers copied as parents, and each verb's
-handler is the one its parser names.
 """
 
 from __future__ import annotations
@@ -25,16 +22,12 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
+from pyflightstream._progress import command_console
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.fsi.cli import register_command as register_fsi_command
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
-from pyflightstream.run._cli_mesh import (
-    _progress_printer,
-    add_degenerate_parser,
-    add_inventory_parser,
-    add_mesh_parsers,
-)
-from pyflightstream.run._cli_morph import MORPH_VERBS, add_morph_verbs
+from pyflightstream.run._cli_mesh import _progress_printer
+from pyflightstream.run._cli_morph import add_morph_verbs
 from pyflightstream.run._cli_wheel import WHEEL_HANDLERS, add_wheel_verbs
 from pyflightstream.run._executors import (
     ExecutorConfigurationError,
@@ -51,6 +44,7 @@ from pyflightstream.workspace import (
     plan_mark_boundaries,
     refuse_mark_boundaries,
 )
+from pyflightstream.workspace import cli as _workspace_cli
 from pyflightstream.workspace._geometry_build import (
     GeometryBuildError,
     GeometryBuildPlan,
@@ -67,37 +61,9 @@ from pyflightstream.workspace._geometry_convert import (
     rows_for_built_geometries,
 )
 from pyflightstream.workspace.builds import resolve_build
-from pyflightstream.workspace.cli import register_command_group
 from pyflightstream.workspace.trailing_edges import DEFAULT_SECTIONS
 
-__all__ = [
-    "GEOMETRY_VERBS",
-    "PYFS_MATRIX_ALIASES",
-    "add_geometry_commands",
-    "matrix_parsers",
-    "run_geometry",
-]
-
-#: The verbs of ``pyfs-matrix`` that join the group, by their name in the group.
-PYFS_MATRIX_ALIASES = {
-    "refine": "refine",
-    "audit": "audit-mesh",
-    "inventory": "inventory",
-    "degenerate": "degenerate",
-}
-
-#: Every verb of the group.
-GEOMETRY_VERBS = (
-    "mark-boundaries",
-    "build",
-    "accept",
-    "from-sidecar",
-    "trailing-edge",
-    "export-surface-mesh",
-    "merge",
-    *MORPH_VERBS,
-    *PYFS_MATRIX_ALIASES,
-)
+__all__ = ["HANDLERS", "add_geometry_verbs"]
 
 #: How long one build may run; a build makes a body and solves nothing.
 _TIMEOUT_S = 1800.0
@@ -106,29 +72,12 @@ _NOTHING = "Nothing was written."
 _OTHER_ROUTE = "Choose another build with --build, or another route in the instruction."
 
 
-def matrix_parsers() -> dict[str, argparse.ArgumentParser]:
-    """Return the four ``pyfs-matrix`` geometry parsers, built afresh, to copy as parents."""
-    holder = argparse.ArgumentParser(add_help=False)
-    sub = holder.add_subparsers(dest="subcommand")
-    add_mesh_parsers(sub)
-    add_inventory_parser(sub)
-    add_degenerate_parser(sub)
-    return dict(sub.choices)
+def add_geometry_verbs(verbs: Any) -> None:
+    """Add the ``pyfs-mesh`` verbs this module handles to a subparsers action.
 
-
-def add_geometry_commands(subparsers: Any) -> None:
-    """Add ``pyfs-workspace geometry`` and its verbs to a subparsers action."""
-    geometry = subparsers.add_parser(
-        "geometry",
-        help="build a geometry from its instruction file, and inspect or refine a mesh",
-        description=(
-            "Builds a body outside the run matrix from <name>.geometry.toml, previewing by "
-            "default and running the solver once with --apply; accepts a built body after "
-            "inspection; writes the instruction of a geometry a matrix builds in the row; "
-            "and refines, audits, inventories and derives meshes (docs/geometry.md)."
-        ),
-    )
-    verbs = geometry.add_subparsers(dest="geometry_command", required=True)
+    Every verb but the four copied mesh parsers (refine, audit, inventory, degenerate),
+    which :mod:`pyflightstream.run.mesh_cli` adds.
+    """
     marking = verbs.add_parser(
         "mark-boundaries",
         help="mark an OBJ's declared boundaries into an FSM",
@@ -243,26 +192,13 @@ def add_geometry_commands(subparsers: Any) -> None:
     convert.add_argument(
         "--workspace", default=".", help="the workspace root (default: the current directory)"
     )
-    for verb, source in matrix_parsers().items():
-        name = next(
-            (group for group, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb), None
-        )
-        if name is None:
-            continue
-        verbs.add_parser(
-            name,
-            parents=[source],
-            add_help=False,
-            help=f"as pyfs-matrix {verb}, whose home this group is",
-            description=source.description,
-        )
 
 
 def _add_beam(verbs: Any) -> None:
     """Add ``beam``: a blade's sections cut from its mesh (PFS-2185.11), a pyfs-fsi command."""
     beam = verbs.add_parser(
         "beam",
-        help="cut a blade's sections from its mesh into <geometry>.<family>.beam.toml",
+        help=_BEAM_WHAT,
         description=(
             "Writes <geometry>.<family>.beam.toml beside the mesh for each family: the "
             "family's sections cut at --stations radii evenly spaced from its first closed "
@@ -288,23 +224,35 @@ def _add_beam(verbs: Any) -> None:
         action="store_true",
         help="also draw <geometry>.<family>.beam.pdf: the sections on the blade and each contour",
     )
+    _workspace_cli.add_console_arguments(
+        beam, "print every value taken from the settings files and more detail"
+    )
+
+
+_BEAM_WHAT = "cut a blade's sections from its mesh into <geometry>.<family>.beam.toml"
 
 
 def _cmd_beam(args: argparse.Namespace) -> int:
-    """Write each family's sections cut from the mesh, and their drawing when asked."""
+    """Write each family's sections cut from the mesh, and their drawing when asked.
+
+    The console contract it had in the geometry group: the console level of the
+    command line or the settings files, the titled opening, the warnings at the end.
+    """
     from pyflightstream.workspace.fsi_setup import beam_sections
 
-    try:
-        for family in args.families:
-            written = beam_sections(
-                args.geometry, family, args.stations, inspection=args.visual_inspection
-            )
-            print(written.path)
-            if written.pdf is not None:
-                print(written.pdf)
-    except (PyflightstreamError, OSError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
+    _workspace_cli._take_the_console_level(args)
+    with command_console("pyfs-fsi", "beam", what=_BEAM_WHAT):
+        try:
+            for family in args.families:
+                written = beam_sections(
+                    args.geometry, family, args.stations, inspection=args.visual_inspection
+                )
+                print(written.path)
+                if written.pdf is not None:
+                    print(written.pdf)
+        except (PyflightstreamError, OSError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
     return 0
 
 
@@ -458,7 +406,6 @@ def _add_mesh_verbs(verbs: Any) -> None:
         ),
     )
     _add_visual_inspect(verbs)
-    _add_beam(verbs)
     add_merge_parser(verbs)
     prepare.add_argument(
         "--keep-within-component",
@@ -468,7 +415,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
 
 
 def _add_visual_inspect(verbs: Any) -> None:
-    """Add ``geometry visual-inspect``: a PDF of a mesh's views with its marked points."""
+    """Add ``visual-inspect``: a PDF of a mesh's views with its marked points."""
     inspect = verbs.add_parser(
         "visual-inspect",
         help="draw a mesh in three views and an isometric view, with marked points, into a PDF",
@@ -706,7 +653,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
             status = 1
     accepted = [item.folder.name for item in built if item.promoted]
     if accepted:
-        print("accept after inspection: pyfs-workspace geometry accept " + ",".join(accepted))
+        print("accept after inspection: pyfs-mesh accept " + ",".join(accepted))
     return status
 
 
@@ -1076,37 +1023,25 @@ def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
         return 2
 
 
-def run_geometry(args: argparse.Namespace) -> int:
-    """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
-    handlers = {
-        "mark-boundaries": _cmd_mark_boundaries,
-        "export-surface-mesh": _cmd_export_surface_mesh,
-        "trailing-edge": _cmd_trailing_edge,
-        "convert2midnodes": _cmd_midnodes,
-        "identify-te": _cmd_identify_te,
-        "prepare-to-refine": _cmd_prepare_to_refine,
-        "visual-inspect": _cmd_visual_inspect,
-        "beam": _cmd_beam,
-        "merge": run_merge,
-        "build": _cmd_build,
-        "accept": _cmd_accept,
-        "from-sidecar": _cmd_from_sidecar,
-        **WHEEL_HANDLERS,
-    }
-    if args.geometry_command in handlers:
-        return handlers[args.geometry_command](args)
-    # THE pyfs-matrix HANDLER ITSELF, named by the copied parser (FR-477).
-    args.subcommand = PYFS_MATRIX_ALIASES.get(args.geometry_command, args.geometry_command)
-    try:
-        return int(args.mesh_command(args))
-    except PyflightstreamError as error:
-        print(str(error), file=sys.stderr)
-        return 2
+#: The handler of each verb whose parser does not name its own (``mesh_command``).
+HANDLERS: dict[str, Any] = {
+    "mark-boundaries": _cmd_mark_boundaries,
+    "export-surface-mesh": _cmd_export_surface_mesh,
+    "trailing-edge": _cmd_trailing_edge,
+    "convert2midnodes": _cmd_midnodes,
+    "identify-te": _cmd_identify_te,
+    "prepare-to-refine": _cmd_prepare_to_refine,
+    "visual-inspect": _cmd_visual_inspect,
+    "merge": run_merge,
+    "build": _cmd_build,
+    "accept": _cmd_accept,
+    "from-sidecar": _cmd_from_sidecar,
+    **WHEEL_HANDLERS,
+}
 
 
 def _registered() -> None:
-    """Register the group into ``pyfs-workspace`` and ``beam`` into ``pyfs-fsi`` (at import)."""
-    register_command_group("geometry", add_geometry_commands, run_geometry)
+    """Register ``beam`` into ``pyfs-fsi`` (module import does it once)."""
     register_fsi_command("beam", _add_beam, _cmd_beam)
 
 

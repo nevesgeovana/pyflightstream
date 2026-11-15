@@ -129,7 +129,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         mesh = PurePath(case.geometry).with_suffix(".obj")
         raise CampaignConfigError(
             f"case {case.sim_id!r}: GEOMETRY {case.geometry!r} must be an .fsm. "
-            f"Run pyfs-workspace geometry mark-boundaries {mesh} --apply, "
+            f"Run pyfs-mesh mark-boundaries {mesh} --apply, "
             "then run the saved simulation. "
             "Only FSI rows retain raw meshes. "
             "See docs/mesh-inputs.md."
@@ -568,7 +568,7 @@ def _declare_boundaries(
                 f"{PurePath(str(case.geometry)).name} lists {', '.join(names)} and the "
                 f"sidecar {sidecar_name} lists {', '.join(case.inventory)}; the two "
                 "disagree, so no boundary index this run would cite can be trusted. "
-                "Rewrite the sidecar from the file with `pyfs-workspace geometry inventory "
+                "Rewrite the sidecar from the file with `pyfs-mesh inventory "
                 "<geometry>`, overwrite (CLI: --overwrite), if the file is current, or "
                 "restage the file "
                 "the sidecar describes."
@@ -868,7 +868,7 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
             raise CampaignConfigError(
                 f"Planar probes need surface mesh export {source.name}; use "
                 "pyflightstream.run.export_surface_mesh "
-                "(CLI: pyfs-workspace geometry export-surface-mesh) "
+                "(CLI: pyfs-mesh export-surface-mesh) "
                 "on the licensed machine before plan. Planning does not launch the solver."
             )
     mesh = None

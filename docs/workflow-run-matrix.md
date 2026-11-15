@@ -123,7 +123,7 @@ them close the gap that made the capability unusable:
   says what the file is: a `.fsm` is a saved simulation and is opened.
   The workflow reads the staged copy, so the bytes hashed are the bytes opened.
   All other suffixes are refused. Run
-  `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply` once and name
+  `pyfs-mesh mark-boundaries <mesh>.obj --apply` once and name
   the resulting `.fsm`. There is no OBJ override flag.
 
   Planning names the selected inventory: `<mesh>.fsm.boundaries.toml`, then

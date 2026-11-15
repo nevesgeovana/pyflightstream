@@ -51,6 +51,8 @@ The sections table keys its rows by `FAMILY` (as the OBJ or FSM names the family
 
 The `time_average` and `per_blade` reductions are no longer written, and a pproc that asks for one is warned once: the window average of every family and group is its row in the polar files. migration: read the window average from the polar files.
 
+The geometry group of `pyfs-workspace` is split by what each verb acts on, mirroring `cfd-mesh` and `cfd-geom`: the new `pyfs-mesh` program takes the mesh verbs and the verbs that build, mark and export a workspace geometry (`refine`, `prepare-to-refine`, `audit`, `inventory`, `degenerate`, `trailing-edge`, `convert2midnodes`, `identify-te`, `collapse-te`, `visual-inspect`, `merge`, `scale`, `morph`, `repitch`, `hub-rings`, `sector-to-wheel`, `sector-remesh`, `power-off-body`, `prop-slice`, `iges-grid`, `mesh`, `mesh-generated`, `mark-boundaries`, `export-surface-mesh`, `build`, `accept`, `from-sidecar`), `pyfs-geom` takes `iges-convert` and `pyfs-fsi` takes `beam`; options, defaults, outputs and exit codes are unchanged, and only `build`, `mark-boundaries` and `export-surface-mesh` with `--apply` need the solver. Every `pyfs-workspace geometry <verb>` form, `--help` and leading global flags included, is refused by name naming its new command, and the four `pyfs-matrix` mesh verbs refused since this release name `pyfs-mesh`, wherever they sit after the global flags. migration: replace `pyfs-workspace geometry` with `pyfs-mesh`, or with `pyfs-geom` for `iges-convert` and `pyfs-fsi` for `beam` (docs/upgrading.md).
+
 ### Removed
 
 The run no longer writes `campaign_sweep.csv`: each polar's `TOTAL` group file is complete, and the guide's `Joining polars` stacks several. `pyfs-matrix run --sweep-csv`, the `sweep_csv` keyword of `run_matrix` and `run_campaign`, and `pyflightstream.run.SWEEP_TABLE_NAME` are removed and refused by name with that sentence; the post leaves a `campaign_sweep.csv` of an earlier layout as it finds it. FR-3777. migration: join the `TOTAL` group files (docs/upgrading.md#0580-post-tree).
@@ -71,7 +73,7 @@ Every deprecated form of the package is removed, and the old form is refused by 
 
 `plan_matrix(fs_version=...)` and `run_matrix(fs_version=...)` are refused. migration: write `default_fs_version=`; the `pyfs-matrix` command line keeps `--fs-version`.
 
-`pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` are refused. migration: write `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`, which take the same arguments and give the same results.
+`pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` are refused. migration: write `pyfs-mesh refine`, `audit`, `inventory` and `degenerate`, which take the same arguments and give the same results.
 
 `pyflightstream.post.inflow_tools.StationHarmonics` is refused. migration: write `InflowStationHarmonics`.
 
@@ -79,17 +81,17 @@ A run matrix at the header of v0.56.0 (no `MESH_ROUTE` column) is no longer read
 
 The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 
-`pyfs-workspace geometry refine --chordwise`, `--spanwise`, `--keep-first-row` and `--out-dir` are refused. migration: write `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, which `--families` selects) and `--out`.
+`pyfs-mesh refine --chordwise`, `--spanwise`, `--keep-first-row` and `--out-dir` are refused. migration: write `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, which `--families` selects) and `--out`.
 
 `refine_mesh(chordwise=, spanwise=, keep_first_row=)` and the family keys `chordwise`, `spanwise` and `keep_first_row` of a refinement file are refused. migration: write `normal=` and `parallel=` (keys `normal_factor` and `parallel_factor`); a row kept at an interface is its own family.
 
-`pyfs-workspace geometry audit --csv` is refused. migration: write `--out`.
+`pyfs-mesh audit --csv` is refused. migration: write `--out`.
 
 `pyfs-workspace archive ROOT SIM_ID` is refused. migration: write `archive SIM_ID --workspace ROOT`.
 
 The probe kinds `normal` and `unsteady` of a `[[probes]]` or `[volume_section]` entry are refused. migration: write `kind = "default"` and `kind = "instantaneous"`.
 
-`sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
+`sector_to_wheel(hub=...)` and `pyfs-mesh sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
 
 The setup keys `physics_auto_trailing_edges` and `physics_auto_wake_nodes` (the `PHYSICS` command, which has no row on the current builds) are refused by name. PFS-2250. migration: declare the detection in the boundaries file, `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry).
 

@@ -388,7 +388,7 @@ def test_a_generated_row_waits_for_the_geometry_stage_and_then_opens_its_fsm(tmp
     matrix = _matrix(tmp_path, rows)
     waiting = _resolve(matrix, library)
     message = waiting.geometry_failures["7001"]["message"]
-    assert "geometry build gen-demo-" in message
+    assert "pyfs-mesh build gen-demo-" in message
     assert [case.sim_id for case in waiting.campaign.sims] == ["7002"]
     folder = next((library.inputs_dir / "geometries").glob("gen-demo-*"))
     (folder / f"{folder.name}.fsm").write_bytes(b"fake simulation")
@@ -858,7 +858,7 @@ def test_native_builder_refuses_a_submitting_executor_by_name(monkeypatch, tmp_p
     message = str(raised.value)
     assert "native geometry needs a synchronous build first" in message
     assert "Cluster submits jobs" in message
-    assert "pyfs-workspace geometry build" in message and "--apply --build 26.127" in message
+    assert "pyfs-mesh build" in message and "--apply --build 26.127" in message
 
 
 def test_native_boundary_keeps_dots_in_configuration_stem(tmp_path, library):

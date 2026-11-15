@@ -1,6 +1,6 @@
 """The read-back verdict of a wake-edge marking: every declared point marked in the saved file.
 
-Pipeline role: workspace layer, private. The marking pass (geometry mark-boundaries) and the
+Pipeline role: workspace layer, private. The marking pass (pyfs-mesh mark-boundaries) and the
 campaign's wake-edge collection compare the trailing edges a saved simulation holds with the
 mid-points every declared file names, in physical metres, and say which files lost edges and
 what the builds' probes say a lost edge means. Re-exported by

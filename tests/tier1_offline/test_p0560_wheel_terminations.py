@@ -168,20 +168,20 @@ def test_p0560_wake_terminations_false_drops_every_termination_and_the_record_sa
 def test_p0560_the_command_line_drops_them_with_no_wake_terminations(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     built, _ = terminated_sector(tmp_path)
-    argv = ["geometry", "sector-to-wheel", str(built.obj), "--copies", str(COPIES)]
+    argv = ["sector-to-wheel", str(built.obj), "--copies", str(COPIES)]
     argv += ["--axis", "x", "--blades", "Blade1", "--out", str(tmp_path / "wheel.obj")]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        assert workspace_main([*argv, "--no-wake-terminations"]) == 0
+        assert mesh_main([*argv, "--no-wake-terminations"]) == 0
     capsys.readouterr()
     assert _terminations(tmp_path) == {}
     assert _record(tmp_path)["wake_terminations"] == "dropped"
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        assert workspace_main([*argv, "--overwrite"]) == 0
+        assert mesh_main([*argv, "--overwrite"]) == 0
     assert len(_terminations(tmp_path)) == COPIES
     assert _record(tmp_path)["wake_terminations"] == "carried"
 

@@ -111,8 +111,8 @@ Preview the marking pass without a solver. Then apply it with a licensed
 26.124 installation and inspect the saved geometry before planning:
 
 ```text
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
+pyfs-mesh mark-boundaries inputs/geometries/wing.obj
+pyfs-mesh mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
 pyfs-matrix plan wing.fs
 pyfs-matrix run wing.fs
 ```

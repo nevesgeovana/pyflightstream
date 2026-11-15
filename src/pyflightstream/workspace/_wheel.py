@@ -1,7 +1,7 @@
 """A full wheel from one sector of an OBJ, or from a saved sector (PFS-2186.01, PFS-2186.02).
 
 Pipeline role: the workspace layer's geometry tool behind
-``pyfs-workspace geometry sector-to-wheel``. A sector holds one blade, the
+``pyfs-mesh sector-to-wheel``. A sector holds one blade, the
 hub surfaces between the two seams of its angular span and the declarations
 of its boundaries; the wheel is the sector copied ``copies`` times about an
 axis, with the nodes of the seams merged, the blade surfaces numbered one per

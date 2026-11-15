@@ -1635,7 +1635,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
             f"geometry {name!r} is not under {directory}; it holds "
             f"{', '.join(staged) if staged else 'no file at all'}. Stage the file "
             f"there under exactly that name (directly, or as {stem}/{name}), or fix "
-            f"the cell. To create a marked simulation, run pyfs-workspace geometry "
+            f"the cell. To create a marked simulation, run pyfs-mesh "
             f"mark-boundaries {stem}.obj --apply; choose apply (CLI: --apply) for marking.",
             kind="geometry",
             artifact_id=name,

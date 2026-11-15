@@ -62,7 +62,7 @@ def build_record_of(geometry: Path) -> tuple[Path, dict[str, Any]] | None:
 
 def _rebuild_command(record: Path, data: Mapping[str, Any]) -> str:
     instruction = (record.parent / str(data.get("instruction", {}).get("file", ""))).resolve()
-    return f"pyfs-workspace geometry build {instruction.parent.name} --apply --overwrite"
+    return f"pyfs-mesh build {instruction.parent.name} --apply --overwrite"
 
 
 def _changed_inputs(record: Path, data: Mapping[str, Any]) -> list[str]:
@@ -80,7 +80,7 @@ def _changed_inputs(record: Path, data: Mapping[str, Any]) -> list[str]:
             if not isinstance(item, dict) or key not in item:
                 raise InputArtifactError(
                     f"{record} cannot be read as a build record: missing key {label}.{key}. "
-                    "Rebuild it with pyfs-workspace geometry build from an instruction "
+                    "Rebuild it with pyfs-mesh build from an instruction "
                     f"({_PAGE})."
                 )
             if not isinstance(item[key], str) or not item[key]:
@@ -127,7 +127,7 @@ def _judge_the_record(geometry: Path, pol: str, fs_build: str | None) -> None:
         warn(
             f"{where}, which was built and never accepted; look at its preview "
             f"({geometry.stem}.preview.vtk) and record the check with "
-            f"`pyfs-workspace geometry accept {geometry.parent.name}` ({_PAGE}).",
+            f"`pyfs-mesh accept {geometry.parent.name}` ({_PAGE}).",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -196,8 +196,8 @@ def _warn_in_row_routes(geometry: Path, pol: str, mesh_import: MeshImport | None
     warn(
         f"matrix row POL {pol} builds {what} inside the run, a route the geometry stage "
         "replaces; this route currently warns without refusing. Write the instruction with "
-        "`pyfs-workspace geometry "
-        f"from-sidecar {geometry.name} --apply`, build it with `pyfs-workspace geometry "
+        "`pyfs-mesh "
+        f"from-sidecar {geometry.name} --apply`, build it with `pyfs-mesh "
         f"build {folder} --apply`, and name {built} in the GEOMETRY cell ({_PAGE}).",
         PyflightstreamWarning,
         stacklevel=3,

@@ -13,6 +13,7 @@ import pytest
 
 from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream.geometry._mesh_topology import Mesh
+from pyflightstream.run.mesh_cli import main as mesh_main
 
 ROOT = Path(__file__).resolve().parents[2]
 FRESH = ROOT / "tests" / "tier3_licensed" / "inputs" / "geometries" / "20_BODY.fsm"
@@ -444,7 +445,6 @@ def test_p0570_gm11_mesh_verb_dry_run_exits_0_with_counts_and_writes_nothing(tmp
 
     from pyflightstream.geometry import resolve_config
     from pyflightstream.geometry.stages import write_config
-    from pyflightstream.workspace.cli import main
 
     config = tmp_path / "wb.toml"
     write_config(resolve_config(WB_CONFIG), config)
@@ -458,9 +458,8 @@ def test_p0570_gm11_mesh_verb_dry_run_exits_0_with_counts_and_writes_nothing(tmp
     )
     tomllib.loads(controls.read_text(encoding="utf-8"))
     before = sorted(p.name for p in tmp_path.iterdir())
-    code = main(
+    code = mesh_main(
         [
-            "geometry",
             "mesh",
             str(config),
             "--controls",
@@ -479,7 +478,7 @@ def test_p0570_gm11_mesh_verb_dry_run_exits_0_with_counts_and_writes_nothing(tmp
     bad.write_text(
         controls.read_text(encoding="utf-8").replace(', law = "constant"', ""), encoding="utf-8"
     )
-    assert main(["geometry", "mesh", str(config), "--controls", str(bad), "--dry-run"]) == 2
+    assert mesh_main(["mesh", str(config), "--controls", str(bad), "--dry-run"]) == 2
     assert "E15" in capsys.readouterr().err
 
 
@@ -493,9 +492,8 @@ def test_p0570_gm11_mesh_verb_dry_run_exits_0_with_counts_and_writes_nothing(tmp
 )
 def test_p0570_gm11_mesh_verb_without_out_refuses_before_the_kernel(tmp_path, capsys, extra, named):
     """API-001: no --out and no --dry-run, or a file name without --out, exits 2 unmeshed."""
-    from pyflightstream.workspace.cli import main
 
-    code = main(["geometry", "mesh", "c.toml", "--controls", "m.toml", *extra])
+    code = mesh_main(["mesh", "c.toml", "--controls", "m.toml", *extra])
     err = capsys.readouterr().err
     assert code == 2
     assert named in err and "Nothing was meshed" in err
@@ -503,12 +501,14 @@ def test_p0570_gm11_mesh_verb_without_out_refuses_before_the_kernel(tmp_path, ca
 
 def test_p0570_gm11_mesh_generated_help_says_out_is_a_record_file(capsys):
     """API-011: mesh-generated --out stays a record file and its help says so."""
-    from pyflightstream.workspace.cli import main
 
     with pytest.raises(SystemExit):
-        main(["geometry", "mesh-generated", "--help"])
+        mesh_main(["mesh-generated", "--help"])
     text = " ".join(capsys.readouterr().out.split())
-    assert "--out JSON also write the record to this file (a file, unlike geometry mesh" in text
+    assert (
+        "--out JSON also write the record to this file (a file, unlike the --out of the mesh verb"
+        in text
+    )
 
 
 # ---- sub-steps 7 and 8: hinge rows in the chord law, TE groups and collapse --------------------

@@ -7,7 +7,7 @@ patches are meshed transfinite with the laws of the grid control file and recomb
 and every other patch is meshed quad-dominant at its component's size
 (:mod:`pyflightstream.workspace._iges_mesh`). The OBJ holds one family per component in the
 order of the control file, each oriented outward; ``<out>.boundaries.toml`` is the boundaries
-file ``geometry mark-boundaries`` reads, with one points file per trailing edge found; and
+file ``pyfs-mesh mark-boundaries`` reads, with one points file per trailing edge found; and
 ``<out>.json`` records the nodes, faces, quad share, least scaled Jacobian and largest aspect of
 every component, the conformal check and every warning. Quality is warned with its numbers and
 never refused.

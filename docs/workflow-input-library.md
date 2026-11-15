@@ -150,7 +150,7 @@ knowing.
    the row's `SYMMETRY_LOADS` column is the one route to
    `SET_ANALYSIS_SYMMETRY_LOADS`. `mesh_order_list` is
    refused outright, since the boundary order belongs to the file
-   (`pyfs-workspace geometry inventory`).
+   (`pyfs-mesh inventory`).
 
  That list is maintained by hand and this page is not generated, so
  **read the warning your own preset prints** rather than this

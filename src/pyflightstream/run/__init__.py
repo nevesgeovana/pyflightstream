@@ -266,6 +266,6 @@ __all__ = [
     "run_campaign",
 ]
 
-# THE pyfs-workspace geometry GROUP (FR-471 to FR-477) registers itself at import:
-# it runs the solver, which this layer owns, and the workspace layer never imports it.
+# pyfs-fsi beam registers itself at import: it reads a mesh, which the workspace layer
+# reads, and the fsi side branch never imports a higher layer (PFS-2260).
 import pyflightstream.run._cli_geometry  # noqa: E402,F401

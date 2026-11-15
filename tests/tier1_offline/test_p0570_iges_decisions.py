@@ -276,7 +276,6 @@ def test_p0570_an_unknown_encoding_is_refused_by_name_before_any_work(tmp_path, 
     before = sorted(p.name for p in tmp_path.iterdir())
     code, _, stderr = cli(
         [
-            "geometry",
             verb,
             str(source),
             *extra,

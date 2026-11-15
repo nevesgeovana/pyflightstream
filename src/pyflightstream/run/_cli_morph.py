@@ -1,4 +1,4 @@
-"""The ``pyfs-workspace geometry`` verbs that write a new mesh and print its record.
+"""The pyfs-mesh verbs that write a new mesh and print its record, and iges-convert.
 
 Pipeline role: the run layer's parsers and handlers for the verbs a morphing control file
 drives, ``repitch``, ``collapse-te``, ``hub-rings``, ``morph`` and ``scale`` (PFS-2189, PFS-2193,
@@ -13,10 +13,11 @@ work is the workspace layer's
 module only reads the command line, calls it, prints the checks or the record it returns and
 gives the exit code: 0 when the output was written, 2 when the input is refused or the gmsh
 library cannot load, with the message on standard error and nothing written. Each parser names its
-handler as the ``mesh_command`` default, which :mod:`pyflightstream.run._cli_geometry` calls, so
-the group adds every verb of this module through :func:`add_morph_verbs` and lists them by
-:data:`MORPH_VERBS`, which also carries ``mesh-generated`` and ``mesh`` (strategy 1 from
-per-component mesh controls, PFS-2214).
+handler as the ``mesh_command`` default, which :mod:`pyflightstream.run.mesh_cli` calls, so
+``pyfs-mesh`` adds every verb of this module but ``iges-convert`` through :func:`add_morph_verbs`
+and lists them by :data:`MORPH_VERBS`, which also carries ``mesh-generated`` and ``mesh``
+(strategy 1 from per-component mesh controls, PFS-2214); ``pyfs-geom`` adds ``iges-convert``
+(CAD in, CAD out) through :func:`add_iges_convert_parser`.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from typing import Any
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._geom_cli_moved import report_of, write_json
 
-__all__ = ["MORPH_VERBS", "add_morph_verbs"]
+__all__ = ["MORPH_VERBS", "add_iges_convert_parser", "add_morph_verbs"]
 
 
 def print_checks(work: Callable[[], dict[str, Any]]) -> int:
@@ -310,7 +311,7 @@ def add_mesh_generated_parser(subparsers: Any) -> None:
         "--out",
         metavar="JSON",
         help=(
-            "also write the record to this file (a file, unlike geometry mesh --out, "
+            "also write the record to this file (a file, unlike the --out of the mesh verb, "
             "which is a folder)"
         ),
     )
@@ -412,7 +413,7 @@ def run_prop_slice(args: argparse.Namespace) -> int:
 
 
 def add_mesh_parser(subparsers: Any) -> None:
-    """Add ``geometry mesh``: a configuration meshed by strategy 1 from its mesh controls."""
+    """Add ``pyfs-mesh mesh``: a configuration meshed by strategy 1 from its mesh controls."""
     mesh = subparsers.add_parser(
         "mesh",
         help="mesh a parametric configuration from its mesh controls (strategy 1 or 2, gmsh)",
@@ -443,17 +444,17 @@ def add_mesh_parser(subparsers: Any) -> None:
 
 
 def _mesh_arguments_refusal(args: argparse.Namespace) -> str:
-    """Return why the arguments of ``geometry mesh`` cannot run, before the kernel opens."""
+    """Return why the arguments of ``pyfs-mesh mesh`` cannot run, before the kernel opens."""
     stated = (("--descriptor", args.descriptor), ("--fsm-template", args.fsm_template))
     named = [flag for flag, value in stated if value is not None]
     if named and (args.dry_run or args.out is None):
         return (
-            f"geometry mesh: {' and '.join(named)} name written files, so they need --out DIR "
+            f"pyfs-mesh mesh: {' and '.join(named)} name written files, so they need --out DIR "
             "and no --dry-run. Nothing was meshed."
         )
     if not args.dry_run and args.out is None:
         return (
-            "geometry mesh: give --out DIR to write the mesh and its record, or --dry-run to "
+            "pyfs-mesh mesh: give --out DIR to write the mesh and its record, or --dry-run to "
             "print the plan only. Nothing was meshed."
         )
     return ""
@@ -492,7 +493,7 @@ def run_mesh(args: argparse.Namespace) -> int:
     return 0 if args.dry_run or record["accepted"] else 1
 
 
-#: The parser of each verb this module adds, by its name in the group.
+#: The parser of each pyfs-mesh verb this module adds, by its name.
 _PARSERS: dict[str, Callable[[Any], None]] = {
     "repitch": add_repitch_parser,
     "collapse-te": add_collapse_te_parser,
@@ -500,17 +501,16 @@ _PARSERS: dict[str, Callable[[Any], None]] = {
     "morph": add_morph_parser,
     "scale": add_scale_parser,
     "iges-grid": add_iges_grid_parser,
-    "iges-convert": add_iges_convert_parser,
     "mesh-generated": add_mesh_generated_parser,
     "prop-slice": add_prop_slice_parser,
     "mesh": add_mesh_parser,
 }
 
-#: The verbs this module adds to the group.
+#: The verbs this module adds to pyfs-mesh.
 MORPH_VERBS = tuple(_PARSERS)
 
 
 def add_morph_verbs(verbs: Any) -> None:
-    """Add this module's verbs to the ``geometry`` group."""
+    """Add this module's pyfs-mesh verbs to a subparsers action."""
     for add in _PARSERS.values():
         add(verbs)

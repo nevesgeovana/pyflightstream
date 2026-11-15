@@ -16,7 +16,7 @@ max_angle_deg = 5.0
 ```
 
 ```text
-pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
+pyfs-mesh repitch sector.obj --morphing morphing.toml --out pitched.obj
 ```
 
 This call is exercised on a synthetic blade and quad-ring hub in the offline tests.
@@ -48,8 +48,8 @@ hub_method = "auto"      # the default; or "rings", or "remesh"
 ```
 
 - `"rings"` needs at least two complete quad rings around each blade root, as an O-grid hub
-  has; a quad-dominant hub gets them from `geometry hub-rings` or the `[hub_rings]` table of
-  `geometry morph`. The operation recovers all complete source rings and carries their local
+  has; a quad-dominant hub gets them from `pyfs-mesh hub-rings` or the `[hub_rings]` table of
+  `pyfs-mesh morph`. The operation recovers all complete source rings and carries their local
   orientation with the rotated blade, tapering the displacement to zero at the outer ring.
   Interior nodes are projected onto source faces. Winslow smoothing in a local surface chart
   is accepted only when it improves the minimum corner scaled Jacobian. Zero angle retains
@@ -116,7 +116,7 @@ blades = ["Blade1"]
 ```
 
 ```text
-pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+pyfs-mesh collapse-te sector.obj --morphing morphing.toml --out sharp.obj
 ```
 
 `blades` names the families, or `"all"` for every family whose boundaries file declares a
@@ -205,7 +205,7 @@ hub_method = "remesh"        # or "auto" (the default) or "rings"
 ```
 
 ```text
-pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
+pyfs-mesh morph sector.obj --morphing morphing.toml --out morphed.obj
 ```
 
 The chain works on a sector and on a full wheel, installed beside an airframe or not, with or
@@ -231,7 +231,7 @@ median length of the hub edges that leave the root. A hub face on an open bounda
 seam) or on another family is never taken, so the seams stay node for node and the wheel still
 merges; rings that would need one are refused, naming a width that fits every blade. The same
 table runs
-alone as `pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj`.
+alone as `pyfs-mesh hub-rings sector.obj --morphing morphing.toml --out rings.obj`.
 
 **The pitch axis.** The code finds each blade's span direction, the principal axis of its nodes,
 and the pitch axis is that direction projected on the plane perpendicular to `rotor_axis`.
@@ -262,19 +262,19 @@ Component governing also includes closed tube rings. If an inherited factor
 would leave too few tube intervals or section nodes, it is raised to the tube's
 minimum with a warning (FR-3322).
 
-When the audit can wait, use `pyfs-workspace geometry refine wing.obj 2 --audit-off`
-(or `pyfs-workspace geometry refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
+When the audit can wait, use `pyfs-mesh refine wing.obj 2 --audit-off`
+(or `pyfs-mesh refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
 to `refine_mesh`. The level is written with the skipped audit recorded in
 `refine.json`; the console prints its exact later audit command. Run
-`pyfs-workspace geometry audit <level.obj> --against <source.obj>` when ready.
+`pyfs-mesh audit <level.obj> --against <source.obj>` when ready.
 Omitting the switch keeps the usual audit enabled (FR-3321).
 
 To give all grid patches of an original family the same directional factors,
 prepare its component declarations with:
 
 ```text
-pyfs-workspace geometry prepare-to-refine wing.obj --keep-within-component
-pyfs-workspace geometry refine wing_patches.obj
+pyfs-mesh prepare-to-refine wing.obj --keep-within-component
+pyfs-mesh refine wing_patches.obj
 ```
 
 Edit the parallel factor of the patch marked `governing_parallel` and the normal
@@ -287,7 +287,7 @@ For a hand-written file with `[components]`, pass `--keep-within-component` to
 the option leaves the existing per-layout behavior unchanged.
 
 A matrix row names a saved simulation (`.fsm`). Start from an OBJ by
-preparing its named declarations, running `geometry mark-boundaries --apply`
+preparing its named declarations, running `pyfs-mesh mark-boundaries --apply`
 once, and inspecting the resulting FSM. GUI-prepared FSM files are accepted
 without a marking record. CAD, CCS and STL construction belong to
 [geometry build](../geometry.md), which keeps its own solver pass.
@@ -363,7 +363,7 @@ The groups ARE read for the SURFACE NAMES from the file's own text
 
 ## Refining or coarsening a mesh
 
-`pyfs-workspace geometry refine` writes a finer or a coarser LEVEL of a panel mesh from its
+`pyfs-mesh refine` writes a finer or a coarser LEVEL of a panel mesh from its
 OBJ, without returning to the pre-processor, and keeps what the mesh's author
 chose: the clustering, the trailing edge, the junctions between surfaces and
 the face order the solver reads. The source is never modified. The command
@@ -375,7 +375,7 @@ triangulated tip `Tip`.
 Refine with a factor on the command line:
 
 ```text
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2
+pyfs-mesh refine inputs/geometries/W1/W1.obj 2
 ```
 
 The level keeps the source's marking declarations. To mark its edges, edit the
@@ -398,7 +398,7 @@ refinement shows it is moving; `--log-level quiet` hides them. At the end the
 console names each family with the method it took (`Wing: grid`), prints
 the audit's summary and then every file written. The level is a geometry of its
 own and is marked like any OBJ:
-`pyfs-workspace geometry mark-boundaries inputs/geometries/W1_R2/W1_R2.obj --apply`,
+`pyfs-mesh mark-boundaries inputs/geometries/W1_R2/W1_R2.obj --apply`,
 and the saved `W1_R2.fsm` is named in a row's `GEOMETRY` column. A row naming
 `W1_R2.obj` is refused ([matrix geometry](../geometry.md#matrix-geometry)).
 
@@ -430,9 +430,9 @@ target edge length of any other family. A study of three levels is three
 commands:
 
 ```text
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 0.5
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 1
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2
+pyfs-mesh refine inputs/geometries/W1/W1.obj 0.5
+pyfs-mesh refine inputs/geometries/W1/W1.obj 1
+pyfs-mesh refine inputs/geometries/W1/W1.obj 2
 ```
 
 They write `W1_R0p5`, `W1_R1` and `W1_R2` (`p` is the decimal point). The
@@ -446,8 +446,8 @@ perimeter, `--normal` across it. They are refused for a family that is
 remeshed, so here they go with `--families Wing`:
 
 ```text
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2 --families Wing
-pyfs-workspace geometry refine inputs/geometries/W1/W1.obj --normal 1.5 --parallel 0.7 --families Wing
+pyfs-mesh refine inputs/geometries/W1/W1.obj 2 --families Wing
+pyfs-mesh refine inputs/geometries/W1/W1.obj --normal 1.5 --parallel 0.7 --families Wing
 ```
 
 The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
@@ -626,7 +626,7 @@ Blade1 = ["Blade1_side", "Blade1_tip"]
 ```
 
 ```text
-pyfs-workspace geometry refine inputs/geometries/B1/B1.obj
+pyfs-mesh refine inputs/geometries/B1/B1.obj
 ```
 
 With no factor on the command line the factors come from `B1.refine.toml`
@@ -635,7 +635,7 @@ beside the mesh (or from `--config FILE`). `B1_R2.obj` holds one family
 `Blade1` in place of its members. `method = "grid"` makes the refinement refuse
 the side, naming why, if its grid is not recovered, rather than remesh it. The
 `[components]` and `[refine] tag` of a file beside the mesh are read whatever
-gives the factors, so `pyfs-workspace geometry refine inputs/geometries/B1/B1.obj 2`
+gives the factors, so `pyfs-mesh refine inputs/geometries/B1/B1.obj 2`
 merges the families too.
 
 ### From an OBJ to a marked level
@@ -648,7 +648,7 @@ optional.
    (`<family>_<NNN>_grid`) and patches that it remeshes (`<family>_<NNN>_mixed`):
 
    ```text
-   pyfs-workspace geometry prepare-to-refine inputs/geometries/W1/W1.obj
+   pyfs-mesh prepare-to-refine inputs/geometries/W1/W1.obj
    ```
 
    It writes, beside the mesh and without modifying it, `W1_patches.obj`,
@@ -678,7 +678,7 @@ optional.
    patch, delete the other family tables or write `method = "keep"` in them.
    Those families stay unchanged except for the directions or mixed-neighbour
    bands needed to keep the shared curves continuous.
-   `pyfs-workspace geometry prepare-to-refine W1.nas --visual-inspect` also writes
+   `pyfs-mesh prepare-to-refine W1.nas --visual-inspect` also writes
    `W1_patches.inspect.pdf`: two pages per original family. The first colors and
    names patches and marks GOVERNING PARALLEL and GOVERNING NORMAL. The second
    shows grey faces with blue parallel and orange normal perimeter arcs, relative
@@ -697,7 +697,7 @@ optional.
    is written in (default METER):
 
    ```text
-   pyfs-workspace geometry prepare-to-refine inputs/geometries/W1/W1.nas
+   pyfs-mesh prepare-to-refine inputs/geometries/W1/W1.nas
    ```
 2. **Edit the refine file.** Set the factors of the patches and their
    `method`. The file names the node list in a `[[perimeter]]` table:
@@ -729,7 +729,7 @@ optional.
 3. **Refine.**
 
    ```text
-   pyfs-workspace geometry refine inputs/geometries/W1/W1_patches.obj
+   pyfs-mesh refine inputs/geometries/W1/W1_patches.obj
    ```
 
    With no factor on the command line the factors come from the refine file
@@ -756,7 +756,7 @@ optional.
 5. **Mark the boundaries.** The level is a geometry of its own:
 
    ```text
-   pyfs-workspace geometry mark-boundaries inputs/geometries/W1_fine/W1_fine.obj --apply
+   pyfs-mesh mark-boundaries inputs/geometries/W1_fine/W1_fine.obj --apply
    ```
 
 6. **Name the saved simulation** in a row's `GEOMETRY` column.
@@ -766,7 +766,7 @@ optional.
 To inspect a refinement as it is produced, run:
 
 ```text
-pyfs-workspace geometry refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
+pyfs-mesh refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
 ```
 
 Or call `refine_mesh("inputs/geometries/W1/W1_patches.obj", 2, visual_inspect=True)`.
@@ -798,7 +798,7 @@ over the surface, and a table of each patch's faces and marked points.
 `--png` also writes the pages of views as PNG files.
 
 ```text
-pyfs-workspace geometry visual-inspect inputs/geometries/W1/W1_patches.obj --nodes inputs/geometries/W1/W1_patches.nodes.txt --mesh-unit METER
+pyfs-mesh visual-inspect inputs/geometries/W1/W1_patches.obj --nodes inputs/geometries/W1/W1_patches.nodes.txt --mesh-unit METER
 ```
 
 From Python, `visual_inspect` of `pyflightstream.workspace` takes the same
@@ -810,8 +810,8 @@ inputs and returns the path of the PDF.
 imports, for a mesh that is not refined:
 
 ```text
-pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj
-pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj --families Wing,Tail
+pyfs-mesh identify-te inputs/geometries/W1/W1.obj
+pyfs-mesh identify-te inputs/geometries/W1/W1.obj --families Wing,Tail
 ```
 
 Without a node list the edges are found from the mesh: each family is cut at
@@ -842,8 +842,8 @@ A node list saved from the pre-processor in any node order becomes a points file
 with `convert2midnodes`:
 
 ```text
-pyfs-workspace geometry convert2midnodes nodes.txt wing.te.txt
-pyfs-workspace geometry convert2midnodes nodes.txt wing.te.txt --per-family inputs/geometries/W1/W1.obj
+pyfs-mesh convert2midnodes nodes.txt wing.te.txt
+pyfs-mesh convert2midnodes nodes.txt wing.te.txt --per-family inputs/geometries/W1/W1.obj
 ```
 
 The nodes are ordered along their lines (a long jump starts a new line), and
@@ -876,12 +876,12 @@ component's members in the source (the components are read from the level's
 one family the solver sees. A figure within a millionth of a limit or a floor
 meets it.
 
-`pyfs-workspace geometry audit` runs the same audit on any OBJ, alone or against the
+`pyfs-mesh audit` runs the same audit on any OBJ, alone or against the
 mesh it was made from, and its exit status is the verdict: 0 when every gate
 and check passes, 1 when one fails, 2 when the input is refused.
 
 ```text
-pyfs-workspace geometry audit inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --out W1_R2_audit.csv
+pyfs-mesh audit inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --out W1_R2_audit.csv
 ```
 
 ### From Python

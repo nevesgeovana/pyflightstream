@@ -50,10 +50,12 @@ from pyflightstream.run import (
     _grouped,
     _rebuild_grouped,
     cli,
+    mesh_cli,
 )
 from pyflightstream.run._cli_geometry import _print_plan
 from pyflightstream.run._cli_parsers import _build_parser
 from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
@@ -75,7 +77,6 @@ from pyflightstream.workspace._geometry_instruction import read_geometry_instruc
 from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._settings_file import read_workspace_settings
-from pyflightstream.workspace.cli import main
 from pyflightstream.workspace.hpc import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.record_document import encode_rows
@@ -223,7 +224,7 @@ def test_p0460_built_obj_is_ready_for_named_boundary_marking(tmp_path, outputs):
 
 
 class TestGeometryBuild:
-    """Tier 1, 0.40.0: ``pyfs-workspace geometry build`` previews and builds a body (FR-471).
+    """Tier 1, 0.40.0: ``pyfs-mesh build`` previews and builds a body (FR-471).
 
     P0400-GEOM-BUILD (PFS-2081.41). The solver is replaced by a runner that does
     what a build's script asks of it: it writes the saved simulation and the
@@ -250,7 +251,7 @@ class TestGeometryBuild:
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         before = sorted(p.name for p in folder.iterdir())
         monkeypatch.chdir(folder)
-        assert main(["geometry", "build"]) == 0
+        assert mesh_main(["build"]) == 0
         out = capsys.readouterr().out
         assert "IMPORT" in out and "SAVEAS" in out and "after source: Wing" in out
         assert "preview only" in out
@@ -428,7 +429,7 @@ class TestGeometryBuild:
         (root / "inputs" / "executables.toml").unlink()
         folder = _geometry_build__geometry(root, "wing", _UNPROBED_MESH_INSTRUCTION)
         monkeypatch.chdir(folder)
-        assert main(["geometry", "build", "--apply"]) == 2
+        assert mesh_main(["build", "--apply"]) == 2
         err = capsys.readouterr().err
         assert "EXPORT_SURFACE_MESH" in err and "Nothing was written." in err
         assert not folder.with_name("wing.partial").exists()
@@ -446,7 +447,7 @@ class TestGeometryBuild:
             _GEOMETRY_BUILD__MESH_INSTRUCTION, encoding="utf-8"
         )
         monkeypatch.chdir(folder)
-        assert main(["geometry", "build"]) == 2
+        assert mesh_main(["build"]) == 2
         assert "inputs/geometries/<folder>/" in capsys.readouterr().err
 
     @staticmethod
@@ -766,7 +767,7 @@ class TestGeometryComplete:
         )
         before = matrix.read_bytes()
         monkeypatch.chdir(folder.parent)
-        assert main(["geometry", "build", "wing", "--rows", "9401", "--matrix", str(matrix)]) == 0
+        assert mesh_main(["build", "wing", "--rows", "9401", "--matrix", str(matrix)]) == 0
         out = capsys.readouterr().out
         rows = [
             line.strip()
@@ -795,9 +796,9 @@ class TestGeometryComplete:
             encoding="utf-8",
         )
         monkeypatch.chdir(folder.parent)
-        assert main(["geometry", "build", "wing", "--rows", "1", "--matrix", str(matrix)]) == 2
+        assert mesh_main(["build", "wing", "--rows", "1", "--matrix", str(matrix)]) == 2
         assert "holds no row POL 1" in capsys.readouterr().err
-        assert main(["geometry", "build", "wing", "--rows", "9401"]) == 2
+        assert mesh_main(["build", "wing", "--rows", "9401"]) == 2
         assert "--matrix" in capsys.readouterr().err
 
     @staticmethod
@@ -2528,7 +2529,7 @@ class TestSweep1Routes:
     @staticmethod
     def test_p0400_refine_help_keyword():
         """P0400-SWEEP-REFINE-HELP: help names the Python out_dir keyword."""
-        refine = _cli_geometry.matrix_parsers()["refine"]
+        refine = mesh_cli.matrix_parsers()["refine"]
         assert "out_dir" in refine.format_help()
 
 
@@ -2544,25 +2545,23 @@ def _geometry_group___options(run, argv: list[str], capsys) -> set[str]:
 
 
 class TestGeometryGroup:
-    """Tier 1, 0.40.0: the geometry verbs of pyfs-matrix join pyfs-workspace geometry (FR-477).
+    """Tier 1, 0.40.0: the mesh verbs of pyfs-matrix, now in pyfs-mesh (FR-477).
 
-    P0400-GEOM-GROUP (PFS-2081.41). The group's refine, audit, inventory and
+    P0400-GEOM-GROUP (PFS-2081.41). pyfs-mesh's refine, audit, inventory and
     degenerate are the mesh parsers and handlers; the pyfs-matrix names were
-    removed in 0.58.0 (PFS-2237) and are refused, naming the group.
+    removed in 0.58.0 (PFS-2237) and are refused, naming pyfs-mesh (PFS-2260).
     """
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
-    @pytest.mark.parametrize(("name", "verb"), sorted(_cli_geometry.PYFS_MATRIX_ALIASES.items()))
+    @pytest.mark.parametrize(("name", "verb"), sorted(mesh_cli.PYFS_MATRIX_ALIASES.items()))
     def test_p0400_geom_group_each_verb_takes_the_options_of_its_mesh_parser(name, verb, capsys):
         """P0400-GEOM-GROUP (PFS-2081.41): the group copies each mesh parser."""
-        ours = _geometry_group___options(workspace_cli.main, ["geometry", name], capsys)
-        parser = _cli_geometry.matrix_parsers()[verb]
+        ours = _geometry_group___options(mesh_main, [name], capsys)
+        parser = mesh_cli.matrix_parsers()[verb]
         theirs = set(re.findall(r"(?<![\w-])--[a-z][a-z-]*", parser.format_help()))
         assert ours and ours | {"--help"} == theirs | {"--help"}, (ours, theirs)
-        assert set(_cli_geometry.matrix_parsers()) == set(
-            _cli_geometry.PYFS_MATRIX_ALIASES.values()
-        )
+        assert set(mesh_cli.matrix_parsers()) == set(mesh_cli.PYFS_MATRIX_ALIASES.values())
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
@@ -2575,7 +2574,7 @@ class TestGeometryGroup:
         """
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
-        assert workspace_cli.main(["geometry", "audit", str(mesh)]) == 0
+        assert mesh_main(["audit", str(mesh)]) == 0
         golden = _GEOM_GROUP_GOLDENS / "wing.audit.json"
         assert (tmp_path / "wing.audit.json").read_bytes() == golden.read_bytes()
 
@@ -2590,17 +2589,17 @@ class TestGeometryGroup:
         """
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
-        assert workspace_cli.main(["geometry", "inventory", str(mesh)]) == 0
+        assert mesh_main(["inventory", str(mesh)]) == 0
         golden = _GEOM_GROUP_GOLDENS / "wing.obj.boundaries.toml"
         assert (tmp_path / "wing.obj.boundaries.toml").read_bytes() == golden.read_bytes()
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
-    @pytest.mark.parametrize("name", sorted(_cli_geometry.PYFS_MATRIX_ALIASES))
+    @pytest.mark.parametrize("name", sorted(mesh_cli.PYFS_MATRIX_ALIASES))
     def test_p0430_the_geometry_verbs_take_log_level_like_pyfs_matrix_pfs_2119_070(name, capsys):
         """PFS-2119.070: refine, audit, inventory and degenerate name --log-level and --verbose."""
         with pytest.raises(SystemExit) as stop:
-            workspace_cli.main(["geometry", name, "--help"])
+            mesh_main([name, "--help"])
         assert stop.value.code == 0
         text = capsys.readouterr().out
         assert "--log-level" in text and "--verbose" in text
@@ -2611,9 +2610,9 @@ class TestGeometryGroup:
         """PFS-2119.070: the typed level is taken, and a level outside the three is refused."""
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
-        assert workspace_cli.main(["geometry", "inventory", str(mesh), "--log-level", "quiet"]) == 0
+        assert mesh_main(["inventory", str(mesh), "--log-level", "quiet"]) == 0
         with pytest.raises(SystemExit) as stop:
-            workspace_cli.main(["geometry", "inventory", str(mesh), "--log-level", "loud"])
+            mesh_main(["inventory", str(mesh), "--log-level", "loud"])
         assert stop.value.code == 2
 
 
@@ -2649,8 +2648,8 @@ class TestGeometryMigration:
         geometry.write_text("x\n", encoding="utf-8")
         (texts,) = _geometry_migration___warnings(geometry)
         assert "POL 7001" in texts and "currently warns without refusing" in texts
-        assert f"pyfs-workspace geometry from-sidecar {name} --apply" in texts
-        assert f"pyfs-workspace geometry build {folder.name} --apply" in texts
+        assert f"pyfs-mesh from-sidecar {name} --apply" in texts
+        assert f"pyfs-mesh build {folder.name} --apply" in texts
         assert f"name {built} in the GEOMETRY cell" in texts
 
     @staticmethod
@@ -2692,9 +2691,9 @@ class TestGeometryMigration:
             encoding="utf-8",
         )
         monkeypatch.chdir(root)
-        assert main(["geometry", "from-sidecar", "blade.obj", "--build", "26.125"]) == 0
+        assert mesh_main(["from-sidecar", "blade.obj", "--build", "26.125"]) == 0
         assert not (folder / "blade.geometry.toml").exists()
-        assert main(["geometry", "from-sidecar", "blade.obj", "--build", "26.125", "--apply"]) == 0
+        assert mesh_main(["from-sidecar", "blade.obj", "--build", "26.125", "--apply"]) == 0
         out = capsys.readouterr().out
         assert "operation 3 (translate) stay in the run" in out
         assert "name blade_ops.obj in the GEOMETRY cell" in out
@@ -2702,7 +2701,7 @@ class TestGeometryMigration:
         assert instruction.boundaries == ("Wing",)
         assert [op.op for op in instruction.operations] == ["rename", "scale"]
         assert instruction.fs_build == "26.125"
-        assert main(["geometry", "from-sidecar", "blade.obj", "--apply"]) == 2
+        assert mesh_main(["from-sidecar", "blade.obj", "--apply"]) == 2
 
     @staticmethod
     @pytest.mark.requirement("FR-476")
@@ -2718,7 +2717,7 @@ class TestGeometryMigration:
             encoding="utf-8",
         )
         monkeypatch.chdir(root)
-        assert main(["geometry", "from-sidecar", "wing.csv", "--build", "26.125", "--apply"]) == 0
+        assert mesh_main(["from-sidecar", "wing.csv", "--build", "26.125", "--apply"]) == 0
         instruction = read_geometry_instruction(folder / "wing.geometry.toml")
         assert instruction.kind == "ccs" and instruction.ccs is not None
         assert instruction.ccs.options.component == 1
@@ -2775,11 +2774,11 @@ class TestGeometryPlan:
         """P0400-GEOM-PLAN (PFS-2081.41): FR-1120 and FR-1122, accept silences the warning."""
         root, folder, fsm = built
         assert any(
-            "never accepted" in text and "geometry accept wing" in text
+            "never accepted" in text and "pyfs-mesh accept wing" in text
             for text in _geometry_plan___judge(fsm)
         )
         monkeypatch.chdir(root)
-        assert main(["geometry", "accept", "wing"]) == 0
+        assert mesh_main(["accept", "wing"]) == 0
         record = json.loads((folder / "wing.build.json").read_text(encoding="utf-8"))
         assert record["inspected"]["at"] and record["inspected"]["by"]
         assert _geometry_plan___judge(fsm) == []
@@ -2790,7 +2789,7 @@ class TestGeometryPlan:
         """P0400-GEOM-PLAN (PFS-2081.41): FR-1120, a name with no record, exit 2."""
         root, _, _ = built
         monkeypatch.chdir(root)
-        assert main(["geometry", "accept", "nothing"]) == 2
+        assert mesh_main(["accept", "nothing"]) == 2
         assert "Nothing was written" in capsys.readouterr().err
 
     @staticmethod
@@ -2803,7 +2802,7 @@ class TestGeometryPlan:
             handle.write("\n# edited\n")
         with pytest.raises(
             InputArtifactError,
-            match=f"{changed}.*Rebuild it with `pyfs-workspace geometry build wing",
+            match=f"{changed}.*Rebuild it with `pyfs-mesh build wing",
         ):
             judge_the_row_geometry(fsm, "9401", fs_build="26.125", mesh_import=None)
 
@@ -2992,7 +2991,7 @@ class TestGeometrySweep:
         """P0400-GEOM-SWEEP (PFS-2081.41): FR-1114, the CONFIGURATION and GEOMETRY cells."""
         _, folder = _geometry_sweep___wing(tmp_path)
         monkeypatch.chdir(folder.parent)
-        assert main(["geometry", "build", "wing"]) == 0
+        assert mesh_main(["build", "wing"]) == 0
         out = capsys.readouterr().out
         assert "CONFIGURATION AIL-100 | GEOMETRY wing_AIL-100.fsm" in out
 
@@ -3170,11 +3169,11 @@ class TestRfixGAudit:
             _cli_geometry, "_runner", lambda executable: _geometry_build__runner(sliver=True)
         )
         monkeypatch.chdir(folder)
-        assert main(["geometry", "build", "--apply"]) == 1
+        assert mesh_main(["build", "--apply"]) == 1
         captured = capsys.readouterr()
         assert "nothing was promoted" in captured.err.lower()
         assert str(folder.with_name("wing.partial")) in captured.out
-        assert "geometry accept" not in captured.out
+        assert "pyfs-mesh accept" not in captured.out
         assert not (folder / "wing.fsm").exists()
 
 
@@ -3214,7 +3213,7 @@ class TestRfixR4Sweep:
         monkeypatch.setattr(
             _cli_geometry, "_runner", lambda executable: _geometry_complete___body_runner()
         )
-        assert main(["geometry", "build", "wing", "--apply", "--overwrite"]) == 0
+        assert mesh_main(["build", "wing", "--apply", "--overwrite"]) == 0
         labels, tags = _rfixr4_sweep___overlay(folder)
         assert set(labels) == {"1", "2", "3"}
         assert tags == ["Base-100", "Base+000", "Base+100"]
@@ -3237,7 +3236,7 @@ class TestRfixR4Sweep:
         monkeypatch.setattr(
             _cli_geometry, "_runner", lambda executable: _geometry_complete___body_runner()
         )
-        assert main(["geometry", "build", "wing", "--apply", "--only", only]) == 0
+        assert mesh_main(["build", "wing", "--apply", "--only", only]) == 0
         labels, tags = _rfixr4_sweep___overlay(folder)
         assert set(labels) == {str(number) for number in expected}
         all_tags = ["Base-100", "Base+000", "Base+100"]
@@ -3265,7 +3264,7 @@ class TestRfixR4Sweep:
             return original(fsm, name, obj)
 
         monkeypatch.setattr(_geometry_vtk, "_surface_of", surface)
-        assert main(["geometry", "build", "wing", "--apply", "--overwrite"]) == 3
+        assert mesh_main(["build", "wing", "--apply", "--overwrite"]) == 3
         assert not target.exists()
         assert target.with_name(target.name + ".previous").read_text() == "stale overlay"
         assert "sweep overlay" in capsys.readouterr().err
@@ -3583,11 +3582,11 @@ class TestRfixR6Sweep:
             _cli_geometry, "_runner", lambda executable: _rfixr6_sweep___runner(failure)
         )
         monkeypatch.chdir(folder.parent)
-        code = main(["geometry", "build", "wing", "--apply", "--only", "Base-100,Base+100"])
+        code = mesh_main(["build", "wing", "--apply", "--only", "Base-100,Base+100"])
         captured = capsys.readouterr()
         text = captured.out + captured.err
         assert code == (1 if failure == "audit" else 3)
-        assert "geometry accept" not in text
+        assert "pyfs-mesh accept" not in text
         if failure == "audit":
             kept = folder.parent / "wing_Base-100.partial"
             assert str(kept) in text
@@ -3595,7 +3594,7 @@ class TestRfixR6Sweep:
             assert "Base+100" in text.split("not promoted", 1)[1].splitlines()[0]
         capsys.readouterr()
         workspace = ["--workspace", str(root)]
-        assert main(["geometry", "accept", "wing_Base-100.partial", *workspace]) == 2
+        assert mesh_main(["accept", "wing_Base-100.partial", *workspace]) == 2
         record = folder.parent / "wing_Base-100.partial" / "wing_Base-100.build.json"
         assert json.loads(record.read_text(encoding="utf-8"))["inspected"] is None
 
@@ -3616,10 +3615,10 @@ class TestRfixR6Sweep:
         )
         monkeypatch.setattr(_cli_geometry, "_runner", lambda executable: _rfixr6_sweep___runner())
         monkeypatch.chdir(folder.parent)
-        assert main(["geometry", "build", "wing", "--apply"]) == 0
+        assert mesh_main(["build", "wing", "--apply"]) == 0
         out = capsys.readouterr().out
         assert (
-            "accept after inspection: pyfs-workspace geometry accept "
+            "accept after inspection: pyfs-mesh accept "
             + ",".join(f"wing_{tag}" for tag in _RFIXR6_SWEEP__TAGS)
             in out
         )
@@ -4498,9 +4497,9 @@ def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(tmp_path):
     geometry.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
     shown = "C:\\my files\\wing.fsm"
     text = _geometry_clean.saved_action_warning(geometry, shown, [])
-    assert f'pyfs-workspace geometry inventory "{shown}" --clean' in text
+    assert f'pyfs-mesh inventory "{shown}" --clean' in text
     plain = _geometry_clean.saved_action_warning(geometry, "wing.fsm", [])
-    assert "pyfs-workspace geometry inventory wing.fsm --clean" in plain
+    assert "pyfs-mesh inventory wing.fsm --clean" in plain
 
 
 def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path):

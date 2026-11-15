@@ -188,8 +188,7 @@ def _instruction_text(
         if op.get("op") == "rename" and op.get("surface") in names:
             names[names.index(op["surface"])] = op["to"]
     rows = [
-        f"# Written by pyfs-workspace geometry from-sidecar from {sidecar_name}; check it, "
-        "then build it.",
+        f"# Written by pyfs-mesh from-sidecar from {sidecar_name}; check it, then build it.",
         f"name = {_quoted(name)}",
     ]
     if fs_build:
@@ -260,7 +259,7 @@ def instruction_from_sidecar(
 def conversion_lines(conversion: GeometryConversion, rows: Sequence[str] = ()) -> list[str]:
     """Return what the command prints after the instruction: the build, the cell, what stays."""
     lines = [
-        f"build it with: pyfs-workspace geometry build {conversion.path.parent.name} --apply",
+        f"build it with: pyfs-mesh build {conversion.path.parent.name} --apply",
         f"then name {conversion.built} in the GEOMETRY cell of the rows"
         + (" " + ", ".join(rows) if rows else ""),
     ]

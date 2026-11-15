@@ -1,6 +1,6 @@
 """P0410-RX06: export a saved body's surface for workspace probe planning.
 
-Usage: pyfs-workspace geometry export-surface-mesh inputs/geometries/wing/wing.fsm
+Usage: pyfs-mesh export-surface-mesh inputs/geometries/wing/wing.fsm
        --build 26.125 [--apply]
 """
 
@@ -12,7 +12,7 @@ import pytest
 
 from pyflightstream.probes.geometry import load_surface_mesh
 from pyflightstream.run import ExecutionResult, LocalExecutor
-from pyflightstream.workspace.cli import main
+from pyflightstream.run.mesh_cli import main as mesh_main
 from tests.tier1_offline.test_regression_geometry_build_sweep import (
     _GEOMETRY_BUILD__WING_FSM,
     _geometry_build__runner,
@@ -47,7 +47,7 @@ def _saved(tmp_path, monkeypatch):
 
 def _call(source, *options):
     try:
-        return main(["geometry", "export-surface-mesh", str(source), "--build", "26.125", *options])
+        return mesh_main(["export-surface-mesh", str(source), "--build", "26.125", *options])
     except SystemExit as error:
         return error.code
 

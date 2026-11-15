@@ -23,6 +23,7 @@ from scipy.interpolate import BSpline
 from pyflightstream.geometry import Propeller
 from pyflightstream.geometry._mesh_topology import Mesh, write_obj
 from pyflightstream.geometry._propeller_sections import fitted_sections
+from pyflightstream.run.mesh_cli import main as mesh_main
 
 R_R = [0.2, 0.3, 0.45, 0.6, 0.7, 0.75, 0.9, 1.0]
 
@@ -244,14 +245,12 @@ def test_p0570_pslice_iges_recovers_the_builder_inputs_tighter(tmp_path):
 
 
 def test_p0570_pslice_cli_writes_the_folder(tmp_path, capsys):
-    """P0570-PSLICE-CLI: pyfs-workspace geometry prop-slice writes the table, sections and TOML."""
-    from pyflightstream.workspace.cli import main
+    """P0570-PSLICE-CLI: pyfs-mesh prop-slice writes the table, sections and TOML."""
 
     obj = write_rotor_obj(tmp_path / "rotor.obj", design(), nu=81, nv=61)
     capsys.readouterr()
-    code = main(
+    code = mesh_main(
         [
-            "geometry",
             "prop-slice",
             "--geometry",
             str(obj),

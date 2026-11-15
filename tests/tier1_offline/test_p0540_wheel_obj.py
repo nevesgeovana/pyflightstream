@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputArtifactError, InputValueError, NotApplicableWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace._wheel import sector_to_wheel, validate_blades
 from pyflightstream.workspace.sidecars import read_boundary_declarations
 from tests.tier1_offline.test_p0540_wheel import build_sector, read_wheel
@@ -179,12 +180,11 @@ def test_p0540_an_existing_wheel_needs_overwrite_and_the_other_kind_is_warned(tm
 
 @pytest.mark.requirement("FR-3460")
 def test_p0540_the_command_runs_end_to_end_through_pyfs_workspace(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     sector = build_sector(tmp_path)
     out = tmp_path / "cli_wheel.obj"
     argv = [
-        "geometry",
         "sector-to-wheel",
         str(sector.obj),
         "--copies",
@@ -196,14 +196,14 @@ def test_p0540_the_command_runs_end_to_end_through_pyfs_workspace(tmp_path, caps
         "--out",
         str(out),
     ]
-    assert workspace_main(argv) == 0
+    assert mesh_main(argv) == 0
     printed = capsys.readouterr().out
     assert f"wrote {out}" in printed and "area ratio" in printed and "invariance 60 deg" in printed
     assert out.with_name("cli_wheel.wheel.json").is_file()
-    assert workspace_main(argv) == 2
+    assert mesh_main(argv) == 2
     assert "--overwrite" in capsys.readouterr().err
-    assert workspace_main([*argv, "--overwrite", "--tolerance", "1e-5"]) == 0
-    assert workspace_main([*argv[:-2], "--out", str(tmp_path / "z.obj"), "--blades", "X"]) == 2
+    assert mesh_main([*argv, "--overwrite", "--tolerance", "1e-5"]) == 0
+    assert mesh_main([*argv[:-2], "--out", str(tmp_path / "z.obj"), "--blades", "X"]) == 2
 
 
 @pytest.mark.requirement("FR-3466")
@@ -284,14 +284,12 @@ def test_p0570_invalid_center(tmp_path, value):
     ],
 )
 def test_p0570_cli_center_alias(tmp_path, options, code):
-    from pyflightstream.workspace.cli import main
 
     sector = build_sector(tmp_path)
     out = tmp_path / "wheel.obj"
     assert (
-        main(
+        mesh_main(
             [
-                "geometry",
                 "sector-to-wheel",
                 str(sector.obj),
                 "--copies",
@@ -331,10 +329,9 @@ def test_p0570_saved_center_and_origin_default(tmp_path):
 
 
 def test_p0570_cli_help_uses_center(capsys):
-    from pyflightstream.workspace.cli import main
 
     with pytest.raises(SystemExit) as error:
-        main(["geometry", "sector-to-wheel", "--help"])
+        mesh_main(["sector-to-wheel", "--help"])
     assert error.value.code == 0
     help_text = capsys.readouterr().out
     assert "--center X Y Z" in help_text

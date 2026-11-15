@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import prepare_to_refine, refine_mesh
 from pyflightstream.workspace._refine import _blocks, _nastran
 from pyflightstream.workspace._refine._config import (
@@ -615,24 +616,24 @@ def test_a_malformed_obj_line_is_skipped_and_counted_not_raised(tmp_path: Path) 
 
 
 def test_the_nodes_and_te_flags_can_repeat() -> None:
-    from pyflightstream.workspace.cli import _build_parser
+    from tests.tier1_offline._geometry_verbs import mesh_parser as _build_parser
 
     args = _build_parser().parse_args(
-        ["geometry", "visual-inspect", "wing.obj", "--te", "a", "--te", "b", "--nodes", "n", "m"]
+        ["visual-inspect", "wing.obj", "--te", "a", "--te", "b", "--nodes", "n", "m"]
     )
     assert [str(x) for x in args.te] == ["a", "b"]
     assert [str(x) for x in args.nodes] == ["n", "m"]
 
 
 def test_visual_inspect_names_the_nastran_unit_unit_as_prepare_to_refine_does() -> None:
-    from pyflightstream.workspace.cli import _build_parser
+    from tests.tier1_offline._geometry_verbs import mesh_parser as _build_parser
 
     parser = _build_parser()
     for verb in ("visual-inspect", "prepare-to-refine"):
-        args = parser.parse_args(["geometry", verb, "wing.nas", "--unit", "METER"])
+        args = parser.parse_args([verb, "wing.nas", "--unit", "METER"])
         assert args.unit == "METER", verb
     with pytest.raises(SystemExit):
-        parser.parse_args(["geometry", "visual-inspect", "wing.nas", "--nastran-unit", "METER"])
+        parser.parse_args(["visual-inspect", "wing.nas", "--nastran-unit", "METER"])
 
 
 def test_fr3298_prepare_marks_one_governing_patch_per_touching_group(tmp_path):
@@ -1797,24 +1798,23 @@ def test_p0500_audit_off_skips_the_call_and_allows_a_later_audit(tmp_path, monke
     record = json.loads(level.obj.with_suffix(".refine.json").read_text())
     assert record["audit"] == "skipped (--audit-off)"
     advice = [line for line in progress if "audit skipped" in line]
-    assert len(advice) == 1 and "geometry audit" in advice[0] and "--against" in advice[0]
+    assert len(advice) == 1 and "pyfs-mesh audit" in advice[0] and "--against" in advice[0]
     later = audit_mesh(level.obj, against=source)
     assert later.path.is_file()
 
 
 def test_p0500_audit_off_cli_writes_a_level_and_names_the_later_command(tmp_path, capsys):
     """P0500-AUDIT: the geometry group's refine accepts the --audit-off flag."""
-    from pyflightstream.workspace import cli as workspace
 
     source = write_source(tmp_path / "src", "sheet", sheet_with_strips(()))
     try:
-        code = workspace.main(["geometry", "refine", str(source), "1", "--audit-off"])
+        code = mesh_main(["refine", str(source), "1", "--audit-off"])
     except SystemExit as error:
         code = error.code
     assert code == 0
     captured = capsys.readouterr()
     text = captured.out + captured.err
-    assert "audit skipped" in text and "geometry audit" in text and "--against" in text
+    assert "audit skipped" in text and "pyfs-mesh audit" in text and "--against" in text
     records = list(tmp_path.glob("sheet_R1/*.refine.json"))
     assert len(records) == 1
     assert json.loads(records[0].read_text())["audit"] == "skipped (--audit-off)"

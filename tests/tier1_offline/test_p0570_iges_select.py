@@ -111,7 +111,6 @@ def grid_with(tmp_path, capsys, *flags, text=PLATE_GRID):
     out = tmp_path / "model.obj"
     code, stdout, stderr = cli(
         [
-            "geometry",
             "iges-grid",
             str(plate_and_flap(tmp_path)),
             "--grid",

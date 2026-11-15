@@ -727,16 +727,16 @@ The beam is built from the file exactly as from stated contours. The run's
 names it in its `blade_mesh` record as `beam_toml` and `beam_toml_sha256`; the
 blade's provenance names it as the geometry file its contours were read from.
 
-`pyfs-workspace geometry beam` writes the same file on demand, for each family
+`pyfs-fsi beam` writes the same file on demand, for each family
 named, cutting about the mesh's origin (a row whose rotor sits on the origin reuses
 it as it is):
 
 ```bash
-pyfs-workspace geometry beam inputs/geometries/rotor/rotor.obj --families Blade1 --stations 16 --visual-inspection
+pyfs-fsi beam inputs/geometries/rotor/rotor.obj --families Blade1 --stations 16 --visual-inspection
 ```
 
 `--visual-inspection` also writes `<geometry>.<family>.beam.pdf` beside it: the
-blade drawn as `geometry visual-inspect` draws a mesh, with every section placed on
+blade drawn as `pyfs-mesh visual-inspect` draws a mesh, with every section placed on
 it, then each station's contour with its chord line and its pitch axis.
 
 ### Contours placed on the mesh cut

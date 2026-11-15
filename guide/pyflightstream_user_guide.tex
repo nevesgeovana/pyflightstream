@@ -1357,10 +1357,10 @@ pyfs-workspace migrate   DIR [--apply]                # preview first; see Upgra
 pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and provenance
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
-pyfs-workspace geometry inventory    30_WB.fsm                    # boundary order, read from the mesh
-pyfs-workspace geometry degenerate   blade.obj --root-offset 0.05 # the thin blade of a blade mesh
-pyfs-workspace geometry audit   mesh.obj [--against SRC.obj]  # judge a panel mesh, write its audit
-pyfs-workspace geometry refine       mesh.obj 2 [--out DIR]       # refine or coarsen into a new level folder
+pyfs-mesh inventory    30_WB.fsm                    # boundary order, read from the mesh
+pyfs-mesh degenerate   blade.obj --root-offset 0.05 # the thin blade of a blade mesh
+pyfs-mesh audit   mesh.obj [--against SRC.obj]  # judge a panel mesh, write its audit
+pyfs-mesh refine       mesh.obj 2 [--out DIR]       # refine or coarsen into a new level folder
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
 pyfs-matrix space-in-use --workspace DIR              # sizes: folders, sims, extensions

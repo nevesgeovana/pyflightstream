@@ -1,6 +1,6 @@
 """Scale an OBJ mesh uniformly about a point into a new output folder (PFS-2222).
 
-Pipeline role: the workspace layer's geometry verb behind ``pyfs-workspace geometry scale``. Every
+Pipeline role: the workspace layer's geometry verb behind ``pyfs-mesh scale``. Every
 vertex ``p`` of the OBJ becomes ``c + factor * (p - c)`` for the scale centre ``c`` (the origin
 unless ``about`` is given), a homothety: lengths grow by the factor, angles and the face
 topology do not change. The file is rewritten line by line as bytes and only the three

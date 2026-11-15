@@ -247,6 +247,38 @@ def _deprecations_shown() -> Iterator[None]:
         yield
 
 
+def refused_command(program: str, argv: list[str] | None) -> bool:
+    """Refuse a removed command of ``program`` by name, before parsing; True when refused.
+
+    The command words are those past the global flags, so ``--warning-refusals refine``
+    is found as well as ``refine``, and ``--help`` after them changes nothing. A command
+    of two words (a group and its verb) is looked up before its first word alone, each
+    as ``REMOVED_FORMS["<program>.<word>[.<word>]"]``; the message names the new command
+    and nothing is run.
+
+    Parameters
+    ----------
+    program : str
+        The program, such as ``pyfs-workspace``.
+    argv : list of str or None
+        The command line without the program name; None reads ``sys.argv``.
+
+    Returns
+    -------
+    bool
+        True when the command line is a removed form and its refusal was printed.
+    """
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    words = [w for w in (sys.argv[1:] if argv is None else argv) if not w.startswith("-")]
+    for depth in (2, 1):
+        entry = REMOVED_FORMS.get(".".join([program, *words[:depth]]))
+        if len(words) >= depth and entry is not None:
+            print(f"{entry.message()} Nothing was run.", file=sys.stderr)
+            return True
+    return False
+
+
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     """Report the actual CLI outcome once, without changing CLI semantics.
 

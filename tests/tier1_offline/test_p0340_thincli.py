@@ -1,6 +1,6 @@
 """Tier 1, 0.34.0: the thin-blade command and its --boundary option (FR-330, P0340-THIN-BLADE).
 
-Pipeline role: quality gate on ``pyfs-workspace geometry degenerate --kind thin-blade``
+Pipeline role: quality gate on ``pyfs-mesh degenerate --kind thin-blade``
 (FR-628, FR-634 and FR-636): the parser of the family, the command that runs it, its
 refusals by name, the selection of the blade among the bodies of one file, and
 the two places that must name it (the generated command-line reference and the
@@ -302,7 +302,7 @@ def test_the_cli_reference_and_the_cheatsheet_name_the_command_and_its_options()
     finally:
         sys.path.pop(0)
     pages = cli_reference_pages()
-    matrix = next(text for path, text in pages.items() if path.endswith("pyfs-workspace.md"))
+    matrix = next(text for path, text in pages.items() if path.endswith("pyfs-mesh.md"))
     for word in (
         "degenerate",
         "--kind",

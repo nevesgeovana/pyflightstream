@@ -13,7 +13,7 @@ with a licensed FlightStream installation, then plan the saved simulation:
 
 ```text
 python examples/using-CLI/prepare.py <copied-workspace>
-pyfs-workspace geometry mark-boundaries <copied-workspace>/inputs/geometries/wing.obj --apply --fs-exe <FlightStream-executable>
+pyfs-mesh mark-boundaries <copied-workspace>/inputs/geometries/wing.obj --apply --fs-exe <FlightStream-executable>
 pyfs-matrix plan <copied-workspace>/matrix.fs --workspace <copied-workspace>
 ```
 
@@ -38,7 +38,7 @@ pyfs-matrix post --workspace <copied-workspace>
 The refinement campaign holds geometry, incidence and solver settings fixed.
 Its second mesh doubles both chordwise and spanwise panel counts. Compare its
 loads with the coarse row after running; two densities alone do not establish
-mesh convergence. `pyfs-workspace geometry refine` is the separate route for
+mesh convergence. `pyfs-mesh refine` is the separate route for
 refining an existing mesh; see the site's geometry guide.
 
 The campaign also includes `wing.refine.toml`. Preparation writes the node list
@@ -47,7 +47,7 @@ it names, `wing.nodes.txt`, in the form an ANSA SET's node window saves, and its
 exercise refinement independently of the two matrix rows:
 
 ```text
-pyfs-workspace geometry refine <copied-workspace>/inputs/geometries/wing.obj
+pyfs-mesh refine <copied-workspace>/inputs/geometries/wing.obj
 ```
 
 The `wing_refined` folder contains an updated `wing_refined.te.txt` and

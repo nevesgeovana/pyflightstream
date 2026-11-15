@@ -784,10 +784,36 @@ _MATRIX_DEFAULT_BUILD = (
     "so it is a DEFAULT rather than the version the matrix runs under; a row that names a "
     "build is authoritative. The pyfs-matrix command line keeps --fs-version."
 )
-_GEOMETRY_GROUP = (
-    "Every geometry command lives in the pyfs-workspace geometry group, which gives the "
-    "identical result."
+_GEOMETRY_TOOLS = (
+    "Mesh operations live in pyfs-mesh and CAD operations in pyfs-geom, the same verbs as "
+    "cfd-mesh and cfd-geom, and the FSI beam cut in pyfs-fsi; the result is identical."
 )
+
+#: Every verb of the retired ``pyfs-workspace geometry`` group, to the command that took it.
+_GEOMETRY_VERB_HOMES = {
+    **{
+        verb: f"pyfs-mesh {verb}"
+        for verb in (
+            "refine prepare-to-refine audit inventory degenerate trailing-edge convert2midnodes "
+            "identify-te collapse-te visual-inspect merge scale morph repitch hub-rings "
+            "sector-to-wheel sector-remesh power-off-body prop-slice iges-grid mesh "
+            "mesh-generated mark-boundaries export-surface-mesh build accept from-sidecar"
+        ).split()
+    },
+    "iges-convert": "pyfs-geom iges-convert",
+    "beam": "pyfs-fsi beam",
+}
+
+
+def _command_moves(owner: str, homes: dict[str, str], why: str) -> dict[str, RetiredName]:
+    """Return the 0.58.0 refusals of the commands ``owner`` gave up, keyed ``<owner>.<old>``."""
+    return {
+        f"{owner.replace(' ', '.')}.{old}": RetiredName(
+            owner=owner, old=old, new=new, retired_in="0.58.0", why=why, instead="Use"
+        )
+        for old, new in homes.items()
+    }
+
 
 _REFINE_DIRECTIONS = (
     "The two directions are named by the reference perimeter, --parallel along it and "
@@ -862,33 +888,15 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         why=_THE_CAMPAIGN_SWEEP_SENTENCE,
         instead="Join",
     ),
-    "pyfs-matrix.refine": RetiredName(
-        owner="pyfs-matrix",
-        old="refine",
-        new="pyfs-workspace geometry refine",
-        retired_in="0.58.0",
-        why=_GEOMETRY_GROUP,
-    ),
-    "pyfs-matrix.audit-mesh": RetiredName(
-        owner="pyfs-matrix",
-        old="audit-mesh",
-        new="pyfs-workspace geometry audit",
-        retired_in="0.58.0",
-        why=_GEOMETRY_GROUP,
-    ),
-    "pyfs-matrix.inventory": RetiredName(
-        owner="pyfs-matrix",
-        old="inventory",
-        new="pyfs-workspace geometry inventory",
-        retired_in="0.58.0",
-        why=_GEOMETRY_GROUP,
-    ),
-    "pyfs-matrix.degenerate": RetiredName(
-        owner="pyfs-matrix",
-        old="degenerate",
-        new="pyfs-workspace geometry degenerate",
-        retired_in="0.58.0",
-        why=_GEOMETRY_GROUP,
+    **_command_moves(
+        "pyfs-matrix",
+        {
+            "refine": "pyfs-mesh refine",
+            "audit-mesh": "pyfs-mesh audit",
+            "inventory": "pyfs-mesh inventory",
+            "degenerate": "pyfs-mesh degenerate",
+        },
+        _GEOMETRY_TOOLS,
     ),
     "refine.chordwise": RetiredName(
         owner="refine_mesh and a [families.<name>] table",
@@ -1117,6 +1125,16 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         ),
         instead="Declare it with",
     ),
+    # 0.58.0 (PFS-2260): the pyfs-workspace geometry group, split by what each verb acts on.
+    "pyfs-workspace.geometry": RetiredName(
+        owner="pyfs-workspace",
+        old="geometry",
+        new="pyfs-mesh for the mesh verbs, pyfs-geom iges-convert and pyfs-fsi beam",
+        retired_in="0.58.0",
+        why=_GEOMETRY_TOOLS,
+        instead="Use",
+    ),
+    **_command_moves("pyfs-workspace geometry", _GEOMETRY_VERB_HOMES, _GEOMETRY_TOOLS),
 }
 
 

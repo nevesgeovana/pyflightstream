@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.run.mesh_cli import main as mesh_main
+
 OBJ = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\ng wing\nf 1 2 3 4\n"
 
 
@@ -46,10 +48,9 @@ def test_p0540_the_preview_reports_each_stage_in_order(tmp_path, build):
 
 @pytest.mark.requirement("FR-3478")
 def test_p0540_the_command_prints_the_stages_through_the_console_route(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main
 
     mesh = _mesh(tmp_path)
-    assert main(["geometry", "mark-boundaries", str(mesh)]) == 0
+    assert mesh_main(["mark-boundaries", str(mesh)]) == 0
     captured = capsys.readouterr()
     assert "[mark-boundaries " in captured.err
     assert "rendering the marking script" in captured.err

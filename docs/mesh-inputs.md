@@ -1,11 +1,11 @@
 <h1>Mesh inputs</h1>
 
 For small blade pitch changes, author a standalone `morphing.toml` beside the mesh
-and pass it to `geometry repitch --morphing`. The [template](mesh/morphing.toml)
+and pass it to `pyfs-mesh repitch --morphing`. The [template](mesh/morphing.toml)
 and [repitch control reference](mesh/reference.md#repitch-control) describe its inputs.
 
 To collapse a blunt trailing edge on an OBJ, add a `[collapse_te]` table to the same file and
-pass it to `geometry collapse-te --morphing`; see the
+pass it to `pyfs-mesh collapse-te --morphing`; see the
 [how-to](mesh/how-to.md#collapse-a-blunt-trailing-edge) and the
 [collapse control reference](mesh/reference.md#collapse-trailing-edge-control).
 

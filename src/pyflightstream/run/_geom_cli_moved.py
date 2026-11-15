@@ -1,8 +1,8 @@
 """The ``identify``, ``check`` and ``schema`` verbs of ``pyfs-geom``.
 
 Pipeline role: the run layer's parsers and handlers for the verbs that read an original
-IGES or a component record, moved from ``pyfs-workspace geometry`` with their options
-unchanged. The work is the geometry package's (:mod:`pyflightstream.geometry`) and the
+IGES or a component record. The work is the geometry package's
+(:mod:`pyflightstream.geometry`) and the
 workspace's (:mod:`pyflightstream.workspace.geometry_pipeline`, on the gmsh kernel); this module
 only reads the command line, calls it, prints the record it returns as JSON and gives the exit
 code: 0 when the work was done (and, for ``check`` and ``schema --validate``, accepted), 1 when

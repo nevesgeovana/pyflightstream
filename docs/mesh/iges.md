@@ -1,8 +1,8 @@
 # Grid and convert a named IGES
 
 Two commands read IGES files whose components are named, as a CAD or meshing system writes
-them: `geometry iges-grid` builds one surface grid for the solver, one family per component,
-and `geometry iges-convert` rewrites the files as one IGES of B-spline faces that the solver's
+them: `pyfs-mesh iges-grid` builds one surface grid for the solver, one family per component,
+and `pyfs-geom iges-convert` rewrites the files as one IGES of B-spline faces that the solver's
 CAD import reads. Both use gmsh, which installs with the package. Where the library cannot load, for example on
 Linux without its system libraries, either command stops with a message naming the library that
 failed and writes nothing.
@@ -31,7 +31,7 @@ enter the commands below unchanged ([Parametric aircraft geometry](../geometry-p
 ## Grid a configuration
 
 ```text
-pyfs-workspace geometry iges-grid airframe.igs rotor.igs --grid grid.toml --out model.obj
+pyfs-mesh iges-grid airframe.igs rotor.igs --grid grid.toml --out model.obj
 ```
 
 The faces of every file are healed and joined, so an edge two faces share becomes one curve
@@ -43,14 +43,14 @@ command writes:
 | File | Content |
 |---|---|
 | `model.obj` | One family (`g`) per component, in the order of the grid control file, then the components the file does not name in the order of the IGES files; each family's faces turned to point outward |
-| `model.obj.boundaries.toml` | The boundaries file `geometry mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
+| `model.obj.boundaries.toml` | The boundaries file `pyfs-mesh mark-boundaries` reads: `fs_build`, the family list and face counts, `[import] units`, and one trailing-edge entry per component with a trailing edge, or `[trailing_edges] none = true` |
 | `model.<Component>.te.txt` | The midpoints of a component's trailing-edge edges, under the unit line; a character of the name a file name cannot hold is written `_` |
 | `model.obj.json` | The record: nodes and faces, per component the faces, nodes, quad share, least scaled Jacobian, largest aspect, smallest and largest corner angle, sliver faces and size, the conformal check, the joins, the transfinite patches, the counts one component imposed on another, the junction check, the selection and every warning |
 
 ### Select components
 
 ```text
-pyfs-workspace geometry iges-grid airframe.igs --grid grid.toml --out wing.obj --component Wing
+pyfs-mesh iges-grid airframe.igs --grid grid.toml --out wing.obj --component Wing
 ```
 
 `--component NAME` (repeatable) grids only the components it names. A name is matched against the
@@ -71,7 +71,7 @@ records it under `junctions` (the pair, the nodes shared, the nodes checked, the
 distance per component, the join tolerance and `within_tolerance`). A junction past the join
 tolerance is warned with its distance, never refused.
 
-The OBJ then enters `geometry mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
+The OBJ then enters `pyfs-mesh mark-boundaries`, `repitch`, `collapse-te` and `morph` as any
 other OBJ.
 
 ### The grid control file
@@ -246,7 +246,7 @@ fillet grid diverged with its inner faces kept, even with no wake, and converged
 ## Convert to B-spline faces
 
 ```text
-pyfs-workspace geometry iges-convert fuselage.igs --out fuselage-nurbs.igs
+pyfs-geom iges-convert fuselage.igs --out fuselage-nurbs.igs
 ```
 
 Every face, including a surface of revolution, is converted to a B-spline surface and written

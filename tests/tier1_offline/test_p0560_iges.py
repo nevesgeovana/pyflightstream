@@ -1,7 +1,7 @@
 """P0560-IGES: grid and convert the named components of IGES files (PFS-2198, PFS-2199).
 
-Usage: pyfs-workspace geometry iges-grid a.igs b.igs --grid grid.toml --out model.obj
-       pyfs-workspace geometry iges-convert a.igs b.igs --out config.igs
+Usage: pyfs-mesh iges-grid a.igs b.igs --grid grid.toml --out model.obj
+       pyfs-geom iges-convert a.igs b.igs --out config.igs
 
 Every IGES file here is written by the test from the fixed eighty-column layout: bilinear
 B-spline patches (128), a surface of revolution (120) on a line axis (110), a free line (110),
@@ -21,7 +21,6 @@ import pytest
 
 from pyflightstream._errors import NotApplicableWarning, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import read_obj, read_te
-from pyflightstream.workspace.cli import main
 from tests.tier1_offline._kernel_support import kernel_or_skip
 
 UNIT_FLAG = {"MM": 2, "IN": 1, "M": 6}
@@ -139,9 +138,13 @@ def grid_file(folder, text):
 
 
 def cli(args, capsys):
+    """Run ``pyfs-geom iges-convert`` or a ``pyfs-mesh`` verb; (code, stdout, stderr)."""
+    from pyflightstream.run.geom_cli import main as geom_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
+
     capsys.readouterr()
     try:
-        code = main(args)
+        code = (geom_main if args and args[0] == "iges-convert" else mesh_main)(args)
     except SystemExit as error:
         code = error.code
     out = capsys.readouterr()
@@ -259,7 +262,7 @@ def test_p0560_without_gmsh_each_verb_gives_one_install_message(
         if verb == "iges-grid"
         else []
     )
-    code, stdout, stderr = cli(["geometry", verb, str(source), *extra, "--out", str(out)], capsys)
+    code, stdout, stderr = cli([verb, str(source), *extra, "--out", str(out)], capsys)
     assert code == 2
     assert stderr.count('pip install "gmsh>=4.15.1,<5"') == 1, stderr
     assert "gmsh" in stderr
@@ -316,7 +319,7 @@ def test_p0560_a_grid_value_that_cannot_be_read_is_refused_before_import(tmp_pat
     grid = grid_file(tmp_path, '[component.Flap]\nchord = {count = 4, law = "spline"}\n')
     out = tmp_path / "model.obj"
     code, _, stderr = cli(
-        ["geometry", "iges-grid", str(source), "--grid", str(grid), "--out", str(out)], capsys
+        ["iges-grid", str(source), "--grid", str(grid), "--out", str(out)], capsys
     )
     assert code == 2
     assert "law must be one of cosine, geometric, tanh, uniform" in stderr
@@ -346,7 +349,6 @@ def run_grid(tmp_path, capsys, sources, text, out="model.obj"):
         warnings.simplefilter("always")
         code, stdout, stderr = cli(
             [
-                "geometry",
                 "iges-grid",
                 *map(str, sources),
                 "--grid",
@@ -801,7 +803,7 @@ def test_p0560_grid_boundaries_file_passes_the_mark_boundaries_preview(tmp_path,
     assert data["import"]["units"] == "MILLIMETER"
     assert data["fs_build"] == "26.127"
     assert data["trailing_edges"] == {"none": True}
-    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    code, _, stderr = cli(["mark-boundaries", str(target)], capsys)
     assert code == 0, stderr
 
 
@@ -820,7 +822,7 @@ def test_p0560_grid_finds_a_sharp_trailing_edge_and_marks_it(tmp_path, capsys):
     assert unit == "MILLIMETER"
     assert len(points) == 5
     assert np.allclose(points[:, 0], 1.0) and np.allclose(points[:, 2], 0.0)
-    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    code, _, stderr = cli(["mark-boundaries", str(target)], capsys)
     assert code == 0, stderr
 
 
@@ -894,7 +896,7 @@ def test_p0560_grid_marks_one_rim_of_a_blunt_trailing_edge(tmp_path, capsys):
     assert np.allclose(points[:, 0], 1.0)
     # One rim: every marked edge lies on the same side of the base.
     assert np.allclose(np.abs(points[:, 2]), 0.01) and len(set(np.sign(points[:, 2]))) == 1
-    code, _, stderr = cli(["geometry", "mark-boundaries", str(target)], capsys)
+    code, _, stderr = cli(["mark-boundaries", str(target)], capsys)
     assert code == 0, stderr
 
 
@@ -1125,7 +1127,6 @@ def test_p0560_grid_keeps_the_inner_faces_when_told_to(tmp_path, capsys):
     grid = grid_file(tmp_path, bad)
     code, _, stderr = cli(
         [
-            "geometry",
             "iges-grid",
             str(body_and_slab(tmp_path)),
             "--grid",
@@ -1199,9 +1200,7 @@ def test_p0560_convert_writes_bspline_faces_with_one_name_per_component(tmp_path
 
     sources = [plate_and_flap(tmp_path), revolution(tmp_path)]
     out = tmp_path / "config.igs"
-    code, stdout, stderr = cli(
-        ["geometry", "iges-convert", *map(str, sources), "--out", str(out)], capsys
-    )
+    code, stdout, stderr = cli(["iges-convert", *map(str, sources), "--out", str(out)], capsys)
     assert code == 0, stderr
     record = json.loads(stdout)
     assert record == json.loads(Path(str(out) + ".json").read_text(encoding="utf-8"))
@@ -1225,9 +1224,7 @@ def test_p0560_convert_keeps_the_first_files_unit_and_scales_the_others(tmp_path
     first = plate_and_flap(tmp_path, unit="M", name="m.igs")
     second = plate_and_flap(tmp_path, unit="MM", scale=1000.0, name="mm.igs")
     out = tmp_path / "config.igs"
-    code, stdout, stderr = cli(
-        ["geometry", "iges-convert", str(first), str(second), "--out", str(out)], capsys
-    )
+    code, stdout, stderr = cli(["iges-convert", str(first), str(second), "--out", str(out)], capsys)
     assert code == 0, stderr
     record = json.loads(stdout)
     assert record["unit"] == "METER" and read_iges_names(out).unit == "METER"
@@ -1250,7 +1247,7 @@ def test_p0560_convert_refuses_an_output_that_is_not_iges(tmp_path, capsys):
     gmsh_or_skip()
     out = tmp_path / "config.obj"
     code, _, stderr = cli(
-        ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
+        ["iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
     )
     assert code == 2 and "output of iges-convert is an IGES file" in stderr
     assert not out.exists()
@@ -1276,7 +1273,7 @@ def test_p0560_convert_says_so_when_the_written_faces_read_back_in_another_count
     monkeypatch.setenv("PYFLIGHTSTREAM_GMSH_ISOLATE", "0")
     out = tmp_path / "config.igs"
     code, _, stderr = cli(
-        ["geometry", "iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
+        ["iges-convert", str(plate_and_flap(tmp_path)), "--out", str(out)], capsys
     )
     assert code == 2
     assert "does not read back with its 2 faces" in stderr, stderr
@@ -1365,7 +1362,7 @@ def test_p0560_convert_output_flags_the_curves_on_its_surfaces(tmp_path, capsys)
     finally:
         gmsh.finalize()
     out = tmp_path / "config.igs"
-    code, _, stderr = cli(["geometry", "iges-convert", str(source), "--out", str(out)], capsys)
+    code, _, stderr = cli(["iges-convert", str(source), "--out", str(out)], capsys)
     assert code == 0, stderr
     rows = directory_rows(out)
     ons = [values for kind, status, values in rows.values() if kind == 142]
