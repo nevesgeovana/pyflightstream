@@ -52,3 +52,24 @@ def test_two_rotors_without_ids_are_refused_naming_both():
 
 def test_distinct_ids_and_one_default_pass():
     refuse_duplicate_rotor_ids({"A": _rotor("A"), "B": _rotor("B", id=1), "C": _rotor("C", id=7)})
+
+
+@pytest.mark.parametrize("alias", ["", " "])
+def test_a_blank_rotor_alias_is_refused_by_name_in_the_model(alias):
+    with pytest.raises(ValueError, match="alias"):
+        _rotor(alias)
+
+
+@pytest.mark.parametrize("alias", ["", " "])
+def test_a_blank_rotor_alias_is_refused_by_name_in_the_reference_reader(tmp_path, alias):
+    from pyflightstream.workspace.inputs import resolve_reference
+
+    references = tmp_path / "references"
+    references.mkdir()
+    (references / "ref.toml").write_text(
+        f'[PUSHER]\nkind = "rotor"\nalias = "{alias}"\naxis = "Z"\ndiameter_m = 1.2\n'
+        'families_blades = ["Blade1", "Blade2"]\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(Exception, match="alias"):
+        resolve_reference(tmp_path, "ref")
