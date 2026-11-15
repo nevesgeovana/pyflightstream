@@ -14,7 +14,9 @@ at the end of the scheduler's log.
 
 No real job was available to this lane. The scheduler is a stand-in that runs
 the emitted job's commands in order and prints, for each, the line the solver
-prints (the marker for a transition, measured on 26.124, RPT-141). No solver
+prints (the marker for a transition, measured in the cumulative logs of the
+licensed probes of 2026-10-02 on 26.124 build 8172026,
+tests/tier1_offline/fixtures/batch0350/logs, PROVENANCE.md). No solver
 runs here.
 """
 
@@ -41,6 +43,7 @@ from tests.tier1_offline.test_p0350_batch_script import (
 #: What the stand-in scheduler prints when the instance closes.
 CLOSED = "FlightStream closed."
 DOCS = Path(__file__).resolve().parents[2] / "docs"
+PROBE_LOGS = Path(__file__).resolve().parent / "fixtures" / "batch0350" / "logs"
 
 
 def _polars(transition: str, *, quiet: bool) -> list[JobPolar]:
@@ -135,3 +138,9 @@ def test_p0580_pfs2258_the_page_says_the_ending_is_only_checked_against_a_stand_
     end = text.find("\n\n", start)
     paragraph = text[start:] if end < 0 else text[start:end]
     assert "stand-in" in paragraph
+
+
+def test_p0580_pfs2258_the_marker_is_the_one_the_licensed_probes_printed():
+    """The stand-in prints RESTART_MARKER because the probes of 2026-10-02 printed it mid-job."""
+    text = (PROBE_LOGS / "A2.cumulative.txt").read_text(encoding="utf-8", errors="replace")
+    assert RESTART_MARKER in text
