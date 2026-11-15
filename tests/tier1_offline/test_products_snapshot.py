@@ -525,7 +525,13 @@ def normalise(name: str, data: bytes, root: Path) -> bytes:
     # (which file a message names) are still compared, and a backslash
     # anywhere else is kept.
     text = _ROOTED_PATH.sub(_posix_separators, text)
-    text = text.replace(__version__, "<VERSION>")
+    # The installed version only where the package STATES it: the log's first
+    # line and a document's "version" key. A blanket replace also rewrote a
+    # message naming a release by number ("opposite to 0.57.0") whenever the
+    # installed version was that release, so the snapshot passed or failed by
+    # the runner's install (CI run 43705945874, ubuntu, version 0.57.0).
+    text = text.replace(f"pyflightstream {__version__} ", "pyflightstream <VERSION> ")
+    text = text.replace(f'"version": "{__version__}"', '"version": "<VERSION>"')
     text = text.replace(f"-{release_tag(__version__)}.json", "-<TAG>.json")
     text = _ARCHIVE.sub("<STAMP>", text)
     if name.endswith(".dat"):
@@ -1060,6 +1066,27 @@ def test_the_normalisation_rewrites_only_the_volatile_fields(tmp_path):
     assert normalise("products/polars/P1.csv", row, root) == row
     crlf = row.replace(b"\n", b"\r\n")
     assert normalise("products/polars/P1.csv", crlf, root) == crlf, "a chosen CRLF is compared"
+
+
+def test_a_message_naming_a_release_is_compared_whatever_version_is_installed(
+    tmp_path, monkeypatch
+):
+    """P0330-PRODUCTS-SNAPSHOT. Only the version the package states is rewritten:
+    the log's first line and a document's "version" key. A message that names a
+    release by number keeps it, also when that release is the installed one, so the
+    snapshot does not pass on one runner and fail on another by its install."""
+    import pyflightstream
+
+    monkeypatch.setattr(pyflightstream, "__version__", "0.57.0")
+    root = tmp_path / "camp"
+    log = "pyflightstream 0.57.0 post\nWARNING: signs are opposite to 0.57.0.\n"
+    assert normalise("products/post.log", log.encode(), root).decode() == (
+        "pyflightstream <VERSION> post\nWARNING: signs are opposite to 0.57.0.\n"
+    )
+    document = '{\n "version": "0.57.0",\n "message": "opposite to 0.57.0."\n}\n'
+    assert normalise("products/products.json", document.encode(), root).decode() == (
+        '{\n "version": "<VERSION>",\n "message": "opposite to 0.57.0."\n}\n'
+    )
 
 
 def test_the_separator_of_a_path_in_the_build_folder_is_the_only_path_change(tmp_path):
