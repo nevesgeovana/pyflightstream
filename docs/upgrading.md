@@ -113,7 +113,7 @@ right-handed frame adds `mesh_frame = ["forward", "left", "up"]` (what its +x, +
 point to) to its `boundaries.toml`, and is converted before the solver reads it. A mesh
 that states nothing is read as before. A left-handed declaration, a saved simulation
 declared in another frame, and an OBJ declared in another frame on the FSI route or in
-`geometry mark-boundaries` (which do not convert yet) are refused.
+`pyfs-mesh mark-boundaries` (which do not convert yet) are refused.
 
 ## The averaging window spans whole blade passages (0.58)
 
