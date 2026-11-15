@@ -85,6 +85,7 @@ plot_loads = false # a steady point saves the solver's plots; switch one off
 count = 50
 plot_direction = 1
 include_symmetry = false
+split = "point" # the sections and Cp files: per point, "family" or "both" (docs/pproc/sections.md)
 [[sections.distributions]]
 families = ["W"]
 frame = "MRP"

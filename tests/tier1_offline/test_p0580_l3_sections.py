@@ -233,10 +233,6 @@ def test_p0580_the_family_split_indexes_the_family_files_and_drops_the_point_tab
 
 
 def test_p0580_the_stage_reads_the_split_key_off_the_pproc_where_it_is_declared(tmp_path):
-    from pyflightstream.cases.pproc import SectionsSpec
-
-    if "split" not in SectionsSpec.model_fields:
-        pytest.skip("[sections] split is declared by the pproc model of the polar lane (L2)")
     from pyflightstream.post.products import write_campaign_products
     from tests.tier1_offline.test_goal028_explained_products import _give
     from tests.tier1_offline.test_post_products import _unsteady_workspace

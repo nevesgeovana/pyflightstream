@@ -237,6 +237,7 @@ log = true
 count = 50                        # sections of every distribution that states none
 plot_direction = 1                # 1 or 2
 include_symmetry = false
+split = "point"                   # files per point (default), "family" or "both"
 
 [[sections.distributions]]
 attach = "space"  # fixed in the undeformed REFERENCE space

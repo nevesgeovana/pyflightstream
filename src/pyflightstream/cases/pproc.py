@@ -688,6 +688,11 @@ class SectionsSpec(_SuggestsKeys):
         artifact, because symmetry is a property of the case.
     distributions : list of SectionDistribution
         The distributions, one command per entry and plane.
+    split : {'point', 'family', 'both'}
+        The files the post writes of the sections and Cp tables: one per point
+        (``<point>_sections.csv``, ``<point>_cp.csv``), one per point and family
+        (``<point>_FAM-<FAMILY>_sections.csv``, ``_cp.csv``) or both; never one
+        per polar.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -696,6 +701,7 @@ class SectionsSpec(_SuggestsKeys):
     plot_direction: Literal[1, 2] = 1
     include_symmetry: bool = False
     distributions: list[SectionDistribution] = Field(default_factory=list)
+    split: Literal["point", "family", "both"] = "point"
 
 
 #: THE PRISM-LAYER ARGUMENTS EVERY VOLUME SECTION IS CREATED WITH (G05):

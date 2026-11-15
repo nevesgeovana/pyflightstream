@@ -222,12 +222,15 @@ def run_block_scope(ctx: SimContext) -> Iterator[None]:
 def split_of(ctx: SimContext) -> str:
     """Return the pproc's ``[sections] split``, ``point`` where it states none.
 
+    The pproc model refuses any other value when the pproc is read; a pproc
+    built in Python past that check is refused here.
+
     Raises
     ------
     ProductError
         If the pproc states a value that is not ``point``, ``family`` or ``both``.
     """
-    return sections_split(getattr(ctx.pproc.sections, "split", None))
+    return sections_split(ctx.pproc.sections.split)
 
 
 def _entry(ctx: SimContext, point: PolarPoint, *, family: bool = False) -> dict[str, object]:

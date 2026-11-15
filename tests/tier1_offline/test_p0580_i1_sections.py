@@ -48,6 +48,26 @@ def test_p0580_the_ids_of_the_post_are_used_where_the_writer_is_given_none(tmp_p
         assert [row.get("ROTOR") for row in with_rotor_alias(rows)] == [None, "PUSHER"]
 
 
+@pytest.mark.parametrize("value", ["point", "family", "both"])
+def test_p0580_the_pproc_reads_the_three_splits(value):
+    from pyflightstream.cases.pproc import SectionsSpec
+
+    assert SectionsSpec().split == "point"
+    assert SectionsSpec(split=value).split == value
+
+
+@pytest.mark.parametrize("value", ["polar", "per_point", 1])
+def test_p0580_the_pproc_refuses_any_other_split_naming_the_three(value):
+    from pydantic import ValidationError
+
+    from pyflightstream.cases.pproc import SectionsSpec
+
+    with pytest.raises(ValidationError) as caught:
+        SectionsSpec(split=value)
+    said = str(caught.value)
+    assert all(f"'{word}'" in said for word in ("point", "family", "both")), said
+
+
 def test_p0580_a_reader_resolves_the_alias_from_the_id():
     rows = [{"ROTOR_ID": "3"}, {"ROTOR_ID": "NA"}, {"ROTOR_ID": "0", "ROTOR": "KEPT"}]
     resolved = with_rotor_alias(rows, {"PUSHER": 3})
