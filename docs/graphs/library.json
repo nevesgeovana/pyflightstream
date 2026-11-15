@@ -1721,6 +1721,11 @@
       "path": "run/matrix.py"
     },
     {
+      "id": "pyflightstream.run.mesh_cli",
+      "layer": 1,
+      "path": "run/mesh_cli.py"
+    },
+    {
       "id": "pyflightstream.run.records",
       "layer": 1,
       "path": "run/records.py"
@@ -2611,6 +2616,11 @@
       "source": "pyflightstream._cli",
       "target": "pyflightstream._progress",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream._cli",
+      "target": "pyflightstream._retired_names",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream._cli",
@@ -12739,7 +12749,17 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream._cli",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream._progress",
       "kind": "module"
     },
     {
@@ -12750,6 +12770,11 @@
     {
       "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.fsi.cli",
       "kind": "module"
     },
     {
@@ -14934,6 +14959,11 @@
     },
     {
       "source": "pyflightstream.run.geom_cli",
+      "target": "pyflightstream.run._cli_morph",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.geom_cli",
       "target": "pyflightstream.run._geom_cli_moved",
       "kind": "module"
     },
@@ -15061,6 +15091,51 @@
       "source": "pyflightstream.run.matrix",
       "target": "pyflightstream.workspace.setup_inspection",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream._cli",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream._console",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream.options",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream.run._cli_geometry",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream.run._cli_mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream.run._cli_morph",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.mesh_cli",
+      "target": "pyflightstream.workspace.cli",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.run.records",

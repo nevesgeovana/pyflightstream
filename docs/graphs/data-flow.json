@@ -108,7 +108,7 @@
       ],
       "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, warning_refusals: bool | None=None, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: object=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: object=None, spanwise: object=None",
       "returns": "RefinedMesh | None",
-      "source_sha256": "83168809571b721e1940485aef6e2f83f2f7e2fa29a67458005f7b6eda8816d9"
+      "source_sha256": "4e619bcdcbdc447f748eccb76797e0e407b3d1134f68f2f6f20bac20cf8dcc9f"
     }
   ],
   "cases": [
