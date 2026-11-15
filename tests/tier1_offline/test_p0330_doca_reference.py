@@ -192,12 +192,13 @@ def _expected_subpackages() -> list[str]:
 #: (FR-1144), and a module listed here that gains one leaves the list in the same
 #: change. Six of the seven are the modules DOC-B part 2 completes;
 #: ``script.helpers`` stays because it sits at its module-size baseline
-#: entry, which an ``__all__`` would exceed.
+#: entry, which an ``__all__`` would exceed. ``results.tables`` left the list
+#: when its module ``__getattr__`` hook (FR-457) made the renderer count the
+#: hook as a public name of a module read without ``__all__``.
 MODULES_WITHOUT_ALL = {
     "pyflightstream.post.field_frames",
     "pyflightstream.post.probe_fields",
     "pyflightstream.results.native_surface",
-    "pyflightstream.results.tables",
     "pyflightstream.run.cli",
     "pyflightstream.run.records",
     "pyflightstream.script.helpers",
