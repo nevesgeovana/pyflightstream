@@ -521,6 +521,7 @@ _ROOT_UNIT_ROWS: dict[str, float] = {
             "_maturity",
             "_mesh",
             "_retired_names",
+            "_retired_tables",
             "_signature",
             "_yamlflow",
             "extras",

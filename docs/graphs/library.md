@@ -5029,6 +5029,11 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream._retired_names"><summary><code>pyflightstream._retired_names</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._retired_tables">pyflightstream._retired_tables</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream._retired_tables"><summary><code>pyflightstream._retired_tables</code></summary><ul>
+<li>No package-internal outgoing imports.</li>
 </ul></details>
 
 <details id="pyflightstream._signature"><summary><code>pyflightstream._signature</code></summary><ul>

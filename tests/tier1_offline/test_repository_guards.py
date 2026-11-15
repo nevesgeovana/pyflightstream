@@ -100,8 +100,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: series/farfield docs pages, custom-motion module and changelog fragment.
 #: Final integration folds changelog.d/xfix.md into the release notes (-1):
 #: 2405 tracked files, measured; the cap follows that final count.
+#: CONT3 extracts the retirement data module (+1): 2406 final tracked files,
+#: measured, within the owner's approved final-count decision.
 LEAN_CAPS = {
-    "tracked_files": 2405,
+    "tracked_files": 2406,
     "reports_files": 121,
     "reports_lines": 208338,
     # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto

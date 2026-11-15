@@ -96,6 +96,11 @@
       "path": "_retired_names.py"
     },
     {
+      "id": "pyflightstream._retired_tables",
+      "layer": 7.0,
+      "path": "_retired_tables.py"
+    },
+    {
       "id": "pyflightstream._signature",
       "layer": 7.0,
       "path": "_signature.py"
@@ -2695,6 +2700,11 @@
     {
       "source": "pyflightstream._retired_names",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream._retired_names",
+      "target": "pyflightstream._retired_tables",
       "kind": "module"
     },
     {
