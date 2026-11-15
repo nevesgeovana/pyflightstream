@@ -5,21 +5,16 @@ RESOLVES what the simulation's records state into one frozen
 :class:`SimContext`, and the steps that each write one family from it, called
 in manifest order:
 
-1. :func:`_group_polars`: the polar of each boundary group, its custom-format
-   twin and the superfile rows (:mod:`pyflightstream.post.polar`);
-2. :func:`_point_products`, per point: its sections table and the
+1. :func:`_point_products`, per point: its sections table and the
    quasi-steady and harmonic products cut from it, its probes table, its
    plots table, the unsteady probes and the reductions
    (:mod:`pyflightstream.post.point_tables`,
    :mod:`pyflightstream.post._reduction_stage`);
-3. :func:`_rotor_table_products`: one table per rotor the reference declares
-   (:mod:`pyflightstream.post.rotor_table`);
-4. :func:`_qsteady_rotor_products`: the quasi-steady clockings, their average
+2. :func:`_qsteady_rotor_products`: the quasi-steady clockings, their average
    and the correction route;
-5. :func:`_unsteady_polar_products`: the time-averaged polar of an unsteady
-   simulation (:mod:`pyflightstream.post.unsteady_polar`);
-6. :func:`_superfile_drafts`: the rows of each group's superfile, written by
-   the campaign once the union of its columns is known.
+3. :func:`_family_polars`: the polar's family and group files, steady or the
+   window average of an unsteady run's plots, and the polars derived from them
+   (:mod:`pyflightstream.post._polar_stage`, PFS-2231).
 
 The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.py``,
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
@@ -39,15 +34,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import (
-    NotApplicableWarning,
     ProductExistsError,
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
 )
 from pyflightstream._tokens import MESH_FACES_COLUMN
-from pyflightstream.cases import PprocSpec, select_group_members
-from pyflightstream.cases.workflows import CONFIGURATION_VARIABLE
+from pyflightstream.cases import PprocSpec
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._admit import (
     _admit,
@@ -77,34 +70,27 @@ from pyflightstream.post._installed_copies import (
 )
 from pyflightstream.post._noise_products import noise_products
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
-from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
     _qsteady_corrections,
     _qsteady_products,
     _qsteady_sections,
-    _qsteady_super_cells,
     _the_sections_writer,
     _wheel_harmonics,
 )
 from pyflightstream.post._stage import (
-    POLARS_DIR,
     PROBES_DIR,
     SECTIONS_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
     failure_reason,
 )
 from pyflightstream.post._structure import (
-    append_tip_columns,
     placement_check_products,
     structure_products,
 )
 from pyflightstream.post._tables import (
-    ADVANCE_RATIO_COLUMN,
     ProductError,
     ReferenceValues,
     _march_plots_text,
-    read_csv_table,
-    write_csv_table,
 )
 from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
@@ -116,34 +102,14 @@ from pyflightstream.post.point_tables import (
 )
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
-    TRIM_SUFFIX,
     PolarPoint,
-    drag_columned_rows,
-    drag_columns_of,
-    group_polar_rows,
-    polar_table_columns,
-    polar_table_rows,
-    selected_axes,
     swept_axes,
-    swept_polar_file_name,
-    write_interpolated_polar,
-    write_trimmed_polar,
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
-from pyflightstream.post.rotor_table import write_rotor_table
 from pyflightstream.post.superfile import (
     SuperfileDraft,
-    plots_last_row,
-    super_file_name,
-    superfile_row,
-)
-from pyflightstream.post.unsteady_polar import (
-    global_frame_plot_groups,
-    unsteady_polar_file_name,
-    write_unsteady_polar,
 )
 from pyflightstream.results import FrozenSolve
-from pyflightstream.workspace.inputs import rotor_integration_groups
 from pyflightstream.workspace.sidecars import (
     OBJ_SUFFIX,
     boundaries_for_matrix,
@@ -388,7 +354,10 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
 
 def _load_step_context(ctx: SimContext, step: Callable[[SimContext], None]) -> SimContext:
     """Scope load-table consumers without suppressing independent export products."""
-    if step not in (_group_polars, _rotor_table_products, _qsteady_rotor_products):
+    if step not in (_family_polars, _qsteady_rotor_products):
+        return ctx
+    if step is _family_polars and ctx.window is not None:
+        # AN UNSTEADY POLAR IS READ FROM THE PLOTS, not from the loads export.
         return ctx
     selected = [
         (point, condition)
@@ -553,278 +522,38 @@ def _table_names(
     return table_name, super_name
 
 
-# ------------------------------------------------------------------ step 1: the group polars
+# ------------------------------------------------------------------ step 1: the polar files
 
 
-def _group_polars(ctx: SimContext) -> None:
-    """Write the polar of each boundary group, its custom-format twin and its superfile rows."""
+def _family_polars(ctx: SimContext) -> None:
+    """Write the polar's family and group files and their derived polars (PFS-2231).
+
+    One form for every run type (:mod:`pyflightstream.post._polar_stage`): a steady
+    point's rows are its loads export, an unsteady point's the window average of
+    its plots. The files of 0.57.0 (the per-group polars, the superfile, the
+    unsteady polar, the rotor tables) are not written.
+    """
     if not ctx.pproc.products.polars:
         return
-    for point in ctx.points:
-        # A DECLINED SURFACE ON 26.125 PRINTS CDp 0 (RPT-166, P0400-DECLINED125):
-        # said once per point, naming the surfaces and the build.
-        declined_125 = declined_profile_drag_125(point.loads, point.vorticity_selection)
-        if declined_125:
-            warn(
-                f"point={point.name} product=polars: the solver (build 26.125) printed CDp "
-                f"exactly 0 for {', '.join(declined_125)}, on the vorticity induced-drag list "
-                "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
-                "trailing edge is not computed. The axis drag columns that sum it are "
-                "written as the export printed them, short by the drag not computed. "
-                "Give the surface a trailing edge or leave it off the list.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-    # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
-    # group polars below are NOT written for it: the native coefficient export
-    # states the LAST TIME STEP (RPT-133, "vorticity drag list and the step exports
-    # on 26.124", 2026-10-02: the last step export equals the final export), which
-    # on an oscillating rotor is one instant of a cycle, so a polar read from it
-    # is a polar of an instant. The unsteady
-    # polar (step 5) reads the plots history and averages it over time, from the
-    # plots tables step 2 has put on disk, so the scaling `write_plots_table`
-    # applies is not performed a second time: two implementations of one
-    # conversion is how two published numbers come to disagree.
-    # THE GROUP POLARS ARE SKIPPED RATHER THAN WRITTEN FROM AN INSTANT. Writing
-    # both would put two files with one name's worth of meaning in one folder,
-    # and a reader would have no way to tell which of them the coefficients the
-    # user is comparing came from.
-    # THE ALIASES OF THE REFERENCE AS IT STANDS TODAY (PO-07). The group polars
-    # resolved their members through the table frozen into the run record
-    # while the rotor table beside them already read the live reference, so
-    # renaming or extending an alias and posting again gave a polar of zeros,
-    # or a plausible wrong sum, with no skip. A group's meaning is a
-    # post-processing choice; the record stays the fallback.
-    groups: Mapping[str, Sequence[int | str]] = ctx.pproc.groups
-    if ctx.live is not None and getattr(ctx.live, "rotors", None):
-        try:
-            groups = rotor_integration_groups(getattr(ctx.live, "rotors", {}), ctx.pproc.groups)
-        except PyflightstreamError as clash:
-            # NO GROUP POLAR IS WRITTEN. The refusal says a declared group and a
-            # rotor disagree about what one alias means; writing the groups as
-            # declared went on with exactly the group it called ambiguous.
-            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = (
-                f"{clash} No group polar of simulation {ctx.sim_id!r} is written until "
-                "the two agree."
-            )
-            return
-    positions = {name: index for index, name in enumerate(groups, start=1)}
-    # AN UNSTEADY SIMULATION WITH NO WINDOW still reaches the loop below (its
-    # clock could not be resolved, so no window and no unsteady polar), and
-    # its group polars then hold the LAST TIME STEP: written, as the rotor
-    # table beside them is, with `kind: instant` and a line in post.log.
-    instant = ctx.window is None and any(
-        str(getattr(ctx.record_of.get(point.name), "recipe", "") or "").startswith("unsteady")
-        or str(point.loads.solver_mode).strip().casefold() == "unsteady"
-        for point in ctx.points
-    )
-    if instant and groups:
-        warn(
-            f"point={POLARS_DIR}/{ctx.sim_id} product={POLARS_DIR}/{ctx.sim_id}: simulation "
-            f"{ctx.sim_id}'s group polars are read from the loads export of an "
-            "unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging "
-            "window resolves for it; the manifest marks them kind: instant.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
-    for group, families in () if ctx.window is not None else groups.items():
-        _group_polar(ctx, group, families, positions, instant=instant)
+    if ctx.window is None:
+        for point in ctx.points:
+            # A DECLINED SURFACE ON 26.125 PRINTS CDp 0 (RPT-166, P0400-DECLINED125):
+            # said once per point, naming the surfaces and the build.
+            declined_125 = declined_profile_drag_125(point.loads, point.vorticity_selection)
+            if declined_125:
+                warn(
+                    f"point={point.name} product=polars: the solver (build 26.125) printed CDp "
+                    f"exactly 0 for {', '.join(declined_125)}, on the vorticity induced-drag list "
+                    "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
+                    "trailing edge is not computed. The axis drag columns that sum it are "
+                    "written as the export printed them, short by the drag not computed. "
+                    "Give the surface a trailing edge or leave it off the list.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+    from pyflightstream.post._polar_stage import family_polar_products
 
-
-def _group_rows(
-    ctx: SimContext, group: str, families: Sequence[int | str]
-) -> tuple[list[PolarPoint], list[Mapping[str, object]], list[tuple[float, ...]], dict[str, str]]:
-    """Return the points a group selects, their conditions and rows, and those it misses."""
-    group_points: list[PolarPoint] = []
-    group_conditions: list[Mapping[str, object]] = []
-    rows: list[tuple[float, ...]] = []
-    absent: dict[str, str] = {}
-    for point, condition in zip(ctx.points, ctx.conditions, strict=True):
-        if families and not select_group_members(
-            list(families), list(point.loads.surfaces), ctx.aliases, strict=False
-        ):
-            absent[point.name] = (
-                f"point {point.name}: group {group!r} selects no surface of its loads "
-                "export; no polar row is written. Check the alias against the "
-                "reference's [aliases] table and recollect the complete loads export."
-            )
-            continue
-        try:
-            point_rows = group_polar_rows(
-                [point], list(families), mach=ctx.mach, reference=ctx.reference, aliases=ctx.aliases
-            )
-        except ProductError as error:
-            # Keyed under THIS group's polar, `#<point>`, as a point the group
-            # misses: `runs/<run id>` means no product holds the run, and the
-            # point stays a row of every other group's polar. A point that
-            # fails every group is a skip of each group's polar, never a
-            # whole-run refusal.
-            absent[point.name] = (
-                f"point {point.name}: {error}. Recollect this point's loads in the "
-                "geometry analysis frame with its Reynolds number to settle it."
-            )
-            continue
-        group_points.append(point)
-        group_conditions.append(condition)
-        rows.extend(point_rows)
-    return group_points, group_conditions, rows, absent
-
-
-def _group_polar(
-    ctx: SimContext,
-    group: str,
-    families: Sequence[int | str],
-    positions: Mapping[str, int],
-    *,
-    instant: bool = False,
-) -> None:
-    """One group's polar table, its superfile rows and its custom-format twin.
-
-    ``instant`` marks both entries ``kind: instant``: an unsteady simulation's
-    polar read from its loads export, the last time step.
-    """
-    group_points, group_conditions, rows, absent = _group_rows(ctx, group, families)
-    group_name = ctx.contributor_name(group_points) if group_points else ctx.table_name
-    relative = f"{POLARS_DIR}/{swept_polar_file_name(ctx.sim_id, name=group_name, group=group)}"
-    ctx.skipped.update({f"{relative}#{name}": reason for name, reason in absent.items()})
-    if families and not any(
-        select_group_members(list(families), list(point.loads.surfaces), ctx.aliases, strict=False)
-        for point in ctx.points
-    ):
-        # A NAMED SKIP, NEVER A ROW OF ZEROS. A group whose alias selects no
-        # surface of any export of this simulation summed to 0.00000 in
-        # every column: the token for "no value" is `NA`, and a table of
-        # zeros is a table a reader believes.
-        ctx.skipped[relative] = (
-            f"group {group!r} names {', '.join(map(str, families))}, which selects no "
-            f"surface of any loads export of simulation {ctx.sim_id!r} "
-            f"({', '.join(sorted(ctx.points[0].loads.surfaces))}). Its polar table is not "
-            "written. Check the alias against the reference's [aliases] table."
-        )
-        return
-    if not group_points:
-        return
-    group_runs = [rid for point in group_points for rid in ctx.sources[point.name]]
-    target = ctx.target(ctx.out / relative)
-    # ONE ASSEMBLY. The rows the polar table is written from are the
-    # rows the superfile carries, so they are built once here and
-    # handed to both writers (FR-89).
-    # EACH ROW'S DRAG SPLIT UNDER ITS OWN NAMES (FR-423): ``CD0, CDI`` up to
-    # 26.124, ``CDV, CDP`` on 26.125, both with `NA` where the table mixes them.
-    drags = [drag_columns_of(point.loads) for point in group_points]
-    full = polar_table_rows(
-        polar=ctx.sim_id,
-        description=ctx.first.description or "",
-        group=str(group),
-        reference=ctx.reference,
-        rows=rows,
-        conditions=group_conditions,
-        drag_columns=drags,
-    )
-    polar_columns = list(polar_table_columns(drags))
-    farfield = list(
-        dict.fromkeys(key for p in group_points for key in ctx.farfield_super.get(p.name, {}))
-    )
-    polar_columns.extend(farfield)
-    full = [
-        (*values, *(ctx.farfield_super.get(point.name, {}).get(key, "") for key in farfield))
-        for point, values in zip(group_points, full, strict=True)
-    ]
-    write_csv_table(target, polar_columns, full)
-    append_tip_columns(ctx, target, group_runs)
-    # Retain accepted tip fields before axes selection. Keep the original base
-    # cells: the two writers have existing, distinct numeric formatting rules.
-    columns, recorded_rows = read_csv_table(target)
-    selected_axes(target, ctx.pproc.products.polar_axes)
-    if ctx.drafts is not None:
-        ctx.super_rows[str(group)] = (
-            ctx.out
-            / POLARS_DIR
-            / super_file_name(
-                ctx.sim_id,
-                sweep=ctx.super_name if ctx.matrix_row is not None else group_name,
-                group=group,
-            ),
-            columns,
-            [
-                (*values, *(row[column] for column in columns[len(values) :]))
-                for values, row in zip(full, recorded_rows, strict=True)
-            ],
-            group_points,
-        )
-    entry: dict[str, object] = {"runs": group_runs, **({"kind": "instant"} if instant else {})}
-    ctx.add(target, dict(entry))
-    if ctx.pproc.products.trimmed_polar:
-        _trimmed_polar(ctx, target, entry)
-    for sample in ctx.pproc.polar_at:
-        interpolated = ctx.target(target.with_name(f"{target.stem}_at_{sample.output_name}.csv"))
-        try:
-            write_interpolated_polar(target, interpolated, axis=sample.axis, values=sample.values)
-        except ProductError as error:
-            ctx.skipped[interpolated.relative_to(ctx.out).as_posix()] = str(error)
-            warn(str(error), NotApplicableWarning, stacklevel=2)
-        else:
-            ctx.add(
-                interpolated,
-                {**entry, "kind": "interpolated", "axis": sample.axis, "values": sample.values},
-            )
-    if ctx.pproc.products.custom_polar_format:
-        # PFS-2014.01.01: the same rows, a second time, in the
-        # format the existing tooling opens, beside the table.
-        target = ctx.target(
-            ctx.out
-            / POLARS_DIR
-            / swept_polar_file_name(ctx.sim_id, name=group_name, group=group, suffix=".dat")
-        )
-        coefficient_columns, coefficient_rows = drag_columned_rows(rows, drags)
-        from pyflightstream.post.custom_polar import write_custom_polar_format
-
-        write_custom_polar_format(
-            target,
-            polar=ctx.sim_id,
-            description=ctx.first.description or "",
-            group=group,
-            group_number=positions.get(group),
-            mach=ctx.mach,
-            reference=ctx.reference,
-            rows=coefficient_rows,
-            columns=coefficient_columns,
-            # FR-94. The row's own label, off the matrix row this
-            # polar belongs to. None where the workspace has no
-            # matrix to read, which is every campaign authored in
-            # Python, and the title is then what it always was.
-            configuration=(
-                ctx.matrix_row.variables.get(CONFIGURATION_VARIABLE)
-                if ctx.matrix_row is not None
-                else None
-            ),
-        )
-        ctx.add(target, dict(entry))
-
-
-def _trimmed_polar(ctx: SimContext, polar: Path, entry: Mapping[str, object]) -> None:
-    """Write a polar table's trimmed polar beside it (FR-2302), or name why there is none.
-
-    A polar whose sampled pitching moments do not bracket zero, or cross it
-    more than once, has no trimmed polar: it is a skip under the file it would
-    have been (FR-2303), and the polar itself stays written.
-    """
-    trim = polar.with_name(f"{polar.stem}{TRIM_SUFFIX}.csv")
-    relative = trim.relative_to(ctx.out).as_posix()
-    # The destination is prepared first, by the post's archive rule; a refusal then
-    # writes nothing and is named, and the retirement removes a stale file left there.
-    target = ctx.target(trim)
-    moment, axis = ctx.pproc.products.trim_moment, ctx.pproc.products.trim_axis
-    try:
-        write_trimmed_polar(polar, target, moment=moment, angle=axis, overwrite=True)
-    except ProductError as error:
-        ctx.skipped[relative] = f"the trimmed polar is not written: {error}"
-        warn(ctx.skipped[relative], NotApplicableWarning, stacklevel=2)
-        return
-    ctx.add(
-        target,
-        {**entry, "trimmed": {"moment": moment, "angle": axis}},
-    )
+    family_polar_products(ctx)
 
 
 # ------------------------------------------------------------------ step 2: each point's tables
@@ -1234,141 +963,6 @@ def _unsteady_probes(
         )
 
 
-# ------------------------------------------------------------------ step 3: the rotor tables
-
-
-def _rotor_table_products(ctx: SimContext) -> None:
-    """One coefficient table per rotor the reference declares (ITEM 6)."""
-    # THE GEOMETRY COMES FROM THE REFERENCE FILE AND NOT FROM THE RECORD, which
-    # is the route this item needed and did not have. A run leaves its reference
-    # BLOCK -- areas, lengths, the moment point -- and a rotors block under
-    # `reductions` carrying blades, rpm and steps; neither keeps the shaft, the
-    # hub or the diameter, and a record does not even name its reference. The
-    # matrix row does, the file is still in the workspace, and reading it costs
-    # no new solver run. It runs after the per-point step because an unsteady
-    # rotor reads the WRITTEN plots tables.
-    for target_path, alias, plan in _rotor_tables(
-        ctx.workspace,
-        ctx.sim_id,
-        ctx.points,
-        ctx.records,
-        ctx.sources,
-        ctx.reference,
-        ctx.matrix_row,
-        ctx.out,
-        plots=ctx.plots_tables,
-        window=ctx.window,
-        pproc=ctx.pproc,
-        windows=ctx.point_windows,
-        aliases=ctx.aliases,
-        frozen=ctx.frozen_points,
-        skipped=ctx.skipped,
-        mach=ctx.mach,
-    ):
-        _rotor_table(ctx, target_path, alias, plan)
-
-
-def _rotor_table(ctx: SimContext, target_path: Path, alias: str, plan: dict[str, object]) -> None:
-    """Write one rotor's table and say which points it holds and what it averages."""
-    destination = ctx.target(target_path)
-    # Combine the planner's and writer's rejections in one list so every
-    # omitted point is named. Narrow values from the planner's object-typed
-    # dictionary before treating them as lists.
-    stated_left_out = plan.get("left_out")
-    rotor_left_out: list[tuple[str, str]] = (
-        list(stated_left_out) if isinstance(stated_left_out, list) else []
-    )
-    rotor_runs: list[str] = []
-    done = write_rotor_table(
-        destination,
-        rotor=plan["rotor"],
-        rows=plan["rows"],  # type: ignore[arg-type]
-        reference=ctx.reference,
-        left_out=rotor_left_out,
-        written_runs=rotor_runs,
-        pol=ctx.sim_id,
-    )
-    relative = destination.relative_to(ctx.out).as_posix()
-    if done:
-        append_tip_columns(ctx, destination, rotor_runs)
-        ctx.written.append(destination)
-        ctx.written_names[relative] = {
-            # ONLY THE RUNS THIS TABLE ACTUALLY CONTAINS. It listed every
-            # run of the simulation, so the provenance claimed points the
-            # file does not hold -- which is worse than a short table,
-            # because a reader checking the manifest is reassured.
-            "runs": [rid for rid in rotor_runs if rid]
-            or [rid for stem in ctx.sources for rid in ctx.sources[stem]],
-            "rotor": alias,
-            **_rotor_table_source(ctx, plan, rotor_runs),
-        }
-        if ctx.pproc.products.rotor_cn_slope:
-            from pyflightstream.post._cn_slope import rotor_cn_slope_product
-
-            rotor_cn_slope_product(ctx, destination, alias, dict(ctx.written_names[relative]))
-    if rotor_left_out:
-        ctx.skipped[relative] = (
-            f"these points of the sweep are not rows of the {alias} rotor table: "
-            + "; ".join(reason for _rid, reason in rotor_left_out)
-        )
-
-
-def _rotor_table_source(
-    ctx: SimContext, plan: Mapping[str, object], rotor_runs: Sequence[str]
-) -> dict[str, object]:
-    """Return what a rotor table's rows are: an average, an instant, a mean, a steady run."""
-    # THE k OF EVERY WRITTEN ROW THAT IS A WHEEL'S MEAN, for the entry.
-    stated_rows = plan.get("rows")
-    clockings_of_run = {
-        str(row.get("run_id")): row["clockings"]
-        for row in (stated_rows if isinstance(stated_rows, list) else [])
-        if isinstance(row, Mapping)
-        and isinstance(row.get("clockings"), int)
-        and row.get("run_id") in rotor_runs
-    }
-    # AN AVERAGE OR THE SOLVER'S OWN EXPORT, AND THE MANIFEST SAYS WHICH
-    # (RI-01), as the unsteady polar's entry does. A row that states a
-    # window never holds an instant, so one entry describes every row.
-    if plan.get("read_from") and ctx.window is not None:
-        # `window` is the row's, on its clock rotor; `windows` each point's span
-        # of THIS rotor, counted in its own turns (PFS-2088.013). Where no per-rotor
-        # span resolved (`windows` empty), the entry falls back to the windows of the
-        # row's CLOCK rotor, which are then the clock rotor's spans, not this rotor's own:
-        # a label, not a number, since no number of the table depends on it.
-        own = plan.get("windows")
-        spans = own if isinstance(own, Mapping) and own else ctx.point_windows
-        return {
-            "source": f"the unsteady plots, time-averaged, of plot group {plan['read_from']}",
-            "window": list(ctx.window),
-            "windows": {name: list(span) for name, span in sorted(spans.items())},
-        }
-    # AN UNSTEADY RUN READ FROM ITS LOADS EXPORT HOLDS AN INSTANT, and
-    # says so: that export states the LAST TIME STEP (RPT-133, 2026-10-02, 26.124).
-    # A record that
-    # states no window reaches here, and the entry called it a steady
-    # run, with no `kind`, as a sections table's entry has.
-    if any(str(r.recipe or "").startswith("unsteady") for r in ctx.records):
-        return {
-            "source": (
-                "the loads export of an unsteady run: its LAST TIME STEP, one "
-                "instant of a cycle, because the run states no averaging window"
-            ),
-            "kind": "instant",
-        }
-    # A QUASI-STEADY WHEEL'S ROWS ARE THE MEAN OF ITS k CLOCKINGS
-    # , and the entry says so with the k: one number where
-    # every row has the same, else each run's.
-    if clockings_of_run:
-        ks = set(clockings_of_run.values())
-        return {
-            "source": f"mean of {next(iter(ks))} clockings"
-            if len(ks) == 1
-            else "mean of k clockings",
-            "clockings": next(iter(ks)) if len(ks) == 1 else dict(sorted(clockings_of_run.items())),
-        }
-    return {"source": "the loads export of a steady run"}
-
-
 # ------------------------------------------------------------------ step 4: the quasi-steady rotor
 
 
@@ -1407,255 +1001,6 @@ def _qsteady_rotor_products(ctx: SimContext) -> None:
         ctx.add(target_path, entry)
 
 
-# ------------------------------------------------------------------ step 5: the unsteady polar
-
-
-def _with_the_farfield_cells(
-    setup: Mapping[str, Mapping[str, object]], cells: Mapping[str, Mapping[str, str]]
-) -> dict[str, dict[str, object]]:
-    """Return each point's super content, its far-field cells after every other key (FR-1062)."""
-    merged: dict[str, dict[str, object]] = {name: dict(content) for name, content in setup.items()}
-    for name, point_cells in cells.items():
-        content = merged.setdefault(name, {})
-        for column, cell in point_cells.items():
-            content.setdefault(column, cell)
-    return merged
-
-
-def _unsteady_polar_products(ctx: SimContext) -> None:
-    """Write the POLAR of an unsteady simulation: its plots history averaged over the window.
-
-    ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD: there, on
-    every unsteady simulation the group polars were skipped AND this writer was
-    never reached, and the point ended with NO POLAR OF ANY KIND. A caller inside
-    a branch that cannot be true is not a caller. It reads the WRITTEN plots
-    tables rather than the raw export, so the reference-velocity scaling is
-    performed in one place.
-    """
-    # THE SWITCH THE STEADY ROUTE HONOURS (`_group_polars`): `polars = false` writes no polar.
-    if ctx.window is None or not ctx.pproc.products.polars:
-        return
-    left_out: list[str] = []
-    notes: list[str] = []
-    name_notes: list[str] = []
-    equation_notes: list[str] = []
-    equation_columns: dict[str, dict[str, str]] = {}
-    unsteady_name = unsteady_polar_file_name(ctx.sim_id, name=ctx.table_name)
-    contributing_runs: list[str] = []
-
-    def unsteady_destination(names: Sequence[str]) -> Path:
-        nonlocal unsteady_name
-        contributing_runs[:] = [run for name in names for run in ctx.sources[name]]
-        contributing = [point for point in ctx.points if point.name in names]
-        unsteady_name = unsteady_polar_file_name(
-            ctx.sim_id, name=ctx.contributor_name(contributing)
-        )
-        return ctx.target(ctx.out / POLARS_DIR / unsteady_name)
-
-    # Archive a replaced product under its legacy name too. Replacement
-    # by the new path alone would leave a stale file outside the manifest.
-    former = ctx.out / POLARS_DIR / f"{ctx.sim_id}_{ctx.table_name}_unsteady.csv"
-    if former.is_file():
-        ctx.target(former)
-    pproc = ctx.pproc
-    done = write_unsteady_polar(
-        ctx.out / POLARS_DIR / unsteady_name,
-        points=ctx.points,
-        plots=ctx.plots_tables,
-        window=ctx.window,
-        windows=ctx.point_windows,
-        frozen=ctx.frozen_points,
-        setup=_with_the_farfield_cells(
-            _setup_content(
-                ctx.points,
-                ctx.sources,
-                ctx.records,
-                ctx.matrix_row,
-                ctx.sweep_rows,
-                workspace=ctx.workspace,
-                live=ctx.live,
-            ),
-            ctx.farfield_super,
-        ),
-        conditions=ctx.conditions,
-        reference=ctx.reference,
-        left_out=left_out,
-        notes=notes,
-        axes_groups=global_frame_plot_groups(
-            pproc,
-            inventory=list(
-                dict.fromkeys(
-                    family
-                    for point in ctx.points
-                    if point.loads is not None
-                    for family in point.loads.surfaces
-                )
-            ),
-            aliases=ctx.aliases,
-        ),
-        equations=getattr(pproc, "equations", None) or None,
-        equation_order=pproc.equation_order() if getattr(pproc, "equations", None) else None,
-        equation_notes=equation_notes,
-        equation_columns=equation_columns,
-        names=getattr(pproc, "names", None) or None,
-        name_notes=name_notes,
-        contributor_path=unsteady_destination,
-        pol=ctx.sim_id,
-    )
-    if done is not None:
-        if equation_columns:
-            ctx.written_names[f"{POLARS_DIR}/{unsteady_name}#equations"] = {
-                "resolved_columns": equation_columns,
-                "runs": sorted(contributing_runs),
-            }
-        _say_what_the_unsteady_polar_left(
-            ctx, f"{POLARS_DIR}/{unsteady_name}", name_notes, equation_notes, notes
-        )
-    # EVERY POINT THAT IS NOT A ROW IS NAMED, with its reason. A sweep table
-    # quietly shorter than the matrix says nothing about which points went
-    # or why, which is a blank cell one level up.
-    if left_out:
-        ctx.skipped[f"{POLARS_DIR}/{unsteady_name}"] = (
-            "these points of the sweep are not rows of the unsteady polar: " + "; ".join(left_out)
-        )
-    if done is not None:
-        if ctx.farfield_off_window:
-            said = "; ".join(ctx.farfield_off_window)
-            ctx.skipped[f"{POLARS_DIR}/{unsteady_name}#farfield"] = (
-                "the far-field columns of these rows are not the row's window average: " + said
-            )
-            warn(f"{POLARS_DIR}/{unsteady_name}: {said}", PyflightstreamWarning, stacklevel=2)
-        append_tip_columns(ctx, done, contributing_runs)
-        selected_axes(done, ctx.pproc.products.polar_axes)
-        ctx.add(
-            done,
-            {
-                # ONLY THE POINTS THE FILE HOLDS (MT-03). It listed every run of
-                # the simulation while the writer left points out, so the
-                # provenance vouched for rows that are not there.
-                "runs": sorted(
-                    run
-                    for name, names in ctx.sources.items()
-                    if _point_is_held(name, left_out)
-                    for run in names
-                ),
-                "source": "the unsteady plots, time-averaged",
-                "window": list(ctx.window),
-                # PER POINT where the points do not share one, so the manifest
-                # never states one window for a file that holds two, and none
-                # for a point the file left out (X-F-1637, the MT-03 rule).
-                "windows": {
-                    name: list(span)
-                    for name, span in sorted(ctx.point_windows.items())
-                    if _point_is_held(name, left_out)
-                },
-            },
-        )
-
-
-def _point_is_held(name: str, left_out: Sequence[str]) -> bool:
-    """Say whether a point is a row of the unsteady polar: no reason of ``left_out`` names it."""
-    return not any(left.startswith(f"{name}:") for left in left_out)
-
-
-def _say_what_the_unsteady_polar_left(
-    ctx: SimContext,
-    relative: str,
-    name_notes: Sequence[str],
-    equation_notes: Sequence[str],
-    notes: Sequence[str],
-) -> None:
-    """Say, under the file's own name with a marker, each block the unsteady polar left out."""
-    # THE DICTIONARY, like the two blocks below: what was not applied is SAID.
-    if name_notes:
-        ctx.skipped[f"{relative}#names"] = "; ".join(name_notes)
-        warn("; ".join(name_notes), PyflightstreamWarning, stacklevel=2)
-    # THE EQUATIONS BLOCK, like the axes block: what is not written is SAID,
-    # under the file's own name with a marker, and warned, because a derived
-    # column a user asked for and did not get must not be found by accident.
-    if equation_notes:
-        ctx.skipped[f"{relative}#equations"] = "; ".join(equation_notes)
-        warn(f"{relative}: " + "; ".join(equation_notes), PyflightstreamWarning, stacklevel=2)
-    # A BLOCK THAT IS NOT WRITTEN IS SAID, under the file's own name
-    # with a marker, so it is never mistaken for the file being absent.
-    if notes:
-        ctx.skipped[f"{relative}#axes"] = "; ".join(notes)
-        warn(f"{relative}: " + "; ".join(notes), PyflightstreamWarning, stacklevel=2)
-
-
-# ------------------------------------------------------------------ step 6: the superfile rows
-
-
-def _superfile_drafts(ctx: SimContext) -> None:
-    """Each group's superfile rows, one per point, drafted for the campaign to write (FR-89).
-
-    HERE, after the plots tables of every point of this simulation are on disk:
-    the superfile is written after the unsteady post-process, which is what
-    makes one row per converged point possible at all.
-    """
-    if ctx.drafts is None or not ctx.super_rows:
-        return
-    by_run = {record.run_id: record for record in ctx.records}
-    last_step: dict[str, Mapping[str, str]] = {}
-    for name, table in ctx.plots_tables.items():
-        _columns, table_rows = read_csv_table(table)
-        step = plots_last_row(table_rows)
-        if step is not None:
-            last_step[name] = step
-    for group, (path, columns, full, group_points) in ctx.super_rows.items():
-        wide = [
-            superfile_row(
-                polar_columns=columns,
-                polar_values=polar_values,
-                matrix_row=ctx.matrix_row,
-                # Never borrow another point's flight condition when a run id cannot
-                # resolve. Sources and by_run share records, but the missing-record
-                # contract is still pinned by
-                # test_a_point_whose_record_is_missing_borrows_no_other_points_values.
-                record=by_run.get((ctx.sources.get(point.name) or [""])[0]),
-                sweep_row=(ctx.sweep_rows or {}).get((ctx.sources.get(point.name) or [""])[0]),
-                plots_row=last_step.get(point.name),
-                # Each rotor's diameter beside its speed, and the row's
-                # own speed where the plan states none (FR-89).
-                rotors=getattr(ctx.live, "rotors", None),
-                own_speeds=row_rotor_speeds(ctx.record_of.get(point.name), point.loads_path),
-            )
-            for point, polar_values in zip(group_points, full, strict=True)
-        ]
-        # A QUASI-STEADY WHEEL POINT'S ROW CARRIES ITS VALIDITY, the
-        # columns its clockings tables carry, after every key the row holds.
-        for point, row in zip(group_points, wide, strict=True):
-            for validity_column, validity_cell in _qsteady_super_cells(
-                point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
-            ).items():
-                row.setdefault(validity_column, validity_cell)
-            # FR-1062: all far-field targets, after every other key.
-            for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
-                row.setdefault(farfield_column, farfield_cell)
-            # FR-348: from the inventory only, and placed last by the writer.
-            row[MESH_FACES_COLUMN] = _mesh_faces_of(
-                ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0]), point.name
-            )
-        ctx.drafts.append(
-            SuperfileDraft(
-                path=path,
-                rows=tuple(wide),
-                # ITEM 7 WIRED HERE, on the DRAFT, because this is where
-                # the pproc is: the campaign writer has no pproc in scope
-                # and one campaign can name several.
-                fmt=ctx.pproc.products.superfile_format,
-                entry={
-                    # The same keys `write_campaign_products` stamps on
-                    # every other product's entry (PFS-2031.04 reads `sim_id`).
-                    "sim_id": ctx.sim_id,
-                    "pproc": ctx.pproc_id,
-                    "runs": [(ctx.sources.get(p.name) or [""])[0] for p in group_points],
-                    "group": group,
-                },
-            )
-        )
-
-
 def _merged_polar_products(ctx: SimContext) -> None:
     """Write the merged polar, when the pproc asks for it (FR-3511)."""
     from pyflightstream.post._merged_polar import merged_polar_products
@@ -1670,14 +1015,11 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     # FR-3416: where the solver placed the coupled blade, step by step.
     placement_check_products,
     _point_products,
-    _rotor_table_products,
     _qsteady_rotor_products,
     noise_products,
     # FR-1062: read reduced plots first, then project far-field cells into the polars.
     farfield_products,
-    _group_polars,
-    _unsteady_polar_products,
-    _superfile_drafts,
+    _family_polars,
     # FR-3511: last, so it reads the tables as every step above left them.
     _merged_polar_products,
 )
@@ -1717,47 +1059,6 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
     if section is not None and section.kind != "default":
         out.extend(name for name in ("VX", "VY", "VZ") if name not in out)
     return tuple(out)
-
-
-def _setup_content(
-    points: Sequence[PolarPoint],
-    sources: Mapping[str, Sequence[str]],
-    records: Sequence[RunRecord],
-    matrix_row: MatrixRow | None,
-    sweep_rows: Mapping[str, Mapping[str, object]] | None,
-    *,
-    workspace: CampaignWorkspace,
-    live: object | None = None,
-) -> dict[str, dict[str, str]]:
-    """Return the SUPER content of each point by name, through the super file's own assembly.
-
-    `superfile_row` seeded with the point's axes and no plots block carries every flag
-    of the setup and whatever the simulation knows that the polar does not: the
-    record's condition and scalars, the matrix row's cells, each rotor's speed and diameter,
-    the campaign sweep row and the solver flags. One assembly, so the steady super
-    file and the unsteady polar cannot drift in what they call the setup. The
-    face count of the point's geometry is added as the super file adds it (FR-348).
-    Each rotor's diameter, from the rotor blocks of ``live``, the reference the
-    row cites today, sits beside its speed as in the super file (FR-89).
-    """
-    by_run = {record.run_id: record for record in records}
-    content: dict[str, dict[str, str]] = {}
-    for point in points:
-        run_id = (sources.get(point.name) or [""])[0]
-        content[point.name] = superfile_row(
-            polar_columns=("ALPHA", "BETA", ADVANCE_RATIO_COLUMN),
-            polar_values=(point.alpha_deg, point.beta_deg, _advance_ratio_of(point)),
-            matrix_row=matrix_row,
-            record=by_run.get(run_id),
-            sweep_row=(sweep_rows or {}).get(run_id),
-            plots_row=None,
-            rotors=getattr(live, "rotors", None),
-            own_speeds=row_rotor_speeds(by_run.get(run_id), point.loads_path),
-        )
-        content[point.name][MESH_FACES_COLUMN] = _mesh_faces_of(
-            workspace, by_run.get(run_id), point.name
-        )
-    return content
 
 
 def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point: str) -> str:

@@ -321,6 +321,16 @@ _COEFFICIENT_COLUMN = re.compile(
     re.IGNORECASE,
 )
 
+#: The columns of the FAM and group files and of their run block that state a
+#: number five decimals cannot carry (PFS-2231): the coefficients of a frame
+#: ``R<id>``, the per-frame rotor set, the rotor's own loads and loadings, and the
+#: per-rotor columns of the run block. Matched case-sensitively, as the registry
+#: of ``post._family_columns`` and ``post._run_block`` spells them.
+_FAMILY_FILE_NUMBER = re.compile(
+    r"(?:CD|CY|CL|Cl|Cm|Cn)R[0-9]+|(?:CT|CQ|ETA)(?:[WSB]|R[0-9]+)|[TQP]|CF[ZY]|CM[ZY]|"
+    r"[TYZQNM]CA?|(?:RPM|J|MTIP|MHEL|D|ADISC|PITCH|TOE)[0-9]+|WINDOW_REVS|WINDOW_PASSAGES"
+)
+
 
 #: CSV products use NA for a column that does not apply. _cell is the
 #: shared funnel for all product families and converts every blank to NA;
@@ -538,6 +548,7 @@ def write_csv_table(
                     if (
                         name in _SIGNIFICANT_DIGIT_COLUMNS
                         or name.startswith(_DIMENSIONAL_PREFIXES)
+                        or _FAMILY_FILE_NUMBER.fullmatch(name)
                         or (
                             _COEFFICIENT_COLUMN.search(name)
                             and not name.upper().endswith("_DRIFT_PCT")
