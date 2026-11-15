@@ -46,6 +46,9 @@ _GROUP = re.compile(
 #: Products derived from the 0.57.0 files whose writers are not this module's:
 #: kept untouched, and not said here.
 _KEPT_QUIET = re.compile(r"^P.+(_merge|_cn_slope)\.csv$")
+#: The quasi-steady rotor tables, which 0.58.0 still writes under these names
+#: (design section 1): current products, never of the earlier layout.
+_CURRENT = re.compile(r"^P.+(_qs_avg|_qs_positions)\.csv$")
 
 
 @dataclass(frozen=True)
@@ -81,13 +84,15 @@ def is_retired_layout(name: str) -> bool:
     folder, _, file = name.partition("/")
     if folder != "polars" or not file or "/" in file:
         return False
-    if _NEW.match(file):
+    if _NEW.match(file) or _CURRENT.match(file):
         return False
     return _classify(file, lambda _sim, _alias: None) is not None or bool(_KEPT_QUIET.match(file))
 
 
 def _classify(file: str, rotor_id: Callable[[str, str], int | None]) -> RetiredPolar | None:
     old = f"polars/{file}"
+    if _CURRENT.match(file):
+        return None
     if match := _SUPER.match(file):
         pol = match["sim"]
         return RetiredPolar(
