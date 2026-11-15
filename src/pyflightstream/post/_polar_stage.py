@@ -265,6 +265,8 @@ class _Gathered:
     left_out: list[str] = field(default_factory=list)
     lacking: set[str] = field(default_factory=set)
     refused: list[tuple[str, str]] = field(default_factory=list)
+    clockings: dict[str, int] = field(default_factory=dict)
+    unrecorded: dict[str, str] = field(default_factory=dict)
 
 
 def _layout(
@@ -446,7 +448,7 @@ def _point_loads(
         family_loads, own = _unsteady_loads(ctx, values, families, rotors, gathered.lacking)
         return family_loads, own, {}, (), values
     vref = _number(condition.get("VREF"))
-    surfaces = _wheel_mean(ctx, point, vref, gathered.left_out)
+    surfaces = _wheel_mean(ctx, point, vref, gathered)
     if surfaces is None:
         return None
     declined = declined_induced_drag(point.loads, point.vorticity_selection)
@@ -504,6 +506,7 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
                 alpha_deg=point.alpha_deg,
                 beta_deg=point.beta_deg,
                 dimensional=recorded,
+                with_rcoef=point.name not in gathered.unrecorded,
                 density_kg_m3=density,
                 vref_m_s=_number(condition.get("VREF")),
                 vinf_m_s=_number(condition.get("VINF")),
@@ -656,6 +659,20 @@ def _say_left_out(ctx: SimContext, gathered: _Gathered, groups: Sequence[PolarGr
             PyflightstreamWarning,
             stacklevel=3,
         )
+    for name, reason in gathered.unrecorded.items():
+        rcoef = [family_file_name(ctx.sim_id, "RCOEF")]
+        rcoef += [
+            group_file_name(ctx.sim_id, group.name, "RCOEF")
+            for group in groups
+            if group.rotor_id is not None
+        ]
+        said = (
+            f"point {name} is no row of the RCOEF files, whose rotor speed is its quasi-steady "
+            f"record's: {reason}; its other polar rows are its loads export"
+        )
+        for file in rcoef:
+            ctx.skipped[f"{POLARS_DIR}/{file}#{name}"] = said
+        warn(f"{POLARS_DIR}/P{ctx.sim_id}: {said}", PyflightstreamWarning, stacklevel=3)
     if gathered.rows and gathered.lacking:
         warn(
             f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "
@@ -726,14 +743,18 @@ def _load_frame(ctx: SimContext) -> str:
 
 
 def _wheel_mean(
-    ctx: SimContext, point: PolarPoint, vref: float | None, left_out: list[str]
+    ctx: SimContext, point: PolarPoint, vref: float | None, gathered: _Gathered
 ) -> Mapping[str, Mapping[str, float]] | None:
     """Return a point's surfaces: a quasi-steady WHEEL's mean over its clockings.
 
     A wheel point's loads are the mean of its k clockings (P0310-ROTOR-MEAN),
     never clocking 0 alone; a clocking that cannot be read costs the point its
-    rows, named, because a mean of the others is not its mean. Every other
-    point's are its loads export.
+    rows, named, because a mean of the others is not its mean. A quasi-steady
+    point whose record is missing, cannot be read or is of another schema keeps
+    the rows that do not need the record and loses its RCOEF rows (the rotor's
+    speed is the record's), each named with the record's own reason (i2 #11,
+    docs/definitions/the-quasi-steady-rotor.md), never read silently as one
+    clocking. Every other point's are its loads export.
     """
     from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
     from pyflightstream.cases.workflows import QSTEADY_ROTOR
@@ -744,20 +765,21 @@ def _wheel_mean(
         return point.loads.surfaces
     try:
         quasi = read_qsteady_record(point.loads_path)
-    except QsteadyRecordError:
+    except QsteadyRecordError as error:
+        gathered.unrecorded[point.name] = str(error)
         return point.loads.surfaces
     if quasi.case != "wheel":
         return point.loads.surfaces
     try:
-        return _qsteady.mean_clocking_surfaces(
-            quasi, point.loads_path.parent, speed_m_s=vref
-        ).surfaces
+        meaned = _qsteady.mean_clocking_surfaces(quasi, point.loads_path.parent, speed_m_s=vref)
     except PyflightstreamError as refused:
-        left_out.append(
+        gathered.left_out.append(
             f"{point.name}: {refused}; the row of a wheel is the mean of all its clockings, "
             "never of the others"
         )
         return None
+    gathered.clockings[point.name] = int(meaned.clockings)
+    return meaned.surfaces
 
 
 def _faces(ctx: SimContext, point: PolarPoint) -> object:

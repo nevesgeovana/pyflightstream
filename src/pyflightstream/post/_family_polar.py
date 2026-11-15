@@ -207,6 +207,9 @@ class PolarPointLoads:
         False where the loads are those of a unit density, because the point
         records no density: the coefficients, in which the density cancels, are
         stated, and every dimensional cell (DIM, ``T``, ``Q``, ``P``) is NA.
+    with_rcoef : bool
+        False where the point is no row of the RCOEF files (its rotor speed
+        cannot be read), its other rows kept.
     """
 
     run_block: Mapping[str, object]
@@ -222,6 +225,7 @@ class PolarPointLoads:
     rpm: Mapping[int, float | None] = field(default_factory=dict)
     mesh_faces: object = ""
     dimensional: bool = True
+    with_rcoef: bool = True
 
 
 @dataclass(frozen=True)
@@ -774,7 +778,7 @@ class _Assembler:
         tables["ACOEF"][1].append(
             tuple(_cells([*lead, *identity, *values, *split, point.mesh_faces]))
         )
-        if rotor is None or "RCOEF" not in tables:
+        if rotor is None or "RCOEF" not in tables or not point.with_rcoef:
             return
         rcoef = _rcoef(loads, point, rotor, turns, self.reference)
         if not point.dimensional:
