@@ -42,6 +42,10 @@ from ._conventions import (
     WorkflowConventions,
     declared_run_type,
 )
+from ._custom_motion import (
+    emit_custom_motions,
+    refuse_a_table_motion_without_its_clock,
+)
 from ._export_first_step import warn_revolution_keys_without_a_clock
 from ._exports import (
     _declared_export_kinds,
@@ -290,6 +294,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_wake_termination_without_a_rotor(case)
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady")
+    # PFS-2254: a table motion names its clock and its step before any line.
+    refuse_a_table_motion_without_its_clock(case)
     _require_the_averaging_window(case, "unsteady")
     # PFS-2184.10: revolutions with no rotor clock to count them are skipped.
     warn_revolution_keys_without_a_clock(case)
@@ -332,6 +338,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _fluid(case, script)
     _acoustic_setup(case, script)
     stepping = unsteady_time_stepping(case)
+    # PFS-2254: the table motions, each table checked against the run's end.
+    emit_custom_motions(case, script, stepping)
     _rotorless_frame_motions(case, script, frames)
     helpers.unsteady_solver(
         script,

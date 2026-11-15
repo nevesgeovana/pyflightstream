@@ -845,10 +845,10 @@ class SimCase(BaseModel):
     #: alone would otherwise conclude; its neighbour
     #: `flight_condition_defaults` documents the same kind of provenance.
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
-    #: The rotor motions a row's ``MOTIONS`` list states (PFS-2029.11),
-    #: one record each in cell order; empty for a row stating one rotor
-    #: flat, when the row declares none.
+    #: The rotor motions of a row's ``MOTIONS`` list (PFS-2029.11), in cell order, and its
+    #: table motions (PFS-2254, bound with TABLE_PATH and TABLE_SHA256); empty when none.
     motions: list[dict[str, str]] = Field(default_factory=list)
+    custom_motions: list[dict[str, str]] = Field(default_factory=list)
     #: The rotations of the opened mesh a row's ``ROTATE`` list states
     #: (PFS-2034.02), one record each in cell order, applied in that order
     #: after every frame exists and before any motion; empty for a row

@@ -157,6 +157,32 @@ TRANSLATE_VARIABLE = "TRANSLATE"
 TRANSLATION_RECORD_KEYS = ("DISTANCE", "AXIS")
 TRANSLATION_ALIAS_KEY = ROTATION_ALIAS_KEY
 TRANSLATION_OPTIONAL_KEYS = ROTATION_OPTIONAL_KEYS
+#: PFS-2254: A ``MOTIONS`` record naming a ``TABLE`` is a custom motion,
+#: ``{ALIAS: flap / TABLE: flap.txt / TABLE_TYPE: POSITION-TIME}``: the
+#: boundaries of the alias move by the table, a file of the workspace's
+#: ``inputs/motions/``, read by ``SET_MOTION_CUSTOM_TABLE`` (FSM-26.127
+#: p.345). Read by :mod:`pyflightstream.cases.matrix` into
+#: :attr:`~pyflightstream.cases.SimCase.custom_motions`.
+MOTION_TABLE_KEY = "TABLE"
+#: What the table holds, in the solver's own tokens; there is no default.
+MOTION_TABLE_TYPE_KEY = "TABLE_TYPE"
+MOTION_TABLE_TYPES: tuple[str, ...] = ("POSITION-TIME", "VELOCITY-TIME")
+#: The keys a custom motion record states, all three required.
+MOTION_TABLE_RECORD_KEYS: tuple[str, ...] = (
+    ROTATION_ALIAS_KEY,
+    MOTION_TABLE_KEY,
+    MOTION_TABLE_TYPE_KEY,
+)
+#: Written onto the record when the row binds, never by the row: the table's
+#: absolute path and the SHA-256 of its bytes then.
+MOTION_TABLE_PATH_KEY = "TABLE_PATH"
+MOTION_TABLE_SHA256_KEY = "TABLE_SHA256"
+#: The folder of ``inputs/`` that holds the motion tables.
+MOTIONS_DIR = "motions"
+#: The run's own copy of a table, after the stem of the user's file:
+#: ``flap.txt`` is read by the solver as ``flap.motion_table.txt`` in the
+#: folder the point runs in.
+MOTION_TABLE_COPY_SUFFIX = ".motion_table.txt"
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
 #: rotor case wants (FSM-26.123 p.85). Absent means the row asks for nothing
@@ -1423,8 +1449,11 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         MOTIONS_VARIABLE: InputKey(
             "The rotor motions of the row, one record each, every rotor named by the "
-            "alias of a rotor block of the reference.",
-            "records {MOVING_BC_ALIAS: <alias> / RPM: rev/min}, or ADVANCE_RATIO in place of RPM",
+            "alias of a rotor block of the reference; on an unsteady row, a record naming a "
+            "TABLE of inputs/motions/ moves the boundaries of its ALIAS by that table.",
+            "records {MOVING_BC_ALIAS: <alias> / RPM: rev/min}, or ADVANCE_RATIO in place of "
+            "RPM; or {ALIAS: <alias> / TABLE: <file> / TABLE_TYPE: POSITION-TIME or "
+            "VELOCITY-TIME}",
             "CREATE_NEW_MOTION",
         ),
         EXPORT_UNSTEADY_AFTER_REV_VARIABLE: InputKey(

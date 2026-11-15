@@ -246,6 +246,7 @@
       "tests/tier1_offline/test_p0570_tipcap.py",
       "tests/tier1_offline/test_p0580_bc_declarations.py",
       "tests/tier1_offline/test_p0580_citation.py",
+      "tests/tier1_offline/test_p0580_custom_motion_table.py",
       "tests/tier1_offline/test_p0580_cut_blunt_base.py",
       "tests/tier1_offline/test_p0580_gm17_spinner.py",
       "tests/tier1_offline/test_p0580_l4_mesh_frame.py",

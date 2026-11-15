@@ -75,6 +75,48 @@ steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-step
 
 The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. See [Upgrading](upgrading.md) for older matrices.
 
+## A motion driven by a table
+
+A body that moves along a prescribed path (an oscillating wing, a pitching
+flap, a plunging plate) is stated as one record of the row's `MOTIONS` list:
+
+```text
+MOTIONS: {ALIAS: FLAP / TABLE: flap.txt / TABLE_TYPE: POSITION-TIME} / CLOCK_MOTION: FLAP / DELTA_TIME: 0.001 / TIME_ITERATIONS: 400
+```
+
+- `ALIAS` names a group the reference declares; its boundaries are the ones
+  that move.
+- `TABLE` names a file of the workspace's `inputs/motions/` folder, by its
+  bare file name.
+- `TABLE_TYPE` is `POSITION-TIME` or `VELOCITY-TIME`, the solver's own
+  tokens, and has no default: the two kinds read the same columns as
+  different quantities.
+- The row states `CLOCK_MOTION`, naming the table motion, and `DELTA_TIME`,
+  since a table has no rotation speed to derive a time step from.
+
+The table holds one row per time and seven numbers a row, separated by
+commas or spaces, with no header line: the solver's physical time in
+seconds, then three translational components and three angular components,
+in the motion's coordinate system. For `VELOCITY-TIME` the angular
+components are rates in rad/s; for `POSITION-TIME` they are angles in
+degrees. The solver interpolates linearly between rows.
+
+The plan resolves the file and records its SHA-256 on the case. It refuses
+a file that is missing, empty or outside `inputs/motions/`, a row that is not
+seven finite numbers, a time that does not increase, a table that ends before
+the run does (naming both times), and a table changed after the row was
+planned. The run reads its own copy, `<stem>.motion_table.txt`, written in
+the point's folder with the file's exact bytes and hashed into the run
+record; the file is never rewritten. In the setup, before the solver is
+initialised, the row writes `CREATE_NEW_MOTION CUSTOM`,
+`SET_MOTION_CUSTOM_TABLE <TABLE_TYPE> <motion>` with the copy on the next
+line, and `SET_MOTION_BOUNDARIES` with the alias's boundaries.
+
+A table motion is emitted on the `unsteady` run type only; another run type
+stating one is refused when the row is planned. The commands are documented
+on every build and no run has yet read a table back, so the motion itself is
+not measured.
+
 ## Probes: instantaneous or default
 
 A `[[probes]]` entry defaults to `kind = "default"`: probe points imported
