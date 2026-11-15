@@ -97,7 +97,7 @@ MOTIONS: {ALIAS: FLAP / TABLE: flap.txt / TABLE_TYPE: POSITION-TIME} / CLOCK_MOT
 The table holds one row per time and seven numbers a row, separated by
 commas or spaces, with no header line: the solver's physical time in
 seconds, then three translational components and three angular components,
-in the motion's coordinate system. For `VELOCITY-TIME` the angular
+in the motion's coordinate system, which the row does not set: the solver's default frame for a new motion applies, and it is not measured. For `VELOCITY-TIME` the angular
 components are rates in rad/s; for `POSITION-TIME` they are angles in
 degrees. The solver interpolates linearly between rows.
 
