@@ -732,9 +732,10 @@ stem with the suffix `.dat` (`P0001-TOTAL-ACOEF.dat` beside
 `P0001-TOTAL-ACOEF.csv`), the same rows a second time, its body and stability
 and wind columns under the format's own names (`ClB` as `CRB25`, `CmB` as
 `CMB25`, `CnB` as `CNB25`; the values are the same). Off by default. **The format carries the group
-as a two-digit NUMBER on its fourth line.** A numbered group states its number;
-a NAMED group states its position in the `[groups]` table, counted from one,
-and the file's name carries the alias. The shape, read off a recorded file and pinned by the committed
+as a NUMBER on its fourth line**, at least two digits: the group's `GROUP_ID`
+([the group files](pproc/group-files.md): 0 `TOTAL`, 1 `AIRFRAME`, 10 + id a
+rotor, 100 + k the k-th `[groups]` key), and the file's name carries the group's
+name. The shape, read off a recorded file and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 

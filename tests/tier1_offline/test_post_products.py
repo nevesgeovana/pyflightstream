@@ -1400,7 +1400,10 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
     text = (out / "polars" / f"{stem}.dat").read_text(encoding="ascii")
     assert text.splitlines()[:2] == ["FlightStream - STEADY_WB", "320720"]
-    assert text.splitlines()[6:8] == [f"{table.group:03d}", "024"]
+    # Line 4 states the reference-column count and the group by its GROUP_ID (100 + k for
+    # the k-th [groups] key, group-files page); lines 7 and 8 are the row and column counts.
+    assert text.splitlines()[3] == "007 101"
+    assert text.splitlines()[6:8] == [f"{len(table.rows):03d}", "024"]
 
     # Write, read, write again: byte equal, the date carried through.
     first = (out / "polars" / f"{stem}.dat").read_bytes()
