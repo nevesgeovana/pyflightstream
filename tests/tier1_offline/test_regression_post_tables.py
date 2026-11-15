@@ -282,7 +282,7 @@ class TestPost2PlotsTables:
         )
         write_campaign_products(workspace)
         skipped = _post2_plots_tables___products_manifest(workspace)["skipped"]
-        assert "Freestream velocity" in skipped["probes/AL-020_plots.csv"]
+        assert "Freestream velocity" in skipped["time_history/AL-020_plots.csv"]
 
     @staticmethod
     def test_p0400_banner_a_sections_export_without_its_reynolds_number_is_a_product_error(

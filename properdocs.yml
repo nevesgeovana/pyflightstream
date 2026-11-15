@@ -228,6 +228,22 @@ nav:
           - Solver command reference: reference/
           - Builds: builds.md
           - Compatibility: compatibility.md
+      - Post-processing outputs:
+          - Output catalogue: pproc/index.md
+          - Plots history: pproc/time-history.md
+          - phase_locked: pproc/phase-locked.md
+          - per_revolution: pproc/per-revolution.md
+          - Harmonics: pproc/harmonics.md
+          - Disc maps: pproc/disc-maps.md
+          - Probes: pproc/probes.md
+          - Sections: pproc/sections.md
+          - Cp: pproc/cp.md
+          - Sampled fields: pproc/fields.md
+          - Inflow: pproc/inflow.md
+          - Averaged surface: pproc/averaged-surface.md
+          - Streamlines: pproc/streamlines.md
+          - Settings: pproc/settings.md
+          - products.json: pproc/products-json.md
       - Post-processing definitions:
           - Definition index: post-processing-definitions.md
           - Rules for products:
@@ -241,7 +257,7 @@ nav:
               - Axes and signs: definitions/axes-and-signs.md
           - Steady and common products:
               - Airframe coefficients: definitions/airframe-coefficients.md
-              - Steady polar axes: definitions/the-axes-of-a-steady-polar.md
+              - Derived polars: definitions/polar-derivatives.md
               - Sections table: definitions/the-sections-table-and-which-row-is-which.md
               - Probe table: definitions/the-probes-table.md
               - Volume section: definitions/a-volume-section.md
@@ -321,3 +337,4 @@ not_in_nav: |
   /simulation-geometry-controls.md
   /sync-folders-and-matrix-homes.md
   /definitions/probe-parameters.md
+  /definitions/the-axes-of-a-steady-polar.md

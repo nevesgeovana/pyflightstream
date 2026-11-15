@@ -696,8 +696,8 @@ class TestPost2ReductionStage:
         ctx = _post2_reduction_stage___ctx(tmp_path, plan)
         _write_point_revolutions(ctx, None)
         assert sorted(ctx.skipped) == [
-            "probes/P1_per_revolution_PROP.csv",
-            "probes/P1_per_revolution_TAIL.csv",
+            "reductions/P1_per_revolution_PROP.csv",
+            "reductions/P1_per_revolution_TAIL.csv",
         ]
 
     @staticmethod
@@ -707,7 +707,7 @@ class TestPost2ReductionStage:
             tmp_path, {"phase_locked": {}, "steps_per_revolution": 36}
         )
         _write_point_revolutions(ctx, None)
-        assert list(ctx.skipped) == ["probes/P1_per_revolution.csv"]
+        assert list(ctx.skipped) == ["reductions/P1_per_revolution.csv"]
 
 
 class TestPost2Sim:
@@ -1230,7 +1230,7 @@ class TestPost1Review:
             lambda self: [recorded.model_copy(update={"sections_layout": layout})],
         )
         out, _manifest, log = _post(workspace)
-        _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
+        _, rows = read_csv_table(out / "reductions" / "DP_harmonics.csv")
         if radii is None:
             assert {row["STATION_R_M"] for row in rows} == {"NA"}
             assert {row["R_OVER_R"] for row in rows} == {"NA"}
@@ -2677,8 +2677,8 @@ def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
         for key, why in _products_manifest(workspace)["skipped"].items()
         if "per_revolution" in key
     }
-    assert list(skipped) == ["probes/AL-020_per_revolution_R.csv"]
-    assert "states no steps per revolution" in skipped["probes/AL-020_per_revolution_R.csv"]
+    assert list(skipped) == ["reductions/AL-020_per_revolution_R.csv"]
+    assert "states no steps per revolution" in skipped["reductions/AL-020_per_revolution_R.csv"]
 
 
 def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):

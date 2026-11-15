@@ -45,6 +45,7 @@ from pyflightstream._tokens import (
     NOT_APPLICABLE,
     POLAR_ID_COLUMN,
 )
+from pyflightstream.post._block_scope import after_run_block
 from pyflightstream.post._tables import write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.qsteady import (
@@ -119,6 +120,10 @@ _LARGEST_GAP_DEG = 180.0
 STATION_MATCH_TOLERANCE = STATION_TOLERANCE
 #: The sections columns that locate a station rather than load it.
 _GEOMETRY_COLUMNS = frozenset({"Offset", "Chord", "X_QC", "Z_QC"})
+#: The identity columns a sections table opens its own columns with: not loads.
+_IDENTITY_COLUMNS = frozenset(
+    {"FAMILY", "FAMILY_ID", "STEP", "PLANE", "ROTOR", "ROTOR_ID", "AZIMUTH", "SECTION"}
+)
 #: The columns the post adds after the export's own, which are not loads.
 _ADDED_COLUMNS = frozenset(
     {CLOCKING_COLUMN, STATION_COLUMN, *VALIDITY_COLUMNS, *INTEGRATED_SECTION_COLUMNS}
@@ -451,11 +456,19 @@ def load_quantities(columns: Sequence[str]) -> list[str]:
         The load columns, in the table's order.
     """
     names = list(columns)
-    start = max((names.index(name) for name in CONTEXT_COLUMNS if name in names), default=-1)
+    start = max(
+        (
+            *(names.index(name) for name in CONTEXT_COLUMNS if name in names),
+            after_run_block(names) - 1,
+        ),
+        default=-1,
+    )
     return [
         name
         for name in names[start + 1 :]
-        if name not in _GEOMETRY_COLUMNS and name not in _ADDED_COLUMNS
+        if name not in _GEOMETRY_COLUMNS
+        and name not in _ADDED_COLUMNS
+        and name not in _IDENTITY_COLUMNS
     ]
 
 

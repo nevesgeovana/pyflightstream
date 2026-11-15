@@ -3877,28 +3877,28 @@
       "parent": "",
       "area": "WKSP",
       "hid": "WKSP-10",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3787",
       "parent": "FR-3786",
       "area": "WKSP",
       "hid": "WKSP-10.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3788",
       "parent": "FR-3786",
       "area": "WKSP",
       "hid": "WKSP-10.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3789",
       "parent": "FR-3786",
       "area": "WKSP",
       "hid": "WKSP-10.3",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3790",

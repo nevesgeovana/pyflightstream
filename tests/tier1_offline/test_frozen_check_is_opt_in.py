@@ -15,7 +15,7 @@ from tests.tier1_offline.test_b01_frozen_solve import (
     _products_manifest,
 )
 
-AVERAGE = "probes/AL-020_time_average.csv"
+AVERAGE = "reductions/AL-020_phase_locked.csv"
 
 
 @pytest.mark.requirement("FR-119")
@@ -48,7 +48,7 @@ def test_a_log_that_cannot_be_read_never_ends_the_post_either_way(tmp_path):
         _cut_the_log_mid_table(workspace)
         write_campaign_products(workspace, check_frozen=asked)
         manifest = _products_manifest(workspace)
-        assert "probes/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
+        assert "time_history/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
 
 
 def test_a_frozen_failed_point_is_still_admitted_when_the_check_is_off(tmp_path):
@@ -63,7 +63,7 @@ def test_a_frozen_failed_point_is_still_admitted_when_the_check_is_off(tmp_path)
     workspace = _post_workspace(tmp_path, 2413, (58, 59), status=RunStatus.FAILED_DIVERGED)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
+    assert "time_history/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
     assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
 
 

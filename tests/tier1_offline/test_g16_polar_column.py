@@ -191,7 +191,7 @@ CAMPAIGNS = {
             r"^polars/P6002-[^/]*_g01\.csv$",
             r"^polars/SUPER-6001-[^/]*\.csv$",
             r"^polars/SUPER-6002-[^/]*\.csv$",
-            r"^probes/[^/]*_plots\.csv$",
+            r"^time_history/[^/]*_plots\.csv$",
         ),
     ),
     "steady_two_polars": (
@@ -215,9 +215,8 @@ CAMPAIGNS = {
         (
             r"^polars/P7001-PUSHER_rotor\.csv$",
             r"^polars/P7001_[^/]*_uns_avg\.csv$",
-            r"^probes/[^/]*_plots\.csv$",
-            r"^probes/[^/]*_time_average\.csv$",
-            r"^probes/[^/]*_phase_locked\.csv$",
+            r"^time_history/[^/]*_plots\.csv$",
+            r"^reductions/[^/]*_phase_locked\.csv$",
             r"^sections/[^/]*_sections\.csv$",
             r"^series/[^/]*_loads_series\.csv$",
         ),
@@ -225,10 +224,7 @@ CAMPAIGNS = {
     "azimuthal_rotor": (
         _azimuthal_rotor,
         "products",
-        (
-            r"^probes/[^/]*_phase_locked_PUSHER\.csv$",
-            r"^probes/[^/]*_per_blade\.csv$",
-        ),
+        (r"^reductions/[^/]*_phase_locked_PUSHER\.csv$",),
     ),
     "unsteady_probes": (_unsteady_probes, None, (r"^probes/[^/]*_probes\.csv$",)),
     "steady_probes": (_steady_probes, None, (r"^probes/[^/]*_probes\.csv$",)),

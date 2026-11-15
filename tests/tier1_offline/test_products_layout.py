@@ -445,9 +445,14 @@ def test_a_steady_row_and_an_unsteady_row_put_their_samples_in_one_place(tmp_pat
     samples = [name for name in written if "plots" in name or "probes" in name]
     assert samples, f"no flow-field samples were written at all: {written}"
     folders = {name.split("/")[0] for name in samples if name.endswith(".csv")}
-    assert folders == {"probes"}, (
+    # 0.58.0 (PFS-2232): a folder names the KIND of table. The unsteady row's history is
+    # in time_history/ and the steady row's probe table is in probes/, which holds probe
+    # tables only, so the two run types are read by kind and not by run type.
+    assert folders == {"probes", "time_history"}, (
         f"the flow-field samples of the two run types landed in {sorted(folders)}"
     )
+    assert all(name.startswith("time_history/") for name in samples if name.endswith("_plots.csv"))
+    assert all(name.startswith("probes/") for name in samples if name.endswith("_probes.csv"))
     assert any("_plots.csv" in name for name in samples), "the unsteady row's table is missing"
     assert any("_probes.csv" in name for name in samples), "the steady row's table is missing"
 
@@ -489,7 +494,9 @@ def test_the_products_manifest_names_the_samples_under_probes(tmp_path):
     write_campaign_products(workspace, matrix_stem=MATRIX)
     out = _out(workspace)
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    samples = [name for name in manifest["products"] if name.startswith("probes/")]
+    samples = [
+        name for name in manifest["products"] if name.startswith(("probes/", "time_history/"))
+    ]
     assert len(samples) >= 2, f"products.json names {sorted(manifest['products'])}"
     for relative in samples:
         assert (out / relative).is_file()

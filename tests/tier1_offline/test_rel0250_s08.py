@@ -54,4 +54,4 @@ def test_campaign_names_locator_reaches_manifest(tmp_path):
         warnings.simplefilter("ignore")
         write_campaign_products(workspace)
     skipped = _products_manifest(workspace)["skipped"]
-    assert skipped["probes/AL-020#names"].startswith("probes/AL-020#names: ")
+    assert skipped["reductions/AL-020#names"].startswith("reductions/AL-020#names: ")

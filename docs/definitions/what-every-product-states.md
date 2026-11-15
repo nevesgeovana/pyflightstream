@@ -124,7 +124,7 @@ table does not establish agreement. See the single
 
 The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
-`probes/<point>_plots.csv` states NO condition, on purpose: after `POL` and any `IDENTIFIERS`
+`time_history/<point>_plots.csv` states NO condition, on purpose: after `POL` and any `IDENTIFIERS`
 columns it is the export's own header, and the reductions read every one of those columns back
 as a plotted quantity.
 

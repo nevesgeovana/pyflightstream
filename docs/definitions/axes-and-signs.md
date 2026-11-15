@@ -40,7 +40,7 @@ read off the velocity the solver flies, `V (cos a cos b, cos a sin b, sin a)`
 in body axes: `alpha_s = atan2(w, u)` and `beta_w = asin(v / V)`. They equal
 the written `ALPHA` and `BETA` when either is zero; at `ALPHA 4, BETA 2` they
 are 4.0024 and 1.9951 degrees (see
-[the axes of a steady polar](the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar)).
+[the moment normalization below](#the-moment-and-the-drag)).
 
 <a id="the-rotor-frame"></a>
 
@@ -96,3 +96,22 @@ so `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN` and `CMY = -CMS`.
   positive up; the moments right-hand about the R axes.
 - **Dimensional loads** (the DIM files) keep the solver's components and signs
   in the frame the export states them in.
+
+<a id="the-moment-and-the-drag"></a>
+
+### The moment and the drag
+
+The moment turns as ONE vector in one length and only then is normalised: `Cl` and `Cn`
+by the span and `Cm` by the chord. Under sideslip that is what moves pitch into roll by
+the ratio of chord to span. The one length is the reference chord: the export states all
+three of its moment coefficients, `CMx`, `CMy` and `CMz`, normalised by the reference
+chord (measured on 26.124 and 26.125, where changing the reference length alone halved all
+three; the solver takes no span), and the roll and yaw columns are rescaled from the chord
+to the span.
+
+**`CDW` is the drag the solver integrates.** The wind-axis drag of the export's own vector
+equals its `CDi + CDo`, which the recorded exports confirm to their printed precision,
+under sideslip too. `CD0` and `CDI` are those two integrals as the solver states them.
+
+**The `ALPHA` and `BETA` columns stay what the row wrote.** The angles that turn the
+axes are read off the velocity the solver flies and equal them whenever either is zero.

@@ -127,7 +127,10 @@ def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None, status
         # the phase-locked average interpolates at moments up to one
         # revolution before its first step, and the window judged for it
         # cannot be widened without knowing how long a revolution is.
-        "phase_locked": {"windows": [list(window)], "steps_per_revolution": 4.0},
+        "phase_locked": {
+            "windows": [list(w) for w in (passages or [window])],
+            "steps_per_revolution": 4.0,
+        },
     }
     # Use the existing stage fixture's record and pproc, then collect all
     # evidence beside the loads in the current datapoint layout.
@@ -195,9 +198,7 @@ def test_post_skips_frozen_averages_by_name_and_keeps_healthy_control(tmp_path, 
         written = write_campaign_products(workspace, check_frozen=True)
         manifest = _products_manifest(workspace)
         averaged = [
-            "probes/AL-020_time_average.csv",
-            "probes/AL-020_per_blade.csv",
-            "probes/AL-020_phase_locked.csv",
+            "reductions/AL-020_phase_locked.csv",
         ]
         polar = next(
             key
@@ -211,7 +212,7 @@ def test_post_skips_frozen_averages_by_name_and_keeps_healthy_control(tmp_path, 
                 assert name not in manifest["products"], f"frozen average published: {name}"
                 assert "step 60" in manifest["skipped"][name]
                 assert not (workspace.root / "post/products" / name).exists()
-        assert "probes/AL-020_plots.csv" in manifest["products"]
+        assert "time_history/AL-020_plots.csv" in manifest["products"]
         assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
         assert all(path.is_file() for path in written)
 
@@ -220,7 +221,7 @@ def test_post_preserves_windows_before_freeze_and_archives_stale_averages(tmp_pa
     workspace = _post_workspace(tmp_path, 2413, (58, 59))
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_time_average.csv" in manifest["products"]
+    assert "reductions/AL-020_phase_locked.csv" in manifest["products"]
     # Re-posting an old success whose former native log was healthy must remove
     # the stale averages as well as report the new skips.
     workspace = _post_workspace(tmp_path / "repost", 2411, (60, 61))
@@ -229,7 +230,7 @@ def test_post_preserves_windows_before_freeze_and_archives_stale_averages(tmp_pa
     log_path.write_text(_log(2413), encoding="utf-8")
     write_campaign_products(workspace, overwrite=True, check_frozen=True)
     manifest = _products_manifest(workspace)
-    name = "probes/AL-020_time_average.csv"
+    name = "reductions/AL-020_phase_locked.csv"
     assert name not in manifest["products"], "re-post retained a stale frozen average"
     assert "step 60" in manifest["skipped"][name]
     assert not (workspace.root / "post/products" / name).exists()
@@ -265,9 +266,12 @@ def test_post_checks_each_reduction_window_independently(tmp_path):
     workspace.append_record(record.model_copy(update={"reductions": plan}))
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_time_average.csv" in manifest["products"]
-    assert "probes/AL-020_per_blade.csv" in manifest["products"]
-    phase = "probes/AL-020_phase_locked.csv"
+    # the retired tables are not written; the polar average is outside the refused window
+    assert not any(
+        k.endswith(("_time_average.csv", "_per_blade.csv")) for k in manifest["products"]
+    )
+    assert any(key.endswith("_uns_avg.csv") for key in manifest["products"])
+    phase = "reductions/AL-020_phase_locked.csv"
     assert phase not in manifest["products"], "a separate frozen reduction was published"
     assert "step 60" in manifest["skipped"][phase]
 
@@ -285,7 +289,7 @@ def test_a_frozen_passage_does_not_take_the_passages_that_end_before_it(tmp_path
     workspace = _post_workspace(tmp_path, 2413, (58, 59), passages=[(58, 59), (60, 61)])
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    name = "probes/AL-020_per_blade.csv"
+    name = "reductions/AL-020_phase_locked.csv"
     # the clean passage keeps its product
     assert name in manifest["products"], manifest["skipped"]
     assert (workspace.root / "post/products" / name).is_file()
@@ -336,7 +340,7 @@ def test_a_log_the_solver_stopped_under_does_not_kill_the_whole_post(tmp_path, r
     _cut_the_log_mid_table(workspace)
     write_campaign_products(workspace, check_frozen=True)  # must not raise
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_plots.csv" in manifest["products"]
+    assert "time_history/AL-020_plots.csv" in manifest["products"]
     assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
 
 
@@ -353,7 +357,7 @@ def test_an_unreadable_step_refuses_only_the_windows_it_falls_in(tmp_path):
     kept = _post_workspace(tmp_path / "before", 2411, (58, 60))
     _cut_the_log_mid_table(kept)  # the unreadable block is step 61
     write_campaign_products(kept, check_frozen=True)
-    name = "probes/AL-020_time_average.csv"
+    name = "reductions/AL-020_phase_locked.csv"
     manifest = _products_manifest(kept)
     assert name in manifest["products"], manifest["skipped"]
     assert manifest["products"][name]["windows"] == [[58, 60]]
@@ -377,7 +381,7 @@ def test_a_freeze_in_the_readable_blocks_still_refuses_everything_after_it(tmp_p
     _cut_the_log_mid_table(workspace)
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    name = "probes/AL-020_time_average.csv"
+    name = "reductions/AL-020_phase_locked.csv"
     assert name not in manifest["products"], "an average of a frozen solve was published"
     # Step 60 froze and step 61 could not be read, so the pair may be the freeze
     # the detector needs two consecutive steps to declare. It is named as unread
@@ -387,42 +391,19 @@ def test_a_freeze_in_the_readable_blocks_still_refuses_everything_after_it(tmp_p
     assert "cannot be read for time step(s)" in manifest["skipped"][name]
 
 
-def test_a_per_blade_table_never_bridges_a_refused_passage_in_the_middle(tmp_path):
-    """Finding 4 of the push review, from the V&V lens.
-
-    The per-blade table states ONE window, collapsed from its passages. Dropping
-    a refused passage between two kept ones and collapsing the rest averages the
-    very steps the refusal removed, and records that span in the manifest. It
-    refuses whole instead, and says why; losing a passage from an END is not
-    bridging and keeps its product, which is what the 0.25.0 review restored.
-    """
-    # THE SHAPE MATTERS, and two earlier versions of this test got it wrong: a
-    # FREEZE refuses every window reaching it, so it cannot strand a passage
-    # between two survivors. An UNREAD STEP can, and that is the case the lens
-    # measured publishing [55,60] on a tree without the fix: a healthy log with
-    # step 57 unreadable, between passages that are both intact.
-    workspace = _post_workspace(tmp_path, 2411, (58, 58), passages=[(58, 58), (59, 59), (60, 60)])
-    _make_one_step_unreadable(workspace, 59)
-    write_campaign_products(workspace, check_frozen=True)
-    manifest = _products_manifest(workspace)
-    name = "probes/AL-020_per_blade.csv"
-    assert name not in manifest["products"], "the table bridged the passage it refused"
-    assert "would span the refused steps" in manifest["skipped"][name]
-
-
-def test_a_per_blade_table_that_loses_an_end_passage_keeps_its_product(tmp_path):
+def test_a_phase_locked_table_that_loses_an_end_passage_keeps_its_product(tmp_path):
     """The other side of the contiguity rule, and the one GH-03 restored.
 
-    Losing the LAST passage to a freeze is not bridging: the window the table
-    states simply ends earlier, so the product stays.
+    Losing the LAST passage to an unread step keeps the product: the windows
+    that were read stay, each as it was planned.
     """
     workspace = _post_workspace(tmp_path, 2411, (58, 58), passages=[(58, 58), (59, 59), (61, 61)])
     _make_one_step_unreadable(workspace, 61)
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    name = "probes/AL-020_per_blade.csv"
+    name = "reductions/AL-020_phase_locked.csv"
     assert name in manifest["products"], manifest["skipped"]
-    assert manifest["products"][name]["windows"] == [[58, 59]]
+    assert manifest["products"][name]["windows"] == [[58, 58], [59, 59]]
 
 
 def test_a_frozen_failed_point_with_an_unread_block_keeps_what_the_freeze_did_not_touch(tmp_path):
@@ -437,7 +418,7 @@ def test_a_frozen_failed_point_with_an_unread_block_keeps_what_the_freeze_did_no
     _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
+    assert "time_history/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
     assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
 
 
@@ -455,6 +436,6 @@ def test_a_passage_series_keeps_its_product_when_the_unread_step_is_outside_it(t
     _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
-    phase_locked = "probes/AL-020_phase_locked.csv"
+    phase_locked = "reductions/AL-020_phase_locked.csv"
     assert phase_locked in manifest["products"], manifest["skipped"]
     assert manifest["products"][phase_locked]["windows"] == [[60, 61]]

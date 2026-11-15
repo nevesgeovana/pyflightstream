@@ -130,11 +130,11 @@ def test_goal021_skip_line_a_rotor_naming_row_states_its_reason_once(tmp_path):
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
     skipped = _products_manifest(workspace)["skipped"]
-    for reduction in ("per_blade", "phase_locked"):
-        said = skipped[f"probes/AL-020_{reduction}.csv"]
+    for reduction in ("phase_locked",):
+        said = skipped[f"reductions/AL-020_{reduction}.csv"]
         assert said.count("names its rotors") == 1, said
         for rotor in ("LIFT_L1", "PUSHER"):
-            assert said.count(f"probes/AL-020_{reduction}_{rotor}.csv") == 1, said
+            assert said.count(f"reductions/AL-020_{reduction}_{rotor}.csv") == 1, said
         assert said.count("blade passage") == 1, said
 
 

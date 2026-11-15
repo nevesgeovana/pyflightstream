@@ -1,9 +1,9 @@
 """Tier 1, 0.31.0 (G2): the per-revolution product of an unsteady rotor point.
 
 Requirement P0310-G2-PER-REV. For each rotor a row turns, ``pyfs-matrix post``
-cuts the WRITTEN plots table (``probes/<point>_plots.csv``, read back, never the
+cuts the WRITTEN plots table (``time_history/<point>_plots.csv``, read back, never the
 raw export) into complete revolutions and writes
-``probes/<point>_per_revolution_<ALIAS>.csv``: one row per revolution with the
+``reductions/<point>_per_revolution_<ALIAS>.csv``: one row per revolution with the
 mean of every plotted column and, from the second revolution on, each column's
 drift from the previous revolution in per cent. A declared limit
 (``[per_revolution] drift_limit_pct``, default 1) is compared with the drift of
@@ -33,6 +33,7 @@ from tests.tier1_offline.test_post_products import (
     PLOTS_HEADER,
     _products_manifest,
     _unsteady_workspace,
+    beyond_the_block,
 )
 
 PER_REVOLUTION = 4
@@ -105,7 +106,9 @@ def _post_log(workspace) -> list[str]:
 
 
 def _table(workspace, alias="PROP"):
-    path = workspace.root / "post" / "products" / "probes" / f"AL-020_per_revolution_{alias}.csv"
+    path = (
+        workspace.root / "post" / "products" / "reductions" / f"AL-020_per_revolution_{alias}.csv"
+    )
     return read_csv_table(path)
 
 
@@ -131,20 +134,15 @@ def test_each_revolution_is_one_row_with_exact_means_and_drifts(tmp_path):
     columns, rows = _table(workspace)
 
     # THE HEADER STARTS LIKE THE OTHER REDUCTIONS, `WINDOW` being `REVOLUTION`.
-    assert tuple(columns[: len(PER_REVOLUTION_COLUMNS)]) == PER_REVOLUTION_COLUMNS
-    assert list(columns[:7]) == [
-        "POL",
-        "REDUCTION",
-        "ROTOR",
-        "REVOLUTION",
-        "FIRST_STEP",
-        "LAST_STEP",
-        "STEPS",
+    # THE RUN BLOCK COMES FIRST (it states the window steps and the moment point).
+    own = beyond_the_block(columns)
+    assert set(PER_REVOLUTION_COLUMNS) <= set(columns)
+    assert [n for n in own if n in PER_REVOLUTION_COLUMNS] == [
+        n for n in PER_REVOLUTION_COLUMNS if n in own
     ]
+    assert columns[0] == "POL" and list(own[:3]) == ["REDUCTION", "ROTOR", "REVOLUTION"]
     means = ["FX_MRP_TOTAL", "FY_MRP_TOTAL", "MACH_P1"]
-    at = columns.index("XMOM")
-    assert list(columns[at : at + 6]) == ["XMOM", "YMOM", "ZMOM", *means]
-    assert list(columns[at + 6 :]) == [f"{name}_DRIFT_PCT" for name in means]
+    assert list(own[3:]) == [*means, *[f"{name}_DRIFT_PCT" for name in means]]
     # THE CLOCK IS NOT AVERAGED, as in every other reduction.
     assert "Time-step" not in columns and "Time-step_DRIFT_PCT" not in columns
 
@@ -175,7 +173,7 @@ def test_each_revolution_is_one_row_with_exact_means_and_drifts(tmp_path):
     )
 
     # REGISTERED in products.json like the other reductions, saying its window.
-    entry = _products_manifest(workspace)["products"]["probes/AL-020_per_revolution_PROP.csv"]
+    entry = _products_manifest(workspace)["products"]["reductions/AL-020_per_revolution_PROP.csv"]
     assert entry["reduction"] == "per_revolution" and entry["rotor"] == "PROP"
     assert entry["windows"] == [[1, 4], [5, 8], [9, 12]], entry
 
@@ -185,7 +183,7 @@ def test_it_is_read_from_the_written_table_alone(tmp_path):
     from pyflightstream.post._reduction_stage import _point_reductions
 
     # A WRITTEN plots table and NO raw export anywhere: whatever is read is the table.
-    table = tmp_path / "probes" / "P-1_plots.csv"
+    table = tmp_path / "time_history" / "P-1_plots.csv"
     table.parent.mkdir()
     values = [1.0, 3.0, 5.0, 7.0, 2.0, 4.0]
     table.write_text(
@@ -207,7 +205,7 @@ def test_it_is_read_from_the_written_table_alone(tmp_path):
         skipped=skipped,
         pol=7001,
     )
-    columns, rows = read_csv_table(tmp_path / "probes" / "P-1_per_revolution_PROP.csv")
+    columns, rows = read_csv_table(tmp_path / "reductions" / "P-1_per_revolution_PROP.csv")
     assert "POL" in columns and {row["POL"] for row in rows} == {"7001"}
     # THREE REVOLUTIONS OF TWO STEPS: means 2, 6 and 3; drifts NA, +200 and -50 per cent.
     assert [float(row["FX_MRP_TOTAL"]) for row in rows] == [2.0, 6.0, 3.0]
@@ -225,7 +223,9 @@ def test_a_last_revolution_over_the_limit_warns_in_the_log_and_blocks_nothing(tm
     # ONE LINE, for the one force column that moved: FX, 4.7619 per cent over 1.
     assert len(lines) == 1, lines
     (line,) = lines
-    assert line.startswith("WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP.csv:")
+    assert line.startswith(
+        "WARNING point=AL-020 product=reductions/AL-020_per_revolution_PROP.csv:"
+    )
     for named in ("rotor 'PROP'", "FX_MRP_TOTAL", "+4.7619", "limit of 1 per cent"):
         assert named in line, (named, line)
 
@@ -267,17 +267,18 @@ def test_an_incomplete_last_revolution_is_excluded_and_said(tmp_path):
     assert len(rows) == 3
     assert all(float(row["FX_MRP_TOTAL"]) < 20.0 for row in rows)
     skipped = _products_manifest(workspace)["skipped"]
-    said = skipped["probes/AL-020_per_revolution_PROP.csv#partial"]
+    said = skipped["reductions/AL-020_per_revolution_PROP.csv#partial"]
     assert "2 step(s) of a partial one" in said and "3 complete" in said, said
     # AND THE LOG NAMES THE POINT AND THE FILE it is about, not only the skip's key.
-    prefix = "WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP.csv:"
+    prefix = "WARNING point=AL-020 product=reductions/AL-020_per_revolution_PROP.csv:"
     assert any(line.startswith(prefix) and "partial one" in line for line in _post_log(workspace))
 
     # A WHOLE NUMBER OF REVOLUTIONS SAYS NOTHING.
     whole = _workspace(tmp_path / "whole", FX[:12])
     write_campaign_products(whole)
     assert (
-        "probes/AL-020_per_revolution_PROP.csv#partial" not in _products_manifest(whole)["skipped"]
+        "reductions/AL-020_per_revolution_PROP.csv#partial"
+        not in _products_manifest(whole)["skipped"]
     )
 
 
@@ -287,14 +288,14 @@ def test_less_than_one_revolution_is_a_named_skip_and_writes_no_file(tmp_path):
     write_campaign_products(workspace)
     probes = workspace.root / "post" / "products" / "probes"
     assert not (probes / "AL-020_per_revolution_PROP.csv").exists()
-    reason = _products_manifest(workspace)["skipped"]["probes/AL-020_per_revolution_PROP.csv"]
+    reason = _products_manifest(workspace)["skipped"]["reductions/AL-020_per_revolution_PROP.csv"]
     assert "not one COMPLETE revolution" in reason, reason
 
 
 def test_p0440_fractional_revolution_is_named_without_rounding(tmp_path):
     workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=4.5))
     write_campaign_products(workspace)
-    relative = "probes/AL-020_per_revolution_PROP.csv"
+    relative = "reductions/AL-020_per_revolution_PROP.csv"
     assert not (workspace.root / "post" / "products" / relative).exists()
     reason = _products_manifest(workspace)["skipped"][relative]
     assert "4.5" in reason and "remainder 0.5" in reason
@@ -306,7 +307,7 @@ def test_a_rotor_with_no_clock_is_a_named_skip(tmp_path):
     # P0310-G2-PER-REV
     workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=None))
     write_campaign_products(workspace)
-    reason = _products_manifest(workspace)["skipped"]["probes/AL-020_per_revolution_PROP.csv"]
+    reason = _products_manifest(workspace)["skipped"]["reductions/AL-020_per_revolution_PROP.csv"]
     assert "no steps per revolution" in reason and "rotor 'PROP'" in reason, reason
 
 
@@ -433,7 +434,7 @@ def test_an_in_plane_load_moving_against_its_thrust_or_torque_warns(tmp_path):
     ):
         assert named in line, (named, line)
     for line in lines:
-        assert line.startswith("WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP")
+        assert line.startswith("WARNING point=AL-020 product=reductions/AL-020_per_revolution_PROP")
         assert "rotor 'PROP'" in line and "between revolution 2 and revolution 3" in line
         assert "over the drift limit of 1 per cent" in line
     # THE LIMIT IS STILL THE PPROC'S: 3.5 per cent quiets all three.
@@ -490,9 +491,10 @@ def test_the_largest_column_of_its_group_warns_exactly_as_its_relative_drift(tmp
 #: PFS-2105.041 writes the force- and moment-prefixed columns at six significant digits, so the
 #: two drift cells FX_PROP_X_DRIFT_PCT and MX_PROP_X_DRIFT_PCT read -0.0285714 and 0.0333222
 #: where they read -0.02857 and 0.03333; the committed snapshot of the per_revolution_rotor
-#: campaign states the same digest. Nothing else of the table moved.
+#: campaign states the same digest. The run block (PFS-2231) opens the table since 0.58.0,
+#: which is the only change to the bytes after that.
 TABLE_SHA256_BEFORE_THE_SCALE_RULE = (
-    "50fb1508d81c6eebb1ad1d3abc39fe6a4fbe0b5205810fe02ff06c75fccc22c4"
+    "9c7a0ae780877ec586b759efaf0abcd2ad25aa313655d8430085db3e858e2836"
 )
 
 
@@ -501,7 +503,7 @@ def test_the_table_bytes_are_those_of_the_relative_rule(tmp_path):
     # FR-180
     import hashlib
 
-    path = "post/products/probes/AL-020_per_revolution_PROP.csv"
+    path = "post/products/reductions/AL-020_per_revolution_PROP.csv"
     quiet = _rotor_workspace(tmp_path / "quiet", ROTOR)
     loud = _rotor_workspace(
         tmp_path / "loud", ROTOR, pproc="\n[per_revolution]\ndrift_limit_pct = 0.001\n"

@@ -86,7 +86,7 @@ them apart, and `products.json` names the quantity of every column.
 
 `CD0, CDI` (or `CDV, CDP` on 26.125) follow the frame blocks of `ACOEF`:
 the export's drag split, in wind axes, as defined in
-[the drag split of 26.125](the-axes-of-a-steady-polar.md#the-drag-split-of-26125).
+[the drag split of 26.125](polar-derivatives.md#the-drag-split-of-26125).
 
 <a id="mesh-faces"></a>
 

@@ -6,8 +6,24 @@
  "check_frozen": false,
  "records": [
   {
+   "point": "campaign",
+   "product": "stage",
+   "message": "The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "AL-020",
-   "product": "probes/AL-020_per_revolution_PROP.csv",
+   "product": "reductions/AL-020_per_revolution_PROP.csv",
    "message": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
    "remedy": null,
    "category": "postprocessing",
@@ -38,40 +54,24 @@
    "severity": "info"
   },
   {
-   "point": "probes/AL-020_phase_locked.csv",
-   "product": "probes/AL-020_phase_locked.csv",
-   "message": "the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv.",
+   "point": "reductions/AL-020_phase_locked.csv",
+   "product": "reductions/AL-020_phase_locked.csv",
+   "message": "the row names its rotors: the per-rotor files are reductions/AL-020_phase_locked_PROP.csv.",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"
   },
   {
-   "point": "probes/AL-020_per_blade.csv",
-   "product": "probes/AL-020_per_blade.csv",
-   "message": "the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "probes/AL-020_phase_locked_PROP.csv",
-   "product": "probes/AL-020_phase_locked_PROP.csv",
+   "point": "reductions/AL-020_phase_locked_PROP.csv",
+   "product": "reductions/AL-020_phase_locked_PROP.csv",
    "message": "not under test",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"
   },
   {
-   "point": "probes/AL-020_per_blade_PROP.csv",
-   "product": "probes/AL-020_per_blade_PROP.csv",
-   "message": "not under test",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "probes/AL-020_per_revolution_PROP.csv#partial",
-   "product": "probes/AL-020_per_revolution_PROP.csv#partial",
+   "point": "reductions/AL-020_per_revolution_PROP.csv#partial",
+   "product": "reductions/AL-020_per_revolution_PROP.csv#partial",
    "message": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",

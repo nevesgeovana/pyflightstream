@@ -115,7 +115,7 @@
     "step_deg": 60.0
    }
   },
-  "sections/AL-020_harmonics.csv": {
+  "reductions/AL-020_harmonics.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -137,7 +137,7 @@
     "PROP": 6.0
    }
   },
-  "sections/AL-020_disc_PROP_Fx.csv": {
+  "reductions/AL-020_disc_PROP_Fx.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -158,7 +158,7 @@
     "PROP": 6.0
    }
   },
-  "sections/AL-020_disc_PROP_Fz.csv": {
+  "reductions/AL-020_disc_PROP_Fz.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -179,7 +179,7 @@
     "PROP": 6.0
    }
   },
-  "sections/AL-020_disc_PROP_Moment.csv": {
+  "reductions/AL-020_disc_PROP_Moment.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -208,29 +208,14 @@
    ],
    "kind": "instant"
   },
-  "probes/AL-020_plots.csv": {
+  "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
    ]
   },
-  "probes/AL-020_time_average.csv": {
-   "sim_id": "7001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_7001/AL-020"
-   ],
-   "reduction": "time_average",
-   "windows": [
-    [
-     1,
-     14
-    ]
-   ],
-   "window_from": "the whole run"
-  },
-  "probes/AL-020_per_revolution_PROP.csv": {
+  "reductions/AL-020_per_revolution_PROP.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -302,14 +287,87 @@
   "sections/AL-020_cp_Blade3.csv": "no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
   "series/AL-020_loads_series.csv": "no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
   "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
-  "probes/AL-020_phase_locked.csv": "the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv.",
-  "probes/AL-020_per_blade.csv": "the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv.",
-  "probes/AL-020_phase_locked_PROP.csv": "not under test",
-  "probes/AL-020_per_blade_PROP.csv": "not under test",
-  "probes/AL-020_per_revolution_PROP.csv#partial": "the plots table holds 14 time steps, 2 complete revolution(s) of 6 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing"
+  "reductions/AL-020_phase_locked.csv": "the row names its rotors: the per-rotor files are reductions/AL-020_phase_locked_PROP.csv.",
+  "reductions/AL-020_phase_locked_PROP.csv": "not under test",
+  "reductions/AL-020_per_revolution_PROP.csv#partial": "the plots table holds 14 time steps, 2 complete revolution(s) of 6 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing"
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }

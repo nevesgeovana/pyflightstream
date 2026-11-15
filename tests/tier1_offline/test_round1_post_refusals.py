@@ -115,9 +115,11 @@ def test_frozen_failed_record_keeps_histories_and_safe_windows(tmp_path, monkeyp
     # witness that: the manifest on disk can; PFS-2135.007).
     assert workspace.manifest_path.read_bytes() == on_disk, "the post stage rewrote runs.json"
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_plots.csv" in manifest["products"], "frozen failure lost its history"
+    assert "time_history/AL-020_plots.csv" in manifest["products"], (
+        "frozen failure lost its history"
+    )
     assert "sections/AL-020_sections.csv" in manifest["products"]
-    key = "probes/AL-020_time_average.csv"
+    key = "reductions/AL-020_phase_locked.csv"
     assert key in manifest["products" if window[1] < 60 else "skipped"]
 
 
@@ -145,7 +147,7 @@ def test_frozen_repost_retires_previous_average(tmp_path, archive):
     log = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_log.txt"
     log.write_text(_log(2413), newline="\n")
     write_campaign_products(workspace, overwrite=True, archive=archive, check_frozen=True)
-    key = "probes/AL-020_time_average.csv"
+    key = "reductions/AL-020_phase_locked.csv"
     assert key in _products_manifest(workspace)["skipped"]
     assert not (workspace.products_dir(None) / key).exists(), "frozen average remains current"
 

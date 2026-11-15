@@ -69,6 +69,12 @@ from pyflightstream.post._installed_copies import (
     write_installed_probes,
 )
 from pyflightstream.post._noise_products import noise_products
+from pyflightstream.post._point_stage import (
+    finish_sections,
+    rotor_ids_of,
+    run_block_scope,
+    split_of,
+)
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_products import (
     _qsteady_corrections,
@@ -80,6 +86,7 @@ from pyflightstream.post._rotor_products import (
 from pyflightstream.post._stage import (
     PROBES_DIR,
     SECTIONS_DIR,
+    TIME_HISTORY_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
     failure_reason,
 )
@@ -118,6 +125,7 @@ from pyflightstream.workspace.sidecars import (
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
+    from pyflightstream.results import FrozenSolve
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 
@@ -316,7 +324,8 @@ def _sim_products(
         sweep_rows=sweep_rows,
         drafts=drafts,
     )
-    _run_steps(ctx, _STEPS)
+    with run_block_scope(ctx):
+        _run_steps(ctx, _STEPS)
     return ctx.written, ctx.written_names, ctx.skipped
 
 
@@ -605,7 +614,9 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
     # MT-01: scope ProductError to this export's product. Products already
     # written for the simulation must retain their manifest entries when
     # another export is unreadable.
+    family_files: list[Path] = []
     try:
+        split = split_of(ctx)
         done = write_sections_table(
             target,
             sloads_path.read_text(encoding="utf-8", errors="replace"),
@@ -632,6 +643,10 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
             layout=record.sections_layout,
             rotors=_section_rotors(ctx.live, ctx.aliases, record),
             pol=ctx.sim_id,
+            inventory=record.inventory,
+            rotor_ids=rotor_ids_of(ctx),
+            split=split,
+            family_files=family_files,
         )
     except (ProductError, OSError) as error:
         ctx.skipped[relative] = str(error)
@@ -645,6 +660,7 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
         )
         return
     _sections_cut_products(ctx, point, done)
+    finish_sections(ctx, point, done, family_files, split)
 
 
 def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str) -> None:
@@ -842,7 +858,7 @@ def _plots_products(
         )
     if not ((plots or field_requested) and plots_path is not None and plots_path.is_file()):
         return
-    relative = f"{PROBES_DIR}/{point.name}_plots.csv"
+    relative = f"{TIME_HISTORY_DIR}/{point.name}_plots.csv"
     target = ctx.target(ctx.out / relative)
     try:
         done = write_plots_table(

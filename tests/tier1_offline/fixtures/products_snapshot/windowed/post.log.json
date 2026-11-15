@@ -7,40 +7,40 @@
  "records": [
   {
    "point": "AL-020",
-   "product": "sections/AL-020_harmonics.csv",
+   "product": "reductions/AL-020_harmonics.csv",
    "message": "the point's record states no rotor whose blades and clock the fit can read",
    "remedy": null,
-   "category": "section-layout",
+   "category": "postprocessing",
    "severity": "warning"
   },
   {
    "point": "AL-020",
-   "product": "sections/AL-020_disc_",
+   "product": "reductions/AL-020_disc_",
    "message": "no disc map: the point's record states no rotor whose blades and clock the fit can read",
    "remedy": null,
-   "category": "section-layout",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "reductions/AL-020_disc_ not written: no disc map: the point's record states no rotor whose blades and clock the fit can read",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "reductions/AL-020_harmonics.csv not written: the point's record states no rotor whose blades and clock the fit can read",
+   "remedy": null,
+   "category": "postprocessing",
    "severity": "warning"
   },
   {
    "point": "campaign",
    "product": "stage",
    "message": "sections/AL-020_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
-   "remedy": null,
-   "category": "section-layout",
-   "severity": "warning"
-  },
-  {
-   "point": "campaign",
-   "product": "stage",
-   "message": "sections/AL-020_disc_ not written: no disc map: the point's record states no rotor whose blades and clock the fit can read",
-   "remedy": null,
-   "category": "section-layout",
-   "severity": "warning"
-  },
-  {
-   "point": "campaign",
-   "product": "stage",
-   "message": "sections/AL-020_harmonics.csv not written: the point's record states no rotor whose blades and clock the fit can read",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -94,19 +94,19 @@
    "severity": "warning"
   },
   {
-   "point": "sections/AL-020_harmonics.csv",
-   "product": "sections/AL-020_harmonics.csv",
+   "point": "reductions/AL-020_harmonics.csv",
+   "product": "reductions/AL-020_harmonics.csv",
    "message": "the point's record states no rotor whose blades and clock the fit can read",
    "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "section-layout",
+   "category": "postprocessing",
    "severity": "warning"
   },
   {
-   "point": "sections/AL-020_disc_",
-   "product": "sections/AL-020_disc_",
+   "point": "reductions/AL-020_disc_",
+   "product": "reductions/AL-020_disc_",
    "message": "no disc map: the point's record states no rotor whose blades and clock the fit can read",
    "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "section-layout",
+   "category": "postprocessing",
    "severity": "warning"
   }
  ]

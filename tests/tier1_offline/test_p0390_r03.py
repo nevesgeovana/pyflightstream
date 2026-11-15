@@ -661,6 +661,26 @@ def without_mesh_route_column(text: str) -> str:
     )
 
 
+def without_run_block_columns(text: str) -> str:
+    """Return a settings table without the canonical run block that 0.58.0 opens it with.
+
+    Every table the post writes opens with the run block (PFS-2231): ``POL`` and then the
+    columns up to ``WINDOW_PASSAGES``, which the 0.38.0 capture has not. Only ``POL`` and the
+    table's own columns, after the block, are compared; a table without the block is returned
+    as it is.
+    """
+    lines = text.split("\n")
+    header = lines[0].split(",")
+    if "WINDOW_PASSAGES" not in header:
+        return text
+    end = header.index("WINDOW_PASSAGES")
+    return "\n".join(
+        ",".join([*cells[:1], *cells[end + 1 :]]) if line else line
+        for line in lines
+        for cells in [line.split(",")]
+    )
+
+
 def settings_spelling_admitted(new: str, captured: str) -> bool:
     """Whether a settings table differs from its 0.38.0 capture by the PFS-2105.020 spelling only.
 
@@ -1225,6 +1245,16 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 row.pop("machine", None)
             assert actual == expected, name
             continue
+        if name == products_name:
+            # 0.58.0 (PFS-2232): the manifest states its schema version, the folders of the
+            # tree and what a migration moved ({} on a clean tree); every other key is
+            # compared as the 0.38.0 capture has it.
+            current = json.loads(text)
+            assert current.pop("schema_version") == 2, name
+            assert current.pop("tree"), name
+            assert current.pop("migrated") == {}, name
+            assert current == json.loads(captured[name].decode("utf-8")), name
+            continue
         if name.endswith(SETTINGS_TABLE_SUFFIX) or (
             name.startswith("tree/post/") and name.endswith(".csv")
         ):
@@ -1233,6 +1263,7 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
             # columns of every post table (RHO 0.47715 became 0.477146); a cell is admitted
             # only where its five-decimal spelling is the captured cell.
             if name.endswith(SETTINGS_TABLE_SUFFIX):
+                text = without_run_block_columns(text)
                 # The post-1 review (087ffceb) added one ``f<id>_kind`` column per flag; the
                 # captured table has none, so those columns are taken out of the new one.
                 text = without_flag_kind_columns(text)

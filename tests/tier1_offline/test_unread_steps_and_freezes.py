@@ -350,14 +350,14 @@ def test_a_per_rotor_reduction_is_judged_by_that_rotors_blades():
     )
 
 
-def test_a_trimmed_per_blade_span_with_no_frame_is_a_named_skip_not_an_abort(tmp_path):
+def test_a_trimmed_phase_locked_span_with_no_frame_is_a_named_skip_not_an_abort(tmp_path):
     """The QA read of the 0.26.0 closing-round fixes, 2026-09-23.
 
     Passages [58,58], [59,59], [60,61] with plotted samples at 60 and 61 only
     and step 61 unread: asked to refuse, the stage trims the last passage and
     asks the reducer what [58,59] reads, which holds no plotted frame. That
     answer escaped as MalformedOutputError and ended every later product;
-    it is the per-blade table's own named skip, and the campaign completes.
+    it is the phase-locked reduction's own named skip, and the campaign completes.
     """
     import re
 
@@ -383,10 +383,10 @@ def test_a_trimmed_per_blade_span_with_no_frame_is_a_named_skip_not_an_abort(tmp
     _make_one_step_unreadable(workspace, 61)
     write_campaign_products(workspace, matrix_stem="products", check_frozen=True)
     manifest = _products_manifest(workspace)
-    key = "probes/AL-020_per_blade.csv"
+    key = "reductions/AL-020_phase_locked.csv"
     assert key in manifest["skipped"], manifest
     assert "no frame" in manifest["skipped"][key] or "58" in manifest["skipped"][key]
-    assert "probes/AL-020_plots.csv" in manifest["products"], "the post did not complete"
+    assert "time_history/AL-020_plots.csv" in manifest["products"], "the post did not complete"
 
 
 def test_p0430_f3_a_writer_outside_a_post_warns_by_default(tmp_path):

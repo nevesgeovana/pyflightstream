@@ -16,6 +16,7 @@ from pyflightstream.post.products import (
 )
 from pyflightstream.post.series import write_point_series
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from tests.tier1_offline.test_post_products import beyond_the_block
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -185,7 +186,9 @@ def test_two_distributions_keep_export_values_and_every_step(
     )
     columns, rows = read_csv_table(out / "sections/AL-020_sections.csv")
     expected_columns, expected_rows = read_csv_table(old)
-    assert columns == expected_columns
+    own = beyond_the_block(columns)
+    assert set(expected_columns) <= set(columns)
+    assert own == tuple(name for name in expected_columns if name in own)
     assert [(r["STEP"], r["FAMILY"], r["Fx"]) for r in rows] == [
         (r["STEP"], r["FAMILY"], r["Fx"]) for r in expected_rows
     ]

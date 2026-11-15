@@ -1,65 +1,31 @@
 ## `per_blade`
 
-!!! note "The output file"
-    `probes/<point>_per_blade_<ALIAS>.csv` is one row per blade with its start
-    and end azimuth, as defined here. See [the migration record](../upgrading.md#older-layouts)
-    for the shape of historical files.
+Each blade is a family row of the polar files, so the `per_blade` table is no longer
+written. A blade declared in a rotor is a row of
+[`FAM-ACOEF`](../pproc/fam-acoef.md) with its airframe coefficients and of
+[`FAM-RCOEF`](../pproc/fam-rcoef.md) with its rotor loads and loadings, keyed by
+`FAMILY` and `FAMILY_ID`, and the rotor as a whole is the group of its own
+[group files](../pproc/group-files.md).
 
-The per-blade table averages each blade over the LAST part of the run, the
-row's averaging window. The blades sit at different azimuths, and that is not a
-reason for different windows: a column states where each blade starts and ends.
+**The window is shared by every blade of a rotor.** Averaging each blade over its
+own passage would put each in a different part of the history, so a difference
+between two blades would mix a real azimuthal difference with a difference in when
+each was sampled. Every family of a point is averaged over the one window of the
+row, and that window is stated in the [run block](the-run-block.md#the-run-block).
+On a multi-rotor row the window is counted in the revolutions of the clock rotor.
 
-**ONE window per rotor, shared by every blade of that rotor.** One row per blade,
-and each row carries
-the **start and end azimuth of that blade** over that one shared window.
+The public Python helper `ReductionPlan.blade_windows()` has a separate contract: it
+partitions the last revolution into disjoint, inclusive blade-passage windows. Those
+windows sample different parts of the history, so differences between their means can
+include temporal variation. It remains available for that quantity and does not define
+the shared averaging window of the polar files.
 
-**Why one window and not one per blade.** Averaging each blade over its own
-passage puts each blade in a different part of the history, so any difference
-between two blades mixes a real azimuthal difference with a difference in WHEN
-each was sampled -- and nothing in the file says which is which. With one window,
-the azimuth columns carry the difference explicitly and the reader can see it.
+The blades of a rotor are the `families_blades` of its block in the reference
+artifact, in the order of the frames' right-hand rule about the rotor shaft,
+independently of the sign of the speed. Planning checks readable blade centroids
+against that order and refuses a mismatch.
 
-**The window comes from `LAST_REVS_AVG` or `LAST_ITERS_AVG` on the matrix row.**
-The public Python helper `ReductionPlan.blade_windows()` has a separate contract:
-it partitions the last revolution into disjoint, inclusive blade-passage windows.
-Those windows sample different parts of the history, so differences between
-their means can include temporal variation. It remains available for that
-quantity and does not define this product's shared averaging window (F-073).
-
-On a multi-rotor run, each blade follows its own rotor's clock:
-`LAST_REVS_AVG` counts that rotor's own revolutions. Rotors turning at different
-rates can therefore have different step windows for the same requested number
-of revolutions. Every blade of one rotor shares that rotor's window;
-`LAST_ITERS_AVG` uses the stated step count.
-
-Averaging from step one mixes the transient with the answer.
-
-**The rows.** Each row leads with `POL`, `REDUCTION`, `ROTOR`, `BLADE`, `FAMILY`, the
-window (`FIRST_STEP`, `LAST_STEP`, `STEPS`), `AZIMUTH_START`, `AZIMUTH_END`,
-then the condition block and the moment point. `FIRST_STEP` and `LAST_STEP` are
-the first and last steps of the window that the history holds, and `STEPS` is the
-number of frames that entered the average, which is fewer than
-`LAST_STEP - FIRST_STEP + 1` where the history has a gap.
-
-- **A blade's columns are the plots named for its family.** A plot is
-  `<parameter>_<group>` and a group cut per blade is named for the blade's
-  family, so blade one's are `CL_MRP_Blade1`, `FX_LOCAL_Blade1`. The row carries
-  them with the family removed, `CL_MRP`, `FX_LOCAL`, so two blades line up
-  under one heading. A pproc gets them with `families = "each"` or
-  `frame = "LOCAL_AXIS"` over the rotor. Where two families end alike (`Blade_1`
-  and `1`) the longest family that fits owns the column.
-- **The azimuths are where that blade IS at the window's first and last step**,
-  by the formula of the sections table: blade one's datum, plus the blade's
-  position times `360 / blades`, plus the rotor's sense times the step times
-  `360 / steps_per_revolution`, wrapped. `blades` is the ROTOR's count, so a
-  periodic sector carrying two blades of four spaces them a quarter turn apart.
-  Without the rotor's clock they read `NA`; the averages are written all the same.
-- **Which families are a rotor's blades** is the `families_blades` of its block
-  in the reference artifact; the run also records them. The list follows the
-  frames' positive right-hand order about the rotor shaft, independently of RPM
-  sign. Planning checks readable blade centroids and refuses a mismatch greater
-  than a quarter pitch, naming the corrected list. A row
-  that states its rotor with flat keys and cites no block has no per-blade
-  table, and `products.json` says why.
-
----
+Where a blade's own azimuthal variation is wanted, the
+[`phase_locked`](phase_locked.md#phase_locked) table is one row per azimuth of the
+revolution, and the [per-station harmonics](the-per-station-harmonics.md#the-per-station-harmonics)
+fit it per station.

@@ -155,7 +155,7 @@ def test_a_pproc_that_writes_no_polar_tables_still_posts_an_unsteady_row(tmp_pat
     workspace = _windowed(tmp_path, pproc='[groups]\n"1" = "all"\n\n[products]\npolars = false\n')
     written = write_campaign_products(workspace)
     names = {Path(path).name for path in written}
-    assert "AL-020_time_average.csv" in names, sorted(names)
+    assert "AL-020_plots.csv" in names, sorted(names)
 
 
 def test_the_unsteady_polar_vouches_only_for_the_points_it_holds(tmp_path):

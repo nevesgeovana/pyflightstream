@@ -1258,7 +1258,10 @@ def test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_sk
     reference.write_text(as_run, encoding="utf-8")
     assert matrix_cli.main(command) == 0
     assert capsys.readouterr().out.count("[p002]: extracted into") == 2
-    assert strict_count(command) == control, "an extraction already done asks nothing"
+    # 0.58.0: an extracted point's _cp.txt is tabled as sections/<point>_cp.csv, and the stub's
+    # Cp export has no footer, so each of the two points names one skip of its own; the
+    # extraction itself, done, asks nothing more.
+    assert strict_count(command) == control + 2, "an extraction already done asks nothing"
     assert sum(len(stub.invocations) for stub in made) == 2
 
 

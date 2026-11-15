@@ -1,28 +1,13 @@
 {
  "products": {
-  "probes/AL-020_plots.csv": {
+  "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
    ]
   },
-  "probes/AL-020_time_average.csv": {
-   "sim_id": "7001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_7001/AL-020"
-   ],
-   "reduction": "time_average",
-   "windows": [
-    [
-     1,
-     14
-    ]
-   ],
-   "window_from": "the whole run"
-  },
-  "probes/AL-020_per_revolution_PROP.csv": {
+  "reductions/AL-020_per_revolution_PROP.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -69,15 +54,88 @@
  "log": "post.log",
  "log_json": "post.log.json",
  "skipped": {
-  "probes/AL-020_phase_locked.csv": "the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv.",
-  "probes/AL-020_per_blade.csv": "the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv.",
-  "probes/AL-020_phase_locked_PROP.csv": "not under test",
-  "probes/AL-020_per_blade_PROP.csv": "not under test",
-  "probes/AL-020_per_revolution_PROP.csv#partial": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
+  "reductions/AL-020_phase_locked.csv": "the row names its rotors: the per-rotor files are reductions/AL-020_phase_locked_PROP.csv.",
+  "reductions/AL-020_phase_locked_PROP.csv": "not under test",
+  "reductions/AL-020_per_revolution_PROP.csv#partial": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
   "polars/P7001_AL-020_uns_avg.csv#axes": "the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots."
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }

@@ -65,8 +65,8 @@ def test_w_status_refusal_retires_previous_products(tmp_path, monkeypatch, archi
     write_campaign_products(workspace)
     out = workspace.products_dir(None)
     before = {key: (out / key).read_bytes() for key in _products_manifest(workspace)["products"]}
-    assert "probes/AL-020_time_average.csv" in before
-    assert "probes/AL-020_plots.csv" in before
+    assert "reductions/AL-020_phase_locked.csv" in before
+    assert "time_history/AL-020_plots.csv" in before
     assert "FAILED_INCOMPLETE_OUTPUT" in (out / "post.log").read_text()
     write_campaign_products(workspace, overwrite=True, check_frozen=True, archive=archive)
     manifest = _products_manifest(workspace)
@@ -266,7 +266,7 @@ def test_p0530_a_post_that_keeps_still_retires_what_the_frozen_check_refuses(tmp
     write_campaign_products(workspace)
     out = workspace.products_dir(None)
     before = {key: (out / key).read_bytes() for key in _products_manifest(workspace)["products"]}
-    assert "probes/AL-020_time_average.csv" in before
+    assert "reductions/AL-020_phase_locked.csv" in before
     write_campaign_products(workspace, overwrite=True, check_frozen=True, keep_unrebuilt=True)
     manifest = _products_manifest(workspace)
     assert not manifest["products"], sorted(manifest["products"])

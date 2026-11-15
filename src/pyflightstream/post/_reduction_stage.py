@@ -42,7 +42,7 @@ from pyflightstream.post._stage import (
     _PER_REVOLUTION,
     _PHASE_LOCKED,
     _PLOTS_CLOCK_COLUMNS,
-    PROBES_DIR,
+    REDUCTIONS_DIR,
     _a_name_a_file_may_carry,
     _judge_average,
     _names_location,
@@ -57,6 +57,7 @@ from pyflightstream.post._tables import (
     renamed_columns,
     write_csv_table,
 )
+from pyflightstream.post._tree_migration import RETIRED_REDUCTIONS, say_retired
 from pyflightstream.post.farfield_fields import (
     FarLayout,
     ProbeSamples,
@@ -75,7 +76,6 @@ from pyflightstream.post.point_tables import (
     PER_REVOLUTION_COLUMNS,
     per_revolution_table,
     revolution_drift_pct,
-    write_per_blade_table,
     write_phase_locked_table,
     write_reduction_table,
 )
@@ -397,9 +397,11 @@ def _dictionary_the_table_can_honour(
     so interpolation support cannot bypass the validation.
     """
     try:
-        renamed_columns(columns, names, printed=columns, where=_names_location(PROBES_DIR, stem))
+        renamed_columns(
+            columns, names, printed=columns, where=_names_location(REDUCTIONS_DIR, stem)
+        )
     except ProductError as refused:
-        skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
+        skipped[f"{REDUCTIONS_DIR}/{stem}#names"] = str(refused)
         warn(str(refused), PyflightstreamWarning, stacklevel=2)
         return None
     return names
@@ -446,7 +448,7 @@ def _point_reductions(
     """
     stem = plots_table.name[: -len("_plots.csv")]
     if plan is None:
-        skipped[f"{PROBES_DIR}/{stem}_time_average.csv"] = (
+        skipped[f"{REDUCTIONS_DIR}/{stem}#windows"] = (
             "the run record carries no reduction windows, so no reduction of the plots "
             "table can say which steps it averaged; the record was written before the "
             "field existed or by hand. Rerun the row, and the record will carry the "
@@ -502,44 +504,6 @@ def _the_rotor_of_a_reduction(
     return rotor, facts, count
 
 
-def _write_the_per_blade_table(
-    destination: Path,
-    series: TimestepSeries,
-    columns: Sequence[str],
-    windows: Sequence[tuple[int, ...]],
-    *,
-    rotor: str | None,
-    plan: Mapping[str, object],
-    rotor_facts: Mapping[str, Mapping[str, object]],
-    condition: Mapping[str, object] | None,
-    reference: ReferenceValues | None,
-    pol: str | int | None = None,
-) -> Path:
-    """Resolve which rotor a per-blade file is about, and write one row per blade.
-
-    A per-rotor file names its rotor. The row-level file of a row that turns ONE
-    rotor is that rotor's; with none or several it is nobody's, and the writer
-    refuses it by name rather than guess. A record planned before the window was
-    shared holds one window per blade: their span is the revolution they cut, and
-    it is the window every blade is averaged over now.
-    """
-    if not windows:
-        raise ProductError("the per_blade reduction states no window")
-    rotor, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts)
-    return write_per_blade_table(
-        destination,
-        series,
-        columns,
-        window=(int(windows[0][0]), int(windows[-1][1])),
-        rotor=rotor,
-        blades=count,
-        facts=facts,
-        condition=condition,
-        reference=reference,
-        pol=pol,
-    )
-
-
 def _drift_limit_pct(pproc: object) -> float:
     """Return the drift limit the pproc declares, in per cent, else the default."""
     declared = getattr(getattr(pproc, "per_revolution", None), "drift_limit_pct", None)
@@ -557,11 +521,15 @@ def _per_revolution_targets(
             stated = block.get("steps_per_revolution") if isinstance(block, Mapping) else None
             safe = _a_name_a_file_may_carry(str(alias))
             targets.append(
-                (str(alias), stated, f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}_{safe}.csv")
+                (str(alias), stated, f"{REDUCTIONS_DIR}/{stem}_{_PER_REVOLUTION}_{safe}.csv")
             )
     elif isinstance(plan.get("phase_locked"), Mapping):
         targets.append(
-            (None, plan.get("steps_per_revolution"), f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}.csv")
+            (
+                None,
+                plan.get("steps_per_revolution"),
+                f"{REDUCTIONS_DIR}/{stem}_{_PER_REVOLUTION}.csv",
+            )
         )
     return targets
 
@@ -646,7 +614,7 @@ def _write_the_per_revolution_products(
                 (*PER_REVOLUTION_COLUMNS, *printed),
                 names,
                 printed=printed,
-                where=_names_location(PROBES_DIR, relative),
+                where=_names_location(REDUCTIONS_DIR, relative),
             )
         except ProductError as refused:
             skipped[relative] = str(refused)
@@ -749,9 +717,13 @@ def _reduction_reading(
     # naming each rotor. Flat keys carry the explanatory skip. Records with
     # no per-rotor blocks use the flat keys and their flat filenames.
     """List flat reductions before per-rotor reductions and their skip pointers."""
+    for retired in RETIRED_REDUCTIONS:
+        if ctx.plan.get(retired) is not None:
+            say_retired(retired)
     reading: list[tuple[str, object, str, str | None]] = [
-        (name, ctx.plan.get(name), f"{PROBES_DIR}/{ctx.stem}_{name}.csv", None)
+        (name, ctx.plan.get(name), f"{REDUCTIONS_DIR}/{ctx.stem}_{name}.csv", None)
         for name in REDUCTION_NAMES
+        if name not in RETIRED_REDUCTIONS
     ]
     rotors = ctx.plan.get(ROTORS_KEY)
     if isinstance(rotors, Mapping):
@@ -760,11 +732,13 @@ def _reduction_reading(
                 continue
             safe = _a_name_a_file_may_carry(str(alias))
             for name in PER_ROTOR_REDUCTIONS:
+                if name in RETIRED_REDUCTIONS:
+                    continue
                 reading.append(
                     (
                         name,
                         block.get(name),
-                        f"{PROBES_DIR}/{ctx.stem}_{name}_{safe}.csv",
+                        f"{REDUCTIONS_DIR}/{ctx.stem}_{name}_{safe}.csv",
                         str(alias),
                     )
                 )
@@ -913,22 +887,7 @@ def _write_reduction_table(
     assert ctx.series is not None  # The caller loaded and judged this history.
     destination = ctx.target(ctx.out / relative)
     try:
-        if name == _PER_BLADE:
-            done = _write_the_per_blade_table(
-                destination,
-                ctx.series,
-                ctx.columns,
-                windows,
-                rotor=rotor,
-                plan=ctx.plan,
-                rotor_facts=ctx.rotor_facts or {},
-                condition=ctx.condition,
-                reference=ctx.reference,
-                pol=ctx.pol,
-            )
-            # ONE WINDOW, and the manifest says the one the file holds.
-            windows = [(windows[0][0], windows[-1][1])]
-        elif name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
+        if name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
             # THE PPROC DECLARES [phase_locked]: the mean at each azimuth.
             rotor_of, facts, count = _the_rotor_of_a_reduction(
                 rotor, ctx.plan, ctx.rotor_facts or {}
@@ -1054,7 +1013,7 @@ def _write_point_revolutions(
             # Under each file the plan would write: a plan with a rotors block
             # writes one per rotor, never the single-rotor name.
             targets = _per_revolution_targets(ctx.plan, ctx.stem) or [
-                (None, None, f"{PROBES_DIR}/{ctx.stem}_{_PER_REVOLUTION}.csv")
+                (None, None, f"{REDUCTIONS_DIR}/{ctx.stem}_{_PER_REVOLUTION}.csv")
             ]
             for _alias, _stated, relative in targets:
                 ctx.skipped[relative] = str(error)

@@ -16,7 +16,6 @@ The expectations are the requirement's: the rotor is the alias the plan names,
 from __future__ import annotations
 
 from pyflightstream.post.products import (
-    NOT_APPLICABLE,
     read_csv_table,
     write_campaign_products,
 )
@@ -30,18 +29,20 @@ from tests.tier1_offline.test_post_products import (
 def _reductions(tmp_path):
     workspace = _unsteady_workspace(tmp_path, reductions=TWO_ROTOR_PLAN)
     write_campaign_products(workspace)
-    folder = workspace.root / "post" / "products" / "probes"
-    return workspace, {path.name: read_csv_table(path) for path in folder.glob("AL-020_*.csv")}
+    tree = workspace.root / "post" / "products"
+    tables = {}
+    for folder in ("reductions", "time_history"):
+        for path in (tree / folder).glob("AL-020_*.csv"):
+            tables[path.name] = read_csv_table(path)
+    return workspace, tables
 
 
 def test_a_per_rotor_reduction_names_its_rotor_in_its_rows(tmp_path):
     _workspace_, tables = _reductions(tmp_path)
     for alias in ("LIFT_L1", "PUSHER"):
-        columns, rows = tables[f"AL-020_per_blade_{alias}.csv"]
+        columns, rows = tables[f"AL-020_phase_locked_{alias}.csv"]
         assert "ROTOR" in columns, columns
         assert {row["ROTOR"] for row in rows} == {alias}, rows
-    columns, rows = tables["AL-020_time_average.csv"]
-    assert {row["ROTOR"] for row in rows} == {NOT_APPLICABLE}, "the time average is no rotor's"
 
 
 def test_no_reduction_publishes_the_mean_of_a_clock(tmp_path):
@@ -56,7 +57,7 @@ def test_no_reduction_publishes_the_mean_of_a_clock(tmp_path):
 
 def test_a_reduction_states_the_moment_point_of_the_moments_it_averages(tmp_path):
     workspace, tables = _reductions(tmp_path)
-    columns, rows = tables["AL-020_time_average.csv"]
+    columns, rows = tables["AL-020_phase_locked_LIFT_L1.csv"]
     for name in ("XMOM", "YMOM", "ZMOM"):
         assert name in columns, columns
-    assert _products_manifest(workspace)["products"]["probes/AL-020_time_average.csv"]
+    assert _products_manifest(workspace)["products"]["reductions/AL-020_phase_locked_LIFT_L1.csv"]

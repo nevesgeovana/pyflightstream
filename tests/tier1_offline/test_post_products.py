@@ -745,76 +745,37 @@ def _products_manifest(workspace):
     )
 
 
+def beyond_the_block(columns):
+    """The columns a table states after the canonical run block (PFS-2231)."""
+    return tuple(columns[list(columns).index("WINDOW_PASSAGES") + 1 :])
+
+
 def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path):
-    """PFS-2015.04. One file per applicable reduction beside the plots table, each
+    """PFS-2015.04. One file per applicable reduction, in the reductions folder, each
     named in products.json with the reduction and the window it used; raw is the
-    plots table itself and is written once."""
+    plots table itself, in time_history, and is written once. The time_average and
+    per_blade tables are retired (0.58.0): they are not written, and the post says so."""
     from pyflightstream.post.products import write_campaign_products
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     written = write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "probes"
-    names = sorted(p.name for p in plots.iterdir())
+    tree = workspace.root / "post" / "products"
+    reductions = tree / "reductions"
+    names = sorted(p.name for p in reductions.iterdir())
     assert names == [
-        "AL-020_per_blade.csv",
         "AL-020_per_revolution.csv",  # 0.31.0 (G2)
         "AL-020_phase_locked.csv",
-        "AL-020_plots.csv",
-        "AL-020_time_average.csv",
-    ], f"the plots folder holds {names}"
-    assert {p.name for p in written} >= set(names), "every reduction is a product returned"
+    ], f"the reductions folder holds {names}"
+    assert sorted(p.name for p in (tree / "time_history").iterdir()) == ["AL-020_plots.csv"]
+    assert {p.name for p in written} >= {*names, "AL-020_plots.csv"}, "every reduction is returned"
+    for retired in ("AL-020_time_average.csv", "AL-020_per_blade.csv"):
+        assert not list(tree.rglob(retired)), f"the retired table {retired} was written"
+    # RETIRED, SAID ONCE PER POST AND KIND.
+    log = (workspace.products_dir(None) / "post.log").read_text(encoding="utf-8")
+    assert log.count("The time_average table is retired") == 1
+    assert log.count("The per_blade table is retired") == 1
 
-    columns, rows = read_csv_table(plots / "AL-020_time_average.csv")
-    # THE CONTEXT BLOCK SITS BETWEEN THEM SINCE 0.23.0 (item 5). A window of
-    # averaged coefficients with no angle of attack and no reference area
-    # beside it is a set of numbers about nothing, which is what this table
-    # was until the owner's rule that every product says what it is a file of.
-    # The window block still leads and the plots table's own columns still
-    # follow, so a reader's column ORDER within each block is unchanged.
-    # THREE EXPECTATIONS MOVED WITH THE REQUIREMENT AT 0.24.0, and this test had
-    # pinned one of them by reading it off the implementation. `ROTOR` follows
-    # `REDUCTION` (RI-03); the moment point follows the context (CC-09); and
-    # `Time-step` IS GONE (RI-07): this assertion listed it as a reduction column,
-    # which is the mean of a step counter published under the same contract as CL.
-    # `POL` FIRST since 0.27.0 (G16), as in every table the post writes.
-    assert columns[:7] == (
-        "POL",
-        "REDUCTION",
-        "ROTOR",
-        "WINDOW",
-        "FIRST_STEP",
-        "LAST_STEP",
-        "STEPS",
-    ), columns
-    assert columns[7 : 7 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
-    assert columns[7 + len(CONTEXT_COLUMNS) :] == (
-        "XMOM",
-        "YMOM",
-        "ZMOM",
-        "CL_MRP_TOTAL",
-        "CDI_MRP_TOTAL",
-        # The fixture's history holds the two blades since 0.24.0.
-        "CL_MRP_Blade1",
-        "CL_MRP_Blade2",
-    ), "the window block, the context, the moment point, then the plots' own DATA columns"
-    assert len(rows) == 1
-    assert rows[0]["REDUCTION"] == "time_average" and rows[0]["WINDOW"] == "1"
-    assert (rows[0]["FIRST_STEP"], rows[0]["LAST_STEP"], rows[0]["STEPS"]) == ("3", "8", "6")
-    assert rows[0]["CL_MRP_TOTAL"] == "2.20000", "mean step 5.5 times 0.1, scaled by four"
-
-    _, blades = read_csv_table(plots / "AL-020_per_blade.csv")
-    # ONE ROW PER BLADE OVER ONE SHARED WINDOW since 0.24.0, the definition of
-    # `per_blade`. This asserted one row per WINDOW holding the TOTAL's average,
-    # which is the time average's shape under the per-blade name. The shared window
-    # is the revolution the two old windows cut, 5 to 8; the blades' histories are
-    # 0.2 i and 0.3 i, scaled by four, and the mean step there is 6.5.
-    assert [(r["BLADE"], r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in blades] == [
-        ("1", "Blade1", "5", "8"),
-        ("2", "Blade2", "5", "8"),
-    ]
-    assert [r["CL_MRP"] for r in blades] == ["5.20000", "7.80000"]
-
-    _, passages = read_csv_table(plots / "AL-020_phase_locked.csv")
+    _, passages = read_csv_table(reductions / "AL-020_phase_locked.csv")
     assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in passages] == [
         ("3", "4"),
         ("5", "6"),
@@ -823,29 +784,29 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert passages[0]["CL_MRP_TOTAL"] == "1.40000"
 
     manifest = _products_manifest(workspace)
-    entry = manifest["products"]["probes/AL-020_per_blade.csv"]
+    entry = manifest["products"]["reductions/AL-020_phase_locked.csv"]
     assert entry["runs"] == ["camp/sim_7001/AL-020"] and entry["sim_id"] == "7001"
-    assert entry["reduction"] == "per_blade"
-    assert entry["windows"] == [[5, 8]] and entry["period_steps"] == 2
-    assert "last revolution" in entry["window_from"]
-    average = manifest["products"]["probes/AL-020_time_average.csv"]
-    assert average["reduction"] == "time_average" and average["windows"] == [[3, 8]]
-    assert "reduction" not in manifest["products"]["probes/AL-020_plots.csv"], (
+    assert entry["reduction"] == "phase_locked"
+    assert entry["windows"] == [[3, 4], [5, 6], [7, 8]] and entry["period_steps"] == 2
+    assert "reduction" not in manifest["products"]["time_history/AL-020_plots.csv"], (
         "raw is the plots table itself, not a reduction"
     )
+    assert not [
+        key for key in manifest["products"] if key.endswith(("_time_average.csv", "_per_blade.csv"))
+    ]
     assert _skipped_besides_the_axes(manifest) == {}
 
     # The docs name the files a user meets beside the plots table, on the one
     # page that defines the reductions (FR-1149); the workflow pages link there.
     page = (DEFINITION_DOCS).read_text(encoding="utf-8")
-    for name in ("<point>_time_average.csv", "<point>_phase_locked.csv", "<point>_per_blade.csv"):
+    for name in ("<point>_phase_locked.csv",):
         assert name in page, f"docs/post-processing-definitions.md does not name {name}"
 
 
-def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
-    """Without a rotor the row states DELTA_TIME and TIME_ITERATIONS: only the time
-    average and raw apply; a blade passage has no length, so the other two are
-    neither written nor recorded as skipped."""
+def test_a_rotorless_unsteady_point_gets_the_plots_alone(tmp_path):
+    """Without a rotor the row states DELTA_TIME and TIME_ITERATIONS: only raw applies
+    (the time average is retired); a blade passage has no length, so the passage
+    reductions are neither written nor recorded as skipped."""
     from pyflightstream.post.products import write_campaign_products
 
     plan = {
@@ -859,13 +820,10 @@ def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady")
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "probes"
-    assert sorted(p.name for p in plots.iterdir()) == [
-        "AL-020_plots.csv",
-        "AL-020_time_average.csv",
-    ]
-    _, rows = read_csv_table(plots / "AL-020_time_average.csv")
-    assert rows[0]["CL_MRP_TOTAL"] == "1.80000", "mean step 4.5 times 0.1, scaled by four"
+    tree = workspace.root / "post" / "products"
+    assert sorted(p.name for p in (tree / "time_history").iterdir()) == ["AL-020_plots.csv"]
+    assert not (tree / "reductions").exists() or not list((tree / "reductions").iterdir())
+    assert not list(tree.rglob("AL-020_time_average.csv")), "the retired table was written"
     manifest = _products_manifest(workspace)
     assert _skipped_besides_the_axes(manifest) == {}, "not applicable is not skipped"
 
@@ -874,59 +832,33 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
     """FR-68: the reduction files NAME the rotor, and each carries its own windows.
 
     A transition row turns the lifters and the pusher in ONE run, and one
-    file per reduction cannot hold two blade passages. The time average is
-    still one file, because it is one window of the whole run whatever
-    turns in it.
+    file per reduction cannot hold two blade passages.
     """
     from pyflightstream.post.products import write_campaign_products
 
     workspace = _unsteady_workspace(tmp_path, reductions=TWO_ROTOR_PLAN)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "probes"
-    names = sorted(p.name for p in plots.iterdir())
+    reductions = workspace.root / "post" / "products" / "reductions"
+    names = sorted(p.name for p in reductions.iterdir())
     assert names == [
-        "AL-020_per_blade_LIFT_L1.csv",
-        "AL-020_per_blade_PUSHER.csv",
         "AL-020_per_revolution_LIFT_L1.csv",  # 0.31.0 (G2)
         "AL-020_per_revolution_PUSHER.csv",
         "AL-020_phase_locked_LIFT_L1.csv",
         "AL-020_phase_locked_PUSHER.csv",
-        "AL-020_plots.csv",
-        "AL-020_time_average.csv",
-    ], f"the plots folder holds {names}"
-
-    _, lifter = read_csv_table(plots / "AL-020_per_blade_LIFT_L1.csv")
-    _, pusher = read_csv_table(plots / "AL-020_per_blade_PUSHER.csv")
-    # ONE ROW PER BLADE OVER ONE SHARED WINDOW since 0.24.0, which is the definition
-    # of `per_blade` on the definitions page; this asserted one row per WINDOW, a
-    # window per blade, which put each blade in another part of the history. Each
-    # rotor's window is still ITS OWN, the revolution its old windows cut: 5 to 8
-    # for the lifters (4 steps a turn) and 1 to 8 for the pusher (8 steps a turn).
-    assert [(r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in lifter] == [
-        ("Blade1", "5", "8")
-    ]
-    assert [(r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in pusher] == [
-        ("Blade2", "1", "8")
-    ]
-    # The history is 0.2 i and 0.3 i, scaled by four to the free stream: the means
-    # over 5..8 and over 1..8 are 6.5 and 4.5 steps.
-    assert float(lifter[0]["CL_MRP"]) == pytest.approx(0.2 * 6.5 * 4)
-    assert float(pusher[0]["CL_MRP"]) == pytest.approx(0.3 * 4.5 * 4), (
-        "both rotors were averaged over one window, so one of them is not its own"
-    )
+    ], f"the reductions folder holds {names}"
 
     manifest = _products_manifest(workspace)
-    entry = manifest["products"]["probes/AL-020_per_blade_PUSHER.csv"]
-    assert entry["reduction"] == "per_blade" and entry["period_steps"] == 4
+    entry = manifest["products"]["reductions/AL-020_phase_locked_PUSHER.csv"]
+    assert entry["reduction"] == "phase_locked" and entry["period_steps"] == 4
     # THE ROTOR AS A FIELD. Asserted on `window_from` alone, this was a
     # substring match against an English sentence, and the file name does
     # not decompose either: both the reduction and the alias carry
     # underscores (the interface lens, 2026-09-10).
     assert entry["rotor"] == "PUSHER", entry
     skipped = manifest["skipped"]
-    said = skipped["probes/AL-020_per_blade.csv"]
-    assert "probes/AL-020_per_blade_LIFT_L1.csv" in said, said
-    assert "probes/AL-020_per_blade_PUSHER.csv" in said, (
+    said = skipped["reductions/AL-020_phase_locked.csv"]
+    assert "reductions/AL-020_phase_locked_LIFT_L1.csv" in said, said
+    assert "reductions/AL-020_phase_locked_PUSHER.csv" in said, (
         "the flat file's skip does not name the two files the reader is looking for"
     )
 
@@ -936,14 +868,13 @@ def test_a_row_turning_one_rotor_names_it_too(tmp_path):
 
     Gating it made the rotor COUNT a file-naming input, which the user
     does not experience as a naming decision: the day a second rotor is
-    added, every script pointing at `<point>_per_blade.csv` stops finding
+    added, every script pointing at `<point>_phase_locked.csv` stops finding
     its input, and the stale file from the one-rotor run stays on disk
     beside a record that calls it skipped (the interface lens,
     2026-09-10). It is also FR-68's own sentence, unconditional.
 
     A row stating NO motion carries no `rotors` block and is untouched,
-    which is the other sentence of FR-68 and what keeps every workspace
-    written before 0.15.0, and every golden, in the files it always had:
+    which is the other sentence of FR-68:
     `test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table`
     is that case and its names are unchanged.
     """
@@ -957,15 +888,13 @@ def test_a_row_turning_one_rotor_names_it_too(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "probes"
-    names = sorted(p.name for p in plots.iterdir())
+    tree = workspace.root / "post" / "products"
+    names = sorted(p.name for p in (tree / "reductions").iterdir())
     assert names == [
-        "AL-020_per_blade_LIFT_L1.csv",
         "AL-020_per_revolution_LIFT_L1.csv",  # 0.31.0 (G2)
         "AL-020_phase_locked_LIFT_L1.csv",
-        "AL-020_plots.csv",
-        "AL-020_time_average.csv",
     ], f"a one-rotor row's per-rotor files are not named: {names}"
+    assert sorted(p.name for p in (tree / "time_history").iterdir()) == ["AL-020_plots.csv"]
 
 
 def test_an_alias_that_is_not_a_file_name_is_made_into_one(tmp_path):
@@ -987,16 +916,16 @@ def test_an_alias_that_is_not_a_file_name_is_made_into_one(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "probes"
-    assert (plots / "AL-020_per_blade_LIFT_L1.csv").is_file(), sorted(
-        p.name for p in plots.iterdir()
+    reductions = workspace.root / "post" / "products" / "reductions"
+    assert (reductions / "AL-020_phase_locked_LIFT_L1.csv").is_file(), sorted(
+        p.name for p in reductions.iterdir()
     )
-    entry = _products_manifest(workspace)["products"]["probes/AL-020_per_blade_LIFT_L1.csv"]
+    entry = _products_manifest(workspace)["products"]["reductions/AL-020_phase_locked_LIFT_L1.csv"]
     assert entry["rotor"] == "LIFT/L1 ", "the record lost the alias the author wrote"
 
 
 def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):
-    """Three ways a window is missing, each a skip naming its reason under the
+    """Two ways a window is missing, each a skip naming its reason under the
     file that was not written, the way a refused polar is recorded."""
     from pyflightstream.post.products import write_campaign_products
 
@@ -1009,30 +938,27 @@ def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):
     workspace = _unsteady_workspace(tmp_path / "blades", reductions=plan)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_per_blade.csv" in manifest["skipped"], manifest["skipped"]
-    assert "BLADES" in manifest["skipped"]["probes/AL-020_per_blade.csv"]
-    assert "BLADES" in manifest["skipped"]["probes/AL-020_phase_locked.csv"]
-    assert "probes/AL-020_time_average.csv" in manifest["products"]
-    assert not (workspace.root / "post" / "products" / "probes" / "AL-020_per_blade.csv").exists()
+    assert "BLADES" in manifest["skipped"]["reductions/AL-020_phase_locked.csv"]
+    assert not (
+        workspace.root / "post" / "products" / "reductions" / "AL-020_phase_locked.csv"
+    ).exists()
 
     # A plots table shorter than the window: a shorter history averaged as a
     # whole one is the shape every reader here refuses.
     workspace = _unsteady_workspace(tmp_path / "short", reductions=ROTOR_PLAN, rows=6)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    reason = manifest["skipped"]["probes/AL-020_per_blade.csv"]
+    reason = manifest["skipped"]["reductions/AL-020_phase_locked.csv"]
     assert "6" in reason and "8" in reason, reason
-    assert "probes/AL-020_phase_locked.csv" in manifest["skipped"]
-    assert "probes/AL-020_time_average.csv" in manifest["skipped"]
-    assert (workspace.root / "post" / "products" / "probes" / "AL-020_plots.csv").is_file()
+    assert (workspace.root / "post" / "products" / "time_history" / "AL-020_plots.csv").is_file()
 
     # A record carrying no windows at all, written before this release or by
-    # hand: the time average is skipped naming the record, and nothing guesses.
+    # hand: nothing guesses, and the plots table is still written.
     workspace = _unsteady_workspace(tmp_path / "none", reductions=None)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "record" in manifest["skipped"]["probes/AL-020_time_average.csv"]
-    assert "probes/AL-020_plots.csv" in manifest["products"]
+    assert "reductions/AL-020_phase_locked.csv" not in manifest["products"]
+    assert "time_history/AL-020_plots.csv" in manifest["products"]
 
 
 def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path):
@@ -1043,18 +969,29 @@ def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path
 
     before = _unsteady_workspace(tmp_path / "before", reductions=None)
     write_campaign_products(before)
-    table_before = before.root / "post" / "products" / "probes" / "AL-020_plots.csv"
+    table_before = before.root / "post" / "products" / "time_history" / "AL-020_plots.csv"
     assert table_before.is_file()
-    assert not (table_before.parent / "AL-020_time_average.csv").exists(), (
+    assert not (table_before.parent.parent / "reductions" / "AL-020_phase_locked.csv").exists(), (
         "the control wrote no reduction; it is the plots table alone"
     )
 
     after = _unsteady_workspace(tmp_path / "after", reductions=ROTOR_PLAN)
     write_campaign_products(after)
-    table_after = after.root / "post" / "products" / "probes" / "AL-020_plots.csv"
+    table_after = after.root / "post" / "products" / "time_history" / "AL-020_plots.csv"
     assert table_after.is_file(), "the plots table is present after the reductions"
-    assert (table_after.parent / "AL-020_per_blade.csv").is_file(), "the reductions were written"
-    assert table_after.read_bytes() == table_before.read_bytes(), (
+    assert (table_after.parent.parent / "reductions" / "AL-020_phase_locked.csv").is_file(), (
+        "the reductions were written"
+    )
+    # THE RUN BLOCK of the table states the window the row's reductions used (FIRST_STEP,
+    # LAST_STEP, STEPS), so the bytes of the block move with the plan; the history
+    # itself, the columns after the block, is what must not move.
+    columns_before, rows_before = read_csv_table(table_before)
+    columns_after, rows_after = read_csv_table(table_after)
+    assert beyond_the_block(columns_after) == beyond_the_block(columns_before)
+    history = beyond_the_block(columns_before)
+    assert [[row[name] for name in history] for row in rows_after] == [
+        [row[name] for name in history] for row in rows_before
+    ], (
         "the plots table changed under the reductions; a reduction ships beside the "
         "history and never in its place (the author's rule of 2026-08-16)"
     )
@@ -2047,7 +1984,8 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
         p.name for p in (workspace.root / "post" / "products" / "probes").iterdir()
     )
     columns, rows = read_csv_table(table)
-    assert tuple(columns[:7]) == ("POL", "PROBE", "X", "Y", "Z", "FRAME", "STEP")
+    assert columns[0] == "POL"
+    assert beyond_the_block(columns)[:6] == ("PROBE", "X", "Y", "Z", "FRAME", "STEP")
     placed = {
         int(float(row["PROBE"])): (float(row["X"]), float(row["Y"]), float(row["Z"]))
         for row in rows
@@ -3011,7 +2949,8 @@ def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_bloc
     helpers._farfield_products___post(workspace)
     path = next(Path(workspace.root).rglob("sections/*_trefftz_*.csv"))
     columns = path.read_text(encoding="utf-8").splitlines()[0].split(",")
-    assert columns[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
+    assert columns[0] == "POL" and "WINDOW_PASSAGES" in columns, columns
+    assert set(CONTEXT_COLUMNS) <= set(columns), columns
     assert columns[-1] == "STATUS"
 
 
@@ -3186,7 +3125,7 @@ def test_fr_491_fr_800_a_shorter_restatement_keeps_the_march_end_and_says_the_id
     )
     manifest, _columns, series, said = posted(workspace)
     assert list(series.steps) == list(range(1, 9))
-    assert manifest["products"]["probes/AL-020_time_average.csv"]["windows"] == [[5, 8]]
+    assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {"AL-020": [5, 8]}
     idle = [line for line in said if "adds no time step" in line]
     assert len(idle) == 1
     assert "camp/sim_7001/AL-020" in idle[0] and "camp/sim_7001/r20261001-120000/AL-020" in idle[0]

@@ -61,6 +61,11 @@ from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_POSITIONS_MARKER
 from pyflightstream.post._condition import _stated_iteration
+from pyflightstream.post._section_tables import (
+    sections_rows,
+    sections_split,
+    write_split,
+)
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
     _PLOTS_CLOCK_COLUMNS,
@@ -153,6 +158,10 @@ def write_sections_table(
     layout: Sequence[Mapping[str, object]] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     pol: str | int | None = None,
+    inventory: Sequence[str] | None = None,
+    rotor_ids: Mapping[str, int] | None = None,
+    split: str = "point",
+    family_files: list[Path] | None = None,
     overwrite: bool = True,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
@@ -249,6 +258,18 @@ def write_sections_table(
         ``blade1_azimuth_deg`` and signed ``rpm``.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    inventory : sequence of str, optional
+        The geometry's boundary inventory, in file order: ``FAMILY_ID`` is the
+        1-based index of the family in it, ``NA`` where it names none.
+    rotor_ids : mapping of str to int, optional
+        Each rotor alias to its declared id, for ``ROTOR_ID``.
+    split : {'point', 'family', 'both'}, optional
+        ``[sections] split``. The point table is always written; ``family`` and
+        ``both`` also write one table per family,
+        ``<point>_FAM-<FAMILY>_sections.csv``, and the caller drops the point
+        table where only the family files are asked for.
+    family_files : list of Path, optional
+        Where the per-family paths written are appended.
     overwrite : bool, optional
         Replace a file that already exists, as the writer always did (the default).
         False refuses an existing file, naming it, before it is replaced.
@@ -256,7 +277,7 @@ def write_sections_table(
     Returns
     -------
     Path or None
-        The file written, or None when the export declares no section.
+        The point table written, or None when the export declares no section.
 
     Raises
     ------
@@ -318,11 +339,26 @@ def write_sections_table(
     )
     context = context_row(stated, None if reference is None else reference.as_lengths())
     identity = section_identity(len(table), layout, rotors, step, azimuth_deg)
-    rows = [
-        (pol, step, *identity[at], *context, *(float(v) for v in row[:7]))
-        for at, row in enumerate(table)
-    ]
-    return write_csv_table(path, SECTION_COLUMNS, rows, overwrite=overwrite)
+    split = sections_split(split)
+    rows = sections_rows(
+        table[:, :7],
+        identity,
+        pol=pol,
+        step=step,
+        inventory=inventory,
+        rotor_ids=rotor_ids,
+        context=context,
+    )
+    # THE POINT TABLE IS ALWAYS WRITTEN: the products cut from it read it back.
+    return write_split(
+        path,
+        SECTION_COLUMNS,
+        rows,
+        "sections",
+        "point" if split == "point" else "both",
+        family_files=family_files,
+        overwrite=overwrite,
+    )[0]
 
 
 def write_plots_table(

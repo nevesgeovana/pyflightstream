@@ -22,8 +22,24 @@
    "severity": "warning"
   },
   {
+   "point": "campaign",
+   "product": "stage",
+   "message": "The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "AL-020",
-   "product": "probes/AL-020_per_revolution.csv",
+   "product": "reductions/AL-020_per_revolution.csv",
    "message": "the plots table holds 61 time steps, 15 complete revolution(s) of 4 and 1 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
    "remedy": null,
    "category": "postprocessing",
@@ -62,16 +78,8 @@
    "severity": "warning"
   },
   {
-   "point": "probes/AL-020_per_blade.csv",
-   "product": "probes/AL-020_per_blade.csv",
-   "message": "the plots table holds no column of a blade family of rotor 'PUSHER' (its blades are ['B']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "reference-frame",
-   "severity": "warning"
-  },
-  {
-   "point": "probes/AL-020_per_revolution.csv#partial",
-   "product": "probes/AL-020_per_revolution.csv#partial",
+   "point": "reductions/AL-020_per_revolution.csv#partial",
+   "product": "reductions/AL-020_per_revolution.csv#partial",
    "message": "the plots table holds 61 time steps, 15 complete revolution(s) of 4 and 1 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",

@@ -813,6 +813,22 @@ def workspace_data(root):
             "steps-34",
         ),
         (
+            "time_history",
+            "<point>_plots.csv",
+            "The plots history of an unsteady point, one row per step.",
+            "pyflightstream.post._sim:_point_products",
+            "",
+            "steps-34",
+        ),
+        (
+            "reductions",
+            "<point>*.csv",
+            "Reductions of an unsteady point: phase-locked, per revolution, harmonics, disc maps.",
+            "pyflightstream.post._sim:_point_products",
+            "",
+            "steps-34",
+        ),
+        (
             "probes",
             "<point>*.csv",
             "Probe tables and sampled flow values.",

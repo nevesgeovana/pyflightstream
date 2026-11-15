@@ -225,10 +225,10 @@ def _posted(tmp_path, window: str) -> dict:
 def test_editing_the_window_in_the_matrix_moves_the_reductions_with_no_re_run(tmp_path):
     ran = _posted(tmp_path / "as_run", "LAST_ITERS_AVG: 4")
     edited = _posted(tmp_path / "edited", "LAST_ITERS_AVG: 6")
-    key = "probes/AL-020_time_average.csv"
+    key = "polars/P7001_AL-020_uns_avg.csv"
     # 8 steps, the last 4 are 5 to 8; the last 6 are 3 to 8.
-    assert ran["products"][key]["windows"] == [[5, 8]]
-    assert edited["products"][key]["windows"] == [[3, 8]], (
+    assert ran["products"][key]["windows"] == {"AL-020": [5, 8]}
+    assert edited["products"][key]["windows"] == {"AL-020": [3, 8]}, (
         "the matrix states six iterations and the reduction still averages the four "
         "the RUN recorded: a post-processing choice needed a solver re-run"
     )

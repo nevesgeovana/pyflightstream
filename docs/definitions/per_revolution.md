@@ -8,16 +8,16 @@ One row per COMPLETE revolution of one rotor, each column of the plots table
 averaged over that revolution, and from the second revolution on how far that
 mean moved from the previous revolution's.
 
-**It is read from the WRITTEN plots table.** `probes/<point>_plots.csv` is read
+**It is read from the WRITTEN plots table.** `time_history/<point>_plots.csv` is read
 back by `plots_table_series`, as every reduction is, and the raw export is not
 read again: a reduction is of the file a user holds and can be recomputed from
 it.
 
 **Which files.** A point of an `unsteady_rotor` row that names its rotors gets
-`probes/<point>_per_revolution_<ALIAS>.csv`, one per rotor, each cut on THAT
+`reductions/<point>_per_revolution_<ALIAS>.csv`, one per rotor, each cut on THAT
 rotor's own `steps_per_revolution` from the run record's reductions plan (a
 rotor turning at another speed has another revolution). A row that states its
-clock flat and names no rotor by alias gets `probes/<point>_per_revolution.csv`,
+clock flat and names no rotor by alias gets `reductions/<point>_per_revolution.csv`,
 its `ROTOR` `NA`. A steady point and a plain unsteady one have no revolution and
 no file. The product is registered in `products.json` like the other
 reductions, with `reduction` = `per_revolution`, its `windows` (one per
@@ -36,7 +36,7 @@ average takes.
 **A partial last revolution is EXCLUDED, and said.** The steps after the last
 complete revolution are not averaged: their mean would be the mean of another
 length of history under the same name. `products.json` states it under
-`skipped`, keyed `probes/<point>_per_revolution_<ALIAS>.csv#partial`, and the
+`skipped`, keyed `reductions/<point>_per_revolution_<ALIAS>.csv#partial`, and the
 post log carries a WARNING line naming the point, the file, the complete
 revolutions and the steps left over. A table with not one complete revolution
 writes no file and says why under `skipped`, and a rotor whose record states no
@@ -94,7 +94,7 @@ change in per cent of the scale, the scale and the column that sets it, the
 change itself and the limit:
 
 ```
-WARNING point=<point> product=probes/<point>_per_revolution_<ALIAS>.csv: rotor '<ALIAS>' column FX_MRP_TOTAL drifts +4.7619 per cent of its scale 10.5 (the magnitude of FX_MRP_TOTAL, the largest force mean of its group in the earlier revolution; a change of +0.5) between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
+WARNING point=<point> product=reductions/<point>_per_revolution_<ALIAS>.csv: rotor '<ALIAS>' column FX_MRP_TOTAL drifts +4.7619 per cent of its scale 10.5 (the magnitude of FX_MRP_TOTAL, the largest force mean of its group in the earlier revolution; a change of +0.5) between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
 ```
 
 The `<column>_DRIFT_PCT` columns of the table keep the relative drift defined

@@ -1,28 +1,13 @@
 {
  "products": {
-  "probes/AL-020_plots.csv": {
+  "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
    ]
   },
-  "probes/AL-020_time_average.csv": {
-   "sim_id": "7001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_7001/AL-020"
-   ],
-   "reduction": "time_average",
-   "windows": [
-    [
-     3,
-     8
-    ]
-   ],
-   "window_from": "the export window: 6 steps"
-  },
-  "probes/AL-020_phase_locked.csv": {
+  "reductions/AL-020_phase_locked.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -46,23 +31,7 @@
    "window_from": "the export window: 6 steps, cut into blade passages",
    "period_steps": 2
   },
-  "probes/AL-020_per_blade.csv": {
-   "sim_id": "7001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_7001/AL-020"
-   ],
-   "reduction": "per_blade",
-   "windows": [
-    [
-     5,
-     8
-    ]
-   ],
-   "window_from": "the last revolution, one window per blade",
-   "period_steps": 2
-  },
-  "probes/AL-020_per_revolution.csv": {
+  "reductions/AL-020_per_revolution.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -109,5 +78,80 @@
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }
