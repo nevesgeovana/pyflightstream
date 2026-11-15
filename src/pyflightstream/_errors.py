@@ -238,6 +238,17 @@ class FsiInputError(PyflightstreamError, ValueError):
         self.problems = problems
 
 
+class MeshFrameError(PyflightstreamError, ValueError):
+    """A declared mesh frame that cannot be read or converted from (PFS-2233).
+
+    It keeps ``ValueError``, the base it was defined with, so ``except
+    ValueError`` around a sidecar read catches what it caught before. Defined
+    here, beside the package base, so the catalog names it without importing
+    the mesh-frame module; import it from
+    :mod:`pyflightstream.workspace._mesh_frame` or the catalog.
+    """
+
+
 class InputValueError(PyflightstreamError, ValueError):
     """A value given by the user cannot be used; the message names the cause and the remedy.
 

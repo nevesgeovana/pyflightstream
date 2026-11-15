@@ -175,6 +175,9 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "ManualCallError": TypeError,
         "ManualDraftError": ValueError,
         "MatrixError": ValueError,
+        # PFS-2233: a mesh_frame declaration that cannot be read or converted
+        # from. ValueError is the base it was defined with in 0.58.0.
+        "MeshFrameError": ValueError,
         # PFS-2035.21: reaching for a retired attribute. AttributeError is
         # what a caller who typed the old method name was already catching,
         # so the pairing must not move it off that builtin.

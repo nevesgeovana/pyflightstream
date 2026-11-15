@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import MeshFrameError
 
 __all__ = [
     "EXPECTED_MESH_FRAME",
@@ -41,10 +42,6 @@ MESH_FRAME_WORDS: dict[str, tuple[int, int]] = {
     "up": (2, 1),
     "down": (2, -1),
 }
-
-
-class MeshFrameError(ValueError):
-    """A declared mesh frame that cannot be read or converted from."""
 
 
 def parse_mesh_frame(value: object) -> tuple[str, str, str]:
