@@ -100,6 +100,7 @@ seconds, then three translational components and three angular components,
 in the motion's coordinate system, which the row does not set: the solver's default frame for a new motion applies, and it is not measured. For `VELOCITY-TIME` the angular
 components are rates in rad/s; for `POSITION-TIME` they are angles in
 degrees. The solver interpolates linearly between rows.
+The manual names no unit for the three translational columns.
 
 The plan resolves the file and records its SHA-256 on the case. It refuses
 a file that is missing, empty or outside `inputs/motions/`, a row that is not
