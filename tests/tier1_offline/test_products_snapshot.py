@@ -1068,24 +1068,21 @@ def test_the_normalisation_rewrites_only_the_volatile_fields(tmp_path):
     assert normalise("products/polars/P1.csv", crlf, root) == crlf, "a chosen CRLF is compared"
 
 
-def test_a_message_naming_a_release_is_compared_whatever_version_is_installed(
-    tmp_path, monkeypatch
-):
+def test_a_message_naming_a_release_is_compared_whatever_version_is_installed(tmp_path):
     """P0330-PRODUCTS-SNAPSHOT. Only the version the package states is rewritten:
     the log's first line and a document's "version" key. A message that names a
     release by number keeps it, also when that release is the installed one, so the
     snapshot does not pass on one runner and fail on another by its install."""
-    import pyflightstream
+    from pyflightstream import __version__ as v
 
-    monkeypatch.setattr(pyflightstream, "__version__", "0.57.0")
     root = tmp_path / "camp"
-    log = "pyflightstream 0.57.0 post\nWARNING: signs are opposite to 0.57.0.\n"
+    log = f"pyflightstream {v} post\nWARNING: signs are opposite to {v}.\n"
     assert normalise("products/post.log", log.encode(), root).decode() == (
-        "pyflightstream <VERSION> post\nWARNING: signs are opposite to 0.57.0.\n"
+        f"pyflightstream <VERSION> post\nWARNING: signs are opposite to {v}.\n"
     )
-    document = '{\n "version": "0.57.0",\n "message": "opposite to 0.57.0."\n}\n'
+    document = f'{{\n "version": "{v}",\n "message": "opposite to {v}."\n}}\n'
     assert normalise("products/products.json", document.encode(), root).decode() == (
-        '{\n "version": "<VERSION>",\n "message": "opposite to 0.57.0."\n}\n'
+        f'{{\n "version": "<VERSION>",\n "message": "opposite to {v}."\n}}\n'
     )
 
 
