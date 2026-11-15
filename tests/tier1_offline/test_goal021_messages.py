@@ -12,7 +12,6 @@ import warnings
 
 import pytest
 
-from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.results import LoadsNotFoundError, sweep_table
 from pyflightstream.results import tables as tables_module
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
@@ -142,7 +141,13 @@ def test_goal021_skip_line_a_rotor_naming_row_states_its_reason_once(tmp_path):
 
 
 def test_goal021_single_warning_pyfs_matrix_run_says_a_complaint_once(tmp_path, monkeypatch):
-    """One invocation derived the sweep table twice and warned from both."""
+    """One invocation derived the sweep table twice and warned from both.
+
+    Since 0.58.0 (D30, FR-3777) the command derives no sweep table at all, and the
+    post reads the frame it carries into its tables with the complaint collected
+    and discarded (RPT-058), so one invocation says it no time: never twice. What
+    the complaint says is pinned on ``sweep_table`` itself by the cases above.
+    """
     from pyflightstream.run.cli import main
     from tests.tier1_offline import test_run_cli as cli_tests
 
@@ -159,7 +164,4 @@ def test_goal021_single_warning_pyfs_matrix_run_says_a_complaint_once(tmp_path, 
         warnings.simplefilter("always")
         main(argv)
     said = [str(w.message) for w in caught if COMPLAINT in str(w.message)]
-    assert len(said) == 1, f"one invocation printed the complaint {len(said)} time(s): {said}"
-    assert issubclass(
-        next(w.category for w in caught if COMPLAINT in str(w.message)), PyflightstreamWarning
-    )
+    assert said == [], f"one invocation printed the complaint {len(said)} time(s): {said}"
