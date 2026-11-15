@@ -80,9 +80,11 @@ running under a word that means something else now.
 A rotor block states `alias` (optional, and equal to its name), the hub
 as `x_m`, `y_m`, `z_m`, then `axis`, `rpm_sign`, `diameter_m`,
 `families_general`, `families_blades` and `blade1`. **The blade count
-is the length of `families_blades`** and nothing else, so a row states
-no count and a sector mesh carrying one blade of four still reduces
-over four.
+is the length of `families_blades`**, so a row states no count. On a
+`SYMMETRY: PERIODIC` row the block lists only the meshed blade families
+and the wheel has those families times `PERIODIC_COPIES` blades: a sector
+meshing one blade of a four-blade wheel lists `["Blade1"]`, states
+`PERIODIC_COPIES: 4`, and reduces over four blades.
 
 List blades in positive right-hand order about the declared shaft, starting
 with blade one. Planning measures each family's area-weighted centroid about

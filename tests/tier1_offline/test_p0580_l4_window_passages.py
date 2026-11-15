@@ -132,3 +132,86 @@ def test_p0580_l4_without_periodic_symmetry_the_copies_are_not_blades():
     case = _sector_case(LAST_REVS_AVG="0.166667", SYMMETRY="NONE")
     with pytest.raises(CampaignConfigError, match="`1` blades"):
         require_whole_passages(case)
+
+
+def test_p0580_l4_the_window_the_gate_accepts_is_cut_into_the_wheels_passages():
+    """VV-F1: the gate and the passage cut read one count, the whole wheel's."""
+    from pyflightstream.cases.workflows._reductions import reduction_windows
+
+    case = _sector_case(LAST_REVS_AVG="0.166667")
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None
+    assert plan["blades"] == 6
+    phase_locked = plan["phase_locked"]
+    assert isinstance(phase_locked, dict)
+    assert "skipped" not in phase_locked, phase_locked
+    assert phase_locked["period_steps"] == pytest.approx(500 / 6)
+    assert len(phase_locked["windows"]) == 1
+
+
+def _two_of_four(**variables):
+    """Two meshed blades of a four-blade wheel: the block lists the meshed families only."""
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
+
+    half = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Blade1", "Blade2"]})
+    variables = {"SYMMETRY": "PERIODIC", "PERIODIC_COPIES": "2", **variables}
+    case = rotor_case(**{"BLADES": None, **variables})
+    return case.model_copy(update={"rotors": {half.alias: half}})
+
+
+@pytest.mark.parametrize("blades", [None, "2", "4"])
+def test_p0580_l4_a_two_family_sector_of_two_copies_is_a_four_blade_wheel(blades):
+    """FR-68: a sector's block lists the meshed families; the wheel is them times the copies.
+
+    ``BLADES`` unstated, stated as the meshed families' count (what a motion
+    view fills in), or as the wheel's, is the same four-blade wheel.
+    """
+    from pyflightstream.cases.workflows._reductions import _blade_count, reduction_windows
+
+    case = _two_of_four(BLADES=blades, LAST_REVS_AVG="0.25")
+    assert _blade_count(case) == 4
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None and plan["blades"] == 4
+    assert plan["per_blade"]["period_steps"] == pytest.approx(125)
+    assert plan["blade_families"] == ["Blade1", "Blade2"]
+
+
+def test_p0580_l4_a_two_family_sector_refuses_a_count_that_is_neither():
+    from pyflightstream.cases.workflows._reductions import _blade_count
+
+    with pytest.raises(CampaignConfigError, match="BLADES: 3 .* 2 blade"):
+        _blade_count(_two_of_four(BLADES="3"))
+
+
+def test_p0580_l4_a_sector_window_of_a_meshed_half_turn_is_two_passages_of_the_wheel():
+    """Half a turn is two passages of the four-blade wheel, not one of the meshed pair."""
+    require_whole_passages(_two_of_four(LAST_REVS_AVG="0.5"))
+    with pytest.raises(CampaignConfigError) as refused:
+        require_whole_passages(_two_of_four(LAST_REVS_AVG="0.375"))
+    assert "`4` blades" in str(refused.value)
+
+
+def test_p0580_l4_a_sector_places_its_second_blade_frame_by_the_wheels_count():
+    """The blade frames read the same count: blade two of a 2-of-4 sector sits at 90 degrees."""
+    from pyflightstream.cases.workflows._frames import _hub_basis, _rotor_blade_frames
+    from pyflightstream.script import Script, helpers
+
+    case = _two_of_four()
+    rotor = case.rotors["ROTOR"]
+    script = Script("26.127")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    script.entities.declare_boundaries({"Blade1": 1, "Blade2": 2})
+    x_axis, y_axis = _hub_basis(rotor)
+    hub = helpers.coordinate_frame(
+        script, name="ROTOR_SMRP", origin=rotor.origin, x_axis=x_axis, y_axis=y_axis
+    )
+    before = script.render()
+    _rotor_blade_frames(script, rotor, hub=hub, radical="ROTOR", view=case)
+    turns = [
+        float(line.split()[-1])
+        for line in script.render()[len(before) :].splitlines()
+        if line.startswith("ANGLE ")
+    ]
+    assert turns == [0.0, 90.0]

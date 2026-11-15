@@ -5162,19 +5162,20 @@ def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_pat
 
 
 def test_a_sector_row_stating_periodic_copies_and_no_blades_gets_its_blade_reductions():
-    """The author's isolated propeller on pfs0131 (rows 5901, 5903, 5913, measured 2026-09-09) is
-    one blade meshed and PERIODIC_COPIES: 6, with no BLADES; the per-blade and the
-    phase-locked reductions read the count from the copies rather than skipping."""
-    plan = _reduction_windows()(rotor_case(BLADES=None, SYMMETRY="PERIODIC", PERIODIC_COPIES="4"))
+    """A sector meshing two blades of a four-blade wheel (FR-68): the block lists the two
+    meshed families and PERIODIC_COPIES: 2, with no BLADES; the per-blade and the
+    phase-locked reductions read the wheel's four blades rather than skipping."""
+    half = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Blade1", "Blade2"]})
+
+    def sector(**overrides) -> SimCase:
+        case = rotor_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="2", **overrides)
+        return case.model_copy(update={"rotors": {half.alias: half}})
+
+    plan = _reduction_windows()(sector(BLADES=None))
     assert plan["blades"] == 4, plan
     assert "windows" in plan["per_blade"] and "windows" in plan["phase_locked"], plan
-    assert plan == _reduction_windows()(rotor_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="4")), (
-        "BLADES: 4 and PERIODIC_COPIES: 4 are one count"
-    )
-    assert (
-        reduction_plan(rotor_case(BLADES=None, SYMMETRY="PERIODIC", PERIODIC_COPIES="4")).blades
-        == 4
-    )
+    assert plan == _reduction_windows()(sector()), "BLADES: 4 and the 2 x 2 sector are one count"
+    assert reduction_plan(sector(BLADES=None)).blades == 4
 
 
 def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():

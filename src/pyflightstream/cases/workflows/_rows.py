@@ -1081,6 +1081,33 @@ def _rotor_frame_axis(rotor: RotorBlock) -> str:
     return rotor.shaft
 
 
+def _sector_copies(case: SimCase) -> int | None:
+    """Return ``PERIODIC_COPIES`` of a ``SYMMETRY: PERIODIC`` row, else None.
+
+    The copies are the number of sector copies round the wheel, so a periodic
+    row's rotor block lists only the meshed blade families and its wheel has
+    those families times this many blades (FR-68).
+    """
+    periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
+    if not periodic or _variable(case, PERIODIC_COPIES_VARIABLE) is None:
+        return None
+    return _required_int(
+        case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
+    )
+
+
+def _wheel_blade_count(case: SimCase, rotor: RotorBlock) -> int:
+    """Return the blades of a rotor's whole wheel: its block's families, times a sector's copies.
+
+    ONE COUNT FOR EVERY READER OF THE WHEEL (FR-68): the whole-passage check,
+    every passage cut and the blade frames' spacing read it, so a sector
+    meshing two blades of a four-blade wheel places its second blade a
+    quarter turn after the first and cuts quarter-turn passages.
+    """
+    copies = _sector_copies(case)
+    return rotor.blade_count * (copies if copies is not None else 1)
+
+
 def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:
     """Return the one rotor a row with no MOTIONS list turns, or None.
 

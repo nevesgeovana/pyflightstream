@@ -999,9 +999,16 @@ class TestCasesWorkflowsReductions:
 
     @staticmethod
     def test_p0400_cw_reductions_a_two_of_four_sector_has_four_blades():
-        """P0400-CW-REDUCTIONS (PFS-2104.011): PERIODIC_COPIES 2 is what the file is, not the rotor."""  # noqa: E501
+        """P0400-CW-REDUCTIONS (PFS-2104.011, FR-68): a sector's block lists the meshed families.
+
+        Two meshed families and ``PERIODIC_COPIES: 2`` are a four-blade wheel.
+        """
         requirement = "P0400-CW-REDUCTIONS"
+        half = _CASES_WORKFLOWS_REDUCTIONS__FOUR.model_copy(
+            update={"families_blades": ["Blade1", "Blade2"]}
+        )
         case = _cases_workflows_reductions___row(SYMMETRY="PERIODIC", PERIODIC_COPIES="2")
+        case = case.model_copy(update={"rotors": {"ROTOR": half}})
         assert _blade_count(case) == 4, requirement
         plan = reduction_windows(case)
         assert plan is not None

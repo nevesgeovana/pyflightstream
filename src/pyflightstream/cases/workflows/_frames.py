@@ -57,9 +57,11 @@ from ._rows import (
     _from_metres,
     _point_from_metres,
     _rotor_frame_axis,
+    _sector_copies,
     _the_rotor_a_flat_row_turns,
     _uses_letter_frame,
     _variable,
+    _wheel_blade_count,
 )
 from ._vocabulary import (
     MOTIONS_VARIABLE,
@@ -1172,8 +1174,10 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
     PFS-2029.11.03, as the reference rotor scripts did it: a frame ``BladeAxis<k>``
     per blade family, at the rotor frame's origin with its axes,
     rotated about the rotor axis by the blade's share of a turn, so blade
-    k of N sits at (k-1) * 360 / N degrees; a periodic sector meshing one
-    blade gets one frame at zero. The frames are the motion's moving
+    k of N sits at (k-1) * 360 / N degrees, N the whole wheel's count: the
+    blade families found, times ``PERIODIC_COPIES`` on a ``SYMMETRY: PERIODIC``
+    row (FR-68), so a periodic sector meshing one blade gets one frame at zero.
+    The frames are the motion's moving
     frames, so the solver turns them with the blades, and the pproc
     artifact's BLADE_AXIS entries cite them by family. A geometry with no
     blade family creates none, which is what keeps every rotor script
@@ -1215,6 +1219,7 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
             case, script, case.reference.rotor_position_m, "rotor_position_m"
         )
     created: dict[str, int] = {}
+    wheel = len(blades) * (_sector_copies(case) or 1)
     for number, family in enumerate(blades, start=1):
         index = helpers.coordinate_frame(
             script,
@@ -1229,7 +1234,7 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
             frame=index,
             rotation_frame=rotor_frame,
             rotation_axis=axis,
-            angle=(number - 1) * 360.0 / len(blades),
+            angle=(number - 1) * 360.0 / wheel,
         )
         created[family] = index
     return created
@@ -1250,14 +1255,15 @@ def _rotor_blade_frames(
     ``<ALIAS>_RMRP<k>`` for blade k of the block's ``families_blades``, at
     the rotor's hub, turned about the rotor's axis by the blade's share of
     a turn measured from the ``blade1`` datum: blade k of N sits at
-    ``azimuth_deg + (k - 1) * 360 / N``. The frames turn with the blades,
-    so a per-blade product is read in the frame of the blade it is about.
+    ``azimuth_deg + (k - 1) * 360 / N``, where N is the whole wheel's count
+    (FR-68): on a ``SYMMETRY: PERIODIC`` row the block lists the meshed
+    families and N is those times ``PERIODIC_COPIES``, so a sector meshing two
+    blades of four places its second blade a quarter turn after the first.
+    The frames turn with the blades, so a per-blade product is read in the
+    frame of the blade it is about.
 
     A BLADE THE MESH DOES NOT CARRY GETS NO FRAME, and the count is not
-    reduced by its absence: a periodic sector meshing one blade of four
-    creates one frame, at the datum, and the reductions still divide by
-    four, because the count is the length of the list and not a property
-    of the file. The returned mapping is keyed by the blade's FAMILY, as
+    reduced by its absence. The returned mapping is keyed by the blade's FAMILY, as
     the flat form's is, so a pproc entry citing a blade resolves the same
     way on either.
 
@@ -1268,7 +1274,7 @@ def _rotor_blade_frames(
     inventory = set(_inventory(script))
     if origin is None:
         origin = _point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m")
-    count = rotor.blade_count
+    count = _wheel_blade_count(view, rotor)
     created: dict[str, int] = {}
     for number, family in enumerate(rotor.families_blades, start=1):
         if family not in inventory:
