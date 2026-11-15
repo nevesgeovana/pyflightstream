@@ -92,8 +92,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: then the merge of G10, G12, G16 and the tip cap into land/0.57.0: 2351 tracked files (+25).
 #: then land/0.58.0 after its CI round: 2384 tracked files, measured (+33), the excess over
 #: the cap being the tests' growth the owner opened on 2026-10-26 (PFS-2177).
+#: then the push review of 0.58.0: 2387 tracked files, measured (+3): three of the five files
+#: added since are tests (PFS-2177), the other two the approved spinner module and its example.
 LEAN_CAPS = {
-    "tracked_files": 2384,
+    "tracked_files": 2387,
     "reports_files": 121,
     "reports_lines": 208338,
     # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto
