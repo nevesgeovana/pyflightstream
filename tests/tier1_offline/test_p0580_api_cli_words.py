@@ -72,12 +72,15 @@ def test_the_old_matrix_visual_inspect_is_refused_naming_plot_sweeps(argv, capsy
     assert "pyfs-matrix plot-sweeps" in said and "no longer accepted" in said, said
 
 
-def test_plot_sweeps_parses_and_pyfs_mesh_keeps_visual_inspect():
-    from pyflightstream.run import cli, mesh_cli
+def test_plot_sweeps_parses_and_pyfs_mesh_keeps_visual_inspect(capsys):
+    from pyflightstream.run import cli
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     stated = cli._build_parser().parse_args(["plot-sweeps", "--matrices", "all", "--name", "fig"])
     assert stated.subcommand == "plot-sweeps" and stated.name == "fig"
-    assert "visual-inspect" in mesh_cli._build_parser().format_help()
+    with pytest.raises(SystemExit):
+        mesh_main(["--help"])
+    assert "visual-inspect" in capsys.readouterr().out
 
 
 def test_beam_declares_both_spellings_of_the_inspection_flag():
