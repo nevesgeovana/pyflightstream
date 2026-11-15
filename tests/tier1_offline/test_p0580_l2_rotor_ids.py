@@ -13,13 +13,14 @@ import pytest
 pytestmark = pytest.mark.parametrize((), [pytest.param(id="P0580-L2-ROTOR-IDS")])
 
 
-def _reference(tmp_path, ids):
+def _reference(tmp_path, ids, names=None):
     from pyflightstream.workspace.inputs import resolve_reference
 
     text = "area_m2 = 1.0\nchord_m = 1.0\nspan_m = 1.0\n"
     for index, rotor_id in enumerate(ids):
+        alias = names[index] if names is not None else f"R{index}"
         text += (
-            f'\n[rotors.R{index}]\nalias = "R{index}"\naxis = "X"\ndiameter_m = 1.0\n'
+            f'\n[rotors."{alias}"]\nalias = "{alias}"\naxis = "X"\ndiameter_m = 1.0\n'
             f'families_blades = ["B{index}"]\nblade1 = {{ azimuth_deg = 0.0, zero = "Y" }}\n'
         )
         if rotor_id is not None:
@@ -47,3 +48,16 @@ def test_a_rotor_id_of_90_is_refused_naming_the_group_id_rule(tmp_path):
     text = str(caught.value)
     assert "id = 90" in text and "10 + id" in text and "101" in text, text
     assert _reference(tmp_path / "ok", [89]).rotors["R0"].id == 89
+
+
+@pytest.mark.parametrize(
+    "names", [("TOTAL",), ("airframe",), ("Total/",), ("Left/Right", "Left_Right")]
+)
+def test_p0580_rotor_group_file_collisions_are_refused_at_reference_read(tmp_path, names):
+    from pyflightstream.exceptions import InputArtifactError
+
+    with pytest.raises(InputArtifactError, match="group file") as refused:
+        _reference(tmp_path, list(range(len(names))), names)
+    for alias in names:
+        assert alias in str(refused.value)
+    assert "another alias" in str(refused.value)

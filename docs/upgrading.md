@@ -39,6 +39,7 @@ layout is [the output catalogue](pproc/index.md).
 | `[groups] TOTAL = ...`, `AIRFRAME = ...` | refused: TOTAL and AIRFRAME are written for every polar; remove the entry |
 | a `[groups]` key equal to a rotor alias | refused at the post: every rotor is a group by itself |
 | a rotor `id` of 90 or more | refused: the group of rotor `<id>` is numbered `10 + id` and the declared groups from 101 |
+| a rotor alias whose file name equals `TOTAL`, `AIRFRAME` or another rotor's | refused when the reference is read; choose a distinct alias after filename normalization, ignoring case (for example, `Left/Right` and `Left_Right` collide) |
 | `<polar>_trim.csv`, `<polar>_at_<name>.csv`, `<polar>.dat` | the same products beside each group ACOEF file, under its stem |
 
 A record written by 0.57.0 has no per-family plot in its unsteady history: its family rows

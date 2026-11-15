@@ -107,7 +107,7 @@ from pyflightstream._retired_names import (
     removed_setup_forms,
     retired_key,
 )
-from pyflightstream._tokens import MAX_ROTOR_ID
+from pyflightstream._tokens import MAX_ROTOR_ID, file_name_part
 from pyflightstream.cases import EVERY_SURFACE as EVERY_SURFACE
 from pyflightstream.cases import (
     ActuatorBlock,
@@ -598,6 +598,21 @@ class ReferenceArtifact(BaseModel):
                     "1 AIRFRAME, 10 + id a rotor, 100 + k the k-th declared group). Write "
                     f"id = <0..{MAX_ROTOR_ID}>."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _each_rotor_has_its_own_group_file(self) -> ReferenceArtifact:
+        """Refuse rotor aliases that would overwrite another group's polar files."""
+        seen = {"total": "TOTAL", "airframe": "AIRFRAME"}
+        for alias in self.rotors:
+            key = file_name_part(alias).casefold()
+            if key in seen:
+                raise InputValueError(
+                    f"rotor alias {alias!r} and {seen[key]!r} name the same group file; "
+                    "TOTAL and AIRFRAME and every rotor need separate polar files. "
+                    "Choose another alias whose file name is distinct, including without case."
+                )
+            seen[key] = alias
         return self
 
     @model_validator(mode="after")
