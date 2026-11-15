@@ -16,6 +16,7 @@ condition at another home is refused by name, and the refusal names the home.
 | Speed of sound of the free stream | the air state of the flight-condition columns (temperature and specific-heat ratio) | setup `sonic_velocity_m_per_s` |
 | Loads of a symmetric model, the meshed half or sector or the whole | the run matrix row's `SYMMETRY_LOADS` column (true or false) | setup `symmetry_loads`, also on a row |
 | Base regions: which boundary is a base, its pressure model and its rim | the boundaries file, `[base_regions.<family>]`; the row's `BASE_REGIONS` column for a per-row choice; the setup's `base_region_operations` on an opened simulation | pproc `base_regions` |
+| Thin boundaries | the boundaries file beside the geometry: `thin_boundaries = ["Wing"]` (`[]` clears a saved selection) | setup `thin_boundaries` |
 
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
 `inputs/setups/s<>.toml` file, use ordered `[[ports]]` tables with `port`,

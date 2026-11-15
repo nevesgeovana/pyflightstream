@@ -381,6 +381,10 @@ points file (a unit line, then x,y,z), or the solver-layout nodes file a refined
 level writes, `<level>.<family>.fs.nodes.txt`, read in the `[import]` unit.
 Each point must match exactly one mesh vertex within the tolerance.
 
+`thin_boundaries = ["Wing"]` at the top of the file marks the named boundaries thin
+(`SET_THIN_BOUNDARIES`); `[]` clears a saved selection (`DELETE_THIN_BOUNDARIES`), and an
+absent key emits nothing. A setup's `thin_boundaries` is refused by name.
+
 Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
 `"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A rim given as a file
 takes the rim's termination nodes in the same table,

@@ -119,6 +119,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | setup `sonic_velocity_m_per_s` | nothing: the speed of sound follows from the air state of the flight-condition columns |
 | setup `symmetry_loads` | the run matrix row's `SYMMETRY_LOADS` column (`true` or `false`) |
 | pproc `base_regions` | `[base_regions.<family>]` in the boundaries file, or the row's `BASE_REGIONS` column for a per-row choice |
+| setup `thin_boundaries` | `thin_boundaries = [...]` in the geometry's boundaries file, the same boundary names |
 
 ## 0.57.0
 

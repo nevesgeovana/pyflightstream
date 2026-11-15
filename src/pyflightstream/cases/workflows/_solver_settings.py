@@ -318,7 +318,7 @@ def _settings(
         viscous_coupling=solver.viscous_coupling,
         viscous_excluded=solver.viscous_excluded,
         surface_roughness=solver.surface_roughness,
-        thin_boundaries=solver.thin_boundaries,
+        thin_boundaries=None if case.thin_boundaries is None else list(case.thin_boundaries),
         bulk_separation=solver.bulk_separation,
         airfoil_separation=solver.airfoil_separation,
         axial_vortex_separation=solver.axial_vortex_separation,

@@ -56,7 +56,8 @@ def _registries() -> dict[str, set[str]]:
         "row": {key for workflow in WORKFLOWS.values() for key in workflow.keys},
         "setup": {*SolverSettings.model_fields, RAW_TABLE, FLAGS_TABLE},
         "pproc": set(PprocSpec.model_fields),
-        "sidecar": {INVENTORY_KEY, IMPORT_TABLE, *RAW_MESH_CONDITION_TABLES},
+        # PFS-2256 (0.58.0): thin boundaries are a top-level key of the boundaries file.
+        "sidecar": {INVENTORY_KEY, IMPORT_TABLE, *RAW_MESH_CONDITION_TABLES, "thin_boundaries"},
     }
 
 

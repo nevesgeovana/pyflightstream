@@ -799,6 +799,17 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         ),
         instead="Write",
     ),
+    "setup.thin_boundaries": RetiredName(
+        owner="a setup",
+        old="thin_boundaries",
+        new=(
+            "thin_boundaries in the boundaries file beside the geometry, as thin_boundaries = "
+            '["Wing"]'
+        ),
+        retired_in="0.58.0",
+        why="Which surfaces are thin is a property of the geometry, declared with it.",
+        instead="Declare",
+    ),
     "pproc.base_regions": RetiredName(
         owner="a pproc",
         old="base_regions",

@@ -472,8 +472,6 @@ class SolverSettings(BaseModel):
     viscous_excluded: list[int | str] | None = None
     #: Equivalent sand-grain roughness in nanometres (SET_SURFACE_ROUGHNESS).
     surface_roughness: float | None = Field(default=None, ge=0)
-    #: Boundary labels or indices treated as thin surfaces; all selects every boundary.
-    thin_boundaries: list[int | str] | Literal["all"] | None = None
     #: Legacy bulk-separation assignment, with model type and characteristic diameter.
     bulk_separation: BulkSeparation | None = None
     #: Trailing-edge airfoil separation, with optional per-assignment Valarezo criterion.

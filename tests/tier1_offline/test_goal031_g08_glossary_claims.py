@@ -910,7 +910,6 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         name: _setting_on(_over_wing, name, ["Wing"], ["Body"])
         for name in (
             "viscous_excluded",
-            "thin_boundaries",
             "valarezo_separation_boundaries",
             "crossflow_separation_boundaries",
             "leading_edge_wake_boundaries",

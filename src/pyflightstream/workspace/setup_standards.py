@@ -105,7 +105,8 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
     ),
     ("s945", "stratford_bulk_separation", [{"name": "Body", "boundaries": ["Body"]}]),
     ("s946", "viscous_excluded", ["Body"]),
-    ("s947", "thin_boundaries", ["Wing"]),
+    # s947 retired at 0.58.0 (PFS-2256): thin boundaries are declared in the geometry's
+    # boundaries file, not a setup. The ID stays reserved and is not reused.
     ("s948", "valarezo_separation_boundaries", ["Wing"]),
     ("s949", "crossflow_separation_boundaries", ["Body"]),
     ("s950", "crossflow_separation_diameter", 1.0),
@@ -319,10 +320,6 @@ _MEANINGS: dict[str, str] = {
         "An empty list clears the exclusion list; populated entries remove boundaries from "
         "viscous treatment."
     ),
-    "thin_boundaries": (
-        "An empty list clears the thin-surface selection; populate only boundaries intended "
-        "for that representation."
-    ),
     "significant_digits": (
         "Controls digits in native exports; written precision does not change solved physics."
     ),
@@ -436,7 +433,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "significant_digits": 7,
         "delete_separations": "all",
         "viscous_excluded": [],
-        "thin_boundaries": [],
     }
     # Even False is an explicit steady-only loads selection. A march must omit it.
     unsteady = {key: value for key, value in base.items() if key != "inviscid_loads"}

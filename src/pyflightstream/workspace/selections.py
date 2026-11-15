@@ -110,13 +110,6 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
     ),
     EntitySelection(
         "setup",
-        "thin_boundaries",
-        "DELETE_THIN_BOUNDARIES",
-        True,
-        "An empty selection emits the clearing command (FSM-26.120 p.343).",
-    ),
-    EntitySelection(
-        "setup",
         "valarezo_separation_boundaries",
         "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         True,

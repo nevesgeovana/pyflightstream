@@ -55,7 +55,8 @@ vary one setting relative to the baseline named in that file: `s900` for steady
 attached flow, `s904` for unsteady controls, `s905` for transonic refinement, or
 `s906` for laminar-separation sensitivity. `s929` is retired and not reused: every
 standard states `farfield_layers = 5`, and the setup model refuses a value outside
-the documented range 1 to 5. The matrix's `SET` column selects the setup
+the documented range 1 to 5. `s947` is retired at 0.58.0 and not reused: thin
+boundaries are declared in the geometry's boundaries file. The matrix's `SET` column selects the setup
 identifier as usual.
 
 The low-cost baseline assumes low-Mach attached flow and a fully turbulent boundary

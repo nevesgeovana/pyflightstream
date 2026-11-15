@@ -1218,7 +1218,10 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         "wake_termination",
                         "base_regions",
                         "ports",
-                    )
+                    ),
+                    "optional, for thin surfaces; shown on the mesh reference page": (
+                        "thin_boundaries",
+                    ),
                 },
                 "`[base_regions]`": {
                     "retired autodetection; use a named family declaration": ("detect",)

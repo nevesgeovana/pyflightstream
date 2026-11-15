@@ -158,7 +158,6 @@ NUMBER_07 = {
 SELECTION_OF_BODY = {
     "SET_SOLVER_ANALYSIS_BOUNDARIES": "analysis_families",
     "SET_VORTICITY_DRAG_BOUNDARIES": "vorticity_drag_families",
-    "SET_THIN_BOUNDARIES": "thin_boundaries",
     "SET_VISCOUS_EXCLUDED_BOUNDARIES": "viscous_excluded",
     "SOLVER_PROXIMAL_BOUNDARIES": "proximal_boundaries",
 }
@@ -243,10 +242,14 @@ ROUTES: dict[str, Route] = {
         "solver_model", "INITIALIZE_SOLVER", "SOLVER_MODEL SUBSONIC_PRANDTL_GLAUERT"
     ),
     # An emptied selection clears the boundaries a selection would set.
+    # PFS-2256: thin boundaries are the geometry's boundaries file, bound onto the case.
+    "SET_THIN_BOUNDARIES": Route(
+        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ("Body",)}),
+        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ("Wing",)}),
+        ("SET_THIN_BOUNDARIES 1", "2"),
+    ),
     "DELETE_THIN_BOUNDARIES": Route(
-        lambda tmp: _over_wing(tmp).model_copy(
-            update={"solver": SolverSettings(thin_boundaries=[])}
-        ),
+        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ()}),
         _over_wing,
         ("DELETE_THIN_BOUNDARIES",),
     ),

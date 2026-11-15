@@ -172,6 +172,58 @@ def test_p0580_pfs2257_per_mechanism_keys_still_emit_on_26100():
     assert "SET_VALAREZO_SEPARATION_BOUNDARIES" in rendered(case, "26.100")
 
 
+def test_p0580_pfs2256_setup_thin_boundaries_is_refused_naming_the_boundaries_file(tmp_path):
+    """PFS-2256: the setup key is refused by name, naming the boundaries file."""
+    key = "thin_boundaries"
+    for said in (
+        _setup_refusal(tmp_path, f'{key} = ["Wing"]\n'),
+        _binding_refusal({key: ["Wing"]}),
+        _python_refusal(**{key: "all"}),
+    ):
+        assert key in said and "no longer accepted" in said, said
+        assert "boundaries file" in said, said
+
+
+def test_p0580_pfs2256_the_boundaries_file_marks_a_boundary_thin(tmp_path):
+    """PFS-2256: ``thin_boundaries`` of the boundaries file is read and emits the command."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.sidecars import read_thin_boundaries
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _over_wing
+    from tests.tier1_offline.test_workflows import rendered
+
+    sidecar = tmp_path / "wing.fsm.boundaries.toml"
+    sidecar.write_text('boundaries = ["RotorRig"]\nthin_boundaries = ["RotorRig"]\n', "utf-8")
+    assert read_thin_boundaries(sidecar) == ("RotorRig",)
+    sidecar.write_text('boundaries = ["RotorRig"]\nthin_boundaries = []\n', "utf-8")
+    assert read_thin_boundaries(sidecar) == ()
+    sidecar.write_text('boundaries = ["RotorRig"]\n', "utf-8")
+    assert read_thin_boundaries(sidecar) is None
+    sidecar.write_text('thin_boundaries = "RotorRig"\n', "utf-8")
+    with pytest.raises(InputArtifactError, match="list of boundary names"):
+        read_thin_boundaries(sidecar)
+    wing = _over_wing(tmp_path)
+    marked = wing.model_copy(update={"thin_boundaries": ("Body",)})
+    assert "SET_THIN_BOUNDARIES 1\n2\n" in rendered(marked, "26.124")
+    cleared = wing.model_copy(update={"thin_boundaries": ()})
+    assert "DELETE_THIN_BOUNDARIES" in rendered(cleared, "26.124")
+    assert "THIN_BOUNDARIES" not in rendered(wing, "26.124")
+
+
+def test_p0580_pfs2256_a_matrix_row_binds_the_thin_boundaries_of_its_geometry(tmp_path):
+    """PFS-2256: the row's case carries what its geometry's boundaries file marks thin."""
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES
+    from tests.tier1_offline.test_p0390_r02 import BUILD, WING_BODY, study
+
+    workspace, path = study(tmp_path, models=(WING_BODY,))
+    sidecar = workspace.inputs_dir / "geometries" / "wb.fsm.boundaries.toml"
+    sidecar.write_text(
+        'boundaries = ["Wing", "Body", "Base"]\nthin_boundaries = ["Wing"]\n', "utf-8"
+    )
+    resolved = resolve_matrix(path, workspace, name="study", fs_version=BUILD, recipes=RECIPES)
+    assert resolved.campaign.sims[0].thin_boundaries == ("Wing",)
+
+
 @pytest.mark.parametrize("listed", ["[]", '["Base"]'])
 def test_p0580_pfs2252_pproc_base_regions_is_refused_naming_the_one_home(tmp_path, listed):
     """PFS-2252: the pproc key is refused at read and from Python, naming its homes."""

@@ -63,6 +63,7 @@ __all__ = [
     "DETECT_EVERYWHERE",
     "GEOMETRIES_README",
     "GEOMETRY_SIDECAR_KEYS",
+    "THIN_BOUNDARIES_KEY",
     "IMPORT_TABLE",
     "INVENTORY_SUFFIX",
     "MESH_FRAME_FOLDER",
@@ -87,6 +88,7 @@ __all__ = [
     "obj_boundary_names",
     "read_inventory",
     "read_mesh_import",
+    "read_thin_boundaries",
     "write_inventory",
 ]
 
@@ -954,6 +956,46 @@ def _sidecar_data(sidecar: Path) -> dict[str, Any]:
         ) from error
 
 
+#: The boundaries-file key that marks boundaries thin (PFS-2256).
+THIN_BOUNDARIES_KEY = "thin_boundaries"
+
+
+def read_thin_boundaries(sidecar: str | Path) -> tuple[str, ...] | None:
+    """Return the boundaries a boundaries file marks thin, or None where it states none.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` file; a missing file states nothing.
+
+    Returns
+    -------
+    tuple of str or None
+        The names as written; ``()`` for an empty list, which clears a saved
+        selection; None where the key is absent.
+
+    Raises
+    ------
+    InputArtifactError
+        A value that is not a list of nonempty names.
+    """
+    path = Path(sidecar)
+    if not path.is_file():
+        return None
+    data = _sidecar_data(path)
+    if THIN_BOUNDARIES_KEY not in data:
+        return None
+    value = data[THIN_BOUNDARIES_KEY]
+    if not isinstance(value, list) or not all(
+        isinstance(name, str) and name.strip() for name in value
+    ):
+        raise InputArtifactError(
+            f"{path} states {THIN_BOUNDARIES_KEY} = {value!r}; write a list of boundary "
+            f'names, as {THIN_BOUNDARIES_KEY} = ["Wing"], or [] to clear a saved selection.'
+        )
+    return tuple(value)
+
+
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     """Return the ordered boundary names a sidecar states.
 
@@ -1257,6 +1299,12 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "The sha256 of the file the faces were counted in; the post warns where a run's "
         "recorded sha256 of the geometry differs from it.",
         "a sha256, as text",
+    ),
+    THIN_BOUNDARIES_KEY: InputKey(
+        "The boundaries the solver treats as thin surfaces, by their names in the boundary "
+        "order; an empty list clears a saved selection. Absent, nothing is emitted.",
+        'a list of names, as thin_boundaries = ["Wing"]',
+        "SET_THIN_BOUNDARIES, DELETE_THIN_BOUNDARIES",
     ),
     MESH_FRAME_KEY: InputKey(
         "The frame the mesh is built in: what the mesh's +x, +y and +z point to. Absent means "
