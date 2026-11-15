@@ -224,6 +224,10 @@ REMOVE_INITIALIZATION:
     and the two are exactly complementary across the seven editions,
     sharing the bare layout, the init phase and the chapter. The
     changeover is at 25.100 and the older entry carries the successor.
+
+    Prints `Solution cleared. Initialization removed.` mid-job
+    (tests/tier1_offline/fixtures/batch0350/logs, 2026-10-02 probes); not
+    yet probed as the last command before CLOSE_FLIGHTSTREAM (PFS-2258).
   versions:
     "25.100": {status: documented, note: "FSM-25.100 p.313, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.312, same grammar as 26.120"}
