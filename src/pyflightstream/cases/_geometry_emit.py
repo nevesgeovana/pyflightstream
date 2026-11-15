@@ -627,6 +627,9 @@ def _emit_trailing_edges(
         return
     if marking.sweep_angle_deg is not None:
         script.emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
+    if marking.bluntness_angle_deg is not None:
+        # PFS-2249: the build gate is the command database's; a build with no row refuses it.
+        script.emit("SET_TRAILING_EDGE_BLUNTNESS_ANGLE", marking.bluntness_angle_deg)
     if not marking.detect_surfaces:
         helpers.detect_every_boundary(script, "trailing_edges")
         return

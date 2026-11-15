@@ -133,11 +133,6 @@ def refuse_what_a_saved_point_cannot_give(pproc: PprocSpec, *, pproc_id: str, wh
             "[time_averaging]: a surface average is taken over the per-step exports of a "
             "march, and none runs"
         )
-    if pproc.base_regions:
-        reasons.append(
-            "base_regions: a base region is marked on a mesh before its solve, and the "
-            "saved simulation carries the marks it was saved with"
-        )
     switched_off = [
         kind for kind in ("sections", "sectional_loads") if pproc.exports.get(kind) is False
     ]

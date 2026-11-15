@@ -86,6 +86,7 @@ __all__ = [
     "obj_boundary_names",
     "read_inventory",
     "read_mesh_import",
+    "read_thin_boundaries",
     "write_inventory",
 ]
 
@@ -953,6 +954,20 @@ def _sidecar_data(sidecar: Path) -> dict[str, Any]:
         ) from error
 
 
+def read_thin_boundaries(sidecar: str | Path) -> tuple[str, ...] | None:
+    """Return the boundaries a boundaries file marks thin (PFS-2256), refusing a bad value.
+
+    The reader is :func:`pyflightstream.cases.mesh.thin_boundaries_of`, which the
+    build calls on the case's boundaries file; here its refusal is the workspace's.
+    """
+    from pyflightstream.cases.mesh import thin_boundaries_of
+
+    try:
+        return thin_boundaries_of(sidecar)
+    except InputValueError as error:
+        raise InputArtifactError(str(error)) from error
+
+
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     """Return the ordered boundary names a sidecar states.
 
@@ -1257,6 +1272,12 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "recorded sha256 of the geometry differs from it.",
         "a sha256, as text",
     ),
+    "thin_boundaries": InputKey(
+        "The boundaries the solver treats as thin surfaces, by their names in the boundary "
+        "order; an empty list clears a saved selection. Absent, nothing is emitted.",
+        'a list of names, as thin_boundaries = ["Wing"]',
+        "SET_THIN_BOUNDARIES, DELETE_THIN_BOUNDARIES",
+    ),
     MESH_FRAME_KEY: InputKey(
         "The frame the mesh is built in: what the mesh's +x, +y and +z point to. Absent means "
         "x aft, y right, z up, the expected frame; another right-handed axis-aligned frame is "
@@ -1364,6 +1385,12 @@ TRAILING_EDGE_DETECT_KEYS: Mapping[str, InputKey] = {
         "The sweep angle set before the detection, only when stated.",
         "deg",
         "SET_TRAILING_EDGE_SWEEP_ANGLE",
+    ),
+    "bluntness_angle": InputKey(
+        "The bluntness angle set before the detection, only when stated; refused on a build "
+        "whose command database has no row for the command.",
+        "deg",
+        "SET_TRAILING_EDGE_BLUNTNESS_ANGLE",
     ),
 }
 
@@ -1687,7 +1714,7 @@ def _trailing_edge_sets(path: Path, table: Mapping[str, Any], where: str) -> Tra
 
 
 def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
-    """Read ``detect``: ``"auto"``, or a table of surfaces and an optional sweep angle."""
+    """Read ``detect``: ``"auto"``, or a table of surfaces and optional angles in degrees."""
     if detect == DETECT_EVERYWHERE:
         return {}
     if not isinstance(detect, dict):
@@ -1700,17 +1727,19 @@ def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
     if foreign:
         raise InputArtifactError(
             f"{where}: detect does not read {', '.join(foreign)}; it reads surfaces and, "
-            "optionally, sweep_angle."
+            "optionally, sweep_angle and bluntness_angle."
         )
     surfaces = detect.get("surfaces")
     fields: dict[str, Any] = {"detect_surfaces": _surface_names(where, surfaces, every=True)}
-    if "sweep_angle" in detect:
-        angle = detect["sweep_angle"]
+    for key in ("sweep_angle", "bluntness_angle"):
+        if key not in detect:
+            continue
+        angle = detect[key]
         if isinstance(angle, bool) or not isinstance(angle, (int, float)):
             raise InputArtifactError(
-                f"{where}: detect states sweep_angle = {angle!r}; write it in degrees, as a number."
+                f"{where}: detect states {key} = {angle!r}; write it in degrees, as a number."
             )
-        fields["sweep_angle_deg"] = _as_float(where, "detect sweep_angle", angle)
+        fields[f"{key}_deg"] = _as_float(where, f"detect {key}", angle)
     return fields
 
 

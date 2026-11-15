@@ -570,7 +570,6 @@ def test_the_refusal_is_about_the_missing_family_and_not_about_every_entry():
     [
         "axial_separation_families",
         "viscous_excluded",
-        "thin_boundaries",
         "valarezo_separation_boundaries",
         "crossflow_separation_boundaries",
         "disabled_wake_trailing_edges",

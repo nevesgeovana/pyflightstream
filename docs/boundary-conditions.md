@@ -5,6 +5,19 @@ role; each MATRIX row supplies operating values. Use the
 [three-artifact example](setup-standards.md#uniform-inlet-and-outlet-boundaries)
 for a complete geometry, setup and condition declaration.
 
+## One home per condition
+
+Each boundary condition is declared in one place. A key that also reached a
+condition at another home is refused by name, and the refusal names the home.
+
+| Condition | Its home | Refused elsewhere |
+| --- | --- | --- |
+| Automatic trailing-edge and wake-termination detection | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) | setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` |
+| Speed of sound of the free stream | the air state of the flight-condition columns (temperature and specific-heat ratio) | setup `sonic_velocity_m_per_s` |
+| Loads of a symmetric model, the meshed half or sector or the whole | the run matrix row's `SYMMETRY_LOADS` column (true or false) | setup `symmetry_loads`, also on a row |
+| Base regions: which boundary is a base, its pressure model and its rim | the boundaries file, `[base_regions.<family>]`; the row's `BASE_REGIONS` column for a per-row choice; the setup's `base_region_operations` on an opened simulation | pproc `base_regions` |
+| Thin boundaries | the boundaries file beside the geometry: `thin_boundaries = ["Wing"]` (`[]` clears a saved selection) | setup `thin_boundaries` |
+
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
 `inputs/setups/s<>.toml` file, use ordered `[[ports]]` tables with `port`,
 `kind` and optional `velocity_variable` / `profile_variable` selectors.

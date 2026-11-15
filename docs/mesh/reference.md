@@ -373,11 +373,17 @@ merge_into = "wing"
 A trailing-edge entry requires `type`: `STANDARD`, `RELAXED`, `JET_OUTFLOW` or
 `VORTEX_SHEDDING`. Replace `file` with `detect = "auto"` or
 `detect = { surfaces = ["wing"], sweep_angle = 30.0 }` for detection, which
-accepts only `STANDARD`. File matching defaults to `tolerance = 0.0001` metres.
+accepts only `STANDARD`. `bluntness_angle` (degrees) beside `sweep_angle` sets
+`SET_TRAILING_EDGE_BLUNTNESS_ANGLE` before the detection; a build whose command
+database has no row for that command (26.122 and later) refuses it. File matching defaults to `tolerance = 0.0001` metres.
 Termination nodes may name a points file instead of `"auto"`: the package's
 points file (a unit line, then x,y,z), or the solver-layout nodes file a refined
 level writes, `<level>.<family>.fs.nodes.txt`, read in the `[import]` unit.
 Each point must match exactly one mesh vertex within the tolerance.
+
+`thin_boundaries = ["Wing"]` at the top of the file marks the named boundaries thin
+(`SET_THIN_BOUNDARIES`); `[]` clears a saved selection (`DELETE_THIN_BOUNDARIES`), and an
+absent key emits nothing. A setup's `thin_boundaries` is refused by name.
 
 Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
 `"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A rim given as a file

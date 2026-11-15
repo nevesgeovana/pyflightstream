@@ -50,6 +50,9 @@ WING_BODY_TAIL = (
     ["Wing", "Body", "Base", "HTail", "VTail", "TailBase", "Sting"],
 )
 WING_ALONE = ("2003", "w.fsm", ["Wing"])
+#: Each row's own BASE_REGIONS (PFS-2252: the pproc key is refused, so the rows name the
+#: bases their model carries; the scripts are the ones the pproc key gave).
+ROW_BASE_REGIONS = {"2001": "BASE_REGIONS: Base", "2002": "BASE_REGIONS: Base, TailBase"}
 STUDY_SURFACES = ["Wing", "Body", "Base", "HTail", "VTail", "TailBase", "Sting"]
 
 REFERENCE = (
@@ -74,13 +77,9 @@ SETUP = (
     'analysis_families = ["Wing", "Body", "HTail", "VTail"]\n'
     'vorticity_drag_families = ["Wing", "HTail"]\n'
 )
-PPROC = (
-    'base_regions = ["Base", "TailBase"]\n'
-    "[groups]\n"
-    'EVERY = "all"\n'
-    'HULL = "airframe"\n'
-    'TAIL = "tail"\n'
-)
+# 0.58.0 (PFS-2252): a base region is the boundaries file's or the row's BASE_REGIONS;
+# the pproc key the study once skipped through is refused by name.
+PPROC = '[groups]\nEVERY = "all"\nHULL = "airframe"\nTAIL = "tail"\n'
 
 #: The SHA-256 of the wing-body-tail row's script as v0.38.0 renders it from the
 #: same files (the reference without ``[study]``, which v0.38.0 refuses), the
@@ -96,8 +95,15 @@ def study(
     setup: str = SETUP,
     pproc: str = PPROC,
     models: tuple[tuple[str, str, list[str]], ...] = (WING_BODY, WING_BODY_TAIL),
+    rows: dict[str, str] | None = None,
 ) -> tuple[CampaignWorkspace, Path]:
-    """Build the use case's workspace and its matrix, one row per model."""
+    """Build the use case's workspace and its matrix, one row per model.
+
+    ``rows`` is each row's VAR_NAMES_VALUES; unstated, the rows name the bases the
+    default pproc named before 0.58.0 (PFS-2252), and none beside any other pproc.
+    """
+    if rows is None:
+        rows = ROW_BASE_REGIONS if pproc == PPROC else {}
     workspace = CampaignWorkspace.init(tmp_path / "study")
     inputs = workspace.inputs_dir
     for _, geometry, boundaries in models:
@@ -128,7 +134,7 @@ def study(
             "SYMMETRY": "NONE",
             "FS_BUILD": BUILD,
             "WORKFLOW": "steady",
-            "VAR_NAMES_VALUES": "",
+            "VAR_NAMES_VALUES": rows.get(pol, ""),
         }
         lines.append(" | ".join(cells.get(name, "-") for name in MATRIX_COLUMNS))
     path = workspace.root / "study.fs"
@@ -228,7 +234,6 @@ def without(text: str, line: str) -> str:
 WING_BODY_SKIPS = [
     {"artifact": "s001", "key": "delete_surfaces", "name": "Sting"},
     {"artifact": "p001", "key": "groups.TAIL", "name": "tail"},
-    {"artifact": "p001", "key": "base_regions", "name": "TailBase"},
     {"artifact": "s001", "key": "vorticity_drag_families", "name": "HTail"},
     {"artifact": "s001", "key": "analysis_families", "name": "HTail"},
     {"artifact": "s001", "key": "analysis_families", "name": "VTail"},
@@ -326,7 +331,6 @@ def test_the_plan_says_each_skip_once_naming_the_wing_body_row_alone(run_of_the_
     expected = [
         ("the setup artifact 's001' (inputs/setups/s001.toml)", "delete_surfaces", "Sting"),
         ("the pproc artifact 'p001' (inputs/pproc/p001.toml)", "groups.TAIL", "tail"),
-        ("the pproc artifact 'p001' (inputs/pproc/p001.toml)", "base_regions", "TailBase"),
         ("the setup artifact 's001' (inputs/setups/s001.toml)", "vorticity_drag_families", "HTail"),
         ("the setup artifact 's001' (inputs/setups/s001.toml)", "analysis_families", "HTail"),
         ("the setup artifact 's001' (inputs/setups/s001.toml)", "analysis_families", "VTail"),
@@ -396,7 +400,11 @@ def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_p
 
 
 def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
-    """P0390-R02 (FR-981) without [study]: delete_surfaces refuses, then base_regions."""
+    """P0390-R02 (FR-981) without [study]: delete_surfaces refuses; the bases are the rows'.
+
+    The second refusal 0.38.0 measured was the pproc's base_regions; since 0.58.0
+    (PFS-2252) the rows name the bases their model carries, so nothing is left to refuse.
+    """
     workspace, path = study(tmp_path / "first", reference=REFERENCE)
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
@@ -410,19 +418,13 @@ def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
     setup = without(SETUP, 'delete_surfaces = ["Sting"]\n')
     workspace, path = study(tmp_path / "second", reference=REFERENCE, setup=setup)
     plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    assert error_of(plan, "2001").startswith(
-        "CampaignConfigError: case '2001' states BASE_REGIONS with 'TailBase', and the sidecar "
-        "wb.fsm.boundaries.toml beside wb.fsm declares no boundary of that name or family; "
-        "it declares 'Wing', "
-        "'Body', 'Base'."
-    )
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
     assert fr435_warnings(said) == []
 
 
 def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
     """P0390-R02 (FR-979) a row's own BASE_REGIONS is no study key: TailBase still refuses."""
-    workspace, path = study(tmp_path, pproc=without(PPROC, 'base_regions = ["Base", "TailBase"]\n'))
+    workspace, path = study(tmp_path, rows={})
     lines = [
         line.rsplit("|", 1)[0] + "| BASE_REGIONS: Base, TailBase"
         if line.startswith("2001")
@@ -461,13 +463,6 @@ def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
             'vorticity_drag_families = ["Wing", "Htial"]',
             "vorticity_drag_families",
             "Htial",
-        ),
-        (
-            "pproc",
-            'base_regions = ["Base", "TailBase"]',
-            'base_regions = ["Base", "TailBse"]',
-            "base_regions",
-            "TailBse",
         ),
         ("pproc", 'TAIL = "tail"', 'TAIL = "tial"', "groups.TAIL", "tial"),
     ],
@@ -524,7 +519,7 @@ def test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal(tmp
 
 def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path):
     """P0390-R02 (FR-986) no group selects a wing-body boundary: refused with its 0.38.0 text."""
-    pproc = 'base_regions = ["Base", "TailBase"]\n[groups]\nTAIL = "tail"\n'
+    pproc = '[groups]\nTAIL = "tail"\n'
     workspace, path = study(tmp_path, pproc=pproc)
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
@@ -547,18 +542,12 @@ CREATE_TAIL_BASE = (
 
 
 def test_a_skipped_base_beside_an_index_addressed_operation_is_refused(tmp_path):
-    """P0390-R02 (FR-983) TailBase skipped while base region 1 is addressed by index: refused."""
-    workspace, path = study(tmp_path / "regions", setup=SETUP + INDEXED)
-    plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    error = error_of(plan, "2001")
-    assert "base_regions cites 'TailBase'" in error
-    assert "base_region_operations[1] addresses a base region by index 1" in error
-    assert fr435_warnings(said) == []
-    pproc = without(PPROC, 'base_regions = ["Base", "TailBase"]\n')
-    workspace, path = study(
-        tmp_path / "create", setup=SETUP + CREATE_TAIL_BASE + INDEXED, pproc=pproc
-    )
+    """P0390-R02 (FR-983) a skipped TailBase create while region 1 is addressed by index.
+
+    The pproc base_regions half of this test left with the key (PFS-2252): a row's own
+    BASE_REGIONS is never skipped (FR-979), so only the create entry can renumber.
+    """
+    workspace, path = study(tmp_path / "create", setup=SETUP + CREATE_TAIL_BASE + INDEXED, rows={})
     plan, _ = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
     error = error_of(plan, "2001")
@@ -568,8 +557,7 @@ def test_a_skipped_base_beside_an_index_addressed_operation_is_refused(tmp_path)
 
 def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
     """P0390-R02 (FR-982) a create over TailBase, nothing indexed: 2001 leaves it out, said."""
-    pproc = without(PPROC, 'base_regions = ["Base", "TailBase"]\n')
-    workspace, path = study(tmp_path, setup=SETUP + CREATE_TAIL_BASE, pproc=pproc)
+    workspace, path = study(tmp_path, setup=SETUP + CREATE_TAIL_BASE, rows={})
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
     assert [
@@ -594,13 +582,6 @@ def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
             PPROC,
             "groups.TAIL",
             "tail",
-            REFERENCE + STUDY,
-        ),
-        (
-            without(SETUP, 'delete_surfaces = ["Sting"]\n'),
-            'base_regions = ["Base", "TailBase"]\n[groups]\nEVERY = "all"\n',
-            "base_regions",
-            "TailBase",
             REFERENCE + STUDY,
         ),
         (
@@ -888,7 +869,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     for the rotor (item 15).
     """
     study_table = '[study]\nsurfaces = ["Wing", "Body", "Base"]\n'
-    pproc = 'base_regions = ["Base"]\n[groups]\nEVERY = "all"\nBLADE2 = "Prop2"\n'
+    pproc = '[groups]\nEVERY = "all"\nBLADE2 = "Prop2"\n'
     workspace, path = study(
         tmp_path,
         reference=REFERENCE + study_table + ROTOR,
@@ -923,15 +904,10 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
             PPROC,
             "states delete_surfaces with 'each', and the inventory declares no surface",
         ),
-        (
-            without(SETUP, 'delete_surfaces = ["Sting"]\n'),
-            PPROC.replace('base_regions = ["Base", "TailBase"]', 'base_regions = ["Base", "each"]'),
-            "states BASE_REGIONS with 'each', and the sidecar",
-        ),
     ],
 )
 def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setup, pproc, v0380):
-    """P0390-R02 (FR-982) ``each`` in delete_surfaces or base_regions keeps its 0.38.0 reading.
+    """P0390-R02 (FR-982) ``each`` in delete_surfaces keeps its 0.38.0 reading.
 
     The study never skips, refuses or says ``all``, ``each`` or
     ``each_blade``: the word is read as 0.38.0 reads it (here its refusal as a
@@ -961,14 +937,6 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
             "states delete_surfaces with 'Sting', and the inventory declares no surface",
         ),
         (
-            without(SETUP, 'delete_surfaces = ["Sting"]\n'),
-            'base_regions = ["Base", "TailBase"]\n[groups]\nEVERY = "all"\n',
-            "base_regions",
-            "TailBase",
-            "states BASE_REGIONS with 'TailBase', and the sidecar "
-            "wb.fsm.boundaries.toml beside wb.fsm",
-        ),
-        (
             "iterations = 500\n" + CREATE_TAIL_BASE,
             '[groups]\nEVERY = "all"\n',
             "base_region_operations[1]",
@@ -980,9 +948,8 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
 def test_the_flag_refuses_every_key_without_a_study(tmp_path, setup, pproc, key, name, v0380):
     """P0390-R02 (FR-988, FR-981) no [study]: the flag refuses delete_surfaces and the base keys.
 
-    ``--ignore-missing-families false`` names the key the artifact writes (the
-    pproc's ``base_regions``, not the row's ``BASE_REGIONS``), the name and the
-    flag on a reference declaring no vocabulary; at the default flag the row
+    ``--ignore-missing-families false`` names the key the artifact writes, the
+    name and the flag on a reference declaring no vocabulary; at the default flag the row
     keeps its 0.38.0 refusal, which names no flag.
     """
     workspace, path = study(tmp_path, reference=REFERENCE, setup=setup, pproc=pproc)

@@ -145,10 +145,10 @@ knowing.
    selection, so it is a recipe's job; and `wake_layers` has no
    emitter in this package at all. `slipstream_wake_stabilization`
    is a setup toggle (see
-   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two other keys are not refused:
-   `symmetry_loads`, whose behavior is measured (a stated key reaches
-   `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
-   `significant_digits`, which gained its emitter. `mesh_order_list` is
+   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). `significant_digits` is not refused,
+   since it gained its emitter. `symmetry_loads` is refused by name since
+   0.58.0: the row's `SYMMETRY_LOADS` column is the one route to
+   `SET_ANALYSIS_SYMMETRY_LOADS`. `mesh_order_list` is
    refused outright, since the boundary order belongs to the file
    (`pyfs-workspace geometry inventory`).
 
@@ -389,9 +389,10 @@ cell's slash and whose records its comma, so the table-valued keys
 `cylindrical_bulk_separation`, `stratford_bulk_separation`, `ports`,
 `trailing_edge_types`, `actuator_operations`, `base_region_operations` and
 `unsteady_solver_actions`) are a preset's only, and a row naming one is refused
-with that list. A key named by a run type and by the setup at once, or one
-setting written in both vocabularies on one row (`SYMMETRY_LOADS` beside
-`symmetry_loads`), is refused as ambiguous. A key that is neither a run-type
+with that list. A key named by a run type and by the setup at once is refused as
+ambiguous; a setup key that 0.58.0 moved to another home (`symmetry_loads`
+beside or without `SYMMETRY_LOADS`) is refused by name on a row as in a preset,
+naming its home. A key that is neither a run-type
 key nor a setup key is refused by the run type, as before.
 
 ### When a name you used no longer exists

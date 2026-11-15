@@ -105,7 +105,8 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
     ),
     ("s945", "stratford_bulk_separation", [{"name": "Body", "boundaries": ["Body"]}]),
     ("s946", "viscous_excluded", ["Body"]),
-    ("s947", "thin_boundaries", ["Wing"]),
+    # s947 retired at 0.58.0 (PFS-2256): thin boundaries are declared in the geometry's
+    # boundaries file, not a setup. The ID stays reserved and is not reused.
     ("s948", "valarezo_separation_boundaries", ["Wing"]),
     ("s949", "crossflow_separation_boundaries", ["Body"]),
     ("s950", "crossflow_separation_diameter", 1.0),
@@ -296,10 +297,6 @@ _MEANINGS: dict[str, str] = {
         "Controls wake/wall collision avoidance at initialization. Check geometry and "
         "wake-clearance applicability."
     ),
-    "symmetry_loads": (
-        "Controls load scaling for a half or sector mesh. Baselines assume a complete "
-        "model; explicitly adapt symmetry geometry."
-    ),
     "load_solver_initialization": (
         "Loads or discards initialization from a saved simulation. Baselines use false for "
         "a cold initialization."
@@ -312,13 +309,6 @@ _MEANINGS: dict[str, str] = {
         "Selects a distinct vorticity-field lift model where supported; not the same "
         "command as Kutta-Joukowski lift."
     ),
-    "physics_auto_trailing_edges": (
-        "Legacy automatic trailing-edge detection, paired with physics_auto_wake_nodes. "
-        "Modern BC markings remain geometry-specific."
-    ),
-    "physics_auto_wake_nodes": (
-        "Legacy automatic wake-node detection, paired with physics_auto_trailing_edges."
-    ),
     "crossflow_separation_axisymmetric": (
         "Chooses an axisymmetric assumption for crossflow separation where supported."
     ),
@@ -329,10 +319,6 @@ _MEANINGS: dict[str, str] = {
     "viscous_excluded": (
         "An empty list clears the exclusion list; populated entries remove boundaries from "
         "viscous treatment."
-    ),
-    "thin_boundaries": (
-        "An empty list clears the thin-surface selection; populate only boundaries intended "
-        "for that representation."
     ),
     "significant_digits": (
         "Controls digits in native exports; written precision does not change solved physics."
@@ -424,8 +410,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "laminar_separation": False,
         "valarezo_criterion": False,
         "crossflow_separation_axisymmetric": False,
-        "physics_auto_trailing_edges": False,
-        "physics_auto_wake_nodes": False,
         "wall_collision_avoidance": False,
         "mesh_induced_wake_velocity": True,
         "unsteady_pressure_and_kutta": True,
@@ -440,7 +424,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "jet_wake_filaments_grid_induction": False,
         "adverse_gradient_boundary_layer": False,
         "vortex_ring_normalization": False,
-        "symmetry_loads": False,
         "load_solver_initialization": False,
         "inviscid_loads": False,
         "vorticity_lift_model": False,
@@ -450,7 +433,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "significant_digits": 7,
         "delete_separations": "all",
         "viscous_excluded": [],
-        "thin_boundaries": [],
     }
     # Even False is an explicit steady-only loads selection. A march must omit it.
     unsteady = {key: value for key, value in base.items() if key != "inviscid_loads"}

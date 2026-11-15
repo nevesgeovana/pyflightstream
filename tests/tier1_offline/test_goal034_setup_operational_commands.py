@@ -130,6 +130,13 @@ def _base(*operations: dict[str, object]) -> Make:
     )
 
 
+def _thin(tmp: Path, names: str) -> SimCase:
+    """The saved wing, its boundaries file marking ``names`` thin (PFS-2256)."""
+    sidecar = tmp / "wing.fsm.boundaries.toml"
+    sidecar.write_text(f"thin_boundaries = {names}\n", encoding="utf-8")
+    return _over_wing(tmp).model_copy(update={"boundaries_file": str(sidecar)})
+
+
 def _solver(**settings: object) -> Make:
     return lambda _: steady_case().model_copy(update={"solver": SolverSettings(**settings)})
 
@@ -147,7 +154,6 @@ ENABLE_DISABLE = {
     "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA": "unsteady_pressure_and_kutta",
     "SET_SOLVER_VISCOUS_COUPLING": "viscous_coupling",
     "SET_INVISCID_LOADS": "inviscid_loads",
-    "SET_ANALYSIS_SYMMETRY_LOADS": "symmetry_loads",
 }
 NUMBER_07 = {
     "ROTOR_INDUCED_VELOCITY_BLENDING": "rotor_induced_velocity_blending",
@@ -159,7 +165,6 @@ NUMBER_07 = {
 SELECTION_OF_BODY = {
     "SET_SOLVER_ANALYSIS_BOUNDARIES": "analysis_families",
     "SET_VORTICITY_DRAG_BOUNDARIES": "vorticity_drag_families",
-    "SET_THIN_BOUNDARIES": "thin_boundaries",
     "SET_VISCOUS_EXCLUDED_BOUNDARIES": "viscous_excluded",
     "SOLVER_PROXIMAL_BOUNDARIES": "proximal_boundaries",
 }
@@ -244,10 +249,14 @@ ROUTES: dict[str, Route] = {
         "solver_model", "INITIALIZE_SOLVER", "SOLVER_MODEL SUBSONIC_PRANDTL_GLAUERT"
     ),
     # An emptied selection clears the boundaries a selection would set.
+    # PFS-2256: thin boundaries are the geometry's boundaries file's.
+    "SET_THIN_BOUNDARIES": Route(
+        lambda tmp: _thin(tmp, '["Body"]'),
+        lambda tmp: _thin(tmp, '["Wing"]'),
+        ("SET_THIN_BOUNDARIES 1", "2"),
+    ),
     "DELETE_THIN_BOUNDARIES": Route(
-        lambda tmp: _over_wing(tmp).model_copy(
-            update={"solver": SolverSettings(thin_boundaries=[])}
-        ),
+        lambda tmp: _thin(tmp, "[]"),
         _over_wing,
         ("DELETE_THIN_BOUNDARIES",),
     ),
@@ -260,6 +269,8 @@ ROUTES: dict[str, Route] = {
     ),
     # The sidecar's declarations, applied against left.
     # Row keys, read where the builder reads them.
+    # PFS-2255: the row's SYMMETRY_LOADS column is the one route (the setup key is refused).
+    "SET_ANALYSIS_SYMMETRY_LOADS": _row("SYMMETRY_LOADS", "SET_ANALYSIS_SYMMETRY_LOADS DISABLE"),
     "SOLVER_SET_AOA": _row("ALPHA", "SOLVER_SET_AOA 4.0"),
     "SOLVER_SET_SIDESLIP": _row("BETA", "SOLVER_SET_SIDESLIP 4.0"),
     "SOLVER_SET_VELOCITY": _row("VELOCITY", "SOLVER_SET_VELOCITY 40.0"),
@@ -509,8 +520,6 @@ UNSUPPORTED_ON_26124 = {
     "crossflow_separation_mean_diameter": "SET_CROSSFLOW_SEPARATION_CP",
     "crossflow_separation_axisymmetric": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
     "legacy_solver_model": "SET_SOLVER_MODEL",
-    "sonic_velocity_m_per_s": "SONIC_VELOCITY",
-    "physics_auto_trailing_edges": "PHYSICS",
 }
 
 

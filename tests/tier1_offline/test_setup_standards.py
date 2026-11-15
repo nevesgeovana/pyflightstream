@@ -383,7 +383,6 @@ def test_inspection_resolves_symmetry_override_and_keeps_invalid_rows_inspectabl
         aircraft="Wing",
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
-        solver={"symmetry_loads": False},
         variables={"SYMMETRY_LOADS": "TRUE", "NCPUS": "bad"},
     )
     result = inspect_case_setup(case, "26.124")

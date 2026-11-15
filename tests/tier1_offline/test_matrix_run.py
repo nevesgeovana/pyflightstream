@@ -3696,27 +3696,16 @@ def test_a_recorded_only_key_is_kept_and_says_why():
     )
 
 
-def test_symmetry_loads_stated_in_the_setup_reaches_the_settings():
-    """PFS-2028.05, the author's decision of 2026-09-02: emit exactly what the preset declares.
+def test_symmetry_loads_omitted_still_warns_nothing_and_emits_nothing():
+    """An absent key is an absent key: no warning, and no setting reaches the solver.
 
-    The measurement behind it: the 0.10.1 reproduction of the author's isolated
-    rotor reported loads six times the author's, the periodic copy count, because
-    the author's preset stated the symmetry loads off and nothing was emitted.
+    Since 0.58.0 (PFS-2255) the half or full loads are the row's SYMMETRY_LOADS
+    column only, and a preset stating symmetry_loads is refused by name.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        settings = _solver("symmetry_loads = false\n")
-    assert settings.symmetry_loads is False
-    assert _solver("symmetry_loads = true\n").symmetry_loads is True
-    assert _solver("symmetry_loads = 'ENABLE'\n").symmetry_loads is True
-
-
-def test_symmetry_loads_omitted_still_warns_nothing_and_emits_nothing():
-    """An absent key is an absent key: no warning, and the field stays None."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
         settings = _solver("NITER = 500\n")
-    assert settings.symmetry_loads is None
+    assert "symmetry_loads" not in settings.model_dump()
 
 
 def test_a_preset_may_declare_its_own_recorded_only_keys():

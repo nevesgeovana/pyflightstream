@@ -4332,13 +4332,14 @@ def test_wake_termination_in_steps_reaches_the_no_rotor_unsteady_run():
         rendered(both)
 
 
-def test_symmetry_loads_stated_in_the_setup_reaches_the_script():
+def test_symmetry_loads_stated_in_the_row_reaches_the_script():
     """PFS-2028.05, the author's decision of 2026-09-02: emitted exactly as stated, before the
-    start."""
-    from pyflightstream.cases import SolverSettings
-
-    stated_on = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=True)})
-    stated_off = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=False)})
+    start; since 0.58.0 (PFS-2255) the row's SYMMETRY_LOADS column is the one route."""
+    base = steady_case()
+    stated_on = base.model_copy(update={"variables": {**base.variables, "SYMMETRY_LOADS": "true"}})
+    stated_off = base.model_copy(
+        update={"variables": {**base.variables, "SYMMETRY_LOADS": "false"}}
+    )
     on = rendered(stated_on).splitlines()
     off = rendered(stated_off).splitlines()
     assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in on
@@ -4789,18 +4790,9 @@ def test_base_region_families_reach_the_script_by_index(tmp_path):
     assert lines.index("DETECT_BASE_REGIONS_BY_SURFACE 1") < motion, (
         "the autodetect is not emitted right after OPEN, before the motion"
     )
-    # The pproc artifact's list is the other source, and the row overrides it.
-    from pyflightstream.cases import PprocSpec
-
-    from_pproc = _rotor_row(sector, "Blade").model_copy(
-        update={"pproc": PprocSpec(base_regions=["N"]), "pproc_id": "p001"}
-    )
-    script = Script("26.123")
-    build_script(from_pproc, script)
-    assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 3"]
-    overridden = from_pproc.model_copy(
-        update={"variables": {**from_pproc.variables, "BASE_REGIONS": "S"}}
-    )
+    # The row's own column is the per-row route (PFS-2252: the pproc list is refused).
+    row = _rotor_row(sector, "Blade")
+    overridden = row.model_copy(update={"variables": {**row.variables, "BASE_REGIONS": "S"}})
     script = Script("26.123")
     build_script(overridden, script)
     assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 2"]

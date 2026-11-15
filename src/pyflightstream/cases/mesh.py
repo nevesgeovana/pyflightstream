@@ -15,7 +15,9 @@ configuration error from reference_blocks and never the package root;
 from __future__ import annotations
 
 import math
+import tomllib
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import (
@@ -43,6 +45,8 @@ __all__ = [
     "RawMeshConditions",
     "TrailingEdgeMarking",
     "BaseRegionOperation",
+    "THIN_BOUNDARIES_KEY",
+    "thin_boundaries_of",
 ]
 
 
@@ -326,9 +330,9 @@ class TrailingEdgeMarking(BaseModel):
 
     ``route = "detect"`` marks by the solver's detection:
     ``detect_surfaces`` names the surfaces to detect on, by the sidecar's
-    names, and is empty for every surface; ``sweep_angle_deg`` is set
-    before the detection when stated. Detection gives every edge the
-    STANDARD type and reads no tolerance.
+    names, and is empty for every surface; ``sweep_angle_deg`` and
+    ``bluntness_angle_deg`` are set before the detection when stated.
+    Detection gives every edge the STANDARD type and reads no tolerance.
 
     Examples
     --------
@@ -344,6 +348,9 @@ class TrailingEdgeMarking(BaseModel):
     sets: tuple[TrailingEdgeSet, ...] = ()
     detect_surfaces: tuple[str, ...] = ()
     sweep_angle_deg: float | None = None
+    #: SET_TRAILING_EDGE_BLUNTNESS_ANGLE before the detection, only when stated; the
+    #: command database decides the builds that take it (PFS-2249).
+    bluntness_angle_deg: float | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -409,6 +416,7 @@ class TrailingEdgeMarking(BaseModel):
                 or self.points_file
                 or self.detect_surfaces
                 or self.sweep_angle_deg is not None
+                or self.bluntness_angle_deg is not None
             ):
                 raise InputValueError("no trailing edge cannot also supply points or detection")
             return self
@@ -419,10 +427,14 @@ class TrailingEdgeMarking(BaseModel):
                 "file, and it must be positive and finite"
             )
         if self.route == "file":
-            if self.detect_surfaces or self.sweep_angle_deg is not None:
+            if (
+                self.detect_surfaces
+                or self.sweep_angle_deg is not None
+                or self.bluntness_angle_deg is not None
+            ):
                 raise InputValueError(
-                    "the file route takes no detection surfaces and no sweep angle"
-                    ". Drop them, or use the detect route."
+                    "the file route takes no detection surfaces, no sweep angle and no "
+                    "bluntness angle. Drop them, or use the detect route."
                 )
             return self
         if self.points_m or self.points_file is not None:
@@ -437,6 +449,11 @@ class TrailingEdgeMarking(BaseModel):
             raise InputValueError(
                 f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number"
                 ". State a finite sweep_angle."
+            )
+        if self.bluntness_angle_deg is not None and not math.isfinite(self.bluntness_angle_deg):
+            raise InputValueError(
+                f"bluntness_angle = {self.bluntness_angle_deg!r} is not a finite number"
+                ". State a finite bluntness_angle."
             )
         return self
 
@@ -680,3 +697,48 @@ class RawMeshConditions(BaseModel):
                 )
             seen.add(port.boundary)
         return self
+
+
+#: The boundaries-file key that marks boundaries thin (PFS-2256).
+THIN_BOUNDARIES_KEY = "thin_boundaries"
+
+
+def thin_boundaries_of(boundaries_file: str | Path | None) -> tuple[str, ...] | None:
+    """Return the boundaries a boundaries file marks thin, or None where it states none.
+
+    Parameters
+    ----------
+    boundaries_file : str, Path or None
+        The ``<stem>.boundaries.toml`` beside the geometry; None or a missing
+        file states nothing.
+
+    Returns
+    -------
+    tuple of str or None
+        The names as written; ``()`` for an empty list, which clears a saved
+        selection; None where the key is absent.
+
+    Raises
+    ------
+    InputValueError
+        A file that does not read as TOML, or a value that is not a list of
+        nonempty names.
+    """
+    if boundaries_file is None or not Path(boundaries_file).is_file():
+        return None
+    path = Path(boundaries_file)
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise InputValueError(f"{path} cannot be read as a boundaries file: {error}") from error
+    if THIN_BOUNDARIES_KEY not in data:
+        return None
+    value = data[THIN_BOUNDARIES_KEY]
+    if not isinstance(value, list) or not all(
+        isinstance(name, str) and name.strip() for name in value
+    ):
+        raise InputValueError(
+            f"{path} states {THIN_BOUNDARIES_KEY} = {value!r}; write a list of boundary "
+            f'names, as {THIN_BOUNDARIES_KEY} = ["Wing"], or [] to clear a saved selection.'
+        )
+    return tuple(value)

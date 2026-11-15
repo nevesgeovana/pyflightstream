@@ -4286,8 +4286,9 @@ class TestF2Package0607RowSetup:
         ("cell", "word"),
         [
             ("NITER: 800 / iterations: 800", "twice"),
-            ("SYMMETRY_LOADS: DISABLE / symmetry_loads: ENABLE", "ambiguous"),
-            ("symmetry_loads: ENABLE / SYMMETRY_LOADS: ENABLE", "ambiguous"),
+            # PFS-2255: the setup spelling is refused by name, naming the column.
+            ("SYMMETRY_LOADS: DISABLE / symmetry_loads: ENABLE", "SYMMETRY_LOADS column"),
+            ("symmetry_loads: ENABLE / SYMMETRY_LOADS: ENABLE", "SYMMETRY_LOADS column"),
         ],
     )
     def test_fr558_duplicate_spellings_and_cross_vocabulary_keys_are_refused(tmp_path, cell, word):

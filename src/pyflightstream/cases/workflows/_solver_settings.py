@@ -28,6 +28,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._setup_link import (
     LOADS_SELECTION_KEYS,
 )
+from pyflightstream.cases.mesh import thin_boundaries_of
 from pyflightstream.commands import (
     Phase,
 )
@@ -173,9 +174,6 @@ def _resolved_native_mach(case: SimCase, script: Script) -> float | None:
                 f"{prefix}: resolved sound speed disagrees with gamma * pressure / density; "
                 "use freestream_input='velocity' to preserve an independently pinned state"
             )
-    override = case.solver.sonic_velocity_m_per_s
-    if override is not None and not math.isclose(override, sound, rel_tol=1e-7, abs_tol=1e-9):
-        raise CampaignConfigError(f"{prefix}: sonic_velocity_m_per_s changes the sound speed")
     velocity = _velocity(case)
     values = (mach, velocity, fluid.velocity_m_per_s)
     if any(not math.isfinite(value) or value < 0 for value in values):
@@ -189,6 +187,45 @@ def _resolved_native_mach(case: SimCase, script: Script) -> float | None:
             "the native route cannot change the requested physical condition"
         )
     return mach
+
+
+#: The per-mechanism separation keys of build 26.100 and the command each reaches
+#: (PFS-2257); 26.101 and later declare separation by the named models instead.
+PER_MECHANISM_SEPARATION_KEYS = {
+    "valarezo_separation_boundaries": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+    "crossflow_separation_boundaries": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+    "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
+}
+
+#: The keys of the named separation models (solver_settings.yaml, "the named
+#: separation models of 26.101 and later"), which a refusal above names.
+NAMED_SEPARATION_KEYS = (
+    "airfoil_separation",
+    "bulk_separation",
+    "axial_vortex_separation",
+    "cylindrical_bulk_separation",
+    "stratford_bulk_separation",
+)
+
+
+def _refuse_per_mechanism_separation(case: SimCase, script: Script) -> None:
+    """Refuse a per-mechanism separation key on a build whose database carries no row for it.
+
+    The keys emit the per-mechanism boundary lists of 26.100; from 26.101 the
+    solver declares separation by named models (PFS-2257, the owner's answer of
+    2026-11-15: the declaration changed, keep the keys for the old builds).
+    """
+    for key, command in PER_MECHANISM_SEPARATION_KEYS.items():
+        if getattr(case.solver, key) is None:
+            continue
+        status = script.registry.commands[command].status_in(script.version)
+        if status is None or str(status.status) == "removed":
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the setup key {key} states the per-mechanism "
+                f"separation list {command}, which the command database records on 26.100 "
+                f"and earlier and not on build {script.version}. On this build separation is "
+                f"declared by the named separation models: {', '.join(NAMED_SEPARATION_KEYS)}."
+            )
 
 
 def _settings(
@@ -237,17 +274,19 @@ def _settings(
             "mark_wake_termination_nodes = true selects no node; "
             "use the [wake_termination] file route"
         )
-    if solver.sonic_velocity_m_per_s is not None:
-        script.emit("SONIC_VELOCITY", solver.sonic_velocity_m_per_s)
     for inlet in solver.delete_inlets or ():
         script.emit("DELETE_INLET", inlet)
     for outlet in solver.delete_outlets or ():
         script.emit("DELETE_OUTLET", outlet)
     for trip in solver.delete_transition_trips or ():
         script.emit("DELETE_TRANSITION_TRIP", trip)
-    physics = (solver.physics_auto_trailing_edges, solver.physics_auto_wake_nodes)
-    if any(value is not None for value in physics):
-        script.emit("PHYSICS", *(bool(value) for value in physics))
+    # The names first, as the study judges them (FR-988), then the build's own word on
+    # the per-mechanism lists (PFS-2257), then the emission.
+    vorticity = _setup_link.vorticity_indices(case, script)
+    axial = _setup_link.axial_separation_indices(case, script)
+    _refuse_per_mechanism_separation(case, script)
+    # PFS-2256: the thin boundaries are the geometry's boundaries file's.
+    thin = thin_boundaries_of(case.boundaries_file)
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),
@@ -266,12 +305,12 @@ def _settings(
         ),
         ref_mach=solver.reference_mach,
         disable_ref_velocity=bool(solver.disable_reference_velocity),
-        vorticity_drag_boundaries=_setup_link.vorticity_indices(case, script),
+        vorticity_drag_boundaries=vorticity,
         # THE CALL SITE IS WHAT DELIVERS THIS, not the field and not the helper
         # keyword. Both of those existed already and a preset still could not ask
         # for an axial separation list, because this hand-written argument list is
         # the only path from a setup to the script.
-        axial_separation_boundaries=_setup_link.axial_separation_indices(case, script),
+        axial_separation_boundaries=axial,
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=row_ncpus(case, solver.max_threads),
@@ -282,7 +321,7 @@ def _settings(
         viscous_coupling=solver.viscous_coupling,
         viscous_excluded=solver.viscous_excluded,
         surface_roughness=solver.surface_roughness,
-        thin_boundaries=solver.thin_boundaries,
+        thin_boundaries=None if thin is None else list(thin),
         bulk_separation=solver.bulk_separation,
         airfoil_separation=solver.airfoil_separation,
         axial_vortex_separation=solver.axial_vortex_separation,
@@ -343,7 +382,7 @@ def _settings(
     # SYMMETRY LOADS AS STATED (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing.
-    symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
+    symmetry_loads = row_symmetry_loads(case)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
     _setup_link.emit_setup_extras(

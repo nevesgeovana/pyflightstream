@@ -431,41 +431,33 @@ def test_a_pproc_group_named_like_the_numbered_era_is_refused_at_plan_time(tmp_p
     assert "numbered era" in message or "supersedes" in message, message
 
 
-def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
-    """PFS-2005.04: the docs page shows `base_regions = [...]` at the top level of the
-    pproc artifact, and the reader refused exactly that form as an old-shape groups
-    file (measured 2026-09-08). The empty list is the documented off switch and
-    plans READY; a list naming a family reaches the script as one
-    DETECT_BASE_REGIONS_BY_SURFACE per boundary of it."""
-    from pyflightstream.cases.workflows import build_script
-    from pyflightstream.script import Script
-    from pyflightstream.workspace.matrix import resolve_matrix
+def test_a_top_level_base_regions_list_is_refused_naming_its_home(tmp_path):
+    """PFS-2252 (0.58.0): a pproc's ``base_regions`` is refused by name, empty or not.
+
+    The list was the documented off switch of PFS-2005.04 and was read off the
+    top level; a base region's home is now the boundaries file, with the row's
+    BASE_REGIONS for a per-row choice, and the refusal names both, never reading
+    the list as an old-shape group.
+    """
+    from pyflightstream._errors import PyflightstreamError
 
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p007", 'base_regions = []\n\n[groups]\n"1" = "Wing"\n')
-    matrix = _one_row_matrix(
-        root,
-        "off.fs",
-        f"7107 | 0 | 1 | Wing | - | READY | {WING_ROW.format(pproc='p007')}GEOMETRY: 10_WING.fsm / "
-        "SYMMETRY: NONE",
-    )
-    plan = _plan(root, matrix)
-    assert not plan.blocked, plan.summary()
-    _pproc(root, "p008", 'base_regions = ["Base"]\n\n[groups]\n"1" = "Body"\n')
-    body = _one_row_matrix(
-        root,
-        "on.fs",
-        f"7108 | 0 | 1 | Body | - | READY | {WING_ROW.format(pproc='p008')}GEOMETRY: 20_BODY.fsm / "
-        "SYMMETRY: NONE",
-    )
-    resolved = resolve_matrix(
-        body, CampaignWorkspace(root), name="switch", fs_version="26.120", recipes={}
-    )
-    assert resolved.pprocs["p008"].base_regions == ["Base"]
-    script = Script("26.120")
-    build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
-    detected = [line for line in script.render().splitlines() if "DETECT_BASE_REGIONS" in line]
-    assert detected == ["DETECT_BASE_REGIONS_BY_SURFACE 2"], script.render()
+    for pol, pproc, body in (
+        ("7107", "p007", "base_regions = []"),
+        ("7108", "p008", 'base_regions = ["Base"]'),
+    ):
+        _pproc(root, pproc, f'{body}\n\n[groups]\n"1" = "Wing"\n')
+        matrix = _one_row_matrix(
+            root,
+            f"{pproc}.fs",
+            f"{pol} | 0 | 1 | Wing | - | READY | {WING_ROW.format(pproc=pproc)}"
+            "GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+        )
+        with pytest.raises(PyflightstreamError) as caught:
+            _plan(root, matrix)
+        message = str(caught.value)
+        assert "base_regions of a pproc is no longer accepted" in message, message
+        assert "[base_regions.<family>]" in message and "BASE_REGIONS column" in message
 
 
 def test_every_tier3_row_marking_base_regions_names_the_boundary_that_becomes_the_base():

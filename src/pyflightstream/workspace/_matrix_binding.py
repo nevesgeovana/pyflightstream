@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._retired_names import removed_setup_forms
 from pyflightstream.cases import Campaign, InputKey, SimCase, SolverSettings
 from pyflightstream.cases.matrix import MatrixRow
 from pyflightstream.workspace import CampaignWorkspace
@@ -427,6 +428,12 @@ def _match_settings(
 
 
 def _refuse_setup_keys(refused: list[str], set_code: str) -> None:
+    removed = removed_setup_forms(refused)
+    if removed:
+        # PFS-2176: a condition with another home is refused by name, naming that home.
+        raise InputArtifactError(
+            f"setup preset {set_code!r}: " + " ".join(entry.message() for entry in removed)
+        )
     known = set(SolverSettings.model_fields)
     near_miss = sorted(
         key

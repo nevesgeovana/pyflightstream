@@ -11,6 +11,15 @@ from tests.tier1_offline.test_matrix_run import RECIPES, make_library
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+#: The solver-settings fields 0.58.0 removed with their setup keys (PFS-2176 review).
+REMOVED_SOLVER_FIELDS = (
+    "physics_auto_trailing_edges",
+    "physics_auto_wake_nodes",
+    "sonic_velocity_m_per_s",
+    "symmetry_loads",
+    "thin_boundaries",
+)
+
 
 @pytest.mark.parametrize("fixture", ["matrix.fs", "matrix_registry.fs"])
 def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
@@ -75,6 +84,15 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     for case in expected[fixture]["campaign"]["sims"]:
         assert case.pop("raw_mesh_conditions") is None
         case["boundaries_file"] = None
+        # 0.58.0 (PFS-2176 review): the setup keys whose condition has another home
+        # leave the solver settings; these fixtures state none of them.
+        for key in REMOVED_SOLVER_FIELDS:
+            assert case["solver"].pop(key) is None
+        if case.get("pproc") is not None:
+            assert case["pproc"].pop("base_regions") == []
+    # PFS-2252 (0.58.0): a pproc declares no base region; these fixtures declared none.
+    for pproc in expected[fixture]["pprocs"].values():
+        assert pproc.pop("base_regions") == []
     # PFS-2170 records rejected default pins; these fixtures reject none.
     for condition in expected[fixture]["conditions"].values():
         condition["dropped_defaults"] = {}

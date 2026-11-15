@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Added
 
+The trailing-edge detection of a boundaries file takes `bluntness_angle` (degrees) beside `sweep_angle`: `[trailing_edges.<label>] detect = { surfaces = [...], bluntness_angle = 120 }` sets `SET_TRAILING_EDGE_BLUNTNESS_ANGLE` before the detection, on the builds whose command database row allows it (25.000 to 26.121), and a build with no row refuses it naming the command. PFS-2249. migration: none.
+
 A rotor block of the reference states an integer `id`, 0 or more, 0 when unwritten: the `<id>` of the rotor's frame `R<id>` and of its columns (`RPM0`, `CTR0`). `refuse_duplicate_rotor_ids` refuses two rotors of one reference that carry one id, two rotors without ids included, naming both aliases. migration: none for a reference with one rotor; a reference with several rotors gives each a distinct `id`.
 
 The axes of the 0.58.0 polar files: `post.axes.rotor_frame` builds the frame `R<id>` of a rotor, its body axes turned by the toe and the pitch of the declared shaft, with the shaft's sense chosen so thrust is positive forward (up for a lift rotor); `frame_rotations` gives the frames W, S, B and every `R<id>` from the export frame, and `airframe_axis_coefficients` the six coefficients of each, `CD` positive aft and `CL` positive up in every frame. New definition pages: axes and signs, airframe coefficients. migration: none; no product writes them yet.
@@ -86,6 +88,18 @@ The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 The probe kinds `normal` and `unsteady` of a `[[probes]]` or `[volume_section]` entry are refused. migration: write `kind = "default"` and `kind = "instantaneous"`.
 
 `sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
+
+The setup keys `physics_auto_trailing_edges` and `physics_auto_wake_nodes` (the `PHYSICS` command, which has no row on the current builds) are refused by name. PFS-2250. migration: declare the detection in the boundaries file, `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry).
+
+The setup key `sonic_velocity_m_per_s` (the `SONIC_VELOCITY` command, removed by build 26.101) is refused by name when the setup is read. PFS-2251. migration: remove the key; the speed of sound follows from the air state of the flight-condition columns.
+
+The setup key `symmetry_loads` is refused by name, in a preset and on a row: whether the loads are the meshed half's or the whole model's is declared only by the run matrix row's `SYMMETRY_LOADS` column, the one route to `SET_ANALYSIS_SYMMETRY_LOADS`. `row_symmetry_loads` takes `from_setup` as optional; the package passes none. PFS-2255. migration: move the value into the row's `SYMMETRY_LOADS` column (`true` or `false`).
+
+The per-mechanism separation keys `valarezo_separation_boundaries`, `crossflow_separation_boundaries` and `axial_separation_families` are accepted only on the builds whose command database rows carry their commands (26.100 and earlier); on a later build each is refused by name at plan, naming the named separation-model keys (`airfoil_separation`, `bulk_separation`, `axial_vortex_separation`, `cylindrical_bulk_separation`, `stratford_bulk_separation`) instead of the command's build refusal. PFS-2257. migration: on 26.101 and later, declare separation by the named models.
+
+The pproc key `base_regions` is refused by name, empty or not: a base region is declared by `[base_regions.<family>]` in the boundaries file beside the geometry, by the run matrix row's `BASE_REGIONS` column for a per-row choice, or by the setup's `base_region_operations` on an opened simulation. The study skip of a pproc base-region name (FR-982, FR-983) leaves with the key; a row's own `BASE_REGIONS` keeps its refusal of a name the model lacks. PFS-2252. migration: move the list to the row's `BASE_REGIONS` column, or declare `[base_regions.<family>]` in the geometry's boundaries file.
+
+Thin boundaries are declared with the geometry: `thin_boundaries = ["Wing"]` in the boundaries file emits `SET_THIN_BOUNDARIES` (an empty list `DELETE_THIN_BOUNDARIES`), read from the boundaries file the row binds (`cases.mesh.thin_boundaries_of`; a bad value is refused at plan); the setup key `thin_boundaries` is refused by name, and the setup standard `s947` is retired (its ID is not reused). PFS-2256. migration: move the list from the setup to the geometry's boundaries file.
 
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 

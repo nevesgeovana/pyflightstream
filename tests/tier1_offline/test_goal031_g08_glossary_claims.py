@@ -810,7 +810,6 @@ _TOGGLES = (
     "jet_wake_filaments_grid_induction",
     "adverse_gradient_boundary_layer",
     "vortex_ring_normalization",
-    "symmetry_loads",
     "inviscid_loads",
     "vorticity_lift_model",
 )
@@ -911,7 +910,6 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         name: _setting_on(_over_wing, name, ["Wing"], ["Body"])
         for name in (
             "viscous_excluded",
-            "thin_boundaries",
             "valarezo_separation_boundaries",
             "crossflow_separation_boundaries",
             "leading_edge_wake_boundaries",
@@ -982,20 +980,6 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         refusal="SET_SOLVER_MODEL",
     ),
     "surface_roughness": _setting_on(_plain, "surface_roughness", 10.0, 20.0),
-    "sonic_velocity_m_per_s": Variation(
-        _plain,
-        lambda _: steady_case().model_copy(
-            update={"solver": SolverSettings(sonic_velocity_m_per_s=340.0)}
-        ),
-        refusal="SONIC_VELOCITY",
-    ),
-    # PHYSICS takes both arguments, so each is varied with the other held.
-    "physics_auto_trailing_edges": _setting_on(
-        _plain, "physics_auto_trailing_edges", True, False, physics_auto_wake_nodes=True
-    ),
-    "physics_auto_wake_nodes": _setting_on(
-        _plain, "physics_auto_wake_nodes", True, False, physics_auto_trailing_edges=True
-    ),
     # Normalisation and the free-stream input, on a case whose fluid is resolved.
     "freestream_input": _setting_on(_mach_resolved, "freestream_input", "velocity", "mach"),
     "reference_mach": _setting_on(_plain, "reference_mach", 0.1, 0.2),
@@ -1229,7 +1213,6 @@ REFUSED_IN_THIS_RELEASE = {
     (SETTINGS, "mark_wake_termination_nodes"),
     (ROW_KEYS, "ROTOR_SHEDDING"),
     (SETTINGS, "legacy_solver_model"),
-    (SETTINGS, "sonic_velocity_m_per_s"),
 }
 
 
@@ -1259,7 +1242,7 @@ def test_p0400_bulk_model_has_no_supported_workflow_build(tmp_path):
 def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meanings):
     """A key refused whatever its value: its row says so, and every build refuses it.
 
-    ``ROTOR_SHEDDING``, ``legacy_solver_model`` and ``sonic_velocity_m_per_s``
+    ``ROTOR_SHEDDING`` and ``legacy_solver_model``
     are checked absent against stated, which the claims above
     count as a difference; this holds what that difference is. Every build the
     run type covers refuses the stated case, in the key's own words wherever

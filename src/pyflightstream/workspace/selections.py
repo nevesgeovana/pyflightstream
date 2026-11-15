@@ -110,13 +110,6 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
     ),
     EntitySelection(
         "setup",
-        "thin_boundaries",
-        "DELETE_THIN_BOUNDARIES",
-        True,
-        "An empty selection emits the clearing command (FSM-26.120 p.343).",
-    ),
-    EntitySelection(
-        "setup",
         "valarezo_separation_boundaries",
         "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         True,
@@ -252,15 +245,6 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "names; over none it would emit nothing while reading as though it had. A "
         "family the geometry does not carry is left out at emission, which is the "
         "documented way an entry resolves to fewer families than it names.",
-    ),
-    EntitySelection(
-        "pproc",
-        "base_regions",
-        "DETECT_BASE_REGIONS_BY_SURFACE",
-        True,
-        "An empty list is the documented off switch of the base-region autodetect "
-        "(PFS-2029.10): none means no detection, and the row's BASE_REGIONS key is "
-        "how one row turns it on.",
     ),
 )
 

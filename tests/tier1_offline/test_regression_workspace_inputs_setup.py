@@ -1458,13 +1458,13 @@ class TestWorkspace2Review:
             recipe="steady",
             sweep=SweepAxis(type="alpha", values=[0.0]),
             variables={"NCPUS": "4", "SYMMETRY_LOADS": " "},
-            solver={"max_threads": 8, "symmetry_loads": True},
+            solver={"max_threads": 8},
         )
         assert row_solver_setting(case, "max_threads") == (4, True)
-        assert row_solver_setting(case, "symmetry_loads") == (True, False)
+        # PFS-2255: no setup key reaches the symmetry loads; a blank row cell states none.
+        assert row_solver_setting(case, "symmetry_loads") == (None, False)
         settings = inspect_case_setup(case, "26.124")["settings"]
         assert settings["max_threads"]["value"] == 4
-        assert settings["symmetry_loads"]["provenance"] == "setup"
 
 
 _WORKSPACE_2_SCRIPT_COMPARISON__EXECUTED = "SET_SOLVER_STEADY\nITERATIONS\n500\nSTART_SOLVER\n"
@@ -1524,15 +1524,15 @@ class TestWorkspace2SetupInspection:
             recipe="steady",
             sweep=SweepAxis(type="alpha", values=[0.0]),
             variables={"matrix_set": "s901", **variables},
-            solver={"symmetry_loads": True, "max_threads": 8},
+            solver={"max_threads": 8},
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             settings = inspect_case_setup(case, "26.124")["settings"]
-            built = {
-                "symmetry_loads": row_symmetry_loads(case, case.solver.symmetry_loads),
-                "max_threads": row_ncpus(case, case.solver.max_threads),
-            }
+            # PFS-2255: symmetry_loads is no setup setting since 0.58.0; max_threads keeps
+            # the property, and row_symmetry_loads states nothing for these rows.
+            assert row_symmetry_loads(case) is None
+            built = {"max_threads": row_ncpus(case, case.solver.max_threads)}
         for key, value in built.items():
             assert settings[key]["value"] == value, (key, settings[key])
             assert settings[key]["provenance"] == "setup", (key, settings[key])

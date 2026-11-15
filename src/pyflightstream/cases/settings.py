@@ -33,6 +33,7 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._errors import InputValueError
+from pyflightstream._retired_names import removed_setup_forms
 from pyflightstream.cases._runtime_settings import RuntimeSettings
 
 # The setup keys' command table and the tables FR-319 added; its module imports
@@ -378,9 +379,6 @@ class SolverSettings(BaseModel):
         The X of the solver's wake end plane in metres in the simulation's
         reference frame, the ``wake_termination_x`` argument of
         ``INITIALIZE_SOLVER`` (FR-324); unstated writes ``DEFAULT``.
-    symmetry_loads : bool, optional
-        Whether the reported loads are the meshed half's or sector's or
-        the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
     significant_digits : int, optional
         Output precision from 1 to 8 (FSM-26.120 p.284, documented range).
     reference_velocity_m_per_s : float, optional
@@ -449,6 +447,16 @@ class SolverSettings(BaseModel):
     # own: every comparison against NaN is false, so ge and gt pass it.
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_removed_keys(cls, data: object) -> object:
+        """Refuse by name a setup key whose condition moved to another home (PFS-2176)."""
+        if isinstance(data, Mapping):
+            removed = removed_setup_forms(str(key) for key in data)
+            if removed:
+                raise InputValueError(" ".join(entry.message() for entry in removed))
+        return data
+
     #: Explicit measured simulation unit, applied after geometry and before frames.
     simulation_length_unit: Literal["METER", "MILLIMETER"] | None = None
     #: Vertex merge distance in metres; converted to the selected simulation unit.
@@ -464,8 +472,6 @@ class SolverSettings(BaseModel):
     viscous_excluded: list[int | str] | None = None
     #: Equivalent sand-grain roughness in nanometres (SET_SURFACE_ROUGHNESS).
     surface_roughness: float | None = Field(default=None, ge=0)
-    #: Boundary labels or indices treated as thin surfaces; all selects every boundary.
-    thin_boundaries: list[int | str] | Literal["all"] | None = None
     #: Legacy bulk-separation assignment, with model type and characteristic diameter.
     bulk_separation: BulkSeparation | None = None
     #: Trailing-edge airfoil separation, with optional per-assignment Valarezo criterion.
@@ -551,19 +557,6 @@ class SolverSettings(BaseModel):
             )
         return self
 
-    #: Refused on every build: SONIC_VELOCITY, a legacy explicit speed
-    #: of sound in metres per second, has no recorded evidence on any registered
-    #: build, and 26.101 onward removed it (the solver warns and ignores it).
-    #:
-    #: The sound speed follows from the resolved temperature and specific-heat
-    #: ratio. Kept so a setup stating it is refused by the build guard, naming the
-    #: command, rather than read as a setting a run applied; with
-    #: ``freestream_input = "mach"`` a differing value is refused before that.
-    sonic_velocity_m_per_s: float | None = Field(default=None, gt=0)
-    #: Legacy PHYSICS automatic trailing-edge detection; state with physics_auto_wake_nodes.
-    physics_auto_trailing_edges: bool | None = None
-    #: Legacy PHYSICS wake-node detection; state with physics_auto_trailing_edges.
-    physics_auto_wake_nodes: bool | None = None
     max_threads: int | None = Field(default=None, ge=1)
     runtime: RuntimeSettings | None = None
 
@@ -636,12 +629,12 @@ class SolverSettings(BaseModel):
     wake_termination_x_m: Annotated[
         float | Literal["DEFAULT"] | None, BeforeValidator(_an_end_plane)
     ] = None
-    #: The four settings the reference scripts state
+    #: The settings the reference scripts state
     #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
     #: preset that says nothing emits nothing and every earlier golden holds.
-    #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, (PFS-2028.05); an absent
-    #: key stays silent.
-    symmetry_loads: SolverToggle | None = None
+    #: The half or full loads of a symmetric model are the row's SYMMETRY_LOADS
+    #: column only (PFS-2255); the setup key is refused by name.
+    #:
     #: SET_SIGNIFICANT_DIGITS: how many decimals the solver prints in every
     #: export. The reference scripts state 7; the solver's own default prints 4.
     significant_digits: int | None = Field(default=None, ge=1, le=8)

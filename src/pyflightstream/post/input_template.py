@@ -201,8 +201,6 @@ _PPROC_EXAMPLE = """\
 
 # Top-level keys precede the first [table]; otherwise TOML assigns them to that table.
 blade_pattern = '^Blade\\d+$'      # a regular expression telling a blade family from the airframe
-base_regions = ["Base"]           # boundaries made base regions after the mesh opens;
-                                  # a row's BASE_REGIONS wins over it
 vtk_variables = ["CP_FREESTREAM", "MACH", "VTOT"]   # what the VTK surface export writes
 singularity_strength = false      # true: the Tecplot surface carries the nodal
                                   # Singularity_strength, from a second, native
@@ -1220,7 +1218,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         "wake_termination",
                         "base_regions",
                         "ports",
-                    )
+                    ),
+                    "optional; shown on the mesh reference page": ("thin_boundaries",),
                 },
                 "`[base_regions]`": {
                     "retired autodetection; use a named family declaration": ("detect",)
@@ -1251,7 +1250,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                     )
                 },
                 "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
-                    {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
+                    {_IN_THE_COMMENT: ("surfaces", "sweep_angle", "bluntness_angle")}
                 ),
                 # Beside a CCS file only, which the
                 # CCS geometry page shows with every key.

@@ -68,7 +68,6 @@ for the residual, load and section Cp plots a steady point saves, and
 for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
-base_regions = ["Base"] # the boundaries that become base regions; [] = off
 singularity_strength = true # the Tecplot surface carries the nodal strength (off by default)
 
 [groups] # group NAME -> ONE alias, written as a string; TOTAL, AIRFRAME and each rotor are written without one
@@ -382,18 +381,15 @@ boundary members in the reference instead. `families = []` in a
 naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
 `NEW_SURFACE_SECTION_DISTRIBUTION`: the entry exists to emit over the
 families it names, and over none it would emit nothing while reading as
-though it had. `base_regions` is the other selection whose empty list has
-a documented meaning, the autodetect off, which is its default. The table
+though it had. The table
 the readers consult is `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`,
 one row per key with the verdict and its reason.
 
-`base_regions` is a TOP-LEVEL key, so it goes above the first table
-header, as the example above places it: TOML puts a key written under
-`[groups]` INTO that table, where it is a group named base_regions. The top-level key is recognised separately from retired groups files; `base_regions = []` there is the documented off switch and
-plans READY, and `base_regions = ["Base"]` reaches the script as one
-`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family. It names the
-boundaries that BECOME the base regions, as the row's `BASE_REGIONS` does:
-the body's own boundary marks nothing.
+A pproc does not declare base regions. `base_regions` is refused by name
+since 0.58.0: a base region is declared by `[base_regions.<family>]` in the
+boundaries file beside the geometry, by the row's `BASE_REGIONS` column for a
+per-row choice, or by the setup's `base_region_operations` on an opened
+simulation ([one home per condition](boundary-conditions.md#one-home-per-condition)).
 
 **A GROUP IS NAMED, and the product file carries the name.** An
 artifact

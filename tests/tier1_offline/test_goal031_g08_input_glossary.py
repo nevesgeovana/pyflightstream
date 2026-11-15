@@ -252,6 +252,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
             "boundary_faces",
             "mesh_sha256",
             "mesh_frame",
+            # PFS-2256 (0.58.0): thin boundaries are declared with the geometry.
+            "thin_boundaries",
             IMPORT_TABLE,
             *RAW_MESH_CONDITION_TABLES,
         },

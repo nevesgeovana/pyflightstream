@@ -85,9 +85,10 @@ the setup and first-step time. The clock state names its `origin` as
 **A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
 cell, so a reader can tell "states nothing" from "the line is truncated".
 Where one of the six says nothing, the older home still answers: `NCPUS`
-falls back to the cited setup's `max_parallel_threads` and
-`SYMMETRY_LOADS` to its `symmetry_loads`, so a matrix upgraded from an
-older layout behaves exactly as it did.
+falls back to the cited setup's `max_parallel_threads`. `SYMMETRY_LOADS` has
+no other home since 0.58.0: a setup stating `symmetry_loads` is refused by
+name, naming this column, so a matrix upgraded from an older layout moves the
+value into the column.
 
 **`-` IS NOT THE SAME AS SAYING "NONE".** There is one case where the two
 part company and it is worth knowing before you meet it: a row that opens
@@ -150,9 +151,8 @@ them close the gap that made the capability unusable:
     loaded diverges immediately, because the model is then its own mirror
     image. Whether the loads are the full model's or the
     half's is the row's `SYMMETRY_LOADS` column, emitted as
-    `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the setup's
-    `symmetry_loads` answers, and where neither does the run takes the
-    solver's own default, calibrated as ENABLE on a licensed 26.120 and
+    `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the run takes the
+    solver's own default (the setup key is refused since 0.58.0), calibrated as ENABLE on a licensed 26.120 and
     measured on that one build only.
 
 ## How a point is named
