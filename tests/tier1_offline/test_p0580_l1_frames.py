@@ -59,12 +59,13 @@ def test_a_pusher_pitched_five_degrees_declared_aft_is_turned_forward():
     np.testing.assert_allclose(frame.body_to_rotor, np.vstack([x, y, z]), atol=1e-12)
 
 
-def test_a_toed_rotor_turns_about_z_first():
-    frame = rotor_frame(_export_axis(3.0, 10.0), rotor_id=2)
+@pytest.mark.parametrize(("pitch", "toe"), [(0.0, 0.0), (5.0, 0.0), (3.0, 10.0), (-7.0, -20.0)])
+def test_a_toed_rotor_turns_about_z_first(pitch, toe):
+    frame = rotor_frame(_export_axis(pitch, toe), rotor_id=2)
     assert frame.sense == 1 and not frame.declared_aft
-    assert frame.toe_deg == pytest.approx(10.0, abs=1e-12)
-    assert frame.pitch_deg == pytest.approx(3.0, abs=1e-12)
-    x, y, z = _rotor_axes_in_body(3.0, 10.0)
+    assert frame.toe_deg == pytest.approx(toe, abs=1e-12)
+    assert frame.pitch_deg == pytest.approx(pitch, abs=1e-12)
+    x, y, z = _rotor_axes_in_body(pitch, toe)
     np.testing.assert_allclose(frame.body_to_rotor, np.vstack([x, y, z]), atol=1e-12)
     np.testing.assert_allclose(frame.body_to_rotor @ x, [1.0, 0.0, 0.0], atol=1e-12)
 
