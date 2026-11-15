@@ -17,3 +17,10 @@ def test_retired_polar_files_are_named_only_as_retired():
             if RETIRED.search(sentence) and "retired" not in sentence:
                 bad.append((page.name, " ".join(sentence.split())[:90]))
     assert bad == []
+
+
+def test_the_index_of_definitions_marks_the_retired_entries():
+    index = (DEFINITIONS.parent / "post-processing-definitions.md").read_text(encoding="utf-8")
+    for anchor in ("time_average", "per_blade", "the-unsteady-polar"):
+        entry = re.search(rf'<a id="{anchor}"></a>\s+(.*)', index)
+        assert entry is not None and "(retired" in entry.group(1), anchor

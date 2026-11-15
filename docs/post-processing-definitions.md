@@ -172,11 +172,11 @@ polar and super columns read TOTAL. Powered crossflow includes rotor swirl.
 
 <a id="time_average"></a>
 
-[time_average](definitions/time_average.md#time_average).
+[time_average](definitions/time_average.md#time_average) (retired: the table is no longer written).
 
 <a id="per_blade"></a>
 
-[per_blade](definitions/per_blade.md#per_blade).
+[per_blade](definitions/per_blade.md#per_blade) (retired: each blade is a family row).
 
 <a id="phase_locked"></a>
 
@@ -256,7 +256,7 @@ polar and super columns read TOTAL. Powered crossflow includes rotor swirl.
 
 <a id="the-unsteady-polar"></a>
 
-[The unsteady POLAR](definitions/the-unsteady-polar.md#the-unsteady-polar).
+[The unsteady POLAR](definitions/the-unsteady-polar.md#the-unsteady-polar) (retired: an unsteady point is a row of the polar files).
 
 <a id="the-merged-polar"></a>
 
