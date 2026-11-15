@@ -512,11 +512,11 @@ mesh_sha256 = "3f1c9a0e5b7d2c4f8a6e1b0d9c7f5a3e2d4b6c8a0f1e3d5c7b9a2e4f6d8c0b1a"
 """
 
 _RAW_MESH_SIDECAR_EXAMPLE = """\
-# Mark this OBJ once with pyfs-workspace geometry mark-boundaries --apply.
-# Matrix GEOMETRY names the resulting wing_raw.fsm.
+# Mark this OBJ once with mark-boundaries --apply; matrix GEOMETRY names wing_raw.fsm.
 file = "wing_raw.obj"
 fs_build = "26.124"
 boundaries = ["naca"]
+mesh_frame = ["aft", "right", "up"]
 [import]
 units = "MILLIMETER"
 [[import.operations]]

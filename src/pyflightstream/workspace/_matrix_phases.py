@@ -97,6 +97,7 @@ from pyflightstream.workspace.sidecars import (
     load_toml,
     read_marking_record,
     read_mesh_import,
+    refuse_a_frame_that_cannot_be_converted,
     write_inventory,
 )
 from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
@@ -1457,6 +1458,9 @@ def _bind_geometry(
         update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
         sidecar = boundaries_for_matrix(geometry_path)
         update["boundaries_file"] = str(sidecar) if sidecar.is_file() else None
+        # PFS-2233: a declared mesh frame no conversion serves is refused when the row is
+        # planned, before any seat is spent.
+        refuse_a_frame_that_cannot_be_converted(geometry_path)
         judge_the_row_geometry(
             geometry_path,
             row.pol,

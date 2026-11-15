@@ -213,6 +213,11 @@
     },
     {
       "level": 2,
+      "slug": "the-mesh-frame",
+      "title": "The mesh frame"
+    },
+    {
+      "level": 2,
       "slug": "rotor-coefficients",
       "title": "Rotor coefficients"
     },

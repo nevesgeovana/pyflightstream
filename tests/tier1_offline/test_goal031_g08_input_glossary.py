@@ -251,6 +251,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
             "mesh_faces",
             "boundary_faces",
             "mesh_sha256",
+            "mesh_frame",
             IMPORT_TABLE,
             *RAW_MESH_CONDITION_TABLES,
         },

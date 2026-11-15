@@ -245,6 +245,7 @@ from pyflightstream.workspace.inputs import ReferenceArtifact as ReferenceArtifa
 from pyflightstream.workspace.inputs import RegisteredBuild as RegisteredBuild
 from pyflightstream.workspace.inputs import RotorReference as RotorReference
 from pyflightstream.workspace.inputs import SetupArtifact as SetupArtifact
+from pyflightstream.workspace.inputs import read_mesh_frame_record as read_mesh_frame_record
 from pyflightstream.workspace.inputs import resolve_build as resolve_build
 from pyflightstream.workspace.inputs import (
     resolve_executable,
@@ -254,6 +255,7 @@ from pyflightstream.workspace.inputs import (
     resolve_setup,
 )
 from pyflightstream.workspace.inputs import resolve_pproc as resolve_pproc
+from pyflightstream.workspace.inputs import stage_mesh_frame as stage_mesh_frame
 from pyflightstream.workspace.manifest import ADDITIONAL_MANIFEST as ADDITIONAL_MANIFEST
 from pyflightstream.workspace.manifest import (
     ADDITIONAL_MANIFEST_SCHEMA as ADDITIONAL_MANIFEST_SCHEMA,

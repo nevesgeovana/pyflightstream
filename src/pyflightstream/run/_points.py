@@ -119,6 +119,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     datapoint_dir_name,
+    read_mesh_frame_record,
 )
 from pyflightstream.workspace.naming import (
     PointName,
@@ -421,15 +422,20 @@ def _execute_point(
 
 def staging_provenance(
     workspace: CampaignWorkspace, sim_id: str, staged_geometry: str | None
-) -> dict[str, str | None]:
-    """Return ``staged_as`` and ``staged_as_reason`` of a record (PFS-2029.17).
+) -> dict[str, Any]:
+    """Return ``staged_as``, ``staged_as_reason`` and ``mesh_frame`` of a record (PFS-2029.17).
 
     One home for the point path and the steady job path (PFS-2103.026): how the
     geometry was staged, read off the workspace that staged it, so the record
-    says link or copy and why; None for both where nothing was staged.
+    says link or copy and why; None for both where nothing was staged. The
+    ``mesh_frame`` block (PFS-2233) is the frame the mesh declared and what its
+    conversion to the expected frame did, None where the mesh declared none.
     """
     mode, reason = workspace.staged_as(sim_id) if staged_geometry is not None else (None, None)
-    return {"staged_as": mode, "staged_as_reason": reason}
+    frame = (
+        read_mesh_frame_record(workspace.sim_dir(sim_id)) if staged_geometry is not None else None
+    )
+    return {"staged_as": mode, "staged_as_reason": reason, "mesh_frame": frame}
 
 
 def waived_record(script: Script) -> list[dict[str, Any]]:
