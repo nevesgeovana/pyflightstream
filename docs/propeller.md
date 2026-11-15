@@ -216,7 +216,12 @@ geometry it was cut from:
   and bias its chord and pitch.
 - The chord runs from the trailing-edge midpoint to the leading edge, the
   point farthest from it. The ends come from the extreme pair of the
-  section, the rounder end being the leading edge; a blunt base is the run
+  section, the rounder end being the leading edge. When the widths of the
+  two ends at 5 percent of the chord differ by less than 5 percent of the
+  wider (two equally sharp or round ends), the end ahead in the blade's
+  motion sense is the leading edge, so `beta_deg` stays continuous along the
+  span; the motion sense is the one measured from the reference section, as
+  the inputs carry no rotation. A blunt base is the run
   of section steps at more than 45 degrees to the chord next to the far end.
   `beta_deg` is the chord line's angle from the propeller plane, `t_c` the
   largest thickness at equal x, rake the centroid's aft distance over R.
