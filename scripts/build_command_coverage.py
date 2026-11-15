@@ -60,9 +60,11 @@ EXTRA_ROUTES: dict[str, str] = {
     "SOLVER_SET_REF_AREA": "reference: area_m2",
     "SOLVER_SET_REF_LENGTH": "reference: chord_m",
     "SET_SOLVER_ANALYSIS_LOADS_FRAME": "reference: moment_point",
-    "DELETE_THIN_BOUNDARIES": "setup: thin_boundaries (empty list)",
+    "SET_THIN_BOUNDARIES": "sidecar: thin_boundaries",
+    "DELETE_THIN_BOUNDARIES": "sidecar: thin_boundaries (empty list)",
     "DELETE_VISCOUS_EXCLUDED_BOUNDARIES": "setup: viscous_excluded (empty list)",
     "SET_FREESTREAM": "row: FREESTREAM",
+    "SET_ANALYSIS_SYMMETRY_LOADS": "column: SYMMETRY_LOADS",
     "FLUID_PROPERTIES": "column: FLIGHT_CONDITION",
     "DETECT_TRAILING_EDGES_BY_SURFACE": "sidecar: trailing_edges.marking.detect_surfaces",
     "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE": "sidecar: wake_termination.detect",
@@ -357,11 +359,20 @@ def _input_reads(root: Path) -> dict[str, list[str]]:
     base = root / "src/pyflightstream"
     for directory in ("cases", "workspace", "run"):
         for path in sorted((base / directory).rglob("*.py")):
-            for function in ast.walk(ast.parse(path.read_text("utf-8"))):
+            module = ast.parse(path.read_text("utf-8"))
+            named_keys = _named_string_constants(module)
+            for function in ast.walk(module):
                 if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
                     continue
                 body = _executable(function)
                 keys = {node.attr for node in ast.walk(body) if isinstance(node, ast.Attribute)}
+                # A file key read through its module's named constant
+                # (``data[THIN_BOUNDARIES_KEY]``) is a read of that key.
+                keys |= {
+                    named_keys[node.id]
+                    for node in ast.walk(body)
+                    if isinstance(node, ast.Name) and node.id in named_keys
+                }
                 # family_indices and the setup link select attributes through
                 # getattr and literal key arguments, rather than dot notation.
                 for node in ast.walk(body):
@@ -377,6 +388,19 @@ def _input_reads(root: Path) -> dict[str, list[str]]:
     return {key: sorted(set(where)) for key, where in reads.items()}
 
 
+def _named_string_constants(module: ast.Module) -> dict[str, str]:
+    """Return the module-level ``NAME = "text"`` constants of one module, by name."""
+    return {
+        target.id: statement.value.value
+        for statement in module.body
+        if isinstance(statement, ast.Assign)
+        and isinstance(statement.value, ast.Constant)
+        and isinstance(statement.value.value, str)
+        for target in statement.targets
+        if isinstance(target, ast.Name)
+    }
+
+
 def _key_exists(root: Path, route: str) -> bool:
     kind, name = route.split(": ", 1)
     key = name.split()[0].split(".")[0]
@@ -388,6 +412,10 @@ def _key_exists(root: Path, route: str) -> bool:
     }
     if kind in files:
         tree = ast.parse((root / files[kind]).read_text("utf-8"))
+        # A sidecar key is a model field, or a boundaries-file key its module
+        # names as a constant (``THIN_BOUNDARIES_KEY = "thin_boundaries"``).
+        if kind == "sidecar" and key in _named_string_constants(tree).values():
+            return True
         return any(
             isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name) and n.target.id == key
             for n in ast.walk(tree)
