@@ -5,19 +5,13 @@ set per point; the products are the tables a study reads and plots, and
 this module writes them as plain CSV, one header line and one row per
 record, so any spreadsheet or dataframe reads them with nothing else:
 
-* a POLAR table per boundary GROUP of the pproc artifact, under
-  ``polars/`` (FR-88): one row per point of the polar, the
-  reference block and the coefficients of the group in body, stability
-  and wind axes with the two drag parts;
-* the SUPERFILE of each polar and group beside it (FR-89),
-  ``polars/SUPER-<sim>-<sweep name>_<group>.csv``, the polar table's own stem
-  with ``SUPER-`` in place of ``P``; ``<group>`` is the group's NAME
-  (``_PUSHER``) and ``g<NN>`` for a group that is still numbered:
-  one row per CONVERGED point, written after the unsteady post-process so
-  it holds no time series, and its column set is a SUPERSET of the union
-  of everything the workspace knows about that simulation. The assembly
-  is :mod:`pyflightstream.post.superfile`, which says where each of its
-  blocks comes from;
+* the POLAR FILES of every polar under ``polars/`` (FR-88, PFS-2231):
+  ``FAM-DIM``, ``FAM-ACOEF`` and ``FAM-RCOEF-P<POL>.csv``, one row per point and
+  family, and ``P<POL>-<GROUP>-<KIND>.csv`` for TOTAL, AIRFRAME, every rotor and
+  every ``[groups]`` key, one row per point, each opening with the run block
+  (:mod:`pyflightstream.post._polar_stage`). The super file of earlier releases
+  is not written; a file of that layout found in ``polars/`` is left untouched
+  and said (:mod:`pyflightstream.post._retired_polars`);
 * a SECTIONS table per point, ``sections/<point>_sections.csv``: the
   sectional loads export re-tabled, when the run defined sections at all;
 * the FLOW-FIELD SAMPLES of a point under ``probes/`` (FR-87), whatever the run type was:
@@ -46,10 +40,10 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   no longer states a key; a
   reduction the row could not window is recorded under ``skipped`` in
   ``products.json`` with its reason, as a refused polar is;
-* THE CUSTOM POLAR FORMAT beside each polar table when the pproc artifact asks
-  (``[products] custom_polar_format = true``, PFS-2014.01.01):
-  ``P<sim>-<sweep name>_<group>.dat``, the polar table's own name with the
-  suffix changed (:func:`swept_polar_file_name`), the same rows in the fixed-width
+* THE CUSTOM POLAR FORMAT beside each group ACOEF file when the pproc artifact
+  asks (``[products] custom_polar_format = true``, PFS-2014.01.01):
+  ``P<POL>-<GROUP>-ACOEF.dat``, the file's own stem with the suffix changed,
+  the same rows in the fixed-width
   text file the existing tooling opens, specified line by line in
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;

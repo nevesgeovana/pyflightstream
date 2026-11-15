@@ -4,7 +4,37 @@
 
 Every form that 0.57.0 and earlier still accepted with a deprecation warning is removed.
 Each old form is now refused, and the refusal names the new spelling, so the migration is
-one edit. Nothing else changes.
+one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).
+
+## 0.58.0 post tree
+
+The post writes one set of polar files per polar, in the same form for steady, unsteady
+and unsteady-rotor rows. A file of the 0.57.0 layout already in `post/<matrix>/` is left
+untouched and named once per kind in one warning that ends with a pointer to this section.
+
+### Polar files by family and by group
+
+| 0.57.0 file or key | 0.58.0 |
+| --- | --- |
+| `polars/P<sim>-<sweep>_<GROUP>.csv`, one per Mach and group | the families in `polars/FAM-DIM-P<POL>.csv`, `FAM-ACOEF-P<POL>.csv` and `FAM-RCOEF-P<POL>.csv`; the group in `polars/P<POL>-<GROUP>-DIM.csv`, `-ACOEF.csv`, `-RCOEF.csv` |
+| `polars/P<sim>-<sweep>_g<NN>.csv` | the group files of group `g<NN>`; name the group in `[groups]` to name its files |
+| `polars/SUPER-<sim>-<sweep>_<group>.csv` | retired: every family is in the FAM files, the run condition in their run block, the setup codes in `settings/` |
+| `polars/P<sim>_<name>_uns_avg.csv` | the FAM and group files, under the same names as a steady polar; an unsteady row is the window average |
+| `polars/P<sim>-<ROTOR>_rotor.csv` | the rotor's own group file `P<POL>-<ROTOR>-RCOEF.csv`; `J`, `MTIP` and `MHEL` of rotor `<id>` are `J<id>`, `MTIP<id>`, `MHEL<id>` of the run block |
+| rotor columns `CT_<ALIAS>`, `J_<ALIAS>`, ... | `CT`, `CQ`, `CP`, `ETA` in the rotor's RCOEF file; `J<id>` in the run block |
+| `CN, CS, CMN, CMS` in the rotor axes | `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS` in the rotor frame `R<id>` |
+| a rotor declared with its axis aft | thrust is counted positive forward: `CT`, `T` and the in-plane signs of that rotor are opposite to 0.57.0, and the post says so once |
+| moment columns `CR<f>25`, `CM<f>25`, `CN<f>25` | `Cl<f>`, `Cm<f>`, `Cn<f>`; the block order is `W`, `S`, `B`, `R<id>` |
+| `DESCRIPTION`, `GROUP` columns of a polar row | the group is the file (`GROUP`, `GROUP_ID` in a group file) |
+| `[products] superfile_format` | `[products] polar_format`, same values, applied to the FAM and group files; the old key is read with a warning for one release |
+| `[products] trim_moment = "CMB25"` (the default) | `"CmB"` (the default); `CMB25` is read as `CmB` with a warning for one release |
+| `[groups] TOTAL = ...`, `AIRFRAME = ...` | refused: TOTAL and AIRFRAME are written for every polar; remove the entry |
+| a `[groups]` key equal to a rotor alias | refused at the post: every rotor is a group by itself |
+| a rotor `id` of 90 or more | refused: the group of rotor `<id>` is numbered `10 + id` and the declared groups from 101 |
+| `<polar>_trim.csv`, `<polar>_at_<name>.csv`, `<polar>.dat` | the same products beside each group ACOEF file, under its stem |
+
+A record written by 0.57.0 has no per-family plot in its unsteady history: its family rows
+are `NA`, said once, and its group rows come from the group plots it has.
 
 ## Removed forms (0.58)
 

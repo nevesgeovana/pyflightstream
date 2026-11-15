@@ -188,6 +188,11 @@ nav:
           - Storage and sync: storage-and-sync.md
       - 5. Post-process:
           - Post-processing artifact: pproc-artifact.md
+          - Polar files:
+              - FAM-DIM: pproc/fam-dim.md
+              - FAM-ACOEF: pproc/fam-acoef.md
+              - FAM-RCOEF: pproc/fam-rcoef.md
+              - Group files: pproc/group-files.md
           - Probes: probes.md
           - Additional post: workflow-additional-post.md
           - Additional post example: examples/additional_post.md
