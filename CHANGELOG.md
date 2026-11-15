@@ -13,6 +13,8 @@ A rotor block of the reference states an integer `id`, 0 or more, 0 when unwritt
 
 The axes of the 0.58.0 polar files: `post.axes.rotor_frame` builds the frame `R<id>` of a rotor, its body axes turned by the toe and the pitch of the declared shaft, with the shaft's sense chosen so thrust is positive forward (up for a lift rotor); `frame_rotations` gives the frames W, S, B and every `R<id>` from the export frame, and `airframe_axis_coefficients` the six coefficients of each, `CD` positive aft and `CL` positive up in every frame. New definition pages: axes and signs, airframe coefficients. migration: none; no product writes them yet.
 
+The rotor coefficients of the 0.58.0 RCOEF files: `post.rotor_table.rotor_frame_coefficients` gives thrust, torque and power (kW), `CT`, `CQ`, `CP`, the in-plane `CFZ`, `CFY`, `CMZ`, `CMY` in the rotor frame, `ETA`, the disc loadings `TC` to `MC`, the airframe loadings `TCA` to `MCA`, and `CT<f>`, `CQ<f>`, `ETA<f>` in every frame, with the static-point and not-turning `NA` rules of the rotor coefficients page; `warn_rotor_declared_aft` warns that a rotor declared with its axis aft reads with the thrust sign opposite to 0.57.0. migration: none; the 0.57.0 rotor table is unchanged.
+
 ### Changed
 
 A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters (the `hub_rings` key `width`, `--hub`); the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.

@@ -28,6 +28,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
+from numpy.typing import NDArray
+
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._tokens import POLAR_ID_COLUMN, ROTOR_ID_COLUMN
 from pyflightstream.cases import (
@@ -47,6 +50,7 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.axes import (
+    RotorFrame,
     free_stream_in_export_frame,
     rotor_in_plane_axes,
     rotor_in_plane_loads,
@@ -61,8 +65,11 @@ __all__ = [
     "ROTOR_IN_PLANE_COLUMNS",
     "RotorShaftLoads",
     "rotor_coefficient_columns",
+    "ROTOR_DECLARED_AFT_WARNING",
     "rotor_coefficients",
+    "rotor_frame_coefficients",
     "rotor_shaft_loads",
+    "warn_rotor_declared_aft",
     "write_rotor_table",
 ]
 
@@ -584,6 +591,270 @@ def rotor_coefficients(
         return values
     wind_coefficient = wind_force_n / (density_kg_m3 * rps**2 * diameter_m**4)
     values["ETAW"] = advance_ratio * wind_coefficient / power_coefficient
+    return values
+
+
+#: The text a rotor declared with its axis aft is warned with, once per rotor
+#: (the migration map of the post tree); ``{alias}`` is filled in.
+ROTOR_DECLARED_AFT_WARNING = (
+    "Rotor {alias} declares its axis aft; 0.58.0 counts thrust positive "
+    "forward, so CT, T and the in-plane signs of this rotor are opposite to 0.57.0. "
+    "See docs/upgrading.md#0580-post-tree."
+)
+
+
+def warn_rotor_declared_aft(alias: str, frame: RotorFrame) -> bool:
+    """Warn that a rotor declared aft reads with the thrust sign opposite to the rotor table.
+
+    Parameters
+    ----------
+    alias : str
+        The rotor's alias.
+    frame : RotorFrame
+        Its frame, from :func:`pyflightstream.post.axes.rotor_frame`.
+
+    Returns
+    -------
+    bool
+        Whether the warning was given (the rotor's declared axis points aft).
+
+    Examples
+    --------
+    >>> from pyflightstream.post.axes import rotor_frame
+    >>> warn_rotor_declared_aft("TRACTOR", rotor_frame((-1.0, 0.0, 0.0)))
+    False
+    """
+    if not frame.declared_aft:
+        return False
+    warn(ROTOR_DECLARED_AFT_WARNING.format(alias=alias), PyflightstreamWarning)
+    return True
+
+
+def _usable(value: object) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    number = float(value)  # type: ignore[arg-type]
+    return number if math.isfinite(number) else None
+
+
+def _over(numerator: float, denominator: float | None) -> float | str:
+    """``numerator / denominator``, or ``NA`` where it is not a finite number."""
+    if denominator is None or denominator == 0.0 or not math.isfinite(numerator):
+        return NOT_APPLICABLE
+    value = numerator / denominator
+    return value + 0.0 if math.isfinite(value) else NOT_APPLICABLE
+
+
+def _efficiency(
+    advance: float | None, thrust_coefficient: float | str, cp: float | str
+) -> float | str:
+    if advance is None or advance == 0.0 or not isinstance(thrust_coefficient, float):
+        return NOT_APPLICABLE
+    if not isinstance(cp, float) or cp == 0.0:
+        return NOT_APPLICABLE
+    return advance * thrust_coefficient / cp + 0.0
+
+
+def _rotor_frame_loads(
+    force_n: Sequence[float], moment_hub_nm: Sequence[float], turn: NDArray[np.float64]
+) -> tuple[float, float, float, float, float, float]:
+    """Return ``(T, Y, Z, Q, M, N)`` of a force and hub moment turned into one frame."""
+    force = turn @ np.asarray(force_n, dtype=float)
+    moment = turn @ np.asarray(moment_hub_nm, dtype=float)
+    return (
+        float(force[0]),
+        float(force[1]),
+        -float(force[2]),
+        float(moment[0]),
+        float(moment[1]),
+        float(moment[2]),
+    )
+
+
+def rotor_frame_coefficients(
+    *,
+    force_n: Sequence[float],
+    moment_hub_nm: Sequence[float],
+    frame: RotorFrame,
+    rotations: Mapping[str, NDArray[np.float64]],
+    rpm: float | None,
+    diameter_m: float,
+    density_kg_m3: float,
+    vinf_m_s: float | None,
+    sref_m2: float,
+    cref_m: float,
+    bref_m: float,
+) -> dict[str, float | str]:
+    """Return the RCOEF values of one family or group inside rotor ``frame``.
+
+    THE DEFINITIONS (``docs/definitions/rotor-coefficients.md``). ``F_R`` and
+    ``M_R`` are the force and the moment about the hub in the frame R<id>;
+    ``n`` is the rate in rev/s signed about ``x_R`` (``sense RPM / 60``),
+    ``D`` the diameter, ``A = pi D^2 / 4``, ``q = 0.5 RHO VINF^2`` and
+    ``J = VINF / (|n| D)``::
+
+        T = F_R,x    Y = F_R,y    Z = -F_R,z    Q = M_R,x    M = M_R,y    N = M_R,z
+        P  = 2 pi n Q / 1000                       (kW)
+        CT = T / (RHO n^2 D^4)    CQ = Q / (RHO n^2 D^5)    CP = 2 pi CQ sign(n)
+        CFZ, CFY = Z, Y / (RHO n^2 D^4)            CMZ, CMY = N, M / (RHO n^2 D^5)
+        ETA = J CT / CP
+        TC, YC, ZC = T, Y, Z / (q A)               QC, NC, MC = Q, N, M / (q A D)
+        TCA, YCA, ZCA = T, Y, Z / (q SREF)         QCA, NCA = Q, N / (q SREF BREF)
+        MCA = M / (q SREF CREF)
+        CT<f> = F_f,x / (RHO n^2 D^4)   CQ<f> = M_f,x / (RHO n^2 D^5)   ETA<f> = J CT<f> / CP
+
+    THE NA RULES. A static point (``VINF = 0``) states no ``ETA``, no
+    ``ETA<f>`` and none of ``TC`` to ``MCA``. A rotor not turning or of unknown
+    speed states no coefficient over ``n^2`` and no ``ETA``; ``P`` is 0 at
+    ``RPM = 0`` and ``NA`` when the speed is unknown. A load that is not a
+    number gives ``NA`` wherever it enters.
+
+    Parameters
+    ----------
+    force_n : sequence of float
+        The force in N, in the export frame.
+    moment_hub_nm : sequence of float
+        The moment about the rotor's hub in N m, in the export frame.
+    frame : RotorFrame
+        The frame of the rotor the family or group sits in.
+    rotations : mapping of str to numpy.ndarray
+        The export-to-frame matrices of every frame, as
+        :func:`pyflightstream.post.axes.frame_rotations` returns them; the
+        per-frame set runs over them in their order.
+    rpm : float or None
+        The rotor's speed signed about its declared axis; None when unknown.
+    diameter_m : float
+        The rotor's diameter.
+    density_kg_m3 : float
+        The point's density.
+    vinf_m_s : float or None
+        The free-stream speed; None when unknown.
+    sref_m2, cref_m, bref_m : float
+        The airframe reference area, chord and span.
+
+    Returns
+    -------
+    dict of str to float or str
+        The rotor-frame columns of
+        :data:`pyflightstream.post._family_columns.ROTOR_FRAME_COLUMNS` in their
+        order, then ``CT<f>, CQ<f>, ETA<f>`` per frame; ``NA`` where a value
+        does not exist.
+
+    Examples
+    --------
+    >>> from pyflightstream.post.axes import frame_rotations, rotor_frame
+    >>> frame = rotor_frame((-1.0, 0.0, 0.0))
+    >>> row = rotor_frame_coefficients(
+    ...     force_n=(-100.0, 0.0, 0.0), moment_hub_nm=(-5.0, 0.0, 0.0), frame=frame,
+    ...     rotations=frame_rotations(0.0, 0.0, [frame]), rpm=600.0, diameter_m=1.0,
+    ...     density_kg_m3=1.0, vinf_m_s=10.0, sref_m2=1.0, cref_m=1.0, bref_m=1.0)
+    >>> row["T"], row["CT"], row["CTR0"] == row["CT"]
+    (100.0, 1.0, True)
+    """
+    speed = _usable(rpm)
+    rate = None if speed is None else frame.sense * speed / 60.0
+    turning = rate is not None and rate != 0.0
+    diameter = float(diameter_m)
+    rho = float(density_kg_m3)
+    vinf = _usable(vinf_m_s)
+    force_scale = rho * rate**2 * diameter**4 if turning and rate is not None else None
+    moment_scale = None if force_scale is None else force_scale * diameter
+    advance = None if not turning or vinf is None or rate is None else vinf / (abs(rate) * diameter)
+    pressure = None if vinf is None or vinf == 0.0 else 0.5 * rho * vinf**2
+    area = math.pi * diameter**2 / 4.0
+    own = rotations[frame.name]
+    thrust, side, normal, torque, pitching, yawing = _rotor_frame_loads(force_n, moment_hub_nm, own)
+    values: dict[str, float | str] = {
+        "T": _over(thrust, 1.0),
+        "Q": _over(torque, 1.0),
+        "P": NOT_APPLICABLE if rate is None else _over(2.0 * math.pi * rate * torque, 1000.0),
+        "CT": _over(thrust, force_scale),
+        "CQ": _over(torque, moment_scale),
+    }
+    cq = values["CQ"]
+    values["CP"] = (
+        2.0 * math.pi * cq * (1.0 if rate and rate > 0 else -1.0) + 0.0
+        if isinstance(cq, float)
+        else NOT_APPLICABLE
+    )
+    values.update(
+        {
+            "CFZ": _over(normal, force_scale),
+            "CFY": _over(side, force_scale),
+            "CMZ": _over(yawing, moment_scale),
+            "CMY": _over(pitching, moment_scale),
+            "ETA": _efficiency(advance, values["CT"], values["CP"]),
+        }
+    )
+    values.update(
+        _loadings(
+            (thrust, side, normal, torque, yawing, pitching),
+            pressure=pressure,
+            area=area,
+            diameter=diameter,
+            reference=(float(sref_m2), float(cref_m), float(bref_m)),
+        )
+    )
+    values.update(
+        _per_frame(
+            (force_n, moment_hub_nm),
+            rotations,
+            scales=(force_scale, moment_scale),
+            advance=advance,
+            cp=values["CP"],
+        )
+    )
+    return values
+
+
+def _loadings(
+    loads: tuple[float, float, float, float, float, float],
+    *,
+    pressure: float | None,
+    area: float,
+    diameter: float,
+    reference: tuple[float, float, float],
+) -> dict[str, float | str]:
+    """``TC`` to ``MCA``: the loads ``(T, Y, Z, Q, N, M)`` over the disc and the airframe."""
+    thrust, side, normal, torque, yawing, pitching = loads
+    sref, cref, bref = reference
+    disc = None if pressure is None else pressure * area
+    airframe = None if pressure is None else pressure * sref
+    return {
+        "TC": _over(thrust, disc),
+        "YC": _over(side, disc),
+        "ZC": _over(normal, disc),
+        "QC": _over(torque, None if disc is None else disc * diameter),
+        "NC": _over(yawing, None if disc is None else disc * diameter),
+        "MC": _over(pitching, None if disc is None else disc * diameter),
+        "TCA": _over(thrust, airframe),
+        "YCA": _over(side, airframe),
+        "ZCA": _over(normal, airframe),
+        "QCA": _over(torque, None if airframe is None else airframe * bref),
+        "NCA": _over(yawing, None if airframe is None else airframe * bref),
+        "MCA": _over(pitching, None if airframe is None else airframe * cref),
+    }
+
+
+def _per_frame(
+    loads: tuple[Sequence[float], Sequence[float]],
+    rotations: Mapping[str, NDArray[np.float64]],
+    *,
+    scales: tuple[float | None, float | None],
+    advance: float | None,
+    cp: float | str,
+) -> dict[str, float | str]:
+    """``CT<f>``, ``CQ<f>`` and ``ETA<f>`` for every frame, in the order of ``rotations``."""
+    force_n, moment_hub_nm = loads
+    force_scale, moment_scale = scales
+    values: dict[str, float | str] = {}
+    for name, turn in rotations.items():
+        along, _side, _normal, about, _pitching, _yawing = _rotor_frame_loads(
+            force_n, moment_hub_nm, turn
+        )
+        values[f"CT{name}"] = _over(along, force_scale)
+        values[f"CQ{name}"] = _over(about, moment_scale)
+        values[f"ETA{name}"] = _efficiency(advance, values[f"CT{name}"], cp)
     return values
 
 

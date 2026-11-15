@@ -121,6 +121,10 @@ _KEPT_OFF_PRODUCTS = {
     "TRIM_MOMENT_COLUMN",
     "TRIM_SUFFIX",
     "grid_convergence",
+    # PFS-2231: the rotor frame coefficients of the RCOEF files belong to the domain module.
+    "ROTOR_DECLARED_AFT_WARNING",
+    "rotor_frame_coefficients",
+    "warn_rotor_declared_aft",
 }
 
 
@@ -252,10 +256,13 @@ def test_extracted_product_modules_preserve_the_public_surface():
             {
                 "ROTOR_COEFFICIENT_COLUMNS",
                 "ROTOR_IN_PLANE_COLUMNS",
+                "ROTOR_DECLARED_AFT_WARNING",
                 "RotorShaftLoads",
                 "rotor_coefficient_columns",
                 "rotor_coefficients",
+                "rotor_frame_coefficients",
                 "rotor_shaft_loads",
+                "warn_rotor_declared_aft",
                 "write_rotor_table",
             },
         ),
