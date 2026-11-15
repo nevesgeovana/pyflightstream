@@ -537,6 +537,7 @@
       "tests/tier1_offline/test_p0580_l2_pproc_keys.py",
       "tests/tier1_offline/test_p0580_l2_retired_files.py",
       "tests/tier1_offline/test_p0580_i2_rcoef_na.py",
+      "tests/tier1_offline/test_p0580_i3_group_file_names.py",
       "tests/tier1_offline/test_p0580_l2_rotor_ids.py",
       "tests/tier1_offline/test_p0580_l3_manifest_schema.py",
       "tests/tier1_offline/test_p0580_l3_run_block.py",

@@ -30,7 +30,13 @@ refused when the pproc is read, naming both.
 A `[groups]` key spelled `TOTAL` or `AIRFRAME` (in any case), or equal to a
 rotor's alias, is refused by name: the group is written without it. So is a key
 spelled `FAM` or `GRP`, or opening with `P` and a digit, which the file names
-cannot carry. A numbered key is written `g<NN>` (`"1"` is `g01`). A group that
+cannot carry. A numbered key is written `g<NN>` (`"1"` is `g01`). Two keys that
+reach one file name are refused when the pproc is read, naming both: after the
+rule of the file names (every character other than a letter, a digit, `-`, `_`
+or `.` is written `_`), a numbered key written `g<NN>`, and case ignored, since a
+Windows file system does not tell `Wing` from `WING`. A key that reaches the
+file name of a rotor's alias the same way is refused, naming both, and the
+rotor's own group stands. A group that
 selects no family of the polar's loads is named under `skipped`, with what
 selects its families, and has no file. A group that selects no family of one
 point's loads has no row at that point, never a row of `NA`: the point is named

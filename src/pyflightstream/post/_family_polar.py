@@ -339,7 +339,8 @@ def polar_groups(
 
     ``GROUP_ID`` is 0 for TOTAL, 1 for AIRFRAME, 10 + id for a rotor's group and
     100 + k for the k-th group of ``[groups]`` in the order written. A declared
-    group whose name equals a rotor alias (case-folded) is refused into
+    group whose name reaches the file name of a rotor alias
+    (:func:`pyflightstream.cases.pproc.group_file_key`) is refused into
     ``refused`` and the rotor's own group stands; a declared group whose members
     all sit inside one rotor carries that rotor's id, the condition of an RCOEF file.
 
@@ -361,7 +362,7 @@ def polar_groups(
     list of PolarGroup
         The groups in file order.
     """
-    from pyflightstream.cases.pproc import default_group_message
+    from pyflightstream.cases.pproc import default_group_message, group_file_key
 
     names = [family.name for family in families]
     in_rotor = {family.name: family.rotor_id for family in families}
@@ -384,9 +385,11 @@ def polar_groups(
                 rotor.rotor_id,
             )
         )
-    by_alias = {rotor.alias.casefold(): rotor.alias for rotor in rotors}
+    # ONE FILE NAME, NOT ONE SPELLING: a key and an alias that reach one file name after
+    # the rule of the group files (case blind, g<NN> for a number) are one group file.
+    by_alias = {group_file_key(rotor.alias): rotor.alias for rotor in rotors}
     for position, (name, members) in enumerate(declared.items(), start=1):
-        clash = by_alias.get(str(name).casefold())
+        clash = by_alias.get(group_file_key(str(name)))
         default = str(name).strip().casefold() in {"total", "airframe"}
         if clash is not None or default:
             # Groups set in Python, past the pproc reader, can still hold the name of a

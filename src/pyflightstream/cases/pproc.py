@@ -1139,7 +1139,10 @@ def refuse_groups_of_one_file_name(names: Sequence[str]) -> None:
     A group's name reaches ``P<POL>-<GROUP>-<KIND>.csv`` through the one rule of
     the alias and group files (:func:`pyflightstream._tokens.file_name_part`,
     ``docs/pproc/group-files.md``): ``Left/Right`` and ``Left_Right`` are two
-    keys of one file, and the second would overwrite the first. Both are named.
+    keys of one file, and the second would overwrite the first. So are two keys
+    that differ only in case (``Wing`` and ``WING``: a Windows file system does
+    not tell them apart) and a numbered key and its ``g<NN>`` twin (``"1"``,
+    ``"01"`` and ``g01`` are all written ``g01``). Both are named.
 
     Parameters
     ----------
@@ -1153,14 +1156,42 @@ def refuse_groups_of_one_file_name(names: Sequence[str]) -> None:
     """
     seen: dict[str, str] = {}
     for name in names:
-        token = file_name_part(name, empty="")
+        token = group_file_key(name)
         if token in seen:
             raise InputValueError(
                 f"[groups] declares {seen[token]} and {name}, which are one file name after "
-                f"the rule of the group files ({token}: every character other than a letter, "
-                "a digit, -, _ or . is written _); name one of them otherwise."
+                "the rule of the group files (every character other than a letter, a digit, "
+                "-, _ or . is written _, a numbered key is written g<NN>, and a file system "
+                "that ignores case reads two spellings as one); name one of them otherwise."
             )
         seen[token] = name
+
+
+def group_file_key(name: str) -> str:
+    """Return the file-name part a group name reaches, as a case-blind file system compares it.
+
+    The rule of the group files (:func:`pyflightstream._tokens.file_name_part`),
+    a numbered name written ``g<NN>``, then case-folded.
+
+    Parameters
+    ----------
+    name : str
+        A ``[groups]`` key or a rotor alias.
+
+    Returns
+    -------
+    str
+        The key two names of one file share.
+
+    Examples
+    --------
+    >>> group_file_key("1") == group_file_key("G01")
+    True
+    """
+    token = file_name_part(name, empty="")
+    if token.isascii() and token.isdigit():
+        token = f"g{int(token):02d}"
+    return token.casefold()
 
 
 def _a_group_is_one_alias(value: object) -> object:
