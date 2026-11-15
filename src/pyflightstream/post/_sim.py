@@ -53,7 +53,6 @@ from pyflightstream.post._admit import (
     _admit,
     _Admitted,
 )
-from pyflightstream.post._block_rows import rotor_ids_of, run_block_scope
 from pyflightstream.post._condition import (
     _advance_ratio_of,
     _effective_pproc,
@@ -77,6 +76,12 @@ from pyflightstream.post._installed_copies import (
     write_installed_probes,
 )
 from pyflightstream.post._noise_products import noise_products
+from pyflightstream.post._point_stage import (
+    finish_sections,
+    rotor_ids_of,
+    run_block_scope,
+    split_of,
+)
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
@@ -87,7 +92,6 @@ from pyflightstream.post._rotor_products import (
     _the_sections_writer,
     _wheel_harmonics,
 )
-from pyflightstream.post._sections_stage import finish_sections, split_of
 from pyflightstream.post._stage import (
     POLARS_DIR,
     PROBES_DIR,
@@ -145,7 +149,6 @@ from pyflightstream.post.unsteady_polar import (
     unsteady_polar_file_name,
     write_unsteady_polar,
 )
-from pyflightstream.results import FrozenSolve
 from pyflightstream.workspace.inputs import rotor_integration_groups
 from pyflightstream.workspace.sidecars import (
     OBJ_SUFFIX,
@@ -155,6 +158,7 @@ from pyflightstream.workspace.sidecars import (
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
+    from pyflightstream.results import FrozenSolve
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 

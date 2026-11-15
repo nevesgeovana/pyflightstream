@@ -31,6 +31,7 @@ def test_p0580_the_block_ends_at_its_last_column():
     assert after_run_block(("POL", "X")) == 0
 
 
+@pytest.mark.requirement("FR-3778")
 def test_p0580_a_point_table_takes_the_block_then_its_own_columns(tmp_path):
     path = tmp_path / "time_history" / "AL-020_plots.csv"
     with run_blocks({"AL-020": _row(ALPHA=4.0, VINF=30.0)}):
@@ -96,6 +97,7 @@ def test_p0580_the_longest_point_name_owns_a_file():
     assert rows[0][list(columns).index("ALPHA")] == 2.0
 
 
+@pytest.mark.requirement("FR-3778")
 def test_p0580_every_table_of_an_unsteady_point_opens_with_the_block_in_order(tmp_path):
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     write_campaign_products(workspace)

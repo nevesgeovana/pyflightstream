@@ -430,10 +430,10 @@ origin = [0.4, 3.0, 0.0]
 x_axis = [1.0, 0.0, 0.0]
 y_axis = [0.0, 1.0, 0.0]
 
-# One block per rotor: a top-level table with kind = "rotor". Its name is the
-# word a row moves, and an alias over everything the rotor owns.
+# One block per rotor, a top-level table with kind = "rotor": the word a row moves.
 [PROP]
 kind = "rotor"
+id = 0                            # integer, 0 or more, unique: the <id> of the frame R<id>
 alias = "PROP"                    # optional; equal to the block's name
 axis = "X"                        # X, Y or Z, or the shaft direction [x, y, z]
 diameter_m = 1.2

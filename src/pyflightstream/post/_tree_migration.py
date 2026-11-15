@@ -12,14 +12,13 @@ The texts are those of ``docs/upgrading.md#0580-post-tree``.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamWarning, warn
 
 __all__ = [
     "EARLIER_KINDS",
@@ -135,7 +134,7 @@ def say_retired(name: str) -> None:
     """
     if name in RETIRED_REDUCTIONS and said_once(f"retired:{name}"):
         text = _BY_KEY[name].text.replace(": <old>.", ".").replace("<old>", "")
-        warnings.warn(f"{text} {POINTER}", PyflightstreamWarning, stacklevel=3)
+        warn(f"{text} {POINTER}", PyflightstreamWarning, stacklevel=3)
 
 
 #: The kinds already said in this post, so a stage that asks twice says it once.
@@ -243,7 +242,7 @@ def note_earlier_layout(out: Path) -> dict[str, str | None]:
             text = f"{text.removesuffix('.')} (and {len(own) - 1} more of the kind)."
         lines.append(text)
     if lines:
-        warnings.warn(" ".join(lines) + f" {POINTER}", PyflightstreamWarning, stacklevel=2)
+        warn(" ".join(lines) + f" {POINTER}", PyflightstreamWarning, stacklevel=2)
     return {old: new for old, (_key, new) in found.items()}
 
 
@@ -279,8 +278,6 @@ def earlier_path(out: Path, relative: str, *, kind: str) -> Path:
     old = f"{spec.folder}/{Path(relative).name}"
     if (out / old).is_file():
         if said_once(f"read:{kind}"):
-            warnings.warn(
-                f"{_sentence(spec, old, relative)} {POINTER}", PyflightstreamWarning, stacklevel=2
-            )
+            warn(f"{_sentence(spec, old, relative)} {POINTER}", PyflightstreamWarning, stacklevel=2)
         return out / old
     return chosen

@@ -40,9 +40,8 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
-from pyflightstream.post._block_scope import block_of_point
+from pyflightstream.post._block_scope import add_run_block_to_vtk, block_of_point, tecplot_run_block
 from pyflightstream.post._tables import _one_refusal, _refuse_a_token
-from pyflightstream.post._visual_block import add_run_block_to_vtk, tecplot_run_block
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (

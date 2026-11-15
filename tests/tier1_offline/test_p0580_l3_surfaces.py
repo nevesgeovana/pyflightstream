@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from pyflightstream.post._block_scope import block_of_point, run_blocks
-from pyflightstream.post._run_block import run_block_columns, run_block_row
-from pyflightstream.post._visual_block import (
+from pyflightstream.post._block_scope import (
     add_run_block_to_vtk,
+    block_of_point,
     run_block_text,
+    run_blocks,
     tecplot_run_block,
     vtk_run_block_lines,
 )
+from pyflightstream.post._run_block import run_block_columns, run_block_row
 from pyflightstream.post.surfaces import write_point_surface_average
 from tests.tier1_offline.test_g25_surface_time_average import (
     _averaged_record,

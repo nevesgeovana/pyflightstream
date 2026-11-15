@@ -37,6 +37,7 @@ def _files(products, folder):
     return sorted(p.name for p in path.iterdir()) if path.is_dir() else []
 
 
+@pytest.mark.requirement("FR-3787")
 def test_p0580_plots_go_to_time_history_and_probes_holds_no_plots(tmp_path):
     products, manifest, _ = _post(tmp_path)
     assert "AL-020_plots.csv" in _files(products, "time_history")
@@ -45,6 +46,7 @@ def test_p0580_plots_go_to_time_history_and_probes_holds_no_plots(tmp_path):
     assert "probes/AL-020_plots.csv" not in manifest["products"]
 
 
+@pytest.mark.requirement("FR-3789")
 def test_p0580_reductions_go_to_reductions_and_two_are_retired(tmp_path):
     products, manifest, messages = _post(tmp_path)
     names = _files(products, "reductions")
@@ -57,6 +59,7 @@ def test_p0580_reductions_go_to_reductions_and_two_are_retired(tmp_path):
     assert all("reductions/AL-020_phase_locked.csv" in manifest["products"] for _ in (0,))
 
 
+@pytest.mark.requirement("FR-3788")
 def test_p0580_an_earlier_file_is_left_untouched_and_named_once_per_kind(tmp_path):
     before = (
         "probes/AL-020_plots.csv",
@@ -86,6 +89,7 @@ def test_p0580_a_clean_tree_warns_of_no_earlier_file(tmp_path):
     assert not [text for text in messages if "moved from" in text]
 
 
+@pytest.mark.requirement("FR-3786")
 def test_p0580_earlier_layout_maps_every_kind(tmp_path):
     for relative in (
         "probes/a_plots.csv",

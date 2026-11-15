@@ -197,15 +197,59 @@ def test_p0580_the_stage_writes_sections_and_cp_at_the_asked_granularity(tmp_pat
     assert "sections/AL-020_cp.csv" in manifest["products"]
 
 
+def _fake_context(tmp_path, split_files):
+    from types import SimpleNamespace
+
+    written = []
+    names = {}
+    out = tmp_path / "post"
+    return SimpleNamespace(
+        out=out,
+        written=written,
+        written_names=names,
+        sources={"AL-020": ["camp/sim_7001/AL-020"]},
+        record_of={"AL-020": SimpleNamespace(outputs=[], package_version="0.58.0")},
+        add=lambda path, entry: (written.append(path), names.update({path.name: entry})),
+    )
+
+
 @pytest.mark.parametrize("split", ["family", "both"])
-def test_p0580_the_stage_honours_the_family_split(tmp_path, monkeypatch, split):
-    from pyflightstream.post import _sim
+def test_p0580_the_family_split_indexes_the_family_files_and_drops_the_point_table_when_alone(
+    tmp_path, split
+):
+    from types import SimpleNamespace
+
+    from pyflightstream.post._point_stage import finish_sections
+
+    folder = tmp_path / "post" / "sections"
+    folder.mkdir(parents=True)
+    done = folder / "AL-020_sections.csv"
+    done.write_text("POL", encoding="utf-8")
+    family = folder / "AL-020_FAM-Wing_sections.csv"
+    family.write_text("POL", encoding="utf-8")
+    ctx = _fake_context(tmp_path, [family])
+    ctx.written.append(done)
+    ctx.written_names["sections/AL-020_sections.csv"] = {"kind": "instant"}
+    point = SimpleNamespace(name="AL-020")
+    finish_sections(ctx, point, done, [family], split)
+    assert family in ctx.written and ctx.written_names[family.name]["split"] == "family"
+    assert done.exists() == (split == "both")
+    assert (done in ctx.written) == (split == "both")
+    assert ("sections/AL-020_sections.csv" in ctx.written_names) == (split == "both")
+
+
+def test_p0580_the_stage_reads_the_split_key_off_the_pproc_where_it_is_declared(tmp_path):
+    from pyflightstream.cases.pproc import SectionsSpec
+
+    if "split" not in SectionsSpec.model_fields:
+        pytest.skip("[sections] split is declared by the pproc model of the polar lane (L2)")
     from pyflightstream.post.products import write_campaign_products
     from tests.tier1_offline.test_goal028_explained_products import _give
-    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
+    from tests.tier1_offline.test_post_products import _unsteady_workspace
 
-    monkeypatch.setattr(_sim, "split_of", lambda ctx: split)
     workspace = _unsteady_workspace(tmp_path, reductions=None)
+    toml = "\n".join(["[groups]", '"1" = "all"', "[sections]", 'split = "family"', ""])
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(toml, encoding="utf-8")
     outputs = workspace.sim_dir("7001") / "outputs"
     (outputs / "AL-020_sloads.txt").write_text(SLOADS, encoding="utf-8")
     (outputs / "AL-020_cp.txt").write_text(CP_EXPORT.read_text(encoding="utf-8"), encoding="utf-8")
@@ -222,10 +266,5 @@ def test_p0580_the_stage_honours_the_family_split(tmp_path, monkeypatch, split):
     )
     write_campaign_products(workspace)
     folder = workspace.root / "post" / "products" / "sections"
-    manifest = _products_manifest(workspace)["products"]
     names = {p.name for p in folder.glob("AL-020_*")}
-    assert "AL-020_FAM-Wing_cp.csv" in names
-    assert ("AL-020_cp.csv" in names) == (split == "both")
-    assert ("AL-020_sections.csv" in names) == (split == "both")
-    assert "sections/AL-020_FAM-Wing_cp.csv" in manifest
-    assert ("sections/AL-020_sections.csv" in manifest) == (split == "both")
+    assert "AL-020_FAM-Wing_cp.csv" in names and "AL-020_cp.csv" not in names

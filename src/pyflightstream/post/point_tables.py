@@ -62,10 +62,9 @@ from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_POSITIONS_MARKER
 from pyflightstream.post._condition import _stated_iteration
 from pyflightstream.post._section_tables import (
-    family_cell,
-    family_file_name,
-    rotor_id_cell,
+    sections_rows,
     sections_split,
+    write_split,
 )
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
@@ -341,35 +340,25 @@ def write_sections_table(
     context = context_row(stated, None if reference is None else reference.as_lengths())
     identity = section_identity(len(table), layout, rotors, step, azimuth_deg)
     split = sections_split(split)
-    rows = [
-        (
-            pol,
-            identity[at][0],
-            family_cell(identity[at][0], inventory),
-            step,
-            identity[at][1],
-            rotor_id_cell(identity[at][2], rotor_ids),
-            identity[at][2],
-            identity[at][3],
-            *context,
-            *(float(v) for v in row[:7]),
-        )
-        for at, row in enumerate(table)
-    ]
-    written = write_csv_table(path, SECTION_COLUMNS, rows, overwrite=overwrite)
-    if split in ("family", "both"):
-        point = Path(path).name.removesuffix("_sections.csv")
-        by_family: dict[object, list[tuple[object, ...]]] = {}
-        for row in rows:
-            by_family.setdefault(row[1], []).append(row)
-        for family, own in by_family.items():
-            name = family_file_name(point, "NA" if family is None else family, "sections")
-            made = write_csv_table(
-                Path(path).with_name(name), SECTION_COLUMNS, own, overwrite=overwrite
-            )
-            if family_files is not None:
-                family_files.append(made)
-    return written
+    rows = sections_rows(
+        table[:, :7],
+        identity,
+        pol=pol,
+        step=step,
+        inventory=inventory,
+        rotor_ids=rotor_ids,
+        context=context,
+    )
+    # THE POINT TABLE IS ALWAYS WRITTEN: the products cut from it read it back.
+    return write_split(
+        path,
+        SECTION_COLUMNS,
+        rows,
+        "sections",
+        "point" if split == "point" else "both",
+        family_files=family_files,
+        overwrite=overwrite,
+    )[0]
 
 
 def write_plots_table(

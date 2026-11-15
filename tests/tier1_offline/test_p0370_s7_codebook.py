@@ -12,6 +12,7 @@ import csv
 import json
 from pathlib import Path
 
+from pyflightstream.post._run_block import run_block_columns
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.post.settings_table import CODEBOOK_VERSION, FLAG_IDS, codebook
 from pyflightstream.script import Script, helpers
@@ -23,6 +24,8 @@ SIM = "0001"
 SPEEDS = (20.0, 30.0, 40.0)
 VELOCITY = FLAG_IDS["SOLVER_SET_VELOCITY"]
 TABLE = f"settings/{MATRIX}_settings.csv"
+#: The key a row opens with: the run block of its point (no rotor, no identifier), then RUN_ID.
+KEY_COLUMNS = [*run_block_columns((), ()), "RUN_ID"]
 LEGEND = f"settings/{MATRIX}_settings.codebook.json"
 
 
@@ -106,19 +109,20 @@ def test_the_table_has_one_row_per_point_read_from_its_record(tmp_path):
     ]
     for row in rows:
         for name, cell in row.items():
-            if name not in ("POL", "RUN_ID") and cell != "NA":  # NA: no value exists
+            if name not in KEY_COLUMNS and cell != "NA":  # NA: no value exists
                 float(cell)  # every other cell is a code or a number
 
 
 def test_the_legend_is_the_library_codebook_and_the_table_opens_with_its_key(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419): the legend carries its version; the table opens POL, RUN_ID."""
+    """P0370-S7-CODEBOOK (FR-419): the legend carries its version; a row opens with its block."""
     out = _post(_workspace(tmp_path, key="settings_codebook = true\n"))
     legend = json.loads((out / LEGEND).read_text(encoding="utf-8"))
     assert legend["codebook_version"] == CODEBOOK_VERSION
     assert legend == json.loads(json.dumps(codebook()))
     with (out / TABLE).open(encoding="utf-8", newline="") as stream:
         header = next(csv.reader(stream))
-    assert header[:3] == ["POL", "RUN_ID", "codebook_version"]
+    assert header[: len(KEY_COLUMNS)] == KEY_COLUMNS
+    assert header[len(KEY_COLUMNS)] == "codebook_version"
 
 
 def test_both_files_are_in_the_manifest_with_the_runs_they_derive_from(tmp_path):

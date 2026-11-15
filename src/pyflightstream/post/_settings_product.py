@@ -17,13 +17,13 @@ files are not written and ``post.log`` says so once.
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._tokens import POLAR_ID_COLUMN
-from pyflightstream.post._block_scope import collected_block
+from pyflightstream.post._block_scope import collected_block, run_block_text
 from pyflightstream.post._stage import post_note
-from pyflightstream.post._visual_block import run_block_text
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.settings_table import write_settings_table
 from pyflightstream.script.solver_setup import SolverSetup
@@ -86,16 +86,38 @@ def _table_sources(
     return sources
 
 
-def _key_of(sim_id: str, run_id: str) -> dict[str, str]:
+def _held_keys(path: Path) -> dict[str, dict[str, str]]:
+    """Return the key columns each run's row holds in the table at ``path``, by ``RUN_ID``.
+
+    The key columns are those before ``codebook_version``. A table that cannot be read holds none.
+    """
+    try:
+        with path.open(encoding="utf-8", newline="") as stream:
+            table = list(csv.reader(stream))
+    except (OSError, UnicodeDecodeError, csv.Error):
+        return {}
+    if not table or "codebook_version" not in table[0] or "RUN_ID" not in table[0]:
+        return {}
+    header = table[0]
+    keys = header[: header.index("codebook_version")]
+    return {
+        row[header.index("RUN_ID")]: dict(zip(keys, row, strict=False))
+        for row in table[1:]
+        if len(row) == len(header)
+    }
+
+
+def _key_of(sim_id: str, run_id: str, held: dict[str, dict[str, str]]) -> dict[str, str]:
     """Return the key columns of one run's row: its run block, then ``RUN_ID``.
 
-    The block is the one the simulation's post built for the point (FR-3778). The
-    IDENTIFIERS the matrix row states are left to the table funnel, which puts
-    them after ``POL``. A run with no block keeps ``POL`` and ``RUN_ID``.
+    The block is the one the simulation's post built for the point (FR-3778); a
+    run this post did not build one for keeps the key columns the last table held
+    for it. The IDENTIFIERS the matrix row states are left to the table funnel,
+    which puts them after ``POL``. A run with no block keeps ``POL`` and ``RUN_ID``.
     """
     row = collected_block(run_id)
     if row is None:
-        return {POLAR_ID_COLUMN: sim_id, "RUN_ID": run_id}
+        return held.get(run_id) or {POLAR_ID_COLUMN: sim_id, "RUN_ID": run_id}
     names = list(row)
     first, last = names.index("POINT") + 1, names.index("RUN_TYPE")
     own = {n: run_block_text(v) for n, v in row.items() if n not in names[first:last]}
@@ -133,6 +155,7 @@ def write_settings_product(ctx: _CampaignProducts) -> None:
         return
     setups: list[SolverSetup] = []
     keys: list[dict[str, str]] = []
+    held = _held_keys(ctx.out / table)
     for sim_id, points in sources:
         if points:
             for point in points:
@@ -149,7 +172,11 @@ def write_settings_product(ctx: _CampaignProducts) -> None:
                     )
                     continue
                 setups.append(snapshot)
-                keys.append(_key_of(sim_id, point.run_id))
+                keys.append(_key_of(sim_id, point.run_id, held))
+    # ONE SET OF KEY COLUMNS FOR EVERY ROW: a run this post did not build a block for (a
+    # simulation a limited post kept from the last table) reads NA in the block's columns.
+    wide = max(keys, key=len, default={})
+    keys = [{name: key.get(name, "NA") for name in wide} for key in keys]
     if not setups:
         post_note(
             "campaign",

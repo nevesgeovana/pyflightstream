@@ -58,6 +58,7 @@ def test_p0580_kinds_columns_equal_the_registry_expanded():
     assert "CDR1" in names("ACOEF") and "CTR1" in names("RCOEF")
 
 
+@pytest.mark.requirement("FR-3779")
 def test_p0580_every_column_states_unit_frame_definition():
     doc = _document()
     for kind, entry in doc["kinds"].items():
@@ -74,6 +75,7 @@ def test_p0580_no_rcoef_kind_without_a_rotor():
     assert "FAM-ACOEF" in doc["kinds"]
 
 
+@pytest.mark.requirement("FR-3779")
 def test_p0580_run_block_section_matches_the_header_and_units():
     doc = _document()
     names = [c["name"] for c in doc["run_block"]]

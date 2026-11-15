@@ -35,6 +35,9 @@ __all__ = [
     "cp_rows",
     "family_cell",
     "family_file_name",
+    "sections_rows",
+    "write_family_files",
+    "write_split",
     "rotor_id_cell",
     "sections_split",
     "write_cp_table",
@@ -151,6 +154,138 @@ def family_file_name(point: str, family: object, kind: str) -> str:
     'AL+000_FAM-Blade_1_sections.csv'
     """
     return f"{point}_{FAMILY_FILE_PREFIX}{_a_name_a_file_may_carry(str(family))}_{kind}.csv"
+
+
+def sections_rows(
+    values: np.ndarray,
+    identity: Sequence[tuple[object, object, object, object]],
+    *,
+    pol: str | int | None,
+    step: int | None,
+    inventory: Sequence[str] | None,
+    rotor_ids: Mapping[str, int] | None,
+    context: Sequence[object],
+) -> list[tuple[object, ...]]:
+    """Return the rows of a sections table, in the order of ``SECTION_COLUMNS``.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        The export's seven columns, one row per section.
+    identity : sequence of tuple
+        ``(FAMILY, PLANE, ROTOR alias, AZIMUTH)`` of each row, as
+        :func:`~pyflightstream.post._tables.section_identity` returns it.
+    pol, step, inventory, rotor_ids, context
+        The polar, the solver step, the boundary inventory, each rotor alias's
+        id and the condition cells written beside every row.
+
+    Returns
+    -------
+    list of tuple
+        One row per section.
+    """
+    return [
+        (
+            pol,
+            family,
+            family_cell(family, inventory),
+            step,
+            plane,
+            rotor_id_cell(alias, rotor_ids),
+            alias,
+            azimuth,
+            *context,
+            *(float(value) for value in row),
+        )
+        for (family, plane, alias, azimuth), row in zip(identity, values, strict=True)
+    ]
+
+
+def write_family_files(
+    path: str | Path,
+    columns: Sequence[str],
+    rows: Sequence[tuple[object, ...]],
+    kind: str,
+    *,
+    overwrite: bool = True,
+) -> list[Path]:
+    """Write one file per family beside ``path``: ``<point>_FAM-<FAMILY>_<kind>.csv``.
+
+    Parameters
+    ----------
+    path : str or Path
+        The point file, ``<point>_<kind>.csv``.
+    columns : sequence of str
+        The table's header, whose second column is ``FAMILY``.
+    rows : sequence of tuple
+        The point table's rows; each family keeps its own, in order.
+    kind : str
+        ``sections`` or ``cp``.
+    overwrite : bool, optional
+        Replace a file that exists.
+
+    Returns
+    -------
+    list of Path
+        The files written, in the order the families first appear.
+    """
+    target = Path(path)
+    point = target.name.removesuffix(f"_{kind}.csv")
+    by_family: dict[object, list[tuple[object, ...]]] = {}
+    for row in rows:
+        by_family.setdefault(row[1], []).append(row)
+    return [
+        write_csv_table(
+            target.with_name(family_file_name(point, "NA" if family is None else family, kind)),
+            columns,
+            own,
+            overwrite=overwrite,
+        )
+        for family, own in by_family.items()
+    ]
+
+
+def write_split(
+    path: str | Path,
+    columns: Sequence[str],
+    rows: Sequence[tuple[object, ...]],
+    kind: str,
+    split: str,
+    *,
+    family_files: list[Path] | None = None,
+    overwrite: bool = True,
+) -> list[Path]:
+    """Write the point file and the family files split asks for; return them, point file first.
+
+    Parameters
+    ----------
+    path : str or Path
+        The point file, <point>_<kind>.csv.
+    columns, rows, kind, overwrite
+        As :func:`write_family_files`.
+    split : {'point', 'family', 'both'}
+        point writes the point file, family the family files only and both both.
+    family_files : list of Path, optional
+        Where the family files written are appended.
+
+    Returns
+    -------
+    list of Path
+        Every file written.
+    """
+    written = (
+        [write_csv_table(Path(path), columns, rows, overwrite=overwrite)]
+        if split in ("point", "both")
+        else []
+    )
+    made = (
+        write_family_files(path, columns, rows, kind, overwrite=overwrite)
+        if split in ("family", "both")
+        else []
+    )
+    if family_files is not None:
+        family_files.extend(made)
+    return [*written, *made]
 
 
 def cp_rows(
@@ -279,19 +414,6 @@ def write_cp_table(
     )
     if not rows:
         return None
-    target = Path(path)
-    point = target.name.removesuffix("_cp.csv")
-    written: list[Path] = []
-    if split in ("point", "both"):
-        written.append(write_csv_table(target, CP_COLUMNS, rows, overwrite=overwrite))
-    if split in ("family", "both"):
-        by_family: dict[object, list[tuple[object, ...]]] = {}
-        for row in rows:
-            by_family.setdefault(row[1], []).append(row)
-        for family, own in by_family.items():
-            name = family_file_name(point, "NA" if family is None else family, "cp")
-            made = write_csv_table(target.with_name(name), CP_COLUMNS, own, overwrite=overwrite)
-            written.append(made)
-            if family_files is not None:
-                family_files.append(made)
-    return written[0]
+    return write_split(
+        path, CP_COLUMNS, rows, "cp", split, family_files=family_files, overwrite=overwrite
+    )[0]

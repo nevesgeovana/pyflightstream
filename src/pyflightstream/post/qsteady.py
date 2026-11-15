@@ -39,6 +39,9 @@ the loads frame's axes, and the thrust and torque along its shaft, each by
 :func:`pyflightstream.post.products.rotor_shaft_loads`, which the product
 stage hands in so that this module computes no statics of its own.
 
+Size exemption: one reading of a quasi-steady record, the clockings, the wheel's sections, the
+validity and the rotor state of one point, with the run block that opens each row of the tables.
+
 THE VALIDITY. ``k = Omega c / (2 V_rel)`` per station
 (:mod:`pyflightstream.cases.qsteady`). From the sectional loads export where
 the point has one: its ``Chord`` at its ``Offset``, read as the radius of a
@@ -81,7 +84,7 @@ from pyflightstream.cases.qsteady import (
     strip_lengths,
     validity_file_name,
 )
-from pyflightstream.post._block_scope import apply_row_blocks, block_of_point
+from pyflightstream.post._block_scope import apply_point_blocks
 from pyflightstream.post._tables import (
     _cell,
     _refuse_existing_product,
@@ -1623,15 +1626,14 @@ def write_qsteady_tables(
     moment = tuple(reference.as_moment_point().values()) if reference is not None else (None,) * 3
     position_rows = []
     average_rows = []
-    position_blocks: list[dict[str, object] | None] = []
-    average_blocks: list[dict[str, object] | None] = []
+    position_points: list[str | None] = []
+    average_points: list[str | None] = []
     for point in usable:
-        block = None if point.point is None else block_of_point(point.point)
         context = context_row(_condition_with_own_j(point.condition, point.record), lengths)
         alias = point.record.rotor_alias
         count = len(point.clockings)
         for clocking in point.clockings:
-            position_blocks.append(block)
+            position_points.append(point.point)
             position_rows.append(
                 (
                     point.pol,
@@ -1646,7 +1648,7 @@ def write_qsteady_tables(
                     *clocking.loads,
                 )
             )
-        average_blocks.append(block)
+        average_points.append(point.point)
         average_rows.append(
             (
                 point.pol,
@@ -1667,15 +1669,19 @@ def write_qsteady_tables(
     _refuse_existing_product(average_path, overwrite)
     # THE RUN BLOCK OF EACH ROW'S POINT opens both tables (FR-3778); a point with
     # none, or a call outside a post, keeps the spine as it was.
-    positions = apply_row_blocks(
-        (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns), position_rows, position_blocks
-    )
-    average = apply_row_blocks(
-        (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns), average_rows, average_blocks
-    )
+    positions = (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns)
+    averages = (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns)
     return (
-        write_csv_table(positions_path, positions[0], positions[1], overwrite=overwrite),
-        write_csv_table(average_path, average[0], average[1], overwrite=overwrite),
+        write_csv_table(
+            positions_path,
+            *apply_point_blocks(positions, position_rows, position_points),
+            overwrite=overwrite,
+        ),
+        write_csv_table(
+            average_path,
+            *apply_point_blocks(averages, average_rows, average_points),
+            overwrite=overwrite,
+        ),
     )
 
 
