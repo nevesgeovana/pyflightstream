@@ -17,51 +17,47 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.post.products import read_csv_table, write_rotor_table
-from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces
+from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _stage_rotor, _surfaces
 
 
-def _row(**update):
-    row = {
-        "run_id": "camp/sim_1/P1",
-        "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-        "condition": {"MACH": 0.15, "ALPHA": 0.0, "VINF": 40.0, "J": 0.5},
-        "rpm": 3000.0,
-        "density": 1.225,
-        "speed": 80.0,  # the REFERENCE velocity, deliberately not the free stream
-        "free_stream": 40.0,
-    }
-    row.update(update)
-    return row
+def _rotor_rows(tmp_path):
+    """The rotor's RCOEF rows of the post stage: 3000 rev/min, VREF 80 and a free stream of 40 m/s.
+
+    The reference velocity the solver normalised forces by (80) is deliberately not the
+    free stream (40). Since 0.58.0 the rotor's table is the RCOEF file of its group and
+    the speed, the diameter and the ratio it divided by are in the run block.
+    """
+    columns, rows, _said = _stage_rotor(
+        tmp_path,
+        _surfaces(Blade1={"Cz": 0.5}),
+        rpm=3000.0,
+        velocity=80.0,
+        free_stream=40.0,
+    )
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
+    return columns, rows
 
 
 def test_the_table_states_the_speed_and_the_diameter_it_divided_by(tmp_path):
-    rotor = _rotor("Z")
-    written = write_rotor_table(
-        tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
-    )
-    columns, rows = read_csv_table(written)
-    assert "RPM_PUSHER" in columns and "DIAMETER_PUSHER" in columns, columns
-    assert float(rows[0]["RPM_PUSHER"]) == pytest.approx(3000.0)
-    assert float(rows[0]["DIAMETER_PUSHER"]) == pytest.approx(rotor.diameter_m)
-    assert columns.index("RPM_PUSHER") < columns.index("J_PUSHER")
+    columns, rows = _rotor_rows(tmp_path)
+    assert "RPM0" in columns and "D0" in columns, columns
+    assert float(rows[0]["RPM0"]) == pytest.approx(3000.0)
+    assert float(rows[0]["D0"]) == pytest.approx(2.0)
+    assert columns.index("RPM0") < columns.index("J0")
 
 
 def test_the_advance_ratio_is_the_free_streams_and_the_forces_are_the_reference_velocitys(
     tmp_path,
 ):
-    rotor = _rotor("Z")
-    written = write_rotor_table(
-        tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
-    )
-    _columns, rows = read_csv_table(written)
+    _columns, rows = _rotor_rows(tmp_path)
+    diameter = 2.0
     n = 3000.0 / 60.0
-    assert float(rows[0]["J_PUSHER"]) == pytest.approx(40.0 / (n * rotor.diameter_m), rel=1e-5)
+    assert float(rows[0]["J0"]) == pytest.approx(40.0 / (n * diameter), rel=1e-5)
     # The force was normalised by the solver with VREF, so it comes back with VREF.
     reference = _reference()
     thrust = 0.5 * 0.5 * 1.225 * 80.0**2 * reference.sref_m2
-    expected = thrust / (1.225 * n**2 * rotor.diameter_m**4)
-    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(expected, rel=1e-4)
+    expected = thrust / (1.225 * n**2 * diameter**4)
+    assert float(rows[0]["CT"]) == pytest.approx(expected, rel=1e-4)
 
 
 def _posted_with_a_rotor(tmp_path, diameter: float) -> list[str]:

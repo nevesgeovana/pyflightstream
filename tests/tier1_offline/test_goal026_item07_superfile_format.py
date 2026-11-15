@@ -21,7 +21,7 @@ file's claim while looking like a formatting option.
 0.58.0: the super file is retired. `[products] superfile_format` reads as
 `polar_format` and selects the format of the FAM and group files (design page of
 the post outputs, section 2.3). The writer-level cases that built
-`SuperfileDraft` objects went with the writer; the format is now chosen only
+draft objects went with the writer; the format is now chosen only
 through the pproc and reaches the bytes only through the post stage, so the
 cases below run that stage.
 """

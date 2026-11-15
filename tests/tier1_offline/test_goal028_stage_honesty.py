@@ -80,7 +80,7 @@ def test_a_rebuild_that_dies_leaves_a_manifest_of_what_is_on_disk(tmp_path, monk
         raise OSError("the disk went away")  # NOT a ProductError: nothing catches it
 
     # The campaign-level step that follows the writing of every simulation's tables (the
-    # super file's own step, `write_superfiles`, is retired since 0.58.0). A per-simulation step
+    # super file's own step is retired since 0.58.0). A per-simulation step
     # would not do: the stage turns that failure into a warning and posts the next simulation.
     monkeypatch.setattr(products, "_retire_campaign_products", _dies)
     with pytest.raises(OSError):

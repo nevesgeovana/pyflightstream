@@ -2252,34 +2252,6 @@ def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely
     assert not any("CREF" in str(w.message) for w in caught)
 
 
-def test_f3_0203_x_f_0348_steps_is_the_number_of_frames_that_entered_the_average(tmp_path):
-    """X-F-0348 (owner decision): per_blade STEPS counts frames read, not the window's span."""
-    from pyflightstream.post.products import read_csv_table, write_per_blade_table
-    from tests.tier1_offline.test_goal028_per_blade import FIELDS, ROTOR
-
-    keep = np.array([True, True, True, True, True, False, True, True])
-    series = TimestepSeries(
-        steps=np.arange(1, 9)[keep],
-        times_s=None,
-        points=np.zeros((1, 3)),
-        fields={
-            name: np.asarray(v, dtype=float)[keep].reshape(-1, 1) for name, v in FIELDS.items()
-        },
-        sources=(),
-    )
-    path = write_per_blade_table(
-        tmp_path / "P_per_blade_PUSHER.csv",
-        series,
-        tuple(FIELDS),
-        window=(5, 8),
-        rotor="PUSHER",
-        blades=2,
-        facts=ROTOR,
-    )
-    _columns, rows = read_csv_table(path)
-    assert {(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows} == {("5", "8", "3")}
-
-
 def _f3_polar(tmp_path, *, description="CRUISE", rows=None, columns=None, name="p.dat"):
     from pyflightstream.post._tables import ReferenceValues
     from pyflightstream.post.custom_polar import write_custom_polar_format
@@ -2579,14 +2551,17 @@ def test_the_docstrings_of_the_post_layer_state_what_the_definitions_say():
     """F-1822, F-1821, F-1841, F-1842, F-1826, X-F-0329, X-F-1642: no false claim remains."""
     import pyflightstream.post as layer
     from pyflightstream.post import _rotor_products, boundary_layer, farfield_fields
-    from pyflightstream.post.unsteady_polar import write_unsteady_polar
 
     assert "FR-20 carries" not in (layer.__doc__ or "")
     assert "FR-2302 and FR-2303" in " ".join((layer.__doc__ or "").split())
-    polar = write_unsteady_polar.__doc__ or ""
-    assert "same window `per_blade`" not in polar
-    assert "`LAST_REVS_AVG` or `LAST_ITERS_AVG`" in polar
-    assert "writes them ``NA``" in polar and "writes no\n        reference columns" not in polar
+    # 0.58.0: the unsteady polar writer is retired; its window and its NA rule are stated by
+    # the pages of the files that replace it (the averaging window, the FAM-DIM file).
+    docs = Path(__file__).resolve().parents[2] / "docs"
+    window = (docs / "definitions" / "the-averaging-window.md").read_text(encoding="utf-8")
+    assert "same window `per_blade`" not in window
+    assert "`LAST_REVS_AVG` or `LAST_ITERS_AVG`" in window
+    family = " ".join((docs / "pproc" / "fam-dim.md").read_text(encoding="utf-8").split())
+    assert "row of `NA`, never of zeros" in family and "writes no reference columns" not in family
     assert "1e-10" in (boundary_layer.sample_boundary_layer.__doc__ or "")
     assert "export window" in (_rotor_products._unsteady_harmonics.__doc__ or "")
     assert "between one and ten units" in (farfield_fields.coordinate_tolerance.__doc__ or "")

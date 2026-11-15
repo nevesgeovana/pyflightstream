@@ -8,6 +8,7 @@ against a row the author wrote, column by column, at the author's five decimals.
 
 from __future__ import annotations
 
+import math
 import sys
 import warnings
 from pathlib import Path
@@ -1665,7 +1666,7 @@ def test_a_target_alone_decides_what_becomes_of_an_existing_series_table(tmp_pat
 
 
 def test_a_series_table_is_written_where_its_target_says(tmp_path):
-    """The seam write_superfiles takes: the table lands at the path the target returns."""
+    """The seam the post stage takes: the table lands at the path the target returns."""
     from pyflightstream.post.series import write_point_series
 
     workspace, arguments = _series_call(tmp_path)
@@ -1678,7 +1679,7 @@ def test_a_series_table_is_written_where_its_target_says(tmp_path):
 
     assert (elsewhere / "AL-020_loads_series.csv").is_file(), sorted(elsewhere.iterdir())
     assert all(path.parent == elsewhere for path in written), written
-    # The entries name the files that exist, as write_superfiles' do.
+    # The entries name the files that exist, as the stage's products.json entries do.
     assert sorted(names) == sorted(path.as_posix() for path in written), names
 
 
@@ -3214,52 +3215,36 @@ def test_far_field_columns_keep_six_significant_digits_f4_07(tmp_path):
 
 
 def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07(tmp_path):
-    """X-F-0353: NaN passes a test written as less than or equal to zero."""
-    from types import SimpleNamespace
+    """X-F-0353: NaN passes a test written as less than or equal to zero.
 
-    from pyflightstream.post.products import ReferenceValues
-    from pyflightstream.post.rotor_table import write_rotor_table
+    0.58.0: the rotor's rows are the RCOEF file of its group, written by the post stage;
+    a diameter, a speed or a density that is NaN states no coefficient (the cell is NA, or
+    the file is not written), writes no non-finite number, and the stage names the point it
+    left out.
+    """
+    from tests.tier1_offline.test_goal026_item06_rotor_loads import _stage_rotor, _surfaces
 
     nan = float("nan")
-    good = {"diameter": 1.0, "rpm": 600.0, "density": 1.2}
+    surfaces = _surfaces(Blade1=dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.1))
 
-    def table(case, **stated):
-        values = {**good, **stated}
-        rotor = SimpleNamespace(
-            alias="R",
-            axis_vector=(0.0, 0.0, 1.0),
-            diameter_m=values["diameter"],
-            members=["Blade1"],
-            x_m=0.0,
-            y_m=0.0,
-            z_m=0.0,
+    left_out: dict[str, str] = {}
+    _columns, rows, _said = _stage_rotor(
+        tmp_path / "good", surfaces, velocity=10.0, rpm=600.0, skipped=left_out
+    )
+    assert rows, "the good case wrote no RCOEF file"
+    for name in ("CT", "CQ", "CP"):
+        assert math.isfinite(float(rows[0][name])), (name, rows[0][name])
+    for case, stated in (("d", {"diameter": nan}), ("n", {"rpm": nan}), ("rho", {"density": nan})):
+        left_out = {}
+        _columns, rows, _said = _stage_rotor(
+            tmp_path / case, surfaces, velocity=10.0, **{"rpm": 600.0, **stated}, skipped=left_out
         )
-        row = {
-            "run_id": "r",
-            "surfaces": {"Blade1": dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.1)},
-            "condition": {"ALPHA": 0.0, "BETA": 0.0},
-            "rpm": values["rpm"],
-            "density": values["density"],
-            "speed": 10.0,
-        }
-        left_out: list[tuple[str, str]] = []
-        reference = ReferenceValues.from_mapping(
-            {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0.0, "YMOM": 0.0, "ZMOM": 0.0}
-        )
-        written = write_rotor_table(
-            tmp_path / f"{case}.csv",
-            rotor=rotor,
-            rows=[row],
-            reference=reference,
-            left_out=left_out,
-        )
-        return written, left_out
-
-    written, said = table("good")
-    assert written is not None and not said
-    for case, name in (("d", "diameter"), ("n", "rpm"), ("rho", "density")):
-        written, said = table(case, **{name: nan})
-        assert written is None and said and said[0][0] == "r"
+        for row in rows:
+            for name in ("CT", "CQ", "CP"):
+                assert row[name] == "NA", (case, name, row[name])
+            assert not [cell for cell in row.values() if cell.lower() in ("nan", "inf", "-inf")]
+        named = [key for key, text in left_out.items() if "AL+000" in key + text]
+        assert named, (case, left_out)
 
 
 def test_a_streamline_export_with_a_non_finite_value_writes_no_vtk_f4_07():
