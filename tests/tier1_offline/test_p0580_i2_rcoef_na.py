@@ -138,14 +138,31 @@ def test_the_reference_point_has_every_cell_so_the_na_cases_below_mean_something
 
 
 def test_p0400_noattitude_a_point_without_its_attitude_is_na_where_it_needs_it_and_said(tmp_path):
-    out, said = _post(tmp_path, loads_edit=_drop_angle_line)
+    """A point whose angle reaches the post without a finite value has no attitude.
+
+    An export without the angle line, or with text there, is corrupt and the loads
+    parser refuses it (``results/loads.py``); the post's case is an angle that is read
+    and is not finite, here an infinite one.
+    """
+    out, said = _post(tmp_path, loads_edit=_angle_as("inf"))
     row = _rotor_row_or_fail(out, said)
     assert all(row[name] == "NA" for name in ATTITUDE_CELLS), {n: row[n] for n in ATTITUDE_CELLS}
     assert all(row[name] != "NA" for name in NO_ATTITUDE_CELLS), row
-    assert any("attitude" in m.casefold() or "ALPHA" in m for m in said), said
+    assert any("not a finite number" in message for message in said), said
 
 
-@pytest.mark.parametrize("token", ["nan", "x"])
+def test_an_export_without_its_angle_is_refused_by_the_loads_parser():
+    """The loads parser's refusal stays: an export without its angle line is corrupt."""
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.results.loads import labeled_value
+
+    with pytest.raises(PyflightstreamError):
+        labeled_value(
+            _drop_angle_line("     Angle of attack (Deg)    2.0\n"), "Angle of attack (Deg)"
+        )
+
+
+@pytest.mark.parametrize("token", ["nan", "-inf"])
 def test_rb6_07_an_angle_that_is_not_a_number_is_still_na_and_said(tmp_path, token):
     out, said = _post(tmp_path, loads_edit=_angle_as(token))
     row = _rotor_row_or_fail(out, said)
