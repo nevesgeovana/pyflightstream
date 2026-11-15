@@ -59,6 +59,7 @@ from pyflightstream.post._condition import (
 )
 from pyflightstream.post._stage import (
     POLARS_DIR,
+    REDUCTIONS_DIR,
     SECTIONS_DIR,
     _a_name_a_file_may_carry,
     _contained,
@@ -202,7 +203,7 @@ def _write_harmonics(
     Returns the path written and its ``products.json`` entry, or None where not
     one station could be fitted, which is named under the product's key.
     """
-    relative = f"{SECTIONS_DIR}/{point}{_harmonics.HARMONICS_SUFFIX}"
+    relative = f"{REDUCTIONS_DIR}/{point}{_harmonics.HARMONICS_SUFFIX}"
     try:
         columns, rows = read_csv_table(table)
     except (ProductError, OSError) as error:
@@ -346,7 +347,7 @@ def _acoustic_products(
 
 def _skip_disc_maps(point: str, reason: str, skipped: dict[str, str], marker: str = "") -> None:
     """Name the disc maps a point could not write, and why."""
-    relative = f"{SECTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}{marker}"
+    relative = f"{REDUCTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}{marker}"
     skipped[relative] = f"no disc map: {reason}"
     warn(
         f"point={point} product={relative}: {skipped[relative]}",
@@ -378,7 +379,7 @@ def _write_disc_maps(
     azimuth is named under ``sections/<point>_disc_`` in ``skipped`` and
     warned; nothing blocks. Returns each file with its ``products.json`` entry.
     """
-    relative = f"{SECTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}"
+    relative = f"{REDUCTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}"
     mapped = _disc_maps.disc_map_rows(columns, rows, rotors, sample_column=sample_column)
     for marker, reason in mapped.skipped.items():
         skipped[f"{relative}{marker}"] = reason
@@ -391,7 +392,7 @@ def _write_disc_maps(
         point=point,
         pol=pol,
         context=tuple(lead.get(name) for name in CONTEXT_COLUMNS),
-        out_dir=out / SECTIONS_DIR,
+        out_dir=out / REDUCTIONS_DIR,
         target=target,
     )
     return [
@@ -436,7 +437,7 @@ def _wheel_harmonics(
         return None
     if quasi.case != "wheel":
         return None
-    relative = f"{SECTIONS_DIR}/{point.name}{_harmonics.HARMONICS_SUFFIX}"
+    relative = f"{REDUCTIONS_DIR}/{point.name}{_harmonics.HARMONICS_SUFFIX}"
     refusal = (
         None
         if sim_dir is None
@@ -575,7 +576,7 @@ def _unsteady_harmonics(
     name = f"{stem}_sections_series.csv"
     table = next((path for path in series if path.name == name), None)
     window = record.export_window
-    relative = f"{SECTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
+    relative = f"{REDUCTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
     if table is None and not record.sections_layout:
         return None
     if table is None or not window or not rotors:

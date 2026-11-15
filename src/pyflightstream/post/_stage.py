@@ -51,8 +51,10 @@ from pyflightstream._errors import (
 from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
+from pyflightstream.post._manifest_schema import MANIFEST_SCHEMA_VERSION, tree_section
 from pyflightstream.post._tables import _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, ProductError, read_csv_table
+from pyflightstream.post._tree_migration import note_earlier_layout, once_per_post
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average, phase_locked_rows
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve, frozen_time_steps, parse_log_times
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX
@@ -258,10 +260,24 @@ POLARS_DIR = "polars"
 SECTIONS_DIR = "sections"
 
 
-#: The matrix folder for point flow-field samples (FR-87), independent
-#: of run type: unsteady plots, their reductions and probe-point tables
-#: all belong here.
+#: The matrix folder for the probe tables of a point (FR-87), independent of
+#: run type. Only probe tables belong here; the plots history is in
+#: :data:`TIME_HISTORY_DIR` and the reductions in :data:`REDUCTIONS_DIR`.
 PROBES_DIR = "probes"
+
+
+#: The matrix folder of the plots history, one row per solver step (FR-3787).
+TIME_HISTORY_DIR = "time_history"
+
+
+#: The matrix folder of the reductions of an unsteady point: phase_locked,
+#: per_revolution, the harmonics and the disc maps (FR-3789).
+REDUCTIONS_DIR = "reductions"
+
+
+#: The other folders of the tree, spelled once here so no module hard-codes one.
+FIELDS_DIR = "fields"
+TABLES_DIR = "tables"
 
 
 #: The moment point, stated wherever a table carries a moment.
@@ -482,7 +498,8 @@ def post_notes() -> Iterator[list[_LogRecord]]:
     notes: list[_LogRecord] = []
     token = _POST_NOTES.set(notes)
     try:
-        yield notes
+        with once_per_post():
+            yield notes
     finally:
         _POST_NOTES.reset(token)
 
@@ -739,6 +756,11 @@ def merged_manifest(
     return document
 
 
+#: The schema 2 sections two posts of one matrix add to, by key: a post of other
+#: simulations keeps the polars and kinds an earlier post stated.
+_UNION_SECTIONS = ("polars", "kinds")
+
+
 def write_manifest(out: Path, manifest: Mapping[str, Any], merge: ManifestMerge | None) -> None:
     """Write ``products.json`` under the campaign lock, merged with the file found there.
 
@@ -761,7 +783,18 @@ def write_manifest(out: Path, manifest: Mapping[str, Any], merge: ManifestMerge 
                 stacklevel=2,
             )
             return
-        document = merged_manifest(manifest, _parsed(manifest_text(out)) or None, merge)
+        on_disk = _parsed(manifest_text(out)) or None
+        document = merged_manifest(manifest, on_disk, merge)
+        document["schema_version"] = MANIFEST_SCHEMA_VERSION
+        document["tree"] = tree_section()
+        document["migrated"] = {
+            **dict(document.get("migrated") or {}),
+            **note_earlier_layout(out),
+        }
+        for section in _UNION_SECTIONS:
+            held = (on_disk or {}).get(section)
+            if isinstance(held, Mapping) and isinstance(document.get(section), Mapping):
+                document[section] = {**held, **document[section]}
         text = json.dumps(document, indent=1) + "\n"
         try:
             _textio.write_text(staged, text)

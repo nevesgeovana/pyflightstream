@@ -90,6 +90,7 @@ from pyflightstream.post._stage import (
     POLARS_DIR,
     PROBES_DIR,
     SECTIONS_DIR,
+    TIME_HISTORY_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
     failure_reason,
 )
@@ -1113,7 +1114,7 @@ def _plots_products(
         )
     if not ((plots or field_requested) and plots_path is not None and plots_path.is_file()):
         return
-    relative = f"{PROBES_DIR}/{point.name}_plots.csv"
+    relative = f"{TIME_HISTORY_DIR}/{point.name}_plots.csv"
     target = ctx.target(ctx.out / relative)
     try:
         done = write_plots_table(

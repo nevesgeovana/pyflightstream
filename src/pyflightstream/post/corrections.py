@@ -670,7 +670,7 @@ def _theodorsen_file(
     written_names: Mapping[str, Mapping[str, object]],
     skipped: dict[str, str],
 ) -> tuple[Path, dict[str, object]] | None:
-    relative = harmonics_rel.removesuffix(HARMONICS_SUFFIX) + THEODORSEN_SUFFIX
+    relative = f"{sections_rel.rpartition('/')[0]}/{point.name}{THEODORSEN_SUFFIX}"
     try:
         _, section_rows = _read(out / sections_rel)
         _, harmonic_rows = _read(out / harmonics_rel)
@@ -770,6 +770,7 @@ def write_qsteady_corrections(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
     sections_dir: str = "sections",
+    reductions_dir: str = "reductions",
     overwrite: bool = True,
 ) -> list[tuple[Path, dict[str, object]]]:
     """Write the corrected products and the diagnostic of one simulation's wheel points.
@@ -803,6 +804,8 @@ def write_qsteady_corrections(
         Mutable mapping of product names to skip reasons.
     sections_dir : str, optional
         The folder under ``out`` that holds the sections tables.
+    reductions_dir : str, optional
+        The folder under ``out`` that holds the harmonics.
     overwrite : bool, optional
         Replace a file that already exists, as the writer always did (the default).
         False refuses an existing file, naming it, before it is replaced.
@@ -906,7 +909,7 @@ def write_qsteady_corrections(
         )
     for point in wheel_points:
         sections_rel = f"{sections_dir}/{point.name}_sections.csv"
-        harmonics_rel = f"{sections_dir}/{point.name}{HARMONICS_SUFFIX}"
+        harmonics_rel = f"{reductions_dir}/{point.name}{HARMONICS_SUFFIX}"
         if sections_rel not in written_names:
             continue
         harmonics = harmonics_rel if harmonics_rel in written_names else None
