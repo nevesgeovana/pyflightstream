@@ -80,7 +80,7 @@ def test_mixed_probe_parameters_keep_available_samples(tmp_path, monkeypatch):
     assert first[1]["VX"] == "NA"
     assert float(first[3]["VX"]) == 30
     assert first[3]["MACH_LOCAL"] == "NA"
-    assert any(name.endswith("_uns_avg.csv") for name in manifest["products"])
+    assert "polars/P7001-TOTAL-ACOEF.csv" in manifest["products"], sorted(manifest["products"])
 
 
 def test_probe_writer_refusal_does_not_abort_other_products(tmp_path, monkeypatch):
@@ -99,7 +99,7 @@ def test_probe_writer_refusal_does_not_abort_other_products(tmp_path, monkeypatc
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_probes.csv" in manifest["skipped"], "probe refusal escaped its product"
-    assert any(name.endswith("_uns_avg.csv") for name in manifest["products"])
+    assert "polars/P7001-TOTAL-ACOEF.csv" in manifest["products"], sorted(manifest["products"])
 
 
 @pytest.mark.parametrize("window", [(58, 59), (60, 61)])
