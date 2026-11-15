@@ -222,6 +222,8 @@ def _add_beam(verbs: Any) -> None:
     )
     beam.add_argument(
         "--visual-inspection",
+        "--visual-inspect",
+        dest="visual_inspection",
         action="store_true",
         help="also draw <geometry>.<family>.beam.pdf: the sections on the blade and each contour",
     )

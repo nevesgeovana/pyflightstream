@@ -31,3 +31,20 @@ def test_no_top_level_option_takes_a_value(module):
         if action.option_strings and action.nargs != 0
     ]
     assert valued == []
+
+
+def test_beam_declares_both_spellings_of_the_inspection_flag():
+    """pyfs-mesh spells it --visual-inspect; pyfs-fsi beam accepts that and its own spelling.
+
+    Both are DECLARED, so the help lists them and a parser that stops accepting unambiguous
+    prefixes does not lose the shorter one.
+    """
+    from pyflightstream.fsi.cli import _build_parser
+
+    parser = _build_parser()
+    (verbs,) = [a for a in parser._actions if a.choices and "beam" in a.choices]
+    declared = {s for a in verbs.choices["beam"]._actions for s in a.option_strings}
+    assert {"--visual-inspection", "--visual-inspect"} <= declared
+    for flag in ("--visual-inspection", "--visual-inspect"):
+        stated = parser.parse_args(["beam", "x.obj", "--families", "B", "--stations", "3", flag])
+        assert stated.visual_inspection is True
