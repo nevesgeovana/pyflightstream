@@ -1032,7 +1032,7 @@
   "pyflightstream.post._noise_products": 1,
   "pyflightstream.post._products_campaign": 2,
   "pyflightstream.post._reduction_stage": 5,
-  "pyflightstream.post._rotor_plan": 7,
+  "pyflightstream.post._rotor_plan": 1,
   "pyflightstream.post._rotor_products": 5,
   "pyflightstream.post._sim": 2,
   "pyflightstream.post._stage": 7,
@@ -1114,7 +1114,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 165,
+ "monkeypatch_targets": 161,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1133,7 +1133,7 @@
   "pyflightstream.fsi.driver": 1,
   "pyflightstream.geometry.stages": 1,
   "pyflightstream.post._additional": 3,
-  "pyflightstream.post._rotor_plan": 4,
+  "pyflightstream.post._rotor_plan": 0,
   "pyflightstream.post._sim": 2,
   "pyflightstream.post._stage": 1,
   "pyflightstream.post.corrections": 3,

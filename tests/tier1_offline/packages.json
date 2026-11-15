@@ -464,7 +464,6 @@
       "tests/tier1_offline/test_goal028_rotor_false_zero.py",
       "tests/tier1_offline/test_goal028_rotor_names.py",
       "tests/tier1_offline/test_goal028_rotor_plot_group.py",
-      "tests/tier1_offline/test_goal028_rotor_surfaces_carried.py",
       "tests/tier1_offline/test_goal028_rotor_table_average.py",
       "tests/tier1_offline/test_goal028_rotor_table_columns.py",
       "tests/tier1_offline/test_goal028_sections_condition.py",

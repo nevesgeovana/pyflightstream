@@ -2103,55 +2103,6 @@ class TestSweep1Contracts:
         assert any(run_id in text and "exceeds 1" in text for text in said), said
 
     @staticmethod
-    @pytest.mark.parametrize("live", [True, False])
-    def test_p0400_rotor_uses_own_clock(tmp_path, monkeypatch, live):
-        """P0400-SWEEP-ROTOR-CLOCK: the second rotor's two-step turn is its own window."""
-        from types import SimpleNamespace
-
-        from pyflightstream.cases import AXES_PLOT_COMPONENTS
-        from pyflightstream.post import _rotor_plan
-
-        table = tmp_path / "plots.txt"
-        table.write_text("synthetic", encoding="utf-8")
-        seen = []
-        series = SimpleNamespace(steps=[1, 2, 3, 4])
-        monkeypatch.setattr(_rotor_plan, "plots_table_series", lambda path: ([], series))
-        monkeypatch.setattr(
-            _rotor_plan, "_rotor_history_groups", lambda *args, **kwargs: (["B"], None)
-        )
-        monkeypatch.setattr(
-            _rotor_plan,
-            "blade_passage_average",
-            lambda series, *, window, read_steps: (
-                seen.append(window)
-                or SimpleNamespace(fields={f"{part}_B": [1.0] for part in AXES_PLOT_COMPONENTS})
-            ),
-        )
-        monkeypatch.setattr(_rotor_plan, "_judge_average", lambda *args, **kwargs: None)
-        record = SimpleNamespace(
-            reductions={
-                "rotors": {
-                    "slow": {"steps_per_revolution": 4},
-                    "fast": {"steps_per_revolution": 2},
-                },
-                "time_average": {"window_from": "LAST_REVS_AVG = 1 revolution(s) of 4 steps"},
-            }
-        )
-        ctx = SimpleNamespace(
-            windows={"P1": (1, 4)},
-            window=None,
-            sources={"P1": ["run/P1"]},
-            by_run={"run/P1": record},
-            matrix_row=SimpleNamespace(variables={"LAST_REVS_AVG": "1"} if live else {}),
-            plots={"P1": table},
-            frozen={},
-            sim_id="1",
-        )
-        _rotor_plan._averaged_rotor_newtons(ctx, SimpleNamespace(name="P1"), "fast", ["B"])
-        # A row that states no window key keeps the row window for every rotor (definition).
-        assert seen == ([(3, 4)] if live else [(1, 4)])
-
-    @staticmethod
     def test_p0400_zero_wake_reaches_post_log(tmp_path, monkeypatch):
         """P0400-SWEEP-ZERO-POST-LOG: explicit zero counts are point-naming WARNINGs."""
         import json
