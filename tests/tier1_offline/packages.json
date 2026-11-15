@@ -522,6 +522,7 @@
       "tests/tier1_offline/test_p0580_l1_family_columns.py",
       "tests/tier1_offline/test_p0580_l1_frames.py",
       "tests/tier1_offline/test_p0580_l1_rcoef.py",
+      "tests/tier1_offline/test_p0580_l1_run_block.py",
       "tests/tier1_offline/test_post_diagnostics.py",
       "tests/tier1_offline/test_post_log.py",
       "tests/tier1_offline/test_post_superfile.py",

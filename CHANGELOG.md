@@ -17,6 +17,8 @@ The rotor coefficients of the 0.58.0 RCOEF files: `post.rotor_table.rotor_frame_
 
 The column registry of the 0.58.0 family, group, sections and Cp files (`post._family_columns`): the name, unit, frame, quantity, sign and definition of every column of the DIM, ACOEF and RCOEF files, of the sections and Cp identity, and the `GROUP_ID` numbering (0 TOTAL, 1 AIRFRAME, 10 + id a rotor, 100 + k a declared group). migration: none; no product writes them yet.
 
+The canonical run block every csv of the post will open with (`post._run_block`): its columns in order, with the rotor columns by id (`RPM<id>`, `J<id>`, `MTIP<id>`, `MHEL<id>`, `D<id>`, `ADISC<id>`, `PITCH<id>`, `TOE<id>`), `NA` for a column that does not apply and the window `NA` on a steady row. New definition page: the run block, with `J_CLOCK` and `RPM_CLOCK`. migration: none; no product writes it yet.
+
 ### Changed
 
 A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters (the `hub_rings` key `width`, `--hub`); the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
