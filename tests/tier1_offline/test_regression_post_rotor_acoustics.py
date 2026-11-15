@@ -765,12 +765,20 @@ class TestPost1RotorTable:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ETAWSENSE")])
     def test_p0400_etawsense_a_lift_rotor_keeps_its_sign_through_alpha_zero():
-        """P0400-ETAWSENSE: alpha -2 and +2 on a +Z rotor give ETAW of one sign."""
+        """P0400-ETAWSENSE: alpha -2 and +2 on a +Z rotor give ETAW of one sign.
+
+        The force is the 0.57.0 case's (drag along the stream, lift up): a force
+        square to the stream alone has a wind-axis x component of the sign of
+        alpha, which no fixed sense can keep. The shaft is square to the body's
+        +x, so Fx_W is counted along the stream (the page's sense rule): a rotor
+        dragged aft has an ETAW of the sign of CP, as in 0.57.0.
+        """
         frame = rotor_frame((0.0, 0.0, 1.0), 0)
         etaw = []
+        cp = []
         for alpha in (-2.0, 2.0):
             row = rotor_frame_coefficients(
-                force_n=(0.0, 0.0, 100.0),
+                force_n=(40.0, 0.0, 100.0),
                 moment_hub_nm=(0.0, 0.0, 5.0),
                 frame=frame,
                 rotations=frame_rotations(alpha, 0.0, [frame]),
@@ -783,9 +791,10 @@ class TestPost1RotorTable:
                 bref_m=1.0,
             )
             etaw.append(row["ETAW"])
+            cp.append(row["CP"])
         assert all(isinstance(value, float) for value in etaw), etaw
         signs = {math.copysign(1.0, value) for value in etaw}
-        assert len(signs) == 1, etaw
+        assert signs == {math.copysign(1.0, cp[0])}, (etaw, cp)
 
 
 def test_f139_a_harmonic_row_outside_the_grid_is_carried_as_na(tmp_path, monkeypatch):

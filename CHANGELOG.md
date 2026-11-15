@@ -85,6 +85,8 @@ A steady point that records no air density states its coefficients in the ACOEF 
 
 `FAMILY_ID` is the run record's `inventory` position, or the loads table's order for a record written without one, and no longer changes with whether a geometry file on disk still has the record's sha256; `FAM-RCOEF-P<POL>.csv` is written only where a family of the polar sits inside a rotor, never as a header with no row. migration: none.
 
+`ETAW` of the RCOEF files counts the wind-axis force in the sense of the shaft, fixed once per rotor, as the rotor coefficients page defines it: a rotor whose shaft is square to the body's `+x` (a lift rotor) counts it along the stream, so its `ETAW` keeps the 0.57.0 sign instead of the opposite one. migration: none.
+
 The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none for a model whose faces are all wider than 0.5 mm, where the fuzzy value is unchanged (checked on the CI wing; the wider geometry suite runs at the release). A base thinner still (20 micrometres on a 2.5 m wing) stops by name and is registered as PFS-2236.
 
 ## [0.57.0] - 2026-11-13
