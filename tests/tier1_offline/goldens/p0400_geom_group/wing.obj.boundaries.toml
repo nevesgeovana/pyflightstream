@@ -1,5 +1,5 @@
 # Written by pyflightstream from the groups of wing.obj, which had no sidecar;
-# the OBJ's sha256 was e65ed977d613aa9d8e3c75db3c535c2e9b5c59e9b08c9f05ba58ca5396cd4800.
+# the OBJ's sha256 was 1128d8368f02aa3fdf367394ec382bd4e0ef8e09a70e60082a7de143036fd751.
 # One boundary per `o` or `g` group holding a face, named by the group, in the
 # order of the file: how the solver numbers an OBJ's surfaces on import
 # (RPT-078). The package rewrites this file only for inventory --refresh, and then
@@ -16,4 +16,4 @@ boundaries = [
 # run whose recorded sha256 of this geometry is that one (FR-348).
 mesh_faces = 816
 boundary_faces = [816]
-mesh_sha256 = "e65ed977d613aa9d8e3c75db3c535c2e9b5c59e9b08c9f05ba58ca5396cd4800"
+mesh_sha256 = "1128d8368f02aa3fdf367394ec382bd4e0ef8e09a70e60082a7de143036fd751"

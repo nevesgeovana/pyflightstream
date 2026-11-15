@@ -132,11 +132,16 @@ def _geometry_build__workspace(tmp_path: Path) -> Path:
 
 
 def _geometry_build__wing_obj(path: Path, group: str = "Wing") -> Path:
-    """Write the committed wing's surface as an OBJ with one group."""
+    """Write the committed wing's surface as an OBJ with one group, LF on every platform.
+
+    The inventory golden records the OBJ's sha256, so the file's bytes must not
+    depend on the platform: text mode wrote CRLF on Windows and LF elsewhere, and
+    the golden's digest line held on one and failed on the other.
+    """
     vertices, triangles = surface_mesh(_GEOMETRY_BUILD__WING_FSM)
     rows = [f"v {x} {y} {z}" for x, y, z in vertices] + [f"g {group}"]
     rows += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in triangles]
-    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
     return path
 
 
