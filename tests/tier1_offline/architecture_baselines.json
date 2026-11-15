@@ -328,12 +328,6 @@
    "statements": 45,
    "positional": 4
   },
-  "post/_rotor_plan.py:_rotor_tables": {
-   "complexity": 10,
-   "branches": 9,
-   "statements": 26,
-   "positional": 8
-  },
   "post/_rotor_plan.py:rotor_plot_source": {
    "complexity": 14,
    "branches": 13,

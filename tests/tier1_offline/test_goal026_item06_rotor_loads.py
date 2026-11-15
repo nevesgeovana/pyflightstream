@@ -558,116 +558,59 @@ def test_every_row_is_dimensionalised_from_its_own_points_record(tmp_path):
     rotor speed is what MOVES -- the second point came out a factor of four
     wrong in `CT`, `CQ` and `CP`, and `J` came out at the first point's value.
 
-    THE ROW STILL LOOKED RIGHT, which is why four in-house rounds walked past
-    it: `point_condition` is per point, so `ALPHA` and `MACH` in the same row
-    were that point's own and correct, sitting beside coefficients computed
-    from a different point entirely.
+    THE ROW STILL LOOKED RIGHT: the condition columns are per point, so `ALPHA`
+    and `MACH` in the same row were that point's own and correct, sitting beside
+    coefficients computed from a different point entirely.
 
     Found by the independent review of `main` at 0.23.0, 2026-09-18.
 
-    IT ASSERTS THE PLAN AND NOT A COEFFICIENT, deliberately. The plan row is
-    where the borrowed value entered, so that is where a mutant has to show;
-    a coefficient asserted at a value computed HERE would pass under the
-    defect, which is the exact failure this release already shipped once in
-    the ETAW sign.
+    0.58.0: the rotor table is the rotor group's RCOEF file, written by the post
+    stage (the planner `_rotor_tables` is removed with it). Each row states its
+    own speed `RPM0` and its own density `RHO` in its run block, and its `CT` is
+    `T / (RHO n^2 D^4)` of THOSE cells: a borrowed speed shows as one `RPM0` on
+    both rows, a borrowed density as a `CT` that its own row's cells do not give.
     """
+    import warnings
 
-    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
-    from pyflightstream.post.products import PolarPoint
-    from pyflightstream.results import parse_loads
+    from pyflightstream.post.products import read_csv_table, write_campaign_products
     from pyflightstream.workspace import RunRecord
-    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_p0580_l2_polar_files import _reference as _rotor_reference
     from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
-    (workspace.inputs_dir / "references" / "r002.toml").write_text(
-        "\n".join(
-            [
-                "area_m2 = 50.0",
-                "chord_m = 2.526",
-                "span_m = 20.0",
-                "",
-                "[rotors.PUSHER]",
-                'alias = "PUSHER"',
-                "x_m = 0.0",
-                "y_m = 0.0",
-                "z_m = 0.0",
-                'axis = "X"',
-                "rpm_sign = 1",
-                "diameter_m = 1.2",
-                'families_blades = ["Blade1"]',
-                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
-                "",
-            ]
-        ),
-        encoding="utf-8",
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        _rotor_reference(("PUSHER", None, "B")), encoding="utf-8"
     )
-
-    # TWO POINTS OF ONE ADVANCE-RATIO SWEEP: the rotor slows and the air does
-    # not. Different densities too, so a borrowed density is visible as well.
-    plan_rows = [("J050", 2400.0, 1.225), ("J100", 1200.0, 1.100)]
-
-    points = []
-    records = []
-    sources = {}
-    for name, rpm, density in plan_rows:
-        path = tmp_path / f"{name}.txt"
-        path.write_text(LOADS, encoding="utf-8")
-        points.append(PolarPoint(name=name, loads=parse_loads(LOADS), loads_path=path))
-        run_id = f"camp/sim_0001/{name}"
-        sources[name] = [run_id]
-        records.append(
-            RunRecord(
-                run_id=run_id,
-                sim_id="0001",
-                fs_version_requested="26.123",
-                package_version="0.23.0",
-                script_sha256="0" * 64,
-                raw_flag=False,
-                status="CONVERGED",
-                density_kg_m3=density,
-                velocity_requested_m_s=40.0,
-                mach=0.12,
-                reductions={"rotors": {"PUSHER": {"rpm": rpm, "blades": 2}}},
+    # TWO POINTS OF ONE SWEEP: the rotor slows and the air thins.
+    own = {"AL-020": (2400.0, 1.225), "AL+000": (1200.0, 1.100)}
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            ((rpm, density),) = [v for k, v in own.items() if k in record.run_id]
+            record = record.model_copy(
+                update={
+                    "density_kg_m3": density,
+                    "reductions": {"rotors": {"PUSHER": {"rpm": rpm, "blades": 2}}},
+                }
             )
-        )
-
-    # THE STAGE'S OWN ROUTE to the row, not a hand-built one: `matrix_rows` is
-    # what `write_products` calls, so a change to that resolution reaches this
-    # test instead of passing beside it.
-    from pyflightstream.post.products import matrix_rows
-
-    rows_of_the_matrix = matrix_rows(workspace.root, "matriz")
-    matrix_row = next(
-        (row for row in rows_of_the_matrix.values() if str(getattr(row, "ref_code", "")) == "r002"),
-        None,
-    )
-    assert matrix_row is not None, (
-        "the fixture no longer carries a row naming r002: "
-        f"{[getattr(r, 'ref_code', None) for r in rows_of_the_matrix.values()]}"
-    )
-
-    tables = rotor_tables(
-        workspace,
-        "0001",
-        points,
-        records,
-        sources,
-        _reference(area_m2=50.0, span_m=20.0, chord_m=2.526),
-        matrix_row,
-        tmp_path / "out",
-    )
-    assert tables, "the reference declares a rotor and no table was planned"
-
-    _target, _alias, plan = tables[0]
-    rows = plan["rows"]
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    path = workspace.root / "post" / "matriz" / "polars" / "P6001-PUSHER-RCOEF.csv"
+    _columns, rows = read_csv_table(path)
     assert len(rows) == 2, rows
-    assert [row["rpm"] for row in rows] == [2400.0, 1200.0], (
-        "both rows carry the first point's rotor speed; a sweep's second point "
-        f"turns at its own rate -- {[row['rpm'] for row in rows]}"
+    speeds = {key: float(row["RPM0"]) for row in rows for key in own if key in row["POINT"]}
+    assert speeds == {key: value[0] for key, value in own.items()}, (
+        "a sweep's second point turns at its own rate, not the first point's: "
+        f"{[row['RPM0'] for row in rows]}"
     )
-    assert [row["density"] for row in rows] == [1.225, 1.100], (
-        f"both rows carry the first point's air -- {[row['density'] for row in rows]}"
+    for row in rows:
+        rho, n, d = float(row["RHO"]), float(row["RPM0"]) / 60.0, float(row["D0"])
+        assert float(row["CT"]) == pytest.approx(float(row["T"]) / (rho * n**2 * d**4), rel=1e-4)
+    assert len({row["RHO"] for row in rows}) == 2, (
+        f"both rows carry one point's air -- {[row['RHO'] for row in rows]}"
     )
 
 

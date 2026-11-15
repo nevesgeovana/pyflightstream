@@ -33,7 +33,6 @@ from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import RunRecord
 from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
 from tests.tier1_offline.test_goal024_rpm import _rotor_matrix
-from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference
 from tests.tier1_offline.test_p0580_l2_polar_files import _reference as _rotor_reference
 
 #: The ISA speed of sound at sea level, m/s, by hand: sqrt(1.4 * 287.05287 * 288.15).
@@ -400,84 +399,46 @@ def test_the_table_takes_the_air_the_point_resolved_to():
 
 
 def test_the_stage_hands_each_row_its_own_points_air(tmp_path):
-    """Through `_rotor_tables`, the stage's own route: two points, two altitudes.
+    """Through the post stage, two points, two altitudes: each row's own sound speed.
 
-    The reference and the matrix row are the stage fixture's (r002, one rotor
-    PUSHER of 1.2 m). Each record states its own condition, so a borrowed air
-    shows as the first point's sound speed on the second row.
+    0.58.0: the rotor table's rows are the rotor group's RCOEF file, whose run
+    block states `MTIP0` (the planner `_rotor_tables` is removed with the rotor
+    table). Each record states its own condition, so a borrowed air shows as the
+    first point's sound speed in the second row's tip Mach number.
     """
-    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
-    from pyflightstream.post.products import PolarPoint, matrix_rows
-    from pyflightstream.results import parse_loads
-    from tests.tier1_offline.test_post_products import LOADS
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_p0580_l2_polar_files import DIAMETER as ROTOR_DIAMETER
+    from tests.tier1_offline.test_p0580_l2_polar_files import _reference as _rotor_reference
     from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
-    (workspace.inputs_dir / "references" / "r002.toml").write_text(
-        "\n".join(
-            [
-                "area_m2 = 50.0",
-                "chord_m = 2.526",
-                "span_m = 20.0",
-                "",
-                "[rotors.PUSHER]",
-                'alias = "PUSHER"',
-                "x_m = 0.0",
-                "y_m = 0.0",
-                "z_m = 0.0",
-                'axis = "X"',
-                "rpm_sign = 1",
-                "diameter_m = 1.2",
-                'families_blades = ["Blade1"]',
-                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
-                "",
-            ]
-        ),
-        encoding="utf-8",
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        _rotor_reference(("PUSHER", None, "B")), encoding="utf-8"
     )
-    points, records, sources = [], [], {}
-    for name, altitude in (("LOW", 0.0), ("HIGH", 10000.0)):
-        path = tmp_path / f"{name}.txt"
-        path.write_text(LOADS, encoding="utf-8")
-        points.append(PolarPoint(name=name, loads=parse_loads(LOADS), loads_path=path))
-        run_id = f"camp/sim_0001/{name}"
-        sources[name] = [run_id]
-        records.append(
-            RunRecord(
-                run_id=run_id,
-                sim_id="0001",
-                fs_version_requested="26.123",
-                package_version="0.30.0",
-                script_sha256="0" * 64,
-                raw_flag=False,
-                status="CONVERGED",
-                density_kg_m3=1.2,
-                velocity_requested_m_s=40.0,
-                mach=0.12,
-                flight_condition={"MACH": 0.12, "ALTFT": altitude},
-                reductions={"rotors": {"PUSHER": {"rpm": 2400.0, "blades": 2}}},
+    altitude = {"AL-020": 0.0, "AL+000": 10000.0}
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            ((feet,),) = [(v,) for k, v in altitude.items() if k in record.run_id]
+            record = record.model_copy(
+                update={
+                    "flight_condition": {"MACH": 0.12, "ALTFT": feet},
+                    "reductions": {"rotors": {"PUSHER": {"rpm": 2400.0, "blades": 2}}},
+                }
             )
-        )
-    matrix_row = next(
-        row
-        for row in matrix_rows(workspace.root, "matriz").values()
-        if str(getattr(row, "ref_code", "")) == "r002"
-    )
-    tables = rotor_tables(
-        workspace,
-        "0001",
-        points,
-        records,
-        sources,
-        _reference(area_m2=50.0, span_m=20.0, chord_m=2.526),
-        matrix_row,
-        tmp_path / "out",
-    )
-    ((_target, _alias, plan),) = tables
-    low, high = (row["air"] for row in plan["rows"])
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    path = workspace.root / "post" / "matriz" / "polars" / "P6001-PUSHER-RCOEF.csv"
+    _columns, rows = read_csv_table(path)
+    tip = math.pi * ROTOR_DIAMETER * 2400.0 / 60.0
     high_sound = math.sqrt(1.4 * 287.05287 * (288.15 - 0.0065 * 3048.0))
-    assert low == pytest.approx((0.12 * SEA_LEVEL_SOUND, SEA_LEVEL_SOUND), rel=1e-5)
-    assert high == pytest.approx((0.12 * high_sound, high_sound), rel=1e-5)
+    sound = {"AL-020": SEA_LEVEL_SOUND, "AL+000": high_sound}
+    seen = {key: float(row["MTIP0"]) for row in rows for key in sound if key in row["POINT"]}
+    assert seen == pytest.approx({key: tip / value for key, value in sound.items()}, rel=1e-5)
 
 
 # --- steady rows that state RPM (the owner's extension of 2026-09-28) --------

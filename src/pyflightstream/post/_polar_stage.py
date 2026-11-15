@@ -280,6 +280,7 @@ def _layout(
     )
     if not surfaces:
         return None
+    _say_no_reference(ctx)
     # FAMILY_ID IS THE RECORD'S, NEVER THE HASH'S (i2 #16): the inventory a run
     # records, or the loads table's order. The inventory recovered from a geometry
     # file whose sha256 matches the record made the id of one family change with
@@ -304,6 +305,39 @@ def _layout(
     for rotor in rotors:
         warn_rotor_declared_aft(rotor.alias, rotor.frame)
     return families, rotors, [group for group in groups if group.members]
+
+
+def _say_no_reference(ctx: SimContext) -> None:
+    """Name the polar's rotors that cannot be planned: no matrix row, or no reference (B05).
+
+    The rotors are the reference's, which the matrix row names; a record of a
+    matrix that has lost its row, or a reference that cannot be resolved,
+    leaves the polar with no rotor group and no RCOEF file. That is said,
+    never an empty set of rotors read as a polar without one.
+    """
+    from pyflightstream.workspace.inputs import resolve_reference
+
+    key = f"{POLARS_DIR}/P{ctx.sim_id}#rotors"
+    if ctx.matrix_row is None:
+        # An authored campaign never had a matrix row; only a matrix-derived
+        # record can have lost the row its reference is read from.
+        if any(getattr(record, "matrix_stem", None) for record in ctx.records):
+            ctx.skipped[key] = (
+                f"no matrix row for simulation {ctx.sim_id}: the reference that declares its "
+                "rotors cannot be read, so the rotors cannot be planned and no rotor group "
+                "file and no RCOEF file is written"
+            )
+        return
+    if ctx.live is not None:
+        return
+    try:
+        resolve_reference(ctx.workspace.inputs_dir, ctx.matrix_row.ref_code)
+    except PyflightstreamError as error:
+        ctx.skipped[key] = (
+            f"reference {ctx.matrix_row.ref_code!r} of simulation {ctx.sim_id} cannot be "
+            f"resolved, so its rotors cannot be planned and no rotor group file and no RCOEF "
+            f"file is written: {error}"
+        )
 
 
 def _selector(ctx: SimContext, group: PolarGroup) -> str:
