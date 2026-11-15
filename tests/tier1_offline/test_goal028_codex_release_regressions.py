@@ -277,8 +277,8 @@ def test_f1372_the_recorded_rpm_lookup_folds_case_like_the_clock_lookup(tmp_path
                     record = record.model_copy(update={"reductions": {**plan, "rotors": rotors}})
                 workspace.append_record(record)
         written = _post(workspace)
-        (table,) = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
-        return read_csv_table(table)[1][0]["CT_PUSHER"]
+        (table,) = [Path(p) for p in written if str(p).endswith("P6002-PUSHER-RCOEF.csv")]
+        return read_csv_table(table)[1][0]["CT"]
 
     exact = thrust_coefficient(tmp_path / "exact", "PUSHER")
     folded = thrust_coefficient(tmp_path / "folded", "Pusher")

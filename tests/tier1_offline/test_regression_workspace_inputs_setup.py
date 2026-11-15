@@ -400,7 +400,7 @@ class TestIntegfixStateConsistency:
             assert named in line, named
         assert _integfix_state_consistency___mismatch(1.0, 288.15, 101325.0) in line
         # NOTHING IS WITHHELD: the simulation's polar is still written.
-        assert list((tmp_path / "camp" / "post" / "matriz").glob("polars/P6001-*_g02.csv"))
+        assert list((tmp_path / "camp" / "post" / "matriz").glob("polars/P6001-g02-ACOEF.csv"))
 
     @staticmethod
     def test_p0400_statecons_the_post_is_quiet_for_a_consistent_or_derived_state(tmp_path):

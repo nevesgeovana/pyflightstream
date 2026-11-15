@@ -23,10 +23,8 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.post import products, superfile
-
-#: A recorded sweep name, each swept field written ``<code>+sweep`` (FR-85).
-_SWEEP = "M150AL+000BE+000J+sweep"
+from pyflightstream.post import superfile
+from pyflightstream.post._family_polar import group_file_name
 
 
 def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
@@ -37,11 +35,10 @@ def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
     a superset assertion over nothing is satisfied by nothing.
     """
     pattern = superfile.POLAR_TABLE_GLOB
-    # THE NAME THE STAGE WRITES. This called `group_product_name` until 0.24.0
-    # (CR-07), a function with no caller whose convention the stage never wrote;
-    # it is deleted, and the file name comes from the function the stage calls.
-    named = products.swept_polar_file_name("0001", name=_SWEEP, group="PUSHER")
-    assert named == "P0001-M150AL+000BE+000J+sweep_PUSHER.csv", named
+    # THE NAME THE STAGE WRITES: `P<POL>-<GROUP>-<KIND>.csv` since 0.58.0 (the sweep token
+    # left the name, D29), from the function the stage calls.
+    named = group_file_name("0001", "PUSHER", "ACOEF")
+    assert named == "P0001-PUSHER-ACOEF.csv", named
     numbered_era = "P0001-M150AL+000BE+000J+sweep_g01.csv"
     import fnmatch
 
@@ -59,20 +56,14 @@ def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
 @pytest.mark.requirement("FR-85")
 def test_a_group_product_is_named_after_its_input_and_not_numbered():
     """The file carries the group's NAME, which is what she asked for."""
-    written = products.swept_polar_file_name("0001", name=_SWEEP, group="PUSHER")
+    written = group_file_name("0001", "PUSHER", "ACOEF")
     assert "PUSHER" in written, written
     assert "_g0" not in written, written
 
 
-def test_a_group_name_that_would_collide_with_the_numbered_form_is_refused():
-    """A group literally called `g01` would produce a file nobody could classify.
-
-    Refused at the name rather than allowed to produce a file that reads as the
-    old numbered form, because the rename of existing products has to be able
-    to tell the two eras apart to know what it has already moved.
-    """
-    with pytest.raises(products.ProductError):
-        products.swept_polar_file_name("0001", name=_SWEEP, group="g01")
+# The refusal of a group literally called `g01`, which the retired swept-polar name function
+# raised at the file name, is asserted at the binder where it now lives, by
+# `test_the_binder_still_refuses_a_group_named_like_the_numbered_era` below.
 
 
 def _named_workspace(tmp_path):
@@ -91,9 +82,9 @@ def _named_workspace(tmp_path):
 def test_the_post_stage_writes_a_named_group_end_to_end(tmp_path):
     """ITEM 14 THROUGH THE STAGE, which is the only way it is delivered.
 
-    The item's three other tests called `group_product_name` directly (deleted in
-    0.24.0), and it had NO caller in the package: the stage still called `swept_polar_file_name`,
-    whose `int(group)` raises a bare `ValueError` on a name. So a user following
+    The item's other tests called the file-name function directly, and it had NO caller in
+    the package: the stage still called a name function whose `int(group)` raised a bare
+    `ValueError` on a name. So a user following
     the migration guide renamed her groups and met a traceback -- and the matrix
     binder refused the pproc before that, telling her to undo it. The feature
     was refused at BOTH ends.

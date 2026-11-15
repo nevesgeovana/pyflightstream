@@ -143,15 +143,20 @@ def test_q_malformed_repost_retires_run_products(tmp_path, monkeypatch, archive,
     assert "series/AL-020_sections_series.csv" in manifest["products"]
     retired = before.keys() - manifest["products"].keys()
     assert "time_history/AL-020_plots.csv" in retired
-    # SINCE THE SECOND INDEPENDENT READING the polar is named from the records
-    # that contribute rows: with a survivor its table is the survivor's own
-    # name and the one named for the failed point is stale and retired by name;
+    # SINCE THE SECOND INDEPENDENT READING the polar is made from the records
+    # that contribute rows: with a survivor the files of the polar (one set per
+    # polar since 0.58.0, named by the polar and not by a point) hold the
+    # survivor's own row alone and the failed point's row is gone from them;
     # without a survivor the simulation's polar is simply gone.
     if survivor:
-        assert any(key.startswith("polars/") and "AL-030" in key for key in manifest["products"]), (
-            manifest["products"]
-        )
-        assert any(key.startswith("polars/") and "AL-020" in key for key in retired), retired
+        total = "polars/P7001-TOTAL-ACOEF.csv"
+        assert total in manifest["products"], manifest["products"]
+        assert [row["POINT"] for row in read_csv_table(out / total)[1]] == ["AL-030"]
+        assert b"AL-020" in before[total], "the first post held the failed point's row"
+        copies = list((out / total).parent.glob(f"archive/*/{(out / total).name}"))
+        assert len(copies) == int(archive)
+        if archive:
+            assert copies[0].read_bytes() == before[total]
     else:
         assert any(key.startswith("polars/") for key in retired), retired
     for key in retired:

@@ -888,7 +888,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     for the rotor (item 15).
     """
     study_table = '[study]\nsurfaces = ["Wing", "Body", "Base"]\n'
-    pproc = 'base_regions = ["Base"]\n[groups]\nEVERY = "all"\nP2 = "Prop2"\n'
+    pproc = 'base_regions = ["Base"]\n[groups]\nEVERY = "all"\nBLADE2 = "Prop2"\n'
     workspace, path = study(
         tmp_path,
         reference=REFERENCE + study_table + ROTOR,
@@ -907,7 +907,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     }
     assert said_skips == {
         ("analysis_families", "PUSHER"),
-        ("groups.P2", "Prop2"),
+        ("groups.BLADE2", "Prop2"),
         ("groups.PUSHER", "Spinner"),
         ("groups.PUSHER", "Prop1"),
         ("groups.PUSHER", "Prop2"),

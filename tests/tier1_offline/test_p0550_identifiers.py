@@ -212,8 +212,12 @@ def test_p0550_every_table_of_a_post_carries_the_row_s_identifiers(posted):
 def test_p0550_identifiers_follow_rotor_on_the_rotor_table_and_mesh_faces_stays_last(posted):
     write_campaign_products(posted, matrix_stem="products")
     polars = posted.root / "post" / "products" / "polars"
-    assert _table(next(polars.glob("*_rotor.csv")))[0][:4] == ["POL", "ROTOR", "FLAP", "TESTE"]
-    assert _table(next(polars.glob("*_uns_avg.csv")))[0][-1] == "MESH_FACES"
+    # The rotor table is retired: the rotor group's RCOEF file opens with the run block, whose
+    # identifiers follow POINT; the family file keeps MESH_FACES last.
+    rotor = _table(polars / "P7001-PUSHER-RCOEF.csv")[0]
+    assert rotor[:5] == ["POL", "POINT_ID", "POINT", "FLAP", "TESTE"]
+    assert rotor[-1] == "MESH_FACES"
+    assert _table(polars / "P7001-TOTAL-ACOEF.csv")[0][-1] == "MESH_FACES"
 
 
 def test_p0550_a_row_stating_none_writes_tables_with_no_such_column(tmp_path):
@@ -241,9 +245,9 @@ def test_p0550_post_sims_writes_them_on_a_posted_simulation_and_nothing_else_mov
     solver_files = {path: path.read_bytes() for path in sim.rglob("*") if path.is_file()}
     _state(workspace.root / "products.fs", {"7001": STATED})
     assert main(["post", "--workspace", str(workspace.root), "--sims", "7001"]) == 0
-    polar = next((workspace.root / "post").rglob("*_uns_avg.csv"))
+    polar = next((workspace.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
     header, rows = _table(polar)
-    assert header[1:3] == ["FLAP", "TESTE"]
+    assert header[3:5] == ["FLAP", "TESTE"]
     assert rows[0]["TESTE"] == "10"
     assert workspace.manifest_path.read_bytes() == manifest, "no record moved"
     assert {path: path.read_bytes() for path in solver_files} == solver_files
@@ -270,7 +274,7 @@ def test_p0550_a_changed_or_removed_identifier_follows_the_matrix_at_the_next_po
         matrix.read_text(encoding="utf-8").replace("TESTE:10", "TESTE:11"), encoding="utf-8"
     )
     assert main(["post", "--workspace", str(posted.root), "--sims", "7001"]) == 0
-    polar = next((posted.root / "post").rglob("*_uns_avg.csv"))
+    polar = next((posted.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
     assert _table(polar)[1][0]["TESTE"] == "11"
     matrix.write_text(
         matrix.read_text(encoding="utf-8").replace(" / IDENTIFIERS: {FLAP:0,TESTE:11}", ""),
@@ -291,15 +295,18 @@ def test_p0550_a_name_a_table_holds_keeps_the_table_s_value_and_warns_once(tmp_p
     assert len([text for text in said if "identifier ALPHA" in text]) == 1, said
     assert any("POL 7001: the identifier ALPHA" in text for text in said), said
     assert len([text for text in said if "identifier POL" in text]) == 1, said
-    name = next((plain.root / "post").rglob("*_uns_avg.csv")).name
-    before = _table(next((plain.root / "post").rglob(name)))
-    after = _table(next((stated.root / "post").rglob(name)))
-    assert after[0].count("ALPHA") == 1
-    assert after[0].count("POL") == 1
-    assert after[1][0]["ALPHA"] == before[1][0]["ALPHA"]
-    assert after[1][0]["POL"] == before[1][0]["POL"]
+    # Every table of the post opens with the run block, which writes POL and ALPHA, so an
+    # identifier spelled so is refused for the run block (design page, accepted in L1): the
+    # polar files of the simulation are not written and the manifest names both identifiers.
+    document = json.loads(next((stated.root / "post").rglob("products.json")).read_text("utf-8"))
+    for key in ("run_block/7001", "family_polars/7001"):
+        assert "ALPHA" in document["skipped"][key] and "POL" in document["skipped"][key], key
+    assert not list((stated.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
+    # A table without the name (the plots history, written without the refused run block) has
+    # the column, with the identifier's value, and holds POL once.
     plots = _table(next((stated.root / "post").rglob("*_plots.csv")))
     assert plots[0][:2] == ["POL", "ALPHA"], "a table without the name has the column"
+    assert plots[0].count("POL") == 1
     assert plots[1][0]["ALPHA"] == "99"
 
 
@@ -310,9 +317,9 @@ def test_p0550_a_name_differing_in_case_from_a_column_is_another_column(tmp_path
     stated = _post_workspace(tmp_path / "stated", 2411, (60, 61), rotor=True)
     _state(stated.root / "products.fs", {"7001": "IDENTIFIERS: {alpha:99}"})
     write_campaign_products(stated, matrix_stem="products")
-    name = next((plain.root / "post").rglob("*_rotor.csv")).name
+    name = "P7001-PUSHER-RCOEF.csv"
     header, rows = _table(next((stated.root / "post").rglob(name)))
-    assert header[:3] == ["POL", "ROTOR", "alpha"]
+    assert header[:4] == ["POL", "POINT_ID", "POINT", "alpha"]
     assert rows[0]["alpha"] == "99"
     assert rows[0]["ALPHA"] == _table(next((plain.root / "post").rglob(name)))[1][0]["ALPHA"]
 
@@ -322,9 +329,9 @@ def test_p0550_a_quote_or_a_slash_in_an_identifier_reaches_the_file_under_the_ce
     workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
     _state(workspace.root / "products.fs", {"7001": 'IDENTIFIERS: {A"B:x"y,C/D:1/2}'})
     write_campaign_products(workspace, matrix_stem="products")
-    polar = next((workspace.root / "post").rglob("*_uns_avg.csv"))
+    polar = next((workspace.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
     header, rows = _table(polar)
-    assert header[1:3] == ["A'B", "C/D"]
+    assert header[3:5] == ["A'B", "C/D"]
     assert rows[0]["A'B"] == "x'y"
     assert rows[0]["C/D"] == "1/2"
     assert '"' not in polar.read_text(encoding="utf-8")
@@ -336,20 +343,16 @@ def test_p0550_the_merged_polar_holds_each_identifier_once_with_the_current_valu
             pproc.read_text(encoding="utf-8") + "\n[products]\nmerged_polar = true\n",
             encoding="utf-8",
         )
-    write_campaign_products(posted, matrix_stem="products")
-    merged = next((posted.root / "post").rglob("*_merge.csv"))
-    header, rows = _table(merged)
-    assert header[:3] == ["POL", "FLAP", "TESTE"]
-    assert header.count("FLAP") == header.count("TESTE") == 1
-    matrix = posted.root / "products.fs"
-    matrix.write_text(
-        matrix.read_text(encoding="utf-8").replace("FLAP:0", "FLAP:7"), encoding="utf-8"
-    )
-    write_campaign_products(posted, matrix_stem="products", overwrite=True)
-    header, rows = _table(merged)
-    assert header.count("FLAP") == 1
-    assert rows[0]["FLAP"] == "7"
-    assert rows[0]["ROTOR"] == "PUSHER", "the rotor's columns still join"
+    with pytest.warns(PyflightstreamWarning, match="merged polar is not written"):
+        write_campaign_products(posted, matrix_stem="products")
+    # 0.58.0 writes no merged polar: the join of a group ACOEF file with the rotor groups'
+    # RCOEF files is not yet defined (follow-up node at 0.59.0), so the product is skipped by
+    # name and no file holds the identifiers of a merge. What this case pinned, the
+    # identifiers once and current in the merged file, returns with that join.
+    assert not list((posted.root / "post").rglob("*_merge.csv"))
+    document = json.loads(next((posted.root / "post").rglob("products.json")).read_text("utf-8"))
+    (reason,) = [why for key, why in document["skipped"].items() if key.endswith("#merged_polar")]
+    assert "merged polar is not written" in reason
 
 
 def test_p0550_a_derived_polar_built_from_a_stamped_table_holds_each_name_once(posted):
@@ -376,34 +379,41 @@ def _superfile_campaign(tmp_path: Path) -> tuple[CampaignWorkspace, Path]:
 
 
 def _supers(workspace: CampaignWorkspace) -> dict[str, Path]:
+    """The TOTAL group's ACOEF file of each polar (the successor of its super file), by POL."""
     out = workspace.products_dir("matriz") / "polars"
-    return {path.name.split("-")[1]: path for path in out.glob("SUPER-*.csv")}
+    return {path.name[1:5]: path for path in out.glob("P*-TOTAL-ACOEF.csv")}
 
 
 def test_p0550_super_files_share_one_header_and_each_row_reads_its_own_polar(tmp_path):
+    """0.58.0: a file holds one polar, so it holds the identifiers of that polar's row alone.
+
+    The super file was one union of the campaign's columns, with NA where a polar states none
+    (FR-89); the polar files of 0.58.0 carry the run block of their own polar, whose
+    identifiers are "none when the row states none" (design page, section 3).
+    """
     workspace, _ = _superfile_campaign(tmp_path)
     write_campaign_products(workspace, matrix_stem="matriz")
     supers = _supers(workspace)
-    headers = {tuple(_table(path)[0]) for path in supers.values()}
-    assert len(headers) == 1, "FR-89: one union"
-    assert next(iter(headers))[:3] == ("POL", "FLAP", "TESTE")
-    assert {row["FLAP"] for row in _table(supers["6001"])[1]} == {"1"}
-    assert {row["TESTE"] for row in _table(supers["6001"])[1]} == {"NA"}
-    assert {row["FLAP"] for row in _table(supers["6002"])[1]} == {"NA"}
-    assert {row["TESTE"] for row in _table(supers["6002"])[1]} == {"2"}
+    first, second = _table(supers["6001"]), _table(supers["6002"])
+    assert first[0][:4] == ["POL", "POINT_ID", "POINT", "FLAP"] and "TESTE" not in first[0]
+    assert second[0][:4] == ["POL", "POINT_ID", "POINT", "TESTE"] and "FLAP" not in second[0]
+    assert {row["FLAP"] for row in first[1]} == {"1"}
+    assert {row["TESTE"] for row in second[1]} == {"2"}
 
 
 def test_p0550_the_key_is_no_field_the_super_file_measurement_misses(tmp_path):
+    """The key is a field no table can hold, and its columns are held by the tables.
+
+    The super file report that measured this is retired with the super file; the same claim
+    is read off the tables the post wrote.
+    """
     workspace, _ = _superfile_campaign(tmp_path)
     write_campaign_products(workspace, matrix_stem="matriz")
-    manifest = workspace.products_dir("matriz") / "products.json"
-    name = json.loads(manifest.read_text(encoding="utf-8"))["superfile_report"]
-    report = json.loads((workspace.root / name).read_text(encoding="utf-8"))
-    assert report["files"]
-    assert "IDENTIFIERS" not in report["known"], "the key is a field no super file can hold"
-    assert {"FLAP", "TESTE"} <= set(report["known"]), "its columns are, read from the tables"
-    for entry in report["files"]:
-        assert set(report["known"]) <= set(entry["columns"]), entry["name"]
+    headers = [_table(path)[0] for path in _tables(workspace.products_dir("matriz") / "polars")]
+    assert headers
+    assert not [header for header in headers if "IDENTIFIERS" in header]
+    assert any("FLAP" in header for header in headers)
+    assert any("TESTE" in header for header in headers)
 
 
 def test_p0550_post_sims_on_one_super_file_keeps_the_others_rows_and_one_of_each_name(tmp_path):
@@ -426,14 +436,16 @@ def test_p0550_post_sims_on_one_super_file_keeps_the_others_rows_and_one_of_each
     supers = _supers(workspace)
     assert supers["6002"].read_bytes() == kept, "a simulation not reposted is not blanked"
     header, rows = _table(supers["6001"])
-    assert header == _table(supers["6002"])[0], "one header"
     assert len(header) == len(set(header))
     assert {row["FLAP"] for row in rows} == {"3"}
-    assert {row["TESTE"] for row in rows} == {"NA"}
+    assert "TESTE" not in header
 
 
 def test_p0550_a_name_of_the_others_no_row_states_any_more_stays_na_in_a_super_file(tmp_path):
-    """The kept files hold the column, so the file reposted holds it too, read as NA."""
+    """A name no row of the polar states any more leaves the polar's files.
+
+    The union kept it as NA; a file of 0.58.0 holds the identifiers of its own row alone.
+    """
     workspace, matrix = _superfile_campaign(tmp_path)
     write_campaign_products(workspace, matrix_stem="matriz")
     matrix.write_text(
@@ -452,32 +464,31 @@ def test_p0550_a_name_of_the_others_no_row_states_any_more_stays_na_in_a_super_f
         archive_stamp=_SECOND,
         sims=["6001"],
     )
-    header, rows = _table(_supers(workspace)["6001"])
-    assert header.count("FLAP") == 1
-    assert {row["FLAP"] for row in rows} == {"NA"}
-    assert {row["TESTE"] for row in rows} == {"NA"}
+    header, _rows = _table(_supers(workspace)["6001"])
+    assert "FLAP" not in header and "TESTE" not in header
+    assert len(header) == len(set(header))
+    assert "TESTE" in _table(_supers(workspace)["6002"])[0], "the other polar keeps its own"
 
 
 def test_p0550_the_fixed_width_super_file_is_not_widened(tmp_path):
+    """The legacy format carries the columns of the csv beside it, identifiers included.
+
+    The fixed-width super file kept a column set of its own (not widened); the polar files of
+    0.58.0 are one set of columns in either format (design page, section 2.3:
+    ``polar_format``, same values, applied to the FAM and group files).
+    """
     workspace, _ = _superfile_campaign(tmp_path)
     for pproc in (workspace.inputs_dir / "pproc").glob("*.toml"):
         pproc.write_text(
-            pproc.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
+            pproc.read_text(encoding="utf-8") + '\n[products]\npolar_format = "legacy_polar"\n',
             encoding="utf-8",
         )
     write_campaign_products(workspace, matrix_stem="matriz")
-    files = list(workspace.products_dir("matriz").rglob("SUPER-*"))
+    files = _supers(workspace)
     assert files
-    for path in files:
-        text = path.read_text(encoding="utf-8")
-        assert "FLAP" not in text and "TESTE" not in text, path
-    # REL55-5: the measurement a release arm reads says what those files hold.
-    manifest = workspace.products_dir("matriz") / "products.json"
-    name = json.loads(manifest.read_text(encoding="utf-8"))["superfile_report"]
-    report = json.loads((workspace.root / name).read_text(encoding="utf-8"))
-    assert report["files"]
-    for entry in report["files"]:
-        assert "FLAP" not in entry["columns"] and "TESTE" not in entry["columns"], entry["name"]
+    assert "FLAP" in files["6001"].read_text(encoding="utf-8")
+    assert "TESTE" not in files["6001"].read_text(encoding="utf-8")
+    assert "TESTE" in files["6002"].read_text(encoding="utf-8")
 
 
 def test_p0550_the_custom_polar_is_not_widened_and_the_csv_beside_it_is_stamped(tmp_path):
@@ -654,7 +665,7 @@ def test_p0550_the_structure_s_table_carries_them_and_its_log_copy_does_not(tmp_
     assert {row["TESTE"] for row in rows} == {"10"}
     (history,) = workspace.root.glob("post/**/structure/*_history.csv")
     assert history.read_text(encoding="utf-8") == log, "a copy of the log, byte for byte"
-    polar = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
+    polar = next(workspace.root.glob("post/**/polars/P7001-TOTAL-ACOEF.csv"))
     tips = _table(polar)
     assert "tip_deflection_m_blade_1" in tips[0], "a table rewritten in place keeps its columns"
     assert tips[0].count("FLAP") == 1
@@ -887,8 +898,9 @@ def test_p0550_post_sims_with_a_new_name_leaves_the_others_lacking_it(tmp_path):
     supers = _supers(workspace)
     assert "NEW" in _table(supers["6001"])[0]
     assert "NEW" not in _table(supers["6002"])[0]
+    # The partial post names the simulations it rebuilt; the other polar's files are untouched.
     document = json.loads((workspace.products_dir("matriz") / "products.json").read_text("utf-8"))
-    assert supers["6002"].name in json.dumps(document["partial"]["not_rebuilt"])
+    assert document["partial"]["sims"] == ["6001"]
 
 
 def test_p0550_the_guide_says_how_the_columns_reach_a_posted_simulation():
@@ -936,10 +948,14 @@ def test_p0550_a_saved_table_adds_no_replaced_name_to_the_report(tmp_path):
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     sweep.write_bytes(sweep.read_text(encoding="utf-8").encode("cp1252"))
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    out = workspace.products_dir("matriz")
-    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    report = json.loads((workspace.root / manifest["superfile_report"]).read_text(encoding="utf-8"))
-    assert not [name for name in report["known"] if "\ufffd" in name]
+    # The super file report is retired: the names the post holds are read off the tables.
+    names = [
+        name
+        for path in _tables(workspace.products_dir("matriz") / "polars")
+        for name in _table(path)[0]
+    ]
+    assert names
+    assert not [name for name in names if "\ufffd" in name]
 
 
 def test_p0550_a_label_named_time_beside_time_sec_is_no_clock(tmp_path):
@@ -973,10 +989,14 @@ def test_p0550_a_semicolon_table_adds_no_name_to_the_report(tmp_path):
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    out = workspace.products_dir("matriz")
-    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    report = json.loads((workspace.root / manifest["superfile_report"]).read_text(encoding="utf-8"))
-    assert not [name for name in report["known"] if ";" in name]
+    # The super file report is retired: the names the post holds are read off the tables.
+    names = [
+        name
+        for path in _tables(workspace.products_dir("matriz") / "polars")
+        for name in _table(path)[0]
+    ]
+    assert names
+    assert not [name for name in names if ";" in name]
 
 
 def test_p0550_an_empty_pair_is_not_a_space(tmp_path):

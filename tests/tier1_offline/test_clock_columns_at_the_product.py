@@ -36,9 +36,10 @@ from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 from tests.tier1_offline.test_goal028_series import WINDOW
 from tests.tier1_offline.test_post_products import LOADS
 
-#: The three families RPT-056 names, as the products stage writes them for this campaign.
-POLAR = "polars/P7001_AL-020_uns_avg.csv"
-ROTOR_TABLE = "polars/P7001-PUSHER_rotor.csv"
+#: The three families RPT-056 names, as the products stage writes them for this campaign:
+#: the TOTAL group's ACOEF file, the rotor's RCOEF file (0.58.0) and the series.
+POLAR = "polars/P7001-TOTAL-ACOEF.csv"
+ROTOR_TABLE = "polars/P7001-PUSHER-RCOEF.csv"
 SERIES = "series/AL-020_loads_series.csv"
 
 #: What the clock rotor ran at, as every product prints it.

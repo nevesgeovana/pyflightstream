@@ -1,43 +1,97 @@
 """Independent release regressions for row, frame, group and reference identity."""
 
-from dataclasses import replace
+import re
+import warnings
 from types import SimpleNamespace
 
 import pytest
 
 from pyflightstream.cases import ForcePlotGroup
-from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post.products import (
-    PolarPoint,
     ProductError,
     ReferenceValues,
     global_frame_plot_groups,
     read_csv_table,
     rotor_plot_source,
+    write_campaign_products,
     write_recorded_polar,
-    write_rotor_table,
-    write_unsteady_polar,
 )
-from pyflightstream.results import parse_loads
-from tests.tier1_offline.test_post_products import LOADS
+from pyflightstream.workspace import RunRecord
+from tests.tier1_offline.test_post_products import LOADS, PLOTS_HEADER
+from tests.tier1_offline.test_post_superfile import _workspace
+
+
+def _two_points(tmp_path, windows):
+    """Sim 6002 recorded as two points, each stating its own window, over one plots history.
+
+    The history is the total's FX over four steps, 10, 20, 100 and 200; ``windows`` is the
+    window each point's record states, keyed by its J.
+    """
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p002.toml").write_text("[groups]\n", encoding="utf-8")
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    history = (
+        PLOTS_HEADER
+        + "Time-step,FX_MRP_TOTAL,FY_MRP_TOTAL,FZ_MRP_TOTAL,"
+        + "MX_MRP_TOTAL,MY_MRP_TOTAL,MZ_MRP_TOTAL\n"
+        + "-" * 70
+        + "\n"
+        + "".join(f"{i + 1}.0000,{x:.4f},0,0,0,0,0,\n" for i, x in enumerate((10, 20, 100, 200)))
+        + "-" * 70
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
+    outputs = workspace.sim_dir("6002") / "outputs"
+    for record in records:
+        if record.sim_id != "6002":
+            workspace.append_record(RunRecord(**record.model_dump()))
+            continue
+        loads_text = (workspace.sim_dir("6002") / record.outputs[0]).read_text(encoding="utf-8")
+        for advance, window in windows.items():
+            stem = f"POLAR-6002_M14AL+000BE+000J+{advance}"
+            (outputs / f"{stem}.txt").write_text(loads_text, encoding="utf-8")
+            (outputs / f"{stem}_plots.txt").write_text(history, encoding="utf-8")
+            plan = {
+                "window_stated": True,
+                "time_iterations": 4,
+                "steps_per_revolution": 4.0,
+                "rotors": {},
+                "time_average": {"windows": [list(window)], "window_from": "the record"},
+            }
+            update = {
+                "run_id": f"camp/sim_6002/M144RE438AL+000BE+000J+{advance}",
+                "point_name": f"M144RE438AL+000BE+000J+{advance}",
+                "outputs": [f"outputs/{stem}.txt", f"outputs/{stem}_plots.txt"],
+                "reductions": plan,
+            }
+            workspace.append_record(RunRecord(**{**record.model_dump(), **update}))
+    row = next(
+        line
+        for line in (workspace.root / "matriz.fs").read_text().splitlines()
+        if line.startswith("6002")
+    )
+    sweep = ",".join(f"{int(a) / 100:g}" for a in windows)
+    (workspace.root / "matriz.fs").write_text(
+        (workspace.root / "matriz.fs")
+        .read_text(encoding="utf-8")
+        .replace(row, row.replace("| 1.7 |", f"| {sweep} |")),
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    return workspace.root / "post" / "matriz" / "polars"
 
 
 def test_a_point_override_does_not_replace_the_default_window(tmp_path):
-    plots = tmp_path / "history.csv"
-    plots.write_text("Time-step,CL_TOTAL\n1,10\n2,20\n3,100\n4,200\n", encoding="utf-8")
-    path = write_unsteady_polar(
-        tmp_path / "polar.csv",
-        points=[SimpleNamespace(name="A"), SimpleNamespace(name="B")],
-        plots={"A": plots, "B": plots},
-        window=(3, 4),
-        windows={"A": (1, 2)},
-        conditions=[{}, {}],
-        reference=None,
-    )
-    _, rows = read_csv_table(path)
-    assert float(rows[1]["CL_TOTAL"]) == 150.0, (
+    polars = _two_points(tmp_path, {"170": (1, 2), "180": (3, 4)})
+    rows = read_csv_table(polars / "P6002-TOTAL-DIM.csv")[1]
+    by_point = {row["POINT"].rsplit("J+", 1)[1]: row for row in rows}
+    assert float(by_point["170"]["FX_MRP"]) == 15.0, "point A averages its own steps 1..2"
+    assert float(by_point["180"]["FX_MRP"]) == 150.0, (
         "point B must average its default steps 3..4 to 150, not point A's steps 1..2"
     )
+    assert (by_point["170"]["FIRST_STEP"], by_point["180"]["FIRST_STEP"]) == ("1", "3")
 
 
 @pytest.mark.parametrize(
@@ -166,56 +220,58 @@ def test_recorded_polar_refuses_vectors_in_a_rotated_analysis_frame(tmp_path):
         )
 
 
-def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path, monkeypatch):
-    # Patched where the rotor tables' plan looks the reference up (WP5 of 0.33.0
-    # moved it out of post.products).
-    import pyflightstream.post._rotor_plan as rotor_plan
+def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path):
+    """The rotor's loads are its blades' and its hub's: an alias the reference declares counts.
 
-    rotor = SimpleNamespace(
-        alias="PROP",
-        members=["hub", "Blade1"],
-        families_general=["hub"],
-        families_blades=["Blade1"],
-        diameter_m=1.0,
-        axis_vector=(1.0, 0.0, 0.0),
-        x_m=0.0,
-        y_m=0.0,
-        z_m=0.0,
+    Polar 6001 is posted with a rotor PROP whose blade is `Blade1` and whose hub is `hub`, an
+    alias of the reference standing for the surface `Spinner`. The thrust of its group file
+    holds the spinner's load too.
+    """
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n"
+        '\n[aliases]\nhub = ["Spinner"]\n'
+        '\n[rotors.PROP]\nalias = "PROP"\nx_m = 0.0\ny_m = 0.0\nz_m = 0.0\n'
+        'axis = "X"\nrpm_sign = 1\ndiameter_m = 1.0\n'
+        'families_general = ["hub"]\nfamilies_blades = ["Blade1"]\n'
+        'blade1 = { azimuth_deg = 0.0, zero = "Y" }\n',
+        encoding="utf-8",
     )
-    monkeypatch.setattr(
-        rotor_plan, "resolve_reference", lambda *args: SimpleNamespace(rotors={"PROP": rotor})
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text("[groups]\n", encoding="utf-8")
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            for output in record.outputs:
+                path = workspace.sim_dir("6001") / output
+                text = path.read_text(encoding="utf-8")
+                # Forward thrust is a force along -x of the mesh: Blade1 -0.001, Spinner -0.002.
+                text = re.sub(r"^     W,\+[0-9.]+", "     Blade1,-0.0010000", text, flags=re.M)
+                text = re.sub(r"^     B,\+[0-9.]+", "     Spinner,-0.0020000", text, flags=re.M)
+                path.write_text(text, encoding="utf-8")
+            record = record.model_copy(
+                update={"density_kg_m3": 2.0, "reductions": {"rotors": {"PROP": {"rpm": 600.0}}}}
+            )
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    polars = workspace.root / "post" / "matriz" / "polars"
+    rows = read_csv_table(polars / "P6001-PROP-RCOEF.csv")[1]
+    surfaces = {name: row["Cx"] for name, row in _surfaces_of(workspace).items()}
+    assert set(surfaces) >= {"Blade1", "Spinner"}, surfaces
+    # q S of the export's own reference velocity at the record's density 2 kg/m3; the rotor
+    # owns 0.001 + 0.002 of it, and rho n^2 D^4 = 2 * 10^2 * 1 = 200 N.
+    pressure_area = 0.5 * 2.0 * 68.058**2 * 50.0
+    assert float(rows[0]["CT"]) == pytest.approx(0.003 * pressure_area / 200.0, rel=1e-4), (
+        "the spinner alias lost its share of the rotor's thrust"
     )
-    zero = dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.0)
-    loads = replace(
-        parse_loads(LOADS),
-        reference_velocity_m_s=1.0,
-        freestream_velocity_m_s=1.0,
-        surfaces={"Blade1": {**zero, "Cx": 1.0}, "Spinner": {**zero, "Cx": 2.0}},
-    )
-    point = PolarPoint("P", loads, tmp_path / "loads.txt")
-    record = SimpleNamespace(
-        run_id="run",
-        reductions={"rotors": {"PROP": {"rpm": 600.0}}},
-        density_kg_m3=2.0,
-        mach=0.2,
-        # A RunRecord always carries these; since 0.30.0 (M1) the rotor table
-        # reads them for its Mach columns, which stay NA without a condition.
-        flight_condition=None,
-        point=None,
-    )
-    reference = ReferenceValues(1.0, 1.0, 1.0)
-    ((destination, _, plan),) = _rotor_tables(
-        SimpleNamespace(inputs_dir=tmp_path),
-        "1",
-        [point],
-        [record],
-        {"P": ["run"]},
-        reference,
-        SimpleNamespace(ref_code="r001", variables={}),
-        tmp_path,
-        aliases={"hub": ["Spinner"]},
-    )
-    write_rotor_table(destination, rotor=rotor, rows=plan["rows"], reference=reference)
-    _, rows = read_csv_table(destination)
-    # q S = 1 N; the rotor owns 1 + 2 N. rho n^2 D^4 = 200 N.
-    assert float(rows[0]["CT_PROP"]) == 0.015, "the spinner alias lost 2 N of rotor thrust"
+
+
+def _surfaces_of(workspace):
+    """The first steady point's loads table, by surface, as the post reads it."""
+    from pyflightstream.results import parse_loads
+
+    record = next(r for r in workspace.read_manifest() if r.sim_id == "6001")
+    loads = parse_loads((workspace.sim_dir("6001") / record.outputs[0]).read_text(encoding="utf-8"))
+    return loads.surfaces

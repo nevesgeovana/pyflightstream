@@ -50,7 +50,6 @@ from pyflightstream.cases import PprocSpec
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.post.products import (
-    CONTEXT_COLUMNS,
     plots_table_series,
     read_csv_table,
     write_campaign_products,
@@ -65,10 +64,6 @@ POL = "POL"
 #: The name 0.26.0 gave the polar in the steady polar table and its super file. No table the post
 #: writes states it since 0.27.0: `POL` alone carries the polar.
 RETIRED = "POLAR"
-
-#: The first columns of a steady polar table and of its super file: the polar, then what 0.26.0
-#: wrote after its `POLAR`, in the same order.
-STEADY_POLAR_LEAD = ("POL", "DESCRIPTION", "GROUP", "SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
 
 #: The header of a rotor table as 0.26.0 wrote it on its SECOND line, after the alias alone
 #: on the first. Every one of these names must survive, in this order, after `POL, ROTOR`.
@@ -187,10 +182,10 @@ CAMPAIGNS = {
         "matriz",
         (
             r"^campaign_sweep\.csv$",
-            r"^polars/P6001-[^/]*_g01\.csv$",
-            r"^polars/P6002-[^/]*_g01\.csv$",
-            r"^polars/SUPER-6001-[^/]*\.csv$",
-            r"^polars/SUPER-6002-[^/]*\.csv$",
+            r"^polars/P6001-g01-ACOEF\.csv$",
+            r"^polars/P6002-g01-ACOEF\.csv$",
+            r"^polars/FAM-ACOEF-P6001\.csv$",
+            r"^polars/FAM-DIM-P6002\.csv$",
             r"^time_history/[^/]*_plots\.csv$",
         ),
     ),
@@ -198,10 +193,10 @@ CAMPAIGNS = {
         _steady_two_polars,
         "extracted",
         (
-            r"^polars/P3207-[^/]*_g01\.csv$",
-            r"^polars/P3208-[^/]*_g01\.csv$",
-            r"^polars/SUPER-3207-[^/]*\.csv$",
-            r"^polars/SUPER-3208-[^/]*\.csv$",
+            r"^polars/P3207-TOTAL-ACOEF\.csv$",
+            r"^polars/P3208-TOTAL-ACOEF\.csv$",
+            r"^polars/FAM-ACOEF-P3207\.csv$",
+            r"^polars/FAM-ACOEF-P3208\.csv$",
             r"^sections/P3207-[^/]*_sections\.csv$",
             r"^sections/P3208-[^/]*_sections\.csv$",
             r"^additional/p002/polars/P3207-[^/]*\.csv$",
@@ -213,8 +208,8 @@ CAMPAIGNS = {
         _unsteady_rotor,
         "products",
         (
-            r"^polars/P7001-PUSHER_rotor\.csv$",
-            r"^polars/P7001_[^/]*_uns_avg\.csv$",
+            r"^polars/P7001-PUSHER-RCOEF\.csv$",
+            r"^polars/FAM-ACOEF-P7001\.csv$",
             r"^time_history/[^/]*_plots\.csv$",
             r"^reductions/[^/]*_phase_locked\.csv$",
             r"^sections/[^/]*_sections\.csv$",
@@ -371,38 +366,35 @@ def test_g16_the_polar_column_is_named_as_the_matrix_names_its_polar_column(tmp_
 # ----------------------------------------------------------------- the rotor table --
 
 
-def test_g16_the_rotor_table_opens_with_its_header_polar_and_rotor(tmp_path):
-    """Her rotor table's shape: `POL,ROTOR` and then every column 0.26.0 wrote, in its order.
+def test_g16_the_rotor_group_table_opens_with_the_run_block_then_its_rotor(tmp_path):
+    """The rotor table's successor: the ROTOR group's RCOEF file opens with `POL` and the run block.
 
-    Until 0.27.0 the first line was the alias alone and the header the second, so no CSV
-    reader took the file as written. The alias is the `ROTOR` column of every row now.
-
-    Since 0.30.0 (M1) the owner's requirement of 2026-09-28 adds the tip and helical
-    Mach numbers, `MTIP_<alias>` and `MHEL_<alias>`, AFTER every column 0.26.0 wrote,
-    so each of those keeps its position.
-
-    Since 0.31.0 (G8) the owner's requirement adds the rotor's in-plane
-    coefficients, `CN`, `CS`, `CMN` and `CMS` suffixed with the alias, after the
-    Mach numbers, so every earlier column keeps its position again.
+    The rotor table (`P<sim>-<sweep>_<ROTOR>_rotor.csv`, alias alone on line one in 0.26.0, then
+    `POL,ROTOR` and the alias-suffixed columns) is retired: the rotor is the group of its own
+    RCOEF file, `P<POL>-<ROTOR>-RCOEF.csv`, whose columns lost the alias suffix and whose speed,
+    advance ratio and tip and helical Mach numbers are in the run block as `RPM<id>`, `J<id>`,
+    `MTIP<id>`, `MHEL<id>` (design-post-outputs 2.3). After the block: `GROUP`, `GROUP_ID`,
+    `ROTOR_ID`, then the rotor coefficients.
     """
-    from tests.tier1_offline.test_clock_columns_at_the_product import (
-        ROTOR_TABLE,
-        _posted_rotor_campaign,
-    )
+    from pyflightstream.post._run_block import run_block_columns
+    from tests.tier1_offline.test_clock_columns_at_the_product import _posted_rotor_campaign
 
-    table = _posted_rotor_campaign(tmp_path) / ROTOR_TABLE
+    table = _posted_rotor_campaign(tmp_path) / "polars" / "P7001-PUSHER-RCOEF.csv"
+    block = run_block_columns((), (0,))
     first, second = table.read_text(encoding="utf-8").splitlines()[:2]
-    assert first == (
-        f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE},MTIP_PUSHER,MHEL_PUSHER,"
-        "CN_PUSHER,CS_PUSHER,CMN_PUSHER,CMS_PUSHER,MADV_PUSHER"
-    ), first
-    assert second.startswith("7001,PUSHER,"), second
-    assert ROTOR_COLUMNS_BEFORE.split(",")[: len(CONTEXT_COLUMNS)] == list(CONTEXT_COLUMNS)
+    header = first.split(",")
+    assert header[0] == POL and RETIRED not in header, header
+    assert header[: len(block)] == list(block), header[: len(block)]
+    assert header[len(block) : len(block) + 3] == ["GROUP", "GROUP_ID", "ROTOR_ID"], header
+    assert {"CT", "CQ", "CP", "ETA", "ETAW"} <= set(header)
+    assert not [name for name in header if name.endswith("_PUSHER")], "the alias suffix is gone"
+    assert second.startswith("7001,"), second
     with table.open(encoding="utf-8", newline="") as handle:
         (row,) = list(csv.DictReader(handle))
-    assert (row["POL"], row["ROTOR"], row["RPM_PUSHER"]) == ("7001", "PUSHER", "2200.00000")
+    assert (row["POL"], row["GROUP"], row["ROTOR_ID"]) == ("7001", "PUSHER", "0")
+    assert float(row["RPM0"]) == 2200.0
     columns, rows = read_csv_table(table)
-    assert columns[:2] == (POL, "ROTOR") and rows == [row]
+    assert columns[0] == POL and rows == [row]
 
 
 def test_g16_a_rotor_table_written_before_the_rule_still_reads_into_the_union(tmp_path):
@@ -420,36 +412,48 @@ def test_g16_a_rotor_table_written_before_the_rule_still_reads_into_the_union(tm
 # ----------------------------------------------------------------- the steady polar --
 
 
-def test_g16_the_steady_polar_and_its_super_file_state_the_polar_once_as_pol(tmp_path, monkeypatch):
-    """`POL`, then what 0.26.0 wrote after its `POLAR`, in order; and no `POLAR` anywhere."""
+def test_g16_the_steady_polar_and_its_family_file_state_the_polar_once_as_pol(
+    tmp_path, monkeypatch
+):
+    """`POL`, then the run block, in order; and no `POLAR` anywhere.
+
+    The steady polar and its super file are replaced by the group file and the FAM file of
+    the polar (design-post-outputs 2.2); the 0.26.0 lead (`DESCRIPTION`, `GROUP`, ...) is the
+    run block now.
+    """
+    from pyflightstream.post._run_block import run_block_columns
+
+    lead = list(run_block_columns((), ()))
     workspace = _matriz_two_polars(tmp_path, monkeypatch)
     polars = workspace.products_dir("matriz") / "polars"
-    (table,) = sorted(polars.glob("P6001-*_g01.csv"))
-    (superfile,) = sorted(polars.glob("SUPER-6001-*_g01.csv"))
-    for path in (table, superfile):
+    tables = [polars / "P6001-g01-ACOEF.csv", polars / "FAM-ACOEF-P6001.csv"]
+    for path in tables:
         first, second = path.read_text(encoding="utf-8").splitlines()[:2]
         header = first.split(",")
-        assert tuple(header[: len(STEADY_POLAR_LEAD)]) == STEADY_POLAR_LEAD, (path.name, header)
+        assert header[: len(lead)] == lead, (path.name, header)
         assert RETIRED not in header, (path.name, header)
+        assert header.count(POL) == 1, (path.name, header)
         assert second.split(",")[0] == "6001", (path.name, second[:60])
 
 
-def test_g16_a_super_file_in_the_fixed_width_format_states_the_polar_once_as_pol(tmp_path):
-    """The `legacy_polar` super file carries the csv form's columns, so it loses `POLAR` too."""
+def test_g16_a_polar_file_in_the_fixed_width_format_states_the_polar_once_as_pol(tmp_path):
+    """`polar_format = "legacy_polar"` (once `superfile_format`) applies to FAM and group files."""
+    from pyflightstream.post._run_block import run_block_columns
     from tests.tier1_offline.test_post_superfile import _post, _workspace
 
+    lead = list(run_block_columns((), ()))
     workspace = _workspace(tmp_path)
     for code in ("p001", "p002"):
         path = workspace.inputs_dir / "pproc" / f"{code}.toml"
         path.write_text(
-            path.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
+            path.read_text(encoding="utf-8") + '\n[products]\npolar_format = "legacy_polar"\n',
             encoding="utf-8",
         )
-    supers = [Path(p) for p in _post(workspace) if Path(p).name.startswith("SUPER-")]
-    assert supers, "the post wrote no super file"
-    for path in supers:
+    written = [Path(p) for p in _post(workspace) if Path(p).parent.name == "polars"]
+    assert written, "the post wrote no polar file"
+    for path in written:
         header = path.read_text(encoding="utf-8").splitlines()[0].split()
-        assert header[: len(STEADY_POLAR_LEAD)] == list(STEADY_POLAR_LEAD), (path.name, header)
+        assert header[: len(lead)] == lead, (path.name, header)
         assert RETIRED not in header, (path.name, header[:6])
 
 
@@ -495,27 +499,28 @@ def test_g16_a_names_entry_cannot_take_the_polar_columns_name():
 # ------------------------------------------------------- no comma and no quote in a cell --
 
 
-def test_g16_the_echoed_matrix_cells_write_their_lists_with_semicolons(tmp_path):
-    """`SWEEP_VALUES` and `FLIGHT_CONDITION` as a naive reader counts them: one cell each.
+def test_g16_the_polar_files_split_on_comma_to_the_header_count(tmp_path):
+    """The reader without CSV quoting counts each line of a polar file as the header does.
 
-    The super file echoes the matrix row; a list in it was written quoted, its commas inside,
-    and a reader splitting on ',' took each comma for a column. The unsteady polar carries the
-    same content after its plotted columns.
+    The matrix cells the super file echoed (`SWEEP_VALUES`, `FLIGHT_CONDITION`) left the polar
+    rows with it (design-post-outputs 2.3: the run block and `products.json` hold what they
+    said), so no list cell is left in `polars/` to write with semicolons; what stays is that no
+    cell of those files holds a comma or a double quote.
     """
     from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
     _post(workspace)
     polars = workspace.products_dir("matriz") / "polars"
-    (steady,) = sorted(polars.glob("SUPER-6001-*_g01.csv"))
-    lines = steady.read_text(encoding="utf-8").splitlines()
-    header = lines[0].split(",")
-    for line in lines[1:]:
-        cells = line.split(",")
-        assert len(cells) == len(header), (len(cells), len(header))
-        row = dict(zip(header, cells, strict=True))
-        assert ";" in row["SWEEP_VALUES"] and ";" in row["FLIGHT_CONDITION"], row
-        assert row["FLIGHT_CONDITION"].count(";") == row["FLIGHT_CONDITION"].count(":") - 1, row
+    tables = sorted(polars.glob("*.csv"))
+    assert len(tables) == 20
+    for table in tables:
+        lines = table.read_text(encoding="utf-8").splitlines()
+        header = lines[0].split(",")
+        assert len(lines) > 1, table.name
+        for line in lines[1:]:
+            assert '"' not in line, (table.name, line[:80])
+            assert len(line.split(",")) == len(header), (table.name, len(line.split(",")))
 
 
 def test_g16_a_text_cell_writes_no_comma_no_quote_and_no_line_break(tmp_path):

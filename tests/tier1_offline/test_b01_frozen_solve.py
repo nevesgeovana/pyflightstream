@@ -197,21 +197,23 @@ def test_post_skips_frozen_averages_by_name_and_keeps_healthy_control(tmp_path, 
         workspace = _post_workspace(tmp_path / str(row), row, window)
         written = write_campaign_products(workspace, check_frozen=True)
         manifest = _products_manifest(workspace)
+        # The polar files of the polar are the window average of the point (the successors
+        # of the retired `_uns_avg` polar); a refusal of the point is one entry of the
+        # polar, named `polars/P7001`, in `skipped`.
         averaged = [
             "reductions/AL-020_phase_locked.csv",
+            "polars/FAM-ACOEF-P7001.csv",
+            "polars/P7001-TOTAL-ACOEF.csv",
         ]
-        polar = next(
-            key
-            for key in manifest["products"] | manifest["skipped"]
-            if key.endswith("_uns_avg.csv")
-        )
-        for name in [*averaged, polar]:
+        for name in averaged:
             if row == 2411:
                 assert name in manifest["products"], manifest["skipped"]
             else:
                 assert name not in manifest["products"], f"frozen average published: {name}"
-                assert "step 60" in manifest["skipped"][name]
                 assert not (workspace.root / "post/products" / name).exists()
+        if row == 2413:
+            assert "step 60" in manifest["skipped"]["reductions/AL-020_phase_locked.csv"]
+            assert "step 60" in manifest["skipped"]["polars/P7001"]
         assert "time_history/AL-020_plots.csv" in manifest["products"]
         assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
         assert all(path.is_file() for path in written)
@@ -241,16 +243,13 @@ def test_post_rotor_table_rejects_frozen_window_and_keeps_healthy_control(tmp_pa
         workspace = _post_workspace(tmp_path / str(row), row, (60, 61), rotor=True)
         write_campaign_products(workspace, matrix_stem="products", check_frozen=True)
         manifest = _products_manifest(workspace)
-        rotor = next(
-            name
-            for name in manifest["products"] | manifest["skipped"]
-            if name.endswith("_rotor.csv")
-        )
+        # The rotor table is retired: its successor is the rotor group's RCOEF file.
+        rotor = "polars/P7001-PUSHER-RCOEF.csv"
         if row == 2411:
             assert rotor in manifest["products"], manifest["skipped"]
         else:
-            assert rotor not in manifest["products"], "frozen CT was published in the rotor table"
-            assert "step 60" in manifest["skipped"][rotor]
+            assert rotor not in manifest["products"], "frozen CT was published in the rotor file"
+            assert "step 60" in manifest["skipped"]["polars/P7001"]
             assert not (workspace.root / "post/products" / rotor).exists()
 
 
@@ -270,7 +269,7 @@ def test_post_checks_each_reduction_window_independently(tmp_path):
     assert not any(
         k.endswith(("_time_average.csv", "_per_blade.csv")) for k in manifest["products"]
     )
-    assert any(key.endswith("_uns_avg.csv") for key in manifest["products"])
+    assert "polars/P7001-TOTAL-ACOEF.csv" in manifest["products"], sorted(manifest["products"])
     phase = "reductions/AL-020_phase_locked.csv"
     assert phase not in manifest["products"], "a separate frozen reduction was published"
     assert "step 60" in manifest["skipped"][phase]

@@ -19,7 +19,7 @@ from tests.tier1_offline.test_goal028_rotor_table_average import REFERENCE, _ppr
 from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
 
-def _posted_without_a_plan(tmp_path) -> dict:
+def _posted_without_a_plan(tmp_path, said: list[str] | None = None) -> dict:
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(REFERENCE, encoding="utf-8")
     (workspace.inputs_dir / "pproc" / "p002.toml").write_text(
@@ -36,9 +36,11 @@ def _posted_without_a_plan(tmp_path) -> dict:
             plan = {"rotors": {"PUSHER": {"blades": 6, "rpm": 2200.0}}}
             record = record.model_copy(update={"reductions": plan})
         workspace.append_record(RunRecord(**record.model_dump()))
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         _post(workspace)
+    if said is not None:
+        said.extend(str(item.message) for item in caught)
     (manifest,) = workspace.root.rglob("products.json")
     return json.loads(manifest.read_text(encoding="utf-8"))
 
@@ -50,11 +52,12 @@ def test_the_fixture_is_an_unsteady_rotor_record_with_no_plan(tmp_path):
 
 
 def test_a_rotor_table_of_an_unsteady_runs_last_step_says_so(tmp_path):
-    products = _posted_without_a_plan(tmp_path)["products"]
-    entries = {name: entry for name, entry in products.items() if name.endswith("_rotor.csv")}
+    """The rotor group's RCOEF file, the successor of the rotor table, is marked an instant."""
+    said: list[str] = []
+    products = _posted_without_a_plan(tmp_path, said)["products"]
+    entries = {name: entry for name, entry in products.items() if name.endswith("-RCOEF.csv")}
     unsteady = {name: entry for name, entry in entries.items() if "6002" in name}
-    assert unsteady, sorted(products)
+    assert "polars/P6002-PUSHER-RCOEF.csv" in unsteady, sorted(products)
     for name, entry in unsteady.items():
-        assert "steady run" not in entry["source"] or "unsteady" in entry["source"], (name, entry)
-        assert "last time step" in entry["source"].lower(), (name, entry)
         assert entry.get("kind") == "instant", (name, entry)
+    assert any("LAST TIME STEP" in text for text in said), said

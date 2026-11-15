@@ -1303,14 +1303,20 @@ class TestFarfieldProducts:
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_super_file_block(tmp_path):
         """P0400-FFOUT (FR-1062, NFR-19): the three columns append without renaming others."""
-        from tests.tier1_offline.test_post_superfile import _post as post_matrix
-        from tests.tier1_offline.test_post_superfile import _superfiles
         from tests.tier1_offline.test_post_superfile import _workspace as matrix_workspace
+
+        def post_matrix(workspace):
+            write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+
+        def group_table(workspace):
+            """0.58.0: the SUPER file is retired; group 1's ACOEF file carries its content."""
+            path = workspace.products_dir("matriz") / "polars" / "P6001-g01-ACOEF.csv"
+            rows = _farfield_products___table(path)
+            return list(rows[0]), rows
 
         plain = matrix_workspace(tmp_path / "plain")
         post_matrix(plain)
-        name = "SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv"
-        before = _superfiles(plain)[name][0]
+        before = group_table(plain)[0]
         workspace = matrix_workspace(tmp_path / "far")
         (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
             '[groups]\n"1" = "all"\n"2" = "W"\n[[farfields]]\nvariant = "wake"\n',
@@ -1328,7 +1334,7 @@ class TestFarfieldProducts:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PyflightstreamWarning)
             post_matrix(workspace)
-        columns, rows = _superfiles(workspace)[name]
+        columns, rows = group_table(workspace)
         added = [column for column in columns if column not in before]
         assert {"CL_FF_B_TOTAL", "CDI_FF_B_TOTAL", "E_FF_B_TOTAL"} <= set(added)
         assert all("_FF_B_" in column for column in added)
@@ -1724,9 +1730,8 @@ class TestFfproofPost:
         _ffproof_post___post(workspace)
         root = Path(workspace.root)
         path = _ffproof_post___one(root, "farfield/*_ledgers.csv")
-        polar = _ffproof_post___one(root, "polars/P*.csv")
-        group = polar.stem.rsplit("_", 1)[0]
-        assert path.name == f"{group}_ledgers.csv", "beside the polar, by name (R1)"
+        _ffproof_post___one(root, "polars/P*-TOTAL-ACOEF.csv")
+        assert path.name == "P3207-AL-020_ledgers.csv", "named for its polar (R1)"
         columns, rows = _ffproof_post___table(path)
         # 0.58.0 (FR-3778): the run block (the condition is its), then the table's own.
         at = after_run_block(columns)
@@ -2620,9 +2625,14 @@ def test_p0450_d7_super_cells_belong_to_each_entry(tmp_path, plane_name):
     _farfield_products___post(workspace)
     root = Path(workspace.root)
     rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
-    (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
+    # 0.58.0: the SUPER file is retired; group 1's ACOEF file carries the cells.
+    (super_row,) = _farfield_products___table(
+        _farfield_products___one(root, "polars/P*-g01-ACOEF.csv")
+    )
     assert {r["ENTRY"] for r in rows} == {"wing", "tail", "wake", plane_name}
-    (polar_row,) = _farfield_products___table(_farfield_products___one(root, "polars/P*_g01.csv"))
+    (polar_row,) = _farfield_products___table(
+        _farfield_products___one(root, "polars/P*-g01-ACOEF.csv")
+    )
     for row in rows:
         for column in ("CL_T", "CDI_T", "E_T"):
             target = "TOTAL" if row["FAMILY"] == "net" else row["FAMILY"]
@@ -2645,7 +2655,10 @@ def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
     _farfield_products___post(workspace)
     root = Path(workspace.root)
     rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
-    (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
+    # 0.58.0: the SUPER file is retired; group 1's ACOEF file carries the cells.
+    (super_row,) = _farfield_products___table(
+        _farfield_products___one(root, "polars/P*-g01-ACOEF.csv")
+    )
     assert {(r["VARIANT"], r["FAMILY"]) for r in rows} == {
         ("A", "TOTAL"),
         ("B", "TOTAL"),
@@ -2823,7 +2836,7 @@ def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
 
 @pytest.mark.requirement("FR-1062")
 def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
-    """An unsteady point has no super file: its content, these columns too, is in this table."""
+    """An unsteady point has no super file: its content, these columns too, is in the group file."""
     files = _p0450_probe_series(_RFIXF_LAYOUT___LAID.points)
     files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
         _FFPROOF_POST__PLOTS_HEADER
@@ -2853,11 +2866,11 @@ def test_p0550_the_unsteady_polar_holds_the_trefftz_columns(tmp_path):
     _ffproof_post___post(workspace)
     root = Path(workspace.root)
     (average,) = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
-    (polar,) = _rfixf_layout___rows(root, "polars/*_uns_avg.csv")
-    (merged,) = _rfixf_layout___rows(root, "polars/*_merge.csv")
+    (polar,) = _rfixf_layout___rows(root, "polars/P*-TOTAL-ACOEF.csv")
+    # The merged polar is a named skip in 0.58.0 (products.json "polars/3207#merged_polar"),
+    # so only the TOTAL group's ACOEF row is read here.
     for column in ("CL_T", "CDI_T", "E_T"):
         assert polar[f"{column.removesuffix('_T')}_FF_C_TOTAL"] == average[column]
-        assert merged[f"{column.removesuffix('_T')}_FF_C_TOTAL"] == average[column]
     assert list(polar).index("E_FF_C_TOTAL") < list(polar).index("MESH_FACES")
 
 
@@ -2890,7 +2903,7 @@ def test_p0550_a_last_step_cell_is_said_on_the_polar(tmp_path):
     )
     _ffproof_post___post(workspace)
     skipped = _ffproof_post___manifest(Path(workspace.root))["skipped"]
-    said = next(text for key, text in skipped.items() if key.endswith("_uns_avg.csv#farfield"))
+    said = next(text for key, text in skipped.items() if key.endswith("-TOTAL-ACOEF.csv#farfield"))
     assert "the instant of step 8" in said
 
 

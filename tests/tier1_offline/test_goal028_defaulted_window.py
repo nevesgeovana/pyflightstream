@@ -48,11 +48,14 @@ def _posted(tmp_path):
 @pytest.mark.requirement("FR-161")
 def test_the_point_gets_its_average_over_the_window_its_record_defaulted_to(tmp_path):
     _workspace_, written, _said = _posted(tmp_path)
-    (table,) = [path for path in written if path.name.endswith("_uns_avg.csv")]
-    _columns, rows = read_csv_table(table)
-    assert [(row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) for row in rows] == [
-        ("1", "8", "8")
-    ]
+    # 0.58.0: the average of every family and group is its row in the polar's files.
+    for name in ("FAM-DIM-P7001.csv", "FAM-ACOEF-P7001.csv", "P7001-TOTAL-ACOEF.csv"):
+        (table,) = [path for path in written if path.name == name]
+        _columns, rows = read_csv_table(table)
+        assert rows, name
+        assert {(row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) for row in rows} == {
+            ("1", "8", "8")
+        }, name
 
 
 def test_the_stage_says_which_window_it_used_and_how_to_choose_another(tmp_path):
@@ -64,11 +67,15 @@ def test_the_stage_says_which_window_it_used_and_how_to_choose_another(tmp_path)
 
 def test_no_last_step_polar_is_written_under_a_steady_name(tmp_path):
     workspace, written, _said = _posted(tmp_path)
-    steady_named = [
-        path.name for path in written if path.parent.name == "polars" and "_g01" in path.name
-    ]
-    assert steady_named == [], steady_named
-    assert all("_g01" not in key for key in _products_manifest(workspace)["products"])
+    # 0.58.0 names a polar's files by polar and group, steady or not: what says a file is an
+    # average and not a last step is its window (and the manifest's kind: instant).
+    polar_files = [path for path in written if path.parent.name == "polars"]
+    assert polar_files, written
+    for path in polar_files:
+        _columns, rows = read_csv_table(path)
+        assert {(row["FIRST_STEP"], row["LAST_STEP"]) for row in rows} == {("1", "8")}, path.name
+    products = _products_manifest(workspace)["products"]
+    assert not [key for key, entry in products.items() if entry.get("kind") == "instant"]
 
 
 def test_a_window_from_a_retired_key_is_said_as_that_and_not_as_a_default(tmp_path):

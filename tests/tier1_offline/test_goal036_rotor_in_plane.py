@@ -1,23 +1,30 @@
-"""The rotor table's in-plane coefficients: CN, CS, CMN and CMS (0.31.0, G8).
+"""The rotor's in-plane coefficients: CN, CS, CMN and CMS (0.31.0, G8), now CFZ, CFY, CMZ, CMY.
 
-The rotor's axes are ``(T, S, N)``, right-handed: ``T`` its axis as declared,
+The rotor's axes were ``(T, S, N)``, right-handed: ``T`` its axis as declared,
 ``N`` the part of the reference frame's up (+z) square to ``T``, normalised,
 and ``S = N x T``. ``N`` and ``S`` are the force along them and ``MN`` and
 ``MS`` the moment about them at the HUB, from the force and moment the table
 already turns into ``CT`` and ``CQ``, each over ``rho n^2 D^4`` (forces) or
 ``rho n^2 D^5`` (moments).
 
-Every number below is by hand. The loads: ``SREF`` 10 m2, ``CREF`` 1 m,
-density 1.225 kg/m3 at 40 m/s, so ``q S = 0.5 * 1.225 * 40^2 * 10 = 9800`` N
-per unit coefficient and 9800 N m per unit moment coefficient. The rotor: D 2
-m at 3000 rev/min, ``n = 50`` rev/s, so ``rho n^2 D^4 = 1.225 * 2500 * 16 =
-49000`` and ``rho n^2 D^5 = 98000``.
+0.58.0 (design of the post outputs, 2.3 and 5.3): the rotor table is the rotor group's
+``polars/P<POL>-<ALIAS>-RCOEF.csv`` and the in-plane coefficients are in the rotor frame
+``R<id>`` (x forward along the shaft, y right, z down), ``CFZ = CN``, ``CFY = -CS``,
+``CMZ = -CMN``, ``CMY = -CMS``; thrust is positive forward whatever the declared sense; a
+vertical shaft has a defined frame (toe 0) and its in-plane coefficients are numbers.
+
+The expected numbers are formed here from the loads written into the export, with the
+definitions of the design page (the export frame x aft, y right, z up; the body frame
+forward, right, down; the moment transferred from the moment point to the hub), never
+read back from a product.
 """
 
 from __future__ import annotations
 
+import json
 import math
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -27,92 +34,188 @@ from pyflightstream.post.products import (
     ROTOR_IN_PLANE_COLUMNS,
     read_csv_table,
     rotor_coefficients,
-    write_rotor_table,
 )
-from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _surfaces
+from pyflightstream.workspace import RunRecord
 
-FORCE_SCALE = 49000.0
-MOMENT_SCALE = 98000.0
-IN_PLANE = ("CN_PUSHER", "CS_PUSHER", "CMN_PUSHER", "CMS_PUSHER")
+#: The fixture's export (polar 6001): reference velocity, reference area and chord.
+_VREF, _SREF, _CREF, _RHO = 68.058, 50.0, 2.526, 1.225
+_RPM, _DIAMETER = 1200.0, 2.0
+#: q S, the Newtons of one unit force coefficient; rho n^2 D^4 and D^5.
+_QS = 0.5 * _RHO * _VREF**2 * _SREF
+_F4 = _RHO * (_RPM / 60.0) ** 2 * _DIAMETER**4
+_F5 = _F4 * _DIAMETER
+IN_PLANE = ("CFZ", "CFY", "CMZ", "CMY")
+_EMPTY = {"Cx": 0.0, "Cy": 0.0, "Cz": 0.0, "CMx": 0.0, "CMy": 0.0, "CMz": 0.0}
+_POINT = "POLAR-6001_M20AL+000BE+000"
+FORWARD = (1.0, 0.0, 0.0)
 
 
-def _rotor(axis, *, hub=(0.0, 0.0, 0.0), zero="Y"):
-    from pyflightstream.cases import BladeDatum, RotorBlock
+def _shaft_of(axis):
+    return "XYZ"[max(range(3), key=lambda i: abs(axis[i]))]
 
-    shaft = axis if isinstance(axis, str) else "XYZ"[max(range(3), key=lambda i: abs(axis[i]))]
-    rotor = RotorBlock(
-        alias="PUSHER",
-        axis=shaft
-        if isinstance(axis, str)
-        else {"shaft": shaft, "vector_wrt_global": [abs(v) for v in axis]},
-        x_m=hub[0],
-        y_m=hub[1],
-        z_m=hub[2],
-        diameter_m=2.0,
-        families_blades=["Blade1", "Blade2"],
-        blade1=BladeDatum(zero=zero),
+
+def _reference(axis, hub):
+    shaft = _shaft_of(axis)
+    along = tuple(1.0 if i == "XYZ".index(shaft) else 0.0 for i in range(3))
+    if tuple(abs(c) for c in axis) == along:
+        declared = f'"{shaft}"'
+    else:
+        declared = f'{{ shaft = "{shaft}", vector_wrt_global = {list(axis)!r} }}'
+    zero = "Y" if shaft == "X" else "X"
+    return (
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n\n"
+        '[rotors.PUSHER]\nalias = "PUSHER"\n'
+        f"x_m = {hub[0]}\ny_m = {hub[1]}\nz_m = {hub[2]}\n"
+        f"axis = {declared}\nrpm_sign = 1\ndiameter_m = {_DIAMETER}\n"
+        'families_blades = ["B"]\n'
+        f'blade1 = {{ azimuth_deg = 0.0, zero = "{zero}" }}\n'
     )
-    if not isinstance(axis, str):
-        # Post also reads historical loads on negative global axes. Construct that
-        # old direction explicitly; new input validation forbids a >45-degree tilt.
-        rotor = rotor.model_copy(
-            update={"axis": rotor.axis.model_copy(update={"vector_wrt_global": tuple(axis)})}
-        )
-    return rotor
 
 
-def _row(run_id="camp/sim_1/P1", **coefficients):
+def _posted(tmp_path: Path, axis, loads, *, hub=(0.0, 0.0, 0.0), mrp=(0.0, 0.0, 0.0)):
+    """Polar 6001 as a quasi-steady sector at 1200 rev/min with rotor PUSHER = family B.
+
+    The family B row of every export is the coefficient row ``loads`` states; the moment
+    point of the records is ``mrp`` and the rotor's hub ``hub``. Returns the row of the
+    rotor group's RCOEF file at the point AL+000 and the warnings the post said.
+    """
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
+
+    unit = math.sqrt(sum(c * c for c in axis))
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        _reference(axis, hub), encoding="utf-8"
+    )
+    c = {**_EMPTY, **loads}
+    row = (
+        f"     B,{c['Cx']:+.7f},{c['Cy']:+.7f},{c['Cz']:+.7f},{c['Cz']:+.7f},"
+        f"+0.0000000,+0.0000000,{c['CMx']:+.7f},{c['CMy']:+.7f},{c['CMz']:+.7f}"
+    )
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            loads_file = workspace.sim_dir("6001") / record.outputs[0]
+            lines = loads_file.read_text(encoding="utf-8").splitlines()
+            lines = [row if line.startswith("     B,") else line for line in lines]
+            loads_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            quasi = {
+                "schema_version": 1,
+                "run_type": "qsteady_rotor",
+                "case": "sector",
+                "rotor": "PUSHER",
+                "blades": 2,
+                "rpm": _RPM,
+                "shaft_frame_axis": _shaft_of(axis),
+                "hub_m": list(hub),
+                "axis_vector": [value / unit for value in axis],
+                "diameter_m": _DIAMETER,
+                "families_general": [],
+                "families_blades": ["B"],
+                "blade1_azimuth_deg": 0.0,
+                "positions": [
+                    {
+                        "index": 0,
+                        "clocking_deg": 0.0,
+                        "rotated_deg": 0.0,
+                        "loads": loads_file.name,
+                    }
+                ],
+                "validity": None,
+            }
+            loads_file.with_name(loads_file.stem + "_qsteady.json").write_text(json.dumps(quasi))
+            reference = {**record.reference, "XMOM": mrp[0], "YMOM": mrp[1], "ZMOM": mrp[2]}
+            record = record.model_copy(update={"recipe": "qsteady_rotor", "reference": reference})
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _post(workspace)
+    (manifest,) = workspace.root.rglob("products.json")
+    _columns, rows = read_csv_table(manifest.parent / "polars" / "P6001-PUSHER-RCOEF.csv")
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    (point,) = [row for row in rows if row["POINT"] == _POINT]
+    return point, said
+
+
+def _cross(a, b):
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _dot(a, b):
+    return sum(x * y for x, y in zip(a, b, strict=True))
+
+
+def _expected(loads, axis, *, hub=(0.0, 0.0, 0.0), mrp=(0.0, 0.0, 0.0)):
+    """CT, CQ and the four in-plane coefficients of the loads, from the design page.
+
+    The export frame is x aft, y right, z up; the body frame is forward, right, down. The
+    rotor frame's x is the declared shaft in body axes with the sense rule of section 5.3
+    (thrust positive forward, a lift rotor's up), y the horizontal to the right (toe 0) and
+    z = x cross y. ``Z`` is up, ``-F_R,z``; ``N`` and ``M`` are the hub moment's z and y.
+    """
+    force = tuple(loads.get(name, 0.0) * _QS for name in ("Cx", "Cy", "Cz"))
+    moment = tuple(loads.get(name, 0.0) * _QS * _CREF for name in ("CMx", "CMy", "CMz"))
+    arm = tuple(mrp[i] - hub[i] for i in range(3))
+    transfer = _cross(arm, force)
+    at_hub = tuple(moment[i] + transfer[i] for i in range(3))
+    unit = math.sqrt(sum(c * c for c in axis))
+    a = (-axis[0] / unit, axis[1] / unit, -axis[2] / unit)
+    if a[0] < -1e-12 or (abs(a[0]) <= 1e-12 and a[2] > 0.0):
+        a = (-a[0], -a[1], -a[2])
+    x_r, y_r = a, (0.0, 1.0, 0.0)
+    z_r = _cross(x_r, y_r)
+    body_force = (-force[0], force[1], -force[2])
+    body_moment = (-at_hub[0], at_hub[1], -at_hub[2])
     return {
-        "run_id": run_id,
-        "surfaces": _surfaces(Blade1=coefficients),
-        "condition": {"MACH": 0.12, "ALPHA": 0.0, "VINF": 40.0},
-        "rpm": 3000.0,
-        "density": 1.225,
-        "speed": 40.0,
-        "free_stream": 40.0,
-        "air": (40.0, 340.0),
+        "CT": _dot(body_force, x_r) / _F4,
+        "CQ": _dot(body_moment, x_r) / _F5,
+        "CFZ": -_dot(body_force, z_r) / _F4,
+        "CFY": _dot(body_force, y_r) / _F4,
+        "CMZ": _dot(body_moment, z_r) / _F5,
+        "CMY": _dot(body_moment, y_r) / _F5,
     }
 
 
-def _table(tmp_path, rotor, *rows, reference=None):
-    written = write_rotor_table(
-        tmp_path / "P1-PUSHER_rotor.csv",
-        rotor=rotor,
-        rows=list(rows),
-        reference=reference or _reference(),
-    )
-    assert written is not None
-    return read_csv_table(written)
-
-
-def _in_plane(row):
-    return tuple(float(row[name]) for name in IN_PLANE)
+def _check(row, expected):
+    for name in ("CT", "CQ", *IN_PLANE):
+        assert float(row[name]) == pytest.approx(expected[name], rel=1e-5, abs=1e-9), (
+            name,
+            row,
+            expected,
+        )
 
 
 @pytest.mark.requirement("FR-188")
 def test_exact_values_on_a_constructed_load_with_a_known_axis(tmp_path):
-    """A forward-pointing rotor (-x), its hub 1 m ahead of the moment point.
+    """A rotor on the x axis (thrust forward), its hub 1 m behind the moment point.
 
-    F = 9800 (-0.4, 0.03, 0.05) = (-3920, 294, 490) N and, about the moment
-    point, M = 9800 (0.01, 0.02, -0.015) = (98, 196, -147) N m. The moment
-    point lies at +1 m in x from the hub, so at the hub
-    M_hub = M + (1, 0, 0) x F = (98, 196 - 490, -147 + 294) = (98, -294, 147).
-    T = -x, N = +z, S = N x T = -y, so N = +FZ = 490, S = -FY = -294,
-    MN = +MZ_hub = 147, MS = -MY_hub = 294:
-    CN = 0.01, CS = -0.006, CMN = 0.0015, CMS = 0.003.
+    F = q S (-0.4, 0.03, 0.05) and, about the moment point, M = q S c (0.01, 0.02, -0.015)
+    in the export frame. The moment point lies at +1 m in x from the hub, so at the hub
+    M_hub = M + (1, 0, 0) x F = (Mx, My - Fz, Mz + Fy). In the rotor frame (x forward,
+    y right, z down) CFZ is the upward force, CFY the force to the right, CMZ and CMY the
+    hub moment about z (down) and y, which is the mapping of the design (2.3): CFZ = CN,
+    CFY = -CS, CMZ = -CMN, CMY = -CMS of 0.57.0.
     """
     # P0310-G8-TUNNEL
-    columns, rows = _table(
-        tmp_path,
-        _rotor((-1.0, 0.0, 0.0)),
-        _row(Cx=-0.4, Cy=0.03, Cz=0.05, CMx=0.01, CMy=0.02, CMz=-0.015),
-        reference=_reference(XMOM=1.0),
-    )
-    assert tuple(columns[-7:]) == ("MTIP_PUSHER", "MHEL_PUSHER", *IN_PLANE, "MADV_PUSHER"), columns
-    (row,) = rows
-    assert _in_plane(row) == pytest.approx((0.01, -0.006, 0.0015, 0.003), abs=1e-9)
+    loads = {"Cx": -0.4, "Cy": 0.03, "Cz": 0.05, "CMx": 0.01, "CMy": 0.02, "CMz": -0.015}
+    row, _said = _posted(tmp_path, FORWARD, loads, mrp=(1.0, 0.0, 0.0))
+    assert float(row["XMOM"]) == 1.0, row
+    expected = _expected(loads, FORWARD, mrp=(1.0, 0.0, 0.0))
+    _check(row, expected)
+    # The mapping to 0.57.0's N, S, MN, MS, formed apart from `_expected`.
+    force = (-0.4 * _QS, 0.03 * _QS, 0.05 * _QS)
+    moment = (0.01 * _QS * _CREF, 0.02 * _QS * _CREF, -0.015 * _QS * _CREF)
+    hub_moment = (moment[0], moment[1] - force[2], moment[2] + force[1])
+    assert expected["CFZ"] == pytest.approx(force[2] / _F4, rel=1e-12)
+    assert expected["CFY"] == pytest.approx(force[1] / _F4, rel=1e-12)
+    assert expected["CMZ"] == pytest.approx(-hub_moment[2] / _F5, rel=1e-12)
+    assert expected["CMY"] == pytest.approx(hub_moment[1] / _F5, rel=1e-12)
     # The same force gives the thrust, so the two sets cannot come from two loads.
-    assert float(row["CT_PUSHER"]) == pytest.approx(3920.0 / FORCE_SCALE, abs=1e-9)
+    assert float(row["CT"]) == pytest.approx(0.4 * _QS / _F4, rel=1e-5)
     assert rotor_in_plane_loads((-3920.0, 294.0, 490.0), (98.0, -294.0, 147.0), (-1, 0, 0)) == (
         pytest.approx((490.0, -294.0, 147.0, 294.0), abs=1e-9)
     )
@@ -155,23 +258,28 @@ def test_rotor_coefficients_normalise_the_in_plane_loads_by_the_magnitude_of_the
 
 
 @pytest.mark.parametrize(
-    ("load", "expected"),
+    ("load", "only", "sign"),
     [
-        # Purely along N (+z on a forward-pointing axis): CN only, positive.
-        ({"Cz": 0.1}, (0.02, 0.0, 0.0, 0.0)),
-        # Purely along S (-y): CS only, positive.
-        ({"Cy": -0.1}, (0.0, 0.02, 0.0, 0.0)),
-        # A moment purely about N (+z) and purely about S (-y), at the hub.
-        ({"CMz": 0.1}, (0.0, 0.0, 0.01, 0.0)),
-        ({"CMy": -0.1}, (0.0, 0.0, 0.0, 0.01)),
+        # Purely up (the old N, +z on a forward-pointing axis): CFZ only, positive.
+        ({"Cz": 0.1}, "CFZ", 1.0),
+        # Purely to the right (the old -S): CFY only, positive.
+        ({"Cy": 0.1}, "CFY", 1.0),
+        # A moment about +z (up) is about -z of the rotor frame (down): CMZ negative.
+        ({"CMz": 0.1}, "CMZ", -1.0),
+        # A moment about +y (right) is the same about y of the rotor frame: CMY positive.
+        ({"CMy": 0.1}, "CMY", 1.0),
     ],
 )
 def test_a_load_purely_along_one_in_plane_axis_reaches_that_column_with_its_sign(
-    tmp_path, load, expected
+    tmp_path, load, only, sign
 ):
     # P0310-G8-TUNNEL
-    _columns, rows = _table(tmp_path, _rotor((-1.0, 0.0, 0.0)), _row(**load))
-    assert _in_plane(rows[0]) == pytest.approx(expected, abs=1e-9)
+    row, _said = _posted(tmp_path, FORWARD, load)
+    _check(row, _expected(load, FORWARD))
+    assert float(row[only]) * sign > 0.0, row
+    for name in IN_PLANE:
+        if name != only:
+            assert float(row[name]) == pytest.approx(0.0, abs=1e-9), (name, row)
 
 
 def test_the_axes_are_right_handed_and_follow_a_tilted_axis():
@@ -195,44 +303,47 @@ def test_the_axes_are_right_handed_and_follow_a_tilted_axis():
 
 
 def test_a_tilted_rotor_resolves_its_load_on_its_own_normal(tmp_path):
-    """F = (-3920, 0, 490) N on the rotor tilted 10 degrees nose up.
+    """F = q S (-0.4, 0, 0.05) on the rotor tilted 10 degrees nose up.
 
-    N = F . (sin 10, 0, cos 10) = -3920 sin 10 + 490 cos 10, S = 0; the same
-    force on a level rotor gives N = 490. CT reads the tilted thrust,
-    F . T = 3920 cos 10 + 490 sin 10.
+    The shaft is declared along +x tilted down in the export frame, (cos 10, 0, -sin 10),
+    the same line as the forward axis (-cos 10, 0, sin 10) of 0.57.0 (a negative
+    direction is no longer a valid declaration; the sense rule of the design gives the
+    same thrust direction). N = F . (sin 10, 0, cos 10) = q S (-0.4 sin 10 + 0.05 cos 10),
+    S = 0; the same force on a level rotor gives N = 0.05 q S. CT reads the tilted
+    thrust, F . T = q S (0.4 cos 10 + 0.05 sin 10).
     """
     # P0310-G8-TUNNEL
     tilt = math.radians(10.0)
-    rotor = _rotor((-math.cos(tilt), 0.0, math.sin(tilt)))
-    _columns, rows = _table(tmp_path, rotor, _row(Cx=-0.4, Cz=0.05))
-    (row,) = rows
-    normal = -3920.0 * math.sin(tilt) + 490.0 * math.cos(tilt)
-    assert float(row["CN_PUSHER"]) == pytest.approx(normal / FORCE_SCALE, abs=1e-5)
-    assert float(row["CS_PUSHER"]) == pytest.approx(0.0, abs=1e-9)
-    thrust = 3920.0 * math.cos(tilt) + 490.0 * math.sin(tilt)
-    assert float(row["CT_PUSHER"]) == pytest.approx(thrust / FORCE_SCALE, abs=1e-5)
-    assert float(row["CN_PUSHER"]) < 490.0 / FORCE_SCALE - 0.01
+    axis = (math.cos(tilt), 0.0, -math.sin(tilt))
+    loads = {"Cx": -0.4, "Cz": 0.05}
+    row, _said = _posted(tmp_path, axis, loads)
+    _check(row, _expected(loads, axis))
+    normal = (-0.4 * math.sin(tilt) + 0.05 * math.cos(tilt)) * _QS
+    assert float(row["CFZ"]) == pytest.approx(normal / _F4, rel=1e-5)
+    assert float(row["CFY"]) == pytest.approx(0.0, abs=1e-9)
+    thrust = (0.4 * math.cos(tilt) + 0.05 * math.sin(tilt)) * _QS
+    assert float(row["CT"]) == pytest.approx(thrust / _F4, rel=1e-5)
+    assert float(row["CFZ"]) < 0.5 * 0.05 * _QS / _F4
 
 
-@pytest.mark.parametrize("vertical", [1.0, -1.0], ids=["P0410-up", "P0410-down"])
-def test_p0410_a_vertical_axis_reads_na_and_is_said_once(tmp_path, vertical):
+def test_p0410_a_vertical_axis_has_a_defined_frame_and_its_in_plane_coefficients_are_numbers(
+    tmp_path,
+):
+    """A lift rotor (shaft +z) has toe 0 and thrust up (design 5.3): nothing reads NA.
+
+    0.57.0 read NA for the four in-plane coefficients and said so once, naming a
+    vertical axis; the design gives the vertical shaft a frame, so the replacement
+    assertion is that the numbers are the hand calculation and no such warning is said.
+    """
     # P0310-G8-TUNNEL
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _columns, rows = _table(
-            tmp_path,
-            _rotor((0.0, 0.0, vertical), zero="X"),
-            _row("camp/sim_1/P1", Cz=0.5, Cx=0.1),
-            _row("camp/sim_1/P2", Cz=0.4, Cy=0.1),
-        )
-    assert len(rows) == 2
-    for row in rows:
-        assert tuple(row[name] for name in IN_PLANE) == ("NA",) * 4, row
-        assert row["CT_PUSHER"] != "NA"
-    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
-    about = [text for text in said if "CN_PUSHER" in text]
-    assert len(about) == 1, said
-    assert "P1-PUSHER_rotor.csv" in about[0] and "vertical axis (+z or -z)" in about[0], about[0]
+    axis = (0.0, 0.0, 1.0)
+    loads = {"Cz": 0.4, "Cx": 0.1}
+    row, said = _posted(tmp_path, axis, loads)
+    for name in IN_PLANE:
+        assert row[name] != "NA", row
+    assert row["CT"] != "NA"
+    _check(row, _expected(loads, axis))
+    assert not [text for text in said if "vertical axis" in text], said
     assert rotor_in_plane_axes((0.0, 0.0, -3.0)) is None
 
 

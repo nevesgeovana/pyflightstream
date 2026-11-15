@@ -65,6 +65,13 @@ blade1 = {{ azimuth_deg = 0.0, zero = "Y" }}
 """
 
 
+def _rotor_row(written):
+    """The PUSHER group's RCOEF row of polar 6002: the successor of the retired rotor table."""
+    (table,) = [path for path in written if path.name == "P6002-PUSHER-RCOEF.csv"]
+    _columns, rows = read_csv_table(table)
+    return table, rows[0]
+
+
 def _pproc(group: str, frame: str, families: str) -> str:
     return (
         '[groups]\n"1" = "all"\n\n[plots]\n'
@@ -121,11 +128,10 @@ def _thrust_coefficient(force_n: float, density: float) -> float:
 
 def test_the_rotor_table_is_the_mean_over_the_rows_window_in_the_spelling_a_run_emits(tmp_path):
     written, manifest, density = _posted(tmp_path)
-    (table,) = [path for path in written if path.name.endswith("-PUSHER_rotor.csv")]
-    _columns, rows = read_csv_table(table)
-    thrust = abs(float(rows[0]["CT_PUSHER"]))
-    # The table prints five decimals, so half a unit of the last one is the tolerance;
-    # the last step and the whole history are 7e-3 and 9e-3 away.
+    table, row = _rotor_row(written)
+    thrust = abs(float(row["CT"]))
+    # The table prints seven significant digits; the last step and the whole history
+    # are 7e-3 and 9e-3 away.
     assert thrust == pytest.approx(_thrust_coefficient(400.0, density), abs=5e-6), (
         "the window mean is 400 N; the last step is 500 N and the whole history 275 N: "
         f"{thrust} against {_thrust_coefficient(500.0, density)} and "
@@ -133,24 +139,23 @@ def test_the_rotor_table_is_the_mean_over_the_rows_window_in_the_spelling_a_run_
     )
     entry = manifest["products"][f"polars/{table.name}"]
     assert entry["window"] == [3, 4], entry
-    assert "plots" in entry["source"] and "HUB_PUSHER" in entry["source"], entry
+    assert "plots" in entry["source"], entry
 
 
 def test_a_row_stating_a_window_never_gets_an_instant_in_its_rotor_table(tmp_path):
-    """RI-01: the history holds no column of the rotor, so the point is left out and named."""
-    written, manifest, _density = _posted(tmp_path, columns="SOMETHING_ELSE")
-    assert not [path for path in written if path.name.endswith("_rotor.csv")]
-    (reason,) = [why for key, why in manifest["skipped"].items() if key.endswith("_rotor.csv")]
-    assert "HUB_PUSHER" in reason and "steps 3 to 4" in reason, reason
+    """RI-01: the history holds no column of the rotor, so its row states no loads (NA)."""
+    written, _manifest, _density = _posted(tmp_path, columns="SOMETHING_ELSE")
+    _table, row = _rotor_row(written)
+    # The last step is 500 N (CT 0.0367): none of it, nor any other number, may stand in.
+    assert row["T"] == "NA" and row["CT"] == "NA", row
 
 
 def test_a_group_in_the_rotors_own_frame_is_never_the_source(tmp_path):
     """WR-05: a rotor-frame force is not in the geometry's axes, however its columns read."""
     # A group in an expanding frame is named by `{family}`, one per rotor, which is the
     # ONE way a bare `FX_PUSHER` column arises: in the rotor's own turned frame.
-    written, manifest, _density = _posted(
+    written, _manifest, _density = _posted(
         tmp_path, group="{family}", frame="SMRP", columns="PUSHER", families='["PUSHER"]'
     )
-    assert not [path for path in written if path.name.endswith("_rotor.csv")]
-    (reason,) = [why for key, why in manifest["skipped"].items() if key.endswith("_rotor.csv")]
-    assert "SMRP" in reason and "MRP" in reason, reason
+    _table, row = _rotor_row(written)
+    assert row["T"] == "NA" and row["CT"] == "NA", row

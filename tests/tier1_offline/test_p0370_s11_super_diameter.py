@@ -22,12 +22,13 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.post.superfile import superfile_row, union_the_workspace_knows
+from pyflightstream.post.superfile import union_the_workspace_knows
 from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -35,9 +36,11 @@ from tests.tier1_offline.test_goal035_l1_defects import _posted_qsteady
 
 REPO = Path(__file__).resolve().parents[2]
 
-#: The unsteady rotor campaign's two products: its unsteady polar and its rotor table.
-UNSTEADY_POLAR = "polars/P7001_AL-020_uns_avg.csv"
-ROTOR_TABLE = "polars/P7001-PUSHER_rotor.csv"
+#: The unsteady rotor campaign's products since 0.58.0: every file of polar 7001 opens with
+#: the run block, which states each declared rotor's speed and diameter (RPM<id>, D<id>).
+FAMILY_FILE = "polars/FAM-DIM-P7001.csv"
+GROUP_FILE = "polars/P7001-TOTAL-ACOEF.csv"
+ROTOR_FILE = "polars/P7001-PUSHER-RCOEF.csv"
 
 
 def _rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -64,82 +67,67 @@ def _posted_unsteady_rotor(tmp_path: Path) -> Path:
 
 
 def test_p0370_s11_the_unsteady_polar_states_the_rotor_table_diameter(tmp_path):
-    """P0370-S11-SUPER-DIAMETER (FR-89): `DIAMETER_PUSHER` right after `RPM_PUSHER`.
+    """P0370-S11-SUPER-DIAMETER (FR-89): `D0` and `RPM0` in the run block of every polar file.
 
-    Its value is the rotor table's own `DIAMETER_PUSHER`, the rotor block's
-    `diameter_m` the table divides by.
+    The rotor PUSHER, declared with no id, is rotor 0 (design of the post outputs, section
+    3). Its value in the family and group files is the rotor group's own `D0`, the rotor
+    block's `diameter_m` the rotor coefficients divide by.
     """
     products = _posted_unsteady_rotor(tmp_path)
-    header, (row,) = _rows(products / UNSTEADY_POLAR)
-    _table_header, table = _rows(products / ROTOR_TABLE)
-    assert "DIAMETER_PUSHER" in header, header
-    assert header.index("DIAMETER_PUSHER") == header.index("RPM_PUSHER") + 1, header
-    assert {line["DIAMETER_PUSHER"] for line in table} == {"2.00000"}, table
-    assert float(row["DIAMETER_PUSHER"]) == pytest.approx(2.0)
-    assert float(row["RPM_PUSHER"]) == pytest.approx(2200.0)
+    _table_header, table = _rows(products / ROTOR_FILE)
+    assert {line["D0"] for line in table} == {"2.00000"}, table
+    for name in (FAMILY_FILE, GROUP_FILE):
+        header, rows = _rows(products / name)
+        assert "D0" in header and "RPM0" in header, (name, header)
+        assert rows, name
+        for row in rows:
+            assert float(row["D0"]) == pytest.approx(2.0), name
+            assert float(row["RPM0"]) == pytest.approx(2200.0), name
 
 
 def test_p0370_s11_a_quasi_steady_super_file_states_its_speed_diameter_and_clock(tmp_path):
     """P0370-S11-SUPER-DIAMETER (FR-89): speed, diameter and clock with the reductions null.
 
-    The speed is the quasi-steady record's, 1200 rev/min, the rotor table's; the
-    diameter the reference block's, 2.0 m; `J_CLOCK = V / (n D) = 68.058 / (20 *
-    2.0) = 1.70145` at the products' five decimals. The rotor table states the
-    same clock.
+    The speed is the quasi-steady record's, 1200 rev/min; the diameter the reference
+    block's, 2.0 m; `J_CLOCK = V / (n D) = 68.058 / (20 * 2.0) = 1.70145` at the products'
+    five decimals. The polar's files state them in their run block (`RPM0`, `D0`,
+    `RPM_CLOCK`, `J_CLOCK`), and the wheel's own table states the same clock.
     """
     products, folder = _posted_qsteady(tmp_path, "sector")
     runs = _read_record_rows(folder.parents[1] / "runs.json")
     sector = [record for record in runs if str(record["sim_id"]) == "6001"]
     assert sector and all(record["reductions"] is None for record in sector), sector
-    supers = sorted((folder / "polars").glob("SUPER-6001-*_g01.csv"))
-    assert len(supers) == 1, sorted(products["products"])
-    header, rows = _rows(supers[0])
-    assert header.index("DIAMETER_PROP") == header.index("RPM_PROP") + 1, header
-    assert len(rows) == 2
-    for row in rows:
-        assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
-        assert float(row["DIAMETER_PROP"]) == pytest.approx(2.0)
-        assert row["RPM_CLOCK"] == "1200.00000", row
-        assert row["J_CLOCK"] == "1.70145", row
-    (table,) = sorted((folder / "polars").glob("P6001-PROP_rotor.csv"))
+    for name in ("P6001-TOTAL-ACOEF.csv", "P6001-PROP-RCOEF.csv"):
+        assert f"polars/{name}" in products["products"], sorted(products["products"])
+        header, rows = _rows(folder / "polars" / name)
+        assert len(rows) == 2
+        for row in rows:
+            assert float(row["RPM0"]) == pytest.approx(1200.0)
+            assert float(row["D0"]) == pytest.approx(2.0)
+            assert row["RPM_CLOCK"] == "1200.00000", row
+            assert row["J_CLOCK"] == "1.70145", row
+    (table,) = sorted((folder / "polars").glob("P6001-PROP_qs_avg.csv"))
     _header, lines = _rows(table)
     assert {(line["RPM_CLOCK"], line["J_CLOCK"]) for line in lines} == {("1200.00000", "1.70145")}
 
 
 def test_p0370_s11_a_row_without_a_rotor_has_no_diameter_column(tmp_path):
-    """P0370-S11-SUPER-DIAMETER (FR-89): a row that turns no rotor gains no column.
+    """P0370-S11-SUPER-DIAMETER (FR-89): a polar that turns no rotor gains no rotor column.
 
-    The steady record of the quasi-steady campaign's workspace, rotorless as the
-    run wrote it, assembled against a reference that DOES declare a rotor: no
-    `DIAMETER_` or `RPM_<alias>` key. In a campaign whose super file has the
-    column through another row, that row's cell is `NA`: polar 6002 turns no
-    rotor `PROP`, and its super file reads `NA` under the sector's column.
+    Polar 6002 of the quasi-steady campaign's workspace turns no rotor: its reference
+    declares none, so its files carry none of the per-rotor run-block columns (design of
+    the post outputs, section 3: a reference that declares no rotor writes no `RPM<id>`,
+    `D<id>`), while the sector's polar 6001 does. The columns are never a cell of `NA`
+    in a file of the other polar, because each polar has its own files.
     """
     _products, folder = _posted_qsteady(tmp_path, "sector")
-    from pyflightstream.workspace import RunRecord
-
-    runs = _read_record_rows(folder.parents[1] / "runs.json")
-    steady = RunRecord(**{**runs[0], "recipe": "steady"})
-
-    class Block:
-        diameter_m = 2.0
-
-    row = superfile_row(
-        polar_columns=("ALPHA",),
-        polar_values=(0.0,),
-        matrix_row=None,
-        record=steady,
-        sweep_row=None,
-        plots_row=None,
-        rotors={"PROP": Block()},
-        own_speeds=None,
-    )
-    assert not [key for key in row if key.startswith(("DIAMETER_", "RPM_"))], row
-    supers = sorted((folder / "polars").glob("SUPER-6002-*_g01.csv"))
-    assert len(supers) == 1
-    header, rows = _rows(supers[0])
-    assert "DIAMETER_PROP" in header
-    assert {line["DIAMETER_PROP"] for line in rows} == {"NA"}, rows
+    per_rotor = re.compile(r"^(RPM|J|MTIP|MHEL|D|ADISC|PITCH|TOE)\d+$")
+    for name in sorted((folder / "polars").glob("*P6002*.csv")):
+        header, rows = _rows(name)
+        assert rows, name
+        assert not [column for column in header if per_rotor.match(column)], (name, header)
+    header, _rows_of_sector = _rows(folder / "polars" / "P6001-TOTAL-ACOEF.csv")
+    assert "D0" in header and "RPM0" in header
 
 
 def test_p0370_s11_the_union_names_the_diameter_of_a_planned_rotor(tmp_path):

@@ -24,23 +24,16 @@ from pyflightstream.cases.corrections import (
     calibration_text,
 )
 from pyflightstream.cases.qsteady import reduced_frequency
-from pyflightstream.post import _rotor_plan
+from pyflightstream.post import _polar_stage, _rotor_plan
 from pyflightstream.post._rotor_products import _acoustic_products
 from pyflightstream.post.acoustics import write_acoustic_products
+from pyflightstream.post.axes import frame_rotations, rotor_frame
 from pyflightstream.post.harmonics import fit_harmonics
 from pyflightstream.post.inflow_tools import blade_view_harmonics
-from pyflightstream.post.products import read_csv_table, write_rotor_table
+from pyflightstream.post.products import read_csv_table
 from pyflightstream.post.qsteady import add_reduced_frequency_to_sections
+from pyflightstream.post.rotor_table import rotor_frame_coefficients
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
-from tests.tier1_offline.test_goal026_item06_rotor_loads import (
-    _reference as _post_1_rotor_table___reference,
-)
-from tests.tier1_offline.test_goal026_item06_rotor_loads import (
-    _rotor as _post_1_rotor_table___rotor,
-)
-from tests.tier1_offline.test_goal026_item06_rotor_loads import (
-    _surfaces as _post_1_rotor_table___surfaces,
-)
 from tests.tier1_offline.test_goal028_rotor_table_average import (
     REFERENCE as _POST_1_ROTOR_PLAN__REFERENCE,
 )
@@ -339,8 +332,8 @@ class TestPost2RotorProducts:
         assert "inconsistent load columns" in manifest["skipped"][key]
         assert all(record.run_id in manifest["skipped"][key] for record in records)
         assert not [name for name in manifest["products"] if name.endswith("_qs_positions.csv")]
-        assert any(name.endswith("_rotor.csv") for name in manifest["products"]), (
-            "the rotor table of the simulation is still written"
+        assert "polars/P6001-PROP-RCOEF.csv" in manifest["products"], (
+            "the rotor group's RCOEF file of the simulation is still written"
         )
 
 
@@ -646,8 +639,6 @@ class TestPost1RotorPlan:
     rotor table's real, sanitised path.
     P0400-CLOCKFOLD (PFS-2105.005): the J-mismatch warning finds the clock rotor
     case-folded, as clock_rotor_facts resolves it.
-    P0400-NOCOEFFINSTANT (PFS-2105.006): a windowed row whose average cannot be
-    made coefficients is left out and named, never written as the last step.
     P0400-ROTORMACH (PFS-2105.030): a record stating no Mach gets the
     simulation's Mach in the rotor table, not 0.0.
     """
@@ -662,12 +653,15 @@ class TestPost1RotorPlan:
             judged.append(product)
             return None
 
-        monkeypatch.setattr(_rotor_plan, "_judge_average", _recording)
+        monkeypatch.setattr(_polar_stage, "_judge_average", _recording)
         _written, manifest, _caught = _post_1_rotor_plan___campaign(tmp_path, alias="PUSH/ER")
         assert judged, "the averaging path was not reached"
-        tables = [key for key in manifest["products"] if key.endswith("_rotor.csv")]
-        assert tables == ["polars/P6002-PUSH_ER_rotor.csv"], tables
-        assert set(judged) == set(tables), (judged, tables)
+        # The rotor table is the ROTOR group's RCOEF file now (design-post-outputs 2.2); the
+        # alias goes through the file-name rule, so no separator is left in the name.
+        tables = [key for key in manifest["products"] if key.endswith("-RCOEF.csv")]
+        assert "polars/P6002-PUSH_ER-RCOEF.csv" in tables, tables
+        assert all(table.count("/") == 1 for table in tables), tables
+        assert set(judged) <= set(manifest["products"]), (judged, sorted(manifest["products"]))
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-CLOCKFOLD")])
@@ -679,17 +673,13 @@ class TestPost1RotorPlan:
             window=False,
             clock="pusher",
         )
-        assert any("ran at J_PUSHER" in message for message in caught), caught
-
-    @staticmethod
-    @pytest.mark.parametrize((), [pytest.param(id="P0400-NOCOEFFINSTANT")])
-    def test_p0400_nocoeffinstant_leaves_the_point_out(tmp_path, monkeypatch):
-        """P0400-NOCOEFFINSTANT: no coefficients from the average means no row, and a reason."""
-        monkeypatch.setattr(_rotor_plan, "_rotor_coefficients_from_newtons", lambda *a, **k: {})
-        written, manifest, _caught = _post_1_rotor_plan___campaign(tmp_path)
-        assert not [path for path in written if path.name.endswith("_rotor.csv")], written
-        reasons = [why for key, why in manifest["skipped"].items() if key.endswith("_rotor.csv")]
-        assert reasons and "cannot be made coefficients" in reasons[0], manifest["skipped"]
+        # The J-mismatch warning left with the rotor table (`_warn_rotor_advance_ratio`); what
+        # the point keeps is that the case-folded clock is found: the run block's clock speed
+        # is the speed of rotor PUSHER of the two-rotor reference.
+        _columns, rows = read_csv_table(
+            next(path for path in _written if path.name == "P6002-TOTAL-ACOEF.csv")
+        )
+        assert {row["RPM_CLOCK"] for row in rows} == {"2200.00000"}, (rows, caught)
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ROTORMACH")])
@@ -698,7 +688,7 @@ class TestPost1RotorPlan:
         written, _manifest, _caught = _post_1_rotor_plan___campaign(
             tmp_path, window=False, second_point_without_mach=True
         )
-        (table,) = [path for path in written if path.name.endswith("-PUSHER_rotor.csv")]
+        (table,) = [path for path in written if path.name == "P6002-PUSHER-RCOEF.csv"]
         _columns, rows = read_csv_table(table)
         assert len(rows) == 2, rows
         assert [float(row["MACH"]) for row in rows] == [0.1441, 0.1441], rows
@@ -763,105 +753,39 @@ class TestPost1RotorProducts:
         assert entry["samples"] == 18, entry
 
 
-def _post_1_rotor_table___row(run_id: str = "camp/sim_1/P1", **update):
-    row = {
-        "run_id": run_id,
-        "surfaces": _post_1_rotor_table___surfaces(Blade1={"Cz": 0.5, "Cx": 0.2, "CMz": 0.1}),
-        "condition": {"MACH": 0.15, "ALPHA": 0.0, "BETA": 0.0, "VINF": 40.0, "J": 0.5},
-        "rpm": 3000.0,
-        "density": 1.225,
-        "speed": 40.0,
-        "free_stream": 40.0,
-    }
-    row.update(update)
-    return row
-
-
-def _post_1_rotor_table___etaw(tmp_path, rows, **kwargs):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        written = write_rotor_table(
-            tmp_path / "P1-PUSHER_rotor.csv",
-            rotor=_post_1_rotor_table___rotor("Z"),
-            rows=rows,
-            reference=_post_1_rotor_table___reference(),
-            **kwargs,
-        )
-    assert written is not None
-    _columns, table = read_csv_table(written)
-    return [row["ETAW_PUSHER"] for row in table], [str(w.message) for w in caught]
-
-
-def _post_1_rotor_table___at(alpha: float, run_id: str, **condition):
-    stated = {"MACH": 0.15, "ALPHA": alpha, "BETA": 0.0, "VINF": 40.0, "J": 0.5, **condition}
-    return _post_1_rotor_table___row(run_id, condition=stated)
-
-
 class TestPost1RotorTable:
-    """P0400 rotor-table defects (post-1 lane).
+    """P0400 rotor-table defect (post-1 lane), on the values the RCOEF files are made of.
 
     P0400-ETAWSENSE (PFS-2105.017): ETAW's sense is fixed once per rotor, so a lift
-    rotor swept through alpha 0 keeps the sign of its ETAW.
-    P0400-NOATTITUDE (PFS-2105.018): missing or unreadable ALPHA/BETA leaves ETAW NA;
-    the keys are read case-folded. MADV alone retains its zero-angle exception.
-    P0400-NAROWSAID (PFS-2105.040): a loads export in another frame is a refused row
-    with its reason; a static row stays and is said once.
+    rotor swept through alpha 0 keeps the sign of its ETAW (the sense rule of
+    `docs/definitions/rotor-coefficients.md#etaw`, which the design page keeps for the
+    `ETAW` of the RCOEF files).
     """
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ETAWSENSE")])
-    def test_p0400_etawsense_a_lift_rotor_keeps_its_sign_through_alpha_zero(tmp_path):
+    def test_p0400_etawsense_a_lift_rotor_keeps_its_sign_through_alpha_zero():
         """P0400-ETAWSENSE: alpha -2 and +2 on a +Z rotor give ETAW of one sign."""
-        etaw, _ = _post_1_rotor_table___etaw(
-            tmp_path, [_post_1_rotor_table___at(-2.0, "r1"), _post_1_rotor_table___at(2.0, "r2")]
-        )
-        signs = {math.copysign(1.0, float(value)) for value in etaw}
+        frame = rotor_frame((0.0, 0.0, 1.0), 0)
+        etaw = []
+        for alpha in (-2.0, 2.0):
+            row = rotor_frame_coefficients(
+                force_n=(0.0, 0.0, 100.0),
+                moment_hub_nm=(0.0, 0.0, 5.0),
+                frame=frame,
+                rotations=frame_rotations(alpha, 0.0, [frame]),
+                rpm=3000.0,
+                diameter_m=1.0,
+                density_kg_m3=1.225,
+                vinf_m_s=40.0,
+                sref_m2=1.0,
+                cref_m=1.0,
+                bref_m=1.0,
+            )
+            etaw.append(row["ETAW"])
+        assert all(isinstance(value, float) for value in etaw), etaw
+        signs = {math.copysign(1.0, value) for value in etaw}
         assert len(signs) == 1, etaw
-
-    @staticmethod
-    @pytest.mark.parametrize((), [pytest.param(id="P0400-NOATTITUDE")])
-    def test_p0440_noattitude_is_na_and_said(tmp_path):
-        """Missing BETA leaves ETAW unavailable; explicit lower-case keys remain readable."""
-        no_beta = _post_1_rotor_table___row(
-            "r1", condition={"MACH": 0.15, "ALPHA": 2.0, "VINF": 40.0, "J": 0.5}
-        )
-        lower = _post_1_rotor_table___row(
-            "r2", condition={"MACH": 0.15, "alpha": 2.0, "beta": 0.0, "J": 0.5}
-        )
-        stated = _post_1_rotor_table___at(2.0, "r3")
-        etaw, caught = _post_1_rotor_table___etaw(tmp_path, [no_beta, lower, stated])
-        assert etaw[0] == "NA" and etaw[1] == etaw[2] != "NA", etaw
-        assert any("state no ALPHA or BETA" in message and "r1" in message for message in caught)
-
-    @staticmethod
-    @pytest.mark.parametrize((), [pytest.param(id="P0400-NOATTITUDE")])
-    def test_p0430_rb6_07_an_angle_that_is_not_a_number_is_still_na(tmp_path):
-        """RB6-07: an unreadable angle keeps ETAW NA and is said."""
-        unreadable = _post_1_rotor_table___row(
-            "r1", condition={"MACH": 0.15, "ALPHA": "x", "BETA": 0.0, "VINF": 40.0, "J": 0.5}
-        )
-        etaw, caught = _post_1_rotor_table___etaw(tmp_path, [unreadable])
-        assert etaw == ["NA"], etaw
-        assert any("not a finite number" in message for message in caught), caught
-
-    @staticmethod
-    @pytest.mark.parametrize((), [pytest.param(id="P0400-NAROWSAID")])
-    def test_p0400_narowsaid_frame_refused_and_static_said(tmp_path):
-        """P0400-NAROWSAID: frame BODY is left out with its reason; the static row is warned."""
-        left_out: list[tuple[str, str]] = []
-        written_runs: list[str] = []
-        rows = [
-            _post_1_rotor_table___row("r1", frame="BODY"),
-            _post_1_rotor_table___row("r2", speed=0.0),
-            _post_1_rotor_table___row("r3"),
-        ]
-        _etaw_values, caught = _post_1_rotor_table___etaw(
-            tmp_path, rows, left_out=left_out, written_runs=written_runs
-        )
-        assert [run for run, _why in left_out] == ["r1"], left_out
-        assert "analysis frame 'BODY'" in left_out[0][1]
-        assert written_runs == ["r2", "r3"]
-        assert any("static points (r2)" in message for message in caught), caught
 
 
 def test_f139_a_harmonic_row_outside_the_grid_is_carried_as_na(tmp_path, monkeypatch):

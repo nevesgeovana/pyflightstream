@@ -487,7 +487,9 @@ def _old_record_through_the_commands(workspace, matrix: Path, sim: str, capsys) 
 
     assert matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root)]) == 0
     post = workspace.root / "post" / matrix.stem
-    (polar,) = sorted((post / "polars").glob(f"P{sim}-*_g01.csv"))
+    # 0.58.0: one TOTAL group file per polar, a row per point (the failed ones included).
+    polar = post / "polars" / f"P{sim}-TOTAL-ACOEF.csv"
+    assert polar.is_file(), sorted(p.name for p in (post / "polars").glob("*"))
     with polar.open(encoding="utf-8", newline="") as handle:
         rows = [row for row in csv.DictReader(handle) if row["POL"] == sim]
     assert len(rows) == len(recorded[sim]), (polar.name, len(rows), recorded[sim])

@@ -328,6 +328,11 @@ def test_theodorsen_and_sears_are_their_closed_forms():
 # ------------------------------------------ the synthetic wheel (sections)
 
 
+def _folder_of(name: str) -> str:
+    """The harmonics moved from sections/ to reductions/ in 0.58.0; the sections table stayed."""
+    return "reductions" if "harmonics" in name else "sections"
+
+
 def _wheel_posted(
     tmp_path: Path, monkeypatch, *, correction: dict | None, calibration: str | None
 ) -> tuple[CampaignWorkspace, Path, dict, list[str]]:
@@ -388,7 +393,7 @@ def test_p0570_lreq_force_only_correction_names_the_unverified_moment_reference(
     _, corrected = read_csv_table(out / "sections" / "DP_sections_corrected.csv")
     assert [row["Moment"] for row in corrected] == [row["Moment"] for row in raw]
     for name in ("DP_sections_corrected.csv", "DP_harmonics_corrected.csv"):
-        notes = manifest["products"][f"sections/{name}"].get("notes", [])
+        notes = manifest["products"][f"{_folder_of(name)}/{name}"].get("notes", [])
         assert any(
             "force-only" in note and "moment reference is unverified" in note for note in notes
         )
@@ -439,8 +444,8 @@ def test_the_corrected_sections_are_the_raw_rows_plus_the_change_of_their_0p_and
     )
     _, raw = read_csv_table(out / "sections" / "DP_sections.csv")
     columns, corrected = read_csv_table(out / "sections" / "DP_sections_corrected.csv")
-    _, harmonics = read_csv_table(out / "sections" / "DP_harmonics.csv")
-    _, harmonics_corrected = read_csv_table(out / "sections" / "DP_harmonics_corrected.csv")
+    _, harmonics = read_csv_table(out / "reductions" / "DP_harmonics.csv")
+    _, harmonics_corrected = read_csv_table(out / "reductions" / "DP_harmonics_corrected.csv")
     fit = {(row["QUANTITY"], float(row["STATION_R_M"])): row for row in harmonics}
     assert len(raw) == len(corrected) == 3 * 2 * 3
     for before, after in zip(raw, corrected, strict=True):
@@ -492,7 +497,7 @@ def test_a_station_outside_the_grid_is_a_named_skip_and_a_warning(tmp_path, monk
     inner = [row for row in corrected if abs(float(row["Offset"]) - 0.3) < 1e-9]
     assert outer and all(row["Fx"] == "NA" and row["Fz"] == "NA" for row in outer)
     assert inner and all(row["Fx"] != "NA" for row in inner)
-    key = "sections/DP_harmonics_corrected.csv#component=Fx"
+    key = "reductions/DP_harmonics_corrected.csv#component=Fx"
     assert "outside the Fx grid" in manifest["skipped"][key]
     assert "never extrapolated" in manifest["skipped"][key]
     said = [line for line in log if line.startswith("WARNING") and "outside the Fx grid" in line]
@@ -518,10 +523,10 @@ def test_the_raw_files_are_byte_identical_with_and_without_a_route(tmp_path, mon
         }
 
     assert hashes(plain) == hashes(routed)
-    assert {"sections/DP_sections.csv", "sections/DP_harmonics.csv"} <= set(hashes(plain))
+    assert {"sections/DP_sections.csv", "reductions/DP_harmonics.csv"} <= set(hashes(plain))
     beside = {
         "sections/DP_sections_corrected.csv": "sections/DP_sections.csv",
-        "sections/DP_harmonics_corrected.csv": "sections/DP_harmonics.csv",
+        "reductions/DP_harmonics_corrected.csv": "reductions/DP_harmonics.csv",
     }
     for corrected, raw in beside.items():
         assert (routed / corrected).is_file() and manifest["products"][corrected]["raw"] == raw
@@ -541,14 +546,14 @@ def test_every_corrected_file_states_its_route_and_calibration_and_that_it_is_no
     )
     sha = _sha(workspace.inputs_dir / "calibrations" / "c001.toml")
     for name in ("DP_sections_corrected.csv", "DP_harmonics_corrected.csv"):
-        columns, rows = read_csv_table(out / "sections" / name)
+        columns, rows = read_csv_table(out / _folder_of(name) / name)
         assert columns[-2:] == (CORRECTION_ROUTE_COLUMN, CALIBRATION_SHA256_COLUMN)
         assert {(row[CORRECTION_ROUTE_COLUMN], row[CALIBRATION_SHA256_COLUMN]) for row in rows} == {
             ("table", sha)
         }
-        entry = manifest["products"][f"sections/{name}"]
+        entry = manifest["products"][f"{_folder_of(name)}/{name}"]
         assert entry["kind"] == "corrected"
-        assert entry["raw"] == f"sections/{name.replace('_corrected', '')}"
+        assert entry["raw"] == f"{_folder_of(name)}/{name.replace('_corrected', '')}"
         assert entry["route"] == "table"
         assert entry["calibration"] == "inputs/calibrations/c001.toml"
         assert entry["calibration_sha256"] == sha
@@ -572,8 +577,9 @@ def test_the_theodorsen_diagnostic_sits_beside_the_harmonics_and_corrects_nothin
     assert not list(out.rglob("*_corrected.csv")), "a diagnostic is never applied"
     columns, rows = read_csv_table(out / "sections" / "DP_theodorsen.csv")
     _, sections = read_csv_table(out / "sections" / "DP_sections.csv")
-    _, harmonics = read_csv_table(out / "sections" / "DP_harmonics.csv")
-    assert columns[:2] == ("POL", "ALPHA")
+    _, harmonics = read_csv_table(out / "reductions" / "DP_harmonics.csv")
+    # Every table opens with the run block (0.58.0 design, section 3): POL first, ALPHA in it.
+    assert columns[0] == "POL" and "ALPHA" in columns[:8]
     assert len(rows) == len(harmonics) == 9
     for row, fit in zip(rows, harmonics, strict=True):
         r = float(row["STATION_R_M"])
@@ -592,7 +598,7 @@ def test_the_theodorsen_diagnostic_sits_beside_the_harmonics_and_corrects_nothin
         )
         assert (row["H1_AMP"], row["H1_PHASE_DEG"]) == (fit["H1_AMP"], fit["H1_PHASE_DEG"])
     entry = manifest["products"]["sections/DP_theodorsen.csv"]
-    assert entry["kind"] == "theodorsen" and entry["source"] == "sections/DP_harmonics.csv"
+    assert entry["kind"] == "theodorsen" and entry["source"] == "reductions/DP_harmonics.csv"
     assert "never applied as a correction" in entry["diagnostic"]
 
 
@@ -700,10 +706,11 @@ def test_route_4_corrects_the_rotor_and_average_tables_beside_them(tmp_path):
         tmp_path, pproc_extra=extra, files={"c001.toml": _zero_p_calibration()}
     )
     products, folder, _ = _post_recorded(workspace)
-    (rotor,) = [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
+    # 0.58.0: the rotor table is the rotor group's RCOEF file (bare CT, CQ, CP, ETA, ETAW).
+    rotor = "polars/P6001-PROP-RCOEF.csv"
     (average,) = [name for name in products["products"] if name.endswith("PROP_qs_avg.csv")]
     for raw_name, pairs, derived in (
-        (rotor, {"CT_PROP": "CT", "CQ_PROP": "CQ"}, ("CP_PROP", "ETA_PROP", "ETAW_PROP")),
+        (rotor, {"CT": "CT", "CQ": "CQ"}, ("CP", "ETA", "ETAW")),
         (
             average,
             {"THRUST_PROP": "THRUST", "CT_PROPELLER": "CT"},
@@ -725,8 +732,8 @@ def test_route_4_corrects_the_rotor_and_average_tables_beside_them(tmp_path):
             for column in derived:
                 assert after[column] == "NA", column
             assert (
-                after["CN_PROP" if raw_name == rotor else "FX_W"]
-                == (before["CN_PROP" if raw_name == rotor else "FX_W"])
+                after["CFZ" if raw_name == rotor else "FX_W"]
+                == (before["CFZ" if raw_name == rotor else "FX_W"])
             )
         entry = products["products"][corrected_name]
         assert entry["raw"] == raw_name and entry["validation"] == "not validated"
@@ -749,7 +756,7 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     # P0310-ROUTE2
     workspace = _recorded_wheel(tmp_path)
     products, folder, _ = _post_recorded(workspace)
-    (rotor,) = [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
+    rotor = "polars/P6001-PROP-RCOEF.csv"
     runs = products["products"][rotor]["runs"]
     wheel_run = next(run for run in runs if "AL+000" in run)
     columns, rows = read_csv_table(folder / rotor)
@@ -759,12 +766,12 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     sector = dict(
         axial,
         **{
-            "CT_PROP": repr(float(axial["CT_PROP"]) + 0.002),
-            "CQ_PROP": repr(float(axial["CQ_PROP"]) + 0.0003),
+            "CT": repr(float(axial["CT"]) + 0.002),
+            "CQ": repr(float(axial["CQ"]) + 0.0003),
             "POL": "6003",
         },
     )
-    (folder / "polars" / "P6003-PROP_rotor.csv").write_text(
+    (folder / "polars" / "P6003-PROP-RCOEF.csv").write_text(
         ",".join(columns) + "\n" + ",".join(sector[c] for c in columns) + "\n", encoding="utf-8"
     )
     sector_run = "camp/sim_6003/SECTOR"
@@ -791,7 +798,7 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
         copied = workspace.sim_dir("6003") / output
         copied.parent.mkdir(parents=True, exist_ok=True)
         copied.write_bytes((workspace.sim_dir("6001") / output).read_bytes())
-    products["products"]["polars/P6003-PROP_rotor.csv"] = {"runs": [sector_run], "rotor": "PROP"}
+    products["products"]["polars/P6003-PROP-RCOEF.csv"] = {"runs": [sector_run], "rotor": "PROP"}
     (folder / "products.json").write_text(json.dumps(products), encoding="utf-8")
 
     if workspace_cli:
@@ -835,7 +842,7 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     assert {(row.gain_0p, row.gain_1p, row.phase_1p_deg) for row in calibration.rows} == {
         (1.0, 1.0, 0.0)
     }
-    assert offsets["CT"].j == pytest.approx(float(axial["J_PROP"]), abs=1e-12)
+    assert offsets["CT"].j == pytest.approx(float(axial["J0"]), abs=1e-12)
     # A second call does not write over it, and a run of another J is refused.
     with pytest.raises(CalibrationError, match="exists"):
         sector_offset_calibration(

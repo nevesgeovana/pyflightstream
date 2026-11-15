@@ -8,6 +8,7 @@ against a row the author wrote, column by column, at the author's five decimals.
 
 from __future__ import annotations
 
+import math
 import sys
 import warnings
 from pathlib import Path
@@ -685,7 +686,7 @@ def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path, existing_tip):
     )
     write_campaign_products(workspace)
     assert list(workspace.root.glob("post/**/structure/*_deflection.csv"))
-    path = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
+    path = next(workspace.root.glob("post/**/polars/P*-TOTAL-ACOEF.csv"))
     columns, rows = read_csv_table(path)
     if existing_tip:
         assert float(rows[0][existing_tip]) == pytest.approx(2.2)
@@ -1297,7 +1298,7 @@ def test_her_plot_format_sample_against_the_stage_product(tmp_path):
 
 def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(tmp_path):
     """PFS-2014.01.01. ``[products] custom_polar_format = true`` on the pproc artifact
-    writes ``<polar>_M<code>_g<group>.dat`` beside every polar table the stage
+    writes ``P<POL>-<GROUP>-ACOEF.dat`` beside every group ACOEF table the stage
     writes, products.json names it, the reader opens it, and write, read, write
     again is byte equal. Without the key nothing is written."""
     import json
@@ -1329,6 +1330,9 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
                 pproc="p001",
                 description="STEADY_WB",
                 mach=0.2,
+                # q_ref = 0.5 RHO VREF^2 needs the point's density (design 4): a record
+                # without one states no airframe coefficient.
+                density_kg_m3=1.225,
                 reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
             )
         )
@@ -1343,9 +1347,9 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         assert asked.resolve_pproc("p001").products.custom_polar_format is True
     written = write_campaign_products(asked)
     out = asked.root / "post" / "products"
-    # FR-88 and FR-85: under polars/, and named by the point name (0.21.0).
-    # This point sweeps nothing, so every field carries its value.
-    stem = "P3207-M200AL-020"
+    # FR-88: under polars/, one file set per polar named by its number and group
+    # (0.58.0, D29): no sweep name, no Mach token.
+    stem = "P3207-g01-ACOEF"
     # Since 0.26.0 every post writes its own log beside the manifest, and
     # since 0.27.0 its machine-readable twin (R02).
     assert sorted(p.name for p in out.iterdir()) == [
@@ -1354,41 +1358,53 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         "post.log.json",
         "products.json",
         "provenance",
-        "reports",  # FR-3292: the superfile measurement, beside the products
     ]
     names = sorted(p.name for p in (out / "polars").iterdir())
-    # FR-89 puts the superfile of each group here too; this point sweeps
-    # nothing and its workspace holds no matrix, so its name carries the
-    # values it has.
-    super_stem = "SUPER-3207-M200AL-020"
     assert names == [
-        f"{stem}_g01.csv",
-        f"{stem}_g01.dat",
-        f"{stem}_g03.csv",
-        f"{stem}_g03.dat",
-        f"{super_stem}_g01.csv",
-        f"{super_stem}_g03.csv",
+        "FAM-ACOEF-P3207.csv",
+        "FAM-DIM-P3207.csv",
+        "P3207-AIRFRAME-ACOEF.csv",
+        "P3207-AIRFRAME-ACOEF.dat",
+        "P3207-AIRFRAME-DIM.csv",
+        "P3207-TOTAL-ACOEF.csv",
+        "P3207-TOTAL-ACOEF.dat",
+        "P3207-TOTAL-DIM.csv",
+        "P3207-g01-ACOEF.csv",
+        "P3207-g01-ACOEF.dat",
+        "P3207-g01-DIM.csv",
+        "P3207-g03-ACOEF.csv",
+        "P3207-g03-ACOEF.dat",
+        "P3207-g03-DIM.csv",
     ], names
-    assert {p.name for p in written} >= {f"{stem}_g01.dat", f"{stem}_g03.dat"}
+    assert {p.name for p in written} >= {f"{stem}.dat", "P3207-g03-ACOEF.dat"}
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"][f"polars/{stem}_g01.dat"]["runs"] == ["camp/sim_3207/M200AL-020"]
+    assert manifest["products"][f"polars/{stem}.dat"]["runs"] == ["camp/sim_3207/M200AL-020"]
 
     # The custom format keeps its external %10.5f contract. The CSV now carries
     # more coefficient digits, so compare both at the custom format's precision.
-    table = read_custom_polar_format(out / "polars" / f"{stem}_g01.dat")
-    assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
+    table = read_custom_polar_format(out / "polars" / f"{stem}.dat")
+    assert table.polar == "3207" and table.mach == 0.2
     assert table.description == "STEADY_WB"
-    _, csv_rows = read_csv_table(out / "polars" / f"{stem}_g01.csv")
+    _, csv_rows = read_csv_table(out / "polars" / f"{stem}.csv")
+    # 0.58.0 renamed the moment columns (CR<f>25 -> Cl<f>, CM<f>25 -> Cm<f>, CN<f>25 -> Cn<f>);
+    # the custom format keeps its external names.
+    renamed = {"CR": "Cl", "CM": "Cm", "CN": "Cn"}
+
+    def new_name(column):
+        if column[:2] in renamed and column.endswith("25"):
+            return renamed[column[:2]] + column[2:-2]
+        return column
+
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == [
-        f"{float(csv_rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS
+        f"{float(csv_rows[0][new_name(c)]):.5f}" for c in COEFFICIENT_COLUMNS
     ]
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
-    text = (out / "polars" / f"{stem}_g01.dat").read_text(encoding="ascii")
+    text = (out / "polars" / f"{stem}.dat").read_text(encoding="ascii")
     assert text.splitlines()[:2] == ["FlightStream - STEADY_WB", "320720"]
-    assert text.splitlines()[6:8] == ["001", "024"]
+    assert text.splitlines()[6:8] == [f"{table.group:03d}", "024"]
 
     # Write, read, write again: byte equal, the date carried through.
-    first = (out / "polars" / f"{stem}_g01.dat").read_bytes()
+    first = (out / "polars" / f"{stem}.dat").read_bytes()
     again = write_custom_polar_format(
         tmp_path / "again.dat",
         polar=table.polar,
@@ -1400,12 +1416,22 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         date=table.date,
     )
     assert again.read_bytes() == first
+    # The group number on line 4 is the group's GROUP_ID (design 4.4: 100 + k for the k-th
+    # declared group); the l2 lane report names the number 01 shared by AIRFRAME and group 1
+    # as a defect for the integration step.
+    assert table.group == 101
 
     silent = _workspace(tmp_path / "silent", '[groups]\n"1" = "all"\n')
     write_campaign_products(silent)
     assert sorted(p.name for p in (silent.root / "post" / "products" / "polars").iterdir()) == [
-        f"{stem}_g01.csv",
-        f"{super_stem}_g01.csv",
+        "FAM-ACOEF-P3207.csv",
+        "FAM-DIM-P3207.csv",
+        "P3207-AIRFRAME-ACOEF.csv",
+        "P3207-AIRFRAME-DIM.csv",
+        "P3207-TOTAL-ACOEF.csv",
+        "P3207-TOTAL-DIM.csv",
+        "P3207-g01-ACOEF.csv",
+        "P3207-g01-DIM.csv",
     ], "without the key the custom format is not written"
 
     # The docs name the key and what the format is for.
@@ -1640,7 +1666,7 @@ def test_a_target_alone_decides_what_becomes_of_an_existing_series_table(tmp_pat
 
 
 def test_a_series_table_is_written_where_its_target_says(tmp_path):
-    """The seam write_superfiles takes: the table lands at the path the target returns."""
+    """The seam the post stage takes: the table lands at the path the target returns."""
     from pyflightstream.post.series import write_point_series
 
     workspace, arguments = _series_call(tmp_path)
@@ -1653,7 +1679,7 @@ def test_a_series_table_is_written_where_its_target_says(tmp_path):
 
     assert (elsewhere / "AL-020_loads_series.csv").is_file(), sorted(elsewhere.iterdir())
     assert all(path.parent == elsewhere for path in written), written
-    # The entries name the files that exist, as write_superfiles' do.
+    # The entries name the files that exist, as the stage's products.json entries do.
     assert sorted(names) == sorted(path.as_posix() for path in written), names
 
 
@@ -1724,7 +1750,9 @@ def test_a_stamped_file_the_parser_cannot_read_skips_that_series_and_not_the_sta
     assert not (workspace.root / "post" / "products" / "series").exists() or not list(
         (workspace.root / "post" / "products" / "series").glob("AL-020_loads_series.csv")
     ), "the torn point's loads series was written anyway"
-    assert any(name.endswith("_g01.csv") for name in manifest["products"]), "the polar still wrote"
+    assert any(name.endswith("-g01-ACOEF.csv") for name in manifest["products"]), (
+        "the polar still wrote"
+    )
 
 
 def test_p0430_a_torn_loads_file_costs_the_loads_series_and_not_the_other_kinds(tmp_path):
@@ -3125,7 +3153,7 @@ def test_fr_491_fr_800_a_shorter_restatement_keeps_the_march_end_and_says_the_id
     )
     manifest, _columns, series, said = posted(workspace)
     assert list(series.steps) == list(range(1, 9))
-    assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {"AL-020": [5, 8]}
+    assert manifest["products"]["polars/P7001-TOTAL-ACOEF.csv"]["windows"] == {"AL-020": [5, 8]}
     idle = [line for line in said if "adds no time step" in line]
     assert len(idle) == 1
     assert "camp/sim_7001/AL-020" in idle[0] and "camp/sim_7001/r20261001-120000/AL-020" in idle[0]
@@ -3187,52 +3215,36 @@ def test_far_field_columns_keep_six_significant_digits_f4_07(tmp_path):
 
 
 def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07(tmp_path):
-    """X-F-0353: NaN passes a test written as less than or equal to zero."""
-    from types import SimpleNamespace
+    """X-F-0353: NaN passes a test written as less than or equal to zero.
 
-    from pyflightstream.post.products import ReferenceValues
-    from pyflightstream.post.rotor_table import write_rotor_table
+    0.58.0: the rotor's rows are the RCOEF file of its group, written by the post stage;
+    a diameter, a speed or a density that is NaN states no coefficient (the cell is NA, or
+    the file is not written), writes no non-finite number, and the stage names the point it
+    left out.
+    """
+    from tests.tier1_offline.test_goal026_item06_rotor_loads import _stage_rotor, _surfaces
 
     nan = float("nan")
-    good = {"diameter": 1.0, "rpm": 600.0, "density": 1.2}
+    surfaces = _surfaces(Blade1=dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.1))
 
-    def table(case, **stated):
-        values = {**good, **stated}
-        rotor = SimpleNamespace(
-            alias="R",
-            axis_vector=(0.0, 0.0, 1.0),
-            diameter_m=values["diameter"],
-            members=["Blade1"],
-            x_m=0.0,
-            y_m=0.0,
-            z_m=0.0,
+    left_out: dict[str, str] = {}
+    _columns, rows, _said = _stage_rotor(
+        tmp_path / "good", surfaces, velocity=10.0, rpm=600.0, skipped=left_out
+    )
+    assert rows, "the good case wrote no RCOEF file"
+    for name in ("CT", "CQ", "CP"):
+        assert math.isfinite(float(rows[0][name])), (name, rows[0][name])
+    for case, stated in (("d", {"diameter": nan}), ("n", {"rpm": nan}), ("rho", {"density": nan})):
+        left_out = {}
+        _columns, rows, _said = _stage_rotor(
+            tmp_path / case, surfaces, velocity=10.0, **{"rpm": 600.0, **stated}, skipped=left_out
         )
-        row = {
-            "run_id": "r",
-            "surfaces": {"Blade1": dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.1)},
-            "condition": {"ALPHA": 0.0, "BETA": 0.0},
-            "rpm": values["rpm"],
-            "density": values["density"],
-            "speed": 10.0,
-        }
-        left_out: list[tuple[str, str]] = []
-        reference = ReferenceValues.from_mapping(
-            {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0.0, "YMOM": 0.0, "ZMOM": 0.0}
-        )
-        written = write_rotor_table(
-            tmp_path / f"{case}.csv",
-            rotor=rotor,
-            rows=[row],
-            reference=reference,
-            left_out=left_out,
-        )
-        return written, left_out
-
-    written, said = table("good")
-    assert written is not None and not said
-    for case, name in (("d", "diameter"), ("n", "rpm"), ("rho", "density")):
-        written, said = table(case, **{name: nan})
-        assert written is None and said and said[0][0] == "r"
+        for row in rows:
+            for name in ("CT", "CQ", "CP"):
+                assert row[name] == "NA", (case, name, row[name])
+            assert not [cell for cell in row.values() if cell.lower() in ("nan", "inf", "-inf")]
+        named = [key for key, text in left_out.items() if "AL+000" in key + text]
+        assert named, (case, left_out)
 
 
 def test_a_streamline_export_with_a_non_finite_value_writes_no_vtk_f4_07():

@@ -8,7 +8,10 @@ pproc may state a dictionary, export name to the reader's name:
     CL_MRP_TOTAL = "CL"
     FX_HUB_PUSHER = "FX_PUSHER"
 
-- It renames columns of the UNSTEADY POLAR and of the REDUCTIONS. The plots table
+- It renames columns of the REDUCTIONS (and, until 0.57.0, of the unsteady polar, which
+  0.58.0 replaced by the family and group files: their columns are fixed names, so the
+  dictionary is exercised below on the reduction tables, the one table family that still
+  prints the export's plot names). The plots table
   `time_history/<point>_plots.csv` stays raw: it is the source the others are read from.
 - Absent, every name passes through exactly as printed.
 - A left name NO PLOT PRINTS is refused where the product is written, naming the
@@ -30,55 +33,53 @@ from pyflightstream.post.products import (
     plots_table_series,
     read_csv_table,
     write_reduction_table,
-    write_unsteady_polar,
 )
-from tests.tier1_offline.test_goal028_uns_axes import CONDITION, REFERENCE, _plots, _Point
+from tests.tier1_offline.test_goal028_uns_axes import _plots
 
 
-def _polar(tmp_path, names, notes=None):
-    path = write_unsteady_polar(
-        tmp_path / "P0001_x_uns_avg.csv",
-        points=[_Point()],
-        plots={"P": _plots(tmp_path, ("MRP_TOTAL",))},
-        window=(2, 3),
-        conditions=[CONDITION],
-        reference=REFERENCE,
-        axes_groups=("MRP_TOTAL",),
+def _reduction(tmp_path, names, stem="P_time_average.csv"):
+    """One reduction table of the MRP_TOTAL plots over the window of steps 2 and 3."""
+    plots = _plots(tmp_path, ("MRP_TOTAL",))
+    columns, series = plots_table_series(plots)
+    written = write_reduction_table(
+        tmp_path / stem,
+        series,
+        columns,
+        reduction="time_average",
+        windows=[(2, 3)],
         names=names,
-        name_notes=notes,
     )
-    return read_csv_table(path)
+    return read_csv_table(written)
 
 
 def test_a_named_plot_column_is_written_under_the_readers_name_with_its_value(tmp_path):
-    columns, rows = _polar(tmp_path, {"FX_MRP_TOTAL": "DRAG_N"})
+    columns, rows = _reduction(tmp_path, {"FX_MRP_TOTAL": "DRAG_N"})
     assert "DRAG_N" in columns and "FX_MRP_TOTAL" not in columns, columns
     assert float(rows[0]["DRAG_N"]) == pytest.approx(120.0), "the mean of 110 and 130"
     assert "FY_MRP_TOTAL" in columns, "a column the dictionary does not name keeps its name"
-    # The axes are built from the six components BEFORE the rename, so they are still there.
-    assert "CLW_MRP_TOTAL" in columns, "named for its group since the release review"
 
 
 def test_without_a_dictionary_every_name_passes_through(tmp_path):
-    columns, _rows = _polar(tmp_path, None)
+    columns, _rows = _reduction(tmp_path, None)
     assert "FX_MRP_TOTAL" in columns
 
 
-def test_a_name_no_plot_prints_is_refused_by_name_and_the_columns_keep_their_names(tmp_path):
-    notes: list[str] = []
-    columns, _rows = _polar(tmp_path, {"FX_MRP_TOTAL": "DRAG_N", "FX_HUB_GHOST": "GHOST"}, notes)
-    assert "FX_MRP_TOTAL" in columns and "DRAG_N" not in columns, (
+def test_a_name_no_plot_prints_is_refused_by_name(tmp_path):
+    with pytest.raises(ProductError) as caught:
+        _reduction(tmp_path, {"FX_MRP_TOTAL": "DRAG_N", "FX_HUB_GHOST": "GHOST"})
+    assert "FX_HUB_GHOST" in str(caught.value), "the refusal names the entry that matches nothing"
+    assert "FX_MRP_TOTAL" in str(caught.value), "and the names the plots do print"
+    assert not (tmp_path / "P_time_average.csv").exists(), (
         "half a dictionary applied is a file nobody can predict"
     )
-    assert "GHOST" not in columns
-    assert len(notes) == 1 and "FX_HUB_GHOST" in notes[0] and "FX_MRP_TOTAL" in notes[0], notes
 
 
 def test_a_new_name_that_is_already_a_column_is_refused(tmp_path):
-    notes: list[str] = []
-    columns, _rows = _polar(tmp_path, {"FX_MRP_TOTAL": "ALPHA"}, notes)
-    assert columns.count("ALPHA") == 1 and "FX_MRP_TOTAL" in columns
-    assert len(notes) == 1 and "ALPHA" in notes[0], notes
+    columns, _rows = _reduction(tmp_path, None)
+    taken = next(name for name in columns if not name.endswith("_MRP_TOTAL"))
+    with pytest.raises(ProductError) as caught:
+        _reduction(tmp_path, {"FX_MRP_TOTAL": taken}, stem="Q_time_average.csv")
+    assert taken in str(caught.value), caught.value
 
 
 def test_a_reduction_is_renamed_the_same_way_and_the_plots_table_is_not(tmp_path):

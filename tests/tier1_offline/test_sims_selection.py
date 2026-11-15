@@ -2,10 +2,9 @@
 
 ``post [matrix] --sims 6001`` rebuilds only the named simulations' products of
 that matrix, in place: the others' files keep their bytes and their
-``products.json`` entries; the named simulations' super files are written
-under the column set the others' carry (PFS-2185.18), and when that set cannot
-be read every super file is left as it was and named under
-``partial.not_rebuilt`` and in ``post.log``. ``collect --sims`` sweeps only the
+``products.json`` entries; the named simulations' family and group polar files
+(0.58.0: one file set per polar, so one per simulation) are written under the
+column set the others' carry. ``collect --sims`` sweeps only the
 SUBMITTED records of the named simulations. Every workspace is a real
 ``tmp_path`` tree built as a run leaves it.
 """
@@ -184,69 +183,70 @@ def test_post_sims_replaces_only_the_named_entries_and_skips_fr_307(tmp_path):
     for key, reason in before["skipped"].items():
         if "6001" not in key:
             assert after["skipped"].get(key) == reason
-    assert "polars/6001#rotor_tables" in after["skipped"]
+    # 6001's reference declares no rotor: no RCOEF file, no rotor table (0.58.0 design,
+    # section 2.1), before and after the partial post.
+    assert not [name for name in after["products"] if "RCOEF-P6001" in name]
     assert any(entry.get("sim_id") == "6001" for entry in after["products"].values())
     # The provenance of the named runs keeps the name a whole post gives it.
     for run_id, relative in before["provenance"].items():
         assert after["provenance"][run_id] == relative
 
 
-def test_post_sims_rewrites_the_named_super_file_under_the_others_header_0530(tmp_path):
-    """PFS-2185.18: the named simulation's super file is rebuilt, the others' kept."""
+def test_post_sims_rewrites_the_named_polar_files_under_the_others_header_0530(tmp_path):
+    """PFS-2185.18: the named simulation's polar files are rebuilt, the others' kept."""
     # Verifies FR-307.
     _, out, before_hashes, before, after_hashes, after = _partial_post(tmp_path)
-    supers = sorted(name for name in before["products"] if Path(name).name.startswith("SUPER-"))
-    named = [name for name in supers if before["products"][name]["sim_id"] == "6001"]
-    others = [name for name in supers if name not in named]
+    polars = sorted(
+        name
+        for name in before["products"]
+        if name.startswith("polars/")
+        and name.endswith(("DIM.csv", "ACOEF.csv"))
+        or name.startswith(("polars/FAM-DIM-", "polars/FAM-ACOEF-"))
+    )
+    named = [name for name in polars if before["products"][name]["sim_id"] == "6001"]
+    others = [name for name in polars if before["products"][name]["sim_id"] == "6009"]
     assert named and others
     not_rebuilt = after["partial"]["not_rebuilt"]
     for name in others:
         assert after_hashes[name] == before_hashes[name]
         assert after["products"][name] == before["products"][name]
         assert name not in not_rebuilt
-    header = (out / others[0]).read_text(encoding="utf-8").splitlines()[0]
+    other_acoef = next(name for name in others if Path(name).name == "FAM-ACOEF-P6009.csv")
+    header = (out / other_acoef).read_text(encoding="utf-8").splitlines()[0]
     for name in named:
         assert after_hashes[name] != before_hashes[name]
-        assert (out / name).read_text(encoding="utf-8").splitlines()[0] == header
         assert name not in not_rebuilt
-    assert any(",0.28716," in (out / name).read_text(encoding="utf-8") for name in named)
-    assert after["superfile_report"] == before["superfile_report"]
-    assert "superfile_report" not in not_rebuilt
-    report = json.loads((out.parents[1] / after["superfile_report"]).read_text(encoding="utf-8"))
-    assert sorted(entry["name"] for entry in report["files"]) == sorted(
-        Path(name).name for name in supers
-    )
+    assert (out / "polars/FAM-ACOEF-P6001.csv").read_text(encoding="utf-8").splitlines()[
+        0
+    ] == header
+    # The rerun lift reaches the named simulation's group file (CLB 0.187158 became 0.287158).
+    assert any(",0.287158," in (out / name).read_text(encoding="utf-8") for name in named)
 
 
-def test_post_sims_without_the_measurement_leaves_the_super_files_and_says_so_fr_307(tmp_path):
-    """FR-307: with no readable superfile measurement, no super file is rebuilt."""
+def test_a_partial_post_leaves_nothing_cross_simulation_unrebuilt_fr_307(tmp_path):
+    """FR-307, 0.58.0: every polar file belongs to one simulation, so none is left as it was.
+
+    The 0.57.0 super files joined the simulations under one column set and were left
+    (named under ``partial.not_rebuilt``) when that measurement could not be read; the
+    family and group polar files carry no such join, and the SUPER report is retired.
+    """
     # Verifies FR-307.
     workspace = _three_sims(tmp_path)
     out = _post_whole(workspace)
     before = _document(out)
-    (workspace.root / before["superfile_report"]).unlink()
-    before_hashes = _hashes(out)
+    assert "superfile_report" not in before
     _rerun_every_export(workspace)
     write_campaign_products(
         workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_SECOND, sims=["6001"]
     )
-    after_hashes, after = _hashes(out), _document(out)
-    supers = sorted(name for name in before["products"] if Path(name).name.startswith("SUPER-"))
-    assert supers
-    not_rebuilt = after["partial"]["not_rebuilt"]
-    for name in supers:
-        assert after_hashes[name] == before_hashes[name]
-        assert after["products"][name] == before["products"][name]
-        assert name in not_rebuilt
-        assert "union" in not_rebuilt[name]
-    assert "superfile_report" in not_rebuilt
-    log = (out / "post.log").read_text(encoding="utf-8")
-    assert "not rebuilt" in log
-    assert supers[0] in log
+    after = _document(out)
+    assert after["partial"] == {"sims": ["6001"], "not_rebuilt": {}}
+    assert "superfile_report" not in after
+    assert "not rebuilt" not in (out / "post.log").read_text(encoding="utf-8")
 
 
 def test_post_without_sims_is_the_whole_post_fr_307(tmp_path):
-    """The default path: every simulation rebuilt, the super files too, no partial mark."""
+    """The default path: every simulation rebuilt, the polar files too, no partial mark."""
     # Verifies FR-307.
     workspace, out, before_hashes, _, _, _ = _partial_post(tmp_path)
     write_campaign_products(
@@ -255,7 +255,7 @@ def test_post_without_sims_is_the_whole_post_fr_307(tmp_path):
     document = _document(out)
     assert "partial" not in document
     whole = _hashes(out)
-    for prefix in ("polars/P6009-", "polars/SUPER-6001-", "polars/SUPER-6009-"):
+    for prefix in ("polars/P6009-", "polars/FAM-ACOEF-P6001", "polars/FAM-ACOEF-P6009"):
         changed = [
             name
             for name in before_hashes

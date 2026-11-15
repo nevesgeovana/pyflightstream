@@ -1,10 +1,10 @@
 """Tier 1: the rotor table of a quasi-steady wheel is the mean of its clockings (0.31.0).
 
 P0310-ROTOR-MEAN (0.31.0): a wheel point's row
-of ``polars/P<sim>-<ALIAS>_rotor.csv`` is taken from the mean of the rotor's
-force and moment over its k clockings, each clocking's own loads export, and
-every coefficient (``CT``, ``CQ``, ``CP``, ``ETA``, ``ETAW``, ``CN``, ``CS``,
-``CMN``, ``CMS``) is then computed from those mean loads, never averaged
+of ``polars/P<POL>-<ALIAS>-RCOEF.csv`` (the rotor group's file, 0.58.0) is taken from
+the mean of the rotor's force and moment over its k clockings, each clocking's own loads export, and
+every coefficient (``CT``, ``CQ``, ``CP``, ``ETA``, ``ETAW``, ``CFZ``, ``CFY``,
+``CMZ``, ``CMY``) is then computed from those mean loads, never averaged
 itself. A sector (one solve) is unchanged, and a clocking whose export is
 missing costs the point its row, named, rather than a mean of the rest.
 
@@ -35,6 +35,11 @@ _QS = 0.5 * 1.225 * _SPEED**2 * 50.0
 _RHO_N2_D4 = 1.225 * 20.0**2 * 2.0**4
 _RHO_N2_D5 = _RHO_N2_D4 * 2.0
 _J = _SPEED / (20.0 * 2.0)
+#: The fixture declares the rotor's axis X, and the mesh's x is aft: 0.58.0 counts thrust
+#: positive forward (design of the post outputs, D12 and section 5.3), so the thrust and
+#: the torque about the forward axis, and the efficiency formed from them, take this sign
+#: against the loads along the declared axis; the power P = 2 pi n_R Q is the same number.
+_AFT = -1.0
 
 
 def _w_row(cx: float, cmx: float, cz: float = 0.1620516) -> str:
@@ -111,7 +116,8 @@ def _posted(
 
 
 def _rotor_table(products: dict, folder: Path) -> tuple[str, list[dict[str, str]]]:
-    (name,) = [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
+    """The rotor's table of 0.58.0: its group's RCOEF file, one row per point, bare columns."""
+    (name,) = [name for name in products["products"] if name.endswith("P6001-PROP-RCOEF.csv")]
     head, *rows = (folder / name).read_text(encoding="utf-8").splitlines()
     return name, [dict(zip(head.split(","), row.split(","), strict=True)) for row in rows]
 
@@ -138,14 +144,14 @@ def test_a_wheel_s_rotor_row_is_taken_from_the_mean_loads_of_its_clockings(tmp_p
     assert len(rows) == 2
     thrust = ((0.0193288 + _B_CX) + (0.0293288 + _B_CX)) / 2.0
     for row in rows:
-        assert float(row["CT_PROP"]) == pytest.approx(thrust * _QS / _RHO_N2_D4, rel=1e-5)
-        assert float(row["CQ_PROP"]) == pytest.approx(0.02 * _QS * _CREF / _RHO_N2_D5, rel=1e-5)
-        eta = float(row["ETA_PROP"])
-        assert eta == pytest.approx(_eta(thrust, 0.02), rel=1e-4)
-        assert abs(eta - (_eta(0.0274326, 0.01) + _eta(0.0374326, 0.03)) / 2.0) > 0.05
+        assert float(row["CT"]) == pytest.approx(_AFT * thrust * _QS / _RHO_N2_D4, rel=1e-5)
+        assert float(row["CQ"]) == pytest.approx(_AFT * 0.02 * _QS * _CREF / _RHO_N2_D5, rel=1e-5)
+        eta = float(row["ETA"])
+        assert eta == pytest.approx(_AFT * _eta(thrust, 0.02), rel=1e-4)
+        assert abs(eta - _AFT * (_eta(0.0274326, 0.01) + _eta(0.0374326, 0.03)) / 2.0) > 0.05
         # The shaft lies along the stream at alpha 0, where ETAW is ETA of the same loads.
         if float(row["ALPHA"]) == 0.0:
-            assert float(row["ETAW_PROP"]) == pytest.approx(eta, rel=1e-4)
+            assert float(row["ETAW"]) == pytest.approx(eta, rel=1e-4)
     entry = products["products"][name]
     assert entry["source"] == "mean of 2 clockings"
     assert entry["clockings"] == 2
@@ -163,7 +169,7 @@ def test_the_in_plane_coefficients_of_a_wheel_are_of_the_mean_loads(tmp_path):
     )
     _, rows = _rotor_table(products, folder)
     for row in rows:
-        assert float(row["CN_PROP"]) == pytest.approx(
+        assert float(row["CFZ"]) == pytest.approx(
             (0.2120516 + 0.0251063) * _QS / _RHO_N2_D4, rel=1e-5
         )
 
@@ -175,8 +181,8 @@ def test_a_sector_is_its_one_solve_as_before(tmp_path):
     name, rows = _rotor_table(products, folder)
     assert len(rows) == 2
     for row in rows:
-        assert float(row["CT_PROP"]) == pytest.approx(
-            (0.0193288 + _B_CX) * _QS / _RHO_N2_D4, rel=1e-5
+        assert float(row["CT"]) == pytest.approx(
+            _AFT * (0.0193288 + _B_CX) * _QS / _RHO_N2_D4, rel=1e-5
         )
     entry = products["products"][name]
     assert entry["source"] == "the loads export of a steady run"
@@ -187,10 +193,9 @@ def test_a_wheel_whose_clocking_export_is_missing_is_a_named_skip(tmp_path):
     """Clocking 1's export is gone: no row, named in skipped, never the mean of clocking 0 alone."""
     # P0310-ROTOR-MEAN
     products, folder = _posted(tmp_path, "wheel", ((0.0193288, 0.01), (0.0293288, 0.03)), drop=1)
-    assert not [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
-    (reason,) = [
-        text for key, text in products["skipped"].items() if key.endswith("PROP_rotor.csv")
-    ]
+    # 0.58.0: the polar's points are skipped together, named under the polar's own key.
+    assert not [name for name in products["products"] if "P6001" in name]
+    (reason,) = [text for key, text in products["skipped"].items() if key == "polars/P6001"]
     assert "_qs01.txt" in reason and "is not on disk" in reason
     assert "the row of a wheel is the mean of all its clockings" in reason
 

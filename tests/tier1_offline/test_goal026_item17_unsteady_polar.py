@@ -13,141 +13,97 @@ states the LAST TIME STEP, which on an oscillating rotor is one instant of a
 cycle. A polar read from it is a polar of an instant, and it looks exactly like
 a polar of an average.
 
-THE THIRD ANSWER IS WHAT MADE IT BUILDABLE. The steady polar has twenty-four
-fixed coefficient columns in three axis systems. Nothing in this package knows
-which plot label carries which of them, and a label invented here would not fail
-loudly -- it would write `NA` down a whole column. Taking the names from the file
-removes that possibility entirely rather than guarding against it.
-
-ONE TABLE PER SIMULATION, one row per point, which is her choice of the three
-layouts put to her: the steady polar is per GROUP because its source states loads
-per family, and the plots history's columns are whatever the run defined.
+SINCE 0.58.0 (design of the post outputs, D14 and 2.2) the unsteady polar is no
+file of its own: the window average of every family and group is a row of the
+FAM files and the group files, under the names of a steady polar, and the run
+block of every row states the window. The cases below are the item's, read from
+those files, over plots whose six components of every family and of the total
+are the ramp the old table's `CL` was: the value of `FX` of family B rises by
+one each step, so every average is checkable by hand.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+import pytest
 
-from pyflightstream.post.products import (
-    CONTEXT_COLUMNS,
-    read_csv_table,
-    unsteady_polar_file_name,
-    write_unsteady_polar,
-)
+from pyflightstream.post.products import read_csv_table
+from tests.tier1_offline.test_goal028_uns_axes import AXES, posted_unsteady, skipped_by_the_post
+
+SIX = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 
 
-class _Point:
-    def __init__(self, name: str) -> None:
-        self.name = name
+def _ramp(rows: int, *, first: float, steps: list[int] | None = None) -> dict[str, list[float]]:
+    """One plots history whose FX of family B rises by one each step, from ``first``.
+
+    Over steps 5 to 8 of a ramp from 1 the average is 6.5, and the LAST STEP is 8. The
+    other five components and family W are zero; the total is the sum, as a run plots it.
+    """
+    clock = steps if steps is not None else list(range(1, rows + 1))
+    ramp = [first + step - 1 for step in clock]
+    history: dict[str, list[float]] = {"steps": clock}
+    for group in ("W", "B", "TOTAL"):
+        for part in SIX:
+            moving = part == "FX" and group != "W"
+            history[f"{part}_MRP_{group}"] = list(ramp) if moving else [0.0] * len(clock)
+    return history
 
 
 def test_p0430_polar_refuses_a_gap_in_per_step_history(tmp_path):
-    source = tmp_path / "plots.csv"
-    source.write_text("Time-step,CL\n1,1\n3,3\n", encoding="utf-8")
-    notes = []
-    result = write_unsteady_polar(
-        tmp_path / "polar.csv",
-        points=[_Point("a")],
-        plots={"a": source},
-        window=(1, 3),
-        conditions=[{}],
-        reference=None,
-        left_out=notes,
-    )
-    assert result is None
-    assert any("gap" in note or "sample" in note for note in notes)
+    history = _ramp(0, first=1.0, steps=[1, 3])
+    workspace, polars, _said = posted_unsteady(tmp_path, [history], window=(1, 3))
+    notes = " ".join(skipped_by_the_post(workspace).values())
+    assert "gap" in notes or "sample" in notes, notes
+    assert not list(polars.glob("*P6002*")), sorted(p.name for p in polars.iterdir())
 
 
-def _plots_file(path: Path, *, rows: int, first: float) -> Path:
-    """One written PLOTS TABLE whose `CL` rises by one each step.
-
-    THE WRITTEN TABLE AND NOT THE RAW EXPORT, which is what the polar reads: the
-    reference-velocity scaling `write_plots_table` applies happens once, there,
-    and a second reader of the raw export would perform it again or not at all.
-    The table states its own clock in `Time-step`, so a window's first and last
-    step mean what the file means.
-
-    `CL` rising by one per step makes every average here checkable by hand: over
-    steps 5 to 8 it is 6.5, and the LAST STEP is 8.
-    """
-    lines = ["Time-step,CL,CDi"]
-    for step in range(1, rows + 1):
-        value = first + step - 1
-        lines.append(f"{step},{value:.5f},{value / 10:.5f}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
-
-
-def test_the_columns_are_the_names_the_export_prints(tmp_path):
+def test_the_row_is_the_polars_and_names_the_window_not_the_export_names(tmp_path):
     """HER DECISION, AND THE ONE THAT REMOVED THE ONLY WAY LEFT TO BE SILENTLY WRONG.
 
-    The table carries `CL` and `CDi` because the file says `CL` and `CDi`. It
-    does NOT carry `CDB`, `CLW`, `CMS25` or any other of the steady polar's
-    twenty-four: those are a mapping the package would have had to invent.
+    The names are the polar's own: since 0.58.0 a unsteady row is a row of the ACOEF file of
+    its group, the axis coefficients carry the bare names of a steady polar, and none of the
+    plots export's variable names (`FX_MRP_TOTAL`) is a column. The row opens with its
+    polar and its point, the run block follows, and the window the average was taken over
+    is in it: the file says it is an average and over what.
     """
-    written = write_unsteady_polar(
-        tmp_path / "out.csv",
-        points=[_Point("a")],
-        plots={"a": _plots_file(tmp_path / "a.txt", rows=8, first=1.0)},
-        window=(1, 8),
-        conditions=[{"ALPHA": 2.0}],
-        reference=None,
+    _workspace, polars, _said = posted_unsteady(
+        tmp_path, [_ramp(8, first=1.0)], window=(1, 8), alpha=2.0
     )
-    assert written is not None
-    columns, rows = read_csv_table(written)
-    assert "CL" in columns and "CDi" in columns, columns
-    assert not {"CDB", "CLW", "CMS25"} & set(columns), (
-        "the unsteady polar is carrying the steady polar's fixed coefficient names"
-    )
-    # ITEM 5 REACHES IT TOO: the condition block is in the row, whole and in order.
-    # IT LED THE ROW UNTIL 0.24.0, WHEN THE REQUIREMENT CHANGED: the window the
-    # average was taken over (`FIRST_STEP, LAST_STEP, STEPS`) now opens the row, so
-    # the file says it is an average and over what. The block follows it.
-    # THE POLAR FIRST since 0.27.0 (G16), then the window.
-    assert list(columns[:4]) == ["POL", "FIRST_STEP", "LAST_STEP", "STEPS"], columns
-    assert tuple(columns[4 : 4 + len(CONTEXT_COLUMNS)]) == tuple(CONTEXT_COLUMNS), columns
+    columns, rows = read_csv_table(polars / "P6002-TOTAL-ACOEF.csv")
+    assert list(columns[:3]) == ["POL", "POINT_ID", "POINT"], columns
+    first = columns.index("FIRST_STEP")
+    assert list(columns[first : first + 3]) == ["FIRST_STEP", "LAST_STEP", "STEPS"], columns
+    assert set(AXES) <= set(columns), columns
+    assert not [name for name in columns if name.startswith(("FX_", "FZ_", "CL_"))], columns
     assert rows[0]["ALPHA"] == "2.00000", rows[0]
+    assert (rows[0]["FIRST_STEP"], rows[0]["LAST_STEP"], rows[0]["STEPS"]) == ("1", "8", "8")
 
 
 def test_the_value_is_the_average_over_the_window_and_not_the_last_step(tmp_path):
     """THE WHOLE POINT OF THE ITEM, asserted on an arithmetic anyone can check.
 
-    `CL` runs 1, 2, ... 8. Over steps 5 to 8 the average is 6.5 and the LAST
+    `FX` runs 1, 2, ... 8. Over steps 5 to 8 the average is 6.5 and the LAST
     STEP is 8. A table built from the native export would carry 8 here, and it
     would look exactly like this one.
     """
-    written = write_unsteady_polar(
-        tmp_path / "out.csv",
-        points=[_Point("a")],
-        plots={"a": _plots_file(tmp_path / "a.txt", rows=8, first=1.0)},
-        window=(5, 8),
-        conditions=[{"ALPHA": 0.0}],
-        reference=None,
+    _workspace, polars, _said = posted_unsteady(tmp_path, [_ramp(8, first=1.0)], window=(5, 8))
+    _, family = read_csv_table(polars / "FAM-DIM-P6002.csv")
+    (blade,) = [row for row in family if row["FAMILY"] == "B"]
+    assert float(blade["FX_MRP"]) == pytest.approx(6.5), (
+        f"the mean of 5,6,7,8 is 6.5; the LAST STEP is 8: {blade['FX_MRP']}"
     )
-    assert written is not None
-    _, rows = read_csv_table(written)
-    assert rows[0]["CL"] == "6.50000", (
-        f"the mean of 5,6,7,8 is 6.5; the LAST STEP is 8: {rows[0]['CL']}"
-    )
+    _, total = read_csv_table(polars / "P6002-TOTAL-DIM.csv")
+    assert float(total[0]["FX_MRP"]) == pytest.approx(6.5), total[0]
 
 
 def test_one_row_per_point_in_the_order_given(tmp_path):
     """A sweep is a table of its points, and the row order is the sweep's."""
-    written = write_unsteady_polar(
-        tmp_path / "out.csv",
-        points=[_Point("a"), _Point("b")],
-        plots={
-            "a": _plots_file(tmp_path / "a.txt", rows=4, first=1.0),
-            "b": _plots_file(tmp_path / "b.txt", rows=4, first=10.0),
-        },
-        window=(1, 4),
-        conditions=[{"ALPHA": -2.0}, {"ALPHA": 2.0}],
-        reference=None,
+    _workspace, polars, _said = posted_unsteady(
+        tmp_path, [_ramp(4, first=1.0), _ramp(4, first=10.0)], window=(1, 4)
     )
-    assert written is not None
-    _, rows = read_csv_table(written)
-    assert [r["ALPHA"] for r in rows] == ["-2.00000", "2.00000"], rows
-    assert [r["CL"] for r in rows] == ["2.50000", "11.50000"], rows
+    _, rows = read_csv_table(polars / "P6002-TOTAL-DIM.csv")
+    assert [row["POINT_ID"] for row in rows] == ["1", "2"], rows
+    assert [row["POINT"][-5:] for row in rows] == ["J+170", "J+171"], rows
+    assert [float(row["FX_MRP"]) for row in rows] == pytest.approx([2.5, 11.5]), rows
 
 
 def test_a_point_with_no_plots_export_is_left_out_and_never_written_as_na(tmp_path):
@@ -156,43 +112,20 @@ def test_a_point_with_no_plots_export_is_left_out_and_never_written_as_na(tmp_pa
     Writing it as a row of `NA` would put a point in the table that produced
     nothing, and a reader counting rows would count it.
     """
-    written = write_unsteady_polar(
-        tmp_path / "out.csv",
-        points=[_Point("a"), _Point("missing")],
-        plots={"a": _plots_file(tmp_path / "a.txt", rows=4, first=1.0)},
-        window=(1, 4),
-        conditions=[{"ALPHA": 0.0}, {"ALPHA": 4.0}],
-        reference=None,
-    )
-    assert written is not None
-    _, rows = read_csv_table(written)
-    assert len(rows) == 1, rows
+    workspace, polars, _said = posted_unsteady(tmp_path, [_ramp(4, first=1.0), None], window=(1, 4))
+    for name in ("FAM-DIM-P6002.csv", "P6002-TOTAL-DIM.csv", "P6002-TOTAL-ACOEF.csv"):
+        _, rows = read_csv_table(polars / name)
+        assert {row["POINT_ID"] for row in rows} == {"1"}, (name, rows)
+    assert "no plots table" in " ".join(skipped_by_the_post(workspace).values())
 
 
 def test_no_point_yields_a_row_and_nothing_is_written(tmp_path):
     """An unsteady simulation whose points exported no plots is an ordinary campaign.
 
-    It costs this table and never the simulation's other products, so the
-    writer returns None rather than raising.
+    It costs these files and never the simulation's other products, so the post
+    carries on and writes none of them rather than raising.
     """
-    assert (
-        write_unsteady_polar(
-            tmp_path / "out.csv",
-            points=[_Point("a")],
-            plots={},
-            window=(1, 4),
-            conditions=[{"ALPHA": 0.0}],
-            reference=None,
-        )
-        is None
-    )
-    assert not (tmp_path / "out.csv").exists()
-
-
-def test_the_file_name_carries_no_group():
-    """It is per SIMULATION, which is the difference from the steady polar's name."""
-    name = unsteady_polar_file_name("7001", name="a-sweep")
-    # THE NAME CHANGED BECAUSE THE REQUIREMENT DID (0.24.0): it was
-    # `7001_a-sweep_unsteady.csv`. `uns_avg` says what the file IS, and the `P` is the
-    # prefix every per-point product carries. It still names no group.
-    assert name == "P7001_a-sweep_uns_avg.csv", name
+    workspace, polars, _said = posted_unsteady(tmp_path, [None], window=(1, 4))
+    assert not list(polars.glob("*P6002*")), sorted(p.name for p in polars.iterdir())
+    assert (polars / "FAM-DIM-P6001.csv").is_file(), "the steady simulation is unaffected"
+    assert "no plots table" in " ".join(skipped_by_the_post(workspace).values())

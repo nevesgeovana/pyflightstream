@@ -146,24 +146,33 @@ def test_p0410_rec_migrated_pipeline_preserves_released_product_bytes(tmp_path, 
     assert len(collected.collected) == 1
     assert not collected.failed and not collected.waiting
     write_campaign_products(workspace)
-    actual = {
-        path.relative_to(tmp_path).as_posix(): path.read_bytes().hex()
-        for path in (tmp_path / "post").rglob("*.csv")
-    }
-    if tag == "v0.38.0":
-        # The 0.40.0 precision change is documented in docs/upgrading.md.
-        # Only these named coefficient fields differ; compare every other byte.
-        fields = {"CDB", "CLB", "CMB25", "CDS", "CLS", "CMS25", "CDW", "CLW", "CMW25", "CD0", "CDI"}
-        path = "post/products/polars/P3207-AL-020_g01.csv"
-        lines = list(csv.reader(io.StringIO(bytes.fromhex(actual[path]).decode())))
-        for row in lines[1:]:
-            for index, column in enumerate(lines[0]):
-                if column in fields:
-                    row[index] = f"{float(row[index]):.5f}"
-        stream = io.StringIO(newline="")
-        csv.writer(stream, lineterminator="\n").writerows(lines)
-        actual[path] = stream.getvalue().encode().hex()
-    assert actual == fixture["products"]
+    # The released products are the polar of group 1 and its super file, in the layout of
+    # their release. 0.58.0 writes the group's ACOEF file instead (the super file is
+    # retired, the sweep and Mach tokens leave the name), so the scientific content is
+    # compared value by value, the moment columns under their 0.58.0 names. The 0.40.0
+    # precision change is documented in docs/upgrading.md, hence the 5-decimal tolerance.
+    from pyflightstream.post.products import COEFFICIENT_COLUMNS
+
+    released = fixture["products"]["post/products/polars/P3207-AL-020_g01.csv"]
+    before = list(csv.DictReader(io.StringIO(bytes.fromhex(released).decode())))
+    written = tmp_path / "post/products/polars/P3207-g01-ACOEF.csv"
+    after = list(csv.DictReader(io.StringIO(written.read_text(encoding="utf-8"))))
+    assert len(after) == len(before) == 2
+    renamed = {"CR": "Cl", "CM": "Cm", "CN": "Cn"}
+
+    def new_name(column):
+        if column[:2] in renamed and column.endswith("25"):
+            return renamed[column[:2]] + column[2:-2]
+        return column
+
+    for old_row, new_row in zip(before, after, strict=True):
+        for column in COEFFICIENT_COLUMNS:
+            changed = new_row[new_name(column)]
+            state = f"{column} -> {new_name(column)}: {old_row[column]!r} became {changed!r}"
+            assert new_row[new_name(column)] != "NA", state
+            assert float(new_row[new_name(column)]) == pytest.approx(
+                float(old_row[column]), abs=6e-6
+            ), state
 
 
 def test_f1532_empty_named_manifest_is_migrated(tmp_path):

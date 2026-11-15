@@ -19,7 +19,6 @@ import pytest
 
 import pyflightstream._textio as textio
 import pyflightstream.post._additional as additional
-import pyflightstream.post._sim as sim
 import pyflightstream.post.corrections as corrections
 import pyflightstream.post.products as _post2_products__products
 from pyflightstream._digest import file_sha256, text_sha256
@@ -49,7 +48,7 @@ from pyflightstream.post.settings_table import (
 )
 from pyflightstream.post.surfaces import average_surface_exports, write_surface_average
 from pyflightstream.post.unsteady import TimestepSeries
-from pyflightstream.results import REDUCTION_WINDOW_CODES, SurfaceFrame
+from pyflightstream.results import SurfaceFrame
 from pyflightstream.script import Script, helpers
 from pyflightstream.workspace import CampaignWorkspace, ExtractionStatus, RunRecord
 from tests.tier1_offline.test_b01_frozen_solve import (
@@ -90,58 +89,65 @@ def test_p0440_farfield_ledger_keeps_six_significant_digits(tmp_path, value):
         assert float(rows[0][name]) == pytest.approx(value, rel=5e-6, abs=0)
 
 
-def _integfix_post_groupkey___ctx() -> SimpleNamespace:
-    point = SimpleNamespace(name="AL-020", loads=SimpleNamespace(surfaces={"W": None}))
-    return SimpleNamespace(
-        points=[point],
-        conditions=[{}],
-        aliases={},
-        mach=0.2,
-        reference=None,
-        record_of={"AL-020": SimpleNamespace(run_id="camp/sim_7001/AL-020")},
+def _integfix_post_groupkey___polar(points):
+    """Return the skips of the polar stage on a window that no plots table holds."""
+    from pyflightstream.post import _polar_stage
+    from pyflightstream.post._family_polar import Family, polar_groups
+
+    families = [Family("W", 1)]
+    ctx = SimpleNamespace(
+        pproc=SimpleNamespace(
+            products=SimpleNamespace(polars=True, rotor_cn_slope=False), groups={}
+        ),
+        window=(1, 2),
+        point_windows={},
+        plots_tables={},
+        points=points,
+        conditions=[{} for _ in points],
         skipped={},
+        sim_id="7001",
+        record_of={},
     )
+    original = _polar_stage._layout
+    try:
+        _polar_stage._layout = lambda _ctx: (families, [], polar_groups(families, [], {}))
+        _polar_stage.family_polar_products(ctx)
+    finally:
+        _polar_stage._layout = original
+    return ctx.skipped
 
 
 class TestIntegfixPostGroupkey:
-    """P0400-GROUPKEY: one group's polar failure on a point is keyed under that polar.
+    """P0400-GROUPKEY: a point the polar cannot hold is keyed under the polar, never under a run.
 
     At the 0.40.0 base a group whose polar rows could not be built for one point
     filed the failure under ``runs/<run id>``, the key that means no product holds
-    the run. The point is a miss of THAT group's polar, ``polars/<file>#<point>``,
-    as the absent-surface case already was; a point failing every group gives one
-    such skip per group, never a whole-run refusal (PFS-2088.012).
+    the run. 0.58.0 writes one file set per polar (the group files are sums of the
+    families' loads, so no group fails alone): a point the polar cannot hold is
+    named in the one skip of the polar, ``polars/P<sim>``, and a whole-run refusal
+    never results (PFS-2088.012).
     """
 
     @staticmethod
-    def test_p0400_groupkey_one_groups_failure_is_keyed_under_its_polar(monkeypatch):
-        """P0400-GROUPKEY (PFS-2088.012): the point is a miss of THIS group, not a refused run."""
-
-        def refuse(*_args, **_kwargs):
-            raise ProductError("no Reynolds number")
-
-        monkeypatch.setattr(sim, "select_group_members", lambda *_args, **_kwargs: True)
-        monkeypatch.setattr(sim, "group_polar_rows", refuse)
-        ctx = _integfix_post_groupkey___ctx()
-        group_points, _conditions, rows, absent = sim._group_rows(ctx, "1", ["W"])
-        assert group_points == [] and rows == []
-        assert "no Reynolds number" in absent["AL-020"]
-        assert not any(key.startswith("runs/") for key in ctx.skipped)
+    def test_p0400_groupkey_one_groups_failure_is_keyed_under_its_polar():
+        """P0400-GROUPKEY (PFS-2088.012): the point is a miss of THE POLAR, not a refused run."""
+        point = SimpleNamespace(name="AL-020", loads=SimpleNamespace(surfaces={"W": None}))
+        skipped = _integfix_post_groupkey___polar([point])
+        assert list(skipped) == ["polars/P7001"], skipped
+        assert "AL-020: no plots table" in skipped["polars/P7001"]
+        assert not any(key.startswith("runs/") for key in skipped)
 
     @staticmethod
-    def test_p0400_groupkey_a_point_failing_every_group_is_skipped_per_group(monkeypatch):
-        """P0400-GROUPKEY (PFS-2088.012): each group records its own miss; none overwrites another."""  # noqa: E501
-
-        def refuse(_points, families, **_kwargs):
-            raise ProductError(f"group {families[0]} has no Reynolds number")
-
-        monkeypatch.setattr(sim, "select_group_members", lambda *_args, **_kwargs: True)
-        monkeypatch.setattr(sim, "group_polar_rows", refuse)
-        ctx = _integfix_post_groupkey___ctx()
-        reasons = {group: sim._group_rows(ctx, group, [group])[3] for group in ("WING", "TAIL")}
-        assert "group WING" in reasons["WING"]["AL-020"]
-        assert "group TAIL" in reasons["TAIL"]["AL-020"]
-        assert ctx.skipped == {}
+    def test_p0400_groupkey_a_point_failing_every_group_is_skipped_per_group():
+        """P0400-GROUPKEY (PFS-2088.012): each point's miss is named; none overwrites another."""
+        points = [
+            SimpleNamespace(name=name, loads=SimpleNamespace(surfaces={"W": None}))
+            for name in ("AL-020", "AL-030")
+        ]
+        skipped = _integfix_post_groupkey___polar(points)
+        assert list(skipped) == ["polars/P7001"], skipped
+        assert "AL-020: no plots table" in skipped["polars/P7001"]
+        assert "AL-030: no plots table" in skipped["polars/P7001"]
 
 
 _INTEGFIX_POST_INSTALLED___HEADER = (
@@ -365,45 +371,46 @@ class TestIntegfixReductionLabel:
     def test_p0400_the_unsteady_polars_averaged_row_says_time_average(tmp_path):
         """P0400-INTEGFIX-REDUCTION-LABEL (FR-32, PFS-2105.043): the row is labelled an average.
 
-        The rotor campaign's ``polars/P7001_AL-020_uns_avg.csv`` averages the plots
-        history over steps 60 to 61. Its ``reduction`` and ``reduction_window``
-        cells must say ``time_average`` and ``averaging_window``; before the fix
-        they carried the sweep row's ``last_step`` and ``last_time_step``.
+        The rotor campaign's polar 7001 averages the plots history over steps 60
+        to 61. Its rows no longer carry the ``reduction`` cells of the retired
+        ``uns_avg`` polar; the run block says what the row is: ``RUN_TYPE`` is
+        not ``steady`` and ``FIRST_STEP``, ``LAST_STEP`` and ``STEPS`` state the
+        window (design of the post outputs, section 3).
         """
         workspace = _integfix_reduction_label___post_workspace(tmp_path, 2411, (60, 61), rotor=True)
         write_campaign_products(workspace, matrix_stem="products")
-        polars = sorted(
-            (Path(workspace.root) / "post" / "products" / "polars").glob("*_uns_avg.csv")
-        )
-        assert [path.name for path in polars] == ["P7001_AL-020_uns_avg.csv"]
-        rows = _integfix_reduction_label___rows(polars[0])
-        assert len(rows) == 1
-        row = rows[0]
-        assert (row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) == ("60", "61", "2")
-        assert (row["reduction"], row["reduction_window"]) == ("time_average", "averaging_window")
-        assert "averaging_window" in REDUCTION_WINDOW_CODES
+        polars = Path(workspace.root) / "post" / "products" / "polars"
+        assert not list(polars.glob("*_uns_avg.csv"))
+        for name in ("FAM-DIM-P7001.csv", "FAM-ACOEF-P7001.csv", "P7001-TOTAL-ACOEF.csv"):
+            rows = _integfix_reduction_label___rows(polars / name)
+            assert rows, name
+            for row in rows:
+                assert (row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) == ("60", "61", "2")
+                assert row["RUN_TYPE"] == "unsteady_rotor", (name, row["RUN_TYPE"])
+                assert "reduction" not in row and "reduction_window" not in row
 
     @staticmethod
     def test_p0400_an_unsteady_super_polar_row_stays_an_instant(tmp_path):
         """P0400-INTEGFIX-REDUCTION-LABEL (PFS-2105.046): the native-export row is the last step.
 
-        The control: the super polar of the unsteady simulation 6002 is read from
-        its loads exports, which state the last time step only, so its rows keep
-        ``last_step`` over ``last_time_step`` and never the average's label.
+        The control: the polar of the unsteady simulation 6002 is read from its
+        loads exports, which state the last time step only, so its rows state no
+        averaging window (the run block's window columns are ``NA``) and the
+        manifest marks every file of the polar ``kind: instant``, never an average.
         """
         workspace = _integfix_reduction_label___workspace(tmp_path)
         _integfix_reduction_label___post(workspace)
-        polars = Path(workspace.root) / "post" / "matriz" / "polars"
-        supers = sorted(polars.glob("SUPER-6002-*.csv"))
-        assert supers, "the campaign no longer writes the unsteady simulation's super polar"
-        for path in supers:
-            rows = _integfix_reduction_label___rows(path)
-            assert rows
+        out = Path(workspace.root) / "post" / "matriz"
+        polars = out / "polars"
+        names = ("FAM-DIM-P6002.csv", "FAM-ACOEF-P6002.csv", "P6002-TOTAL-ACOEF.csv")
+        for name in names:
+            rows = _integfix_reduction_label___rows(polars / name)
+            assert rows, name
             for row in rows:
-                assert (row["reduction"], row["reduction_window"]) == (
-                    "last_step",
-                    "last_time_step",
-                )
+                assert (row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) == ("NA", "NA", "NA")
+        manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+        for name in names:
+            assert manifest["products"][f"polars/{name}"]["kind"] == "instant", name
         assert not list(polars.glob("*6002*_uns_avg.csv"))
 
 
@@ -711,65 +718,57 @@ class TestPost2ReductionStage:
 
 
 class TestPost2Sim:
-    """P0400-GROUPKEY: a rotor integration-group clash writes no group polar.
+    """P0400-GROUPKEY: a rotor integration-group clash and the instant polar.
 
     At the 0.40.0 base a rotor integration-group clash was recorded as a skip
     while every group polar, the clashing one included, was still written.
+    0.58.0 refuses the clashing declared name alone and keeps the rotor's own
+    group (``test_p0580_l2_groups.py``).
     """
 
     @staticmethod
-    def test_p0400_groupkey_a_rotor_group_clash_writes_no_group_polar(monkeypatch):
-        """P0400-GROUPKEY: a declared group disagreeing with a rotor stops every group polar."""
-        drawn: list[str] = []
-        monkeypatch.setattr(
-            sim, "_group_polar", lambda _ctx, group, *_rest, **_kw: drawn.append(group)
-        )
-        ctx = SimpleNamespace(
-            pproc=SimpleNamespace(
-                products=SimpleNamespace(polars=True), groups={"PORT": ["Wing"], "1": ["all"]}
-            ),
-            live=SimpleNamespace(rotors={"PORT": SimpleNamespace(members=["Blade1"])}),
-            window=None,
-            points=[],
-            skipped={},
-            sim_id="7001",
-        )
-        sim._group_polars(ctx)
-        assert drawn == []
-        assert "No group polar of simulation '7001'" in ctx.skipped["polars/7001"]
+    def test_p0400_groupkey_a_rotor_group_clash_writes_no_group_polar():
+        """P0400-GROUPKEY: a declared group named as a rotor writes no second group of that name."""
+        from pyflightstream.post._family_polar import Family, PolarRotor, polar_groups
+        from pyflightstream.post.axes import rotor_frame
+
+        rotor = PolarRotor("PORT", 0, rotor_frame((-1.0, 0.0, 0.0)), 1.0, (0, 0, 0), ("Blade1",))
+        families = [Family("Wing", 1), Family("Blade1", 2, 0)]
+        refused: dict[str, str] = {}
+        groups = polar_groups(families, [rotor], {"PORT": ["Wing"], "1": ["all"]}, refused=refused)
+        assert [group.name for group in groups].count("PORT") == 1
+        (port,) = [group for group in groups if group.name == "PORT"]
+        assert port.members == ("Blade1",), "the rotor's own group stands, not the declared one"
+        assert "PORT" in refused
 
     @staticmethod
-    def test_p0400_groupkey_agreeing_groups_are_all_drawn(monkeypatch):
+    def test_p0400_groupkey_agreeing_groups_are_all_drawn():
         """P0400-GROUPKEY control: with no clash every group, the rotor's included, is drawn."""
+        from pyflightstream.post import _polar_stage
+        from pyflightstream.post._family_polar import Family, PolarRotor, polar_groups
+        from pyflightstream.post.axes import rotor_frame
         from pyflightstream.results import parse_loads
         from tests.tier1_offline.test_post_products import LOADS
 
-        drawn: list[str] = []
-        # `instant` is the keyword the instant group polars of PFS-2105.011 pass.
-        monkeypatch.setattr(
-            sim, "_group_polar", lambda _ctx, group, *_rest, **_kw: drawn.append(group)
-        )
+        rotor = PolarRotor("PORT", 0, rotor_frame((-1.0, 0.0, 0.0)), 1.0, (0, 0, 0), ("Blade1",))
+        families = [Family("Wing", 1), Family("Blade1", 2, 0)]
+        refused: dict[str, str] = {}
+        groups = polar_groups(families, [rotor], {"1": ["all"]}, refused=refused)
+        assert [group.name for group in groups] == ["TOTAL", "AIRFRAME", "PORT", "g01"]
+        assert refused == {}
+        # `instant` is what a polar read from the loads export of an unsteady run is.
         ctx = SimpleNamespace(
-            pproc=SimpleNamespace(products=SimpleNamespace(polars=True), groups={"1": ["all"]}),
-            live=SimpleNamespace(rotors={"PORT": SimpleNamespace(members=["Blade1"])}),
             window=None,
-            points=[],
-            skipped={},
+            points=[SimpleNamespace(name="P", loads=parse_loads(LOADS))],
+            record_of={"P": SimpleNamespace(recipe="unsteady")},
             sim_id="7001",
         )
-        sim._group_polars(ctx)
-        assert drawn == ["1", "PORT"] and ctx.skipped == {}
-        instant_groups = {}
-        monkeypatch.setattr(
-            sim,
-            "_group_polar",
-            lambda _ctx, group, *_rest, **kw: instant_groups.update({group: kw.get("instant")}),
-        )
-        ctx.points = [SimpleNamespace(name="P", loads=parse_loads(LOADS), vorticity_selection=None)]
-        ctx.record_of = {"P": SimpleNamespace(recipe="unsteady")}
-        with pytest.warns(sim.PyflightstreamWarning, match="LAST TIME STEP"):
-            sim._group_polars(ctx)
-        assert instant_groups == {"1": True, "PORT": True}
+        with pytest.warns(_sim.PyflightstreamWarning, match="LAST TIME STEP"):
+            assert _polar_stage._said_instant(ctx) is True
+        ctx.record_of = {"P": SimpleNamespace(recipe="steady")}
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert _polar_stage._said_instant(ctx) is False
 
 
 _POST2_UNSTEADY___VARIABLES = 'VARIABLES = "X" "Y" "Z" "cp"'
@@ -1168,25 +1167,17 @@ class TestPost1Review:
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-REVIEW-REPORTED-UNSTEADY")])
-    def test_p0400_group_polars_honor_the_exports_solver_mode(monkeypatch):
+    def test_p0400_group_polars_honor_the_exports_solver_mode():
+        from pyflightstream.post import _polar_stage
+
         point = SimpleNamespace(
             name="p", loads=SimpleNamespace(solver_mode="Unsteady"), vorticity_selection=None
         )
-        ctx = SimpleNamespace(
-            pproc=SimpleNamespace(products=SimpleNamespace(polars=True), groups={"g": ["B"]}),
-            points=[point],
-            window=None,
-            record_of={},
-            sim_id="1",
-            live=None,
-        )
-        monkeypatch.setattr(_sim, "declined_profile_drag_125", lambda *_: ())
-        captured = []
-        monkeypatch.setattr(_sim, "_group_polar", lambda *_a, **kw: captured.append(kw["instant"]))
+        ctx = SimpleNamespace(window=None, points=[point], record_of={}, sim_id="1")
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _sim._group_polars(ctx)
-        assert captured == [True]
+            instant = _polar_stage._said_instant(ctx)
+        assert instant is True
         assert any("LAST TIME STEP" in str(w.message) for w in caught)
 
     @staticmethod
@@ -1854,9 +1845,14 @@ def test_f3_0203_f1376_polars_false_writes_no_unsteady_polar(tmp_path):
         )
         write_campaign_products(workspace)
         manifest = _products_manifest(workspace)
-        written = [key for key in manifest["products"] if key.endswith("_uns_avg.csv")]
-        assert len(written) == expected, (polars, manifest["products"].keys())
-        assert not [key for key in manifest["skipped"] if key.endswith("_uns_avg.csv")]
+        written = [key for key in manifest["products"] if key.startswith("polars/")]
+        # 0.58.0: every polar's files are FAM-*-P<POL>.csv and its group files.
+        assert ("polars/FAM-DIM-P7001.csv" in written) == bool(expected), (
+            polars,
+            manifest["products"].keys(),
+        )
+        assert bool(written) == bool(expected), (polars, written)
+        assert not [key for key in manifest["skipped"] if key.startswith("polars/")]
 
 
 def _f3_0203_signal_of(count: int, frequency: float, rate: float = 1000.0):
@@ -1974,27 +1970,27 @@ def test_f3_0203_f781_aliases_that_differ_only_in_case_are_refused():
     _refuse_aliases_a_file_name_cannot_tell_apart({"p": {ROTORS_KEY: {"A": {}, "B": {}}}}, "3207")
 
 
-def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_superfile(tmp_path):
-    """F-791: the limitation recorded for a super file travels with the file the post keeps."""
+def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_polar_file(tmp_path):
+    """F-791: the limitation recorded for a polar file travels with the file the post keeps."""
     from tests.tier1_offline.test_sims_selection import _three_sims
 
-    # PFS-2185.18 (FR-3443): a partial post now rewrites the named simulations' super
-    # files under the column set the last superfile measurement names, so a super file
-    # is RETAINED only when that measurement cannot be read while another simulation's
-    # super files stand: two simulations, the measurement removed.
+    # 0.58.0 retired the super file; the polar's FAM files carry the same contract: a
+    # partial post of simulation 6009 leaves the files of the other simulations and the
+    # limitation recorded for one of them.
     workspace = _three_sims(tmp_path)
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     path = workspace.products_dir("matriz") / "products.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
-    name = next(key for key in manifest["products"] if "SUPER-6009" in key)
+    name = "polars/FAM-ACOEF-P6001.csv"
+    assert name in manifest["products"]
     reason = "the group has no coefficient columns"
     manifest["skipped"][f"{name}#columns"] = reason
-    (workspace.root / manifest["superfile_report"]).unlink()
     path.write_text(json.dumps(manifest), encoding="utf-8")
     write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, sims=["6009"])
     kept = json.loads(path.read_text(encoding="utf-8"))
-    assert name in kept["partial"]["not_rebuilt"], kept["partial"]
+    assert kept["partial"]["sims"] == ["6009"], kept["partial"]
     assert name in kept["products"] and kept["skipped"][f"{name}#columns"] == reason
+    assert "polars/FAM-ACOEF-P6009.csv" in kept["products"]
 
 
 @pytest.mark.requirement("FR-1613")
@@ -2254,34 +2250,6 @@ def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely
         )
     assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
     assert not any("CREF" in str(w.message) for w in caught)
-
-
-def test_f3_0203_x_f_0348_steps_is_the_number_of_frames_that_entered_the_average(tmp_path):
-    """X-F-0348 (owner decision): per_blade STEPS counts frames read, not the window's span."""
-    from pyflightstream.post.products import read_csv_table, write_per_blade_table
-    from tests.tier1_offline.test_goal028_per_blade import FIELDS, ROTOR
-
-    keep = np.array([True, True, True, True, True, False, True, True])
-    series = TimestepSeries(
-        steps=np.arange(1, 9)[keep],
-        times_s=None,
-        points=np.zeros((1, 3)),
-        fields={
-            name: np.asarray(v, dtype=float)[keep].reshape(-1, 1) for name, v in FIELDS.items()
-        },
-        sources=(),
-    )
-    path = write_per_blade_table(
-        tmp_path / "P_per_blade_PUSHER.csv",
-        series,
-        tuple(FIELDS),
-        window=(5, 8),
-        rotor="PUSHER",
-        blades=2,
-        facts=ROTOR,
-    )
-    _columns, rows = read_csv_table(path)
-    assert {(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows} == {("5", "8", "3")}
 
 
 def _f3_polar(tmp_path, *, description="CRUISE", rows=None, columns=None, name="p.dat"):
@@ -2583,14 +2551,17 @@ def test_the_docstrings_of_the_post_layer_state_what_the_definitions_say():
     """F-1822, F-1821, F-1841, F-1842, F-1826, X-F-0329, X-F-1642: no false claim remains."""
     import pyflightstream.post as layer
     from pyflightstream.post import _rotor_products, boundary_layer, farfield_fields
-    from pyflightstream.post.unsteady_polar import write_unsteady_polar
 
     assert "FR-20 carries" not in (layer.__doc__ or "")
     assert "FR-2302 and FR-2303" in " ".join((layer.__doc__ or "").split())
-    polar = write_unsteady_polar.__doc__ or ""
-    assert "same window `per_blade`" not in polar
-    assert "`LAST_REVS_AVG` or `LAST_ITERS_AVG`" in polar
-    assert "writes them ``NA``" in polar and "writes no\n        reference columns" not in polar
+    # 0.58.0: the unsteady polar writer is retired; its window and its NA rule are stated by
+    # the pages of the files that replace it (the averaging window, the FAM-DIM file).
+    docs = Path(__file__).resolve().parents[2] / "docs"
+    window = (docs / "definitions" / "the-averaging-window.md").read_text(encoding="utf-8")
+    assert "same window `per_blade`" not in window
+    assert "`LAST_REVS_AVG` or `LAST_ITERS_AVG`" in window
+    family = " ".join((docs / "pproc" / "fam-dim.md").read_text(encoding="utf-8").split())
+    assert "row of `NA`, never of zeros" in family and "writes no reference columns" not in family
     assert "1e-10" in (boundary_layer.sample_boundary_layer.__doc__ or "")
     assert "export window" in (_rotor_products._unsteady_harmonics.__doc__ or "")
     assert "between one and ten units" in (farfield_fields.coordinate_tolerance.__doc__ or "")
@@ -2742,11 +2713,6 @@ def test_x_f_1637_the_unsteady_polar_states_no_window_for_a_point_it_left_out(tm
     workspace.append_record(RunRecord(**short.model_dump()))
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    (polar,) = [
-        key
-        for key in manifest["products"]
-        if key.startswith("polars/") and key.endswith("_uns_avg.csv")
-    ]
-    entry = manifest["products"][polar]
+    entry = manifest["products"]["polars/FAM-DIM-P7001.csv"]
     assert entry["runs"] == ["camp/sim_7001/AL-020"]
     assert set(entry["windows"]) == {"AL-020"}, entry["windows"]

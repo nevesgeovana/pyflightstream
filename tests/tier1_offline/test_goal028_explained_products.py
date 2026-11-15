@@ -180,12 +180,14 @@ def test_the_unsteady_polar_vouches_only_for_the_points_it_holds(tmp_path):
 
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    (polar,) = [
-        key
-        for key in manifest["products"]
-        if key.startswith("polars/") and key.endswith("_uns_avg.csv")
-    ]
-    assert manifest["products"][polar]["runs"] == ["camp/sim_7001/AL-020"], manifest["products"][
-        polar
-    ]
-    assert "AL+020" in manifest["skipped"][polar]
+    # The polar files of the polar (the family files and every group file) hold the
+    # point whose history reaches the window, and the polar's entry in `skipped` names
+    # the one that does not.
+    polar_files = [key for key in manifest["products"] if key.startswith("polars/")]
+    assert "polars/P7001-TOTAL-ACOEF.csv" in polar_files, polar_files
+    for key in polar_files:
+        assert manifest["products"][key]["runs"] == ["camp/sim_7001/AL-020"], (
+            key,
+            manifest["products"][key],
+        )
+    assert "AL+020" in manifest["skipped"]["polars/P7001"]

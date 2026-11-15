@@ -62,6 +62,145 @@ def _surfaces(**rows):
     return {name: {**empty, **values} for name, values in rows.items()}
 
 
+_REFERENCE_TOML = """area_m2 = 10.0
+chord_m = 1.0
+span_m = 4.0
+
+[rotors.PUSHER]
+alias = "PUSHER"
+x_m = {x}
+y_m = 0.0
+z_m = 0.0
+axis = "{axis}"
+rpm_sign = 1
+diameter_m = {diameter}
+families_blades = ["Blade1"]
+blade1 = {{ azimuth_deg = 0.0, zero = "{zero}" }}
+"""
+_AXES = {"X": [1.0, 0.0, 0.0], "Z": [0.0, 0.0, 1.0]}
+
+
+def _stage_rotor(
+    tmp_path,
+    surfaces,
+    *,
+    axis="Z",
+    hub_x=0.0,
+    rpm=3000.0,
+    velocity=40.0,
+    free_stream=None,
+    diameter=2.0,
+    density=None,
+    skipped=None,
+):
+    """Post polar 6001 as a quasi-steady sector of the rotor PUSHER and read its RCOEF file.
+
+    The export states ``surfaces`` (coefficients in the export's own columns, in a
+    reference of area 10, chord 1 and span 4), the reference velocity ``velocity``
+    and, when given, the free-stream velocity ``free_stream``; the rotor turns at
+    ``rpm`` rev/min (signed). Since 0.58.0 the rotor table is the rotor group's RCOEF
+    file of the post stage, so the rows come from the stage and not from a writer.
+    ``diameter`` and ``density`` replace the rotor's 2 m and the record's air density.
+    A dict passed as ``skipped`` is filled with the `skipped` entries of the manifest
+    (the products the stage left out, each with its reason).
+    Returns ``(columns, rows, said)``: the file's header, its rows (one per point of the
+    polar) and the warnings the stage raised.
+    """
+    import json
+    import warnings
+
+    from pyflightstream.post.products import read_csv_table
+    from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_superfile import _loads, _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        _REFERENCE_TOML.format(
+            axis=axis, x=hub_x, diameter=diameter, zero="Y" if axis == "X" else "X"
+        ),
+        encoding="utf-8",
+    )
+    order = ("Cx", "Cy", "Cz", "CMx", "CMy", "CMz")
+    lines = []
+    total = dict.fromkeys(order, 0.0)
+    for name, values in surfaces.items():
+        row = {key: values.get(key, 0.0) for key in order}
+        for key in order:
+            total[key] += row[key]
+        lines.append(_surface_line(name, row))
+    lines.append(_surface_line("Total", total))
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            outputs = [workspace.sim_dir("6001") / name for name in record.outputs]
+            for path in outputs:
+                text = _loads(0.0, velocity=f"{velocity:.3f}")
+                text = text.replace("50.000", "10.000").replace("2.526", "1.000")
+                kept = [
+                    line
+                    for line in text.splitlines()
+                    if not line.startswith(("     W,", "     B,", "     Total,"))
+                ]
+                at = next(i for i, line in enumerate(kept) if "Surface, Cx" in line) + 2
+                kept[at:at] = lines
+                text = "\n".join(kept) + "\n"
+                if free_stream is not None:
+                    text = text.replace(
+                        f"Freestream velocity (m/s)                   {velocity:.3f}",
+                        f"Freestream velocity (m/s)                   {free_stream:.3f}",
+                    )
+                path.write_text(text, encoding="utf-8")
+            loads = outputs[0]
+            quasi = {
+                "schema_version": 1,
+                "run_type": "qsteady_rotor",
+                "case": "sector",
+                "rotor": "PUSHER",
+                "blades": 2,
+                "rpm": rpm,
+                "shaft_frame_axis": axis,
+                "hub_m": [hub_x, 0.0, 0.0],
+                "axis_vector": _AXES[axis],
+                "diameter_m": diameter,
+                "families_general": [],
+                "families_blades": ["Blade1"],
+                "blade1_azimuth_deg": 0.0,
+                "positions": [
+                    {"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": loads.name}
+                ],
+                "validity": None,
+            }
+            loads.with_name(loads.stem + "_qsteady.json").write_text(json.dumps(quasi))
+            update = {
+                "recipe": "qsteady_rotor",
+                "reference": {"SREF": 10.0, "CREF": 1.0, "BREF": 4.0},
+            }
+            if density is not None:
+                update["density_kg_m3"] = density
+            record = record.model_copy(update=update)
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _post(workspace)
+    table = workspace.products_dir("matriz") / "polars" / "P6001-PUSHER-RCOEF.csv"
+    said = [str(w.message) for w in caught]
+    if skipped is not None:
+        manifest = workspace.products_dir("matriz") / "products.json"
+        skipped.update(json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}))
+    if not table.is_file():
+        return [], [], said
+    columns, rows = read_csv_table(table)
+    return list(columns), rows, said
+
+
+def _surface_line(name, values):
+    cells = ",".join(f"{values[key]:+.7f}" for key in ("Cx", "Cy", "Cz"))
+    cells += ",+0.0000000,+0.0000000,+0.0000000"
+    cells += "," + ",".join(f"{values[key]:+.7f}" for key in ("CMx", "CMy", "CMz"))
+    return f"     {name},{cells}"
+
+
 def test_the_thrust_is_the_force_along_the_shaft_and_nothing_else():
     """A rotor on Z, pushing along Z. Hand-checkable and the whole of the rule.
 
@@ -190,44 +329,26 @@ def test_the_rotor_table_is_written_with_its_alias_in_every_row(tmp_path):
     """THE PRODUCT, which is what item 6 asks for and what nothing wrote.
 
     `rotor_coefficients` and `rotor_coefficient_columns` existed with no
-    caller: pieces of a table and no table. This writes one and reads it back.
+    caller: pieces of a table and no table. The post stage writes one and this
+    reads it back.
 
     THE ALIAS IS INSIDE THE BYTES, which is item 18: a script that has
-    already LOADED the file no longer has its name. Since 0.27.0 (G16) it is
-    the `ROTOR` column right after `POL`, and the first line is the header;
-    until then it stood alone on the first line, before the header.
+    already LOADED the file no longer has its name. Since 0.58.0 the rotor's table
+    is the RCOEF file of the rotor's own group: its first line is the header, which
+    opens with the run block (`POL` first), and its `GROUP` column names the rotor.
     """
-    from pyflightstream.post.products import read_csv_table, write_rotor_table
-
-    rotor = _rotor("Z")
-    written = write_rotor_table(
-        tmp_path / "polars" / "P0001-M150_PUSHER_rotor.csv",
-        rotor=rotor,
-        rows=[
-            {
-                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-                "condition": {"MACH": 0.15, "ALPHA": 0.0},
-                "rpm": 3000.0,
-                # THE ROW'S OWN AIR AND VELOCITY. These were arguments of the
-                # WHOLE call until 2026-09-18, so every row of a sweep divided
-                # by the first point's state.
-                "density": 1.225,
-                "speed": 40.0,
-            }
-        ],
-        reference=_reference(),
+    columns, rows, _said = _stage_rotor(
+        tmp_path, _surfaces(Blade1={"Cz": 0.5}), rpm=3000.0, velocity=40.0
     )
-    assert written is not None and written.is_file(), written
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
 
-    first = written.read_text(encoding="utf-8").splitlines()[0]
-    assert first.split(",")[:2] == ["POL", "ROTOR"], first
-
-    columns, rows = read_csv_table(written)
-    assert rows[0]["ROTOR"] == "PUSHER", rows[0]
-    assert "CT_PUSHER" in columns, columns
-    assert "ETAW_PUSHER" in columns, columns
-    assert len(rows) == 1, rows
-    assert float(rows[0]["CT_PUSHER"]) > 0.0, rows[0]
+    assert columns[0] == "POL", columns
+    assert rows[0]["GROUP"] == "PUSHER", rows[0]
+    assert "CT" in columns, columns
+    assert "ETAW" in columns, columns
+    # One row per point of the polar (the fixture's polar has two).
+    assert len(rows) == 2, rows
+    assert float(rows[0]["CT"]) > 0.0, rows[0]
 
 
 def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_path):
@@ -243,38 +364,26 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
     THE EXCEPTION IS NAMED BECAUSE THE SENTENCE WITHOUT IT WAS WRONG, and a V&V
     round caught it against the assertion two lines below, which checked four
     columns of six. `J = V / (n D)` is `0.0 / (50.0 * 2.0)`, a clean float, so
-    `J_PUSHER` writes `0.00000` -- and that is PHYSICALLY RIGHT: a turning rotor
-    at rest genuinely has an advance ratio of zero. It is the one number on the
-    row a reader may believe. `CP` is `2 pi * nan` and does read `NA`.
+    the rotor's `J0` of the run block writes `0.00000` -- and that is PHYSICALLY
+    RIGHT: a turning rotor at rest genuinely has an advance ratio of zero. It is
+    the one number on the row a reader may believe. `CP` is `2 pi * nan` and
+    does read `NA`.
 
     A wrong sentence and a right number, which is the harder of the two to see:
     this docstring is what a reader takes for the column set's contract.
     """
-    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+    from pyflightstream.post.products import NOT_APPLICABLE
 
-    written = write_rotor_table(
-        tmp_path / "polars" / "P0001-M000_PUSHER_rotor.csv",
-        rotor=_rotor("Z"),
-        rows=[
-            {
-                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-                "condition": {"MACH": 0.0},
-                "rpm": 3000.0,
-                "density": 1.225,
-                "speed": 0.0,
-            }
-        ],
-        reference=_reference(),
-    )
-    _, rows = read_csv_table(written)
+    _, rows, _said = _stage_rotor(tmp_path, _surfaces(Blade1={"Cz": 0.5}), velocity=0.0)
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
     # ALL FIVE, not the four this asserted. `CP` was the column the docstring
     # covered and the assertion did not, which is how "every coefficient" stayed
     # unchallenged while one of them wrote a number.
-    for name in ("CT_PUSHER", "CQ_PUSHER", "CP_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
+    for name in ("CT", "CQ", "CP", "ETA", "ETAW"):
         assert rows[0][name] == NOT_APPLICABLE, (name, rows[0])
     # AND THE ONE THAT IS A REAL ZERO, pinned with its reason so nobody "fixes"
     # it into `NA` for consistency with the five above.
-    assert rows[0]["J_PUSHER"] == "0.00000", (
+    assert rows[0]["J0"] == "0.00000", (
         "J is V / (n D) and a turning rotor at rest has an advance ratio of "
         f"exactly zero, which is a measurement and not a missing value: {rows[0]}"
     )
@@ -287,30 +396,21 @@ def test_p0420_hover_with_positive_vref_pins_current_reconstruction(tmp_path):
     give 2450 Nm. At n=50 Hz, D=2 m these imply CT=.1 and CQ=.025.
     The independent free stream is zero, so J=0 and efficiencies are NA.
     """
-    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+    from pyflightstream.post.products import NOT_APPLICABLE
 
-    path = write_rotor_table(
-        tmp_path / "hover.csv",
-        rotor=_rotor("Z"),
-        rows=[
-            {
-                "surfaces": _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
-                "condition": {"MACH": 0.0, "VREF": 40.0},
-                "rpm": 3000.0,
-                "density": 1.225,
-                "speed": 40.0,
-                "free_stream": 0.0,
-            }
-        ],
-        reference=_reference(),
+    _, rows, _said = _stage_rotor(
+        tmp_path,
+        _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
+        velocity=40.0,
+        free_stream=0.0,
     )
-    _, rows = read_csv_table(path)
-    assert rows[0]["CT_PUSHER"] != NOT_APPLICABLE
-    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(0.1)
-    assert float(rows[0]["CQ_PUSHER"]) == pytest.approx(0.025)
-    assert float(rows[0]["CP_PUSHER"]) == pytest.approx(0.15708, abs=0.000005)
-    assert float(rows[0]["J_PUSHER"]) == 0.0
-    assert rows[0]["ETA_PUSHER"] == rows[0]["ETAW_PUSHER"] == NOT_APPLICABLE
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
+    assert rows[0]["CT"] != NOT_APPLICABLE
+    assert float(rows[0]["CT"]) == pytest.approx(0.1)
+    assert float(rows[0]["CQ"]) == pytest.approx(0.025)
+    assert float(rows[0]["CP"]) == pytest.approx(0.15708, abs=0.000005)
+    assert float(rows[0]["J0"]) == 0.0
+    assert rows[0]["ETA"] == rows[0]["ETAW"] == NOT_APPLICABLE
 
 
 @pytest.mark.requirement("FR-3217")
@@ -319,7 +419,7 @@ def test_p0430_a_static_point_follows_its_definition_of_the_reference_speed(tmp_
     """The definition of record and the table agree: VREF > 0 recovers, VREF = 0 cannot."""
     from pathlib import Path
 
-    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+    from pyflightstream.post.products import NOT_APPLICABLE
 
     page = (
         Path(__file__).resolve().parents[2] / "docs" / "definitions" / "rotor-coefficients.md"
@@ -328,49 +428,37 @@ def test_p0430_a_static_point_follows_its_definition_of_the_reference_speed(tmp_
     assert "qref = rho VREF^2 / 2" in static
     assert "Reynolds number" in static and "reports/" in static
     assert "No rotor coefficient is recoverable" not in page
-    path = write_rotor_table(
-        tmp_path / "hover.csv",
-        rotor=_rotor("Z"),
-        rows=[
-            {
-                "surfaces": _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
-                "condition": {"MACH": 0.0, "VREF": vref},
-                "rpm": 3000.0,
-                "density": 1.225,
-                "speed": vref,
-                "free_stream": 0.0,
-            }
-        ],
-        reference=_reference(),
+    _, rows, _said = _stage_rotor(
+        tmp_path,
+        _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
+        velocity=vref,
+        free_stream=0.0,
     )
-    _, rows = read_csv_table(path)
-    assert float(rows[0]["J_PUSHER"]) == 0.0
-    assert rows[0]["ETA_PUSHER"] == NOT_APPLICABLE
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
+    assert float(rows[0]["J0"]) == 0.0
+    assert rows[0]["ETA"] == NOT_APPLICABLE
     if vref > 0.0:
-        assert float(rows[0]["CT_PUSHER"]) == pytest.approx(0.1)
+        assert float(rows[0]["CT"]) == pytest.approx(0.1)
     else:
-        assert rows[0]["CT_PUSHER"] == rows[0]["CQ_PUSHER"] == NOT_APPLICABLE
+        assert rows[0]["CT"] == rows[0]["CQ"] == NOT_APPLICABLE
 
 
-def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
-    """Every coefficient divides by the speed, so there is no table to write."""
-    from pyflightstream.post.products import write_rotor_table
+def test_a_rotor_that_is_not_turning_has_no_coefficient_to_state(tmp_path):
+    """Every coefficient divides by the speed, so a stopped rotor states none.
 
-    written = write_rotor_table(
-        tmp_path / "polars" / "P0001_PUSHER_rotor.csv",
-        rotor=_rotor("Z"),
-        rows=[
-            {
-                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-                "condition": {},
-                "rpm": 0.0,
-                "density": 1.225,
-                "speed": 40.0,
-            }
-        ],
-        reference=_reference(),
-    )
-    assert written is None, written
+    0.58.0 (design of the post outputs, section 4.3): the rotor's file is written for
+    a rotor not turning, its `T` and `Q` stay (they need no speed) and every
+    coefficient over `n^2` and `ETA` read `NA`; `P` is zero at zero speed. The 0.57.0
+    writer wrote no table at all.
+    """
+    from pyflightstream.post.products import NOT_APPLICABLE
+
+    _, rows, _said = _stage_rotor(tmp_path, _surfaces(Blade1={"Cz": 0.5}), rpm=0.0)
+    assert rows, "the stage wrote no RCOEF file for the rotor group"
+    for name in ("CT", "CQ", "CP", "ETA", "ETAW"):
+        assert rows[0][name] == NOT_APPLICABLE, (name, rows[0])
+    assert float(rows[0]["T"]) == pytest.approx(4900.0), rows[0]
+    assert float(rows[0]["P"]) == 0.0, rows[0]
 
 
 def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
@@ -408,25 +496,17 @@ def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
        factors flipped. Normalising with a magnitude rate while `CQ` keeps its
        sign made `CP` flip, and `ETA` with it.
     """
-    from pyflightstream.post.products import read_csv_table, write_rotor_table
-
-    def _row(rpm, swirl):
-        return {
-            # A REAL TORQUE: `Cy` at a hub offset in x gives a moment about the
-            # shaft on Z, so `CQ` is non-zero and the sign rules are separable.
-            "surfaces": _surfaces(Blade1={"Cz": 0.5, "Cy": swirl}),
-            "condition": {"MACH": 0.15, "ALPHA": 0.0},
-            "rpm": rpm,
-            "density": 1.225,
-            "speed": 40.0,
-        }
 
     def _write(where, rpm, swirl):
-        return write_rotor_table(
-            tmp_path / where / "P0001_PUSHER_rotor.csv",
-            rotor=_rotor("Z", hub=(2.0, 0.0, 0.0)),
-            rows=[_row(rpm, swirl)],
-            reference=_reference(CREF=1.0),
+        # A REAL TORQUE: `Cy` at a hub offset in x gives a moment about the
+        # shaft on Z, so `CQ` is non-zero and the sign rules are separable.
+        return _stage_rotor(
+            tmp_path / where,
+            _surfaces(Blade1={"Cz": 0.5, "Cy": swirl}),
+            axis="Z",
+            hub_x=2.0,
+            rpm=rpm,
+            velocity=40.0,
         )
 
     # THE MIRRORED ROTOR, which is the physical case: reverse the rotation AND
@@ -435,174 +515,36 @@ def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
     # entirely -- a rotor being driven BY the flow -- and there `CP` SHOULD go
     # negative. The first writing of this test reversed only the rpm and then
     # asserted the power was unchanged, which asked for the wrong answer.
-    forward = _write("fwd", 3000.0, 0.25)
-    reverse = _write("rev", -3000.0, -0.25)
-    assert reverse is not None, (
+    _, fwd, _ = _write("fwd", 3000.0, 0.25)
+    _, rev, _ = _write("rev", -3000.0, -0.25)
+    assert rev, (
         "a counter-rotating rotor lost its entire table; a negative rpm is a "
         "direction, not a stopped rotor"
     )
-    _, fwd = read_csv_table(forward)
-    _, rev = read_csv_table(reverse)
 
     # THE FIXTURE MUST DISCRIMINATE, asserted before the comparisons that rest
     # on it. With a zero torque every check below passes under a wrong fix.
-    assert float(fwd[0]["CQ_PUSHER"]) != 0.0, (
+    assert float(fwd[0]["CQ"]) != 0.0, (
         f"this fixture states no torque, so it cannot tell the sign rules apart: {fwd[0]}"
     )
 
-    for name in ("J_PUSHER", "CT_PUSHER"):
+    for name in ("J0", "CT"):
         assert rev[0][name] == fwd[0][name], (
             f"{name} normalises by the RATE, which has no sign: "
             f"{rev[0][name]} against {fwd[0][name]}"
         )
-    assert float(rev[0]["CQ_PUSHER"]) == pytest.approx(-float(fwd[0]["CQ_PUSHER"])), (
+    assert float(rev[0]["CQ"]) == pytest.approx(-float(fwd[0]["CQ"])), (
         "CQ is the torque about the rotor's fixed axis, and a mirrored rotor "
-        f"imparts the opposite swirl: {rev[0]['CQ_PUSHER']} against {fwd[0]['CQ_PUSHER']}"
+        f"imparts the opposite swirl: {rev[0]['CQ']} against {fwd[0]['CQ']}"
     )
-    for name in ("CP_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
+    for name in ("CP", "ETA", "ETAW"):
         assert rev[0][name] == fwd[0][name], (
             f"{name} rests on P = Q * omega, and reversing BOTH the torque and "
             f"the rotation leaves the power unchanged: {rev[0][name]} against {fwd[0][name]}"
         )
-    assert float(rev[0]["J_PUSHER"]) > 0.0, (
+    assert float(rev[0]["J0"]) > 0.0, (
         "J is V/(n D) and a rotor flying forwards has a positive advance "
         f"ratio whichever way it turns: {rev[0]}"
-    )
-
-
-def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp_path):
-    """ITEM 16'S WINDOW REACHES THE LAST PRODUCT THAT DID NOT HAVE IT.
-
-    The rotor table was built from `point.loads`, the NATIVE export, which
-    states the last time step -- the owner's own answer of 2026-09-18. So an
-    unsteady rotor table published one instant of a cycle beside a polar that
-    averaged correctly, in the same folder, with neither file saying which it
-    was. The independent review of `main` found it (L6-04).
-
-    THE HISTORY IS ALREADY ON DISK. A plots table states `FX_<GROUP>` through
-    `MZ_<GROUP>` per plot group, in NEWTONS -- measured on a licensed run. Item
-    15 names a rotor's integration group after its alias, so the columns are
-    `FX_PUSHER` and its five siblings.
-
-    THE ARITHMETIC IS CHECKABLE BY HAND, which is the point of these numbers:
-    `FZ_PUSHER` runs 100, 200, 300, 400 over steps 1 to 4. Over the window 3-4
-    the mean is 350 and the LAST STEP is 400. A table built from the native
-    export would carry the 400-equivalent and look identical.
-
-    THIS TEST EXISTS BECAUSE THE TYPE CHECKER FOUND WHAT IT SHOULD HAVE. The
-    first writing of the averaging path read `reference.sref` and
-    `reference.cref`, which are not attributes of `ReferenceValues` -- an
-    AttributeError the moment the path ran. The whole suite was green because
-    NOTHING REACHED IT: no fixture carried a plots table with these columns.
-    `mypy` caught it in CI. A path no case exercises is a path that is not
-    delivered, which is this release's own recurring finding.
-    """
-
-    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
-    from pyflightstream.post.products import PolarPoint, matrix_rows, write_rotor_table
-    from pyflightstream.results import parse_loads
-    from pyflightstream.workspace import RunRecord
-    from tests.tier1_offline.test_post_products import LOADS
-    from tests.tier1_offline.test_post_superfile import _workspace
-
-    workspace = _workspace(tmp_path)
-    (workspace.inputs_dir / "references" / "r002.toml").write_text(
-        "\n".join(
-            [
-                "area_m2 = 50.0",
-                "chord_m = 2.526",
-                "span_m = 20.0",
-                "",
-                "[rotors.PUSHER]",
-                'alias = "PUSHER"',
-                "x_m = 0.0",
-                "y_m = 0.0",
-                "z_m = 0.0",
-                'axis = "Z"',
-                "rpm_sign = 1",
-                "diameter_m = 1.2",
-                'families_blades = ["Blade1"]',
-                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    # THE PLOTS TABLE, in the export's own spelling: `{PARAM}_{GROUP}`, in
-    # Newtons, with the group named for the rotor's alias.
-    history = tmp_path / "plots.csv"
-    lines = ["Time-step,FX_PUSHER,FY_PUSHER,FZ_PUSHER,MX_PUSHER,MY_PUSHER,MZ_PUSHER"]
-    for step in range(1, 5):
-        thrust = 100.0 * step
-        lines.append(f"{step},0.0,0.0,{thrust:.5f},0.0,0.0,0.0")
-    history.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    path = tmp_path / "P.txt"
-    path.write_text(LOADS, encoding="utf-8")
-    point = PolarPoint(name="P", loads=parse_loads(LOADS), loads_path=path)
-    run_id = "camp/sim_0001/P"
-    record = RunRecord(
-        run_id=run_id,
-        sim_id="0001",
-        fs_version_requested="26.123",
-        package_version="0.23.0",
-        script_sha256="0" * 64,
-        raw_flag=False,
-        status="CONVERGED",
-        density_kg_m3=1.225,
-        velocity_requested_m_s=40.0,
-        mach=0.12,
-        reductions={"rotors": {"PUSHER": {"rpm": 1200.0, "blades": 2}}},
-    )
-
-    matrix_row = next(
-        (
-            row
-            for row in matrix_rows(workspace.root, "matriz").values()
-            if str(getattr(row, "ref_code", "")) == "r002"
-        ),
-        None,
-    )
-    assert matrix_row is not None
-
-    reference = _reference(area_m2=50.0, span_m=20.0, chord_m=2.526)
-
-    def _thrust(window):
-        tables = rotor_tables(
-            workspace,
-            "0001",
-            [point],
-            [record],
-            {"P": [run_id]},
-            reference,
-            matrix_row,
-            tmp_path / "out",
-            plots={"P": history} if window else None,
-            window=window,
-        )
-        assert tables, "the reference declares a rotor and no table was planned"
-        target, _alias, plan = tables[0]
-        written = write_rotor_table(
-            target, rotor=plan["rotor"], rows=plan["rows"], reference=reference
-        )
-        assert written is not None, written
-        from pyflightstream.post.products import read_csv_table
-
-        _, rows = read_csv_table(written)
-        return float(rows[0]["CT_PUSHER"])
-
-    early = _thrust((1, 2))
-    late = _thrust((3, 4))
-
-    # THE WINDOW IS WHAT MOVED and nothing else did, so the ratio is the ratio
-    # of the two means: 350 over 150. Derived from the fixture, never read off
-    # the implementation.
-    # Both cells are written at six significant figures (PFS-2081.53), so each carries
-    # up to 3.4e-6 of relative rounding; 1e-5 still refuses any other window.
-    assert late == pytest.approx(early * (350.0 / 150.0), rel=1e-5), (
-        "the rotor table is not averaging over the row's window; "
-        f"steps 1-2 mean 150 N and steps 3-4 mean 350 N: {early} and {late}"
     )
 
 
@@ -744,8 +686,8 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     still in the workspace. That is the route, and it costs nothing she has.
 
     This asserts the product: a recorded campaign whose reference declares a
-    rotor gets a rotor table, its first line the header and its alias the
-    `ROTOR` column (G16; until 0.27.0 the alias alone on the first line).
+    rotor gets the rotor's group RCOEF file (0.58.0: the rotor table is retired),
+    its rows the rotor's own, its group the alias and its `ROTOR_ID` its id.
     """
     from pathlib import Path
 
@@ -786,17 +728,17 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     )
 
     written = _post(workspace)
-    tables = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
+    tables = [Path(p) for p in written if Path(p).name == "P6002-PUSHER-RCOEF.csv"]
     assert tables, (
-        "the campaign turns a rotor and the stage wrote no rotor table; "
+        "the campaign turns a rotor and the stage wrote no rotor group file; "
         f"it wrote {sorted(Path(p).name for p in written)}"
     )
-    first = tables[0].read_text(encoding="utf-8").splitlines()[0]
-    assert first.split(",")[:2] == ["POL", "ROTOR"], first
 
     # AND A VALUE, DERIVED HERE FROM THE EXPORT AND THE DEFINITION, which is what
     # the header line alone never proves. The shaft is X, so the thrust is the X
-    # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`.
+    # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`. 0.58.0 counts thrust
+    # positive forward (D12, design 5.3) and the solver's x is aft, so CT is that
+    # quotient with the sign reversed.
     from pyflightstream.post.products import read_csv_table
     from pyflightstream.results import parse_loads
 
@@ -806,11 +748,11 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     rho, speed = record.density_kg_m3, report.reference_velocity_m_s
     rps = 2200.0 / 60.0
     thrust = report.surfaces["B"]["Cx"] * 0.5 * rho * speed**2 * 50.0
-    expected = thrust / (rho * rps**2 * 1.2**4)
+    expected = -thrust / (rho * rps**2 * 1.2**4)
     _columns, rows = read_csv_table(tables[0])
-    assert (rows[0]["POL"], rows[0]["ROTOR"]) == ("6002", "PUSHER"), rows[0]
+    assert (rows[0]["POL"], rows[0]["GROUP"]) == ("6002", "PUSHER"), rows[0]
     assert expected != 0.0, "the fixture's family carries no X force, so nothing is proved"
-    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(expected, rel=1e-4), rows[0]
+    assert float(rows[0]["CT"]) == pytest.approx(expected, rel=1e-4), rows[0]
 
 
 def test_a_rotor_declaring_a_family_sums_that_familys_surfaces():
@@ -918,36 +860,18 @@ def test_a_refused_row_leaves_nothing_behind_in_the_products_folder(tmp_path):
     """
     polars = tmp_path / "polars"
     polars.mkdir()
-    target = polars / "P0001-M150_PUSHER_rotor.csv"
+    target = polars / "P0001-PUSHER-RCOEF.csv"
 
-    # The rotor table's own module, where the writer looks the columns up since
-    # WP5 of 0.33.0 moved the family out of post.products.
-    from pyflightstream.post import rotor_table as module
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post._tables import write_csv_table
 
-    # A row narrower than the header is what the funnel refuses.
-    original = module.rotor_coefficient_columns
-    try:
-        module.rotor_coefficient_columns = lambda alias: ("ONLY_ONE",)
-        # NAMED, not blind: a bare `Exception` here would pass on an
-        # AttributeError from the patch itself and prove nothing about the
-        # funnel's refusal, which is what this test is about.
-        with pytest.raises(module.ProductError):
-            module.write_rotor_table(
-                target,
-                rotor=_rotor("Z"),
-                rows=[
-                    {
-                        "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-                        "condition": {"MACH": 0.15},
-                        "rpm": 3000.0,
-                        "density": 1.225,
-                        "speed": 40.0,
-                    }
-                ],
-                reference=_reference(),
-            )
-    finally:
-        module.rotor_coefficient_columns = original
+    # A row narrower than the header is what the funnel refuses. Every table of the
+    # 0.58.0 post (the rotor group's RCOEF file among them) is written through it; the
+    # rotor writer that used to call it is retired.
+    # NAMED, not blind: a bare `Exception` here would pass on an unrelated error and
+    # prove nothing about the funnel's refusal, which is what this test is about.
+    with pytest.raises(ProductError):
+        write_csv_table(target, ["ROTOR_ID", "CT", "CQ"], [[0, 0.1]])
 
     left = sorted(p.name for p in polars.iterdir())
     assert left == [], f"the refusal left files in the products folder: {left}"
@@ -1001,11 +925,10 @@ def test_f160_an_infinite_rate_is_refused_not_read_as_zero_coefficients():
         )
 
 
-def test_f4_0506_rotor_loads_refuse_what_they_cannot_define(tmp_path):
+def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
     from types import SimpleNamespace
 
     from pyflightstream.post import rotor_table as rt
-    from pyflightstream.post.products import read_csv_table, write_rotor_table
 
     common = dict(reference=_reference(), density_kg_m3=1.225)
     surfaces = _surfaces(Blade1={"Cz": 0.5})
@@ -1023,30 +946,6 @@ def test_f4_0506_rotor_loads_refuse_what_they_cannot_define(tmp_path):
         rt.rotor_coefficients(
             thrust_n=1.0, torque_nm=1.0, rps=10.0, diameter_m=1.0, density_kg_m3=0.0, speed_m_s=5.0
         )
-
-    # F-206 under FR-69: an unstated ALPHA or BETA is 0.0, so MADV is computed, not NA
-    def advancing(condition):
-        row = {
-            "run_id": "camp/sim_1/P1",
-            "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-            "condition": condition,
-            "rpm": 3000.0,
-            "density": 1.225,
-            "speed": 50.0,
-            "free_stream": 50.0,
-            "air": (50.0, 340.0),
-        }
-        written = write_rotor_table(
-            tmp_path / f"{len(condition)}_rotor.csv",
-            rotor=_rotor("X"),
-            rows=[row],
-            reference=_reference(),
-        )
-        return read_csv_table(written)[1][0]["MADV_PUSHER"]
-
-    stated = advancing({"ALPHA": 0.0, "BETA": 0.0})
-    assert stated != "NA"
-    assert advancing({}) == stated
 
 
 @pytest.mark.parametrize("shaft", [(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)])

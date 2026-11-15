@@ -48,10 +48,11 @@ def test_b02_advance_ratio_sweep_is_stated_on_every_unsteady_polar_row(tmp_path,
         )
     monkeypatch.setattr(workspace, "read_manifest", lambda: records)
     written, _manifest = post(workspace)
-    table = next(path for path in written if path.name.endswith("_uns_avg.csv"))
+    # The unsteady polar's successor is the TOTAL group's ACOEF file; the advance ratio the
+    # row requested is the run block's J, stated on every row (one per point).
+    table = next(path for path in written if path.name == "P6002-TOTAL-ACOEF.csv")
     _columns, rows = read_csv_table(table)
     assert len(rows) == len(expected)
-    assert [row["ADVANCE_RATIO"] for row in rows] == [row["J"] for row in rows]
     assert [float(row["J"]) for row in rows] == pytest.approx(expected)
 
 
@@ -70,7 +71,7 @@ def test_b05_rotor_planning_failure_reaches_manifest(tmp_path, missing):
     assert skips, f"no named rotor skip for missing {missing}: {manifest['skipped']}"
     reason = " ".join(skips.values()).lower()
     assert ("matrix row" if missing == "matrix_row" else "reference") in reason
-    assert any("6001" in path.name and path.name.endswith("_g01.csv") for path in written)
+    assert any(path.name == "P6001-g01-ACOEF.csv" for path in written)
 
 
 def test_b06_all_unusable_points_keep_their_reasons_in_manifest(tmp_path, monkeypatch):

@@ -42,7 +42,8 @@ def test_v_metadata_poor_failure_first_keeps_healthy_polar(tmp_path, monkeypatch
         _matrix(workspace)
     write_campaign_products(workspace, matrix_stem=healthy.matrix_stem)
     manifest = _products_manifest(workspace)
-    key = "polars/P7001-AL-020_TOTAL.csv"
+    # 0.58.0 names the polar by its POL: no file name depends on the first record.
+    key = "polars/P7001-TOTAL-ACOEF.csv"
     assert key in manifest["products"], manifest["skipped"]
     assert manifest["products"][key]["runs"] == [healthy.run_id]
     assert manifest["products"][key]["pproc"] == "p001"
@@ -175,6 +176,9 @@ def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
     spec.products.polars = True
     spec.groups = {}  # TOTAL is written for every polar
     sim = workspace.sim_dir("7001")
+    # The coefficients of a family file are formed from its dimensional loads (section 4.2),
+    # which need the density the record states.
+    healthy = healthy.model_copy(update={"density_kg_m3": 1.225})
     failed = healthy.model_copy(
         update={
             "run_id": "failed-first",
@@ -189,11 +193,15 @@ def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: records)
     write_campaign_products(workspace)
     out = workspace.products_dir(None)
-    old_key = f"polars/P7001-{'AL-020' if previous == 'healthy' else 'AL-999'}_TOTAL.csv"
-    old_bytes = (out / old_key).read_bytes()
+    # 0.58.0 names the polar by its POL (design of the post outputs, section 2.1): the
+    # skipped first record can no longer name the file, and the file of the first post
+    # holds the first post's point.
+    key = "polars/P7001-TOTAL-ACOEF.csv"
+    first_point = "AL-020" if previous == "healthy" else "AL-999"
+    assert [row["POINT"] for row in read_csv_table(out / key)[1]] == [first_point]
+    old_bytes = (out / key).read_bytes()
     records[:] = [failed, healthy]
     (sim / "AL-999.txt").write_text("loads export truncated\n")
-    key = "polars/P7001-AL-020_TOTAL.csv"
     for value in ("+0.4310000", "+0.5310000"):
         native = sim / "AL-020.txt"
         native.write_text(native.read_text().replace("+0.4310000", value))
@@ -201,14 +209,16 @@ def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
         manifest = _products_manifest(workspace)
         assert key in manifest["products"], manifest["skipped"]
         assert manifest["products"][key]["runs"] == [healthy.run_id]
-        assert float(read_csv_table(out / key)[1][0]["CLB"]) == pytest.approx(float(value))
-        assert {p.name for p in (out / "polars").glob("P7001-*_TOTAL.csv")} == {
-            "P7001-AL-020_TOTAL.csv"
+        rows = read_csv_table(out / key)[1]
+        assert [row["POINT"] for row in rows] == ["AL-020"], "the stale row of the failed record"
+        assert float(rows[0]["CLB"]) == pytest.approx(float(value))
+        assert {p.name for p in (out / "polars").glob("P7001-TOTAL-*.csv")} == {
+            "P7001-TOTAL-ACOEF.csv",
+            "P7001-TOTAL-DIM.csv",
         }
         if previous == "failed" and value == "+0.4310000":
-            assert old_key in manifest["skipped"]
-            assert old_key in (out / "post.log").read_text()
-            copies = list((out / "polars").glob("archive/*/P7001-AL-999_TOTAL.csv"))
+            # the table of the failed first record is replaced, and kept aside on request.
+            copies = list((out / "polars").glob("archive/*/P7001-TOTAL-ACOEF.csv"))
             assert len(copies) == int(archive)
             if archive:
                 assert copies[0].read_bytes() == old_bytes
@@ -221,39 +231,29 @@ def test_p0530_a_post_that_keeps_moves_a_renamed_polar_aside(tmp_path, monkeypat
     The command line and the run's own post keep a product they cannot rebuild
     (keep_unrebuilt). A polar the rebuild wrote under another name is not one of
     those: its old table holds the stale numbers, so it leaves the products and
-    is moved under archive/, never deleted.
+    is moved under archive/, never deleted. 0.58.0 names a polar's files by its POL
+    and group, so the rename is a declared group renamed between two posts.
     """
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
     spec.products.polars = True
-    spec.groups = {}  # TOTAL is written for every polar
-    sim = workspace.sim_dir("7001")
-    failed = healthy.model_copy(
-        update={
-            "run_id": "failed-first",
-            "point_name": "AL-999",
-            "sweep_name": "AL-999",
-            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            "outputs": ["AL-999.txt"],
-        }
-    )
-    (sim / "AL-999.txt").write_bytes((sim / "AL-020.txt").read_bytes())
-    records = [failed]
+    spec.groups = {"OLDNAME": ["Wing"]}
+    records = [healthy]
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: records)
     write_campaign_products(workspace)
     out = workspace.products_dir(None)
-    old_key = "polars/P7001-AL-999_TOTAL.csv"
-    old_bytes = (out / old_key).read_bytes()
-    records[:] = [failed, healthy]
-    (sim / "AL-999.txt").write_text("loads export truncated\n")
+    old_keys = ["polars/P7001-OLDNAME-ACOEF.csv", "polars/P7001-OLDNAME-DIM.csv"]
+    old_bytes = {key: (out / key).read_bytes() for key in old_keys}
+    spec.groups = {"NEWNAME": ["Wing"]}
     write_campaign_products(workspace, overwrite=True, keep_unrebuilt=True)
     manifest = _products_manifest(workspace)
-    assert "polars/P7001-AL-020_TOTAL.csv" in manifest["products"], manifest["skipped"]
-    assert old_key not in manifest["products"], "a stale table stays current"
-    assert {p.name for p in (out / "polars").glob("P7001-*_TOTAL.csv")} == {
-        "P7001-AL-020_TOTAL.csv"
-    }
-    copies = list((out / "polars").glob("archive/*/P7001-AL-999_TOTAL.csv"))
-    assert [copy.read_bytes() for copy in copies] == [old_bytes], "the old table was deleted"
+    assert "polars/P7001-NEWNAME-ACOEF.csv" in manifest["products"], manifest["skipped"]
+    for key in old_keys:
+        assert key not in manifest["products"], "a stale table stays current"
+    assert {p.name for p in (out / "polars").glob("P7001-OLDNAME-*.csv")} == set()
+    for key, contents in old_bytes.items():
+        name = key.split("/")[-1]
+        copies = list((out / "polars").glob(f"archive/*/{name}"))
+        assert [copy.read_bytes() for copy in copies] == [contents], "the old table was deleted"
 
 
 @pytest.mark.requirement("FR-3443")

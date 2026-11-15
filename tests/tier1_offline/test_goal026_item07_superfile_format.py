@@ -1,4 +1,4 @@
-"""Tier 1, v0.23.0 item 7: the super file can be written in the legacy polar format.
+"""Tier 1, v0.23.0 item 7: the polar files can be written in the legacy polar format.
 
 THE OWNER'S QUESTION, 2026-09-17, and it is the message that opened this whole
 release:
@@ -14,46 +14,26 @@ file name or from what the workspace happened to contain would be a writer
 nobody can predict; the pproc says which, and the default is the format she
 already reads so nothing changes under an existing workspace.
 
-THE COLUMN SET IS THE SAME IN BOTH. That is the property worth asserting: the
-super file's whole claim is that it carries everything the workspace knows
-about a simulation, and a second FORMAT that quietly carried a different SET
-would break that claim while looking like a formatting option.
+THE COLUMN SET IS THE SAME IN BOTH. That is the property worth asserting: a
+second FORMAT that quietly carried a different SET of columns would break the
+file's claim while looking like a formatting option.
+
+0.58.0: the super file is retired. `[products] superfile_format` reads as
+`polar_format` and selects the format of the FAM and group files (design page of
+the post outputs, section 2.3). The writer-level cases that built
+draft objects went with the writer; the format is now chosen only
+through the pproc and reaches the bytes only through the post stage, so the
+cases below run that stage.
 """
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
+
 import pytest
 
-from pyflightstream.post.superfile import SUPERFILE_FORMATS, SuperfileDraft, write_superfiles
-
-
-def test_p0430_all_formats_validated_before_any_target(tmp_path):
-    from pyflightstream._errors import ProductError
-
-    drafts = [*_drafts(tmp_path), SuperfileDraft(tmp_path / "bad.csv", (), {}, fmt="invalid")]
-    prepared = []
-    with pytest.raises(ProductError, match="format"):
-        write_superfiles(drafts, target=lambda path: prepared.append(path) or path)
-    assert prepared == []
-
-
-# ITEM 7 SHIPS IN 0.24.0. These cases were SKIPPED through 0.23.0, where the owner
-# moved the item out and `legacy_polar` left `cases.SUPERFILE_FORMATS`, so a pproc
-# naming it was refused by name. Not one was deleted then, because several found
-# defects that stayed fixed: the one production call omitted the format argument,
-# so the second format was a constant nobody could select; and the sentinel could
-# not tell a pproc that CHOSE `csv` from one that said nothing. The marker is gone
-# and they run again.
-
-
-def _drafts(tmp_path):
-    return [
-        SuperfileDraft(
-            path=tmp_path / "SUPER-0001-M150_PUSHER.csv",
-            rows=[{"POL": "0001", "ALPHA": -2.0, "CT_PUSHER": 0.12}],
-            entry={"runs": ["camp/sim_1/P"]},
-        )
-    ]
+from pyflightstream.cases import SUPERFILE_FORMATS
 
 
 def test_both_formats_are_offered_and_named():
@@ -61,180 +41,97 @@ def test_both_formats_are_offered_and_named():
     assert "legacy_polar" in SUPERFILE_FORMATS, SUPERFILE_FORMATS
 
 
-def test_the_default_is_the_format_she_already_reads(tmp_path):
-    """Adding a format may not change what an existing workspace writes."""
-    written, _, columns = write_superfiles(_drafts(tmp_path), target=lambda path: path)
-    text = written[0].read_text(encoding="utf-8")
-    assert text.splitlines()[0].startswith("POL,"), text.splitlines()[0]
-    assert "ALPHA" in columns
-
-
-def test_the_legacy_format_is_written_when_it_is_asked_for(tmp_path):
-    written, _, _ = write_superfiles(
-        _drafts(tmp_path), target=lambda path: path, fmt="legacy_polar"
-    )
-    text = written[0].read_text(encoding="utf-8")
-    assert "," not in text.splitlines()[0], text.splitlines()[0]
-
-
-def test_the_two_formats_carry_the_same_columns(tmp_path):
-    """The property that makes this a format and not a different product.
-
-    The super file's whole claim is that it carries everything the workspace
-    knows about that simulation. A second format quietly carrying a different
-    SET would break that claim while looking like a formatting option.
-    """
-    plain_files, _, plain = write_superfiles(_drafts(tmp_path / "a"), target=_maker(tmp_path / "a"))
-    legacy_files, _, legacy = write_superfiles(
-        _drafts(tmp_path / "b"), target=_maker(tmp_path / "b"), fmt="legacy_polar"
-    )
-    assert plain == legacy, (plain, legacy)
-
-    # THE RETURNED TUPLE IS NOT THE FILE, and comparing it was the whole of this
-    # test until the QA lens of REL-0230 scored a mutant against it: the tuple is
-    # built BEFORE the format branch, so truncating `_write_legacy_polar` to one
-    # column left the assertion above green. A legacy file dropping 627 of 628
-    # columns shipped with this test passing.
-    #
-    # So the columns are counted IN THE BYTES each writer produced. The two
-    # formats spell a header differently by design, which is why the assertion
-    # is on the COUNT of the declared columns appearing rather than on equal
-    # text: what must not differ is how much of the workspace each file carries.
-    assert plain_files and legacy_files, (plain_files, legacy_files)
-    for written in (plain_files[0], legacy_files[0]):
-        text = written.read_text(encoding="utf-8")
-        missing = [name for name in plain if name not in text]
-        assert not missing, (
-            f"{written.name} carries {len(plain) - len(missing)} of {len(plain)} columns; "
-            f"the first few missing are {missing[:5]}"
-        )
-
-
-def _maker(root):
-    def target(path):
-        root.mkdir(parents=True, exist_ok=True)
-        return root / path.name
-
-    return target
-
-
-def test_a_format_nobody_offers_is_refused_naming_the_ones_that_exist(tmp_path):
-    """Could-not-understand is never a silent fallback to the default."""
-    with pytest.raises(ValueError) as caught:
-        write_superfiles(_drafts(tmp_path), target=lambda path: path, fmt="tecplot")
-    message = str(caught.value)
-    assert "tecplot" in message
-    for name in SUPERFILE_FORMATS:
-        assert name in message, (name, message)
-
-
-def test_a_pproc_can_ask_for_the_legacy_format(tmp_path):
+def test_a_pproc_can_ask_for_the_legacy_format():
     """ITEM 7 THROUGH THE PPROC, which is the only way a user reaches it.
 
-    `SUPERFILE_FORMATS` declared two formats and `write_superfiles` took `fmt`,
-    and the ONE production call omitted it -- so every campaign got `csv` and
-    `legacy_polar` was a constant nobody could select. That answers her question
-    ("como configuro para o super file tambem sair em formato custom?") with a
-    format she has no way to configure.
-
-    It is a FIELD on `[products]` rather than a flag, because the neighbouring
-    `custom_polar_format` is already a `[products]` key and a user choosing how
-    her products are written should find both in one table.
+    The field is `[products] polar_format` now; the former key `superfile_format`
+    is read as it, with a warning (tested in test_p0580_l2_pproc_keys). The
+    default is the format she already reads.
     """
     from pyflightstream.cases import ProductsSpec
 
-    assert ProductsSpec().superfile_format == "csv", "the default may not move"
-    assert ProductsSpec(superfile_format="legacy_polar").superfile_format == "legacy_polar"
+    assert ProductsSpec().polar_format == "csv", "the default may not move"
+    assert ProductsSpec(polar_format="legacy_polar").polar_format == "legacy_polar"
 
 
-def test_a_format_the_package_does_not_offer_is_refused_at_the_pproc(tmp_path):
+def test_a_format_the_package_does_not_offer_is_refused_at_the_pproc():
     """Refused where it is WRITTEN, not where it is used.
 
-    The writer already refuses an unknown format naming the ones that exist, and
-    that refusal fires after a campaign has been planned and a seat possibly
-    spent. A typo in a pproc file is a typo the loader can see.
+    A typo in a pproc file is a typo the loader can see, before a campaign has
+    been planned and a seat possibly spent.
     """
-    import pytest as _pytest
     from pydantic import ValidationError
 
     from pyflightstream.cases import ProductsSpec
 
-    with _pytest.raises(ValidationError) as caught:
-        ProductsSpec(superfile_format="tecplot")
+    with pytest.raises(ValidationError) as caught:
+        ProductsSpec(polar_format="tecplot")
     message = str(caught.value)
     assert "tecplot" in message, message
     for name in SUPERFILE_FORMATS:
         assert name in message, (name, message)
 
 
-def test_a_pproc_asking_for_the_legacy_format_gets_it_from_the_post_stage(tmp_path):
-    """ITEM 7 END TO END, which is the only claim that answers her question.
-
-    The two tests above assert the FIELD and the writer. Neither runs the stage,
-    and the stage was exactly what omitted the argument -- so both would pass
-    over a release where `legacy_polar` is still unreachable. This runs
-    `write_campaign_products` over a recorded workspace whose pproc asks for it,
-    and looks at the bytes.
-    """
-    from pathlib import Path
-
+def _posted(tmp_path, polar_format: str | None) -> list[Path]:
+    """Post the recorded two-polar campaign with the pproc stating (or not) a polar format."""
     from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
-    for code in ("p001", "p002"):
-        path = workspace.inputs_dir / "pproc" / f"{code}.toml"
-        path.write_text(
-            path.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
-            encoding="utf-8",
-        )
-
-    written = _post(workspace)
-    supers = [Path(p) for p in written if Path(p).name.startswith("SUPER-")]
-    assert supers, sorted(Path(p).name for p in written)
-
-    header = supers[0].read_text(encoding="utf-8").splitlines()[0]
-    assert "," not in header, (
-        f"the pproc asked for the legacy format and the stage wrote a CSV header: {header[:120]}"
-    )
+    if polar_format is not None:
+        for code in ("p001", "p002"):
+            path = workspace.inputs_dir / "pproc" / f"{code}.toml"
+            path.write_text(
+                path.read_text(encoding="utf-8")
+                + f'\n[products]\npolar_format = "{polar_format}"\n',
+                encoding="utf-8",
+            )
+    return [Path(p) for p in _post(workspace)]
 
 
-def test_a_pproc_that_chose_csv_is_not_overridden_by_the_campaign(tmp_path):
-    """UNSET AND CHOSEN ARE DIFFERENT, and for one commit they were not.
+def _polar_files(written: list[Path]) -> list[Path]:
+    return [
+        path for path in written if path.name.startswith(("FAM-", "P60")) and path.suffix == ".csv"
+    ]
 
-    The draft's format defaulted to the STRING `"csv"`, so a pproc that wrote
-    `superfile_format = "csv"` was indistinguishable from one that said
-    nothing -- and a caller passing `legacy_polar` silently rewrote that
-    simulation's super file in the format it had explicitly declined, under a
-    comment claiming the draft's format wins.
 
-    It is the same defect item 7 exists to close, one turn further in: a
-    default nobody could OVERRIDE became a default nobody could DISTINGUISH.
-    The architecture lens of the closing round found it.
+@pytest.mark.parametrize(
+    ("stated", "commas"), [(None, True), ("csv", True), ("legacy_polar", False)]
+)
+def test_a_pproc_asking_for_a_format_gets_it_from_the_post_stage(tmp_path, stated, commas):
+    """ITEM 7 END TO END, which is the only claim that answers her question.
+
+    The field tests above assert the FIELD; the stage was exactly what once
+    omitted the argument, so a release where `legacy_polar` is unreachable would
+    pass them. This runs the stage over a recorded workspace and looks at the
+    bytes of every FAM and group file. A pproc that CHOSE `csv` and one that said
+    nothing both write the csv header.
     """
-    chose_csv = SuperfileDraft(
-        path=tmp_path / "chose" / "SUPER-0001-M150_PUSHER.csv",
-        rows=({"POL": "0001", "ALPHA": "-2.0"},),
-        entry={},
-        fmt="csv",
-    )
-    written, _, _ = write_superfiles(
-        [chose_csv], target=_maker(tmp_path / "chose"), fmt="legacy_polar"
-    )
-    header = written[0].read_text(encoding="utf-8").splitlines()[0]
-    assert "," in header, (
-        "the pproc chose csv and the campaign-wide argument overrode it: " + header[:120]
-    )
+    files = _polar_files(_posted(tmp_path, stated))
+    assert files, "the stage wrote no polar file"
+    for path in files:
+        header = path.read_text(encoding="utf-8").splitlines()[0]
+        assert ("," in header) is commas, (path.name, header[:120])
 
 
-def test_a_draft_that_states_no_format_takes_the_campaigns(tmp_path):
-    """The other half, so the fix is not satisfied by ignoring `fmt` entirely."""
-    silent = SuperfileDraft(
-        path=tmp_path / "silent" / "SUPER-0001-M150_PUSHER.csv",
-        rows=({"POL": "0001", "ALPHA": "-2.0"},),
-        entry={},
-    )
-    written, _, _ = write_superfiles(
-        [silent], target=_maker(tmp_path / "silent"), fmt="legacy_polar"
-    )
-    header = written[0].read_text(encoding="utf-8").splitlines()[0]
-    assert "," not in header, header[:120]
+def test_the_two_formats_carry_the_same_columns(tmp_path):
+    """The property that makes this a format and not a different product.
+
+    The two formats spell a header differently by design, so the columns are
+    counted IN THE BYTES each file holds: the legacy file must carry every column
+    name of the csv file of the same name, and the same number of rows.
+    """
+    plain = {p.name: p for p in _polar_files(_posted(tmp_path / "a", "csv"))}
+    legacy = {p.name: p for p in _polar_files(_posted(tmp_path / "b", "legacy_polar"))}
+    assert plain and plain.keys() == legacy.keys(), (sorted(plain), sorted(legacy))
+    for name, path in plain.items():
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.reader(handle))
+        columns, body = rows[0], rows[1:]
+        text = legacy[name].read_text(encoding="utf-8")
+        missing = [column for column in columns if column not in text]
+        assert not missing, (
+            f"{name} in the legacy format carries {len(columns) - len(missing)} of "
+            f"{len(columns)} columns; the first few missing are {missing[:5]}"
+        )
+        # One header line, then the rows, in the legacy file as in the csv one.
+        assert len(text.splitlines()) == len(body) + 1, (name, len(text.splitlines()), len(body))

@@ -249,8 +249,9 @@ def test_p0430_equation_manifest_records_symbol_columns(tmp_path):
     workspace = _workspace(tmp_path, EQUATIONS)
     assert _post(workspace) == 0
     entries = _products_manifest(workspace)["products"]
-    assert "polars/P7001_AL-020_uns_avg.csv#equations" in entries
-    entry = entries["polars/P7001_AL-020_uns_avg.csv#equations"]
+    # 0.58.0: the equations are trailing columns of the TOTAL group's ACOEF file.
+    assert "polars/P7001-TOTAL-ACOEF.csv#equations" in entries
+    entry = entries["polars/P7001-TOTAL-ACOEF.csv#equations"]
     assert entry["resolved_columns"]["THRUST"]["FX"] == "FX_MRP_TOTAL"
 
 
@@ -390,7 +391,8 @@ def test_a_run_that_turned_too_little_loses_this_table_and_nothing_else(tmp_path
     manifest = _products_manifest(workspace)
     reason = manifest["skipped"]["reductions/AL-020_phase_locked.csv"]
     assert "3.0" in reason and "5.0" in reason and "phase-locked" in reason, reason
-    assert any(key.endswith("_uns_avg.csv") for key in manifest["products"]), manifest["products"]
+    assert "polars/FAM-DIM-P7001.csv" in manifest["products"], manifest["products"]
+    assert "polars/P7001-TOTAL-ACOEF.csv" in manifest["products"], manifest["products"]
 
 
 def test_the_minimum_met_exactly_generates_it(tmp_path):
@@ -612,7 +614,7 @@ frame = "MRP"
 
 
 def _polar(workspace) -> tuple[list[str], dict[str, str]]:
-    (path,) = (workspace.root / "post" / "products" / "polars").glob("*_uns_avg.csv")
+    path = workspace.root / "post" / "products" / "polars" / "P7001-TOTAL-ACOEF.csv"
     columns, rows = read_csv_table(path)
     return list(columns), rows[0]
 
@@ -625,11 +627,13 @@ def test_the_derived_columns_are_in_the_unsteady_polar_evaluated_from_that_row(t
     # NAMED <NAME>_<alias>, in the order the chain needs and not the file's.
     assert "THRUST_TOTAL" in columns and "RATIO_TOTAL" in columns, columns
     assert columns.index("THRUST_TOTAL") < columns.index("RATIO_TOTAL")
-    # AFTER THE PLOTS, BEFORE THE SETUP of the row.
-    assert columns.index("FX_LOCAL_Blade2") < columns.index("THRUST_TOTAL")
-    setup = [name for name in ("run_id", "sim_id", "status") if name in columns]
-    assert len(setup) == 3, columns
-    assert all(columns.index("RATIO_TOTAL") < columns.index(name) for name in setup)
+    # AFTER THE GROUP'S COEFFICIENTS, BEFORE MESH_FACES, which stays last (design of the post
+    # outputs, section 4.4): the averaged plot columns and the setup of the row are no
+    # longer columns of the file (the time_average table is retired).
+    assert columns.index("CnB") < columns.index("THRUST_TOTAL")
+    assert columns.index("RATIO_TOTAL") == len(columns) - 2 and columns[-1] == "MESH_FACES"
+    assert "FX_LOCAL_Blade2" not in columns
+    assert not [name for name in ("run_id", "sim_id", "status") if name in columns], columns
 
     # THE ORACLE: the window is steps 9 to 12, and `FX` with frame MRP and alias
     # TOTAL is the column FX_MRP_TOTAL.

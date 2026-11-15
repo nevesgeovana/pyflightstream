@@ -947,6 +947,40 @@ def _minimum_cp_evidence_prose() -> bytes:
     return notes[notes.index(anchor) :].encode()
 
 
+#: The moment columns 0.58.0 renamed (design of the post outputs, section 2.3).
+_RENAMED_MOMENTS = {
+    f"{old}{frame}25": f"{new}{frame}"
+    for frame in ("B", "S", "W")
+    for old, new in (("CR", "Cl"), ("CM", "Cm"), ("CN", "Cn"))
+}
+
+
+def _the_polar_of_0380_is_the_group_file(old_text: str, new_polars: dict[str, str]) -> None:
+    """Every value of the captured 0.38.0 polar row is in the group ACOEF file of the same group.
+
+    The captured row is the group "1" (all) of the scenario's steady point; the group is
+    named g01 in the file name since 0.58.0. The cells compare by column name, after the
+    renaming of the moments (CR<f>25 -> Cl<f>, CM<f>25 -> Cm<f>, CN<f>25 -> Cn<f>); the
+    captured file spelled its cells to five decimals, so the tolerance is that spelling.
+    """
+    import csv
+    import io
+
+    (old,) = csv.DictReader(io.StringIO(old_text))
+    name = "tree/post/polars/polars/P7002-g01-ACOEF.csv"
+    (new,) = csv.DictReader(io.StringIO(new_polars[name]))
+    assert new["GROUP"] == "g01"
+    compared = 0
+    for column, cell in old.items():
+        if column in ("DESCRIPTION", "GROUP", "POL") or cell == "NA":
+            continue
+        successor = _RENAMED_MOMENTS.get(column, column)
+        assert successor in new, (column, successor, sorted(new))
+        assert float(new[successor]) == pytest.approx(float(cell), abs=2e-5, rel=1e-4), column
+        compared += 1
+    assert compared >= 30, compared
+
+
 @pytest.mark.skipif(
     sys.platform != "win32",
     reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
@@ -979,6 +1013,39 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         for path in sorted(V0380.rglob("*"))
         if path.is_file() and path.name != "README.md"
     }
+    # 0.58.0 (PFS-2231): the per-sweep, per-group polar and the SUPER file of 0.38.0 are retired;
+    # the polar is written as FAM-DIM, FAM-ACOEF and the group files (design of the post
+    # outputs, section 2.2). Neither side of that folder is compared byte for byte any more:
+    # the captured polar's cells are compared by column name with the group ACOEF file below.
+    old_polar = captured.pop("tree/post/polars/polars/P7002-V0300RE120AL+000_g01.csv")
+    captured.pop("tree/post/polars/polars/SUPER-7002-V0300RE120AL+sweep_g01.csv")
+    new_polars = {
+        name: outputs.pop(name)
+        for name in list(outputs)
+        if name.startswith("tree/post/polars/polars/")
+    }
+    _the_polar_of_0380_is_the_group_file(old_polar.decode("utf-8"), new_polars)
+    # The post console lists what it wrote: the eight polar files in the order the post writes
+    # them, then the settings table, and the count of products (the 0.38.0 capture listed the
+    # one polar and the SUPER file).
+    console_order = (
+        "FAM-DIM-P7002.csv",
+        "FAM-ACOEF-P7002.csv",
+        "P7002-TOTAL-DIM.csv",
+        "P7002-TOTAL-ACOEF.csv",
+        "P7002-AIRFRAME-DIM.csv",
+        "P7002-AIRFRAME-ACOEF.csv",
+        "P7002-g01-DIM.csv",
+        "P7002-g01-ACOEF.csv",
+    )
+    assert {f"tree/post/polars/polars/{name}" for name in console_order} == set(new_polars)
+    listed = "".join(f"<ROOT>/post/polars/polars/{name}\n" for name in console_order).encode()
+    captured["post.console"] = (
+        captured["post.console"]
+        .replace(b"<ROOT>/post/polars/polars/P7002-V0300RE120AL+000_g01.csv\n", listed)
+        .replace(b"<ROOT>/post/polars/polars/SUPER-7002-V0300RE120AL+sweep_g01.csv\n", b"")
+        .replace(b"4 product(s) written", f"{2 + len(new_polars)} product(s) written".encode())
+    )
     # PFS-2135.058 corrects this serialized manual claim in 0.40.0.
     # Preserve the historical fixture and apply only the reviewed text change.
     plan_name = "tree/post/polars/plan.json"
@@ -1190,11 +1257,6 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # left out here, and products.json names their new place.
     outputs = {k: v for k, v in outputs.items() if not k.startswith("tree/post/polars/reports/")}
     products_name = "tree/post/polars/products.json"
-    old_report = b'"superfile_report": "reports/superfile-<V>.json"'
-    assert captured[products_name].count(old_report) == 1
-    captured[products_name] = captured[products_name].replace(
-        old_report, b'"superfile_report": "post/polars/reports/superfile-<V>.json"'
-    )
     # REL-R2-017: post.log is appended, one block per post, so the run's own post of its
     # simulation (PFS-2185.18) keeps its block, named by its sims, before the later post's.
     log_name = "tree/post/polars/post.log"
@@ -1253,7 +1315,27 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
             assert current.pop("schema_version") == 2, name
             assert current.pop("tree"), name
             assert current.pop("migrated") == {}, name
-            assert current == json.loads(captured[name].decode("utf-8")), name
+            expected = json.loads(captured[name].decode("utf-8"))
+            # The polar entries are the ones of the new files, and the SUPER report left with
+            # the SUPER file (design of the post outputs, section 2.2).
+            assert expected.pop("superfile_report") == "reports/superfile-<V>.json", name
+            assert {key for key in expected["products"] if key.startswith("polars/")} == {
+                "polars/P7002-V0300RE120AL+000_g01.csv",
+                "polars/SUPER-7002-V0300RE120AL+sweep_g01.csv",
+            }
+            expected["products"] = {
+                key: entry
+                for key, entry in expected["products"].items()
+                if not key.startswith("polars/")
+            }
+            listed_here = {key for key in current["products"] if key.startswith("polars/")}
+            assert listed_here == {f"polars/{polar}" for polar in console_order}, name
+            current["products"] = {
+                key: entry
+                for key, entry in current["products"].items()
+                if not key.startswith("polars/")
+            }
+            assert current == expected, name
             continue
         if name.endswith(SETTINGS_TABLE_SUFFIX) or (
             name.startswith("tree/post/") and name.endswith(".csv")
@@ -1280,7 +1362,7 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         )
     scripts = [name for name in outputs if name.startswith("tree/sims/") and "/scripts/" in name]
     assert scripts and all("SOLVER_SET_AOA" in outputs[name] for name in scripts)
-    assert any(name.startswith("tree/post/polars/polars/") for name in outputs)
+    assert new_polars
     assert "<SHA:sims/sim_7002/scripts/" in outputs["tree/runs.json"]
 
 

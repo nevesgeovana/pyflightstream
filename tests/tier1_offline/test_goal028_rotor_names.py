@@ -4,12 +4,14 @@ NL-04. The rotor table's file name took the RAW alias while the passage
 reductions of the same rotor sanitise theirs. An alias is an unconstrained string:
 `Left/Right` wrote `polars/P0001-Left/Right_rotor.csv`, a file inside a subfolder
 the manifest then keyed by a path with a slash in it; a colon on Windows writes an
-NTFS stream nobody can see, or raises out of the stage.
+NTFS stream nobody can see, or raises out of the stage. Since 0.58.0 the rotor's
+files are the group files `polars/P<POL>-<ROTOR>-<KIND>.csv`, and the same alias
+must name each of them in the polars folder.
 
-NL-03. The union of what the workspace knows (FR-89) globs `polars/P*-*_*.csv`,
-which matches the rotor table, and read its FIRST line as the header. That line is
-the alias, alone, so the union carried `PUSHER` as if it were a column and never
-the table's real header.
+NL-03. The union of what the workspace knows (FR-89) read the FIRST line of the rotor
+table as its header. That line was the alias, alone, so the union carried `PUSHER` as
+if it were a column and never the table's real header. Since 0.58.0 every table opens
+with the run block, and the union reads the rotor group's RCOEF header.
 """
 
 from __future__ import annotations
@@ -19,7 +21,6 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.post.superfile import union_the_workspace_knows
 from tests.tier1_offline.test_post_superfile import _post, _workspace
 
 
@@ -59,6 +60,7 @@ def test_an_alias_with_a_slash_names_one_file_in_the_polars_folder(tmp_path):
     This fixture's records state a speed for `PUSHER` alone, so the table of a rotor
     spelled otherwise has no row and is a named skip; the key of that skip is the
     path the table would have been written to, and that is what carried the slash.
+    The rotor's files are its group's DIM, ACOEF and RCOEF files (0.58.0).
     """
     import json
 
@@ -68,22 +70,28 @@ def test_an_alias_with_a_slash_names_one_file_in_the_polars_folder(tmp_path):
     named = [
         key
         for key in (*stated.get("products", {}), *stated.get("skipped", {}))
-        if key.endswith("_rotor.csv")
+        if key.startswith("polars/") and "Left" in key
     ]
-    assert named, "the stage names no rotor table, written or skipped"
+    assert named, "the stage names no rotor file, written or skipped"
     for key in named:
         assert key.count("/") == 1 and key.startswith("polars/"), key
-        assert key.endswith("-Left_Right_rotor.csv"), key
+        assert key.endswith(
+            ("-Left_Right-DIM.csv", "-Left_Right-ACOEF.csv", "-Left_Right-RCOEF.csv")
+        ), key
     assert not (manifest.parent / "polars" / "P6002-Left").exists(), "the alias made a folder"
 
 
 @pytest.mark.requirement("FR-89")
 def test_the_union_reads_a_rotor_tables_header_and_not_its_alias_line(tmp_path):
-    workspace, written = _posted(tmp_path, "PUSHER")
-    rotor = next(path for path in written if path.name.endswith("_rotor.csv"))
-    out = rotor.parent.parent
-    known = union_the_workspace_knows(
-        workspace.root, out, None, polars_dir="polars", probes_dir="probes"
-    )
-    assert "PUSHER" not in known, "the alias line was read as a header"
-    assert "CT_PUSHER" in known and "J_PUSHER" in known, sorted(known)[:20]
+    """The first line of the rotor's file is its header, the run block first, never the alias.
+
+    The union of what the workspace knows (``union_the_workspace_knows``) belongs to the
+    retired SUPER file and reads no 0.58.0 file; what NL-03 protects is that a reader taking
+    the first line of the rotor's table gets its real header, so it is pinned on the file.
+    """
+    _workspace_made, written = _posted(tmp_path, "PUSHER")
+    rotor = next(path for path in written if path.name.endswith("-PUSHER-RCOEF.csv"))
+    columns = rotor.read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert columns[0] == "POL", "the first line is the run block's header"
+    assert "PUSHER" not in columns, "the alias line was read as a header"
+    assert "CT" in columns and "J0" in columns, columns[:40]

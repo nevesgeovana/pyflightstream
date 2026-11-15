@@ -63,10 +63,8 @@ def test_the_products_follow_the_pproc_the_row_names_today(tmp_path):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         written = [Path(path).name for path in _post(workspace)]
-    assert any(name.startswith("P6001-") and name.endswith("_ONLY.csv") for name in written), (
-        written
-    )
-    assert not any(name.startswith("P6001-") and "_g01" in name for name in written), written
+    assert {"P6001-ONLY-DIM.csv", "P6001-ONLY-ACOEF.csv"} <= set(written), written
+    assert not any(name.startswith("P6001-g01-") for name in written), written
     said = [str(w.message) for w in caught if "p002" in str(w.message) and "p001" in str(w.message)]
     assert len(said) == 1, [str(w.message) for w in caught]
 
@@ -81,7 +79,10 @@ def test_a_rebuild_that_dies_leaves_a_manifest_of_what_is_on_disk(tmp_path, monk
     def _dies(*_args, **_kwargs):
         raise OSError("the disk went away")  # NOT a ProductError: nothing catches it
 
-    monkeypatch.setattr(products, "write_superfiles", _dies)
+    # The campaign-level step that follows the writing of every simulation's tables (the
+    # super file's own step is retired since 0.58.0). A per-simulation step
+    # would not do: the stage turns that failure into a warning and posts the next simulation.
+    monkeypatch.setattr(products, "_retire_campaign_products", _dies)
     with pytest.raises(OSError):
         _post(workspace)
     after = json.loads((out / "products.json").read_text(encoding="utf-8"))

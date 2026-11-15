@@ -532,7 +532,8 @@ def _posted_qsteady(tmp_path: Path, case: str) -> tuple[dict, Path]:
 
 
 def _rotor_rows(products: dict, folder: Path) -> list[dict[str, str]]:
-    (name,) = [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
+    """The rotor's rows of 0.58.0: its group's RCOEF file; the run block holds RPM0, D0, J0."""
+    (name,) = [name for name in products["products"] if name.endswith("P6001-PROP-RCOEF.csv")]
     head, *rows = (folder / name).read_text(encoding="utf-8").splitlines()
     return [dict(zip(head.split(","), row.split(","), strict=True)) for row in rows]
 
@@ -558,11 +559,13 @@ def test_a_quasi_steady_wheel_gets_its_rotor_table_at_the_row_s_speed(tmp_path):
     rows = _rotor_rows(products, folder)
     assert len(rows) == 2
     for row in rows:
-        assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
-        assert float(row["DIAMETER_PROP"]) == pytest.approx(2.0)
-        assert float(row["CT_PROP"]) == pytest.approx(0.0324326 * _QS / _RHO_N2_D4, rel=1e-5)
+        assert float(row["RPM0"]) == pytest.approx(1200.0)
+        assert float(row["D0"]) == pytest.approx(2.0)
+        # The declared axis X is aft in the mesh and 0.58.0 counts thrust positive forward
+        # (design of the post outputs, D12 and section 5.3): the sign is the opposite.
+        assert float(row["CT"]) == pytest.approx(-0.0324326 * _QS / _RHO_N2_D4, rel=1e-5)
         # J = V / (n D) at the free stream the export states, 68.058 m/s.
-        assert float(row["J_PROP"]) == pytest.approx(68.058 / (20.0 * 2.0), rel=1e-5)
+        assert float(row["J0"]) == pytest.approx(68.058 / (20.0 * 2.0), rel=1e-5)
 
 
 def test_a_quasi_steady_sector_gets_its_rotor_table_from_its_one_solve(tmp_path):
@@ -572,5 +575,6 @@ def test_a_quasi_steady_sector_gets_its_rotor_table_from_its_one_solve(tmp_path)
     rows = _rotor_rows(products, folder)
     assert len(rows) == 2
     for row in rows:
-        assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
-        assert float(row["CT_PROP"]) == pytest.approx(0.0274326 * _QS / _RHO_N2_D4, rel=1e-5)
+        assert float(row["RPM0"]) == pytest.approx(1200.0)
+        # Thrust is positive forward and the declared axis X is aft (D12): opposite sign.
+        assert float(row["CT"]) == pytest.approx(-0.0274326 * _QS / _RHO_N2_D4, rel=1e-5)

@@ -7,7 +7,6 @@ lowest distinct |ALPHA|, NA with a named skip line for one incidence only.
 
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
 
@@ -107,42 +106,37 @@ _REFERENCE = "\n".join(
 
 
 @pytest.mark.requirement("FR-3504")
-def test_p0540_the_post_writes_the_cn_slope_beside_the_rotor_table_when_asked(tmp_path):
-    """The key writes polars/P<sim>-<ALIAS>_cn_slope.csv; off by default it writes nothing."""
+def test_p0540_the_post_names_the_cn_slope_a_skip_when_asked(tmp_path):
+    """0.58.0: the slope read the retired rotor table, so the key is a named skip, never silent.
+
+    Off by default it says nothing and writes nothing; asked, it writes no slope file, warns
+    once and names the skip under ``polars/<sim>#rotor_cn_slope`` in products.json.
+    """
+    import warnings
+
     from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(_REFERENCE, encoding="utf-8")
     plain = _post(workspace)
     assert not [p for p in plain if str(p).endswith("_cn_slope.csv")], "off by default"
+    manifest_path = next(workspace.root.rglob("products.json"))
+    assert not [
+        key
+        for key in json.loads(manifest_path.read_text(encoding="utf-8"))["skipped"]
+        if key.endswith("#rotor_cn_slope")
+    ], "off by default says nothing"
     for code in ("p001", "p002"):
         pproc = workspace.inputs_dir / "pproc" / f"{code}.toml"
         pproc.write_text(
             pproc.read_text(encoding="utf-8") + "\n[products]\nrotor_cn_slope = true\n",
             encoding="utf-8",
         )
-    written = _post(workspace)
-    slopes = [Path(p) for p in written if str(p).endswith("_cn_slope.csv")]
-    tables = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
-    assert slopes and len(slopes) == len(tables)
-    slope = slopes[0]
-    assert slope.name == tables[0].name.replace("_rotor.csv", "_cn_slope.csv")
-    with tables[0].open(encoding="utf-8", newline="") as handle:
-        table = list(csv.DictReader(handle))
-    with slope.open(encoding="utf-8", newline="") as handle:
-        out = list(csv.DictReader(handle))
-    assert len(out) == len({float(row[f"J_{ALIAS}"]) for row in table})
-    # The value, from the rotor table's own columns and the definition.
-    usable = sorted(
-        ((float(r["ALPHA"]), float(r[f"CN_{ALIAS}"])) for r in table if r[f"CN_{ALIAS}"] != "NA"),
-        key=lambda pair: abs(pair[0]),
-    )
-    got = out[0]["CN_SLOPE_PER_DEG"]
-    if len(usable) >= 2:
-        (a0, c0), (a1, c1) = usable[:2]
-        assert float(got) == pytest.approx((c1 - c0) / (a1 - a0), rel=1e-4, abs=1e-6)
-    else:
-        assert got == "NA"
-    manifest = json.loads((slope.parents[1] / "products.json").read_text(encoding="utf-8"))
-    entry = manifest["products"][f"polars/{slope.name}"]
-    assert entry["kind"] == "cn_slope" and entry["rotor"] == ALIAS
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        written = _post(workspace)
+    assert not [Path(p) for p in written if str(p).endswith("_cn_slope.csv")]
+    assert any("rotor normal-force slope is not written" in str(w.message) for w in caught)
+    skipped = json.loads(manifest_path.read_text(encoding="utf-8"))["skipped"]
+    named = [key for key in skipped if key.endswith("#rotor_cn_slope")]
+    assert named and all("is not written" in skipped[key] for key in named), skipped

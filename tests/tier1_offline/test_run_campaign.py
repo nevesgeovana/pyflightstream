@@ -3495,29 +3495,31 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         "post.log.json",  # since 0.27.0 its machine-readable twin (R02)
         "products.json",
         "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
-        "reports",  # FR-3292: the superfile measurement, beside the products
         "settings",  # FR-419: the numeric settings table and its codebook, on by default
     ]
-    # FR-85 at 0.21.0: the point name, with its swept field written `sweep`;
-    # this campaign runs one alpha, so nothing is swept and every field
-    # carries its value. A case authored without a flight-condition cell is
-    # named by its Mach number and the axes of its point.
-    stem = "P9001-M200AL-020"
-    # FR-89 puts the superfile of each group here too.
-    super_stem = "SUPER-9001-M200AL-020"
+    # 0.58.0 (PFS-2231): one file set per polar, named by the polar number and the group.
+    # FAM-DIM and FAM-ACOEF hold every family, and each group (TOTAL and AIRFRAME for every
+    # polar, then the declared ones, a numbered group written g<NN>) has its DIM and ACOEF.
     assert sorted(p.name for p in (products / "polars").iterdir()) == [
-        f"{stem}_g01.csv",
-        f"{stem}_g03.csv",
-        f"{super_stem}_g01.csv",
-        f"{super_stem}_g03.csv",
+        "FAM-ACOEF-P9001.csv",
+        "FAM-DIM-P9001.csv",
+        "P9001-AIRFRAME-ACOEF.csv",
+        "P9001-AIRFRAME-DIM.csv",
+        "P9001-TOTAL-ACOEF.csv",
+        "P9001-TOTAL-DIM.csv",
+        "P9001-g01-ACOEF.csv",
+        "P9001-g01-DIM.csv",
+        "P9001-g03-ACOEF.csv",
+        "P9001-g03-DIM.csv",
     ]
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/M200AL-020"]
-    assert manifest["products"][f"polars/{stem}_g01.csv"]["pproc"] == "p001"
-    text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
-    # `POL` FIRST since 0.27.0 (G16), the one column that states the polar: `POLAR`,
-    # its name until 0.26.x, is gone.
-    assert text[0].startswith("POL,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
+    for name in ("P9001-g01-ACOEF.csv", "FAM-DIM-P9001.csv"):
+        assert manifest["products"][f"polars/{name}"]["runs"] == ["camp/sim_9001/M200AL-020"]
+        assert manifest["products"][f"polars/{name}"]["pproc"] == "p001"
+    text = (products / "polars" / "P9001-g01-ACOEF.csv").read_text(encoding="utf-8").splitlines()
+    # The run block opens every file (design of the post outputs, section 3): `POL`, the one
+    # column that states the polar, first; the description is in products.json, not a column.
+    assert text[0].startswith("POL,POINT_ID,POINT,RUN_TYPE,ALPHA,BETA,MACH,RE,VINF,VREF")
     header = text[0].split(",")
     cells = text[1].split(",")
     # BY NAME AND NOT BY POSITION. This asserted `header[9] == "J"`, and item 5
@@ -3526,7 +3528,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     # written against. A column pinned by its index is the same defect `J`
     # itself exists to fix -- rows told apart by their order -- one level up.
     assert "J" in header, f"the swept-value column is missing: {text[0]}"
-    for name in ("VINF", "ALT", "SREF", "CREF", "BREF"):
+    for name in ("VINF", "ALT", "SREF", "CREF", "BREF", "GROUP", "GROUP_ID"):
         assert name in header, f"{name} is missing: {text[0]}"
     # The `NA` cell is the advance ratio this row does not have: zero is a
     # value a rotor row can hold and "not recorded" is not it (FR-85). IT WAS
@@ -3535,9 +3537,23 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     # or from a value that went missing.
     assert cells[header.index("J")] == "NA", text[1]
     assert cells[header.index("ALPHA")] == "-2.00000", text[1]
-    # `POL`, the simulation, once (G16).
-    assert text[1].startswith("9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,")
-    assert ",0.0274326,0.00000,0.187158," in text[1], "the body axes of the recorded row"
+    # `POL`, the simulation, once (G16); the first point of the polar is POINT_ID 1.
+    assert text[1].startswith("9001,1,"), text[1]
+    assert [cells[header.index(name)] for name in ("SREF", "CREF", "BREF", "XMOM")] == [
+        "50.00000",
+        "2.52600",
+        "20.00000",
+        "9.15200",
+    ]
+    assert (cells[header.index("GROUP")], cells[header.index("GROUP_ID")]) == ("g01", "101"), text[
+        1
+    ]
+    # the body axes of the recorded row
+    assert (cells[header.index("CDB")], cells[header.index("CYB")], cells[header.index("CLB")]) == (
+        "0.0274326",
+        "0.00000",
+        "0.187158",
+    ), text[1]
     record = workspace.read_manifest()[0]
     assert record.reference == {
         "SREF": 50.0,

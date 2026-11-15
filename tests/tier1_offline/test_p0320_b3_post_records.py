@@ -92,20 +92,18 @@ def test_p0320_runs_name_post_reads_another_manifest_into_its_own_folder(tmp_pat
     manifest = json.loads((apart / "products.json").read_text(encoding="utf-8"))
     assert manifest["complete"] is True
     # Group "2" is the wing. The named manifest holds one point of the sweep, so
-    # its table is named for that point; the default one is the two-point sweep.
-    (polar,) = apart.glob("polars/P6001-*_g02.csv")
+    # its group file has one row, the point's; the default one is the two-point sweep.
+    (polar,) = apart.glob("polars/P6001-g02-ACOEF.csv")
     assert len(_rows(polar)) == 1, "the post read runs.json, not the named manifest"
-    assert "AL-020" in polar.name
-    (sweep,) = (root / "post" / "matriz").glob("polars/P6001-*_g02.csv")
+    assert "AL-020" in _rows(polar)[0]["POINT"]
+    (sweep,) = (root / "post" / "matriz").glob("polars/P6001-g02-ACOEF.csv")
     assert len(_rows(sweep)) == 2
     # THE DEFAULT POST IS LEFT AS IT WAS, byte for byte, its reports included:
     # the measurement files of the apart post sit inside its own folder.
     assert _tree(root / "post" / "matriz") == default
-    assert (root / "post" / "matriz" / "reports").is_dir()
     assert not (root / "reports").exists()
-    assert (apart / "reports").is_dir()
     assert workspace.manifest_path.read_bytes() == runs_json
-    assert manifest["superfile_report"].startswith("post/matriz@runs-rebuilt/reports/")
+    assert "superfile_report" not in manifest, "the SUPER measurement is retired in 0.58.0"
 
 
 def test_p0320_post_runs_apart_twice_archives_inside_its_own_folder(tmp_path):
@@ -294,8 +292,7 @@ def test_p0320_post_no_manifest_assembles_the_records_from_the_sims(tmp_path, ca
 
     apart = root / "post" / "matriz@sims"
     manifest = json.loads((apart / "products.json").read_text(encoding="utf-8"))
-    (polar,) = apart.glob("polars/P6001-*_g02.csv")
-    assert polar.name == "P6001-AL+sweep_g02.csv"
+    (polar,) = apart.glob("polars/P6001-g02-ACOEF.csv")
     rows = _rows(polar)
     assert sorted(float(row["ALPHA"]) for row in rows) == [-2.0, 0.0]
     assert all(abs(float(row["MACH"]) - 0.2) < 1e-9 for row in rows)
@@ -354,10 +351,10 @@ def test_p0320_post_no_manifest_posts_a_window_the_row_states(tmp_path):
     windowed = [
         entry
         for path, entry in manifest["products"].items()
-        if entry.get("sim_id") == "6002" and path.endswith("_uns_avg.csv")
+        if entry.get("sim_id") == "6002" and path == "polars/FAM-ACOEF-P6002.csv"
     ]
     assert windowed, sorted(manifest["products"])
-    assert windowed[0]["window"]
+    assert windowed[0]["window"] == [1, 2]
 
 
 def test_p0320_post_no_manifest_refuses_a_reference_that_does_not_resolve(tmp_path):

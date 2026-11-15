@@ -475,7 +475,9 @@ def test_p0320_matrices_home_the_post_finds_the_matrix_in_inputs_matrices(tmp_pa
 
 
 def test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both(tmp_path):
-    # RB3-12 deliberately makes the completeness audit refuse conflicting homes.
+    # RB3-12 made the superfile's completeness audit refuse conflicting homes. The super
+    # file is retired in 0.58.0 and with it that audit; the post still says which of the two
+    # homes it cannot choose between, naming both, and falls back to the run records.
     from pyflightstream.post.superfile import matrix_rows
     from tests.tier1_offline.test_post_superfile import _workspace
 
@@ -485,9 +487,7 @@ def test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both(tmp_p
     text = (workspace.root / "matriz.fs").read_text("utf-8")
     (home / "matriz.fs").write_text(text + "\n", encoding="utf-8")
     assert matrix_rows(workspace.root, "matriz") == {}
-    with pytest.raises(WorkspaceError) as refused:
-        _post_warnings(workspace)
-    said = str(refused.value)
+    (said,) = [text for text in _post_warnings(workspace) if "is refused" in text]
     assert str(workspace.root / "matriz.fs") in said
     assert str(home / "matriz.fs") in said
     assert "keep one, or make the two identical" in said
