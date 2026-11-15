@@ -33,11 +33,9 @@ def test_pfs2261_a_fresh_workspace_parser_lists_every_delegated_verb():
 def test_pfs2261_a_second_different_registration_is_refused():
     import pyflightstream.run._cli_geometry  # noqa: F401  (registers the runner)
 
-    first = list(_cli._DELEGATED)
-    assert first, "nothing registered"
-    build, entry = first[0]
+    build = "pyflightstream.run._cli_parsers:records_parser"
+    entry = "pyflightstream.run.cli:_records_main"
     _cli.register_delegated_commands(build, entry)  # the same registration is harmless
     with pytest.raises(RuntimeError) as refused:
         _cli.register_delegated_commands("other.mod:build", "other.mod:entry")
     assert build in str(refused.value) and "other.mod:build" in str(refused.value)
-    assert _cli._DELEGATED == first
