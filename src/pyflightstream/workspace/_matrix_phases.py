@@ -1459,8 +1459,8 @@ def _bind_geometry(
         update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
         sidecar = boundaries_for_matrix(geometry_path)
         update["boundaries_file"] = str(sidecar) if sidecar.is_file() else None
-        # PFS-2256: thin boundaries are declared with the geometry.
-        update["thin_boundaries"] = read_thin_boundaries(sidecar)
+        # PFS-2256: thin boundaries are declared with the geometry; a bad value refuses here.
+        read_thin_boundaries(sidecar)
         # PFS-2233: a declared mesh frame no conversion serves is refused when the row is
         # planned, before any seat is spent.
         refuse_a_frame_that_cannot_be_converted(geometry_path)

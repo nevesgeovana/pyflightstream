@@ -15,7 +15,9 @@ configuration error from reference_blocks and never the package root;
 from __future__ import annotations
 
 import math
+import tomllib
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import (
@@ -43,6 +45,8 @@ __all__ = [
     "RawMeshConditions",
     "TrailingEdgeMarking",
     "BaseRegionOperation",
+    "THIN_BOUNDARIES_KEY",
+    "thin_boundaries_of",
 ]
 
 
@@ -693,3 +697,48 @@ class RawMeshConditions(BaseModel):
                 )
             seen.add(port.boundary)
         return self
+
+
+#: The boundaries-file key that marks boundaries thin (PFS-2256).
+THIN_BOUNDARIES_KEY = "thin_boundaries"
+
+
+def thin_boundaries_of(boundaries_file: str | Path | None) -> tuple[str, ...] | None:
+    """Return the boundaries a boundaries file marks thin, or None where it states none.
+
+    Parameters
+    ----------
+    boundaries_file : str, Path or None
+        The ``<stem>.boundaries.toml`` beside the geometry; None or a missing
+        file states nothing.
+
+    Returns
+    -------
+    tuple of str or None
+        The names as written; ``()`` for an empty list, which clears a saved
+        selection; None where the key is absent.
+
+    Raises
+    ------
+    InputValueError
+        A file that does not read as TOML, or a value that is not a list of
+        nonempty names.
+    """
+    if boundaries_file is None or not Path(boundaries_file).is_file():
+        return None
+    path = Path(boundaries_file)
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise InputValueError(f"{path} cannot be read as a boundaries file: {error}") from error
+    if THIN_BOUNDARIES_KEY not in data:
+        return None
+    value = data[THIN_BOUNDARIES_KEY]
+    if not isinstance(value, list) or not all(
+        isinstance(name, str) and name.strip() for name in value
+    ):
+        raise InputValueError(
+            f"{path} states {THIN_BOUNDARIES_KEY} = {value!r}; write a list of boundary "
+            f'names, as {THIN_BOUNDARIES_KEY} = ["Wing"], or [] to clear a saved selection.'
+        )
+    return tuple(value)

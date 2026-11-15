@@ -63,7 +63,6 @@ __all__ = [
     "DETECT_EVERYWHERE",
     "GEOMETRIES_README",
     "GEOMETRY_SIDECAR_KEYS",
-    "THIN_BOUNDARIES_KEY",
     "IMPORT_TABLE",
     "INVENTORY_SUFFIX",
     "MESH_FRAME_FOLDER",
@@ -956,44 +955,18 @@ def _sidecar_data(sidecar: Path) -> dict[str, Any]:
         ) from error
 
 
-#: The boundaries-file key that marks boundaries thin (PFS-2256).
-THIN_BOUNDARIES_KEY = "thin_boundaries"
-
-
 def read_thin_boundaries(sidecar: str | Path) -> tuple[str, ...] | None:
-    """Return the boundaries a boundaries file marks thin, or None where it states none.
+    """Return the boundaries a boundaries file marks thin (PFS-2256), refusing a bad value.
 
-    Parameters
-    ----------
-    sidecar : str or Path
-        The ``<stem>.boundaries.toml`` file; a missing file states nothing.
-
-    Returns
-    -------
-    tuple of str or None
-        The names as written; ``()`` for an empty list, which clears a saved
-        selection; None where the key is absent.
-
-    Raises
-    ------
-    InputArtifactError
-        A value that is not a list of nonempty names.
+    The reader is :func:`pyflightstream.cases.mesh.thin_boundaries_of`, which the
+    build calls on the case's boundaries file; here its refusal is the workspace's.
     """
-    path = Path(sidecar)
-    if not path.is_file():
-        return None
-    data = _sidecar_data(path)
-    if THIN_BOUNDARIES_KEY not in data:
-        return None
-    value = data[THIN_BOUNDARIES_KEY]
-    if not isinstance(value, list) or not all(
-        isinstance(name, str) and name.strip() for name in value
-    ):
-        raise InputArtifactError(
-            f"{path} states {THIN_BOUNDARIES_KEY} = {value!r}; write a list of boundary "
-            f'names, as {THIN_BOUNDARIES_KEY} = ["Wing"], or [] to clear a saved selection.'
-        )
-    return tuple(value)
+    from pyflightstream.cases.mesh import thin_boundaries_of
+
+    try:
+        return thin_boundaries_of(sidecar)
+    except InputValueError as error:
+        raise InputArtifactError(str(error)) from error
 
 
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
@@ -1300,7 +1273,7 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "recorded sha256 of the geometry differs from it.",
         "a sha256, as text",
     ),
-    THIN_BOUNDARIES_KEY: InputKey(
+    "thin_boundaries": InputKey(
         "The boundaries the solver treats as thin surfaces, by their names in the boundary "
         "order; an empty list clears a saved selection. Absent, nothing is emitted.",
         'a list of names, as thin_boundaries = ["Wing"]',

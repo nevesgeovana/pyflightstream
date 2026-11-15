@@ -130,6 +130,13 @@ def _base(*operations: dict[str, object]) -> Make:
     )
 
 
+def _thin(tmp: Path, names: str) -> SimCase:
+    """The saved wing, its boundaries file marking ``names`` thin (PFS-2256)."""
+    sidecar = tmp / "wing.fsm.boundaries.toml"
+    sidecar.write_text(f"thin_boundaries = {names}\n", encoding="utf-8")
+    return _over_wing(tmp).model_copy(update={"boundaries_file": str(sidecar)})
+
+
 def _solver(**settings: object) -> Make:
     return lambda _: steady_case().model_copy(update={"solver": SolverSettings(**settings)})
 
@@ -242,14 +249,14 @@ ROUTES: dict[str, Route] = {
         "solver_model", "INITIALIZE_SOLVER", "SOLVER_MODEL SUBSONIC_PRANDTL_GLAUERT"
     ),
     # An emptied selection clears the boundaries a selection would set.
-    # PFS-2256: thin boundaries are the geometry's boundaries file, bound onto the case.
+    # PFS-2256: thin boundaries are the geometry's boundaries file's.
     "SET_THIN_BOUNDARIES": Route(
-        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ("Body",)}),
-        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ("Wing",)}),
+        lambda tmp: _thin(tmp, '["Body"]'),
+        lambda tmp: _thin(tmp, '["Wing"]'),
         ("SET_THIN_BOUNDARIES 1", "2"),
     ),
     "DELETE_THIN_BOUNDARIES": Route(
-        lambda tmp: _over_wing(tmp).model_copy(update={"thin_boundaries": ()}),
+        lambda tmp: _thin(tmp, "[]"),
         _over_wing,
         ("DELETE_THIN_BOUNDARIES",),
     ),

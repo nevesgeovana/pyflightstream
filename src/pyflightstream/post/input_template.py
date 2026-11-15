@@ -1219,9 +1219,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         "base_regions",
                         "ports",
                     ),
-                    "optional, for thin surfaces; shown on the mesh reference page": (
-                        "thin_boundaries",
-                    ),
+                    "optional; shown on the mesh reference page": ("thin_boundaries",),
                 },
                 "`[base_regions]`": {
                     "retired autodetection; use a named family declaration": ("detect",)

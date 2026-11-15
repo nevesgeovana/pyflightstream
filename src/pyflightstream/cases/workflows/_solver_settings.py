@@ -28,6 +28,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._setup_link import (
     LOADS_SELECTION_KEYS,
 )
+from pyflightstream.cases.mesh import thin_boundaries_of
 from pyflightstream.commands import (
     Phase,
 )
@@ -284,6 +285,8 @@ def _settings(
     vorticity = _setup_link.vorticity_indices(case, script)
     axial = _setup_link.axial_separation_indices(case, script)
     _refuse_per_mechanism_separation(case, script)
+    # PFS-2256: the thin boundaries are the geometry's boundaries file's.
+    thin = thin_boundaries_of(case.boundaries_file)
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),
@@ -318,7 +321,7 @@ def _settings(
         viscous_coupling=solver.viscous_coupling,
         viscous_excluded=solver.viscous_excluded,
         surface_roughness=solver.surface_roughness,
-        thin_boundaries=None if case.thin_boundaries is None else list(case.thin_boundaries),
+        thin_boundaries=None if thin is None else list(thin),
         bulk_separation=solver.bulk_separation,
         airfoil_separation=solver.airfoil_separation,
         axial_vortex_separation=solver.axial_vortex_separation,

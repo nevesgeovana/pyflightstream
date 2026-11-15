@@ -145,20 +145,18 @@ def test_p0580_pfs2257_per_mechanism_keys_are_refused_on_later_builds(key, value
 
 
 @pytest.mark.parametrize("build", ["26.101", "26.127"])
-def test_p0580_pfs2257_axial_families_are_refused_on_later_builds(build):
+def test_p0580_pfs2257_axial_families_are_refused_on_later_builds(tmp_path, build):
     """PFS-2257: the axial list, whose names resolve first (FR-988), is refused by the build."""
     from pyflightstream.cases import CampaignConfigError, SolverSettings
-    from pyflightstream.cases.workflows._solver_settings import _refuse_per_mechanism_separation
-    from pyflightstream.script import Script
-    from tests.tier1_offline.test_workflows import steady_case
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _over_wing
+    from tests.tier1_offline.test_workflows import rendered
 
-    case = steady_case().model_copy(
-        update={"solver": SolverSettings(axial_separation_families=["Nacelle"])}
+    case = _over_wing(tmp_path).model_copy(
+        update={"solver": SolverSettings(axial_separation_families=["Body"])}
     )
     with pytest.raises(CampaignConfigError, match="axial_separation_families") as refused:
-        _refuse_per_mechanism_separation(case, Script(build))
-    assert "axial_vortex_separation" in str(refused.value)
-    _refuse_per_mechanism_separation(case, Script("26.100"))
+        rendered(case, build)
+    assert build in str(refused.value) and "axial_vortex_separation" in str(refused.value)
 
 
 def test_p0580_pfs2257_per_mechanism_keys_still_emit_on_26100():
@@ -201,16 +199,20 @@ def test_p0580_pfs2256_the_boundaries_file_marks_a_boundary_thin(tmp_path):
     sidecar.write_text('thin_boundaries = "RotorRig"\n', "utf-8")
     with pytest.raises(InputArtifactError, match="list of boundary names"):
         read_thin_boundaries(sidecar)
-    wing = _over_wing(tmp_path)
-    marked = wing.model_copy(update={"thin_boundaries": ("Body",)})
-    assert "SET_THIN_BOUNDARIES 1\n2\n" in rendered(marked, "26.124")
-    cleared = wing.model_copy(update={"thin_boundaries": ()})
-    assert "DELETE_THIN_BOUNDARIES" in rendered(cleared, "26.124")
+    wing = _over_wing(tmp_path).model_copy(update={"boundaries_file": str(sidecar)})
+    sidecar.write_text('thin_boundaries = ["Body"]\n', "utf-8")
+    assert "SET_THIN_BOUNDARIES 1\n2\n" in rendered(wing, "26.124")
+    sidecar.write_text("thin_boundaries = []\n", "utf-8")
+    assert "DELETE_THIN_BOUNDARIES" in rendered(wing, "26.124")
+    sidecar.write_text('boundaries = ["Wing", "Body", "Base"]\n', "utf-8")
     assert "THIN_BOUNDARIES" not in rendered(wing, "26.124")
 
 
 def test_p0580_pfs2256_a_matrix_row_binds_the_thin_boundaries_of_its_geometry(tmp_path):
-    """PFS-2256: the row's case carries what its geometry's boundaries file marks thin."""
+    """PFS-2256: a row's script marks what its geometry's boundaries file marks thin."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
     from pyflightstream.workspace.matrix import resolve_matrix
     from tests.tier1_offline.test_matrix_run import RECIPES
     from tests.tier1_offline.test_p0390_r02 import BUILD, WING_BODY, study
@@ -221,7 +223,14 @@ def test_p0580_pfs2256_a_matrix_row_binds_the_thin_boundaries_of_its_geometry(tm
         'boundaries = ["Wing", "Body", "Base"]\nthin_boundaries = ["Wing"]\n', "utf-8"
     )
     resolved = resolve_matrix(path, workspace, name="study", fs_version=BUILD, recipes=RECIPES)
-    assert resolved.campaign.sims[0].thin_boundaries == ("Wing",)
+    case = resolved.campaign.sims[0]
+    assert case.boundaries_file is not None and Path(case.boundaries_file).name == sidecar.name
+    script = Script(BUILD)
+    build_script(case.model_copy(update={"point": {"alpha": 0.0}}), script)
+    assert "SET_THIN_BOUNDARIES 1\n1\n" in script.render()
+    sidecar.write_text('boundaries = ["Wing", "Body", "Base"]\nthin_boundaries = "Wing"\n', "utf-8")
+    with pytest.raises(InputArtifactError, match="thin_boundaries"):
+        resolve_matrix(path, workspace, name="study", fs_version=BUILD, recipes=RECIPES)
 
 
 @pytest.mark.parametrize("listed", ["[]", '["Base"]'])

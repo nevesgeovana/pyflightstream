@@ -917,10 +917,6 @@ class SimCase(BaseModel):
     inventory_source: str | None = None
     #: The boundary inventory file selected by matrix binding.
     boundaries_file: str | None = None
-    #: The boundaries the boundaries file marks thin (PFS-2256), bound by the
-    #: workspace: their names, or ``()`` where the file states an empty list,
-    #: which clears the selection. None where it states none, which emits nothing.
-    thin_boundaries: tuple[str, ...] | None = None
     _fsi_geometry_emitter: Callable[[str, Script], None] | None = PrivateAttr(default=None)
     #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
     #: by the workspace: the length unit the file is written in. None for a

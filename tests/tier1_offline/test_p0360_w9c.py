@@ -79,8 +79,6 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     for case in expected[fixture]["campaign"]["sims"]:
         assert case.pop("raw_mesh_conditions") is None
         case["boundaries_file"] = None
-        # PFS-2256: the thin boundaries a boundaries file marks; these fixtures mark none.
-        case["thin_boundaries"] = None
         # 0.58.0 (PFS-2176 review): the setup keys whose condition has another home
         # leave the solver settings; these fixtures state none of them.
         for key in REMOVED_SOLVER_FIELDS:
