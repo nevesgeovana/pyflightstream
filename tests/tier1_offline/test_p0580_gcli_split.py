@@ -186,3 +186,15 @@ def test_p0580_pyfs_fsi_beam_gives_the_console_contract(tmp_path, capsys):
     )
     assert code == 2
     assert "pyfs-fsi beam" in capsys.readouterr().err
+
+
+def test_p0580_the_mesh_verbs_help_names_only_pages_that_exist(capsys):
+    from pyflightstream.run import mesh_cli
+
+    root = Path(__file__).resolve().parents[2]
+    for verb in mesh_cli.MESH_VERBS:
+        with pytest.raises(SystemExit):
+            mesh_cli.main([verb, "--help"])
+        text = " ".join(capsys.readouterr().out.split())
+        for page in re.findall(r"docs/[\w/-]+\.md", text):
+            assert (root / page).is_file(), f"pyfs-mesh {verb} --help names {page}"

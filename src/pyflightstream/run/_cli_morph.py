@@ -425,7 +425,7 @@ def add_mesh_parser(subparsers: Any) -> None:
             "--dry-run it prints the plan and the warnings and writes nothing. With --out it "
             "writes <descriptor>.obj, <descriptor>.mesh.json and, with --fsm-template, "
             "<descriptor>.fsm. One of --out and --dry-run is required, and --descriptor and "
-            "--fsm-template need --out (docs/geometry-mesh.md)."
+            "--fsm-template need --out (docs/geometry-parametrization.md)."
         ),
     )
     mesh.add_argument("config", metavar="CONFIG", help="the configuration (TOML)")
