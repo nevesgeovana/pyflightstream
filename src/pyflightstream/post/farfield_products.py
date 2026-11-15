@@ -67,7 +67,12 @@ from pyflightstream.post._reduction_stage import (
     _layout,
     _Probe,
 )
-from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
+from pyflightstream.post._tables import (
+    CONTEXT_COLUMNS,
+    apply_point_blocks,
+    context_row,
+    write_csv_table,
+)
 from pyflightstream.post.axes import (
     EXPORT_TO_BODY,
     blade_azimuth_deg,
@@ -2258,7 +2263,13 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
         group = sweep_file_stem(ctx.sim_id, ctx.table_name)
         path = ctx.target(ctx.out / FARFIELD_DIR / f"{group}_{suffix}.csv")
         path.parent.mkdir(parents=True, exist_ok=True)
-        write_csv_table(path, ("POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *columns), rows)
+        # EVERY TABLE OPENS WITH THE RUN BLOCK (FR-3778): each row's, of the point it is of.
+        held = tables.owners.get(suffix)
+        owners: list[str | None] = list(held) if held else [None] * len(rows)
+        header, blocked = apply_point_blocks(
+            ("POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *columns), rows, owners
+        )
+        write_csv_table(path, header, blocked)
         entry: dict[str, object] = {
             "runs": tables.runs[suffix],
             "analysis": analysis,

@@ -57,8 +57,10 @@ are `NA`, said once, and its group rows come from the group plots it has.
 | `fields/`, `surfaces/`, `streamlines/`, `settings/`, `provenance/` | unchanged paths; the run block added where the file has a place for it |
 | `products.json` | `schema_version` 2, and the tree, the kinds, the run block, the frames, the families, the groups and `migrated` |
 
-The tables of `time_history/`, `reductions/`, `probes/` and `sections/` take their header
-from the run block, then their own columns; a reduction that named its rotor by alias keeps
+The tables of `time_history/`, `reductions/`, `probes/`, `sections/`, `series/` and
+`farfield/` take their header from the run block, then their own columns (a far-field
+row takes the block of its point); `write_recorded_polar` writes a recorded folder's plots
+history to `time_history/` too; a reduction that named its rotor by alias keeps
 the alias and gains `ROTOR_ID` before it, and the sections table names it by `ROTOR_ID`
 only (a rotor that declares no `id` is rotor 0). The averaged surface carries the run block as
 Tecplot auxiliary data and VTK field data. The settings table opens each row with the run

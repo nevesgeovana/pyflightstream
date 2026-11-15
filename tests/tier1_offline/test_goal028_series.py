@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.post._block_scope import after_run_block
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products
 from tests.tier1_offline.test_post_products import (
@@ -51,10 +52,12 @@ def test_every_series_spells_the_step_in_capitals_and_states_the_condition(tmp_p
     write_campaign_products(workspace)
     for name in ("loads", "sections", "probes"):
         columns, rows = _series(workspace, f"AL-020_{name}_series.csv")
-        # BEHIND THE POLAR since 0.27.0 (G16), which every table opens with.
-        assert columns[:2] == ["POL", "STEP"] and "step" not in columns, (name, columns[:4])
-        at = columns.index("ALPHA")
-        assert tuple(columns[at : at + len(CONTEXT_COLUMNS)]) == CONTEXT_COLUMNS, (name, columns)
+        # 0.58.0 (FR-3778): the run block first, its POL leading; STEP right after it,
+        # and the condition columns are the block's.
+        at = after_run_block(columns)
+        assert columns[:3] == ["POL", "POINT_ID", "POINT"] and at, (name, columns[:4])
+        assert columns[at] == "STEP" and "step" not in columns, (name, columns[at - 1 : at + 2])
+        assert set(CONTEXT_COLUMNS) <= set(columns[:at]), (name, columns)
         # The record states Mach 0.2 and SREF 50; the loads export states alpha.
         assert rows[0]["MACH"] == "0.20000", (name, rows[0])
         assert rows[0]["SREF"] == "50.00000", (name, rows[0])
@@ -64,7 +67,8 @@ def test_a_probes_series_row_says_which_probe_it_is(tmp_path):
     workspace = _windowed_workspace(tmp_path, window=WINDOW)
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_probes_series.csv")
-    assert "PROBE" in columns and columns.index("PROBE") < columns.index("ALPHA"), columns
+    # 0.58.0 (FR-3778): the identity of the row follows the run block.
+    assert "PROBE" in columns and columns.index("PROBE") >= after_run_block(columns), columns
     of_step_three = [int(r["PROBE"]) for r in rows if r["STEP"] == "3"]
     assert of_step_three == list(range(1, 13)), "the fixture exports twelve probes, in order"
 
@@ -90,8 +94,10 @@ def test_a_sections_series_row_says_which_distribution_it_belongs_to(tmp_path):
     )
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_sections_series.csv")
-    lead = ["POL", "STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"]
-    assert columns[: len(lead)] == lead, columns[:8]
+    # 0.58.0 (FR-3778): the run block, then the series' own lead.
+    lead = ["STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"]
+    at = after_run_block(columns)
+    assert columns[0] == "POL" and columns[at : at + len(lead)] == lead, columns[at : at + 8]
     assert [(r["STEP"], r["FAMILY"], r["PLANE"]) for r in rows[:2]] == [
         ("3", "W", "XZ"),
         ("3", "B", "XY"),

@@ -56,6 +56,8 @@ from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.windows import march_end
 from pyflightstream.post._block_scope import after_run_block, with_run_block
+from pyflightstream.post._block_scope import apply_point_blocks as apply_point_blocks
+from pyflightstream.post._block_scope import run_blocks as run_blocks
 from pyflightstream.post._block_scope import with_rotor_alias as with_rotor_alias
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries

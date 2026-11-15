@@ -27,12 +27,14 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
+from pyflightstream.post._block_scope import after_run_block, apply_row_blocks, collected_block
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
     context_row,
+    read_csv_table,
     section_identity,
     write_csv_table,
 )
@@ -544,6 +546,32 @@ def _listed_files(
             Path(os.path.relpath(found[step], out)).as_posix() for step in steps if step in found
         ]
     return listed_files
+
+
+def open_series_with_run_block(series: Mapping[Path, str]) -> None:
+    """Open each series table with the run block of its run, once the simulation has one.
+
+    The series are written before the simulation's other products, so a refused
+    polar costs them nothing (PFS-2031.18.01), and so before the run block of
+    their point exists. Once the simulation's post has built it, each series
+    table is rewritten opened with it (FR-3778); a table whose run has no block,
+    or that already opens with one, is left as it is.
+
+    Parameters
+    ----------
+    series : mapping of Path to str
+        Each series table written to the post tree, with the run id it is of.
+    """
+    for path, run_id in series.items():
+        block = collected_block(run_id)
+        if block is None or not path.is_file():
+            continue
+        columns, rows = read_csv_table(path)
+        if after_run_block(columns):
+            continue
+        cells = [tuple(row.get(name, "") for name in columns) for row in rows]
+        header, table = apply_row_blocks(columns, cells, [block] * len(cells))
+        write_csv_table(path, header, table, overwrite=True)
 
 
 def write_point_series(

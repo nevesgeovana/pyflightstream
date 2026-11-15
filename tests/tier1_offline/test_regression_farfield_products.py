@@ -48,6 +48,7 @@ from pyflightstream.cases.qsteady import QsteadyClocking, QsteadyRecord
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.cases.workflows._farfield import plan_record
 from pyflightstream.farfield import bernoulli_residual
+from pyflightstream.post._block_scope import after_run_block
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
@@ -1211,7 +1212,13 @@ class TestFarfieldProducts:
         assert set(rows) == {"A", "B", "C"}
         header = path.read_text(encoding="utf-8").splitlines()[0].split(",")
         # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
-        assert header[:3] == ["POL", "ENTRY", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
+        # 0.58.0 (FR-3778): the run block, then the far-field table's own columns.
+        at = after_run_block(header)
+        assert header[:3] == ["POL", "POINT_ID", "POINT"] and header[at : at + 2] == [
+            "ENTRY",
+            "STEP",
+        ]
+        assert header[-2:] == ["ETA_FF", "STATUS"]
         a, b, c = rows["A"], rows["B"], rows["C"]
         assert [a["FAMILY"], b["FAMILY"], c["FAMILY"]] == ["TOTAL", "TOTAL", "net"]
         assert [a["ENTRY"], b["ENTRY"], c["ENTRY"]] == ["sections", "wake", "plane"]
@@ -1721,7 +1728,11 @@ class TestFfproofPost:
         group = polar.stem.rsplit("_", 1)[0]
         assert path.name == f"{group}_ledgers.csv", "beside the polar, by name (R1)"
         columns, rows = _ffproof_post___table(path)
-        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        # 0.58.0 (FR-3778): the run block (the condition is its), then the table's own.
+        at = after_run_block(columns)
+        assert columns[:3] == ["POL", "POINT_ID", "POINT"]
+        assert set(CONTEXT_COLUMNS) <= set(columns[:at])
+        assert columns[at:] == ["ENTRY", "STEP", *LEDGER_COLUMNS]
         assert [float(row["STATION_X_R"]) for row in rows] == [-1.0, 1.0]
         assert {row["LATTICE"] for row in rows} == {"MRP"}
         inlet, outlet = rows
@@ -1765,7 +1776,11 @@ class TestFfproofPost:
         average = _ffproof_post___one(root, "farfield/*_ledgers_average.csv")
         assert not list(root.rglob("farfield/*_ledgers.csv"))
         columns, now = _ffproof_post___table(instant)
-        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        # 0.58.0 (FR-3778): the run block (the condition is its), then the table's own.
+        at = after_run_block(columns)
+        assert columns[:3] == ["POL", "POINT_ID", "POINT"]
+        assert set(CONTEXT_COLUMNS) <= set(columns[:at])
+        assert columns[at:] == ["ENTRY", "STEP", *LEDGER_COLUMNS]
         _columns, mean = _ffproof_post___table(average)
         assert {row["STEP"] for row in now} == {"8"}
         assert {row["STEP"] for row in mean} == {"AVERAGE"}
@@ -3857,7 +3872,11 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads, recipe
     named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
     if not loads:
         # Without the blade loads the 0.46.0 table and its named skip stay.
-        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        # 0.58.0 (FR-3778): the run block (the condition is its), then the table's own.
+        at = after_run_block(columns)
+        assert columns[:3] == ["POL", "POINT_ID", "POINT"]
+        assert set(CONTEXT_COLUMNS) <= set(columns[:at])
+        assert columns[at:] == ["ENTRY", "STEP", *LEDGER_COLUMNS]
         assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
         assert named and "no disk total-pressure jump" in named[0]
         return

@@ -22,7 +22,12 @@ from pyflightstream.farfield.rotor_sections import (
 )
 from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._reduction_stage import _last_step
-from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
+from pyflightstream.post._tables import (
+    CONTEXT_COLUMNS,
+    apply_point_blocks,
+    context_row,
+    write_csv_table,
+)
 from pyflightstream.post.axes import free_stream_in_export_frame
 from pyflightstream.post.rotor_section_frames import aligned_blade_sections
 from pyflightstream.post.rotor_sections_surface import blade_surface_strips
@@ -281,9 +286,13 @@ def _write_products(ctx, rows, strips, contexts):
         columns = tuple(dict.fromkeys(key for row in records for key in row if key != "STATUS")) + (
             "STATUS",
         )
-        write_csv_table(
-            path, columns, [tuple(row.get(key, float("nan")) for key in columns) for row in records]
+        # EVERY TABLE OPENS WITH THE RUN BLOCK (FR-3778): each row's, of its POINT.
+        header, blocked = apply_point_blocks(
+            columns,
+            [tuple(row.get(key, float("nan")) for key in columns) for row in records],
+            [str(row["POINT"]) for row in records],
         )
+        write_csv_table(path, header, blocked)
         ctx.add(
             path,
             {

@@ -149,6 +149,7 @@ from pyflightstream.post._products_campaign import (
 from pyflightstream.post._rotor_plan import rotor_plot_source as rotor_plot_source
 from pyflightstream.post._rotor_products import (
     _point_series,
+    open_series_with_run_block,
 )
 from pyflightstream.post._sim import _sim_products
 from pyflightstream.post._stage import (
@@ -1050,7 +1051,7 @@ def _write_one_simulation(
     except ProductError as error:
         ctx.skipped[sim_id] = str(error)
         return
-    _write_simulation_series(ctx, sim_id, sim_records, effective_pproc)
+    series = _write_simulation_series(ctx, sim_id, sim_records, effective_pproc)
     try:
         files, names, reductions_skipped = _sim_products(
             ctx.workspace,
@@ -1077,6 +1078,7 @@ def _write_one_simulation(
         )
         return
     ctx.written.extend(files)
+    open_series_with_run_block(series)  # FR-3778, now that the simulation has its blocks
     for name, entry in names.items():
         ctx.products_index[name] = {
             "sim_id": sim_id,
@@ -1215,13 +1217,14 @@ def _write_simulation_series(
     sim_id: str,
     sim_records: Sequence[RunRecord],
     effective_pproc: tuple[str | None, PprocSpec | None, str | None],
-) -> None:
+) -> dict[Path, str]:
     # PFS-2031.18.01: write per-step series before the polar so a refused
     # polar does not remove series supported by stamped files and the record.
     # An unreadable stamped file is a point skip under series/<run id>, not
     # an abort of the campaign stage.
-    """Write simulation series."""
+    """Write simulation series; return each series table written with its run id."""
     recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
+    tables: dict[Path, str] = {}
     for record in sim_records:
         surface_freeze = _index_record_surfaces(ctx, sim_id, record)
         said = set(ctx.skipped)
@@ -1257,6 +1260,7 @@ def _write_simulation_series(
             # SAID, as every other product the stage leaves out is (MT-06).
             warn(f"{name} not written: {ctx.skipped[name]}", PyflightstreamWarning, stacklevel=4)
         ctx.written.extend(series_files)
+        tables.update({path: record.run_id for path in series_files if path.suffix == ".csv"})
         for name, entry in series_names.items():
             # The package's own average was judged before it was written.
             reason = (
@@ -1268,6 +1272,7 @@ def _write_simulation_series(
                 ctx.skipped[name] = reason
                 continue
             ctx.products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
+    return tables
 
 
 def _prepare_campaign_rebuild(

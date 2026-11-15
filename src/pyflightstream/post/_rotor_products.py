@@ -79,6 +79,7 @@ from pyflightstream.post.polar import PolarPoint
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import write_section_distributions
+from pyflightstream.post.series import open_series_with_run_block as open_series_with_run_block
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.surfaces import write_point_surface_average
 from pyflightstream.results import FrozenSolve, parse_loads

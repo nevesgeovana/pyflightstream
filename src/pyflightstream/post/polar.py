@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import csv
 import math
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -47,7 +47,8 @@ from pyflightstream.post._condition import (
     _on_the_vorticity_list,
     _refuse_a_reference_the_solver_did_not_use,
 )
-from pyflightstream.post._stage import PROBES_DIR, SECTIONS_DIR
+from pyflightstream.post._run_block import run_block_row
+from pyflightstream.post._stage import SECTIONS_DIR, TIME_HISTORY_DIR
 from pyflightstream.post._tables import (
     _REFERENCE_COLUMNS,
     ADVANCE_RATIO_COLUMN,
@@ -61,6 +62,7 @@ from pyflightstream.post._tables import (
     context_row,
     polar_file_name,
     read_csv_table,
+    run_blocks,
     write_csv_table,
 )
 from pyflightstream.post.axes import polar_axis_coefficients
@@ -975,7 +977,9 @@ def write_recorded_polar(
         Whether to write a sections table for each point that has sectional
         loads.
     plots : bool, optional
-        Whether to write a plots table for each point that has a plots export.
+        Whether to write a plots table for each point that has a plots export, under
+        time_history/. The sections and plots tables open with the point's run block,
+        from the condition its loads export prints.
     aliases : mapping of str to sequence of str, optional
         The boundary aliases a group member may name.
     overwrite : bool, optional
@@ -1023,6 +1027,57 @@ def write_recorded_polar(
                 drag_columns=[drag_columns_of(point.loads) for point in points],
             )
         )
+    # EVERY TABLE OF A POINT OPENS WITH ITS RUN BLOCK (FR-3778), from what the
+    # folder states: the condition its loads export prints, no record behind it.
+    with run_blocks(_recorded_blocks(polar, points, mach=mach, reference=ref)):
+        written.extend(
+            _recorded_point_tables(points, out, target, sections=sections, plots=plots,
+                                   mach=mach, reference=ref, polar=polar)
+        )  # fmt: skip
+    return written
+
+
+def _recorded_blocks(
+    polar: str, points: Sequence[PolarPoint], *, mach: float, reference: ReferenceValues
+) -> dict[str, dict[str, object]]:
+    """Return the run block row of each point of a recorded folder, from its loads export."""
+    rows: dict[str, dict[str, object]] = {}
+    for index, point in enumerate(points):
+        loads = point.loads
+        stated: dict[str, object] = {
+            "ALPHA": point.alpha_deg,
+            "BETA": point.beta_deg,
+            "MACH": _mach_of(point, mach),
+            "RE": None if loads.reynolds is None else loads.reynolds / 1e6,
+            "VINF": getattr(loads, "freestream_velocity_m_s", None),
+            **reference.as_lengths(),
+            **reference.as_moment_point(),
+        }
+        mode = str(getattr(loads, "solver_mode", "") or "").strip().casefold()
+        rows[point.name] = run_block_row(
+            pol=polar,
+            point_id=index + 1,
+            point=point.name,
+            run_type="unsteady" if mode == "unsteady" else "steady",
+            condition={key: value for key, value in stated.items() if value is not None},
+        )
+    return rows
+
+
+def _recorded_point_tables(
+    points: Sequence[PolarPoint],
+    out: Path,
+    target: Callable[[Path], Path],
+    *,
+    sections: bool,
+    plots: bool,
+    mach: float,
+    reference: ReferenceValues,
+    polar: str,
+) -> list[Path]:
+    """Write the sections and plots tables of a recorded folder's points."""
+    ref = reference
+    written: list[Path] = []
     for point in points:
         folder = point.loads_path.parent
         sloads = folder / f"{point.name}_sloads.txt"
@@ -1047,7 +1102,7 @@ def write_recorded_polar(
         plots_export = folder / f"{point.name}_plots.txt"
         if plots and plots_export.is_file():
             table = write_plots_table(
-                target(out / PROBES_DIR / f"{point.name}_plots.csv"),
+                target(out / TIME_HISTORY_DIR / f"{point.name}_plots.csv"),
                 plots_export.read_text(encoding="utf-8", errors="replace"),
                 pol=polar,
             )
