@@ -63,6 +63,8 @@ The geometry group of `pyfs-workspace` is split by what each verb acts on, mirro
 
 ### Removed
 
+`post.custom_polar.custom_polar_file_name` and its `post.products` re-export are removed and refused by name; the older removed alias names the current artifact too. migration: read `polars/P<POL>-<GROUP>-ACOEF.dat` beside the group's ACOEF CSV; custom-format reading and writing are unchanged.
+
 The retired polar table's `POLAR_COLUMNS` and `_POLAR_CONDITION_COLUMNS` registries are removed and refused by name. migration: read the current `run_block` and `kinds` column registry in `products.json`.
 
 The run no longer writes `campaign_sweep.csv`: each polar's `TOTAL` group file is complete, and the guide's `Joining polars` stacks several. `pyfs-matrix run --sweep-csv`, the `sweep_csv` keyword of `run_matrix` and `run_campaign`, and `pyflightstream.run.SWEEP_TABLE_NAME` are removed and refused by name with that sentence; the post leaves a `campaign_sweep.csv` of an earlier layout as it finds it. FR-3777. migration: join the `TOTAL` group files (docs/upgrading.md#0580-post-tree).

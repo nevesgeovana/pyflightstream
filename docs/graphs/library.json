@@ -9154,6 +9154,11 @@
     },
     {
       "source": "pyflightstream.post.custom_polar",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.custom_polar",
       "target": "pyflightstream._textio",
       "kind": "module"
     },

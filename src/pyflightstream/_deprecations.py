@@ -489,6 +489,12 @@ def removed_name_refusal(module: str, name: str) -> str:
     was ever deprecated.
     """
     replacement = REMOVED_AT_0_16_0[name]
+    if name == "her_polar_file_name":
+        from pyflightstream._retired_names import retired_attribute
+
+        current = retired_attribute("pyflightstream.post.custom_polar", replacement)
+        if current is not None:
+            return f"{name} was removed in v0.16.0. {current.message()}"
     return (
         f"{name} was removed in v0.16.0; write {replacement} instead. "
         f"THE FORMAT IS UNCHANGED: {replacement} writes "

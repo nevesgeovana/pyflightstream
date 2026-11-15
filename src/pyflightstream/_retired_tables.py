@@ -117,6 +117,17 @@ RETIRED_REDUCTION_SENTENCES: dict[str, str] = {
 _THE_0570_POLAR_TABLE = "It wrote or named the 0.57.0 polar table <polar>_M<mach>_g<NN>.csv."
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     **{
+        f"pyflightstream.{module}.custom_polar_file_name": RetiredName(
+            f"pyflightstream.{module}",
+            "custom_polar_file_name",
+            "P<POL>-<GROUP>-ACOEF.dat beside its group CSV under polars/",
+            "0.58.0",
+            "It named the retired per-Mach file; current custom files share the group's stem.",
+            "Read",
+        )
+        for module in ("post.custom_polar", "post.products")
+    },
+    **{
         f"pyflightstream.{module}.POLAR_COLUMNS": RetiredName(
             f"pyflightstream.{module}",
             "POLAR_COLUMNS",

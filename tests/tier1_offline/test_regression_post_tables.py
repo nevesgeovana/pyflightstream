@@ -28,7 +28,6 @@ from pyflightstream.post._tables import read_csv_table as _post2_plots_tables__r
 from pyflightstream.post._tables import read_csv_table as _post2_series_precision__read_csv_table
 from pyflightstream.post._tables import read_csv_table as _post_1_tables__read_csv_table
 from pyflightstream.post.custom_polar import (
-    custom_polar_file_name,
     read_custom_polar_format,
     write_custom_polar_format,
 )
@@ -1082,19 +1081,21 @@ class TestPost1Superfile:
 class TestPost1Tables:
     """P0400 table-helper defects (post-1 lane).
 
-    P0400-NAMEDGROUP (PFS-2095.044): the recorded file-name helper refuses a
-    named group with a ProductError, never a bare ValueError.
+    P0580-CUSTOM-FILENAME-RETIRED: the obsolete filename helper is refused,
+    naming the current group artifact.
     P0400-SKIPLINE (PFS-2100.013): read_csv_table names the file's own line when
     it skips lines before the header.
     """
 
     @staticmethod
-    @pytest.mark.parametrize((), [pytest.param(id="P0400-NAMEDGROUP")])
-    def test_p0400_namedgroup_is_a_product_error():
-        """P0400-NAMEDGROUP: a group named WING is refused by the helper, by name."""
-        assert custom_polar_file_name(7, mach=0.2, group="3") == "7_M20_g03.dat"
-        with pytest.raises(ProductError, match="'WING'"):
-            custom_polar_file_name(7, mach=0.2, group="WING")
+    @pytest.mark.parametrize((), [pytest.param(id="P0580-CUSTOM-FILENAME-RETIRED")])
+    def test_p0580_custom_polar_filename_is_refused_by_name():
+        """The obsolete filename helper points to the group's current custom-format file."""
+        from pyflightstream._retired_names import RetiredAttributeError
+        from pyflightstream.post import custom_polar
+
+        with pytest.raises(RetiredAttributeError, match="P<POL>-<GROUP>-ACOEF.dat"):
+            _ = custom_polar.custom_polar_file_name
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-SKIPLINE")])

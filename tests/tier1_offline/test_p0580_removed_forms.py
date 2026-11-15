@@ -37,6 +37,32 @@ def test_p0580_legacy_polar_columns_are_refused_naming_the_current_registry(modu
     assert name not in target.__dict__
 
 
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [
+        ("pyflightstream.post.custom_polar", "custom_polar_file_name"),
+        ("pyflightstream.post.products", "custom_polar_file_name"),
+        ("pyflightstream.post.products", "her_polar_file_name"),
+        ("pyflightstream.post", "her_polar_file_name"),
+    ],
+)
+def test_p0580_custom_polar_name_refusals_point_to_the_current_dat_file(module, name):
+    """A removed filename helper and its old alias both name the current artifact."""
+    import importlib
+
+    from pyflightstream._retired_names import RetiredAttributeError
+
+    target = importlib.import_module(module)
+    error = AttributeError if name == "her_polar_file_name" else RetiredAttributeError
+    with pytest.raises(error) as refused:
+        getattr(target, name)
+    said = str(refused.value)
+    assert name in said and "P<POL>-<GROUP>-ACOEF.dat" in said and "polars/" in said
+    if name == "her_polar_file_name":
+        assert "0.16.0" in said
+    assert name not in target.__dict__
+
+
 def test_p0580_hub_rings_width_key_is_refused_naming_band_width(tmp_path, capsys):
     source = build(tmp_path)
     cfg = control(tmp_path, "[hub_rings]\nrings = 4\nwidth = 0.04\n")

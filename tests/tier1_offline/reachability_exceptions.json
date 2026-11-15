@@ -309,7 +309,6 @@
     "pyflightstream.exceptions.ContractNotImplementedError",
     "pyflightstream.post.CustomPolarTable",
     "pyflightstream.post.custom_polar.custom_count",
-    "pyflightstream.post.custom_polar.custom_polar_file_name",
     "pyflightstream.post.disc_maps.write_disc_map",
     "pyflightstream.post.passage_windows",
     "pyflightstream.post.point_tables.is_force_or_moment_column",

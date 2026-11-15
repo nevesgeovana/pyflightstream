@@ -1990,7 +1990,7 @@ def test_the_former_her_names_of_the_polar_format_are_gone(tmp_path):
     # taking the assertion with it.
     with pytest.raises(AttributeError, match="her_polar_file_name"):
         _ = products_module.her_polar_file_name
-    assert products_module.custom_polar_file_name is not None
+    assert products_module.write_custom_polar_format is not None
     with pytest.raises(AttributeError):
         _ = post.no_such_name
 

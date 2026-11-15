@@ -66,10 +66,11 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # `schema` (RX-42 deleted, -3).
 # 218: REL1-004 retires post.write_polar_table, post.write_recorded_polar and
 # post.products.polar_file_name, refused by name (-3).
-_REACH_GUARD___REGISTER_CEILING = 218
+# 217: FINAL-058-03 retires the unused custom polar filename helper (-1).
+_REACH_GUARD___REGISTER_CEILING = 217
 
 
-_REACH_GUARD___REGISTER_DIGEST = "195170f1e34e03a6e8dc97e292a2a1bf6f26ff34c4df90fc330e92a312af840b"
+_REACH_GUARD___REGISTER_DIGEST = "aa3c8275b13c11fba437b091fd0700895e089dfdc5944614b56edafce670feca"
 
 
 _REACH_GUARD__REASONS = (

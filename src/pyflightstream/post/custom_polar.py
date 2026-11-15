@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.post._tables import (
     _DECIMALS,
@@ -35,10 +36,11 @@ __all__ = [
     "custom_field",
     "group_number",
     "CustomPolarTable",
-    "custom_polar_file_name",
     "read_custom_polar_format",
     "write_custom_polar_format",
 ]
+
+__getattr__ = removed_names_hook(__name__)
 
 # --- PFS-2014.01: the custom polar format, the polar table as the reference tooling reads it --
 
@@ -88,39 +90,6 @@ class CustomPolarTable:
     reference: ReferenceValues
     columns: tuple[str, ...]
     rows: list[dict[str, float]]
-
-
-def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
-    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: the custom format beside the polar table.
-
-    Parameters
-    ----------
-    polar : str or int
-        The polar's number.
-    mach : float
-        The Mach number, written as its two-digit code.
-    group : str or int
-        The plot group's number, as an int or as the text of one.
-
-    Returns
-    -------
-    str
-        The ``.dat`` file name beside the polar table.
-
-    Raises
-    ------
-    ProductError
-        If ``group`` is a name: the convention states a group by number.
-    """
-    try:
-        number = int(group)
-    except (TypeError, ValueError):
-        raise ProductError(
-            f"the custom polar file name states a group by NUMBER and {group!r} is a name; "
-            "use numbered groups for custom polar file names; "
-            "workspace products use the FAM and named group files"
-        ) from None
-    return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.dat"
 
 
 def custom_field(value: object) -> str:

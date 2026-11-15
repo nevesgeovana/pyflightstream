@@ -231,7 +231,6 @@ from pyflightstream.post.custom_polar import (
 from pyflightstream.post.custom_polar import (
     custom_field as _custom_field,  # noqa: F401
 )
-from pyflightstream.post.custom_polar import custom_polar_file_name as custom_polar_file_name
 from pyflightstream.post.custom_polar import (
     group_number as _group_number,  # noqa: F401
 )
@@ -381,7 +380,6 @@ __all__ = [
     "ProductError",
     "ProductExistsError",
     "ReferenceValues",
-    "custom_polar_file_name",
     "plots_table_series",
     "point_name_of",
     "swept_axes",
