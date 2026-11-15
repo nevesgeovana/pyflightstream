@@ -54,9 +54,10 @@ Declared `[[probes]]` retain their kind and their existing products.
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
 It carries about twenty optional tables and keys; a file holding `[groups]`
 alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).
-`[names]` renames the unsteady polar's plot columns to the names a
-downstream tool reads, the whole dictionary or none of it, and is defined on
-[the definition of record](post-processing-definitions.md); the other three,
+`[names]` renames the plotted columns of the reduction tables under `reductions/`
+to the names a downstream tool reads, the whole dictionary or none of it, and is defined on
+[the definition of record](post-processing-definitions.md); the columns of the family and
+group files are fixed by the output catalogue and are not renamed; the other three,
 `[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive).
 
 Omitted export kinds follow the run type's defaults; they are not all enabled.
