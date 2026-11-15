@@ -77,6 +77,8 @@ A group of the polar files that selects no family of one point's loads (a tail-o
 
 A point whose loads export states an analysis frame of unknown rotation is no row of the polar files, never an all-`NA` row: it is warned with the 0.57.0 reason (the frame it states) and named under each group's `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`. migration: none.
 
+A point of the polar files whose `ALPHA` or `BETA` is not a finite number writes `NA` in the frames the angle turns (`W` and `S` for `ALPHA`, `W` for `BETA`, with `CTW`, `CQW`, `ETAW` and the `S` set of the RCOEF files) instead of reading the angle as zero, and is warned once per polar; the `B` and `R<id>` cells keep their numbers. migration: none.
+
 The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none for a model whose faces are all wider than 0.5 mm, where the fuzzy value is unchanged (checked on the CI wing; the wider geometry suite runs at the release). A base thinner still (20 micrometres on a 2.5 m wing) stops by name and is registered as PFS-2236.
 
 ## [0.57.0] - 2026-11-13

@@ -679,6 +679,30 @@ def polar_files(
     return files
 
 
+#: The frames an angle of the point turns: the stability frame by ALPHA, the wind
+#: frame by ALPHA and BETA; the body and rotor frames need no attitude.
+_FRAMES_OF_ANGLE: dict[str, tuple[str, ...]] = {"alpha": ("W", "S"), "beta": ("W",)}
+
+
+def _turns(point: PolarPointLoads, frames: Sequence[RotorFrame]) -> dict[str, object]:
+    """Return the point's frame rotations; NaN in the frames an unstated angle turns."""
+    alpha, beta = point.alpha_deg, point.beta_deg
+    turns: dict[str, object] = dict(
+        frame_rotations(
+            float(alpha) if _finite(alpha) else 0.0,  # type: ignore[arg-type]
+            float(beta) if _finite(beta) else 0.0,  # type: ignore[arg-type]
+            list(frames),
+        )
+    )
+    # AN UNSTATED ANGLE IS NO ZERO (RB6-07): the frames it turns read NA, the
+    # body and rotor frames keep their numbers.
+    for angle, value in (("alpha", alpha), ("beta", beta)):
+        if not _finite(value):
+            for name in _FRAMES_OF_ANGLE[angle]:
+                turns[name] = turns[name] * math.nan  # type: ignore[operator]
+    return turns
+
+
 @dataclass(frozen=True)
 class _Assembler:
     """The tables of one polar being assembled: their headers and the turns of each point."""
@@ -692,14 +716,7 @@ class _Assembler:
 
     @cached_property
     def turns(self) -> list[Mapping[str, object]]:
-        return [
-            frame_rotations(
-                point.alpha_deg if _finite(point.alpha_deg) else 0.0,  # type: ignore[arg-type]
-                point.beta_deg if _finite(point.beta_deg) else 0.0,  # type: ignore[arg-type]
-                [rotor.frame for rotor in self.rotors],
-            )
-            for point in self.points
-        ]
+        return [_turns(point, [rotor.frame for rotor in self.rotors]) for point in self.points]
 
     def tables(self, entity: str, *, with_rcoef: bool) -> _Tables:
         ids = [rotor.rotor_id for rotor in self.rotors]

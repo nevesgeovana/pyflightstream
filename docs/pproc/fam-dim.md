@@ -22,10 +22,11 @@ unsteady row is the window average of the run's plots: each family's six
 components of the plot group `MRP_<family>`, averaged over the row's window
 ([the averaging window](../definitions/the-averaging-window.md)).
 
-A family whose loads do not exist on a point (no dynamic pressure, a frame
-that is not the geometry's, a record written without the family plots) is a
-row of `NA`, never of zeros; the last case is said once, naming the plots the
-record lacks.
+A family whose loads do not exist on a point (no dynamic pressure, a record
+written without the family plots) is a row of `NA`, never of zeros; the last
+case is said once, naming the plots the record lacks. A point whose loads
+export states a frame that is not the geometry's is no row of any polar file,
+warned and named under `skipped` ([group files](group-files.md#group-files)).
 
 The polar's number `<POL>` is the matrix row's, as the matrix writes it. The
 file holds every point of the polar: the point's condition is in its run

@@ -302,6 +302,25 @@ def _say_omitted(
         warn(ctx.skipped[key], PyflightstreamWarning, stacklevel=3)
 
 
+def _say_the_na_points(ctx: SimContext, gathered: _Gathered) -> None:
+    """Warn once per polar for the points whose cells are NA, naming what they lack."""
+    names = [point.name for point in gathered.held]
+    unangled = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if _number(row.alpha_deg) is None or _number(row.beta_deg) is None
+    ]
+    if unangled:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unangled)} point(s) state no ALPHA or BETA, or "
+            f"one that is not a finite number ({', '.join(unangled)}), so the attitude-dependent "
+            "cells of the polar files (the W frame, and the S frame without ALPHA: CDW to CnW, "
+            "CTW, CQW, ETAW) read NA there.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _said_instant(ctx: SimContext) -> bool:
     """Say, and return, that an unsteady simulation with no window reads its last step."""
     instant = ctx.window is None and any(
@@ -489,6 +508,7 @@ def family_polar_products(ctx: SimContext) -> None:
         )
     if not gathered.rows:
         return
+    _say_the_na_points(ctx, gathered)
     if gathered.lacking:
         warn(
             f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "

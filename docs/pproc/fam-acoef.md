@@ -24,6 +24,11 @@ A family whose induced drag the solver did not compute writes `NA` in `CDI`
 and in every coefficient the x force reaches at that point's angles; the
 others keep their numbers.
 
+A point that states no `ALPHA`, or one that is not a finite number, writes
+`NA` in its `W` and `S` cells; without `BETA`, in its `W` cells. The `B` and
+`R<id>` cells need no attitude and keep their numbers, and the points are
+warned once per polar.
+
 The pproc's `[equations]` of an unsteady row are written as trailing columns
 of the TOTAL group's ACOEF file ([group files](group-files.md#group-files)),
 before `MESH_FACES`.
