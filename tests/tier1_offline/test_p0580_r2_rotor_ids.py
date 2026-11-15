@@ -11,7 +11,7 @@ import json
 import warnings
 from types import SimpleNamespace
 
-from pyflightstream.post import _point_stage, _retired_polars
+from pyflightstream.post import _point_stage, _retired_polars, _tree_migration
 from pyflightstream.post._block_scope import rotor_ids_from
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.workspace import CampaignWorkspace
@@ -44,3 +44,7 @@ def test_p0580_r2_the_campaign_lookup_finds_an_alias_written_in_another_case(tmp
 
 def test_p0580_r2_the_retired_polars_module_keeps_no_copy() -> None:
     assert not hasattr(_retired_polars, "rotor_ids_of")
+
+
+def test_p0580_r2_the_upgrade_pointer_is_the_migration_s_own_object() -> None:
+    assert _retired_polars.UPGRADE_POINTER is _tree_migration.POINTER

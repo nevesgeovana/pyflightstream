@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream.post._tree_migration import POINTER as UPGRADE_POINTER
 
 __all__ = [
     "RetiredPolar",
@@ -23,9 +24,6 @@ __all__ = [
     "retired_polar_files",
     "warn_retired_polar_files",
 ]
-
-#: What every warning of the migration ends with.
-UPGRADE_POINTER = "See docs/upgrading.md#0580-post-tree."
 
 #: The file names of the new layout, which are never the old one's; a corrected
 #: product (``<name>_corrected.csv``, post.corrections) is its raw file's.
