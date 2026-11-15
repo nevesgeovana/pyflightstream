@@ -230,6 +230,31 @@ def _averaged_plots(
     return values
 
 
+def _plotted_drag_split(
+    values: Mapping[str, float],
+    families: Sequence[Family],
+    condition: Mapping[str, object],
+    splits: list[tuple[str, str]],
+) -> dict[str, dict[str, float]]:
+    """Recover each family's q_ref drag split from its averaged free-stream plots."""
+    vinf, vref = _number(condition.get("VINF")), _number(condition.get("VREF"))
+    ratio = vinf / vref if vinf and vref and vinf > 0 and vref > 0 else math.nan
+    scale = ratio * ratio
+    out: dict[str, dict[str, float]] = {}
+    for (induced, profile), names in DRAG_PRODUCT_COLUMNS.items():
+        plotted = (profile.upper(), induced.upper())
+        if not any(name.startswith(tuple(f"{key}_" for key in plotted)) for name in values):
+            continue
+        if names not in splits:
+            splits.append(names)
+        for family in families:
+            for key, column in zip(plotted, names, strict=True):
+                value = values.get(f"{key}_{FAMILY_PLOT_GROUP.format(family=family.name)}")
+                if value is not None:
+                    out.setdefault(family.name, {})[column] = value * scale
+    return out
+
+
 def _plotted(values: Mapping[str, float], group: str) -> Loads | None:
     six = [values.get(f"{part}_{group}") for part in AXES_PLOT_COMPONENTS]
     if any(value is None for value in six):
@@ -535,7 +560,8 @@ def _point_loads(
         if values is None:
             return None
         family_loads, own = _unsteady_loads(ctx, values, families, rotors, gathered.lacking)
-        return family_loads, own, {}, (), values
+        split = _plotted_drag_split(values, families, condition, gathered.splits)
+        return family_loads, own, split, (), values
     vref = _number(condition.get("VREF"))
     surfaces = _wheel_mean(ctx, point, vref, gathered)
     if surfaces is None:
