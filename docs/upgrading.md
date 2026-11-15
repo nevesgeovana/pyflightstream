@@ -50,6 +50,12 @@ layout is [the output catalogue](pproc/index.md).
 A record written by 0.57.0 has no per-family plot in its unsteady history: its family rows
 are `NA`, said once, and its group rows come from the group plots it has.
 
+If window-averaged ACOEF files were posted before the drag-split correction,
+post the retained histories again to replace missing split values. The split uses
+the loads' averaging window and the ACOEF reference dynamic pressure. Histories
+that print `CDI` and `CDO` supply `CDI` and `CD0`; histories that print `CDP` and
+`CDV` keep that pair. A genuinely absent family component remains `NA`.
+
 The Python writers of the retired files are removed and refused by name:
 `write_per_blade_table`, `per_blade_rows`, `write_rotor_table`, `write_superfiles`,
 `write_unsteady_polar` and `swept_polar_file_name`. A script that called one reads the
