@@ -59,6 +59,11 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
                 # 0.55.0 adds two more optional product defaults, FR-3511 and FR-3512.
                 value["merged_polar"] = False
                 value["rotate_columns"] = {}
+            if "distributions" in value:
+                # 0.58.0 adds one optional [sections] default, split="point" (design 7.1,
+                # PFS-2232); nothing else moved.
+                assert "split" not in value
+                value["split"] = "point"
             for child in value.values():
                 migrate_default(child)
         elif isinstance(value, list):
