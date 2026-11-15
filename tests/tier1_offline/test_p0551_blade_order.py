@@ -80,7 +80,7 @@ def fixture(
         values=str(abs(rpm)),
         stem="wheel.fsm",
         workflow="unsteady_rotor",
-        cell=f"ROTOR_AXIS:{axis} / DELTA_TIME:0.01 / TIME_ITERATIONS:8 / LAST_REVS_AVG:0.5"
+        cell=f"ROTOR_AXIS:{axis} / DELTA_TIME:0.01 / TIME_ITERATIONS:8 / LAST_REVS_AVG:1"
         + (" / PERIODIC_COPIES:6" if sector else ""),
     )
     mesh = workspace.inputs_dir / "geometries" / "wheel.fsm"

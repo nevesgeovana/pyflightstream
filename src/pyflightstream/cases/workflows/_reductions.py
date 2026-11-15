@@ -1098,6 +1098,45 @@ def _flat_row_passages(
     return plan
 
 
+def require_whole_passages(case: SimCase) -> None:
+    """Refuse a rotor row whose averaging window is not a whole number of blade passages.
+
+    Reads each rotor's blade count and clock off the row's reduction plan, so a
+    row with no window key, and one whose clock is unknown, are not judged here
+    (PFS-2235, FR-3795). The judgement is
+    :func:`pyflightstream.cases.windows.whole_passage_refusals`.
+
+    Parameters
+    ----------
+    case : SimCase
+        An ``unsteady_rotor`` row, as the plan builds it.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the window spans a fractional number of passages of any rotor the row
+        turns, or fewer than one; one refusal names every failing rotor.
+    """
+    plan = reduction_windows(case)
+    if not plan:
+        return
+    known: list[tuple[str, int, int, float]] = []
+    named = plan.get(ROTORS_KEY)
+    if isinstance(named, dict):
+        blocks = [(str(alias), block) for alias, block in named.items() if isinstance(block, dict)]
+    else:
+        flat = _the_rotor_a_flat_row_turns(case)
+        blocks = [(flat.alias if flat is not None else "ROTOR", plan)]
+    for alias, block in blocks:
+        blades, clock = block.get("blades"), block.get("steps_per_revolution")
+        if isinstance(blades, int) and blades >= 1 and isinstance(clock, int | float) and clock > 0:
+            declared = (case.rotors or {}).get(alias)
+            known.append((alias, int(getattr(declared, "id", 0) or 0), blades, float(clock)))
+    refusals = _windows.whole_passage_refusals(case.sim_id, case.variables, known)
+    if refusals:
+        raise CampaignConfigError("\n".join(refusals))
+
+
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
     """Resolve the windows of every applicable reduction off one row, for its record.
 

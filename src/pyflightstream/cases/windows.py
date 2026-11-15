@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import copy
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TypedDict
 
 from pyflightstream._tokens import NOT_APPLICABLE
@@ -50,6 +50,7 @@ __all__ = [
     "stated_key",
     "surface_average_window",
     "surface_averaging_window",
+    "whole_passage_refusals",
 ]
 
 #: The two keys, spelled once. Upper case and exact, like every other row key.
@@ -338,6 +339,59 @@ def surface_average_window(
     else:
         window["last_iters"] = resolved["last_iters"]
     return window
+
+
+def whole_passage_refusals(
+    pol: str,
+    variables: Mapping[str, object],
+    rotors: Sequence[tuple[str, int, int, float]],
+) -> list[str]:
+    """Judge a row's window against whole blade passages of each rotor (PFS-2235, FR-3795).
+
+    A passage is ``steps_per_revolution / blades`` steps. The window of ``L`` steps spans
+    ``k = L / passage`` passages, and is valid when ``round(k) >= 1`` and
+    ``round(round(k) * passage) == L``, so a fractional passage is judged on the steps the
+    solver can take. A row stating no window key judges nothing.
+
+    Parameters
+    ----------
+    pol : str
+        The row's simulation id.
+    variables : mapping
+        The row's variables, keyed by their upper-case names.
+    rotors : sequence of tuple
+        Each rotor the row turns with a known clock: its alias, id, blade count and
+        steps per revolution.
+
+    Returns
+    -------
+    list of str
+        One refusal sentence per failing rotor, naming the window, the passages it spans,
+        the rotor and the nearest valid window; empty where every rotor passes.
+    """
+    stated = stated_key(variables)
+    if stated is None:
+        return []
+    key, value = stated
+    sentences: list[str] = []
+    for alias, rotor_id, blades, per_revolution in rotors:
+        length = averaging_steps(variables, per_revolution=per_revolution)
+        if length is None:
+            continue
+        passage = per_revolution / blades
+        spanned = length / passage
+        whole = max(1, round(spanned))
+        if round(spanned) >= 1 and round(round(spanned) * passage) == length:
+            continue
+        steps = round(whole * passage)
+        nearest = whole / blades if key == LAST_REVS_AVG else float(steps)
+        sentences.append(
+            f"POL `{pol}`: the averaging window `{key} = {value:g}` spans `{spanned:g}` blade "
+            f"passages of rotor `{alias}` (id `{rotor_id}`, `{blades}` blades, `{passage:g}` steps "
+            "per passage); a window must span a whole number of passages, at least one. The "
+            f"nearest valid window is `{key} = {nearest:g}` (`{whole}` passages, `{steps}` steps)."
+        )
+    return sentences
 
 
 def passages(window: tuple[int, int], period: float) -> list[tuple[int, int]]:

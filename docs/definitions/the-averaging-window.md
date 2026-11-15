@@ -51,4 +51,13 @@ history that cannot be found or joined is said there, naming the file, and the
 table then holds the continuation's own export, as it states its steps. On 26.124, a measured continuation export numbered the whole march from step 1 to step 24; its resumed export restated the march. The package keeps the reopened state without reinitialization; the licensed confirmation of that emitted continuation remains owed, as recorded in the changelog.
 A point that continues nothing is averaged exactly as before.
 
+**The window of an `unsteady_rotor` row spans whole blade passages of every rotor the row
+turns.** A passage is `steps_per_revolution / blades` steps of that rotor, and the window of
+`L` steps spans `k = L / passage` passages. It is valid when `round(k)` is at least 1 and
+`round(round(k) * passage)` equals `L`, so a fractional passage is judged on the steps the
+solver can take. A row that fails for any rotor is refused at plan, naming the window, the
+passages it spans, each failing rotor and the nearest valid window, as `LAST_REVS_AVG` in
+revolutions or `LAST_ITERS_AVG` in steps. A row with no window key, and a row whose clock is
+unknown, are judged where they were before.
+
 ---

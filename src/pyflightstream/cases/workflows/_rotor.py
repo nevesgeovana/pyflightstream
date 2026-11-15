@@ -97,6 +97,7 @@ from ._probes import (
 )
 from ._reductions import (
     _blade_count,
+    require_whole_passages,
 )
 from ._rows import (
     UNNAMED_ROTOR_RADICAL,
@@ -538,6 +539,12 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
     return rendered
 
 
+def _require_the_window_of_whole_passages(case: SimCase) -> None:
+    """Refuse a rotor row with no averaging window, or one that cuts a blade passage (PFS-2235)."""
+    _require_the_averaging_window(case, "unsteady_rotor")
+    require_whole_passages(case)
+
+
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build a blade-resolved rotor run: open, rotor frame, motion, time loop.
 
@@ -571,7 +578,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # is; a row stating no threshold pays nothing here.
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady_rotor")
-    _require_the_averaging_window(case, "unsteady_rotor")
+    _require_the_window_of_whole_passages(case)
     disc = _the_actuator_the_row_names(case)
     custom = _the_custom_freestream(case)
     _raw_commands(case, script, "control")
