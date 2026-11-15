@@ -113,7 +113,29 @@ def _rotor_speeds(
                 (v for k, v in own.items() if str(k).casefold() == rotor.alias.casefold()), None
             )
         speeds[rotor.rotor_id] = rpm
+    _say_a_flat_speed(ctx, point, rotors, speeds)
     return speeds
+
+
+def _say_a_flat_speed(
+    ctx: SimContext,
+    point: PolarPoint,
+    rotors: Sequence[PolarRotor],
+    speeds: Mapping[int, float | None],
+) -> None:
+    """Name a flat rotor speed no rotor takes: with several rotors, nothing says whose (i2 #14)."""
+    from pyflightstream.cases.workflows import FLAT_RPM_KEY
+
+    plan = getattr(ctx.record_of.get(point.name), "reductions", None)
+    flat = plan.get(FLAT_RPM_KEY) if isinstance(plan, Mapping) else None
+    if len(rotors) < 2 or _number(flat) is None or any(v is not None for v in speeds.values()):
+        return
+    ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}#rotor_speed={point.name}"] = (
+        f"point {point.name} records one flat rotor speed ({float(flat):g} rev/min) and the "  # type: ignore[arg-type]
+        f"reference declares {len(rotors)} rotors ({', '.join(r.alias for r in rotors)}): "
+        "nothing says whose speed it is, so each rotor's RPM<id>, J<id> and every coefficient "
+        "over its rate read NA there; state the speed per rotor (MOTIONS) to have them"
+    )
 
 
 def _say_the_advance_ratio(

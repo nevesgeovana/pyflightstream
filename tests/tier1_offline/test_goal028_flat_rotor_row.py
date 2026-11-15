@@ -13,6 +13,7 @@ stays.
 
 from __future__ import annotations
 
+import json
 import re
 import warnings
 from pathlib import Path
@@ -34,15 +35,20 @@ rpm_sign = 1
 diameter_m = 2.0
 families_blades = ["B"]
 blade1 = {{ azimuth_deg = 0.0, zero = "Y" }}
+id = {rotor_id}
 """
 
 
 def _flat(tmp_path, *, rotors=("PUSHER",), rpm: float | None = 2200.0):
-    """The recorded campaign, its unsteady record rewritten as a FLAT row leaves it."""
+    """The recorded campaign, its unsteady record rewritten as a FLAT row leaves it.
+
+    Each rotor declares its id (0, 1, ...): two rotors with the default id are
+    refused by name since 0.58.0 (design of the post outputs, 5.3).
+    """
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n"
-        + "".join(ROTOR.format(alias=alias) for alias in rotors),
+        + "".join(ROTOR.format(alias=alias, rotor_id=index) for index, alias in enumerate(rotors)),
         encoding="utf-8",
     )
     records = workspace.read_manifest()
@@ -83,6 +89,12 @@ def test_with_two_rotors_nothing_says_whose_speed_it_is_and_the_skip_stays(tmp_p
         speeds = [column for column in columns if re.fullmatch(r"RPM\d+", column)]
         assert len(speeds) == 2, columns
         assert {row[column] for row in rows for column in speeds} == {"NA"}, name
+    # The skip stays, and is named: the flat speed is no rotor's.
+    manifest = json.loads(
+        (_workspace_.root / "post" / "matriz" / "products.json").read_text(encoding="utf-8")
+    )
+    said = [text for key, text in manifest["skipped"].items() if "#rotor_speed" in key]
+    assert said and all("PUSHER" in text and "LIFTER" in text for text in said), manifest["skipped"]
 
 
 def test_a_flat_record_stating_no_speed_is_still_the_named_skip(tmp_path):
