@@ -94,8 +94,10 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: the cap being the tests' growth the owner opened on 2026-10-26 (PFS-2177).
 #: then the push review of 0.58.0: 2387 tracked files, measured (+3): three of the five files
 #: added since are tests (PFS-2177), the other two the approved spinner module and its example.
+#: then the I5 integration of 0.58.0: 2391 tracked files, measured (+4): three tests of the
+#: merged lanes (PFS-2177) and the PFS-2254 motion-table module.
 LEAN_CAPS = {
-    "tracked_files": 2387,
+    "tracked_files": 2391,
     "reports_files": 121,
     "reports_lines": 208338,
     # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto
