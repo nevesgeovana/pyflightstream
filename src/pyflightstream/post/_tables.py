@@ -55,6 +55,7 @@ from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.windows import march_end
+from pyflightstream.post._block_scope import after_run_block, with_run_block
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
@@ -523,6 +524,7 @@ def write_csv_table(
     _refuse_existing_product(target, overwrite)
     target.parent.mkdir(parents=True, exist_ok=True)
     columns, rows = stamped_table(target, columns, rows)
+    columns, rows = with_run_block(target, columns, rows)
     with _textio.atomic_text(target) as handle:
         writer = _textio.csv_writer(handle)
         writer.writerow([plain_cell(str(name)) for name in columns])
@@ -1084,8 +1086,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     # of them is a plotted quantity, and one may be text.
     # The step decides where it stands: a label may be named as a time column.
     times = [header.index(name) for name in _TIME_COLUMNS if name in header]
+    # A table opening with the run block has its data after it (FR-3778).
     first = (
-        header.index(_PLOTS_STEP_COLUMN) if _PLOTS_STEP_COLUMN in header else max(times, default=0)
+        header.index(_PLOTS_STEP_COLUMN)
+        if _PLOTS_STEP_COLUMN in header
+        else max(times, default=after_run_block(header))
     )
     columns = tuple(name for name in header[first:] if name != POLAR_ID_COLUMN)
     if not rows:

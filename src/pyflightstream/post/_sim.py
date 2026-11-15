@@ -53,6 +53,7 @@ from pyflightstream.post._admit import (
     _admit,
     _Admitted,
 )
+from pyflightstream.post._block_rows import run_block_scope
 from pyflightstream.post._condition import (
     _advance_ratio_of,
     _effective_pproc,
@@ -351,7 +352,8 @@ def _sim_products(
         sweep_rows=sweep_rows,
         drafts=drafts,
     )
-    _run_steps(ctx, _STEPS)
+    with run_block_scope(ctx):
+        _run_steps(ctx, _STEPS)
     return ctx.written, ctx.written_names, ctx.skipped
 
 
