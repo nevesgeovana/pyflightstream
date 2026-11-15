@@ -333,4 +333,17 @@ also needs its own line under `[builds]`, or it is refused as above.
 In every grouped job template (`job_root`, `native_log`, `job_end_files` and
 the descriptor), {sim} is the first simulation of the job and {batch} is
 the job label. {point} names the collected point where available.
+
+**The last point of a grouped job on a machine that exports no log.** Where
+the profile states `[log] export_log = false`, `collect` cuts each point's log
+out of the scheduler's log of the job (`native_log`) at the line
+`Solution cleared. Initialization removed.`, which the next point's
+`REMOVE_INITIALIZATION` or `NEW_SIMULATION` prints. So that the last point's
+segment ends the same way, the job script closes it with one more
+`REMOVE_INITIALIZATION` before `CLOSE_FLIGHTSTREAM`, and the last point gets
+its log as soon as its files settle, as every other point does, without
+waiting for `job_end_files`. A job submitted by 0.57.0 or earlier ends without
+that line: its last point is completed once the job's end is shown, and
+`pyfs-matrix search-log-batch` writes its log from the master log
+([restore and rebuild](restore-and-rebuild.md)).
 On the 26.100 rotor route, which states rev/min without a rotor mark, the sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT (build-compare finding 4; answer G77-0335).

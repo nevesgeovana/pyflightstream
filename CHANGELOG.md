@@ -85,6 +85,8 @@ The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS recor
 
 ### Fixed
 
+The last point of a grouped job (`--batch`, `--polar-sweep`) on a machine whose profile states `[log] export_log = false` gets its log as every other point does (PFS-2258). Each point's log is cut from the scheduler's log at the `Solution cleared. Initialization removed.` line the next point's transition prints; the last point had no next one, so its segment never ended and `collect` left it without its log, its text at the end of the master log, until the job's end was shown. The job script now closes the last point with one more `REMOVE_INITIALIZATION` before `CLOSE_FLIGHTSTREAM`; a job whose points export their logs is unchanged. migration: none; a job submitted by 0.57.0 or earlier keeps the old ending, and `pyfs-matrix search-log-batch` writes its last point's log.
+
 The quasi-steady corrections of a rotor group's RCOEF file read the calibration's `THRUST` and `TORQUE` as its `T` and `Q`, and read every component with the sense of the rotor frame, so a 0.57.0 calibration of a rotor declared aft (whose RCOEF `CT`, `T` and in-plane set count opposite to 0.57.0) keeps the sign the corrections page gives (`CT' = GAIN_0P CT - OFFSET_0P` there); `CT` and `CQ` are `NA` where only `THRUST` or `TORQUE` is corrected. migration: none.
 
 The route 2 helper (`sector_offset_calibration`, `pyfs-workspace calibrate`) states its offsets in the sense of the rotor's declared axis, as the corrections read them: for a rotor declared aft it writes the RCOEF difference of the sector and the wheel with the opposite sign, so the post applies the sector's own rise on the RCOEF file and on the average table. migration: none.

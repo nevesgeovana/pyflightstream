@@ -21,7 +21,12 @@ wrote. The rules below are measured by the licensed probes
 4. every relative output becomes absolute under the point's datapoint folder,
    and a point's own log export becomes its cumulative log;
 5. the job ends with its own ``EXPORT_LOG`` when the points export their
-   logs, then ``CLOSE_FLIGHTSTREAM``;
+   logs, then ``CLOSE_FLIGHTSTREAM``; when they do not (a profile stating
+   ``export_log = false``), each point's log is cut from the scheduler's log
+   at the line a point's transition prints, so the job closes its last point
+   with one more ``REMOVE_INITIALIZATION`` before ``CLOSE_FLIGHTSTREAM``,
+   and the last point's segment ends at that line as every other point's
+   ends at its successor's (PFS-2258);
 6. the registration block is rendered by the one emitter of those lines;
 7. every save and export target of the job is absolute, or the job is refused.
 
@@ -105,6 +110,7 @@ __all__ = [
     "couples",
     "drop_registrations",
     "job_point",
+    "point_transitions",
     "refreshes",
     "refuse_a_second_initialization",
     "refuse_unspliceable",
@@ -311,6 +317,36 @@ def _target_offset(entry: CommandEntry) -> int | None:
         if arg.type == "path":
             return offset
     return None
+
+
+def point_transitions(text: str) -> list[str]:
+    r"""Return the transition that starts each point of a job after its first, in order.
+
+    Each later point starts with ``REMOVE_INITIALIZATION`` (rule 2) or
+    ``NEW_SIMULATION`` (rule 3). The closing ``REMOVE_INITIALIZATION`` of a
+    job whose points export no log (rule 5), followed by nothing but the
+    close, starts no point and is left out.
+
+    Parameters
+    ----------
+    text : str
+        A job script's text.
+
+    Returns
+    -------
+    list of str
+        One verb per point after the first; a job of N points gives N - 1.
+
+    Examples
+    --------
+    >>> job = "A\nNEW_SIMULATION\nB\n"
+    >>> point_transitions(job + "REMOVE_INITIALIZATION\n\nCLOSE_FLIGHTSTREAM\n")
+    ['NEW_SIMULATION']
+    """
+    lines = [line.strip() for line in _lines(text) if line.strip()]
+    if lines[-2:] == [REINIT_VERB, WALLTIME_STOP_VERB]:
+        lines = lines[:-2]
+    return [line for line in lines if line in (REINIT_VERB, REFRESH_VERB)]
 
 
 def write_targets(text: str, version: str) -> tuple[str, ...]:
@@ -851,14 +887,25 @@ def _shifted(point: JobPoint, cut: int) -> int:
 
 
 def _ending(polars: Sequence[JobPolar], job_log: PurePath | None) -> list[str]:
-    """Rule 5: the job's own log when its points export theirs, then the close."""
+    """Rule 5: the job's own log when its points export theirs, then the close.
+
+    A point that exports its log is cut from its own cumulative copy, written at
+    its end. A point that does not is cut from the scheduler's log, at the
+    ``Solution cleared. Initialization removed.`` line the NEXT point's
+    transition prints; the last point has no next one, so its segment never
+    ended and collect left it without its log unless the job's end was proved
+    (PFS-2258). The closing ``REMOVE_INITIALIZATION`` prints that line after
+    the last point, in the state every later point's transition meets.
+    """
     exports_log = any(
         line.strip() == "EXPORT_LOG"
         for polar in polars
         for point in polar.points
         for line in _lines(point.text)
     )
-    tail = ["EXPORT_LOG", str(job_log), ""] if job_log is not None and exports_log else []
+    if not exports_log:
+        return [REINIT_VERB, "", WALLTIME_STOP_VERB]
+    tail = ["EXPORT_LOG", str(job_log), ""] if job_log is not None else []
     return [*tail, WALLTIME_STOP_VERB]
 
 
