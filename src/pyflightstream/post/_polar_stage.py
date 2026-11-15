@@ -726,6 +726,8 @@ def family_polar_products(ctx: SimContext) -> None:
             own = _file_entry(
                 ctx, entry, polar, gathered=gathered, omitted=omitted, rotor_groups=rotor_groups
             )
+            if polar.group is not None and polar.kind in ("DIM", "ACOEF"):
+                _with_the_structural_tips(ctx, target, own)
             ctx.add(target, own)
             if polar.kind == "RCOEF" and polar.group in rotor_groups:
                 _say_eta_above_one(polar, own)
@@ -764,6 +766,22 @@ def _file_entry(
     if polar.group in rotor_groups:
         own["rotor"] = polar.group
     return own
+
+
+def _with_the_structural_tips(ctx: SimContext, target: Path, entry: Mapping[str, object]) -> None:
+    """Append each row's recorded FSI tip deflection and twist to a group file (i2 #2).
+
+    THE 0.57.0 PLACEMENT ON THE NEW FILES: the tips were trailing columns of every
+    group polar, the rotor table and the unsteady polar; the page of the files is
+    silent, so they are trailing columns of every group's DIM and ACOEF files (the
+    rotor's group and TOTAL among them), after their columns, one recorded run per
+    row.
+    """
+    from pyflightstream.post._structure import append_tip_columns
+
+    runs = entry.get("runs")
+    if isinstance(runs, list) and ctx.structure_tips:
+        append_tip_columns(ctx, target, [str(run) for run in runs])
 
 
 def _say_eta_above_one(polar: PolarFile, entry: Mapping[str, object]) -> None:
