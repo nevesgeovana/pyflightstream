@@ -35,6 +35,7 @@ from ._placement import (
     wing_in_body_frame,
 )
 from ._propeller import Propeller
+from ._propeller_spinner import cut_loop
 from ._regions import (
     body_region,
     fairing_volume_triangles,
@@ -281,10 +282,10 @@ def generate_pieces(config, *, variant="clean", selection=None) -> dict[str, Gen
             frame = component["host"]
             blister = blister_model(component, components[frame])
             bases, trims = blister.bases, blister.trims
+        elif kind == "propeller":
+            bases, trims = propeller_faces(component)
         else:
-            if kind == "propeller":
-                patches = propeller_patches(component)
-            elif kind == "body":
+            if kind == "body":
                 patches = body(component, body_junctions(components, name))
             elif kind == "wing_fuselage_fairing":
                 frame, wing_name = component["hosts"]
@@ -293,8 +294,7 @@ def generate_pieces(config, *, variant="clean", selection=None) -> dict[str, Gen
             else:
                 raise InputValueError(f"{name}.type: unsupported source piece {kind!r}")
             bases = {f"{patch.family}_{i}": patch for i, patch in enumerate(patches)}
-            options = component["definition"]["options"] if kind == "propeller" else None
-            trims = tuple(source_trim(key, p, options=options) for key, p in bases.items())
+            trims = tuple(source_trim(key, p) for key, p in bases.items())
         placed = dict(
             zip(
                 bases,
@@ -472,8 +472,67 @@ def propeller_patches(component):
     if "definition" not in component:
         raise InputValueError("propeller.definition: schema 1 definition required for generation")
     design = Propeller(component["definition"])
-    model = design.blade() if design.config["output"]["blades"] == "one" else design.rotor()
-    return [replace(p, controls=p.controls * 1e-3) for p in model.patches]
+    one = design.config["output"]["blades"] == "one"
+    model = design.blade() if one else design.rotor()
+    patches = list(model.patches)
+    if "spinner" in design.config:
+        patches += _spinner_sectors(design.spinner().patches, one)
+    return [replace(p, controls=p.controls * 1e-3) for p in patches]
+
+
+def _spinner_sectors(patches, one):
+    return [p for p in patches if not one or p.family.startswith("spinner_1_")]
+
+
+def _divided(trim, sides):
+    """Give the named sides of an iso loop a midpoint vertex (a collapsed edge's neighbours)."""
+    loop = []
+    for i, (a, b) in enumerate(trim.loop):
+        if i in sides:
+            middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+            loop.extend(((a, middle), (middle, b)))
+        else:
+            loop.append((a, b))
+    return replace(trim, loop=tuple(loop))
+
+
+def propeller_faces(component):
+    """Return the bases and trims of a propeller, in metres, with its spinner when declared.
+
+    The spinner dominates the blades: each blade is cut along its junction with its hub face
+    and loses its root cap, and each hub face loses the inside of its blade. The trims are
+    those of blade 0 and hub face 0, the same parameters on every rotated copy.
+    """
+    if "spinner" not in component.get("definition", {}):
+        bases = {f"{p.family}_{i}": p for i, p in enumerate(propeller_patches(component))}
+        options = component["definition"]["options"]
+        return bases, tuple(source_trim(key, p, options=options) for key, p in bases.items())
+    design = Propeller(component["definition"])
+    data, spinner = design.config, design.spinner()
+    one = data["output"]["blades"] == "one"
+    model = design.blade() if one else design.rotor()
+    patches = [p for p in model.patches if p.role != "root_cap"]
+    patches += _spinner_sectors(spinner.patches, one)
+    bases = {
+        f"{p.family}_{i}": replace(p, controls=p.controls * 1e-3) for i, p in enumerate(patches)
+    }
+    return bases, tuple(_dominated_trim(key, base, spinner, data) for key, base in bases.items())
+
+
+def _dominated_trim(key, base, spinner, data):
+    """Trim one face of a propeller with a spinner: blades cut, hub faces holed."""
+    role = base.role or base.family
+    if not role.startswith("spinner_"):
+        trim = source_trim(key, base, options=data["options"])
+        cut = spinner.junction["blade"].get(role)
+        return trim if cut is None else replace(trim, loop=cut_loop(trim.loop, cut))
+    trim = iso_trim(key, key, (0.0, 1.0), (0.0, 1.0), role)
+    if role in ("spinner_nose", "spinner_base"):
+        # A nose or base sector has one collapsed side; its two seams get a midpoint vertex.
+        trim = _divided(trim, (0, 2))
+    if role == "spinner_hub" and int(base.family.split("_")[1]) <= data["propeller"]["blades"]:
+        trim = replace(trim, inner=(spinner.junction["hole"],))
+    return trim
 
 
 def source_trim(key, patch, *, options=None):

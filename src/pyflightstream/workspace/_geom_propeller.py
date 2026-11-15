@@ -33,6 +33,18 @@ PURE_CHECKS = {
     "S6.P": ("propeller.loft_exact", "propeller.loft_c2"),
     "S8.P": ("propeller.closure",),
 }
+#: The pure spinner checks of S8.P (design-spinner section 9), recorded skipped without one.
+SPINNER_CHECKS = (
+    "spinner.periodic_net",
+    "spinner.periodic_surface",
+    "spinner.seam_shared",
+    "spinner.split_exact",
+    "spinner.circle",
+    "spinner.continuity",
+    "spinner.junction_in_band",
+    "spinner.junction_gap",
+)
+PURE_CHECKS["S8.P"] += SPINNER_CHECKS
 PROPELLER_STAGES = {*PURE_CHECKS, "S11.PU", "S11.PC", "S11.PS"}
 
 
@@ -91,10 +103,14 @@ def stage_result(context, stage):
         checks = []
         for name, model in models.items():
             blade = model.blade()
-            candidates = model.report()["checks"] + [
-                measure("propeller.loft_exact", blade.info["loft_error_mm"], 1e-8, "mm"),
-                measure("propeller.loft_c2", blade.info["loft_c2_violations"], 0, "knots"),
-            ]
+            candidates = (
+                model.report()["checks"]
+                + [
+                    measure("propeller.loft_exact", blade.info["loft_error_mm"], 1e-8, "mm"),
+                    measure("propeller.loft_c2", blade.info["loft_c2_violations"], 0, "knots"),
+                ]
+                + (spinner_checks(model) if stage == "S8.P" else [])
+            )
             checks += [
                 {**c, "where": {"component": name}}
                 for c in candidates
@@ -107,22 +123,105 @@ def stage_result(context, stage):
     elif stage == "S11.PC":
         checks = trim_checks(source)
     else:
-        expected = sum(
-            model.report()["closure"]["expected_open_edges"]
-            * (
-                1
-                if model.config["output"]["blades"] == "one"
-                else model.config["propeller"]["blades"]
-            )
-            for model in models.values()
-        )
+        expected = sum(_open_edges(model) for model in models.values())
         arguments = {"file": str(source), "expected": expected}
         checks = (
             sewn_checks(**arguments)
             if os.environ.get(WORKER_ENV) == "1"
             else run_isolated(f"{__name__}:sewn_checks", arguments, sewn_checks)
         )
+        checks += _reimport_spinners(context, models)
     return {"checks": checks, "outputs": {"inputs": {"iges": source, "definitions": inputs}}}
+
+
+def spinner_checks(model):
+    """Return the pure spinner checks of one design, each recorded skipped without a spinner."""
+    from pyflightstream.geometry.stages import check_entry
+
+    if "spinner" not in model.config:
+        return [check_entry(c, "skipped", note="no [spinner] table") for c in SPINNER_CHECKS]
+    return model.spinner().info["checks"]
+
+
+def _open_edges(model):
+    one = model.config["output"]["blades"] == "one"
+    if "spinner" in model.config:
+        return int(model.spinner().info["open_edges"]["one" if one else "all"])
+    blades = 1 if one else model.config["propeller"]["blades"]
+    return model.report()["closure"]["expected_open_edges"] * blades
+
+
+def _reimport_spinners(context, models):
+    """Measure every written spinner's periodicity and write its spinner.json beside the IGES."""
+    from pyflightstream.geometry.stages import check_entry, placement_transform, write_record
+
+    export = context.state["export"]
+    folder = Path(export["manifest"]).parent
+    manifest = json.loads(Path(export["manifest"]).read_text(encoding="utf-8"))
+    components = unpack(context.resolved)["components"]
+    checks = []
+    for name, model in models.items():
+        if "spinner" not in model.config:
+            continue
+        info = model.spinner().info
+        rotation, translation = placement_transform(components, name)
+        axis = (
+            rotation @ np.asarray(info["axis_point_mm"]) + 1000 * np.asarray(translation),
+            rotation @ np.asarray(info["axis_dir"]),
+        )
+        faces = [
+            (face["base"], folder / face["iges"])
+            for piece in manifest["pieces"]
+            if piece["component"] == name
+            for face in piece["face_records"]
+            if face["base"].startswith("spinner_")
+        ]
+        if model.config["output"]["blades"] == "one" or info["blades"] == 1:
+            entry = check_entry(
+                "spinner.periodic_reimport", "skipped", note="one sector or one blade written"
+            )
+        else:
+            worst = periodic_reimport(faces, axis, info["sectors"])
+            entry = measure("spinner.periodic_reimport", worst, 0.01, "mm")
+        checks.append({**entry, "where": {"component": name}})
+        write_record(folder / f"{name}.spinner.json", {**info, "periodic_reimport": entry})
+    return checks or [
+        check_entry("spinner.periodic_reimport", "skipped", note="no [spinner] table")
+    ]
+
+
+def periodic_reimport(faces, axis, count):
+    """Largest distance, mm, between each written spinner face turned by 360/N and its neighbour.
+
+    Each face is read back from its own IGES file and sampled on a 9 by 9 grid of its domain;
+    the neighbour is evaluated at the same parameters, an upper bound of the nearest distance.
+    """
+    from pyflightstream.workspace._geom_gate import _Surface
+    from pyflightstream.workspace._iges_names import read_iges_names
+    from pyflightstream.workspace._iges_write import read_iges
+
+    surfaces = {}
+    for base, file in faces:
+        entities = read_iges(file)["entities"]
+        surface = next(e for e in entities if e["type"] == 128)
+        scale = 1000 * METRES_PER_UNIT[read_iges_names(file).unit or "m"]
+        sector, part = int(base.split("_")[1]), base.split("_")[2]
+        surfaces[(sector, part)] = (_Surface(surface["parameters"]), scale)
+    point, direction = axis
+    k = direction / np.linalg.norm(direction)
+    cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    angle = 2 * np.pi / count
+    turn = np.eye(3) + np.sin(angle) * cross + (1 - np.cos(angle)) * cross @ cross
+    worst = 0.0
+    for (sector, part), (surface, scale) in surfaces.items():
+        other, other_scale = surfaces[(sector % count + 1, part)]
+        u0, u1, v0, v1 = surface.domain
+        for u in np.linspace(u0, u1, 9):
+            for v in np.linspace(v0, v1, 9):
+                mine = turn @ (scale * surface.at(float(u), float(v)) - point) + point
+                theirs = other_scale * other.at(float(u), float(v))
+                worst = max(worst, float(np.linalg.norm(mine - theirs)))
+    return worst
 
 
 def unit_checks(source, names, complete):

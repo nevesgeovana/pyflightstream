@@ -1,0 +1,43 @@
+schema_version = 1
+
+[propeller]
+name = "SPINNER_NACA"
+units = "mm"
+radius = 600.0
+hub_radius = 120.0
+blades = 3
+rotation = "positive_x"
+pitch_setting = 28.0
+pitch_reference_r_R = 0.7
+
+[stations]
+r_R = [0.20, 0.30, 0.45, 0.60, 0.75, 0.90, 1.00]
+c_R = [0.12, 0.15, 0.16, 0.15, 0.13, 0.10, 0.07]
+beta_deg = [52.0, 44.0, 36.0, 30.5, 26.5, 23.5, 22.0]
+t_c = [0.18, 0.15, 0.12, 0.11, 0.10, 0.09, 0.08]
+airfoil = ["n4412", "n4412", "n4412", "n4412", "n4412", "n4412", "n4412"]
+
+[airfoils.n4412]
+naca = "4412"
+
+[options]
+trailing_edge = "blunt"
+root_cap = "planar"
+tip = "planar"
+loft = "cubic"
+
+# The spinner: a semi-elliptic nose and a cylinder, closed by a planar base.
+# The hub band follows the blade roots (hub_margin_R) and is split into one
+# sector per blade, each blade centred in its sector.
+[spinner]
+shape = "ellipse"
+radius = 160.0
+nose_length = 180.0
+cylinder_length = 200.0
+nose_x = -250.0
+aft = "base"
+
+[output]
+iges = "spinner_naca.igs"
+units = "mm"
+blades = "all"

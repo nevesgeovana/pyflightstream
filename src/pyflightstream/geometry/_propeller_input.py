@@ -23,6 +23,7 @@ DEFINITION_KEYS = {
     "options",
     "output",
     "frame",
+    "spinner",
 }
 TABLE_KEYS = {
     "propeller": {
@@ -328,4 +329,9 @@ def validate_definition(supplied, base=Path()):
     _options(data)
     offsets(data)
     axes(data)
+    if "spinner" in data:
+        # The spinner module reads the frame helpers above, so it is imported here.
+        from ._propeller_spinner import validate_spinner
+
+        validate_spinner(data, base)
     return data
