@@ -75,6 +75,8 @@ The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS recor
 
 A group of the polar files that selects no family of one point's loads (a tail-only point and a `WING` group, a rotor whose blades one export does not state) has no row at that point and is named under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>` with its selector, never a row of `NA`; `TOTAL` and `AIRFRAME` sum the families the point states, and a FAM file has no row for a family the point does not state. migration: none.
 
+A point whose loads export states an analysis frame of unknown rotation is no row of the polar files, never an all-`NA` row: it is warned with the 0.57.0 reason (the frame it states) and named under each group's `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`. migration: none.
+
 The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none for a model whose faces are all wider than 0.5 mm, where the fuzzy value is unchanged (checked on the CI wing; the wider geometry suite runs at the release). A base thinner still (20 micrometres on a 2.5 m wing) stops by name and is registered as PFS-2236.
 
 ## [0.57.0] - 2026-11-13

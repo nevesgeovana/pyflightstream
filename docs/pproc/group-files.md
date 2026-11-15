@@ -36,7 +36,10 @@ under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`, with the group's
 selector and the families the point states, and is no run of the group's files.
 At a point that states only some of a group's families, the group's row is the
 sum of those it states; a FAM file has a row only for a family the point
-states.
+states. A point whose loads export states its loads in an analysis frame that
+is not a translation of the geometry's axes (a rotor's own frame) is no row of
+any polar file: it is warned and named under every group's
+`polars/P<POL>-<GROUP>-ACOEF.csv#<point>` with the frame it states.
 
 A group's values are formed from the SUM of its members' dimensional loads
 (forces and moments about the moment reference point; the moment about the

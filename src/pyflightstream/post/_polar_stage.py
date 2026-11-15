@@ -230,6 +230,7 @@ class _Gathered:
     splits: list[tuple[str, str]] = field(default_factory=list)
     left_out: list[str] = field(default_factory=list)
     lacking: set[str] = field(default_factory=set)
+    refused: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _layout(
@@ -361,7 +362,16 @@ def _point_loads(
     )
     stated_frame = str(point.loads.frame or "").strip().casefold()
     if stated_frame and stated_frame not in GEOMETRY_ANALYSIS_FRAMES:
-        family_loads = dict.fromkeys(family_loads)
+        # A FRAME OF UNKNOWN ROTATION IS NO ROW, never a row of NA: the reason of the
+        # 0.57.0 polar (post.polar.polar_rows), named per group file of the point.
+        gathered.refused.append(
+            (
+                point.name,
+                f"{point.loads_path} states analysis frame {point.loads.frame!r}; polar axes "
+                "require vectors in the geometry's axes, and this frame's rotation is unknown",
+            )
+        )
+        return None
     names = DRAG_PRODUCT_COLUMNS[drag_pair(point.loads.total)]
     if names not in gathered.splits:
         gathered.splits.append(names)
@@ -467,6 +477,15 @@ def family_polar_products(ctx: SimContext) -> None:
         ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}"] = (
             "these points of the sweep are not rows of the polar files: "
             + "; ".join(gathered.left_out)
+        )
+    for name, reason in gathered.refused:
+        for group in groups:
+            key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, group.name, 'ACOEF')}#{name}"
+            ctx.skipped[key] = f"point {name} is no row of the polar files: {reason}"
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: point {name} is no row of the polar files: {reason}",
+            PyflightstreamWarning,
+            stacklevel=2,
         )
     if not gathered.rows:
         return
