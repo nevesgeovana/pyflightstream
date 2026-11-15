@@ -14,22 +14,6 @@
    "severity": "warning"
   },
   {
-   "point": "campaign",
-   "product": "stage",
-   "message": "The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "campaign",
-   "product": "stage",
-   "message": "The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
    "point": "AL-020",
    "product": "reductions/AL-020_per_revolution.csv",
    "message": "the row's rotor column CL_MRP_TOTAL drifts +160.0000 per cent of its scale 1 (the magnitude of CL_MRP_TOTAL, the largest coefficient mean of its group in the earlier revolution; a change of +1.6) between revolution 1 and revolution 2, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving",

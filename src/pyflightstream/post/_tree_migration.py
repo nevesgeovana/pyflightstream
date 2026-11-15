@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._retired_names import RETIRED_REDUCTION_SENTENCES
 
 __all__ = [
     "EARLIER_KINDS",
@@ -30,7 +31,6 @@ __all__ = [
     "note_earlier_layout",
     "once_per_post",
     "said_once",
-    "say_retired",
 ]
 
 #: Every warning of the migration ends with this pointer.
@@ -90,16 +90,14 @@ EARLIER_KINDS: tuple[EarlierKind, ...] = (
         "probes",
         "*_time_average.csv",
         None,
-        "The time_average table is retired; the window average of every family and group is "
-        "its row in polars/FAM-*-P<POL>.csv and the group files: <old>.",
+        RETIRED_REDUCTION_SENTENCES["time_average"].removesuffix(".") + ": <old>.",
     ),
     EarlierKind(
         "per_blade",
         "probes",
         "*_per_blade*.csv",
         None,
-        "The per_blade table is retired; each blade is a family row of "
-        "polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv: <old>.",
+        RETIRED_REDUCTION_SENTENCES["per_blade"].removesuffix(".") + ": <old>.",
     ),
     EarlierKind(
         "harmonics",
@@ -122,19 +120,6 @@ _BY_KEY = {kind.key: kind for kind in EARLIER_KINDS}
 #: The reductions 0.58.0 no longer writes: the window average of every family
 #: and group is its row in the polar files.
 RETIRED_REDUCTIONS: tuple[str, ...] = ("time_average", "per_blade")
-
-
-def say_retired(name: str) -> None:
-    """Warn, once per post, that the reduction ``name`` is retired and was asked for.
-
-    Parameters
-    ----------
-    name : str
-        One of :data:`RETIRED_REDUCTIONS`.
-    """
-    if name in RETIRED_REDUCTIONS and said_once(f"retired:{name}"):
-        text = _BY_KEY[name].text.replace(": <old>.", ".").replace("<old>", "")
-        warn(f"{text} {POINTER}", PyflightstreamWarning, stacklevel=3)
 
 
 #: The kinds already said in this post, so a stage that asks twice says it once.

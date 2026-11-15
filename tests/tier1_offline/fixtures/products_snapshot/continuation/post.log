@@ -4,7 +4,6 @@ matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
 WARNING point=camp/sim_7001/r20261001-120000/AL-020 product=plots: this run continues 'camp/sim_7001/AL-020', and its plots table is the march as joined here: 'camp/sim_7001/AL-020' steps 1 to 8; 'camp/sim_7001/r20261001-120000/AL-020' restating the march from step 1 to step 12. The averaging window ends at step 12, the last step the table holds.
-WARNING point=campaign product=stage: The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.
 WARNING point=campaign product=stage: polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).
 INFO point=camp/sim_7001/r20261001-120000/AL-020 product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
 INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written

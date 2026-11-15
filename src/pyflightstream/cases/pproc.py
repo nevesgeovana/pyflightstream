@@ -46,7 +46,11 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
-from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, REMOVED_FORMS
+from pyflightstream._retired_names import (
+    PROBE_SCALE_PROPELLER_RADIUS,
+    REMOVED_FORMS,
+    RETIRED_REDUCTION_SENTENCES,
+)
 from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
@@ -2441,6 +2445,27 @@ class PprocSpec(_SuggestsKeys):
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
     #: FR-454: the far-field family's table; absent, nothing changes.
     farfields: list[FarfieldSpec] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _a_retired_reduction_is_warned_and_dropped(cls, value: object) -> object:
+        """Warn once, with the retirement sentence, of a table asking for a retired reduction.
+
+        0.58.0 writes neither the time_average nor the per_blade table. A pproc that
+        states one is warned and the table is dropped: it never refuses the pproc, and a
+        pproc that does not state one is never warned (the averaging windows the plan
+        records ask for nothing).
+        """
+        if not isinstance(value, dict):
+            return value
+        asked = [name for name in RETIRED_REDUCTION_SENTENCES if name in value]
+        for name in asked:
+            warn(
+                f"{RETIRED_REDUCTION_SENTENCES[name]} See docs/upgrading.md#0580-post-tree.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        return {key: item for key, item in value.items() if key not in asked}
 
     @model_validator(mode="before")
     @classmethod

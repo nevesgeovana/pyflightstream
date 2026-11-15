@@ -56,7 +56,7 @@ from pyflightstream.post._tables import (
     renamed_columns,
     write_csv_table,
 )
-from pyflightstream.post._tree_migration import RETIRED_REDUCTIONS, say_retired
+from pyflightstream.post._tree_migration import RETIRED_REDUCTIONS
 from pyflightstream.post.farfield_fields import (
     FarLayout,
     ProbeSamples,
@@ -716,9 +716,6 @@ def _reduction_reading(
     # naming each rotor. Flat keys carry the explanatory skip. Records with
     # no per-rotor blocks use the flat keys and their flat filenames.
     """List flat reductions before per-rotor reductions and their skip pointers."""
-    for retired in RETIRED_REDUCTIONS:
-        if ctx.plan.get(retired) is not None:
-            say_retired(retired)
     reading: list[tuple[str, object, str, str | None]] = [
         (name, ctx.plan.get(name), f"{REDUCTIONS_DIR}/{ctx.stem}_{name}.csv", None)
         for name in REDUCTION_NAMES

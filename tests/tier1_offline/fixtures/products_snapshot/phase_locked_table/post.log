@@ -3,8 +3,6 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
-WARNING point=campaign product=stage: The time_average table is retired; the window average of every family and group is its row in polars/FAM-*-P<POL>.csv and the group files. See docs/upgrading.md#0580-post-tree.
-WARNING point=campaign product=stage: The per_blade table is retired; each blade is a family row of polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv. See docs/upgrading.md#0580-post-tree.
 WARNING point=AL-020 product=reductions/AL-020_per_revolution.csv: the row's rotor column FX_MRP_TOTAL drifts -4.5455 per cent of its scale 5.5 (the magnitude of FX_MRP_TOTAL, the largest force mean of its group in the earlier revolution; a change of -0.25) between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
 WARNING point=AL-020 product=reductions/AL-020_per_revolution.csv: the row's rotor column FX_LOCAL_Blade2 drifts +63.6364 per cent of its scale 2.75 (the magnitude of FX_LOCAL_Blade2, the largest force mean of its group in the earlier revolution; a change of +1.75) between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
 WARNING point=campaign product=stage: polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).

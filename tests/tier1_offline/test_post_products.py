@@ -771,10 +771,9 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert {p.name for p in written} >= {*names, "AL-020_plots.csv"}, "every reduction is returned"
     for retired in ("AL-020_time_average.csv", "AL-020_per_blade.csv"):
         assert not list(tree.rglob(retired)), f"the retired table {retired} was written"
-    # RETIRED, SAID ONCE PER POST AND KIND.
+    # The plan records the averaging windows of the row; no pproc asks for a retired table.
     log = (workspace.products_dir(None) / "post.log").read_text(encoding="utf-8")
-    assert log.count("The time_average table is retired") == 1
-    assert log.count("The per_blade table is retired") == 1
+    assert "table is retired" not in log
 
     _, passages = read_csv_table(reductions / "AL-020_phase_locked.csv")
     assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in passages] == [

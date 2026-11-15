@@ -306,6 +306,18 @@ _THE_CAMPAIGN_SWEEP_SENTENCE = (
     "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
     "(docs/pproc/index.md#joining-polars) joins several."
 )
+#: The two reductions 0.58.0 retires, each with the sentence the post-outputs design states;
+#: a pproc that asks for one is warned with it, and a file of the earlier layout is named by it.
+RETIRED_REDUCTION_SENTENCES: dict[str, str] = {
+    "time_average": (
+        "The time_average table is retired; the window average of every family and group is "
+        "its row in polars/FAM-*-P<POL>.csv and the group files."
+    ),
+    "per_blade": (
+        "The per_blade table is retired; each blade is a family row of "
+        "polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv."
+    ),
+}
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.run.SWEEP_TABLE_NAME": RetiredName(
         owner="pyflightstream.run",
