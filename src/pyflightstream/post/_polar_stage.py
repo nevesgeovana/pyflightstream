@@ -19,7 +19,7 @@ it has.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -523,9 +523,29 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
     return gathered
 
 
-def _entry(ctx: SimContext, held: Sequence[PolarPoint], *, instant: bool) -> dict[str, object]:
+def _source(gathered: _Gathered) -> dict[str, object]:
+    """Return what the rows of a steady polar are: a wheel's mean, or the export.
+
+    THE ENTRY SAYS WHICH (RI-01, i2 #7), as the 0.57.0 rotor table's did: a
+    wheel's rows are the mean of its k clockings, with the k, one number where
+    every row has the same, else each point's.
+    """
+    held = {point.name for point in gathered.held}
+    counts = {name: k for name, k in gathered.clockings.items() if name in held}
+    if not counts:
+        return {"source": "the loads export of a steady run"}
+    ks = set(counts.values())
+    if len(ks) == 1:
+        return {"source": f"mean of {next(iter(ks))} clockings", "clockings": next(iter(ks))}
+    return {"source": "mean of k clockings", "clockings": dict(sorted(counts.items()))}
+
+
+def _entry(ctx: SimContext, gathered: _Gathered, *, instant: bool) -> dict[str, object]:
     """Return the manifest entry every file of the polar carries."""
+    held = gathered.held
     entry: dict[str, object] = {"runs": [rid for point in held for rid in ctx.sources[point.name]]}
+    if ctx.window is None and not instant:
+        entry.update(_source(gathered))
     if ctx.window is not None:
         names = {point.name for point in held}
         entry.update(
@@ -605,15 +625,16 @@ def family_polar_products(ctx: SimContext) -> None:
         load_frame="MRP" if unsteady else _load_frame(ctx),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
     )
-    entry = _entry(ctx, gathered.held, instant=instant)
+    entry = _entry(ctx, gathered, instant=instant)
     if unsteady:
         _equations(ctx, files, gathered.plotted)
+    rotor_groups = {group.name for group in groups if group.origin == "rotor"}
     # THE RUN BLOCK STATES THE IDENTIFIERS, after POINT, so the post's stamping of
     # them after POL (FR-3564) is not applied to these files or their derived polars.
     with stated_identifiers({}):
         for polar in files:
             target = _write(ctx, polar)
-            own = _file_entry(ctx, entry, polar, gathered.held, omitted)
+            own = _file_entry(ctx, entry, polar, gathered, omitted, rotor_groups)
             ctx.add(target, own)
             if polar.group is not None and polar.kind == "ACOEF":
                 _derived_polars(ctx, target, polar, own, groups)
@@ -623,24 +644,32 @@ def _file_entry(
     ctx: SimContext,
     entry: Mapping[str, object],
     polar: PolarFile,
-    held: Sequence[PolarPoint],
+    gathered: _Gathered,
     omitted: Sequence[tuple[str, int]],
+    rotor_groups: Collection[str],
 ) -> dict[str, object]:
     """Return one file's manifest entry: a FILE NAMES THE RUNS OF ITS OWN ROWS.
 
-    A point a group selects nothing at is no row of the group's files, so it
-    is no run of them either.
+    A point a group selects nothing at is no row of the group's files, and a
+    point whose rotor speed cannot be read no row of its RCOEF files, so it is
+    no run of them either. A rotor group's files name their rotor, as the
+    0.57.0 rotor table's entry did.
     """
     if polar.group is None:
         return dict(entry)
     gone = {index for name, index in omitted if name == polar.group}
+    if polar.kind == "RCOEF":
+        gone |= {i for i, row in enumerate(gathered.rows) if not row.with_rcoef}
     runs = [
         rid
-        for index, point in enumerate(held)
+        for index, point in enumerate(gathered.held)
         if index not in gone
         for rid in ctx.sources[point.name]
     ]
-    return {**entry, "runs": runs, "group": polar.group}
+    own: dict[str, object] = {**entry, "runs": runs, "group": polar.group}
+    if polar.group in rotor_groups:
+        own["rotor"] = polar.group
+    return own
 
 
 def _say_left_out(ctx: SimContext, gathered: _Gathered, groups: Sequence[PolarGroup]) -> None:

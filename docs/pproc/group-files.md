@@ -52,6 +52,12 @@ TOTAL, the rotor's own history for a rotor).
 An RCOEF file is written only for a group whose members all sit inside one
 rotor: every rotor's group, and a declared group of one rotor's families.
 
+Each file's `products.json` entry names the runs of its own rows, in row order,
+and its `source`: the window-averaged plots of an unsteady row, or, for a
+steady polar, `the loads export of a steady run` or, for a quasi-steady wheel,
+`mean of <k> clockings` with `clockings` (the k, or each point's where they
+differ). The files of a rotor's group also name it under `rotor`.
+
 <a id="derived-polars"></a>
 
 ### The polars derived from a group ACOEF file
