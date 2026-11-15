@@ -467,8 +467,11 @@ def steady_family_loads(
 def _pressure(density: float | None, speed: float | None) -> float | None:
     if not _finite(density) or not _finite(speed):
         return None
-    pressure = 0.5 * float(density) * float(speed) ** 2  # type: ignore[arg-type]
-    return pressure if pressure > 0.0 else None
+    # A PRODUCT, NEVER A POWER (F-214): `x ** 2` of a float raises OverflowError
+    # past 1e154, and one point's velocity took the whole polar with it; a product
+    # overflows to inf, which states no dynamic pressure and leaves the cells NA.
+    pressure = 0.5 * float(density) * float(speed) * float(speed)  # type: ignore[arg-type]
+    return pressure if pressure > 0.0 and math.isfinite(pressure) else None
 
 
 def _finite(value: object) -> bool:
