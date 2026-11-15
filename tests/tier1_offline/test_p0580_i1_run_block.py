@@ -117,3 +117,12 @@ def test_p0580_the_package_re_reads_the_run_block_of_its_averaged_surface(tmp_pa
     rho = surface.field_data["RHO"]
     assert isinstance(rho, float) and rho != rho, "NA is written nan and read back NaN"
     assert surface.n_cells > 0 and surface.cell_data
+
+
+def test_p0580_the_run_block_rewrite_of_a_vtk_keeps_lf_line_ends(tmp_path):
+    from pyflightstream.post._block_scope import add_run_block_to_vtk
+
+    path = tmp_path / "s.vtk"
+    path.write_bytes(b"# vtk DataFile Version 3.0\nt\nASCII\nDATASET POLYDATA\nCELL_DATA 0\n")
+    add_run_block_to_vtk(path, {"POL": "7003"})
+    assert b"\r" not in path.read_bytes()

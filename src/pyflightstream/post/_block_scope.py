@@ -22,6 +22,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.post._run_block import RUN_BLOCK_SPEC
 
@@ -513,5 +514,5 @@ def add_run_block_to_vtk(path: str | Path, block: Mapping[str, object]) -> Path:
         len(lines),
     )
     lines[at:at] = vtk_run_block_lines(block)
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _textio.write_text(target, "\n".join(lines) + "\n")
     return target
