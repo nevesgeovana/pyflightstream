@@ -6,6 +6,10 @@ Every form that 0.57.0 and earlier still accepted with a deprecation warning is 
 Each old form is now refused, and the refusal names the new spelling, so the migration is
 one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).
 
+A grouped job submitted by an earlier version, on a machine whose profile states
+`[log] export_log = false`, ends without the closing marker line, so its last point has no
+log of its own. `pyfs-matrix search-log-batch` writes the last point's log for such a job.
+
 ## 0.58.0 post tree
 
 The post writes one set of polar files per polar, in the same form for steady, unsteady
