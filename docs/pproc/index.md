@@ -29,6 +29,8 @@ the polar.
 | [harmonics](harmonics.md) | `reductions/` | per-station harmonics, last revolution | [X] | | |
 | [disc maps](disc-maps.md) | `reductions/` | disc maps of a rotor | [X] | | |
 | [probes](probes.md) | `probes/` | probe tables only | [X] | | |
+| [series](series.md) | `series/` | the per-step exports of a point: loads, sections, probes | [X] | | |
+| [far field](farfield.md) | `farfield/` | Trefftz-plane, balance and rotor-section tables | [X] | | |
 | [sections](sections.md) | `sections/` | sectional loads, rows by FAMILY and FAMILY_ID | [X] | X | |
 | [Cp](cp.md) | `sections/` | surface Cp, rows by FAMILY and FAMILY_ID | [X] | X | |
 | [sampled field](fields.md) | `fields/` | VTK and Tecplot of the field at the probe positions | [X] | | |
@@ -53,6 +55,8 @@ post/<matrix>/
                  <point>_harmonics.csv  <point>_disc_<ROTOR>_<QUANTITY>.csv
   probes/        <point>_probes.csv  <point>_probes_history.csv
   sections/      <point>_sections.csv  <point>_cp.csv  (or <point>_FAM-<FAMILY>_sections.csv)
+  series/        <point>_loads_series.csv  <point>_sections_series.csv  <point>_probes_series.csv
+  farfield/      <group>_trefftz.csv  <group>_ledgers.csv  <group>_rotor_sections_<ROTOR>.csv
   fields/  surfaces/  streamlines/  settings/  provenance/
   products.json  post.log  post.log.json
 ```

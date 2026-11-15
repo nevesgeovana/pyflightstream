@@ -236,6 +236,8 @@ nav:
           - Harmonics: pproc/harmonics.md
           - Disc maps: pproc/disc-maps.md
           - Probes: pproc/probes.md
+          - Series: pproc/series.md
+          - Far field: pproc/farfield.md
           - Sections: pproc/sections.md
           - Cp: pproc/cp.md
           - Sampled fields: pproc/fields.md

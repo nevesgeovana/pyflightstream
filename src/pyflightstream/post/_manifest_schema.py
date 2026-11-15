@@ -78,6 +78,14 @@ TREE: dict[str, dict[str, Any]] = {
         "kinds": ["phase_locked", "per_revolution", "harmonics", "disc_map"],
     },
     "probes": {"holds": "probe tables only", "kinds": ["probes", "probes_history"]},
+    "series": {
+        "holds": "the per-step exports of a point, one table per kind",
+        "kinds": ["loads_series", "sections_series", "probes_series"],
+    },
+    "farfield": {
+        "holds": "the Trefftz-plane, balance and rotor-section tables",
+        "kinds": ["trefftz", "ledgers", "rotor_sections"],
+    },
     "sections": {"holds": "sectional loads and Cp", "kinds": ["sections", "cp"]},
     "fields": {
         "holds": "sampled flow fields, positions and reusable inflow",

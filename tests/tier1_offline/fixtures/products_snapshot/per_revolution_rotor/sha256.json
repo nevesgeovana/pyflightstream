@@ -1,7 +1,7 @@
 {
  "products/archive/<STAMP>/post.log": "27b3d13c87df25165b1d2b17e86da79bb689f8ad75ee3020feaa1f333d76cb02",
  "products/archive/<STAMP>/post.log.json": "319541df463fbdb438dc7fc45d7f21b381dae60d6dfb26c1bb24c19ccd1efbc3",
- "products/archive/<STAMP>/products.json": "b0a4cca0f840590aef2f9c0bd86869f2616f0b54956b36070e36a01caae080bb",
+ "products/archive/<STAMP>/products.json": "58991272df6b668ec4bcbe3400adfbd013c250126951da7aff3705f3ed07a26d",
  "products/polars/FAM-ACOEF-P7001.csv": "4e58758c6fb399c3d9ce0843c55478095c478a62dfa35d6790500b0a9d0039cc",
  "products/polars/FAM-DIM-P7001.csv": "5e40545530f1b07015f7cdf75a32907dd1a24410649f2fd9db0941290be8b463",
  "products/polars/P7001-AIRFRAME-ACOEF.csv": "8704ee9a1dae9da29ff49f391c58d172417c6e3a58340b5667bc5d108c614906",
@@ -20,7 +20,7 @@
  "products/polars/archive/<STAMP>/P7001-g01-DIM.csv": "a8f3118de889cb8a5dfe6125ce46d0f8a1457f3b029c318d18bde11370f0ddee",
  "products/post.log": "27b3d13c87df25165b1d2b17e86da79bb689f8ad75ee3020feaa1f333d76cb02",
  "products/post.log.json": "319541df463fbdb438dc7fc45d7f21b381dae60d6dfb26c1bb24c19ccd1efbc3",
- "products/products.json": "b0a4cca0f840590aef2f9c0bd86869f2616f0b54956b36070e36a01caae080bb",
+ "products/products.json": "58991272df6b668ec4bcbe3400adfbd013c250126951da7aff3705f3ed07a26d",
  "products/provenance/archive/<STAMP>/camp_sim_7001_AL-020.prov.json": "3748505ec4b4b15dd93eebde22786de591bd67a9101b027f934d479430e2bdb0",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "3748505ec4b4b15dd93eebde22786de591bd67a9101b027f934d479430e2bdb0",
  "products/reductions/AL-020_per_revolution_PROP.csv": "9c7a0ae780877ec586b759efaf0abcd2ad25aa313655d8430085db3e858e2836",
