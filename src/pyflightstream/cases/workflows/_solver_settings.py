@@ -212,8 +212,8 @@ def _refuse_per_mechanism_separation(case: SimCase, script: Script) -> None:
     """Refuse a per-mechanism separation key on a build whose database carries no row for it.
 
     The keys emit the per-mechanism boundary lists of 26.100; from 26.101 the
-    solver declares separation by named models (PFS-2257, the owner's answer of
-    2026-11-15: the declaration changed, keep the keys for the old builds).
+    solver declares separation by named models, and the keys are kept for the
+    builds that carry them (PFS-2257).
     """
     for key, command in PER_MECHANISM_SEPARATION_KEYS.items():
         if getattr(case.solver, key) is None:

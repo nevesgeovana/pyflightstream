@@ -385,8 +385,8 @@ though it had. The table
 the readers consult is `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`,
 one row per key with the verdict and its reason.
 
-A pproc does not declare base regions. `base_regions` is refused by name
-since 0.58.0: a base region is declared by `[base_regions.<family>]` in the
+A pproc does not declare base regions. `base_regions` is refused by name:
+a base region is declared by `[base_regions.<family>]` in the
 boundaries file beside the geometry, by the row's `BASE_REGIONS` column for a
 per-row choice, or by the setup's `base_region_operations` on an opened
 simulation ([one home per condition](boundary-conditions.md#one-home-per-condition)).

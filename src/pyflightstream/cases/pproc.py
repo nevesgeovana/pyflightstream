@@ -2381,7 +2381,7 @@ class PprocSpec(_SuggestsKeys):
     A base region is declared by the boundaries file's ``[base_regions.<family>]``,
     by a row's ``BASE_REGIONS`` column for a per-row choice, or by the setup's
     ``base_region_operations`` on an opened simulation; ``base_regions`` here is
-    refused by name since 0.58.0 (PFS-2252).
+    refused by name (PFS-2252).
     """
 
     model_config = ConfigDict(extra="forbid")

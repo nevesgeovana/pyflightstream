@@ -175,7 +175,7 @@ COLUMNS_NEW_AT_0_17_0 = {
     "GEOMETRY": "the row's own GEOMETRY key, out of the free cell",
     "SYMMETRY": "the row's own SYMMETRY key, out of the free cell",
     "SYMMETRY_LOADS": (
-        "the unstated cell; a cited setup's symmetry_loads is refused by name since v0.58.0, "
+        "the unstated cell; a cited setup's symmetry_loads is refused by name, "
         "naming this column, so nothing is lost silently"
     ),
     "NCPUS": (

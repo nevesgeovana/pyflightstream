@@ -1134,7 +1134,7 @@ def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
 def row_symmetry_loads(case: SimCase, from_setup: bool | None = None) -> bool | None:
     """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
 
-    Since 0.58.0 (PFS-2255) the row's ``SYMMETRY_LOADS`` column is the only
+    The row's ``SYMMETRY_LOADS`` column (PFS-2255) is the only
     route: the setup key is refused by name, so the package passes no
     ``from_setup`` and a row stating nothing emits nothing.
 

@@ -259,9 +259,9 @@ and leaves it.
 ## Write a batch point's log from the master log
 
 A point of a batch can have every other output and no log, while its log is
-the last segment of the job's master log: the last point of a job submitted
-by 0.57.0 or earlier on a machine that exports no log, whose script ended
-without the closing `REMOVE_INITIALIZATION` that 0.58.0 writes. It stays
+the last segment of the job's master log: the last point of a job whose script
+ended without the closing `REMOVE_INITIALIZATION`, on a machine that
+exports no log. It stays
 `SUBMITTED` until the job's end is shown. `search-log-batch` cuts that segment as `collect` cuts it, and
 leaves `runs.json` alone; `collect` then judges the point from its log:
 

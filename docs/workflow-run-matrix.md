@@ -86,7 +86,7 @@ the setup and first-step time. The clock state names its `origin` as
 cell, so a reader can tell "states nothing" from "the line is truncated".
 Where one of the six says nothing, the older home still answers: `NCPUS`
 falls back to the cited setup's `max_parallel_threads`. `SYMMETRY_LOADS` has
-no other home since 0.58.0: a setup stating `symmetry_loads` is refused by
+no other home: a setup stating `symmetry_loads` is refused by
 name, naming this column, so a matrix upgraded from an older layout moves the
 value into the column.
 
@@ -152,7 +152,7 @@ them close the gap that made the capability unusable:
     image. Whether the loads are the full model's or the
     half's is the row's `SYMMETRY_LOADS` column, emitted as
     `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the run takes the
-    solver's own default (the setup key is refused since 0.58.0), calibrated as ENABLE on a licensed 26.120 and
+    solver's own default (the setup key is refused), calibrated as ENABLE on a licensed 26.120 and
     measured on that one build only.
 
 ## How a point is named
