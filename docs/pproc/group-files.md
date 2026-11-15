@@ -12,7 +12,9 @@ point, with the columns of the FAM file it mirrors
 `<GROUP>` in a file name is the group's name with every character other than a
 letter, a digit, `-`, `_` or `.` replaced by `_` (the rule of every file named
 after an alias), so `Left/Right` is written `P0001-Left_Right-ACOEF.csv`; the
-`GROUP` column and `products.json` keep the name as written.
+`GROUP` column and `products.json` keep the name as written. Two `[groups]`
+keys that are one name after the rule (`Left/Right` and `Left_Right`) are
+refused when the pproc is read, naming both.
 
 <a id="the-groups"></a>
 

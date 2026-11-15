@@ -50,3 +50,22 @@ def test_a_numbered_group_is_written_g_nn():
 
     groups = polar_groups([Family("W", 1)], [], {"1": ["W"]})
     assert groups[-1].name == "g01"
+
+
+def test_two_groups_of_one_file_name_are_refused_at_the_pproc_naming_both():
+    """Lane F1: ``Left/Right`` and ``Left_Right`` are one file after the rule of the files.
+
+    A group's name reaches ``P<POL>-<GROUP>-<KIND>.csv`` through the one rule of the
+    alias and group files (``docs/pproc/group-files.md``), so the second group's files
+    would overwrite the first's; the pproc refuses the pair when it is read and names both.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases.pproc import PprocSpec
+
+    with pytest.raises(ValidationError) as refused:
+        PprocSpec(groups={"Left/Right": "W", "Left_Right": "B"})
+    said = str(refused.value)
+    assert "Left/Right" in said and "Left_Right" in said, said
+    spec = PprocSpec(groups={"Left/Right": "W", "Left": "B"})
+    assert list(spec.groups) == ["Left/Right", "Left"]

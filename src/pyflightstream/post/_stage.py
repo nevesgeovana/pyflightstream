@@ -48,6 +48,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._tokens import file_name_part
 from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
@@ -301,14 +302,6 @@ _MOMENT_POINT_COLUMNS: tuple[str, ...] = ("XMOM", "YMOM", "ZMOM")
 _PLOTS_CLOCK_COLUMNS = frozenset({PLOTS_STEP_COLUMN, "Time (sec)", "Time"})
 
 
-#: The characters an alias may carry into a file name. Everything else is
-#: replaced, because a rotor's alias is a word the user chose and a file
-#: name is a thing the operating system parses.
-_SAFE_IN_A_FILE_NAME = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
-)
-
-
 def _a_name_a_file_may_carry(alias: str) -> str:
     """Return ``alias`` reduced to characters a file name may hold (FR-68).
 
@@ -322,12 +315,11 @@ def _a_name_a_file_may_carry(alias: str) -> str:
 
     The rotor's OWN spelling is still recorded, in the manifest entry's
     ``rotor`` field, so nothing is lost by the substitution: the file name
-    is for the file system and the field is for the reader.
+    is for the file system and the field is for the reader. The rule is
+    :func:`pyflightstream._tokens.file_name_part`, which the pproc reader
+    shares to refuse two ``[groups]`` keys of one file name.
     """
-    cleaned = "".join(
-        character if character in _SAFE_IN_A_FILE_NAME else "_" for character in alias
-    )
-    return cleaned.strip("._ ") or "rotor"
+    return file_name_part(alias)
 
 
 def _refuse_aliases_a_file_name_cannot_tell_apart(
