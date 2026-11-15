@@ -14,8 +14,7 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 
 from pyflightstream._lengths import METRES_PER_UNIT
-from pyflightstream.geometry import Propeller
-from pyflightstream.geometry._propeller_spinner import SEW_MM
+from pyflightstream.geometry import SEW_MM, Propeller
 from pyflightstream.geometry.stages import check_entry, stage_row, unpack
 from pyflightstream.geometry.stages import propeller_measurement as measure
 from pyflightstream.workspace._geom_assembly import Assembly

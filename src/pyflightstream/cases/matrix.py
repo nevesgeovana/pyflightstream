@@ -162,6 +162,9 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.cases.workflows import ROW_KEY_MEANINGS as ROW_KEY_MEANINGS
 from pyflightstream.cases.workflows import WALLTIME_UNITS_GLOSS as WALLTIME_UNITS_GLOSS
 from pyflightstream.cases.workflows import WALLTIME_VARIABLE as WALLTIME_VARIABLE
+from pyflightstream.cases.workflows._custom_motion import (
+    bind_motion_tables as bind_motion_tables,
+)
 from pyflightstream.cases.workflows._custom_motion import custom_motion_record_refusal
 
 __all__ = [

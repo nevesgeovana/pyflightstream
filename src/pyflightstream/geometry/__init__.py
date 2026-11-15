@@ -20,6 +20,7 @@ Examples
 """
 
 from pyflightstream.geometry._propeller import Propeller
+from pyflightstream.geometry._propeller_spinner import SEW_MM as SEW_MM
 from pyflightstream.geometry.component import ComponentRecord
 from pyflightstream.geometry.config import load_config, resolve_config
 

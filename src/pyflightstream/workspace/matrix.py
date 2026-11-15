@@ -83,6 +83,7 @@ from pyflightstream.cases.matrix import SWEEP_WORD as SWEEP_WORD
 from pyflightstream.cases.matrix import VELOCITY_KEYS as VELOCITY_KEYS
 from pyflightstream.cases.matrix import MatrixError as MatrixError
 from pyflightstream.cases.matrix import MatrixRow as MatrixRow
+from pyflightstream.cases.matrix import bind_motion_tables
 from pyflightstream.cases.matrix import matrix_content_line as matrix_content_line
 from pyflightstream.cases.matrix import matrix_pol_rows as matrix_pol_rows
 from pyflightstream.cases.matrix import read_matrix as read_matrix
@@ -112,7 +113,6 @@ from pyflightstream.cases.workflows import (
     refuse_what_a_saved_point_cannot_give as refuse_what_a_saved_point_cannot_give,
 )
 from pyflightstream.cases.workflows import row_outputs as row_outputs
-from pyflightstream.cases.workflows._custom_motion import bind_motion_tables
 from pyflightstream.workspace import MATRIX_FOLDERS as MATRIX_FOLDERS
 from pyflightstream.workspace import CampaignWorkspace as CampaignWorkspace
 from pyflightstream.workspace import InputArtifactError as InputArtifactError
