@@ -725,6 +725,8 @@ def family_polar_products(ctx: SimContext) -> None:
             target = _write(ctx, polar)
             own = _file_entry(ctx, entry, polar, gathered, omitted, rotor_groups)
             ctx.add(target, own)
+            if polar.kind == "RCOEF" and polar.group in rotor_groups:
+                _say_eta_above_one(polar, own)
             if polar.group is not None and polar.kind == "ACOEF":
                 _derived_polars(ctx, target, polar, own, groups)
 
@@ -759,6 +761,27 @@ def _file_entry(
     if polar.group in rotor_groups:
         own["rotor"] = polar.group
     return own
+
+
+def _say_eta_above_one(polar: PolarFile, entry: Mapping[str, object]) -> None:
+    """Warn, naming the run, for a rotor's row whose efficiency exceeds one (P0400-ETA-BOUND)."""
+    if "ETA" not in polar.columns:
+        return
+    at = polar.columns.index("ETA")
+    point = polar.columns.index("POINT") if "POINT" in polar.columns else None
+    runs = entry.get("runs")
+    named = list(runs) if isinstance(runs, list) and len(runs) == len(polar.rows) else None
+    for index, cells in enumerate(polar.rows):
+        eta = _number(cells[at])
+        if eta is None or eta <= 1.0:
+            continue
+        run = named[index] if named is not None else (cells[point] if point is not None else "NA")
+        warn(
+            f"point={run} product={polar.name}: rotor {polar.group} efficiency ETA={eta:g} "
+            "exceeds 1; check the wake and loads.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _say_left_out(ctx: SimContext, gathered: _Gathered, groups: Sequence[PolarGroup]) -> None:
