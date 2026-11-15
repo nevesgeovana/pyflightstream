@@ -1061,6 +1061,74 @@ class PlotsSpec(_SuggestsKeys):
         return value
 
 
+#: The groups the post writes for every polar, whatever ``[groups]`` declares (PFS-2231).
+DEFAULT_GROUPS: tuple[str, ...] = ("TOTAL", "AIRFRAME")
+
+#: The prefixes of the FAM and group file names, which no group may be called.
+_FILE_PREFIXES: tuple[str, ...] = ("FAM", "GRP")
+
+_POLAR_NUMBER_PREFIX = re.compile(r"^P[0-9]", re.IGNORECASE)
+
+
+def default_group_message(key: str, *, rotor: str | None = None) -> str:
+    """Return the refusal of a ``[groups]`` key that names a default group.
+
+    Parameters
+    ----------
+    key : str
+        The key as written.
+    rotor : str, optional
+        The rotor alias the key equals, where it names a rotor's own group.
+
+    Returns
+    -------
+    str
+        The message of the post-output design, section 7.2.
+    """
+    own = rotor if rotor is not None else "<ALIAS>"
+    return (
+        f"[groups] declares {key}, a default group pyflightstream writes for every polar "
+        f"(TOTAL: every family; AIRFRAME: every family not in a rotor; {own}: the rotor's "
+        "own group). Remove the entry; the group file is written without it."
+    )
+
+
+def refuse_a_group_name(name: str) -> None:
+    """Refuse a ``[groups]`` key the post-output tree cannot carry (PFS-2231).
+
+    TOTAL and AIRFRAME (case-folded) are default groups written for every
+    polar; ``FAM`` and ``GRP`` are file-name prefixes; a name opening with
+    ``P`` and a digit reads as a polar number in ``P<POL>-<GROUP>-<KIND>.csv``.
+    A key equal to a rotor alias is refused where the reference is known
+    (:func:`default_group_message`).
+
+    Parameters
+    ----------
+    name : str
+        The ``[groups]`` key as written.
+
+    Raises
+    ------
+    InputValueError
+        If the key is one of those names.
+    """
+    folded = name.strip().casefold()
+    default = next((group for group in DEFAULT_GROUPS if group.casefold() == folded), None)
+    if default is not None:
+        raise InputValueError(default_group_message(name))
+    if folded in {prefix.casefold() for prefix in _FILE_PREFIXES}:
+        raise InputValueError(
+            f"[groups] declares {name}, which is a prefix of the polar file names "
+            f"(FAM-<KIND>-P<POL>.csv, P<POL>-<GROUP>-<KIND>.csv); name the group otherwise."
+        )
+    if _POLAR_NUMBER_PREFIX.match(name.strip()):
+        raise InputValueError(
+            f"[groups] declares {name}, which opens with P and a digit and so reads as a "
+            "polar number in the group file name P<POL>-<GROUP>-<KIND>.csv; name the "
+            "group otherwise."
+        )
+
+
 def _a_group_is_one_alias(value: object) -> object:
     """Read one alias per group; a member list is refused.
 
@@ -1071,6 +1139,7 @@ def _a_group_is_one_alias(value: object) -> object:
         return value
     groups: dict[str, list[int | str]] = {}
     for name, stated in value.items():
+        refuse_a_group_name(str(name))
         if isinstance(stated, str):
             groups[str(name)] = [stated]
             continue
@@ -1512,8 +1581,10 @@ class ProductsSpec(_SuggestsKeys):
         The ROTATE angles the merged polar writes as columns, in degrees: each column's
         name to ``"<alias>:<AXIS>"``, as the matrix row's record states them, the axis
         being ``<frame>-<X|Y|Z>``. Read only with ``merged_polar``. Empty by default.
-    superfile_format : str
-        The format the super file is written in.
+    polar_format : str
+        The format the FAM and group files of ``polars/`` are written in:
+        ``csv`` (the default) or ``legacy_polar``, the fixed-width form. The
+        former key ``superfile_format`` is read as this one, with a warning.
     settings_codebook : bool
         Writes, per matrix, the all-numeric settings table of every recorded
         point and its codebook under ``settings/`` (FR-419). On by default.
@@ -1537,8 +1608,10 @@ class ProductsSpec(_SuggestsKeys):
     #: FR-3512: the ROTATE angles the merged polar writes as columns, each column's name
     #: to ``"<alias>:<AXIS>"``, the record's ALIAS and AXIS as the matrix row states them.
     rotate_columns: dict[str, str] = Field(default_factory=dict)
-    #: Numeric moment column whose zero defines the trimmed polar (FR-3340).
-    trim_moment: str = Field(default="CMB25", min_length=1)
+    #: Numeric moment column whose zero defines the trimmed polar (FR-3340), a
+    #: column of the group ACOEF file it is read from. A former spelling
+    #: (``CMB25``) is read under its new name, with a warning.
+    trim_moment: str = Field(default="CmB", min_length=1)
     #: Numeric column ordering the trim search; unknown columns warn and skip (FR-3341).
     trim_axis: str = Field(default="ALPHA", min_length=1)
     #: Raw VTK boundary-layer integral quantities and markers at recorded section cuts.
@@ -1598,40 +1671,67 @@ class ProductsSpec(_SuggestsKeys):
             )
         return value
 
-    #: Item 7. Which FORMAT the super file is written in: `csv` as before, or
-    #: `legacy_polar`, the fixed-width form the existing tooling opens. The
-    #: writer took this argument from the first commit and the ONE
-    #: production call omitted it, so every campaign got `csv` and the second
-    #: format was a constant nobody could select.
-    #:
-    #: A FIELD AND NOT A FLAG, because `custom_polar_format` beside it is
-    #: already a `[products]` key: a user choosing how their products are written
-    #: should find both choices in one table rather than one here and one on a
-    #: command line.
-    #:
-    #: The DEFAULT MAY NOT MOVE. It is the existing file format, so adding
-    #: this changes nothing about an existing workspace.
-    superfile_format: str = "csv"
+    #: Item 7, renamed (PFS-2231). Which FORMAT the FAM and group files of
+    #: ``polars/`` are written in: `csv` as before, or `legacy_polar`, the
+    #: fixed-width form the existing tooling opens. The DEFAULT MAY NOT MOVE.
+    polar_format: str = "csv"
 
-    @field_validator("superfile_format")
+    @model_validator(mode="before")
+    @classmethod
+    def _the_keys_of_0570_read_under_their_new_names(cls, data: Any) -> Any:
+        """Read ``superfile_format`` as ``polar_format`` and the former trim moment names.
+
+        Both are accepted for one release, each with one warning naming the
+        new spelling (the post-output migration map).
+        """
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if "superfile_format" in data:
+            stated = data.pop("superfile_format")
+            data.setdefault("polar_format", stated)
+            warn(
+                "superfile_format is now polar_format and applies to the FAM and group files. "
+                "See docs/upgrading.md#0580-post-tree.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        moment = data.get("trim_moment")
+        renamed = _MOMENT_RENAMES_0580.get(str(moment)) if isinstance(moment, str) else None
+        if renamed is not None:
+            data["trim_moment"] = renamed
+            warn(
+                f"trim_moment {moment} is now spelled {renamed}. "
+                "See docs/upgrading.md#0580-post-tree.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        return data
+
+    @field_validator("polar_format")
     @classmethod
     def _a_format_the_package_offers(cls, value: str) -> str:
         """Refuse an unknown format where the pproc is READ.
 
-        The writer already refuses one, naming the formats that exist -- and it
-        fires after a campaign has been planned and a seat possibly spent. A
-        typo in a TOML file is a typo the loader can see, so it is seen here.
-
-        The list is the one the writer uses, which is why it lives in this
-        module rather than with the writer: a third format cannot be offered
-        by one and refused by the other.
+        A typo in a TOML file is a typo the loader can see, so it is seen here
+        rather than after a campaign has been planned and a seat spent. The
+        list is the one the writer uses, which is why it lives in this module.
         """
         if value not in SUPERFILE_FORMATS:
             raise InputValueError(
-                f"the super file format {value!r} is not one this package writes; "
+                f"the polar format {value!r} is not one this package writes; "
                 f"the formats that exist are {', '.join(SUPERFILE_FORMATS)}"
             )
         return value
+
+
+#: The former moment column names and their current spelling (the post-output
+#: migration map): ``CR<f>25 -> Cl<f>``, ``CM<f>25 -> Cm<f>``, ``CN<f>25 -> Cn<f>``.
+_MOMENT_RENAMES_0580: dict[str, str] = {
+    f"{old}{frame}25": f"{new}{frame}"
+    for old, new in (("CR", "Cl"), ("CM", "Cm"), ("CN", "Cn"))
+    for frame in "BSW"
+}
 
 
 #: The drift limit of a pproc that declares no ``[per_revolution]`` table, in

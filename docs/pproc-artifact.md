@@ -70,10 +70,9 @@ for the unsteady plots source, whose defaults omit the probe-points export.
 base_regions = ["Base"] # the boundaries that become base regions; [] = off
 singularity_strength = true # the Tecplot surface carries the nodal strength (off by default)
 
-[groups] # group NAME -> ONE alias, written as a string
-TOTAL = "all" # every family the geometry carries
-AIRFRAME = "airframe" # an alias of the row's reference, under its [aliases]
-ROTOR = "Blade" # a family is every member of it: Blade1, Blade2,...
+[groups] # group NAME -> ONE alias, written as a string; TOTAL, AIRFRAME and each rotor are written without one
+WING = "wing" # an alias of the row's reference, under its [aliases]
+BLADES = "Blade" # a family is every member of it: Blade1, Blade2,...
 
 [exports] # override the defaults for this run type
 tecplot = false # disable Tecplot; loads and simulation cannot be off
@@ -121,15 +120,15 @@ start = [-2.0, -1.0, 0.0]
 end = [-2.0, 1.0, 0.0]
 
 [products] # the post-processed CSV tables the campaign writes
-polars = true # one polar table per group, per simulation
+polars = true # the FAM and group files of every polar, under polars/
 sections = true # one table per point from its sectional loads export
 plots = true # one table per unsteady point from its plots export
-custom_polar_format = false # beside each polar table, the text file the reference tooling opens
-trimmed_polar = false # beside each polar table, its row at zero pitching moment
+custom_polar_format = false # beside each group ACOEF file, the text file the reference tooling opens
+trimmed_polar = false # beside each group ACOEF file, its row at zero pitching moment
 rotor_cn_slope = false # beside each rotor table, the CN slope against ALPHA per J
 merged_polar = false # beside the unsteady polar, its rows with the rotor tables' columns
 rotate_columns = {} # column = "<alias>:<AXIS>": a ROTATE angle in degrees, merged polar only
-trim_moment = "CMB25" # numeric column whose zero defines trim
+trim_moment = "CmB" # numeric column whose zero defines trim
 trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
 installed_frame = [] # "probes" and/or "inflow": copies mirrored through y = 0
@@ -210,10 +209,11 @@ the file is the series of blade passages it has always been. The table is read
 again by `pyfs-matrix post`, so adding, editing or removing it needs no new
 run.
 
-**`[equations]`** adds derived columns to the unsteady polar,
-`polars/P<sim>_<name>_uns_avg.csv`, after the axis coefficients and before the
-setup of the row, each named `<NAME>_<alias>`. An expression is arithmetic
-over the columns that row already holds: numbers, names, `+ - * / **`, unary
+**`[equations]`** adds derived columns to the TOTAL group's ACOEF file of an
+unsteady polar, `polars/P<POL>-TOTAL-ACOEF.csv`, after its coefficients and
+before `MESH_FACES`, each named `<NAME>_<alias>`. An expression is arithmetic
+over the columns that row holds and the window-averaged plot columns of the
+point: numbers, names, `+ - * / **`, unary
 minus, parentheses and `abs, sqrt, sin, cos, tan, radians, degrees, min, max`.
 It is parsed and walked, never executed, and a construct outside that list is
 refused when the artifact is read. A symbol `S` of an equation about alias `A`
@@ -360,11 +360,12 @@ alias string:
 
 ```toml
 [groups]
-TOTAL = "all"
+EVERYTHING = "all"
 ```
 
 When no boundary or reference alias is named `all`, this selects EVERY FAMILY
-of the geometry: the polar sums every surface row, and a motion using this
+of the geometry: the group sums every surface row (the TOTAL group the post
+writes for every polar already does), and a motion using this
 selection moves every boundary. Check for that collision before migrating;
 see [the migration check](upgrading.md#older-layouts).
 A group value resolves first as a boundary name, then a reference alias from
@@ -411,18 +412,18 @@ stay one convention. [Migration guidance](upgrading.md#older-layouts) has the
 command that renames products already written.
 
 **A GROUP IS ONE ALIAS, written as a string.** The key names the
-product file and the value names what is summed:
+group files and the value names what is summed:
 
 ```toml
 [groups]
-PUSHER = "PUSHER" # a rotor of the reference: that rotor's own families
-AIRFRAME = "airframe" # an alias of the reference's [aliases] table
-TOTAL = "all" # every family, if no boundary or alias takes this name
+WING = "wing" # an alias of the reference's [aliases] table
+BLADES = "Blade" # a family is every member of it: Blade1, Blade2,...
 ```
 
-so a steady polar per alias is one line, and its table is `..._PUSHER.csv`. A
-group that names a rotor, under any key, is that rotor's families; a rotor the
-artifact does not name still gets its group made for it. The alias resolves
+so a group per alias is one line, and its files are `P<POL>-WING-<KIND>.csv`
+([group files](pproc/group-files.md#the-groups)). TOTAL, AIRFRAME and every
+rotor of the reference are written without a key; a key spelled TOTAL or
+AIRFRAME, or equal to a rotor's alias, is refused by name. The alias resolves
 through the reference AS IT STANDS when `pyfs-matrix post` runs, so renaming or
 extending an alias needs no re-run. **A group whose alias selects no surface of
 any loads export of the simulation writes no table**: it is named under
@@ -688,15 +689,13 @@ A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
 one, and it changes the exit code alone, after every product is written.
 
-### The super file in fixed-width text
+### The polar files in fixed-width text
 
-`[products] superfile_format = "legacy_polar"` on the pproc artifact writes the
-super file as fixed-width text, every field right-aligned in sixteen characters
-and no commas, for a tool that splits on position. `csv` is the default and what
-every existing workspace keeps. THE COLUMNS AND THE VALUES ARE THE SAME in both:
-it is a second rendering of one table, never a second product. An unsteady simulation has no super file of
-its own, its content rides in `P<sim>_<name>_uns_avg.csv`, so the key has nothing
-to format there.
+`[products] polar_format = "legacy_polar"` on the pproc artifact writes the FAM
+and group files of `polars/` as fixed-width text, every field right-aligned in at
+least sixteen characters and no commas, for a tool that splits on position. `csv`
+is the default. THE COLUMNS AND THE VALUES ARE THE SAME in both: it is a second
+rendering of one table, never a second product.
 
 ### The settings table and its codebook
 
@@ -729,10 +728,11 @@ copy is listed in `products.json` with kind `installed_frame` and its source tab
 
 The existing tooling opens a fixed-width text polar file, not a
 CSV, and `[products] custom_polar_format = true` on the pproc artifact
-writes that file beside every polar table the stage writes, under the polar
-table's own stem with the suffix `.dat`
-(`P0001-M150AL+000BE+000J+sweep_g01.dat` beside `..._g01.csv`), the same rows
-a second time. Off by default. **The format carries the group
+writes that file beside every group ACOEF file the stage writes, under its
+stem with the suffix `.dat` (`P0001-TOTAL-ACOEF.dat` beside
+`P0001-TOTAL-ACOEF.csv`), the same rows a second time, its body and stability
+and wind columns under the format's own names (`ClB` as `CRB25`, `CmB` as
+`CMB25`, `CnB` as `CNB25`; the values are the same). Off by default. **The format carries the group
 as a two-digit NUMBER on its fourth line.** A numbered group states its number;
 a NAMED group states its position in the `[groups]` table, counted from one,
 and the file's name carries the alias. The shape, read off a recorded file and pinned by the committed
@@ -766,13 +766,13 @@ requiring equal bytes.
 
 ### Trimmed polar
 
-`[products] trimmed_polar = true` writes, beside every polar table, the
-polar's row at zero pitching moment: `<polar stem>_trim.csv`
-(`P0001-M150AL+000BE+000J+sweep_g01_trim.csv` beside `..._g01.csv`), with
-the polar's own columns and one row. The rows are ordered by `ALPHA`; the two
-neighbouring points whose `CMB25` changes sign bracket the trim, and every
-numeric column is interpolated linearly between them so that `CMB25` reads
-exactly zero (a point whose `CMB25` is zero is the trim itself). A text column
+`[products] trimmed_polar = true` writes, beside every group ACOEF file
+([group files](pproc/group-files.md#derived-polars)), the group's row at zero
+pitching moment: `<file stem>_trim.csv` (`P0001-TOTAL-ACOEF_trim.csv` beside
+`P0001-TOTAL-ACOEF.csv`), with the file's own columns and one row. The rows are
+ordered by `ALPHA`; the two neighbouring points whose `CmB` changes sign bracket
+the trim, and every numeric column is interpolated linearly between them so that
+`CmB` reads exactly zero (a point whose `CmB` is zero is the trim itself). A text column
 keeps its value where both points agree. Nothing is extrapolated: a polar whose
 sampled moments do not change sign, or change sign more than once, or that has
 fewer than two points, gets no trimmed polar, and the post names it under
@@ -781,7 +781,7 @@ fewer than two points, gets no trimmed polar, and the post names it under
 table.
 
 `products.trim_moment` and `products.trim_axis` select the numeric columns for
-the trim; the description above uses their defaults, `"CMB25"` and `"ALPHA"`.
+the trim; the description above uses their defaults, `"CmB"` and `"ALPHA"`.
 An unavailable column warns and skips that trim while leaving its polar written.
 
 ### Rotor normal-force slope
@@ -823,7 +823,7 @@ Sample a finished sweep at new coordinates, including lift in place of angle:
 ```toml
 [products]
 trimmed_polar = true
-trim_moment = "CMB25"
+trim_moment = "CmB"
 trim_axis = "ALPHA"
 
 [[polar_at]]

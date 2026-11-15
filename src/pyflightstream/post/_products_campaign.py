@@ -27,11 +27,11 @@ from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._condition import warn_pinned_states
 from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
+from pyflightstream.post._retired_polars import is_retired_layout
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
 from pyflightstream.post._tables import (
-    COEFFICIENT_COLUMNS,
     ROTOR_TABLE_SUFFIX,
     ProductError,
     read_csv_table,
@@ -438,6 +438,9 @@ def _name_unsupplied_products(
             name.startswith(f"{_stage.POLARS_DIR}/")
             and entry.get("sim_id") in by_sim
             and name not in products_index
+            # A FILE OF THE 0.57.0 POLAR LAYOUT IS LEFT UNTOUCHED (PFS-2231): said
+            # once per kind by the campaign, never retired here.
+            and not is_retired_layout(name)
         ):
             skipped.setdefault(
                 name,
@@ -538,14 +541,16 @@ REFINEMENT_COLUMNS = (
     *("POL", "GROUP", "ALPHA", "BETA", "COEFFICIENT", "F1", "F2", "F3", "H1", "H2", "H3"),
     *("ORDER", "EXTRAPOLATED", "GCI_FINE", "U_NUM", "NOTE"),
 )
-_POLAR_NAME = re.compile(r"^polars/P(?P<sim>[^/-]+)-[^/]*_g(?P<group>[^/]+)\.csv$")
+#: A level's polar: the ACOEF file of one group (PFS-2231), ``P<POL>-<GROUP>-ACOEF.csv``.
+_POLAR_NAME = re.compile(r"^polars/P(?P<sim>[^/-]+)-(?P<group>[^/]+)-ACOEF\.csv$")
 
 
 def write_refinement_studies(ctx: _CampaignProducts) -> None:
     """Write the numerical uncertainty of every refinement study a pproc declares (NL-TRST-7).
 
-    One ``polars/GCI-P<finest>_g<group>.csv`` per group the three levels' polars
-    share: per point and coefficient the three values, the three sizes and
+    One ``polars/GCI-P<finest>_<group>.csv`` per group the three levels' group
+    ACOEF files share (``g01`` for a numbered group): per point and coefficient the
+    three values, the three sizes and
     :func:`pyflightstream.post.polar.grid_convergence` of them. A study whose
     levels were not all posted now, or whose polars do not hold the same points,
     is named under ``skipped``; a coefficient the procedure refuses reads ``NA``
@@ -581,7 +586,7 @@ def _write_refinement_study(
     ctx: _CampaignProducts, study: Any, tables: Sequence[Path], group: str
 ) -> None:
     """Write one group's uncertainty table of a refinement study, or name why there is none."""
-    name = f"{_stage.POLARS_DIR}/GCI-P{study.levels[0]}_g{group}.csv"
+    name = f"{_stage.POLARS_DIR}/GCI-P{study.levels[0]}_{group}.csv"
     read = [read_csv_table(table) for table in tables]
     rows = [table_rows for _, table_rows in read]
     try:
@@ -591,9 +596,7 @@ def _write_refinement_study(
         ctx.skipped[name] = f"the refinement study is not estimated: {error}"
         return
     shared = [
-        column
-        for column in COEFFICIENT_COLUMNS[4:]
-        if all(column in columns for columns, _ in read)
+        column for column in _coefficients_of(read[0][0]) if all(column in c for c, _ in read)
     ]
     table = [
         _refinement_row(study, group, point, column, spacings)
@@ -611,6 +614,13 @@ def _write_refinement_study(
         "spacings": list(spacings),
         "polars": [table.relative_to(ctx.out).as_posix() for table in tables],
     }
+
+
+def _coefficients_of(columns: Sequence[str]) -> list[str]:
+    """Return the coefficient columns of a group ACOEF file: after GROUP_ID, before MESH_FACES."""
+    if "GROUP_ID" not in columns or MESH_FACES_COLUMN not in columns:
+        return []
+    return list(columns[columns.index("GROUP_ID") + 1 : columns.index(MESH_FACES_COLUMN)])
 
 
 def _mesh_spacing(rows: Sequence[Mapping[str, str]]) -> float:

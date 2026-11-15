@@ -120,6 +120,18 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.post._family_polar"><summary><code>pyflightstream.post._family_polar</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.pproc">pyflightstream.cases.pproc</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._family_columns">pyflightstream.post._family_columns</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._run_block">pyflightstream.post._run_block</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.axes">pyflightstream.post.axes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.rotor_table">pyflightstream.post.rotor_table</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.post._field_inputs"><summary><code>pyflightstream.post._field_inputs</code></summary><ul>
 <li>No package-internal outgoing imports.</li>
 </ul></details>
@@ -162,6 +174,33 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.post._polar_stage"><summary><code>pyflightstream.post._polar_stage</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._identifier_columns">pyflightstream._identifier_columns</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.qsteady">pyflightstream.cases.qsteady</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._family_columns">pyflightstream.post._family_columns</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._family_polar">pyflightstream.post._family_polar</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._rotor_plan">pyflightstream.post._rotor_plan</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._run_block">pyflightstream.post._run_block</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (typing)</li>
+<li>&rarr; <a href="#pyflightstream.post._stage">pyflightstream.post._stage</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.custom_polar">pyflightstream.post.custom_polar</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post.equations">pyflightstream.post.equations</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post.polar">pyflightstream.post.polar</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.polar">pyflightstream.post.polar</a> (typing)</li>
+<li>&rarr; <a href="#pyflightstream.post.qsteady">pyflightstream.post.qsteady</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.post.rotor_table">pyflightstream.post.rotor_table</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post.unsteady">pyflightstream.post.unsteady</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.post._products_campaign"><summary><code>pyflightstream.post._products_campaign</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._identifier_columns">pyflightstream._identifier_columns</a> (module)</li>
@@ -171,6 +210,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.pproc">pyflightstream.cases.pproc</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._installed_copies">pyflightstream.post._installed_copies</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._retired_polars">pyflightstream.post._retired_polars</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._settings_product">pyflightstream.post._settings_product</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._stage">pyflightstream.post._stage</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>
@@ -204,6 +244,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.post.unsteady_polar">pyflightstream.post.unsteady_polar</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results.loads">pyflightstream.results.loads</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.post._retired_polars"><summary><code>pyflightstream.post._retired_polars</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.post._rotor_plan"><summary><code>pyflightstream.post._rotor_plan</code></summary><ul>
@@ -274,33 +318,27 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (typing)</li>
-<li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._admit">pyflightstream.post._admit</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post._cn_slope">pyflightstream.post._cn_slope</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._installed_copies">pyflightstream.post._installed_copies</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._merged_polar">pyflightstream.post._merged_polar</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post._noise_products">pyflightstream.post._noise_products</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._polar_stage">pyflightstream.post._polar_stage</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post._reduction_stage">pyflightstream.post._reduction_stage</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post._rotor_plan">pyflightstream.post._rotor_plan</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._rotor_products">pyflightstream.post._rotor_products</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._stage">pyflightstream.post._stage</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._structure">pyflightstream.post._structure</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post.custom_polar">pyflightstream.post.custom_polar</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post.farfield_products">pyflightstream.post.farfield_products</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.point_tables">pyflightstream.post.point_tables</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.polar">pyflightstream.post.polar</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.probe_fields">pyflightstream.post.probe_fields</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post.provenance">pyflightstream.post.provenance</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.qsteady">pyflightstream.post.qsteady</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post.rotor_table">pyflightstream.post.rotor_table</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.streamlines">pyflightstream.post.streamlines</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post.superfile">pyflightstream.post.superfile</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.post.unsteady_polar">pyflightstream.post.unsteady_polar</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.results">pyflightstream.results</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (typing)</li>
-<li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 </ul></details>
 
@@ -592,6 +630,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.post._additional">pyflightstream.post._additional</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._products_campaign">pyflightstream.post._products_campaign</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._retired_polars">pyflightstream.post._retired_polars</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.post._rotor_plan">pyflightstream.post._rotor_plan</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._rotor_products">pyflightstream.post._rotor_products</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (module)</li>
@@ -610,6 +649,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.results.tables">pyflightstream.results.tables</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (typing)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.naming">pyflightstream.workspace.naming</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.storage">pyflightstream.workspace.storage</a> (module)</li>
 </ul></details>
@@ -2409,6 +2449,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._mark_rims">pyflightstream.workspace._mark_rims</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._mark_rims">pyflightstream.workspace._mark_rims</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._mesh_frame">pyflightstream.workspace._mesh_frame</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (module)</li>
@@ -2474,6 +2515,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._remesh">pyflightstream.workspace._refine._remesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._remesh_group">pyflightstream.workspace._refine._remesh_group</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._mesh_frame"><summary><code>pyflightstream.workspace._mesh_frame</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._missing_log"><summary><code>pyflightstream.workspace._missing_log</code></summary><ul>
@@ -2960,8 +3005,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.reference_blocks">pyflightstream.cases.reference_blocks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_clean">pyflightstream.workspace._geometry_clean</a> (module)</li>
@@ -3115,6 +3162,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.mesh">pyflightstream.cases.mesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._vocabulary">pyflightstream.cases.workflows._vocabulary</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._mesh_frame">pyflightstream.workspace._mesh_frame</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.sixdof_setup"><summary><code>pyflightstream.workspace.sixdof_setup</code></summary><ul>
@@ -3663,6 +3711,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.cases.workflows._pproc"><summary><code>pyflightstream.cases.workflows._pproc</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._farfield_spec">pyflightstream.cases._farfield_spec</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._skipped_families">pyflightstream.cases._skipped_families</a> (module)</li>

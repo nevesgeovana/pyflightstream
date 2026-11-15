@@ -86,6 +86,7 @@ blade1 = { azimuth_deg = 0.0, zero = "Y" }
 
 [STARBOARD]
 kind = "rotor"
+id = 1
 x_m = 4.5
 y_m = -2.5
 z_m = 0.0

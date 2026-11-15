@@ -105,6 +105,7 @@ from pyflightstream._retired_names import (
     POINT_KIND_ENGINE,
     retired_key,
 )
+from pyflightstream._tokens import MAX_ROTOR_ID
 from pyflightstream.cases import EVERY_SURFACE as EVERY_SURFACE
 from pyflightstream.cases import (
     ActuatorBlock,
@@ -121,6 +122,7 @@ from pyflightstream.cases import InputKey as InputKey
 from pyflightstream.cases import MeshImport as MeshImport
 from pyflightstream.cases import RawMeshConditions as RawMeshConditions
 from pyflightstream.cases import TrailingEdgeMarking as TrailingEdgeMarking
+from pyflightstream.cases.reference_blocks import refuse_duplicate_rotor_ids
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -576,6 +578,27 @@ class ReferenceArtifact(BaseModel):
     #: name it does not hold is refused there. None for a reference declaring
     #: none, which keeps the reading of every name a row cites.
     study: StudyVocabulary | None = None
+
+    @model_validator(mode="after")
+    def _each_rotor_id_names_one_frame_and_one_group(self) -> ReferenceArtifact:
+        """Refuse two rotors of one id, and an id the group numbering cannot carry.
+
+        PFS-2231. A rotor's id names its frame ``R<id>``, its run block columns
+        and its group, numbered ``10 + id``; the groups of ``[groups]`` are
+        numbered from 101, so an id of 90 or more would give a rotor's group the
+        number of a declared one.
+        """
+        refuse_duplicate_rotor_ids(self.rotors)
+        for alias, block in self.rotors.items():
+            if block.id >= MAX_ROTOR_ID + 1:
+                raise InputValueError(
+                    f"rotor {alias} declares id = {block.id}; a rotor id is at most "
+                    f"{MAX_ROTOR_ID}, because the group of rotor <id> is numbered 10 + id and "
+                    "the groups of [groups] are numbered from 101 (GROUP_ID: 0 TOTAL, "
+                    "1 AIRFRAME, 10 + id a rotor, 100 + k the k-th declared group). Write "
+                    f"id = <0..{MAX_ROTOR_ID}>."
+                )
+        return self
 
     @model_validator(mode="after")
     def _one_rotor_length(self) -> ReferenceArtifact:

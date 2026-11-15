@@ -321,6 +321,16 @@ _COEFFICIENT_COLUMN = re.compile(
     re.IGNORECASE,
 )
 
+#: The columns of the FAM and group files and of their run block that state a
+#: number five decimals cannot carry (PFS-2231): the coefficients of a frame
+#: ``R<id>``, the per-frame rotor set, the rotor's own loads and loadings, and the
+#: per-rotor columns of the run block. Matched case-sensitively, as the registry
+#: of ``post._family_columns`` and ``post._run_block`` spells them.
+_FAMILY_FILE_NUMBER = re.compile(
+    r"(?:CD|CY|CL|Cl|Cm|Cn)R[0-9]+|(?:CT|CQ|ETA)(?:[WSB]|R[0-9]+)|[TQP]|CF[ZY]|CM[ZY]|"
+    r"[TYZQNM]CA?|(?:RPM|J|MTIP|MHEL|D|ADISC|PITCH|TOE)[0-9]+|WINDOW_REVS|WINDOW_PASSAGES"
+)
+
 
 #: CSV products use NA for a column that does not apply. _cell is the
 #: shared funnel for all product families and converts every blank to NA;
@@ -538,6 +548,7 @@ def write_csv_table(
                     if (
                         name in _SIGNIFICANT_DIGIT_COLUMNS
                         or name.startswith(_DIMENSIONAL_PREFIXES)
+                        or _FAMILY_FILE_NUMBER.fullmatch(name)
                         or (
                             _COEFFICIENT_COLUMN.search(name)
                             and not name.upper().endswith("_DRIFT_PCT")
@@ -1457,3 +1468,39 @@ def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, pa
                 warn(idle, PyflightstreamWarning, stacklevel=2)
             return march.text
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _legacy_field(text: str) -> str:
+    """Return one field of the legacy polar format: no whitespace inside it."""
+    return "_".join(text.split()) or text
+
+
+def write_fixed_width_table(
+    path: Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
+) -> Path:
+    """Write a table in the legacy polar format: fixed-width fields, no commas.
+
+    The SAME columns and the same values as the csv form; only the rendering
+    differs, which is what `SUPERFILE_FORMATS` promises. Each column is padded
+    to one width, which is what makes the format readable by a tool that
+    splits on position rather than on a delimiter.
+
+    THE WIDTH IS 16 OR ONE MORE THAN THE COLUMN'S LONGEST NAME OR CELL, and a
+    space inside a cell is written ``_``, so at least one space separates every
+    two fields and a reader splitting on whitespace reads one field per
+    column. At a fixed 16 a name of 16 characters or more ran into its
+    neighbour (``POLSET_SOLVER_VISCOUS_COUPLING``), and a superfile always
+    carries such names; a description ``wing at cruise`` split into three.
+    """
+    header = [_legacy_field(str(name)) for name in columns]
+    body = [[_legacy_field(_cell(value)) for value in row] for row in rows]
+    widths = [
+        max(16, len(name) + 1, *(len(cells[index]) + 1 for cells in body))
+        for index, name in enumerate(header)
+    ]
+    lines = ["".join(name.rjust(width) for name, width in zip(header, widths, strict=True))]
+    for cells in body:
+        lines.append("".join(cell.rjust(width) for cell, width in zip(cells, widths, strict=True)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _textio.write_text(path, "\n".join(lines) + "\n")
+    return path

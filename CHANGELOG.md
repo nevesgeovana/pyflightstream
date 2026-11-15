@@ -21,6 +21,14 @@ The canonical run block every csv of the post will open with (`post._run_block`)
 
 ### Changed
 
+The polar of every row, steady, unsteady or unsteady rotor, is one set of files under `polars/`: `FAM-DIM-P<POL>.csv`, `FAM-ACOEF-P<POL>.csv` and, where the reference declares a rotor, `FAM-RCOEF-P<POL>.csv`, one row per point and family keyed by `FAMILY` and `FAMILY_ID` (the family's 1-based position in the boundary inventory); and `P<POL>-<GROUP>-<KIND>.csv` for TOTAL, AIRFRAME, every rotor (under its alias) and every `[groups]` key, one row per point, formed from the sum of its members' dimensional loads. Every file opens with the run block. An unsteady row is the window average of the run's plots. The trimmed, interpolated and custom-format polars are written beside each group ACOEF file under its stem. migration: read the FAM and group files in place of `P<sim>-<sweep>_<GROUP>.csv`, `SUPER-*.csv`, `*_uns_avg.csv` and `P<sim>-<ROTOR>_rotor.csv`; docs/upgrading.md#0580-post-tree maps every file and column.
+
+`[products] superfile_format` is now `[products] polar_format`, with the same values, applied to the FAM and group files; the old key is read with a warning. `[products] trim_moment` defaults to `CmB`; `CMB25` (and every `CR<f>25`, `CM<f>25`, `CN<f>25`) is read under its new name with a warning. migration: rename the keys.
+
+`[groups]` refuses a key spelled `TOTAL` or `AIRFRAME` (any case), `FAM` or `GRP`, or opening with `P` and a digit; a key equal to a rotor alias is refused at the post and the rotor's own group is written. A reference refuses two rotors of one id, naming both, and a rotor id of 90 or more, naming the group id rule. migration: remove a `[groups] TOTAL` or `AIRFRAME` entry; give each rotor a distinct `id` from 0 to 89.
+
+A file of the 0.57.0 polar layout found under `polars/` is left untouched, never archived or removed, and each kind is named once in one warning ending with the pointer to docs/upgrading.md#0580-post-tree. migration: none.
+
 A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters; the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
 
 The setup page now states how a Python user builds runtime settings: `SolverSettings(runtime={...})` validates a mapping, and `RuntimeSettings` stays a private type (naming it public would add it to the `pyflightstream.cases` root, whose names are fixed). migration: none.
@@ -30,6 +38,8 @@ A mesh declares its frame in its boundaries sidecar with the optional key `mesh_
 The plan refuses an `unsteady_rotor` row whose averaging window is not a whole number of blade passages, at least one, of every rotor the row turns, naming the passages it spans and the nearest valid window. migration: write the nearest valid `LAST_REVS_AVG` or `LAST_ITERS_AVG` the refusal names; a row whose window already spans whole passages is unchanged.
 
 ### Removed
+
+The post no longer writes the super file (`SUPER-*.csv`) and its superset report, the unsteady polar (`*_uns_avg.csv`), the per-group polar split by Mach (`P<sim>-<sweep>_<GROUP>.csv`) or the standalone rotor table (`P<sim>-<ROTOR>_rotor.csv`): the FAM and group files carry what they held. migration: docs/upgrading.md#0580-post-tree.
 
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
 

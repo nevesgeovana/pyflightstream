@@ -891,6 +891,11 @@
       "path": "post/_family_columns.py"
     },
     {
+      "id": "pyflightstream.post._family_polar",
+      "layer": 0,
+      "path": "post/_family_polar.py"
+    },
+    {
       "id": "pyflightstream.post._field_inputs",
       "layer": 0,
       "path": "post/_field_inputs.py"
@@ -916,6 +921,11 @@
       "path": "post/_noise_products.py"
     },
     {
+      "id": "pyflightstream.post._polar_stage",
+      "layer": 0,
+      "path": "post/_polar_stage.py"
+    },
+    {
       "id": "pyflightstream.post._products_campaign",
       "layer": 0,
       "path": "post/_products_campaign.py"
@@ -924,6 +934,11 @@
       "id": "pyflightstream.post._reduction_stage",
       "layer": 0,
       "path": "post/_reduction_stage.py"
+    },
+    {
+      "id": "pyflightstream.post._retired_polars",
+      "layer": 0,
+      "path": "post/_retired_polars.py"
     },
     {
       "id": "pyflightstream.post._rotor_plan",
@@ -2109,6 +2124,11 @@
       "id": "pyflightstream.workspace._merge",
       "layer": 2,
       "path": "workspace/_merge.py"
+    },
+    {
+      "id": "pyflightstream.workspace._mesh_frame",
+      "layer": 2,
+      "path": "workspace/_mesh_frame.py"
     },
     {
       "id": "pyflightstream.workspace._missing_log",
@@ -4370,6 +4390,11 @@
     {
       "source": "pyflightstream.cases.workflows._pproc",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._pproc",
+      "target": "pyflightstream._tokens",
       "kind": "module"
     },
     {
@@ -7523,6 +7548,51 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.cases.pproc",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.post._family_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.post._run_block",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.post.axes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.post.rotor_table",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._family_polar",
+      "target": "pyflightstream.workspace.naming",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._installed_copies",
       "target": "pyflightstream._decimal",
       "kind": "module"
@@ -7653,6 +7723,126 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream._identifier_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.cases.qsteady",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.cases.workflows",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._condition",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._family_columns",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._family_polar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._rotor_plan",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._run_block",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._sim",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._sim",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._stage",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._tables",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.custom_polar",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.equations",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.polar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.polar",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.qsteady",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.rotor_table",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.post.unsteady",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._polar_stage",
+      "target": "pyflightstream.results",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._products_campaign",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -7690,6 +7880,11 @@
     {
       "source": "pyflightstream.post._products_campaign",
       "target": "pyflightstream.post._installed_copies",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._products_campaign",
+      "target": "pyflightstream.post._retired_polars",
       "kind": "module"
     },
     {
@@ -7840,6 +8035,11 @@
     {
       "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.results.loads",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._retired_polars",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -8119,18 +8319,8 @@
     },
     {
       "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._admit",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post._cn_slope",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -8154,12 +8344,12 @@
     },
     {
       "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post._reduction_stage",
-      "kind": "module"
+      "target": "pyflightstream.post._polar_stage",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post._rotor_plan",
+      "target": "pyflightstream.post._reduction_stage",
       "kind": "module"
     },
     {
@@ -8181,11 +8371,6 @@
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._tables",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post.custom_polar",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -8219,22 +8404,12 @@
     },
     {
       "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post.rotor_table",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post.streamlines",
       "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post.superfile",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post.unsteady_polar",
       "kind": "module"
     },
     {
@@ -8246,11 +8421,6 @@
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.workspace",
       "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.workspace.inputs",
-      "kind": "module"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -9349,6 +9519,11 @@
     },
     {
       "source": "pyflightstream.post.products",
+      "target": "pyflightstream.post._retired_polars",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post.products",
       "target": "pyflightstream.post._rotor_plan",
       "kind": "module"
     },
@@ -9436,6 +9611,11 @@
       "source": "pyflightstream.post.products",
       "target": "pyflightstream.workspace",
       "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post.products",
+      "target": "pyflightstream.workspace.inputs",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post.products",
@@ -16824,6 +17004,11 @@
     },
     {
       "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace._mesh_frame",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
       "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
@@ -17070,6 +17255,11 @@
     {
       "source": "pyflightstream.workspace._merge",
       "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mesh_frame",
+      "target": "pyflightstream._digest",
       "kind": "module"
     },
     {
@@ -18599,12 +18789,22 @@
     },
     {
       "source": "pyflightstream.workspace.inputs",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.inputs",
       "target": "pyflightstream.cases",
       "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.inputs",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.inputs",
+      "target": "pyflightstream.cases.reference_blocks",
       "kind": "module"
     },
     {
@@ -19161,6 +19361,11 @@
       "source": "pyflightstream.workspace.sidecars",
       "target": "pyflightstream.versions",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace.sidecars",
+      "target": "pyflightstream.workspace._mesh_frame",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.workspace.sixdof_setup",

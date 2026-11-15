@@ -47,8 +47,12 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
                 value["farfields"] = []
                 value["polar_at"] = []
             if "trimmed_polar" in value:
-                value["trim_moment"] = "CMB25"
+                # 0.58.0 (PFS-2231): the trim moment is spelled CmB, and superfile_format
+                # is polar_format with the same value.
+                value["trim_moment"] = "CmB"
                 value["trim_axis"] = "ALPHA"
+                if "superfile_format" in value:
+                    value["polar_format"] = value.pop("superfile_format")
                 # 0.54.0 adds one optional product default, rotor_cn_slope=False (FR-3502);
                 # nothing else moved.
                 value["rotor_cn_slope"] = False

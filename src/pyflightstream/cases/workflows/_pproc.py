@@ -19,6 +19,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._tokens import FAMILY_PLOT_GROUP
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
@@ -393,6 +394,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                 emitted=emitted,
             )
     _plot_each_rotors_own_history(case, script, frames, inventory, emitted)
+    _plot_each_familys_history(script, frames, inventory, emitted)
     # THE SIX COMPONENTS IN THE GLOBAL FRAME, ADDED WHERE THE ARTIFACT PLOTS THEM FOR
     # NO GROUP OF IT. The unsteady polar's axis coefficients are built from
     # the forces and moments of the whole configuration in the MRP frame; a rotor's
@@ -435,6 +437,35 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
 
 #: The frame of the geometry itself, as a pproc artifact spells it.
 _GLOBAL_FRAME = "MRP"
+
+
+def _plot_each_familys_history(
+    script: Script, frames: Frames, inventory: Sequence[str], emitted: set[str]
+) -> None:
+    """Plot the six components of EVERY family, in the global MRP frame (PFS-2231).
+
+    The FAM files of an unsteady point are the window average of each family's
+    force and moment history, so every unsteady row declares one ``MRP_<family>``
+    group per boundary of the opened inventory, whether or not the pproc asks; a
+    name the pproc already plots is left as it is. ONLY WHERE THE RUN HAS THE
+    GLOBAL FRAME, for the reason the axes group states: an addition may not cost
+    a run.
+    """
+    frame = frames.get(_GLOBAL_FRAME)
+    if not isinstance(frame, int):
+        return
+    for family in inventory:
+        name = FAMILY_PLOT_GROUP.format(family=family)
+        parameters = [short for short in AXES_PLOT_COMPONENTS if f"{short}_{name}" not in emitted]
+        if not parameters:
+            continue
+        index = script.resolve_boundary(family, context="family plot group")
+        script.plot_groups.append(
+            {"name": name, "frame": _GLOBAL_FRAME, "families": [family], "parameters": parameters}
+        )
+        _emit_the_force_plots(
+            script, parameters, frame=frame, name=name, indices=[index], emitted=emitted
+        )
 
 
 def _plot_each_rotors_own_history(

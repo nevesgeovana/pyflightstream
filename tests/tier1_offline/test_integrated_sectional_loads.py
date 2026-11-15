@@ -36,7 +36,6 @@ def _spec(option=None, *, validate=True):
     data = {
         "sections": {"distributions": [entry]},
         "products": {"sections": True},
-        "groups": {"TOTAL": "all"},
     }
     if option is not None and validate:
         entry["integrate"] = option

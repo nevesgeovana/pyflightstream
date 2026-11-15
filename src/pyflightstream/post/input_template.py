@@ -208,10 +208,10 @@ singularity_strength = false      # true: the Tecplot surface carries the nodal
                                   # Singularity_strength, from a second, native
                                   # Tecplot export per point
 
-# The groups the polar tables are written per: each group's name to ONE alias
-# of the reference, or to "all" where no boundary or alias has that name.
+# The groups written beside TOTAL, AIRFRAME and each rotor, which need no key:
+# each group's name to ONE alias of the reference, or to "all" where no
+# boundary or alias has that name.
 [groups]
-AIRFRAME = "airframe"
 WING = "lifting"
 
 # Which files each point exports; simulation and loads cannot be switched off.
@@ -334,16 +334,16 @@ polars = true
 sections = true
 plots = true
 custom_polar_format = false
-trimmed_polar = false  # beside each polar table, its row at zero pitching moment
+trimmed_polar = false  # beside each group ACOEF file, its row at zero pitching moment
 rotor_cn_slope = false  # beside each rotor table, the CN slope against ALPHA per J
 merged_polar = false  # beside the unsteady polar, its rows with the rotor tables' columns
 rotate_columns = {}  # column = "<alias>:<AXIS>": a ROTATE angle in degrees, merged polar only
-trim_moment = "CMB25"  # numeric column whose zero defines trim
+trim_moment = "CmB"  # numeric column whose zero defines trim
 trim_axis = "ALPHA"  # numeric column ordering the trim search
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
 boundary_layer_integrals = false
 boundary_layer_velocity_profile = false
-superfile_format = "csv"
+polar_format = "csv"  # the FAM and group files: csv or legacy_polar
 settings_codebook = true
 installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
 

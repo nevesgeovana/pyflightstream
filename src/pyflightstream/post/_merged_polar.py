@@ -183,7 +183,9 @@ def merged_polar_products(ctx: SimContext) -> None:
         _say(
             ctx,
             f"{POLARS_DIR}/{ctx.sim_id}#merged_polar",
-            "this simulation wrote no unsteady polar, so there is nothing to merge",
+            "the merged polar is not written: the unsteady polar and the rotor tables it "
+            "joined are replaced by the FAM and group files, and the join of a group ACOEF "
+            "file with the rotor groups' RCOEF files is not yet defined",
         )
         return
     for name in polars:

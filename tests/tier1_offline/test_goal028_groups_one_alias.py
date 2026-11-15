@@ -150,9 +150,9 @@ def test_the_replacement_for_an_empty_list_selects_every_family():
     from pyflightstream.cases import select_group_members
 
     inventory = ["W", "B", "Blade1", "Blade2"]
-    with pytest.raises(ValidationError, match='TOTAL = "all"'):
-        PprocSpec.model_validate({"groups": {"TOTAL": []}})
-    written = PprocSpec.model_validate({"groups": {"TOTAL": "all"}})
-    assert select_group_members(written.groups["TOTAL"], inventory) == inventory
+    with pytest.raises(ValidationError, match='EVERY = "all"'):
+        PprocSpec.model_validate({"groups": {"EVERY": []}})
+    written = PprocSpec.model_validate({"groups": {"EVERY": "all"}})
+    assert select_group_members(written.groups["EVERY"], inventory) == inventory
     with pytest.warns(PyflightstreamWarning):
         assert select_group_members(["all"], inventory, {"all": ["W"]}) == ["W"]

@@ -154,9 +154,6 @@ z_m = 0.0
 
 _PPROC = """# p340: the fixed wing: one spanwise distribution normal to Y in MRP
 # (the FSI-G route's).
-[groups]
-TOTAL = "all"
-
 [sections]
 count = 20
 include_symmetry = false

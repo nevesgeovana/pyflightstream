@@ -642,31 +642,31 @@
       ],
       "next": [
         "_resolve",
-        "_group_polars",
-        "_point_products"
+        "_point_products",
+        "family_polar_products"
       ],
       "note": "_effective_pproc can read current matrix/pproc configuration; historical run definitions are read from records.",
-      "line": 271,
-      "locator": "src/pyflightstream/post/_sim.py:271"
+      "line": 253,
+      "locator": "src/pyflightstream/post/_sim.py:253"
     },
     {
       "order": 35,
       "phase": "Post",
-      "module": "src/pyflightstream/post/_sim.py",
-      "function": "_group_polar",
+      "module": "src/pyflightstream/post/_polar_stage.py",
+      "function": "family_polar_products",
       "inputs": [
-        "loads for Wing group; resolved references and flight conditions"
+        "loads of every family; resolved references and flight conditions"
       ],
       "outputs": [
-        "W/post/matrix/polars/<swept-polar-file>.csv"
+        "W/post/matrix/polars/FAM-<KIND>-P<POL>.csv and P<POL>-<GROUP>-<KIND>.csv"
       ],
       "next": [
-        "polar_table_rows",
+        "polar_files",
         "write_csv_table"
       ],
       "note": "Optional custom DAT and point sections depend on pproc settings/available exports. No numeric products were generated in this audit.",
-      "line": 612,
-      "locator": "src/pyflightstream/post/_sim.py:612"
+      "line": 503,
+      "locator": "src/pyflightstream/post/_polar_stage.py:503"
     },
     {
       "order": 36,

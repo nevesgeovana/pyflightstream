@@ -194,7 +194,7 @@ def test_t_empty_group_remedy_accounts_for_all_collision(shape):
     inventory = ["W", "B", "all"] if shape == "boundary" else ["W", "B"]
     aliases = {"whole_aircraft": inventory, **({"all": ["W"]} if shape == "alias" else {})}
     with pytest.raises(ValidationError) as caught:
-        PprocSpec(groups={"TOTAL": []})
+        PprocSpec(groups={"EVERY": []})
     message = str(caught.value)
     assert all(word in message for word in ("boundary", "alias", "all", "unique alias")), message
     assert "only if" in message, message
