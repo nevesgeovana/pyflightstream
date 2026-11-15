@@ -788,6 +788,17 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         ),
         instead="Write",
     ),
+    "setup.symmetry_loads": RetiredName(
+        owner="a setup",
+        old="symmetry_loads",
+        new="the SYMMETRY_LOADS column of the run matrix row (true or false)",
+        retired_in="0.58.0",
+        why=(
+            "Whether the loads are the meshed half's or the whole model's is a per-row choice, "
+            "and the column is the one route to SET_ANALYSIS_SYMMETRY_LOADS."
+        ),
+        instead="Write",
+    ),
 }
 
 

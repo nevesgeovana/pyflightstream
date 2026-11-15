@@ -44,6 +44,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._retired_names import removed_setup_forms
 from pyflightstream.cases import SimCase, SolverSettings
 from pyflightstream.cases.matrix import MatrixError, MatrixRow
 from pyflightstream.cases.workflows import WORKFLOWS
@@ -244,6 +245,10 @@ def row_setup(
     ``variables`` without those keys, since the solver now holds them (FR-316).
     """
     _refuse_two_wake_terminations(setup, preset, row, aliases)
+    removed = removed_setup_forms(row.variables)
+    if removed:
+        # PFS-2176: a setup key written on a row is refused by name as it is in a preset.
+        raise MatrixError(f"POL {row.pol}: " + " ".join(entry.message() for entry in removed))
     fields = set(SolverSettings.model_fields)
     stated = {k: text for k, text in row.variables.items() if aliases.get(k, k) in fields}
     if not stated:

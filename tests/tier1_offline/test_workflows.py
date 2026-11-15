@@ -4332,13 +4332,14 @@ def test_wake_termination_in_steps_reaches_the_no_rotor_unsteady_run():
         rendered(both)
 
 
-def test_symmetry_loads_stated_in_the_setup_reaches_the_script():
+def test_symmetry_loads_stated_in_the_row_reaches_the_script():
     """PFS-2028.05, the author's decision of 2026-09-02: emitted exactly as stated, before the
-    start."""
-    from pyflightstream.cases import SolverSettings
-
-    stated_on = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=True)})
-    stated_off = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=False)})
+    start; since 0.58.0 (PFS-2255) the row's SYMMETRY_LOADS column is the one route."""
+    base = steady_case()
+    stated_on = base.model_copy(update={"variables": {**base.variables, "SYMMETRY_LOADS": "true"}})
+    stated_off = base.model_copy(
+        update={"variables": {**base.variables, "SYMMETRY_LOADS": "false"}}
+    )
     on = rendered(stated_on).splitlines()
     off = rendered(stated_off).splitlines()
     assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in on

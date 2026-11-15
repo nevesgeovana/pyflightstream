@@ -335,7 +335,7 @@ def _settings(
     # SYMMETRY LOADS AS STATED (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing.
-    symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
+    symmetry_loads = row_symmetry_loads(case)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
     _setup_link.emit_setup_extras(

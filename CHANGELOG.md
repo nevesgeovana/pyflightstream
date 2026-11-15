@@ -87,6 +87,8 @@ The setup keys `physics_auto_trailing_edges` and `physics_auto_wake_nodes` (the 
 
 The setup key `sonic_velocity_m_per_s` (the `SONIC_VELOCITY` command, removed by build 26.101) is refused by name when the setup is read. PFS-2251. migration: remove the key; the speed of sound follows from the air state of the flight-condition columns.
 
+The setup key `symmetry_loads` is refused by name, in a preset and on a row: whether the loads are the meshed half's or the whole model's is declared only by the run matrix row's `SYMMETRY_LOADS` column, the one route to `SET_ANALYSIS_SYMMETRY_LOADS`. `row_symmetry_loads` takes `from_setup` as optional; the package passes none. PFS-2255. migration: move the value into the row's `SYMMETRY_LOADS` column (`true` or `false`).
+
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 
 ### Fixed

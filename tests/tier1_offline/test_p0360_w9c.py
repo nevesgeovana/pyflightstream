@@ -16,6 +16,7 @@ REMOVED_SOLVER_FIELDS = (
     "physics_auto_trailing_edges",
     "physics_auto_wake_nodes",
     "sonic_velocity_m_per_s",
+    "symmetry_loads",
 )
 
 

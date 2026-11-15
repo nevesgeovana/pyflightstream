@@ -147,7 +147,6 @@ ENABLE_DISABLE = {
     "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA": "unsteady_pressure_and_kutta",
     "SET_SOLVER_VISCOUS_COUPLING": "viscous_coupling",
     "SET_INVISCID_LOADS": "inviscid_loads",
-    "SET_ANALYSIS_SYMMETRY_LOADS": "symmetry_loads",
 }
 NUMBER_07 = {
     "ROTOR_INDUCED_VELOCITY_BLENDING": "rotor_induced_velocity_blending",
@@ -260,6 +259,8 @@ ROUTES: dict[str, Route] = {
     ),
     # The sidecar's declarations, applied against left.
     # Row keys, read where the builder reads them.
+    # PFS-2255: the row's SYMMETRY_LOADS column is the one route (the setup key is refused).
+    "SET_ANALYSIS_SYMMETRY_LOADS": _row("SYMMETRY_LOADS", "SET_ANALYSIS_SYMMETRY_LOADS DISABLE"),
     "SOLVER_SET_AOA": _row("ALPHA", "SOLVER_SET_AOA 4.0"),
     "SOLVER_SET_SIDESLIP": _row("BETA", "SOLVER_SET_SIDESLIP 4.0"),
     "SOLVER_SET_VELOCITY": _row("VELOCITY", "SOLVER_SET_VELOCITY 40.0"),

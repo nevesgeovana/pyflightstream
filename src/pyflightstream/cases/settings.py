@@ -379,9 +379,6 @@ class SolverSettings(BaseModel):
         The X of the solver's wake end plane in metres in the simulation's
         reference frame, the ``wake_termination_x`` argument of
         ``INITIALIZE_SOLVER`` (FR-324); unstated writes ``DEFAULT``.
-    symmetry_loads : bool, optional
-        Whether the reported loads are the meshed half's or sector's or
-        the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
     significant_digits : int, optional
         Output precision from 1 to 8 (FSM-26.120 p.284, documented range).
     reference_velocity_m_per_s : float, optional
@@ -634,12 +631,12 @@ class SolverSettings(BaseModel):
     wake_termination_x_m: Annotated[
         float | Literal["DEFAULT"] | None, BeforeValidator(_an_end_plane)
     ] = None
-    #: The four settings the reference scripts state
+    #: The settings the reference scripts state
     #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
     #: preset that says nothing emits nothing and every earlier golden holds.
-    #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, (PFS-2028.05); an absent
-    #: key stays silent.
-    symmetry_loads: SolverToggle | None = None
+    #: The half or full loads of a symmetric model are the row's SYMMETRY_LOADS
+    #: column only (PFS-2255); the setup key is refused by name.
+    #:
     #: SET_SIGNIFICANT_DIGITS: how many decimals the solver prints in every
     #: export. The reference scripts state 7; the solver's own default prints 4.
     significant_digits: int | None = Field(default=None, ge=1, le=8)

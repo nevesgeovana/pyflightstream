@@ -1596,9 +1596,9 @@ class TestFr316RowSetupKeys:
         assert cases["9409"].solver.vorticity_drag_families == ["wing", "tail"]
 
     @staticmethod
-    def test_one_setting_in_both_vocabularies_is_refused_as_ambiguous(tmp_path):
-        """FR-316: SYMMETRY_LOADS (run type) beside symmetry_loads (setup) names one setting twice."""  # noqa: E501
-        with pytest.raises(MatrixError, match=r"ambiguous"):
+    def test_one_setting_in_both_vocabularies_is_refused_by_name(tmp_path):
+        """FR-316, PFS-2255: symmetry_loads beside SYMMETRY_LOADS is refused, naming the column."""
+        with pytest.raises(MatrixError, match=r"symmetry_loads.*SYMMETRY_LOADS column"):
             _fr316_row_setup_keys___resolve(
                 tmp_path,
                 _fr316_row_setup_keys___row(

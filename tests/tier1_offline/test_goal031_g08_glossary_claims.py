@@ -810,7 +810,6 @@ _TOGGLES = (
     "jet_wake_filaments_grid_induction",
     "adverse_gradient_boundary_layer",
     "vortex_ring_normalization",
-    "symmetry_loads",
     "inviscid_loads",
     "vorticity_lift_model",
 )

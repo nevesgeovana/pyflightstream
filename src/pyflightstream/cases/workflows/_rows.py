@@ -1131,8 +1131,12 @@ def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
     return value
 
 
-def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
+def row_symmetry_loads(case: SimCase, from_setup: bool | None = None) -> bool | None:
     """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
+
+    Since 0.58.0 (PFS-2255) the row's ``SYMMETRY_LOADS`` column is the only
+    route: the setup key is refused by name, so the package passes no
+    ``from_setup`` and a row stating nothing emits nothing.
 
     Whether the solver reports the loads of the
     meshed SECTOR or of the whole wheel is a per-row choice, because one
@@ -1204,7 +1208,8 @@ def row_solver_setting(case: SimCase, key: str) -> tuple[int | bool | None, bool
         return row_ncpus(case, case.solver.max_threads), _variable(case, NCPUS_VARIABLE) is not None
     if key == "symmetry_loads":
         stated = _variable(case, SYMMETRY_LOADS_VARIABLE) is not None
-        return row_symmetry_loads(case, None if stated else case.solver.symmetry_loads), stated
+        # PFS-2255: the row's SYMMETRY_LOADS column is the one route; no setup key reaches it.
+        return row_symmetry_loads(case, None), stated
     raise InputValueError(f"unknown row solver setting {key!r}; use max_threads or symmetry_loads")
 
 

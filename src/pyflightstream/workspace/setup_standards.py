@@ -296,10 +296,6 @@ _MEANINGS: dict[str, str] = {
         "Controls wake/wall collision avoidance at initialization. Check geometry and "
         "wake-clearance applicability."
     ),
-    "symmetry_loads": (
-        "Controls load scaling for a half or sector mesh. Baselines assume a complete "
-        "model; explicitly adapt symmetry geometry."
-    ),
     "load_solver_initialization": (
         "Loads or discards initialization from a saved simulation. Baselines use false for "
         "a cold initialization."
@@ -431,7 +427,6 @@ def setup_standards() -> tuple[SetupStandard, ...]:
         "jet_wake_filaments_grid_induction": False,
         "adverse_gradient_boundary_layer": False,
         "vortex_ring_normalization": False,
-        "symmetry_loads": False,
         "load_solver_initialization": False,
         "inviscid_loads": False,
         "vorticity_lift_model": False,

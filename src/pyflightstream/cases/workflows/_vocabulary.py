@@ -1111,7 +1111,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         SYMMETRY_LOADS_VARIABLE: InputKey(
             "Whether the reported loads are the meshed sector's or the whole wheel's; "
-            "written in its column, and it wins over the setup's symmetry_loads.",
+            "written in its column, the one route to the command (the setup key is refused).",
             "true or false",
             "SET_ANALYSIS_SYMMETRY_LOADS",
         ),

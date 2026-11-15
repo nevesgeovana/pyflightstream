@@ -24,6 +24,9 @@ __all__ = [
     "setup_inspection_summary",
 ]
 
+#: The settings a row states with no setup field, and the command each reaches (PFS-2255).
+_ROW_ONLY_COMMANDS = {"symmetry_loads": "SET_ANALYSIS_SYMMETRY_LOADS"}
+
 
 def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
     """Return typed values, provenance, evidence and aliases from one resolved case.
@@ -45,6 +48,9 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
         the aliases.
     """
     values = case.solver.model_dump(mode="json")
+    # PFS-2255: the symmetry loads are the row's SYMMETRY_LOADS column only, no setup
+    # field; the inspection still reports what the row states.
+    values.setdefault("symmetry_loads", None)
     explicit = case.solver.model_fields_set
     settings: dict[str, Any] = {}
     for key, value in values.items():
@@ -65,7 +71,7 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
         settings[key] = {
             "value": value,
             "provenance": provenance,
-            "command": SOLVER_SETTING_COMMANDS.get(key),
+            "command": SOLVER_SETTING_COMMANDS.get(key, _ROW_ONLY_COMMANDS.get(key)),
             "available": available,
             "evidence": evidence,
             "error": error,
