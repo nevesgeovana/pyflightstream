@@ -88,3 +88,32 @@ def test_p0580_a_recorded_folder_writes_its_plots_to_time_history_with_the_block
         _opens_with_the_block(columns)
         assert rows[0]["POL"] == "3207" and rows[0]["POINT_ID"] == "1", (folder, rows[0])
         assert rows[0]["POINT"] == "POLAR-3207_M20AL-020BE+000", (folder, rows[0])
+
+
+def test_p0580_the_package_re_reads_the_run_block_of_its_averaged_surface(tmp_path):
+    from pyflightstream.post._block_scope import run_blocks
+    from pyflightstream.post._run_block import run_block_row
+    from pyflightstream.post.surfaces import write_point_surface_average
+    from pyflightstream.results import read_vtk_surface
+    from tests.tier1_offline.test_g25_surface_time_average import _averaged_record, _exports
+
+    sim = tmp_path / "sims" / "sim_7003"
+    sim.mkdir(parents=True)
+    _exports(sim, range(3, 7))
+    block = run_block_row(
+        pol="7003", point_id=1, point="AL+000", run_type="unsteady",
+        condition={"ALPHA": 2.0, "VINF": 40.0, "FIRST_STEP": 3, "LAST_STEP": 6, "STEPS": 4},
+    )  # fmt: skip
+    with run_blocks({"AL+000": block}):
+        files, _ = write_point_surface_average(
+            tmp_path, sim_dir=sim, record=_averaged_record(), out=tmp_path / "post",
+            target=lambda path: path, vtk=True,
+        )  # fmt: skip
+    (vtk,) = [path for path in files if path.suffix == ".vtk"]
+    surface = read_vtk_surface(vtk)
+    assert list(surface.field_data) == list(block)
+    assert surface.field_data["POL"] == "7003" and surface.field_data["ALPHA"] == 2.0
+    assert surface.field_data["RUN_TYPE"] == "unsteady"
+    rho = surface.field_data["RHO"]
+    assert isinstance(rho, float) and rho != rho, "NA is written nan and read back NaN"
+    assert surface.n_cells > 0 and surface.cell_data

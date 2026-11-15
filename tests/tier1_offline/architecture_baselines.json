@@ -635,8 +635,8 @@
    "positional": 1
   },
   "results/surface.py:read_vtk_surface": {
-   "complexity": 15,
-   "branches": 16,
+   "complexity": 14,
+   "branches": 15,
    "statements": 50,
    "positional": 1
   },

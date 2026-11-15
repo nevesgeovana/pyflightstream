@@ -280,6 +280,10 @@ class VtkSurface:
         One value per polygon for each cell scalar, in the file's order.
     title : str
         The file's title line.
+    field_data : dict of str to float or str
+        The dataset's ``FIELD`` arrays of one value each, by name: a number, NaN
+        where the file writes ``nan``, or a text (the run block the package
+        writes into an averaged surface, design of the post outputs section 3).
 
     Examples
     --------
@@ -300,6 +304,7 @@ class VtkSurface:
     point_data: dict[str, np.ndarray] = field(default_factory=dict)
     cell_data: dict[str, np.ndarray] = field(default_factory=dict)
     title: str = ""
+    field_data: dict[str, float | str] = field(default_factory=dict)
 
     @property
     def n_points(self) -> int:
@@ -444,6 +449,60 @@ def _attributes(
     return found, None
 
 
+def _field_data(
+    path: Path, text: str, lines: Iterator[tuple[int, str]], line: str
+) -> dict[str, float | str]:
+    """Read a dataset ``FIELD`` block of one-value arrays; return each by name.
+
+    An array is ``<name> <components> <tuples> <type>`` and its values; ``string``
+    arrays hold one word, numeric ones one number, ``nan`` included.
+    """
+    count = _stated(path, text, line, 2)
+    found: dict[str, float | str] = {}
+    for _ in range(count):
+        _, header = next(lines, (0, ""))
+        words = header.split()
+        if len(words) != 4:
+            raise MalformedOutputError(f"{path}'s FIELD array line {header!r} is not 4 words")
+        name, components, tuples, kind = words
+        if (components, tuples) != ("1", "1"):
+            raise MalformedOutputError(
+                f"{path}'s FIELD array {name!r} states {components} components of {tuples} "
+                "tuples; the arrays the package writes hold one value"
+            )
+        (value,) = _numbers(lines, 1, f"the FIELD array {name!r}")
+        if kind.lower() == "string":
+            found[name] = value
+            continue
+        try:
+            found[name] = float(value)
+        except ValueError:
+            raise MalformedOutputError(
+                f"{path}'s FIELD array {name!r} of type {kind} holds {value!r}, no number"
+            ) from None
+    return found
+
+
+def _dataset_field(
+    path: Path, text: str, lines: Iterator[tuple[int, str]], line: str, *, after_sections: bool
+) -> dict[str, float | str]:
+    """Read the dataset's own ``FIELD`` block; refuse any other keyword no surface writes.
+
+    The FIELD data stands before any attribute section: it is the run block the
+    package writes into an averaged surface (FR-3778).
+    """
+    word = line.split()[0]
+    keyword = word.upper()
+    if keyword in ("VERTICES", "LINES", "TRIANGLE_STRIPS"):
+        raise MalformedOutputError(
+            f"{path} carries {keyword}; a surface export carries POLYGONS alone, and a "
+            "wake file, which carries no polygon, is not a surface (RPT-074)"
+        )
+    if keyword != "FIELD" or after_sections:
+        raise MalformedOutputError(f"{path} carries {word!r}, which no surface export writes")
+    return _field_data(path, text, lines, line)
+
+
 def _polygons(
     path: Path, lines: Iterator[tuple[int, str]], cells: int, size: int
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -556,6 +615,7 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
     connectivity: np.ndarray | None = None
     point_data: dict[str, np.ndarray] = {}
     cell_data: dict[str, np.ndarray] = {}
+    field_data: dict[str, float | str] = {}
     pending: str | None = None
     sections: set[str] = set()
     while True:
@@ -576,11 +636,6 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
         elif keyword == "POLYGONS":
             cells, size = _stated(path, text, line, 1), _stated(path, text, line, 2)
             offsets, connectivity = _polygons(path, lines, cells, size)
-        elif keyword in ("VERTICES", "LINES", "TRIANGLE_STRIPS"):
-            raise MalformedOutputError(
-                f"{path} carries {keyword}; a surface export carries POLYGONS alone, and a "
-                "wake file, which carries no polygon, is not a surface (RPT-074)"
-            )
         elif keyword == "POINT_DATA":
             held = _open_attribute_section(
                 (path, text, line), sections, "POINT_DATA", None if points is None else len(points)
@@ -595,8 +650,8 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
             )
             cell_data, pending = _attributes(lines, held, "CELL_DATA")
         else:
-            raise MalformedOutputError(
-                f"{path} carries {words[0]!r}, which no surface export writes"
+            field_data.update(
+                _dataset_field(path, text, lines, line, after_sections=bool(sections))
             )
     if points is None or offsets is None or connectivity is None:
         raise MalformedOutputError(f"{path} declares no POINTS or no POLYGONS")
@@ -609,6 +664,7 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
         point_data=point_data,
         cell_data=cell_data,
         title=head[1],
+        field_data=field_data,
     )
 
 
