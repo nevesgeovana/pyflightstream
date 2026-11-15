@@ -115,3 +115,20 @@ def test_p0580_pslice_beta_folds_into_plus_minus_90(sense, skew):
         row = section_parameters(loop, sense, 300.0, 500.0)
         assert row["beta_deg"] == pytest.approx(sense * ANGLE, abs=0.05)
         assert row["c_R"] == pytest.approx(100.0 / 500.0, rel=0.01)
+
+
+@pytest.mark.parametrize("flip", [False, True])
+def test_p0580_pslice_chord_along_the_motion_normal_gives_plus_90(flip):
+    """A symmetric section whose chord lies along the motion normal: beta is 90, never -90.
+
+    The two ends are level in the motion direction, so axis[0] is exactly 0 and beta lands on
+    the fold boundary, which belongs to the (-90, 90] side.
+    """
+    t = 0.5 * (1 - np.cos(np.linspace(0, np.pi, 240)))
+    half = 0.06 * np.sin(np.pi * t) ** 0.9
+    along = (1.0 - t) if flip else t
+    upper = np.column_stack((half, along))
+    lower = np.column_stack((-half[::-1], along[::-1]))
+    loop = 100.0 * np.vstack((upper[:-1], lower[:-1]))
+    row = section_parameters(loop, 1, 300.0, 500.0)
+    assert row["beta_deg"] == pytest.approx(90.0, abs=1e-9)

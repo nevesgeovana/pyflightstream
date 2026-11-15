@@ -337,13 +337,15 @@ def section_parameters(flat, sense, r, radius):
     le, te, sides = edges_and_sides(plane, ahead=(1.0, 0.0))
     chord = float(np.linalg.norm(te - le))
     axis = (te - le) / chord
-    if axis[0] > 0:
-        # |beta| > 90 degrees: the end that trails the motion was taken for the leading edge
-        # (a miss of the tie by a few percent). Turn the section about its mid-chord so the
-        # end ahead leads and beta folds into (-90, 90].
+    level = 1e-12  # an end-to-end axis this close to the normal counts as on it
+    if axis[0] > level or (abs(axis[0]) <= level and axis[1] > 0):
+        # |beta| > 90 degrees, or beta = -90: the end that trails the motion was taken for the
+        # leading edge (a miss of the tie by a few percent). Turn the section about its
+        # mid-chord so the end ahead leads and beta folds into (-90, 90].
         le, te, sides = edges_and_sides(plane, ahead=(1.0, 0.0), exchange=True)
         chord = float(np.linalg.norm(te - le))
         axis = (te - le) / chord
+        assert axis[0] <= level, axis
     normal = np.array([axis[1], -axis[0]])
     frames = [
         np.column_stack(((side - le) @ axis / chord, (side - le) @ normal / chord))
