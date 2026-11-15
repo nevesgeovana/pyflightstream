@@ -122,7 +122,7 @@ def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):
         written = write_campaign_products(swept, matrix_stem=stem, overwrite=True)
     assert (swept.root / "runs.json").read_bytes() == before, "a record is never rewritten"
 
-    polars = [path for path in written if path.parent.name == "polars" and path.suffix == ".csv"]
+    polars = [path for path in written if path.name == "P3207-g01-ACOEF.csv"]
     assert polars, [str(path) for path in written]
     _columns, rows = read_csv_table(polars[0])
     assert [float(row["MACH"]) for row in rows] == pytest.approx([0.1, 0.3]), (

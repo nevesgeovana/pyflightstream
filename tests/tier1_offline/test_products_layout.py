@@ -142,18 +142,17 @@ def _out(workspace: CampaignWorkspace) -> Path:
 
 
 def _the_polar_table(out: Path) -> Path:
-    """The one polar table the stage wrote, found by shape and not by name.
+    """The one TOTAL group ACOEF table the stage wrote, found by shape and not by name.
 
-    The SUPERFILE of FR-89 is written beside it and is not a polar table: it
-    is told apart by the one word of its name that differs, which is the
-    whole reason that word is in the name.
+    0.58.0 writes a file set per polar (the families in FAM-DIM and FAM-ACOEF,
+    then a DIM and an ACOEF file per group); the TOTAL group's ACOEF file is
+    the one table whose rows are the points of the polar, which is what the
+    cases below read. The campaign table is not a polar's.
     """
     tables = sorted(
-        path
-        for path in out.rglob("*.csv")
-        if path.name != "campaign_sweep.csv" and not path.name.startswith("SUPER-")
+        path for path in out.rglob("*-TOTAL-ACOEF.csv") if path.name != "campaign_sweep.csv"
     )
-    assert len(tables) == 1, f"expected one polar table, found {[p.name for p in tables]}"
+    assert len(tables) == 1, f"expected one TOTAL ACOEF table, found {[p.name for p in tables]}"
     return tables[0]
 
 
@@ -341,12 +340,20 @@ def test_the_polar_table_takes_the_standard_name_with_sweep_in_the_swept_field(t
     write_campaign_products(workspace, matrix_stem=MATRIX)
     out = _out(workspace)
     written = sorted(path.name for path in (out / "polars").iterdir())
+    # 0.58.0 (D29): the sweep name and the Mach token leave the polar file
+    # names; one file set per polar, the group named in the file name.
     assert written == [
-        "P0001-M150AL+020BE+000J+sweep_g01.csv",
-        "P0001-M150AL+020BE+000J+sweep_g01.dat",
-        # FR-89: the superfile of the same polar and group, told apart by
-        # the one word of the name that differs.
-        "SUPER-0001-M150AL+020BE+000J+sweep_g01.csv",
+        "FAM-ACOEF-P0001.csv",
+        "FAM-DIM-P0001.csv",
+        "P0001-AIRFRAME-ACOEF.csv",
+        "P0001-AIRFRAME-ACOEF.dat",
+        "P0001-AIRFRAME-DIM.csv",
+        "P0001-TOTAL-ACOEF.csv",
+        "P0001-TOTAL-ACOEF.dat",
+        "P0001-TOTAL-DIM.csv",
+        "P0001-g01-ACOEF.csv",
+        "P0001-g01-ACOEF.dat",
+        "P0001-g01-DIM.csv",
     ], f"the polar tables are named {written}"
 
 
@@ -539,7 +546,7 @@ def test_p0500_polar_at_is_reachable_and_names_its_provenance(tmp_path):
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     out = workspace.products_dir("matriz")
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    stem = "polars/P6001-M200RE1177AL+sweepBE+000_g02"
+    stem = "polars/P6001-g02-ACOEF"
     assert stem + "_at_alpha.csv" in manifest["products"]
     entry = manifest["products"][stem + "_at_alpha.csv"]
     assert (entry["kind"], entry["axis"], entry["values"]) == ("interpolated", "ALPHA", [-1, 9])
@@ -648,9 +655,7 @@ def test_p0500_polar_at_cli_rebuilds_finished_sweep(tmp_path):
     assert (
         main(["post", str(workspace.root / "matriz.fs"), "--workspace", str(workspace.root)]) == 0
     )
-    target = (
-        workspace.products_dir("matriz") / "polars/P6001-M200RE1177AL+sweepBE+000_g02_at_alpha.csv"
-    )
+    target = workspace.products_dir("matriz") / "polars/P6001-g02-ACOEF_at_alpha.csv"
     assert target.is_file()
     _, (row,) = read_csv_table(target)
     assert float(row["ALPHA"]) == -1
@@ -674,7 +679,7 @@ def test_p0500_polar_at_unknown_axis_skips_only_its_product(tmp_path):
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     out = workspace.products_dir("matriz")
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    stem = "polars/P6001-M200RE1177AL+sweepBE+000_g02"
+    stem = "polars/P6001-g02-ACOEF"
     assert stem + ".csv" in manifest["products"]
     assert "NOT_A_COLUMN" in manifest["skipped"][stem + "_at_not_a_column.csv"]
     assert not (out / (stem + "_at_not_a_column.csv")).exists()
@@ -684,7 +689,7 @@ def test_p0500_polar_at_unknown_axis_skips_only_its_product(tmp_path):
 @pytest.mark.requirement("FR-3340", "FR-3341", "FR-3342")
 @pytest.mark.parametrize(
     "axis,moment",
-    [("CLB", "CYB"), ("missing", "CMB25")],
+    [("CLB", "CYB"), ("missing", "CmB")],
     ids=["P0500-named-trim", "P0500-unknown-trim"],
 )
 def test_p0500_trim_uses_the_declared_columns(tmp_path, axis, moment):
@@ -707,7 +712,7 @@ def test_p0500_trim_uses_the_declared_columns(tmp_path, axis, moment):
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     out = workspace.products_dir("matriz")
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    assert any(name.endswith("_g02.csv") for name in manifest["products"])
+    assert any(name.endswith("-g02-ACOEF.csv") for name in manifest["products"])
     if axis == "missing":
         assert any("missing" in str(w.message) for w in caught)
         assert any("missing" in reason for reason in manifest["skipped"].values())
@@ -732,13 +737,13 @@ def test_p0500_named_trim_interpolates_and_defaults_keep_bytes(tmp_path):
         encoding="utf-8",
     )
     out = workspace.products_dir("matriz")
-    target = out / "polars/P6001-M200RE1177AL+sweepBE+000_g02_trim.csv"
+    target = out / "polars/P6001-g02-ACOEF_trim.csv"
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         path.write_text(original, encoding="utf-8")
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
         expected = target.read_bytes()
-        path.write_text(original + 'trim_axis = "ALPHA"\ntrim_moment = "CMB25"\n', encoding="utf-8")
+        path.write_text(original + 'trim_axis = "ALPHA"\ntrim_moment = "CmB"\n', encoding="utf-8")
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
         assert target.read_bytes() == expected
         path.write_text(original + 'trim_axis = "CLB"\ntrim_moment = "ALPHA"\n', encoding="utf-8")
@@ -811,16 +816,16 @@ def test_p0430_the_pproc_asks_for_the_trimmed_polar_beside_each_polar(tmp_path):
         write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     out = workspace.products_dir("matriz")
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    trimmed = "polars/P6001-M200RE1177AL+sweepBE+000_g02_trim.csv"
+    trimmed = "polars/P6001-g02-ACOEF_trim.csv"
     assert trimmed in manifest["products"]
-    polar_columns, _ = read_csv_table(out / "polars/P6001-M200RE1177AL+sweepBE+000_g02.csv")
+    polar_columns, _ = read_csv_table(out / "polars/P6001-g02-ACOEF.csv")
     columns, (row,) = read_csv_table(out / trimmed)
     assert columns == polar_columns
     assert float(row["ALPHA"]) == pytest.approx(-1.0, abs=1e-5)
-    assert float(row["CMB25"]) == 0.0
-    refused = manifest["skipped"]["polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv"]
+    assert float(row["CmB"]) == 0.0
+    refused = manifest["skipped"]["polars/P6001-g01-ACOEF_trim.csv"]
     assert "never crosses zero" in refused
-    assert not (out / "polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv").exists()
+    assert not (out / "polars/P6001-g01-ACOEF_trim.csv").exists()
 
 
 @pytest.mark.requirement("FR-3243")
@@ -948,5 +953,10 @@ def test_rel1_002_an_interpolated_polar_is_not_a_refinement_level(tmp_path):
         for name, entry in manifest["products"].items()
         if entry.get("kind") == "refinement_study"
     )
-    assert studies == ["polars/GCI-P6001_g01.csv", "polars/GCI-P6001_g02.csv"]
+    assert studies == [
+        "polars/GCI-P6001_AIRFRAME.csv",
+        "polars/GCI-P6001_TOTAL.csv",
+        "polars/GCI-P6001_g01.csv",
+        "polars/GCI-P6001_g02.csv",
+    ]
     assert any(name.endswith("_at_alpha.csv") for name in manifest["products"])

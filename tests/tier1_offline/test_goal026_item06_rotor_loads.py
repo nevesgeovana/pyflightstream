@@ -744,8 +744,8 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     still in the workspace. That is the route, and it costs nothing she has.
 
     This asserts the product: a recorded campaign whose reference declares a
-    rotor gets a rotor table, its first line the header and its alias the
-    `ROTOR` column (G16; until 0.27.0 the alias alone on the first line).
+    rotor gets the rotor's group RCOEF file (0.58.0: the rotor table is retired),
+    its rows the rotor's own, its group the alias and its `ROTOR_ID` its id.
     """
     from pathlib import Path
 
@@ -786,17 +786,17 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     )
 
     written = _post(workspace)
-    tables = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
+    tables = [Path(p) for p in written if Path(p).name == "P6002-PUSHER-RCOEF.csv"]
     assert tables, (
-        "the campaign turns a rotor and the stage wrote no rotor table; "
+        "the campaign turns a rotor and the stage wrote no rotor group file; "
         f"it wrote {sorted(Path(p).name for p in written)}"
     )
-    first = tables[0].read_text(encoding="utf-8").splitlines()[0]
-    assert first.split(",")[:2] == ["POL", "ROTOR"], first
 
     # AND A VALUE, DERIVED HERE FROM THE EXPORT AND THE DEFINITION, which is what
     # the header line alone never proves. The shaft is X, so the thrust is the X
-    # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`.
+    # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`. 0.58.0 counts thrust
+    # positive forward (D12, design 5.3) and the solver's x is aft, so CT is that
+    # quotient with the sign reversed.
     from pyflightstream.post.products import read_csv_table
     from pyflightstream.results import parse_loads
 
@@ -806,11 +806,11 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     rho, speed = record.density_kg_m3, report.reference_velocity_m_s
     rps = 2200.0 / 60.0
     thrust = report.surfaces["B"]["Cx"] * 0.5 * rho * speed**2 * 50.0
-    expected = thrust / (rho * rps**2 * 1.2**4)
+    expected = -thrust / (rho * rps**2 * 1.2**4)
     _columns, rows = read_csv_table(tables[0])
-    assert (rows[0]["POL"], rows[0]["ROTOR"]) == ("6002", "PUSHER"), rows[0]
+    assert (rows[0]["POL"], rows[0]["GROUP"]) == ("6002", "PUSHER"), rows[0]
     assert expected != 0.0, "the fixture's family carries no X force, so nothing is proved"
-    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(expected, rel=1e-4), rows[0]
+    assert float(rows[0]["CT"]) == pytest.approx(expected, rel=1e-4), rows[0]
 
 
 def test_a_rotor_declaring_a_family_sums_that_familys_surfaces():

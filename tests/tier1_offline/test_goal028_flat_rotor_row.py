@@ -13,6 +13,7 @@ stays.
 
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
 
@@ -59,27 +60,37 @@ def _flat(tmp_path, *, rotors=("PUSHER",), rpm: float | None = 2200.0):
     return workspace, written
 
 
+def _rcoef(written, name):
+    """The one RCOEF group file of that name the post wrote."""
+    return [path for path in written if path.name == name]
+
+
 def test_the_one_rotor_of_a_flat_row_gets_its_table_at_the_rows_speed(tmp_path):
     _workspace_, written = _flat(tmp_path)
-    (table,) = [path for path in written if path.name.endswith("-PUSHER_rotor.csv")]
+    # 0.58.0: the rotor table is the ROTOR group's RCOEF file, its speed RPM<id> in the run block.
+    (table,) = _rcoef(written, "P6002-PUSHER-RCOEF.csv")
     columns, rows = read_csv_table(table)
     assert rows, "the table holds no row"
-    assert {float(row["RPM_PUSHER"]) for row in rows} == {2200.0}
+    assert {float(row["RPM0"]) for row in rows} == {2200.0}
 
 
 def test_with_two_rotors_nothing_says_whose_speed_it_is_and_the_skip_stays(tmp_path):
-    import json
-
-    workspace, written = _flat(tmp_path, rotors=("PUSHER", "LIFTER"))
-    assert not [path for path in written if path.name.endswith("_rotor.csv")]
-    (manifest,) = workspace.root.rglob("products.json")
-    skipped = json.loads(manifest.read_text(encoding="utf-8"))["skipped"]
-    assert any(key.endswith("-PUSHER_rotor.csv") for key in skipped), sorted(skipped)
+    """Neither rotor takes the flat speed: its RPM<id> stays NA in every file."""
+    _workspace_, written = _flat(tmp_path, rotors=("PUSHER", "LIFTER"))
+    for name in ("P6002-PUSHER-RCOEF.csv", "P6002-LIFTER-RCOEF.csv"):
+        (table,) = _rcoef(written, name)
+        columns, rows = read_csv_table(table)
+        speeds = [column for column in columns if re.fullmatch(r"RPM\d+", column)]
+        assert len(speeds) == 2, columns
+        assert {row[column] for row in rows for column in speeds} == {"NA"}, name
 
 
 def test_a_flat_record_stating_no_speed_is_still_the_named_skip(tmp_path):
-    workspace, written = _flat(tmp_path, rpm=None)
-    assert not [path for path in written if path.name.endswith("_rotor.csv")]
+    _workspace_, written = _flat(tmp_path, rpm=None)
+    # No speed is stated, so none is written: RPM0 is NA, never a guessed value.
+    (table,) = _rcoef(written, "P6002-PUSHER-RCOEF.csv")
+    columns, rows = read_csv_table(table)
+    assert rows and {row["RPM0"] for row in rows} == {"NA"}
 
 
 def test_the_plan_of_a_flat_rotor_row_records_the_speed_it_turned_at(tmp_path):

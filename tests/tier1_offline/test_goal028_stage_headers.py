@@ -66,7 +66,6 @@ def _tables(written: list[Path]) -> list[Path]:
         if path.suffix == ".csv"
         and path.parent.name in ("polars", "probes", "sections")
         and not path.name.endswith(RAW)
-        and not path.name.startswith("SUPER-")
     ]
 
 
@@ -76,8 +75,7 @@ def test_every_table_the_stage_writes_carries_every_column_of_the_block(posted):
     assert len(tables) >= 3, [path.name for path in written]
     required = _page_columns()
     for path in tables:
-        skip = 1 if path.name.endswith("_rotor.csv") else 0
-        columns, _rows = read_csv_table(path, skip=skip)
+        columns, _rows = read_csv_table(path)
         missing = [name for name in required if name not in columns]
         assert not missing, f"{path.name} does not state {missing}; it states {columns}"
 
@@ -90,10 +88,7 @@ def test_the_air_is_the_runs_and_the_reference_velocity_is_the_exports(posted):
     (polar,) = [
         path
         for path in written
-        if path.parent.name == "polars"
-        and path.name.startswith("P6001-")
-        and "_g01" in path.name
-        and path.suffix == ".csv"
+        if path.parent.name == "polars" and path.name == "P6001-g01-ACOEF.csv"
     ]
     _columns, rows = read_csv_table(polar)
     for row in rows:

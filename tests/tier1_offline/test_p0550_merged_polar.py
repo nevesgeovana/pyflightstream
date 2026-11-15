@@ -170,18 +170,21 @@ def _read(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def test_p0550_the_post_writes_the_merged_polar_when_asked(tmp_path):
-    """Through the real post: off by default, then the file, its join and its manifest entry."""
+def test_p0550_the_post_names_the_merged_polar_a_skip_when_asked(tmp_path):
+    """Through the real post: off by default, then, asked, the named skip of 0.58.0.
+
+    The unsteady polar and the rotor tables the merged polar joined are replaced by the FAM
+    and group files, and the join of a group ACOEF file with the rotor groups' RCOEF files is
+    not yet defined: the post says so once, writes no file, and the manifest names the skip.
+    """
     from pyflightstream.post.products import write_campaign_products
     from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 
     workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
     write_campaign_products(workspace, matrix_stem="products")
     folder = workspace.root / "post" / "products" / "polars"
-    (polar_file,) = folder.glob("*_uns_avg.csv")
-    (rotor_file,) = folder.glob("*_rotor.csv")
-    merged = polar_file.with_name(polar_file.name.replace("_uns_avg.csv", "_merge.csv"))
-    assert not merged.exists(), "off by default"
+    manifest = json.loads((folder.parent / "products.json").read_text(encoding="utf-8"))
+    assert not [key for key in manifest["skipped"] if key.endswith("#merged_polar")], "off"
     pprocs = sorted((workspace.inputs_dir / "pproc").glob("*.toml"))
     assert pprocs
     for pproc in pprocs:
@@ -191,21 +194,13 @@ def test_p0550_the_post_writes_the_merged_polar_when_asked(tmp_path):
             + '[products.rotate_columns]\nTILT = "STAR:NAC-Y"\n',
             encoding="utf-8",
         )
-    with pytest.warns(Warning, match="TILT reads 0"):
+    with pytest.warns(Warning, match="the merged polar is not written"):
         write_campaign_products(workspace, matrix_stem="products", overwrite=True)
-    polar, rotor, out = _read(polar_file), _read(rotor_file), _read(merged)
-    assert len(out) == len(polar) == len(rotor) == 1
-    assert {column: out[0][column] for column in polar[0]} == polar[0], "the polar is unchanged"
-    assert out[0]["CT_PUSHER"] == rotor[0]["CT_PUSHER"]
-    assert out[0]["J_PUSHER"] == rotor[0]["J_PUSHER"]
-    assert out[0]["ROTOR"] == "PUSHER"
-    assert float(out[0]["TILT"]) == 0.0
+    assert not list(folder.glob("*_merge.csv"))
     manifest = json.loads((folder.parent / "products.json").read_text(encoding="utf-8"))
-    entry = manifest["products"][f"polars/{merged.name}"]
-    assert entry["kind"] == "merged_polar"
-    assert entry["rotors"] == ["PUSHER"]
-    assert entry["runs"] == [polar[0]["run_id"]]
-    assert "TILT reads 0" in manifest["skipped"][f"polars/{merged.name}"]
+    (key,) = [key for key in manifest["skipped"] if key.endswith("#merged_polar")]
+    assert "the merged polar is not written" in manifest["skipped"][key]
+    assert not [name for name in manifest["products"] if name.endswith("_merge.csv")]
 
 
 def _context(tmp_path: Path, **products: object) -> SimpleNamespace:
@@ -220,9 +215,9 @@ def _context(tmp_path: Path, **products: object) -> SimpleNamespace:
 
 def test_p0550_a_simulation_with_no_unsteady_polar_says_so(tmp_path):
     ctx = _context(tmp_path, merged_polar=True)
-    with pytest.warns(Warning, match="no unsteady polar"):
+    with pytest.warns(Warning, match="the merged polar is not written"):
         merged_polar_products(ctx)
-    assert "no unsteady polar" in ctx.skipped["polars/7#merged_polar"]
+    assert "the merged polar is not written" in ctx.skipped["polars/7#merged_polar"]
     assert not list(tmp_path.iterdir())
 
 
@@ -287,7 +282,10 @@ def test_p0550_a_simulation_with_no_matrix_row_writes_na_not_zero(tmp_path):
     assert [row["TILT"] for row in out] == ["NA", "NA"]
 
 
-def test_p0550_turning_the_product_off_retires_the_file_on_a_rebuild(tmp_path):
+def test_p0550_turning_the_product_off_retires_its_skip_on_a_rebuild(tmp_path):
+    """The merged polar is a named skip in 0.58.0; off again, the skip and the file are gone."""
+    import warnings
+
     from pyflightstream.post.products import write_campaign_products
     from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 
@@ -296,12 +294,16 @@ def test_p0550_turning_the_product_off_retires_the_file_on_a_rebuild(tmp_path):
     original = {path: path.read_text(encoding="utf-8") for path in pprocs}
     for path, text in original.items():
         path.write_text(text + "\n[products]\nmerged_polar = true\n", encoding="utf-8")
-    write_campaign_products(workspace, matrix_stem="products")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="products")
     folder = workspace.root / "post" / "products" / "polars"
-    (merged,) = folder.glob("*_merge.csv")
+    manifest = json.loads((folder.parent / "products.json").read_text(encoding="utf-8"))
+    assert [key for key in manifest["skipped"] if key.endswith("#merged_polar")]
     for path, text in original.items():
         path.write_text(text, encoding="utf-8")
     write_campaign_products(workspace, matrix_stem="products", overwrite=True)
-    assert not merged.exists()
+    assert not list(folder.glob("*_merge.csv"))
     manifest = json.loads((folder.parent / "products.json").read_text(encoding="utf-8"))
-    assert f"polars/{merged.name}" not in manifest["products"]
+    assert not [key for key in manifest["skipped"] if key.endswith("#merged_polar")]
+    assert not [name for name in manifest["products"] if name.endswith("_merge.csv")]

@@ -382,8 +382,8 @@ def test_p0420_a_millimetre_wheel_writes_no_harmonics_and_names_why(tmp_path, mo
     workspace = harmonics_tests._wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
     _saved(workspace, MILLIMETER, "DP.fsm")
     out, manifest, _ = harmonics_tests._post(workspace)
-    assert not (out / "sections" / "DP_harmonics.csv").exists()
-    reason = manifest["skipped"]["sections/DP_harmonics.csv"]
+    assert not (out / "reductions" / "DP_harmonics.csv").exists()
+    reason = manifest["skipped"]["reductions/DP_harmonics.csv"]
     assert "not in metres" in reason and "1000 simulation length units per metre" in reason
     disc = [value for key, value in manifest["skipped"].items() if "disc" in key]
     assert disc and all("no disc map" in value for value in disc)
@@ -402,7 +402,7 @@ def test_p0420_a_metre_wheel_still_writes_its_harmonics(tmp_path, monkeypatch):
     workspace = harmonics_tests._wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
     _saved(workspace, METER, "DP.fsm")
     out, _manifest, _ = harmonics_tests._post(workspace)
-    _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
+    _, rows = read_csv_table(out / "reductions" / "DP_harmonics.csv")
     assert rows
 
 
@@ -413,8 +413,8 @@ def test_p0420_a_millimetre_unsteady_rotor_writes_no_harmonics(tmp_path, monkeyp
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         out, manifest, _ = harmonics_tests._post(workspace)
-    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
-    assert "not in metres" in manifest["skipped"]["sections/AL-020_harmonics.csv"]
+    assert not (out / "reductions" / "AL-020_harmonics.csv").exists()
+    assert "not in metres" in manifest["skipped"]["reductions/AL-020_harmonics.csv"]
 
 
 def test_p0420_one_station_tolerance_serves_the_harmonics_and_the_quasi_steady_alignment():

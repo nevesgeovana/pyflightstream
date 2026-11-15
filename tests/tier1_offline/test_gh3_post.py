@@ -14,6 +14,9 @@ from tests.tier1_offline.test_integrated_sectional_loads import EXTRA, _case
 
 def test_ab_missing_group_surface_omits_only_its_point(tmp_path, monkeypatch):
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
+    # q_ref = 0.5 RHO VREF^2 needs the point's density (design 4): without it no airframe
+    # coefficient is stated.
+    healthy.density_kg_m3 = 1.225
     spec.products.polars = True
     spec.groups = {"WING": ["Wing"]}
     other = healthy.model_copy(
@@ -34,28 +37,30 @@ def test_ab_missing_group_surface_omits_only_its_point(tmp_path, monkeypatch):
     keys = [
         key
         for key in manifest["products"]
-        if key.startswith("polars/P") and key.endswith("_WING.csv")
+        if key.startswith("polars/P") and key.endswith("-WING-ACOEF.csv")
     ]
     assert len(keys) == 1, manifest["skipped"]
     key = keys[0]
     out = workspace.products_dir(None)
     _, rows = read_csv_table(out / key)
     assert len(rows) == 1, "a surface-free point must not publish a row of zeros"
-    assert key == "polars/P7001-AL-020_WING.csv"
+    assert key == "polars/P7001-WING-ACOEF.csv"
     assert float(rows[0]["CLB"]) == pytest.approx(0.431)
     assert manifest["products"][key]["runs"] == [healthy.run_id]
     reason = manifest["skipped"].get(f"{key}#AL+020", "")
     assert all(word in reason for word in ("AL+020", "WING", "surface", "alias")), reason
     assert reason in (out / "post.log").read_text()
-    super_keys = [key for key in manifest["products"] if "SUPER" in key.upper()]
-    assert super_keys
-    for super_key in super_keys:
-        assert len(read_csv_table(out / super_key)[1]) == 1
-        assert manifest["products"][super_key]["runs"] == [healthy.run_id]
+    # 0.58.0: the SUPER file is retired; the group's DIM file is the companion table.
+    companions = [key for key in manifest["products"] if key.endswith("P7001-WING-DIM.csv")]
+    assert companions
+    for companion in companions:
+        assert len(read_csv_table(out / companion)[1]) == 1
+        assert manifest["products"][companion]["runs"] == [healthy.run_id]
 
 
 def test_ac_unassignable_failed_frame_keeps_healthy_polar(tmp_path, monkeypatch):
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
+    healthy.density_kg_m3 = 1.225
     spec.products.polars = True
     spec.groups = {}  # TOTAL is written for every polar
     failed = healthy.model_copy(
@@ -76,7 +81,7 @@ def test_ac_unassignable_failed_frame_keeps_healthy_polar(tmp_path, monkeypatch)
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [failed, healthy])
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    key = "polars/P7001-AL-020_TOTAL.csv"
+    key = "polars/P7001-TOTAL-ACOEF.csv"
     assert key in manifest["products"], manifest["skipped"]
     assert manifest["products"][key]["runs"] == [healthy.run_id]
     out = workspace.products_dir(None)
@@ -161,17 +166,19 @@ def test_ae_unsteady_name_uses_averaged_contributors(tmp_path, monkeypatch, arch
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: records)
     write_campaign_products(workspace)
     out = workspace.products_dir(None)
-    key = "polars/P7001_AL+020_uns_avg.csv"
+    key = "polars/P7001-TOTAL-ACOEF.csv"
     assert key in _products_manifest(workspace)["products"]
     records[:] = [missing, healthy]
     write_campaign_products(workspace, overwrite=True, archive=archive)
     manifest = _products_manifest(workspace)
     assert key in manifest["products"], manifest["skipped"]
-    assert {p.name for p in (out / "polars").glob("*_uns_avg.csv")} == {Path(key).name}
+    assert {p.name for p in (out / "polars").glob("P7001-TOTAL-ACOEF.csv")} == {Path(key).name}
     assert len(read_csv_table(out / key)[1]) == 1
     assert manifest["products"][key]["runs"] == [healthy.run_id]
-    assert "AL-020" in manifest["skipped"].get(key, "")
-    assert key in (out / "post.log").read_text()
+    # The point that is not a row is named once for the polar (0.58.0), not under one file.
+    reason = manifest["skipped"].get("polars/P7001", "")
+    assert "AL-020" in reason
+    assert reason in (out / "post.log").read_text()
 
 
 @pytest.mark.parametrize("legacy", [False, True])
@@ -331,10 +338,12 @@ def test_ab_a_deleted_live_alias_does_not_resurrect_its_recorded_group(tmp_path,
     reference.write_text("area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n")
     write_campaign_products(workspace, matrix_stem="products")
     manifest = _products_manifest(workspace)
-    key = "polars/P7001-AL-020_AERO.csv"
-    assert key not in manifest["products"], "a deleted alias published its recorded group"
+    key = "polars/P7001-AERO"
+    assert not [name for name in manifest["products"] if name.startswith(key)], (
+        "a deleted alias published its recorded group"
+    )
     reason = manifest["skipped"].get(key, "")
-    assert "AERO" in reason and "selects no surface" in reason, manifest["skipped"]
+    assert "AERO" in reason and "selects no family" in reason, manifest["skipped"]
     assert reason in (workspace.products_dir("products") / "post.log").read_text()
 
 
