@@ -89,8 +89,13 @@ the reference station cannot mask a reversed inboard or outboard section.
 Propeller groups are exported in mm. The live kernel model remains in metres.
 Export uses the library IGES writer, with both spatial and parameter-space
 trim curves and PREF 1. The runner checks written pcurves against the spatial
-trim at `1e-4 mm`, face counts and areas after reimport, and free and triple
-edges after sewing at `0.01 mm`. Open ends are permitted only when requested
+trim at `1e-4 mm` for an iso trim (`propeller.pcurve_3d`) and at the `0.01 mm`
+sewing tolerance of the assembly junctions for a curved junction edge
+(`propeller.pcurve_3d_junction`): the blade-root cut of a spinner and the root
+hole of a hub face. A trim declares its junction edges when it is built, so no
+edge is classified by its measured value. The runner also checks face counts
+and areas after reimport, and free and triple edges after sewing at `0.01 mm`.
+Open ends are permitted only when requested
 with `root_cap = "none"` or `tip = "none"`. Numerical closure uses exact
 shared patch edges at `1e-6 mm`.
 
@@ -110,7 +115,7 @@ axial positions are measured aft along the shaft from
 
 | key | unit | default | meaning |
 |---|---|---|---|
-| `shape` | | `"ogive"` | `ogive` (tangent ogive), `ellipse` (semi-ellipse) or `points` (meridian file) |
+| `shape` | | `"ellipse"` | `ellipse` (semi-ellipse), `ogive` (tangent ogive, when stated) or `points` (meridian file) |
 | `radius` | mm | required, not with `points` | radius of the cylinder and of the rim |
 | `nose_length` | mm | required, not with `points` | axial length from the nose pole to the end of the nose |
 | `cylinder_length` | mm | 0 | constant-radius length aft of the nose |
@@ -168,6 +173,7 @@ The checks, in S8.P and S11.PS:
 | `spinner.continuity` | normal jump on band cuts and seams; pole and shoulder tangency | 1 deg |
 | `spinner.junction_in_band` | junction clearance to band cuts and seams | more than 0.01 mm |
 | `spinner.junction_gap` | blade-side and hub-side images of the junction | 0.01 mm |
+| `propeller.pcurve_3d_junction` | written pcurve image against the spatial trim, junction edges only | 0.01 mm |
 | `spinner.periodic_reimport` | written faces turned by 360/N against the neighbour sector | 0.01 mm |
 
 A definition without a spinner records them skipped; with one blade the two

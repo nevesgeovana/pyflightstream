@@ -15,12 +15,16 @@ from scipy.optimize import minimize_scalar
 
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.geometry import Propeller
+from pyflightstream.geometry._propeller_spinner import SEW_MM
+from pyflightstream.geometry.stages import check_entry, stage_row, unpack
 from pyflightstream.geometry.stages import propeller_measurement as measure
-from pyflightstream.geometry.stages import stage_row, unpack
 from pyflightstream.workspace._geom_assembly import Assembly
 from pyflightstream.workspace._gmsh_worker import _ENV as WORKER_ENV
 from pyflightstream.workspace._gmsh_worker import run_isolated
 
+#: Largest parameter-space distance, in (u, v) units, between a written junction pcurve piece
+#: and the declared junction piece it refits.
+JUNCTION_UV = 1e-4
 PURE_CHECKS = {
     "S1.P": ("propeller.section_fit",),
     "S4.P": (
@@ -90,8 +94,6 @@ def stage_result(context, stage):
     """Measure one registered propeller sub-step, retaining every input in its record."""
     models = _models(context)
     if not models:
-        from pyflightstream.geometry.stages import check_entry
-
         return {
             "checks": [
                 check_entry(cid, "skipped", note="no propeller definition in this run")
@@ -121,7 +123,7 @@ def stage_result(context, stage):
     if stage == "S11.PU":
         checks = unit_checks(context.state["export"], models, len(models) == len(context.members))
     elif stage == "S11.PC":
-        checks = trim_checks(source)
+        checks = trim_checks(source, declared_trims(context.state["export"]))
     else:
         expected = sum(_open_edges(model) for model in models.values())
         arguments = {"file": str(source), "expected": expected}
@@ -136,8 +138,6 @@ def stage_result(context, stage):
 
 def spinner_checks(model):
     """Return the pure spinner checks of one design, each recorded skipped without a spinner."""
-    from pyflightstream.geometry.stages import check_entry
-
     if "spinner" not in model.config:
         return [check_entry(c, "skipped", note="no [spinner] table") for c in SPINNER_CHECKS]
     return model.spinner().info["checks"]
@@ -153,7 +153,7 @@ def _open_edges(model):
 
 def _reimport_spinners(context, models):
     """Measure every written spinner's periodicity and write its spinner.json beside the IGES."""
-    from pyflightstream.geometry.stages import check_entry, placement_transform, write_record
+    from pyflightstream.geometry.stages import placement_transform, write_record
 
     export = context.state["export"]
     folder = Path(export["manifest"]).parent
@@ -313,8 +313,58 @@ def _curve_distance(point, curves, samples=None):
     return best
 
 
-def trim_checks(file):
-    """Compare every written pcurve image against its spatial trim, with PREF 1 required."""
+def trim_segments(trims):
+    """Return the junction and the iso pieces, in (u, v), that the source ``trims`` declare.
+
+    ``trims`` are the plain-data trims of the layout records. A piece listed in a trim's
+    ``junction`` and every piece of an inner loop is a junction piece; every other piece of an
+    outer loop is an iso piece. Each result is an array of shape ``(n, 2, 2)``.
+    """
+
+    def key(piece):
+        return tuple(tuple(map(float, point)) for point in piece)
+
+    junction, iso = [], []
+    for trim in trims:
+        declared = {key(p) for p in trim.get("junction", ())}
+        for piece in trim["loop"]:
+            (junction if key(piece) in declared else iso).append(key(piece))
+        junction += [key(p) for loop in trim.get("inner", ()) for p in loop]
+    return np.asarray(junction, float).reshape(-1, 2, 2), np.asarray(iso, float).reshape(-1, 2, 2)
+
+
+def _gap_to(point, pieces):
+    """Distance from ``point`` to the nearest of the line ``pieces``, shape ``(n, 2, 2)``."""
+    if not len(pieces):
+        return float("inf")
+    a, d = pieces[:, 0], pieces[:, 1] - pieces[:, 0]
+    t = np.clip(((point - a) * d).sum(axis=1) / np.maximum((d * d).sum(axis=1), 1e-30), 0, 1)
+    return float(np.linalg.norm(point - (a + t[:, None] * d), axis=1).min())
+
+
+def written_junction(midpoint, segments):
+    """Tell whether a written pcurve piece is a junction edge, from the trims' declared origin.
+
+    A piece lying on a declared iso piece is an iso trim. Otherwise it is a junction edge when
+    it lies within :data:`JUNCTION_UV` of a declared junction piece, which the kernel refits
+    between the junction's vertices. A piece that matches neither keeps the iso limit.
+    """
+    junction, iso = segments
+    if _gap_to(midpoint, iso) <= 1e-9:
+        return False
+    return _gap_to(midpoint, junction) <= JUNCTION_UV
+
+
+def pcurve_report(file, trims=()):
+    """Compare every written pcurve image against its spatial trim, face by face.
+
+    Returns
+    -------
+    tuple
+        ``(invalid, rows)``: the count of boundaries without both curves or PREF 1, and one
+        row per boundary with its entity id, piece counts and the worst image distance in mm
+        for its iso and for its junction pieces.
+    """
     from pyflightstream.workspace._geom_gate import _boundary_curves, _pieces, _Surface
     from pyflightstream.workspace._iges_names import read_iges_names
     from pyflightstream.workspace._iges_write import read_iges
@@ -322,7 +372,9 @@ def trim_checks(file):
     document = read_iges(file)
     by_id = {entity["id"]: entity for entity in document["entities"]}
     boundaries = [e for e in document["entities"] if e["type"] == 142]
-    invalid, worst = int(not boundaries), 0.0
+    scale_mm = 1000 * METRES_PER_UNIT[read_iges_names(file).unit or "m"]
+    segments = trim_segments(trims)
+    invalid, rows = int(not boundaries), []
     for boundary in boundaries:
         parametric, spatial = _boundary_curves(boundary)
         invalid += int(not parametric or not spatial or int(boundary["parameters"][5]) != 1)
@@ -336,14 +388,62 @@ def trim_checks(file):
         surface_entity = by_id[int(boundary["parameters"][2])]
         surface = _Surface(surface_entity["parameters"])
         samples = _curve_samples(xyz)
+        row = {"boundary": boundary["id"], "iso_pieces": 0, "junction_pieces": 0}
+        worst = {False: 0.0, True: 0.0}
         for curve in uv:
+            kind = bool(len(trims)) and written_junction(
+                curve.at((curve.low + curve.high) / 2)[:2], segments
+            )
+            row["junction_pieces" if kind else "iso_pieces"] += 1
             for t in np.linspace(curve.low, curve.high, 17):
                 u, v = curve.at(t)[:2]
                 point = _image(surface.at(float(u), float(v)), surface_entity, by_id)
-                worst = max(worst, _curve_distance(point, xyz, samples))
-    units = read_iges_names(file).unit or "m"
-    scale_mm = 1000 * METRES_PER_UNIT[units]
+                worst[kind] = max(worst[kind], _curve_distance(point, xyz, samples))
+        row["iso_mm"], row["junction_mm"] = worst[False] * scale_mm, worst[True] * scale_mm
+        rows.append(row)
+    return invalid, rows
+
+
+def trim_checks(file, trims=()):
+    """Check every written pcurve image against its spatial trim, with PREF 1 required.
+
+    Iso trims are held to 1e-4 mm. The curved junction edges the ``trims`` declare are held to
+    the 0.01 mm sewing tolerance of the assembly junctions.
+    """
+    return pcurve_checks(*pcurve_report(file, trims))
+
+
+def pcurve_checks(invalid, rows):
+    """Return the trim checks of a :func:`pcurve_report`: PREF 1, iso trims, junction edges."""
+    junctions = sum(row["junction_pieces"] for row in rows)
+    if junctions:
+        junction = measure(
+            "propeller.pcurve_3d_junction",
+            max(row["junction_mm"] for row in rows),
+            SEW_MM,
+            "mm",
+            note=f"{junctions} junction pieces",
+        )
+    else:
+        junction = check_entry(
+            "propeller.pcurve_3d_junction", "skipped", note="no junction trims declared"
+        )
     return [
         measure("propeller.trim_preference", invalid, 0, "boundaries"),
-        measure("propeller.pcurve_3d", worst * scale_mm, 1e-4, "mm"),
+        measure("propeller.pcurve_3d", max([r["iso_mm"] for r in rows], default=0.0), 1e-4, "mm"),
+        junction,
     ]
+
+
+def declared_trims(export):
+    """Return the plain-data source trims of every piece of an export, or none without records."""
+    manifest = export.get("manifest")
+    if not manifest or not Path(manifest).is_file():
+        return []
+    folder = Path(manifest).parent
+    trims = []
+    for piece in json.loads(Path(manifest).read_text(encoding="utf-8"))["pieces"]:
+        layout = folder / piece.get("layout", "")
+        if layout.is_file():
+            trims += json.loads(layout.read_text(encoding="utf-8")).get("source_trims", [])
+    return trims

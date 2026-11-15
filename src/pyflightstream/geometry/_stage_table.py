@@ -426,7 +426,11 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         "Propeller written trim curves",
         False,
         ("propeller.trim_preference", "zero missing curves or non-PREF-1 boundaries"),
-        ("propeller.pcurve_3d", "1e-4 mm between the pcurve image and spatial trim"),
+        ("propeller.pcurve_3d", "1e-4 mm between the pcurve image and spatial iso trim"),
+        (
+            "propeller.pcurve_3d_junction",
+            "0.01 mm sewing tolerance between the pcurve image and spatial junction trim",
+        ),
     ),
     _row(
         "S11.R",
