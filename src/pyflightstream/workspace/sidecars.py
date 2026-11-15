@@ -24,6 +24,7 @@ Size exemption: one schema of a boundary sidecar, with its reader, writer and re
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tomllib
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -49,6 +50,13 @@ from pyflightstream.cases.workflows._vocabulary import (
     RAW_MESH_FORMATS,
     SIMULATION_SUFFIX,
 )
+from pyflightstream.workspace._mesh_frame import (
+    EXPECTED_MESH_FRAME,
+    MeshFrameError,
+    convert_obj_frame,
+    mesh_frame_record,
+    parse_mesh_frame,
+)
 
 __all__ = [
     "BASE_REGIONS_TABLE",
@@ -57,6 +65,9 @@ __all__ = [
     "GEOMETRY_SIDECAR_KEYS",
     "IMPORT_TABLE",
     "INVENTORY_SUFFIX",
+    "MESH_FRAME_FOLDER",
+    "MESH_FRAME_KEY",
+    "MESH_FRAME_RECORD",
     "OBJ_SUFFIX",
     "PROVENANCE_SUFFIX",
     "RAW_MESH_CONDITION_KEYS",
@@ -67,6 +78,10 @@ __all__ = [
     "WAKE_TERMINATION_TABLE",
     "boundaries_for_matrix",
     "read_marking_record",
+    "read_mesh_frame",
+    "read_mesh_frame_record",
+    "refuse_a_frame_that_cannot_be_converted",
+    "stage_mesh_frame",
     "ensure_inventory",
     "inventory_sidecar",
     "obj_boundary_names",
@@ -1047,6 +1062,155 @@ def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
         ) from error
 
 
+#: The optional top-level key naming the frame a mesh is built in (PFS-2233).
+MESH_FRAME_KEY = "mesh_frame"
+
+
+def read_mesh_frame(sidecar: str | Path) -> tuple[str, str, str] | None:
+    """Return the ``mesh_frame`` a geometry's sidecar declares, or None where it states none.
+
+    The key is a list of three words, what the mesh's +x, +y and +z point to,
+    as ``mesh_frame = ["forward", "left", "up"]``. pyflightstream expects
+    ``["aft", "right", "up"]``, and an absent key means exactly that, with no note.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` beside the geometry; a missing file states nothing.
+
+    Returns
+    -------
+    tuple of str or None
+        The three words, lower case; None when the sidecar is absent or states no frame.
+
+    Raises
+    ------
+    InputArtifactError
+        A declaration that is not three accepted words naming three axes, or that is
+        left-handed, naming the sidecar and the declaration.
+    """
+    path = Path(sidecar)
+    if not path.is_file():
+        return None
+    stated = _sidecar_data(path).get(MESH_FRAME_KEY)
+    if stated is None:
+        return None
+    try:
+        return parse_mesh_frame(stated)
+    except MeshFrameError as error:
+        raise InputArtifactError(f"{path}: {error}.") from error
+
+
+# --- the mesh frame, staged (PFS-2233, FR-3792): the library file is never rewritten;
+# a mesh declared in another frame is converted into a copy in the simulation's own
+# mesh_frame/ folder, beside mesh_frame.json, the record the run record carries.
+
+#: The folder of the simulation that holds the converted copy and its record.
+MESH_FRAME_FOLDER = "mesh_frame"
+#: The record, a JSON file in that folder.
+MESH_FRAME_RECORD = "mesh_frame.json"
+
+
+def refuse_a_frame_that_cannot_be_converted(geometry: str | Path) -> tuple[str, str, str] | None:
+    """Return the frame the geometry's sidecar declares, refusing the ones no conversion serves.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        The mesh the run opens.
+
+    Returns
+    -------
+    tuple of str or None
+        The declared frame, or None where the sidecar states none.
+
+    Raises
+    ------
+    InputArtifactError
+        A malformed or left-handed declaration, a saved simulation declared in a
+        frame other than the expected one, or a mesh format other than OBJ declared
+        in one.
+    """
+    path = Path(geometry)
+    sidecar = boundaries_for_matrix(path)
+    declared = read_mesh_frame(sidecar)
+    if declared is None or declared == EXPECTED_MESH_FRAME:
+        return declared
+    if path.suffix.lower() == ".fsm":
+        raise InputArtifactError(
+            f"{sidecar}: mesh_frame = {list(declared)!r} is not the expected frame "
+            f"{list(EXPECTED_MESH_FRAME)!r}, and {path.name} is a saved simulation, the solver's "
+            "own file, which is not rewritten offline. Save it from a mesh in the expected "
+            "frame, or remove the declaration if the file is already in it."
+        )
+    if path.suffix.lower() != ".obj":
+        raise InputArtifactError(
+            f"{sidecar}: mesh_frame = {list(declared)!r} is not the expected frame "
+            f"{list(EXPECTED_MESH_FRAME)!r}, and {path.name} is not an OBJ, the only mesh "
+            "format converted. Write the mesh as an OBJ in the expected frame."
+        )
+    return declared
+
+
+def stage_mesh_frame(sim_dir: str | Path, geometry: str | Path) -> str | None:
+    """Convert the geometry to the expected frame inside the simulation folder, if declared.
+
+    Parameters
+    ----------
+    sim_dir : str or Path
+        The simulation's folder.
+    geometry : str or Path
+        The mesh as the library holds it.
+
+    Returns
+    -------
+    str or None
+        The converted copy's path, absolute, when the mesh is declared in another frame;
+        None otherwise, and the run opens the library's file as before.
+
+    Raises
+    ------
+    InputArtifactError
+        As :func:`refuse_a_frame_that_cannot_be_converted`.
+    """
+    folder = Path(sim_dir) / MESH_FRAME_FOLDER
+    if folder.is_dir():
+        shutil.rmtree(folder)
+    source = Path(geometry)
+    declared = refuse_a_frame_that_cannot_be_converted(source)
+    if declared is None:
+        return None
+    folder.mkdir(parents=True)
+    converted: Path | None = None
+    if declared != EXPECTED_MESH_FRAME:
+        converted = folder / source.name
+        convert_obj_frame(source, converted, declared)
+    record = mesh_frame_record(declared, source, converted)
+    _textio.write_text(folder / MESH_FRAME_RECORD, json.dumps(record, indent=2) + "\n")
+    return None if converted is None else str(converted.resolve())
+
+
+def read_mesh_frame_record(sim_dir: str | Path) -> dict[str, object] | None:
+    """Return the simulation's ``mesh_frame`` record, or None where the mesh declared none.
+
+    Parameters
+    ----------
+    sim_dir : str or Path
+        The simulation's folder.
+
+    Returns
+    -------
+    dict or None
+        ``declared``, ``matrix``, ``source_sha256`` and ``converted_sha256``, as
+        :func:`stage_mesh_frame` wrote them.
+    """
+    path = Path(sim_dir) / MESH_FRAME_FOLDER / MESH_FRAME_RECORD
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else None
+
+
 #: The tables of a geometry's sidecar that declare a raw mesh's boundary
 #: conditions (G02): the trailing edge, which every raw mesh a workflow
 #: imports declares, and two options that apply only when written.
@@ -1093,6 +1257,12 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "The sha256 of the file the faces were counted in; the post warns where a run's "
         "recorded sha256 of the geometry differs from it.",
         "a sha256, as text",
+    ),
+    MESH_FRAME_KEY: InputKey(
+        "The frame the mesh is built in: what the mesh's +x, +y and +z point to. Absent means "
+        "x aft, y right, z up, the expected frame; another right-handed axis-aligned frame is "
+        "converted before the solver reads the mesh, and a left-handed one is refused.",
+        'a list of three words, as ["forward", "left", "up"]',
     ),
     IMPORT_TABLE: InputKey(
         "How a raw mesh is imported: the unit it is written in and the operations "

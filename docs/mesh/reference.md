@@ -1236,6 +1236,38 @@ bound any widening:
 * Until that need materializes, converting external formats to OBJ
  with your own tooling is the supported route.
 
+## The mesh frame
+
+pyflightstream expects every mesh in x aft, y right, z up. A mesh built in another
+axis-aligned right-handed frame declares it in the geometry's `boundaries.toml` sidecar,
+as the optional top-level key `mesh_frame`, the direction the mesh's own +x, +y and +z
+point to:
+
+```toml
+mesh_frame = ["forward", "left", "up"]
+```
+
+The words are `aft`, `forward`, `right`, `left`, `up` and `down`, in any case, and the
+three name three different axes. An absent key is `["aft", "right", "up"]`, with no note.
+
+- A declared frame other than the expected one is converted before the solver reads the
+  mesh: the vertices and normals of the OBJ are mapped into a copy in the simulation's
+  `mesh_frame/` folder, with the face order, the group names and the group order kept,
+  and the solver opens that copy. The library file is not rewritten.
+- A left-handed declaration (a mirrored mesh) is refused, naming it.
+- A saved simulation (`.fsm`) that declares another frame is refused, naming the
+  declaration: the solver's own file is not rewritten offline. So is a mesh format other
+  than OBJ.
+- `pyfs-workspace geometry mark-boundaries` and the FSI route do not convert a mesh to the
+  expected frame yet: an OBJ that declares another frame is refused there at plan, naming
+  the declared and the expected frame.
+- The run record carries `mesh_frame` (`declared`, `matrix`, `source_sha256`,
+  `converted_sha256`).
+- Reference points (the moment point, rotor hubs and axes, probe lines) are always stated
+  in the expected frame.
+
+The definition is [The mesh frame](../definitions/the-mesh-frame.md#the-mesh-frame).
+
 ## The four rotor facts a reference artifact once carried
 
 The reference artifact refuses the retired fields `rotation`, `blade_travel`,

@@ -249,7 +249,8 @@ def rotor_case(**overrides) -> SimCase:
         "BLADES": "4",
         "DELTA_TIME": "0.0001",
         "TIME_ITERATIONS": "720",
-        "LAST_REVS_AVG": "0.25",
+        # One revolution is whole blade passages of a rotor of any blade count (PFS-2235).
+        "LAST_REVS_AVG": "1",
     }
     for key, value in overrides.items():
         if value is None:
@@ -1044,7 +1045,7 @@ def test_the_conversion_agrees_with_the_coupled_driver_that_owns_the_other_copy(
 
 def test_the_window_comes_off_the_row():
     """The whole point: nobody types this twice."""
-    window = ExportWindow.from_case(rotor_case())
+    window = ExportWindow.from_case(rotor_case(LAST_REVS_AVG="0.25"))
     assert window.stated_form == "revolutions" and window.stated_value == 0.25
     assert window.steps == 125
 
@@ -1132,7 +1133,7 @@ def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
     window of 125 steps. Since 0.26.0 the migrated row states LAST_REVS_AVG,
     so the time average and per-blade table share that quarter revolution;
     the phase-locked reduction holds one blade passage."""
-    plan = _reduction_windows()(rotor_case())
+    plan = _reduction_windows()(rotor_case(LAST_REVS_AVG="0.25"))
     assert plan["time_iterations"] == 720 and plan["blades"] == 4
     assert plan["steps_per_revolution"] == pytest.approx(STEPS_PER_REV)
     assert plan["time_average"]["windows"] == [[596, 720]]
@@ -1192,7 +1193,9 @@ def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
 
 
 def test_a_rotor_row_with_no_blade_count_skips_the_two_blade_reductions_naming_it():
-    plan = _reduction_windows()(rotor_case(BLADES=None).model_copy(update={"rotors": {}}))
+    plan = _reduction_windows()(
+        rotor_case(BLADES=None, LAST_REVS_AVG="0.25").model_copy(update={"rotors": {}})
+    )
     assert plan["time_average"]["windows"] == [[596, 720]], "the time average needs no blades"
     assert "BLADES" in plan["per_blade"]["skipped"]
     assert "BLADES" in plan["phase_locked"]["skipped"]
@@ -1713,7 +1716,7 @@ def rotor_case_full() -> SimCase:
     """
     return rotor_case(
         LAST_REVS_AVG=None,
-        LAST_ITERS_AVG="36",
+        LAST_ITERS_AVG="50",
         ROTOR_AXIS="X",
         ROTOR_ORIGIN="0.1,0.2,0.3",
         MOVING_BOUNDARIES="1,2",

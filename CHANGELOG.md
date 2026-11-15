@@ -33,6 +33,10 @@ A command-line user of a deprecated key or flag now sees the deprecation, once, 
 
 The setup page now states how a Python user builds runtime settings: `SolverSettings(runtime={...})` validates a mapping, and `RuntimeSettings` stays a private type (naming it public would add it to the `pyflightstream.cases` root, whose names are fixed). migration: none.
 
+A mesh declares its frame in its boundaries sidecar with the optional key `mesh_frame`, for example `mesh_frame = ["forward", "left", "up"]` (what the mesh's +x, +y and +z point to), and a mesh in another axis-aligned right-handed frame is converted to the expected one (x aft, y right, z up) before the solver reads it. The converted copy sits in the simulation's `mesh_frame/` folder, keeps the face order and the group names, and the run record carries `mesh_frame` (`declared`, `matrix`, `source_sha256`, `converted_sha256`). A left-handed declaration, a saved simulation declared in another frame, a mesh format other than OBJ declared in another frame, and an OBJ declared in another frame on the FSI route or in `geometry mark-boundaries` (which do not convert yet) are refused, naming the declaration. migration: none for a mesh with no `mesh_frame` key, which is read as before.
+
+The plan refuses an `unsteady_rotor` row whose averaging window is not a whole number of blade passages, at least one, of every rotor the row turns, naming the passages it spans and the nearest valid window. migration: write the nearest valid `LAST_REVS_AVG` or `LAST_ITERS_AVG` the refusal names; a row whose window already spans whole passages is unchanged.
+
 ### Removed
 
 The post no longer writes the super file (`SUPER-*.csv`) and its superset report, the unsteady polar (`*_uns_avg.csv`), the per-group polar split by Mach (`P<sim>-<sweep>_<GROUP>.csv`) or the standalone rotor table (`P<sim>-<ROTOR>_rotor.csv`): the FAM and group files carry what they held. migration: docs/upgrading.md#0580-post-tree.

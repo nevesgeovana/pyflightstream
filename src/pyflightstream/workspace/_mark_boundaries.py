@@ -45,6 +45,7 @@ from pyflightstream.workspace._mark_rims import (
     rim_runs,
     saved_cross_edges,
 )
+from pyflightstream.workspace._mesh_frame import EXPECTED_MESH_FRAME
 from pyflightstream.workspace.sidecars import (
     boundaries_for_marking,
     inventory_sidecar,
@@ -53,6 +54,7 @@ from pyflightstream.workspace.sidecars import (
     obj_face_counts,
     read_boundary_declarations,
     read_inventory,
+    read_mesh_frame,
     read_mesh_import,
 )
 from pyflightstream.workspace.wake_edges import (
@@ -259,6 +261,16 @@ def _marking_inputs(mesh):
             f"{source}: mark-boundaries requires an existing .obj; name the OBJ file to mark"
         )
     sidecar = boundaries_for_marking(source)
+    frame = read_mesh_frame(sidecar)
+    if frame is not None and frame != EXPECTED_MESH_FRAME:
+        # The solver would read this mesh unconverted, and a saved simulation made from it
+        # would be in the wrong frame without a word: refuse instead.
+        raise InputArtifactError(
+            f"{sidecar}: mesh_frame = {list(frame)!r} is not the expected frame "
+            f"{list(EXPECTED_MESH_FRAME)!r}; the FSI route and mark-boundaries do not convert "
+            "a mesh to the expected frame yet. Write the OBJ in the expected frame and "
+            "remove the declaration."
+        )
     declarations = read_boundary_declarations(sidecar)
     if declarations.fs_build is None:
         raise InputArtifactError(

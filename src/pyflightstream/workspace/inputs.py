@@ -197,7 +197,10 @@ from pyflightstream.workspace.sidecars import (
     obj_boundary_names,
     read_inventory,
     read_marking_record,
+    read_mesh_frame,
+    read_mesh_frame_record,
     read_mesh_import,
+    stage_mesh_frame,
     write_inventory,
 )
 
@@ -262,7 +265,10 @@ __all__ = [
     "obj_boundary_names",
     "read_hpc_profile",
     "read_inventory",
+    "read_mesh_frame",
+    "read_mesh_frame_record",
     "read_mesh_import",
+    "stage_mesh_frame",
     "refuse_empty_selections",
     "resolve_build",
     "resolve_executable",

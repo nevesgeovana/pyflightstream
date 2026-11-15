@@ -32,6 +32,7 @@ from pyflightstream._digest import (
 )
 from pyflightstream._errors import (
     EmptySelectionWarning,
+    InputArtifactError,
     PyflightstreamWarning,
     demote,
 )
@@ -122,6 +123,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     post_stages,
+    stage_mesh_frame,
 )
 from pyflightstream.workspace._settings_file import (
     TYPED_ACCEPTANCE_SOURCE,
@@ -1542,7 +1544,10 @@ def _prepare_case(
     if case.geometry is not None:
         try:
             inputs_sha256 = workspace.stage_inputs(case.sim_id, [case.geometry])
-        except WorkspaceError as error:
+            # PFS-2233: a mesh declared in another frame is converted into a copy in
+            # the simulation's own folder, and the solver opens that copy.
+            converted = stage_mesh_frame(workspace.sim_dir(case.sim_id), case.geometry)
+        except (WorkspaceError, InputArtifactError) as error:
             return recipe, str(error), {}, None
         staged = workspace.sim_dir(case.sim_id) / "inputs" / Path(case.geometry).name
         # ABSOLUTE, and not by anything done here: this path is EMITTED
@@ -1552,7 +1557,7 @@ def _prepare_case(
         # resolves its root once, at construction, which is what makes
         # every path derived from it safe to hand to the solver; the
         # reasoning is there rather than repeated at each boundary.
-        staged_geometry = str(staged)
+        staged_geometry = converted if converted is not None else str(staged)
     # Every disc's native-format copy is parked by the builder and hashed by
     # _write_pending_files. Check each original still exists before building.
     profiles = set(case.actuator_profiles.values())

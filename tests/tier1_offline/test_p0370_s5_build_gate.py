@@ -30,7 +30,7 @@ def test_normal_probes_of_an_unmeasured_version_are_warned_and_emitted(recipe, v
             **(
                 {"LAST_ITERS_AVG": 2}
                 if recipe == "unsteady"
-                else {"LAST_REVS_AVG": 0.25, "RPM": 1200, "ROTOR_AXIS": "X", "BLADES": 1}
+                else {"LAST_REVS_AVG": 1, "RPM": 1200, "ROTOR_AXIS": "X", "BLADES": 1}
             ),
         },
         rotors={
