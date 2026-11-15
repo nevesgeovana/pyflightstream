@@ -33,3 +33,12 @@ def test_the_index_of_definitions_marks_the_retired_entries():
     for anchor in ("time_average", "per_blade", "the-unsteady-polar"):
         entry = re.search(rf'<a id="{anchor}"></a>\s+(.*)', index)
         assert entry is not None and "(retired" in entry.group(1), anchor
+
+
+def test_the_mesh_reference_says_why_build_accept_and_from_sidecar_sit_in_pyfs_mesh():
+    reference = DEFINITIONS.parent / "mesh" / "reference.md"
+    text = " ".join(reference.read_text(encoding="utf-8").split())
+    assert (
+        "`build`, `accept` and `from-sidecar` sit in `pyfs-mesh` because their output is the mesh "
+        "the run uses, though `from-sidecar` reads CAD."
+    ) in text
