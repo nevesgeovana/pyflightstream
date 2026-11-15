@@ -422,11 +422,12 @@ New public names, importable from `pyflightstream.workspace`: `sector_to_wheel`
 and `WheelResult`, `merge_objs` and `MergedMesh`, `sector_remesh`,
 `power_off_body` and `RemeshResult`.
 
-`[products] rotor_cn_slope = true` (default false) writes
+`[products] rotor_cn_slope = true` (default false) wrote
 `polars/P<sim>-<ALIAS>_cn_slope.csv` beside each rotor table: per advance ratio,
 the secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest
-distinct `|ALPHA|`. A J with one incidence reads `NA` and is named under
-`skipped` (FR-3502 to FR-3504).
+distinct `|ALPHA|`. Since 0.58.0 the post writes no slope table: it warns and names
+the skip under `polars/<sim>#rotor_cn_slope` in `products.json`, until PFS-2241 reads
+the slope from the rotor group RCOEF files (FR-3502 to FR-3504).
 
 FlightStream 26.100: `geometry mark-boundaries` marks a file entry by one
 vertex file and one `TRAILING_EDGES_IMPORT` per rim, all before the first base

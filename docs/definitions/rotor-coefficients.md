@@ -125,12 +125,14 @@ CMS = MS / (rho n^2 D^5)
 
 ### The normal-force slope against incidence
 
-`[products] rotor_cn_slope = true` (off by default) writes, beside each rotor
-table, `polars/P<sim>-<ALIAS>_cn_slope.csv`: the slope of the rotor's normal
-force coefficient `CN_<ALIAS>` against the incidence `ALPHA`, at each advance
-ratio the table holds. It is computed from the rotor table the post has just
-written, whatever the table states (steady, unsteady window average, or
-quasi-steady mean over clockings); no solver run is added.
+`[products] rotor_cn_slope = true` (off by default) is a named skip: the
+post writes no slope table, warns, and names the skip under `polars/<sim>#rotor_cn_slope`
+in `products.json`, because the standalone rotor table it was computed from is retired.
+PFS-2241 returns it, read from the rotor group RCOEF files. The definition below is the
+one that table will carry: the slope of the rotor's normal force coefficient
+`CN_<ALIAS>` against the incidence `ALPHA`, at each advance ratio the table holds,
+whatever the table states (steady, unsteady window average, or quasi-steady mean over
+clockings); no solver run is added.
 
 - **One row per distinct `J_<ALIAS>` of the table**, in ascending `J`. Rows of
   the table with the same `J` (rounded to six decimals) form one

@@ -786,13 +786,10 @@ An unavailable column warns and skips that trim while leaving its polar written.
 
 ### Rotor normal-force slope
 
-`[products] rotor_cn_slope = true` writes, beside each rotor table,
-`polars/P<sim>-<ALIAS>_cn_slope.csv`: one row per advance ratio `J` of the table, with the
-secant slope of `CN_<ALIAS>` against `ALPHA` between the two rows of lowest distinct
-`|ALPHA|` at that `J` (`CN_SLOPE_PER_DEG`, with both incidences and both `CN` values beside
-it). It reads the rotor table the post wrote and runs nothing. A `J` with one incidence
-only reads `NA` and is named under `skipped` in `products.json`. Off by default. The
-definition is in [the rotor coefficients](definitions/rotor-coefficients.md#the-normal-force-slope-against-incidence).
+`[products] rotor_cn_slope = true` writes no slope table: the post warns and
+names the skip under `polars/<sim>#rotor_cn_slope` in `products.json`, because the rotor
+table the slope was read from is retired. PFS-2241 returns it, read from the rotor group
+RCOEF files. Off by default. The definition of the slope it will carry is in [the rotor coefficients](definitions/rotor-coefficients.md#the-normal-force-slope-against-incidence).
 
 ### Merged polar
 
