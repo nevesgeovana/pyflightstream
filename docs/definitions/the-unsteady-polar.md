@@ -4,9 +4,14 @@ This page moved. An unsteady point is a row of the same polar files as a steady 
 values are the average of the plots history over the row's window: the families in
 [FAM-DIM](../pproc/fam-dim.md), [FAM-ACOEF](../pproc/fam-acoef.md) and
 [FAM-RCOEF](../pproc/fam-rcoef.md), the groups in [group files](../pproc/group-files.md#group-files).
-The 0.57.0 file `polars/P<sim>_<name>_uns_avg.csv` is retired in 0.58.0, see
+The earlier file `polars/P<sim>_<name>_uns_avg.csv` is retired, see
 [the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group). The
 averaging window is on [the averaging window](the-averaging-window.md).
+
+Far-field cells use `<QUANTITY>_FF_<METHOD>_<TARGET>`. When a row declares more than one entry of a
+method, every column of that method appends its entry name at every point, as in
+`CDI_FF_C_TOTAL_c05`; a single declared entry writes `CDI_FF_C_TOTAL`. See
+[the far-field family](the-far-field-family.md).
 
 <a id="the-merged-polar"></a>
 

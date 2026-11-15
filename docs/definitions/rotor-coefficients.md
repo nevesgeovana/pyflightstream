@@ -7,8 +7,8 @@ row's own rotor. The columns of both files are in [FAM-RCOEF](../pproc/fam-rcoef
 `MTIP<id>` and `MHEL<id>` of rotor `<id>`
 ([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)) are in
 the run block of every file. The coefficients make physical sense for **one** rotor and not for
-several summed: the diameters and speeds that normalise them are different numbers. The 0.57.0
-standalone rotor table and its `CN`, `CS`, `CMN`, `CMS` columns are retired in 0.58.0, see
+several summed: the diameters and speeds that normalise them are different numbers. The earlier
+standalone rotor table and its `CN`, `CS`, `CMN`, `CMS` columns are retired, see
 [the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group).
 Missing recorded ALPHA or BETA leaves the shaft angle and ETAW as `NA`, with
 a warning naming the rows; unsteady axis coefficients refuse missing attitude.
@@ -44,7 +44,7 @@ uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
   no window key, or a record that states no clock of the rotor, averages every
   rotor over the row's window.
 
-The 0.57.0 rotor table is retired, see [the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group).
+The earlier standalone rotor table is retired, see [the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group).
 
 ### `ETAW`
 
@@ -122,7 +122,7 @@ CMS = MS / (rho n^2 D^5)
 
 `[products] rotor_cn_slope = true` (off by default) is a named skip: the
 post writes no slope table, warns, and names the skip under `polars/<sim>#rotor_cn_slope`
-in `products.json`, because the standalone 0.57.0 rotor table it was computed from is retired.
+in `products.json`, because the standalone rotor table it was computed from is retired.
 PFS-2241 returns it, read from the rotor group RCOEF files. The definition below is the
 one that table will carry: the slope of the rotor's normal force coefficient
 `CN_<ALIAS>` against the incidence `ALPHA`, at each advance ratio the table holds,
@@ -237,7 +237,7 @@ CFZ = Z / (RHO n^2 D^4)      CFY = Y / (RHO n^2 D^4)
 CMZ = N / (RHO n^2 D^5)      CMY = M / (RHO n^2 D^5)
 ```
 
-They replace the 0.57.0 rotor table's `CN, CS, CMN, CMS` of the rotor's `(T, S, N)` axes, retired in 0.58.0:
+They replace the retired rotor table's `CN, CS, CMN, CMS` of the rotor's `(T, S, N)` axes:
 `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS`.
 
 <a id="disc-loadings"></a>
