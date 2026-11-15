@@ -525,7 +525,10 @@ def _dominated_trim(key, base, spinner, data):
     if not role.startswith("spinner_"):
         trim = source_trim(key, base, options=data["options"])
         cut = spinner.junction["blade"].get(role)
-        return trim if cut is None else replace(trim, loop=cut_loop(trim.loop, cut))
+        if cut is None:
+            return trim
+        loop = cut_loop(trim.loop, cut)
+        return replace(trim, loop=loop, junction=loop[: len(cut) - 1])
     trim = iso_trim(key, key, (0.0, 1.0), (0.0, 1.0), role)
     if role in ("spinner_nose", "spinner_base"):
         # A nose or base sector has one collapsed side; its two seams get a midpoint vertex.

@@ -55,6 +55,11 @@ class Trim:
     inner : tuple
         Inner loops, in the form of ``loop``; none is written until the reader probe shows
         that a reader honours them.
+    junction : tuple
+        The pieces of ``loop`` that run along a junction with a dominant component. Their
+        image in space is curved, so a written check measures them against the sewing
+        tolerance; every other piece is an iso line. Every piece of an inner loop is a
+        junction piece.
     """
 
     face: str
@@ -62,16 +67,20 @@ class Trim:
     loop: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
     role: str = ""
     inner: tuple = ()
+    junction: tuple = ()
 
     def to_dict(self) -> dict:
         """Return the plain-data form: lists and numbers only."""
-        return {
+        record = {
             "face": self.face,
             "base": self.base,
             "role": self.role,
             "loop": [[list(a), list(b)] for a, b in self.loop],
             "inner": [[[list(a), list(b)] for a, b in loop] for loop in self.inner],
         }
+        if self.junction:
+            record["junction"] = [[list(a), list(b)] for a, b in self.junction]
+        return record
 
 
 def iso_trim(face, base, u, v, role="") -> Trim:
