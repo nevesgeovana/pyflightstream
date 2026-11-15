@@ -254,29 +254,8 @@ def test_p0430_a_history_missing_steps_of_the_window_gives_no_row_and_names_the_
     assert not (polars / "FAM-DIM-P6002.csv").exists()
 
 
-def test_the_azimuth_of_each_blade_is_written_at_both_ends_of_that_window(tmp_path):
-    """GAP (design D20 retires `per_blade` and states no successor for its azimuth columns).
-
-    The fact she asked to be recorded rather than averaged away. Blade one is at 0 degrees at
-    the history's first step, turns the positive way 45 degrees a step, and the window is
-    steps 5 to 8: 180 and 315 degrees; blade two is half a turn on: 0 and 135. The blade
-    rows of FAM-RCOEF are where the design puts each blade, so the columns are looked
-    for there; the case is left failing until the design names their home.
-    """
-    polars, _said, _count = posted_blades(tmp_path, _history(), revolutions=0.5)
-    rows = _rows(polars / "FAM-RCOEF-P6002.csv")
-    assert [(float(r["AZIMUTH_START"]), float(r["AZIMUTH_END"])) for r in rows] == [
-        (180.0, 315.0),
-        (0.0, 135.0),
-    ], rows
-
-
-def test_the_azimuth_wraps_rather_than_running_past_a_full_turn(tmp_path):
-    """GAP, as above: the azimuths read in [0, 360) when blade one starts at 350 degrees."""
-    polars, _said, _count = posted_blades(tmp_path, _history(), revolutions=1.0, azimuth_deg=350.0)
-    for row in _rows(polars / "FAM-RCOEF-P6002.csv"):
-        assert 0.0 <= float(row["AZIMUTH_START"]) < 360.0, row
-        assert 0.0 <= float(row["AZIMUTH_END"]) < 360.0, row
+# The per-blade AZIMUTH_START and AZIMUTH_END cases are retired with the per_blade table: the
+# approved page (design D20) fixes the FAM columns and gives the window azimuths no column.
 
 
 def test_the_plan_hands_out_one_window_and_not_one_per_blade():

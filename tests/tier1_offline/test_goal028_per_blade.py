@@ -17,15 +17,7 @@ family: `FX_MRP_Blade1`. The family row carries them with the family removed, `F
 so two blades line up under one heading. A column the plots hold that is no blade's
 (the total, a probe) is no row of the family files.
 
-THE AZIMUTH is the sections table's: where the blade is AT a step,
-
-    (blade1.azimuth_deg + k 360/blades + sense STEP 360/steps_per_revolution) mod 360
-
-with `k` the blade's position in the rotor's own list and `sense` the sign of the
-rotor's speed. Expected values below are that formula worked by hand. The design names no
-home for the azimuth columns since D20 retired the table that held them: those cases look
-for `AZIMUTH_START` and `AZIMUTH_END` in the blade's FAM-RCOEF row and are left failing
-until it does.
+The window azimuths of a blade have no column since design D20 retired the per_blade table.
 """
 
 from __future__ import annotations
@@ -76,38 +68,16 @@ def test_a_row_holds_that_blades_own_columns_under_a_shared_heading(tmp_path):
     assert float(rows[1]["FZ_MRP"]) == pytest.approx(650.0)
 
 
-def test_each_row_says_where_its_blade_was_when_the_window_opened_and_closed(tmp_path):
-    """GAP (see the module docstring): the azimuth columns have no home in the 0.58.0 files."""
-    polars, _said, _count = _table(tmp_path, rpm=-1200.0, azimuth_deg=90.0)
-    rows = _rows(polars / "FAM-RCOEF-P6002.csv")
-    # 90 degrees a step, turning the NEGATIVE way, blade one's datum at 90:
-    # step 5: 90 - 450 = -360 -> 0;   step 8: 90 - 720 = -630 -> 90.
-    assert (float(rows[0]["AZIMUTH_START"]), float(rows[0]["AZIMUTH_END"])) == (0.0, 90.0)
-    # Blade two is half a turn on: 180 and 270.
-    assert (float(rows[1]["AZIMUTH_START"]), float(rows[1]["AZIMUTH_END"])) == (180.0, 270.0)
+# The window-azimuth cases (AZIMUTH_START and AZIMUTH_END of each blade, and the whole-wheel
+# spacing of a two-blade sector) are retired with the per_blade table: the approved page
+# (design D20) fixes the FAM columns and gives the window azimuths no column.
 
 
 def test_a_rotor_whose_clock_the_record_does_not_state_still_gets_its_rows(tmp_path):
-    """The averages need no speed; only the azimuths do, and they read `NA`, never zero.
-
-    GAP on its second half (see the module docstring): the first half, the rows and their
-    averages, holds in the family files; the azimuth columns have no home there.
-    """
+    """The averages need no speed: the rows and their averages hold without a stated rpm."""
     polars, _said, _count = _table(tmp_path, rpm=None)
     rows = _rows(polars / "FAM-DIM-P6002.csv")
     assert len(rows) == 2 and float(rows[0]["FX_MRP"]) == pytest.approx(43.5)
-    assert {r["AZIMUTH_START"] for r in _rows(polars / "FAM-RCOEF-P6002.csv")} == {NOT_APPLICABLE}
-
-
-def test_a_sector_carrying_two_blades_of_four_spaces_its_blades_by_the_whole_wheel(tmp_path):
-    """The spacing is the ROTOR's blade count; the rows are the blades the mesh carries.
-
-    GAP (see the module docstring): the azimuth columns have no home in the 0.58.0 files.
-    """
-    polars, _said, _count = _table(tmp_path, blades=4, rpm=1200.0)
-    rows = _rows(polars / "FAM-RCOEF-P6002.csv")
-    # Step 5 of 90 degrees a step is 450 -> 90; blade two is a QUARTER turn on: 180.
-    assert [float(r["AZIMUTH_START"]) for r in rows] == [90.0, 180.0]
 
 
 def test_plots_holding_no_column_of_any_blade_say_so_by_name(tmp_path):
