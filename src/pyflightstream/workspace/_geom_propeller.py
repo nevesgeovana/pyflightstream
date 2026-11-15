@@ -276,15 +276,37 @@ def _image(point, entity, by_id):
     return matrix[:, :3] @ point + matrix[:, 3]
 
 
-def _curve_distance(point, curves):
-    best = float("inf")
+def _curve_samples(curves):
+    """Return each curve's 33-point search grid, its points and a bound on its chords."""
+    result = []
     for curve in curves:
+        grid = np.linspace(curve.low, curve.high, 33)
+        points = np.array([curve.at(float(t)) for t in grid])
+        chord = float(np.linalg.norm(np.diff(points, axis=0), axis=1).max())
+        result.append((grid, points, 2 * chord))
+    return result
+
+
+def _curve_distance(point, curves, samples=None):
+    """Return the distance from ``point`` to the nearest of ``curves``.
+
+    Each curve is searched from its nearest grid point and refined by a bounded scalar
+    minimisation. A curve whose grid lies farther than the best distance found plus twice its
+    longest grid chord cannot hold a nearer point and is not refined, so the result is the
+    minimum over every curve, as before.
+    """
+    samples = _curve_samples(curves) if samples is None else samples
+    coarse = [float(np.linalg.norm(points - point, axis=1).min()) for _, points, _ in samples]
+    best = float("inf")
+    for index in np.argsort(coarse):
+        curve, (grid, points, margin) = curves[index], samples[index]
+        if coarse[index] - margin > best:
+            continue
 
         def error(t, curve=curve):
             return float(np.linalg.norm(curve.at(t) - point))
 
-        grid = np.linspace(curve.low, curve.high, 33)
-        j = min(range(len(grid)), key=lambda i: error(grid[i]))
+        j = int(np.argmin(np.linalg.norm(points - point, axis=1)))
         low, high = grid[max(0, j - 1)], grid[min(len(grid) - 1, j + 1)]
         opt = minimize_scalar(error, bounds=(low, high), method="bounded", options={"xatol": 1e-14})
         best = min(best, error(curve.low), error(curve.high), float(opt.fun))
@@ -313,11 +335,12 @@ def trim_checks(file):
             continue
         surface_entity = by_id[int(boundary["parameters"][2])]
         surface = _Surface(surface_entity["parameters"])
+        samples = _curve_samples(xyz)
         for curve in uv:
             for t in np.linspace(curve.low, curve.high, 17):
                 u, v = curve.at(t)[:2]
                 point = _image(surface.at(float(u), float(v)), surface_entity, by_id)
-                worst = max(worst, _curve_distance(point, xyz))
+                worst = max(worst, _curve_distance(point, xyz, samples))
     units = read_iges_names(file).unit or "m"
     scale_mm = 1000 * METRES_PER_UNIT[units]
     return [
