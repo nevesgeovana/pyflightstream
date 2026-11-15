@@ -874,7 +874,7 @@ def _plots_products(
     else:
         target = ctx.target(ctx.out / relative)
         try:
-            done = write_plots_table(
+            written_table = write_plots_table(
                 target,
                 _march_plots_text(ctx.workspace, ctx.record_of.get(point.name), plots_path),
                 pol=ctx.sim_id,
@@ -889,7 +889,7 @@ def _plots_products(
                     "Restore or collect a complete plots export; run again if none exists."
                 )
             return
-        if done is None:
+        if written_table is None:
             _retire_unwritten(
                 ctx,
                 relative,
@@ -897,6 +897,7 @@ def _plots_products(
                 "the plots export holds no step, so no plots table is written",
             )
             return
+        done = written_table
         ctx.add(done, {"runs": ctx.sources[point.name]})
         ctx.plots_tables[point.name] = done
     if fluid:
