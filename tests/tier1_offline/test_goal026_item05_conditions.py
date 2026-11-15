@@ -33,6 +33,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.post import products
+from pyflightstream.post._run_block import run_block_columns
 
 #: What EVERY product must state, whichever family it belongs to. `J` is not
 #: here: a steady campaign has no advance ratio to state and requiring it would
@@ -40,7 +41,7 @@ from pyflightstream.post import products
 REQUIRED = ("ALPHA", "BETA", "MACH", "RE", "VINF", "ALT", "SREF", "CREF", "BREF")
 
 #: The four product families and the tuple that declares each one's columns.
-FAMILIES = ("POLAR_COLUMNS", "SECTION_COLUMNS", "PROBE_SPINE", "REDUCTION_COLUMNS")
+FAMILIES = ("RUN_BLOCK", "SECTION_COLUMNS", "PROBE_SPINE", "REDUCTION_COLUMNS")
 
 
 @pytest.mark.requirement("FR-89")
@@ -52,7 +53,7 @@ def test_every_product_family_states_the_condition_and_the_reference_lengths(fam
     test over all four reports the first family it meets and hides the other
     three, and the tree before this item was short in three different ways.
     """
-    columns = getattr(products, family)
+    columns = run_block_columns((), ()) if family == "RUN_BLOCK" else getattr(products, family)
     missing = sorted(set(REQUIRED) - set(columns))
     assert not missing, (
         f"{family} does not state {missing}, so a reader holding that file cannot "
@@ -67,7 +68,7 @@ def test_the_condition_columns_are_declared_in_one_place():
     will drift from the other three, which is exactly the state this item
     repairs. The constant is what a new writer composes rather than remembers.
     """
-    declared = set(products.FLIGHT_CONDITION_COLUMNS) | set(products.REFERENCE_LENGTH_COLUMNS)
+    declared = set(run_block_columns((), ()))
     assert set(REQUIRED) <= declared, (
         "the package declares no single home for the flight condition and the "
         f"reference lengths; these are in no shared tuple: {sorted(set(REQUIRED) - declared)}"

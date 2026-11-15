@@ -39,10 +39,8 @@ from pyflightstream.post._condition import (
     _on_the_vorticity_list,
 )
 from pyflightstream.post._tables import (
-    _REFERENCE_COLUMNS,
     COEFFICIENT_COLUMNS,
     CONTEXT_COLUMNS,
-    FLIGHT_CONDITION_COLUMNS,
     ProductError,
     ProductExistsError,
     read_csv_table,
@@ -53,7 +51,6 @@ from pyflightstream.results import DRAG_PAIRS, LoadsReport
 __all__ = [
     "DRAG_PRODUCT_COLUMNS",
     "GEOMETRY_ANALYSIS_FRAMES",
-    "POLAR_COLUMNS",
     "SWEEP_AXES",
     "PolarPoint",
     "declined_induced_drag",
@@ -70,40 +67,6 @@ __all__ = [
     "write_interpolated_polar",
 ]
 
-
-#: What the POLAR adds beside the twenty-four, which already carry `ALPHA`,
-#: `BETA`, `MACH` and `RE`.
-#:
-#: WHY THESE THREE SIT OUTSIDE THE TWENTY-FOUR and may never move inside:
-#: :data:`COEFFICIENT_COLUMNS` IS the custom format's own line 9 and a fixture
-#: pins it line by line, so a flight-condition column added there changes a
-#: file format that was specified byte by byte. `J` was already outside for
-#: exactly this reason; `VINF` and `ALT` join it rather than it.
-#: DERIVED, not listed: the shared condition minus the four the twenty-four
-#: already carry. It was a hand-kept triple, which is how a family drifts from
-#: the tuple every other family composes.
-_POLAR_CONDITION_COLUMNS: tuple[str, ...] = tuple(
-    name for name in FLIGHT_CONDITION_COLUMNS if name not in COEFFICIENT_COLUMNS
-)
-
-
-#: A polar table's columns: the polar, its description, the group, the
-#: reference block, the condition the twenty-four do not carry, the
-#: twenty-four coefficients.
-#:
-#: `POL` FIRST (G16), as in every table the post writes, under the
-#: name the run matrix gives its polar column, and the ONLY column that states the
-#: polar. in legacy releases this table named it `POLAR`, in the same first place; the
-#: polar stated twice, once under each name, is one value a reader has to choose
-#: between, so `POLAR` is gone from every table the post writes.
-POLAR_COLUMNS: tuple[str, ...] = (
-    POLAR_ID_COLUMN,
-    "DESCRIPTION",
-    "GROUP",
-    *_REFERENCE_COLUMNS,
-    *_POLAR_CONDITION_COLUMNS,
-    *COEFFICIENT_COLUMNS,
-)
 
 #: THE PRODUCT COLUMNS OF A DRAG SPLIT, by the loads columns they are summed from
 #: (FR-423), in the order the twenty-four place them: the profile or viscous part,

@@ -116,6 +116,25 @@ RETIRED_REDUCTION_SENTENCES: dict[str, str] = {
 #: REL1-004: why the writers of the 0.57.0 polar table and its file name are refused.
 _THE_0570_POLAR_TABLE = "It wrote or named the 0.57.0 polar table <polar>_M<mach>_g<NN>.csv."
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
+    **{
+        f"pyflightstream.{module}.POLAR_COLUMNS": RetiredName(
+            f"pyflightstream.{module}",
+            "POLAR_COLUMNS",
+            "the run_block and kinds column registry in products.json",
+            "0.58.0",
+            "It described the retired polar table; each current file kind has its own columns.",
+            "Read",
+        )
+        for module in ("post.polar", "post.products", "post._sim")
+    },
+    "pyflightstream.post.polar._POLAR_CONDITION_COLUMNS": RetiredName(
+        "pyflightstream.post.polar",
+        "_POLAR_CONDITION_COLUMNS",
+        "the run_block column registry in products.json",
+        "0.58.0",
+        "The condition of every current product is its canonical run block.",
+        "Read",
+    ),
     "pyflightstream.run.SWEEP_TABLE_NAME": RetiredName(
         owner="pyflightstream.run",
         old="SWEEP_TABLE_NAME",

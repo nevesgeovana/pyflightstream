@@ -34,6 +34,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import (
     ProductExistsError,
     PyflightstreamError,
@@ -109,7 +110,6 @@ from pyflightstream.post.point_tables import (
     write_sections_table,
     write_unsteady_probes_table,
 )
-from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
     swept_axes,
@@ -1147,3 +1147,7 @@ def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point
             stacklevel=2,
         )
     return str(faces.mesh_faces)
+
+
+# The old column tuple is refused at its former private re-export too.
+__getattr__ = removed_names_hook(__name__)

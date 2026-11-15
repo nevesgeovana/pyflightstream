@@ -88,6 +88,7 @@ in `post.polar`, `post.products` and `post`:
 | `write_polar_table`, one table with `DESCRIPTION`, `GROUP` and `CMB25` | the group files `polars/P<POL>-<GROUP>-DIM.csv`, `-ACOEF.csv` and `-RCOEF.csv` the post writes for each group |
 | `write_recorded_polar`, the tables `<polar>_M<mach>_g<NN>.csv` of a recorded folder and its sections and plots tables | record the runs in a workspace and post them (`write_campaign_products` or `pyfs-matrix post`): the FAM and group files, `sections/` and `time_history/` |
 | `polar_file_name`, `<polar>_M<mach>_g<NN>.csv` | `P<POL>-<GROUP>-<KIND>.csv`; a numbered group is `g<NN>` |
+| `post.polar.POLAR_COLUMNS`, `post.products.POLAR_COLUMNS`, `post._sim.POLAR_COLUMNS` and `post.polar._POLAR_CONDITION_COLUMNS` | read `products.json` `run_block` and `kinds`, the column registry of the current files; the old tuples are refused by name |
 
 ### The tree
 

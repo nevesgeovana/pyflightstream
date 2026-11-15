@@ -15,6 +15,28 @@ from tests.tier1_offline.test_p0540_wheel_obj import build_sector
 from tests.tier1_offline.test_p0560_morph import build, control, invoke
 
 
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [
+        ("pyflightstream.post.polar", "POLAR_COLUMNS"),
+        ("pyflightstream.post.products", "POLAR_COLUMNS"),
+        ("pyflightstream.post._sim", "POLAR_COLUMNS"),
+        ("pyflightstream.post.polar", "_POLAR_CONDITION_COLUMNS"),
+    ],
+)
+def test_p0580_legacy_polar_columns_are_refused_naming_the_current_registry(module, name):
+    """The removed table's registry cannot remain a successful second column contract."""
+    import importlib
+
+    from pyflightstream._retired_names import RetiredAttributeError
+
+    target = importlib.import_module(module)
+    with pytest.raises(RetiredAttributeError, match="products.json") as refused:
+        getattr(target, name)
+    assert name in str(refused.value) and "no longer accepted" in str(refused.value)
+    assert name not in target.__dict__
+
+
 def test_p0580_hub_rings_width_key_is_refused_naming_band_width(tmp_path, capsys):
     source = build(tmp_path)
     cfg = control(tmp_path, "[hub_rings]\nrings = 4\nwidth = 0.04\n")

@@ -259,7 +259,6 @@ from pyflightstream.post.point_tables import (
 from pyflightstream.post.polar import DRAG_PRODUCT_COLUMNS as DRAG_PRODUCT_COLUMNS
 from pyflightstream.post.polar import (
     GEOMETRY_ANALYSIS_FRAMES,
-    POLAR_COLUMNS,
     SWEEP_AXES,
     PolarPoint,
     swept_axes,
@@ -366,7 +365,6 @@ __all__ = [
     # The shared token for an inapplicable product value, exported for
     # readers without requiring an import from the private table module.
     "NOT_APPLICABLE",
-    "POLAR_COLUMNS",
     "SWEEP_AXES",
     "POLARS_DIR",
     "PROBES_DIR",

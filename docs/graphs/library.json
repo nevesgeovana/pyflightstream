@@ -8599,6 +8599,11 @@
     },
     {
       "source": "pyflightstream.post._sim",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._sim",
       "target": "pyflightstream._errors",
       "kind": "module"
     },

@@ -63,6 +63,8 @@ The geometry group of `pyfs-workspace` is split by what each verb acts on, mirro
 
 ### Removed
 
+The retired polar table's `POLAR_COLUMNS` and `_POLAR_CONDITION_COLUMNS` registries are removed and refused by name. migration: read the current `run_block` and `kinds` column registry in `products.json`.
+
 The run no longer writes `campaign_sweep.csv`: each polar's `TOTAL` group file is complete, and the guide's `Joining polars` stacks several. `pyfs-matrix run --sweep-csv`, the `sweep_csv` keyword of `run_matrix` and `run_campaign`, and `pyflightstream.run.SWEEP_TABLE_NAME` are removed and refused by name with that sentence; the post leaves a `campaign_sweep.csv` of an earlier layout as it finds it. FR-3777. migration: join the `TOTAL` group files (docs/upgrading.md#0580-post-tree).
 
 The post no longer writes the super file (`SUPER-*.csv`) and its superset report, the unsteady polar (`*_uns_avg.csv`), the per-group polar split by Mach (`P<sim>-<sweep>_<GROUP>.csv`) or the standalone rotor table (`P<sim>-<ROTOR>_rotor.csv`): the FAM and group files carry what they held. migration: docs/upgrading.md#0580-post-tree.
