@@ -4673,6 +4673,10 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # The rotor table and the axes block of the unsteady polar are retired since 0.58.0 (the
     # frames W, S and B are columns of every ACOEF file), so neither is a skip any more.
     assert sorted(manifest["skipped"]) == [
+        # 0.25.0 B05, named again in 0.58.0 (065def287): rotors that cannot be planned
+        # say so (the rotor table's polars/7001#rotor_tables until 0.57.0); the post of
+        # this run reads no matrix row for the simulation, so no rotor group is written.
+        "polars/P7001#rotors",
         # 0.31.0 (P0310-G2-PER-REV): the run's last revolution is partial, and the
         # per-revolution table says so rather than averaging it.
         "reductions/M200RE1177AL-020_per_revolution.csv#partial",
