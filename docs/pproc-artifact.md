@@ -571,10 +571,7 @@ the mixed row's history table is `<point>_probes_history.csv`. A single-kind
 row keeps `<point>_probes.csv`. A `[volume_section]` uses fluid plots on an
 unsteady row and may coexist with default entries.
 
-Aliases `"normal"` and `"unsteady"` are deprecated and resolve to `"default"`
-and `"instantaneous"`, respectively, warning once per entry. Other values are
-refused, naming both canonical values and both aliases. Serialized probe kinds
-always use the canonical value.
+Other values are refused, naming both kinds.
 
 ```toml
 [[probes]]

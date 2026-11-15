@@ -221,3 +221,18 @@ def test_p0580_audit_csv_flag_is_refused_naming_out(tmp_path, capsys):
     assert "--csv" in said and "--out" in said and "no longer accepted" in said, said
     assert "Nothing was written." in said
     assert not csv.exists()
+
+
+@pytest.mark.parametrize(("old", "new"), [("normal", "default"), ("unsteady", "instantaneous")])
+def test_p0580_probe_kind_alias_is_refused_naming_the_current_kind(old, new):
+    from pydantic import ValidationError
+
+    from pyflightstream.cases.pproc import ProbesSpec, VolumeSectionSpec
+    from tests.tier1_offline.test_g05_volume_section import KIND_TABLE
+
+    for spec in (VolumeSectionSpec, ProbesSpec):
+        with pytest.raises(ValidationError) as refused:
+            spec.model_validate({**KIND_TABLE, "kind": old})
+        said = str(refused.value)
+        assert f'kind = "{old}"' in said and f'kind = "{new}"' in said, said
+        assert "no longer accepted" in said, said

@@ -74,9 +74,9 @@
 
 \begin{frame}{The probe source follows the run type}
 \begin{itemize}\small
-  \item On an unsteady row, \code{kind = "unsteady"} (the default) uses
+  \item On an unsteady row, \code{kind = "instantaneous"} uses
         fluid plots for drawn lines and \code{points\_file} profiles.
-        On 26.124 and 26.125, \code{kind = "normal"} samples probe points
+        On 26.124 and 26.125, \code{kind = "default"} samples probe points
         once after the march; a row cannot mix the two kinds.
   \item Each vertex and selected parameter shares one plot counter.
         \code{probes/<point>\_probes.csv} holds both forms together,

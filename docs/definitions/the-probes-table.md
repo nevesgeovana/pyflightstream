@@ -79,6 +79,4 @@ fixed set. `pyfs-matrix plan` warns for each steady entry with a nonempty list,
 naming its entry number and frame. For an **instantaneous** entry on an unsteady run, `parameters` selects
 the fluid-plot variables sampled by the entry.
 
-The deprecated aliases `normal` and `unsteady` resolve to `default` and
-`instantaneous`, respectively, with one warning per entry. On steady and
-quasi-steady rotor rows both canonical kinds produce the same probe points.
+On steady and quasi-steady rotor rows both kinds produce the same probe points.

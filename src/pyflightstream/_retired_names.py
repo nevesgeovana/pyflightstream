@@ -500,6 +500,10 @@ _REFINE_DIRECTIONS = (
     "The two directions are named by the reference perimeter, --parallel along it and "
     "--normal across it."
 )
+_PROBE_KINDS = (
+    "A kind is one of 'default' (probe points sampled once, at the last time step) or "
+    "'instantaneous' (fluid plots at every time step)."
+)
 _ONE_OUTPUT_FLAG = "The written file is named by --out on every command that writes one."
 
 #: THE FORMS REMOVED, each a refusal that names the new spelling. They are keyed
@@ -619,6 +623,20 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         new="--out",
         retired_in="0.58.0",
         why=_ONE_OUTPUT_FLAG,
+    ),
+    "kind.normal": RetiredName(
+        owner="a [[probes]] or [volume_section] entry",
+        old='kind = "normal"',
+        new='kind = "default"',
+        retired_in="0.58.0",
+        why=_PROBE_KINDS,
+    ),
+    "kind.unsteady": RetiredName(
+        owner="a [[probes]] or [volume_section] entry",
+        old='kind = "unsteady"',
+        new='kind = "instantaneous"',
+        retired_in="0.58.0",
+        why=_PROBE_KINDS,
     ),
     "matrix.layout-0.56.0": RetiredName(
         owner="a run matrix",

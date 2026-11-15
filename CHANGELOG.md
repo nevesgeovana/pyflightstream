@@ -73,6 +73,8 @@ The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 
 `pyfs-workspace geometry audit --csv` is refused. migration: write `--out`.
 
+The probe kinds `normal` and `unsteady` of a `[[probes]]` or `[volume_section]` entry are refused. migration: write `kind = "default"` and `kind = "instantaneous"`.
+
 `sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
 
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.

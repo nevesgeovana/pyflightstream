@@ -584,9 +584,7 @@ def test_p0530_an_unknown_kind_is_refused_naming_both():
 
 
 @pytest.mark.requirement("FR-3420")
-def test_p0530_the_aliases_map_and_warn():
-    with pytest.warns(Warning, match="deprecated"):
-        assert VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "normal"}).kind == "default"
-    with pytest.warns(Warning, match="deprecated"):
-        section = VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "unsteady"})
+def test_p0530_the_two_kinds_are_accepted_as_written():
+    assert VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "default"}).kind == "default"
+    section = VolumeSectionSpec.model_validate({**KIND_TABLE, "kind": "instantaneous"})
     assert section.kind == "instantaneous"
