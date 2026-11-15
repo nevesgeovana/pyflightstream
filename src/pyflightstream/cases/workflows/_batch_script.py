@@ -5,7 +5,8 @@ several polars in ONE FlightStream instance. A job holds (FR-403)
 steady polars (``steady``, ``qsteady_rotor``) or unsteady ones, never both.
 The script layer's phase guard cannot hold two points in one ``Script``, so
 the job script is a TEXT splice of the per-point scripts the builders already
-wrote. The rules below are measured by the licensed probes
+wrote. Rules 1 to 4 and the first half of rule
+5 are measured by the licensed probes
 (DESIGN-0350 test report, arms A, AF, C, D and E):
 
 1. the job's first point is its whole text without its final
@@ -26,7 +27,9 @@ wrote. The rules below are measured by the licensed probes
    at the line a point's transition prints, so the job closes its last point
    with one more ``REMOVE_INITIALIZATION`` before ``CLOSE_FLIGHTSTREAM``,
    and the last point's segment ends at that line as every other point's
-   ends at its successor's (PFS-2258);
+   ends at its successor's (PFS-2258); the closing line's marker is
+   inferred from the measured mid-job transition and is shown only against a
+   stand-in scheduler, not on a real job;
 6. the registration block is rendered by the one emitter of those lines;
 7. every save and export target of the job is absolute, or the job is refused.
 

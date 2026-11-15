@@ -20,6 +20,8 @@ runs here.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pyflightstream.cases.workflows._batch_script import (
@@ -38,6 +40,7 @@ from tests.tier1_offline.test_p0350_batch_script import (
 
 #: What the stand-in scheduler prints when the instance closes.
 CLOSED = "FlightStream closed."
+DOCS = Path(__file__).resolve().parents[2] / "docs"
 
 
 def _polars(transition: str, *, quiet: bool) -> list[JobPolar]:
@@ -123,3 +126,12 @@ def test_p0580_pfs2258_the_closing_transition_starts_no_point(transition, verbs,
         _polars(transition, quiet=quiet), kind="batch", version=BUILD, job_log=None, job_dir=ROOT
     )
     assert point_transitions(job.text) == verbs
+
+
+def test_p0580_pfs2258_the_page_says_the_ending_is_only_checked_against_a_stand_in():
+    """The docs page does not claim a real-job confirmation the evidence lacks."""
+    text = (DOCS / "workflow-builds-and-hpc.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+    start = text.index("**The last point of a grouped job on a machine that exports no log.**")
+    end = text.find("\n\n", start)
+    paragraph = text[start:] if end < 0 else text[start:end]
+    assert "stand-in" in paragraph

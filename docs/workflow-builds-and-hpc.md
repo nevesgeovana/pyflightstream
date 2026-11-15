@@ -340,9 +340,10 @@ out of the scheduler's log of the job (`native_log`) at the line
 `Solution cleared. Initialization removed.`, which the next point's
 `REMOVE_INITIALIZATION` or `NEW_SIMULATION` prints. So that the last point's
 segment ends the same way, the job script closes it with one more
-`REMOVE_INITIALIZATION` before `CLOSE_FLIGHTSTREAM`, and the last point gets
-its log as soon as its files settle, as every other point does, without
-waiting for `job_end_files`. A job whose script ends without
+`REMOVE_INITIALIZATION` before `CLOSE_FLIGHTSTREAM`, so that the last point
+can get its log without waiting for `job_end_files`. This ending is checked
+against a stand-in scheduler that replays the job's commands; it has not
+yet been confirmed on a real scheduler job. A job whose script ends without
 that line: its last point is completed once the job's end is shown, and
 `pyfs-matrix search-log-batch` writes its log from the master log
 ([restore and rebuild](restore-and-rebuild.md)).
