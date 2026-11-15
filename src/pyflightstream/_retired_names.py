@@ -484,6 +484,48 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         why="It wrote the per-Mach polar file, which 0.58.0 retires.",
         instead="A polar is one file set per polar, its condition in the run block; read",
     ),
+    # Public helpers that lost every caller with the retired products (reachability guard).
+    "pyflightstream.post.superfile.super_file_name": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="super_file_name",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It named the SUPER file, which 0.58.0 retires.",
+        instead="Every family is in FAM-DIM and FAM-ACOEF; read",
+    ),
+    "pyflightstream.post.superfile.plots_last_row": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="plots_last_row",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It read the last plots row into the SUPER file, which 0.58.0 retires.",
+        instead="An unsteady row is the window average in the polar files; read",
+    ),
+    "pyflightstream.post.qsteady.rotor_speed": RetiredName(
+        owner="pyflightstream.post.qsteady",
+        old="rotor_speed",
+        new="no successor: the row's speed is RPM<id> of the run block of every table",
+        retired_in="0.58.0",
+        why="It read a rotor's speed from a quasi-steady record, and nothing called it.",
+        instead="There is",
+    ),
+    "pyflightstream.post.qsteady.validity_cells": RetiredName(
+        owner="pyflightstream.post.qsteady",
+        old="validity_cells",
+        new="the validity columns of the quasi-steady point tables",
+        retired_in="0.58.0",
+        why="It is the post stage's own helper of those tables, private since 0.58.0.",
+        instead="Read",
+    ),
+    "pyflightstream.post.axes.stability_force_coefficients": RetiredName(
+        owner="pyflightstream.post.axes",
+        old="stability_force_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="The stability-axis coefficients are the CDS, CYS and CLS columns of every ACOEF "
+        "file; the helper is private since 0.58.0.",
+        instead="Read",
+    ),
 }
 
 _MATRIX_DEFAULT_BUILD = (

@@ -43,7 +43,12 @@ are `NA`, said once, and its group rows come from the group plots it has.
 The Python writers of the retired files are removed and refused by name:
 `write_per_blade_table`, `per_blade_rows`, `write_rotor_table`, `write_superfiles`,
 `write_unsteady_polar` and `swept_polar_file_name`. A script that called one reads the
-FAM and group files the post writes instead.
+FAM and group files the post writes instead. Five helpers left with them, refused by name
+in the same way: `post.superfile.super_file_name` and `post.superfile.plots_last_row` (the
+SUPER file), `post.qsteady.rotor_speed` (no successor: a row's speed is `RPM<id>` in the
+run block), and `post.qsteady.validity_cells` and `post.axes.stability_force_coefficients`,
+now private (the validity columns of the quasi-steady tables, and `CDS`, `CYS`, `CLS` of
+every ACOEF file).
 
 ### The tree
 

@@ -55,6 +55,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import NOT_APPLICABLE
 
@@ -78,7 +79,6 @@ __all__ = [
     "rotor_in_plane_axes",
     "rotor_in_plane_loads",
     "section_station_shaft_loads",
-    "stability_force_coefficients",
     "velocity_in_body_frame",
     "wind_angles",
     "wind_force_coefficients",
@@ -465,7 +465,7 @@ def wind_force_coefficients(
     )
 
 
-def stability_force_coefficients(
+def _stability_force_coefficients(
     force_in_export_frame: Sequence[float], alpha_deg: float, beta_deg: float = 0.0
 ) -> tuple[float, float, float]:
     """Return ``(CD, CY, CL)`` in STABILITY axes of a force stated in the export frame.
@@ -551,7 +551,7 @@ def polar_axis_coefficients(
     for index, turn in enumerate((np.eye(3), to_stability, to_wind)):
         turned = turn @ moment
         row.extend(
-            stability_force_coefficients(force_in_export_frame, alpha_deg, beta_deg)
+            _stability_force_coefficients(force_in_export_frame, alpha_deg, beta_deg)
             if index == 1
             else _forward_right_down_to_drag_side_lift(turn @ force)
         )
@@ -1042,3 +1042,6 @@ def airframe_axis_coefficients(
             number = float(value) / scale if usable else math.nan
             row[f"{stem}{name}"] = number + 0.0 if math.isfinite(number) else NOT_APPLICABLE
     return row
+
+
+__getattr__ = removed_names_hook(__name__)

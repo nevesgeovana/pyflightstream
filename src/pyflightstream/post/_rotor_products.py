@@ -757,7 +757,7 @@ def _qsteady_super_cells(
     if quasi.case != "wheel":
         return {}
     validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
-    return _qsteady.validity_cells(validity)
+    return _qsteady._validity_cells(validity)
 
 
 def _qsteady_products(

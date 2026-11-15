@@ -95,7 +95,6 @@ from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.post._tables import _legacy_field as _legacy_field
 from pyflightstream.post._tree_migration import earlier_path
 from pyflightstream.workspace import WorkspaceError, find_matrix
-from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 from pyflightstream.workspace.record_document import read_rows as _read_run_rows
 
 __all__ = [
@@ -105,9 +104,7 @@ __all__ = [
     "SUPERFILE_FORMATS",
     "SuperfileDraft",
     "matrix_rows",
-    "plots_last_row",
     "release_tag",
-    "super_file_name",
     "superfile_row",
     "union_the_workspace_knows",
     "write_superfile_report",
@@ -199,48 +196,6 @@ def release_tag(version: str) -> str:
     numbers.append(str(int(patch.group(1))) + (patch.group(2) or ""))
     separator = "-" if len(numbers[0]) > 1 or len(str(int(patch.group(1)))) > 1 else ""
     return separator.join(numbers)
-
-
-def super_file_name(
-    sim: str,
-    *,
-    sweep: str,
-    group: str | int,
-    suffix: str = ".csv",
-) -> str:
-    """``SUPER-<sim>-<sweep name>_<group>.csv``, the group NAMED.
-
-    ``<group>`` is the group's name, as in
-    ``SUPER-0001-M150AL+000BE+000J+sweep_PUSHER.csv``, and ``g<NN>`` for a group
-    that is still numbered, exactly as the polar table beside it writes it.
-
-    ``sweep`` is the name of the case's whole sweep as the run recorded it
-    (``RunRecord.sweep_name``), each swept field written ``<code>+sweep``: the
-    stem of the polar table beside it with the one word that tells the two
-    apart in front.
-
-    Parameters
-    ----------
-    sim : str
-        The simulation id.
-    sweep : str
-        The name of the case's whole sweep.
-    group : str or int
-        The group's name, or its number.
-    suffix : str, optional
-        The file's extension.
-
-    Returns
-    -------
-    str
-        The super file's name.
-    """
-    # THROUGH THE SAME TOKEN AS THE POLAR BESIDE IT, and not a second
-    # `int(group)`: the super file's stem is the polar's stem with one word in
-    # front, so a group naming convention that reached one and not the other
-    # would leave a workspace whose super file and polar disagree about which
-    # group they are about. That is also what makes the union's glob work.
-    return f"{sweep_file_stem(sim, sweep, prefix=SUPER_FILE_PREFIX)}_{group_token(group)}{suffix}"
 
 
 def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
@@ -528,7 +483,7 @@ def superfile_row(
     for command, flag in (flags or {}).items():
         _take(row, command, _flag_cell(flag))
     # 7. EVERY PARAMETER THE UNSTEADY PLOTS PRODUCE, forces and fluids
-    #    alike, AT THE LAST TIME STEP. See `plots_last_row`.
+    #    alike, AT THE LAST TIME STEP.
     for key, value in (plots_row or {}).items():
         _take(row, key, value)
     return row
@@ -648,40 +603,6 @@ def _rotor_speeds(reductions: object) -> dict[str, object]:
         # rotor speed still carries the header a reader looks for.
         speeds[RPM_COLUMN] = None
     return speeds
-
-
-def plots_last_row(rows: Sequence[Mapping[str, str]]) -> Mapping[str, str] | None:
-    """Return the LAST time step of a plots table already read back, or None.
-
-    WHY THE LAST STEP AND NOT AN AVERAGE, stated because it is the one
-    judgement in this file. The superfile is written AFTER the unsteady
-    post-process and carries one row per CONVERGED point, so the time
-    history has to become one value per parameter. The package's time
-    average of the forces comes from the plots history over the declared
-    averaging window. The native loads spreadsheet states the last time
-    step, not a time average. What this final plots row adds is:
-    the per-body and per-blade breakdown and the fluid samples. The last
-    exported step is the state the converged run ENDED at, it exists for
-    every unsteady point, and it needs no window: MEASURED on `pfs0160`,
-    the rotor point's three reductions were all SKIPPED because the row
-    states no rotor speed, so a superfile built on the time-average
-    reduction would have carried no fluid sample at all for the one point
-    in that workspace that has any.
-
-    The step it came from is not a guess: ``Time-step`` is a column of the
-    plots table and travels with the rest.
-
-    Parameters
-    ----------
-    rows : sequence of mapping of str to str
-        A plots table's rows, read back.
-
-    Returns
-    -------
-    mapping of str to str or None
-        The last row, or None for no row.
-    """
-    return rows[-1] if rows else None
 
 
 # --- the files --------------------------------------------------------------

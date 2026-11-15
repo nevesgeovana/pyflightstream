@@ -55,6 +55,8 @@ The post no longer writes the super file (`SUPER-*.csv`) and its superset report
 
 The public writers of the products the 0.58.0 post tree retires are removed and refused by name, each naming the FAM and group files: `post.point_tables.write_per_blade_table` and `post.unsteady.per_blade_rows` (the per_blade table), `post.rotor_table.write_rotor_table` (the standalone rotor table), `post.superfile.write_superfiles` (the SUPER file), `post.unsteady_polar.write_unsteady_polar` (the uns_avg polar) and `post.polar.swept_polar_file_name` (the per-Mach polar file name), with their names re-exported by `post.products`. migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.
 
+Five public helpers that lost every caller with those products are removed and refused by name, each naming its successor: `post.superfile.super_file_name` and `post.superfile.plots_last_row` (the SUPER file), `post.qsteady.rotor_speed` (no successor: a row's speed is `RPM<id>` in the run block), and `post.qsteady.validity_cells` and `post.axes.stability_force_coefficients`, now private (the validity columns of the quasi-steady tables, and `CDS`, `CYS`, `CLS` of every ACOEF file). migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.
+
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
 
 `analysis_setup(vorticity_drag_boundaries=...)` is refused. migration: pass the selection to `solver_settings(vorticity_drag_boundaries=...)`.

@@ -8874,6 +8874,11 @@
     },
     {
       "source": "pyflightstream.post.axes",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.axes",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -9924,6 +9929,11 @@
     },
     {
       "source": "pyflightstream.post.qsteady",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.qsteady",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -10375,11 +10385,6 @@
     {
       "source": "pyflightstream.post.superfile",
       "target": "pyflightstream.workspace",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.superfile",
-      "target": "pyflightstream.workspace.naming",
       "kind": "module"
     },
     {

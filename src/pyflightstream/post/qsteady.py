@@ -68,6 +68,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
@@ -126,10 +127,8 @@ __all__ = [
     "clockings_of",
     "load_columns",
     "mean_clocking_surfaces",
-    "rotor_speed",
     "rotor_state",
     "shaft_in_section_frame",
-    "validity_cells",
     "validity_of_the_plan",
     "wheel_block_identity",
     "write_point_validity_file",
@@ -199,32 +198,6 @@ POSITIONS_SUFFIX = "_qs_positions.csv"
 AVERAGE_SUFFIX = "_qs_avg.csv"
 
 ShaftLoads = Callable[..., Any]
-
-
-def rotor_speed(record: QsteadyRecord, alias: str) -> float | None:
-    """Return the speed, in rev/min and signed, a point's run turned rotor ``alias`` at.
-
-    The row's speed as the builder resolved it and wrote it in the point's
-    quasi-steady record (the free stream turns at it). None where the record
-    is of another rotor. The record is read by
-    :func:`pyflightstream.cases.qsteady.read_qsteady_record`, which refuses one
-    that states no number.
-
-    Parameters
-    ----------
-    record : QsteadyRecord
-        The point's quasi-steady record.
-    alias : str
-        The rotor's alias.
-
-    Returns
-    -------
-    float or None
-        The signed speed in rev/min, or None where the record is of another rotor.
-    """
-    if record.rotor_alias != str(alias):
-        return None
-    return float(record.rpm)
 
 
 def _omega(record: QsteadyRecord) -> float:
@@ -328,7 +301,7 @@ def validity_of_the_plan(record: QsteadyRecord) -> PointValidity:
     )
 
 
-def validity_cells(validity: PointValidity) -> dict[str, str]:
+def _validity_cells(validity: PointValidity) -> dict[str, str]:
     """Return the point's validity as cells of :data:`VALIDITY_COLUMNS`, ``NA`` where unknown.
 
     Parameters
@@ -1738,3 +1711,6 @@ def _section_validity_preflight(
             ),
         )
     return True
+
+
+__getattr__ = removed_names_hook(__name__)
