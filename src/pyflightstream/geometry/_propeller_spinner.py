@@ -42,7 +42,7 @@ SPINNER_KEYS = {
     "circle_tol",
 }
 _DEFAULTS = {
-    "shape": "ogive",
+    "shape": "ellipse",
     "cylinder_length": 0.0,
     "scale": 1.0,
     "aft": "base",

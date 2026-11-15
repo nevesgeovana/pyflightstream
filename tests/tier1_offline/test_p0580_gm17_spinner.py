@@ -6,7 +6,6 @@ below is recomputed here from the returned surfaces, not read from the builder's
 """
 
 import json
-import os
 import tomllib
 from copy import deepcopy
 from pathlib import Path
@@ -25,7 +24,6 @@ SEW_MM = 0.01
 def definition(**spinner):
     data = tomllib.loads((FIXTURES / "simple_naca.toml").read_text(encoding="utf-8"))
     data["spinner"] = {
-        "shape": "ellipse",
         "radius": 160.0,
         "nose_length": 180.0,
         "cylinder_length": 200.0,
@@ -176,10 +174,17 @@ def test_p0580_gm17_spinner_footprint_on_a_seam_is_refused():
 # ---- shape -------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("shape", ["ogive", "ellipse"])
+def test_p0580_gm17_spinner_default_shape_is_ellipse():
+    """P0580-G17-SPIN-DEFAULT: a [spinner] table without a shape builds the semi-ellipse."""
+    design = Propeller(definition())
+    assert design.config["spinner"]["shape"] == "ellipse"
+
+
+@pytest.mark.parametrize("shape", ["ogive", "ellipse", None])
 def test_p0580_gm17_spinner_meridian_follows_its_law(shape):
     """P0580-G17-SPIN-LAW: the seam meridian lies on the tangent ogive or the semi-ellipse."""
-    data = definition(shape=shape)
+    data = definition(**({} if shape is None else {"shape": shape}))
+    shape = shape or "ellipse"
     R, L, C, x0 = 160.0, 180.0, 200.0, -250.0
     x = np.linspace(0.0, L, 301)
     if shape == "ellipse":
@@ -478,12 +483,7 @@ def test_p0580_gm17_spinner_without_table_records_skipped(tmp_path):
 
 def test_p0580_gm17_spinner_written_rotor_is_closed_and_periodic(tmp_path):
     """P0580-G17-SPIN-IGES: three blades and their spinner write closed, periodic surfaces."""
-    pytest.importorskip("gmsh")
-    if os.environ.get("PYFS_SPINNER_KERNEL") != "1":
-        pytest.skip(
-            "the written-rotor run takes over 40 min: the export profile and trim-curve checks "
-            "are quadratic in the junction pieces; set PYFS_SPINNER_KERNEL=1 to run it"
-        )
+    pytest.importorskip("gmsh", reason="the written-rotor run needs the gmsh kernel")
     from pyflightstream.workspace._iges_write import read_iges
     from pyflightstream.workspace.geometry_pipeline import run_geometry
 
