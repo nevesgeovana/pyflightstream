@@ -1,58 +1,12 @@
 ## The unsteady POLAR
 
-- The POLAR of an unsteady point is the **plots history, time-averaged** over the
-  window, and it does **not** read the native coefficient export.
-- **Its columns are the plot variables under the names the export prints them.**
-  It does not carry the steady polar's fixed 24 coefficient columns.
-- The source plots table normalizes coefficient plots to the free stream by
-  `(Vref / Vinf)^2`, including `CDP_*` and `CDV_*` on 26.125. Their names stay
-  distinct from `CDI_*` and `CDO_*`; dimensional forces and moments are unchanged.
-- The flight-condition and reference-length columns are still added, because
-  those come from the workspace and not from the export.
-
-- **The file is `polars/P<sim>_<name>_uns_avg.csv`**, one per simulation and one
-  row per point. Every file under `post/` comes from a sweep, so the name says
-  what the file IS, the average of the unsteady history, and carries the `P`
-  every per-point product carries.
-- **The columns are ordered once:** plots, eighteen axis coefficients per MRP group, `[equations]` columns, super-file content, then `MESH_FACES`. The window columns and condition context identify the averaged interval and point.
-- **A row says it is an average.** Its `reduction` is `time_average` and its
-  `reduction_window` is `averaging_window`, the window its `FIRST_STEP`,
-  `LAST_STEP` and `STEPS` state. The sweep row and the super polar of the same
-  point, read from the native export, say `last_step` over `last_time_step`.
-- A per-step history must supply every step inside the declared window.
-  A gap skips that point with a reason; `STEPS` remains the declared span
-  and equals the number of samples in every published row.
-- **The super file's content is ADDED to this table**, after the `[equations]` columns:
-  the matrix row's cells, the record's scalars, each rotor's speed and diameter
-  (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`), the solver
-  flags. The super file is what the polar does not have; for an unsteady point it
-  is not a second file. Its `POL` cell is the row's first column and is not
-  written a second time.
-- **The last column is `MESH_FACES`**, after the super file's
-  content: the face count of the point's geometry as its inventory states it,
-  or `NA` ([the mesh face count](the-mesh-face-count.md#the-mesh-face-count-since-0340)).
-- **Far-field cells use `<QUANTITY>_FF_<METHOD>_<TARGET>`**, including total,
-  family, blade and rotor targets. When the row declares more than one entry of a method,
-  every column of that method appends its entry name at every point, as in
-  `CDI_FF_C_TOTAL_c05`, even where a companion is absent; a single declared entry
-  writes `CDI_FF_C_TOTAL`. Missing projected cells are empty. The merged polar
-  retains these cells. An entry outside the row's averaging window remains
-  warned and named in the manifest; see [the far-field family](the-far-field-family.md).
-- **The axis coefficients follow the plot columns**, the eighteen of the steady
-  polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
-  `CDB .. CNB25`, each suffixed with its plot group's WHOLE name
-  (`CLW_MRP_TOTAL`), one group or several. Their source is
-  the plots of the GLOBAL `MRP` frame: the six components `FX, FY, FZ, MX, MY,
-  MZ` of a plot group the pproc declares with `frame = "MRP"`, in Newtons and
-  Newton metres, averaged over the row's window like every other column, divided
-  by `1/2 RHO VINF^2 SREF` (and by `CREF` for the moments) of THAT row, and
-  turned as [the axes and signs](axes-and-signs.md#axes-and-signs) are. A
-  rotor's own frame is never the source: its axes are not the geometry's. A
-  second global-frame group adds its own eighteen and renames none.
-- **A pproc that plots those six for no global-frame group gets one added by
-  the run**, `MRP_TOTAL`, over every boundary, where the run has an `MRP` frame.
-  A pproc that already plots them is left as it is, to the byte. A recorded run without such plots has no axes block, and `products.json` says
-  so under `polars/<file>#axes`; the block is never a column of `NA`.
+This page moved. An unsteady point is a row of the same polar files as a steady point, and its
+values are the average of the plots history over the row's window: the families in
+[FAM-DIM](../pproc/fam-dim.md), [FAM-ACOEF](../pproc/fam-acoef.md) and
+[FAM-RCOEF](../pproc/fam-rcoef.md), the groups in [group files](../pproc/group-files.md#group-files).
+The 0.57.0 file `polars/P<sim>_<name>_uns_avg.csv` is retired in 0.58.0, see
+[the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group). The
+averaging window is on [the averaging window](the-averaging-window.md).
 
 <a id="the-merged-polar"></a>
 

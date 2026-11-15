@@ -249,6 +249,7 @@
       "tests/tier1_offline/test_p0580_custom_motion_table.py",
       "tests/tier1_offline/test_p0580_cut_blunt_base.py",
       "tests/tier1_offline/test_p0580_doc_cli_verbs.py",
+      "tests/tier1_offline/test_p0580_doc_retired_files.py",
       "tests/tier1_offline/test_p0580_gcli_guard.py",
       "tests/tier1_offline/test_p0580_gcli_split.py",
       "tests/tier1_offline/test_p0580_gm17_pcurve_tolerance.py",
