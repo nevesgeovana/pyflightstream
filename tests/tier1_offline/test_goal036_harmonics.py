@@ -467,7 +467,10 @@ def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, 
             _unsteady_azimuth(blade, 3, int(row["STEP"]), sign), abs=1e-9
         )
     columns, rows = read_csv_table(out / "reductions" / "AL-020_harmonics.csv")
-    assert tuple(columns) == HARMONICS_COLUMNS
+    # The run block opens the table (FR-3778); the product's own columns follow it in order.
+    own = beyond_the_block(columns)
+    assert set(HARMONICS_COLUMNS) <= set(columns)
+    assert own == tuple(name for name in HARMONICS_COLUMNS if name in own)
     _assert_known(rows, samples=18, distinct=6, tol=1e-4)
     # NO REFERENCE TO ASK FOR THE ROTOR'S DIAMETER: r / R is not applicable.
     assert {row["R_OVER_R"] for row in rows} == {"NA"}
