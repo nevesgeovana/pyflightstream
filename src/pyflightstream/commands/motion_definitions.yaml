@@ -704,6 +704,19 @@ SET_MOTION_CUSTOM_TABLE:
     The two type tokens carry a HYPHEN, not an underscore, which is
     unusual in this vocabulary and is the manual's own spelling.
 
+    THE TABLE'S COLUMNS (FSM-26.127 p.246, the custom motion chapter's
+    file format; the command itself is p.345). One row per time, seven
+    numbers, separated by commas or by spaces; the manual shows no header
+    line. Column one is the solver's physical time in seconds. For
+    VELOCITY-TIME the next three are the translational velocity
+    components and the last three the angular velocity components, in
+    rad/s. For POSITION-TIME the next three are the position components
+    and the last three the angular position, in degrees. The vectors are
+    in the motion's coordinate system. The number of rows is the user's
+    choice, and the solver interpolates linearly between them. The page
+    names no unit for the translational columns. Documented, not probed:
+    no run has read a table back on any build.
+
 # --- 6DOF: initial conditions and active variables ---------------------------
 
 SET_MOTION_6DOF_INITIAL_VELOCITY:
