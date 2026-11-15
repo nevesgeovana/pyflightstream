@@ -9784,11 +9784,6 @@
     },
     {
       "source": "pyflightstream.post.polar",
-      "target": "pyflightstream.post.axes",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.polar",
       "target": "pyflightstream.post.point_tables",
       "kind": "module"
     },
@@ -10590,11 +10585,6 @@
     {
       "source": "pyflightstream.post.unsteady_polar",
       "target": "pyflightstream.post._tables",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.unsteady_polar",
-      "target": "pyflightstream.post.axes",
       "kind": "module"
     },
     {
