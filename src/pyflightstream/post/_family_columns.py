@@ -287,9 +287,10 @@ def rcoef_columns(rotor_ids: Sequence[int], entity: Entity = "family") -> tuple[
 
     Examples
     --------
-    >>> names = [spec.name for spec in rcoef_columns((0,))]
-    >>> names[:6], names[-4:]
-    (['FAMILY', 'FAMILY_ID', 'ROTOR_ID', 'T', 'Q', 'P'], ['CTR0', 'CQR0', 'ETAR0', 'MESH_FACES'])
+    >>> [spec.name for spec in rcoef_columns((0,))][:6]
+    ['FAMILY', 'FAMILY_ID', 'ROTOR_ID', 'T', 'Q', 'P']
+    >>> [spec.name for spec in rcoef_columns((0,))][-4:]
+    ['CTR0', 'CQR0', 'ETAR0', 'MESH_FACES']
     """
     if not list(rotor_ids):
         raise ProductError("an RCOEF file needs at least one declared rotor")

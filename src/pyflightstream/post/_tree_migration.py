@@ -181,11 +181,10 @@ def earlier_layout(out: Path) -> dict[str, tuple[str, str | None]]:
 
     Examples
     --------
-    >>> import tempfile, pathlib
-    >>> root = pathlib.Path(tempfile.mkdtemp())
-    >>> (root / "probes").mkdir()
-    >>> _ = (root / "probes" / "AL+000_plots.csv").write_text("POL")
-    >>> earlier_layout(root)
+    >>> with __import__("tempfile").TemporaryDirectory() as folder:
+    ...     (Path(folder) / "probes").mkdir()
+    ...     _ = (Path(folder) / "probes" / "AL+000_plots.csv").write_text("POL")
+    ...     earlier_layout(Path(folder))
     {'probes/AL+000_plots.csv': ('plots', 'time_history/AL+000_plots.csv')}
     """
     found: dict[str, tuple[str, str | None]] = {}

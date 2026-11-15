@@ -419,10 +419,9 @@ def steady_family_loads(
 
     Examples
     --------
-    >>> loads = steady_family_loads({"Wing": {"Cx": 0.1, "Cy": 0.0, "Cz": 1.0,
+    >>> steady_family_loads({"Wing": {"Cx": 0.1, "Cy": 0.0, "Cz": 1.0,
     ...     "CMx": 0.0, "CMy": -0.1, "CMz": 0.0}}, density_kg_m3=2.0, vref_m_s=1.0,
-    ...     sref_m2=1.0, cref_m=2.0)
-    >>> loads["Wing"]
+    ...     sref_m2=1.0, cref_m=2.0)["Wing"]
     ((0.1, 0.0, 1.0), (0.0, -0.2, 0.0))
     """
     pressure = _pressure(density_kg_m3, vref_m_s)

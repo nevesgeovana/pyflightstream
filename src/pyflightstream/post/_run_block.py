@@ -213,10 +213,9 @@ def run_block_columns(
 
     Examples
     --------
-    >>> columns = run_block_columns(("FLAP",), (0,))
-    >>> columns[:5]
+    >>> run_block_columns(("FLAP",), (0,))[:5]
     ('POL', 'POINT_ID', 'POINT', 'FLAP', 'RUN_TYPE')
-    >>> columns[columns.index("VREF") + 1:columns.index("J")]
+    >>> (c := run_block_columns(("FLAP",), (0,)))[c.index("VREF") + 1 : c.index("J")]
     ('RPM0', 'J0', 'MTIP0', 'MHEL0')
     """
     ids = _rotor_ids(rotor_ids)
@@ -318,10 +317,10 @@ def run_block_row(
 
     Examples
     --------
-    >>> row = run_block_row(pol="P0001", point_id=1, point="AL+000", run_type="steady",
-    ...                     condition={"VINF": 40.0, "FIRST_STEP": 3})
-    >>> row["POL"], row["VINF"], row["RHO"], row["FIRST_STEP"]
-    ('P0001', 40.0, 'NA', 'NA')
+    >>> [run_block_row(pol="P0001", point_id=1, point="AL+000", run_type="steady",
+    ...                condition={"VINF": 40.0, "FIRST_STEP": 3})[name]
+    ...  for name in ("POL", "VINF", "RHO", "FIRST_STEP")]
+    ['P0001', 40.0, 'NA', 'NA']
     """
     if run_type not in RUN_TYPES:
         raise ProductError(f"run type {run_type!r} is not one of {', '.join(RUN_TYPES)}")
