@@ -100,6 +100,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.post._tables import _legacy_field as _legacy_field
 from pyflightstream.post._tables import write_fixed_width_table as _write_legacy_polar
+from pyflightstream.post._tree_migration import earlier_path
 from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 from pyflightstream.workspace.record_document import read_rows as _read_run_rows
@@ -975,7 +976,9 @@ def union_the_workspace_knows(
     polars_dir : str
         The folder under ``out`` holding the polar tables.
     probes_dir : str
-        The folder under ``out`` holding the probe tables.
+        The folder under ``out`` an earlier post left its plots tables in; the
+        plots history is read from ``time_history/`` first, then from there with
+        one warning.
     raw_records : sequence of mapping, optional
         The manifest's rows as written; ``runs.json`` beside ``root`` is read when None.
 
@@ -997,7 +1000,13 @@ def union_the_workspace_knows(
     # and anything else about the campaign as a whole.
     for table in sorted(out.glob("*.csv")):
         known |= _header(table)
+    # THE PLOTS HISTORY IS IN time_history/ (0.58.0); a post of the earlier layout
+    # left it in ``probes_dir``, read with the one warning of the tree migration.
+    plots = {table.name: table for table in sorted((out / "time_history").glob("*_plots.csv"))}
     for table in sorted((out / probes_dir).glob("*_plots.csv")):
+        if table.name not in plots:
+            plots[table.name] = earlier_path(out, f"time_history/{table.name}", kind="plots")
+    for table in plots.values():
         known |= _header(table)
     known.add(RPM_COLUMN)
     manifest = root / "runs.json"
