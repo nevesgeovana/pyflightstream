@@ -36,8 +36,13 @@ layout is [the output catalogue](pproc/index.md).
 | `DESCRIPTION`, `GROUP` columns of a polar row | the group is the file (`GROUP`, `GROUP_ID` in a group file) |
 | `[products] superfile_format` | `[products] polar_format`, same values, applied to the FAM and group files; the old key is read with a warning for one release |
 | `[products] trim_moment = "CMB25"` (the default) | `"CmB"` (the default); `CMB25` is read as `CmB` with a warning for one release |
+| `[products] polar_axes` | warned and skipped: ACOEF files already carry every frame, W, S and B; select the columns of the frame you need |
+| `[products] rotor_cn_slope = true` | warned and skipped in `products.json`; the slope table is not written, and no replacement writer is available in 0.58.0 |
 | `[groups] TOTAL = ...`, `AIRFRAME = ...` | refused: TOTAL and AIRFRAME are written for every polar; remove the entry |
+| `[groups]` keys `FAM`, `GRP`, or opening with P and a digit | refused; choose another group name |
+| two `[groups]` keys whose filenames coincide | refused, including case-only differences, `Left/Right` and `Left_Right`, and numbered twins such as `1`, `01` and `g01`; rename one |
 | a `[groups]` key equal to a rotor alias | refused at the post: every rotor is a group by itself |
+| several rotors with the same `id`, including omitted ids | give each rotor a distinct `id` from 0 to 89; an omitted id takes the default 0 |
 | a rotor `id` of 90 or more | refused: the group of rotor `<id>` is numbered `10 + id` and the declared groups from 101 |
 | a rotor alias whose file name equals `TOTAL`, `AIRFRAME` or another rotor's | refused when the reference is read; choose a distinct alias after filename normalization, ignoring case (for example, `Left/Right` and `Left_Right` collide) |
 | `<polar>_trim.csv`, `<polar>_at_<name>.csv`, `<polar>.dat` | the same products beside each group ACOEF file, under its stem |
@@ -193,6 +198,14 @@ name, naming its new command. Replace the program and keep the rest of the line.
 | setup `symmetry_loads` | the run matrix row's `SYMMETRY_LOADS` column (`true` or `false`) |
 | pproc `base_regions` | `[base_regions.<family>]` in the boundaries file, or the row's `BASE_REGIONS` column for a per-row choice |
 | setup `thin_boundaries` | `thin_boundaries = [...]` in the geometry's boundaries file, the same boundary names |
+
+The setup keys `valarezo_separation_boundaries`, `crossflow_separation_boundaries` and
+`axial_separation_families` remain accepted on older builds whose command database rows
+carry their commands (26.100 and earlier). On 26.101 and later they are refused at plan;
+declare separation through the named models `airfoil_separation`, `bulk_separation`,
+`axial_vortex_separation`, `cylindrical_bulk_separation` or `stratford_bulk_separation`.
+These are model declarations, not a direct rename of a boundary list; see
+[boundary conditions](boundary-conditions.md).
 
 ## 0.57.0
 
