@@ -182,7 +182,23 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._cn_slope` (the normal-force slope of a rotor table
   against incidence, FR-3502) and
   :mod:`pyflightstream.post._merged_polar` (the unsteady polar with its rotor tables
-  and ROTATE angles on one row, FR-3511).
+  and ROTATE angles on one row, FR-3511);
+* the PRIVATE modules of the post tree (PFS-2231, PFS-2232):
+  :mod:`pyflightstream.post._run_block` (the canonical run block, the columns every
+  csv of the post opens with), :mod:`pyflightstream.post._block_scope` (that block at
+  the head of every table written to the tree), :mod:`pyflightstream.post._point_stage`
+  (the run block row of each point of a simulation),
+  :mod:`pyflightstream.post._family_columns` (the column registry of the family, group,
+  sections and Cp files), :mod:`pyflightstream.post._family_polar` (the polar files by
+  family and by group, FAM-DIM, FAM-ACOEF and FAM-RCOEF),
+  :mod:`pyflightstream.post._polar_stage` (the polar step of one simulation's post),
+  :mod:`pyflightstream.post._section_tables` (the sections and Cp tables keyed by
+  FAMILY and FAMILY_ID), :mod:`pyflightstream.post._manifest_schema` (the
+  machine-readable statement of the tree in ``products.json``: kinds, frames,
+  families, groups), :mod:`pyflightstream.post._tree_migration` (what moved and what
+  retired from the earlier layout, and the warning that says so) and
+  :mod:`pyflightstream.post._retired_polars` (the polar files of the earlier layout
+  found beside the new ones).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
