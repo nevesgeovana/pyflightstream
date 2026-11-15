@@ -591,7 +591,8 @@ def rotor_coefficients(
 #: (the migration map of the post tree); ``{alias}`` is filled in.
 ROTOR_DECLARED_AFT_WARNING = (
     "Rotor {alias} declares its axis aft; 0.58.0 counts thrust positive "
-    "forward, so CT, T and the in-plane signs of this rotor are opposite to 0.57.0. "
+    "forward, so CT, CQ, ETA, T and the in-plane signs of this rotor are opposite to "
+    "0.57.0. "
     "See docs/upgrading.md#0580-post-tree."
 )
 

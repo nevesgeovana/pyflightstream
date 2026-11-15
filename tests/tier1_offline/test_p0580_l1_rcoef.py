@@ -161,8 +161,8 @@ def test_a_rotor_declared_aft_is_warned_with_its_alias():
         assert not warn_rotor_declared_aft("TRACTOR", rotor_frame(TRACTOR))
     messages = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
     assert messages == [
-        "Rotor PUSHER declares its axis aft; 0.58.0 counts thrust positive forward, so CT, T "
-        "and the in-plane signs of this rotor are opposite to 0.57.0. "
+        "Rotor PUSHER declares its axis aft; 0.58.0 counts thrust positive forward, so CT, CQ, "
+        "ETA, T and the in-plane signs of this rotor are opposite to 0.57.0. "
         "See docs/upgrading.md#0580-post-tree."
     ]
 

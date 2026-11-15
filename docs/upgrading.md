@@ -27,7 +27,7 @@ layout is [the output catalogue](pproc/index.md).
 | `polars/P<sim>-<ROTOR>_rotor.csv` | the rotor's own group file `P<POL>-<ROTOR>-RCOEF.csv`; `J`, `MTIP` and `MHEL` of rotor `<id>` are `J<id>`, `MTIP<id>`, `MHEL<id>` of the run block |
 | rotor columns `CT_<ALIAS>`, `J_<ALIAS>`, ... | `CT`, `CQ`, `CP`, `ETA` in the rotor's RCOEF file; `J<id>` in the run block |
 | `CN, CS, CMN, CMS` in the rotor axes | `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS` in the rotor frame `R<id>` |
-| a rotor declared with its axis aft | thrust is counted positive forward: `CT`, `T` and the in-plane signs of that rotor are opposite to 0.57.0, and the post says so once |
+| a rotor declared with its axis aft | thrust is counted positive forward: `CT`, `CQ`, `ETA`, `T` and the in-plane signs of that rotor are opposite to 0.57.0, and the post says so once |
 | moment columns `CR<f>25`, `CM<f>25`, `CN<f>25` | `Cl<f>`, `Cm<f>`, `Cn<f>`; the block order is `W`, `S`, `B`, `R<id>` |
 | `DESCRIPTION`, `GROUP` columns of a polar row | the group is the file (`GROUP`, `GROUP_ID` in a group file) |
 | `[products] superfile_format` | `[products] polar_format`, same values, applied to the FAM and group files; the old key is read with a warning for one release |
