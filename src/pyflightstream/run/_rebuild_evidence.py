@@ -300,9 +300,9 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
                     take({**row, "matrix_stem": folder.name}, _relative(base, table))
     for folder in sorted(post.iterdir()) if post.is_dir() else []:
         for sheet in sorted((folder / "provenance").glob("*.prov.json")):
-            row = _provenance_row(sheet)
-            if row is not None:
-                take({**row, "matrix_stem": folder.name}, _relative(base, sheet))
+            provenance = _provenance_row(sheet)
+            if provenance is not None:
+                take({**provenance, "matrix_stem": folder.name}, _relative(base, sheet))
     return known
 
 
