@@ -1293,7 +1293,7 @@ def test_p0430_cheat_sheet_uses_the_supported_sims_form():
     line = next(
         ln
         for ln in _doc("guide/pyflightstream_user_guide.tex").splitlines()
-        if ln.startswith("pyfs-matrix delete-sims")
+        if ln.startswith("pyfs-workspace delete-sims")
     )
     assert "--sims 4001 2009" in line and "4001,2009" not in line
 
