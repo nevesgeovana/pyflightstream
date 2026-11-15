@@ -145,10 +145,10 @@ def _say_the_advance_ratio(
     speeds: Mapping[int, float | None],
 ) -> None:
     """Warn where the swept rotor did not run at the advance ratio the row asked for."""
-    from pyflightstream.post import _rotor_plan
+    from pyflightstream.post._rotor_plan import _warn_rotor_advance_ratio
 
     for rotor in rotors:
-        _rotor_plan._warn_rotor_advance_ratio(
+        _warn_rotor_advance_ratio(
             point,
             rotor.alias,
             diameter_m=rotor.diameter_m,
