@@ -33,6 +33,31 @@ def test_no_top_level_option_takes_a_value(module):
     assert valued == []
 
 
+def test_pyfs_geom_help_names_every_verb_and_its_page(capsys):
+    from pyflightstream.run.geom_cli import main as geom_main
+
+    with pytest.raises(SystemExit) as stop:
+        geom_main(["--help"])
+    assert stop.value.code == 0
+    said = " ".join(capsys.readouterr().out.split())
+    head = said.split("positional arguments")[0]
+    assert "docs/geometry-parametrization.md" in "".join(head.split())
+    for verb in (
+        "run",
+        "doe",
+        "validate",
+        "configurations",
+        "stages",
+        "identify",
+        "check",
+        "schema",
+        "add-control-surface",
+        "split-symmetry",
+        "iges-convert",
+    ):
+        assert verb in head, verb
+
+
 def test_beam_declares_both_spellings_of_the_inspection_flag():
     """pyfs-mesh spells it --visual-inspect; pyfs-fsi beam accepts that and its own spelling.
 
