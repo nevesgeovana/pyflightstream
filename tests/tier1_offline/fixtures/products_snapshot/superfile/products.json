@@ -7,7 +7,8 @@
    "runs": [
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/FAM-ACOEF-P6001.csv": {
    "sim_id": "6001",
@@ -16,7 +17,8 @@
    "runs": [
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/P6001-TOTAL-DIM.csv": {
    "sim_id": "6001",
@@ -26,6 +28,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P6001-TOTAL-ACOEF.csv": {
@@ -36,6 +39,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P6001-AIRFRAME-DIM.csv": {
@@ -46,6 +50,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P6001-AIRFRAME-ACOEF.csv": {
@@ -56,6 +61,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P6001-g01-DIM.csv": {
@@ -66,6 +72,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P6001-g01-ACOEF.csv": {
@@ -76,6 +83,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P6001-g02-DIM.csv": {
@@ -86,6 +94,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "g02"
   },
   "polars/P6001-g02-ACOEF.csv": {
@@ -96,6 +105,7 @@
     "camp/sim_6001/M200RE1177AL-020BE+000",
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ],
+   "source": "the loads export of a steady run",
    "group": "g02"
   },
   "time_history/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
@@ -242,7 +252,10 @@
  "log": "post.log",
  "log_json": "post.log.json",
  "migrated": {},
- "skipped": {},
+ "skipped": {
+  "polars/P6001#rotors": "reference 'r001' of simulation 6001 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r001'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+  "polars/P6002#rotors": "reference 'r002' of simulation 6002 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r002'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)"
+ },
  "provenance": {
   "camp/sim_6001/M200RE1177AL-020BE+000": "provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json",
   "camp/sim_6001/M200RE1177AL+000BE+000": "provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json",

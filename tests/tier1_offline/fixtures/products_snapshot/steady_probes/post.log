@@ -3,6 +3,7 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
+WARNING point=campaign product=stage: polars/P7001: 1 point(s) record no density RHO (AL-020): the coefficients are the loads export's own, in which the density cancels, and the DIM files and the RCOEF T, Q and P read NA there.
 INFO point=camp/sim_7001/AL-020 product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
 INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=reductions/AL-020#windows product=reductions/AL-020#windows: the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states. Remedy: restore the required data or correct the stated inputs and post again.

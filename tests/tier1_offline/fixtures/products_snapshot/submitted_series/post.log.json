@@ -62,6 +62,14 @@
    "severity": "warning"
   },
   {
+   "point": "campaign",
+   "product": "stage",
+   "message": "polars/P7001: 1 point(s) record no density RHO (AL-020): the coefficients are the loads export's own, in which the density cancels, and the DIM files and the RCOEF T, Q and P read NA there.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "camp/sim_7001/AL-020",
    "product": "settings/products_settings.csv",
    "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",

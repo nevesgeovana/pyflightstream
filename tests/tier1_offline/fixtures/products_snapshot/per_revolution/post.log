@@ -5,6 +5,7 @@ time=<TIME>
 check_frozen=False (refuse instead of warn)
 WARNING point=AL-020 product=reductions/AL-020_per_revolution_PROP.csv: the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing
 WARNING point=campaign product=stage: polars/7001: the plots hold no FX to MZ of plot group(s) MRP_B, MRP_W, so those families' rows of the FAM files are NA; the group rows come from the group plots the run has. A run declares one MRP_{family} plot group per family (docs/pproc/fam-dim.md).
+WARNING point=campaign product=stage: polars/P7001: 1 point(s) record no density RHO (AL-020): their window-averaged loads are in N, so every coefficient of the ACOEF and RCOEF files (the W, S, B and R<id> axes) reads NA there; the DIM files keep the loads.
 INFO point=camp/sim_7001/AL-020 product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
 INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=reductions/AL-020_phase_locked.csv product=reductions/AL-020_phase_locked.csv: the row names its rotors: the per-rotor files are reductions/AL-020_phase_locked_PROP.csv. Remedy: restore the required data or correct the stated inputs and post again.

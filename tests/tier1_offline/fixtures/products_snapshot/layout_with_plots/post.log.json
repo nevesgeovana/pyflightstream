@@ -14,6 +14,14 @@
    "severity": "warning"
   },
   {
+   "point": "campaign",
+   "product": "stage",
+   "message": "polars/P0001: 3 point(s) record no density RHO (POLAR-0001_M15AL+020BE+000J+100, POLAR-0001_M15AL+020BE+000J+150, POLAR-0001_M15AL+020BE+000J+200): the coefficients are the loads export's own, in which the density cancels, and the DIM files and the RCOEF T, Q and P read NA there.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "camp/sim_0001/M150AL+020BE+000J+100",
    "product": "settings/matriz_settings.csv",
    "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
@@ -67,6 +75,14 @@
    "message": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P0001#rotors",
+   "product": "polars/P0001#rotors",
+   "message": "no matrix row for simulation 0001: the reference that declares its rotors cannot be read, so the rotors cannot be planned and no rotor group file and no RCOEF file is written",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
    "severity": "warning"
   }
  ]

@@ -22,17 +22,17 @@
    "severity": "warning"
   },
   {
-   "point": "campaign",
-   "product": "stage",
-   "message": "P6001-PROP_qs_avg_corrected.csv is the 0.57.0 per-group, per-Mach polar; 0.58.0 writes one file set per polar: the families in FAM-DIM, FAM-ACOEF and FAM-RCOEF-P6001.csv and the group qs_avg_corrected in its own group files. See docs/upgrading.md#0580-post-tree.",
-   "remedy": null,
-   "category": "postprocessing",
+   "point": "polars/P6001-AIRFRAME",
+   "product": "polars/P6001-AIRFRAME",
+   "message": "group 'AIRFRAME' selects no family of the loads exports of simulation '6001' (W, B): every family names no surface or alias there; its files are not written.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
    "severity": "warning"
   },
   {
-   "point": "polars/P6001-AIRFRAME",
-   "product": "polars/P6001-AIRFRAME",
-   "message": "group 'AIRFRAME' selects no family of the loads exports of simulation '6001' (W, B); its files are not written.",
+   "point": "polars/P6002#rotors",
+   "product": "polars/P6002#rotors",
+   "message": "reference 'r002' of simulation 6002 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r002'; available reference ids: r001",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "reference-frame",
    "severity": "warning"

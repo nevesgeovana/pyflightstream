@@ -262,7 +262,8 @@
      61
     ]
    },
-   "group": "PUSHER"
+   "group": "PUSHER",
+   "rotor": "PUSHER"
   },
   "polars/P7001-PUSHER-ACOEF.csv": {
    "sim_id": "7001",
@@ -282,7 +283,8 @@
      61
     ]
    },
-   "group": "PUSHER"
+   "group": "PUSHER",
+   "rotor": "PUSHER"
   },
   "polars/P7001-PUSHER-RCOEF.csv": {
    "sim_id": "7001",
@@ -302,7 +304,8 @@
      61
     ]
    },
-   "group": "PUSHER"
+   "group": "PUSHER",
+   "rotor": "PUSHER"
   },
   "polars/P7001-g01-DIM.csv": {
    "sim_id": "7001",

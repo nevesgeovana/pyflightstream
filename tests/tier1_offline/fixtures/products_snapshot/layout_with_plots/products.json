@@ -32,7 +32,8 @@
     "camp/sim_0001/M150AL+020BE+000J+100",
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/FAM-ACOEF-P0001.csv": {
    "sim_id": "0001",
@@ -42,7 +43,8 @@
     "camp/sim_0001/M150AL+020BE+000J+100",
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/P0001-TOTAL-DIM.csv": {
    "sim_id": "0001",
@@ -53,6 +55,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P0001-TOTAL-ACOEF.csv": {
@@ -64,6 +67,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P0001-TOTAL-ACOEF.dat": {
@@ -75,6 +79,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P0001-AIRFRAME-DIM.csv": {
@@ -86,6 +91,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P0001-AIRFRAME-ACOEF.csv": {
@@ -97,6 +103,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P0001-AIRFRAME-ACOEF.dat": {
@@ -108,6 +115,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P0001-g01-DIM.csv": {
@@ -119,6 +127,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P0001-g01-ACOEF.csv": {
@@ -130,6 +139,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P0001-g01-ACOEF.dat": {
@@ -141,6 +151,7 @@
     "camp/sim_0001/M150AL+020BE+000J+150",
     "camp/sim_0001/M150AL+020BE+000J+200"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   }
  },
@@ -150,7 +161,8 @@
  "skipped": {
   "reductions/POLAR-0001_M15AL+020BE+000J+100#windows": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
   "reductions/POLAR-0001_M15AL+020BE+000J+150#windows": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
-  "reductions/POLAR-0001_M15AL+020BE+000J+200#windows": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states."
+  "reductions/POLAR-0001_M15AL+020BE+000J+200#windows": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+  "polars/P0001#rotors": "no matrix row for simulation 0001: the reference that declares its rotors cannot be read, so the rotors cannot be planned and no rotor group file and no RCOEF file is written"
  },
  "provenance": {
   "camp/sim_0001/M150AL+020BE+000J+100": "provenance/POLAR-0001_M15AL+020BE+000J+100.prov.json",

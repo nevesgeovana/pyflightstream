@@ -22,7 +22,8 @@
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/FAM-ACOEF-P7001.csv": {
    "sim_id": "7001",
@@ -30,7 +31,8 @@
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/P7001-TOTAL-DIM.csv": {
    "sim_id": "7001",
@@ -39,6 +41,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P7001-TOTAL-ACOEF.csv": {
@@ -48,6 +51,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P7001-AIRFRAME-DIM.csv": {
@@ -57,6 +61,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P7001-AIRFRAME-ACOEF.csv": {
@@ -66,6 +71,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P7001-g01-DIM.csv": {
@@ -75,6 +81,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P7001-g01-ACOEF.csv": {
@@ -84,6 +91,7 @@
    "runs": [
     "camp/sim_7001/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   }
  },

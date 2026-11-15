@@ -12,6 +12,22 @@
    "remedy": null,
    "category": "postprocessing",
    "severity": "warning"
+  },
+  {
+   "point": "polars/P6001#rotors",
+   "product": "polars/P6001#rotors",
+   "message": "reference 'r001' of simulation 6001 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r001'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P6002#rotors",
+   "product": "polars/P6002#rotors",
+   "message": "reference 'r002' of simulation 6002 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r002'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
   }
  ]
 }

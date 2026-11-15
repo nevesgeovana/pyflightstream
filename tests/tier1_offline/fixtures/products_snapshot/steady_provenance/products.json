@@ -6,7 +6,8 @@
    "pproc": "p001",
    "runs": [
     "camp/sim_3207/AL-020"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/FAM-ACOEF-P3207.csv": {
    "sim_id": "3207",
@@ -14,7 +15,8 @@
    "pproc": "p001",
    "runs": [
     "camp/sim_3207/AL-020"
-   ]
+   ],
+   "source": "the loads export of a steady run"
   },
   "polars/P3207-TOTAL-DIM.csv": {
    "sim_id": "3207",
@@ -23,6 +25,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P3207-TOTAL-ACOEF.csv": {
@@ -32,6 +35,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "TOTAL"
   },
   "polars/P3207-AIRFRAME-DIM.csv": {
@@ -41,6 +45,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P3207-AIRFRAME-ACOEF.csv": {
@@ -50,6 +55,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "AIRFRAME"
   },
   "polars/P3207-g01-DIM.csv": {
@@ -59,6 +65,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   },
   "polars/P3207-g01-ACOEF.csv": {
@@ -68,6 +75,7 @@
    "runs": [
     "camp/sim_3207/AL-020"
    ],
+   "source": "the loads export of a steady run",
    "group": "g01"
   }
  },

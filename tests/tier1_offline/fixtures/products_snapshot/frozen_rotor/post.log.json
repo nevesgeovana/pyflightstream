@@ -55,7 +55,7 @@
   },
   {
    "point": "AL-020",
-   "product": "polars/FAM-P7001",
+   "product": "polars/FAM-DIM-P7001.csv",
    "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
    "remedy": null,
    "category": "postprocessing",

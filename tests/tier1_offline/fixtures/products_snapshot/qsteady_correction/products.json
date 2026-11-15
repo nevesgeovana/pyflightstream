@@ -32,6 +32,342 @@
     "POLAR-6001_M20AL-020BE+000": "../../sims/sim_6001/outputs/POLAR-6001_M20AL-020BE+000_qsteady_validity.json"
    }
   },
+  "polars/FAM-DIM-P6001.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2
+  },
+  "polars/FAM-ACOEF-P6001.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2
+  },
+  "polars/FAM-RCOEF-P6001.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2
+  },
+  "polars/P6001-TOTAL-DIM.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "TOTAL"
+  },
+  "polars/P6001-TOTAL-ACOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "TOTAL"
+  },
+  "polars/P6001-PROP-DIM.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "PROP",
+   "rotor": "PROP"
+  },
+  "polars/P6001-PROP-ACOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "PROP",
+   "rotor": "PROP"
+  },
+  "polars/P6001-PROP-RCOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "PROP",
+   "rotor": "PROP"
+  },
+  "polars/P6001-g01-DIM.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g01"
+  },
+  "polars/P6001-g01-ACOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g01"
+  },
+  "polars/P6001-g01-RCOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g01"
+  },
+  "polars/P6001-g02-DIM.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g02"
+  },
+  "polars/P6001-g02-ACOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g02"
+  },
+  "polars/P6001-g02-RCOEF.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "source": "mean of 2 clockings",
+   "clockings": 2,
+   "group": "g02"
+  },
+  "polars/P6001-PROP-RCOEF_corrected.csv": {
+   "sim_id": "6001",
+   "polar": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "kind": "corrected",
+   "raw": "polars/P6001-PROP-RCOEF.csv",
+   "route": "table",
+   "calibration": "inputs/calibrations/c001.toml",
+   "calibration_sha256": "1b6c9a104aeba1de0e9e5453301182a469303f1dbc0573ad30ec1c3588cba462",
+   "validation": "not validated",
+   "note": "corrected by route 'table' of the calibration 'c001', beside the raw file; the route is not validated",
+   "cells": [
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "THRUST",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "TORQUE",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "CQ",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "THRUST",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "TORQUE",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "CQ",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    }
+   ],
+   "derived_na": [
+    "CP",
+    "CQB",
+    "CQR0",
+    "CQS",
+    "CQW",
+    "CTB",
+    "CTR0",
+    "CTS",
+    "CTW",
+    "ETA",
+    "ETAB",
+    "ETAR0",
+    "ETAS",
+    "ETAW",
+    "P",
+    "QC",
+    "QCA",
+    "TC",
+    "TCA"
+   ],
+   "rotor": "PROP"
+  },
   "polars/P6001-PROP_qs_avg_corrected.csv": {
    "sim_id": "6001",
    "polar": "6001",
@@ -151,143 +487,6 @@
     "LAMBDA_I"
    ],
    "rotor": "PROP"
-  },
-  "polars/FAM-DIM-P6001.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ]
-  },
-  "polars/FAM-ACOEF-P6001.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ]
-  },
-  "polars/FAM-RCOEF-P6001.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ]
-  },
-  "polars/P6001-TOTAL-DIM.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "TOTAL"
-  },
-  "polars/P6001-TOTAL-ACOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "TOTAL"
-  },
-  "polars/P6001-PROP-DIM.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "PROP"
-  },
-  "polars/P6001-PROP-ACOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "PROP"
-  },
-  "polars/P6001-PROP-RCOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "PROP"
-  },
-  "polars/P6001-g01-DIM.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g01"
-  },
-  "polars/P6001-g01-ACOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g01"
-  },
-  "polars/P6001-g01-RCOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g01"
-  },
-  "polars/P6001-g02-DIM.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g02"
-  },
-  "polars/P6001-g02-ACOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g02"
-  },
-  "polars/P6001-g02-RCOEF.csv": {
-   "sim_id": "6001",
-   "polar": "6001",
-   "pproc": "p001",
-   "runs": [
-    "camp/sim_6001/M200RE1177AL-020BE+000",
-    "camp/sim_6001/M200RE1177AL+000BE+000"
-   ],
-   "group": "g02"
   },
   "time_history/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
    "sim_id": "6002",
@@ -432,11 +631,10 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
- "migrated": {
-  "polars/P6001-PROP_qs_avg_corrected.csv": "polars/P6001-qs_avg_corrected-ACOEF.csv"
- },
+ "migrated": {},
  "skipped": {
-  "polars/P6001-AIRFRAME": "group 'AIRFRAME' selects no family of the loads exports of simulation '6001' (W, B); its files are not written."
+  "polars/P6001-AIRFRAME": "group 'AIRFRAME' selects no family of the loads exports of simulation '6001' (W, B): every family names no surface or alias there; its files are not written.",
+  "polars/P6002#rotors": "reference 'r002' of simulation 6002 cannot be resolved, so its rotors cannot be planned and no rotor group file and no RCOEF file is written: no reference artifact with id 'r002'; available reference ids: r001"
  },
  "provenance": {
   "camp/sim_6001/M200RE1177AL-020BE+000": "provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json",
