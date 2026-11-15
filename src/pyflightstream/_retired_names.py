@@ -302,6 +302,14 @@ _THE_GEOMETRY_ENGINE_IS_CORE = (
     "rtree and scipy are core dependencies, so nothing raises or needs it."
 )
 _THE_0580_POLAR_FILES = "the FAM and group files under polars/ (docs/upgrading.md#0580-post-tree)"
+_THE_PRIVATE_POLAR_HELPER = (
+    "It is the helper of the polar writers, now private; its values are the columns "
+    "of the FAM and group files."
+)
+_THE_PRIVATE_AXES_HELPER = (
+    "The polar-axis and in-plane coefficients are columns of the ACOEF and RCOEF files; the "
+    "helper is now private."
+)
 _THE_CAMPAIGN_SWEEP_SENTENCE = (
     "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
     "(docs/pproc/index.md#joining-polars) joins several."
@@ -514,7 +522,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         old="validity_cells",
         new="the validity columns of the quasi-steady point tables",
         retired_in="0.58.0",
-        why="It is the post stage's own helper of those tables, private since 0.58.0.",
+        why="It is the post stage's own helper of those tables, now private.",
         instead="Read",
     ),
     "pyflightstream.post.axes.stability_force_coefficients": RetiredName(
@@ -523,8 +531,217 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         new=_THE_0580_POLAR_FILES,
         retired_in="0.58.0",
         why="The stability-axis coefficients are the CDS, CYS and CLS columns of every ACOEF "
-        "file; the helper is private since 0.58.0.",
+        "file; the helper is now private.",
         instead="Read",
+    ),
+    # Public helpers of the retired polar writers, now private (reachability guard).
+    "pyflightstream.post.polar.GroupCoefficients": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="GroupCoefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.group_coefficients": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="group_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.polar_row": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="polar_row",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.polar_table_columns": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="polar_table_columns",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.polar_table_rows": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="polar_table_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.drag_columned_rows": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="drag_columned_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.drag_columns_of": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="drag_columns_of",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.polar.group_polar_rows": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="group_polar_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.GroupCoefficients": RetiredName(
+        owner="pyflightstream.post.products",
+        old="GroupCoefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.group_coefficients": RetiredName(
+        owner="pyflightstream.post.products",
+        old="group_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.polar_row": RetiredName(
+        owner="pyflightstream.post.products",
+        old="polar_row",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.polar_table_columns": RetiredName(
+        owner="pyflightstream.post.products",
+        old="polar_table_columns",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.polar_table_rows": RetiredName(
+        owner="pyflightstream.post.products",
+        old="polar_table_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.drag_columned_rows": RetiredName(
+        owner="pyflightstream.post.products",
+        old="drag_columned_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.drag_columns_of": RetiredName(
+        owner="pyflightstream.post.products",
+        old="drag_columns_of",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.group_polar_rows": RetiredName(
+        owner="pyflightstream.post.products",
+        old="group_polar_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.rotor_coefficients": RetiredName(
+        owner="pyflightstream.post.products",
+        old="rotor_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.rotor_coefficient_columns": RetiredName(
+        owner="pyflightstream.post.products",
+        old="rotor_coefficient_columns",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.products.unsteady_polar_file_name": RetiredName(
+        owner="pyflightstream.post.products",
+        old="unsteady_polar_file_name",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.rotor_table.rotor_coefficients": RetiredName(
+        owner="pyflightstream.post.rotor_table",
+        old="rotor_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.rotor_table.rotor_coefficient_columns": RetiredName(
+        owner="pyflightstream.post.rotor_table",
+        old="rotor_coefficient_columns",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.unsteady_polar.unsteady_polar_file_name": RetiredName(
+        owner="pyflightstream.post.unsteady_polar",
+        old="unsteady_polar_file_name",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_POLAR_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.axes.polar_axis_coefficients": RetiredName(
+        owner="pyflightstream.post.axes",
+        old="polar_axis_coefficients",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_AXES_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.axes.rotor_in_plane_axes": RetiredName(
+        owner="pyflightstream.post.axes",
+        old="rotor_in_plane_axes",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_AXES_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.post.axes.rotor_in_plane_loads": RetiredName(
+        owner="pyflightstream.post.axes",
+        old="rotor_in_plane_loads",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why=_THE_PRIVATE_AXES_HELPER,
+        instead="Read",
+    ),
+    "pyflightstream.results.write_table": RetiredName(
+        owner="pyflightstream.results",
+        old="write_table",
+        new="pyflightstream.results.to_csv(result, path), which writes the same file",
+        retired_in="0.58.0",
+        why="The one write path of a table is now private; to_csv routes through it.",
+        instead="Write with",
     ),
 }
 

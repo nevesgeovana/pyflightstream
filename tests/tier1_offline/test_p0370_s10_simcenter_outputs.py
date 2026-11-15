@@ -22,12 +22,10 @@ from pyflightstream.post.custom_polar import write_custom_polar_format
 from pyflightstream.post.polar import (
     POLAR_COLUMNS,
     declined_induced_drag,
-    drag_columned_rows,
-    group_coefficients,
     write_polar_table,
     write_recorded_polar,
 )
-from pyflightstream.post.products import ReferenceValues
+from pyflightstream.post.products import COEFFICIENT_COLUMNS, ReferenceValues
 from pyflightstream.qa.physics import PointResult, phy01_metrics, phy05_metrics
 from pyflightstream.results import (
     VersionMismatchWarning,
@@ -113,17 +111,6 @@ def test_the_26125_loads_keep_the_drag_split_under_its_printed_names():
     assert list(loads.surfaces["S1"]) == list(loads.total)
 
 
-def test_a_26125_group_sums_its_own_split_and_names_it():
-    """P0370-S10-DRAG-COLUMNS (FR-423): CDV and CDP are the sums of CDv and CDp, drag their sum."""
-    loads = parse_loads(_text("loads_26.125.txt"), "26.125")
-    group = group_coefficients(loads, ["S1", "S2"], bref_m=20.0)
-    # S1 prints CDp +0.18, CDv +0.55; S2 CDp -0.84, CDv +0.32.
-    assert group.drag_columns == ("CDV", "CDP")
-    assert group.drag_profile == pytest.approx(0.87)
-    assert group.drag_induced == pytest.approx(-0.66)
-    assert group.drag == pytest.approx(0.21)
-
-
 def test_a_26125_recorded_polar_writes_cdv_and_cdp_with_its_numbers(tmp_path):
     """P0370-S10-DRAG-COLUMNS (FR-423): the polar of a 26.125 point names its split CDV, CDP."""
     point = tmp_path / "POLAR-1" / "pt1"
@@ -167,10 +154,20 @@ def test_a_polar_of_both_builds_carries_both_splits_na_where_absent(tmp_path):
 
 def test_a_26124_polar_is_written_as_it_always_was(tmp_path):
     """P0370-S10-DRAG-COLUMNS (FR-423): a 26.124 table keeps POLAR_COLUMNS and its bytes."""
-    loads = parse_loads(RECORDED_26124.read_text(encoding="utf-8"), "26.124")
-    group = group_coefficients(loads, ["Wing"], bref_m=10.0)
-    assert group.drag_columns == ("CD0", "CDI")
-    assert (group.drag_profile, group.drag_induced) == (0.0098384, 0.0338634)
+    point = tmp_path / "POLAR-2" / "pt1"
+    point.mkdir(parents=True)
+    (point / "pt1.txt").write_text(RECORDED_26124.read_text(encoding="utf-8"), encoding="utf-8")
+    (recorded,) = write_recorded_polar(
+        tmp_path / "POLAR-2",
+        tmp_path / "recorded",
+        groups={"1": ["Wing"]},
+        reference={"SREF": 1.0, "CREF": 1.0, "BREF": 10.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0},
+        description="d",
+        mach=0.144,
+    )
+    header, row = recorded.read_text(encoding="utf-8").splitlines()
+    assert header.split(",")[-2:] == ["CD0", "CDI"]
+    assert row.split(",")[-2:] == ["0.0098384", "0.0338634"]
     reference = ReferenceValues.from_mapping(
         {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
     )
@@ -197,7 +194,7 @@ def test_a_26125_table_declines_no_drag_and_a_26124_table_still_does():
 def test_the_custom_twin_and_the_physics_metrics_name_the_26125_split(tmp_path):
     """P0370-S10-DRAG-COLUMNS (FR-423): line 9 of the twin and the PHY metrics say CDV, CDP, CDp."""
     rows = [(1.0,) * 22 + (0.01, 0.02)]
-    columns, named = drag_columned_rows(rows, [("CDV", "CDP")])
+    columns, named = (*COEFFICIENT_COLUMNS[:-2], "CDV", "CDP"), rows
     reference = ReferenceValues.from_mapping(
         {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
     )

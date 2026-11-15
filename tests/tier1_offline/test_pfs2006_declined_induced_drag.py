@@ -19,12 +19,11 @@ from __future__ import annotations
 
 import copy
 import math
-from pathlib import Path
 
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.post.products import COEFFICIENT_COLUMNS, PolarPoint, read_csv_table
+from pyflightstream.post.products import read_csv_table
 from pyflightstream.results import parse_loads
 from tests.support_helpers import saved_mesh_fixture
 
@@ -94,35 +93,49 @@ def test_a_listed_surface_printed_at_zero_is_na_in_the_polar_and_named_in_a_warn
     assert "CDi exactly 0 for B" in log, "the warning reaches post.log like every other"
 
 
-def _point(tmp_path: Path, selection: object) -> PolarPoint:
-    from tests.tier1_offline.test_post_products import LOADS
+def _posted_group_row(tmp_path, monkeypatch, selection, *, sideslip=None):
+    """The ACOEF row of group 1 (W and B) the post writes for the point, B's CDi printed at zero.
 
-    text = _b_printed_at_zero(LOADS)
-    path = tmp_path / "AL-020.txt"
-    path.write_text(text, encoding="utf-8")
-    return PolarPoint(
-        name="AL-020", loads=parse_loads(text), loads_path=path, vorticity_selection=selection
-    )
+    The selection is the solver's vorticity induced-drag list as the run record states it; the
+    public route is the post stage, whose files are what a reader sees.
+    """
+    import warnings
+
+    import tests.tier1_offline.test_post_superfile as sf
+
+    setup = copy.deepcopy(sf._SOLVER_SETUP)
+    setup["flags"]["SET_VORTICITY_DRAG_BOUNDARIES"] = {**_EVERY_BOUNDARY, "value": selection}
+    text = _b_printed_at_zero(sf._LOADS)
+    if sideslip is not None:
+        level = "Side-slip angle (Deg)                       .000"
+        assert level in text
+        text = text.replace(level, f"Side-slip angle (Deg)                       {sideslip:.3f}")
+    with monkeypatch.context() as patch:
+        patch.setattr(sf, "_LOADS", text)
+        patch.setattr(sf, "_SOLVER_SETUP", setup)
+        workspace = sf._workspace(tmp_path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            sf._post(workspace)
+    return _polar(workspace, "6001", "g01")["-2.00000"]
 
 
-def _row(point: PolarPoint) -> dict[str, float]:
-    from pyflightstream.post.polar import group_polar_rows
-    from tests.tier1_offline.test_post_products import REFERENCE
-
-    # An empty member list is every family on the artifact's path: W and B.
-    (row,) = group_polar_rows([point], [], mach=0.2, reference=REFERENCE)
-    return dict(zip(COEFFICIENT_COLUMNS, row, strict=True))
+#: The coefficient columns of an ACOEF file: the six of each frame in the order W, S, B, then
+#: the drag split (design of the post outputs, section 4.2).
+_COEFFICIENTS = [
+    f"{quantity}{frame}" for frame in "WSB" for quantity in ("CD", "CY", "CL", "Cl", "Cm", "Cn")
+] + ["CD0", "CDI"]
 
 
-def test_a_surface_off_the_list_keeps_its_printed_zero(tmp_path):
-    kept = _row(_point(tmp_path, [1]))  # W is boundary 1 and B boundary 2, in table order
-    assert all(math.isfinite(value) for value in kept.values()), kept
-    assert kept["CDI"] == pytest.approx(0.0012085), "B's printed zero is summed as a zero"
+def test_a_surface_off_the_list_keeps_its_printed_zero(tmp_path, monkeypatch):
+    kept = _posted_group_row(tmp_path, monkeypatch, [1])  # W is boundary 1, B boundary 2
+    assert [c for c in _COEFFICIENTS if kept[c] == "NA"] == [], kept
+    assert float(kept["CDI"]) == pytest.approx(0.0012085, abs=1e-5), "B's printed zero is a zero"
 
-    declined = _row(_point(tmp_path, "all"))
-    assert math.isnan(declined["CDI"]) and math.isnan(declined["CDB"])
-    for column in ("CLB", "CYB", "CMB25"):
-        assert math.isfinite(declined[column]), f"{column} lost a value it does not depend on"
+    declined = _posted_group_row(tmp_path / "declined", monkeypatch, "all")
+    assert declined["CDI"] == "NA" and declined["CDB"] == "NA"
+    for column in ("CLB", "CYB", "CmB"):
+        assert declined[column] != "NA", f"{column} lost a value it does not depend on"
 
 
 def test_the_selection_the_record_carries_is_read_one_way():
@@ -145,7 +158,9 @@ def test_the_selection_the_record_carries_is_read_one_way():
     assert declined_induced_drag(parse_loads(LOADS), "all") == (), "no printed zero, no decline"
 
 
-def test_a_p0460_saved_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
+def test_a_p0460_saved_mesh_row_declines_the_listed_surface_its_sidecar_names(
+    tmp_path, monkeypatch
+):
     """G02: a raw mesh's list is resolved through the names its sidecar declares.
 
     An ``.obj`` carries no mesh block, so the induced-drag families of a
@@ -188,10 +203,10 @@ def test_a_p0460_saved_mesh_row_declines_the_listed_surface_its_sidecar_names(tm
 
     listed = recorded(["B"])
     assert listed == [2], listed
-    declined = _row(_point(tmp_path, listed))
-    assert math.isnan(declined["CDI"]) and math.isnan(declined["CDB"]), declined
-    kept = _row(_point(tmp_path, recorded(["W"])))
-    assert kept["CDI"] == pytest.approx(0.0012085), kept
+    declined = _posted_group_row(tmp_path / "listed", monkeypatch, listed)
+    assert declined["CDI"] == "NA" and declined["CDB"] == "NA", declined
+    kept = _posted_group_row(tmp_path / "kept", monkeypatch, recorded(["W"]))
+    assert float(kept["CDI"]) == pytest.approx(0.0012085, abs=1e-5), kept
 
 
 def test_the_fixed_width_polar_writes_a_declined_column_as_nan_and_reads_it_back(tmp_path):
@@ -224,36 +239,15 @@ def test_the_fixed_width_polar_writes_a_declined_column_as_nan_and_reads_it_back
     assert back.rows[0]["CDB"] == pytest.approx(0.01)
 
 
-def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):
+def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path, monkeypatch):
     """The read of block 2: CYW's refusal was promised and never exercised (every case had beta 0).
 
     Under sideslip the wind axes turn about z, so the export's x force reaches
     the wind-axis side force as well, and a declined drag makes it NA. The same
     point with the surface off the list keeps a number there.
     """
-    from pyflightstream.post.polar import group_polar_rows
-    from tests.tier1_offline.test_post_products import LOADS, REFERENCE
-
-    level = "     Side-slip angle (Deg)                       .000"
-    assert LOADS.count(level) == 1
-    text = _b_printed_at_zero(LOADS).replace(
-        level, "     Side-slip angle (Deg)                       5.000"
-    )
-    path = tmp_path / "AL-020BE+050.txt"
-    path.write_text(text, encoding="utf-8")
-
-    def row(selection):
-        point = PolarPoint(
-            name="AL-020BE+050",
-            loads=parse_loads(text),
-            loads_path=path,
-            vorticity_selection=selection,
-        )
-        (values,) = group_polar_rows([point], [], mach=0.2, reference=REFERENCE)
-        return dict(zip(COEFFICIENT_COLUMNS, values, strict=True))
-
-    declined, kept = row("all"), row([1])
-    assert declined["BETA"] == pytest.approx(5.0)
-    assert math.isnan(declined["CYW"]), "at beta 5 the x force reaches CYW, short by B's drag"
-    assert math.isfinite(declined["CYB"]) and math.isfinite(declined["CYS"])
-    assert math.isfinite(kept["CYW"]), "off the list, nothing is declined and CYW keeps its number"
+    declined = _posted_group_row(tmp_path / "declined", monkeypatch, "all", sideslip=5.0)
+    kept = _posted_group_row(tmp_path / "kept", monkeypatch, [1], sideslip=5.0)
+    assert declined["CYW"] == "NA", "at beta 5 the x force reaches CYW, short by B's drag"
+    assert declined["CYB"] != "NA" and declined["CYS"] != "NA"
+    assert kept["CYW"] != "NA", "off the list, nothing is declined and CYW keeps its number"

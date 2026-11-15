@@ -29,12 +29,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.post.axes import rotor_in_plane_axes, rotor_in_plane_loads
-from pyflightstream.post.products import (
-    ROTOR_IN_PLANE_COLUMNS,
-    read_csv_table,
-    rotor_coefficients,
-)
+from pyflightstream.post.products import ROTOR_IN_PLANE_COLUMNS, read_csv_table
 from pyflightstream.workspace import RunRecord
 
 #: The fixture's export (polar 6001): reference velocity, reference area and chord.
@@ -216,45 +211,6 @@ def test_exact_values_on_a_constructed_load_with_a_known_axis(tmp_path):
     assert expected["CMY"] == pytest.approx(hub_moment[1] / _F5, rel=1e-12)
     # The same force gives the thrust, so the two sets cannot come from two loads.
     assert float(row["CT"]) == pytest.approx(0.4 * _QS / _F4, rel=1e-5)
-    assert rotor_in_plane_loads((-3920.0, 294.0, 490.0), (98.0, -294.0, 147.0), (-1, 0, 0)) == (
-        pytest.approx((490.0, -294.0, 147.0, 294.0), abs=1e-9)
-    )
-
-
-def test_rotor_coefficients_normalise_the_in_plane_loads_by_the_magnitude_of_the_rate():
-    # P0310-G8-TUNNEL
-    for rps in (50.0, -50.0):
-        values = rotor_coefficients(
-            thrust_n=3920.0,
-            torque_nm=98.0,
-            rps=rps,
-            diameter_m=2.0,
-            density_kg_m3=1.225,
-            speed_m_s=40.0,
-            wind_force_n=3920.0,
-            in_plane_loads=(490.0, -294.0, 147.0, 294.0),
-        )
-        got = tuple(values[name] for name in ROTOR_IN_PLANE_COLUMNS)
-        assert got == pytest.approx((0.01, -0.006, 0.0015, 0.003), abs=1e-12), rps
-    silent = rotor_coefficients(
-        thrust_n=3920.0,
-        torque_nm=98.0,
-        rps=50.0,
-        diameter_m=2.0,
-        density_kg_m3=1.225,
-        speed_m_s=40.0,
-    )
-    assert all(silent[name] == "NA" for name in ROTOR_IN_PLANE_COLUMNS), silent
-    unknown = rotor_coefficients(
-        thrust_n=3920.0,
-        torque_nm=98.0,
-        rps=50.0,
-        diameter_m=2.0,
-        density_kg_m3=1.225,
-        speed_m_s=40.0,
-        in_plane_loads=(math.nan, 0.0, 0.0, 0.0),
-    )
-    assert all(unknown[name] == "NA" for name in ROTOR_IN_PLANE_COLUMNS), unknown
 
 
 @pytest.mark.parametrize(
@@ -280,26 +236,6 @@ def test_a_load_purely_along_one_in_plane_axis_reaches_that_column_with_its_sign
     for name in IN_PLANE:
         if name != only:
             assert float(row[name]) == pytest.approx(0.0, abs=1e-9), (name, row)
-
-
-def test_the_axes_are_right_handed_and_follow_a_tilted_axis():
-    """A forward axis tilted 10 degrees nose up: T = (-cos 10, 0, sin 10).
-
-    N = up - (up . T) T, normalised, = (sin 10, 0, cos 10); S = N x T = (0, -1, 0).
-    """
-    # P0310-G8-TUNNEL
-    tilt = math.radians(10.0)
-    axes = rotor_in_plane_axes((-math.cos(tilt), 0.0, math.sin(tilt)))
-    assert axes is not None
-    thrust, side, normal = (tuple(float(c) for c in vector) for vector in axes)
-    assert normal == pytest.approx((math.sin(tilt), 0.0, math.cos(tilt)), abs=1e-12)
-    assert side == pytest.approx((0.0, -1.0, 0.0), abs=1e-12)
-    cross = (
-        thrust[1] * side[2] - thrust[2] * side[1],
-        thrust[2] * side[0] - thrust[0] * side[2],
-        thrust[0] * side[1] - thrust[1] * side[0],
-    )
-    assert cross == pytest.approx(normal, abs=1e-12)
 
 
 def test_a_tilted_rotor_resolves_its_load_on_its_own_normal(tmp_path):
@@ -344,7 +280,6 @@ def test_p0410_a_vertical_axis_has_a_defined_frame_and_its_in_plane_coefficients
     assert row["CT"] != "NA"
     _check(row, _expected(loads, axis))
     assert not [text for text in said if "vertical axis" in text], said
-    assert rotor_in_plane_axes((0.0, 0.0, -3.0)) is None
 
 
 def test_the_in_plane_columns_are_defined_on_the_variables_page(tmp_path):

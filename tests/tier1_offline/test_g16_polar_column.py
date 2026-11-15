@@ -534,56 +534,17 @@ def test_g16_a_text_cell_writes_no_comma_no_quote_and_no_line_break(tmp_path):
     )
 
 
-def test_g16_the_campaign_sweep_table_writes_no_comma_in_a_cell(tmp_path):
-    """The sweep is written through the tabular layer's one write path, under the same rule."""
-    pd = pytest.importorskip("pandas")
-
-    from pyflightstream.results.tables import write_table
-
-    frame = pd.DataFrame(
-        {
-            "POL": ["0001"],
-            "status": ["CONVERGED, twice"],
-            "CL": [0.4],
-            "data_origin": ["raw"],
-            "reduction": ["none"],
-            "reduction_window": ["not_applicable"],
-        }
-    )
-    written = write_table(frame, tmp_path / "campaign_sweep.csv")
-    first, second = written.read_text(encoding="utf-8").splitlines()
-    assert len(second.split(",")) == len(first.split(",")) and '"' not in second, second
-    assert "CONVERGED; twice" in second, second
-    assert frame["status"].iloc[0] == "CONVERGED, twice", "the caller's frame keeps its text"
-
-
-def test_f251_a_declined_cell_of_the_sweep_table_writes_as_na(tmp_path):
+def test_f251_a_declined_cell_of_a_table_writes_as_na(tmp_path):
     """F-251: a NaN cell is the NA token, never an empty field a reader takes as missing data."""
-    pd = pytest.importorskip("pandas")
+    from pyflightstream.results import parse_unsteady_plots, to_csv
 
-    from pyflightstream.results.tables import write_table
-
-    frame = pd.DataFrame(
-        {
-            "POL": ["0001"],
-            "CDI": [float("nan")],
-            "CL": [0.4],
-            "data_origin": ["raw"],
-            "reduction": ["none"],
-            "reduction_window": ["not_applicable"],
-        }
+    report = parse_unsteady_plots(
+        "Time, CDI, CL\n0, nan, 0.4,\n"
+        + "-" * 60
+        + "\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
-    written = write_table(frame, tmp_path / "campaign_sweep.csv")
-    header, row = written.read_text(encoding="utf-8").splitlines()
+    written = to_csv(report, tmp_path / "plots.csv")
+    header, row = written.read_text(encoding="utf-8").splitlines()[:2]
     cells = dict(zip(header.split(","), row.split(","), strict=True))
     assert cells["CDI"] == "NA", row
     assert cells["CL"] == "0.4", row
-
-
-def test_rb5_write_table_states_the_na_token_it_writes_for_every_table():
-    """RB5: F-251 changed every table write_table and to_csv write, and the docstring says so."""
-    from pyflightstream.results.tables import write_table
-
-    stated = " ".join((write_table.__doc__ or "").split())
-    assert "is written as the ``NA`` token, never as an empty field" in stated, stated
-    assert ":func:`to_csv` included" in stated, stated

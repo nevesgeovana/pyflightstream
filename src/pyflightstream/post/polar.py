@@ -9,8 +9,8 @@ A POLAR table per boundary GROUP of the pproc artifact, under ``polars/``
 (FR-88): one row per point, the reference block and the coefficients of the
 group in body, stability and wind axes with the two drag parts
 (:data:`POLAR_COLUMNS`). A point is a :class:`PolarPoint`, its group's sums a
-:class:`GroupCoefficients` (:func:`group_coefficients`), its row
-:func:`polar_row`; the table is assembled once by :func:`polar_table_rows`,
+:class:`_GroupCoefficients` (:func:`_group_coefficients`), its row
+:func:`_polar_row`; the table is assembled once by :func:`_polar_table_rows`,
 so the superfile beside it carries the same rows, and written by
 :func:`write_polar_table`. The file is named for the sweep the records
 measure (:data:`SWEEP_AXES`, :func:`swept_axes`, the retired ``swept_polar_file_name``).
@@ -66,7 +66,7 @@ from pyflightstream.post._tables import (
     read_csv_table,
     write_csv_table,
 )
-from pyflightstream.post.axes import polar_axis_coefficients
+from pyflightstream.post.axes import _polar_axis_coefficients
 from pyflightstream.post.point_tables import write_plots_table, write_sections_table
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, drag_pair, parse_loads
 
@@ -75,17 +75,9 @@ __all__ = [
     "GEOMETRY_ANALYSIS_FRAMES",
     "POLAR_COLUMNS",
     "SWEEP_AXES",
-    "GroupCoefficients",
     "PolarPoint",
     "declined_induced_drag",
-    "drag_columned_rows",
-    "drag_columns_of",
-    "group_coefficients",
-    "group_polar_rows",
     "farfield_column_names",
-    "polar_row",
-    "polar_table_columns",
-    "polar_table_rows",
     "swept_axes",
     "write_polar_table",
     "write_recorded_polar",
@@ -167,7 +159,7 @@ def _drag_kinds(owned: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
     return [kind for kind in DRAG_PRODUCT_COLUMNS.values() if kind in owned] or [_LEGACY_DRAG]
 
 
-def drag_columns_of(loads: LoadsReport) -> tuple[str, str]:
+def _drag_columns_of(loads: LoadsReport) -> tuple[str, str]:
     """Return the product columns of the drag split a loads table prints (FR-423).
 
     Parameters
@@ -183,12 +175,12 @@ def drag_columns_of(loads: LoadsReport) -> tuple[str, str]:
     return DRAG_PRODUCT_COLUMNS[drag_pair(loads.total)]
 
 
-def drag_columned_rows(
+def _drag_columned_rows(
     rows: Sequence[Sequence[float]], drag_columns: Sequence[tuple[str, str]] | None = None
 ) -> tuple[tuple[str, ...], list[tuple[float, ...]]]:
     """Return the coefficient columns of a polar table and its rows under them (FR-423).
 
-    Every row of ``rows`` is twenty-four values wide, :func:`polar_row`'s, its
+    Every row of ``rows`` is twenty-four values wide, :func:`_polar_row`'s, its
     last two the drag split of its own loads table. A table whose rows all
     carry one split names the last two columns after it, ``CD0, CDI`` or
     ``CDV, CDP``, and its rows are unchanged. A table holding both carries both
@@ -198,9 +190,9 @@ def drag_columned_rows(
     Parameters
     ----------
     rows : sequence of sequence of float
-        The coefficient rows, each :func:`polar_row`'s.
+        The coefficient rows, each :func:`_polar_row`'s.
     drag_columns : sequence of tuple of str, optional
-        The product columns of each row's split, :func:`drag_columns_of` of its
+        The product columns of each row's split, :func:`_drag_columns_of` of its
         loads table; None is ``CD0, CDI`` for every row.
 
     Returns
@@ -232,7 +224,7 @@ def drag_columned_rows(
     return columns, widened
 
 
-def polar_table_columns(drag_columns: Sequence[tuple[str, str]] | None = None) -> tuple[str, ...]:
+def _polar_table_columns(drag_columns: Sequence[tuple[str, str]] | None = None) -> tuple[str, ...]:
     """Return the columns of a polar table whose rows carry these drag splits (FR-423).
 
     Parameters
@@ -253,7 +245,7 @@ def polar_table_columns(drag_columns: Sequence[tuple[str, str]] | None = None) -
 # solver's own recorded output" (2026-09-23), oracle inventory and .01.02.
 # It identifies the hashed Total-row fixture used for the comparisons below.
 @dataclass(frozen=True)
-class GroupCoefficients:
+class _GroupCoefficients:
     """The coefficients of one group, summed over its families, as the solver reports them.
 
     ``lift`` and ``drag`` are the solver's OWN integrals, ``CL`` and
@@ -263,7 +255,7 @@ class GroupCoefficients:
 
     ``force`` and ``moment`` are the VECTORS the export states in its own
     frame, ``(Cx, Cy, Cz)`` and ``(CMx, CMy, CMz)``, summed over the same
-    families. They are what :func:`polar_row` builds the axis columns from; the solver's own
+    families. They are what :func:`_polar_row` builds the axis columns from; the solver's own
     ``CL`` is between 0.10 and 0.25 per cent above the
     projection of that vector on 27 of the 28 lifting recorded exports (lift above
     0.05); one sits at 0.71 per cent. See
@@ -328,7 +320,7 @@ class PolarPoint:
         return self.loads.sideslip_deg
 
 
-def group_coefficients(
+def _group_coefficients(
     loads: LoadsReport,
     families: Sequence[int | str],
     *,
@@ -336,7 +328,7 @@ def group_coefficients(
     aliases: Mapping[str, Sequence[str]] | None = None,
     empty_is_every: bool = False,
     declined: Collection[str] = (),
-) -> GroupCoefficients:
+) -> _GroupCoefficients:
     """Sum the loads table's rows over the families of one group.
 
     The members are resolved against the table's surface rows by
@@ -365,7 +357,7 @@ def group_coefficients(
     CSV product writes as `NA`: its printed ``CDi`` of zero is not a zero, and a sum
     that took it as one would be a number a reader believes. ``force`` keeps the
     printed ``Cx``; a NaN there would reach, through the turn, columns the x
-    force does not touch, so :func:`polar_row` masks exactly the ones it does.
+    force does not touch, so :func:`_polar_row` masks exactly the ones it does.
 
     Parameters
     ----------
@@ -385,7 +377,7 @@ def group_coefficients(
 
     Returns
     -------
-    GroupCoefficients
+    _GroupCoefficients
         The summed coefficients and the names of the surfaces summed.
 
     Raises
@@ -425,7 +417,7 @@ def group_coefficients(
         for at, (f, m) in enumerate((("Cx", "CMx"), ("Cy", "CMy"), ("Cz", "CMz"))):
             force[at] += row[f]
             moment[at] += row[m]
-    return GroupCoefficients(
+    return _GroupCoefficients(
         drag, side, lift, roll, pitch, yaw, profile, induced, tuple(used),
         force=(force[0], force[1], force[2]),
         moment=(moment[0], moment[1], moment[2]),
@@ -485,12 +477,12 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
 
 
 # The vector/integral comparison uses the same RPT-063 (2026-09-23) Total-row
-# evidence identified above GroupCoefficients, including its four sideslip rows.
-def polar_row(
+# evidence identified above _GroupCoefficients, including its four sideslip rows.
+def _polar_row(
     alpha_deg: float,
     mach: float,
     reynolds_millions: float,
-    coefficients: GroupCoefficients,
+    coefficients: _GroupCoefficients,
     *,
     cref_m: float,
     bref_m: float,
@@ -500,7 +492,7 @@ def polar_row(
 
     EVERY AXIS COLUMN COMES FROM ONE VECTOR: the force ``(Cx, Cy, Cz)`` and
     the moment ``(CMx, CMy, CMz)`` the export states in its own frame, turned by
-    :func:`pyflightstream.post.axes.polar_axis_coefficients`. So ``CDB`` IS the
+    :func:`pyflightstream.post.axes._polar_axis_coefficients`. So ``CDB`` IS the
     ``Cx`` of the export and ``CLB`` its ``Cz``, and the wind-axis drag of that
     vector is the ``CDi + CDo`` the solver integrates, which the recorded exports
     confirm to their printed precision, under sideslip too.
@@ -534,8 +526,8 @@ def polar_row(
         Mach number of the point.
     reynolds_millions : float
         Reynolds number in millions.
-    coefficients : GroupCoefficients
-        The group's summed coefficients, from :func:`group_coefficients`.
+    coefficients : _GroupCoefficients
+        The group's summed coefficients, from :func:`_group_coefficients`.
     cref_m : float
         Reference chord in metres.
     bref_m : float
@@ -557,12 +549,12 @@ def polar_row(
     """
     g = coefficients
     if g.force is None or g.moment is None:
-        raise ProductError("polar_row needs measured force and moment vectors; supply both")
-    axes = polar_axis_coefficients(
+        raise ProductError("_polar_row needs measured force and moment vectors; supply both")
+    axes = _polar_axis_coefficients(
         g.force, g.moment, alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
     )
     if math.isnan(g.drag_induced):
-        reach = polar_axis_coefficients(
+        reach = _polar_axis_coefficients(
             (1.0, 0.0, 0.0), (0.0, 0.0, 0.0), alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
         )
         axes = tuple(math.nan if r != 0.0 else a for a, r in zip(axes, reach, strict=True))
@@ -631,7 +623,7 @@ def swept_axes(points: Sequence[Mapping[str, float]]) -> tuple[str, ...]:
 GEOMETRY_ANALYSIS_FRAMES = frozenset({"reference", "global", "geometry", "mrp"})
 
 
-def polar_table_rows(
+def _polar_table_rows(
     *,
     polar: str | int,
     description: str,
@@ -642,7 +634,7 @@ def polar_table_rows(
     conditions: Sequence[Mapping[str, object]] | None = None,
     drag_columns: Sequence[tuple[str, str]] | None = None,
 ) -> list[tuple[object, ...]]:
-    """Assemble the rows of one polar table, each under :func:`polar_table_columns`.
+    """Assemble the rows of one polar table, each under :func:`_polar_table_columns`.
 
     ``conditions`` is the flight condition of each row, in the row order, for
     the columns the twenty-four coefficients do NOT carry: ``VINF``, ``ALT``
@@ -666,7 +658,7 @@ def polar_table_rows(
     reference : ReferenceValues
         The reference lengths and moment point, written in every row.
     rows : sequence of sequence of float
-        The coefficient values of each point, as :func:`polar_row` returns
+        The coefficient values of each point, as :func:`_polar_row` returns
         them.
     advance_ratios : sequence of float or None, optional
         The advance ratio of each row; None entries read ``NA``.
@@ -674,7 +666,7 @@ def polar_table_rows(
         The flight condition of each row, in row order.
     drag_columns : sequence of tuple of str, optional
         The product columns of each row's drag split (FR-423,
-        :func:`drag_columned_rows`); None is ``CD0, CDI`` for every row.
+        :func:`_drag_columned_rows`); None is ``CD0, CDI`` for every row.
 
     Returns
     -------
@@ -709,7 +701,7 @@ def polar_table_rows(
     for row in rows:
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-    _columns, named = drag_columned_rows(rows, drag_columns)
+    _columns, named = _drag_columned_rows(rows, drag_columns)
     return [
         (*lead, *context_row(state, columns=_POLAR_CONDITION_COLUMNS), *row)
         for row, state in zip(named, states, strict=True)
@@ -756,12 +748,12 @@ def write_polar_table(
     reference : ReferenceValues
         The reference lengths and moment point, written in every row.
     rows : sequence of sequence of float
-        The coefficient values of each point, as :func:`polar_row` returns
+        The coefficient values of each point, as :func:`_polar_row` returns
         them.
     advance_ratios : sequence of float or None, optional
         The advance ratio of each row; None entries read ``NA``.
     conditions : sequence of mapping, optional
-        Per-row flight conditions, forwarded to :func:`polar_table_rows`.
+        Per-row flight conditions, forwarded to :func:`_polar_table_rows`.
         Supply J here instead of passing advance_ratios at the same time.
     drag_columns : sequence of tuple of str, optional
         The product columns of each row's drag split (FR-423); None is
@@ -778,10 +770,10 @@ def write_polar_table(
     Raises
     ------
     ProductError
-        As :func:`polar_table_rows`: a row of the wrong width or an
+        As :func:`_polar_table_rows`: a row of the wrong width or an
         advance-ratio count that differs from the rows.
     """
-    full = polar_table_rows(
+    full = _polar_table_rows(
         polar=polar,
         description=description,
         group=group,
@@ -791,7 +783,7 @@ def write_polar_table(
         conditions=conditions,
         drag_columns=drag_columns,
     )
-    return write_csv_table(path, polar_table_columns(drag_columns), full, overwrite=overwrite)
+    return write_csv_table(path, _polar_table_columns(drag_columns), full, overwrite=overwrite)
 
 
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
@@ -812,7 +804,7 @@ def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarP
     return sorted(points, key=lambda point: point.alpha_deg)
 
 
-def group_polar_rows(
+def _group_polar_rows(
     points: Sequence[PolarPoint],
     families: Sequence[int | str],
     *,
@@ -846,7 +838,7 @@ def group_polar_rows(
     Returns
     -------
     list of tuple of float
-        One :func:`polar_row` per point.
+        One :func:`_polar_row` per point.
 
     Raises
     ------
@@ -865,7 +857,7 @@ def group_polar_rows(
         reynolds = point.loads.reynolds
         if reynolds is None:
             raise ProductError(f"{point.loads_path} states no Reynolds number")
-        coefficients = group_coefficients(
+        coefficients = _group_coefficients(
             point.loads,
             list(families),
             bref_m=reference.bref_m,
@@ -874,7 +866,7 @@ def group_polar_rows(
             declined=declined_induced_drag(point.loads, point.vorticity_selection),
         )
         rows.append(
-            polar_row(
+            _polar_row(
                 point.alpha_deg,
                 _mach_of(point, mach),
                 reynolds / 1e6,
@@ -978,10 +970,10 @@ def write_recorded_polar(
                 description=description,
                 group=group,
                 reference=ref,
-                rows=group_polar_rows(
+                rows=_group_polar_rows(
                     points, list(families), mach=mach, reference=ref, aliases=aliases
                 ),
-                drag_columns=[drag_columns_of(point.loads) for point in points],
+                drag_columns=[_drag_columns_of(point.loads) for point in points],
             )
         )
     # EVERY TABLE OF A POINT OPENS WITH ITS RUN BLOCK (FR-3778), from what the

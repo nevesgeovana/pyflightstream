@@ -118,7 +118,7 @@ PUBLIC_MODULES = [
     "pyflightstream.post.acoustics",
     # 0.24.0: the one home of the frame conventions. PUBLIC deliberately: a
     # user checking which frame a published axis column is in, or turning a
-    # vector of their own the way the polar does, calls `polar_axis_coefficients`.
+    # vector of their own the way the polar does, calls `frame_rotations`.
     "pyflightstream.post.axes",
     "pyflightstream.post.boundary_layer",
     # 0.31.0 (P0310-ROUTE2): the quasi-steady wheel's corrected products and

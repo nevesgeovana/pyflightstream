@@ -308,7 +308,7 @@ def write_custom_polar_format(
         The data columns of lines 8 and 9, :data:`COEFFICIENT_COLUMNS` by default.
         A polar of 26.125 names its drag split ``CDV, CDP`` in the last two, and a
         polar holding rows of both builds carries both pairs (FR-423,
-        :func:`pyflightstream.post.polar.drag_columned_rows`).
+        :func:`pyflightstream.post.polar._drag_columned_rows`).
     overwrite : bool, optional
         Replace a file that already exists, as the writer always did (the default).
         False refuses an existing file, naming it, before it is replaced.

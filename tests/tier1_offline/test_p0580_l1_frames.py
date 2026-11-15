@@ -18,11 +18,9 @@ import numpy as np
 import pytest
 
 from pyflightstream.post.axes import (
-    EXPORT_TO_BODY,
     airframe_axis_coefficients,
     frame_rotations,
     rotor_frame,
-    rotor_in_plane_axes,
 )
 
 _TO_EXPORT = np.diag([-1.0, 1.0, -1.0])  # body (forward, right, down) to export (aft, right, up)
@@ -86,17 +84,6 @@ def test_a_rotor_square_to_x_and_z_points_right():
     frame = rotor_frame((0.0, -1.0, 0.0))
     assert frame.sense == -1
     np.testing.assert_allclose(frame.body_to_rotor.T @ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], atol=1e-12)
-
-
-@pytest.mark.parametrize("pitch, toe", [(0.0, 0.0), (5.0, 0.0), (3.0, 10.0), (-7.0, -20.0)])
-def test_y_r_is_minus_s_and_z_r_is_minus_n(pitch, toe):
-    axis = _export_axis(pitch, toe)
-    frame = rotor_frame(axis)
-    to_rotor = frame.body_to_rotor @ EXPORT_TO_BODY
-    thrust, side, normal = rotor_in_plane_axes(axis)
-    np.testing.assert_allclose(to_rotor[0], thrust, atol=1e-12)
-    np.testing.assert_allclose(to_rotor[1], -side, atol=1e-12)
-    np.testing.assert_allclose(to_rotor[2], -normal, atol=1e-12)
 
 
 def _frames_in_body(alpha_deg: float, beta_deg: float, rotor) -> dict[str, np.ndarray]:

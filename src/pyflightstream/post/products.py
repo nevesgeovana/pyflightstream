@@ -261,10 +261,7 @@ from pyflightstream.post.polar import (
     GEOMETRY_ANALYSIS_FRAMES,
     POLAR_COLUMNS,
     SWEEP_AXES,
-    GroupCoefficients,
     PolarPoint,
-    group_coefficients,
-    polar_row,
     swept_axes,
     trimmed_polar_row,
     write_polar_table,
@@ -272,11 +269,6 @@ from pyflightstream.post.polar import (
     write_trimmed_polar,
 )
 from pyflightstream.post.polar import declined_induced_drag as declined_induced_drag
-from pyflightstream.post.polar import drag_columned_rows as drag_columned_rows
-from pyflightstream.post.polar import drag_columns_of as drag_columns_of
-from pyflightstream.post.polar import group_polar_rows as group_polar_rows
-from pyflightstream.post.polar import polar_table_columns as polar_table_columns
-from pyflightstream.post.polar import polar_table_rows as polar_table_rows
 from pyflightstream.post.provenance import PRODUCT_ARCHIVE_DIR as PRODUCT_ARCHIVE_DIR
 from pyflightstream.post.provenance import PRODUCT_ARCHIVE_STAMP as PRODUCT_ARCHIVE_STAMP
 from pyflightstream.post.provenance import (
@@ -306,8 +298,6 @@ from pyflightstream.post.provenance import (
 from pyflightstream.post.rotor_table import ROTOR_COEFFICIENT_COLUMNS as ROTOR_COEFFICIENT_COLUMNS
 from pyflightstream.post.rotor_table import ROTOR_IN_PLANE_COLUMNS as ROTOR_IN_PLANE_COLUMNS
 from pyflightstream.post.rotor_table import RotorShaftLoads as RotorShaftLoads
-from pyflightstream.post.rotor_table import rotor_coefficient_columns as rotor_coefficient_columns
-from pyflightstream.post.rotor_table import rotor_coefficients as rotor_coefficients
 from pyflightstream.post.rotor_table import rotor_shaft_loads as rotor_shaft_loads
 from pyflightstream.post.section_distributions import (
     write_section_distributions as write_section_distributions,
@@ -318,10 +308,7 @@ from pyflightstream.post.superfile import (
     measure_sections,
     write_sections_report,
 )
-from pyflightstream.post.unsteady_polar import (
-    UNSTEADY_AXIS_COLUMNS,
-    unsteady_polar_file_name,
-)
+from pyflightstream.post.unsteady_polar import UNSTEADY_AXIS_COLUMNS
 from pyflightstream.post.unsteady_polar import global_frame_plot_groups as global_frame_plot_groups
 from pyflightstream.results import (
     FrozenSolve as FrozenSolve,
@@ -389,7 +376,6 @@ __all__ = [
     "PROVENANCE_SUFFIX",
     "SECTIONS_DIR",
     "SECTION_COLUMNS",
-    "GroupCoefficients",
     "CustomPolarTable",
     "PRODUCTS_MANIFEST",
     "PER_BLADE_COLUMNS",
@@ -399,19 +385,11 @@ __all__ = [
     "ProductError",
     "ProductExistsError",
     "ReferenceValues",
-    "group_coefficients",
     "custom_polar_file_name",
     "plots_table_series",
     "point_name_of",
     "polar_file_name",
-    "polar_row",
     "swept_axes",
-    # ITEM 17. `unsteady_polar_file_name` is the sibling of the name above it
-    # and was not in this list, so a reader looking one up would not find the
-    # other -- which is the claim this module's own docstring makes about the
-    # list and which was found false for `NOT_APPLICABLE` earlier in this
-    # same release. The architect lens of the closing round found it again.
-    "unsteady_polar_file_name",
     "GEOMETRY_ANALYSIS_FRAMES",
     "provenance_file_name",
     "read_csv_table",

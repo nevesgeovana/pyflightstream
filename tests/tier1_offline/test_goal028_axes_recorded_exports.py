@@ -92,34 +92,27 @@ def test_the_identity_discriminates_the_solver_vector_from_the_aiaa_one():
     assert abs(axes.wind_force_coefficients(force, 4.0, 2.0)[0] - stated) < 2e-7
 
 
-POLAR_NAMES = (
-    "ALPHA BETA MACH RE CDB CYB CLB CRB CMB CNB CDS CYS CLS CRS CMS CNS "
-    "CDW CYW CLW CRW CMW CNW CD0 CDI"
-).split()
 LIFTING = [row for row in ROWS if abs(float(row["CL"])) > 0.05]
 
 
-def _emitted_polar_row(row: dict[str, str]) -> dict[str, float]:
-    """The row a product writes for this export's Total, through the emitting function."""
-    from pyflightstream.post.products import GroupCoefficients, polar_row
+def _emitted_polar_row(row: dict[str, str]) -> dict[str, float | str]:
+    """The coefficients a product writes for this export's Total, through the emitting function.
 
+    The airframe coefficients of the ACOEF files of the polar, in the frames W, S and B, taken
+    against a unit dynamic pressure and unit reference lengths so the force is the printed vector.
+    """
     force = (float(row["Cx"]), float(row["Cy"]), float(row["Cz"]))
-    group = GroupCoefficients(
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float(row["CDo"]), float(row["CDi"]), ("Total",),
-        force=force, moment=(0.0, 0.0, 0.0),
-    )  # fmt: skip
-    values = polar_row(
-        float(row["alpha_deg"]), 0.2, 1.0, group,
-        cref_m=1.0, bref_m=1.0, beta_deg=float(row["beta_deg"]),
-    )  # fmt: skip
-    return dict(zip(POLAR_NAMES, values, strict=True))
+    turns = axes.frame_rotations(float(row["alpha_deg"]), float(row["beta_deg"]))
+    return axes.airframe_axis_coefficients(
+        force, (0.0, 0.0, 0.0), turns, q_ref_pa=1.0, sref_m2=1.0, cref_m=1.0, bref_m=1.0
+    )
 
 
 @pytest.mark.parametrize("row", ROWS, ids=[row["export"] for row in ROWS])
 def test_every_emitted_polar_force_column_agrees_with_the_export_that_printed_it(row):
     """OPS-2011.01.02 (RPT-063, FR-42): the EMITTED row is scored, not the module under it.
 
-    The test above scores the rotation; this one scores the tuple a polar writes,
+    The test above scores the rotation; this one scores the coefficients a polar writes,
     under sideslip and for lift too: the wind-axis drag is the export's CDi + CDo
     at printed precision, the body-axis forces are the vector it printed, the
     stability and wind lift agree, and the wind lift is the solver's CL within one

@@ -430,7 +430,6 @@
       "tests/tier1_offline/test_goal024_freestream_rotation.py",
       "tests/tier1_offline/test_goal026_item05_conditions.py",
       "tests/tier1_offline/test_goal026_item06_rotor_loads.py",
-      "tests/tier1_offline/test_goal026_item06_rotor_table.py",
       "tests/tier1_offline/test_goal026_item07_superfile_format.py",
       "tests/tier1_offline/test_goal026_item08_per_blade.py",
       "tests/tier1_offline/test_goal026_item11_guides.py",

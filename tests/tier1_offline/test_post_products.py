@@ -24,9 +24,7 @@ from pyflightstream.post.products import (
     SECTION_COLUMNS,
     ProductError,
     ReferenceValues,
-    group_coefficients,
     polar_file_name,
-    polar_row,
     read_csv_table,
     write_campaign_products,
     write_plots_table,
@@ -106,25 +104,58 @@ def _loads():
     return parse_loads(LOADS)
 
 
-def test_a_polar_row_carries_her_numbers():
-    """Body, stability and wind axes from the loads table, at five decimals, equal the author's
-    row."""
-    loads = _loads()
-    coefficients = group_coefficients(loads, ["Blade1", "S", "N", "W", "B"], bref_m=20.0)
-    assert coefficients.families_used == ("W", "B"), "families the table lacks are left out"
-    row = polar_row(
-        loads.angle_of_attack_deg,
-        0.2,
-        loads.reynolds / 1e6,
-        coefficients,
-        cref_m=2.526,
-        bref_m=20.0,
-        beta_deg=0.0,
+_REFERENCE_MAP = {
+    "SREF": 50.0,
+    "CREF": 2.526,
+    "BREF": 20.0,
+    "XMOM": 9.152,
+    "YMOM": 0.0,
+    "ZMOM": 0.0,
+}
+
+
+def _recorded_rows(tmp_path, groups, *, loads_text=None, aliases=None):
+    """The one row of each group table that ``write_recorded_polar`` writes for the point.
+
+    The public route to the polar row: a point folder holding the loads table, the groups
+    asked for by number, each table read back. A key of the result is a group's number.
+    """
+    polar = tmp_path / "POLAR-3207"
+    point = polar / "POLAR-3207_M20AL-020BE+000"
+    point.mkdir(parents=True)
+    (point / "POLAR-3207_M20AL-020BE+000.txt").write_text(
+        LOADS if loads_text is None else loads_text, encoding="utf-8"
     )
-    assert [f"{v:.5f}" for v in row] == HER_ROW
+    out = tmp_path / "out"
+    write_recorded_polar(
+        polar,
+        out,
+        groups=groups,
+        reference=_REFERENCE_MAP,
+        description="STEADY_WB",
+        mach=0.2,
+        sections=False,
+        aliases=aliases,
+    )
+    rows = {}
+    for number in groups:
+        _, found = read_csv_table(out / polar_file_name("3207", 0.2, number))
+        (rows[number],) = found
+    return rows
 
 
-def test_p0450_ci3_polar_beta_removal_fulfils_the_ledger_promise():
+def _her_cells(row):
+    return [f"{float(row[c]):.5f}" for c in COEFFICIENT_COLUMNS]
+
+
+def test_a_polar_row_carries_her_numbers(tmp_path):
+    """Body, stability and wind axes from the loads table, at five decimals, equal the author's
+    row; the families the table lacks are left out of the group."""
+    rows = _recorded_rows(tmp_path, {"1": ["Blade1", "S", "N", "W", "B"]})
+    assert _her_cells(rows["1"]) == HER_ROW
+
+
+def test_p0450_ci3_polar_beta_removal_fulfils_the_ledger_promise(tmp_path):
     # Verifies NFR-11.
     """The 0.45.0 deadline removes the shim; explicit sideslip emits no warning."""
     import warnings
@@ -133,60 +164,32 @@ def test_p0450_ci3_polar_beta_removal_fulfils_the_ledger_promise():
 
     entries = [e for e in DEPRECATIONS if "polar_row" in e.subject]
     assert entries == []
-    loads = _loads()
-    coefficients = group_coefficients(loads, ["W", "B"], bref_m=20.0)
+    assert _loads().sideslip_deg == 0.0, "fixture sideslip moved; the BETA check is the zero case"
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        row = polar_row(
-            loads.angle_of_attack_deg,
-            0.2,
-            loads.reynolds / 1e6,
-            coefficients,
-            cref_m=2.526,
-            bref_m=20.0,
-            beta_deg=loads.sideslip_deg,
-        )
-    assert caught == []
-    assert loads.sideslip_deg == 0.0, "fixture sideslip moved; the row[1] check is the zero case"
-    assert row[1] == 0.0
+        rows = _recorded_rows(tmp_path, {"1": ["W", "B"]})
+    assert [w for w in caught if "sideslip" in str(w.message).casefold()] == []
+    assert float(rows["1"]["BETA"]) == 0.0
 
 
-def test_a_group_the_table_carries_none_of_sums_to_zero():
-    coefficients = group_coefficients(_loads(), ["Blade1", "S"], bref_m=20.0)
-    assert coefficients.families_used == ()
-    assert coefficients.drag == coefficients.lift == coefficients.pitch == 0.0
+def test_a_group_the_table_carries_none_of_sums_to_zero(tmp_path):
+    row = _recorded_rows(tmp_path, {"1": ["Blade1", "S"]})["1"]
+    for column in ("CDB", "CLB", "CMB25", "CDS", "CLS", "CDW", "CLW"):
+        assert float(row[column]) == 0.0, column
 
 
-def test_an_empty_group_sums_every_family_the_table_carries():
+def test_an_empty_group_sums_every_family_the_table_carries(tmp_path):
     """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family, so its row is the sum over every surface row of the loads table,
     here W and B, and equals the group that names them; the Total row is not
-    a surface and is not summed twice. The reading is the ARTIFACT's, so the
-    products stage asks for it by name (the interface lens of 2026-09-09); the
-    other half is pinned by
-    test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_family."""
-    loads = _loads()
-    everything = group_coefficients(loads, [], bref_m=20.0, empty_is_every=True)
-    assert everything.families_used == tuple(loads.surfaces), "every surface, in table order"
-    assert everything.families_used == ("W", "B")
-    assert everything == group_coefficients(loads, ["W", "B"], bref_m=20.0)
+    a surface and is not summed twice. The reading is the ARTIFACT's, which is the
+    one this public route (``write_recorded_polar``) takes."""
+    rows = _recorded_rows(tmp_path, {"1": [], "2": ["W", "B"]})
+    assert rows["1"] == {**rows["2"], "GROUP": "1"}, "every family is the group that names W and B"
+    assert _her_cells(rows["1"]) == HER_ROW
 
 
-def test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_family():
-    """The interface lens of 2026-09-09: the author's decision that an empty [groups] entry
-    is every family is about the ARTIFACT, and it had flipped this public function
-    in silence, where an empty list summed to zero and its docstring said so. A
-    caller that filtered its families down to none still gets zero; the products
-    stage, which reads the artifact, asks for every family by name."""
-    loads = _loads()
-    zero = group_coefficients(loads, [], bref_m=20.0)
-    assert zero.families_used == () and zero.lift == 0.0
-    every = group_coefficients(loads, [], bref_m=20.0, empty_is_every=True)
-    assert every.families_used == ("W", "B")
-    assert every == group_coefficients(loads, ["W", "B"], bref_m=20.0)
-
-
-def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
+def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup(tmp_path):
     """The author's decisions of 2026-09-09: a member is an exact surface name first, then
     an ALIAS the row's setup defines (its members resolved the same way, a
     member the table lacks ignored), then a family, the label without its
@@ -194,39 +197,41 @@ def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
     whatever the setup says they are, and without an alias those words are
     families the table does not carry. Until 0.14.0 a family name in a group
     summed nothing at products time."""
-    from dataclasses import replace
-
-    loads = _loads()
-    wing, body = loads.surfaces["W"], loads.surfaces["B"]
-    with_blades = replace(loads, surfaces={"Blade1": body, "Blade2": wing, "W": wing, "B": body})
+    wing_row = LOADS.split("     W,")[1].split("\n")[0]
+    body_row = LOADS.split("     B,")[1].split("\n")[0]
+    text = LOADS.replace(
+        f"     W,{wing_row}\n     B,{body_row}\n",
+        f"     Blade1,{body_row}\n     Blade2,{wing_row}\n     W,{wing_row}\n     B,{body_row}\n",
+    )
+    assert text.count("Blade") == 2, "the fixture's surface rows moved"
+    wing_cz, body_cz = float(wing_row.split(",")[2]), float(body_row.split(",")[2])
     aliases = {"airframe": ["W", "B", "Nothing"], "rotor": ["Blade"], "one": ["Blade2"]}
-    by_family = group_coefficients(with_blades, ["Blade"], bref_m=20.0)
-    assert by_family.families_used == ("Blade1", "Blade2")
-    assert by_family.lift == pytest.approx(wing["CL"] + body["CL"])
-    assert group_coefficients(with_blades, ["rotor"], bref_m=20.0, aliases=aliases) == by_family
-    airframe = group_coefficients(with_blades, ["airframe"], bref_m=20.0, aliases=aliases)
-    assert airframe.families_used == ("W", "B"), "the member the table lacks is ignored"
-    assert group_coefficients(with_blades, ["airframe"], bref_m=20.0).families_used == (), (
-        "without the setup's alias the word is a family the table does not carry"
+    rows = _recorded_rows(
+        tmp_path,
+        {"1": ["Blade"], "2": ["rotor"], "3": ["airframe"], "4": ["one", "airframe"], "5": []},
+        loads_text=text,
+        aliases=aliases,
     )
-    assert group_coefficients(with_blades, ["blades"], bref_m=20.0).families_used == ()
-    mixed = group_coefficients(with_blades, ["one", "airframe"], bref_m=20.0, aliases=aliases)
-    assert mixed.families_used == ("Blade2", "W", "B"), "alias by alias, each name once"
-    assert group_coefficients(with_blades, [], bref_m=20.0, empty_is_every=True).families_used == (
-        "Blade1",
-        "Blade2",
-        "W",
-        "B",
+    by_family = float(rows["1"]["CLB"])
+    assert by_family == pytest.approx(wing_cz + body_cz, abs=1e-4)
+    assert rows["2"] == {**rows["1"], "GROUP": "2"}, "the alias of the family is the family"
+    assert float(rows["3"]["CLB"]) == pytest.approx(wing_cz + body_cz, abs=1e-4), (
+        "W and B, Nothing ignored"
     )
+    assert float(rows["4"]["CLB"]) == pytest.approx(2 * wing_cz + body_cz, abs=1e-4), (
+        "alias by alias, each name once: Blade2, W, B"
+    )
+    assert float(rows["5"]["CLB"]) == pytest.approx(2 * wing_cz + 2 * body_cz, abs=1e-4), (
+        "every surface"
+    )
+    # Without the setup's alias the words are families the table does not carry.
+    bare = _recorded_rows(tmp_path / "bare", {"1": ["airframe"], "2": ["blades"]}, loads_text=text)
+    assert float(bare["1"]["CLB"]) == 0.0 and float(bare["2"]["CLB"]) == 0.0
 
 
 def test_polar_table_round_trips(tmp_path):
     """The CSV a reader takes apart is the one written: columns, rows, values."""
-    loads = _loads()
-    coefficients = group_coefficients(loads, ["W", "B"], bref_m=20.0)
-    row = polar_row(
-        -2.0, 0.2, loads.reynolds / 1e6, coefficients, cref_m=2.526, bref_m=20.0, beta_deg=0.0
-    )
+    row = tuple(float(value) for value in HER_ROW)
     target = write_polar_table(
         tmp_path / polar_file_name("3207", 0.2, "1"),
         polar="3207",
@@ -481,19 +486,13 @@ def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
     the recorded exports, whose own drag is the wind-axis drag of their own vector
     under sideslip too. So the point is a row like any other.
     """
-    from pyflightstream.post.polar import group_polar_rows as polar_rows
-    from pyflightstream.post.products import PolarPoint
-
     text = LOADS.replace(
         "Side-slip angle (Deg)                       .000",
         "Side-slip angle (Deg)                      2.000",
     )
     assert text != LOADS, "the fixture's sideslip line moved"
-    path = tmp_path / "AL+020.txt"
-    path.write_text(text, encoding="utf-8")
-    point = PolarPoint(name="AL+020", loads=parse_loads(text), loads_path=path)
-    (row,) = polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
-    assert row[1] == 2.0, "BETA is the sideslip the export states"
+    row = _recorded_rows(tmp_path, {"1": ["W"]}, loads_text=text)["1"]
+    assert float(row["BETA"]) == 2.0, "BETA is the sideslip the export states"
 
 
 def test_the_mach_code_rounds_rather_than_truncates():

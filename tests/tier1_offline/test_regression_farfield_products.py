@@ -61,7 +61,7 @@ from pyflightstream.post.farfield_products import TREFFTZ_COLUMNS, farfield_axes
 from pyflightstream.post.polar import PolarPoint, farfield_column_names
 from pyflightstream.post.products import ReferenceValues, write_campaign_products
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
-from pyflightstream.results import parse_loads, sweep_table, write_table
+from pyflightstream.results import parse_loads, sweep_table
 from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -1585,7 +1585,7 @@ class TestFfproofPost:
         variants, which the plan gave the sectional loads, wake and probe exports,
         and once by the row without ``[farfield]``, which recorded the loads and
         the saved simulation only. Both are posted, then the sweep table is derived
-        and written (``results.sweep_table`` through ``results.write_table``): the
+        and written (``results.sweep_table`` through ``Table.to_csv``): the
         two files are the same bytes, and the far field wrote its own table.
         """
         far = _ffproof_post__wing._farfield_products___workspace(tmp_path / "with", farfield=True)
@@ -1601,7 +1601,7 @@ class TestFfproofPost:
             _ffproof_post___post(workspace)
             target = Path(workspace.root) / "derived" / "sweep.csv"
             target.parent.mkdir(parents=True, exist_ok=True)
-            write_table(sweep_table(workspace, require_loads=False), target, overwrite=True)
+            sweep_table(workspace, require_loads=False).to_csv(target, index=False)
             tables.append(target.read_bytes())
         assert list(Path(far.root).rglob("farfield/*_trefftz.csv")), "the far field was posted"
         assert not list(Path(plain.root).rglob("farfield/*"))

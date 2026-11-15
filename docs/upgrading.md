@@ -50,6 +50,15 @@ run block), and `post.qsteady.validity_cells` and `post.axes.stability_force_coe
 now private (the validity columns of the quasi-steady tables, and `CDS`, `CYS`, `CLS` of
 every ACOEF file).
 
+The public helpers that computed the columns of those writers are private too, and the old
+names are refused by name: `GroupCoefficients`, `group_coefficients`, `polar_row`,
+`polar_table_columns`, `polar_table_rows`, `drag_columned_rows`, `drag_columns_of` and
+`group_polar_rows` of `post.polar`; `polar_axis_coefficients`, `rotor_in_plane_axes` and
+`rotor_in_plane_loads` of `post.axes`; `rotor_coefficients` and `rotor_coefficient_columns`
+of `post.rotor_table`; `unsteady_polar_file_name`; and `results.write_table`. Their values
+are the columns of the FAM and group files (`post.axes.airframe_axis_coefficients` is the
+public function of the axes columns), and a table is written with `results.to_csv`.
+
 ### The tree
 
 | 0.57.0 file | 0.58.0 |

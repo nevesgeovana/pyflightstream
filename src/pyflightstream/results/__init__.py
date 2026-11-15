@@ -71,6 +71,7 @@ from __future__ import annotations
 # Public facade (AD-11): names are defined in leaf modules that do not
 # import this root. Re-export operating-point bindings beside tabular
 # views and surface readers. Tabular views build on the parsers.
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream.results.conditions import (
     FIELD_BINDINGS,
     ConditionBinding,
@@ -178,8 +179,13 @@ from pyflightstream.results.tables import (
     sweep_table,
     to_csv,
     to_table,
-    write_table,
 )
+
+
+def __getattr__(name: str) -> object:
+    """Refuse a retired name with its successor (FR-457)."""
+    return removed_names_hook(__name__)(name)
+
 
 __all__ = [
     "AmbiguousLoadsError",
@@ -264,7 +270,6 @@ __all__ = [
     "sweep_table",
     "to_csv",
     "to_table",
-    "write_table",
     "NOT_CARRIED_BY_THE_VTK",
     "REFERENCE_FRAME",
     "SurfaceFrame",

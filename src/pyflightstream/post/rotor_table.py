@@ -6,9 +6,9 @@ One of the product families of :mod:`pyflightstream.post`, written by the post s
 ``polars/P<sim>-<sweep>_<ROTOR>_rotor.csv``: one row per point, the rotor's
 loads in its own shaft frame (:class:`RotorShaftLoads`,
 :func:`rotor_shaft_loads`) and its thrust, torque and power coefficients
-with the in-plane ones (:func:`rotor_coefficients`,
+with the in-plane ones (:func:`_rotor_coefficients`,
 :data:`ROTOR_COEFFICIENT_COLUMNS`, :data:`ROTOR_IN_PLANE_COLUMNS`,
-:func:`rotor_coefficient_columns`), written by the retired ``write_rotor_table``.
+:func:`_rotor_coefficient_columns`), written by the retired ``write_rotor_table``.
 The geometry comes from the resolved reference definition retained with the
 run record, including the shaft, hub and diameter. An
 unsteady row reads the rotor's plot group, time-averaged over the row's
@@ -53,9 +53,7 @@ __all__ = [
     "ROTOR_COEFFICIENT_COLUMNS",
     "ROTOR_IN_PLANE_COLUMNS",
     "RotorShaftLoads",
-    "rotor_coefficient_columns",
     "ROTOR_DECLARED_AFT_WARNING",
-    "rotor_coefficients",
     "rotor_frame_coefficients",
     "rotor_shaft_loads",
     "warn_rotor_declared_aft",
@@ -70,7 +68,7 @@ ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETA
 #: The rotor's in-plane coefficients (G8), the LAST four columns of its
 #: table, after `MTIP_<alias>` and `MHEL_<alias>`: the force along the normal
 #: and side axes and the moment about them, in the rotor's `(T, S, N)` axes
-#: (:func:`pyflightstream.post.axes.rotor_in_plane_axes`).
+#: (:func:`pyflightstream.post.axes._rotor_in_plane_axes`).
 ROTOR_IN_PLANE_COLUMNS: tuple[str, ...] = ("CN", "CS", "CMN", "CMS")
 
 
@@ -79,7 +77,7 @@ ROTOR_IN_PLANE_COLUMNS: tuple[str, ...] = ("CN", "CS", "CMN", "CMS")
 # a non-tabular preamble.
 
 
-def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
+def _rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
     """Return the rotor coefficient columns of ONE rotor, suffixed with its alias.
 
     The constraint is physical rather than cosmetic: these coefficients have a
@@ -174,7 +172,7 @@ def rotor_shaft_loads(
     That is elementary statics rather than a convention, so it is implemented
     rather than asked: choosing the other reading reports a torque no rotor
     produces. The DEFINITION of `ETAW` is not made here: it is stated where it is
-    computed, in :func:`rotor_coefficients`.
+    computed, in :func:`_rotor_coefficients`.
 
     ONLY THE ROTOR'S OWN FAMILIES ARE SUMMED. The airframe sits in the same
     table, and a rotor's thrust is its own -- which is the same reason item 6
@@ -222,7 +220,7 @@ def rotor_shaft_loads(
     # `select_group_members` is the single rule for turning a member token into
     # surface names: an exact name, an alias of the row's setup, or a FAMILY,
     # the label without its trailing number, so `Blade` selects `Blade1` to
-    # `Blade6`. `group_coefficients` forty lines above calls it.
+    # `Blade6`. `_group_coefficients` forty lines above calls it.
     # Matching by exact name summed NOTHING for a rotor declared the way the
     # resolver exists to serve, and wrote 0.00000 thrust with no refusal -- a
     # physically false zero, in the one product item 6 delivers, indistinguishable
@@ -325,7 +323,7 @@ def _shaft_angle(shaft: Sequence[float], alpha_deg: float, beta_deg: float) -> f
 
     This read `acos(shaft[0])` for one commit -- the angle to body +X -- under a
     comment calling +X "this package's convention everywhere". IT IS NOT, and
-    the same module says so: `polar_row` turns stability-axis forces into body
+    the same module says so: `_polar_row` turns stability-axis forces into body
     axes THROUGH ALPHA, and its docstring records that the wind and stability
     axes coincide here only because every reference polar carried `BETA 0.0`.
 
@@ -333,7 +331,7 @@ def _shaft_angle(shaft: Sequence[float], alpha_deg: float, beta_deg: float) -> f
     an alpha sweep -- the ordinary shape of a polar -- the angle was off by
     alpha on every row, and `ETAW = ETA * cos(theta)` with it. That is the
     aircraft's pitch reintroduced as an omission, which is precisely the defect
-    item 19 was raised to remove and which `rotor_coefficients` warns about in
+    item 19 was raised to remove and which `_rotor_coefficients` warns about in
     its own docstring.
 
     The free stream comes from :func:`pyflightstream.post.axes.free_stream_in_export_frame`,
@@ -389,7 +387,7 @@ def _unit(vector: Sequence[float]) -> tuple[float, float, float]:
     return tuple(float(component) / length for component in vector)  # type: ignore[return-value]
 
 
-def rotor_coefficients(
+def _rotor_coefficients(
     *,
     thrust_n: float,
     torque_nm: float,
@@ -423,7 +421,7 @@ def rotor_coefficients(
 
     ``N``, ``S``, ``MN`` and ``MS`` are ``in_plane_loads``, the rotor's force
     along its normal and side axes and its moment about them at the hub
-    (:func:`pyflightstream.post.axes.rotor_in_plane_loads`); the four read
+    (:func:`pyflightstream.post.axes._rotor_in_plane_loads`); the four read
     ``NA`` where the caller states none, or states one that is not a number.
 
     ``Fx_W`` is ``wind_force_n``: the rotor's whole force vector carried from the

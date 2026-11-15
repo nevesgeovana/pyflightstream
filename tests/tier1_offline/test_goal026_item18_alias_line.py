@@ -22,13 +22,7 @@ from __future__ import annotations
 
 import csv
 
-import pytest
-
-from pyflightstream.post.products import (
-    ProductError,
-    read_csv_table,
-    rotor_coefficient_columns,
-)
+from pyflightstream.post.products import read_csv_table
 from tests.tier1_offline.test_goal026_item08_per_blade import posted_blades
 
 #: Thrust forward is minus the export's x force of a rotor declared along the aft +x.
@@ -65,9 +59,3 @@ def test_a_loaded_table_needs_no_line_skipped(tmp_path):
 # a `pol=None` argument of the retired writer. The stage always states the matrix row's POL,
 # which opens every row, and a column the row does not state reads `NA` (counterpart:
 # `test_p0580_l1_run_block.py::test_a_row_carries_every_column_and_na_where_nothing_applies`).
-
-
-def test_an_alias_with_no_name_is_refused():
-    """A rotor column that names nobody is worse than none: the coefficients need the alias."""
-    with pytest.raises(ProductError):
-        rotor_coefficient_columns("   ")

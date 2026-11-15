@@ -75,9 +75,6 @@ __all__ = [
     "dcm",
     "free_stream_in_export_frame",
     "free_stream_on_rotor_axis",
-    "polar_axis_coefficients",
-    "rotor_in_plane_axes",
-    "rotor_in_plane_loads",
     "section_station_shaft_loads",
     "velocity_in_body_frame",
     "wind_angles",
@@ -491,7 +488,7 @@ def _stability_force_coefficients(
     )
 
 
-def polar_axis_coefficients(
+def _polar_axis_coefficients(
     force_in_export_frame: Sequence[float],
     moment_in_export_frame: Sequence[float],
     alpha_deg: float,
@@ -537,7 +534,7 @@ def polar_axis_coefficients(
     --------
     At zero incidence and zero sideslip the three systems coincide:
 
-    >>> row = polar_axis_coefficients((0.02, 0.0, 0.5), (0.0, -0.1, 0.0), 0.0, 0.0,
+    >>> row = _polar_axis_coefficients((0.02, 0.0, 0.5), (0.0, -0.1, 0.0), 0.0, 0.0,
     ...                               cref_m=2.0, bref_m=10.0)
     >>> [round(value, 12) + 0.0 for value in row[:3]] == [round(v, 12) + 0.0 for v in row[12:15]]
     True
@@ -570,7 +567,7 @@ REFERENCE_UP: tuple[float, float, float] = (0.0, 0.0, 1.0)
 ROTOR_NORMAL_FLOOR = 1e-9
 
 
-def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] | None:
+def _rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] | None:
     """Return a rotor's ``(T, S, N)`` unit vectors in the export frame, or None.
 
     ``T`` is the rotor's axis as declared, the sense in which its thrust is
@@ -599,10 +596,10 @@ def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] 
 
     Examples
     --------
-    >>> t, s, n = rotor_in_plane_axes((-1.0, 0.0, 0.0))
+    >>> t, s, n = _rotor_in_plane_axes((-1.0, 0.0, 0.0))
     >>> [float(c) + 0.0 for c in s], [float(c) + 0.0 for c in n]
     ([0.0, -1.0, 0.0], [0.0, 0.0, 1.0])
-    >>> rotor_in_plane_axes((0.0, 0.0, 2.0)) is None
+    >>> _rotor_in_plane_axes((0.0, 0.0, 2.0)) is None
     True
     """
     thrust = np.asarray(axis, dtype=float)
@@ -620,14 +617,14 @@ def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] 
     return thrust, side, normal
 
 
-def rotor_in_plane_loads(
+def _rotor_in_plane_loads(
     force: Sequence[float], moment: Sequence[float], axis: Sequence[float]
 ) -> tuple[float, float, float, float] | None:
     """Return ``(N, S, MN, MS)``: a rotor's in-plane force and moment components.
 
     ``force`` is the rotor's force and ``moment`` its moment about the HUB,
     both in the export frame; ``N`` and ``S`` are the force along the normal
-    and the side axes of :func:`rotor_in_plane_axes`, ``MN`` and ``MS`` the
+    and the side axes of :func:`_rotor_in_plane_axes`, ``MN`` and ``MS`` the
     moment about them. None where those axes are undefined.
 
     Parameters
@@ -647,10 +644,10 @@ def rotor_in_plane_loads(
 
     Examples
     --------
-    >>> rotor_in_plane_loads((0.0, -3.0, 2.0), (0.0, 5.0, 7.0), (-1.0, 0.0, 0.0))
+    >>> _rotor_in_plane_loads((0.0, -3.0, 2.0), (0.0, 5.0, 7.0), (-1.0, 0.0, 0.0))
     (2.0, 3.0, 7.0, -5.0)
     """
-    axes = rotor_in_plane_axes(axis)
+    axes = _rotor_in_plane_axes(axis)
     if axes is None:
         return None
     _thrust, side, normal = axes

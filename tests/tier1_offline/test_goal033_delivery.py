@@ -396,25 +396,17 @@ def _printed_decimals(printed: str) -> int:
 
 def _polar_misses(row: dict[str, str], beta_deg: float) -> list[str]:
     """What the release's polar row gets wrong about one recorded export."""
-    from pyflightstream.post.products import GroupCoefficients, polar_row
+    from pyflightstream.post.axes import airframe_axis_coefficients, frame_rotations
 
     force = (float(row["Cx"]), float(row["Cy"]), float(row["Cz"]))
-    group = GroupCoefficients(
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float(row["CDo"]), float(row["CDi"]), ("Total",),
-        force=force, moment=(0.0, 0.0, 0.0),
-    )  # fmt: skip
-    names = (
-        "ALPHA BETA MACH RE CDB CYB CLB CRB CMB CNB CDS CYS CLS CRS CMS CNS "
-        "CDW CYW CLW CRW CMW CNW CD0 CDI"
-    ).split()
-    emitted = dict(
-        zip(
-            names,
-            polar_row(
-                float(row["alpha_deg"]), 0.2, 1.0, group, cref_m=1.0, bref_m=1.0, beta_deg=beta_deg
-            ),
-            strict=True,
-        )
+    emitted = airframe_axis_coefficients(
+        force,
+        (0.0, 0.0, 0.0),
+        frame_rotations(float(row["alpha_deg"]), beta_deg),
+        q_ref_pa=1.0,
+        sref_m2=1.0,
+        cref_m=1.0,
+        bref_m=1.0,
     )
     misses = []
     digits = min(_printed_decimals(row[name]) for name in ("Cx", "Cz", "CDi", "CDo"))

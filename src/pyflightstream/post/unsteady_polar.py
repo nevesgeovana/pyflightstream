@@ -10,7 +10,7 @@ the step exports on 26.124", 2026-10-02), one instant of a cycle, so a
 polar read from it is a polar of an instant. the retired ``write_unsteady_polar``
 reads the plots tables the stage has already written, so the free-stream
 scaling is performed once, and averages each point over the window its row
-states, one row per point, under ``polars/`` (:func:`unsteady_polar_file_name`).
+states, one row per point, under ``polars/`` (:func:`_unsteady_polar_file_name`).
 Its axis coefficients (:data:`UNSTEADY_AXIS_COLUMNS`) come from the forces the
 run plotted in the global frame (:func:`global_frame_plot_groups`); the
 row's setup, the equations and the names dictionary of the pproc artifact
@@ -38,7 +38,7 @@ from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
     ReferenceValues,
 )
-from pyflightstream.post.axes import polar_axis_coefficients
+from pyflightstream.post.axes import _polar_axis_coefficients
 from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN
 
 if TYPE_CHECKING:
@@ -47,7 +47,6 @@ if TYPE_CHECKING:
 __all__ = [
     "UNSTEADY_AXIS_COLUMNS",
     "global_frame_plot_groups",
-    "unsteady_polar_file_name",
 ]
 
 
@@ -78,7 +77,7 @@ def _averaged(content: Mapping[str, object]) -> dict[str, object]:
     return {**content, **_AVERAGED_ROW_PROVENANCE}
 
 
-def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
+def _unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     """Return the file name of one unsteady simulation's POLAR, which is per SIMULATION.
 
     Item 17. It carries no GROUP, and that is the whole difference from
@@ -205,7 +204,7 @@ def global_frame_plot_groups(
 
 #: The eighteen axis columns of an unsteady polar, wind axes first as the draft of
 #: the product lists them, and where each sits in what
-#: :func:`pyflightstream.post.axes.polar_axis_coefficients` returns (body,
+#: :func:`pyflightstream.post.axes._polar_axis_coefficients` returns (body,
 #: stability, wind).
 #: They ARE the steady polar's eighteen names, read off its one tuple, `25`
 #: included: one construction about one moment point has one name in `polars/`.
@@ -315,7 +314,7 @@ def _the_axes_of_the_unsteady_rows(
                 six = [values.get(f"{part}_{group}") for part in _SIX_COMPONENTS]
                 if any(value is None for value in six):
                     continue
-                turned = polar_axis_coefficients(
+                turned = _polar_axis_coefficients(
                     [float(value) / unit for value in six[:3]],  # type: ignore[arg-type]
                     [float(value) / (unit * reference.cref_m) for value in six[3:]],  # type: ignore[arg-type]
                     float(alpha),  # type: ignore[arg-type]

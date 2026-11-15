@@ -31,7 +31,7 @@ WHERE EVERY VALUE COMES FROM, and NONE of them is assembled a second time
 here. Each block is a table some other writer already built, carried across
 under its own column names:
 
-    the polar table's own row     `products.polar_table_rows`, the one
+    the polar table's own row     `products._polar_table_rows`, the one
                                   assembly the polar table is written from
     the flight condition          the manifest record: what the row stated,
                                   what the setup pinned, and what the

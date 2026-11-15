@@ -21,11 +21,11 @@ Three steps of one ladder:
    loads spreadsheet from the managed workspace through the record's
    collected outputs.
 3. :func:`sweep_table` reads a whole campaign manifest and returns the
-   tidy sweep table, one row per run; :func:`write_table` then writes
+   tidy sweep table, one row per run; ``Table.to_csv`` then writes
    the final csv.
 
 EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05). Each frame these functions build carries
-``data_origin`` and ``reduction``, and :func:`write_table` refuses to
+``data_origin`` and ``reduction``, and the writer behind :func:`to_csv` refuses to
 write one that does not. They are constant columns for a single parsed
 result and genuinely PER ROW in the sweep table, which is the one file
 here that mixes provenances: a steady point's coefficients are a direct
@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import (
     ProductExistsError,
     PyflightstreamError,
@@ -535,7 +536,7 @@ def to_table(result: object) -> Table:
     -------
     Table
         Tidy table, one observation per row; write it with
-        :func:`to_csv` or :func:`write_table`.
+        :func:`to_csv`.
 
     Raises
     ------
@@ -582,8 +583,8 @@ def to_table(result: object) -> Table:
         and isinstance(result, sys.modules["pandas"].DataFrame)
     ):
         raise UnsupportedResultTypeError(
-            f"the result is already a {type(result).__name__}; write it with write_table, which "
-            "checks that it states its provenance, instead of tabulating it again"
+            f"the result is already a {type(result).__name__}; it is the tabulated form "
+            "already, so it is not tabulated again"
         )
     sectional_type = _sectional_loads_type()
     if sectional_type is not None and isinstance(result, sectional_type):
@@ -608,7 +609,7 @@ def to_table(result: object) -> Table:
     )
 
 
-def write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> Path:
+def _write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> Path:
     """Write one table as a csv, refusing a file that cannot say what it is.
 
     THE ONE WRITE PATH of this module (PFS-2014.05). Every file this
@@ -662,7 +663,7 @@ def write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> P
     Examples
     --------
     >>> from pyflightstream.results.tables import Table
-    >>> from pyflightstream.results import write_table
+    >>> from pyflightstream.results.tables import _write_table
     >>> frame = Table(
     ...     {
     ...         "CL": [0.4],
@@ -671,7 +672,7 @@ def write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> P
     ...         "reduction_window": ["not_applicable"],
     ...     }
     ... )
-    >>> written = write_table(frame, "polar.csv")   # doctest: +SKIP
+    >>> written = _write_table(frame, "polar.csv")   # doctest: +SKIP
     """
     _refuse_a_frame_that_cannot_say_what_it_is(frame)
     target = Path(path)
@@ -725,7 +726,7 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     positional index, so the csv holds exactly the documented columns
     in their documented units, plus the ``data_origin`` and
     ``reduction`` columns every file this package writes carries
-    (PFS-2014.05). It routes through :func:`write_table`, so a table
+    (PFS-2014.05). It is the one write path of a parsed result, so a table
     that cannot say what produced its numbers is refused here too.
 
     Parameters
@@ -735,8 +736,8 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     path : str or Path
         Target csv file; its parent folder must exist.
     overwrite : bool, optional
-        Whether an existing file may be replaced, as in
-        :func:`write_table`, which takes the same default.
+        Whether an existing file may be replaced; False by default,
+        so a product is never replaced by accident.
 
     Returns
     -------
@@ -757,7 +758,7 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     >>> header.split(',')[:2]
     ['Time (sec)', 'CL']
     """
-    return write_table(to_table(result), path, overwrite=overwrite)
+    return _write_table(to_table(result), path, overwrite=overwrite)
 
 
 def _refuse_a_frame_that_cannot_say_what_it_is(frame: Table) -> None:
@@ -1086,7 +1087,7 @@ def write_sweep_table(frame: Table, path: str | Path) -> Path:
         The written file.
     """
     held = sweep_identifiers_held(path)
-    written = write_table(frame, path, overwrite=True)
+    written = _write_table(frame, path, overwrite=True)
     state_in_sweep_table(written, held)
     return written
 
@@ -1106,9 +1107,8 @@ def sweep_table(
     resolved through :func:`parse_run_loads`. Runs without a loads
     spreadsheet (failed points) keep their identity row with NaN
     coefficients, so the sweep table always accounts for every
-    executed point. :func:`write_table` then writes the final csv; it is
-    the one write path, and it refuses a table that does not state its
-    provenance.
+    executed point. ``Table.to_csv`` then writes the final csv; the table states its
+    provenance in its own columns.
 
     Parameters
     ----------
@@ -1751,3 +1751,7 @@ def _check_point_printback(record: _ManifestRecord, report: LoadsReport, name: s
             "overwrites a same named export, so this file is not the evidence "
             "of this run. Export one uniquely named spreadsheet per point."
         )
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

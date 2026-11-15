@@ -299,7 +299,7 @@ def test_a_tilted_shaft_takes_the_component_along_itself():
 
 
 def test_the_shaft_angle_to_the_free_stream_is_reported_for_etaw():
-    """`rotor_coefficients` takes `shaft_angle_deg` and nothing produced it.
+    """The retired rotor table took `shaft_angle_deg` and nothing produced it.
 
     Without a producer a wired rotor table would report the ALIGNED-rotor
     `ETAW` by omission, which is the defect the coefficient function's own
@@ -852,26 +852,8 @@ def test_f159_a_missing_surface_coefficient_is_not_a_zero():
     assert math.isnan(loads.thrust_n), loads
 
 
-def test_f160_an_infinite_rate_is_refused_not_read_as_zero_coefficients():
-    """F-160: rps = inf divided every coefficient to a finite zero."""
-    from pyflightstream._errors import ProductError
-    from pyflightstream.post.rotor_table import rotor_coefficients
-
-    with pytest.raises(ProductError, match="finite"):
-        rotor_coefficients(
-            thrust_n=1.0,
-            torque_nm=1.0,
-            rps=math.inf,
-            diameter_m=1.0,
-            density_kg_m3=1.2,
-            speed_m_s=10.0,
-        )
-
-
 def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
     from types import SimpleNamespace
-
-    from pyflightstream.post import rotor_table as rt
 
     common = dict(reference=_reference(), density_kg_m3=1.225)
     surfaces = _surfaces(Blade1={"Cz": 0.5})
@@ -884,11 +866,6 @@ def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
     )
     loads = rotor_shaft_loads(surfaces, rotor=bare, speed_m_s=40.0, **common)
     assert math.isnan(loads.thrust_n) and loads.families_used == ("Blade1",)
-    # F-1396: zero density is a ProductError, not a bare ZeroDivisionError
-    with pytest.raises(rt.ProductError, match="density"):
-        rt.rotor_coefficients(
-            thrust_n=1.0, torque_nm=1.0, rps=10.0, diameter_m=1.0, density_kg_m3=0.0, speed_m_s=5.0
-        )
 
 
 @pytest.mark.parametrize("shaft", [(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)])
