@@ -588,7 +588,7 @@ def per_blade_window(*, last_step: int, blades: int, period_steps: int) -> tuple
     the same window.
 
     The blades are still told apart -- by their AZIMUTHS, which
-    :func:`pyflightstream.post.unsteady.per_blade_rows` writes at both ends of
+    the retired ``per_blade_rows`` writes at both ends of
     this window rather than averaging away.
 
     None where the run holds no complete revolution: a partial turn is not

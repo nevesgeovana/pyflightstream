@@ -38,7 +38,6 @@ from pyflightstream.post._condition import _last_time_step, _recorded_speeds, ro
 from pyflightstream.post._rotor_plan import _plot_name_can_emit
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
-    _PER_BLADE,
     _PER_REVOLUTION,
     _PHASE_LOCKED,
     _PLOTS_CLOCK_COLUMNS,
@@ -787,22 +786,13 @@ def _judged_reduction_windows(
                 ctx.columns, ctx.names, ctx.stem, ctx.skipped
             )
         _, facts, count = _the_rotor_of_a_reduction(rotor, ctx.plan, ctx.rotor_facts or {})
-        combined_reads = (
-            _window_the_reduction_reads(
-                name, entry, (windows[0][0], windows[-1][1]), ctx.series, ctx.columns, count, facts
-            )
-            if name == _PER_BLADE and windows
-            else None
-        )
         reached = [
             (window, why)
             for window in windows
             if (
                 why := _judge_average(
                     ctx.frozen,
-                    {step for step in combined_reads if window[0] <= step <= window[-1]}
-                    if combined_reads is not None
-                    else _window_the_reduction_reads(
+                    _window_the_reduction_reads(
                         name, entry, window, ctx.series, ctx.columns, count, facts
                     ),
                     point=ctx.stem,
@@ -828,50 +818,15 @@ def _trim_reduction_windows(
     facts: Mapping[str, object],
     count: int,
 ) -> list[tuple[int, ...]] | None:
-    """Trim refused windows and judge the final per-blade span without bridging."""
+    """Drop the windows whose samples were refused; None, said, when none is left."""
     assert ctx.series is not None  # The first sample judgment loaded the history.
     frozen_windows = [window for window, _ in reached]
     kept = [window for window in windows if window not in frozen_windows]
-    # The per-blade table collapses passages into one contiguous window.
-    # Refusing a middle passage must not bridge the gap: [55,56] and [59,60]
-    # cannot become [55,60]. Trimming either end preserves a contiguous
-    # product; judge contiguity rather than rejecting every partial window.
-    bridged = (
-        name == _PER_BLADE and kept != windows[windows.index(kept[0]) : windows.index(kept[-1]) + 1]
-        if kept
-        else False
-    )
-    if reached and (not kept or bridged):
+    if reached and not kept:
         ctx.target(ctx.out / relative)  # archive any stale product from an earlier post
-        ctx.skipped[relative] = (
-            reached[0][1]
-            if not kept
-            else f"{reached[0][1]}; this table states ONE window over its passages and the "
-            "refused one lies between passages that were kept, so the window it would state "
-            "would span the refused steps"
-        )
+        ctx.skipped[relative] = reached[0][1]
         return None
-    if reached:
-        windows = kept
-    if name == _PER_BLADE and windows:
-        # End trimming changes the span. Recompute exactly the samples the
-        # final table reads, including between passages. Apply the same handling
-        # as the first reduction: a span with no plotted frame is a named skip
-        # of this table, not an exception that aborts later products.
-        try:
-            final_reads = _window_the_reduction_reads(
-                name, entry, (windows[0][0], windows[-1][1]), ctx.series, ctx.columns, count, facts
-            )
-            final_reason = _judge_average(ctx.frozen, final_reads, point=ctx.stem, product=relative)
-        except (PyflightstreamError, OSError, ValueError) as error:
-            ctx.target(ctx.out / relative)
-            ctx.skipped[relative] = str(error)
-            return None
-        if final_reason is not None:
-            ctx.target(ctx.out / relative)
-            ctx.skipped[relative] = final_reason
-            return None
-    return windows
+    return kept if reached else windows
 
 
 def _write_reduction_table(

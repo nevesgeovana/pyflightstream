@@ -448,12 +448,6 @@
    "statements": 28,
    "positional": 6
   },
-  "post/rotor_table.py:write_rotor_table": {
-   "complexity": 9,
-   "branches": 8,
-   "statements": 51,
-   "positional": 1
-  },
   "post/section_distributions.py:_distributions": {
    "complexity": 13,
    "branches": 12,
@@ -532,23 +526,11 @@
    "statements": 37,
    "positional": 1
   },
-  "post/unsteady.py:per_blade_rows": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 33,
-   "positional": 1
-  },
   "post/unsteady.py:phase_locked_rows": {
    "complexity": 14,
    "branches": 12,
    "statements": 51,
    "positional": 2
-  },
-  "post/unsteady_polar.py:write_unsteady_polar": {
-   "complexity": 22,
-   "branches": 21,
-   "statements": 73,
-   "positional": 1
   },
   "probes/geometry.py:_refine_band": {
    "complexity": 11,

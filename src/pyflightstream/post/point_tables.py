@@ -17,7 +17,7 @@ package WP5), written by the post stage of
   :data:`PROBE_SPINE`;
 * the REDUCTIONS of the plots table, one file per applicable reduction
   beside it: the time average (:func:`write_reduction_table`), the per-blade
-  table (:func:`write_per_blade_table`, :data:`PER_BLADE_COLUMNS`) and the
+  table (the retired ``write_per_blade_table``, :data:`PER_BLADE_COLUMNS`) and the
   phase-locked table (:func:`write_phase_locked_table`,
   :data:`PHASE_LOCKED_COLUMNS`);
 * the PER-REVOLUTION table: one row per complete revolution of the
@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import classify_outputs
 from pyflightstream.results import parse_force_distributions, parse_solver_analysis_csv
@@ -88,11 +89,9 @@ from pyflightstream.post._tables import (
     section_identity,
     write_csv_table,
 )
-from pyflightstream.post.axes import blade_azimuth_deg
 from pyflightstream.post.unsteady import (
     TimestepSeries,
     blade_passage_average,
-    per_blade_rows,
     phase_locked_rows,
 )
 from pyflightstream.results import (
@@ -114,7 +113,6 @@ __all__ = [
     "per_revolution_table",
     "read_probe_positions",
     "revolution_drift_pct",
-    "write_per_blade_table",
     "write_phase_locked_table",
     "write_plots_table",
     "write_probes_table",
@@ -1041,165 +1039,6 @@ PER_BLADE_COLUMNS: tuple[str, ...] = (
 )
 
 
-def write_per_blade_table(
-    path: str | Path,
-    series: TimestepSeries,
-    columns: Sequence[str],
-    *,
-    window: Sequence[int],
-    rotor: str | None,
-    blades: int,
-    facts: Mapping[str, object],
-    condition: Mapping[str, object] | None = None,
-    reference: ReferenceValues | None = None,
-    pol: str | int | None = None,
-    overwrite: bool = True,
-) -> Path:
-    """Write the per-blade reduction: ONE ROW PER BLADE over the one shared window.
-
-    ``pol`` is the polar the point belongs to, the first column of every row
-    (G16); `NA` where the caller states none.
-
-    ``facts`` is what the run and the reference state of the rotor, as
-    :func:`write_sections_table` takes it: its blade ``families`` in order, its
-    ``steps_per_revolution``, its ``blade1_azimuth_deg`` and its signed ``rpm``.
-    ``blades`` is the rotor's blade count, which spaces the blades; on a sector the
-    mesh carries fewer families than that and there is one row per family.
-
-    A blade's columns are the plots ENDING in its family (``CL_MRP_Blade1``),
-    written with the family removed so two blades line up under one heading.
-    `AZIMUTH_START` and `AZIMUTH_END` are where that blade is AT the window's first
-    and last step, by the sections table's own formula; without the rotor's clock
-    they read `NA`, and the averages are written all the same.
-
-    in legacy releases this file was one row with the time average's shape under the
-    per-blade name.
-
-    Parameters
-    ----------
-    path : str or Path
-        Destination CSV.
-    series : TimestepSeries
-        The plots table as :func:`plots_table_series` reads it.
-    columns : sequence of str
-        The plots table's columns, in its order.
-    window : sequence of int
-        First and last solver step of the window every blade shares.
-    rotor : str or None
-        The rotor's alias, named in the refusal and written in each row.
-    blades : int
-        The rotor's blade count, which spaces the blades in azimuth.
-    facts : mapping
-        What the run states of the rotor: ``families``,
-        ``steps_per_revolution``, ``blade1_azimuth_deg`` and ``rpm``.
-    condition : mapping, optional
-        The point's condition block, written in every row.
-    reference : ReferenceValues, optional
-        Reference lengths and moment point written beside each row.
-    pol : str or int, optional
-        The polar the point belongs to, written first in every row.
-    overwrite : bool, optional
-        Replace a file that already exists, as the writer always did (the default).
-        False refuses an existing file, naming it, before it is replaced.
-
-    Returns
-    -------
-    Path
-        The file written, one row per blade.
-
-    Raises
-    ------
-    ProductError
-        If the history does not cover the window, or holds no column of any blade
-        family: a per-blade table with no blade in it is the defect this replaces.
-    """
-    first, last = int(window[0]), int(window[1])
-    first_step = int(series.steps[0]) if len(series.steps) else 1
-    last_step = int(series.steps[-1]) if len(series.steps) else 0
-    if last > last_step or first < first_step:
-        raise ProductError(
-            f"the plots table runs from step {first_step} to step {last_step} and the "
-            f"per_blade window spans steps {first} to {last}, so the history does not cover "
-            "the window the row states; a shorter history averaged as a whole one would be "
-            "an average of a run that did not finish writing"
-        )
-    stated = facts.get("families")
-    families = (
-        [str(f) for f in stated]
-        if isinstance(stated, Sequence) and not isinstance(stated, str)
-        else []
-    )
-    if not families:
-        raise ProductError(
-            f"nothing states which families are the blades of rotor {rotor!r}, so the "
-            "per-blade reduction has no blade to give a row to. A rotor's blades are the "
-            "families_blades of its block in the reference artifact: declare the rotor "
-            "there and have the row cite it. The run records them; this "
-            "row names no rotor block, so neither its record nor the reference has them."
-        )
-    held = [f for f in families if any(str(c).endswith(f"_{f}") for c in columns)]
-    if not held:
-        raise ProductError(
-            f"the plots table holds no column of a blade family of rotor {rotor!r} "
-            f"(its blades are {families}), so there is no "
-            "blade to give a row to. A blade's plots are the ones named for its family: "
-            'declare a plot group with families = "each" or frame = "LOCAL_AXIS" over the '
-            "rotor in the pproc artifact. It takes a new run; the script defines what the "
-            "solver plots."
-        )
-    per_revolution = facts.get("steps_per_revolution")
-    datum = facts.get("blade1_azimuth_deg")
-    rpm = facts.get("rpm")
-    # WHERE BLADE ONE IS AT THE WINDOW'S FIRST STEP, from its datum at step zero.
-    opening = blade_azimuth_deg(datum, step=first, steps_per_revolution=per_revolution, rpm=rpm)
-    clocked = opening is not None
-    sense = 1.0 if not clocked or float(rpm) > 0 else -1.0  # type: ignore[arg-type]
-    try:
-        blade_rows = per_blade_rows(
-            series,
-            window=(first, last),
-            blades=int(blades) if int(blades) >= len(families) else len(families),
-            steps_per_revolution=float(per_revolution) if clocked else None,  # type: ignore[arg-type]
-            blade1_azimuth_deg=opening,
-            blade_families=families,
-            sense=sense,
-        )
-    except ValueError as error:
-        raise ProductError(f"the per_blade reduction of rotor {rotor!r}: {error}") from error
-    context = context_row(condition, None if reference is None else reference.as_lengths())
-    moment = context_row(
-        None if reference is None else reference.as_moment_point(),
-        None,
-        columns=_MOMENT_POINT_COLUMNS,
-    )
-    lead = {"BLADE", "FAMILY", "FIRST_STEP", "LAST_STEP", "STEPS", "AZIMUTH_START", "AZIMUTH_END"}
-    names: list[str] = []
-    for row in blade_rows:
-        for name in row:
-            if name not in lead and name not in names:
-                names.append(name)
-    table = [
-        (
-            pol,
-            "per_blade",
-            rotor,
-            row["BLADE"],
-            row.get("FAMILY"),
-            row["FIRST_STEP"],
-            row["LAST_STEP"],
-            row["STEPS"],
-            row["AZIMUTH_START"],
-            row["AZIMUTH_END"],
-            *context,
-            *moment,
-            *(row.get(name) for name in names),
-        )
-        for row in blade_rows
-        if row.get("FAMILY") in held
-    ]
-    return write_csv_table(path, (*PER_BLADE_COLUMNS, *names), table, overwrite=overwrite)
-
-
 #: What a row of the azimuthal phase-locked table states before the condition:
 #: the polar (first G16), which reduction and rotor, WHERE blade one
 #: is, the step of the last revolution
@@ -1249,7 +1088,7 @@ def write_phase_locked_table(
     :func:`pyflightstream.post.unsteady.phase_locked_rows`, which says how a
     blade's own columns are tabulated by that blade's azimuth.
 
-    ``facts`` is what :func:`write_per_blade_table` takes of the rotor: its blade
+    ``facts`` is what the retired ``write_per_blade_table`` takes of the rotor: its blade
     ``families``, its ``blade1_azimuth_deg`` and its signed ``rpm``. The columns
     keep the names the plots export prints, all in one file: a blade's end in its
     family, a rotor's in the group the pproc named for it.
@@ -1555,3 +1394,7 @@ def export_tables(ctx: SimContext) -> None:
                     **details,
                 },
             )
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

@@ -301,6 +301,7 @@ _EXTERNAL_EULER_CFD_TOOLS = "external Euler CFD tools that provide total enthalp
 _THE_GEOMETRY_ENGINE_IS_CORE = (
     "rtree and scipy are core dependencies, so nothing raises or needs it."
 )
+_THE_0580_POLAR_FILES = "the FAM and group files under polars/ (docs/upgrading.md#0580-post-tree)"
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.exceptions.GeometryEngineMissingError": RetiredName(
         owner="pyflightstream.exceptions",
@@ -378,6 +379,86 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         new="pyflightstream.post.inflow_tools.InflowStationHarmonics",
         retired_in="0.58.0",
         why="It is the same record under the name that says it belongs to the inflow tools.",
+    ),
+    "pyflightstream.post.point_tables.write_per_blade_table": RetiredName(
+        owner="pyflightstream.post.point_tables",
+        old="write_per_blade_table",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the per_blade table, which 0.58.0 retires.",
+        instead="Each blade is a family row of FAM-ACOEF and FAM-RCOEF; read",
+    ),
+    "pyflightstream.post.products.write_per_blade_table": RetiredName(
+        owner="pyflightstream.post.products",
+        old="write_per_blade_table",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the per_blade table, which 0.58.0 retires.",
+        instead="Each blade is a family row of FAM-ACOEF and FAM-RCOEF; read",
+    ),
+    "pyflightstream.post.unsteady.per_blade_rows": RetiredName(
+        owner="pyflightstream.post.unsteady",
+        old="per_blade_rows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the per_blade table, which 0.58.0 retires.",
+        instead="Each blade is a family row of FAM-ACOEF and FAM-RCOEF; read",
+    ),
+    "pyflightstream.post.rotor_table.write_rotor_table": RetiredName(
+        owner="pyflightstream.post.rotor_table",
+        old="write_rotor_table",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the standalone rotor table, which 0.58.0 retires.",
+        instead="Each rotor is the group of its own RCOEF file; read",
+    ),
+    "pyflightstream.post.products.write_rotor_table": RetiredName(
+        owner="pyflightstream.post.products",
+        old="write_rotor_table",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the standalone rotor table, which 0.58.0 retires.",
+        instead="Each rotor is the group of its own RCOEF file; read",
+    ),
+    "pyflightstream.post.superfile.write_superfiles": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="write_superfiles",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the SUPER file, which 0.58.0 retires.",
+        instead="Every family is in FAM-DIM and FAM-ACOEF; read",
+    ),
+    "pyflightstream.post.unsteady_polar.write_unsteady_polar": RetiredName(
+        owner="pyflightstream.post.unsteady_polar",
+        old="write_unsteady_polar",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the uns_avg polar, which 0.58.0 retires.",
+        instead="An unsteady row is the window average in the polar files; read",
+    ),
+    "pyflightstream.post.products.write_unsteady_polar": RetiredName(
+        owner="pyflightstream.post.products",
+        old="write_unsteady_polar",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the uns_avg polar, which 0.58.0 retires.",
+        instead="An unsteady row is the window average in the polar files; read",
+    ),
+    "pyflightstream.post.polar.swept_polar_file_name": RetiredName(
+        owner="pyflightstream.post.polar",
+        old="swept_polar_file_name",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the per-Mach polar file, which 0.58.0 retires.",
+        instead="A polar is one file set per polar, its condition in the run block; read",
+    ),
+    "pyflightstream.post.products.swept_polar_file_name": RetiredName(
+        owner="pyflightstream.post.products",
+        old="swept_polar_file_name",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the per-Mach polar file, which 0.58.0 retires.",
+        instead="A polar is one file set per polar, its condition in the run block; read",
     ),
 }
 

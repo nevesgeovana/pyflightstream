@@ -903,7 +903,7 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     before this package existed. :func:`write_recorded_polar` regenerates
     the recorded tables under it and is compared with what those files name for
     name, which is why it stays. A polar table of a WORKSPACE is named by
-    :func:`swept_polar_file_name`, the standard point convention (FR-85).
+    the retired ``swept_polar_file_name``, the standard point convention (FR-85).
 
     Parameters
     ----------

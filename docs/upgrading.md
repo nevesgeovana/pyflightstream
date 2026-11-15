@@ -40,6 +40,11 @@ layout is [the output catalogue](pproc/index.md).
 A record written by 0.57.0 has no per-family plot in its unsteady history: its family rows
 are `NA`, said once, and its group rows come from the group plots it has.
 
+The Python writers of the retired files are removed and refused by name:
+`write_per_blade_table`, `per_blade_rows`, `write_rotor_table`, `write_superfiles`,
+`write_unsteady_polar` and `swept_polar_file_name`. A script that called one reads the
+FAM and group files the post writes instead.
+
 ### The tree
 
 | 0.57.0 file | 0.58.0 |

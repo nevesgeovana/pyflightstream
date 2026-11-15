@@ -54,6 +54,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import ProductError
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.post.axes import blade_azimuth_deg
@@ -65,7 +66,6 @@ __all__ = [
     "blade_passage_average",
     "blade_one_azimuth",
     "passage_windows",
-    "per_blade_rows",
     "phase_locked_rows",
     "read_timestep_series",
     "revolution_drift_warnings",
@@ -878,143 +878,6 @@ def _family_of(name: str, families: Sequence[str]) -> int | None:
     return best
 
 
-def per_blade_rows(
-    series: TimestepSeries,
-    *,
-    window: tuple[int, int],
-    blades: int,
-    steps_per_revolution: float | None,
-    blade1_azimuth_deg: float | None = 0.0,
-    blade_families: Sequence[str] | None = None,
-    sense: float = 1.0,
-) -> list[dict[str, object]]:
-    """One row per blade, every blade averaged over the SAME window.
-
-    Item 8: the reading is the last converged window, and
-    even for a wheel every blade is read over that same window.
-
-    WHAT THIS REPLACES. `per_blade` averaged each blade over ITS OWN passage,
-    so blade 1 came from one stretch of the history and blade 4 from another.
-    Any difference between two blades then mixes a real azimuthal difference
-    with a difference in WHEN they were sampled, and nothing in the file says
-    which is which. One window removes the second cause entirely.
-
-    THE AZIMUTHS ARE WRITTEN, NOT AVERAGED AWAY. The blades genuinely are at
-    different azimuths at any instant, and that is a fact to record rather than
-    a problem to smooth: a column states each blade's azimuthal position at the
-    start and at the end of the shared window. Each row
-    says where that blade was when the window opened and when it closed.
-
-    THE AVERAGE IS `blade_passage_average`, over the window this is given. No
-    second averaging routine is written here: two implementations of one
-    average is how two published numbers come to disagree, which that
-    function's own docstring says and item 16 turned on a probe that asked for
-    exactly that mistake.
-
-    Parameters
-    ----------
-    series : TimestepSeries
-        The plots history, read back.
-    window : tuple of int
-        Inclusive ``(first_step, last_step)``, the one window every blade
-        shares: the LAST revolutions or iterations the matrix row states,
-        resolved by :func:`pyflightstream.cases.windows.averaging_span`.
-    blades : int
-        How many blades the rotor carries.
-    steps_per_revolution : float
-        Solver steps in one revolution, which turns a step count into an angle.
-    blade1_azimuth_deg : float or None
-        Where blade one sits at the window's first step. The other blades are
-        spaced evenly from it, by ``360 / blades``. None, or no
-        ``steps_per_revolution``, leaves both azimuths unstated (None), which
-        a table writes as `NA`: zero is a real azimuth.
-    blade_families : sequence of str, optional
-        The blade families in the rotor's own order. A plot is named
-        ``<parameter>_<group>`` and a group cut per blade is named for the
-        blade's family, so a blade's columns are the ones ENDING in
-        ``_<family>``; the row carries them with the family removed. There is
-        one row per family given, which on a sector is fewer than ``blades``.
-        Without it the columns are the ones PREFIXED ``Blade<n>_``.
-    sense : float
-        The sign of the rotor's speed: the way the azimuth grows.
-
-    Returns
-    -------
-    list of dict
-        One mapping per blade: ``BLADE``, ``FIRST_STEP`` and ``LAST_STEP`` (the
-        first and last step of the history inside the window, which is the
-        span averaged), ``STEPS`` (how many steps of the history entered the
-        average), ``AZIMUTH_START`` and ``AZIMUTH_END`` at those two steps, and
-        that blade's own averaged columns with the blade prefix removed.
-
-    Raises
-    ------
-    ProductError
-        If the window names no step the history holds, or the rotor carries no
-        blade. Could-not-measure is never a pass.
-    """
-    if blades < 1:
-        raise ProductError(f"the rotor carries {blades} blades, so it has no per-blade rows")
-    if steps_per_revolution is not None and steps_per_revolution <= 0:
-        raise ProductError(
-            f"steps_per_revolution is {steps_per_revolution}, so a step count cannot be "
-            "turned into an angle and no azimuth can be written"
-        )
-    first, last = int(window[0]), int(window[1])
-    steps = np.asarray(series.steps, dtype=int)
-    if not ((steps >= first) & (steps <= last)).any():
-        held = f"runs from {int(steps[0])} to {int(steps[-1])}" if len(steps) else "holds no step"
-        raise ProductError(f"the window {window} names no step this history holds, which {held}")
-    # THE SPAN THAT WAS AVERAGED, not the one asked for: a history missing the
-    # ends of the window averages the steps it holds inside it, and the row
-    # says which; STEPS counts those steps (the frames that entered the average).
-    averaged = steps[(steps >= first) & (steps <= last)]
-    opened, closed = int(averaged.min()), int(averaged.max())
-    average = blade_passage_average(series, window=(first, last))
-    spacing = 360.0 / blades
-
-    rows: list[dict[str, object]] = []
-    families = None if blade_families is None else [str(f) for f in blade_families]
-    turning = 1.0 if sense >= 0 else -1.0
-    for index in range(blades if families is None else len(families)):
-        number = index + 1
-        start: float | None = None
-        end: float | None = None
-        if blade1_azimuth_deg is not None and steps_per_revolution is not None:
-            datum = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
-            start = blade_azimuth_deg(
-                datum, step=opened - first, steps_per_revolution=steps_per_revolution, rpm=turning
-            )
-            end = blade_azimuth_deg(
-                datum, step=closed - first, steps_per_revolution=steps_per_revolution, rpm=turning
-            )
-        row: dict[str, object] = {
-            "BLADE": number,
-            "FIRST_STEP": opened,
-            "LAST_STEP": closed,
-            "STEPS": int(averaged.size),
-            "AZIMUTH_START": start,
-            "AZIMUTH_END": end,
-        }
-        # THAT BLADE'S OWN COLUMNS AND NOT THE ROTOR'S. A column named for one
-        # blade belongs to one row; the prefix is dropped so the rows of two
-        # blades line up under the same headings and can be compared.
-        if families is not None:
-            row["FAMILY"] = families[index]
-            suffix = f"_{families[index]}"
-            for name, values in average.fields.items():
-                if _family_of(name, families) == index:
-                    row[name[: -len(suffix)]] = float(values[0])
-            rows.append(row)
-            continue
-        prefix = f"Blade{number}_"
-        for name, values in average.fields.items():
-            if name.startswith(prefix):
-                row[name[len(prefix) :]] = float(values[0])
-        rows.append(row)
-    return rows
-
-
 def blade_one_azimuth(
     step: float, *, datum_deg: float, sense: float, steps_per_revolution: float
 ) -> float:
@@ -1275,3 +1138,7 @@ def phase_locked_rows(
         rows.append(row)
     rows.sort(key=lambda row: float(row["AZIMUTH"]))  # type: ignore[arg-type]
     return rows
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

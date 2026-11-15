@@ -67,21 +67,17 @@ import csv
 import json
 import math
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._digest import file_sha256
-from pyflightstream._identifier_columns import (
-    columns_held,
-    header_with,
-    names_for_superfiles,
-)
 from pyflightstream._matrix_identifiers import take_identifiers
-from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
+from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
@@ -93,13 +89,10 @@ from pyflightstream.cases.workflows import SECTION_DISTRIBUTION_COMMAND
 from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
     ProductError,
-    _one_refusal,
     _refuse_existing_product,
-    write_csv_table,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.post._tables import _legacy_field as _legacy_field
-from pyflightstream.post._tables import write_fixed_width_table as _write_legacy_polar
 from pyflightstream.post._tree_migration import earlier_path
 from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
@@ -118,7 +111,6 @@ __all__ = [
     "superfile_row",
     "union_the_workspace_knows",
     "write_superfile_report",
-    "write_superfiles",
 ]
 
 #: Where a post's measurements land, inside its products folder
@@ -404,7 +396,7 @@ def superfile_row(
 
     NONE WHERE THE POINT HAS NO RECORD, and then this row simply carries no
     key the record would have supplied. It does not need to: the header is
-    the campaign's, and :func:`write_superfiles` unions the keys of every
+    the campaign's, and the retired ``write_superfiles`` unions the keys of every
     row and writes `NA` for a row that lacks one, so the file's columns are
     the same whatever any single row knows. It wrote an EMPTY cell in legacy releases, and this
     is the exact shape the rule was made for: a key declared
@@ -729,110 +721,6 @@ def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> N
                 f"the super file format {chosen!r} is not one this package writes; it "
                 f"offers {', '.join(SUPERFILE_FORMATS)}"
             )
-
-
-@_one_refusal
-def write_superfiles(
-    drafts: Sequence[SuperfileDraft],
-    *,
-    target: Callable[[Path], Path],
-    fmt: str = "csv",
-    overwrite: bool = True,
-    leading: Sequence[str] = (),
-) -> tuple[list[Path], dict[Path, dict[str, object]], tuple[str, ...]]:
-    """Write every superfile of a campaign under ONE column set, its union.
-
-    ``leading`` is the column set super files already written for the same
-    campaign carry (PFS-2185.18): the union starts from it, so a post limited
-    to some simulations writes theirs under the header the others hold.
-
-    ``fmt`` is one of :data:`SUPERFILE_FORMATS`. It is SELECTED and never
-    guessed: a writer that decided the format from the file name, or from what
-    the workspace happened to contain, would be a writer nobody can predict.
-    The default is the existing file format, so an existing workspace
-    writes exactly what it wrote before.
-
-    Returns the files written, their manifest entries and the columns.
-
-    Parameters
-    ----------
-    drafts : sequence of SuperfileDraft
-        The campaign's superfiles before the column set is known.
-    target : callable
-        Called with each file's path before it is written; the file goes to the path it returns.
-    fmt : str, optional
-        The format, one of :data:`SUPERFILE_FORMATS`.
-    overwrite : bool, optional
-        Replace a file that already exists, as the writer always did (the default).
-        False refuses an existing file, naming it, before it is replaced.
-    leading : sequence of str, optional
-        The columns the union starts from; empty by default.
-
-    Returns
-    -------
-    tuple of (list of Path, dict of Path to dict, tuple of str)
-        The files written, their manifest entries and the columns.
-
-    Raises
-    ------
-    ProductError
-        If the format is not one this package writes.
-    """
-    _validate_superfile_formats(drafts, fmt)
-    columns: list[str] = list(dict.fromkeys(leading))
-    seen: set[str] = set(columns)
-    for draft in drafts:
-        for row in draft.rows:
-            for key in row:
-                if key not in seen:
-                    seen.add(key)
-                    columns.append(key)
-    # FR-1062: the far-field block after every other column of the
-    # campaign, whichever simulation brought it in.
-    farfield = [column for column in columns if _FARFIELD_COLUMN.fullmatch(column)]
-    columns = [column for column in columns if column not in farfield] + farfield
-    if MESH_FACES_COLUMN in seen:
-        # FR-348: LAST, whichever row brought it in, so a reader by position keeps every column.
-        columns.remove(MESH_FACES_COLUMN)
-        columns.append(MESH_FACES_COLUMN)
-    # FR-3565: the identifiers are the funnel's, under ONE header too. A column of `leading` that
-    # is one goes back to where the funnel puts it, so the others' files keep the same set.
-    own = {key for draft in drafts for row in draft.rows for key in row}
-    identifiers = names_for_superfiles(
-        (row.get(POLAR_ID_COLUMN) for draft in drafts for row in draft.rows), leading
-    )
-    columns = [column for column in columns if column in own or column not in identifiers]
-    written: list[Path] = []
-    entries: dict[Path, dict[str, object]] = {}
-    # The fixed-width format is not widened, so a file of it holds none of these columns.
-    carried: tuple[str, ...] = ()
-    for draft in drafts:
-        path = target(draft.path)
-        rows = [[row.get(column, "") for column in columns] for row in draft.rows]
-        # THE DRAFT'S OWN FORMAT WINS, and UNSET is told from `csv`.
-        #
-        # This read `draft.fmt if draft.fmt != "csv" else fmt` for one commit,
-        # which cannot tell a pproc that CHOSE `csv` from one that said nothing
-        # -- so a caller passing `legacy_polar` silently rewrote a simulation's
-        # super file in the format it had explicitly declined, under a comment
-        # claiming the draft's format wins.
-        #
-        # It is the same defect item 7 exists to close, one turn further in: a
-        # default nobody can override became a default nobody can DISTINGUISH.
-        # The rule is written twice in this same release -- "ABSENT IS NOT ZERO"
-        # in `cases.workflows.phase_locked_gate`, and "None and not zero: zero is
-        # a value a rotor row can HAVE" beside the advance ratio -- and I wrote
-        # both of those and then did this.
-        chosen = fmt if draft.fmt is None else draft.fmt
-        if chosen == "legacy_polar":
-            _write_legacy_polar(path, columns, rows)
-        else:
-            carried = identifiers
-            with columns_held(identifiers):
-                write_csv_table(path, columns, rows)
-        written.append(path)
-        entries[path] = {**draft.entry, "rows": len(draft.rows)}
-    return written, entries, header_with(columns, carried)
 
 
 # --- the measurement --------------------------------------------------------
@@ -1234,3 +1122,7 @@ def _record_field_names(record: Mapping[str, object]) -> set[str]:
         # Each rotor's diameter beside its speed (FR-89).
         known.add(f"DIAMETER_{alias}")
     return known
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

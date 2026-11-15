@@ -7,7 +7,7 @@ package WP5), written by the post stage of
 An unsteady simulation's polar comes from its plots and not from its loads
 export: that export states the LAST TIME STEP (RPT-133, "vorticity drag list and
 the step exports on 26.124", 2026-10-02), one instant of a cycle, so a
-polar read from it is a polar of an instant. :func:`write_unsteady_polar`
+polar read from it is a polar of an instant. the retired ``write_unsteady_polar``
 reads the plots tables the stage has already written, so the free-stream
 scaling is performed once, and averages each point over the window its row
 states, one row per point, under ``polars/`` (:func:`unsteady_polar_file_name`).
@@ -23,41 +23,23 @@ unsteady polar) joins this module beside the writer it extends.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from pyflightstream._errors import PyflightstreamError
-from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
+from pyflightstream._deprecations import removed_names_hook
+from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     global_frame_plot_declarations,
 )
 from pyflightstream.post._rotor_plan import _emitted_by_another, _plot_name_can_emit
-from pyflightstream.post._stage import (
-    _MOMENT_POINT_COLUMNS,
-    _PLOTS_CLOCK_COLUMNS,
-    POLARS_DIR,
-    _judge_average,
-    _names_location,
-)
 from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
-    CONTEXT_COLUMNS,
-    ProductError,
     ReferenceValues,
-    context_row,
-    plots_table_series,
-    renamed_columns,
-    write_csv_table,
 )
 from pyflightstream.post.axes import polar_axis_coefficients
-from pyflightstream.post.equations import apply_equations
-from pyflightstream.post.unsteady import blade_passage_average
-from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN, FrozenSolve
+from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN
 
 if TYPE_CHECKING:
     pass
@@ -66,7 +48,6 @@ __all__ = [
     "UNSTEADY_AXIS_COLUMNS",
     "global_frame_plot_groups",
     "unsteady_polar_file_name",
-    "write_unsteady_polar",
 ]
 
 
@@ -101,7 +82,7 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     """Return the file name of one unsteady simulation's POLAR, which is per SIMULATION.
 
     Item 17. It carries no GROUP, and that is the whole difference from
-    :func:`swept_polar_file_name`: the steady polar is one table per pproc group
+    the retired ``swept_polar_file_name``: the steady polar is one table per pproc group
     because its source, the loads export, states loads PER FAMILY. This one's
     source is the plots history, whose columns are whatever the run defined as
     plots, so there is one table per simulation and one row per point.
@@ -152,361 +133,6 @@ def _dependency_order(equations: Mapping[str, object]) -> list[str]:
             return names
         order.extend(ready)
     return order
-
-
-def write_unsteady_polar(
-    path: str | Path,
-    *,
-    points: Sequence[object],
-    plots: Mapping[str, Path],
-    window: tuple[int, int],
-    conditions: Sequence[Mapping[str, object]],
-    reference: ReferenceValues | None,
-    left_out: list[str] | None = None,
-    windows: Mapping[str, tuple[int, int]] | None = None,
-    setup: Mapping[str, Mapping[str, object]] | None = None,
-    notes: list[str] | None = None,
-    axes_groups: Sequence[str] | None = None,
-    names: Mapping[str, str] | None = None,
-    name_notes: list[str] | None = None,
-    equations: Mapping[str, object] | None = None,
-    equation_order: Sequence[str] | None = None,
-    equation_notes: list[str] | None = None,
-    equation_columns: dict[str, dict[str, str]] | None = None,
-    frozen: Mapping[str, FrozenSolve] | None = None,
-    contributor_path: Callable[[Sequence[str]], Path] | None = None,
-    pol: str | int | None = None,
-    overwrite: bool = True,
-) -> Path | None:
-    """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
-
-    ``pol`` is the simulation's polar, the matrix row's POL, the FIRST column of
-    every row (G16); `NA` where the caller states none. The super
-    content's own `POL` cell is that same polar and is not written a second time.
-
-    THE PPROC'S ``[equations]`` ARE EVALUATED HERE, into columns named
-    ``<NAME>_<alias>`` that follow the axis block and precede the super content.
-    An expression reads the columns THAT ROW already holds, the window, the
-    condition block, the moment point, the averaged plots, the axis coefficients
-    and whatever of the super content is a number; how a symbol finds its column
-    is :func:`pyflightstream.post.equations.resolve_symbol`. ``equation_order`` is
-    :meth:`pyflightstream.cases.PprocSpec.equation_order`. A symbol that is no
-    equation and no column refuses the BLOCK, whole, and ``equation_notes``
-    receives the refusal; the polar is written without it, never with a column
-    of `NA`.
-
-    THE NATIVE COEFFICIENT EXPORT IS NOT THE SOURCE: it states the LAST TIME
-    STEP, which on an oscillating rotor is one instant of a cycle. The unsteady
-    polar always comes from the unsteady plots export, and carries the time
-    average as well.
-
-    THE COLUMNS ARE THE EXPORT'S OWN NAMES, and this is the decision that made
-    the item buildable: the table is detached from the steady polar's names and
-    writes each variable under the name the unsteady plots export gave it. So
-    this table does NOT carry the steady polar's twenty-four fixed coefficients;
-    it carries the plots the run defined, under the names the export prints them.
-
-    Nothing in this package knows which plot label carries which coefficient, and
-    a label invented here would not fail loudly -- it would write `NA` down a
-    whole column. Taking the names from the file removes that possibility
-    entirely rather than guarding against it.
-
-    THE WINDOW IS THE ROW'S, the one `LAST_REVS_AVG` or `LAST_ITERS_AVG` states
-    (upper case, as the matrix spells its keys; a lower-case key is refused), the
-    one the time average uses (item 16). `per_blade` windows each rotor on that
-    rotor's own clock, so on a row whose rotors turn at different rates its windows
-    differ from this one.
-
-    THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT. Each row opens with
-    `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
-    also use. Its `reduction`
-    and `reduction_window` cells, which the super content carries over from the
-    sweep row, say so too: `time_average` over `averaging_window`, and
-    never the sweep row's `last_step`, which describes the native export. The moment point
-    follows the reference lengths, because the plots carry `MX_/MY_/MZ_` columns
-    and a moment states nothing without the point it is about.
-
-    ``setup`` is the SUPER CONTENT of each point by name: what the polar does NOT
-    have, the matrix cells, the record's scalars, each rotor's speed and diameter, the solver
-    flags. It is ADDED to this table rather than written as a second file; a key
-    already stated by an earlier block is not repeated, and a point that lacks a
-    key reads `NA` under it.
-
-    ``windows`` gives a point ITS OWN window by name where the points of one row
-    do not share a clock; a point it does not name takes ``window``.
-    ``frozen`` carries native-log freeze evidence by point name. An affected
-    averaging window is left out with its reason, including on a recorded success.
-
-    THE AXIS COEFFICIENTS FOLLOW THE PLOTS, from the plot variables of the
-    GLOBAL MRP frame: the six components ``FX .. MZ`` of each plot group
-    ``axes_groups`` names, which the caller reads off the pproc artifact (a plot's
-    column states its group's NAME and never its frame, so the frame cannot be
-    read here), in Newtons and Newton metres, averaged over the window like every
-    other column, made coefficients by the row's own ``RHO``, ``VINF``, ``SREF``
-    and ``CREF`` and turned by the chain the steady polar uses. Never a rotor's
-    own frame, whose axes are not the geometry's. The columns are the steady
-    polar's eighteen names, each suffixed with its plot group's whole name
-    (``CLW_MRP_TOTAL``), one group or several.
-    Where the block cannot be written, no MRP group with the six or a row stating
-    no density, it is NOT written as a column of `NA`: ``notes`` receives the
-    reason.
-
-    ONE ROW PER POINT, in the order given. A point whose plots export is missing
-    or unreadable is LEFT OUT rather than written as a row of `NA`: the sweep is
-    a table of what ran, and an absent point is absent.
-
-    Returns None when no point yields a row, which is an ordinary campaign -- an
-    unsteady simulation whose points exported no plots -- and never a refusal
-    that would cost the simulation its other products.
-
-    ``contributor_path``, when supplied, chooses the destination from the names
-    of the points that actually yield rows, before the table is written.
-
-    Parameters
-    ----------
-    path : str or Path
-        Destination of the table; replaced by ``contributor_path``'s answer
-        when that is given.
-    points : sequence of object
-        The points of the simulation, in row order; each is read by its
-        ``name`` attribute.
-    plots : mapping of str to Path
-        The plots history file of each point, by point name.
-    window : tuple of int
-        First and last time step of the averaging window, shared by the
-        points that ``windows`` does not name.
-    conditions : sequence of mapping
-        The condition block of each point, in the order of ``points`` (the
-        two must have the same length).
-    reference : ReferenceValues or None
-        Reference lengths and moment point of the run; None keeps the
-        reference and moment-point columns in the header and writes them ``NA``,
-        and writes no axis block.
-    left_out : list of str, optional
-        Receives one reason for each point left out of the table.
-    windows : mapping of str to tuple of int, optional
-        A window of a point's own, by point name.
-    setup : mapping of str to mapping, optional
-        The super content of each point, by point name, added as columns.
-    notes : list of str, optional
-        Receives the reason the axis block could not be written.
-    axes_groups : sequence of str, optional
-        The plot groups, in the global frame, that supply the axis block.
-    names : mapping of str to str, optional
-        The pproc dictionary renaming columns of the heading.
-    name_notes : list of str, optional
-        Receives the refusal of the dictionary instead of raising it.
-    equations : mapping of str to object, optional
-        The pproc ``[equations]`` evaluated into extra columns.
-    equation_order : sequence of str, optional
-        The order the equations are evaluated in; the mapping's own order
-        where omitted.
-    equation_columns : dict, optional
-        Receives the resolved input columns of every equation, by symbol.
-    equation_notes : list of str, optional
-        Receives the refusal of the equation block instead of raising it.
-    frozen : mapping of str to FrozenSolve, optional
-        Native-log freeze evidence by point name.
-    contributor_path : callable, optional
-        Chooses the destination from the names of the points that yield rows.
-    pol : str or int, optional
-        The simulation's polar, written first in every row; ``NA`` where None.
-    overwrite : bool, optional
-        Replace a file that already exists, as the writer always did (the default).
-        False refuses an existing file, naming it, before it is replaced.
-
-    Returns
-    -------
-    Path or None
-        The file written, or None when no point yields a row.
-
-    Raises
-    ------
-    ProductError
-        If the equation block or the column dictionary is refused and the
-        matching ``equation_notes`` or ``name_notes`` list is not given
-        (a ``ValueError``).
-    """
-    path = Path(path)
-    columns: list[str] = []
-    rows: list[
-        tuple[Mapping[str, object], dict[str, float], tuple[int, int], dict[str, object]]
-    ] = []
-    # WHY EACH ABSENT POINT IS ABSENT, collected rather than discarded. A sweep
-    # dropping rows in silence hands a reader a table shorter than the matrix
-    # with nothing saying which points went or why -- which is a blank cell one
-    # level up, and `_tokens.py` argues against exactly that: indistinguishable
-    # from a value that went missing, from a column that never applied, and from
-    # a writer that crashed halfway. The QA lens of the closing round found the
-    # round had fixed the two readers disagreeing about the RULE and left them
-    # disagreeing about the REPORT.
-    left_out = [] if left_out is None else left_out
-    contributors: list[str] = []
-    for point, condition in zip(points, conditions, strict=True):
-        name = str(getattr(point, "name", ""))
-        name_of_point = name  # `name` is reused for the plot columns below
-        source = plots.get(name)
-        if source is None or not source.is_file():
-            left_out.append(f"{name}: no plots table")
-            continue
-        point_window = (windows or {}).get(name, window)
-        try:
-            printed_names, series = plots_table_series(source)
-            # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
-            # whose history missed the window ENTIRELY. `blade_passage_average`
-            # refuses when NO frame falls inside, so a point that stopped
-            # part-way through averaged the part and returned normally -- and
-            # its row sat beside a full one, in one file, with no frame count
-            # and a manifest claiming the whole window. A reader comparing the
-            # two is comparing a ten-step mean with a four-step one.
-            #
-            # THE SIBLING READER OF THIS SAME FILE ALREADY REFUSES IT:
-            # `write_reduction_table` says "a shorter history averaged as a
-            # whole one would be an average of a run that did not finish
-            # writing". Two readers of one plots table with opposite rules, and
-            # the PUBLISHED one was the permissive one. The QA lens found it.
-            steps = np.asarray(series.steps, dtype=int)
-            if not np.array_equal(
-                steps[(steps >= point_window[0]) & (steps <= point_window[1])],
-                np.arange(point_window[0], point_window[1] + 1),
-            ):
-                held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
-                left_out.append(
-                    f"{name}: the row states steps {point_window[0]} to {point_window[1]} and the "
-                    f"history holds {held}, with a missing sample or gap in that window"
-                )
-                continue
-            read_steps: set[int] = set()
-            averaged = blade_passage_average(series, window=point_window, read_steps=read_steps)
-        except (PyflightstreamError, ValueError) as error:
-            # A history that does not cover the row's window is a run that
-            # stopped early, not a fault: it costs this point its row.
-            left_out.append(f"{name}: its plots table could not be read: {error}")
-            continue
-        refusal = _judge_average(
-            (frozen or {}).get(name), read_steps, point=name, product=str(path)
-        )
-        if refusal is not None:
-            left_out.append(f"{name}: {refusal}")
-            continue
-        values: dict[str, float] = {}
-        for name in printed_names:
-            # THE CLOCK IS NOT A COEFFICIENT, and averaging it publishes a number
-            # with no physical meaning under the same contract as `CL`. Over
-            # steps 5 to 8 the mean of the step column is 6.5, which is not a
-            # measurement of anything. `plots_table_series` carries the step
-            # column as a FIELD as well as using it as the axis -- its own
-            # docstring says so -- and a writer that takes "every name it
-            # returns" therefore takes the clock with them.
-            #
-            # The V&V lens of the release round found this. My test asserted
-            # `"CL" in columns` and the ABSENCE of the steady polar's names; it
-            # never asserted the column SET, so an extra column was invisible to
-            # it. Measure the carrier, not the mention.
-            if name in _PLOTS_CLOCK_COLUMNS:
-                continue
-            column = averaged.fields.get(name)
-            if column is not None and len(column):
-                values[name] = float(column[0])
-        if not values:
-            left_out.append(f"{name_of_point}: its plots table states no numeric plot column")
-            continue
-        for name in values:
-            if name not in columns:
-                columns.append(name)
-        rows.append(
-            (condition, values, point_window, _averaged((setup or {}).get(name_of_point, {})))
-        )
-        contributors.append(name_of_point)
-    if not rows:
-        return None
-    if contributor_path is not None:
-        path = contributor_path(contributors)
-    plot_columns = list(columns)
-    axis_columns = _the_axes_of_the_unsteady_rows(rows, reference, notes, axes_groups or ())
-    # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
-    # condition it was taken at and the lengths it was normalised by.
-    lengths = None if reference is None else reference.as_lengths()
-    moment = None if reference is None else reference.as_moment_point()
-    columns = [*columns, *axis_columns]
-    stated = {
-        POLAR_ID_COLUMN,
-        *_WINDOW_COLUMNS,
-        *CONTEXT_COLUMNS,
-        *_MOMENT_POINT_COLUMNS,
-        *columns,
-        *_LAST_COLUMNS,
-    }
-    extra: list[str] = []
-    for _condition, _values, _window, content in rows:
-        for key in content:
-            if key not in stated and key not in extra:
-                extra.append(key)
-    header = (
-        POLAR_ID_COLUMN,
-        *_WINDOW_COLUMNS,
-        *CONTEXT_COLUMNS,
-        *_MOMENT_POINT_COLUMNS,
-        *columns,
-        *extra,
-        *_LAST_COLUMNS,
-    )
-    table = [
-        (
-            pol,
-            span[0],
-            span[1],
-            span[1] - span[0] + 1,
-            *context_row(condition, lengths),
-            *context_row(moment, None, columns=_MOMENT_POINT_COLUMNS),
-            *(values.get(name) for name in columns),
-            *(content.get(key) for key in (*extra, *_LAST_COLUMNS)),
-        )
-        for condition, values, span, content in rows
-    ]
-    derived_columns: list[str] = []
-    derived: list[dict[str, float | None]] = [{} for _row in table]
-    if equations:
-        # THE ROW AS THE FILE WILL STATE IT is what an expression reads, so a
-        # symbol means the column a reader of the file sees under that name.
-        try:
-            derived_columns, derived = apply_equations(
-                [dict(zip(header, cells, strict=True)) for cells in table],
-                equations,
-                list(
-                    equation_order if equation_order is not None else _dependency_order(equations)
-                ),
-                columns=header,
-                where=f"{POLARS_DIR}/{path.name}",
-                notes=equation_notes,
-                resolved_columns=equation_columns,
-            )
-        except ProductError as refused:
-            if equation_notes is None:
-                raise
-            equation_notes.append(str(refused))
-    at = len(header) - len(extra) - len(_LAST_COLUMNS)
-    # THE DICTIONARY IS APPLIED LAST, to the heading alone: the axes and the
-    # equations above read the names the export prints, and a reader's tool reads
-    # the names the pproc gives them.
-    final = (*header[:at], *derived_columns, *header[at:])
-    try:
-        final = renamed_columns(
-            final, names, printed=plot_columns, where=_names_location(POLARS_DIR, path)
-        )
-    except ProductError as refused:
-        if name_notes is None:
-            raise
-        name_notes.append(str(refused))
-    return write_csv_table(
-        path,
-        final,
-        [
-            (*cells[:at], *(values.get(name) for name in derived_columns), *cells[at:])
-            for cells, values in zip(table, derived, strict=True)
-        ],
-        overwrite=overwrite,
-    )
 
 
 def global_frame_plot_groups(
@@ -713,3 +339,7 @@ def _the_axes_of_the_unsteady_rows(
             )
             return []
     return added
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

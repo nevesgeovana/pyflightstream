@@ -13,7 +13,7 @@ group in body, stability and wind axes with the two drag parts
 :func:`polar_row`; the table is assembled once by :func:`polar_table_rows`,
 so the superfile beside it carries the same rows, and written by
 :func:`write_polar_table`. The file is named for the sweep the records
-measure (:data:`SWEEP_AXES`, :func:`swept_axes`, :func:`swept_polar_file_name`).
+measure (:data:`SWEEP_AXES`, :func:`swept_axes`, the retired ``swept_polar_file_name``).
 An induced drag the solver declined to compute is named by
 :func:`declined_induced_drag` and summed as ``NA``.
 
@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Literal
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.cases import select_group_members
@@ -68,7 +69,6 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.axes import polar_axis_coefficients
 from pyflightstream.post.point_tables import write_plots_table, write_sections_table
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, drag_pair, parse_loads
-from pyflightstream.workspace.naming import group_token, sweep_file_stem
 
 __all__ = [
     "DRAG_PRODUCT_COLUMNS",
@@ -87,7 +87,6 @@ __all__ = [
     "polar_table_columns",
     "polar_table_rows",
     "swept_axes",
-    "swept_polar_file_name",
     "write_polar_table",
     "write_recorded_polar",
     "GCI_SAFETY_FACTOR",
@@ -602,48 +601,6 @@ def swept_axes(points: Sequence[Mapping[str, float]]) -> tuple[str, ...]:
         if len(seen) > 1:
             varying.append(axis)
     return tuple(varying)
-
-
-def swept_polar_file_name(
-    sim: str,
-    *,
-    name: str,
-    group: str | int,
-    suffix: str = ".csv",
-) -> str:
-    """``P<sim>-<name>_<group>.csv``, the group NAMED (FR-85).
-
-    ``name`` is the recorded sweep name, each swept field written
-    ``<code>+sweep``, for a table over a sweep
-    (``P0001-M150AL+000BE+000J+sweep_PUSHER.csv``), and the recorded point name
-    for a case whose sweep resolved to one point. The ``.dat`` of the custom
-    format takes the same stem, which is what ``suffix`` is for.
-
-    A NUMBERED group still writes ``_g01``, because a workspace recorded in legacy releases
-    holds those files and a pproc that still numbers its groups must keep
-    producing the names beside them rather than a second era of its own.
-
-    Groups may be names as well as numbers (item 14). Preserve the named
-    form instead of forcing integer conversion and raising an uncontextualised
-    ValueError outside the product-refusal handling.
-
-    Parameters
-    ----------
-    sim : str
-        The simulation identifier the name opens with.
-    name : str
-        The recorded sweep or point name.
-    group : str or int
-        The pproc group, named or numbered.
-    suffix : str, optional
-        The file extension, with its dot.
-
-    Returns
-    -------
-    str
-        The file name, without a directory.
-    """
-    return f"{sweep_file_stem(sim, name)}_{group_token(group)}{suffix}"
 
 
 #: The analysis frames whose axes are the GEOMETRY's, so a force stated in them
@@ -1631,3 +1588,7 @@ def farfield_column_names(
             projected[index] = name
         names[method, entry, raw_target] = projected
     return [names[identity] for identity in identities]
+
+
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

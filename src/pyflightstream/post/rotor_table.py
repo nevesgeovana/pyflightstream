@@ -8,7 +8,7 @@ loads in its own shaft frame (:class:`RotorShaftLoads`,
 :func:`rotor_shaft_loads`) and its thrust, torque and power coefficients
 with the in-plane ones (:func:`rotor_coefficients`,
 :data:`ROTOR_COEFFICIENT_COLUMNS`, :data:`ROTOR_IN_PLANE_COLUMNS`,
-:func:`rotor_coefficient_columns`), written by :func:`write_rotor_table`.
+:func:`rotor_coefficient_columns`), written by the retired ``write_rotor_table``.
 The geometry comes from the resolved reference definition retained with the
 run record, including the shaft, hub and diameter. An
 unsteady row reads the rotor's plot group, time-averaged over the row's
@@ -24,15 +24,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
-from pathlib import Path
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream._tokens import POLAR_ID_COLUMN, ROTOR_ID_COLUMN
 from pyflightstream.cases import (
     select_group_members,
 )
@@ -42,18 +41,13 @@ from pyflightstream.cases.workflows import (
     rotor_mach_numbers,
 )
 from pyflightstream.post._tables import (
-    CONTEXT_COLUMNS,
     NOT_APPLICABLE,
     ProductError,
     ReferenceValues,
-    context_row,
-    write_csv_table,
 )
 from pyflightstream.post.axes import (
     RotorFrame,
     free_stream_in_export_frame,
-    rotor_in_plane_axes,
-    rotor_in_plane_loads,
 )
 from pyflightstream.post.polar import GEOMETRY_ANALYSIS_FRAMES
 
@@ -70,7 +64,6 @@ __all__ = [
     "rotor_frame_coefficients",
     "rotor_shaft_loads",
     "warn_rotor_declared_aft",
-    "write_rotor_table",
 ]
 
 
@@ -976,268 +969,5 @@ def _mach_cells(
     return machs, madv
 
 
-def write_rotor_table(
-    path: str | Path,
-    *,
-    rotor: object,
-    rows: Sequence[Mapping[str, object]],
-    reference: ReferenceValues,
-    left_out: list[tuple[str, str]] | None = None,
-    written_runs: list[str] | None = None,
-    pol: str | int | None = None,
-    overwrite: bool = True,
-) -> Path | None:
-    """Write one rotor's coefficient table from the admitted rows.
-
-    ``left_out`` collects ``(run_id, reason)`` for every row this refuses, and
-    ``written_runs`` collects the run id of every row it DID write. Both are
-    out-parameters because the caller owns the manifest and must distinguish
-    omitted rows from the runs contributing to the written table.
-
-    ``pol`` is the polar the rows come from, the matrix row's POL, written in
-    the first column of every row; `NA` where the caller states none.
-
-    `rotor_coefficients` and `rotor_coefficient_columns` existed with no
-    caller: pieces of a table and no table. This is the table.
-
-    THE FIRST LINE IS THE HEADER (G16). The table opens with `POL` and then
-    `ROTOR`, the rotor's alias, on every row, because a script that has already
-    LOADED the file no longer has its name -- it holds an array of numbers, and
-    the alias has to be inside the bytes. a legacy table places the alias
-    alone on the first line instead, before the header, and no CSV reader took
-    the file as written.
-
-    EVERY COLUMN CARRIES THE ALIAS TOO, which is physical rather than cosmetic:
-    two rotors summed into one `CT` is not a worse `CT`, it is not a `CT` at
-    all, because the diameters and speeds that normalise them are different
-    numbers. The suffix is what makes the mistake impossible by accident.
-
-    Return None without writing when no row survives validation. Refused rows
-    are named in ``left_out``. A valid static row is retained, with unavailable
-    coefficients written as ``NA``.
-
-    Parameters
-    ----------
-    path : str or Path
-        Destination file.
-    rotor : object
-        The rotor, read for its ``alias``, ``diameter_m``, ``axis_vector`` and
-        hub position.
-    rows : sequence of mapping
-        One mapping per run, holding its ``run_id``, ``rpm``, ``density``,
-        ``speed``, ``free_stream``, ``condition``, ``air``, ``surfaces``,
-        ``aliases`` and ``frame`` where it has them. ``speed`` is the reference
-        velocity used to dimensionalize loads; ``free_stream`` is the flight
-        speed used for advance ratio and efficiencies, defaulting to ``speed``.
-    reference : ReferenceValues
-        The reference lengths and moment point of the run.
-    left_out : list of tuple of str, optional
-        Receives ``(run_id, reason)`` for every row refused.
-    written_runs : list of str, optional
-        Receives the run id of every row written.
-    pol : str or int, optional
-        The polar the rows come from, written first in every row; ``NA`` where
-        None.
-    overwrite : bool, optional
-        Replace a file that already exists, as the writer always did (the default).
-        False refuses an existing file, naming it, before it is replaced.
-
-    Returns
-    -------
-    Path or None
-        The file written, or None when no row survives validation.
-
-    Raises
-    ------
-    ProductError
-        If the rotor has no alias to carry in the column names (a
-        ``ValueError``).
-    """
-    alias = str(getattr(rotor, "alias", "") or "")
-    # State speed and diameter beside coefficients normalised by rho n^2 D^4
-    # or D^5; RHO is in the shared block. POL and ROTOR lead (G16), followed
-    # by the coefficient and condition columns, then tip and helical Mach
-    # (M1) and the four in-plane coefficients (G8).
-    columns = (
-        POLAR_ID_COLUMN,
-        ROTOR_ID_COLUMN,
-        *CONTEXT_COLUMNS,
-        f"RPM_{alias}",
-        f"DIAMETER_{alias}",
-        *rotor_coefficient_columns(alias),
-        f"MTIP_{alias}",
-        f"MHEL_{alias}",
-        *(f"{name}_{alias}" for name in ROTOR_IN_PLANE_COLUMNS),
-        f"MADV_{alias}",
-    )
-    diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
-    # G8: the rotor's (T, S, N) axes are the same for every row, so
-    # an axis along the reference frame's up, which has no normal and no side
-    # axis, is said once for the table and its four in-plane columns read NA.
-    shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
-    in_plane_defined = rotor_in_plane_axes(shaft) is not None
-    in_plane_said = False
-
-    written: list[tuple[object, ...]] = []
-    # Normalise both out-parameters once so each skipped row reports its
-    # reason and each written row reports its run to the manifest.
-    refused = [] if left_out is None else left_out
-    emitted = [] if written_runs is None else written_runs
-    unangled: list[str] = []
-    at_rest: list[str] = []
-    for row in rows:
-        stated = row.get("run_id")
-        run_id = str(stated) if isinstance(stated, str) else ""
-        # NARROWED HERE rather than annotated away: the row is a plain
-        # mapping the caller assembles, so its values arrive as `object`
-        # and a `float(...)` on one is a claim the type checker is right
-        # to refuse. A row stating a speed that is not a number states no
-        # speed, and there is no table to write for it.
-        rpm = _row_number(row, "rpm")
-        # Negative RPM identifies rotation direction, not a stopped rotor.
-        # Use the magnitude for rate normalisation: CT is quadratic in n and
-        # J = V / (n D) must not change sign for a forward-flying counter-rotor.
-        # Keep signed torque and rotation for the power calculation.
-        rate = abs(rpm)
-        # Normalise with this point's air and velocity, never another point
-        # of the sweep's state; see _rotor_tables.
-        density_kg_m3 = _row_number(row, "density")
-        speed_m_s = _row_number(row, "speed")
-        # THE ADVANCE RATIO IS THE FREE STREAM'S. `speed` is the export's
-        # REFERENCE velocity, which is right for taking a coefficient back to
-        # Newtons and wrong for `J = V / (n D)`, a ratio of the flight speed. The
-        # two are equal in every campaign recorded so far; a row that states no
-        # free stream keeps the speed it has.
-        flight_m_s = _row_number(row, "free_stream", speed_m_s)
-        # THE ROW'S OWN ATTITUDE REACHES THE ANGLE. Left to default, every
-        # point reports the level-flight shaft angle and `ETAW` carries the
-        # aircraft's pitch as an omission -- the defect one level up from the
-        # one item 19 removed.
-        stated = row.get("condition")
-        attitude = stated if isinstance(stated, Mapping) else {}
-        # ONE PREMISE, ONE VERDICT, AND THE ROW SAYS IT (PFS-2105.040): a loads
-        # export in another frame gave a row of NA listed as written, with no
-        # reason anywhere; the frame check refuses the whole row, named.
-        reason = _row_refusal(row, alias, diameter=diameter, rate=rate, density_kg_m3=density_kg_m3)
-        if reason is not None:
-            refused.append((run_id, reason))
-            continue
-        alpha = _angle_of(attitude, "ALPHA")
-        beta = _angle_of(attitude, "BETA")
-        loads = rotor_shaft_loads(
-            surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
-            rotor=rotor,
-            reference=reference,
-            density_kg_m3=density_kg_m3,
-            speed_m_s=speed_m_s,
-            aliases=(
-                stated_aliases
-                if isinstance(stated_aliases := row.get("aliases"), Mapping)
-                else None
-            ),
-            alpha_deg=alpha if alpha is not None else 0.0,
-            beta_deg=beta if beta is not None else 0.0,
-            # THE CALL SITE IS WHAT DELIVERS THE CHECK. The witness field and
-            # the refusal both existed for a few minutes without this line, and
-            # `ETAW` would have gone on being computed from a force in whatever
-            # frame the campaign chose.
-            analysis_frame=(
-                stated_frame if isinstance(stated_frame := row.get("frame"), str) else None
-            ),
-        )
-        if not loads.families_used:
-            # A FALSE ZERO IS REFUSED, NOT PUBLISHED (WT-02). `families_used` was
-            # filled and read by nothing: a rotor whose families are not in the
-            # export summed to zero thrust and the table printed CT 0.00000 down
-            # the whole sweep with nothing skipped. Zero is a value a rotor can
-            # have, which is exactly why it cannot stand for "no surface".
-            carried = ", ".join(sorted(map(str, surfaces))) if isinstance(surfaces, Mapping) else ""
-            refused.append(
-                (
-                    run_id,
-                    f"{alias}: its families {', '.join(map(str, getattr(rotor, 'members', [])))} "
-                    f"select no surface of this point's loads export ({carried}), so there is "
-                    "no force to take a coefficient of",
-                )
-            )
-            continue
-        if None in (alpha, beta):
-            # AN ANGLE THAT IS NOT A NUMBER IS NOT LEVEL FLIGHT (PFS-2105.018): the shaft
-            # angle and the wind-axis force need a readable ALPHA and BETA, and read NA.
-            loads = replace(loads, shaft_angle_deg=math.nan, wind_force_n=math.nan)
-            unangled.append(run_id)
-        if 0.5 * density_kg_m3 * speed_m_s**2 <= 0.0:
-            at_rest.append(run_id)
-        coefficients = rotor_coefficients(
-            thrust_n=loads.thrust_n,
-            torque_nm=loads.torque_nm,
-            # THE SIGNED RATE, not the magnitude. `rotor_coefficients` needs the
-            # sense of rotation to keep `CP` a power, and takes the magnitude
-            # itself for everything that normalises. Passing `rate` here flipped
-            # CP, ETA and ETAW on every counter-rotating rotor.
-            rps=rpm / 60.0,
-            diameter_m=diameter,
-            density_kg_m3=density_kg_m3,
-            speed_m_s=flight_m_s,
-            shaft_angle_deg=loads.shaft_angle_deg,
-            # THE CALL SITE PASSES THE WIND-AXIS FORCE. The formula and the
-            # wind-axis force both existed for a few minutes without this line,
-            # and `ETAW` would have gone on being the cosine it was.
-            wind_force_n=loads.wind_force_n,
-            # G8: the same force and hub moment the thrust and the
-            # torque are turned from, resolved on the rotor's normal and side
-            # axes; None (NA) where they are not a number or the axes are
-            # undefined.
-            in_plane_loads=(
-                rotor_in_plane_loads(loads.force_n, loads.moment_hub_nm, shaft)
-                if loads.force_n is not None and loads.moment_hub_nm is not None
-                else None
-            ),
-        )
-        if not in_plane_defined and not in_plane_said:
-            in_plane_said = True
-            warn(
-                f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias}'s axis "
-                f"{tuple(round(component, 6) for component in shaft)} lies along the "
-                "reference frame's vertical axis (+z or -z), so it has no normal and no side "
-                f"axis, and CN_{alias}, CS_{alias}, CMN_{alias} and CMS_{alias} read NA "
-                "on every row of this table.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        eta = coefficients.get("ETA")
-        if isinstance(eta, int | float) and eta > 1:
-            warn(
-                f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias} "
-                f"efficiency ETA={eta:g} exceeds 1; check the wake and loads.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        condition = dict(attitude)
-        # M1: `NA` where the point's air did not resolve, never a guess.
-        machs, madv = _mach_cells(row.get("air"), rpm, diameter, (alpha, beta), shaft)
-        written.append(
-            (
-                pol,
-                alias,
-                *context_row(condition, reference.as_lengths()),
-                rpm,
-                diameter,
-                *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
-                *machs,
-                *(coefficients[name] for name in ROTOR_IN_PLANE_COLUMNS),
-                madv,
-            )
-        )
-        emitted.append(run_id)
-
-    if not written:
-        return None
-    _say_the_na_rows(Path(path).name, alias, unangled=unangled, at_rest=at_rest)
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    # THROUGH `write_csv_table`, which is THE funnel: every cell of every
-    # product is rendered by `_cell` there, so a value this table cannot fill
-    # reads `NA` like every other product rather than by a rule of its own.
-    # Writing the rows here with `csv.writer` would be a fifth family spelling
-    # its own absences, which is the drift item 5 repaired.
-    return write_csv_table(path, columns, written, overwrite=overwrite)
+# The names retired with their products answer by name (FR-457).
+__getattr__ = removed_names_hook(__name__)

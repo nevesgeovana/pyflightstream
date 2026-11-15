@@ -631,7 +631,7 @@ def write_point_series(
         Called with each table's path before that table is written, and the
         table is written to the path it returns, and its entry is keyed by
         that path: the same seam
-        :func:`~pyflightstream.post.superfile.write_superfiles` takes. When
+        the retired ``write_superfiles`` takes. When
         it is given, IT ALONE decides what becomes of an existing table and
         ``overwrite`` is not consulted, which is the rule every other product
         of the stage follows. The products stage passes its archiver, which

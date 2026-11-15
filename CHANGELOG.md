@@ -51,6 +51,8 @@ The `time_average` and `per_blade` reductions are no longer written, and a pproc
 
 The post no longer writes the super file (`SUPER-*.csv`) and its superset report, the unsteady polar (`*_uns_avg.csv`), the per-group polar split by Mach (`P<sim>-<sweep>_<GROUP>.csv`) or the standalone rotor table (`P<sim>-<ROTOR>_rotor.csv`): the FAM and group files carry what they held. migration: docs/upgrading.md#0580-post-tree.
 
+The public writers of the products the 0.58.0 post tree retires are removed and refused by name, each naming the FAM and group files: `post.point_tables.write_per_blade_table` and `post.unsteady.per_blade_rows` (the per_blade table), `post.rotor_table.write_rotor_table` (the standalone rotor table), `post.superfile.write_superfiles` (the SUPER file), `post.unsteady_polar.write_unsteady_polar` (the uns_avg polar) and `post.polar.swept_polar_file_name` (the per-Mach polar file name), with their names re-exported by `post.products`. migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.
+
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
 
 `analysis_setup(vorticity_drag_boundaries=...)` is refused. migration: pass the selection to `solver_settings(vorticity_drag_boundaries=...)`.

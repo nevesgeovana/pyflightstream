@@ -244,7 +244,6 @@ from pyflightstream.post.point_tables import (
     is_force_or_moment_column,
     per_revolution_table,
     revolution_drift_pct,
-    write_per_blade_table,
     write_phase_locked_table,
     write_plots_table,
     write_probes_table,
@@ -267,7 +266,6 @@ from pyflightstream.post.polar import (
     group_coefficients,
     polar_row,
     swept_axes,
-    swept_polar_file_name,
     trimmed_polar_row,
     write_polar_table,
     write_recorded_polar,
@@ -311,7 +309,6 @@ from pyflightstream.post.rotor_table import RotorShaftLoads as RotorShaftLoads
 from pyflightstream.post.rotor_table import rotor_coefficient_columns as rotor_coefficient_columns
 from pyflightstream.post.rotor_table import rotor_coefficients as rotor_coefficients
 from pyflightstream.post.rotor_table import rotor_shaft_loads as rotor_shaft_loads
-from pyflightstream.post.rotor_table import write_rotor_table as write_rotor_table
 from pyflightstream.post.section_distributions import (
     write_section_distributions as write_section_distributions,
 )
@@ -324,7 +321,6 @@ from pyflightstream.post.superfile import (
 from pyflightstream.post.unsteady_polar import (
     UNSTEADY_AXIS_COLUMNS,
     unsteady_polar_file_name,
-    write_unsteady_polar,
 )
 from pyflightstream.post.unsteady_polar import global_frame_plot_groups as global_frame_plot_groups
 from pyflightstream.results import (
@@ -410,14 +406,12 @@ __all__ = [
     "polar_file_name",
     "polar_row",
     "swept_axes",
-    "swept_polar_file_name",
     # ITEM 17. `unsteady_polar_file_name` is the sibling of the name above it
     # and was not in this list, so a reader looking one up would not find the
     # other -- which is the claim this module's own docstring makes about the
     # list and which was found false for `NOT_APPLICABLE` earlier in this
     # same release. The architect lens of the closing round found it again.
     "unsteady_polar_file_name",
-    "write_unsteady_polar",
     "GEOMETRY_ANALYSIS_FRAMES",
     "provenance_file_name",
     "read_csv_table",
@@ -426,7 +420,6 @@ __all__ = [
     "write_custom_polar_format",
     "write_plots_table",
     "write_probes_table",
-    "write_per_blade_table",
     "write_phase_locked_table",
     "write_reduction_table",
     "write_polar_table",
