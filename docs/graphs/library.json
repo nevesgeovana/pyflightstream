@@ -326,6 +326,11 @@
       "path": "cases/workflows/_conventions.py"
     },
     {
+      "id": "pyflightstream.cases.workflows._custom_motion",
+      "layer": 3,
+      "path": "cases/workflows/_custom_motion.py"
+    },
+    {
       "id": "pyflightstream.cases.workflows._export_first_step",
       "layer": 3,
       "path": "cases/workflows/_export_first_step.py"
@@ -3328,6 +3333,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.cases.matrix",
+      "target": "pyflightstream.cases.workflows._custom_motion",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.cases.mesh",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -3930,6 +3940,51 @@
     {
       "source": "pyflightstream.cases.workflows._conventions",
       "target": "pyflightstream.versions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases.workflows._conventions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases.workflows._names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases.workflows._row_cells",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases.workflows._timing",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.cases.workflows._vocabulary",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._custom_motion",
+      "target": "pyflightstream.script",
       "kind": "module"
     },
     {
@@ -5405,6 +5460,11 @@
     {
       "source": "pyflightstream.cases.workflows._unsteady",
       "target": "pyflightstream.cases.workflows._conventions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._unsteady",
+      "target": "pyflightstream.cases.workflows._custom_motion",
       "kind": "module"
     },
     {
@@ -16214,6 +16274,11 @@
     },
     {
       "source": "pyflightstream.workspace._geom_propeller",
+      "target": "pyflightstream.geometry._propeller_spinner",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geom_propeller",
       "target": "pyflightstream.geometry.stages",
       "kind": "deferred"
     },
@@ -19300,6 +19365,11 @@
     {
       "source": "pyflightstream.workspace.matrix",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.matrix",
+      "target": "pyflightstream.cases.workflows._custom_motion",
       "kind": "module"
     },
     {

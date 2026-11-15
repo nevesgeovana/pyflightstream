@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "de501b11b006ac2d72b53c6599236d8af7b8665574d07c40708b549ea43af4f3"
+      "source_sha256": "e49037294a7f873916eeb99c2a68cfe690d61995103500fa5ae3340248a41c9e"
     },
     {
       "id": "resolve",
@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "f9047b78bf285ecfd4dbc5ea0e5cbcd685cb7455a26e9c7fb7fd1aa4c9262241"
+      "source_sha256": "cc899ef45233048aee2d89894b253c6b2e0b2566c9f460563de5e1861ac04aaf"
     },
     {
       "id": "plan",
