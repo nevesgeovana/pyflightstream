@@ -9,7 +9,7 @@ pproc may state a dictionary, export name to the reader's name:
     FX_HUB_PUSHER = "FX_PUSHER"
 
 - It renames columns of the UNSTEADY POLAR and of the REDUCTIONS. The plots table
-  `probes/<point>_plots.csv` stays raw: it is the source the others are read from.
+  `time_history/<point>_plots.csv` stays raw: it is the source the others are read from.
 - Absent, every name passes through exactly as printed.
 - A left name NO PLOT PRINTS is refused where the product is written, naming the
   file and the name, and the product keeps the export's names: a dictionary entry
@@ -141,12 +141,12 @@ def test_the_stage_applies_the_dictionary_to_the_polar_and_the_reductions(tmp_pa
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         write_campaign_products(workspace)
-    probes = workspace.root / "post" / "products" / "probes"
-    names, _rows = read_csv_table(probes / "AL-020_time_average.csv")
+    tree = workspace.root / "post" / "products"
+    names, _rows = read_csv_table(tree / "reductions" / "AL-020_phase_locked.csv")
     # `CL_TOTAL` and not `CL`: the unsteady polar already carries the native export's
     # last-step `CL` in its setup content, and two columns under one heading are refused.
     assert "CL_TOTAL" in names and "CL_MRP_TOTAL" not in names, names
-    raw, _rows = read_csv_table(probes / "AL-020_plots.csv")
+    raw, _rows = read_csv_table(tree / "time_history" / "AL-020_plots.csv")
     assert "CL_MRP_TOTAL" in raw and "CL_TOTAL" not in raw
     assert not [key for key in _products_manifest(workspace)["skipped"] if key.endswith("#names")]
 
@@ -168,11 +168,11 @@ def test_the_stage_says_once_per_point_when_the_dictionary_cannot_be_honoured(tm
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         write_campaign_products(workspace)
-    probes = workspace.root / "post" / "products" / "probes"
-    names, _rows = read_csv_table(probes / "AL-020_time_average.csv")
+    tree = workspace.root / "post" / "products"
+    names, _rows = read_csv_table(tree / "reductions" / "AL-020_phase_locked.csv")
     assert "CL_MRP_TOTAL" in names, "the reduction is kept, under the export's names"
     skipped = _products_manifest(workspace)["skipped"]
-    assert "CL_HUB_GHOST" in skipped["probes/AL-020#names"], skipped
+    assert "CL_HUB_GHOST" in skipped["reductions/AL-020#names"], skipped
 
 
 def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history_first(tmp_path):
@@ -182,7 +182,7 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
     carries an azimuthal phase-locked reduction, because the interpolation
     support is read from the history. That load used to skip the dictionary
     validation, which lived inside the later one, so an unusable `[names]`
-    reached the writer instead of being said once under `probes/<point>#names`.
+    reached the writer instead of being said once under `reductions/<point>#names`.
     The existing case above loads through `time_average` and cannot see it.
     """
     import warnings
@@ -217,7 +217,7 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
     # WITHOUT the early check this key is absent altogether: the later validation
     # is guarded by `series is None`, and the azimuthal entry has already loaded
     # the history, so nothing would validate the dictionary at all.
-    assert "CL_HUB_GHOST" in skipped["probes/AL-020#names"], skipped
+    assert "CL_HUB_GHOST" in skipped["reductions/AL-020#names"], skipped
     said = [str(w.message) for w in raised if "CL_HUB_GHOST" in str(w.message)]
     # THE COUNT IS NOT PINNED AT ONE: two product families validate the
     # dictionary for this point, and both say so. Measured here rather than

@@ -7,7 +7,7 @@ each sectional load quantity, ``pyfs-matrix post`` fits by least squares
 
 over every sample of that station, ``psi`` being the sample's blade azimuth
 as the written sections table states it, and writes
-``sections/<point>_harmonics.csv``. The samples of a quasi-steady WHEEL are
+``reductions/<point>_harmonics.csv``. The samples of a quasi-steady WHEEL are
 every blade at every clocking; those of an ``unsteady_rotor`` point every
 blade at every step of its last complete revolution.
 
@@ -45,7 +45,7 @@ from pyflightstream.post.harmonics import (
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_f07_section_distributions import _exports
-from tests.tier1_offline.test_post_products import _plots_export
+from tests.tier1_offline.test_post_products import _plots_export, beyond_the_block
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
@@ -327,15 +327,17 @@ def test_a_wheel_of_six_blades_at_two_clockings_gives_back_its_harmonics(
         assert float(row["AZIMUTH"]) == pytest.approx(
             _wheel_azimuth(blade, 6, clocking, 2, sign), abs=1e-9
         )
-    columns, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
-    assert tuple(columns) == HARMONICS_COLUMNS
-    assert columns[0] == "POL" and columns[1] == "ALPHA"
+    columns, rows = read_csv_table(out / "reductions" / "DP_harmonics.csv")
+    own = beyond_the_block(columns)
+    assert set(HARMONICS_COLUMNS) <= set(columns)
+    assert own == tuple(name for name in HARMONICS_COLUMNS if name in own)
+    assert columns[0] == "POL" and "ALPHA" in columns
     assert {row["POL"] for row in rows} == {"7001"}
     assert {row["MACH"] for row in rows} == {"0.20000"}
     _assert_known(rows, samples=12, distinct=12, tol=1e-4)
     for row in rows:
         assert float(row["R_OVER_R"]) == pytest.approx(float(row["STATION_R_M"]) / 1.0)
-    entry = manifest["products"]["sections/DP_harmonics.csv"]
+    entry = manifest["products"]["reductions/DP_harmonics.csv"]
     assert entry["kind"] == "harmonics"
     assert entry["source"] == "wheel clockings"
     assert entry["samples"] == 12
@@ -355,7 +357,7 @@ def test_a_left_hand_wheel_s_phase_is_the_azimuth_its_table_states(tmp_path, mon
     _, sections = read_csv_table(out / "sections" / "DP_sections.csv")
     blade_one = [row for row in sections if row["FAMILY"] == "Blade1"]
     assert sorted({float(row["AZIMUTH"]) for row in blade_one}) == [0.0, 330.0]
-    _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
+    _, rows = read_csv_table(out / "reductions" / "DP_harmonics.csv")
     fx = [row for row in rows if row["QUANTITY"] == "Fx"]
     assert [float(row["H1_PHASE_DEG"]) for row in fx] == pytest.approx([100.0] * 3, abs=0.01)
 
@@ -365,7 +367,7 @@ def test_a_harmonic_short_of_azimuths_is_na_and_said_once(tmp_path, monkeypatch)
     # P0310-HARMONICS
     workspace = _wheel(tmp_path, monkeypatch, blades=2, clockings=2, rpm=1200.0)
     out, _, log = _post(workspace)
-    _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
+    _, rows = read_csv_table(out / "reductions" / "DP_harmonics.csv")
     assert len(rows) == len(KNOWN) * len(RADII)
     for row in rows:
         assert int(row["SAMPLES"]) == 4 and int(row["DISTINCT_AZIMUTHS"]) == 4
@@ -373,7 +375,7 @@ def test_a_harmonic_short_of_azimuths_is_na_and_said_once(tmp_path, monkeypatch)
         assert row["H2_AMP"] == "NA" and row["H2_PHASE_DEG"] == "NA"
     said = [line for line in log if "DP_harmonics.csv" in line and "harmonic is NA" in line]
     assert len(said) == 1, said
-    assert said[0].startswith("WARNING point=DP product=sections/DP_harmonics.csv:")
+    assert said[0].startswith("WARNING point=DP product=reductions/DP_harmonics.csv:")
     assert "2P harmonic is NA in 9 row(s)" in said[0] and "needs 5" in said[0]
 
 
@@ -464,12 +466,12 @@ def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, 
         assert float(row["AZIMUTH"]) == pytest.approx(
             _unsteady_azimuth(blade, 3, int(row["STEP"]), sign), abs=1e-9
         )
-    columns, rows = read_csv_table(out / "sections" / "AL-020_harmonics.csv")
+    columns, rows = read_csv_table(out / "reductions" / "AL-020_harmonics.csv")
     assert tuple(columns) == HARMONICS_COLUMNS
     _assert_known(rows, samples=18, distinct=6, tol=1e-4)
     # NO REFERENCE TO ASK FOR THE ROTOR'S DIAMETER: r / R is not applicable.
     assert {row["R_OVER_R"] for row in rows} == {"NA"}
-    entry = manifest["products"]["sections/AL-020_harmonics.csv"]
+    entry = manifest["products"]["reductions/AL-020_harmonics.csv"]
     assert entry["kind"] == "harmonics"
     assert entry["source"] == "unsteady last revolution"
     assert entry["samples"] == 18
@@ -483,8 +485,8 @@ def test_p0440_fractional_revolution_harmonics_are_named(tmp_path, monkeypatch):
     record = workspace.read_manifest()[0]
     record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 6.5
     out, manifest, _log = _post(workspace)
-    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
-    reason = manifest["skipped"]["sections/AL-020_harmonics.csv#rotor=PROP"]
+    assert not (out / "reductions" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["reductions/AL-020_harmonics.csv#rotor=PROP"]
     assert "6.5" in reason and "remainder 0.5" in reason
     with pytest.raises(ProductError, match="remainder 0.5"):
         last_complete_revolution(1, 14, 6.5)
@@ -497,8 +499,8 @@ def test_an_unsteady_rotor_short_of_one_revolution_is_named(tmp_path, monkeypatc
     record = workspace.read_manifest()[0]
     record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 20.0  # type: ignore[index]
     out, manifest, log = _post(workspace)
-    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
-    reason = manifest["skipped"]["sections/AL-020_harmonics.csv#rotor=PROP"]
+    assert not (out / "reductions" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["reductions/AL-020_harmonics.csv#rotor=PROP"]
     assert "not one complete revolution" in reason and "20 steps per revolution" in reason
     assert any("AL-020_harmonics.csv" in line and "complete revolution" in line for line in log)
 
@@ -511,8 +513,8 @@ def test_p0430_rb6_08_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path
     record = workspace.read_manifest()[0]
     record.reductions["rotors"]["PROP"]["steps_per_revolution"] = float("inf")  # type: ignore[index]
     out, manifest, _log = _post(workspace)
-    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
-    reason = manifest["skipped"]["sections/AL-020_harmonics.csv#rotor=PROP"]
+    assert not (out / "reductions" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["reductions/AL-020_harmonics.csv#rotor=PROP"]
     assert "states no steps per revolution" in reason
     with pytest.raises(ProductError, match="finite"):
         last_complete_revolution(1, 14, float("inf"))
@@ -530,8 +532,8 @@ def test_an_unsteady_rotor_with_no_sections_series_is_named(tmp_path, monkeypatc
         path.unlink()
     out, manifest, log = _post(workspace)
     assert not (out / "series" / "AL-020_sections_series.csv").exists()
-    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
-    reason = manifest["skipped"]["sections/AL-020_harmonics.csv"]
+    assert not (out / "reductions" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["reductions/AL-020_harmonics.csv"]
     assert "no sections series" in reason and "AL-020_sections_series.csv" in reason
     assert any("AL-020_harmonics.csv" in line and "no sections series" in line for line in log)
 
@@ -714,7 +716,7 @@ z_m = {z}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         write_campaign_products(workspace, matrix_stem="study")
-    _, rows = read_csv_table(workspace.products_dir("study") / "sections/AL-020_harmonics.csv")
+    _, rows = read_csv_table(workspace.products_dir("study") / "reductions/AL-020_harmonics.csv")
     assert len(rows) == len(KNOWN) * len(RADII)
     if origin is None:
         assert {row["STATION_R_M"] for row in rows} == {"NA"}

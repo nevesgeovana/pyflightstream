@@ -37,7 +37,11 @@ from pyflightstream.run._actions_counter import stage_counter
 from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
-from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
+from tests.tier1_offline.test_post_products import (
+    _products_manifest,
+    _unsteady_workspace,
+    beyond_the_block,
+)
 from tests.tier1_offline.test_workflows import (
     GOLDEN_RENDERS,
     GOLDEN_WORKFLOWS,
@@ -243,7 +247,8 @@ def test_p0370_s5_post_writes_the_normal_table_at_the_last_step(
     workspace = _normal_workspace(tmp_path, monkeypatch, stopped_at=stopped_at)
     write_campaign_products(workspace)
     columns, rows = read_csv_table(workspace.root / "post/products/probes/AL-020_probes.csv")
-    assert columns[:7] == ("POL", "PROBE", "X", "Y", "Z", "FRAME", "STEP"), columns
+    assert columns[0] == "POL", columns
+    assert beyond_the_block(columns)[:6] == ("PROBE", "X", "Y", "Z", "FRAME", "STEP"), columns
     assert [int(row["PROBE"]) for row in rows] == [1, 2, 3]
     assert {row["STEP"] for row in rows} == {step}, "STEP is the run's last time step"
     assert {row["FRAME"] for row in rows} == {"REFERENCE"}

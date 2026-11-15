@@ -1,14 +1,15 @@
 {
- "products/post.log": "6bbaaca64b5fe9a0317d23a8ef4357272b49c55bd127a2a296601fd8ed71a59f",
- "products/post.log.json": "b7146ef2388543192571aeeabe156169d388d9ed3626de06428bc1b221134421",
- "products/products.json": "47af8a77c0b982a82805194de2919205fb7c4982149f7953f2b9118af14fe89a",
+ "products/post.log": "e7dbe9ee2c9cf7fb63877ca00fe13f3939e9383f9d068934fc5614df653ef9e4",
+ "products/post.log.json": "f899e34de3da44f6a090f0d2e3d2b8f41a4bebcded2169393114eba1d6f863eb",
+ "products/products.json": "582dabf60f88f2b732bff736ee7a244092d8e6ef4cc8a42fd94ba547f89c262d",
  "products/provenance/camp_sim_7001_DP.prov.json": "15e611b2b345c2cc77ff0e5f96d55bc1dd0a003192b10e118c32a463187aa9f5",
+ "products/reductions/DP_disc_PROP_Fx.csv": "c4f5c2e5960264d737bba51ff8b3a9d10fef9c04580f11f6b2ec36ef159567d3",
+ "products/reductions/DP_disc_PROP_Fz.csv": "8336b2a2453d4f15012abe25ffb168a802d658bcbca1abf8b052df43b59f30c3",
+ "products/reductions/DP_disc_PROP_Moment.csv": "c3945a385f03022c6dab7c73cba2e848ef4dbd11ed11efabce1cc275c15eb9f8",
+ "products/sections/DP_cp.csv": "f3743f280ed84ae08b7b7126609961c9ddda796fed19519dbce6c9fcb69db571",
  "products/sections/DP_cp_Blade1.csv": "30efc9d2b517641ce641b3850a309fe04144e6cbccff1276b574e734a0347aa3",
  "products/sections/DP_cp_Blade2.csv": "9c976df678dcf1c7d7721c74e0878c3557a625628b695c8bfe559800a4d318ef",
- "products/sections/DP_disc_PROP_Fx.csv": "64bd7ff7e955c47153152aabc69a1d87441492342af87462cef49142cbe25958",
- "products/sections/DP_disc_PROP_Fz.csv": "7a2eefe835f96eb3acc08063104650073432dcaf580024b16567112a0fde6cf0",
- "products/sections/DP_disc_PROP_Moment.csv": "62a956df955a0ae18e342fce18f0ac75453e57079fdf78081098355c170127ce",
- "products/sections/DP_sections.csv": "d9cb81cf553a54f72c7f671137810f315b2e738c8bdaf7ce4e6fb5e51e80965e",
+ "products/sections/DP_sections.csv": "382a049253b4abe536a85b700b89591c9175cf6303a0758d5324a571a23a6f76",
  "products/sections/DP_sloads_Blade1.csv": "91b5c4787878d27819c0e04bd36893700243f28fb012525c22fed1f48ea02a38",
  "products/sections/DP_sloads_Blade2.csv": "73785ea614a59dd79473a5cdeed28324fe4ff17b5b594dc76e2f3a035f30b3ff"
 }

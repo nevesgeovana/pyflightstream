@@ -24,7 +24,7 @@ import json
 import pytest
 
 from pyflightstream.cases.windows import AZIMUTHAL
-from pyflightstream.post.products import write_campaign_products
+from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import (
@@ -34,7 +34,7 @@ from tests.tier1_offline.test_b01_frozen_solve import (
 )
 
 #: The per-rotor file an azimuthal phase-locked reduction writes.
-PRODUCT = "probes/AL-020_phase_locked_PUSHER.csv"
+PRODUCT = "reductions/AL-020_phase_locked_PUSHER.csv"
 
 
 def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | None = None):
@@ -96,8 +96,8 @@ def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | Non
 def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revolution):
     """The control, without which a refusal proves nothing.
 
-    The per-blade product is the proof that the reducer saw TWO blades: with
-    the inherited one-family reference it is not written at all, so a fixture
+    The two blade columns of the product are the proof that the reducer saw TWO blades: with
+    the inherited one-family reference they are not written, so a fixture
     that quietly lost the second blade fails here before it can make the
     refusal below look like interpolation (the QA lens, closing round).
     """
@@ -106,27 +106,15 @@ def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revol
     # STILL TAKEN AT EACH AZIMUTH: a reduction moved back to the passages reads no sample
     # between steps, and the refusal below would then prove nothing (RB6-01).
     assert manifest["products"][PRODUCT].get("shape") == AZIMUTHAL, manifest["products"][PRODUCT]
-    assert "probes/AL-020_per_blade.csv" in manifest["products"], (
+    # BOTH FAMILIES: the product holds the columns of Blade1 and of Blade2 (the per-blade
+    # table that proved it is retired since 0.58.0), so a reference naming only Blade1
+    # would drop the second column and apply no second-blade offset.
+    columns, _rows = read_csv_table(
+        tmp_path / str(steps_per_revolution) / "test" / "post" / "products" / PRODUCT
+    )
+    assert "CL_MRP_Blade1" in columns and "CL_MRP_Blade2" in columns, (
         "the reducer saw one blade family, so no sample is fractional here"
     )
-    # BOTH FAMILIES, one row each: the reducer writes a per-blade row per
-    # family it matched, so a reference naming only Blade1 would still write
-    # the file (the tech-writer lens) and would apply no second-blade offset.
-    per_blade = (
-        tmp_path
-        / str(steps_per_revolution)
-        / "test"
-        / "post"
-        / "products"
-        / "probes"
-        / "AL-020_per_blade.csv"
-    ).read_text(encoding="utf-8")
-    # BY NAME: the column moved one place right when every table gained `POL`
-    # first (G16), and a reader by position was the one that broke.
-    lines = per_blade.splitlines()
-    at = lines[0].split(",").index("FAMILY")
-    families = [row.split(",")[at] for row in lines[1:]]
-    assert families == ["Blade1", "Blade2"], families
 
 
 def test_whole_step_samples_do_not_read_outside_the_window(tmp_path):

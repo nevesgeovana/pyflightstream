@@ -4643,23 +4643,26 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     reread = workspace.read_manifest()[0]
     assert reread.reductions == plan, "the windows round-trip through the manifest"
 
-    plots = workspace.root / "post" / "rotor_products" / "probes"
+    tree = workspace.root / "post" / "rotor_products"
     # NO PER-BLADE FILE since 0.24.0, and a named skip below: this row states its
     # rotor with flat keys and cites no rotor block, so nothing says which families
     # are its blades. The file it used to get was one row of the TOTAL's average
     # under the per-blade name.
     # 0.31.0 (P0310-G2-PER-REV, the owner's requirement P1 of 2026-09-29): an
     # unsteady rotor point also leaves its per-revolution table.
-    assert sorted(p.name for p in plots.iterdir()) == [
+    # The time_average table is retired since 0.58.0: the folders hold the history and the
+    # two reductions, and the polar carries the window average.
+    assert sorted(p.name for p in (tree / "reductions").iterdir()) == [
         "M200RE1177AL-020_per_revolution.csv",
         "M200RE1177AL-020_phase_locked.csv",
-        "M200RE1177AL-020_plots.csv",
-        "M200RE1177AL-020_time_average.csv",
     ]
-    manifest = json.loads((plots.parent / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["probes/M200RE1177AL-020_time_average.csv"]["windows"] == [
-        [596, 720]
+    assert sorted(p.name for p in (tree / "time_history").iterdir()) == [
+        "M200RE1177AL-020_plots.csv"
     ]
+    assert not list(tree.rglob("*_time_average.csv"))
+    manifest = json.loads((tree / "products.json").read_text(encoding="utf-8"))
+    uns_avg = manifest["products"]["polars/P7001_M200RE1177AL-020_uns_avg.csv"]
+    assert uns_avg["windows"] == {"M200RE1177AL-020": [596, 720]}
     # The stub above writes the literal 'x' for every export it has no
     # fixture for, the probe points among them, so the probe table of
     # this point is a recorded SKIP naming the file (FR-87). It is a skip
@@ -4672,10 +4675,12 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         # reference declares no blade families, and the absence was silent.
         "polars/7001#rotor_tables",
         "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
-        "probes/M200RE1177AL-020_per_blade.csv",
         # 0.31.0 (P0310-G2-PER-REV): the run's last revolution is partial, and the
         # per-revolution table says so rather than averaging it.
-        "probes/M200RE1177AL-020_per_revolution.csv#partial",
+        "reductions/M200RE1177AL-020_per_revolution.csv#partial",
+        # 0.58.0: a point with a _cp.txt output gets sections/<point>_cp.csv; the stub writes
+        # the literal x there, so the table is a recorded skip naming the file.
+        "sections/M200RE1177AL-020_cp.csv",
         # NO `sections/..#distributions`, which this list pinned from 0.25.0 F07
         # until 0.27.0: this row's pproc declares no distribution, so its script
         # created none and its record says so with the empty layout. There is
@@ -4686,7 +4691,6 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # point no longer takes the probe-points route, so no probes table is owed
     # and none is named. A point that DOES declare probes and gets no history
     # is skipped with its reason (test_f01_probe_source.py).
-    assert "families_blades" in manifest["skipped"]["probes/M200RE1177AL-020_per_blade.csv"]
 
 
 # --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---

@@ -85,7 +85,7 @@ SNAPSHOT_DIR = Path(__file__).parent / "fixtures" / "products_snapshot"
 TEXT_FILES = ("products.json", "post.log", "post.log.json")
 DIGESTS = "sha256.json"
 # P0400-CIFIX-2 / LCLOSE-001: retain the existing least-squares exception.
-HARMONICS_PRODUCT = "products/sections/AL-020_harmonics.csv"
+HARMONICS_PRODUCT = "products/reductions/AL-020_harmonics.csv"
 HARMONICS_TEXT = SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv"
 _FIT_COLUMNS = ("H0", "H1_AMP", "H1_PHASE_DEG", "H2_AMP", "H2_PHASE_DEG", "RESIDUAL_RMS")
 # P0400-NOISEFIX: campaign and full product path -> numeric columns. The text
@@ -98,7 +98,7 @@ _FIT_COLUMNS = ("H0", "H1_AMP", "H1_PHASE_DEG", "H2_AMP", "H2_PHASE_DEG", "RESID
 # (noise has three observers, below the four-observer minimum).
 NUMERIC_PRODUCTS = {
     ("unsteady_harmonics", HARMONICS_PRODUCT): _FIT_COLUMNS,
-    ("wheel_harmonics", "products/sections/DP_harmonics.csv"): _FIT_COLUMNS,
+    ("wheel_harmonics", "products/reductions/DP_harmonics.csv"): _FIT_COLUMNS,
     ("noise", "products/acoustics/p_01_PYFS_OBS1_spectrum.csv"): (
         "FREQUENCY_HZ",
         "AMPLITUDE_PA",
@@ -192,7 +192,7 @@ def test_p0400_noisefix_bpf_keeps_metadata_and_na_exact(change):
 )
 def test_lclose_harmonics_comparison_admits_only_fit_roundoff(change):
     """LCLOSE-001: residual round-off passes; physical and structural changes fail."""
-    name = "products/sections/AL-020_harmonics.csv"
+    name = "products/reductions/AL-020_harmonics.csv"
     reference = (SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv").read_bytes()
     index, _ = stored("unsteady_harmonics")
     assert digests({name: reference})[name] == index[name]
@@ -211,7 +211,7 @@ def test_lclose_harmonics_comparison_admits_only_fit_roundoff(change):
     elif change == "na":
         cells[-1] = "NA"
     elif change == "other-path":
-        name = "products/sections/another_harmonics.csv"
+        name = "products/reductions/another_harmonics.csv"
         cells[-1] = str(float(cells[-1]) + 3.6e-16)
     lines[1] = ",".join(cells)
     separator = "\r\n" if change == "crlf" else "\n"

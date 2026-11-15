@@ -758,7 +758,7 @@ class TestPost1RotorProducts:
         )
         monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [stopped])
         _out, manifest, _log = _post_1_rotor_products___post(workspace)
-        entry = manifest["products"]["sections/AL-020_harmonics.csv"]  # type: ignore[index]
+        entry = manifest["products"]["reductions/AL-020_harmonics.csv"]  # type: ignore[index]
         assert entry["revolution"] == {"PROP": [7, 12]}, entry
         assert entry["samples"] == 18, entry
 
@@ -877,8 +877,8 @@ def test_f139_a_harmonic_row_outside_the_grid_is_carried_as_na(tmp_path, monkeyp
         correction={"route": "table", "file": "c001"},
         calibration=_section_calibration(low=0.12),
     )
-    _, raw = read_csv_table(out / "sections" / "DP_harmonics.csv")
-    _, corrected = read_csv_table(out / "sections" / "DP_harmonics_corrected.csv")
+    _, raw = read_csv_table(out / "reductions" / "DP_harmonics.csv")
+    _, corrected = read_csv_table(out / "reductions" / "DP_harmonics_corrected.csv")
     assert len(corrected) == len(raw)
     na = [row for row in corrected if row["H0"] == "NA" and row["H1_AMP"] == "NA"]
     assert na and len(na) < len(corrected)
@@ -930,7 +930,8 @@ def test_f4_0304_a_harmonic_product_without_a_phase_column_is_a_named_skip(tmp_p
     folder = tmp_path / "sections"
     folder.mkdir()
     (folder / "p_sections.csv").write_text("ROTOR,Offset\nP,0.5\n", encoding="utf-8")
-    (folder / "p_harmonics.csv").write_text(
+    (tmp_path / "reductions").mkdir()
+    (tmp_path / "reductions" / "p_harmonics.csv").write_text(
         "ROTOR,QUANTITY,H0,H1_AMP\nP,CT,1,1\n", encoding="utf-8"
     )
     component = corrections.SECTION_COMPONENTS[0]
@@ -946,7 +947,7 @@ def test_f4_0304_a_harmonic_product_without_a_phase_column_is_a_named_skip(tmp_p
             inputs_dir=tmp_path,
             out=tmp_path,
             wheel_points=[corrections.WheelPointRef("p", "r", "P")],
-            written_names={"sections/p_sections.csv": {}, "sections/p_harmonics.csv": {}},
+            written_names={"sections/p_sections.csv": {}, "reductions/p_harmonics.csv": {}},
             known_runs=None,
             target=lambda path: path,
             skipped=skipped,

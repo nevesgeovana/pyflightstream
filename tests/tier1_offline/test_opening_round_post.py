@@ -42,27 +42,6 @@ def test_malformed_failed_point_keeps_healthy_products(tmp_path):
     assert "runs/failed-point" in log and reason in log
 
 
-@pytest.mark.parametrize("asked", [False, True])
-def test_per_blade_uses_combined_sparse_window(tmp_path, asked):
-    workspace = _post_workspace(tmp_path, 2411, (55, 60), passages=[(55, 56), (57, 58), (59, 60)])
-    path = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_plots.txt"
-    path.write_text(
-        "\n".join(
-            line
-            for line in path.read_text().splitlines()
-            if not re.match(r"\d+\.0000,", line) or line.startswith(("55.0000,", "60.0000,"))
-        )
-        + "\n"
-    )
-    write_campaign_products(workspace, check_frozen=asked)
-    manifest = _products_manifest(workspace)
-    key = "probes/AL-020_per_blade.csv"
-    assert key in manifest["products"], manifest["skipped"]
-    assert manifest["products"][key]["windows"] == [[55, 60]]
-    _, rows = read_csv_table(workspace.products_dir(None) / key)
-    assert len(rows) == 2
-
-
 @pytest.mark.parametrize("text", ["", "FlightStream 26.123\nNative solver log\n"])
 @pytest.mark.parametrize("asked", [False, True])
 def test_empty_unsteady_log_warns_or_refuses(tmp_path, text, asked):
@@ -71,7 +50,7 @@ def test_empty_unsteady_log_warns_or_refuses(tmp_path, text, asked):
     path.write_text(text)
     write_campaign_products(workspace, check_frozen=asked)
     manifest = _products_manifest(workspace)
-    key = "probes/AL-020_time_average.csv"
+    key = "reductions/AL-020_phase_locked.csv"
     assert (key in manifest["products"]) is not asked
     log = (workspace.products_dir(None) / "post.log").read_text()
     assert any(
@@ -90,7 +69,7 @@ def test_sparse_average_guards_follow_all_three_writers(tmp_path, asked):
     manifest = _products_manifest(workspace)
     names = manifest["products"] | manifest["skipped"]
     keys = [
-        "probes/AL-020_time_average.csv",
+        "reductions/AL-020_phase_locked.csv",
         next(key for key in names if key.endswith("_uns_avg.csv")),
         next(key for key in names if key.endswith("_rotor.csv")),
     ]
@@ -155,6 +134,6 @@ def test_null_padded_log_keeps_readable_evidence(tmp_path, asked):
     path.write_text("\x00".join(_log(2411)))
     write_campaign_products(workspace, check_frozen=asked)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_time_average.csv" in manifest["products"], manifest["skipped"]
+    assert "reductions/AL-020_phase_locked.csv" in manifest["products"], manifest["skipped"]
     log = (workspace.products_dir(None) / "post.log").read_text()
     assert "no unsteady residual evidence" not in log

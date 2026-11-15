@@ -36,6 +36,7 @@ from tests.tier1_offline.test_post_products import (
     PLOTS_HEADER,
     _products_manifest,
     _unsteady_workspace,
+    beyond_the_block,
 )
 
 #: Twelve steps, four per revolution, two blades, blade one's datum at 30 degrees,
@@ -309,14 +310,16 @@ def _post(workspace) -> int:
     return main(["post", "--workspace", str(workspace.root)])
 
 
-def _probes(workspace) -> Path:
-    return workspace.root / "post" / "products" / "probes"
+def _tree(workspace) -> Path:
+    return workspace.root / "post" / "products"
 
 
 def _written_history(workspace) -> dict[str, np.ndarray]:
     """The plots table the stage WROTE, which is what every reduction is taken over."""
-    columns, rows = read_csv_table(_probes(workspace) / "AL-020_plots.csv")
-    return {name: np.array([float(row[name]) for row in rows]) for name in columns}
+    columns, rows = read_csv_table(_tree(workspace) / "time_history" / "AL-020_plots.csv")
+    return {
+        name: np.array([float(row[name]) for row in rows]) for name in beyond_the_block(columns)
+    }
 
 
 def _azimuth_of_blade(step: int, position: int) -> float:
@@ -333,7 +336,7 @@ def test_the_table_is_one_row_per_azimuth_and_each_value_the_mean_across_revolut
         tmp_path, "\n[phase_locked]\nmin_revolutions = 3.0\nlast_revolutions_avg = 2.0\n"
     )
     assert _post(workspace) == 0
-    columns, rows = read_csv_table(_probes(workspace) / "AL-020_phase_locked.csv")
+    columns, rows = read_csv_table(_tree(workspace) / "reductions" / "AL-020_phase_locked.csv")
     assert "AZIMUTH" in columns and "WINDOW" not in columns, columns
 
     # ONE ROW PER AZIMUTHAL POSITION OF THE REVOLUTION, from 0 towards 360. The
@@ -370,7 +373,7 @@ def test_the_table_is_one_row_per_azimuth_and_each_value_the_mean_across_revolut
     # Blade two is at 30 degrees when blade one is at 210: steps 6 and 10.
     assert float(first["FX_LOCAL_Blade2"]) == pytest.approx((1.0 + 2.0) / 2, abs=1e-5)
 
-    entry = _products_manifest(workspace)["products"]["probes/AL-020_phase_locked.csv"]
+    entry = _products_manifest(workspace)["products"]["reductions/AL-020_phase_locked.csv"]
     assert entry["shape"] == "azimuthal" and entry["revolutions"] == 2.0, entry
     assert entry["windows"] == [[5, 12]], entry
 
@@ -381,11 +384,11 @@ def test_a_run_that_turned_too_little_loses_this_table_and_nothing_else(tmp_path
         tmp_path, "\n[phase_locked]\nmin_revolutions = 5.0\nlast_revolutions_avg = 2.0\n"
     )
     assert _post(workspace) == 0
-    names = {path.name for path in _probes(workspace).iterdir()}
+    names = {path.name for path in _tree(workspace).rglob("*.csv")}
     assert "AL-020_phase_locked.csv" not in names, names
-    assert {"AL-020_per_blade.csv", "AL-020_time_average.csv", "AL-020_plots.csv"} <= names
+    assert "AL-020_plots.csv" in names
     manifest = _products_manifest(workspace)
-    reason = manifest["skipped"]["probes/AL-020_phase_locked.csv"]
+    reason = manifest["skipped"]["reductions/AL-020_phase_locked.csv"]
     assert "3.0" in reason and "5.0" in reason and "phase-locked" in reason, reason
     assert any(key.endswith("_uns_avg.csv") for key in manifest["products"]), manifest["products"]
 
@@ -395,7 +398,7 @@ def test_the_minimum_met_exactly_generates_it(tmp_path):
         tmp_path, "\n[phase_locked]\nmin_revolutions = 3.0\nlast_revolutions_avg = 3.0\n"
     )
     assert _post(workspace) == 0
-    _columns, rows = read_csv_table(_probes(workspace) / "AL-020_phase_locked.csv")
+    _columns, rows = read_csv_table(_tree(workspace) / "reductions" / "AL-020_phase_locked.csv")
     assert {row["REVOLUTIONS"] for row in rows} == {"3"}, rows
     assert float(rows[0]["FX_MRP_TOTAL"]) == pytest.approx((1.0 + 6.0 + 8.0) / 3, abs=1e-5)
 
@@ -404,7 +407,7 @@ def test_a_pproc_without_the_table_keeps_the_passage_series(tmp_path):
     """Absent is not zero: the file is what it was, one row per blade passage."""
     workspace = _workspace(tmp_path, "")
     assert _post(workspace) == 0
-    columns, rows = read_csv_table(_probes(workspace) / "AL-020_phase_locked.csv")
+    columns, rows = read_csv_table(_tree(workspace) / "reductions" / "AL-020_phase_locked.csv")
     assert "WINDOW" in columns and "AZIMUTH" not in columns, columns
     assert [(row["FIRST_STEP"], row["LAST_STEP"]) for row in rows] == [("9", "10"), ("11", "12")]
     assert float(rows[0]["FX_MRP_TOTAL"]) == pytest.approx((5.0 + 3.0) / 2, abs=1e-5)
@@ -422,7 +425,7 @@ def test_removing_the_table_after_the_run_brings_the_passages_back(tmp_path):
         ),
     )
     assert _post(workspace) == 0
-    columns, rows = read_csv_table(_probes(workspace) / "AL-020_phase_locked.csv")
+    columns, rows = read_csv_table(_tree(workspace) / "reductions" / "AL-020_phase_locked.csv")
     assert "WINDOW" in columns, columns
     assert [(row["FIRST_STEP"], row["LAST_STEP"]) for row in rows] == [("9", "10"), ("11", "12")]
 
@@ -518,7 +521,7 @@ def test_a_history_that_does_not_hold_the_revolutions_is_a_named_skip(tmp_path):
         "".join(kept), encoding="utf-8"
     )
     assert _post(workspace) == 0
-    reason = _products_manifest(workspace)["skipped"]["probes/AL-020_phase_locked.csv"]
+    reason = _products_manifest(workspace)["skipped"]["reductions/AL-020_phase_locked.csv"]
     assert "steps 5 to 12" in reason and "steps 9 to 12" in reason, reason
 
 

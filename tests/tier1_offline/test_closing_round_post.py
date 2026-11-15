@@ -9,7 +9,6 @@ from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.workspace import CampaignWorkspace
 from tests.tier1_offline.test_b01_frozen_solve import (
     FIXTURES,
-    _make_one_step_unreadable,
     _post_workspace,
     _products_manifest,
 )
@@ -105,20 +104,6 @@ def test_o_unresolved_pproc_keeps_recorded_histories(tmp_path, monkeypatch, inva
     assert key in log and "p001" in log
 
 
-@pytest.mark.parametrize("asked", [False, True])
-def test_p_combined_span_judges_gap_between_passages(tmp_path, asked):
-    workspace = _post_workspace(tmp_path, 2411, (58, 61), passages=[(58, 58), (59, 59), (61, 61)])
-    _make_one_step_unreadable(workspace, 60)
-    write_campaign_products(workspace, check_frozen=asked)
-    manifest = _products_manifest(workspace)
-    key = "probes/AL-020_per_blade.csv"
-    log = (workspace.products_dir(None) / "post.log").read_text()
-    assert any(key in line and "60" in line and "unread" in line for line in log.splitlines()), log
-    assert (key in manifest["products"]) is not asked
-    if not asked:
-        assert manifest["products"][key]["windows"] == [[58, 61]]
-
-
 @pytest.mark.parametrize("archive", [False, True])
 @pytest.mark.parametrize("survivor", [False, True])
 def test_q_malformed_repost_retires_run_products(tmp_path, monkeypatch, archive, survivor):
@@ -157,7 +142,7 @@ def test_q_malformed_repost_retires_run_products(tmp_path, monkeypatch, archive,
     assert f"runs/{record.run_id}" in manifest["skipped"]
     assert "series/AL-020_sections_series.csv" in manifest["products"]
     retired = before.keys() - manifest["products"].keys()
-    assert "probes/AL-020_plots.csv" in retired
+    assert "time_history/AL-020_plots.csv" in retired
     # SINCE THE SECOND INDEPENDENT READING the polar is named from the records
     # that contribute rows: with a survivor its table is the survivor's own
     # name and the one named for the failed point is stale and retired by name;

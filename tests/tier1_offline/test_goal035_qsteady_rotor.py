@@ -832,7 +832,8 @@ def test_the_post_stage_writes_the_clockings_and_the_average_of_a_recorded_wheel
     assert len(positions) == 1 and len(averages) == 1, sorted(products)
     folder = manifest.parent
     head, *rows = (folder / positions[0]).read_text().splitlines()
-    assert len(rows) == 4 and head.startswith("POL,REDUCTION,ROTOR,AZIMUTH,POSITION")
+    assert len(rows) == 4 and head.startswith("POL,POINT_ID,POINT,")
+    assert ",REDUCTION,ROTOR,AZIMUTH,POSITION" in head
     heading = head.split(",")
     by_point = {}
     for line in rows:

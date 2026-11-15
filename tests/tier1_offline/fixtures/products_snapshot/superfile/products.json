@@ -16,14 +16,14 @@
     "camp/sim_6001/M200RE1177AL+000BE+000"
    ]
   },
-  "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
+  "time_history/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
    "sim_id": "6002",
    "pproc": "p002",
    "runs": [
     "camp/sim_6002/M144RE438AL+000BE+000J+170"
    ]
   },
-  "probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": {
+  "reductions/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": {
    "sim_id": "6002",
    "pproc": "p002",
    "runs": [
@@ -123,5 +123,80 @@
   "camp/sim_6001/M200RE1177AL+000BE+000": "provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json",
   "camp/sim_6002/M144RE438AL+000BE+000J+170": "provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }

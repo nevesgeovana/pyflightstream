@@ -197,11 +197,14 @@ def posted(tmp_path):
 def test_p0550_every_table_of_a_post_carries_the_row_s_identifiers(posted):
     write_campaign_products(posted, matrix_stem="products")
     tables = _tables(posted.root / "post")
-    assert len(tables) >= 7
+    # SIX since 0.58.0: the time_average and per_blade tables are retired, not written.
+    assert len(tables) >= 6
     for table in tables:
         header, rows = _table(table)
         assert header[0] == "POL", table
-        at = 2 if header[1] == "ROTOR" else 1
+        # THE IDENTIFIERS sit inside the run block, right after POINT, where a table has the
+        # block; a polar table has none and carries them after POL (and its ROTOR).
+        at = header.index("POINT") + 1 if "POINT" in header else (2 if header[1] == "ROTOR" else 1)
         assert header[at : at + 2] == ["FLAP", "TESTE"], table
         assert {(row["FLAP"], row["TESTE"]) for row in rows} == {("0", "10")}, table
 
@@ -593,7 +596,7 @@ def test_p0550_the_additional_post_s_tables_carry_them_too(tmp_path):
     assert any(name.startswith("additional/p002/sections/") for name in tables), sorted(products)
     for name in tables:
         header, rows = _table(out / name)
-        at = 2 if header[1] == "ROTOR" else 1
+        at = header.index("POINT") + 1 if "POINT" in header else (2 if header[1] == "ROTOR" else 1)
         assert header[at : at + 2] == ["FLAP", "TESTE"], name
         assert {row["TESTE"] for row in rows} == {"10"}, name
 
@@ -672,7 +675,8 @@ def test_p0550_the_installed_copy_carries_them_turning_none_and_naming_none(tmp_
     point = f"POLAR-{SIM}_{_name(0)}"
     source = _table(out / "probes" / f"{point}_probes.csv")
     copy = _table(out / "probes" / f"{point}_probes_installed.csv")
-    assert source[0][:3] == copy[0][:3] == ["POL", "CYAW", "RUNLABEL"]
+    # The identifiers follow POINT inside the run block, in the source and in the copy.
+    assert source[0][:5] == copy[0][:5] == ["POL", "POINT_ID", "POINT", "CYAW", "RUNLABEL"]
     assert {row["CYAW"] for row in copy[1]} == {"3"}, "the mirror turned a label"
     log = (out / "post.log").read_text(encoding="utf-8")
     assert not [line for line in log.splitlines() if "RUNLABEL" in line and "installed" in line]
@@ -846,7 +850,9 @@ def test_p0550_the_settings_table_carries_them_for_every_simulation_it_holds(tmp
     out = workspace.products_dir("matriz")
     table = out / "settings" / "matriz_settings.csv"
     header, rows = _table(table)
-    assert header[:3] == ["POL", "FLAP", "RUN_ID"]
+    # The row opens with the run block of its point, then RUN_ID.
+    assert header[0] == "POL" and "FLAP" in header
+    assert header[header.index("WINDOW_PASSAGES") + 1] == "RUN_ID"
     assert {row["POL"]: row["FLAP"] for row in rows if row["POL"] in {"6001", "6002"}} == {
         "6001": "1",
         "6002": "2",

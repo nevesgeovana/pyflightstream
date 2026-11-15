@@ -1,6 +1,6 @@
 {
  "products": {
-  "probes/AL-020_plots.csv": {
+  "time_history/AL-020_plots.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -37,10 +37,85 @@
  "superfile_report": "post/products/reports/superfile-<TAG>.json",
  "skipped": {
   "probes/AL-020_probes.csv#points_file=survey.txt": "probe profile 'survey.txt' was sampled as an instant by pyflightstream 0.24.0; no fluid-plots history was recorded for these probes. Posting again cannot create history; a new run is needed. Drawn probes keep their available history.",
-  "probes/AL-020_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states."
+  "reductions/AL-020#windows": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states."
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }

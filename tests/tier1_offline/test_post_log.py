@@ -57,12 +57,12 @@ def test_default_keeps_every_product_with_frozen_and_unread_steps(tmp_path):
     assert any(
         all(
             word in line
-            for word in ("WARNING", "AL-020", "time_average", "58", "unread", "recollect")
+            for word in ("WARNING", "AL-020", "phase_locked", "58", "unread", "recollect")
         )
         for line in lines
     )
     assert any(
-        all(word in line for word in ("WARNING", "AL-020", "time_average", "60", "frozen", "run"))
+        all(word in line for word in ("WARNING", "AL-020", "phase_locked", "60", "frozen", "run"))
         for line in lines
     )
 
@@ -79,7 +79,7 @@ def test_partial_iteration_anchor_is_unread_at_the_product(tmp_path, asked):
     assert 61 in verdict.steps
     write_campaign_products(workspace, check_frozen=asked)
     manifest = _products_manifest(workspace)
-    product = "probes/AL-020_time_average.csv"
+    product = "reductions/AL-020_phase_locked.csv"
     assert (product in manifest["products"]) is not asked
     assert "61" in (workspace.products_dir(None) / "post.log").read_text()
 
@@ -157,7 +157,7 @@ def test_reducer_samples_control_product_warning_or_refusal(tmp_path, shape, ask
     )
     write_campaign_products(workspace, matrix_stem="products", check_frozen=asked)
     manifest = _products_manifest(workspace)
-    product = "probes/AL-020_phase_locked_PUSHER.csv"
+    product = "reductions/AL-020_phase_locked_PUSHER.csv"
     assert (product in manifest["products"]) is not (inside and asked), manifest["skipped"]
     log = workspace.products_dir("products") / "post.log"
     assert log.is_file(), "the product's sample verdict was not logged"
@@ -279,7 +279,7 @@ def test_failed_incomplete_point_keeps_computable_products_by_default(tmp_path):
     _make_one_step_unreadable(workspace, 58)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "probes/AL-020_time_average.csv" in manifest["products"]
+    assert "reductions/AL-020_phase_locked.csv" in manifest["products"]
     assert "unread" in (workspace.products_dir(None) / "post.log").read_text()
 
 

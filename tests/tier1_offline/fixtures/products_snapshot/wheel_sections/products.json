@@ -76,7 +76,7 @@
    ],
    "kind": "instant"
   },
-  "sections/DP_disc_PROP_Fx.csv": {
+  "reductions/DP_disc_PROP_Fx.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -89,7 +89,7 @@
    "quantity": "Fx",
    "clockings": 3
   },
-  "sections/DP_disc_PROP_Fz.csv": {
+  "reductions/DP_disc_PROP_Fz.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -102,7 +102,7 @@
    "quantity": "Fz",
    "clockings": 3
   },
-  "sections/DP_disc_PROP_Moment.csv": {
+  "reductions/DP_disc_PROP_Moment.csv": {
    "sim_id": "7001",
    "pproc": "p001",
    "runs": [
@@ -114,17 +114,100 @@
    "rotor": "PROP",
    "quantity": "Moment",
    "clockings": 3
+  },
+  "sections/DP_cp.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "instant"
   }
  },
  "log": "post.log",
  "log_json": "post.log.json",
  "skipped": {
-  "sections/DP_harmonics.csv#rotor=PROP#station=1": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
-  "sections/DP_harmonics.csv": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
+  "reductions/DP_harmonics.csv#rotor=PROP#station=1": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
+  "reductions/DP_harmonics.csv": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
   "polars/P7001-PROP_qs_positions.csv": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density"
  },
  "provenance": {
   "camp/sim_7001/DP": "provenance/camp_sim_7001_DP.prov.json"
  },
- "complete": true
+ "complete": true,
+ "schema_version": 2,
+ "tree": {
+  "polars": {
+   "holds": "FAM and group files, one set per polar",
+   "kinds": [
+    "FAM-DIM",
+    "FAM-ACOEF",
+    "FAM-RCOEF",
+    "DIM",
+    "ACOEF",
+    "RCOEF"
+   ]
+  },
+  "time_history": {
+   "holds": "the plots history, one row per step",
+   "kinds": [
+    "plots"
+   ]
+  },
+  "reductions": {
+   "holds": "reductions of an unsteady point",
+   "kinds": [
+    "phase_locked",
+    "per_revolution",
+    "harmonics",
+    "disc_map"
+   ]
+  },
+  "probes": {
+   "holds": "probe tables only",
+   "kinds": [
+    "probes",
+    "probes_history"
+   ]
+  },
+  "sections": {
+   "holds": "sectional loads and Cp",
+   "kinds": [
+    "sections",
+    "cp"
+   ]
+  },
+  "fields": {
+   "holds": "sampled flow fields, positions and reusable inflow",
+   "kinds": [
+    "field",
+    "inflow"
+   ]
+  },
+  "surfaces": {
+   "holds": "window-averaged surface",
+   "kinds": [
+    "averaged_surface"
+   ]
+  },
+  "streamlines": {
+   "holds": "off-body streamlines",
+   "kinds": [
+    "off_body_streamlines"
+   ]
+  },
+  "settings": {
+   "holds": "solver-settings codes and codebook",
+   "kinds": [
+    "settings"
+   ]
+  },
+  "provenance": {
+   "holds": "what produced the post",
+   "kinds": [
+    "provenance"
+   ]
+  }
+ },
+ "migrated": {}
 }
