@@ -136,10 +136,10 @@ THEODORSEN_COLUMNS: tuple[str, ...] = tuple(
 )
 
 #: What names the rotor group's RCOEF file among the polar files (its rotor's
-#: ``polars/P<POL>-<ALIAS>-RCOEF.csv``, the 0.57.0 rotor table's successor).
+#: ``polars/P<POL>-<ALIAS>-RCOEF.csv``, the retired rotor table's successor).
 RCOEF_SUFFIX = "-RCOEF.csv"
 #: The RCOEF column of each calibration component, and the sign it is read
-#: with: the components keep their 0.57.0 rotor-table names, and the in-plane
+#: with: the components keep the retired rotor table's names, and the in-plane
 #: set is in the R<id> axes (CFZ = CN, CFY = -CS, CMZ = -CMN, CMY = -CMS, the
 #: migration map of the column families), so a corrected ``CS`` is
 #: ``CFY' = -(GAIN (-CFY) + OFFSET) = GAIN CFY - OFFSET``. ``THRUST`` and
