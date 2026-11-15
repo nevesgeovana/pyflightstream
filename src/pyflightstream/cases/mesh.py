@@ -45,8 +45,6 @@ __all__ = [
     "RawMeshConditions",
     "TrailingEdgeMarking",
     "BaseRegionOperation",
-    "THIN_BOUNDARIES_KEY",
-    "thin_boundaries_of",
 ]
 
 
