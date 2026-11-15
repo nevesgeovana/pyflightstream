@@ -819,14 +819,16 @@ def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_
     named = products[average]["validity_files"]
     assert len(named) == len(loads_of)
     assert all((manifest.parent / path).is_file() for path in named.values())
-    supers = sorted(manifest.parent.rglob("SUPER-6001*"))
-    assert supers, sorted(p.name for p in manifest.parent.rglob("*"))
-    head, *rows = supers[0].read_text().splitlines()
-    heading = head.split(",")
+    # 0.58.0 retires the super file; the wheel's own table (the quasi-steady run type keeps
+    # its tables) carries the validity columns of each point's row.
+    from pyflightstream.post.products import read_csv_table
+
+    heading, cells = read_csv_table(manifest.parent / average)
     assert "K_1P_MAX" in heading and "THRUST_PCT_K_GT_0_1" in heading
-    cells = [row.split(",") for row in rows]
-    assert all(line[heading.index("K_1P_MAX")] == "0.21000" for line in cells)
-    assert all(line[heading.index("THRUST_PCT_K_GT_0_1")] == "NA" for line in cells)
+    assert len(cells) == len(loads_of)
+    assert all(line["K_1P_MAX"] == "0.21000" for line in cells)
+    assert all(line["THRUST_PCT_K_GT_0_1"] == "NA" for line in cells)
+    assert not list(manifest.parent.rglob("SUPER-*"))
 
 
 @pytest.mark.requirement("FR-2321")
@@ -902,6 +904,23 @@ def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
                 quasi = json.loads(quasi_path.read_text(encoding="utf-8"))
                 quasi["validity"] = plan
                 if with_sections:
+                    # The sectional exports name the blades Blade1 and Blade2, so the loads
+                    # exports and the rotor's families do: the wheel's own table (which
+                    # carries the validity once the super file is retired) is written only
+                    # where the rotor's recorded families are the export's surfaces.
+                    import re
+
+                    reference = workspace.inputs_dir / "references" / "r001.toml"
+                    reference.write_text(
+                        reference.read_text(encoding="utf-8").replace(
+                            '["W", "B"]', '["Blade1", "Blade2"]'
+                        ),
+                        encoding="utf-8",
+                    )
+                    for export in (loads, loads.with_name(f"{loads.stem}_qs01.txt")):
+                        text = re.sub(r"(?m)^(\s*)W,", r"\1Blade1,", export.read_text("utf-8"))
+                        text = re.sub(r"(?m)^(\s*)B,", r"\1Blade2,", text)
+                        export.write_text(text, encoding="utf-8")
                     name = loads.stem + "_sloads.txt"
                     (loads.parent / name).write_text(
                         _sloads([(0.0, 1.0), (180.0, 1.0)]), newline="\n"
@@ -919,24 +938,22 @@ def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
             workspace.append_record(RunRecord(**record.model_dump()))
         _manifest, folder, _log = _post_recorded(workspace)
 
-        def first_row(sim: str) -> dict[str, str]:
-            supers = sorted(folder.rglob(f"SUPER-{sim}*"))
-            assert supers, sorted(p.name for p in folder.rglob("*"))
-            head, *rows = supers[0].read_text(encoding="utf-8").splitlines()
-            heading = head.split(",")
-            cells = rows[0].split(",")
-            return {
-                name: cells[heading.index(name)]
-                for name in ("K_1P_MAX", "THRUST_PCT_K_GT_0_1", "K_1P_SOURCE")
-            }
+        from pyflightstream.post.products import read_csv_table
 
-        return first_row("6001"), first_row("6002")
+        names = ("K_1P_MAX", "THRUST_PCT_K_GT_0_1", "K_1P_SOURCE")
+        # 0.58.0 retires the super file: the wheel's validity is in its own table's row, and
+        # a steady point (simulation 6002) has no such table and no such columns anywhere.
+        (average,) = sorted(folder.rglob("P6001-*_qs_avg.csv"))
+        _heading, rows = read_csv_table(average)
+        steady_heading = read_csv_table(folder / "polars" / "FAM-ACOEF-P6002.csv")[0]
+        assert not list(folder.rglob("P6002-*_qs_avg.csv"))
+        return {name: rows[0][name] for name in names}, [n for n in names if n in steady_heading]
 
     (won, steady) = super_rows(tmp_path / "sections", with_sections=True)
     assert won["K_1P_SOURCE"] == "sections"
     assert won["K_1P_MAX"] not in ("0.02000", "NA") and won["THRUST_PCT_K_GT_0_1"] != "NA"
-    # a steady point carries no validity of a wheel: its cells read NA
-    assert set(steady.values()) == {"NA"}
+    # a steady point carries no validity of a wheel: no such column in its files
+    assert steady == []
     plan_only, _steady = super_rows(tmp_path / "plan", with_sections=False)
     assert plan_only["K_1P_MAX"] == "0.02000" and plan_only["THRUST_PCT_K_GT_0_1"] == "NA"
     assert plan_only["K_1P_SOURCE"] == "mesh"

@@ -185,11 +185,57 @@ from tests.tier1_offline.test_restart_continuation import SAVED as _FR314_COUNTE
 from tests.tier1_offline.test_restart_continuation import (
     _continuing_case as _fr314_counter_everywhere___continuing_case,
 )
-from tests.workflow_payloads import WORKFLOW_PAYLOADS, before_frame_labels_0451, workflow_payload
+from tests.workflow_payloads import (
+    WORKFLOW_PAYLOADS,
+    before_family_plots_0580,
+    before_hub_frames_0461,
+    before_plots_scene_0530,
+    before_pressure_0460,
+    workflow_payload,
+)
 from tests.workflow_payloads import workflow_payload as _fr314_counter_everywhere__workflow_payload
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_rotor_matrix.fs"
+
+
+def _frame_labels_0451_applied(text: str) -> tuple[str, bool]:
+    """Undo the digest-pinned PFS-2168 fixture edits, and say whether one applied."""
+    import hashlib
+
+    text = before_pressure_0460(before_hub_frames_0461(before_plots_scene_0530(text)))
+    records = json.loads(
+        (Path(__file__).parent / "fixtures" / "golden_transitions.json").read_text()
+    )["frames_0451"]
+    record = records["digests"].get(hashlib.sha256(text.encode()).hexdigest())
+    if record is None:
+        return text, False
+    lines = text.splitlines()
+    for start, end, previous in reversed(record["edits"]):
+        lines[start:end] = previous
+    previous_text = "\n".join(lines)
+    assert hashlib.sha256(previous_text.encode()).hexdigest() == record["before"]
+    return previous_text, True
+
+
+def before_frame_labels_0451(text: str) -> str:
+    """The text as the earlier guards pinned it, the 0.58.0 family plots undone only if needed.
+
+    0.58.0 adds six MRP_<family> force plots per boundary to an unsteady script (PFS-2231).
+    ``tests.workflow_payloads.before_family_plots_0580`` removes every plot of that name
+    shape, so it also removes the same-named plots a golden already held before 0.58.0
+    (the P1010 family of tier-3 goldens declares FX_MRP_AIRFRAME and FX_MRP_Wing). The
+    stripper is therefore applied at this call site, and only when the unstripped text
+    is not the one a recorded digest names and the stripped text is: a golden is
+    admitted as one or the other, never both, and a planted command is neither.
+    """
+    for variant in (text, before_family_plots_0580(text)):
+        undone, applied = _frame_labels_0451_applied(variant)
+        if applied:
+            return undone
+    return _frame_labels_0451_applied(text)[0]
+
+
 PAGE = WORKFLOW_DOCS
 SRC = REPO / "src" / "pyflightstream"
 
@@ -6966,7 +7012,20 @@ def _fr314_counter_everywhere___strip_0400(text: str) -> str | None:
 
 
 def _fr314_counter_everywhere___admitted(name: str, text: str, digest: str) -> str | None:
-    """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
+    """The one admitted difference that makes ``text`` the v0.32.0 golden, or None.
+
+    A golden that gained the 0.58.0 MRP_<family> plots (the matriz_actions P6002 one) is
+    admitted with those plots undone at this call site; a golden that already held
+    same-named plots is admitted as it stands. Either way the digest binds the bytes.
+    """
+    for variant in (text, before_family_plots_0580(text)):
+        found = _fr314_counter_everywhere___admitted_once(name, variant, digest)
+        if found is not None:
+            return found
+    return None
+
+
+def _fr314_counter_everywhere___admitted_once(name: str, text: str, digest: str) -> str | None:
     if "/workflows/unsteady_rotor__" in name:
         # PFS-2119.024: these fixtures declare shaft X, datum Y. Undo only
         # their measured datum basis and its motion components for the old hash.
@@ -7065,6 +7124,9 @@ def _fr314_counter_everywhere___golden_classes(record: dict) -> tuple[set, set, 
         )
         text = before_frame_labels_0451(text)
         if _fr314_counter_everywhere___sha(text) == digest:
+            continue
+        if _fr314_counter_everywhere___sha(before_family_plots_0580(text)) == digest:
+            # a golden that gained only the 0.58.0 MRP_<family> plots (PFS-2231)
             continue
         if (
             name in _FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS

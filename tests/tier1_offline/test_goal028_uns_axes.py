@@ -250,8 +250,13 @@ def test_p0440_rb6_07_missing_attitude_refuses_axis_coefficients(tmp_path):
 
 
 def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
-    """The recorded campaign plots no six components in the global frame, and says so."""
-    import json
+    """The recorded campaign plots no six components in the global frame, and says so.
+
+    Since 0.58.0 the unsteady polar is the family and group files: a record whose plots
+    hold no FX to MZ of a plot group gives ``NA`` axis coefficients for that group and
+    one warning naming the plot groups it lacks (design of the post outputs, 4.8).
+    """
+    import warnings
 
     from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
@@ -259,14 +264,22 @@ def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
     row = next(line for line in _MATRIX.splitlines() if line.startswith("6002"))
     stated = _MATRIX.replace(row, row.rstrip() + " / LAST_REVS_AVG: 0.5")
     (workspace.root / "matriz.fs").write_text(stated, encoding="utf-8")
-    written = [Path(path) for path in _post(workspace)]
-    (polar,) = [path for path in written if path.name.endswith("_uns_avg.csv")]
-    columns, _rows = read_csv_table(polar)
-    assert not [name for name in columns if name.startswith("CLW")], columns
-    (manifest,) = workspace.root.rglob("products.json")
-    skipped = json.loads(manifest.read_text(encoding="utf-8"))["skipped"]
-    reason = skipped[f"polars/{polar.name}#axes"]
-    assert "MRP" in reason and "FX" in reason, reason
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        written = [Path(path) for path in _post(workspace)]
+    names = {path.name for path in written}
+    assert not [name for name in names if name.endswith("_uns_avg.csv")], names
+    for name in ("FAM-ACOEF-P6002.csv", "P6002-TOTAL-ACOEF.csv"):
+        (path,) = [path for path in written if path.name == name]
+        columns, rows = read_csv_table(path)
+        assert "CLW" in columns and rows, (name, columns)
+        assert {row["CLW"] for row in rows} == {"NA"}, name
+    (reason,) = [
+        str(w.message)
+        for w in caught
+        if "the plots hold no FX to MZ of plot group" in str(w.message)
+    ]
+    assert "MRP_B" in reason and "MRP_W" in reason and "NA" in reason, reason
 
 
 def _script_of(tmp_path, plots: dict) -> list[str]:

@@ -360,7 +360,9 @@ def test_the_post_names_each_product_the_record_costs_and_never_raises(tmp_path,
     assert any(name.startswith("runs/") and name.endswith("#qsteady_record") for name in naming), (
         skipped
     )
-    assert any(name.endswith("PROP_rotor.csv") for name in naming), skipped
+    # The rotor table is retired; its successor is the rotor group's RCOEF file (design of
+    # the post outputs, section 2.2), whose wheel row is the mean over the clockings.
+    assert any("P6001-PROP-RCOEF" in name for name in naming), skipped
     assert not any(name.endswith("_qs_positions.csv") for name in products["products"])
     log = (folder / products["log"]).read_text(encoding="utf-8")
     assert any(

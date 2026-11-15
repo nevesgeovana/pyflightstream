@@ -96,7 +96,9 @@ def _posted_with_a_rotor(tmp_path, diameter: float) -> list[str]:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         _post(workspace)
-    return [str(w.message) for w in caught if "J_PUSHER" in str(w.message)]
+    # The stage's warning names the requested ratio and the one the rotor ran at (the row's
+    # J and the run block's J0 since 0.58.0).
+    return [str(w.message) for w in caught if "the row asks for J" in str(w.message)]
 
 
 def test_the_stage_says_so_when_the_rotor_did_not_run_at_the_ratio_the_row_asked_for(tmp_path):
