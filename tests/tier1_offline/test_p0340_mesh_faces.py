@@ -3,7 +3,7 @@
 P0340-MESH-FACES (FR-348). The inventory ``<stem>.boundaries.toml`` states
 ``mesh_faces`` (and ``boundary_faces`` where the reader gives it, and the
 ``mesh_sha256`` of the file counted) when it is taken, from a saved
-simulation or an OBJ; the super file and the unsteady polar carry it as their
+simulation or an OBJ; the FAM and group polar files carry it as their
 LAST column ``MESH_FACES`` whenever the inventory states it ("ele só puxa de lá
 se o campo existir"), and ``NA`` otherwise; where the run recorded another
 sha256 for the geometry, post.log warns naming both. The post never counts a
@@ -440,7 +440,7 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
 
     The page says where the count comes from (the inventory), that a row
     without it is NA, that the post never counts, and that the column is last
-    in both products; the sidecar glossary carries the three inventory keys.
+    in the FAM and group files; the sidecar glossary carries the three inventory keys.
     """
     requirement = "FR-348"
     from pyflightstream.workspace.sidecars import GEOMETRY_SIDECAR_KEYS
@@ -450,8 +450,11 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
     section = page[start : page.index("\n## ", start + 1)]
     for fact in ("`MESH_FACES`", "`mesh_faces`", "`NA`", "last column", "never", "`mesh_sha256`"):
         assert fact in section, (requirement, fact)
-    assert "uns_avg" in section and "super file" in section, requirement
-    assert "(the-mesh-face-count.md#the-mesh-face-count-since-0340)" in page, requirement
+    for product in ("`polars/FAM-*-P<POL>.csv`", "`polars/P<POL>-<GROUP>-*.csv`"):
+        assert product in section, (requirement, product)
+    assert "(definitions/the-mesh-face-count.md#the-mesh-face-count-since-0340)" in page, (
+        requirement
+    )
     assert {"mesh_faces", "boundary_faces", "mesh_sha256"} <= set(GEOMETRY_SIDECAR_KEYS)
 
 
