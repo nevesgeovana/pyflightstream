@@ -53,8 +53,10 @@ A point that continues nothing is averaged exactly as before.
 
 **The window of an `unsteady_rotor` row spans whole blade passages of every rotor the row
 turns.** A passage is `steps_per_revolution / blades` steps of that rotor, where `blades` is
-the rotor block's blade count, times `PERIODIC_COPIES` on a `SYMMETRY: PERIODIC` row (the
-meshed sector stands for the whole wheel), and the window of
+the whole wheel's count. On a `SYMMETRY: PERIODIC` row `PERIODIC_COPIES` is the number of
+sector copies round the wheel, so the wheel has the block's blade families times the copies
+blades; a row with no rotor block takes `BLADES`, else `PERIODIC_COPIES`, as the whole
+wheel's count. The window of
 `L` steps spans `k = L / passage` passages. It is valid when `round(k)` is at least 1 and
 `round(round(k) * passage)` equals `L`, so a fractional passage is judged on the steps the
 solver can take. A row that fails for any rotor is refused at plan, naming the window, the

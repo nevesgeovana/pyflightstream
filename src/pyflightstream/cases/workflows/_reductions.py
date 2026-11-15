@@ -1128,8 +1128,10 @@ def require_whole_passages(case: SimCase) -> None:
     else:
         flat = _the_rotor_a_flat_row_turns(case)
         blocks = [(flat.alias if flat is not None else "ROTOR", plan)]
-    # A SYMMETRY PERIODIC row meshes a sector: its PERIODIC_COPIES is the wheel's
-    # blades per meshed blade, so the passages are those of the whole wheel.
+    # A SYMMETRY PERIODIC row meshes a sector: PERIODIC_COPIES is the number of
+    # sector copies round the wheel, so the wheel has families x copies blades and
+    # the passages are those of the whole wheel. A row with no rotor block takes
+    # BLADES, else PERIODIC_COPIES, as the whole wheel's count.
     periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
     copies = (
         _required_int(case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies")
