@@ -20,6 +20,12 @@ refused, naming the three; a sections file is never one per polar.
 | `Moment` | the sectional moment, in N m/m |
 | `Strip_length`, `Fx_int`, `Fz_int`, `My_int` | optional: the strip length in m and the strip integrals in N and N m |
 
+A distribution over several families is cut once, over the union of their boundaries,
+because the solver cuts one distribution over the boundaries it is given: its rows are
+written once, with `FAMILY` joining the family names by `+` and `FAMILY_ID` their indices
+by `;`, and not once per family. With `split = "family"` those rows are in the file named
+for the joined families.
+
 The loads are in the section frame of the distribution, stated in
 [`products.json`](products-json.md). The definition of record, with how each row is
 told from its neighbours, is
