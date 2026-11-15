@@ -142,7 +142,10 @@ average table and the validity columns are the raw ones.
 **Route 2 from recorded runs.** `pyflightstream.post.corrections.sector_offset_calibration`
 writes a `sector_offset` file from a wheel point and an axial sector point
 the post has tabled, both at zero angle of attack and sideslip and at the same
-`J_<ALIAS>`:
+`J_<ALIAS>`. Its offsets are the sector less the wheel in the sense of the
+rotor's declared axis, the sense every calibration states: for a rotor declared
+aft, whose RCOEF file counts thrust and torque opposite, the RCOEF difference
+enters with the opposite sign.
 
 <!-- skip: next -->
 ```python

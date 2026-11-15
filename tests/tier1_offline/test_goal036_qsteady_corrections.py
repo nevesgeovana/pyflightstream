@@ -851,10 +851,13 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     assert calibration.route == "sector_offset"
     assert (calibration.source_run_id, calibration.wheel_run_id) == (sector_run, wheel_run)
     offsets = {row.component: row for row in calibration.rows}
-    assert offsets["THRUST"].offset_0p == pytest.approx(15.68, abs=1e-9)
-    assert offsets["TORQUE"].offset_0p == pytest.approx(4.704, abs=1e-9)
-    assert offsets["CT"].offset_0p == pytest.approx(0.002, abs=1e-12)
-    assert offsets["CQ"].offset_0p == pytest.approx(0.0003, abs=1e-12)
+    # The offsets are stated in the sense of the declared axis, as every calibration is.
+    # The recorded rotor is declared aft (export +x), so its RCOEF counts them opposite
+    # (sense -1): the sector's CT 0.002 higher on RCOEF is an offset of -0.002.
+    assert offsets["THRUST"].offset_0p == pytest.approx(-15.68, abs=1e-9)
+    assert offsets["TORQUE"].offset_0p == pytest.approx(-4.704, abs=1e-9)
+    assert offsets["CT"].offset_0p == pytest.approx(-0.002, abs=1e-12)
+    assert offsets["CQ"].offset_0p == pytest.approx(-0.0003, abs=1e-12)
     assert {(row.gain_0p, row.gain_1p, row.phase_1p_deg) for row in calibration.rows} == {
         (1.0, 1.0, 0.0)
     }
@@ -891,11 +894,15 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     corrected = _table(folder, average.replace(".csv", "_corrected.csv"))
     for before, after in zip(raw, corrected, strict=True):
         assert float(after["THRUST_PROP"]) == pytest.approx(
-            float(before["THRUST_PROP"]) + 15.68, abs=1.5e-5
+            float(before["THRUST_PROP"]) - 15.68, abs=1.5e-5
         )
         assert float(after["TORQUE_PROP"]) == pytest.approx(
-            float(before["TORQUE_PROP"]) + 4.704, abs=1.5e-5
+            float(before["TORQUE_PROP"]) - 4.704, abs=1.5e-5
         )
+    # On the RCOEF file the offset enters with the frame's sense: the sector's own rise.
+    rcoef = _table(folder, rotor.replace(".csv", "_corrected.csv"))
+    for before, after in zip(_table(folder, rotor), rcoef, strict=True):
+        assert float(after["CT"]) == pytest.approx(float(before["CT"]) + 0.002, abs=1.5e-5)
     entry = products["products"][average.replace(".csv", "_corrected.csv")]
     assert entry["route"] == "sector_offset" and entry["source_run_id"] == sector_run
     assert not [line for line in log if "is not a run of this workspace" in line]

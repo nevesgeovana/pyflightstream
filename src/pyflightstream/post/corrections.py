@@ -130,18 +130,9 @@ NOT_VALIDATED = "not validated"
 THEODORSEN_SUFFIX = "_theodorsen.csv"
 THEODORSEN_KIND = "theodorsen"
 #: The diagnostic's columns after ``POL`` and the condition.
-THEODORSEN_COLUMNS: tuple[str, ...] = (
-    "ROTOR",
-    "QUANTITY",
-    "STATION_R_M",
-    "R_OVER_R",
-    "K_1P",
-    "C_ABS",
-    "C_PHASE_DEG",
-    "S_ABS",
-    "S_PHASE_DEG",
-    "H1_AMP",
-    "H1_PHASE_DEG",
+THEODORSEN_COLUMNS: tuple[str, ...] = tuple(
+    "ROTOR QUANTITY STATION_R_M R_OVER_R K_1P C_ABS C_PHASE_DEG S_ABS S_PHASE_DEG H1_AMP "
+    "H1_PHASE_DEG".split()
 )
 
 #: What names the rotor group's RCOEF file among the polar files (its rotor's
@@ -1145,6 +1136,18 @@ def _corrected_tables(
 # ------------------------------------------------------------ route 2 helper
 
 
+def _record_sense(space: Any, record: Any) -> int:
+    """Return the rotor frame's sense of a recorded point's quasi-steady record, else ``+1``."""
+    from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
+
+    try:
+        quasi = read_qsteady_record(space.sim_dir(record.sim_id) / record.outputs[0])
+    except (QsteadyRecordError, OSError, IndexError, AttributeError):
+        # No record, or a record that names no outputs: nothing states the frame.
+        return 1
+    return WheelPointRef.of_record(record.run_id, record.run_id, quasi).sense
+
+
 def sector_offset_calibration(
     workspace: Any,
     *,
@@ -1171,7 +1174,10 @@ def sector_offset_calibration(
         OFFSET_0P = sector - wheel,  GAIN_0P = 1,  GAIN_1P = 1,  PHASE_1P_DEG = 0
 
     ``THRUST = CT rho n^2 D^4`` and ``TORQUE = CQ rho n^2 D^5`` of each row's
-    own ``RHO``, ``RPM<id>`` and ``D<id>``. Each component's grid
+    own ``RHO``, ``RPM<id>`` and ``D<id>``, each stated in the sense of the
+    rotor's declared axis as every calibration is: the RCOEF difference times the
+    sense of the rotor frame the wheel's quasi-steady record gives (``+1`` for a
+    wheel without a readable record). Each component's grid
     is one node, constant on every axis, so it applies at every ``J``,
     ``ALPHA`` and ``K_1P``: the offset measured in axial flow, applied at
     incidence, is what route 2 is. Refused with :class:`CalibrationError`
@@ -1257,13 +1263,14 @@ def sector_offset_calibration(
             f"the wheel point is at J {wheel['J']:.6g} and the sector point at J "
             f"{sector['J']:.6g}; a sector offset is taken at the same J (within {j_tolerance:g})"
         )
+    sense = _record_sense(space, known[wheel_run_id])
     rows = [
         CalibrationRow(
             component=name,
             j=wheel["J"],
             alpha_deg=0.0,
             k_1p=0.0,
-            offset_0p=sector[name] - wheel[name],
+            offset_0p=sense * (sector[name] - wheel[name]),
             gain_0p=1.0,
             gain_1p=1.0,
             phase_1p_deg=0.0,
