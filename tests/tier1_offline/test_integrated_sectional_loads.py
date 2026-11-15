@@ -211,9 +211,11 @@ def test_blade_strip_sum_matches_fixture_polar(tmp_path, monkeypatch):
     workspace = _case(tmp_path, monkeypatch, blocks=[CENTERED])
     path, columns, rows = _table(workspace)
     assert "Fz_int" in columns, "blade strips cannot be compared with the fixture polar"
-    polars = list((path.parent.parent / "polars").glob("*.csv"))
-    assert polars, "the same fixture must also produce its total polar"
-    _, polar = read_csv_table(polars[0])
+    # The TOTAL group's ACOEF file is the total polar (0.58.0, PFS-2231); named,
+    # not the first of a glob, whose order is the file system's.
+    total = path.parent.parent / "polars" / "P7001-TOTAL-ACOEF.csv"
+    assert total.is_file(), "the same fixture must also produce its total polar"
+    _, polar = read_csv_table(total)
     assert float(polar[0]["CLB"]) == pytest.approx(4 / 3, abs=5e-6)
     assert sum(float(r["Fz_int"]) for r in rows) == pytest.approx(
         float(polar[0]["CLB"]), abs=0.00523, rel=0

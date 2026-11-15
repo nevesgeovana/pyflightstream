@@ -81,8 +81,8 @@ it holds the end-of-run export, with `STEP` interpreted as in the existing
 sections table above. The existing end-of-run table and combined
 `series/<point>_sections_series.csv` remain available.
 
-Rows lead with `POL, STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, then the
-shared condition block, then the export's columns. Sectional loads retain
+Rows open with the [run block](the-run-block.md#the-run-block), then
+`STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, then the export's columns. Sectional loads retain
 `Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`. Cp carries `SECTION`, the export's
 1-based cross-section index, followed by its twenty printed columns:
 `Section_direction_value, X, Y, Z, nx, ny, nz, L, Cp, Mach, vx, vy, vz, vtot,
