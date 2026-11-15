@@ -63,6 +63,14 @@ ROTOR_ID_COLUMN = "ROTOR"
 #: positional readers keep the preceding columns at their declared positions.
 MESH_FACES_COLUMN = "MESH_FACES"
 
+#: The plot group an unsteady run declares for each family, in the global MRP
+#: frame, and the FAM files of the point average (PFS-2231).
+FAMILY_PLOT_GROUP = "MRP_{family}"
+
+#: The largest rotor id a reference may declare (PFS-2231): the group of rotor
+#: <id> is numbered ``10 + id`` and the groups of ``[groups]`` from ``101``.
+MAX_ROTOR_ID = 89
+
 #: What a text cell writes where it would have held the delimiter (G16).
 #:
 #: NO CELL OF A TABLE HOLDS A COMMA OR A DOUBLE QUOTE, and no cell is quoted, so
