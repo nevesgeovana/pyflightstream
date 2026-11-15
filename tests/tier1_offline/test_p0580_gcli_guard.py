@@ -38,7 +38,8 @@ _RECORDS = (
 #: the short ``geometry <verb>`` a code span or a cheatsheet entry writes as a command.
 _OLD = re.compile(
     r"pyfs-workspace\s+geometry\b"
-    r"|pyfs-matrix\s+(?:refine|audit-mesh|inventory|degenerate|" + _RECORDS + r")(?![\w-])"
+    r"|pyfs-matrix(?:\s+--?[\w-]+(?:[ =][^\s-]\S*)?)*\s+"
+    r"(?:refine|audit-mesh|inventory|degenerate|" + _RECORDS + r")(?![\w-])"
     r"|(?:`{1,2}|\\sub\{|\\cmd\{|\\code\{|\\pyfs\{)geometry\s+(?:" + _MOVED + r")(?![\w-])"
 )
 
@@ -82,7 +83,8 @@ def test_p0580_the_guard_sees_each_old_spelling():
         "pyfs-matrix audit-mesh wing.obj; pyfs-matrix sync runs; "
         r"\sub{geometry inventory <geometry>}{...}; "
         "``geometry beam``; "
-        "pyfs-workspace geometry --help"
+        "pyfs-workspace geometry --help; "
+        "pyfs-matrix --workspace W sync"
     )
     assert _old_forms(planted) == [
         "pyfs-workspace geometry",
@@ -91,8 +93,10 @@ def test_p0580_the_guard_sees_each_old_spelling():
         r"\sub{geometry inventory",
         "``geometry beam",
         "pyfs-workspace geometry",
+        "pyfs-matrix --workspace W sync",
     ]
     for new in (
+        "pyfs-matrix --workspace W plan m.fs",
         "pyfs-mesh refine",
         "pyfs-matrix plan",
         "pyfs-matrix status",
