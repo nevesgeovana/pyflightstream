@@ -932,7 +932,8 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     except (TypeError, ValueError):
         raise ProductError(
             f"the recorded polar file name states a group by NUMBER and {group!r} is a name; "
-            "a workspace's polar tables are named by swept_polar_file_name, which carries it"
+            "use numbered groups for recorded polar tables; "
+            "workspace products use the FAM and named group files"
         ) from None
     return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.csv"
 

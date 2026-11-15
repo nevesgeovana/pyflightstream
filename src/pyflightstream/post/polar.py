@@ -957,15 +957,19 @@ def write_recorded_polar(
         else ReferenceValues.from_mapping(reference)
     )
     polar = polar_dir.name.split("-")[-1] if polar_dir.name.startswith("POLAR-") else polar_dir.name
+    group_targets = [
+        (group, families, out / polar_file_name(polar, mach, group))
+        for group, families in groups.items()
+    ]
     points = _polar_points(polar_dir)
     _refuse_a_reference_the_solver_did_not_use(polar, points, ref)
     # One refusal for the call (NFR-49): a table already there removes those written before it.
     target = _guarded_target(None, overwrite)
     written: list[Path] = []
-    for group, families in groups.items():
+    for group, families, destination in group_targets:
         written.append(
             write_polar_table(
-                target(out / polar_file_name(polar, mach, group)),
+                target(destination),
                 polar=polar,
                 description=description,
                 group=group,

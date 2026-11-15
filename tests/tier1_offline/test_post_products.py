@@ -478,6 +478,36 @@ def test_write_recorded_polar_writes_one_table_per_group_and_the_sections(tmp_pa
     assert empty[0]["CLB"] == "0.00000", "a group of absent families sums to zero"
 
 
+def test_recorded_polar_refuses_named_groups_before_replacing_any_table(tmp_path):
+    polar = tmp_path / "POLAR-3207"
+    point = polar / "POLAR-3207_M20AL-020BE+000"
+    point.mkdir(parents=True)
+    (point / f"{point.name}.txt").write_text(LOADS, encoding="utf-8")
+    out = tmp_path / "out"
+    out.mkdir()
+    existing = out / "3207_M20_g01.csv"
+    existing.write_text("previous result", encoding="utf-8")
+    with pytest.raises(ProductError, match="Wing") as refused:
+        write_recorded_polar(
+            polar,
+            out,
+            groups={"1": ["W"], "Wing": ["W"]},
+            reference={
+                "SREF": 50.0,
+                "CREF": 2.526,
+                "BREF": 20.0,
+                "XMOM": 9.152,
+                "YMOM": 0.0,
+                "ZMOM": 0.0,
+            },
+            description="STEADY_WB",
+            mach=0.2,
+        )
+    assert existing.read_text(encoding="utf-8") == "previous result"
+    assert list(out.iterdir()) == [existing]
+    assert "swept_polar_file_name" not in str(refused.value)
+
+
 def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
     """THE REFUSAL THIS TEST HELD IS WITHDRAWN IN 0.24.0, and the test with it.
 
