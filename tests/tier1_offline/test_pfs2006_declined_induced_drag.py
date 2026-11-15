@@ -50,9 +50,8 @@ def _b_printed_at_zero(text: str) -> str:
 
 
 def _polar(workspace, sim: str, group: str) -> dict[str, dict[str, str]]:
-    """The steady polar table of one simulation and group, keyed by its ALPHA cell."""
-    polars = workspace.products_dir("matriz") / "polars"
-    (path,) = [p for p in polars.glob(f"*{sim}*_{group}.csv") if not p.name.startswith("SUPER-")]
+    """The group's ACOEF file of one simulation (0.58.0), keyed by its ALPHA cell."""
+    path = workspace.products_dir("matriz") / "polars" / f"P{sim}-{group}-ACOEF.csv"
     _columns, rows = read_csv_table(path)
     return {row["ALPHA"]: row for row in rows}
 
@@ -77,12 +76,17 @@ def test_a_listed_surface_printed_at_zero_is_na_in_the_polar_and_named_in_a_warn
     for column in ("CDB", "CDS", "CDW", "CLS", "CLW"):
         assert whole[column] == "NA", f"{column} carries the x force, which is short by B's CDi"
     assert float(whole["CD0"]) == pytest.approx(0.0124530 + 0.0071894, abs=1e-5)
-    for column in ("CLB", "CYB", "CMB25", "CMS25", "CMW25", "CYS"):
+    for column in ("CLB", "CYB", "CmB", "CmS", "CmW", "CYS"):
         assert whole[column] != "NA", f"{column} takes nothing from the x force at beta 0"
     assert float(whole["CLB"]) == pytest.approx(0.1620516 + 0.0251063, abs=1e-5)
 
     wing = _polar(workspace, "6001", "g02")["-2.00000"]  # group 2: W alone
-    lost = [column for column in COEFFICIENT_COLUMNS if wing[column] == "NA"]
+    # The coefficient columns of an ACOEF file: the six of each frame in the order W, S, B,
+    # then the drag split (design of the post outputs, section 4.2).
+    coefficients = [
+        f"{quantity}{frame}" for frame in "WSB" for quantity in ("CD", "CY", "CL", "Cl", "Cm", "Cn")
+    ] + ["CD0", "CDI"]
+    lost = [column for column in coefficients if wing[column] == "NA"]
     assert not lost, f"a group without the declined surface keeps its numbers: {lost}"
     assert float(wing["CDI"]) == pytest.approx(0.0012085, abs=1e-5)
 

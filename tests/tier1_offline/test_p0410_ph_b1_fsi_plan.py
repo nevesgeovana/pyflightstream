@@ -233,6 +233,23 @@ inplane_radius_m = 0.7
     assert "noise skip" in capsys.readouterr().out
 
 
+def _record_the_density(workspace):
+    """Give the converged record the atmosphere a real run states (coefficients need q_ref)."""
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.status.value == "CONVERGED":
+            record = record.model_copy(
+                update={
+                    "density_kg_m3": 1.225,
+                    "temperature_k": 288.15,
+                    "viscosity_pa_s": 1.789e-05,
+                    "density_source": "solved-from-reynolds",
+                }
+            )
+        workspace.append_record(record)
+
+
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
 def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix, polar_glob_order):
     import csv
@@ -241,25 +258,25 @@ def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix, polar_glob_o
     from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
 
     workspace = _steady_workspace_with_provenance(tmp_path)
+    _record_the_density(workspace)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         f'[products]\npolar_axes = "{axes}"\n[groups]\n"1" = "all"\n'
     )
     write_campaign_products(workspace)
     tables = {path.name: path for path in workspace.root.glob("post/**/polars/*.csv")}
-    assert set(tables) == {"P3207-AL-020_g01.csv", "SUPER-3207-AL-020_g01.csv"}
-    rows = list(csv.DictReader(tables["P3207-AL-020_g01.csv"].read_text().splitlines()))
-    super_rows = list(csv.DictReader(tables["SUPER-3207-AL-020_g01.csv"].read_text().splitlines()))
+    assert {"FAM-ACOEF-P3207.csv", "FAM-DIM-P3207.csv"} <= set(tables)
+    assert {"P3207-g01-ACOEF.csv", "P3207-g01-DIM.csv"} <= set(tables)
+    rows = list(csv.DictReader(tables["P3207-g01-ACOEF.csv"].read_text().splitlines()))
+    dim_rows = list(csv.DictReader(tables["P3207-g01-DIM.csv"].read_text().splitlines()))
     assert rows
-    assert len(super_rows) == len(rows)
-    for row, super_row in zip(rows, super_rows, strict=True):
+    assert len(dim_rows) == len(rows)
+    for row in rows:
         assert row["polar_axes"] == axes
         for quantity in ("CD", "CY", "CL"):
             assert float(row[quantity]) == pytest.approx(float(row[quantity + suffix]), abs=1e-5)
-            # The superfile retains the explicitly labelled base polar columns.
+            # The labelled frame columns of the base polar stay beside the selected ones.
             for frame in ("B", "S", "W"):
-                assert float(super_row[quantity + frame]) == pytest.approx(
-                    float(row[quantity + frame]), abs=1e-5
-                )
+                assert row[quantity + frame] != "NA"
 
 
 def test_p0410_workspace_coupling_rotates_station_forces(tmp_path):
@@ -540,24 +557,21 @@ def test_p0410_workspace_post_reports_structure(tmp_path, morphing, polar_glob_o
     assert float(rows[-1]["deflection_m"]) == pytest.approx(0.008)
     assert float(rows[-1]["twist_deg"]) == pytest.approx(math.degrees(0.016))
     polars = {path.name: path for path in workspace.root.glob("post/**/polars/*.csv")}
-    assert set(polars) == {"P3207-AL-020_g01.csv", "SUPER-3207-AL-020_g01.csv"}
-    with polars["P3207-AL-020_g01.csv"].open() as handle:
+    assert {"P3207-g01-ACOEF.csv", "P3207-g01-DIM.csv"} <= set(polars)
+    with polars["P3207-g01-ACOEF.csv"].open() as handle:
         polar_rows = list(csv.DictReader(handle))
     assert len(polar_rows) == 1
     assert float(polar_rows[0]["tip_deflection_m_blade_1"]) == pytest.approx(0.008)
     assert float(polar_rows[0]["tip_twist_deg_blade_1"]) == pytest.approx(math.degrees(0.016))
-    with polars["SUPER-3207-AL-020_g01.csv"].open() as handle:
-        super_rows = list(csv.DictReader(handle))
-    assert len(super_rows) == 1
-    assert super_rows[0]["run_id"] == original.run_id
-    assert super_rows[0]["GROUP"] == polar_rows[0]["GROUP"] == "1"
+    with polars["P3207-g01-DIM.csv"].open() as handle:
+        dim_rows = list(csv.DictReader(handle))
+    assert len(dim_rows) == 1
+    assert dim_rows[0]["GROUP"] == polar_rows[0]["GROUP"] == "g01"
     for quantity in ("tip_deflection_m_blade_1", "tip_twist_deg_blade_1"):
-        assert quantity in super_rows[0], "FR-89: superfile must carry recorded tip fields"
-        assert super_rows[0][quantity] == polar_rows[0][quantity]
+        assert quantity in dim_rows[0], "FR-89: the group files must carry recorded tip fields"
+        assert dim_rows[0][quantity] == polar_rows[0][quantity]
     for quantity in ("CDW", "CYW", "CLW"):
-        assert float(super_rows[0][quantity]) == pytest.approx(
-            float(polar_rows[0][quantity]), abs=1e-5
-        )
+        assert quantity in polar_rows[0]
 
 
 def test_p0410_rotor_tip_rows_keep_run_order_and_alias(tmp_path):
