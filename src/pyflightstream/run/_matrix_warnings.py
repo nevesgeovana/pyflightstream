@@ -127,8 +127,8 @@ def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) 
     if not fits:
         warn(
             f"disk: {line}. The run may not fit: make room first, for example with "
-            "`pyfs-matrix free-space m<id>` (a recipe in inputs/management/) after "
-            "`pyfs-matrix space-in-use` shows where the space is.",
+            "`pyfs-workspace free-space m<id>` (a recipe in inputs/management/) after "
+            "`pyfs-workspace space-in-use` shows where the space is.",
             PyflightstreamWarning,
             stacklevel=3,
         )

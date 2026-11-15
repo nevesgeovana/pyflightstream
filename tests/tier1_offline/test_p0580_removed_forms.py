@@ -8,6 +8,7 @@ runs the real entry point with the old spelling and requires the refusal to name
 import pytest
 
 from pyflightstream._errors import InputValueError
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import sector_to_wheel
 from pyflightstream.workspace.cli import main
 from tests.tier1_offline.test_p0540_wheel_obj import build_sector
@@ -37,9 +38,8 @@ def test_p0580_sector_to_wheel_hub_argument_is_refused_naming_center(tmp_path):
 def test_p0580_sector_to_wheel_hub_flag_is_refused_naming_center(tmp_path, capsys):
     sector = build_sector(tmp_path)
     out = tmp_path / "wheel.obj"
-    code = main(
+    code = mesh_main(
         [
-            "geometry",
             "sector-to-wheel",
             str(sector.obj),
             "--copies",
@@ -120,7 +120,7 @@ def test_p0580_pyfs_matrix_geometry_verb_is_refused_naming_its_home(verb, home, 
 
     assert cli.main([verb, "mesh.obj"]) == 2
     said = capsys.readouterr().err
-    assert f"pyfs-workspace geometry {home}" in said and "no longer accepted" in said, said
+    assert f"Use pyfs-mesh {home}." in said and "no longer accepted" in said, said
 
 
 def test_p0580_matrix_header_of_0_56_0_is_refused_naming_migrate(tmp_path):

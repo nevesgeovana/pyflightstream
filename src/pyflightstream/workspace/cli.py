@@ -82,7 +82,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream._cli import add_delegated, cli_entrypoint, delegated_entry, refused_command
 from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_help
 from pyflightstream._digest import file_sha256
 from pyflightstream._progress import command_console, say_summary
@@ -122,9 +122,8 @@ __all__ = [
 ]
 
 #: The command groups a higher layer registers, as (name, parser builder,
-#: handler): ``geometry`` (FR-471 to FR-477) runs the solver, which the run
-#: layer owns, so its group is registered from there at import, the way the post
-#: stages are, and this module never imports the run layer.
+#: handler), registered at import the way the post stages are, so this module
+#: never imports a layer above it.
 _COMMAND_GROUPS: list[tuple[str, Callable[[Any], None], Callable[[argparse.Namespace], int]]] = []
 
 
@@ -138,7 +137,7 @@ def register_command_group(
     Parameters
     ----------
     name : str
-        The subcommand, such as ``geometry``.
+        The subcommand, such as ``fsi``.
     add : callable
         Adds the group's parser to the subparsers it is given.
     handler : callable
@@ -298,11 +297,11 @@ def _build_parser() -> argparse.ArgumentParser:
     _excel.add_excel_actions(excel)
     for _, add, _ in _COMMAND_GROUPS:
         add(subparsers)
+    add_delegated(subparsers)
     for leaf in _leaf_parsers(parser):
-        # A geometry verb that copies a pyfs-matrix parser (it carries that parser's
-        # mesh_command) keeps exactly the pyfs-matrix options (FR-477).
-        mirrors = "mesh_command" in leaf._defaults
-        if not mirrors and not any(action.dest == "log_level" for action in leaf._actions):
+        # A delegated command keeps exactly the options its own parser gives it.
+        delegated = leaf._defaults.get("delegated", False)
+        if not delegated and not any(action.dest == "log_level" for action in leaf._actions):
             add_console_arguments(
                 leaf, "print every value taken from the settings files and more detail"
             )
@@ -609,6 +608,35 @@ def _add_profile_commands(subparsers: argparse._SubParsersAction) -> None:
     )
 
 
+def _cmd_migrate(args: argparse.Namespace) -> int:
+    from pyflightstream.workspace.migrate import migrate_workspace
+
+    try:
+        changes = migrate_workspace(_campaign_root(args), apply=args.apply)
+    except (WorkspaceError, OSError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for change in changes:
+        what = (
+            "MESH_ROUTE column added after GEOMETRY, unstated"
+            if change.get("kind") == "matrix"
+            else "schema_version=4, id, artifacts and shared definition ids"
+        )
+        print(
+            f"{change['file']}: {what}; "
+            f"{change['before_bytes']} -> {change['after_bytes']} bytes; "
+            f"backup {change['backup']}"
+        )
+    print(
+        "migration applied"
+        if args.apply and changes
+        else "no changes needed"
+        if not changes
+        else "preview only; --apply writes"
+    )
+    return 0
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-workspace``; returns the process exit code.
@@ -623,6 +651,12 @@ def main(argv: list[str] | None = None) -> int:
     int
         The process exit code of the subcommand that ran.
     """
+    # A removed form (the geometry group, PFS-2260) names its new command before parsing.
+    if refused_command("pyfs-workspace", argv):
+        return 2
+    # The records, storage and query verbs run through the pyfs-matrix pipeline (PFS-2261).
+    if (entry := delegated_entry(argv)) is not None:
+        return entry(argv)
     parser = _build_parser()
     args = parser.parse_args(argv)
     _take_the_console_level(args)
@@ -630,6 +664,14 @@ def main(argv: list[str] | None = None) -> int:
     # and the warnings at the end, as every pyfs-matrix command.
     group = getattr(args, f"{args.subcommand}_command", None)
     names = [args.subcommand, *([group] if group else [])]
+    handlers = {
+        "archive": _cmd_archive,
+        "migrate": _cmd_migrate,
+        "field": _cmd_field,
+        "profile": _cmd_profile,
+        "excel": _excel.run_excel_action,
+        **{name: handler for name, _, handler in _COMMAND_GROUPS},
+    }
     with (
         option_context("warning_refusals", args.warning_refusals),
         command_console(
@@ -639,45 +681,7 @@ def main(argv: list[str] | None = None) -> int:
             workspace=getattr(args, "workspace", None) or getattr(args, "root", None),
         ),
     ):
-        if args.subcommand == "archive":
-            return _cmd_archive(args)
-        if args.subcommand == "migrate":
-            from pyflightstream.workspace.migrate import migrate_workspace
-
-            try:
-                changes = migrate_workspace(_campaign_root(args), apply=args.apply)
-            except (WorkspaceError, OSError) as error:
-                print(str(error), file=sys.stderr)
-                return 2
-            for change in changes:
-                what = (
-                    "MESH_ROUTE column added after GEOMETRY, unstated"
-                    if change.get("kind") == "matrix"
-                    else "schema_version=4, id, artifacts and shared definition ids"
-                )
-                print(
-                    f"{change['file']}: {what}; "
-                    f"{change['before_bytes']} -> {change['after_bytes']} bytes; "
-                    f"backup {change['backup']}"
-                )
-            print(
-                "migration applied"
-                if args.apply and changes
-                else "no changes needed"
-                if not changes
-                else "preview only; --apply writes"
-            )
-            return 0
-        if args.subcommand == "field":
-            return _cmd_field(args)
-        if args.subcommand == "profile":
-            return _cmd_profile(args)
-        if args.subcommand == "excel":
-            return _excel.run_excel_action(args)
-        for name, _, handler in _COMMAND_GROUPS:
-            if args.subcommand == name:
-                return handler(args)
-        return _cmd_init(args)
+        return int(handlers.get(args.subcommand, _cmd_init)(args))
 
 
 def _take_the_console_level(args: argparse.Namespace) -> None:

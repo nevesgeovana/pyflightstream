@@ -229,7 +229,7 @@ def locate_instruction(target: str | Path | None, cwd: Path) -> tuple[Path, bool
                 raise _refuse(
                     f"{cwd} holds no instruction itself, and its folders hold "
                     f"{', '.join(str(p.relative_to(cwd)) for p in below)}; name the one to "
-                    "build, such as `pyfs-workspace geometry build "
+                    "build, such as `pyfs-mesh build "
                     f"{below[0].parent.name}`"
                 )
             raise _refuse(f"{cwd} holds no {INSTRUCTION_SUFFIX} file to build")
@@ -427,7 +427,7 @@ def plan_geometry_build(
             raise _refuse(
                 f"{path.name} varies {instruction.sweep.control_surface} over a [sweep], whose "
                 "variants are sibling geometries; set apply (CLI: --apply) from the level above: "
-                f"cd .. then `pyfs-workspace geometry build {folder.name} --apply`"
+                f"cd .. then `pyfs-mesh build {folder.name} --apply`"
             )
         tags = {
             variant_tag(instruction.sweep.control_surface, a): a

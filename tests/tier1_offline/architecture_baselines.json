@@ -1459,7 +1459,8 @@
     "_cli_merge",
     "_cli_morph",
     "_geom_cli_moved",
-    "geom_cli"
+    "geom_cli",
+    "mesh_cli"
    ]
   }
  },

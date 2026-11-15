@@ -345,6 +345,6 @@ can get its log without waiting for `job_end_files`. This ending is checked
 against a stand-in scheduler that replays the job's commands; it has not
 yet been confirmed on a real scheduler job. A job whose script ends without
 that line: its last point is completed once the job's end is shown, and
-`pyfs-matrix search-log-batch` writes its log from the master log
+`pyfs-workspace search-log-batch` writes its log from the master log
 ([restore and rebuild](restore-and-rebuild.md)).
 On the 26.100 rotor route, which states rev/min without a rotor mark, the sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT (build-compare finding 4; answer G77-0335).

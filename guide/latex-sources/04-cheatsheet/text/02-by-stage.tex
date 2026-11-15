@@ -50,11 +50,11 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \opt{--workspace DIR}{the workspace root.}
 \opt{--apply}{apply the conversion with backups.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-workspace geometry inventory}{<geometry>}{Write \file{<stem>.<kind>.boundaries.toml} beside a saved simulation (kind \texttt{fsm}, from its mesh block) or an OBJ (\texttt{obj}, from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
+\begin{cmdblock}{pyfs-mesh inventory}{<geometry>}{Write \file{<stem>.<kind>.boundaries.toml} beside a saved simulation (kind \texttt{fsm}, from its mesh block) or an OBJ (\texttt{obj}, from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
 \opt{--clean}{remove the saved solver actions, keeping \file{<file>.bak-<stamp>} (stage 8).}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-workspace geometry degenerate}{<geometry>}{Derive the thin blade of a blade mesh (a saved simulation or an OBJ): the sheet midway between its two sides, written beside the source with its boundary inventory. Needs no executable.}
+\begin{cmdblock}{pyfs-mesh degenerate}{<geometry>}{Derive the thin blade of a blade mesh (a saved simulation or an OBJ): the sheet midway between its two sides, written beside the source with its boundary inventory. Needs no executable.}
 \opt{--root-offset LENGTH}{required: how far the root moves outward along the span, in the mesh's unit.}
 \opt{--kind thin-blade}{the one kind, the default.}
 \opt{--boundary NAME}{the blade's boundary, for a file that also holds a spinner or a nacelle.}
@@ -95,7 +95,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \cmd{pyfs-workspace profile} sections (\fl{--pol}), uni or bp writes \file{inputs/profiles/<STEM>.csv}, a row's \texttt{PROFILE}, scaled to \fl{--thrust} or \fl{--ct}. ELLIPTICAL needs no file.
 
 \hd{Mesh levels}
-\begin{cmdblock}{pyfs-workspace geometry refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
+\begin{cmdblock}{pyfs-mesh refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
 \opt{--families A,B}{only these; \fl{--parallel F}, \fl{--normal F}: one direction of the grid families.}
 \opt{--keep-within-component}{prepare-to-refine and refine: share parallel and normal governors across each component's grid patches, including disconnected layouts.}
 \opt{--audit-off}{Write the level without running its audit; print the command for auditing it later.}
@@ -103,12 +103,12 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{parallel\_factor}, \texttt{normal\_factor}, \texttt{method}, \texttt{elements}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[[perimeter]]} \texttt{file}, \texttt{export\_te\_per\_family}.}
 \opt{--out DIR}{default: beside the source's folder; \fl{--overwrite} replaces a level.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-workspace geometry audit}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
+\begin{cmdblock}{pyfs-mesh audit}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
 \opt{--out FILE}{also the figures as CSV, never a file the audit reads.}
 \end{cmdblock}
 
 \hd{Files}
-\rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-workspace geometry inventory} reads.}
+\rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-mesh inventory} reads.}
 \wf{<stem>.<kind>.boundaries.toml}{beside the geometry, kind \texttt{fsm} or \texttt{obj}: the boundary names every alias and pproc family cites.}
 \wf{inputs/executables.toml}{the build registry template: each build a row may name, its executable.}
 \rd{pyfs.toml}{with \file{pyfs.local.toml} (this machine's, read over it): \texttt{[defaults]} of the options, \texttt{[log] console}; a typed option wins. \texttt{accept\_unregistered\_build = true} on an \file{inputs/executables.local.toml} entry accepts that build only.}
@@ -123,7 +123,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \err{The inventory refuses: the sidecar already exists.}{\fl{--overwrite} rewrites a saved simulation's sidecar; an OBJ's never: edit or remove it.}
 \err{The field file \texttt{<STEM>} already exists.}{another \fl{--out}, or \fl{--overwrite} it and its record.}
 \err{\fl{--fluctuation-only} refuses.}{it needs \fl{--last} K: the fluctuation of the last K steps.}
-\err{A GEOMETRY key naming an OBJ, or a bare stem, is refused.}{mark an OBJ once, \cmd{pyfs-workspace geometry mark-boundaries} \fl{--apply}, and name the \file{.fsm} with its extension.}
+\err{A GEOMETRY key naming an OBJ, or a bare stem, is refused.}{mark an OBJ once, \cmd{pyfs-mesh mark-boundaries} \fl{--apply}, and name the \file{.fsm} with its extension.}
 
 \hd{Where to read more}
 Documentation: \textit{The workspace and the workflow}, \textit{The input library and the solver presets}, \textit{Field operations}; guide 2, \textit{Workspaces}.
@@ -188,7 +188,7 @@ The point name writes each flight-condition variable as a code and a fixed-width
 \end{tikzpicture}
 
 \vspace{2pt}
-Matrix commands use this lookup, including \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post} and \cmd{pyfs-matrix rebuild}.
+Matrix commands use this lookup, including \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post} and \cmd{pyfs-workspace rebuild}.
 
 \hd{Commands}
 Workspace conversion is documented on the website's Upgrading page.
@@ -218,7 +218,7 @@ Save and close the workbook first. A read imports matrices into its Runs sheet, 
 
 \hd{Common errors}
 \err{One stem in both homes with different bytes: every command refuses, naming both paths.}{keep one copy, or make the two identical.}
-\err{The plan warns that the matrix lies outside the workspace's matrix folders.}{move it to the root or \file{inputs/matrices/}: \cmd{pyfs-matrix sync} and the repeated-POL check see only those two.}
+\err{The plan warns that the matrix lies outside the workspace's matrix folders.}{move it to the root or \file{inputs/matrices/}: \cmd{pyfs-workspace sync} and the repeated-POL check see only those two.}
 \err{A WALLTIME cell is a bare number.}{write its unit: \texttt{240m}, \texttt{4h}, \texttt{90s}, \texttt{1d}.}
 \err{A fact is stated in its column and as a key of \texttt{VAR\_NAMES\_VALUES}.}{refused naming both: keep one home for it.}
 \err{A row moved off LEGACY keeps an \texttt{FSM\_FILE} key.}{refused at plan naming the key: rename it to \texttt{GEOMETRY}.}
@@ -392,7 +392,7 @@ A job asks for the sum of its points' \texttt{WALLTIME} cells (each budgets ONE 
 \err{A POL repeats one stated in another matrix or earlier in this file.}{\fl{--update-ids} renumbers the repeated rows; a row whose POL already has runs of this matrix is refused rather than moved.}
 \err{The plan warns: helical Mach of 1 or more on some points.}{a warning, not a refusal: check the rotor speed of those points.}
 \err{The plan lists points a \texttt{RESTART} key does not continue.}{\texttt{FINISH\_PENDING} on a CONVERGED run is refused with the reason; use \texttt{ADDITIONAL\_REVS} or \texttt{ADDITIONAL\_ITERS}.}
-\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-workspace geometry inventory} \fl{--clean} (stage 8); only a grouped plan blocks on it.}
+\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-mesh inventory} \fl{--clean} (stage 8); only a grouped plan blocks on it.}
 \err{A polar is \textit{left out of the grouping}.}{named, never refused: LEGACY, \texttt{RESTART}, \texttt{COLD\_START} false and coupled \texttt{steady}/\texttt{qsteady\_rotor} rows; unsteady rows on a build without the action command; polars that do not splice or are recorded. Run them point by point.}
 
 \hd{Where to read more}
@@ -505,20 +505,20 @@ For every \texttt{SUBMITTED} record, \cmd{pyfs-matrix collect} waits until the d
 \draw[arr] (bad.north |- a) -- (bad.north);
 \node[box,text width=4.6cm,fill=bad!25,draw=bad] (mk) at (3.45,-4.25) {\pth{FAILED_MARKED}: found wrong later; the record keeps \pth{marked} with \pth{from}, \pth{at} and \pth{reason}};
 \draw[arr] (good.south) -- (good.south |- mk.north);
-\node[note,align=center] at (3.45,-3.45) {\cmd{pyfs-matrix mark-failed}};
+\node[note,align=center] at (3.45,-3.45) {\cmd{pyfs-workspace mark-failed}};
 \draw[arr] (bad.south) -- (bad.south |- mk.north);
-\node[note,text width=7.6cm,align=center,anchor=north] at (3.45,-4.85) {undo: \cmd{pyfs-matrix restore} \pth{runs}, the copy archived before the marking; redo: \fl{--force-rerun} archives the record and the point runs again};
+\node[note,text width=7.6cm,align=center,anchor=north] at (3.45,-4.85) {undo: \cmd{pyfs-workspace restore} \pth{runs}, the copy archived before the marking; redo: \fl{--force-rerun} archives the record and the point runs again};
 \end{tikzpicture}
 
 \hd{What a record carries}
 Which run it was (\texttt{run\_id}, \texttt{point\_name}, \texttt{sweep\_name}), which build ran it, the hashes of the script and the inputs, how the solver was called (\texttt{executor}), where it ran (\texttt{working\_dir}), how it ended (\texttt{status}), how long it took and which files it produced. Nothing is inferred from a folder name afterwards.
 
 \textbf{Read the recorded evidence.}
-\cmd{pyfs-matrix show} \texttt{9101\_1} prints the outcome, evidence tails, logs, chain, identity and inputs (coupled: the FSI record, last exchange row); a simulation id lists its points and failed cards, or add \fl{--point NAME}.
-\cmd{pyfs-matrix log} reads activity oldest first: \fl{--sims IDS}, \fl{--run ID}, \fl{--stage NAME}, \fl{--since 2h} (or an ISO time), \fl{--problems}, \fl{--open}.
+\cmd{pyfs-workspace show} \texttt{9101\_1} prints the outcome, evidence tails, logs, chain, identity and inputs (coupled: the FSI record, last exchange row); a simulation id lists its points and failed cards, or add \fl{--point NAME}.
+\cmd{pyfs-workspace log} reads activity oldest first: \fl{--sims IDS}, \fl{--run ID}, \fl{--stage NAME}, \fl{--since 2h} (or an ISO time), \fl{--problems}, \fl{--open}.
 \fl{--post MATRIX} groups saved post warnings by category, family and message shape with a count and example; \fl{--sims IDS} narrows the groups.
 \fl{--storage} reads storage calls as recorded; \fl{--stage} selects their action.
-\cmd{pyfs-matrix trace} \texttt{post/demo/polars/polar.csv} follows the products index to run identities, digests and provenance; \fl{--run ID} prints a run's provenance tree.
+\cmd{pyfs-workspace trace} \texttt{post/demo/polars/polar.csv} follows the products index to run identities, digests and provenance; \fl{--run ID} prints a run's provenance tree.
 All three accept \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}, and run ids or aliases where a run is named.
 \cmd{pyfs-matrix status} \fl{--additional} prints the additional register without deriving fields.
 They read running batch folders and compacted simulations in place, write nothing, never ask the scheduler.
@@ -546,7 +546,7 @@ A forced re-run archives the record.
 \opt{--workspace DIR}{\fl{--runs NAME} another manifest; \fl{--pproc-warnings}; \fl{--verbose}.}
 \end{cmdblock}
 Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
-\begin{cmdblock}{pyfs-matrix sync}{{runs|post|fsm|all}}{Run on the MAIN workspace: bring records and results from the others named in \file{inputs/sync-workspaces.toml}. Levels are cumulative.}
+\begin{cmdblock}{pyfs-workspace sync}{{runs|post|fsm|all}}{Run on the MAIN workspace: bring records and results from the others named in \file{inputs/sync-workspaces.toml}. Levels are cumulative.}
 \opt{--apply}{change files (default: preview).}
 \opt{--from NAME}{one workspace (default: every non-main one).}
 \opt{--prefer-other}{on a record conflict take the other's (default: main wins, unless main's is still SUBMITTED).}
@@ -648,7 +648,7 @@ Every table opens with \texttt{POL}. A polar table has one row per point: the re
 \err{The matrix is in both homes with different bytes.}{the post warns naming both and builds from the run records; keep one copy.}
 \err{The additional post on a workspace that submits from here.}{refused without \fl{--local}: only the local half is built.}
 \err{A point's \texttt{.fsm} does not hash as its record says.}{skipped by name: the additional post reads only the file the run saved.}
-\err{An old product is gone after a rebuild.}{it is in \file{post/<matrix>/archive/<stamp>/}; \cmd{pyfs-matrix restore} \texttt{products} brings back \file{products.json}.}
+\err{An old product is gone after a rebuild.}{it is in \file{post/<matrix>/archive/<stamp>/}; \cmd{pyfs-workspace restore} \texttt{products} brings back \file{products.json}.}
 
 \hd{Where to read more}
 Guide 7 and the page \textit{Post-processing definitions}, the definition of record of every product; the pages \textit{Sampled fields} and \textit{Extracting more from a finished point}.
@@ -659,7 +659,7 @@ Guide 7 and the page \textit{Post-processing definitions}, the definition of rec
 \stagepage{8}{Maintenance: space, records and saved geometries}{A workspace grows and records go wrong. These commands measure and free space, delete simulations, mark a run failed after the fact, restore or rebuild the records, and clean a saved geometry. Each previews until \texttt{--apply}.}
 \begin{multicols}{3}
 \hd{What it is for}
-Run the preview, read it, then apply. Every storage call, the preview included, is recorded in \file{storage_management.json}, and every rewrite of \file{runs.json} archives the previous copy first, so \cmd{pyfs-matrix restore} can undo it.
+Run the preview, read it, then apply. Every storage call, the preview included, is recorded in \file{storage_management.json}, and every rewrite of \file{runs.json} archives the previous copy first, so \cmd{pyfs-workspace restore} can undo it.
 
 \hd{Figure: preview, apply, undo}
 \begin{tikzpicture}
@@ -668,7 +668,7 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \node[box,text width=2.4cm,fill=acc!15] (app) at (5.9,0) {the same command with \fl{--apply}};
 \node[box,text width=2.9cm,font=\fontsize{6.6}{7.6}\selectfont] (log) at (2.95,-1.25) {\pth{storage_management.json}\\every storage call, the preview included};
 \node[box,text width=2.75cm,font=\fontsize{6.6}{7.6}\selectfont,fill=ok!12,draw=ok] (arc) at (5.9,-1.25) {\pth{archive/}\\\pth{runs-<stamp>.json}\\taken before \pth{runs.json} is rewritten};
-\node[box,text width=2.4cm] (rest) at (5.9,-2.45) {\cmd{pyfs-matrix restore} \pth{runs} undoes it};
+\node[box,text width=2.4cm] (rest) at (5.9,-2.45) {\cmd{pyfs-workspace restore} \pth{runs} undoes it};
 \draw[arr] (cmd) -- (pre);
 \draw[arr] (pre) -- (app);
 \draw[arr] (pre) -- (log);
@@ -687,56 +687,56 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \node[box,text width=3.0cm,minimum height=3.3cm,fill=ok!12,draw=ok,font=\fontsize{6.6}{7.6}\selectfont] at (4.35,-1.42) {never touched by a recipe: \pth{inputs/}, a matrix, \pth{storage_management.json}, a saved \pth{.fsm}, \pth{scripts/}, every log, every file a record names or hashes};
 \end{tikzpicture}
 
-\begin{cmdblock}{pyfs-workspace geometry inventory}{<geometry>}{Clean a saved simulation that keeps a previous run's unsteady solver actions.}
+\begin{cmdblock}{pyfs-mesh inventory}{<geometry>}{Clean a saved simulation that keeps a previous run's unsteady solver actions.}
 \opt{--clean}{remove them, keeping \file{<file>.bak-<stamp>}; a 26.120 file in meters is also reset to a fresh import, meshes and boundary conditions kept.}
 \opt{--overwrite}{also rewrite the existing sidecar.}
 \end{cmdblock}
 
 \columnbreak
 \hd{Commands}
-\begin{cmdblock}{pyfs-matrix history}{<simulation or point>}{Every present and archived record, continuation link and archive stamp; reads batch folders and compacted simulations in place.}
+\begin{cmdblock}{pyfs-workspace history}{<simulation or point>}{Every present and archived record, continuation link and archive stamp; reads batch folders and compacted simulations in place.}
 \opt{--workspace DIR}{workspace root; \fl{--runs NAME} selects another manifest and its archives.}
 \opt{--json, --csv}{the same rows as machine data; writes nothing.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix diff}{<run-a> <run-b>}{Compare versions, digests, solver flags, flight condition and outcome. A run id with \texttt{@<archive stamp>} selects an archived copy.}
+\begin{cmdblock}{pyfs-workspace diff}{<run-a> <run-b>}{Compare versions, digests, solver flags, flight condition and outcome. A run id with \texttt{@<archive stamp>} selects an archived copy.}
 \opt{--workspace DIR}{workspace root; \fl{--runs NAME} selects another manifest.}
 \opt{--json, --csv}{the same changes as machine data; script changes name lines and inputs.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix space-in-use}{}{Sizes on disk by top folder, by \file{sims/sim_*}, by extension; changes nothing.}
+\begin{cmdblock}{pyfs-workspace space-in-use}{}{Sizes on disk by top folder, by \file{sims/sim_*}, by extension; changes nothing.}
 \opt{--top N}{rows per grouping (default 15). \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix free-space}{<m-id>}{Run the recipe \file{inputs/management/m<id>.toml}.}
+\begin{cmdblock}{pyfs-workspace free-space}{<m-id>}{Run the recipe \file{inputs/management/m<id>.toml}.}
 \opt{--apply}{change files (default: preview).}
 \opt{--list}{every path each step touches, its size and what happens to it.}
 \opt{--runs NAME}{also read this manifest; \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix delete-sims}{--sims <ids>}{Delete simulations (\texttt{--sims 4001 2009}), their products and records; a note row keeps the ids retired.}
+\begin{cmdblock}{pyfs-workspace delete-sims}{--sims <ids>}{Delete simulations (\texttt{--sims 4001 2009}), their products and records; a note row keeps the ids retired.}
 \opt{--apply}{change files (default: preview).}
 \opt{--force}{also a simulation whose run is still SUBMITTED.}
 \opt{--matrix-products \{points-only,regenerate\}}{a product that also holds other points: leave it, marked stale, or post it again without the deleted ones.}
 \opt{--runs NAME}{read and edit another manifest; \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix mark-failed}{}{Every record of the named simulations becomes FAILED\_MARKED, its old status kept under \texttt{marked}.}
+\begin{cmdblock}{pyfs-workspace mark-failed}{}{Every record of the named simulations becomes FAILED\_MARKED, its old status kept under \texttt{marked}.}
 \opt{--sims IDS}{required: \texttt{2006,2007}.}
 \opt{--reason TEXT}{why, recorded as given.}
 \opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix mark-converged}{}{The named points become CONVERGED by your reading, their old status kept under \texttt{marked}.}
+\begin{cmdblock}{pyfs-workspace mark-converged}{}{The named points become CONVERGED by your reading, their old status kept under \texttt{marked}.}
 \opt{--sims IDS}{required: \texttt{2006 2007}; \fl{--points NAMES} only these points.}
 \opt{--reason TEXT}{required, recorded as given.}
 \opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix search-log-batch}{}{Writes the log of a batch point that has every other file, cut from the job's master log; then collect judges it.}
+\begin{cmdblock}{pyfs-workspace search-log-batch}{}{Writes the log of a batch point that has every other file, cut from the job's master log; then collect judges it.}
 \opt{--sims IDS}{only these simulations (default: all).}
 \opt{--master FILE}{the master log in the job folder, when several candidates exist.}
 \opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix restore}{{runs|storage|products|plan|additional}}{Bring a records file back from the archive, byte for byte.}
+\begin{cmdblock}{pyfs-workspace restore}{{runs|storage|products|plan|additional}}{Bring a records file back from the archive, byte for byte.}
 \opt{--apply}{write (default: preview); the current file is archived first.}
 \opt{--stamp STAMP}{the copy to restore (default: the newest).}
 \opt{--matrix STEM}{for products and plan, when several matrices have archives; \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix rebuild}{}{Make run records again from \file{sims/}: each matrix row is rendered again and compared with the script that ran.}
+\begin{cmdblock}{pyfs-workspace rebuild}{}{Make run records again from \file{sims/}: each matrix row is rendered again and compared with the script that ran.}
 \opt{--apply}{append the rebuilt records to \file{runs.json} (default: preview).}
 \opt{--out NAME}{write them to another manifest instead, to compare.}
 \opt{--all-sims}{every simulation folder, recorded or not; needs \fl{--out}.}
@@ -751,7 +751,7 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \hd{Files}
 \rd{inputs/management/m<id>.toml}{the storage recipe.}
 \wf{storage_management.json}{every storage call, \texttt{force} and the statuses included.}
-\wf{runs.json}{rewritten by \cmd{pyfs-matrix delete-sims}, \cmd{pyfs-matrix mark-failed}, \cmd{pyfs-matrix rebuild}, \cmd{pyfs-matrix restore}.}
+\wf{runs.json}{rewritten by \cmd{pyfs-workspace delete-sims}, \cmd{pyfs-workspace mark-failed}, \cmd{pyfs-workspace rebuild}, \cmd{pyfs-workspace restore}.}
 \wf{archive/runs-<stamp>.json}{the copy taken before each rewrite.}
 \wf{sims/sim_<POL>.zip}{a simulation compacted by \texttt{compact\_sims}, restored automatically when needed.}
 \wf{<file>.bak-<stamp>}{the geometry before \fl{--clean}.}

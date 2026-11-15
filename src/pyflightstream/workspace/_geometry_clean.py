@@ -1,6 +1,6 @@
 """A geometry reduced to its meshes and boundary conditions, and the warnings that ask for it.
 
-FR-308 made ``pyfs-workspace geometry inventory`` name the unsteady solver actions a saved
+FR-308 made ``pyfs-mesh inventory`` name the unsteady solver actions a saved
 simulation carries and ``--clean`` remove them. FR-312 extends ``--clean``: every
 block other than the meshes and the applied boundary conditions goes back to
 the content a freshly imported file holds, where that content is measured
@@ -220,7 +220,7 @@ def saved_action_warning(
         f"the file: {listed}. The solver may run a saved command, also when the script "
         "creates an action of the same name (which one it keeps is not measured), and an "
         "interpreter path of another machine may stop the unsteady run. Remove them with: "
-        f"pyfs-workspace geometry inventory {_quoted(shown)} --clean"
+        f"pyfs-mesh inventory {_quoted(shown)} --clean"
     )
 
 

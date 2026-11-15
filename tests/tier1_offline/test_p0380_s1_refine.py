@@ -32,6 +32,7 @@ import pytest
 import pyflightstream
 import pyflightstream.workspace as workspace
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import RefinedMesh, refine_mesh
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._refine._grid import recover_grid
@@ -475,7 +476,6 @@ def test_arch48_accept_unknown_skips_the_entries_the_refinement_does_not_know(tm
 
 def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_path, capsys):
     """ARCH48-R4: no trailing edge found is refused; --accept-empty writes nothing, exit 0."""
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace.wake_edges import write_trailing_edges_identified
 
     src = _source(tmp_path, WITH_T)
@@ -487,9 +487,7 @@ def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_p
     ):
         assert write_trailing_edges_identified(src, families=["Nope"], accept_empty=True) == []
     with pytest.warns(PyflightstreamWarning, match="nothing is written"):
-        code = workspace_cli.main(
-            ["geometry", "identify-te", str(src), "--families", "Nope", "--accept-empty"]
-        )
+        code = mesh_main(["identify-te", str(src), "--families", "Nope", "--accept-empty"])
     assert code == 0 and capsys.readouterr().out == ""
     assert not src.with_name(f"{src.stem}.Nope.fs.te.txt").exists()
 
@@ -1331,14 +1329,14 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     """
     src = _source(tmp_path, WITH_TU)
     script = (
-        "import sys\nfrom pyflightstream.workspace.cli import main\nsys.exit(main(sys.argv[1:]))"
+        "import sys\nfrom pyflightstream.run.mesh_cli import main\nsys.exit(main(sys.argv[1:]))"
     )
     root = str(PACKAGE.parent)
     runs = []
     for seed in ("1", "2"):
         out = tmp_path / f"run{seed}"
         env = {**os.environ, "PYTHONPATH": root, "PYTHONHASHSEED": seed}
-        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out", str(out)]
+        argv = ["refine", str(src), "2", "--families", "G,T", "--out", str(out)]
         done = subprocess.run(
             [sys.executable, "-c", script, *argv], capture_output=True, env=env, timeout=300
         )
@@ -2051,12 +2049,11 @@ def test_parallel_and_normal_factors_of_the_file_and_of_the_call_give_one_level(
 
 
 def test_convert2midnodes_orders_a_scrambled_list_of_two_lines(tmp_path, capsys):
-    """pyfs-workspace geometry convert2midnodes: one mid-point per neighbouring pair, per line.
+    """pyfs-mesh convert2midnodes: one mid-point per neighbouring pair, per line.
 
     Two trailing edges in one list, out of order: the sheet's and a copy of it
     ten units above, as a second component's would be.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine._obj import read_te
 
     fx, te, _ = _sheet_lines()
@@ -2064,9 +2061,7 @@ def test_convert2midnodes_orders_a_scrambled_list_of_two_lines(tmp_path, capsys)
     second = list(range(len(fx.verts), len(verts)))
     listed = _node_list(tmp_path / "nodes.txt", verts, [*te, *second])
     out = tmp_path / "nodes.te.txt"
-    code = workspace_cli.main(
-        ["geometry", "convert2midnodes", str(listed), str(out), "--unit", "MILLIMETER"]
-    )
+    code = mesh_main(["convert2midnodes", str(listed), str(out), "--unit", "MILLIMETER"])
     assert code == 0 and capsys.readouterr().out.strip() == str(out)
     unit, points = read_te(out)
     expected = numpy.vstack([0.5 * (verts[ids[:-1]] + verts[ids[1:]]) for ids in (te, second)])
@@ -2106,7 +2101,6 @@ def test_convert2midnodes_per_family_writes_the_mesh_edges_of_each_family(tmp_pa
     strip Q beside it, rounded and out of order; the strip T is untouched and
     gets no file.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine._obj import read_te
 
     mesh = sheet_with_strips((("Q", "quad", (0.2, 0.2)), ("T", "tri", (0.1,))))
@@ -2115,9 +2109,7 @@ def test_convert2midnodes_per_family_writes_the_mesh_edges_of_each_family(tmp_pa
     lines = {"G": [r[0] for r in rows["G"]], "Q": [r[0] for r in rows["Q"]]}
     listed = _node_list(tmp_path / "nodes.txt", mesh.verts, sorted({*lines["G"], *lines["Q"]}))
     out = tmp_path / "nodes.te.txt"
-    code = workspace_cli.main(
-        ["geometry", "convert2midnodes", str(listed), str(out), "--per-family", str(src)]
-    )
+    code = mesh_main(["convert2midnodes", str(listed), str(out), "--per-family", str(src)])
     printed = capsys.readouterr().out.split()
     assert code == 0 and printed == [str(tmp_path / f"nodes.{n}.te.txt") for n in ("G", "Q")]
     for name, ids in lines.items():
@@ -2184,21 +2176,19 @@ def test_a_te_families_name_of_nothing_is_warned_and_skipped(tmp_path):
 
 
 def test_identify_te_writes_the_solver_node_file_of_a_refined_merged_family(tmp_path, capsys):
-    """pyfs-workspace geometry identify-te: the refined level's Wing trailing edge, solver format.
+    """pyfs-mesh identify-te: the refined level's Wing trailing edge, solver format.
 
     The source's node list is read along a level whose nodes are not the listed
     ones (parallel factor 2); the file is the count, one unread coordinate line
     and one mid-point per trailing-edge edge, the points the refine wrote.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine._obj import read_te
 
     _, _, _, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
     level = refine_mesh(src, out_dir=tmp_path / "y")
     with pytest.warns(PyflightstreamWarning, match="holds no family 'Nope'"):
-        code = workspace_cli.main(
+        code = mesh_main(
             [
-                "geometry",
                 "identify-te",
                 str(level.obj),
                 str(src.with_name("nodes.txt")),
@@ -2234,7 +2224,7 @@ def _one_family_wing(tmp_path: Path) -> Path:
 def test_prepare_to_refine_writes_patches_ordered_by_span_a_refine_file_and_a_node_list(
     tmp_path, capsys
 ):
-    """pyfs-workspace geometry prepare-to-refine: patches, the refine file and the node list.
+    """pyfs-mesh prepare-to-refine: patches, the refine file and the node list.
 
     Wing holds two quad pieces the triangles separate: the sheet with its strip
     (2.4 along y) and the far strip (0.4), each a grid patch numbered by its
@@ -2242,12 +2232,11 @@ def test_prepare_to_refine_writes_patches_ordered_by_span_a_refine_file_and_a_no
     rearmost line, the trailing edge (11 and 3 nodes), ordered along y; the
     refine file reads with no warning and refines.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine import _config
     from pyflightstream.workspace._refine._obj import read_node_list, read_obj
 
     src = _one_family_wing(tmp_path)
-    code = workspace_cli.main(["geometry", "prepare-to-refine", str(src)])
+    code = mesh_main(["prepare-to-refine", str(src)])
     assert code == 0, capsys.readouterr()
     out = capsys.readouterr().out.splitlines()
     names = ["Wing_001_grid", "Wing_002_grid", "Wing_003_mixed"]
@@ -2338,7 +2327,6 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
     the root and the tip are not written. Control: --families writes the same
     points in the family's own file.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine._obj import read_node_list
     from tests.p0380_mesh_fixtures import sheet_quads, tube_pole_quads
 
@@ -2349,7 +2337,7 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
         Composite(fx.verts, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
         boundaries=False,
     )
-    assert workspace_cli.main(["geometry", "identify-te", str(src)]) == 0
+    assert mesh_main(["identify-te", str(src)]) == 0
     solver, listing = src.with_name("wing.nodes.te.txt"), src.with_name("wing.nodes.txt")
     package = src.with_name("wing.te.txt")
     assert capsys.readouterr().out.split() == [str(solver), str(package), str(listing)]
@@ -2373,9 +2361,7 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
     nodes = read_node_list(listing)
     assert sorted(i - 1 for i in nodes.ids) == sorted(te)
     assert numpy.all(numpy.diff(nodes.points[:, 1]) > 0)
-    code = workspace_cli.main(
-        ["geometry", "identify-te", str(src), "--families", "Wing", "--overwrite"]
-    )
+    code = mesh_main(["identify-te", str(src), "--families", "Wing", "--overwrite"])
     assert code == 0
     capsys.readouterr()
     own = points(src.with_name("wing.Wing.fs.te.txt"))
@@ -2417,7 +2403,6 @@ def test_drev48_the_maximum_angle_is_taken_from_the_plane_across_the_aft_directi
     edge, 90 degrees from that plane, was left out and identify-te refused.
     Control: the sheet as built, aft +x, gives the same edges.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace._refine._prepare import rearmost_lines
     from tests.p0380_mesh_fixtures import sheet_quads
 
@@ -2433,7 +2418,7 @@ def test_drev48_the_maximum_angle_is_taken_from_the_plane_across_the_aft_directi
         Composite(turned, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
         boundaries=False,
     )
-    assert workspace_cli.main(["geometry", "identify-te", str(src), "--aft", "0", "1", "0"]) == 0
+    assert mesh_main(["identify-te", str(src), "--aft", "0", "1", "0"]) == 0
     rows = src.with_name("wing.nodes.te.txt").read_text(encoding="utf-8").split()
     assert int(rows[0]) == fx.stations - 1
 
@@ -2445,7 +2430,7 @@ def test_drev48_identify_te_units_of_its_three_files(tmp_path, capsys):
     The default unit is the mesh's ``[import] units``. Control: the same mesh
     with no unit stated writes METER and no conversion.
     """
-    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.run import mesh_cli as workspace_cli
     from pyflightstream.workspace._refine._obj import read_node_list, read_te
     from tests.p0380_mesh_fixtures import sheet_quads
 
@@ -2461,12 +2446,12 @@ def test_drev48_identify_te_units_of_its_three_files(tmp_path, capsys):
         rows = src.with_name("wing.nodes.te.txt").read_text(encoding="utf-8").split()
         return numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
 
-    assert workspace_cli.main(["geometry", "identify-te", str(src)]) == 0
+    assert mesh_main(["identify-te", str(src)]) == 0
     plain_unit, plain = read_te(src.with_name("wing.te.txt"))
     assert plain_unit == "METER"
     assert numpy.allclose(numpy.sort(solver_points(), axis=0), numpy.sort(plain, axis=0))
     listed = read_node_list(src.with_name("wing.nodes.txt")).points
-    command = ["geometry", "identify-te", str(src), "--simulation-unit", "METER", "--overwrite"]
+    command = ["identify-te", str(src), "--simulation-unit", "METER", "--overwrite"]
     src.with_name("wing.obj.boundaries.toml").write_text(
         '[import]\nunits = "MILLIMETER"\n', encoding="utf-8"
     )
@@ -2488,7 +2473,6 @@ def test_drev48_an_aft_of_zeros_is_warned_and_plus_x_taken(tmp_path, capsys):
     refused, prepare-to-refine wrote an empty node list). Control: the same
     files the default aft writes.
     """
-    from pyflightstream.workspace import cli as workspace_cli
     from pyflightstream.workspace import prepare_to_refine
     from tests.p0380_mesh_fixtures import sheet_quads
 
@@ -2500,10 +2484,10 @@ def test_drev48_an_aft_of_zeros_is_warned_and_plus_x_taken(tmp_path, capsys):
         boundaries=False,
     )
     with pytest.warns(PyflightstreamWarning, match=r"aft .* not a direction.*\+x is taken"):
-        code = workspace_cli.main(["geometry", "identify-te", str(src), "--aft", "0", "0", "0"])
+        code = mesh_main(["identify-te", str(src), "--aft", "0", "0", "0"])
     assert code == 0, capsys.readouterr().err
     zeros = src.with_name("wing.nodes.te.txt").read_bytes()
-    assert workspace_cli.main(["geometry", "identify-te", str(src), "--overwrite"]) == 0
+    assert mesh_main(["identify-te", str(src), "--overwrite"]) == 0
     assert src.with_name("wing.nodes.te.txt").read_bytes() == zeros
     with pytest.warns(PyflightstreamWarning, match=r"aft .* not a direction.*\+x is taken"):
         prepared = prepare_to_refine(_one_family_wing(tmp_path / "p"), aft=(0.0, 0.0, 0.0))

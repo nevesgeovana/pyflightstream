@@ -346,10 +346,10 @@ def test_p0390_r03_a_positional_of_a_key_name_takes_nothing_from_a_file(tmp_path
     """
     root = make_workspace(tmp_path)
     (root / "pyfs.local.toml").write_text('[defaults]\nrecipe = ["001=m:f"]\n', encoding="utf-8")
-    code, _out, err = call(capsys, matrix_main, ["free-space", "--workspace", str(root)])
+    code, _out, err = call(capsys, workspace_main, ["free-space", "--workspace", str(root)])
     assert code == 2
     assert "the following arguments are required: recipe" in err
-    code, out, err = call(capsys, matrix_main, ["free-space", "m001", "--workspace", str(root)])
+    code, out, err = call(capsys, workspace_main, ["free-space", "m001", "--workspace", str(root)])
     assert "001=m:f" not in out + err
     assert "m001" in out + err
 

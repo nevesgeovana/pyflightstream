@@ -355,7 +355,7 @@ beside it, never stated in a setup,
 which puts it inside the geometry's folder when the geometry has one:
 
 ```text
-pyfs-workspace geometry inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml
+pyfs-mesh inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml
 ```
 
 An `.obj` gets its sidecar from its groups the same way, and from the plan

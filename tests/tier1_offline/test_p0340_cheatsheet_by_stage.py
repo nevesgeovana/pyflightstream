@@ -169,10 +169,12 @@ def test_an_option_the_parser_drops_is_named_where_the_sheet_still_offers_it():
     text = BY_STAGE.read_text(encoding="utf-8")
     tools = _tools()
     generator = _generator()
-    free = next(s for n, _, s in generator.subcommands(tools["pyfs-matrix"]) if n == "free-space")
+    free = next(
+        s for n, _, s in generator.subcommands(tools["pyfs-workspace"]) if n == "free-space"
+    )
     free._actions = [a for a in free._actions if "--list" not in a.option_strings]
     assert by_stage_defects(tools, text) == [
-        "pyfs-matrix free-space: --list is not its option",
+        "pyfs-workspace free-space: --list is not its option",
         "--list: no parser has it",
     ]
 

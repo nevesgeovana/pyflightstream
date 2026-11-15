@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._cli import WORKSPACE_VERBS
 from pyflightstream.run import _cli_parsers, _cli_print
 from pyflightstream.run import cli as matrix_cli
 from tests.tier1_offline.test_p0410_fx7_surface_export import _call, _saved
@@ -70,8 +71,11 @@ def _calls_of(function: str) -> list[str]:
 def test_the_parser_is_built_by_one_function_per_family_ad_18():
     # Verifies AD-18.
     families = [
-        c for c in _calls_of("_build_parser") if c.startswith("_add_") and c.endswith("_parsers")
+        c for c in _calls_of("_every_verb") if c.startswith("_add_") and c.endswith("_parsers")
     ]
+    # 0.58.0 (PFS-2261): one builder for both programs, each keeping its own verbs.
+    assert {"_every_verb", "_kept"} <= set(_calls_of("_build_parser"))
+    assert {"_every_verb", "_kept"} <= set(_calls_of("records_parser"))
     # v0.33.0 called two (_add_storage_parsers, _add_records_parsers).
     assert len(families) >= 7
     assert len(families) == len(set(families))
@@ -86,19 +90,25 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # (FR-414, the owner's requirement); 0.53.0 appends `visual-inspect` (FR-3440);
     # 0.57.0 appends `search-log-batch` (PFS-2218). The geometry verbs `inventory`,
     # `degenerate`, `refine` and `audit-mesh` left at 0.58.0 (PFS-2237): their home is
-    # `pyfs-workspace geometry`.
+    # `pyfs-mesh` (PFS-2260). The records, storage and query verbs other than `status` left
+    # at 0.58.0 too (PFS-2261): pyfs-workspace holds them, in this same order.
+    moved = set(WORKSPACE_VERBS)
     assert choices == [
-        *V0330_SUBCOMMANDS,
+        *[verb for verb in V0330_SUBCOMMANDS if verb not in moved],
         "noise",
         "support",
         "status",
+        "visual-inspect",
+    ]
+    records = _cli_parsers.records_parser()
+    assert list(records._subparsers._group_actions[0].choices) == [
+        *[verb for verb in V0330_SUBCOMMANDS if verb in moved],
         "show",
         "log",
         "trace",
         "history",
         "diff",
         "mark-converged",
-        "visual-inspect",
         "search-log-batch",
     ]
 
@@ -169,12 +179,12 @@ def test_p0430_f1564_an_empty_only_is_refused_not_an_unrestricted_build(capsys, 
     """F-1564: --only with no tag exits 2 and names the fix, writing nothing."""
     import argparse
 
-    from pyflightstream.run._cli_geometry import run_geometry
+    from pyflightstream.run.mesh_cli import run_mesh_verb
 
     args = argparse.Namespace(
-        geometry_command="build", only=" , ", target=str(tmp_path), build=None, apply=True
+        verb="build", only=" , ", target=str(tmp_path), build=None, apply=True
     )
-    assert run_geometry(args) == 2
+    assert run_mesh_verb(args) == 2
     assert "--only names no variant" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
 

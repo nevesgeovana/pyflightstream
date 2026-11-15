@@ -32,16 +32,20 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import records as run_records
+
+# --------------------------------------------------------------------------- helpers
+from pyflightstream.run._cli_parsers import records_parser
 
 # The rebuild and what it reads are private modules of run since 0.33.0 (AD-11).
 from pyflightstream.run._rebuild_evidence import _matrices
 from pyflightstream.workspace import WorkspaceError, find_matrix, matrix_by_stem
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_goal021_matrix_ids import _matrix, row
 from tests.tier1_offline.test_goal021_matrix_ids import _workspace as _library
 from tests.tier1_offline.test_goal035_storage import (
@@ -51,8 +55,6 @@ from tests.tier1_offline.test_goal035_storage import (
     _write_recipe,
 )
 from tests.tier1_offline.test_goal036_pol_census import _plan_recording
-
-# --------------------------------------------------------------------------- helpers
 
 
 def _orphan_pair(tmp_path: Path, tag: str):
@@ -115,7 +117,7 @@ def test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them(t
     # The level "all" brings a compacted simulation, so main will hold 2003.
     (entry,) = storage_module.sync_workspaces(main.root, "all")
     assert "2003" in entry["sims"]["other"]
-    assert matrix_cli.main(["sync", "all", "--workspace", str(main.root)]) == 0
+    assert workspace_main(["sync", "all", "--workspace", str(main.root)]) == 0
     out = capsys.readouterr().out
     assert "sims/: 1 in main, 3 in other, 0 in both" in out
     assert "without a record: 2002, 2003, 3000" in out
@@ -171,7 +173,7 @@ def test_p0320_sync_the_cli_passes_restore_and_include_archives(tmp_path, monkey
     main, _ = _archived_other(tmp_path, "cliflags")
     _write(main.sim_dir("5900") / "scripts" / "point.fs", "by hand")
     base = ["sync", "all", "--workspace", str(main.root), "--apply"]
-    assert matrix_cli.main([*base, "--include-archives", "--restore"]) == 0
+    assert pyfs_main([*base, "--include-archives", "--restore"]) == 0
     assert (main.sim_dir("5001") / "archive" / "old.txt").read_text("utf-8") == "1234567"
     (call,) = rebuilds.calls
     assert call["sims"] == ["5001", "5900"]
@@ -190,7 +192,7 @@ def test_p0320_sync_restore_is_off_by_default(tmp_path, monkeypatch):
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert rebuilds.calls == []
     assert entry["restore"] == {"asked": False, "sims": [], "result": None, "error": None}
-    parser = matrix_cli._build_parser()
+    parser = records_parser()
     args = parser.parse_args(["sync", "runs"])
     assert args.restore is False
 
@@ -341,13 +343,13 @@ def test_p0320_sync_skip_archives_by_default_and_counts_what_was_skipped(tmp_pat
 def test_p0320_sync_skip_archives_include_archives_brings_them(tmp_path, capsys):
     # P0320-SYNC-SKIP-ARCHIVES
     main, _ = _archived_other(tmp_path, "archinc")
-    assert matrix_cli.main(["sync", "all", "--workspace", str(main.root)]) == 0
+    assert workspace_main(["sync", "all", "--workspace", str(main.root)]) == 0
     assert "archive: 3 file(s), 15 B skipped" in capsys.readouterr().out
     (entry,) = storage_module.sync_workspaces(main.root, "all", apply=True, include_archives=True)
     assert entry["files"]["archives_skipped"] == {"files": 0, "bytes": 0}
     assert len(entry["files"]["copied"]) == 5
     assert (main.sim_dir("5001") / "archive" / "old.txt").read_text("utf-8") == "1234567"
-    args = matrix_cli._build_parser().parse_args(["sync", "all"])
+    args = records_parser().parse_args(["sync", "all"])
     assert args.include_archives is False
 
 
@@ -635,9 +637,9 @@ def test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage(tmp_path, m
     for name in ("sync_workspaces", "free_space", "delete_sims"):
         monkeypatch.setattr(storage_module, name, spy(name))
     base = ["--workspace", str(tmp_path), "--runs", "runs-alt.json"]
-    assert matrix_cli.main(["sync", "runs", *base]) == 0
-    assert matrix_cli.main(["free-space", "m001", *base]) == 0
-    assert matrix_cli.main(["delete-sims", "--sims", "1", *base]) == 0
+    assert workspace_main(["sync", "runs", *base]) == 0
+    assert workspace_main(["free-space", "m001", *base]) == 0
+    assert workspace_main(["delete-sims", "--sims", "1", *base]) == 0
     assert seen == {
         "sync_workspaces": "runs-alt.json",
         "free_space": "runs-alt.json",

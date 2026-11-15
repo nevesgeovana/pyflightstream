@@ -1,8 +1,8 @@
 """P0560-MORPH: hub rings, the pitch axis rule and the morphing chain on the OBJ.
 
 Usage:
-    pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj
-    pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
+    pyfs-mesh hub-rings sector.obj --morphing morphing.toml --out rings.obj
+    pyfs-mesh morph sector.obj --morphing morphing.toml --out morphed.obj
 
 The fixture is a quad-dominant cylinder hub along x (some cells split into two triangles), with
 radial blades whose root is a one-cell-thick slot of the hub grid and whose trailing edge is a
@@ -21,10 +21,10 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError, NotApplicableWarning, PyflightstreamWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj
 from pyflightstream.workspace._repitch_grid import incidence, rings, root_loop
 from pyflightstream.workspace._wheel import Faces, rotate, wheel_symmetry
-from pyflightstream.workspace.cli import main
 
 R, X0, NX, DX = 1.0, -1.0, 80, 0.05
 COPIES, PER = 3, 24
@@ -137,7 +137,7 @@ def control(folder, text, *, wheel=False, name="morphing.toml"):
 
 def invoke(verb, source, config, out):
     try:
-        return main(["geometry", verb, str(source), "--morphing", str(config), "--out", str(out)])
+        return mesh_main([verb, str(source), "--morphing", str(config), "--out", str(out)])
     except SystemExit as error:
         return error.code
 

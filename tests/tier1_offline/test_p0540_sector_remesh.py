@@ -437,8 +437,8 @@ def test_p0540_the_tip_radius_is_read_and_warned_unless_stated_and_the_angle_is_
 @pytest.mark.requirement("FR-3498")
 def test_p0540_a_topology_not_found_is_warned_by_name_and_nothing_is_written(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.run.mesh_cli import main as mesh_main
     from pyflightstream.workspace import power_off_body, sector_remesh
-    from pyflightstream.workspace.cli import main as workspace_main
 
     source = build_blunt_sector(tmp_path)
     flat = tmp_path / "no_base.fsm"
@@ -461,29 +461,29 @@ def test_p0540_a_topology_not_found_is_warned_by_name_and_nothing_is_written(tmp
             with pytest.warns(PyflightstreamWarning, match=what):
                 result = verb(path, blades=blades, out=out, **extra)
             assert not result.written and not out.exists()
-    argv = ["geometry", "sector-remesh", str(flat), "--blades", "Blade1", "--chord-cells", "12"]
+    argv = ["sector-remesh", str(flat), "--blades", "Blade1", "--chord-cells", "12"]
     out = tmp_path / "cli_flat.fsm"
-    code = workspace_main([*argv, "--le", "0.03", "--span-cell", "0.1", "--out", str(out)])
+    code = mesh_main([*argv, "--le", "0.03", "--span-cell", "0.1", "--out", str(out)])
     assert code == 2 and not out.exists()
 
 
 @pytest.mark.requirement("FR-3499")
 def test_p0540_both_verbs_run_end_to_end_and_an_existing_output_needs_overwrite(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     source = build_blunt_sector(tmp_path)
     sector_argv = [
-        "geometry", "sector-remesh", str(source), "--blades", "Blade1", "--chord-cells", "12",
+        "sector-remesh", str(source), "--blades", "Blade1", "--chord-cells", "12",
         "--le", "0.03", "--span-cell", "0.1", "--spinner-theta", "4",
     ]  # fmt: skip
-    body_argv = ["geometry", "power-off-body", str(source), "--blades", "Blade1", "--copies", "6"]
+    body_argv = ["power-off-body", str(source), "--blades", "Blade1", "--copies", "6"]
     for argv, name in ((sector_argv, "s.fsm"), (body_argv, "b.fsm")):
         out = tmp_path / name
-        assert workspace_main([*argv, "--out", str(out)]) == 0
+        assert mesh_main([*argv, "--out", str(out)]) == 0
         assert out.is_file() and "rotation" in capsys.readouterr().out
-        assert workspace_main([*argv, "--out", str(out)]) == 2
+        assert mesh_main([*argv, "--out", str(out)]) == 2
         assert "already exist" in capsys.readouterr().err
-        assert workspace_main([*argv, "--out", str(out), "--overwrite"]) == 0
+        assert mesh_main([*argv, "--out", str(out), "--overwrite"]) == 0
     record = json.loads((tmp_path / "s.remesh.json").read_text())
     assert record["source_sha256"] and record["families"]["spinner"] == "S"
     assert record["checks"]["trailing_edges"]["wheel_groups"] == 2 * COPIES + 1
@@ -633,7 +633,7 @@ def _axis_off_the_origin(source: Path, shift: float) -> None:
 def test_p0540_a_sector_off_the_origin_is_warned_by_name_at_the_command_line(
     tmp_path, capsys, verb, shift
 ):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     source = build_blunt_sector(tmp_path)
     _axis_off_the_origin(source, shift)
@@ -643,10 +643,10 @@ def test_p0540_a_sector_off_the_origin_is_warned_by_name_at_the_command_line(
         else ["--copies", "6"]
     )
     out = tmp_path / "o.fsm"
-    argv = ["geometry", verb, str(source), "--blades", "Blade1", *extra, "--out", str(out)]
+    argv = [verb, str(source), "--blades", "Blade1", *extra, "--out", str(out)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        assert workspace_main(argv) == 2
+        assert mesh_main(argv) == 2
     assert not out.exists() and not list(tmp_path.glob("*.part"))
 
 
@@ -838,11 +838,11 @@ def test_p0540_a_stated_tip_radius_far_from_the_blade_is_warned(tmp_path, tip):
 
 @pytest.mark.requirement("FR-3499")
 def test_p0540_the_help_states_every_default_and_how_to_write_a_signed_axis(capsys):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     def helped(verb: str) -> str:
         with pytest.raises(SystemExit) as stop:
-            workspace_main(["geometry", verb, "--help"])
+            mesh_main([verb, "--help"])
         assert stop.value.code == 0
         return " ".join(capsys.readouterr().out.split())
 

@@ -259,7 +259,7 @@ def test_p0540_an_overwritten_saved_wheel_keeps_no_inventory_of_the_earlier_mesh
 
 @pytest.mark.requirement("FR-3468")
 def test_p0540_a_layout_the_reader_does_not_recognize_is_warned_and_nothing_is_written(tmp_path):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     built, sector = _saved(tmp_path)
     text = sector.read_text()
@@ -281,24 +281,24 @@ def test_p0540_a_layout_the_reader_does_not_recognize_is_warned_and_nothing_is_w
         assert not result.written
         assert not out.exists() and not list(tmp_path.glob("*.part"))
         assert not out.with_name(f"{out.stem}.wheel.json").exists()
-        argv = ["geometry", "sector-to-wheel", str(source), "--copies", "6", "--blades", "Blade1"]
-        assert workspace_main([*argv, "--out", str(out)]) == 2
+        argv = ["sector-to-wheel", str(source), "--copies", "6", "--blades", "Blade1"]
+        assert mesh_main([*argv, "--out", str(out)]) == 2
         assert not out.exists()
 
 
 @pytest.mark.requirement("FR-3467")
 def test_p0540_the_saved_route_needs_a_blade_that_is_a_boundary_and_no_solver(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main as workspace_main
+    from pyflightstream.run.mesh_cli import main as mesh_main
 
     built, sector = _saved(tmp_path)
-    argv = ["geometry", "sector-to-wheel", str(sector), "--copies", "6"]
+    argv = ["sector-to-wheel", str(sector), "--copies", "6"]
     out = tmp_path / "cli.fsm"
-    assert workspace_main([*argv, "--blades", "Wing", "--out", str(out)]) == 2
+    assert mesh_main([*argv, "--blades", "Wing", "--out", str(out)]) == 2
     assert "not a boundary of the sector" in capsys.readouterr().err and not out.exists()
-    assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 0
+    assert mesh_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 0
     assert "area ratio" in capsys.readouterr().out and out.is_file()
-    assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 2
-    assert workspace_main([*argv, "--blades", "Blade1", "--out", str(out), "--overwrite"]) == 0
+    assert mesh_main([*argv, "--blades", "Blade1", "--out", str(out)]) == 2
+    assert mesh_main([*argv, "--blades", "Blade1", "--out", str(out), "--overwrite"]) == 0
     assert math.isclose(1.0, 1.0)
 
 

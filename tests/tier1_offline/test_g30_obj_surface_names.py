@@ -18,7 +18,7 @@ one:
 * a sidecar that exists is never rewritten, and one whose list disagrees with
   the groups is cited as written with a warning naming both lists, measured
   beside an agreeing control that draws none;
-* ``pyfs-workspace geometry inventory`` writes the same file for an OBJ and refuses its
+* ``pyfs-mesh inventory`` writes the same file for an OBJ and refuses its
   existing sidecar, ``--overwrite`` or not;
 * an STL is unchanged: nothing is written beside it, and its refusals are the
   ones it had.
@@ -145,7 +145,7 @@ def test_g30_a_comment_on_a_group_line_is_not_part_of_the_name(tmp_path):
 # --- the plan writes the sidecar -----------------------------------------------------
 
 
-# --- pyfs-workspace geometry inventory ---------------------------------------------------------
+# --- pyfs-mesh inventory ---------------------------------------------------------
 
 
 def test_g30_inventory_writes_an_objs_sidecar_and_never_rewrites_it(tmp_path, capsys):

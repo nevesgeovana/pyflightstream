@@ -970,8 +970,8 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
             # NEVER SKIPPED (PFS-2086.006): an unread manifest hides the products
             # that hold the deleted points, and the shared-product refusal with them.
             raise StorageError(
-                f"{manifest} cannot be read ({error}); nothing is deleted. "
-                "Restore it (pyfs-matrix restore products) or rebuild it with a post, then retry."
+                f"{manifest} cannot be read ({error}); nothing is deleted. Restore it "
+                "(pyfs-workspace restore products) or rebuild it with a post, then retry."
             ) from error
         folder, own, shared = manifest.parent, [], []
         for name, entry in dict(document.get("products", {})).items():
@@ -1005,7 +1005,7 @@ def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
         raise StorageError(
             f"{manifest} names the product {name!r}, which is not inside {folder}; "
             "delete-sims removes only files of the post folder, so nothing is deleted. "
-            "Correct the entry (pyfs-matrix restore products) or rebuild it with a post."
+            "Correct the entry (pyfs-workspace restore products) or rebuild it with a post."
         )
 
 
@@ -1534,7 +1534,7 @@ def _sync_files(
 
 
 def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix sync`` prints for a synchronization entry.
+    """Return the lines ``pyfs-workspace sync`` prints for a synchronization entry.
 
     The archive files and bytes skipped (P0320-SYNC-SKIP-ARCHIVES), the
     simulation folders of both sides and those no record carries
@@ -1942,7 +1942,7 @@ def sync_workspaces(
             f"restore (CLI: --restore) rebuilds records into runs.json only; with runs (CLI: "
             f"--runs) {manifest.name} it is refused. Rebuild into another manifest with "
             "pyflightstream.run.records.rebuild and its out (CLI: --out) (the command "
-            "pyfs-matrix rebuild)."
+            "pyfs-workspace rebuild)."
         )
     main_name, spaces = read_sync_config(main.root)
     with _runs_lease(

@@ -2,9 +2,10 @@
 
 A parametric configuration describes an aircraft by a few parameters per component: a body of
 revolution or a superellipse body, a lifting surface with its sections, and the fairing between
-a wing and its body. Five `pyfs-workspace geometry` verbs generate an IGES from it, check a
-rebuilt surface against an original, mesh it into quads, identify a lifting surface of an
-original IGES and print the schema of the parameter record. Everything that needs the geometry
+a wing and its body. The `pyfs-geom` verbs generate an IGES from it, check a
+rebuilt surface against an original, identify a lifting surface of an
+original IGES and print the schema of the parameter record, and `pyfs-mesh mesh` and
+`mesh-generated` mesh it into quads. Everything that needs the geometry
 kernel uses gmsh, which installs with the package; where the library cannot load, each verb stops
 with a message naming it and writes nothing. The schema verb needs no kernel.
 
@@ -14,7 +15,7 @@ A TOML file with one table per component under `[components]`. Every value is re
 its source (`given` or `default`), so a result can say which numbers you stated; the quantities
 computed from them (area, mean chord) are kept apart under `derived`.
 A parameter this release does not know warns and is skipped: it appears under `warnings` in what
-`pyfs-geom run` and `pyfs-workspace geometry mesh-generated` print and in the resolved
+`pyfs-geom run` and `pyfs-mesh mesh-generated` print and in the resolved
 configuration. Python reads the file with
 `pyflightstream.geometry.load_config` and `resolve_config`.
 
@@ -168,7 +169,7 @@ Python: `check_against_original`.
 ## Mesh
 
 ```text
-pyfs-workspace geometry mesh-generated wing.toml --obj wing.obj --component WING
+pyfs-mesh mesh-generated wing.toml --obj wing.obj --component WING
 ```
 
 Each patch is meshed from its role: constant width across the span with a refined tip, growth
@@ -182,13 +183,13 @@ the spacing rules measured on the realized nodes. The OBJ has one group per comp
 is written and the exit is 0 even when a check fails, so read `accepted` and
 `spacing_rules.passed` in the record. Python:
 `mesh_generated`. Here `--out` names the JSON file the record is also written to, unlike
-`geometry mesh --out`, which names the folder of the mesh and its record.
+`pyfs-mesh mesh --out`, which names the folder of the mesh and its record.
 
 ## Mesh from per-component controls (strategy 1)
 
 ```text
-pyfs-workspace geometry mesh wing-body.toml --controls mesh.toml --dry-run
-pyfs-workspace geometry mesh wing-body.toml --controls mesh.toml --out meshes --fsm-template fresh.fsm
+pyfs-mesh mesh wing-body.toml --controls mesh.toml --dry-run
+pyfs-mesh mesh wing-body.toml --controls mesh.toml --out meshes --fsm-template fresh.fsm
 ```
 
 The mesh controls hold a `[mesh]` table (`strategy = 1`, `configuration`, `variant` clean, cs or
@@ -332,5 +333,5 @@ promoted, the row is recorded as `GEOMETRY_FAILED` with the gate named, and the 
 The measured behaviour of build 26.127 is in `tests/tier3_licensed/data/g13-native-import.json`.
 `run_matrix` and the grouped run (`pyfs-matrix run`) build the missing native geometry with
 the solver. `pyfs-matrix plan` spends no licence and binds such a row only once it is built;
-to see the row in a plan before the run, build it once with `pyfs-workspace geometry build
-NAME --apply` (and `geometry accept NAME` after looking at its preview).
+to see the row in a plan before the run, build it once with `pyfs-mesh build
+NAME --apply` (and `pyfs-mesh accept NAME` after looking at its preview).

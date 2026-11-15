@@ -200,8 +200,8 @@ The managed folder tree of a campaign:
     fsi/             structural configurations a row's FSI names: f<id>.toml
     matrices/        run matrices kept inside the library; new files go here, and a
                      matrix at the workspace root keeps its location
-    management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml
-    sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from
+    management/      storage recipes a `pyfs-workspace free-space` call runs: m<id>.toml
+    sync-workspaces.toml  the other workspaces `pyfs-workspace sync` brings runs and results from
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
   pyfs.toml          shared workspace defaults

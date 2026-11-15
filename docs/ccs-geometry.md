@@ -5,7 +5,7 @@
     keys of `[import.ccs]` below, and the row names the built `.fsm`
     ([Geometry: build a body before the run](geometry.md)). A matrix row naming the
     CCS file itself is refused: every row except an FSI row opens an `.fsm`.
-    `pyfs-workspace geometry from-sidecar <file>.csv --apply` converts the sidecar
+    `pyfs-mesh from-sidecar <file>.csv --apply` converts the sidecar
     below into that instruction file.
 
 A CCS file (Component Cross-Section, the solver's parametric geometry format)

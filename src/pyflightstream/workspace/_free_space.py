@@ -1,4 +1,4 @@
-"""The recipe runner of ``pyfs-matrix free-space`` and the file helpers it shares with storage.
+"""The recipe runner of ``pyfs-workspace free-space`` and the file helpers it shares with storage.
 
 Pipeline role: the steps of a storage recipe (``inputs/management/m<id>.toml``)
 run in order by :func:`pyflightstream.workspace.storage.free_space`, which

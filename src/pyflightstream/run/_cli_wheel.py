@@ -1,10 +1,10 @@
-"""The ``pyfs-workspace geometry`` verbs that build one mesh from others (PFS-2186.01 to .04, .06).
+"""The ``pyfs-mesh`` verbs that build one mesh from others (PFS-2186.01 to .04, .06).
 
 Pipeline role: the run layer's parsers and handlers for ``sector-to-wheel``, ``sector-remesh``
 and ``power-off-body``. The work is the workspace layer's
 (:mod:`pyflightstream.workspace._wheel`, :mod:`pyflightstream.workspace._sector_driver`); this
 module only reads the command line, calls it, prints its summary and returns the exit code.
-It is registered from
+It is registered into ``pyfs-mesh`` from
 :mod:`pyflightstream.run._cli_geometry` by :func:`add_wheel_verbs` and :data:`WHEEL_HANDLERS`,
 so a further verb of the same kind is one parser and one handler added here.
 """
@@ -22,7 +22,7 @@ __all__ = ["WHEEL_HANDLERS", "WHEEL_VERBS", "add_wheel_verbs"]
 
 
 def _add_sector_to_wheel(verbs: Any) -> None:
-    """Add ``geometry sector-to-wheel``: a sector copied about an axis into a full wheel."""
+    """Add ``pyfs-mesh sector-to-wheel``: a sector copied about an axis into a full wheel."""
     wheel = verbs.add_parser(
         "sector-to-wheel",
         help="copy one sector about an axis into a full wheel, an OBJ or a saved simulation",
@@ -87,7 +87,7 @@ def _add_sector_to_wheel(verbs: Any) -> None:
 
 
 def _cmd_sector_to_wheel(args: argparse.Namespace) -> int:
-    """Run ``geometry sector-to-wheel``: print the files and the checks, return the exit code."""
+    """Run ``pyfs-mesh sector-to-wheel``: print the files and the checks, return the exit code."""
     from pyflightstream.workspace import sector_to_wheel
 
     try:
@@ -138,7 +138,7 @@ def _add_remesh_common(parser: Any) -> None:
 
 
 def _add_sector_remesh(verbs: Any) -> None:
-    """Add ``geometry sector-remesh``: a sector's blade, spinner and nacelle rebuilt as quads."""
+    """Add ``pyfs-mesh sector-remesh``: a sector's blade, spinner and nacelle rebuilt as quads."""
     remesh = verbs.add_parser(
         "sector-remesh",
         help="rebuild a saved sector's blade, spinner and nacelle as full-quad surfaces",
@@ -196,7 +196,7 @@ def _add_sector_remesh(verbs: Any) -> None:
 
 
 def _add_power_off_body(verbs: Any) -> None:
-    """Add ``geometry power-off-body``: the whole turn of spinner and nacelle, no blades."""
+    """Add ``pyfs-mesh power-off-body``: the whole turn of spinner and nacelle, no blades."""
     body = verbs.add_parser(
         "power-off-body",
         help="write the power-off body of a saved sector: a closed spinner and the remesh nacelle",
@@ -235,7 +235,7 @@ def _finish(result: Any) -> int:
 
 
 def _cmd_sector_remesh(args: argparse.Namespace) -> int:
-    """Run ``geometry sector-remesh``."""
+    """Run ``pyfs-mesh sector-remesh``."""
     from pyflightstream.workspace import sector_remesh
 
     keys = (
@@ -254,7 +254,7 @@ def _cmd_sector_remesh(args: argparse.Namespace) -> int:
 
 
 def _cmd_power_off_body(args: argparse.Namespace) -> int:
-    """Run ``geometry power-off-body``."""
+    """Run ``pyfs-mesh power-off-body``."""
     from pyflightstream.workspace import power_off_body
 
     keys = (
@@ -271,19 +271,19 @@ def _cmd_power_off_body(args: argparse.Namespace) -> int:
     return _finish(result)
 
 
-#: The handler of each verb this module adds, by its name in the group.
+#: The handler of each pyfs-mesh verb this module adds, by its name.
 WHEEL_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "sector-to-wheel": _cmd_sector_to_wheel,
     "sector-remesh": _cmd_sector_remesh,
     "power-off-body": _cmd_power_off_body,
 }
 
-#: The verbs this module adds to the group.
+#: The verbs this module adds to pyfs-mesh.
 WHEEL_VERBS = tuple(WHEEL_HANDLERS)
 
 
 def add_wheel_verbs(verbs: Any) -> None:
-    """Add this module's verbs to the ``geometry`` subparsers."""
+    """Add this module's verbs to the ``pyfs-mesh`` subparsers."""
     _add_sector_to_wheel(verbs)
     _add_sector_remesh(verbs)
     _add_power_off_body(verbs)

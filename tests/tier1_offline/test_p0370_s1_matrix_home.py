@@ -31,7 +31,6 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.results.log import split_job_log
-from pyflightstream.run.cli import _build_parser, main
 from pyflightstream.run.collect import collect_once
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
@@ -43,6 +42,7 @@ from pyflightstream.workspace._matrix_homes import (
 from pyflightstream.workspace.record_document import decode_document
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_p0350_batch_run as grouped_run
+from tests.tier1_offline._geometry_verbs import main, parser_for
 from tests.tier1_offline.test_matrix_run import _FR310_MATRIX_HOMES_ALL__ARGV as ARGV
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -281,7 +281,7 @@ def test_p0370_s1_a_working_directory_copy_warns_and_is_not_read(command, tmp_pa
     local = elsewhere / "m.fs"
     local.write_bytes(b"POL | RUN\n1 | 0\n")
     monkeypatch.chdir(elsewhere)
-    args = _build_parser().parse_args([*ARGV[command], "--workspace", str(workspace)])
+    args = parser_for(ARGV[command]).parse_args([*ARGV[command], "--workspace", str(workspace)])
     with pytest.warns(PyflightstreamWarning) as caught:
         assert resolve_matrix_arguments(args) is None, command
     assert Path(getattr(args, command[1])).resolve() == home.resolve(), command
@@ -289,7 +289,7 @@ def test_p0370_s1_a_working_directory_copy_warns_and_is_not_read(command, tmp_pa
     assert str(home) in said and str(local.resolve()) in said, said
     assert "was not read" in said, said
     given = [str(local) if word == "m.fs" else word for word in ARGV[command]]
-    args = _build_parser().parse_args([*given, "--workspace", str(workspace)])
+    args = parser_for(given).parse_args([*given, "--workspace", str(workspace)])
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert resolve_matrix_arguments(args) is None, command
@@ -335,7 +335,7 @@ def test_f_1565_only_a_final_extension_is_removed_from_a_matrix_name():
     """wing.v2.fs and wing.v2.toml are the matrix wing.v2; a bare wing.v2 stays itself."""
     from pyflightstream.workspace._matrix_homes import matrix_stem
 
-    restore = _build_parser()
+    restore = parser_for(["restore"])
     for given in ("wing.v2.fs", "wing.v2.toml", "wing.v2", "inputs/matrices/wing.v2.fs"):
         assert matrix_stem(given) == "wing.v2", given
         assert restore.parse_args(["restore", "products", "--matrix", given]).matrix == "wing.v2"

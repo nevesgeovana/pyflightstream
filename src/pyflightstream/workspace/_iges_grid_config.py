@@ -1,4 +1,4 @@
-"""The grid control file of ``geometry iges-grid``: one table per component, read and checked.
+"""The grid control file of ``pyfs-mesh iges-grid``: one table per component, read and checked.
 
 ``grid.toml`` holds an optional top-level ``fs_build``, a ``[defaults]`` table (``size``,
 ``tolerance``, ``te_angle_deg``, ``remove_inner_faces``) and one ``[component.<Name>]`` table

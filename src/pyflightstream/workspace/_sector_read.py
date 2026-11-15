@@ -1,6 +1,6 @@
 """A saved sector read for remeshing: its surfaces, axis frame and seams (PFS-2186.06).
 
-Pipeline role: the reading half of ``pyfs-workspace geometry sector-remesh`` and ``power-off-body``
+Pipeline role: the reading half of ``pyfs-mesh sector-remesh`` and ``power-off-body``
 (:mod:`pyflightstream.workspace._sector_remesh`, :mod:`pyflightstream.workspace._sector_body`).
 The saved layout is the one :mod:`pyflightstream.workspace._wheel_fsm` reads, and its reader is
 used as it is; this module adds what remeshing needs on top of it and nothing else.

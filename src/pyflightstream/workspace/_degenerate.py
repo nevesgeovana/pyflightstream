@@ -4,7 +4,7 @@ A thin-blade study replaces a blade by its mean surface, a sheet with no
 thickness. This module builds
 it from the blade's own surface mesh and writes it beside the source, with
 the boundary inventory the raw-mesh route reads (FR-55), so the command
-``pyfs-workspace geometry degenerate --kind thin-blade`` (FR-628) has one library
+``pyfs-mesh degenerate --kind thin-blade`` (FR-628) has one library
 function to call: :func:`derive_thin_blade`.
 
 WHAT IS COMPUTED, in the mesh's own frame and length unit:
@@ -800,8 +800,7 @@ def _sidecar_text(source: Path, mesh: Path, blade: _Blade, root_offset: float) -
     """Return the thin blade's boundary inventory, the sidecar the raw-mesh route reads."""
     lines = [
         f"# Boundary inventory of {mesh.name}, the thin blade pyflightstream derived from",
-        f"# {source.name} (sha256 {file_sha256(source)}) by "
-        "`pyfs-workspace geometry degenerate` (FR-330).",
+        f"# {source.name} (sha256 {file_sha256(source)}) by `pyfs-mesh degenerate` (FR-330).",
         f"# root_offset = {root_offset!r}, in the mesh's own length unit: the root of the",
         "# thin blade is moved outward along the span by it, off the spinner.",
         "# Add the [trailing_edges] table beneath, as for any raw mesh (docs/mesh-inputs.md).",

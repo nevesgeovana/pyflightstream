@@ -163,6 +163,8 @@ MATURITY = {
     "pyflightstream.run.collect": "stable",
     "pyflightstream.run.geom_cli": "provisional",
     "pyflightstream.run.matrix": "stable",
+    # 0.58.0 (PFS-2260): the pyfs-mesh console script; its verbs were stable in the group.
+    "pyflightstream.run.mesh_cli": "stable",
     "pyflightstream.run.records": "provisional",
     "pyflightstream.script": "stable",
     "pyflightstream.script.entities": "stable",

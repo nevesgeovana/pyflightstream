@@ -239,6 +239,8 @@ PUBLIC_MODULES = [
     "pyflightstream.run.collect",
     "pyflightstream.run.geom_cli",
     "pyflightstream.run.matrix",
+    # 0.58.0 (PFS-2260): the pyfs-mesh console script; PUBLIC as run.geom_cli is.
+    "pyflightstream.run.mesh_cli",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.run.records",
     # 0.21.0: the renaming command's module. PUBLIC deliberately, for the same

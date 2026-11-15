@@ -1,7 +1,7 @@
 # %% [markdown]
 # # A wing OBJ with its trailing edge marked by a points file
 #
-# Prepare a raw OBJ through `geometry mark-boundaries` before a matrix run.
+# Prepare a raw OBJ through `pyfs-mesh mark-boundaries` before a matrix run.
 # This example writes a synthetic wing in millimetres, a qualified sidecar
 # and edge midpoints, then previews marking without launching FlightStream.
 # The saved-state evidence for both supported builds is in the marking
@@ -89,7 +89,7 @@ print((geometries / "wing.te.txt").read_text(encoding="utf-8"))
 # ## 3. Preview marking
 #
 # Preview validates each midpoint against the OBJ and writes nothing.
-# Apply on a licensed machine with `pyfs-matrix geometry mark-boundaries
+# Apply on a licensed machine with `pyfs-mesh mark-boundaries
 # inputs/geometries/wing.obj --apply --fs-exe <installation>`.
 # Use the admitted wing.fsm and its generated sidecar in the matrix.
 

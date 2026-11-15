@@ -1,6 +1,6 @@
 """Scale the node coordinates of a FlightStream .fsm mesh block, every other byte kept (PFS-2222).
 
-Pipeline role: the ``.fsm`` half of ``pyfs-workspace geometry scale``, called by
+Pipeline role: the ``.fsm`` half of ``pyfs-mesh scale``, called by
 :mod:`pyflightstream.workspace.scale`. A saved simulation is text; the mesh block between
 ``$MESH_START$`` and ``$MESH_END$`` ends with the line ``0``, the node count ``n`` alone on a line
 and then three rows of ``n`` comma-separated numbers, the x, y and z of every node (the layout

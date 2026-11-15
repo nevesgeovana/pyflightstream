@@ -1,6 +1,6 @@
 """P0560-REPITCH-BUGS: repitch keeps the face order, refuses a rotor with no axis in words.
 
-Usage: pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
+Usage: pyfs-mesh repitch sector.obj --morphing morphing.toml --out pitched.obj
 """
 
 import datetime

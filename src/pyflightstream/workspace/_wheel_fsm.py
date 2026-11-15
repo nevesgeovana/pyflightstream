@@ -1,6 +1,6 @@
 """A full wheel written from a saved sector, in the saved file's own format (PFS-2186.03, .04).
 
-Pipeline role: the saved-simulation route of ``pyfs-workspace geometry sector-to-wheel``, the
+Pipeline role: the saved-simulation route of ``pyfs-mesh sector-to-wheel``, the
 sister of the OBJ route in :mod:`pyflightstream.workspace._wheel`. It needs no solver: the
 mesh block of the sector is repeated about the axis with the seam nodes merged, and the base
 regions, trailing-edge groups and wake terminations of the physics block are multiplied.

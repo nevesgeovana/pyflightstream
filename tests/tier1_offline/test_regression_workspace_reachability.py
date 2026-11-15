@@ -32,6 +32,8 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
     ("pyflightstream.run.cli", "main"),
     ("pyflightstream.workspace.cli", "main"),
     ("pyflightstream.run.geom_cli", "main"),
+    # 0.58.0 (PFS-2260): the mesh verbs of the retired workspace geometry group.
+    ("pyflightstream.run.mesh_cli", "main"),
     # The workbook adapter of the matrix: ``python -m
     # pyflightstream.workspace.excel`` (docs/excel-matrices.md) and the text
     # bridge the workbook's embedded controls call.

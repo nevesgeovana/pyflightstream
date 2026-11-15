@@ -1,7 +1,7 @@
-"""The ``pyfs-workspace geometry merge`` verb: two trimmed OBJ joined along a cut (FR-3480).
+"""The ``pyfs-mesh merge`` verb: two trimmed OBJ joined along a cut (FR-3480).
 
 Pipeline role: the run row's command line over the workspace layer's
-:func:`pyflightstream.workspace.merge_objs`, registered by the geometry group.
+:func:`pyflightstream.workspace.merge_objs`, a verb of ``pyfs-mesh``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pyflightstream._errors import PyflightstreamError
 
 
 def add_merge_parser(verbs: Any) -> None:
-    """Add ``geometry merge`` to the group's verbs."""
+    """Add ``pyfs-mesh merge`` to a subparsers action."""
     merge = verbs.add_parser(
         "merge",
         help="join two trimmed OBJ along their open boundaries within a threshold",

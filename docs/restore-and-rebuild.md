@@ -15,7 +15,7 @@ provenance, recovery history and the distinct elapsed-time measurements.
 Point outcomes remain distinct from their containing job's outcome.
 
 `CampaignWorkspace.read_manifest()` resolves the definitions into typed records.
-`pyfs-matrix show RUN_ID --workspace . --json` includes the complete resolved
+`pyfs-workspace show RUN_ID --workspace . --json` includes the complete resolved
 record under `record`. Reading never consults current input settings to fill
 historical evidence. Invalid definition digests or references are refused.
 See [Upgrading](upgrading.md) for old workspaces.
@@ -29,9 +29,9 @@ additional-post record `additional.json`, and per matrix the products record
 When one of them is lost or overwritten, two commands bring the records back,
 and they carry two names on purpose:
 
-- `pyfs-matrix restore` brings a file back from the workspace's archive,
+- `pyfs-workspace restore` brings a file back from the workspace's archive,
  byte for byte. It is exact and always safe.
-- `pyfs-matrix rebuild` makes run records AGAIN from the simulation folders
+- `pyfs-workspace rebuild` makes run records AGAIN from the simulation folders
  under `sims/`, when no archive holds them. Every record it makes says so,
  so a rebuilt record is never taken for the one written when the point ran.
 
@@ -40,10 +40,10 @@ Both preview by default and change nothing; `--apply` writes.
 ## Restore a file from the archive
 
 ```text
-pyfs-matrix restore runs --workspace .              # which copy, and what it holds
-pyfs-matrix restore runs --workspace . --apply      # put it back
-pyfs-matrix restore runs --workspace . --stamp 20260929-120000 --apply
-pyfs-matrix restore products --workspace . --matrix matrix-lnx --apply
+pyfs-workspace restore runs --workspace .              # which copy, and what it holds
+pyfs-workspace restore runs --workspace . --apply      # put it back
+pyfs-workspace restore runs --workspace . --stamp 20260929-120000 --apply
+pyfs-workspace restore products --workspace . --matrix matrix-lnx --apply
 ```
 
 The kinds are `runs`, `storage`, `additional`, `products` and `plan`. The
@@ -78,10 +78,10 @@ Every write archives `storage_management.json`, `plan.json` and `additional.json
 ## Rebuild records from the simulation folders
 
 ```text
-pyfs-matrix rebuild --workspace .                   # which records, and why not the others
-pyfs-matrix rebuild --workspace . --apply           # add them to runs.json
-pyfs-matrix rebuild --workspace . --out runs-rebuilt.json --apply
-pyfs-matrix rebuild --workspace . --all-sims --out runs-compare.json --apply
+pyfs-workspace rebuild --workspace .                   # which records, and why not the others
+pyfs-workspace rebuild --workspace . --apply           # add them to runs.json
+pyfs-workspace rebuild --workspace . --out runs-rebuilt.json --apply
+pyfs-workspace rebuild --workspace . --all-sims --out runs-compare.json --apply
 ```
 
 For each simulation folder the package runs its matrix row again in a
@@ -128,7 +128,7 @@ What a rebuild decides, and how:
  `SUBMITTED` with its job entry: `pyfs-matrix collect` moves it home and
  completes it, since a rebuild writes nothing in the workspace. Without a plan
  receipt naming its job such a simulation is refused, with the remedy (restore
- the plan receipt, `pyfs-matrix restore plan`).
+ the plan receipt, `pyfs-workspace restore plan`).
 - **A row switched off after it ran** (`RUN 0`) still describes that run: the
  row is set to `RUN 1` in the throwaway copy only, and the record says so.
  The throwaway copy holds the matrix once, in the home the workspace keeps
@@ -196,15 +196,15 @@ A run can end `CONVERGED` and still be wrong, which you find only later,
 reading its products. `mark-failed` records that verdict:
 
 ```text
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh"           # preview
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply   # write
+pyfs-workspace mark-failed --sims 2006,2007 --reason "wrong mesh"           # preview
+pyfs-workspace mark-failed --sims 2006,2007 --reason "wrong mesh" --apply   # write
 ```
 
 Every record of each named simulation becomes `FAILED_MARKED`, whatever it
 ended in, `SUBMITTED` included. Nothing is deleted: each record keeps, under
 `marked`, the status it had (`from`), when it was marked (`at`) and the
 reason (`reason`), and `runs.json` is copied to `archive/runs-<stamp>.json`
-first, so `pyfs-matrix restore runs` undoes it. `FAILED_MARKED` is a failure
+first, so `pyfs-workspace restore runs` undoes it. `FAILED_MARKED` is a failure
 to every reader: the post treats the run as any failed one (it names the status
 in a warning, and the coefficient tables do not expect coefficients from it),
 the cost estimate leaves its wall time out, and `delete-sims` deletes the simulation
@@ -220,8 +220,8 @@ step (`COMPLETED_MAX_ITER`). `mark-converged` records that verdict, instead of
 an edit of `runs.json` by hand:
 
 ```text
-pyfs-matrix mark-converged --sims 2006 2007 --reason "residuals flat over the last revolution"
-pyfs-matrix mark-converged --sims 2006 --points AL+020 --reason "..." --apply
+pyfs-workspace mark-converged --sims 2006 2007 --reason "residuals flat over the last revolution"
+pyfs-workspace mark-converged --sims 2006 --points AL+020 --reason "..." --apply
 ```
 
 Without `--apply` it previews and writes nothing; `--reason` is required, and
@@ -239,7 +239,7 @@ Its list may be comma-separated, bracketed or blank-separated, quoted or not.
 Each marked record becomes `CONVERGED` and keeps under `marked` the status it had
 (`from`), when (`at`), your reason (`reason`) and the verdict (`verdict`);
 `runs.json` is copied to `archive/runs-<stamp>.json` first, so
-`pyfs-matrix restore runs` undoes it. A point of a steady job is marked alone,
+`pyfs-workspace restore runs` undoes it. A point of a steady job is marked alone,
 and the job takes its worst point's status.
 
 Refused by name, with the reason and what to do, and nothing written while
@@ -266,8 +266,8 @@ exports no log. It stays
 leaves `runs.json` alone; `collect` then judges the point from its log:
 
 ```text
-pyfs-matrix search-log-batch                      # preview: what would be written
-pyfs-matrix search-log-batch --apply
+pyfs-workspace search-log-batch                      # preview: what would be written
+pyfs-workspace search-log-batch --apply
 pyfs-matrix collect
 ```
 

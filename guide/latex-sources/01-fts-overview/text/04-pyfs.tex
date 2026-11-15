@@ -47,7 +47,7 @@ carries a path.\end{takeaway}
   \code{RUN} & 2 \\
 3, 4 Geometry and mesh & made outside the package; the file sits in
   \code{inputs/geometries/}, the row names it in \code{GEOMETRY};
-  \pyfs{pyfs-workspace geometry inventory} reads its boundaries & 2, 3 \\
+  \pyfs{pyfs-mesh inventory} reads its boundaries & 2, 3 \\
 5 Boundary conditions & the trailing edge by file or by detection, base
   regions and wake nodes as keys; rotors and actuator discs in the
   reference file & 3, 5 \\
@@ -168,7 +168,7 @@ and writes the receipt \pyfs{run} refuses to start without (Guide 2).\par}
 \begin{itemize}\small
   \item A workstation workspace for planning, one point, looking at results;
         a cluster workspace for long marches and many points.
-  \item \pyfs{pyfs-matrix sync}, run on the main, brings the cluster's runs
+  \item \pyfs{pyfs-workspace sync}, run on the main, brings the cluster's runs
         home at a chosen level; it previews unless told \code{--apply}, and
         never copies a mesh [2].
 \end{itemize}

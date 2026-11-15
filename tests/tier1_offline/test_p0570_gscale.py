@@ -1,6 +1,6 @@
 """P0570-GSCALE: scale an OBJ mesh uniformly into a new output folder (PFS-2222).
 
-Usage: pyfs-workspace geometry scale 0.5 --mesh part.obj --out scaled_folder
+Usage: pyfs-mesh scale 0.5 --mesh part.obj --out scaled_folder
 """
 
 import hashlib
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError, InputValueError
-from pyflightstream.workspace.cli import main
+from pyflightstream.run.mesh_cli import main as mesh_main
 
 OBJ = (
     b"# mesh with comments, v 9 9 9\n"
@@ -164,7 +164,7 @@ def test_the_output_folder_is_created_with_its_parents(mesh, tmp_path):
 
 def test_the_cli_writes_the_folder_and_prints_the_boxes(mesh, tmp_path, capsys):
     out = tmp_path / "cli_out"
-    code = main(["geometry", "scale", "0.5", "--mesh", str(mesh), "--out", str(out)])
+    code = mesh_main(["scale", "0.5", "--mesh", str(mesh), "--out", str(out)])
     assert code == 0
     shown = capsys.readouterr().out
     assert "bounding_box_before" in shown and "bounding_box_after" in shown
@@ -172,10 +172,10 @@ def test_the_cli_writes_the_folder_and_prints_the_boxes(mesh, tmp_path, capsys):
 
 
 def test_the_cli_refuses_by_name_with_exit_two(mesh, tmp_path, capsys):
-    code = main(["geometry", "scale", "-0", "--mesh", str(mesh), "--out", str(tmp_path / "o")])
+    code = mesh_main(["scale", "-0", "--mesh", str(mesh), "--out", str(tmp_path / "o")])
     assert code == 2
     assert "scale: the factor" in capsys.readouterr().err
-    code = main(["geometry", "scale", "0.5", "--mesh", str(tmp_path / "x.obj")])
+    code = mesh_main(["scale", "0.5", "--mesh", str(tmp_path / "x.obj")])
     assert code == 2
 
 
@@ -298,7 +298,7 @@ def test_fsm_through_the_cli_and_a_sidecar_is_left_alone(fsm, tmp_path, capsys):
     side = fsm.parent / "part.boundaries.toml"
     side.write_bytes(b'file = "part.fsm"\n')
     out = tmp_path / "cli_out"
-    code = main(["geometry", "scale", "0.5", "--mesh", str(fsm), "--out", str(out)])
+    code = mesh_main(["scale", "0.5", "--mesh", str(fsm), "--out", str(out)])
     assert code == 0
     assert "bounding_box_after" in capsys.readouterr().out
     assert (out / "part.fsm").is_file()

@@ -1,7 +1,7 @@
 """P0390-REV38 (NFR-45): the mesh command findings of the 0.38.0 review, API-05 and PUSH-IND-ARCH-6.
 
 API-05: the mesh verbs name the file they write ``--out`` as their sibling
-commands do: ``pyfs-workspace geometry refine --out DIR`` and ``pyfs-workspace geometry audit
+commands do: ``pyfs-mesh refine --out DIR`` and ``pyfs-mesh audit
 --out FILE``.
 
 PUSH-IND-ARCH-6: the mesh command reads the boundaries file's trailing-edge

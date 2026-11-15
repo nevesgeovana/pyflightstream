@@ -270,7 +270,7 @@ def test_p0570_fix5_a_point_that_has_its_log_is_left_alone(tmp_path, capsys):
 @pytest.mark.parametrize("flag", ["--sims", "--master", "--apply", "--workspace"])
 def test_p0570_fix5_the_verb_reads_its_flags(flag):
     """PFS-2218: the verb accepts the options the guides name."""
-    from pyflightstream.run.cli import _build_parser
+    from pyflightstream.run._cli_parsers import records_parser as _build_parser
 
     parser = _build_parser()
     assert parser.parse_args(["search-log-batch"]).subcommand == "search-log-batch"

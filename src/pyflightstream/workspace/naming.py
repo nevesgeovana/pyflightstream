@@ -400,7 +400,7 @@ def archive_previous(base: Path, path: Path, *, matrix: str | None = None) -> Pa
     except OSError as error:
         warn(
             f"the previous {path.name} could not be archived ({error}); it is rewritten "
-            "anyway and pyfs-matrix restore will have nothing to bring back for it",
+            "anyway and pyfs-workspace restore will have nothing to bring back for it",
             PyflightstreamWarning,
             stacklevel=2,
         )

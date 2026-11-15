@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.run.cli import main
 from pyflightstream.workspace import RunRecord, RunStatus
 from pyflightstream.workspace.ledger import (
     activity_rows,
@@ -30,6 +29,7 @@ from pyflightstream.workspace.ledger import (
     trace_product,
 )
 from pyflightstream.workspace.record_document import encode_rows
+from tests.tier1_offline._geometry_verbs import main
 
 RUN = "sample/sim_2006/A0"
 NEXT = "sample/sim_2006/r20261002-120000/A0"

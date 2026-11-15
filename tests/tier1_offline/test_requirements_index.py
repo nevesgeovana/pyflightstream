@@ -1188,7 +1188,7 @@ def _doc(relative: str) -> str:
 
 def test_p0430_install_check_command_succeeds():
     """The installation check documented on docs/install.md exits 0 (X-F-1271)."""
-    from pyflightstream.run.cli import main
+    from tests.tier1_offline._geometry_verbs import main
 
     section = _doc("docs/install.md").split("## Check the installation")[1].split("\n## ")[0]
     flags = re.findall(r"`pyfs-matrix (--[a-z-]+)`", section)

@@ -1,4 +1,4 @@
-"""P0540-MERGE: ``pyfs-workspace geometry merge``, written from FR-3480 to FR-3489.
+"""P0540-MERGE: ``pyfs-mesh merge``, written from FR-3480 to FR-3489.
 
 Two parts of one synthetic closed body, a capped tube cut at x = 0, are joined
 along the cut. Every check reads the written files, by the OBJ's own text, so a
@@ -24,7 +24,7 @@ from pyflightstream._errors import (
     NotApplicableWarning,
     PyflightstreamWarning,
 )
-from pyflightstream.workspace import cli as workspace_cli
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import merge_objs
 
 TAU = 2.0 * math.pi
@@ -355,9 +355,8 @@ def test_p0540_merge_no_interface_warns_writes_nothing_and_exits_non_zero(tmp_pa
     second = _write(tmp_path / "adapted.obj", _adapted(29, stations=(0.5, 0.75, 1.0)))
     out = tmp_path / "out.obj"
     with pytest.warns(PyflightstreamWarning, match="nothing was written"):
-        code = workspace_cli.main(
+        code = mesh_main(
             [
-                "geometry",
                 "merge",
                 str(first),
                 str(second),
@@ -374,9 +373,8 @@ def test_p0540_merge_no_interface_warns_writes_nothing_and_exits_non_zero(tmp_pa
     assert not list(tmp_path.glob("out.*"))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
-        code = workspace_cli.main(
+        code = mesh_main(
             [
-                "geometry",
                 "merge",
                 str(first),
                 str(second),
@@ -398,9 +396,8 @@ def test_p0540_merge_the_command_writes_the_obj_its_record_inventory_and_audit(t
     first = _write(tmp_path / "wing.obj", _kept(16))
     second = _write(tmp_path / "nacelle.obj", _adapted(23))
     out = tmp_path / "joined.obj"
-    code = workspace_cli.main(
+    code = mesh_main(
         [
-            "geometry",
             "merge",
             str(first),
             str(second),
@@ -446,9 +443,7 @@ def test_p0540_merge_adapt_is_required_and_decides_which_part_changes(tmp_path, 
     second = _write(tmp_path / "two.obj", _adapted(23))
     out = tmp_path / "out.obj"
     with pytest.raises(SystemExit):
-        workspace_cli.main(
-            ["geometry", "merge", str(first), str(second), "--threshold", "0.05", "--out", str(out)]
-        )
+        mesh_main(["merge", str(first), str(second), "--threshold", "0.05", "--out", str(out)])
     capsys.readouterr()
     with pytest.raises(InputArtifactError, match="names neither"):
         merge_objs(first, second, threshold=0.05, adapt=tmp_path / "three.obj", out=out)

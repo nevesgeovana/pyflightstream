@@ -35,12 +35,13 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._textio import extended_length, long_path
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, _make_dir_link
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import PRUNE_MODE, free_space, sync_workspaces
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 
 STORAGE_SRC = Path(storage_module.__file__)
 #: The free-space recipe runner and the protection it applies live in this
@@ -817,14 +818,14 @@ def test_disk_estimate_fits_when_free_space_is_ample(tmp_path, monkeypatch):
 
 def test_cli_space_in_use_subcommand_and_the_owners_flag_form(tmp_path):
     workspace = _ws(tmp_path)
-    assert matrix_cli.main(["space-in-use", "--workspace", str(workspace.root)]) == 0
-    assert matrix_cli.main(["--workspace", str(workspace.root), "--space-in-use"]) == 0
+    assert workspace_main(["space-in-use", "--workspace", str(workspace.root)]) == 0
+    assert pyfs_main(["--workspace", str(workspace.root), "--space-in-use"]) == 0
 
 
 def test_cli_free_space_flag_form_routes_the_recipe_value(tmp_path):
     workspace = _ws(tmp_path)
     _write_recipe(workspace, "m001", '[[delete_extensions]]\nextensions = [".vtk"]\n')
-    assert matrix_cli.main(["--workspace", str(workspace.root), "--free-space", "m001"]) == 0
+    assert pyfs_main(["--workspace", str(workspace.root), "--free-space", "m001"]) == 0
     calls = storage_module.read_storage_calls(workspace.root)
     assert calls[-1]["action"] == "free-space"
     assert calls[-1]["recipe"].endswith("m001.toml")
@@ -837,9 +838,7 @@ def test_cli_delete_sims_accepts_the_owners_bracketed_id_list(tmp_path):
     workspace.sim_dir("2102").mkdir(parents=True, exist_ok=True)
     workspace.append_record(_record("2102", "camp/sim_2102/AL+000"))
     assert (
-        matrix_cli.main(
-            ["delete-sims", "--sims", "[2101,2102]", "--workspace", str(workspace.root)]
-        )
+        workspace_main(["delete-sims", "--sims", "[2101,2102]", "--workspace", str(workspace.root)])
         == 0
     )
     entry = storage_module.read_storage_calls(workspace.root)[-1]

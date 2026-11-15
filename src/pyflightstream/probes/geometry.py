@@ -191,7 +191,7 @@ def apply_geometry_gate(
             "the grid prescribes a near-surface refinement band, but no surface "
             "mesh was given; the band is measured from the surface, so pass mesh "
             "or mesh_path (export one with pyflightstream.run.export_surface_mesh; "
-            "for a saved workspace body, use pyfs-workspace geometry export-surface-mesh)"
+            "for a saved workspace body, use pyfs-mesh export-surface-mesh)"
         )
     if standoff < 0.0:
         raise ProbeGeometryError("standoff must be zero or positive: it is a wall margin")

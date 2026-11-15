@@ -52,6 +52,7 @@ from pyflightstream.run.matrix import run_matrix as _run_1_executors__run_matrix
 from pyflightstream.run.matrix import run_matrix as _run_1_ids__run_matrix
 from pyflightstream.run.records import mark_converged
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.ledger import read_ledger
 from pyflightstream.workspace.matrix import resolve_matrix
@@ -1276,7 +1277,9 @@ class TestRun1Review:
         camp = CampaignWorkspace.init(tmp_path / "camp")
         for tag in ("AL+000", "AL+020"):
             camp.append_record(_run_1_review__alias_tests._record("2006", f"warm/sim_2006/{tag}"))
-        assert cli.main(["show", "2006", "--point", point, "--workspace", str(camp.root)]) == 1
+        assert (
+            workspace_main(["show", "2006", "--point", point, "--workspace", str(camp.root)]) == 1
+        )
         said = capsys.readouterr().err
         assert f"{point!r}" in said and "'2006'" in said
         assert "AL+000 (2006_1)" in said and "AL+020 (2006_2)" in said

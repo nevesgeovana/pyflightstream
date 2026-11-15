@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import _SELECTED_COST_FILE, _SELECTED_HPC, for_this_invocation
+from pyflightstream._cli import WORKSPACE_VERBS as _WORKSPACE_VERBS
 from pyflightstream._errors import InputValueError
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
@@ -368,14 +369,52 @@ def resume_hint(argv: Sequence[str]) -> str:
     return f"To continue with the points that are new, run:\n  {line}"
 
 
+#: The records, storage and query verbs ``pyfs-workspace`` holds.
+WORKSPACE_VERBS = _WORKSPACE_VERBS
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _InvokedParser(
-        prog="pyfs-matrix",
-        description=(
+    return _kept(
+        _every_verb(
+            "pyfs-matrix",
             "Run-matrix tooling: the matrix is a first-class interface of the "
-            "file-managed modality, with the matrix as the sole campaign declaration."
+            "file-managed modality, with the matrix as the sole campaign declaration.",
         ),
+        lambda name: name not in WORKSPACE_VERBS,
     )
+
+
+def records_parser() -> argparse.ArgumentParser:
+    """Return the parser of the ``pyfs-workspace`` verbs that :data:`WORKSPACE_VERBS` names.
+
+    Built by the same builders as the ``pyfs-matrix`` parser, under the program name
+    ``pyfs-workspace``, with the same global flags.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The parser; its subcommand is ``args.subcommand``, as under ``pyfs-matrix``.
+    """
+    return _kept(
+        _every_verb(
+            "pyfs-workspace",
+            "The records, storage and query verbs of a campaign workspace.",
+        ),
+        lambda name: name in WORKSPACE_VERBS,
+    )
+
+
+def _kept(parser: argparse.ArgumentParser, keep: Any) -> argparse.ArgumentParser:
+    """Drop from ``parser`` every subcommand whose name ``keep`` refuses, aliases included."""
+    (verbs,) = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    for name in [name for name in verbs.choices if not keep(name)]:
+        del verbs.choices[name]
+    verbs._choices_actions = [a for a in verbs._choices_actions if keep(a.dest)]
+    return parser
+
+
+def _every_verb(prog: str, description: str) -> argparse.ArgumentParser:
+    parser = _InvokedParser(prog=prog, description=description)
     parser.add_argument(
         "--warning-refusals",
         action="store_true",

@@ -1,6 +1,6 @@
 """P0560-COLLAPSE-TE: collapse a blunt trailing edge of named blades on an OBJ.
 
-Usage: pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+Usage: pyfs-mesh collapse-te sector.obj --morphing morphing.toml --out sharp.obj
 """
 
 import dataclasses
@@ -15,9 +15,9 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputValueError, NotApplicableWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import collapse_te as cte
 from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj, read_te
-from pyflightstream.workspace.cli import main
 from pyflightstream.workspace.sidecars import read_boundary_declarations
 
 M, STATIONS = 3, 4
@@ -174,7 +174,7 @@ def control(folder, blades='["Blade1"]', extra=""):
 
 def invoke(source, config, out, verb="collapse-te"):
     try:
-        return main(["geometry", verb, str(source), "--morphing", str(config), "--out", str(out)])
+        return mesh_main([verb, str(source), "--morphing", str(config), "--out", str(out)])
     except SystemExit as error:
         return error.code
 
@@ -643,7 +643,7 @@ def mark_preview(path, capsys):
     """Run the mark-boundaries preview, which needs no solver, and return its exit status."""
     capsys.readouterr()
     try:
-        return main(["geometry", "mark-boundaries", str(path)])
+        return mesh_main(["mark-boundaries", str(path)])
     except SystemExit as error:
         return error.code
 
@@ -989,7 +989,7 @@ def test_p0560_a_stale_marking_is_refused_under_the_name_of_the_verb(tmp_path, c
     err = capsys.readouterr().err
     assert text in err
     assert f"before {'repitch' if verb == 'repitch' else 'collapse_te'}" in err
-    assert (verb == "repitch") == ("repitch" in err.replace("geometry repitch", ""))
+    assert (verb == "repitch") == ("repitch" in err.replace("pyfs-mesh repitch", ""))
 
 
 @pytest.mark.requirement("FR-3665")

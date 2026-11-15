@@ -491,7 +491,7 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     with pytest.raises(ValueError, match="wing.surface.stl") as refusal:
         workflow_registry()["steady"](saved, Script("26.124"))
     assert "pyflightstream.run.export_surface_mesh" in str(refusal.value)
-    assert "pyfs-workspace geometry export-surface-mesh" in str(refusal.value)
+    assert "pyfs-mesh export-surface-mesh" in str(refusal.value)
     assert "Planning does not launch the solver." in str(refusal.value)
 
 

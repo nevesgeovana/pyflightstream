@@ -46,6 +46,7 @@ from pyflightstream.run import (
     SubmittingExecutor,
 )
 from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
@@ -80,19 +81,18 @@ def test_p0460_la05_raw_geometry_refusal_gives_one_marking_remedy(suffix):
     message = str(caught.value)
     assert geometry in message and "must be an .fsm" in message
     mesh = Path("inputs/wing.obj")
-    assert f"pyfs-workspace geometry mark-boundaries {mesh} --apply" in message
+    assert f"pyfs-mesh mark-boundaries {mesh} --apply" in message
     assert message.count("--apply") == 1
     assert "then run the saved simulation." in message
     assert "Only FSI rows retain raw meshes." in message
 
 
 def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main
 
     mesh = _p0460_marking_input(tmp_path, extra="[trailing_edges]\nnone = true\n")
     before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
     try:
-        code = main(["geometry", "mark-boundaries", str(mesh)])
+        code = mesh_main(["mark-boundaries", str(mesh)])
     except SystemExit as error:
         code = error.code
     assert code == 0, "the boundary-marking preview must be a registered verb"
@@ -284,13 +284,12 @@ def test_p0460_b1fix_documented_session_commands_preview_and_apply(
     """Mark-boundaries must admit documented IMPORT when its markings are verified."""
     from pyflightstream.commands import CommandRegistry
     from pyflightstream.workspace import apply_mark_boundaries, plan_mark_boundaries
-    from pyflightstream.workspace.cli import main
 
     initial, saved = _p0460_saved_plan(tmp_path)
     registry = _p0460_verified_registry(documented=(command,))
     monkeypatch.setattr(CommandRegistry, "load", lambda: registry)
     before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
-    assert main(["geometry", "mark-boundaries", str(initial.mesh)]) == 0
+    assert mesh_main(["mark-boundaries", str(initial.mesh)]) == 0
     assert "awaiting_evidence: none" in capsys.readouterr().out
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
@@ -494,7 +493,6 @@ def test_p0460_cli_checks_executable_before_marking(
 
     from pyflightstream.commands import CommandRegistry
     from pyflightstream.run import ExecutionResult, LocalExecutor
-    from pyflightstream.workspace.cli import main
 
     plan, saved = _p0460_saved_plan(tmp_path)
     registry = _p0460_verified_registry()
@@ -516,7 +514,7 @@ def test_p0460_cli_checks_executable_before_marking(
 
     monkeypatch.setattr(LocalExecutor, "run_script", run_script)
     assert (
-        main(["geometry", "mark-boundaries", str(plan.mesh), "--apply", "--fs-exe", sys.executable])
+        mesh_main(["mark-boundaries", str(plan.mesh), "--apply", "--fs-exe", sys.executable])
         == expected
     )
     if expected == 0:

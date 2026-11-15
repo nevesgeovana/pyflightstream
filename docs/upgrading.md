@@ -8,7 +8,7 @@ one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).
 
 A grouped job submitted by an earlier version, on a machine whose profile states
 `[log] export_log = false`, ends without the closing marker line, so its last point has no
-log of its own. `pyfs-matrix search-log-batch` writes the last point's log for such a job.
+log of its own. `pyfs-workspace search-log-batch` writes the last point's log for such a job.
 
 ## 0.58.0 post tree
 
@@ -127,22 +127,65 @@ listed every blade of the wheel beside its copies now counts the wheel that many
 keep only the families the mesh carries (a sector meshing one blade of a four-blade wheel writes
 `families_blades = ["Blade1"]` and `PERIODIC_COPIES: 4`).
 
+## The geometry commands move to pyfs-mesh, pyfs-geom and pyfs-fsi (0.58)
+
+The `geometry` group of `pyfs-workspace` is gone: each of its verbs moved, with the same
+arguments, defaults, outputs and exit codes, to the program for what it acts on. Mesh files and
+the workspace geometry build go to `pyfs-mesh`, the IGES rewrite to `pyfs-geom`, the FSI beam
+cut to `pyfs-fsi`. Every old form is refused by name, naming its new command, `--help`
+included. Replace the program and keep the rest of the line.
+
+| Old form | Write instead |
+| --- | --- |
+| `pyfs-workspace geometry refine`, `prepare-to-refine`, `audit`, `inventory`, `degenerate` | `pyfs-mesh refine`, `prepare-to-refine`, `audit`, `inventory`, `degenerate` |
+| `pyfs-workspace geometry trailing-edge`, `convert2midnodes`, `identify-te`, `collapse-te` | `pyfs-mesh trailing-edge`, `convert2midnodes`, `identify-te`, `collapse-te` |
+| `pyfs-workspace geometry visual-inspect`, `merge`, `scale`, `morph`, `repitch`, `hub-rings` | `pyfs-mesh visual-inspect`, `merge`, `scale`, `morph`, `repitch`, `hub-rings` |
+| `pyfs-workspace geometry sector-to-wheel`, `sector-remesh`, `power-off-body`, `prop-slice` | `pyfs-mesh sector-to-wheel`, `sector-remesh`, `power-off-body`, `prop-slice` |
+| `pyfs-workspace geometry iges-grid`, `mesh`, `mesh-generated` | `pyfs-mesh iges-grid`, `mesh`, `mesh-generated` |
+| `pyfs-workspace geometry mark-boundaries`, `export-surface-mesh`, `build`, `accept`, `from-sidecar` | `pyfs-mesh mark-boundaries`, `export-surface-mesh`, `build`, `accept`, `from-sidecar` |
+| `pyfs-workspace geometry iges-convert` | `pyfs-geom iges-convert` |
+| `pyfs-workspace geometry beam` | `pyfs-fsi beam` |
+| `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-mesh refine`, `audit`, `inventory`, `degenerate` |
+
+Only `build`, `mark-boundaries` and `export-surface-mesh` with `--apply` need the solver; every
+other `pyfs-mesh` verb runs without one. Scripts that call `pyflightstream.run.mesh_cli.main`,
+`pyflightstream.run.geom_cli.main` or `pyflightstream.fsi.cli.main` take the same argument
+lists without the leading `geometry`.
+
+## The records, storage and query verbs move to pyfs-workspace (0.58)
+
+`pyfs-matrix` keeps the verbs that need a matrix to know what to do, and `status`: `plan`
+(and `inspect-setups`), `run`, `collect`, `post`, `noise`, `visual-inspect`, `support` and
+`status`. The verbs that act on what the workspace already holds, whichever matrix wrote
+it, are `pyfs-workspace`'s, with the same names, arguments, defaults, outputs and exit
+codes; the settings files, the two matrix homes of `--matrix`, the `--runs` check and the
+live log of `sync`, `restore`, `free-space` and `delete-sims` apply as before. Every old
+form, the flag form `pyfs-matrix --workspace W --free-space m001` included, is refused by
+name, naming its new command. Replace the program and keep the rest of the line.
+
+| Old form | Write instead |
+| --- | --- |
+| `pyfs-matrix space-in-use`, `free-space`, `delete-sims`, `sync` | `pyfs-workspace space-in-use`, `free-space`, `delete-sims`, `sync` |
+| `pyfs-matrix --workspace W --free-space m001` (and `--space-in-use`, `--delete-sims`, `--sync`) | `pyfs-workspace --workspace W --free-space m001` |
+| `pyfs-matrix restore`, `rebuild`, `mark-failed`, `mark-converged`, `search-log-batch` | `pyfs-workspace restore`, `rebuild`, `mark-failed`, `mark-converged`, `search-log-batch` |
+| `pyfs-matrix show`, `log`, `trace`, `history`, `diff` | `pyfs-workspace show`, `log`, `trace`, `history`, `diff` |
+
 ## Removed forms (0.58)
 
 | Old form | Write instead |
 | --- | --- |
 | `analysis_setup(script, vorticity_drag_boundaries=...)` | `solver_settings(script, vorticity_drag_boundaries=...)` |
 | `plan_matrix(..., fs_version=...)`, `run_matrix(..., fs_version=...)` | `default_fs_version=...` (the `pyfs-matrix` option `--fs-version` is unchanged) |
-| `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-workspace geometry refine`, `audit`, `inventory`, `degenerate`, with the same arguments |
+| `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-mesh refine`, `audit`, `inventory`, `degenerate`, with the same arguments |
 | `pyflightstream.post.inflow_tools.StationHarmonics` | `InflowStationHarmonics` |
 | a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
 | `[hub_rings] width` | `[hub_rings] band_width` |
-| `geometry refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
-| `geometry audit --csv` | `--out` |
+| `pyfs-mesh refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
+| `pyfs-mesh audit --csv` | `--out` |
 | `refine_mesh(chordwise=, spanwise=, keep_first_row=)`; family keys `chordwise`, `spanwise`, `keep_first_row` | `normal=`, `parallel=`; keys `normal_factor`, `parallel_factor`; a kept row is its own family |
 | `kind = "normal"`, `kind = "unsteady"` of `[[probes]]` and `[volume_section]` | `kind = "default"`, `kind = "instantaneous"` |
 | `pyfs-workspace archive ROOT SIM_ID` | `archive SIM_ID --workspace ROOT` |
-| `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
+| `sector_to_wheel(hub=...)`, `pyfs-mesh sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
 | `pyfs-matrix run --sweep-csv`, `run_matrix(..., sweep_csv=...)`, `run_campaign(..., sweep_csv=...)`, `pyflightstream.run.SWEEP_TABLE_NAME` | none: the run writes no campaign table; join the `TOTAL` group files of the polars ([joining polars](pproc/index.md#joining-polars)) |
 | setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) ([one home per condition](boundary-conditions.md#one-home-per-condition)) |
 | setup `sonic_velocity_m_per_s` | nothing: the speed of sound follows from the air state of the flight-condition columns |

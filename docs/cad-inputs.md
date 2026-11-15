@@ -5,7 +5,7 @@
     with its CAD body operations, and the row names the built `.fsm`
     ([Geometry: build a body before the run](geometry.md)). A matrix row naming the
     IGES file itself is refused: every row except an FSI row opens an `.fsm`. The
-    sidecar below is what `pyfs-workspace geometry from-sidecar <file>.igs --apply`
+    sidecar below is what `pyfs-mesh from-sidecar <file>.igs --apply`
     converts into that instruction file, its `[trailing_edges]` table included; the
     instruction file reads that table with the `file`, `detect` and `none = true`
     routes ([trailing edges](geometry.md#trailing-edges)).

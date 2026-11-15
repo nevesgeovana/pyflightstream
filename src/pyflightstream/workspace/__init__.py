@@ -70,7 +70,7 @@ previews; recoverable originals and untouched workbook parts are retained.
 There is no background synchronization or macro execution.
 
 The workspace manages its own disk and its other copies:
-:mod:`pyflightstream.workspace.storage` holds ``pyfs-matrix space-in-use``,
+:mod:`pyflightstream.workspace.storage` holds ``pyfs-workspace space-in-use``,
 ``free-space``, ``delete-sims`` and ``sync``, each previewing until applied
 and recorded in ``storage_management.json`` at the root. The directory
 links it and this module stage and remove are

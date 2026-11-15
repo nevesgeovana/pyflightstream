@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
     """Print every path one free-space step touches, read from the step's own entry.
 
-    ``pyfs-matrix free-space --list`` (FR-305): nothing is recomputed here;
+    ``pyfs-workspace free-space --list`` (FR-305): nothing is recomputed here;
     the paths, sizes and reasons are the ones ``storage.free_space`` returned
     and recorded in ``storage_management.json``.
     """

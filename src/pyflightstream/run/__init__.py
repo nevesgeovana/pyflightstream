@@ -67,9 +67,9 @@ ran.
 records themselves: which manifest a command reads (``runs.json``, or
 another file of the workspace root named by ``--runs``; resolved in
 :mod:`pyflightstream.workspace.naming` ), the exact restore
-of a records file from the workspace's archive (``pyfs-matrix restore``),
+of a records file from the workspace's archive (``pyfs-workspace restore``),
 and the rebuild of run records from the folders under ``sims/``
-(``pyfs-matrix rebuild``), which runs each row again in a throwaway copy
+(``pyfs-workspace rebuild``), which runs each row again in a throwaway copy
 with nothing submitted, accepts a record only when the executed script is
 the one this version renders, completes it read-only and marks it
 ``REBUILT``. It also assembles the in-memory records of
@@ -266,6 +266,6 @@ __all__ = [
     "run_campaign",
 ]
 
-# THE pyfs-workspace geometry GROUP (FR-471 to FR-477) registers itself at import:
-# it runs the solver, which this layer owns, and the workspace layer never imports it.
+# pyfs-fsi beam and the records, storage and query verbs of pyfs-workspace register
+# themselves at import, so the fsi branch and the workspace layer never import this one.
 import pyflightstream.run._cli_geometry  # noqa: E402,F401

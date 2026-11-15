@@ -1136,7 +1136,7 @@ def beam_sections(
     ``<geometry>.<family>.beam.toml.bak``, and the sections are cut again
     (:func:`pyflightstream.fsi.sections.sections_from_mesh`) from the blade's
     surface in metres about the hub. The plan of an FSI input with ``[sections] source =
-    "mesh"`` and ``pyfs-workspace geometry beam`` both call it, so both write the same file.
+    "mesh"`` and ``pyfs-fsi beam`` both call it, so both write the same file.
 
     Parameters
     ----------

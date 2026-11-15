@@ -14,8 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace.cli import main as workspace_main
+from tests.tier1_offline._geometry_verbs import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
@@ -81,15 +82,17 @@ def test_p0430_delete_sims_takes_only_the_sims_option(tmp_path, capsys):
     workspace.init(tmp_path)
     for sim in ("2006", "2007"):
         workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000", RunStatus.FAILED_MARKED))
-    assert main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
+    assert (
+        workspace_main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
+    )
     modern = capsys.readouterr().out
     assert "2006" in modern and "2007" in modern
     with pytest.raises(SystemExit) as refused:
-        main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)])
+        workspace_main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)])
     assert refused.value.code == 2
     assert "--sims" in capsys.readouterr().err
     with pytest.raises(SystemExit) as refused:
-        main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)])
+        workspace_main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)])
     assert refused.value.code == 2
 
 
@@ -696,7 +699,7 @@ def test_f1219_one_overlong_line_is_shown_and_flagged_not_dropped(query_workspac
 
     log = query_workspace / "sims" / "sim_9101" / "datapoints" / "DP-A0" / "solver.log"
     log.write_text("x" * (256 * 1024), encoding="utf-8")
-    assert main(["show", "9101_1", "--workspace", str(query_workspace), "--json"]) == 0
+    assert workspace_main(["show", "9101_1", "--workspace", str(query_workspace), "--json"]) == 0
     shown = json.loads(capsys.readouterr().out)["rows"][0]["evidence"][0]
     assert shown["state"] == "present"
     assert len(shown["last_lines"]) == 1 and shown["last_lines"][0].startswith("xxx")

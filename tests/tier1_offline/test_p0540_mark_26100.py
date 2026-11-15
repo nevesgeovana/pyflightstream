@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream._errors import NotApplicableWarning
+from pyflightstream.run.mesh_cli import main as mesh_main
 
 NY = 3
 THICK = 0.05
@@ -446,18 +447,17 @@ def test_p0540_26100_direct_route_warns_names_the_saved_route_and_writes_nothing
 ):
     from pyflightstream.script import ScriptOrderError, _marking
     from pyflightstream.workspace import plan_mark_boundaries
-    from pyflightstream.workspace.cli import main
 
     mesh = _blunt_strip(tmp_path)
     before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
     monkeypatch.setattr(_marking, "MARKING_ROUTE_26100", "direct")
     with (
-        pytest.warns(NotApplicableWarning, match="geometry sector-to-wheel"),
+        pytest.warns(NotApplicableWarning, match="pyfs-mesh sector-to-wheel"),
         pytest.raises(ScriptOrderError, match="nothing was written"),
     ):
         plan_mark_boundaries(mesh)
     with pytest.warns(NotApplicableWarning):
-        code = main(["geometry", "mark-boundaries", str(mesh), "--apply"])
+        code = mesh_main(["mark-boundaries", str(mesh), "--apply"])
     assert code != 0
     assert "sector-to-wheel" in capsys.readouterr().err
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before

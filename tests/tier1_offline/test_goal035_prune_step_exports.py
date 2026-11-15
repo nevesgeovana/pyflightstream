@@ -22,9 +22,9 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, _make_dir_link
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.storage import (
     PRUNE_MODE,
     STEP_EXPORTS_PRUNED,
@@ -188,7 +188,7 @@ def test_a_recipe_can_prune_then_compact_in_one_call(tmp_path):
 def test_the_cli_prints_the_pruned_steps_of_each_point(tmp_path, capsys):
     workspace = _submitted_workspace(tmp_path)
     recipe = _recipe(workspace)
-    assert matrix_cli.main(["free-space", recipe, "--workspace", str(workspace.root)]) == 0
+    assert workspace_main(["free-space", recipe, "--workspace", str(workspace.root)]) == 0
     printed = capsys.readouterr().out
     assert "prune_step_exports: 1 point(s), 6 per-step file(s)" in printed, printed
     assert "sims/sim_7001/datapoints/DP-AL-020: steps 3 to 4 (2 step(s))" in printed, printed

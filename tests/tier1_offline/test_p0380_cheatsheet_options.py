@@ -125,8 +125,9 @@ def test_every_option_of_every_pyfs_matrix_subcommand_is_in_the_cheatsheet():
     (an alias read once). Help is included in the option walk.
     """
     options = parser_options(_parser())
-    assert len({sub for sub, _ in options}) >= 22, len({sub for sub, _ in options})
-    assert len(options) >= 200, len(options)
+    # 0.58.0 (PFS-2261): 8 after the records, storage and query verbs left for pyfs-workspace.
+    assert len({sub for sub, _ in options}) >= 8, len({sub for sub, _ in options})
+    assert len(options) >= 120, len(options)
     missing = missing_options(options, cheatsheet_text())
     assert not missing, (
         "the cheatsheet sources never name these options of pyfs-matrix:\n"

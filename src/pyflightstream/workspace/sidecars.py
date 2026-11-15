@@ -217,9 +217,7 @@ def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
     record = path.with_suffix(".mark.json")
     if not record.exists():
         return None
-    remedy = (
-        f"pyfs-workspace geometry mark-boundaries {path.with_suffix('.obj')} --apply --overwrite"
-    )
+    remedy = f"pyfs-mesh mark-boundaries {path.with_suffix('.obj')} --apply --overwrite"
     try:
         data = json.loads(record.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
@@ -327,8 +325,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
             "beside the [import] table that states its units (docs/mesh-inputs.md)."
         )
     body = [
-        f"# Boundary inventory of {path.name}, read from its mesh block by "
-        "`pyfs-workspace geometry inventory`.",
+        f"# Boundary inventory of {path.name}, read from its mesh block by `pyfs-mesh inventory`.",
         "# The solver's own order: the name at position i is boundary i (1-based).",
         # Quoted as TOML strings, as the OBJ twin quotes them (PFS-2095.034): a name with a
         # backslash or a double quote wrote invalid TOML or another name.
@@ -469,7 +466,7 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
 
     THE ONE PLACE A SIDECAR IS ASKED FOR. The matrix binding, which
     ``pyfs-matrix plan`` and ``pyfs-matrix run`` both pass through, and
-    ``pyfs-workspace geometry inventory`` (:func:`write_inventory`) reach the sidecar
+    ``pyfs-mesh inventory`` (:func:`write_inventory`) reach the sidecar
     through this function, so an OBJ is treated alike wherever a user
     meets it:
 
@@ -485,7 +482,7 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
       groups cannot be read, the sidecar written by hand is that file's
       route and nothing is said.
     * any other geometry is left as it was: a saved simulation's sidecar
-      is written by ``pyfs-workspace geometry inventory`` from its mesh block, and an
+      is written by ``pyfs-mesh inventory`` from its mesh block, and an
       STL's by hand.
 
     Parameters
@@ -762,7 +759,7 @@ def refresh_obj_inventory(geometry: str | Path) -> Path:
         raise InputArtifactError(
             f"{inventory_sidecar(path, 'obj')} does not exist, and refresh (CLI: --refresh) "
             "rewrites an existing sidecar only; write it with "
-            f"`pyfs-workspace geometry inventory {path}`."
+            f"`pyfs-mesh inventory {path}`."
         )
     if read_inventory(sidecar) != obj_boundary_names(path):
         raise InputArtifactError(
@@ -1264,12 +1261,12 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
     ),
     "boundaries": InputKey(
         "The mesh's boundary names in the solver's order, the name at position i being "
-        "boundary i; read from a saved simulation by pyfs-workspace geometry inventory, "
+        "boundary i; read from a saved simulation by pyfs-mesh inventory, "
         "read from an OBJ's groups by the plan when it has no sidecar, written by hand for an STL.",
         "a list of names",
     ),
     "file": InputKey(
-        "The file the inventory was read from, as pyfs-workspace geometry inventory writes it; "
+        "The file the inventory was read from, as pyfs-mesh inventory writes it; "
         "nothing reads it back.",
         "a file name",
     ),

@@ -46,6 +46,7 @@ import trimesh
 
 from pyflightstream._fsm import surface_mesh
 from pyflightstream._fsm import trailing_edge_midpoints as saved_trailing_edge_midpoints
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import (
     TrailingEdge,
     extract_trailing_edge,
@@ -701,13 +702,10 @@ def test_the_edge_is_written_as_the_points_file_a_geometry_names(tmp_path, works
     and unit. The run converts it into the solver's node file."""
     path, _, trailing = _blade_file(tmp_path)
     if workspace_cli:
-        from pyflightstream.workspace.cli import main
-
         written = tmp_path / "blade.te.txt"
         assert (
-            main(
+            mesh_main(
                 [
-                    "geometry",
                     "trailing-edge",
                     str(path),
                     str(written),

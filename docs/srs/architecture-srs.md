@@ -502,6 +502,8 @@ TOML configuration, sections, lifting surfaces, bodies, propellers, stage table 
 profile), which imports no geometry kernel. The kernel (gmsh) is reached only through the
 workspace layer's kernel adapter and its disposable worker process. `workspace.geometry_pipeline`
 runs stages S0 to S13 and the strategy 1 and 2 meshers; `run.geom_cli` is the `pyfs-geom` command
-line over it and runs as `python -m pyflightstream.run.geom_cli`. `workspace.scale` and
+line over it and runs as `python -m pyflightstream.run.geom_cli`; `run.mesh_cli` is the
+`pyfs-mesh` command line of the mesh operations and the workspace geometry build, the mesh
+half of the same split as `cfd-mesh` and `cfd-geom`. `workspace.scale` and
 `workspace.prop_slice` are independent mesh and propeller utilities that take files in and write
 files out, and the run matrix reaches generated geometry through the `MESH_ROUTE` column.

@@ -392,7 +392,7 @@ def _match_settings(
         raise InputArtifactError(
             f"setup preset {set_code!r} states mesh_order_list, which is the boundary "
             "order of one mesh and belongs beside that mesh, not in a preset several "
-            "geometries share. Write it from the file itself: `pyfs-workspace geometry inventory "
+            "geometries share. Write it from the file itself: `pyfs-mesh inventory "
             "inputs/geometries/<file>` reads the mesh block and writes "
             "<stem>.boundaries.toml beside the geometry, and the run refuses a sidecar "
             "that disagrees with the file (PFS-2029.06). Remove the key from the setup."

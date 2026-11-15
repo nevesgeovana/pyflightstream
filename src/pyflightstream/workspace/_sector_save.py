@@ -1,6 +1,6 @@
 """Quads collected as the triangle pairs of a saved simulation, and the file written (PFS-2186.06).
 
-Pipeline role: the writing half of ``pyfs-workspace geometry sector-remesh`` and ``power-off-body``.
+Pipeline role: the writing half of ``pyfs-mesh sector-remesh`` and ``power-off-body``.
 A surface is built as quads; the saved layout records a quad as two triangles that name each
 other as partner, so :class:`QuadSink` keeps them in that order and :func:`face_rows` writes the
 25 per-face rows of the layout.

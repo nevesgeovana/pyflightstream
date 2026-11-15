@@ -36,7 +36,12 @@ import warnings
 from pathlib import Path
 from typing import NoReturn
 
-from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
+from pyflightstream._cli import (
+    cli_entrypoint,
+    note_post_ran,
+    post_warning_policy,
+    refused_command,
+)
 
 # Re-export the console helpers and plan types at this public dotted path
 # (parity arm R1, AD-15): blocks, table, wrap, print_held_warnings,
@@ -83,12 +88,12 @@ from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
 from pyflightstream.run._cli_parsers import (
-    GEOMETRY_COMMANDS,
     _build_parser,
     cmd_mark_converged,
     cmd_search_log_batch,
     collect_interval_error,
     parsed,
+    records_parser,
     resume_hint,
     watch_interval_error,
 )
@@ -215,17 +220,6 @@ def _refused_campaign_file(argv: list[str] | None) -> bool:
     return True
 
 
-def _refused_geometry_verb(argv: list[str] | None) -> bool:
-    """Name the ``pyfs-workspace geometry`` home of a geometry verb ``pyfs-matrix`` once had."""
-    from pyflightstream._retired_names import REMOVED_FORMS
-
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments[0] not in GEOMETRY_COMMANDS:
-        return False
-    print(REMOVED_FORMS[f"pyfs-matrix.{arguments[0]}"].message(), file=sys.stderr)
-    return True
-
-
 def _refused_sweep_csv(argv: list[str] | None) -> bool:
     """Name the successor of ``run --sweep-csv``, retired with the table it named."""
     from pyflightstream._retired_names import REMOVED_FORMS
@@ -255,9 +249,41 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
-    if _refused_campaign_file(argv) or _refused_geometry_verb(argv) or _refused_sweep_csv(argv):
+    # A removed command (the mesh verbs, PFS-2260; the records, storage and query verbs and
+    # their flag form, PFS-2261) is named past the global flags.
+    removed = refused_command("pyfs-matrix", _storage_flag_form(argv))
+    if removed or _refused_campaign_file(argv) or _refused_sweep_csv(argv):
         return 2
-    parser = _build_parser()
+    return _run_command("pyfs-matrix", _build_parser(), argv)
+
+
+@cli_entrypoint
+def _records_main(argv: list[str] | None = None) -> int:
+    """Run a records, storage or query verb of ``pyfs-workspace``.
+
+    Through the same steps as the ``pyfs-matrix`` verbs: the flag form of the storage
+    verbs, the workspace's settings files (FR-436), the two homes of a ``--matrix``
+    argument (FR-310), the ``--runs`` check and the live log of ``sync``, ``restore``,
+    ``free-space`` and ``delete-sims``. ``pyfs-workspace`` hands its command
+    line here, before parsing, when the command is one of
+    :data:`~pyflightstream.run._cli_parsers.WORKSPACE_VERBS`.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The ``pyfs-workspace`` command line without the program name; None reads
+        ``sys.argv``.
+
+    Returns
+    -------
+    int
+        The exit code of the verb.
+    """
+    return _run_command("pyfs-workspace", records_parser(), argv)
+
+
+def _run_command(program: str, parser: argparse.ArgumentParser, argv: list[str] | None) -> int:
+    """Parse ``argv`` with ``parser`` and run the command, the console opened for ``program``."""
     # FR-436: what the command line does not state, the workspace files may.
     args = parsed(parser, _storage_flag_form(argv))
     # Console contract (FR-200 to FR-204): titled opening, final warnings,
@@ -265,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     with (
         option_context("warning_refusals", args.warning_refusals),
         command_console(
-            "pyfs-matrix",
+            program,
             args.subcommand,
             what=command_help(parser, [args.subcommand]),
             workspace=getattr(args, "workspace", None),

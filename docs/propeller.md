@@ -156,7 +156,7 @@ is refused with the value it needs.
 `Propeller.spinner()` returns the spinner patches of every sector in mm, its
 record (`info`) and the junction trims. `output.blades = "all"` writes the N
 blades and every spinner face; `"one"` writes blade 1 and spinner sector 1
-with its seams free, the piece `geometry sector-to-wheel` copies. The runner
+with its seams free, the piece `pyfs-mesh sector-to-wheel` copies. The runner
 writes `<component>.spinner.json` beside the IGES: the resolved inputs with
 their provenance, the band, the seam azimuths, the circle deviation, the
 continuity measures and the checks.
@@ -187,12 +187,12 @@ pyfs-geom run docs/examples/propeller/spinner_naca.toml --out build/spinner
 
 ## Slicing an existing propeller
 
-`geometry prop-slice` reads a propeller OBJ or IGES and writes the definition above
+`pyfs-mesh prop-slice` reads a propeller OBJ or IGES and writes the definition above
 that rebuilds it:
 
 ```console
-pyfs-workspace geometry prop-slice --geometry rotor.igs --blades 3 --out sliced_igs
-pyfs-workspace geometry prop-slice --geometry rotor.obj --blades 5 --stations 0.25 0.4 0.55 0.7 0.85 1.0 --out sliced_obj
+pyfs-mesh prop-slice --geometry rotor.igs --blades 3 --out sliced_igs
+pyfs-mesh prop-slice --geometry rotor.obj --blades 5 --stations 0.25 0.4 0.55 0.7 0.85 1.0 --out sliced_obj
 ```
 
 The folder holds `propeller.toml` (schema 1, read by `Propeller.from_toml`),

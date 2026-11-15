@@ -8,8 +8,8 @@ import pytest
 
 from pyflightstream.run import LocalExecutor
 from pyflightstream.run.cli import main
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace import InputArtifactError
-from pyflightstream.workspace.cli import main as workspace_main
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 CASES = (
@@ -32,7 +32,7 @@ def test_p0460_examples_preview_marking_and_refuse_unmarked_plan(
     shutil.copytree(EXAMPLES / "using-CLI" / name, workspace)
     runpy.run_path(str(EXAMPLES / "using-CLI" / "prepare.py"))["prepare"](workspace)
     for mesh in (workspace / "inputs" / "geometries").glob("*.obj"):
-        assert workspace_main(["geometry", "mark-boundaries", str(mesh)]) == 0
+        assert mesh_main(["mark-boundaries", str(mesh)]) == 0
         assert not mesh.with_suffix(".fsm").exists()
     assert main(["plan", str(workspace / "matrix.fs"), "--workspace", str(workspace)]) == 2
     captured = capsys.readouterr()

@@ -316,7 +316,7 @@ _ARTIFACT_INTROS: Mapping[str, str] = MappingProxyType(
         ),
         "geometry": (
             "The saved FSM inventory a matrix reads. OBJ declarations are consumed once "
-            "by geometry mark-boundaries before the saved simulation runs."
+            "by pyfs-mesh mark-boundaries before the saved simulation runs."
         ),
     }
 )
@@ -960,7 +960,7 @@ def _geometry_tables() -> list[GlossaryTable]:
         GlossaryTable(
             "geometry",
             "Top-level keys and tables",
-            "Beside a saved simulation, `pyfs-workspace geometry inventory` writes it; "
+            "Beside a saved simulation, `pyfs-mesh inventory` writes it; "
             "beside an OBJ with none, the plan writes its `boundaries` from the OBJ's groups; "
             "beside an STL, it is written by hand.",
             _key_rows(GEOMETRY_SIDECAR_KEYS),

@@ -98,7 +98,7 @@ def test_inventory_warns_and_names_clean_by_default_fr_308(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "warning: 01_ROTOR.fsm carries 2 unsteady solver action(s)" in captured.err
     assert "pfs_walltime_clock [COMMAND_LINE]" in captured.err and CLOCK in captured.err
-    assert f"pyfs-workspace geometry inventory {geometry} --clean" in captured.err
+    assert f"pyfs-mesh inventory {geometry} --clean" in captured.err
     assert captured.out.strip() == str(tmp_path / "01_ROTOR.fsm.boundaries.toml")
     assert geometry.read_bytes() == before, "the warning changed the file"
 

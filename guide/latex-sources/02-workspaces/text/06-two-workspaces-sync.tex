@@ -3,8 +3,8 @@
 % 02-workspaces/text/06-two-workspaces-sync.tex
 %
 % Working on a Windows workstation and on an HPC cluster: two workspaces, one
-% of them the main, kept together by pyfs-matrix sync. Source of record:
-% docs/storage-and-sync.md and `pyfs-matrix sync --help` of the version on
+% of them the main, kept together by pyfs-workspace sync. Source of record:
+% docs/storage-and-sync.md and `pyfs-workspace sync --help` of the version on
 % the title page.
 
 \section{Windows and an HPC cluster: two workspaces and sync}
@@ -34,7 +34,7 @@
 \end{block}
 \end{column}
 \end{columns}
-\begin{takeaway}Runs are done in either workspace. \pyfs{pyfs-matrix sync}, run
+\begin{takeaway}Runs are done in either workspace. \pyfs{pyfs-workspace sync}, run
 on the main, brings the cluster's runs and results home.\end{takeaway}
 \end{frame}
 
@@ -97,8 +97,8 @@ matrices = ["matriz_hpc"]
 
 \begin{frame}[fragile]{Four levels, each one the previous plus more}
 \begin{lstlisting}[style=ftsbase]
-pyfs-matrix sync post --workspace .            # preview: changes nothing
-pyfs-matrix sync post --workspace . --apply    # then do it
+pyfs-workspace sync post --workspace .            # preview: changes nothing
+pyfs-workspace sync post --workspace . --apply    # then do it
 \end{lstlisting}
 {\ftstablesize
 \begin{tabular}{@{}lp{0.78\linewidth}@{}}
@@ -171,8 +171,8 @@ to matrices.
         nothing is outstanding. Edit only the matrices the cluster owns.
   \item On the main, in Windows:
 \begin{lstlisting}[style=ftsbase]
-pyfs-matrix sync post --workspace .          # read the preview
-pyfs-matrix sync post --workspace . --apply
+pyfs-workspace sync post --workspace .          # read the preview
+pyfs-workspace sync post --workspace . --apply
 \end{lstlisting}
   \item Commit the synced matrices on the main, with the reason.
 \end{enumerate}
@@ -183,9 +183,9 @@ pyfs-matrix sync post --workspace . --apply
 
 \begin{frame}[fragile]{Three commands that keep a workspace small}
 \begin{lstlisting}[style=ftsbase]
-pyfs-matrix space-in-use --workspace .              # sizes; changes nothing
-pyfs-matrix free-space m001 --workspace . --apply   # inputs/management/m001.toml
-pyfs-matrix delete-sims --sims 4001 2009 --workspace . --apply
+pyfs-workspace space-in-use --workspace .              # sizes; changes nothing
+pyfs-workspace free-space m001 --workspace . --apply   # inputs/management/m001.toml
+pyfs-workspace delete-sims --sims 4001 2009 --workspace . --apply
 \end{lstlisting}
 \begin{itemize}\small
   \item \code{space-in-use}: sizes by top folder, by \code{sims/sim\_*} and by

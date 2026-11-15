@@ -51,7 +51,7 @@ def require_marking_build(script: Script) -> None:
     """Refuse a build whose marking order is neither measured, carried nor documented (FR-3402).
 
     26.100 marks by vertex file (FR-3470) while ``MARKING_ROUTE_26100`` is ``"solver"``;
-    with ``"direct"`` it warns, names ``pyfs-workspace geometry sector-to-wheel`` on a
+    with ``"direct"`` it warns, names ``pyfs-mesh sector-to-wheel`` on a
     saved sector and refuses, so nothing is written (FR-3471).
     """
     build = script.version.canonical
@@ -61,7 +61,7 @@ def require_marking_build(script: Script) -> None:
                 "marking boundaries on FlightStream 26.100 is not applicable: the solver route "
                 "cannot mark the rims of a blunt trailing edge without the edges between them. "
                 "Mark the boundaries on a saved sector and build the wheel from it with "
-                "`pyfs-workspace geometry sector-to-wheel`; nothing was written"
+                "`pyfs-mesh sector-to-wheel`; nothing was written"
             )
             warn(message, NotApplicableWarning, stacklevel=3)
             raise ScriptOrderError(message)

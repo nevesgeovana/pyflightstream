@@ -24,12 +24,12 @@ import warnings
 
 import pytest
 
-import pyflightstream.run.cli as cli
 import pyflightstream.run.matrix as matrix_module
 from pyflightstream.cases import point_name
 from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run import LoadsAssessor
 from pyflightstream.workspace.matrix import resolve_matrix
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_matrix_run import (
     WRITES_EVERY_EXPORT,
     CountingStub,
@@ -95,13 +95,13 @@ def test_fr326_a_simulation_and_a_point_are_planned_and_run_alone(tmp_path, monk
     names = _names(workspace, matrix, "5002")
     chosen = names[1]
     before = matrix.read_bytes()
-    assert cli.main(_argv("plan", workspace, matrix, "--sims", "5002", "--points", chosen)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix, "--sims", "5002", "--points", chosen)) == 0
     planned = json.dumps(
         json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8"))["points"]
     )
     assert chosen in planned and names[0] not in planned and "5001" not in planned, planned
     capsys.readouterr()
-    status = cli.main(_argv("run", workspace, matrix, "--sims", "5002", "--points", chosen))
+    status = pyfs_main(_argv("run", workspace, matrix, "--sims", "5002", "--points", chosen))
     assert status == 0, capsys.readouterr().err
     assert len(stub.invocations) == 1
     (record,) = workspace.read_manifest()
@@ -118,12 +118,12 @@ def test_fr326_sims_alone_selects_whole_simulations_and_force_rerun_all_keeps_it
     recorded points of the simulations it names, and says the count first.
     """
     workspace, matrix, stub = _two_simulations(tmp_path, monkeypatch)
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
-    assert cli.main(_argv("run", workspace, matrix, "--sims", "5001")) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("run", workspace, matrix, "--sims", "5001")) == 0
     assert [record.sim_id for record in workspace.read_manifest()] == ["5001"]
     assert len(stub.invocations) == 1
     capsys.readouterr()
-    status = cli.main(_argv("run", workspace, matrix, "--force-rerun-all", "--sims", "5001"))
+    status = pyfs_main(_argv("run", workspace, matrix, "--force-rerun-all", "--sims", "5001"))
     assert status == 0
     assert "force-rerun-all: selected 3 point(s) in 1 job(s)" in capsys.readouterr().err
     assert len(stub.invocations) == 2
@@ -144,9 +144,9 @@ def test_fr326_an_id_or_a_point_the_matrix_lacks_is_refused_before_anything_runs
 ):
     """P0340-RUN-ONE-POINT (FR-326): the refusal names it and what exists, and nothing runs."""
     workspace, matrix, stub = _two_simulations(tmp_path, monkeypatch)
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     capsys.readouterr()
-    assert cli.main(_argv(command, workspace, matrix, *extra)) == 2
+    assert pyfs_main(_argv(command, workspace, matrix, *extra)) == 2
     err = capsys.readouterr().err
     assert said in err, err
     if "9999" in said:
@@ -163,13 +163,13 @@ def test_fr326_a_selected_point_already_recorded_is_refused_as_before(
     workspace, matrix, stub = _two_simulations(tmp_path, monkeypatch)
     chosen = _names(workspace, matrix, "5001")[0]
     argv = _argv("run", workspace, matrix, "--sims", "5001", "--points", chosen)
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
-    assert cli.main(argv) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(argv) == 0
     capsys.readouterr()
-    assert cli.main(argv) == 2
+    assert pyfs_main(argv) == 2
     assert "already in the manifest" in capsys.readouterr().err
     assert len(stub.invocations) == 1
-    assert cli.main([*argv, "--resume"]) == 0
+    assert pyfs_main([*argv, "--resume"]) == 0
     assert len(stub.invocations) == 1, "a resume re-ran a recorded point"
 
 
@@ -182,8 +182,8 @@ def test_fr326_force_rerun_of_a_selected_point_leaves_an_unselected_record_uncha
     unselected simulation 5002 is byte for byte what it was, and the redone one ran again.
     """
     workspace, matrix, stub = _two_simulations(tmp_path, monkeypatch)
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
-    assert cli.main(_argv("run", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("run", workspace, matrix)) == 0
     assert len(stub.invocations) == 2
     capsys.readouterr()
     chosen = _names(workspace, matrix, "5001")[0]
@@ -193,7 +193,7 @@ def test_fr326_force_rerun_of_a_selected_point_leaves_an_unselected_record_uncha
 
     other = {r.sim_id: dump(r) for r in workspace.read_manifest() if r.sim_id == "5002"}
     argv = _argv("run", workspace, matrix, "--sims", "5001", "--points", chosen)
-    assert cli.main([*argv, "--force-rerun", chosen]) == 0, capsys.readouterr().err
+    assert pyfs_main([*argv, "--force-rerun", chosen]) == 0, capsys.readouterr().err
     assert len(stub.invocations) == 3, "the selected point was not redone"
     after = {r.sim_id: dump(r) for r in workspace.read_manifest() if r.sim_id == "5002"}
     assert after == other, "the record of an unselected simulation changed"
@@ -217,23 +217,23 @@ def test_fr327_a_second_run_names_the_command_that_continues_it_with_resume(
     text = matrix.read_text(encoding="utf-8")
     matrix.write_text(text.replace("-2.0,0.0,2.0", "0.0"), encoding="utf-8")
     argv = _argv("run", workspace, matrix, "--local")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
-    assert cli.main(argv) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(argv) == 0
     assert len(stub.invocations) == 1
     first = capsys.readouterr()
     assert "To continue" not in first.err, "the control, nothing recorded, printed the hint"
     matrix.write_text(text.replace("-2.0,0.0,2.0", "0.0,2.0,4.0"), encoding="utf-8")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     capsys.readouterr()
     before = [record.run_id for record in workspace.read_manifest()]
-    assert cli.main(argv) == 2
+    assert pyfs_main(argv) == 2
     err = capsys.readouterr().err
     assert "1 point(s) of this run are recorded and 2 would run" in err, err
     (printed,) = [line.strip() for line in err.splitlines() if line.strip().endswith("--resume")]
     words = _words_of(printed)
     assert words == ["pyfs-matrix", *argv, "--resume"], words
     assert len(stub.invocations) == 1 and [r.run_id for r in workspace.read_manifest()] == before
-    assert cli.main(words[1:]) == 0
+    assert pyfs_main(words[1:]) == 0
     assert len(stub.invocations) == 2
     ran = [record for record in workspace.read_manifest() if record.run_id not in before]
     assert sum(max(len(record.points_ran or []), 1) for record in ran) == 2, ran
@@ -293,14 +293,14 @@ def test_fr327_a_steady_row_recorded_as_one_job_is_counted_by_the_points_it_ran(
     monkeypatch.setattr(LoadsAssessor, "__call__", lambda self, *args: converged(*args))
     text = matrix.read_text(encoding="utf-8")
     argv = _argv("run", workspace, matrix, "--local")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
-    assert cli.main(argv) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(argv) == 0
     (job,) = workspace.read_manifest()
     assert len(job.points_ran or []) == 3, "the fixture must record one job of three points"
     matrix.write_text(text.replace("-2.0,0.0,2.0", "-2.0,0.0,2.0,4.0"), encoding="utf-8")
-    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert pyfs_main(_argv("plan", workspace, matrix)) == 0
     capsys.readouterr()
-    assert cli.main(argv) == 2
+    assert pyfs_main(argv) == 2
     err = capsys.readouterr().err
     assert "3 point(s) of this run are recorded and 1 would run" in err, err
     assert any(line.strip().endswith("--resume") for line in err.splitlines()), err

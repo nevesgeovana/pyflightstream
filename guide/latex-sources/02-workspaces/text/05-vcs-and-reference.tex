@@ -176,10 +176,10 @@ plan     & \code{pyfs-matrix plan <matrix>.fs --workspace . --fs-version 26.123}
 POL fix  & \code{... --update-ids} & same, then sync and commit on the main \\
 run      & \code{pyfs-matrix run <matrix>.fs --workspace . --fs-version 26.123} & same; submits \\
 collect  & not needed & \code{pyfs-matrix collect --workspace .} \\
-sync     & \code{pyfs-matrix sync post --workspace . --apply} & not run here \\
+sync     & \code{pyfs-workspace sync post --workspace . --apply} & not run here \\
 post     & \code{pyfs-matrix post <matrix>.fs --workspace .} & same \\
 continue & \code{RESTART: \{FINISH\_PENDING\}} in the free cell & same \\
-space    & \code{pyfs-matrix space-in-use --workspace .} & same \\
+space    & \code{pyfs-workspace space-in-use --workspace .} & same \\
 \bottomrule
 \end{tabular}}
 \vspace{2mm}

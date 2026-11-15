@@ -51,9 +51,9 @@ from pyflightstream.run import (
     plan_receipt_error,
 )
 from pyflightstream.run import cli as cli_module
-from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, find_matrix
 from pyflightstream.workspace.ledger import read_ledger
+from tests.tier1_offline._geometry_verbs import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "workflow_rotor_matrix.fs"
@@ -651,29 +651,17 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
     # and takes no recipe, no version and no executable. `refine` joined with it
     # (FR-424) on the same terms: it reads one OBJ and needs no executable.
     # `visual-inspect` joined at 0.53.0 (FR-3440): it reads matrices only.
+    # The records, storage and query verbs other than `status` left for pyfs-workspace at
+    # 0.58.0 (PFS-2261): they act on what the workspace holds, not on a matrix.
     assert set(choices) == {
         "noise",
         "collect",
-        "delete-sims",
-        "diff",
-        "free-space",
-        "history",
         "inspect-setups",
-        "mark-converged",
-        "mark-failed",
         "plan",
         "post",
-        "rebuild",
-        "restore",
         "run",
-        "search-log-batch",
-        "space-in-use",
         "support",
         "status",
-        "show",
-        "log",
-        "trace",
-        "sync",
         "visual-inspect",
     }
     assert choices["inspect-setups"] is choices["plan"], (

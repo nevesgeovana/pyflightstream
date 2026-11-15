@@ -19,6 +19,7 @@ from pyflightstream.run import (
     LocalExecutor,
     describe_invocation,
 )
+from pyflightstream.run._cli_parsers import records_parser
 from pyflightstream.run.collect import JOB_END_TAIL_LINES, collect_once
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import HpcProfile, InputArtifactError, read_hpc_profile
@@ -637,9 +638,8 @@ def test_f264_status_csv_keeps_every_digit_of_a_float(tmp_path, capsys):
 
 def test_f1568_log_sims_takes_blank_separated_words():
     # Verifies F-1568: log --sims 2006 2007 is the spelling its help promises.
-    from pyflightstream.run.cli import _build_parser
 
-    args = _build_parser().parse_args(["log", "--sims", "2006", "2007"])
+    args = records_parser().parse_args(["log", "--sims", "2006", "2007"])
     assert args.sims == ["2006", "2007"]
 
 
@@ -677,8 +677,8 @@ def test_f1255_tail_reads_the_last_lines_of_a_large_file(tmp_path):
 
 def test_fr2329_an_unknown_status_word_is_refused_with_the_vocabulary(tmp_path, capsys):
     # Verifies FR-2329: a status-filter typo fails, and a valid word or prefix is accepted.
-    from pyflightstream.run.cli import main
     from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline._geometry_verbs import main
 
     root = tmp_path / "camp"
     CampaignWorkspace.init(root)

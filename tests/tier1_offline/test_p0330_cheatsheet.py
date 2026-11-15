@@ -347,7 +347,8 @@ def test_the_cheatsheet_names_every_subcommand_and_option_of_the_parser():
     # A floor, so a parser captured empty or a walk that reads nothing cannot
     # pass: 0.33.0 offers 16 subcommand names, the alias included, and 128
     # option strings besides the help.
-    assert subcommands >= 16 and options >= 120, (subcommands, options)
+    # 0.58.0 (PFS-2261): the records, storage and query verbs left for pyfs-workspace.
+    assert subcommands >= 9 and options >= 120, (subcommands, options)
     defects = missing_from_cheatsheet(parser, CHEATSHEET.read_text(encoding="utf-8"))
     assert not defects, (
         "the cheatsheet does not match the parser of pyfs-matrix:\n"
@@ -393,16 +394,18 @@ def test_a_flag_named_only_in_another_entry_or_cut_from_the_page_is_named():
     assert missing_from_cheatsheet(parser, text.replace(collect_line.group(0), "", 1)) == [
         "collect: --sims"
     ]
-    assert text.count("--list") == 1, "the control below expects --list in one entry"
-    assert missing_from_cheatsheet(parser, text.replace("--list", "")) == ["free-space: --list"]
-    stale = text.replace(r"\stage{8.", "\\sub{no-such-command}{gone}\n\\stage{8.", 1)
-    assert missing_from_cheatsheet(parser, stale) == ["no-such-command: entry for no subcommand"]
-    commented = text.replace(r"\item \fl{--top N}", r"% \item \fl{--top N}", 1)
-    # The commented line also carried --workspace, so both go.
-    assert sorted(missing_from_cheatsheet(parser, commented)) == [
-        "space-in-use: --top",
-        "space-in-use: --workspace",
+    assert text.count("--diagnostics") == 1, "the control below expects it in one entry"
+    assert missing_from_cheatsheet(parser, text.replace("--diagnostics", "")) == [
+        "post: --diagnostics"
     ]
+    stale = text.replace(r"\stage{6 TO 8.", "\\sub{no-such-command}{gone}\n\\stage{6 TO 8.", 1)
+    assert missing_from_cheatsheet(parser, stale) == ["no-such-command: entry for no subcommand"]
+    line = r"\item \fl{--sims 2006,2007} (or \texttt{[2006,2007]}) \quad \fl{--matrix STEM}"
+    commented = text.replace(line, "% " + line, 1)
+    # The commented line carried every selector of status, so each goes.
+    assert {"status: --failed", "status: --matrix", "status: --sims", "status: --status"} <= set(
+        missing_from_cheatsheet(parser, commented)
+    )
 
 
 @pytest.mark.requirement("NFR-29")

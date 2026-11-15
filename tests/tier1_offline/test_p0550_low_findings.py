@@ -114,7 +114,7 @@ def test_p0550_mark_boundaries_refuses_a_broken_command_without_python_advice(
 ) -> None:
     import argparse
 
-    from pyflightstream.run._cli_geometry import run_geometry
+    from pyflightstream.run.mesh_cli import run_mesh_verb
     from pyflightstream.script import BrokenCommandError
 
     error = BrokenCommandError("FOO is broken on 26.126. Script.allow_broken waives it.")
@@ -126,8 +126,8 @@ def test_p0550_mark_boundaries_refuses_a_broken_command_without_python_advice(
         def __fspath__(self) -> str:
             raise error
 
-    args = argparse.Namespace(geometry_command="mark-boundaries", mesh=Poisoned(), apply=False)
-    code = run_geometry(args)
+    args = argparse.Namespace(verb="mark-boundaries", mesh=Poisoned(), apply=False)
+    code = run_mesh_verb(args)
     err = capsys.readouterr().err
     assert code == 2
     assert "FOO is broken on 26.126." in err
@@ -202,7 +202,7 @@ def test_p0550_mark_boundaries_names_no_flag_it_does_not_have(
 ) -> None:
     import argparse
 
-    from pyflightstream.run._cli_geometry import run_geometry
+    from pyflightstream.run.mesh_cli import run_mesh_verb
     from pyflightstream.script import BrokenCommandError
 
     error = BrokenCommandError("FOO is broken on 26.126. Script.allow_broken waives it.")
@@ -212,9 +212,7 @@ def test_p0550_mark_boundaries_names_no_flag_it_does_not_have(
         def __fspath__(self) -> str:
             raise error
 
-    run_geometry(
-        argparse.Namespace(geometry_command="mark-boundaries", mesh=Poisoned(), apply=False)
-    )
+    run_mesh_verb(argparse.Namespace(verb="mark-boundaries", mesh=Poisoned(), apply=False))
     err = capsys.readouterr().err
     assert "--build" not in err
     assert "fs_build" in err

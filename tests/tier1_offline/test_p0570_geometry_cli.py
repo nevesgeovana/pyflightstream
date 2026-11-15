@@ -1,7 +1,7 @@
 """0.57.0 item 3 (L3, G3): the verbs of the parametric pipeline.
 
 ``run``, ``identify``, ``check`` and ``schema`` are driven through the ``pyfs-geom`` entry point
-and ``mesh-generated`` through ``pyfs-workspace geometry``. The refusals and the schema need no
+and ``mesh-generated`` through ``pyfs-mesh``. The refusals and the schema need no
 kernel; the pipeline run skips where the optional ``gmsh`` extra is absent.
 """
 
@@ -14,9 +14,9 @@ import pytest
 
 from pyflightstream._errors import NotApplicableWarning
 from pyflightstream.geometry._boundary import export_schema
-from pyflightstream.run._cli_geometry import GEOMETRY_VERBS
 from pyflightstream.run.geom_cli import main as geom_main
-from pyflightstream.workspace.cli import main
+from pyflightstream.run.mesh_cli import MESH_VERBS
+from pyflightstream.run.mesh_cli import main as mesh_main
 from tests.tier1_offline._kernel_support import kernel_or_skip
 from tests.tier1_offline.test_p0570_geometry_component import lifting
 
@@ -42,7 +42,7 @@ WRITTEN = (0, 3)
 def cli(args, capsys):
     capsys.readouterr()
     try:
-        code = main(["geometry", *map(str, args)])
+        code = mesh_main(list(map(str, args)))
     except SystemExit as error:
         code = error.code
     out = capsys.readouterr()
@@ -72,9 +72,9 @@ def record_of(stdout):
     return json.JSONDecoder().raw_decode(stdout[stdout.index("{") :])[0]
 
 
-def test_p0570_the_group_lists_mesh_generated_and_the_moved_verbs_left_it(capsys):
-    assert "mesh-generated" in GEOMETRY_VERBS
-    assert not {"generate", "identify", "check", "schema"} & set(GEOMETRY_VERBS)
+def test_p0570_pyfs_mesh_lists_mesh_generated_and_the_moved_verbs_left_it(capsys):
+    assert "mesh-generated" in MESH_VERBS
+    assert not {"generate", "identify", "check", "schema"} & set(MESH_VERBS)
     assert geom(["generate", "x.toml", "--out", "y"], capsys)[0] == 2
 
 

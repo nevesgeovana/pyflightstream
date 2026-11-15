@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.run.mesh_cli import main as mesh_main
 from tests.tier1_offline.test_regression_geometry_build_sweep import (
     _geometry_build__geometry,
 )
@@ -49,10 +50,9 @@ def test_p0560_v127_a_mesh_build_with_no_operation_awaits_nothing(tmp_path, buil
 @pytest.mark.parametrize("build", PROBED)
 def test_p0560_v127_the_mesh_build_preview_prints_no_refusal(tmp_path, capsys, monkeypatch, build):
     """P0560-MESHBUILD: the preview names no command awaiting a licensed probe."""
-    from pyflightstream.workspace.cli import main
 
     monkeypatch.chdir(_workspace(tmp_path, build))
-    assert main(["geometry", "build"]) == 0
+    assert mesh_main(["build"]) == 0
     out = capsys.readouterr().out
     assert "EXPORT_SURFACE_MESH OBJ -1" in out
     assert "refused with --apply" not in out

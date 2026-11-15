@@ -16,6 +16,7 @@ from pyflightstream._fsm_fresh import (
     common_blocks,
     reset_to_fresh_import,
 )
+from pyflightstream.run.mesh_cli import main as mesh_main
 from pyflightstream.workspace.inputs import InputArtifactError, clean_saved_actions
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 from tests.tier1_offline._geometry_verbs import main
@@ -32,11 +33,10 @@ def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):
 
 
 def test_p0460_obj_inventory_guides_named_boundary_entries(tmp_path, capsys):
-    from pyflightstream.workspace.cli import main as workspace_main
 
     mesh = tmp_path / "wing.obj"
     mesh.write_text("o wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    assert workspace_main(["geometry", "inventory", str(mesh)]) == 0
+    assert mesh_main(["inventory", str(mesh)]) == 0
     output = capsys.readouterr()
     sidecar = mesh.with_suffix(".obj.boundaries.toml")
     for text in (output.err, sidecar.read_text(encoding="utf-8")):

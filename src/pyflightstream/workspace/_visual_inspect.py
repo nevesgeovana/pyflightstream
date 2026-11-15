@@ -1,6 +1,6 @@
 """Draw a panel mesh in three views and an isometric view, with marked points, into a PDF.
 
-``pyfs-workspace geometry visual-inspect`` (FR pending, 0.49.0). The views are a
+``pyfs-mesh visual-inspect`` (FR pending, 0.49.0). The views are a
 technical drawing: one scale, the top view above the side view, the front view
 beside it, the isometric view in the remaining corner, no axes and a scale bar.
 Every patch (every ``g`` or ``o`` group of an OBJ, every property of a NASTRAN
@@ -1166,7 +1166,7 @@ def beam_pdf(
 ) -> Path:
     """Write the drawing of a blade's sections cut from its mesh (PFS-2185.11).
 
-    The first page draws the blade as ``geometry visual-inspect`` draws a mesh, with every
+    The first page draws the blade as ``pyfs-mesh visual-inspect`` draws a mesh, with every
     station's contour placed on it where the beam takes it (the span along +z, the section
     turned by its pitch, toward the leading edge ``(-sin b, -cos b, 0)``); the next pages
     draw each station's contour in its section frame, with its chord line and pitch axis.

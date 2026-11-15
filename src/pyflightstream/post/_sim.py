@@ -1132,11 +1132,10 @@ def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point
         # command that is always refused.
         remedy = (
             "Move the inventory aside, take it again "
-            "(pyfs-workspace geometry inventory <geometry>) and "
+            "(pyfs-mesh inventory <geometry>) and "
             "copy its tables beneath the new list (docs/mesh-inputs.md)"
             if Path(str(faces.name)).suffix.lower() == OBJ_SUFFIX
-            else "Take the inventory again "
-            "(pyfs-workspace geometry inventory <geometry> --overwrite)"
+            else "Take the inventory again (pyfs-mesh inventory <geometry> --overwrite)"
         )
         warn(
             f"point={point} product={MESH_FACES_COLUMN}: the inventory {faces.sidecar} states "

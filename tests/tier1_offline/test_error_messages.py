@@ -783,7 +783,7 @@ def _names_the_parameter(flag: str, message: str) -> bool:
       a CLI user needs;
     * ``cases=['PHY-01']``, the keyword form, which shows the call rather
       than describing it;
-    * ``pyfs-workspace geometry mark-boundaries wing.obj --apply``, the
+    * ``pyfs-mesh mark-boundaries wing.obj --apply``, the
       flag inside a WHOLE COMMAND of one of this package's console
       scripts, which the reader can run verbatim. That message does not
       name a flag alone: it names a command, and the flag is one of its
@@ -882,14 +882,13 @@ def _console_scripts() -> set[str]:
         ),
         (
             "--apply",
-            "Run pyfs-workspace geometry mark-boundaries inputs/wing.obj --apply, "
-            "then run the saved simulation.",
+            "Run pyfs-mesh mark-boundaries inputs/wing.obj --apply, then run the saved simulation.",
             True,
             "the flag inside a whole console command the reader can run verbatim",
         ),
         (
             "--apply",
-            "Run pyfs-workspace geometry mark-boundaries   --apply, then run it.",
+            "Run pyfs-mesh mark-boundaries   --apply, then run it.",
             True,
             "the same command as the raise-site walk sees it, the path a gap",
         ),
@@ -913,7 +912,7 @@ def _console_scripts() -> set[str]:
         ),
         (
             "--apply",
-            "Run pyfs-workspace geometry mark-boundaries wing.obj. Then pass --apply.",
+            "Run pyfs-mesh mark-boundaries wing.obj. Then pass --apply.",
             False,
             "a command in one sentence does not license a bare flag in the next",
         ),

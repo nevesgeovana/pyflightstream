@@ -39,6 +39,7 @@ from pyflightstream.run import _rebuild_evidence as evidence
 from pyflightstream.run import _record_files as record_files
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.record_document import encode_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
@@ -684,17 +685,16 @@ def test_rst8_a_drifted_input_is_named_and_another_origin_is_accepted(tmp_path, 
 
 def test_the_cli_restores_and_rebuilds(tmp_path, monkeypatch, capsys):
     """P0320-RESTORE-ARCHIVE and P0320-REBUILD-OUT through pyfs-matrix."""
-    from pyflightstream.run import cli
 
     _write(tmp_path / "archive" / "runs-20260929-120000.json", '[{"run_id": "b"}]\n')
-    assert cli.main(["restore", "runs", "--workspace", str(tmp_path)]) == 0
+    assert workspace_main(["restore", "runs", "--workspace", str(tmp_path)]) == 0
     assert "archive/runs-20260929-120000.json" in capsys.readouterr().out
     assert not (tmp_path / "runs.json").exists()
-    assert cli.main(["restore", "runs", "--workspace", str(tmp_path), "--apply"]) == 0
+    assert workspace_main(["restore", "runs", "--workspace", str(tmp_path), "--apply"]) == 0
     assert (tmp_path / "runs.json").is_file()
-    assert cli.main(["rebuild", "--workspace", str(tmp_path), "--out", "runs.json"]) == 2
+    assert workspace_main(["rebuild", "--workspace", str(tmp_path), "--out", "runs.json"]) == 2
     assert "runs.json" in capsys.readouterr().err
-    assert cli.main(["rebuild", "--workspace", str(tmp_path), "--all-sims"]) == 2
+    assert workspace_main(["rebuild", "--workspace", str(tmp_path), "--all-sims"]) == 2
     assert "--out" in capsys.readouterr().err
 
 

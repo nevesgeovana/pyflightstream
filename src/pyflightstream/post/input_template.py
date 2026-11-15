@@ -490,10 +490,10 @@ z_m = 0.0
 """
 
 _INVENTORY_EXAMPLE = """\
-# The boundary inventory of aircraft.fsm, as `pyfs-workspace geometry inventory` writes it from
+# The boundary inventory of aircraft.fsm, as `pyfs-mesh inventory` writes it from
 # its mesh block: the solver's order (name i is boundary i), then the faces it counted there. A run
 # whose sidecar disagrees with the file is refused before the solver starts; rewrite it with
-# `pyfs-workspace geometry inventory inputs/geometries/aircraft/aircraft.fsm --overwrite`.
+# `pyfs-mesh inventory inputs/geometries/aircraft/aircraft.fsm --overwrite`.
 file = "aircraft.fsm"
 boundaries = [
     "Wing",
@@ -822,7 +822,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
     TemplateSection(
         heading="Storage recipe, `inputs/management/m<id>.toml`",
         intro=(
-            "Optional: what `pyfs-matrix free-space m001 --workspace . --apply` runs. "
+            "Optional: what `pyfs-workspace free-space m001 --workspace . --apply` runs. "
             "Up to four tables, each a list of steps run in this order."
         ),
         examples=(
@@ -1169,8 +1169,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
         intro=(
             "A matrix names a saved FSM. Its clean inventory lives in "
             "<mesh>.fsm.boundaries.toml. Prepare OBJ declarations in "
-            "<mesh>.obj.boundaries.toml and run geometry mark-boundaries --apply "
-            "once before planning. CAD import metadata belongs to geometry build."
+            "<mesh>.obj.boundaries.toml and run pyfs-mesh mark-boundaries --apply "
+            "once before planning. CAD import metadata belongs to pyfs-mesh build."
         ),
         examples=(
             TemplateExample(

@@ -1,6 +1,6 @@
 """Prepare an OBJ for the refinement: families split into patches, a refine file and a node list.
 
-``pyfs-workspace geometry prepare-to-refine`` (optional; the refinement reads
+``pyfs-mesh prepare-to-refine`` (optional; the refinement reads
 any OBJ and refine file without it) writes, beside the mesh:
 
 1. ``<stem>_patches.obj``: every family cut into PATCHES, named

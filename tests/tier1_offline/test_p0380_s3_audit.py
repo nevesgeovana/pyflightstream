@@ -1,7 +1,7 @@
 """Tier 1, 0.38.0: the audit of a panel mesh, alone or against its source (FR-426, P0380-AUDIT).
 
 Pipeline role: quality gate on :func:`pyflightstream.workspace.audit_mesh` and
-``pyfs-workspace geometry audit``. Every mesh is built here: a curved sheet of two
+``pyfs-mesh audit``. Every mesh is built here: a curved sheet of two
 grid families (one in triangles, one in quadrilaterals) sharing a row of
 nodes, a closed box beside it, and a trailing edge along one side. Each gate
 and each relative check is shown failing on a mesh built to fail it (the
@@ -475,7 +475,7 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
     table = tmp_path / "audit.csv"
     code, said = _run("audit-mesh", str(level), "--against", str(src), "--out", str(table))
     out = capsys.readouterr().out
-    # 0.58.0: the verb lives in `pyfs-workspace geometry audit` and warns of nothing.
+    # 0.58.0: the verb lives in `pyfs-mesh audit` and warns of nothing.
     assert code == 0 and said == []
     assert "every gate and check judged passed; " in out and " not judged yet" in out
     assert str(level.with_suffix(".audit.json")) in out

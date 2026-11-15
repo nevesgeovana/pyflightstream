@@ -600,7 +600,7 @@ def _inventory_of(geometry: Path, pol: str) -> tuple[tuple[str, ...] | None, str
             if declarations:
                 raise InputArtifactError(
                     f"{sidecar} declares {', '.join(declarations)} beside a saved simulation. "
-                    f"Mark the OBJ once with pyfs-workspace geometry mark-boundaries "
+                    f"Mark the OBJ once with pyfs-mesh mark-boundaries "
                     f"{geometry.with_suffix('.obj')} --apply --overwrite, "
                     "then use its clean .fsm inventory. Choose apply (CLI: --apply) and "
                     "overwrite (CLI: --overwrite) for marking."
@@ -1447,7 +1447,7 @@ def _bind_geometry(
             raise InputArtifactError(
                 f"matrix row POL {row.pol}: GEOMETRY {stem!r} must name an .fsm. "
                 "Only FSI rows retain raw meshes. Prepare this mesh with "
-                f"pyfs-workspace geometry mark-boundaries {Path(stem).with_suffix('.obj')} "
+                f"pyfs-mesh mark-boundaries {Path(stem).with_suffix('.obj')} "
                 "--apply, then name the saved .fsm. Choose apply (CLI: --apply) for marking."
             )
         geometry_path = _resolve_geometry(binding.workspace, stem, row.pol)

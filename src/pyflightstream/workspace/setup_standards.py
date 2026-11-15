@@ -126,11 +126,11 @@ _MEANINGS: dict[str, str] = {
     ),
     "apply_trailing_edges": (
         "No line of the script carries its value. Mark trailing edges once with "
-        "geometry mark-boundaries; matrix runs preserve the saved geometry."
+        "pyfs-mesh mark-boundaries; matrix runs preserve the saved geometry."
     ),
     "apply_wake_termination": (
         "No line of the script carries its value. Mark wake termination once with "
-        "geometry mark-boundaries; matrix runs preserve the saved geometry."
+        "pyfs-mesh mark-boundaries; matrix runs preserve the saved geometry."
     ),
     "apply_base_regions": (
         "Applies declared base-region detection or explicit setup operations. False "

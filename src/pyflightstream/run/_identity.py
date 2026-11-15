@@ -1218,7 +1218,7 @@ def build_native_geometries(
             f"{type(executor).__name__} submits jobs, and a geometry build reads its outputs "
             f"back as soon as the solver returns, so {held.folder.name} was not built and "
             "nothing was submitted. Build it on a machine with the solver: "
-            f"pyfs-workspace geometry build {held.folder} --apply{build_flag}, then run again."
+            f"pyfs-mesh build {held.folder} --apply{build_flag}, then run again."
         ) from None
     return names
 

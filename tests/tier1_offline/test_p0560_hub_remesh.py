@@ -1,8 +1,8 @@
 """P0560-HUBQ: the remesh route of repitch on a quad-dominant hub, and quality warned, not refused.
 
 Usage:
-    pyfs-workspace geometry repitch sector.obj --morphing morphing.toml --out pitched.obj
-    pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
+    pyfs-mesh repitch sector.obj --morphing morphing.toml --out pitched.obj
+    pyfs-mesh morph sector.obj --morphing morphing.toml --out morphed.obj
 
 ``[repitch] hub_method`` is ``"rings"``, ``"remesh"`` or ``"auto"`` (the default). The remesh route
 turns each blade rigidly and remeshes the hub band around its moved root quad-dominant, every free

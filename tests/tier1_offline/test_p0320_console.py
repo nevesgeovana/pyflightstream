@@ -41,6 +41,8 @@ from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace import cli as workspace_cli
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_goal035_storage import _record, _write, _write_recipe
 from tests.tier1_offline.test_goal036_console_blocks import _console as plan_console
 from tests.tier1_offline.test_goal036_console_blocks import _two_case_matrix
@@ -171,12 +173,12 @@ def test_the_opening_block_says_what_the_command_does_and_where_on_stderr_only(t
     workspace = _workspace(tmp_path)
     before = storage_module.space_in_use(workspace.root).lines(top=15)
     capsys.readouterr()
-    assert matrix_cli.main(["space-in-use", "--workspace", str(workspace.root)]) == 0
+    assert workspace_main(["space-in-use", "--workspace", str(workspace.root)]) == 0
     streams = capsys.readouterr()
     assert streams.out.splitlines()[0] == before[0], streams.out
-    assert "pyfs-matrix space-in-use" not in streams.out and "purpose:" not in streams.out
+    assert "pyfs-workspace space-in-use" not in streams.out and "purpose:" not in streams.out
     opening = streams.err.split("\n\n", 1)[0].splitlines()
-    assert opening[0] == "pyfs-matrix space-in-use"
+    assert opening[0] == "pyfs-workspace space-in-use"
     assert opening[1].startswith("  purpose: report the sizes on disk"), opening
     assert opening[2] == f"  workspace: {workspace.root}", opening
 
@@ -230,7 +232,9 @@ def test_warnings_are_held_and_printed_together_at_the_end(
     # P0320-CONSOLE-WARNINGS-LAST
     monkeypatch.chdir(tmp_path)
     _warns_then_prints(monkeypatch, module, attribute)
-    text = _before_the_signature(_merged(module.main, argv))
+    # The storage verbs run through pyfs-matrix's pipeline under pyfs-workspace (PFS-2261).
+    run = pyfs_main if module is matrix_cli else module.main
+    text = _before_the_signature(_merged(run, argv))
     lines = text.splitlines()
     heading = lines.index("Warnings (2)")
     assert lines.index("body line two") < heading, text
@@ -256,7 +260,7 @@ def test_a_refused_command_still_prints_its_held_warnings_at_the_end(tmp_path, m
 
     monkeypatch.setattr(matrix_cli, "_cmd_storage", refused)
     monkeypatch.setattr(warnings, "showwarning", _shown_on_stderr)
-    text = _before_the_signature(_merged(matrix_cli.main, ["space-in-use"]))
+    text = _before_the_signature(_merged(pyfs_main, ["space-in-use"]))
     assert text.index("the refusal itself") < text.index("Warnings (1)"), text
     assert text.index("Warnings (1)") < text.index("said before the refusal"), text
 
@@ -279,7 +283,7 @@ def test_an_interrupted_command_still_prints_its_held_warnings_at_the_end(tmp_pa
         contextlib.redirect_stderr(stream),
         pytest.raises(KeyboardInterrupt),
     ):
-        matrix_cli.main(["space-in-use"])
+        workspace_main(["space-in-use"])
     text = stream.getvalue()
     assert text.index("body line") < text.index("Warnings (1)"), text
     assert text.index("Warnings (1)") < text.index("said before the interruption"), text
@@ -292,7 +296,7 @@ def test_a_python_caller_recording_warnings_still_receives_them(tmp_path, monkey
     _warns_then_prints(monkeypatch, matrix_cli, "_cmd_storage")
     with warnings.catch_warnings(record=True) as seen:
         warnings.simplefilter("always")
-        _merged(matrix_cli.main, ["space-in-use"])
+        _merged(pyfs_main, ["space-in-use"])
     said = [str(item.message) for item in seen]
     assert said == ["the first thing to know", "the second thing to know"], said
 
@@ -398,12 +402,12 @@ def test_free_space_and_delete_sims_show_their_stages(tmp_path, monkeypatch):
         workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000"))
     _write_recipe(workspace, "m001", '[[delete_extensions]]\nextensions = [".vtk"]\n')
     root = str(workspace.root)
-    freed = _merged(matrix_cli.main, ["free-space", "m001", "--workspace", root])
+    freed = _merged(pyfs_main, ["free-space", "m001", "--workspace", root])
     assert "[free-space: delete_extensions] done: 2/2" in freed, freed
-    deleted = _merged(matrix_cli.main, ["delete-sims", "--sims", "1310", "--workspace", root])
+    deleted = _merged(pyfs_main, ["delete-sims", "--sims", "1310", "--workspace", root])
     assert "[delete-sims: measure] done: 1/1" in deleted, deleted
     removed = _merged(
-        matrix_cli.main,
+        pyfs_main,
         ["delete-sims", "--sims", "1311", "--workspace", root, "--apply"],
     )
     assert "[delete-sims: remove] done: 1/1" in removed, removed
@@ -418,7 +422,7 @@ def test_delete_sims_removal_shows_bytes_over_the_total_it_measured(tmp_path, mo
         _write(workspace.sim_dir(sim) / "datapoints" / "DP-1" / "loads.vtk", "x" * size)
         workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000"))
     argv = ["delete-sims", "--sims", "1320,1321", "--workspace", str(workspace.root), "--apply"]
-    removed = _merged(matrix_cli.main, argv)
+    removed = _merged(pyfs_main, argv)
     assert "[delete-sims: remove] done: 2/2, 4.0 kB/4.0 kB" in removed, removed
 
 
@@ -459,12 +463,12 @@ def test_a_long_command_writes_its_live_log_while_it_runs(tmp_path, monkeypatch)
         return real(root, recipe, apply=apply, **kwargs)
 
     monkeypatch.setattr(storage_module, "free_space", free_space)
-    text = _merged(matrix_cli.main, ["free-space", "m001", "--workspace", str(workspace.root)])
+    text = _merged(pyfs_main, ["free-space", "m001", "--workspace", str(workspace.root)])
     (log,) = [p for p in logs.iterdir() if LIVE_LOG.fullmatch(p.name)]
     assert LIVE_LOG.fullmatch(log.name)["command"] == "free-space"
     # A console line, not only the log's own first line: the opening block is
     # already in it while the command runs.
-    assert "\npyfs-matrix free-space\n  purpose: " in during["text"], during
+    assert "\npyfs-workspace free-space\n  purpose: " in during["text"], during
     assert f"live log: logs/{log.name}" in text, text
     final = log.read_text(encoding="utf-8")
     # Everything the console showed before the signature box, stdout included.
@@ -478,11 +482,11 @@ def test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace(tmp_path
     # P0320-PROGRESS-LIVE-LOG
     monkeypatch.chdir(tmp_path)
     workspace = _workspace(tmp_path)
-    _merged(matrix_cli.main, ["space-in-use", "--workspace", str(workspace.root)])
+    _merged(pyfs_main, ["space-in-use", "--workspace", str(workspace.root)])
     assert not [p for p in (workspace.root / "logs").glob("*.log") if LIVE_LOG.fullmatch(p.name)]
     bare = tmp_path / "not-a-workspace"
     bare.mkdir()
-    _merged(matrix_cli.main, ["collect", "--workspace", str(bare)])
+    _merged(pyfs_main, ["collect", "--workspace", str(bare)])
     assert not [p for p in bare.rglob("*.log") if LIVE_LOG.fullmatch(p.name)]
     assert set(_progress.LIVE_LOG_COMMANDS) == {
         "sync",

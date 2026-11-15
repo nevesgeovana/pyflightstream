@@ -12,6 +12,7 @@ from pyflightstream.run import _rebuild, cli, collect, records
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
 from pyflightstream.workspace.naming import RunsManifestError
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.tier1_offline._geometry_verbs import main as pyfs_main
 from tests.tier1_offline.test_p0320_records import (
     _local_campaign as _run_1_rebuild___local_campaign,
 )
@@ -52,7 +53,7 @@ class TestLast6Archive:
             workspace_module, "post_stages", lambda: [lambda ws, **kwargs: seen.append(kwargs)]
         )
         argv = ["collect", "--workspace", str(tmp_path)] + (["--archive"] if archive else [])
-        assert cli.main(argv) == 0
+        assert pyfs_main(argv) == 0
         assert seen[0]["archive"] is archive, "P0400-LAST6-ARCHIVE"
 
     @staticmethod
@@ -63,7 +64,7 @@ class TestLast6Archive:
 
         workspace = _workspace(tmp_path)
         monkeypatch.setattr(cli, "_confirmed_destruction", lambda yes: False)
-        assert cli.main(["post", "--workspace", str(workspace.root), "--force-overwrite"]) == 2
+        assert pyfs_main(["post", "--workspace", str(workspace.root), "--force-overwrite"]) == 2
         refusal = capsys.readouterr().err
         assert "without an archive" in refusal, "P0400-LAST6-ARCHIVE-REFUSAL"
         assert "--archive" in refusal

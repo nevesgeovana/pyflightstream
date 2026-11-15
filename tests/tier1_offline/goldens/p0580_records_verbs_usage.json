@@ -1,0 +1,16 @@
+{
+ "delete-sims": "[-h] --sims ID [ID ...] [--workspace WORKSPACE] [--matrix-products {points-only,regenerate}] [--force] [--apply] [--archive] [--runs NAME]",
+ "diff": "[-h] [--workspace WORKSPACE] [--runs NAME] [--json | --csv] run_a run_b",
+ "free-space": "[-h] [--workspace WORKSPACE] [--apply] [--list] [--runs NAME] recipe",
+ "history": "[-h] [--workspace WORKSPACE] [--runs NAME] [--json | --csv] target",
+ "log": "[-h] [--post MATRIX | --storage] [--sims ID [ID ...]] [--run RUN] [--stage STAGE] [--since SINCE] [--problems] [--open] [--workspace WORKSPACE] [--runs RUNS] [--json | --csv]",
+ "mark-converged": "[-h] --sims ID [ID ...] [--points NAME [NAME ...]] --reason REASON [--workspace WORKSPACE] [--apply]",
+ "mark-failed": "[-h] --sims ID [ID ...] [--reason REASON] [--points POINTS [POINTS ...]] [--workspace WORKSPACE] [--apply]",
+ "rebuild": "[-h] [--workspace WORKSPACE] [--out NAME] [--all-sims] [--sims ID [ID ...]] [--build-alias BUILD=ALIAS] [--matrix MATRIX] [--inputs-from FOLDER] [--apply]",
+ "restore": "[-h] [--workspace WORKSPACE] [--stamp STAMP] [--matrix MATRIX] [--apply] {runs,storage,products,plan,additional}",
+ "search-log-batch": "[-h] [--sims ID [ID ...]] [--master FILE] [--workspace WORKSPACE] [--apply]",
+ "show": "[-h] [--point POINT] [--workspace WORKSPACE] [--runs RUNS] [--json | --csv] target",
+ "space-in-use": "[-h] [--workspace WORKSPACE] [--top TOP]",
+ "sync": "[-h] [--workspace WORKSPACE] [--from SOURCE] [--apply] [--prefer-other] [--overwrite] [--restore] [--include-archives] [--runs NAME] {runs,post,fsm,all}",
+ "trace": "[-h] [--run RUN] [--workspace WORKSPACE] [--runs RUNS] [--json | --csv] [product]"
+}

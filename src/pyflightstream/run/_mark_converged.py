@@ -52,7 +52,7 @@ __all__ = [
 ]
 
 #: What to do when a named simulation or point has no record.
-_REMEDY = "check the ids against runs.json, or rebuild it with pyfs-matrix rebuild"
+_REMEDY = "check the ids against runs.json, or rebuild it with pyfs-workspace rebuild"
 
 #: The verdict this command gives, written into ``marked``.
 _VERDICT = RunStatus.CONVERGED
@@ -110,7 +110,7 @@ def _refusal(workspace: CampaignWorkspace, row: Mapping, unit: Mapping) -> str |
         # statuses (PFS-2103.031): the person's verdict is the row's.
         return (
             "its job was marked failed by a person (mark-failed); one verdict is not laid "
-            "over another: restore runs.json from before that mark (pyfs-matrix restore "
+            "over another: restore runs.json from before that mark (pyfs-workspace restore "
             "runs) first"
         )
     if status == RunStatus.SUBMITTED.value:
@@ -121,7 +121,7 @@ def _refusal(workspace: CampaignWorkspace, row: Mapping, unit: Mapping) -> str |
     if status == RunStatus.FAILED_MARKED.value:
         return (
             "marked failed by a person (mark-failed); one verdict is not laid over another: "
-            "restore runs.json from before that mark (pyfs-matrix restore runs) first"
+            "restore runs.json from before that mark (pyfs-workspace restore runs) first"
         )
     if not _loads_on_disk(workspace, row, unit):
         return (
@@ -388,7 +388,7 @@ def _status_of(row: Mapping[str, Any], status: object) -> RunStatus:
         raise RunsManifestError(
             f"the record {row.get('run_id')!r} carries the status {status!r}, which is no "
             f"status this release knows; correct it or restore {DEFAULT_MANIFEST} from "
-            "archive/ (pyfs-matrix restore runs)"
+            "archive/ (pyfs-workspace restore runs)"
         ) from None
 
 
@@ -400,7 +400,7 @@ def _read(manifest: Path) -> list[dict[str, Any]]:
     except (ValueError, WorkspaceError) as error:
         raise RunsManifestError(
             f"{manifest} is not readable JSON ({error}); restore it from archive/ "
-            "(pyfs-matrix restore runs) or rebuild it (pyfs-matrix rebuild)"
+            "(pyfs-workspace restore runs) or rebuild it (pyfs-workspace rebuild)"
         ) from None
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise RunsManifestError(f"{manifest} is not a list of run records")
@@ -495,7 +495,7 @@ def add_mark_converged_parser(subparsers: Any) -> None:
 
 
 def cmd_mark_converged(args: argparse.Namespace) -> int:
-    """Run ``pyfs-matrix mark-converged`` and print what it did, or would do (FR-414)."""
+    """Run ``pyfs-workspace mark-converged`` and print what it did, or would do (FR-414)."""
     try:
         entry = mark_converged(
             args.workspace, args.sims, reason=args.reason, points=args.points, apply=args.apply

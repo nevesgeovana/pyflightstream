@@ -1,4 +1,4 @@
-"""The gmsh half of ``geometry iges-grid``: join the faces, set the laws, mesh, read the elements.
+"""The gmsh half of ``pyfs-mesh iges-grid``: join the faces, set the laws, mesh, read the elements.
 
 The faces of every component are healed and fragmented together, so an edge two faces share
 becomes one curve and its nodes are shared. Four-sided patches of a structured component get

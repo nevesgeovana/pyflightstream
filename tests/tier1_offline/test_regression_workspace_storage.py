@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run._batch_collect import job_ended
 from pyflightstream.run.records import restore
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError, _make_dir_link
@@ -26,6 +25,7 @@ from pyflightstream.workspace import RunStatus as _IntegfixStorageRunStatus
 from pyflightstream.workspace import RunStatus as _Workspace3StorageRunStatus
 from pyflightstream.workspace import _batch_life as batch_life
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.ledger import activity_rows, additional_rows, diff, post_log_groups
 from pyflightstream.workspace.manifest import RunRecord
 from pyflightstream.workspace.manifest import RunStatus as _Workspace2ManifestRunStatus
@@ -104,7 +104,7 @@ class TestIntegfixStorage:
         recipe = workspace.root / storage_module.MANAGEMENT_DIR / "m001.toml"
         _integfix_storage___write(recipe, '[[delete_extensions]]\nextensions = [".vtk"]\n')
         capsys.readouterr()
-        code = matrix_cli.main(["free-space", "m001", "--workspace", str(workspace.root)])
+        code = workspace_main(["free-space", "m001", "--workspace", str(workspace.root)])
         out = capsys.readouterr().out
         assert code == 0, out
         assert "refused sim 4601: a run is still SUBMITTED" in out, out

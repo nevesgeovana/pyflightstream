@@ -252,7 +252,7 @@ def _import_operations(
 
 
 #: The command that refreshes the counted fields of a generated OBJ's sidecar (FR-3479).
-_REFRESH_COMMAND = "pyfs-workspace geometry inventory {mesh} --refresh"
+_REFRESH_COMMAND = "pyfs-mesh inventory {mesh} --refresh"
 
 
 def _marking_inputs(mesh):
@@ -749,7 +749,7 @@ def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> Non
         )
     for name, digest in plan.inputs.items():
         if not Path(name).is_file() or file_sha256(Path(name)) != digest:
-            raise InputArtifactError(f"{name} changed; run geometry mark-boundaries again")
+            raise InputArtifactError(f"{name} changed; run pyfs-mesh mark-boundaries again")
 
 
 def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:

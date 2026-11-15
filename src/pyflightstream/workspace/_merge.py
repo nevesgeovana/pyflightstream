@@ -851,7 +851,7 @@ def _warn_units(kept: Path, adapted: Path) -> None:
         return
     if all(units) and units[0] != units[1]:
         warn(
-            f"geometry merge: {kept} states units {units[0]} and {adapted} states units "
+            f"pyfs-mesh merge: {kept} states units {units[0]} and {adapted} states units "
             f"{units[1]}. The coordinates and the threshold are merged as they stand, so the "
             "output mixes the two; scale one part to the other's unit and merge again",
             PyflightstreamWarning,
@@ -971,7 +971,7 @@ def _turned_faces(source: ObjMesh, adapted: _Adapted, kept: Points) -> int:
 
 
 def _refuse(reason: str) -> InputArtifactError:
-    return InputArtifactError(f"geometry merge: {reason}. Nothing was written.", kind=KIND)
+    return InputArtifactError(f"pyfs-mesh merge: {reason}. Nothing was written.", kind=KIND)
 
 
 def _which_adapted(first: Path, second: Path, adapt: Path) -> tuple[Path, Path]:
@@ -999,7 +999,7 @@ def _check_call(first: Path, second: Path, threshold: float, out: Path, *, overw
     """Refuse what no merge can answer: no threshold, one part twice, a source as output."""
     if not math.isfinite(threshold) or threshold < 0.0:
         raise InputValueError(
-            f"geometry merge: threshold (CLI: --threshold) {threshold} is not a length of zero "
+            f"pyfs-mesh merge: threshold (CLI: --threshold) {threshold} is not a length of zero "
             "or more; state the largest distance across the interface. Nothing was written."
         )
     if first.resolve() == second.resolve():
@@ -1058,7 +1058,7 @@ def merge_objs(
 ) -> MergedMesh:
     """Merge two trimmed OBJ along their open boundaries within a threshold (FR-3480).
 
-    The command is ``pyfs-workspace geometry merge``; ``docs/geometry.md`` states the
+    The command is ``pyfs-mesh merge``; ``docs/geometry.md`` states the
     method and its limits.
 
     Parameters
@@ -1113,7 +1113,7 @@ def merge_objs(
     )
     if not pairs:
         warn(
-            f"geometry merge: no open boundary of {kept_path} lies within {threshold:g} of an "
+            f"pyfs-mesh merge: no open boundary of {kept_path} lies within {threshold:g} of an "
             f"open boundary of {adapted_path}; nothing was written, so state a larger threshold",
             PyflightstreamWarning,
             stacklevel=2,
@@ -1210,7 +1210,7 @@ def _warn_left(call: _Call, facing: int, turned: int, degenerate: int) -> None:
     """Warn what the merge left: open edges facing the other part, turned or degenerate faces."""
     if facing:
         warn(
-            f"geometry merge: {facing} open edge(s) of {call.out} still face the other part's "
+            f"pyfs-mesh merge: {facing} open edge(s) of {call.out} still face the other part's "
             f"open boundary, further from it than the threshold {call.threshold:g}, and were "
             "left open; state a larger threshold to merge them",
             PyflightstreamWarning,
@@ -1218,7 +1218,7 @@ def _warn_left(call: _Call, facing: int, turned: int, degenerate: int) -> None:
         )
     if turned:
         warn(
-            f"geometry merge: {turned} face(s) of the adapted part in {call.out} turned against "
+            f"pyfs-mesh merge: {turned} face(s) of the adapted part in {call.out} turned against "
             "the source face nearest them, which an adapted part overlapping the kept one by "
             "more than a face layer does; trim it back and merge again",
             PyflightstreamWarning,
@@ -1226,7 +1226,7 @@ def _warn_left(call: _Call, facing: int, turned: int, degenerate: int) -> None:
         )
     if degenerate:
         warn(
-            f"geometry merge: {degenerate} degenerate face(s) in {call.out}, each listed under "
+            f"pyfs-mesh merge: {degenerate} degenerate face(s) in {call.out}, each listed under "
             "degenerate_faces in its audit; inspect them or re-cut the parts near them",
             PyflightstreamWarning,
             stacklevel=4,

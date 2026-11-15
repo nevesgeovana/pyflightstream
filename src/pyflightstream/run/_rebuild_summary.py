@@ -1,4 +1,4 @@
-"""The report lines of ``pyfs-matrix restore`` and ``pyfs-matrix rebuild``.
+"""The report lines of ``pyfs-workspace restore`` and ``pyfs-workspace rebuild``.
 
 Pipeline role: the text a restore or a rebuild entry becomes on the terminal.
 The entries are made by :func:`pyflightstream.run.records.restore` and
@@ -27,7 +27,7 @@ NOT_RECOVERABLE_NOTE = (
 
 
 def _restore_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` prints for its entry."""
+    """Return the lines ``pyfs-workspace restore`` prints for its entry."""
     lines = [
         f"restore {entry['kind']}: {entry['source']} -> {entry['target']} (stamp {entry['stamp']})",
         f"  stamps available: {', '.join(entry['stamps_available'])}",
@@ -45,7 +45,7 @@ def _restore_lines(entry: Mapping[str, Any]) -> list[str]:
 
 
 def summary_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` and ``rebuild`` print for an entry.
+    """Return the lines ``pyfs-workspace restore`` and ``rebuild`` print for an entry.
 
     The entry is what :func:`~pyflightstream.run.records.restore` or
     :func:`rebuild` returned: the lines say what was, or would be, written,

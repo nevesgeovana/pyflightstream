@@ -107,8 +107,8 @@ from pyflightstream.run.matrix import (
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
 from pyflightstream.workspace._geometry_build import GeometryBuildPlan
-from pyflightstream.workspace.cli import _build_parser as workspace_parser
 from pyflightstream.workspace.naming import PointName
+from tests.tier1_offline._geometry_verbs import mesh_parser
 from tests.tier1_offline.test_aeroelastic_typed_setup import (
     verified_marking_registry as verified_marking_registry,
 )
@@ -2319,7 +2319,7 @@ class TestRfixAPIContracts:
         )
         assert "deprecated" not in post.lower()
         assert "adds a confirmation before rebuilding" in post
-        build = _rfixapi_contracts__help_text(workspace_parser(), ["geometry", "build"], capsys)
+        build = _rfixapi_contracts__help_text(mesh_parser(), ["build"], capsys)
         assert "Unlike post, a build refuses to replace outputs unless asked" in build
         assert "outputs are inputs of runs" in build
         assert (

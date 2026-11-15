@@ -247,6 +247,139 @@ def _deprecations_shown() -> Iterator[None]:
         yield
 
 
+#: The records, storage and query verbs ``pyfs-workspace`` runs through the ``pyfs-matrix``
+#: pipeline: they act on what the workspace already holds, its records, its storage and the
+#: queries over them, whichever matrix wrote it.
+WORKSPACE_VERBS = (
+    "space-in-use",
+    "free-space",
+    "delete-sims",
+    "sync",
+    "restore",
+    "rebuild",
+    "mark-failed",
+    "mark-converged",
+    "search-log-batch",
+    "show",
+    "log",
+    "trace",
+    "history",
+    "diff",
+)
+
+#: The storage verbs a leading flag also names, ``--free-space m001`` (the flag form).
+_FLAG_FORM = ("space-in-use", "free-space", "delete-sims", "sync")
+
+#: The parser builder and the entry point of :data:`WORKSPACE_VERBS`, as ``module:function``,
+#: registered by the layer that defines them and imported when a verb is run or listed.
+_DELEGATED: list[tuple[str, str]] = []
+
+
+def register_delegated_commands(build: str, entry: str) -> None:
+    """Register the runner of :data:`WORKSPACE_VERBS`, which a higher layer defines.
+
+    Named, not imported: the layer that registers them imports this module, and its entry
+    point imports that layer's package, so holding the functions would close a cycle.
+
+    Parameters
+    ----------
+    build : str
+        ``module:function`` returning the parser that holds the verbs.
+    entry : str
+        ``module:function`` running a command line naming one of them; returns its exit code.
+    """
+    if not _DELEGATED:
+        _DELEGATED.append((build, entry))
+
+
+def _resolved(target: str) -> Callable[..., Any]:
+    import importlib
+
+    module, _, name = target.partition(":")
+    found: Callable[..., Any] = getattr(importlib.import_module(module), name)
+    return found
+
+
+def add_delegated(subparsers: Any) -> None:
+    """List :data:`WORKSPACE_VERBS` under a program, each with the options its parser gives it.
+
+    Parameters
+    ----------
+    subparsers : argparse subparsers action
+        The program's subcommand table.
+    """
+    import argparse
+
+    for build, _ in _DELEGATED:
+        root = _resolved(build)()
+        (verbs,) = [a for a in root._actions if isinstance(a, argparse._SubParsersAction)]
+        helps = {choice.dest: choice.help for choice in verbs._choices_actions}
+        for name, source in verbs.choices.items():
+            command = subparsers.add_parser(
+                name,
+                parents=[source],
+                add_help=False,
+                help=helps.get(name),
+                description=source.description,
+            )
+            command.set_defaults(delegated=True)
+
+
+def delegated_entry(argv: list[str] | None) -> Callable[[list[str] | None], int] | None:
+    """Return the entry point that runs ``argv`` whole, when it names a delegated verb.
+
+    Parameters
+    ----------
+    argv : list of str or None
+        The command line without the program name; None reads ``sys.argv``.
+
+    Returns
+    -------
+    callable or None
+        The registered entry point, or None for any other command.
+    """
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    word = next((token for token in tokens if not token.startswith("-")), None)
+    flags = {f"--{name}" for name in _FLAG_FORM}
+    flag_form = bool(tokens) and tokens[0].startswith("-")
+    flag_form = flag_form and any(token.split("=", 1)[0] in flags for token in tokens)
+    if _DELEGATED and (word in WORKSPACE_VERBS or flag_form):
+        return _resolved(_DELEGATED[0][1])
+    return None
+
+
+def refused_command(program: str, argv: list[str] | None) -> bool:
+    """Refuse a removed command of ``program`` by name, before parsing; True when refused.
+
+    The command words are those past the global flags, so ``--warning-refusals refine``
+    is found as well as ``refine``, and ``--help`` after them changes nothing. A command
+    of two words (a group and its verb) is looked up before its first word alone, each
+    as ``REMOVED_FORMS["<program>.<word>[.<word>]"]``; the message names the new command
+    and nothing is run.
+
+    Parameters
+    ----------
+    program : str
+        The program, such as ``pyfs-workspace``.
+    argv : list of str or None
+        The command line without the program name; None reads ``sys.argv``.
+
+    Returns
+    -------
+    bool
+        True when the command line is a removed form and its refusal was printed.
+    """
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    words = [w for w in (sys.argv[1:] if argv is None else argv) if not w.startswith("-")]
+    for depth in (2, 1):
+        entry = REMOVED_FORMS.get(".".join([program, *words[:depth]]))
+        if len(words) >= depth and entry is not None:
+            print(f"{entry.message()} Nothing was run.", file=sys.stderr)
+            return True
+    return False
+
+
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     """Report the actual CLI outcome once, without changing CLI semantics.
 

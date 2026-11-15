@@ -16,10 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import _step_prune as step_prune
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.storage import (
     MANAGEMENT_DIR,
     PRUNE_MODE,
@@ -330,7 +330,7 @@ def test_the_command_line_summary_says_what_each_table_keeps(tmp_path, capsys):
     ):
         name = _recipe(workspace, body)
         capsys.readouterr()
-        code = matrix_cli.main(["free-space", name, "--workspace", str(workspace.root), "--list"])
+        code = workspace_main(["free-space", name, "--workspace", str(workspace.root), "--list"])
         out = capsys.readouterr().out
         assert code == 0 and words in out, out
     assert "kept (step 30)" in out or "kept (last step 30)" in out

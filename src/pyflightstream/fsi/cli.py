@@ -25,6 +25,12 @@ traceback in ``pyfs_fsi_error.log`` instead of a silent nonzero exit,
 a missing ``[fsi]`` extra included. A failure of the explicit
 ``pyfs-fsi step``, which a person runs, also prints its one-line cause
 and the log's path to stderr.
+
+``pyfs-fsi beam``, run by a person before the study, cuts a blade's
+sections from its mesh into the ``<geometry>.<family>.beam.toml`` an FSI
+input reads. It reads a mesh, which the workspace layer does, so a higher
+layer registers it here at import (:func:`register_command`), and this
+module never imports that layer.
 """
 
 import argparse
@@ -34,7 +40,9 @@ import json
 import shutil
 import sys
 import traceback
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
@@ -299,6 +307,30 @@ def _step(cwd: Path, received_argv: tuple[str, ...] = (), *, echo_failure: bool 
     return dummy_step(cwd, received_argv=received_argv, echo_failure=echo_failure)
 
 
+#: The commands a higher layer registers, as (name, parser builder, handler).
+_COMMANDS: list[tuple[str, Callable[[Any], None], Callable[[argparse.Namespace], int]]] = []
+
+
+def register_command(
+    name: str,
+    add: Callable[[Any], None],
+    handler: Callable[[argparse.Namespace], int],
+) -> None:
+    """Register a ``pyfs-fsi`` command that a higher layer defines.
+
+    Parameters
+    ----------
+    name : str
+        The subcommand, such as ``beam``.
+    add : callable
+        Adds the command's parser to the subparsers it is given.
+    handler : callable
+        Runs the parsed command and returns its exit code.
+    """
+    if all(entry[0] != name for entry in _COMMANDS):
+        _COMMANDS.append((name, add, handler))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Build the ``pyfs-fsi`` parser without parsing anything.
 
@@ -334,13 +366,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_external.add_argument(
         "--out", dest="dir", type=Path, default=Path.cwd(), help="the coupling run directory"
     )
+    for _, add, _ in _COMMANDS:
+        add(sub)
     add_warning_option(parser)
     return parser
 
 
 def _solver_call(argv: list[str]) -> int:
     """Keep unknown solver conventions while refusing recognizable CLI mistakes."""
-    commands = ("init-dummy", "step", "external")
+    commands = ("init-dummy", "step", "external", *(entry[0] for entry in _COMMANDS))
     options = {"--dir", "--out", "--node-count", "--version", "--help", "-h"}
     if any(token.split("=", 1)[0] in options for token in argv) or (
         argv and difflib.get_close_matches(argv[0], commands, n=1, cutoff=0.7)
@@ -369,7 +403,9 @@ def main(argv: list[str] | None = None) -> int:
     """
     argv = sys.argv[1:] if argv is None else argv
     dispatch = argv[1:] if argv and argv[0] == "--warning-off" else argv
-    if not dispatch or dispatch[0] not in ("init-dummy", "step", "external", "-h", "--help"):
+    registered = {name: handler for name, _, handler in _COMMANDS}
+    known = ("init-dummy", "step", "external", *registered, "-h", "--help")
+    if not dispatch or dispatch[0] not in known:
         return _solver_call(dispatch)
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -391,6 +427,8 @@ def main(argv: list[str] | None = None) -> int:
         from pyflightstream.fsi.external import external_step
 
         return external_step(args.dir)
+    if args.command in registered:
+        return registered[args.command](args)
     # The explicit step is run by a person at a console, so its failure is
     # also said there (PFS-2085.003); the bare call above is the solver's.
     return _step(args.dir, echo_failure=True)

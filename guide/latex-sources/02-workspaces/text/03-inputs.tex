@@ -378,11 +378,11 @@ measured.
 \end{column}
 \begin{column}{0.46\textwidth}
 \begin{itemize}\small
-  \item \code{pyfs-workspace geometry mark-boundaries wing.obj} previews;
+  \item \code{pyfs-mesh mark-boundaries wing.obj} previews;
         \code{--apply} (licensed) marks once and saves \code{wing.fsm}.
   \item The row names \code{GEOMETRY: wing.fsm}; an OBJ there is refused,
         except on an FSI row.
-  \item \code{geometry inventory} writes the sidecar from the groups.
+  \item \code{pyfs-mesh inventory} writes the sidecar from the groups.
         \textbf{By hand}: \code{fs\_build}, the unit, the trailing-edge
         entries, and an STL's names.
   \item \code{[[import.operations]]}: scale, rename, mirror, translate,

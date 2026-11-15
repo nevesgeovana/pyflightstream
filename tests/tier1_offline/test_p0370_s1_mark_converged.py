@@ -243,11 +243,11 @@ def test_p0370_s1_unknown_ids_name_the_remedy_and_the_points_held(workspace):
     before = workspace.manifest_path.read_bytes()
     with pytest.raises(RunsManifestError) as unknown:
         mark_converged(workspace.root, ["7999"], reason=REASON, apply=True)
-    assert "7999" in str(unknown.value) and "pyfs-matrix rebuild" in str(unknown.value)
+    assert "7999" in str(unknown.value) and "pyfs-workspace rebuild" in str(unknown.value)
     with pytest.raises(RunsManifestError) as missing:
         mark_converged(workspace.root, ["7001"], reason=REASON, points=["AL+099"], apply=True)
     said = str(missing.value)
-    assert "AL+099" in said and "pyfs-matrix rebuild" in said, said
+    assert "AL+099" in said and "pyfs-workspace rebuild" in said, said
     assert "their records hold sim 7001: V0300RE120AL+000, V0300RE120AL+020;" in said, said
     with pytest.raises(RunsManifestError) as two:
         mark_converged(

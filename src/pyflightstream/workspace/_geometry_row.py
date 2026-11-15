@@ -718,7 +718,7 @@ def _row_geometry_path(
     if not built.geometry.is_file():
         raise GeometryRowError(
             f"matrix row POL {pol}: the geometry is generated ({built.folder}) and the solver "
-            f"has not built it; run pyfs-workspace geometry build {built.name} --apply --build "
+            f"has not built it; run pyfs-mesh build {built.name} --apply --build "
             f"{fs_build or '<build>'} and run the matrix again."
         )
     return built.geometry

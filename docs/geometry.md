@@ -1,16 +1,21 @@
 # Geometry: build a body before the run
 
+The geometry commands are `pyfs-mesh` (mesh files and the workspace geometry build, see
+[the pyfs-mesh commands](mesh/reference.md#the-pyfs-mesh-commands)), `pyfs-geom` (the
+parametric geometry and `iges-convert`, see [parametric geometry](geometry-parametrization.md))
+and `pyfs-fsi beam` (the FSI beam cut).
+
 ## Gridding a named IGES
 
-`geometry iges-grid` builds one surface grid from IGES files whose components are named, one
+`pyfs-mesh iges-grid` builds one surface grid from IGES files whose components are named, one
 family per component, with conformal junctions and the spacing laws of a grid control file;
-`geometry iges-convert` rewrites IGES files as one IGES of B-spline faces the solver's CAD
+`pyfs-geom iges-convert` rewrites IGES files as one IGES of B-spline faces the solver's CAD
 import reads, names kept. Both use the gmsh kernel, which installs with the package.
 
 ```text
-pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out model.obj
-pyfs-workspace geometry iges-grid wing-body.igs --grid grid.toml --out wing.obj --component Wing
-pyfs-workspace geometry iges-convert fuselage.igs --out fuselage-nurbs.igs
+pyfs-mesh iges-grid wing-body.igs --grid grid.toml --out model.obj
+pyfs-mesh iges-grid wing-body.igs --grid grid.toml --out wing.obj --component Wing
+pyfs-geom iges-convert fuselage.igs --out fuselage-nurbs.igs
 ```
 
 `--component NAME` (repeatable) grids only the components it names, and the record measures each
@@ -25,14 +30,14 @@ geometry](geometry-parametrization.md).
 
 ## Morphing a sector or a wheel
 
-`geometry morph` applies the tables of one morphing file to an OBJ in a fixed order: hub
+`pyfs-mesh morph` applies the tables of one morphing file to an OBJ in a fixed order: hub
 rings, repitch, the collapse of a blunt trailing edge and, for a sector, the full wheel,
-without a solver. `geometry hub-rings` runs the first table alone: it rebuilds a
+without a solver. `pyfs-mesh hub-rings` runs the first table alone: it rebuilds a
 quad-dominant hub around each blade root as the complete rings of quads repitch needs.
 
 ```text
-pyfs-workspace geometry morph sector.obj --morphing morphing.toml --out morphed.obj
-pyfs-workspace geometry hub-rings sector.obj --morphing morphing.toml --out rings.obj
+pyfs-mesh morph sector.obj --morphing morphing.toml --out morphed.obj
+pyfs-mesh hub-rings sector.obj --morphing morphing.toml --out rings.obj
 ```
 
 The [how-to](mesh/how-to.md#morph-a-sector-or-a-wheel) gives both files, the sector's and
@@ -40,7 +45,7 @@ the wheel's, and the [reference](mesh/reference.md#morph-control) lists the keys
 
 ## Scaling a mesh
 
-`geometry scale` multiplies every vertex of an OBJ by one positive factor about the origin, or
+`pyfs-mesh scale` multiplies every vertex of an OBJ by one positive factor about the origin, or
 about the point given by `--about x,y,z`, without a solver. Only the three coordinates of each
 `v` line change: face order, groups, normals, comments and line endings stay byte for byte,
 because the solver's results depend on face order. Indented vertex and face records are
@@ -64,21 +69,21 @@ operations, node vectors in the old coordinates, so it has to be regenerated for
 mesh. A file with no mesh block, or whose node rows are not found, is refused by name.
 
 ```text
-pyfs-workspace geometry scale 0.5 --mesh wing.obj --out wing_half
-pyfs-workspace geometry scale 2 --mesh wing.obj --about 0,0,1.5
-pyfs-workspace geometry scale 0.5 --mesh wing.fsm --out wing_fsm_half
+pyfs-mesh scale 0.5 --mesh wing.obj --out wing_half
+pyfs-mesh scale 2 --mesh wing.obj --about 0,0,1.5
+pyfs-mesh scale 0.5 --mesh wing.fsm --out wing_fsm_half
 ```
 
 From Python: `pyflightstream.workspace.scale.scale_mesh(mesh, factor, out=None, about=None)`.
 
 ## Collapsing a blunt trailing edge
 
-`geometry collapse-te` merges the two sides of a one-cell base strip of named blades into one
+`pyfs-mesh collapse-te` merges the two sides of a one-cell base strip of named blades into one
 sharp line on an OBJ, without a solver. A `.fsm` input is refused: the operation works on the
 OBJ.
 
 ```text
-pyfs-workspace geometry collapse-te sector.obj --morphing morphing.toml --out sharp.obj
+pyfs-mesh collapse-te sector.obj --morphing morphing.toml --out sharp.obj
 ```
 
 The [how-to](mesh/how-to.md#collapse-a-blunt-trailing-edge) gives the table and the order with
@@ -87,12 +92,12 @@ lists the checks.
 
 ## Small blade pitch changes
 
-`geometry repitch` changes blade pitch while retaining the blade mesh. The user names
+`pyfs-mesh repitch` changes blade pitch while retaining the blade mesh. The user names
 the hub families to rebuild; every other family stays in place and is listed in the report.
 It runs without a solver on `.fsm` and `.obj` files:
 
 ```text
-pyfs-workspace geometry repitch sector.fsm --morphing morphing.toml --out pitched.fsm
+pyfs-mesh repitch sector.fsm --morphing morphing.toml --out pitched.fsm
 ```
 
 Start from the [morphing template](mesh/morphing.toml). The
@@ -108,7 +113,7 @@ are refused before output is written.
 
 ## Preparing geometry
 
-Inventory filenames include the mesh format: `geometry inventory wing.obj`
+Inventory filenames include the mesh format: `pyfs-mesh inventory wing.obj`
 writes `wing.obj.boundaries.toml`, and inventory of `wing.fsm` writes
 `wing.fsm.boundaries.toml`. OBJ inventories are never overwritten because
 they may contain authored import and boundary declarations.
@@ -119,9 +124,9 @@ scaling, renaming, mirroring, copying, cutting or repairing a mesh, happens
 once, before any run, in the geometry stage:
 
 ```text
-pyfs-workspace geometry build              # preview: the script, the names after each step
-pyfs-workspace geometry build --apply      # one solver execution, no solve
-pyfs-workspace geometry accept wing        # after looking at the body
+pyfs-mesh build              # preview: the script, the names after each step
+pyfs-mesh build --apply      # one solver execution, no solve
+pyfs-mesh accept wing        # after looking at the body
 ```
 
 Translate and rotate are not geometry operations: they stay in the run, as the
@@ -131,9 +136,9 @@ Unlike post, a build refuses to replace outputs unless asked with `--overwrite`:
 its outputs are inputs of runs. Inspect the body before replacing them.
 For `build --rows POL --matrix FILE`, give both options or neither.
 
-`pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` no longer exist: each is
-refused, naming `pyfs-workspace geometry refine`, `audit`, `inventory` or `degenerate`,
-which take the same arguments and give the same results.
+The four mesh verbs of `pyfs-matrix` (`audit-mesh` is now `audit`) are refused, each
+naming its `pyfs-mesh` command, which takes the same arguments and gives the same results
+([upgrading](upgrading.md)).
 
 ## A trailing-edge points file from a node list
 
@@ -150,7 +155,7 @@ needed to turn each neighbouring pair into its edge midpoint:
 ```
 
 ```text
-pyfs-workspace geometry trailing-edge --from-nodes nodes.txt --out wing.te.txt --unit METER
+pyfs-mesh trailing-edge --from-nodes nodes.txt --out wing.te.txt --unit METER
 ```
 
 This writes the unit line `METER` and the points `(1, 5, 3)` and `(4, 2, 6)`
@@ -357,7 +362,7 @@ promoted, and a previously built body is preserved even with `--overwrite`.
 The record in a partial folder names the files where they are
 (`<name>.fsm`, `mesh/<name>_obj.obj`, `<name>.audit.json`), so it can be read
 and checked there. A partial folder is never a geometry a row names, and
-`geometry accept` refuses one.
+`pyfs-mesh accept` refuses one.
 
 Nothing moves into a geometry folder until the whole build succeeded. Each
 geometry's record is written last, after its files, and its partial folder is
@@ -369,7 +374,7 @@ and an audit gate failed (nothing is promoted; built outputs stay in the
 partial folder for inspection), 2 when the build is refused and
 nothing was written, 3 when the solver or the read-back failed (nothing is
 promoted and the partial folder keeps the script and the log). The command
-prints `geometry accept` for promoted geometries only.
+prints `pyfs-mesh accept` for promoted geometries only.
 
 **Evidence on the build.** A build runs only commands the command database
 records as verified on the chosen build, for the commands the run did not
@@ -396,7 +401,7 @@ Run the build from `inputs/geometries/`, naming the folder:
 
 ```text
 cd inputs/geometries
-pyfs-workspace geometry build wing --apply
+pyfs-mesh build wing --apply
 ```
 
 Each angle is built as its own geometry beside the base folder:
@@ -442,7 +447,7 @@ the selected control surface's families included.
 Open the preview, then record the check:
 
 ```text
-pyfs-workspace geometry accept wing
+pyfs-mesh accept wing
 ```
 
 `pyfs-matrix plan` reads the record beside the body a row names. It refuses the
@@ -466,8 +471,8 @@ A row that names a CCS, IGES or STL file, or a mesh whose sidecar scales,
 renames or mirrors, needs conversion to a geometry instruction before running. The converter writes the instruction:
 
 ```text
-pyfs-workspace geometry from-sidecar wing.csv            # print it
-pyfs-workspace geometry from-sidecar wing.csv --apply    # write wing.geometry.toml
+pyfs-mesh from-sidecar wing.csv            # print it
+pyfs-mesh from-sidecar wing.csv --apply    # write wing.geometry.toml
 ```
 
 It never edits the sidecar or a matrix. It names the `translate` and `rotate`
@@ -481,8 +486,8 @@ its `.fsm` file. Export it once on the licensed machine before planning grids
 or checking points against that body. From the workspace root:
 
 ```text
-pyfs-workspace geometry export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125
-pyfs-workspace geometry export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125 --apply
+pyfs-mesh export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125
+pyfs-mesh export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125 --apply
 ```
 
 The first command prints the validated export script and destination without
@@ -512,8 +517,8 @@ and saves an FSM for inspection in FlightStream. A legacy `.boundaries.toml`
 filename is accepted when the kind-qualified file is absent.
 
 ```text
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
+pyfs-mesh mark-boundaries inputs/geometries/wing.obj
+pyfs-mesh mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
 ```
 
 Preview validates the mesh and point files, prints the ordered script and all
@@ -577,7 +582,7 @@ the saved trailing edges that join rim vertices without being rim edges, records
 skipped. Detection entries and `auto` wake-termination nodes use commands the 26.100 manual
 documents, and `--apply` stays refused, naming them, until a probe on 26.100 has verified them.
 Setting `MARKING_ROUTE_26100` to `"direct"` makes the pass warn, name
-`pyfs-workspace geometry sector-to-wheel` on a saved sector and write nothing.
+`pyfs-mesh sector-to-wheel` on a saved sector and write nothing.
 
 **FlightStream 26.127.** Each `IMPORT_WAKE_EDGES_FROM_FILE` is one trailing-edge group there,
 so a file whose edges form several connected runs, such as the two sides of a blunt trailing
@@ -592,7 +597,7 @@ rendering), so a fine mesh is not silent.
 
 When the sidecar's `mesh_faces`, `boundary_faces` or `mesh_sha256` is missing or stale, as it
 is after a generated OBJ is built again, run
-`pyfs-workspace geometry inventory <mesh> --refresh`: it rewrites only those three keys from
+`pyfs-mesh inventory <mesh> --refresh`: it rewrites only those three keys from
 the file as it is now and keeps every other line, the `[import]` table and the declared
 trailing edges included. A changed boundary list is refused, since it is yours to correct.
 ## A full wheel from a sector
@@ -610,7 +615,7 @@ inputs/geometries/sector/
   sector.TE_b.te.txt
   sector.N.te.txt
 
-pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
+pyfs-mesh sector-to-wheel sector.obj --copies 6 --axis x --blades Blade1 \
     [--center X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
 ```
 
@@ -696,7 +701,7 @@ blades=["Blade1"], axis="x")` does the same and returns a `WheelResult`: its
 A saved sector is copied without a solver:
 
 ```text
-pyfs-workspace geometry sector-to-wheel sector.fsm --copies 6 --axis x --blades Blade1 --out wheel.fsm
+pyfs-mesh sector-to-wheel sector.fsm --copies 6 --axis x --blades Blade1 --out wheel.fsm
 ```
 
 The mesh block is repeated with the seam nodes merged, and the base regions,
@@ -722,15 +727,15 @@ written, 2 a refusal, an existing output without `--overwrite`, or an
 unrecognized layout.
 ## Merging two OBJ
 
-`pyfs-workspace geometry merge` joins two trimmed OBJ along the open boundaries that lie
+`pyfs-mesh merge` joins two trimmed OBJ along the open boundaries that lie
 within a distance of each other. You name which part is adapted; the other is kept unchanged.
 
 ```
-pyfs-workspace geometry merge wing.obj nacelle.obj --threshold 0.001 --adapt nacelle.obj --out wing_nacelle.obj [--overwrite]
+pyfs-mesh merge wing.obj nacelle.obj --threshold 0.001 --adapt nacelle.obj --out wing_nacelle.obj [--overwrite]
 
 wrote wing_nacelle.obj                 kept part first, in its node and face order; adapted part after it; groups kept
       wing_nacelle.merge.json          threshold, kept, adapted, interface edges, band faces, triangles created, open edges left
-      wing_nacelle.audit.json          the audit of the output (see `geometry audit`)
+      wing_nacelle.audit.json          the audit of the output (see `pyfs-mesh audit`)
       wing_nacelle.obj.boundaries.toml the inventory of the output
 ```
 
@@ -815,9 +820,9 @@ sector from its surface alone, with no solver and no preprocessor, and write
 the matching power-off body:
 
 ```text
-pyfs-workspace geometry sector-remesh sector.fsm --blades Blade1 --axis x \
+pyfs-mesh sector-remesh sector.fsm --blades Blade1 --axis x \
     --chord-cells 26 --le 0.007 --span-cell 0.06 --out sector_new.fsm [--overwrite]
-pyfs-workspace geometry power-off-body sector.fsm --blades Blade1 --axis x --copies 6 \
+pyfs-mesh power-off-body sector.fsm --blades Blade1 --axis x --copies 6 \
     --out body.fsm [--overwrite]
 ```
 
@@ -899,17 +904,17 @@ output without `--overwrite`, or a topology not found.
 
 ## The other geometry verbs
 
-`pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` are the home of
-the four mesh commands. The `pyfs-matrix` names of them are refused, naming the group.
+`pyfs-mesh refine`, `audit`, `inventory` and `degenerate` are the home of
+the four mesh commands. The `pyfs-matrix` names of them are refused, naming `pyfs-mesh`.
 
-`pyfs-workspace geometry beam <geometry> --families <family ...> --stations <n>
+`pyfs-fsi beam <geometry> --families <family ...> --stations <n>
 [--visual-inspection]` cuts each named blade's sections from the mesh into
 `<geometry>.<family>.beam.toml` beside it, the file an FSI input with
 `[sections] source = "mesh"` reads; `--visual-inspection` also draws
 `<geometry>.<family>.beam.pdf`. See
 [Sections from the mesh](fsi-workspace.md#sections-from-the-mesh).
 
-`pyfs-workspace geometry prop-slice --geometry <file>.obj|.igs --blades N
+`pyfs-mesh prop-slice --geometry <file>.obj|.igs --blades N
 [--axis DX DY DZ] [--origin X Y Z] [--blade-dir DX DY DZ] [--stations R_R ...]
 [--unit mm|cm|m|in] [--overwrite] --out <folder>` (the unit also as `MILLIMETER`,
 `CENTIMETER`, `METER` or `INCH`, in any case) cuts one blade of a propeller at radial
@@ -929,7 +934,7 @@ Prepare and mark the OBJ once, inspect the saved geometry, and name the FSM in
 the matrix:
 
 ```text
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply
+pyfs-mesh mark-boundaries inputs/geometries/wing.obj --apply
 pyfs-matrix plan
 ```
 
@@ -961,7 +966,7 @@ They read `<mesh>.obj.boundaries.toml` with the same strict named declarations a
 `mark-boundaries` and use its marking emitter and VERIFIED command gate at each import,
 where a command documented and not verified on the row's build is warned and emitted.
 Every other matrix row requires an `.fsm`; prepare it once with
-`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.
+`pyfs-mesh mark-boundaries <mesh>.obj --apply`.
 
 Repitch accepts a reference installation-axis table, for example
 `axis = { shaft = "X", vector_wrt_global = [2, 0, 0] }`. It normalizes the
@@ -981,7 +986,7 @@ The native build runs through the executor the run was given (`run_matrix(execut
 grouped run's), never through a local one made for it. A build reads its outputs back as soon as
 the solver returns, so it needs a synchronous executor: an executor that submits jobs to a cluster
 is refused by name, before anything is submitted, with the command that builds the geometry on a
-machine with the solver (`pyfs-workspace geometry build <folder> --apply --build <id>`); run it,
+machine with the solver (`pyfs-mesh build <folder> --apply --build <id>`); run it,
 then run the matrix again.
 
 `pyfs-matrix run` (and `run_matrix`) takes such a matrix in three phases, so a refusal that does
