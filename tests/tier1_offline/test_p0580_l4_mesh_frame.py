@@ -165,6 +165,28 @@ def test_p0580_l4_the_words_are_case_insensitive(tmp_path):
     assert read_mesh_frame(sidecar) == ("forward", "left", "up")
 
 
+def _declared_obj(tmp_path):
+    obj = tmp_path / "wing.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n", encoding="utf-8")
+    (tmp_path / "wing.obj.boundaries.toml").write_text(
+        'mesh_frame = ["forward", "left", "up"]\n', encoding="utf-8"
+    )
+    return obj
+
+
+def test_p0580_l4_mark_boundaries_refuses_a_declared_frame_by_name(tmp_path):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    with pytest.raises(InputArtifactError) as refused:
+        plan_mark_boundaries(_declared_obj(tmp_path))
+    text = str(refused.value)
+    assert "mesh_frame = ['forward', 'left', 'up']" in text and "['aft', 'right', 'up']" in text
+    # The FSI route reads the same inputs first, so this is also its plan-time message.
+    assert "the FSI route and mark-boundaries do not convert a mesh to the expected" in text
+    assert "staged FSI mesh differs" not in text
+
+
 @pytest.mark.parametrize("name", ["wing.obj", "wing.fsm"])
 def test_p0580_l4_an_absent_key_changes_nothing(tmp_path, name):
     workspace, geometry, records = _run(tmp_path, name, None, OBJ if name.endswith("obj") else "x")

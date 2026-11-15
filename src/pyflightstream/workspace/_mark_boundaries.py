@@ -267,8 +267,9 @@ def _marking_inputs(mesh):
         # would be in the wrong frame without a word: refuse instead.
         raise InputArtifactError(
             f"{sidecar}: mesh_frame = {list(frame)!r} is not the expected frame "
-            f"{list(EXPECTED_MESH_FRAME)!r}; mark-boundaries does not convert a mesh. "
-            "Write the OBJ in the expected frame and remove the declaration."
+            f"{list(EXPECTED_MESH_FRAME)!r}; the FSI route and mark-boundaries do not convert "
+            "a mesh to the expected frame yet. Write the OBJ in the expected frame and "
+            "remove the declaration."
         )
     declarations = read_boundary_declarations(sidecar)
     if declarations.fs_build is None:

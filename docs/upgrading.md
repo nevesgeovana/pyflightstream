@@ -12,7 +12,8 @@ A mesh is expected in x aft, y right, z up. A mesh built in another axis-aligned
 right-handed frame adds `mesh_frame = ["forward", "left", "up"]` (what its +x, +y and +z
 point to) to its `boundaries.toml`, and is converted before the solver reads it. A mesh
 that states nothing is read as before. A left-handed declaration, a saved simulation
-declared in another frame and `geometry mark-boundaries` on a declared mesh are refused.
+declared in another frame, and an OBJ declared in another frame on the FSI route or in
+`geometry mark-boundaries` (which do not convert yet) are refused.
 
 ## The averaging window spans whole blade passages (0.58)
 

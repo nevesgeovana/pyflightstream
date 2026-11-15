@@ -1258,8 +1258,9 @@ three name three different axes. An absent key is `["aft", "right", "up"]`, with
 - A saved simulation (`.fsm`) that declares another frame is refused, naming the
   declaration: the solver's own file is not rewritten offline. So is a mesh format other
   than OBJ.
-- `pyfs-workspace geometry mark-boundaries` does not convert: an OBJ that declares another
-  frame is refused there, naming the declaration.
+- `pyfs-workspace geometry mark-boundaries` and the FSI route do not convert a mesh to the
+  expected frame yet: an OBJ that declares another frame is refused there at plan, naming
+  the declared and the expected frame.
 - The run record carries `mesh_frame` (`declared`, `matrix`, `source_sha256`,
   `converted_sha256`).
 - Reference points (the moment point, rotor hubs and axes, probe lines) are always stated
