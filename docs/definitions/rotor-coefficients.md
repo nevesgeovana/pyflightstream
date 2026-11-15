@@ -162,7 +162,12 @@ quasi-steady mean over clockings); no solver run is added.
 
 **A zero free stream and a zero reference speed are two different things.** A
 static point has a zero free stream: `J` is a real `0.00000`, and `ETA` and
-`ETAW`, which divide by the free-stream speed, read `NA`. The export states its
+`ETAW` read `NA`. They are the useful propulsive power over the shaft power,
+`J CT / CP` and `J CTW / CP`, and at zero free stream the useful power is nil:
+the rotor produces thrust and absorbs torque and no propulsive work, so any
+number there would be an artifact of the algebra and not a measurement. The
+package states `NA` whenever the free-stream speed or `CP` is zero; `CT` and
+`CQ` stay real. The export states its
 coefficients normalised by the reference dynamic pressure
 
 ```text
