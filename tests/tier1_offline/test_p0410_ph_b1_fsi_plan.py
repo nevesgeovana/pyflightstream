@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import Campaign, PprocSpec
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import plan_campaign
@@ -262,7 +263,11 @@ def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix, polar_glob_o
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         f'[products]\npolar_axes = "{axes}"\n[groups]\n"1" = "all"\n'
     )
-    write_campaign_products(workspace)
+    # 0.58.0: the ACOEF files state every frame, so the key that appended the
+    # selected axes to the 0.57.0 polar is warned and skipped (her rule of
+    # 2026-10-27), named once in products.json, and no polar_axes column is written.
+    with pytest.warns(PyflightstreamWarning, match=f"polar_axes = '{axes}' is not applied"):
+        write_campaign_products(workspace)
     tables = {path.name: path for path in workspace.root.glob("post/**/polars/*.csv")}
     assert {"FAM-ACOEF-P3207.csv", "FAM-DIM-P3207.csv"} <= set(tables)
     assert {"P3207-g01-ACOEF.csv", "P3207-g01-DIM.csv"} <= set(tables)
@@ -270,11 +275,17 @@ def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix, polar_glob_o
     dim_rows = list(csv.DictReader(tables["P3207-g01-DIM.csv"].read_text().splitlines()))
     assert rows
     assert len(dim_rows) == len(rows)
+    manifest = json.loads(
+        next(workspace.root.glob("post/**/products.json")).read_text(encoding="utf-8")
+    )
+    skipped = [key for key in manifest["skipped"] if key.endswith("#polar_axes")]
+    assert len(skipped) == 1, manifest["skipped"]
     for row in rows:
-        assert row["polar_axes"] == axes
+        assert "polar_axes" not in row
         for quantity in ("CD", "CY", "CL"):
-            assert float(row[quantity]) == pytest.approx(float(row[quantity + suffix]), abs=1e-5)
-            # The labelled frame columns of the base polar stay beside the selected ones.
+            # The frame the key selected is a column of the file, with a value,
+            # beside the other frames.
+            assert row[quantity + suffix] != "NA"
             for frame in ("B", "S", "W"):
                 assert row[quantity + frame] != "NA"
 
