@@ -43,3 +43,12 @@ def test_p0580_the_union_falls_back_to_probes_with_the_migration_warning(tmp_pat
         known = _known(tmp_path)
     assert "OLD_COLUMN" in known
     assert any("docs/upgrading.md#0580-post-tree" in str(w.message) for w in said)
+
+
+def test_p0580_the_union_reads_the_group_and_family_files(tmp_path):
+    polars = tmp_path / "post" / "polars"
+    polars.mkdir(parents=True)
+    (polars / "P7001-TOTAL-ACOEF.csv").write_text("POL,GROUP_COLUMN\n", encoding="utf-8")
+    (polars / "FAM-ACOEF-P7001.csv").write_text("POL,FAMILY_COLUMN\n", encoding="utf-8")
+    known = _known(tmp_path)
+    assert {"GROUP_COLUMN", "FAMILY_COLUMN"} <= known

@@ -736,7 +736,12 @@ def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> N
 #: to the numbered form would have dropped every renamed group out of the union
 #: in silence, hiding items 5, 6 and 10 with it. Named here so a test can assert
 #: the pattern itself rather than an outcome that is satisfied by nothing.
-POLAR_TABLE_GLOB = "P*-*_*.csv"
+#: Since 0.58.0 a group's file is `P<POL>-<GROUP>-<KIND>.csv` (no underscore in
+#: the name), so the pattern is the polar and a dash: it holds the group files,
+#: the derived polars beside them, and the 0.57.0 files a workspace still holds.
+POLAR_TABLE_GLOB = "P*-*.csv"
+#: The family files of every polar, `FAM-<KIND>-P<POL>.csv`.
+FAMILY_TABLE_GLOB = "FAM-*-P*.csv"
 
 #: The name a steady polar table gave the polar in legacy releases, where
 #: :data:`~pyflightstream._tokens.POLAR_ID_COLUMN` stands (G16).
@@ -881,7 +886,11 @@ def union_the_workspace_knows(
         If two matrix homes disagree; completeness cannot be measured until resolved.
     """
     known: set[str] = set()
-    for table in sorted((out / polars_dir).glob(POLAR_TABLE_GLOB)):
+    tables = {
+        *(out / polars_dir).glob(POLAR_TABLE_GLOB),
+        *(out / polars_dir).glob(FAMILY_TABLE_GLOB),
+    }
+    for table in sorted(tables):
         known |= _header(table)
     # The CAMPAIGN-level tables sit at the top of the matrix's folder and
     # the per-polar ones do not (FR-88), so this glob is `campaign_sweep.csv`
