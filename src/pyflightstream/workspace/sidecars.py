@@ -959,6 +959,23 @@ def read_thin_boundaries(sidecar: str | Path) -> tuple[str, ...] | None:
 
     The reader is :func:`pyflightstream.cases.mesh.thin_boundaries_of`, which the
     build calls on the case's boundaries file; here its refusal is the workspace's.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` file; a missing file states nothing.
+
+    Returns
+    -------
+    tuple of str or None
+        The names as written; ``()`` for an empty list, which clears a saved
+        selection; None where the key is absent.
+
+    Raises
+    ------
+    InputArtifactError
+        A file that does not read as TOML, or a value that is not a list of
+        nonempty names.
     """
     from pyflightstream.cases.mesh import thin_boundaries_of
 
