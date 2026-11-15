@@ -736,9 +736,9 @@ def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> N
 #: to the numbered form would have dropped every renamed group out of the union
 #: in silence, hiding items 5, 6 and 10 with it. Named here so a test can assert
 #: the pattern itself rather than an outcome that is satisfied by nothing.
-#: Since 0.58.0 a group's file is `P<POL>-<GROUP>-<KIND>.csv` (no underscore in
-#: the name), so the pattern is the polar and a dash: it holds the group files,
-#: the derived polars beside them, and the 0.57.0 files a workspace still holds.
+#: A group's file is `P<POL>-<GROUP>-<KIND>.csv` (no underscore in the name),
+#: so the pattern is the polar and a dash: it holds the group files, the derived
+#: polars beside them, and the files of an earlier layout a workspace still holds.
 POLAR_TABLE_GLOB = "P*-*.csv"
 #: The family files of every polar, `FAM-<KIND>-P<POL>.csv`.
 FAMILY_TABLE_GLOB = "FAM-*-P*.csv"
