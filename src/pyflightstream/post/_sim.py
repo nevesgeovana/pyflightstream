@@ -100,6 +100,7 @@ from pyflightstream.post._tables import (
     ReferenceValues,
     _march_plots_text,
 )
+from pyflightstream.post._tree_migration import earlier_path
 from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
     export_tables,
@@ -857,33 +858,47 @@ def _plots_products(
             "no probes table: missing plots history export. Restore or collect the "
             "recorded plots export; run again with fluid plots if no history was recorded."
         )
-    if not ((plots or field_requested) and plots_path is not None and plots_path.is_file()):
-        return
     relative = f"{TIME_HISTORY_DIR}/{point.name}_plots.csv"
-    target = ctx.target(ctx.out / relative)
-    try:
-        done = write_plots_table(
-            target,
-            _march_plots_text(ctx.workspace, ctx.record_of.get(point.name), plots_path),
-            pol=ctx.sim_id,
-        )
-    except (ProductError, OSError) as error:
-        # THE SAME RULE (MT-01): this point loses its plots table and the
-        # reductions cut from it, named here, and nothing else.
-        ctx.skipped[relative] = str(error)
-        if probe_requested:
-            ctx.skipped[probe_relative] = (
-                f"no probes table: unreadable or empty plots history: {error}. "
-                "Restore or collect a complete plots export; run again if none exists."
+    if not ((plots or field_requested) and plots_path is not None and plots_path.is_file()):
+        # A changed averaging window needs no solver re-run: with the raw export gone, the
+        # history an earlier post wrote is read again, from time_history/ or, in a post
+        # folder of the earlier layout, from probes/ with the migration warning. It is
+        # not rewritten and not listed as a product of this post.
+        if not (plots or field_requested):
+            return
+        done = earlier_path(ctx.out, relative, kind="plots")
+        if not done.is_file():
+            return
+        ctx.skipped.pop(probe_relative, None)
+        ctx.plots_tables[point.name] = done
+    else:
+        target = ctx.target(ctx.out / relative)
+        try:
+            done = write_plots_table(
+                target,
+                _march_plots_text(ctx.workspace, ctx.record_of.get(point.name), plots_path),
+                pol=ctx.sim_id,
             )
-        return
-    if done is None:
-        _retire_unwritten(
-            ctx, relative, target, "the plots export holds no step, so no plots table is written"
-        )
-        return
-    ctx.add(done, {"runs": ctx.sources[point.name]})
-    ctx.plots_tables[point.name] = done
+        except (ProductError, OSError) as error:
+            # THE SAME RULE (MT-01): this point loses its plots table and the
+            # reductions cut from it, named here, and nothing else.
+            ctx.skipped[relative] = str(error)
+            if probe_requested:
+                ctx.skipped[probe_relative] = (
+                    f"no probes table: unreadable or empty plots history: {error}. "
+                    "Restore or collect a complete plots export; run again if none exists."
+                )
+            return
+        if done is None:
+            _retire_unwritten(
+                ctx,
+                relative,
+                target,
+                "the plots export holds no step, so no plots table is written",
+            )
+            return
+        ctx.add(done, {"runs": ctx.sources[point.name]})
+        ctx.plots_tables[point.name] = done
     if fluid:
         _unsteady_probes(ctx, point, done, legacy_profiles, probe_requested=probe_requested)
     _point_reductions(

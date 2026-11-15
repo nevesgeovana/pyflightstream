@@ -164,3 +164,33 @@ def test_p0580_note_earlier_layout_says_each_kind_once_per_post(tmp_path):
         second = note_earlier_layout(tmp_path)
     assert len(caught) == 1 and "(and 1 more of the kind)" in str(caught[0].message)
     assert first == second and len(first) == 2
+
+
+@pytest.mark.requirement("FR-3788")
+def test_p0580_a_changed_window_is_reduced_again_from_the_history_of_a_0570_post(tmp_path):
+    """A reader inside the package falls back to probes/ for the plots history, warned once.
+
+    A 0.57.0 post folder holds the plots history under probes/. With the raw export gone,
+    the reductions are cut again from that history, so a changed window needs no solver run.
+    """
+    workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
+    products = workspace.root / "post" / "products"
+    write_campaign_products(workspace)
+    (products / "probes").mkdir(exist_ok=True)
+    (products / "time_history" / "AL-020_plots.csv").replace(
+        products / "probes" / "AL-020_plots.csv"
+    )
+    for reduced in (products / "reductions").glob("*.csv"):
+        reduced.unlink()
+    (workspace.sim_dir("7001") / "outputs" / "AL-020_plots.txt").unlink()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, overwrite=True)
+    assert (products / "reductions" / "AL-020_phase_locked.csv").is_file()
+    said = [
+        str(w.message) for w in caught if "moved from probes/ to time_history/" in str(w.message)
+    ]
+    assert said, "the migration warning names the history read from probes/"
+    assert not (products / "time_history" / "AL-020_plots.csv").exists(), (
+        "the history is not rewritten"
+    )
