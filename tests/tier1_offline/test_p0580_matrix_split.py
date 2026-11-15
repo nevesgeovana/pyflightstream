@@ -153,3 +153,16 @@ def test_p0580_a_moved_verb_checks_its_runs_name(workspace, capsys):
     argv = ["show", "2001", "--runs", "../x.json", "--workspace", str(workspace)]
     assert workspace_main(argv) == 2
     assert "is not a file name" in capsys.readouterr().err
+
+
+@pytest.mark.requirement("FR-310")
+def test_p0580_a_matrix_in_both_homes_with_different_bytes_is_refused_by_a_moved_verb(
+    workspace, capsys
+):
+    (workspace / "inputs" / "matrices").mkdir(parents=True, exist_ok=True)
+    (workspace / "twice.fs").write_text("one\n", encoding="utf-8")
+    (workspace / "inputs" / "matrices" / "twice.fs").write_text("other\n", encoding="utf-8")
+    capsys.readouterr()
+    argv = ["rebuild", "--workspace", str(workspace), "--matrix", "twice"]
+    assert workspace_main(argv) == 2
+    assert "matrix not read:" in capsys.readouterr().err
