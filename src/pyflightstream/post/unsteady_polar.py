@@ -10,7 +10,7 @@ the step exports on 26.124", 2026-10-02), one instant of a cycle, so a
 polar read from it is a polar of an instant. the retired ``write_unsteady_polar``
 reads the plots tables the stage has already written, so the free-stream
 scaling is performed once, and averages each point over the window its row
-states, one row per point, under ``polars/`` (:func:`_unsteady_polar_file_name`).
+states, one row per point, under ``polars/``.
 Its axis coefficients (:data:`UNSTEADY_AXIS_COLUMNS`) come from the forces the
 run plotted in the global frame (:func:`global_frame_plot_groups`); the
 row's setup, the equations and the names dictionary of the pproc artifact
@@ -75,33 +75,6 @@ def _averaged(content: Mapping[str, object]) -> dict[str, object]:
     # ALWAYS BOTH CELLS, also where the caller passed no super content: the file promises a
     # `time_average` over an `averaging_window`, and a polar written without `setup` said nothing.
     return {**content, **_AVERAGED_ROW_PROVENANCE}
-
-
-def _unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
-    """Return the file name of one unsteady simulation's POLAR, which is per SIMULATION.
-
-    Item 17. It carries no GROUP, and that is the whole difference from
-    the retired ``swept_polar_file_name``: the steady polar is one table per pproc group
-    because its source, the loads export, states loads PER FAMILY. This one's
-    source is the plots history, whose columns are whatever the run defined as
-    plots, so there is one table per simulation and one row per point.
-
-    Parameters
-    ----------
-    sim_id : str or int
-        The simulation's identifier, written as it stands after the ``P``.
-    name : str
-        The name the file carries between the simulation and ``uns_avg``.
-
-    Returns
-    -------
-    str
-        The file name, ``P<sim_id>_<name>_uns_avg.csv``, without a directory.
-    """
-    # A simulation id is not a group token; do not add the numbered-group
-    # prefix. P<sim>_<name>_uns_avg.csv identifies the simulation and names
-    # the product as an unsteady-history average.
-    return f"P{sim_id}_{name}_uns_avg.csv"
 
 
 def _dependency_order(equations: Mapping[str, object]) -> list[str]:

@@ -81,6 +81,8 @@ _ORIGINAL_ALL = [
     # 0.43.0 (FR-2302): the trimmed polar, appended after the original inventory.
     "trimmed_polar_row",
     "write_trimmed_polar",
+    # The fixed-width form of polar_format = "legacy_polar", held by `post._tables` and routed.
+    "write_fixed_width_table",
 ]
 
 
