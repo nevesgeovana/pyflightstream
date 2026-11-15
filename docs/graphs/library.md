@@ -2172,7 +2172,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.workspace._geom_propeller"><summary><code>pyflightstream.workspace._geom_propeller</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry">pyflightstream.geometry</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.geometry._propeller_spinner">pyflightstream.geometry._propeller_spinner</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.stages">pyflightstream.geometry.stages</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geom_assembly">pyflightstream.workspace._geom_assembly</a> (module)</li>
@@ -3114,7 +3113,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.corrections">pyflightstream.cases.corrections</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.workflows._custom_motion">pyflightstream.cases.workflows._custom_motion</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._batches">pyflightstream.workspace._batches</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_row">pyflightstream.workspace._geometry_row</a> (module)</li>
@@ -4118,6 +4116,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.geometry"><summary><code>pyflightstream.geometry</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.geometry._propeller">pyflightstream.geometry._propeller</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.geometry._propeller_spinner">pyflightstream.geometry._propeller_spinner</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.component">pyflightstream.geometry.component</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.geometry.config">pyflightstream.geometry.config</a> (module)</li>
 </ul></details>

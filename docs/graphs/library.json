@@ -6279,6 +6279,11 @@
     },
     {
       "source": "pyflightstream.geometry",
+      "target": "pyflightstream.geometry._propeller_spinner",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry",
       "target": "pyflightstream.geometry.component",
       "kind": "module"
     },
@@ -16264,11 +16269,6 @@
     },
     {
       "source": "pyflightstream.workspace._geom_propeller",
-      "target": "pyflightstream.geometry._propeller_spinner",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geom_propeller",
       "target": "pyflightstream.geometry.stages",
       "kind": "deferred"
     },
@@ -19355,11 +19355,6 @@
     {
       "source": "pyflightstream.workspace.matrix",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.matrix",
-      "target": "pyflightstream.cases.workflows._custom_motion",
       "kind": "module"
     },
     {
