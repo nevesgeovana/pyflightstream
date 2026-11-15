@@ -25,6 +25,7 @@ from pyflightstream.cases import MeshImport
 from pyflightstream.cases import qsteady as arithmetic
 from pyflightstream.cases.workflows import qsteady_validity
 from pyflightstream.post import disc_maps
+from pyflightstream.post._block_scope import after_run_block
 from pyflightstream.post.harmonics import HarmonicRotor
 from pyflightstream.post.products import read_csv_table
 from pyflightstream.run.matrix import _warn_when_a_quasi_steady_point_leaves_its_assumption
@@ -45,7 +46,7 @@ _QUANTITIES = tuple(KNOWN)
 
 
 def _disc(out: Path, point: str, quantity: str) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_table(out / "sections" / disc_maps.disc_map_name(point, "PROP", quantity))
+    return read_csv_table(out / "reductions" / disc_maps.disc_map_name(point, "PROP", quantity))
 
 
 # ------------------------------------------------------------------ G5 --
@@ -67,8 +68,9 @@ def test_a_wheel_s_disc_map_gives_back_the_load_at_every_radius_and_azimuth(
     sign = 1 if rpm > 0 else -1
     for quantity in _QUANTITIES:
         columns, rows = _disc(out, "DP", quantity)
-        assert tuple(columns) == disc_maps.DISC_MAP_COLUMNS
-        assert columns[0] == "POL" and columns[1] == "ALPHA"
+        # The table opens with POL and the run block (FR-3778); its own columns follow.
+        assert tuple(columns[after_run_block(columns) :]) == disc_maps.DISC_MAP_COLUMNS[-8:]
+        assert columns[0] == "POL" and columns[1] == "POINT_ID"
         assert len(rows) == 6 * 2 * len(RADII)
         assert {row["POL"] for row in rows} == {"7001"}
         assert {row["QUANTITY"] for row in rows} == {quantity}
@@ -81,7 +83,7 @@ def test_a_wheel_s_disc_map_gives_back_the_load_at_every_radius_and_azimuth(
             assert float(row["VALUE"]) == pytest.approx(_load(quantity, radius, psi), abs=1e-4)
         places = [(float(r["AZIMUTH_DEG"]), float(r["STATION_R_M"])) for r in rows]
         assert places == sorted(places), "the disc reads by azimuth, then radius"
-        entry = manifest["products"][f"sections/DP_disc_PROP_{quantity}.csv"]
+        entry = manifest["products"][f"reductions/DP_disc_PROP_{quantity}.csv"]
         assert entry["kind"] == "disc_map"
         assert entry["source"] == "wheel clockings"
         assert entry["samples"] == 12
@@ -109,7 +111,7 @@ def test_an_unsteady_rotor_s_disc_map_holds_its_last_revolution_only(tmp_path, m
             assert float(row["AZIMUTH_DEG"]) == pytest.approx(psi, abs=1e-4)
             assert float(row["VALUE"]) == pytest.approx(_load(quantity, radius, psi), abs=1e-4)
             assert row["R_OVER_R"] == "NA"
-        entry = manifest["products"][f"sections/AL-020_disc_PROP_{quantity}.csv"]
+        entry = manifest["products"][f"reductions/AL-020_disc_PROP_{quantity}.csv"]
         assert entry["kind"] == "disc_map"
         assert entry["source"] == "unsteady last revolution"
         assert entry["samples"] == 18
@@ -339,7 +341,7 @@ def test_a_rotor_short_of_a_revolution_is_named_in_the_skips_of_the_disc_maps(
     record = workspace.read_manifest()[0]
     record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 20.0  # type: ignore[index]
     out, manifest, log = _post(workspace)
-    assert not list((out / "sections").glob("*_disc_*"))
-    reason = manifest["skipped"]["sections/AL-020_disc_#rotor=PROP"]
+    assert not list((out / "reductions").glob("*_disc_*"))
+    reason = manifest["skipped"]["reductions/AL-020_disc_#rotor=PROP"]
     assert "no disc map" in reason
     assert any("AL-020_disc_" in line and "no disc map" in line for line in log)
