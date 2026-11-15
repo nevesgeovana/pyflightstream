@@ -53,7 +53,16 @@ _NO_TESTS = "x = 1\n"
 
 
 def _write(tmp_path: Path, body: str) -> str:
-    """Write a throwaway test module and return its path for pytest."""
+    """Write a throwaway test module and return its path for pytest.
+
+    An empty ``pytest.ini`` beside it pins the child's rootdir to this folder.
+    Without it the child roots its collection wherever an ancestor carries a
+    config file, and CI run 43728663939 rooted it at the system temp folder,
+    whose ``pyfs-preflight-*`` folders other workers create and remove: one
+    vanished during the scan and the child exited 2 (INCONCLUSIVE) on a
+    failing test.
+    """
+    (tmp_path / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     path = tmp_path / "test_throwaway.py"
     path.write_text(body, encoding="utf-8")
     return str(path)
