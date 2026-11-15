@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
@@ -24,7 +25,7 @@ from pyflightstream.cases.corrections import (
     calibration_text,
 )
 from pyflightstream.cases.qsteady import reduced_frequency
-from pyflightstream.post import _polar_stage, _rotor_plan
+from pyflightstream.post import _rotor_plan
 from pyflightstream.post._rotor_products import _acoustic_products
 from pyflightstream.post.acoustics import write_acoustic_products
 from pyflightstream.post.axes import frame_rotations, rotor_frame
@@ -571,8 +572,13 @@ def _post_1_rotor_plan___campaign(
     window: bool = True,
     clock: str = "PUSHER",
     second_point_without_mach: bool = False,
+    log: bool = False,
 ) -> tuple[list[Path], dict, list[str]]:
-    """Post the superfile fixture's rotor simulation 6002 with the rotor as asked."""
+    """Post the superfile fixture's rotor simulation 6002 with the rotor as asked.
+
+    ``log`` adds a native log to the point's outputs, for a test that replaces the
+    stage's verdict of it.
+    """
     workspace = _post_1_rotor_plan___workspace(tmp_path)
     text = reference.replace(
         '[rotors.PUSHER]\nalias = "PUSHER"', f'[rotors."{alias}"]\nalias = "{alias}"'
@@ -601,7 +607,14 @@ def _post_1_rotor_plan___campaign(
             plan["rotors"] = {
                 alias: {"blades": 6, "rpm": 2200.0, "steps_per_revolution": 4.0, "period_steps": 1}
             }
-            record = record.model_copy(update={"reductions": plan})
+            update: dict[str, object] = {"reductions": plan}
+            if log:
+                stem = plots.removesuffix("_plots.txt")
+                (workspace.sim_dir("6002") / f"{stem}_log.txt").write_text(
+                    "a native log\n", encoding="utf-8"
+                )
+                update["outputs"] = [*record.outputs, f"{stem}_log.txt"]
+            record = record.model_copy(update=update)
             workspace.append_record(RunRecord(**record.model_dump()))
             if second_point_without_mach:
                 folder = workspace.sim_dir("6002")
@@ -650,16 +663,26 @@ class TestPost1RotorPlan:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ROTORPRODUCT")])
     def test_p0400_rotorproduct_judgement_names_the_sanitised_path(tmp_path, monkeypatch):
-        """P0400-ROTORPRODUCT: the product a frozen-window warning names is the file written."""
-        judged: list[str] = []
+        """P0400-ROTORPRODUCT: the product a frozen-window warning names is the file written.
 
-        def _recording(frozen, steps, *, point, product):
-            judged.append(product)
-            return None
+        The solve is read as frozen from its first step (the stage's one verdict of a
+        frozen solve, ``freeze_of_log``, replaced at its one home), so every window
+        average of the point is judged and warned, each naming the product it costs.
+        """
+        from pyflightstream.post import _stage
+        from pyflightstream.results import FrozenSolve
 
-        monkeypatch.setattr(_polar_stage, "_judge_average", _recording)
-        _written, manifest, _caught = _post_1_rotor_plan___campaign(tmp_path, alias="PUSH/ER")
-        assert judged, "the averaging path was not reached"
+        monkeypatch.setattr(_stage, "freeze_of_log", lambda *a, **k: FrozenSolve(1, 1))
+        _written, manifest, caught = _post_1_rotor_plan___campaign(
+            tmp_path, alias="PUSH/ER", log=True
+        )
+        judged = [
+            found.group(1)
+            for text in caught
+            if "Recollect the native log or run the point again to settle this average" in text
+            and (found := re.search(r"product=(\S+):", text))
+        ]
+        assert judged, ("the averaging path was not reached", caught)
         # The rotor table is the ROTOR group's RCOEF file now (design-post-outputs 2.2); the
         # alias goes through the file-name rule, so no separator is left in the name.
         tables = [key for key in manifest["products"] if key.endswith("-RCOEF.csv")]
