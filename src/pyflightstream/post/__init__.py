@@ -164,8 +164,8 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._admit` (which records of a simulation can supply a
   product row), :mod:`pyflightstream.post._sim` (one simulation's post over its
   frozen context, the families called in the manifest's order),
-  :mod:`pyflightstream.post._rotor_plan` (where each rotor table's rows come
-  from), :mod:`pyflightstream.post._reduction_stage` (the reductions of a
+  :mod:`pyflightstream.post._rotor_plan` (where a rotor's loads come from: its plot
+  source and its recorded speed), :mod:`pyflightstream.post._reduction_stage` (the reductions of a
   point's plots table), :mod:`pyflightstream.post._rotor_products` (a point's
   series and its quasi-steady, harmonic, noise and disc-map products),
   :mod:`pyflightstream.post._additional` (the products of the additional post),
@@ -179,8 +179,9 @@ module, which is stated rather than left to be discovered:
   codebook as a campaign product, FR-419) and
   :mod:`pyflightstream.post._installed_copies` (the installed-frame copies of
   the probes table and the reusable inflow profile, FR-420) and
-  :mod:`pyflightstream.post._cn_slope` (the normal-force slope of a rotor table
-  against incidence, FR-3502) and
+  :mod:`pyflightstream.post._cn_slope` (the normal-force slope of a rotor against
+  incidence, FR-3502; kept unreached while ``[products] rotor_cn_slope`` is a named skip,
+  until PFS-2241 reads it from the rotor group RCOEF files) and
   :mod:`pyflightstream.post._merged_polar` (the unsteady polar with its rotor tables
   and ROTATE angles on one row, FR-3511);
 * the PRIVATE modules of the post tree (PFS-2231, PFS-2232):
