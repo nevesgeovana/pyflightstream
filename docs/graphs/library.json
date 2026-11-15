@@ -776,6 +776,11 @@
       "path": "geometry/_propeller_slice.py"
     },
     {
+      "id": "pyflightstream.geometry._propeller_spinner",
+      "layer": 3.25,
+      "path": "geometry/_propeller_spinner.py"
+    },
+    {
       "id": "pyflightstream.geometry._records",
       "layer": 3.25,
       "path": "geometry/_records.py"
@@ -3434,6 +3439,11 @@
     },
     {
       "source": "pyflightstream.cases.settings",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.settings",
       "target": "pyflightstream.cases._runtime_settings",
       "kind": "module"
     },
@@ -5119,6 +5129,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._solver_settings",
+      "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._solver_settings",
       "target": "pyflightstream.cases.workflows._conventions",
       "kind": "module"
     },
@@ -6674,6 +6689,11 @@
     },
     {
       "source": "pyflightstream.geometry._generation",
+      "target": "pyflightstream.geometry._propeller_spinner",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._generation",
       "target": "pyflightstream.geometry._regions",
       "kind": "module"
     },
@@ -6838,6 +6858,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.geometry._propeller",
+      "target": "pyflightstream.geometry._propeller_spinner",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.geometry._propeller_build",
       "target": "pyflightstream.geometry._patch",
       "kind": "module"
@@ -6866,6 +6891,11 @@
       "source": "pyflightstream.geometry._propeller_input",
       "target": "pyflightstream._errors",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_input",
+      "target": "pyflightstream.geometry._propeller_spinner",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.geometry._propeller_input",
@@ -6900,6 +6930,36 @@
     {
       "source": "pyflightstream.geometry._propeller_slice",
       "target": "pyflightstream.geometry._propeller",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream.geometry._bspline",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream.geometry._patch",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream.geometry._propeller_checks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream.geometry._propeller_input",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.geometry._propeller_spinner",
+      "target": "pyflightstream.geometry._records",
       "kind": "module"
     },
     {
@@ -17314,6 +17374,11 @@
     },
     {
       "source": "pyflightstream.workspace._matrix_binding",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._matrix_binding",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -18110,6 +18175,11 @@
     {
       "source": "pyflightstream.workspace._row_setup",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._row_setup",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
