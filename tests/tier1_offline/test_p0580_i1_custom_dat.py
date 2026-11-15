@@ -35,3 +35,20 @@ def test_p0580_each_custom_dat_states_its_group_id(tmp_path):
         line = path.read_text(encoding="utf-8").splitlines()[3]
         stated[group] = int(line.split()[1])
     assert stated == {"TOTAL": 0, "AIRFRAME": 1, "g01": 101, "g02": 102}, stated
+
+
+def test_p0580_polar_axes_is_warned_and_named_as_not_applied(tmp_path):
+    """Warn and skip: a key the polar files do not apply is said, never silent."""
+    import json
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = "all"\n[products]\npolar_axes = "wind"\n', encoding="utf-8"
+    )
+    with pytest.warns(PyflightstreamWarning, match="polar_axes = 'wind' is not applied"):
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    manifest = workspace.root / "post" / "matriz" / "products.json"
+    skipped = json.loads(manifest.read_text(encoding="utf-8"))["skipped"]
+    assert "polars/6001#polar_axes" in skipped, sorted(skipped)

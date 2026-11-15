@@ -393,10 +393,8 @@ def _entry(ctx: SimContext, held: Sequence[PolarPoint], *, instant: bool) -> dic
     return entry
 
 
-def family_polar_products(ctx: SimContext) -> None:
-    """Write the family and group files of one simulation's polar, and their derived polars."""
-    if not ctx.pproc.products.polars:
-        return
+def _say_keys_not_applied(ctx: SimContext) -> None:
+    """Name and warn the [products] keys the polar files do not apply (yet)."""
     if ctx.pproc.products.rotor_cn_slope:
         # SAID, NEVER SILENT: the slope read the rotor table, which is retired.
         reason = (
@@ -406,6 +404,24 @@ def family_polar_products(ctx: SimContext) -> None:
         )
         ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}#rotor_cn_slope"] = reason
         warn(reason, PyflightstreamWarning, stacklevel=2)
+    if ctx.pproc.products.polar_axes is not None:
+        # WARN AND SKIP: the key appended selected-axis columns to the 0.57.0 polar
+        # table; the ACOEF files state every frame (W, S, B), and the key's reading
+        # of them is not yet defined.
+        said = (
+            f"[products] polar_axes = {ctx.pproc.products.polar_axes!r} is not applied: the "
+            "ACOEF files state the coefficients in every frame (W, S, B), and the key's reading "
+            "of those files is not yet defined"
+        )
+        ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}#polar_axes"] = said
+        warn(said, PyflightstreamWarning, stacklevel=2)
+
+
+def family_polar_products(ctx: SimContext) -> None:
+    """Write the family and group files of one simulation's polar, and their derived polars."""
+    if not ctx.pproc.products.polars:
+        return
+    _say_keys_not_applied(ctx)
     layout = _layout(ctx)
     if layout is None:
         return
