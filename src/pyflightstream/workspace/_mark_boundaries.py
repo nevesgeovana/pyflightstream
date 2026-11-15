@@ -70,6 +70,7 @@ EVIDENCE_GATED: frozenset[str] = frozenset(
         "DETECT_TRAILING_EDGES_BY_SURFACE",
         "AUTO_DETECT_TRAILING_EDGES",
         "SET_TRAILING_EDGE_SWEEP_ANGLE",
+        "SET_TRAILING_EDGE_BLUNTNESS_ANGLE",
         "AUTO_DETECT_WAKE_TERMINATION_NODES",
         "SELECT_MESH_NODE",
         "MARK_WAKE_TERMINATION_NODES",
@@ -1170,6 +1171,8 @@ def _emit_marking(
         if marking.route == "detect":
             if marking.sweep_angle_deg is not None:
                 emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
+            if marking.bluntness_angle_deg is not None:
+                emit("SET_TRAILING_EDGE_BLUNTNESS_ANGLE", marking.bluntness_angle_deg)
             if marking.detect_surfaces:
                 indices = [names.index(name) + 1 for name in marking.detect_surfaces]
                 emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)

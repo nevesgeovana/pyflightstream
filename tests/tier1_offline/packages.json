@@ -243,6 +243,7 @@
       "tests/tier1_offline/test_p0570_pslice.py",
       "tests/tier1_offline/test_p0570_split_symmetry.py",
       "tests/tier1_offline/test_p0570_tipcap.py",
+      "tests/tier1_offline/test_p0580_bc_declarations.py",
       "tests/tier1_offline/test_p0580_citation.py",
       "tests/tier1_offline/test_p0580_cut_blunt_base.py",
       "tests/tier1_offline/test_p0580_l4_mesh_frame.py",

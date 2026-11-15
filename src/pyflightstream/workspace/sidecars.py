@@ -1366,6 +1366,12 @@ TRAILING_EDGE_DETECT_KEYS: Mapping[str, InputKey] = {
         "deg",
         "SET_TRAILING_EDGE_SWEEP_ANGLE",
     ),
+    "bluntness_angle": InputKey(
+        "The bluntness angle set before the detection, only when stated; refused on a build "
+        "whose command database has no row for the command.",
+        "deg",
+        "SET_TRAILING_EDGE_BLUNTNESS_ANGLE",
+    ),
 }
 
 #: The keys ``[trailing_edges]`` reads: ``file`` with ``type`` and
@@ -1688,7 +1694,7 @@ def _trailing_edge_sets(path: Path, table: Mapping[str, Any], where: str) -> Tra
 
 
 def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
-    """Read ``detect``: ``"auto"``, or a table of surfaces and an optional sweep angle."""
+    """Read ``detect``: ``"auto"``, or a table of surfaces and optional angles in degrees."""
     if detect == DETECT_EVERYWHERE:
         return {}
     if not isinstance(detect, dict):
@@ -1701,17 +1707,19 @@ def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
     if foreign:
         raise InputArtifactError(
             f"{where}: detect does not read {', '.join(foreign)}; it reads surfaces and, "
-            "optionally, sweep_angle."
+            "optionally, sweep_angle and bluntness_angle."
         )
     surfaces = detect.get("surfaces")
     fields: dict[str, Any] = {"detect_surfaces": _surface_names(where, surfaces, every=True)}
-    if "sweep_angle" in detect:
-        angle = detect["sweep_angle"]
+    for key in ("sweep_angle", "bluntness_angle"):
+        if key not in detect:
+            continue
+        angle = detect[key]
         if isinstance(angle, bool) or not isinstance(angle, (int, float)):
             raise InputArtifactError(
-                f"{where}: detect states sweep_angle = {angle!r}; write it in degrees, as a number."
+                f"{where}: detect states {key} = {angle!r}; write it in degrees, as a number."
             )
-        fields["sweep_angle_deg"] = _as_float(where, "detect sweep_angle", angle)
+        fields[f"{key}_deg"] = _as_float(where, f"detect {key}", angle)
     return fields
 
 

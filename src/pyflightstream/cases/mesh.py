@@ -326,9 +326,9 @@ class TrailingEdgeMarking(BaseModel):
 
     ``route = "detect"`` marks by the solver's detection:
     ``detect_surfaces`` names the surfaces to detect on, by the sidecar's
-    names, and is empty for every surface; ``sweep_angle_deg`` is set
-    before the detection when stated. Detection gives every edge the
-    STANDARD type and reads no tolerance.
+    names, and is empty for every surface; ``sweep_angle_deg`` and
+    ``bluntness_angle_deg`` are set before the detection when stated.
+    Detection gives every edge the STANDARD type and reads no tolerance.
 
     Examples
     --------
@@ -344,6 +344,9 @@ class TrailingEdgeMarking(BaseModel):
     sets: tuple[TrailingEdgeSet, ...] = ()
     detect_surfaces: tuple[str, ...] = ()
     sweep_angle_deg: float | None = None
+    #: SET_TRAILING_EDGE_BLUNTNESS_ANGLE before the detection, only when stated; the
+    #: command database decides the builds that take it (PFS-2249).
+    bluntness_angle_deg: float | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -409,6 +412,7 @@ class TrailingEdgeMarking(BaseModel):
                 or self.points_file
                 or self.detect_surfaces
                 or self.sweep_angle_deg is not None
+                or self.bluntness_angle_deg is not None
             ):
                 raise InputValueError("no trailing edge cannot also supply points or detection")
             return self
@@ -419,10 +423,14 @@ class TrailingEdgeMarking(BaseModel):
                 "file, and it must be positive and finite"
             )
         if self.route == "file":
-            if self.detect_surfaces or self.sweep_angle_deg is not None:
+            if (
+                self.detect_surfaces
+                or self.sweep_angle_deg is not None
+                or self.bluntness_angle_deg is not None
+            ):
                 raise InputValueError(
-                    "the file route takes no detection surfaces and no sweep angle"
-                    ". Drop them, or use the detect route."
+                    "the file route takes no detection surfaces, no sweep angle and no "
+                    "bluntness angle. Drop them, or use the detect route."
                 )
             return self
         if self.points_m or self.points_file is not None:
@@ -437,6 +445,11 @@ class TrailingEdgeMarking(BaseModel):
             raise InputValueError(
                 f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number"
                 ". State a finite sweep_angle."
+            )
+        if self.bluntness_angle_deg is not None and not math.isfinite(self.bluntness_angle_deg):
+            raise InputValueError(
+                f"bluntness_angle = {self.bluntness_angle_deg!r} is not a finite number"
+                ". State a finite bluntness_angle."
             )
         return self
 

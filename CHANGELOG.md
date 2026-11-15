@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Added
 
+The trailing-edge detection of a boundaries file takes `bluntness_angle` (degrees) beside `sweep_angle`: `[trailing_edges.<label>] detect = { surfaces = [...], bluntness_angle = 120 }` sets `SET_TRAILING_EDGE_BLUNTNESS_ANGLE` before the detection, on the builds whose command database row allows it (25.000 to 26.121), and a build with no row refuses it naming the command. PFS-2249. migration: none.
+
 A rotor block of the reference states an integer `id`, 0 or more, 0 when unwritten: the `<id>` of the rotor's frame `R<id>` and of its columns (`RPM0`, `CTR0`). `refuse_duplicate_rotor_ids` refuses two rotors of one reference that carry one id, two rotors without ids included, naming both aliases. migration: none for a reference with one rotor; a reference with several rotors gives each a distinct `id`.
 
 The axes of the 0.58.0 polar files: `post.axes.rotor_frame` builds the frame `R<id>` of a rotor, its body axes turned by the toe and the pitch of the declared shaft, with the shaft's sense chosen so thrust is positive forward (up for a lift rotor); `frame_rotations` gives the frames W, S, B and every `R<id>` from the export frame, and `airframe_axis_coefficients` the six coefficients of each, `CD` positive aft and `CL` positive up in every frame. New definition pages: axes and signs, airframe coefficients. migration: none; no product writes them yet.
