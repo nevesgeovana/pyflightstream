@@ -103,6 +103,7 @@ from pyflightstream._fsm import boundary_names as boundary_names
 from pyflightstream._retired_names import (
     BLOCK_KIND_ENGINE,
     POINT_KIND_ENGINE,
+    REMOVED_FORMS,
     removed_setup_forms,
     retired_key,
 )
@@ -1466,14 +1467,10 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     Notes
     -----
     An old-shape groups file is told by its BARE LISTS: a group name to
-    its members at the top level, with no ``[groups]`` table. The one
-    top-level list the pproc shape itself defines, ``base_regions``, is
-    not that (PFS-2005.04): in legacy releases this reader refused the
-    documented off switch ``base_regions = []`` as an old-shape file,
-    while the docs page showed exactly that form. TOML puts a top-level
-    key BEFORE the first table header, so the line goes above
-    ``[groups]``; written under it, it is a group named base_regions and
-    is refused as one.
+    its members at the top level, with no ``[groups]`` table. The
+    top-level ``base_regions`` list is refused by name before that check,
+    naming the boundaries file and the row's BASE_REGIONS column (PFS-2252),
+    so it is never read as a legacy group.
     """
     _check_id(artifact_id, "pproc")
     directory = Path(inputs_dir) / "pproc"
@@ -1481,6 +1478,11 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     if not path.is_file():
         raise _miss("pproc", artifact_id, directory)
     data = load_toml(path, "pproc")
+    if "base_regions" in data:
+        # PFS-2252: before the legacy-shape check, which would read the list as a group.
+        raise InputArtifactError(
+            f"the pproc artifact {path}: {REMOVED_FORMS['pproc.base_regions'].message()}"
+        )
     # A model field is never a legacy top-level group, whatever its type. Read
     # PprocArtifact.model_fields rather than duplicating its list-valued fields,
     # including probes and vtk_variables; let the model validate their contents.

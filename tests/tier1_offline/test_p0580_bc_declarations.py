@@ -172,6 +172,27 @@ def test_p0580_pfs2257_per_mechanism_keys_still_emit_on_26100():
     assert "SET_VALAREZO_SEPARATION_BOUNDARIES" in rendered(case, "26.100")
 
 
+@pytest.mark.parametrize("listed", ["[]", '["Base"]'])
+def test_p0580_pfs2252_pproc_base_regions_is_refused_naming_the_one_home(tmp_path, listed):
+    """PFS-2252: the pproc key is refused at read and from Python, naming its homes."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.workspace.inputs import resolve_pproc
+
+    (tmp_path / "pproc").mkdir()
+    (tmp_path / "pproc" / "p001.toml").write_text(
+        f'base_regions = {listed}\n[groups]\nWING = "wing"\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError) as refused:
+        resolve_pproc(tmp_path, "p001")
+    with pytest.raises(ValueError) as from_python:
+        PprocSpec(base_regions=["Base"])
+    for said in (str(refused.value), str(from_python.value)):
+        assert "base_regions of a pproc is no longer accepted" in said, said
+        assert "[base_regions.<family>]" in said and "BASE_REGIONS column" in said, said
+        assert "legacy groups-artifact" not in said, said
+
+
 @pytest.mark.parametrize("build", ["26.122", "26.127"])
 def test_p0580_pfs2249_bluntness_angle_is_refused_on_a_build_with_no_row(tmp_path, build):
     """PFS-2249: 26.122 removed the command and 26.127 has no row, so the build refuses it."""

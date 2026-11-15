@@ -118,6 +118,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) ([one home per condition](boundary-conditions.md#one-home-per-condition)) |
 | setup `sonic_velocity_m_per_s` | nothing: the speed of sound follows from the air state of the flight-condition columns |
 | setup `symmetry_loads` | the run matrix row's `SYMMETRY_LOADS` column (`true` or `false`) |
+| pproc `base_regions` | `[base_regions.<family>]` in the boundaries file, or the row's `BASE_REGIONS` column for a per-row choice |
 
 ## 0.57.0
 

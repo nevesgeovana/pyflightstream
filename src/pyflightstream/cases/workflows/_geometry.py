@@ -44,7 +44,6 @@ from pyflightstream.cases import (
     setup_surfaces as _setup_surfaces,
 )
 from pyflightstream.cases._skipped_families import (
-    PPROC_ARTIFACT,
     SETUP_ARTIFACT,
     skips_a_name_the_model_lacks,
 )
@@ -267,12 +266,10 @@ def _sidecar_surfaces(
 
 
 def _base_region_families(case: SimCase) -> list[str]:
-    """Return the boundaries that become base regions, as named: row first, then pproc."""
+    """Return the boundaries the row's BASE_REGIONS column names (the pproc key left, PFS-2252)."""
     declared = _variable(case, BASE_REGIONS_VARIABLE)
     if declared is not None:
         return [token.strip() for token in str(declared).split(",") if token.strip()]
-    if case.pproc is not None:
-        return list(case.pproc.base_regions)
     return []
 
 
@@ -446,23 +443,6 @@ def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]
     )
 
 
-def _a_base_region_the_study_skips(case: SimCase, script: Script, name: str) -> bool:
-    """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-982).
-
-    A row's own ``BASE_REGIONS`` refuses an absent name (FR-979), and so does a
-    reference declaring no vocabulary at the default flag (FR-981); the study
-    refuses a name it does not hold, and a run that asked for the refusal
-    refuses every one under the pproc key, with or without a vocabulary (FR-984,
-    FR-988). The words that name no set and a surface the setup removed are not
-    judged (FR-982).
-    """
-    if _variable(case, BASE_REGIONS_VARIABLE) is not None:
-        return False
-    return skips_a_name_the_model_lacks(
-        case, PPROC_ARTIFACT, "base_regions", name, _setup_surfaces.the_model_inventory(script)
-    )
-
-
 def _base_region_detection_angle(case: SimCase, script: Script) -> None:
     angle = case.solver.base_region_bending_angle_deg
     if angle is not None:
@@ -502,9 +482,8 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         if not labels:
             _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
         found = _resolve_token(case, family, labels)
-        if not found and _a_base_region_the_study_skips(case, script, family):
-            skipped.append(family)
-            continue
+        # PFS-2252: only the row names these, and a row's own name the model lacks is refused
+        # (FR-979); the study skip applied to the retired pproc key.
         if not found:
             _refuse_name_absent_from_inventory(case, BASE_REGIONS_VARIABLE, family, labels)
         indices.extend(index for index in found if index not in indices)

@@ -91,6 +91,8 @@ The setup key `symmetry_loads` is refused by name, in a preset and on a row: whe
 
 The per-mechanism separation keys `valarezo_separation_boundaries`, `crossflow_separation_boundaries` and `axial_separation_families` are accepted only on the builds whose command database rows carry their commands (26.100 and earlier); on a later build each is refused by name at plan, naming the named separation-model keys (`airfoil_separation`, `bulk_separation`, `axial_vortex_separation`, `cylindrical_bulk_separation`, `stratford_bulk_separation`) instead of the command's build refusal. PFS-2257. migration: on 26.101 and later, declare separation by the named models.
 
+The pproc key `base_regions` is refused by name, empty or not: a base region is declared by `[base_regions.<family>]` in the boundaries file beside the geometry, by the run matrix row's `BASE_REGIONS` column for a per-row choice, or by the setup's `base_region_operations` on an opened simulation. The study skip of a pproc base-region name (FR-982, FR-983) leaves with the key; a row's own `BASE_REGIONS` keeps its refusal of a name the model lacks. PFS-2252. migration: move the list to the row's `BASE_REGIONS` column, or declare `[base_regions.<family>]` in the geometry's boundaries file.
+
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 
 ### Fixed

@@ -1146,7 +1146,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         BASE_REGIONS_VARIABLE: InputKey(
             "The boundaries that become base regions, the flat base and never the body "
-            "carrying it; it wins over the pproc's base_regions.",
+            "carrying it; a per-row choice beside the boundaries file's [base_regions.<family>].",
             "boundary names, comma separated",
             "DETECT_BASE_REGIONS_BY_SURFACE",
         ),

@@ -4790,18 +4790,9 @@ def test_base_region_families_reach_the_script_by_index(tmp_path):
     assert lines.index("DETECT_BASE_REGIONS_BY_SURFACE 1") < motion, (
         "the autodetect is not emitted right after OPEN, before the motion"
     )
-    # The pproc artifact's list is the other source, and the row overrides it.
-    from pyflightstream.cases import PprocSpec
-
-    from_pproc = _rotor_row(sector, "Blade").model_copy(
-        update={"pproc": PprocSpec(base_regions=["N"]), "pproc_id": "p001"}
-    )
-    script = Script("26.123")
-    build_script(from_pproc, script)
-    assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 3"]
-    overridden = from_pproc.model_copy(
-        update={"variables": {**from_pproc.variables, "BASE_REGIONS": "S"}}
-    )
+    # The row's own column is the per-row route (PFS-2252: the pproc list is refused).
+    row = _rotor_row(sector, "Blade")
+    overridden = row.model_copy(update={"variables": {**row.variables, "BASE_REGIONS": "S"}})
     script = Script("26.123")
     build_script(overridden, script)
     assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 2"]

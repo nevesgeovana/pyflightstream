@@ -2375,9 +2375,13 @@ class PprocSpec(_SuggestsKeys):
     blade_pattern : str
         How a blade family is told from the airframe: a regular expression
         over the family name.
-    base_regions : list of str
-        The boundaries that become base regions, detected after ``OPEN``; a
-        row's ``BASE_REGIONS`` wins over it.
+
+    Notes
+    -----
+    A base region is declared by the boundaries file's ``[base_regions.<family>]``,
+    by a row's ``BASE_REGIONS`` column for a per-row choice, or by the setup's
+    ``base_region_operations`` on an opened simulation; ``base_regions`` here is
+    refused by name since 0.58.0 (PFS-2252).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -2497,6 +2501,14 @@ class PprocSpec(_SuggestsKeys):
 
     @model_validator(mode="before")
     @classmethod
+    def _base_regions_have_their_home(cls, value: object) -> object:
+        """Refuse ``base_regions`` by name; a base region is declared elsewhere (PFS-2252)."""
+        if isinstance(value, dict) and "base_regions" in value:
+            raise InputValueError(REMOVED_FORMS["pproc.base_regions"].message())
+        return value
+
+    @model_validator(mode="before")
+    @classmethod
     def _a_retired_reduction_is_warned_and_dropped(cls, value: object) -> object:
         """Warn once, with the retirement sentence, of a table asking for a retired reduction.
 
@@ -2589,12 +2601,6 @@ class PprocSpec(_SuggestsKeys):
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The reference ones were Blade1 to Blade6.
     blade_pattern: str = r"^Blade\d+$"
-    #: The boundaries that BECOME base regions (PFS-2029.10, RPT-066): one
-    #: DETECT_BASE_REGIONS_BY_SURFACE per boundary of those families, after
-    #: OPEN. A body's flat base, never the body carrying it, which the
-    #: command marks nothing on, silently. Empty, the default, emits
-    #: nothing; a row's BASE_REGIONS key overrides the artifact.
-    base_regions: list[str] = Field(default_factory=list)
 
     def group_alias(self, name: str) -> str | None:
         """Return the ONE alias group ``name`` names, or None where it names several."""

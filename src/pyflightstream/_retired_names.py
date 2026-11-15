@@ -799,6 +799,21 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         ),
         instead="Write",
     ),
+    "pproc.base_regions": RetiredName(
+        owner="a pproc",
+        old="base_regions",
+        new=(
+            "[base_regions.<family>] in the boundaries file beside the geometry, or the run "
+            "matrix row's BASE_REGIONS column for a per-row choice"
+        ),
+        retired_in="0.58.0",
+        why=(
+            "A base region is part of the geometry's declaration, and post-processing does "
+            "not state what the solver meshes; the setup's base_region_operations act on an "
+            "opened simulation."
+        ),
+        instead="Declare it with",
+    ),
 }
 
 

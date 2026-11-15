@@ -253,15 +253,6 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "family the geometry does not carry is left out at emission, which is the "
         "documented way an entry resolves to fewer families than it names.",
     ),
-    EntitySelection(
-        "pproc",
-        "base_regions",
-        "DETECT_BASE_REGIONS_BY_SURFACE",
-        True,
-        "An empty list is the documented off switch of the base-region autodetect "
-        "(PFS-2029.10): none means no detection, and the row's BASE_REGIONS key is "
-        "how one row turns it on.",
-    ),
 )
 
 _SELECTION_BY_KEY = {(rule.kind, rule.key): rule for rule in ENTITY_SELECTIONS}
