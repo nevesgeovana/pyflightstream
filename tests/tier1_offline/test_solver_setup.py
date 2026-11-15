@@ -629,7 +629,7 @@ def test_analysis_setup_vorticity_is_refused_naming_solver_settings():
         CommandArgumentError, match=r"solver_settings\(vorticity_drag_boundaries=\)"
     ) as refused:
         helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
-    assert "no longer accepted" in str(refused.value)
+    assert "no longer accepted" in str(refused.value) and "solver_settings" in str(refused.value)
     # Nothing was emitted or restamped: the deferred selection still reaches the script.
     helpers.export_results(script, spreadsheet="C:/out/loads.txt")
     text = script.render()
