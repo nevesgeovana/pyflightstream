@@ -37,8 +37,8 @@ from pyflightstream.post._rotor_plan import _emitted_by_another, _plot_name_can_
 from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
     ReferenceValues,
+    _polar_axis_coefficients,
 )
-from pyflightstream.post.axes import _polar_axis_coefficients
 from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN
 
 if TYPE_CHECKING:
@@ -177,7 +177,7 @@ def global_frame_plot_groups(
 
 #: The eighteen axis columns of an unsteady polar, wind axes first as the draft of
 #: the product lists them, and where each sits in what
-#: :func:`pyflightstream.post.axes._polar_axis_coefficients` returns (body,
+#: :func:`pyflightstream.post._tables._polar_axis_coefficients` returns (body,
 #: stability, wind).
 #: They ARE the steady polar's eighteen names, read off its one tuple, `25`
 #: included: one construction about one moment point has one name in `polars/`.

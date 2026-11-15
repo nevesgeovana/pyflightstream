@@ -61,12 +61,12 @@ from pyflightstream.post._tables import (
     ProductExistsError,
     ReferenceValues,
     _guarded_target,
+    _polar_axis_coefficients,
     context_row,
     polar_file_name,
     read_csv_table,
     write_csv_table,
 )
-from pyflightstream.post.axes import _polar_axis_coefficients
 from pyflightstream.post.point_tables import write_plots_table, write_sections_table
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, drag_pair, parse_loads
 
@@ -492,7 +492,7 @@ def _polar_row(
 
     EVERY AXIS COLUMN COMES FROM ONE VECTOR: the force ``(Cx, Cy, Cz)`` and
     the moment ``(CMx, CMy, CMz)`` the export states in its own frame, turned by
-    :func:`pyflightstream.post.axes._polar_axis_coefficients`. So ``CDB`` IS the
+    :func:`pyflightstream.post._tables._polar_axis_coefficients`. So ``CDB`` IS the
     ``Cx`` of the export and ``CLB`` its ``Cz``, and the wind-axis drag of that
     vector is the ``CDi + CDo`` the solver integrates, which the recorded exports
     confirm to their printed precision, under sideslip too.

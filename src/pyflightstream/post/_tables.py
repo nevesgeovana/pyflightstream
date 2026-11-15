@@ -56,7 +56,13 @@ from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.windows import march_end
 from pyflightstream.post._block_scope import after_run_block, with_run_block
-from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
+from pyflightstream.post.axes import (
+    EXPORT_TO_BODY,
+    blade_azimuth_deg,
+    body_to_stability,
+    body_to_wind,
+    placed_blade_azimuth_deg,
+)
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
@@ -1532,3 +1538,108 @@ def write_fixed_width_table(
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, "\n".join(lines) + "\n")
     return path
+
+
+# The eighteen body, stability and wind axis coefficients of one polar row,
+# shared by post.polar and post.unsteady_polar. Every rotation is one of
+# post.axes, the one home of the axis rotations; here the turned force is
+# only signed as drag, side force and lift and the turned moment normalised.
+
+
+def _drag_side_lift(components: Sequence[float]) -> tuple[float, float, float]:
+    # Drag opposes +x and lift opposes +z on forward-right-down axes; the side
+    # force keeps its sign.
+    return -float(components[0]), float(components[1]), -float(components[2])
+
+
+def _stability_force_coefficients(
+    force_in_export_frame: Sequence[float], alpha_deg: float, beta_deg: float = 0.0
+) -> tuple[float, float, float]:
+    """Return ``(CD, CY, CL)`` in STABILITY axes of a force stated in the export frame.
+
+    Parameters
+    ----------
+    force_in_export_frame : sequence of float
+        The force (x, y, z) in the export frame, as coefficients or in newtons.
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float, optional
+        Sideslip angle as the solver was given it, in degrees; it enters through ``alpha_s``
+        (:func:`pyflightstream.post.axes.wind_angles`).
+
+    Returns
+    -------
+    tuple of float
+        ``(CD, CY, CL)``, in the unit of the force given.
+    """
+    force = np.asarray(force_in_export_frame, dtype=float)
+    return _drag_side_lift(body_to_stability(alpha_deg, beta_deg) @ EXPORT_TO_BODY @ force)
+
+
+def _polar_axis_coefficients(
+    force_in_export_frame: Sequence[float],
+    moment_in_export_frame: Sequence[float],
+    alpha_deg: float,
+    beta_deg: float,
+    *,
+    cref_m: float,
+    bref_m: float,
+) -> tuple[float, ...]:
+    """Return the eighteen axis coefficients of one polar row, from ONE force and ONE moment.
+
+    Parameters
+    ----------
+    force_in_export_frame : sequence of float
+        ``(Cx, Cy, Cz)`` as the loads export states them: x aft, y right, z up.
+    moment_in_export_frame : sequence of float
+        ``(CMx, CMy, CMz)`` in that frame, ALL THREE normalised by the reference
+        chord, which is how the export states them (26.124 and 26.125: changing
+        only the reference length halved all three, and the solver has no span
+        input; L4 F-498).
+    alpha_deg, beta_deg : float
+        The angles the point flew, as written; the axes are turned by the
+        geometric angles of :func:`pyflightstream.post.axes.wind_angles`.
+    cref_m, bref_m : float
+        The reference chord and span.
+
+    Returns
+    -------
+    tuple of float
+        ``CD, CY, CL, CR, CM, CN`` in body axes, then in stability axes, then in
+        wind axes. Drag opposes +x and lift opposes +z of each forward-right-down
+        system; the rolling and yawing moments are normalised by the SPAN and the
+        pitching moment by the CHORD.
+
+    Notes
+    -----
+    THE MOMENT TURNS AS ONE VECTOR IN ONE LENGTH, and takes the span or the chord
+    only afterwards. That is where the ``c/b`` exchange between roll and pitch
+    under sideslip comes from: it is not a separate rule.
+
+    In body axes the forces are the export's own, ``CD == Cx`` and ``CL == Cz``.
+
+    Examples
+    --------
+    At zero incidence and zero sideslip the three systems coincide:
+
+    >>> row = _polar_axis_coefficients((0.02, 0.0, 0.5), (0.0, -0.1, 0.0), 0.0, 0.0,
+    ...                               cref_m=2.0, bref_m=10.0)
+    >>> [round(value, 12) + 0.0 for value in row[:3]] == [round(v, 12) + 0.0 for v in row[12:15]]
+    True
+    """
+    to_stability = body_to_stability(alpha_deg, beta_deg)
+    to_wind = body_to_wind(alpha_deg, beta_deg)
+    force = EXPORT_TO_BODY @ np.asarray(force_in_export_frame, dtype=float)
+    moment = EXPORT_TO_BODY @ np.asarray(moment_in_export_frame, dtype=float)
+    span = float(cref_m) / float(bref_m)
+    row: list[float] = []
+    for index, turn in enumerate((np.eye(3), to_stability, to_wind)):
+        turned = turn @ moment
+        row.extend(
+            _stability_force_coefficients(force_in_export_frame, alpha_deg, beta_deg)
+            if index == 1
+            else _drag_side_lift(turn @ force)
+        )
+        row.extend((float(turned[0]) * span, float(turned[1]), float(turned[2]) * span))
+    # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
+    return tuple(value + 0.0 for value in row)
