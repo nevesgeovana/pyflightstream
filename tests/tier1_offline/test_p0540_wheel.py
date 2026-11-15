@@ -303,7 +303,7 @@ def test_p0540_a_turn_of_one_copy_maps_the_wheel_and_a_derangement_does_not(
 ):
     sector = build_sector(tmp_path, copies=copies, permuted=permuted, hub=hub)
     result = sector_to_wheel(
-        sector.obj, copies=copies, blades=["Blade1"], axis=sector.axis, hub=hub
+        sector.obj, copies=copies, blades=["Blade1"], axis=sector.axis, center=hub
     )
     wheel, groups = read_wheel(result.output)
     polys = all_faces(groups)

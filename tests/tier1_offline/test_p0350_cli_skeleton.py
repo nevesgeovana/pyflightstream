@@ -30,6 +30,7 @@ from pyflightstream.run._plan_report import (
     visual_inspect,
 )
 from pyflightstream.run.cli import main
+from tests.support_matrix_layout import current_layout
 
 
 def _default(*_args: object, **_kwargs: object) -> str:
@@ -208,7 +209,7 @@ COUNTS = {"doe-power-on": 27, "doe-power-off": 55, "doe-rotor-a": 56, "doe-rotor
 def workspace(tmp_path):
     for section in DOE_MATRICES.split("#### ")[1:]:
         name, _, body = section.partition("\n")
-        (tmp_path / name).write_text(body, encoding="utf-8", newline="\n")
+        (tmp_path / name).write_text(current_layout(body), encoding="utf-8", newline="\n")
     return tmp_path
 
 
@@ -454,7 +455,7 @@ def _one_row_matrix(workspace, stem, condition, values):
     row = row.replace("MACH:0.157, ALTFT:3600, ALPHA:sweep, BETA:0", condition)
     row = row.replace("| 0, 1, 2, 3, 4     |", f"| {values} |")
     path = workspace / f"{stem}.fs"
-    path.write_text("\n".join([head, rule, row]) + "\n", encoding="utf-8")
+    path.write_text(current_layout("\n".join([head, rule, row]) + "\n"), encoding="utf-8")
     return read_matrix(path)
 
 

@@ -97,7 +97,7 @@ from pyflightstream.probes.layouts import (
 from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.run import CampaignErrors, run_campaign
-from pyflightstream.run._cli_geometry import _print_rows, alias_warning
+from pyflightstream.run._cli_geometry import _print_rows
 from pyflightstream.run._cli_parsers import _build_parser as matrix_parser
 from pyflightstream.run._plan import rotor_mach_line
 from pyflightstream.run.matrix import (
@@ -2339,19 +2339,6 @@ class TestRfixAPIContracts:
             upgrading.count("By default, rebuilds overwrite products in place without an archive.")
             == 1
         )
-
-    @staticmethod
-    @pytest.mark.requirement("FR-477")
-    @pytest.mark.parametrize("verb", ["refine", "audit-mesh", "inventory", "degenerate"])
-    def test_p0400_api002_alias_deadline(verb) -> None:
-        from pyflightstream._deprecations import DEPRECATIONS
-
-        warning = alias_warning(verb)
-        assert "removed in v1.0.0" in warning
-        assert f"pyfs-matrix {verb}" in warning
-        assert any(entry.subject == f"pyfs-matrix {verb}" for entry in DEPRECATIONS)
-        for page in ("docs/geometry.md", "docs/upgrading.md"):
-            assert "removed in v1.0.0" in (_RFIXAPI_CONTRACTS__REPO / page).read_text()
 
     @staticmethod
     @pytest.mark.requirement("FR-457")

@@ -53,7 +53,6 @@ from pyflightstream.run import (
 )
 from pyflightstream.run._cli_geometry import _print_plan
 from pyflightstream.run._cli_parsers import _build_parser
-from pyflightstream.run.cli import main as matrix_main
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import (
     BrokenCommandError,
@@ -81,6 +80,7 @@ from pyflightstream.workspace.hpc import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.record_document import encode_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline._docs_site import (
     requirements_text,
 )
@@ -754,7 +754,9 @@ class TestGeometryComplete:
         _, folder = _geometry_complete___sweep(tmp_path)
         matrix = tmp_path / "m.fs"
         matrix.write_text(
-            _GEOMETRY_COMPLETE__HEADER + "\n" + "-" * 40 + "\n" + _GEOMETRY_COMPLETE__ROW + "\n",
+            current_layout(
+                _GEOMETRY_COMPLETE__HEADER + "\n" + "-" * 40 + "\n" + _GEOMETRY_COMPLETE__ROW + "\n"
+            ),
             encoding="utf-8",
         )
         before = matrix.read_bytes()
@@ -774,7 +776,7 @@ class TestGeometryComplete:
             "wing_Base+000.fsm",
             "wing_Base+100.fsm",
         ]
-        assert all(c[3] == "DemoWing" and c[12] == "NONE" for c in cells)
+        assert all(c[3] == "DemoWing" and c[13] == "NONE" for c in cells)
         assert matrix.read_bytes() == before
 
     @staticmethod
@@ -784,7 +786,8 @@ class TestGeometryComplete:
         _, folder = _geometry_complete___sweep(tmp_path)
         matrix = tmp_path / "m.fs"
         matrix.write_text(
-            _GEOMETRY_COMPLETE__HEADER + "\n" + _GEOMETRY_COMPLETE__ROW + "\n", encoding="utf-8"
+            current_layout(_GEOMETRY_COMPLETE__HEADER + "\n" + _GEOMETRY_COMPLETE__ROW + "\n"),
+            encoding="utf-8",
         )
         monkeypatch.chdir(folder.parent)
         assert main(["geometry", "build", "wing", "--rows", "1", "--matrix", str(matrix)]) == 2
@@ -2360,7 +2363,7 @@ class TestSweep1Core:
                 matrix,
                 workspace,
                 name="warm",
-                fs_version="26.120",
+                default_fs_version="26.120",
                 recipes={},
                 sims=["5002"],
                 points=[names[2]],
@@ -2583,14 +2586,7 @@ class TestSweep1Routes:
     @staticmethod
     def test_p0400_refine_help_keyword():
         """P0400-SWEEP-REFINE-HELP: help names the Python out_dir keyword."""
-        from pyflightstream.run._cli_parsers import _build_parser
-
-        parser = _build_parser()
-        refine = next(
-            action
-            for action in parser._actions
-            if hasattr(action, "choices") and isinstance(action.choices, dict)
-        ).choices["refine"]
+        refine = _cli_geometry.matrix_parsers()["refine"]
         assert "out_dir" in refine.format_help()
 
 
@@ -2605,51 +2601,40 @@ class TestGeometryGroup:
     """Tier 1, 0.40.0: the geometry verbs of pyfs-matrix join pyfs-workspace geometry (FR-477).
 
     P0400-GEOM-GROUP (PFS-2081.41). The group's refine, audit, inventory and
-    degenerate are the pyfs-matrix parsers and handlers; the pyfs-matrix names
-    stay as aliases with the identical result and one warning.
+    degenerate are the mesh parsers and handlers; the pyfs-matrix names were
+    removed in 0.58.0 (PFS-2237) and are refused, naming the group.
     """
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
     @pytest.mark.parametrize(("name", "verb"), sorted(_cli_geometry.PYFS_MATRIX_ALIASES.items()))
-    def test_p0400_geom_group_each_verb_takes_the_options_of_its_pyfs_matrix_name(
-        name, verb, capsys
-    ):
-        """P0400-GEOM-GROUP (PFS-2081.41): the group copies each pyfs-matrix parser."""
+    def test_p0400_geom_group_each_verb_takes_the_options_of_its_mesh_parser(name, verb, capsys):
+        """P0400-GEOM-GROUP (PFS-2081.41): the group copies each mesh parser."""
         ours = _geometry_group___options(workspace_cli.main, ["geometry", name], capsys)
-        theirs = _geometry_group___options(matrix_main, [verb], capsys)
-        assert ours == theirs and ours, (ours, theirs)
+        parser = _cli_geometry.matrix_parsers()[verb]
+        theirs = set(re.findall(r"(?<![\w-])--[a-z][a-z-]*", parser.format_help()))
+        assert ours and ours <= theirs | {"--help"}, (ours, theirs)
         assert set(_cli_geometry.matrix_parsers()) == set(
             _cli_geometry.PYFS_MATRIX_ALIASES.values()
         )
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
-    def test_p0400_geom_group_audit_gives_the_result_of_audit_mesh(tmp_path, monkeypatch, capsys):
-        """P0400-GEOM-GROUP (PFS-2081.41): FR-1136, the same audit, the alias warned once."""
+    def test_p0400_geom_group_audit_writes_the_audit(tmp_path, monkeypatch, capsys):
+        """P0400-GEOM-GROUP (PFS-2081.41): the group's audit writes the audit beside the OBJ."""
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "audit", str(mesh)]) == 0
-        ours = (tmp_path / "wing.audit.json").read_text(encoding="utf-8")
-        (tmp_path / "wing.audit.json").unlink()
-        with pytest.warns(PyflightstreamWarning, match="alias of `pyfs-workspace geometry audit`"):
-            assert matrix_main(["audit-mesh", str(mesh)]) == 0
-        assert (tmp_path / "wing.audit.json").read_text(encoding="utf-8") == ours
+        assert (tmp_path / "wing.audit.json").is_file()
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
-    def test_p0400_geom_group_inventory_writes_what_pyfs_matrix_inventory_writes(
-        tmp_path, monkeypatch
-    ):
-        """P0400-GEOM-GROUP (PFS-2081.41): the inventory of an OBJ, through both names."""
+    def test_p0400_geom_group_inventory_writes_the_sidecar(tmp_path, monkeypatch):
+        """P0400-GEOM-GROUP (PFS-2081.41): the group's inventory of an OBJ writes its sidecar."""
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "inventory", str(mesh)]) == 0
-        ours = (tmp_path / "wing.obj.boundaries.toml").read_text(encoding="utf-8")
-        (tmp_path / "wing.obj.boundaries.toml").unlink()
-        with pytest.warns(PyflightstreamWarning, match="pyfs-matrix inventory is an alias"):
-            assert matrix_main(["inventory", str(mesh)]) == 0
-        assert (tmp_path / "wing.obj.boundaries.toml").read_text(encoding="utf-8") == ours
+        assert (tmp_path / "wing.obj.boundaries.toml").is_file()
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
@@ -4554,9 +4539,9 @@ def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(tmp_path):
     geometry.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
     shown = "C:\\my files\\wing.fsm"
     text = _geometry_clean.saved_action_warning(geometry, shown, [])
-    assert f'pyfs-matrix inventory "{shown}" --clean' in text
+    assert f'pyfs-workspace geometry inventory "{shown}" --clean' in text
     plain = _geometry_clean.saved_action_warning(geometry, "wing.fsm", [])
-    assert "pyfs-matrix inventory wing.fsm --clean" in plain
+    assert "pyfs-workspace geometry inventory wing.fsm --clean" in plain
 
 
 def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path):

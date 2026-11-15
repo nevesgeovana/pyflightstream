@@ -307,7 +307,7 @@ def _number(text: str) -> float | str:
 
 
 def _add_refine_parser(subparsers: Any) -> None:
-    """Add ``pyfs-matrix refine`` (FR-424)."""
+    """Add ``pyfs-workspace geometry refine`` (FR-424)."""
     refine = subparsers.add_parser(
         "refine",
         help="refine or coarsen a panel mesh from its OBJ into a new geometry folder",

@@ -68,9 +68,9 @@ from os import fspath
 from typing import Literal
 
 from pyflightstream._decimal import plain_decimal as plain_decimal
-from pyflightstream._deprecations import ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES
 from pyflightstream._digest import one_file_key as one_file_key
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
@@ -1215,7 +1215,7 @@ def analysis_setup(
     load_units: str | None = None,
     boundaries: Sequence[int | str] | None = None,
     inviscid_only: Toggle | None = None,
-    vorticity_drag_boundaries: Sequence[int | str] | Literal["all"] | None = None,
+    vorticity_drag_boundaries: object = None,
 ) -> None:
     """Select how loads and moments are analyzed (FSM-26.120 pp.350-351).
 
@@ -1228,11 +1228,10 @@ def analysis_setup(
     mixing the two groups fits neither position: before the start it
     reaches the analysis phase and the phase guard then refuses
     START_SOLVER; after the start the guard refuses the init setting.
-    The deprecated ``vorticity_drag_boundaries`` argument is an analysis
-    selection and is emitted where this call is made; on an unsteady march
-    the step exports read it only when it precedes START_SOLVER (FR-568), so
-    use ``solver_settings(vorticity_drag_boundaries=...)`` and the workflow
-    emitter, which places it there.
+    The induced-drag boundary selection is not an argument of this call: on an
+    unsteady march the step exports read it only when it precedes START_SOLVER
+    (FR-568), so it is stated through ``solver_settings(vorticity_drag_boundaries=...)``
+    and the workflow emitter, which places it there.
 
     Parameters
     ----------
@@ -1258,35 +1257,27 @@ def analysis_setup(
         exists.
     inviscid_only : bool or 'ENABLE' or 'DISABLE', optional
         Restrict the analysis to inviscid loads and moments.
-    vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
-        Deprecated here: the induced-drag boundary
-        selection belongs to :func:`solver_settings` and leaves
-        analysis_setup at v1.0.0, the release the ledger entry
-        ``ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES`` records
-        (PFS-2021.02; the warning text is built from it). Passing it
-        still works (with a DeprecationWarning) and replaces any
-        selection deferred by :func:`solver_settings`. Boundaries whose induced
-        drag comes from surface vorticity integration, by index or
-        declared label; a bluff body without a user-defined
-        trailing-edge condition reports zero induced drag when placed
-        on this list (FSM-26.120 p.202). The replacement is recorded in
-        ``script.solver_setup``, which is the snapshot to serialize; a
-        snapshot object returned by an earlier :func:`solver_settings`
-        call is frozen and keeps the state of that call.
+    vorticity_drag_boundaries : None
+        Removed: any other value is refused, naming
+        ``solver_settings(vorticity_drag_boundaries=)``, where the induced-drag boundary
+        selection is stated.
+
+    Raises
+    ------
+    CommandArgumentError
+        The removed ``vorticity_drag_boundaries`` argument given, or a boundary
+        selection that is a bare label.
     """
+    if vorticity_drag_boundaries is not None:
+        raise CommandArgumentError(
+            REMOVED_FORMS["analysis_setup.vorticity_drag_boundaries"].message()
+        )
     _reject_bare_label("analysis_setup", "boundaries", boundaries, allows_all=False)
-    _reject_bare_label(
-        "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
-    )
     if boundaries is not None:
         boundaries = list(boundaries)
         _refuse_empty("analysis_setup", "boundaries", boundaries, every=None)
     symmetry_loads = _optional_toggle("analysis_setup", "symmetry_loads", symmetry_loads)
     inviscid_only = _optional_toggle("analysis_setup", "inviscid_only", inviscid_only)
-    # Resolve this call's own selection before anything is emitted or
-    # recorded, exactly as solver_settings does: a bad label must leave
-    # the script, the deferred selection, and the snapshot untouched.
-    chosen = _deprecated_vorticity_selection(script, vorticity_drag_boundaries)
     # THE INIT GROUP FIRST, and it does not flush. symmetry_loads, the loads
     # frame and the moments model are init-phase settings, read DURING the
     # solve: the per-step force plots consume the symmetry setting, and the
@@ -1304,71 +1295,16 @@ def analysis_setup(
         script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
     if moments_model is not None:
         script.emit("SET_ANALYSIS_MOMENTS_MODEL", moments_model)
-    if any(
-        argument is not None
-        for argument in (
-            load_units,
-            boundaries,
-            inviscid_only,
-            vorticity_drag_boundaries,
-        )
-    ):
+    if any(argument is not None for argument in (load_units, boundaries, inviscid_only)):
         # The call reaches the analysis phase: land the selection
-        # deferred by solver_settings before the analysis choices,
-        # unless this call carries its own, which replaces it below.
-        if chosen is None:
-            _flush_pending_vorticity(script)
+        # deferred by solver_settings before the analysis choices.
+        _flush_pending_vorticity(script)
     if load_units is not None:
         script.emit("SET_LOADS_AND_MOMENTS_UNITS", load_units)
     if boundaries is not None:
         script.emit("SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries))
     if inviscid_only is not None:
         script.emit("SET_INVISCID_LOADS", _toggle(inviscid_only))
-    if _is_all(chosen):
-        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
-    elif chosen is not None:
-        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(chosen), list(chosen))
-    if chosen is not None:
-        # Every emission of this call succeeded, so the script state and
-        # the snapshot may now record the replacement: a failure above
-        # leaves the selection solver_settings deferred still pending.
-        script._pending_vorticity = None
-        script._vorticity_selection = chosen
-        if script.solver_setup is not None:
-            script.solver_setup = with_vorticity_selection(script.solver_setup, chosen)
-
-
-def _deprecated_vorticity_selection(
-    script: Script, selection: Sequence[int | str] | Literal["all"] | None
-) -> list[int] | Literal["all"] | None:
-    """Resolve analysis_setup's deprecated induced-drag selection and warn at its caller."""
-    if selection is None:
-        return None
-    chosen: list[int] | Literal["all"]
-    if _is_all(selection):
-        chosen = "all"
-    else:
-        items = list(selection)
-        _reject_empty_selection("analysis_setup", "vorticity_drag_boundaries", items)
-        chosen = [
-            script.resolve_boundary(
-                item, context="analysis_setup: argument 'vorticity_drag_boundaries'"
-            )
-            for item in items
-        ]
-    replaced = (
-        " This explicit call replaces the selection deferred by solver_settings."
-        if script._pending_vorticity is not None
-        else ""
-    )
-    # The text comes from the ledger, so the version it names and
-    # the one the deadline guard enforces cannot disagree.
-    warnings.warn(
-        f"{ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES.message()}{replaced}",
-        PyflightstreamDeprecationWarning,
-        stacklevel=3,
-    )
-    return chosen
 
 
 def export_results(

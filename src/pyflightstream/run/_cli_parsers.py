@@ -39,11 +39,6 @@ from pyflightstream.options import get_option
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._cli_mesh import GEOMETRY_COMMANDS as GEOMETRY_COMMANDS
-from pyflightstream.run._cli_mesh import (
-    add_degenerate_parser,
-    add_inventory_parser,
-    add_mesh_parsers,
-)
 from pyflightstream.run._cli_mesh import cmd_geometry as cmd_geometry
 from pyflightstream.run._cli_parsers_storage import (
     add_storage_parsers as _add_storage_parsers,
@@ -388,7 +383,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="restore refusals for inputs otherwise skipped with typed warnings",
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
-    _add_workspace_parsers(subparsers)
     _add_storage_parsers(subparsers)
     _add_records_parsers(subparsers)
     _add_plan_parsers(subparsers)
@@ -398,10 +392,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_post_parsers(subparsers)
     _add_post_selection_parsers(subparsers)
     _add_noise_parser(subparsers)
-    _add_degenerate_parsers(subparsers)
     _add_query_parsers(subparsers)
     add_mark_converged_parser(subparsers)  # FR-414
-    add_mesh_parsers(subparsers)  # FR-426
     add_visual_inspect_parser(subparsers)  # FR-3440
     add_search_log_batch_parser(subparsers)
     from pyflightstream._console import add_warning_option
@@ -491,16 +483,6 @@ def _add_records_parsers(subparsers: Any) -> None:
 def _add_query_parsers(subparsers: Any) -> None:
     """Register read-only query verbs whose options live beside their commands."""
     add_query_parsers(subparsers)
-
-
-def _add_workspace_parsers(subparsers: Any) -> None:
-    """Add the workspace inventory command."""
-    add_inventory_parser(subparsers)
-
-
-def _add_degenerate_parsers(subparsers: Any) -> None:
-    """Add the subcommand that derives a degenerate geometry from a mesh: degenerate (FR-330)."""
-    add_degenerate_parser(subparsers)
 
 
 def _hpc_profile_name(name: str) -> str:

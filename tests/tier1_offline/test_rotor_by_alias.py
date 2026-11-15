@@ -1033,19 +1033,18 @@ def test_a_record_citing_an_alias_the_reference_does_not_declare_is_refused(tmp_
     assert "PUSHER" in message, "the refusal names the rotors the reference does declare"
 
 
-def test_a_record_still_naming_its_boundaries_is_refused_from_the_ledger(tmp_path):
+def test_a_record_still_naming_its_boundaries_is_refused_naming_the_alias_key(tmp_path):
     """TW2-15, one release on: the promise was registered, then broken on purpose.
 
-    `ROW_MOVING_BOUNDARIES` sat in the ledger with a removal version and
-    nothing called its `message()`, so a record stating
-    `MOVING_BOUNDARIES` was accepted in SILENCE. It warned for one round
-    and now refuses: the entry was written in 0.15.0 and 0.15.0 has not
-    shipped, so no workspace was ever told the key would keep working.
+    A record stating `MOVING_BOUNDARIES` was accepted in SILENCE. It warned
+    for one round and now refuses: the form was retired in 0.15.0 and 0.15.0
+    has not shipped, so no workspace was ever told the key would keep working.
 
-    The text is the ledger entry's own, so the words a user reads and the
-    words the ledger records cannot disagree.
+    The text is the removed-form entry's own, so the words a user reads and
+    the words recorded cannot disagree (PFS-2237: the deprecation ledger no
+    longer holds it).
     """
-    from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES, refusal_text
+    from pyflightstream._retired_names import REMOVED_FORMS
     from pyflightstream.cases.workflows._motion import _motion_view
 
     case = two_rotor_case(tmp_path).model_copy(
@@ -1054,7 +1053,7 @@ def test_a_record_still_naming_its_boundaries_is_refused_from_the_ledger(tmp_pat
     with pytest.raises(PyflightstreamError) as refused:
         _motion_view(case, case.motions[0])
     message = str(refused.value)
-    assert refusal_text(ROW_MOVING_BOUNDARIES) in message, message
+    assert REMOVED_FORMS["motions.MOVING_BOUNDARIES"].message() in message, message
     assert "no longer accepted" in message, message
 
 

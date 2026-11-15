@@ -55,6 +55,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace._batches import GroupingReceipt
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline.test_aeroelastic_typed_setup import (
     verified_marking_registry as verified_marking_registry,
 )
@@ -431,7 +432,7 @@ def test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy(tmp_path):
         "unsteady | DELTA_TIME: 0.01 / TIME_ITERATIONS: 20 / LAST_ITERS_AVG: 10 / FSI: f340\n"
     )
     matrix = root / f"{RUN_MATRIX}.fs"
-    matrix.write_text(_MATRIX_HEADER + row, encoding="utf-8")
+    matrix.write_text(current_layout(_MATRIX_HEADER + row), encoding="utf-8")
     profile = workspace.inputs_dir / "hpc" / "h001.toml"
     profile.parent.mkdir(parents=True, exist_ok=True)
     command = [sys.executable, "-c", RECORDS_ARGV, (tmp_path / "argv.json").as_posix()]

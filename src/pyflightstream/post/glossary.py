@@ -960,9 +960,9 @@ def _geometry_tables() -> list[GlossaryTable]:
         GlossaryTable(
             "geometry",
             "Top-level keys and tables",
-            "Beside a saved simulation, `pyfs-matrix inventory` writes it; beside an OBJ "
-            "with none, the plan writes its `boundaries` from the OBJ's groups; beside an "
-            "STL, it is written by hand.",
+            "Beside a saved simulation, `pyfs-workspace geometry inventory` writes it; "
+            "beside an OBJ with none, the plan writes its `boundaries` from the OBJ's groups; "
+            "beside an STL, it is written by hand.",
             _key_rows(GEOMETRY_SIDECAR_KEYS),
         ),
         *_model_tables(

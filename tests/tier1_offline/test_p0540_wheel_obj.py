@@ -120,7 +120,7 @@ def test_p0540_the_wheel_sidecar_reads_clean_and_plans_a_marking_on_26_124(tmp_p
 
 @pytest.mark.requirement("FR-3469")
 def test_p0540_the_record_states_the_source_the_axis_and_the_checks(tmp_path):
-    sector, result = _wheel(tmp_path, hub=(0.0, 0.0, 0.0))
+    sector, result = _wheel(tmp_path, center=(0.0, 0.0, 0.0))
     record = json.loads(result.output.with_name("wheel.wheel.json").read_text(encoding="utf-8"))
     import hashlib
 
@@ -232,9 +232,7 @@ def test_p0540_a_group_name_outside_ascii_makes_a_table_toml_can_read():
     assert _table("base_regions", "Blade_1-a") == "[base_regions.Blade_1-a]"
 
 
-@pytest.mark.parametrize("spelling", ["center", "hub", "both"])
-def test_p0570_center_alias_off_origin_and_legacy_report(tmp_path, spelling):
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_p0570_center_off_origin_and_legacy_report(tmp_path):
     from pyflightstream.workspace._refine._obj import ObjMesh, obj_text, read_obj
 
     sector = build_sector(tmp_path)
@@ -254,16 +252,10 @@ def test_p0570_center_alias_off_origin_and_legacy_report(tmp_path, spelling):
                 if row.strip()
             ]
             path.write_text("METER\n" + "\n".join(",".join(map(str, p)) for p in points) + "\n")
-    opts = {key: offset for key in (["center", "hub"] if spelling == "both" else [spelling])}
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        result = sector_to_wheel(
-            sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "w.obj", **opts
-        )
-    assert result.written
-    assert len([w for w in caught if issubclass(w.category, PyflightstreamDeprecationWarning)]) == (
-        spelling != "center"
+    result = sector_to_wheel(
+        sector.obj, copies=6, blades=["Blade1"], out=tmp_path / "w.obj", center=offset
     )
+    assert result.written
     assert result.report["hub"] == [2.0, 3.0, 4.0]
     assert "center" not in result.report
     np.testing.assert_allclose(
@@ -276,26 +268,18 @@ def test_p0570_center_alias_off_origin_and_legacy_report(tmp_path, spelling):
 
 
 @pytest.mark.parametrize("value", [[0, 0], [0, 0, float("nan")], [0, float("inf"), 0], "bad", 3])
-@pytest.mark.parametrize("key", ["center", "hub"])
-def test_p0570_invalid_center(tmp_path, value, key):
+def test_p0570_invalid_center(tmp_path, value):
     sector = build_sector(tmp_path)
     with pytest.raises(InputValueError, match="three finite"):
-        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], **{key: value})
-
-
-def test_p0570_center_conflict_even_when_one_is_origin(tmp_path):
-    sector = build_sector(tmp_path)
-    with pytest.raises(InputValueError, match="conflict"):
-        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=[0, 0, 0], hub=[0, 1, 0])
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=value)
 
 
 @pytest.mark.parametrize(
     "options, code",
     [
         (["--center", "0", "0", "0"], 0),
-        (["--hub", "0", "0", "0"], 0),
-        (["--center", "0", "0", "0", "--hub", "0", "0", "0"], 0),
-        (["--center", "0", "0", "0", "--hub", "0", "1", "0"], 2),
+        (["--hub", "0", "0", "0"], 2),
+        (["--center", "0", "0", "0", "--hub", "0", "0", "0"], 2),
         (["--center", "nan", "0", "0"], 2),
     ],
 )
@@ -329,8 +313,7 @@ def test_p0570_cli_center_alias(tmp_path, options, code):
         np.testing.assert_array_equal(read_wheel(out)[0], read_wheel(canonical.output)[0])
 
 
-def test_p0570_saved_center_alias_and_origin_default(tmp_path):
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_p0570_saved_center_and_origin_default(tmp_path):
     from tests.tier1_offline.test_p0540_wheel_fsm import build_saved_sector
 
     sector = build_saved_sector(tmp_path, build_sector(tmp_path))
@@ -338,19 +321,13 @@ def test_p0570_saved_center_alias_and_origin_default(tmp_path):
     for name, opts in (
         ("default", {}),
         ("center", {"center": [0, 0, 0]}),
-        ("hub", {"hub": [0, 0, 0]}),
     ):
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            result = sector_to_wheel(
-                sector, copies=6, blades=["Blade1"], out=tmp_path / f"{name}.fsm", **opts
-            )
-        assert result.written
-        assert any(issubclass(w.category, PyflightstreamDeprecationWarning) for w in caught) == (
-            name == "hub"
+        result = sector_to_wheel(
+            sector, copies=6, blades=["Blade1"], out=tmp_path / f"{name}.fsm", **opts
         )
+        assert result.written
         outputs.append(result.output.read_bytes())
-    assert outputs[0] == outputs[1] == outputs[2]
+    assert outputs[0] == outputs[1]
 
 
 def test_p0570_cli_help_uses_center(capsys):
@@ -361,13 +338,10 @@ def test_p0570_cli_help_uses_center(capsys):
     assert error.value.code == 0
     help_text = capsys.readouterr().out
     assert "--center X Y Z" in help_text
-    assert "deprecated alias for --center" in help_text
+    assert "--hub" not in help_text
 
 
-@pytest.mark.parametrize("key", ["center", "hub"])
-def test_rl57_center_messages_name_the_cli_spelling(tmp_path, key):
+def test_rl57_center_messages_name_the_cli_spelling(tmp_path):
     sector = build_sector(tmp_path)
-    with pytest.raises(InputValueError, match=rf"{key} \(CLI: --{key}\) must be three finite"):
-        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], **{key: [0, 0]})
-    with pytest.raises(InputValueError, match=r"center \(CLI: --center\) and hub \(CLI: --hub\)"):
-        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=[0, 0, 0], hub=[0, 1, 0])
+    with pytest.raises(InputValueError, match=r"center \(CLI: --center\) must be three finite"):
+        sector_to_wheel(sector.obj, copies=6, blades=["Blade1"], center=[0, 0])

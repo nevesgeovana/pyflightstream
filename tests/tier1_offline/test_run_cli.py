@@ -17,7 +17,7 @@ already builds, and a type in this package's own table is code.
 
 The reproduction, and the shortest call that exercises the item:
 
->>> from pyflightstream.run.cli import main
+>>> from tests.tier1_offline._geometry_verbs import main
 >>> main([                                        # doctest: +SKIP
 ...     "run", "workflow_rotor_matrix.fs",
 ...     "--name", "rotor", "--fs-version", "26.120",
@@ -686,21 +686,17 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
     # `visual-inspect` joined at 0.53.0 (FR-3440): it reads matrices only.
     assert set(choices) == {
         "noise",
-        "audit-mesh",
         "collect",
-        "degenerate",
         "delete-sims",
         "diff",
         "free-space",
         "history",
         "inspect-setups",
-        "inventory",
         "mark-converged",
         "mark-failed",
         "plan",
         "post",
         "rebuild",
-        "refine",
         "restore",
         "run",
         "search-log-batch",

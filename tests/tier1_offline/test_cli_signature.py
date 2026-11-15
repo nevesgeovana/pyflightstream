@@ -26,7 +26,7 @@ def test_p0500_warning_off_preserves_post_and_refine_records(tmp_path, capsys, m
     import json
     import warnings
 
-    from pyflightstream.run.cli import main as matrix_main
+    from tests.tier1_offline._geometry_verbs import main as matrix_main
     from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
     from tests.tier1_offline.test_p0380_s1_refine import BOTH_TABLES, _two_tubes
 

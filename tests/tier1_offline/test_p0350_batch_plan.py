@@ -249,7 +249,7 @@ def test_p0350_plan_fr378_a_geometry_with_saved_actions_is_refused(tmp_path):
     assert plan.blocked and all(entry.status is PlanStatus.BLOCKED for entry in plan.points)
     error = str(plan.blocked[0].error)
     assert staged.name in error and "pfs_walltime_clock" in error
-    assert f"pyfs-matrix inventory {staged} --clean" in error
+    assert f"pyfs-workspace geometry inventory {staged} --clean" in error
     assert plan.grouping.jobs == ()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)

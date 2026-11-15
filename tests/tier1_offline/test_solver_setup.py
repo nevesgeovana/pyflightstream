@@ -379,64 +379,6 @@ def test_a_second_settings_call_keeps_the_selection_in_script_and_snapshot():
     assert record.provenance == "explicit" and record.value == [1, 2] and record.emitted
 
 
-def test_the_deprecated_selection_restamps_the_snapshot():
-    # The deprecated path emits its own selection after the snapshot was
-    # built; the record must follow, or the manifest would describe a
-    # script that was never built.
-    script = Script(version="26.120")
-    settings_setup = helpers.solver_settings(script, aoa=3.0)
-    script.emit("START_SOLVER")
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
-    # Nothing was deferred, so the warning must not claim a replacement.
-    assert "replaces the selection deferred" not in str(caught[0].message)
-    assert "SET_VORTICITY_DRAG_BOUNDARIES 1\n1" in script.render()
-    record = script.solver_setup.flags[VORTICITY_COMMAND]
-    assert record.provenance == "explicit" and record.value == [1] and record.emitted
-    assert record.evidence is None
-    # The returned snapshot is frozen: restamping produced a new one.
-    assert settings_setup.flags[VORTICITY_COMMAND].provenance == "default"
-
-
-def test_the_deprecated_selection_records_resolved_indices_not_labels():
-    # One vocabulary in the manifest: both paths store 1-based indices,
-    # so a stored snapshot is readable without the label declarations.
-    script = Script(version="26.120")
-    script.declare_existing(boundaries={"wing": 1, "tail": 2})
-    helpers.solver_settings(script, aoa=3.0)
-    script.emit("START_SOLVER")
-    with pytest.warns(DeprecationWarning):
-        helpers.analysis_setup(script, vorticity_drag_boundaries=["tail"])
-    assert script.solver_setup.flags[VORTICITY_COMMAND].value == [2]
-
-
-def test_a_failed_deprecated_call_leaves_script_and_snapshot_untouched():
-    # The label resolves at call time, before any emission or record, so
-    # a bad label cannot leave a snapshot claiming a selection the
-    # script does not carry, nor destroy the deferred one.
-    script = Script(version="26.120")
-    script.declare_existing(boundaries={"wing": 1})
-    setup = helpers.solver_settings(script, vorticity_drag_boundaries=["wing"])
-    script.emit("START_SOLVER")
-    with pytest.raises(ScriptReferenceError, match="analysis_setup"):
-        helpers.analysis_setup(script, load_units="COEFFICIENTS", vorticity_drag_boundaries=["gh"])
-    assert script.solver_setup is setup  # the record was not restamped
-    assert "SET_LOADS_AND_MOMENTS_UNITS" not in script.render()
-    # The deferred selection survived and still reaches the script.
-    helpers.export_results(script, spreadsheet="C:/out/loads.txt")
-    assert "SET_VORTICITY_DRAG_BOUNDARIES 1\n1" in script.render()
-
-
-def test_the_deprecated_path_refuses_an_empty_selection_too():
-    script = Script(version="26.120")
-    helpers.solver_settings(script, vorticity_drag_boundaries="all")
-    script.emit("START_SOLVER")
-    with pytest.raises(CommandArgumentError, match="empty sequence"):
-        helpers.analysis_setup(script, vorticity_drag_boundaries=[])
-    assert VORTICITY_COMMAND not in script.render()  # the selection survives
-
-
 @pytest.mark.parametrize("selection", ["all", [1, 2]])
 def test_with_vorticity_selection_restamps_without_touching_the_input(selection):
     script = Script(version="26.120")
@@ -675,27 +617,24 @@ def test_round_trip_with_defaults_only():
     assert "SOLVER_MINIMUM_CP -100" in second.render()
 
 
-# --- deprecation of the analysis_setup path ---------------------------------
+# --- removal of the analysis_setup path ------------------------------------
 
 
-def test_analysis_setup_vorticity_is_deprecated_but_works():
+def test_analysis_setup_vorticity_is_refused_naming_solver_settings():
+    """PFS-2237: the selection belongs to solver_settings; the old call is refused by name."""
     script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
-    # The promise names its release (PFS-2021.02): it stays until 1.0.0,
-    # and the text comes from the ledger entry, so this regex and the
-    # deadline guard read the same version.
-    with pytest.warns(
-        DeprecationWarning,
-        match=r"vorticity_drag_boundaries of analysis_setup .*will be removed in "
-        r"v1\.0\.0.*This explicit call replaces the selection deferred by "
-        r"solver_settings",
-    ):
+    with pytest.raises(
+        CommandArgumentError, match=r"solver_settings\(vorticity_drag_boundaries=\)"
+    ) as refused:
         helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
+    assert "no longer accepted" in str(refused.value)
+    # Nothing was emitted or restamped: the deferred selection still reaches the script.
+    helpers.export_results(script, spreadsheet="C:/out/loads.txt")
     text = script.render()
-    # The deprecated explicit call replaced the deferred selection.
     assert text.count(VORTICITY_COMMAND) == 1
-    assert "SET_VORTICITY_DRAG_BOUNDARIES 1\n1" in text
+    assert "SET_VORTICITY_DRAG_BOUNDARIES -1" in text
 
 
 # --- manifest round trip ----------------------------------------------------

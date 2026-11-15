@@ -313,7 +313,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         )
     body = [
         f"# Boundary inventory of {path.name}, read from its mesh block by "
-        "`pyfs-matrix inventory`.",
+        "`pyfs-workspace geometry inventory`.",
         "# The solver's own order: the name at position i is boundary i (1-based).",
         # Quoted as TOML strings, as the OBJ twin quotes them (PFS-2095.034): a name with a
         # backslash or a double quote wrote invalid TOML or another name.
@@ -454,7 +454,7 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
 
     THE ONE PLACE A SIDECAR IS ASKED FOR. The matrix binding, which
     ``pyfs-matrix plan`` and ``pyfs-matrix run`` both pass through, and
-    ``pyfs-matrix inventory`` (:func:`write_inventory`) reach the sidecar
+    ``pyfs-workspace geometry inventory`` (:func:`write_inventory`) reach the sidecar
     through this function, so an OBJ is treated alike wherever a user
     meets it:
 
@@ -470,7 +470,7 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
       groups cannot be read, the sidecar written by hand is that file's
       route and nothing is said.
     * any other geometry is left as it was: a saved simulation's sidecar
-      is written by ``pyfs-matrix inventory`` from its mesh block, and an
+      is written by ``pyfs-workspace geometry inventory`` from its mesh block, and an
       STL's by hand.
 
     Parameters
@@ -1069,12 +1069,12 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
     ),
     "boundaries": InputKey(
         "The mesh's boundary names in the solver's order, the name at position i being "
-        "boundary i; read from a saved simulation by pyfs-matrix inventory, read from an "
-        "OBJ's groups by the plan when it has no sidecar, written by hand for an STL.",
+        "boundary i; read from a saved simulation by pyfs-workspace geometry inventory, "
+        "read from an OBJ's groups by the plan when it has no sidecar, written by hand for an STL.",
         "a list of names",
     ),
     "file": InputKey(
-        "The file the inventory was read from, as pyfs-matrix inventory writes it; "
+        "The file the inventory was read from, as pyfs-workspace geometry inventory writes it; "
         "nothing reads it back.",
         "a file name",
     ),

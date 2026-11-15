@@ -2,10 +2,10 @@
 
 Written from the requirement (C2: a row and the API give one identity; C3: a failed row does not
 stop the others; C4: a route column, each value reaching its own code path, a mesh row warned and
-skipped, a row with no route emitting the script it emitted before; layout: an old header reads
-with a warning and migrates, no byte lost) and the design's section D.4 and D.5. The generator
-runs for real on a one-component body up to the pure stages; the kernel stages and the strategy
-meshers are replaced where a test is about the route, not the geometry.
+skipped, a row with no route emitting the script it emitted before; layout: an old header is
+refused naming the current one and migrates, no byte lost) and the design's section D.4 and
+D.5. The generator runs for real on a one-component body up to the pure stages; the kernel
+stages and the strategy meshers are replaced where a test is about the route, not the geometry.
 """
 
 from __future__ import annotations
@@ -106,15 +106,14 @@ def test_the_frozen_layout_is_the_header_of_0_56_0():
     assert tuple(OLD_HEADER) in RECOGNIZED_MATRIX_LAYOUTS
 
 
-def test_an_old_header_reads_with_a_warning_and_the_route_unstated(tmp_path):
-    from pyflightstream.cases.matrix import read_matrix
+def test_an_old_header_is_refused_naming_the_current_one(tmp_path):
+    from pyflightstream.cases.matrix import MatrixError, read_matrix
 
     path = _matrix(tmp_path, [_cells()], old=True)
-    with pytest.warns(PyflightstreamDeprecationWarning, match="0.60.0") as caught:
-        (row,) = read_matrix(path)
-    assert "MESH_ROUTE" in str(caught[0].message) and "migrate" in str(caught[0].message)
-    assert "MESH_ROUTE" not in row.variables
-    assert row.pol == "7001"
+    with pytest.raises(MatrixError, match="MESH_ROUTE") as refused:
+        read_matrix(path)
+    assert "pyfs-workspace migrate --apply" in str(refused.value)
+    assert "no longer accepted" in str(refused.value)
 
 
 def test_the_current_header_reads_with_no_layout_warning(tmp_path):
@@ -127,15 +126,7 @@ def test_the_current_header_reads_with_no_layout_warning(tmp_path):
     assert row.variables["MESH_ROUTE"] == "native"
 
 
-def test_the_ledger_records_the_layout_promise():
-    from pyflightstream._deprecations import DEPRECATIONS, MATRIX_LAYOUT_0_56_0
-
-    assert MATRIX_LAYOUT_0_56_0 in DEPRECATIONS
-    assert MATRIX_LAYOUT_0_56_0.removal_version == "0.60.0"
-    assert "removed in v0.60.0" in MATRIX_LAYOUT_0_56_0.message()
-
-
-def test_old_header_warns_and_migrates_with_no_byte_lost(tmp_path):
+def test_old_header_migrates_with_no_byte_lost(tmp_path):
     from pyflightstream.cases.matrix import MATRIX_COLUMNS, read_matrix
     from pyflightstream.workspace.migrate import migrate_workspace
 
@@ -257,9 +248,12 @@ def test_mesh_entries_on_an_fsm_row_are_warned_and_skipped(tmp_path, library):
 
 
 def test_a_row_with_no_route_binds_the_case_it_bound_before(tmp_path, library):
+    from pyflightstream.cases.matrix import upgrade_layout_bytes
+
     new = _resolve(_matrix(tmp_path, [_cells()], name="new.fs"), library)
-    with pytest.warns(PyflightstreamDeprecationWarning):
-        old = _resolve(_matrix(tmp_path, [_cells()], old=True, name="old.fs"), library)
+    frozen = _matrix(tmp_path, [_cells()], old=True, name="old.fs")
+    frozen.write_bytes(upgrade_layout_bytes(frozen.read_bytes())[0])
+    old = _resolve(frozen, library)
     (a,), (b,) = new.campaign.sims, old.campaign.sims
     assert a.model_dump(mode="json") == b.model_dump(mode="json")
     assert a.variables == b.variables

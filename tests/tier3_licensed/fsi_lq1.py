@@ -187,7 +187,8 @@ detect = "auto"
 
 _MATRIX_HEADER = (
     "POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | "
-    "SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | "
+    "SWEEP_VALUES | GEOMETRY | MESH_ROUTE | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | "
+    "NCPUS | "
     "WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 96 + "\n"
 )
 
@@ -299,7 +300,7 @@ def build(workspace: Path, exe: str) -> None:
     )
     row = (
         "{pol} | 1 | 1 | WINGSYN | - | {desc} | MACH:0.147, REmi:3.42, ALPHA:sweep | 5.0 | "
-        f"{GEOMETRY}.obj | r340 | s340 | p340 | NONE | - | - | 2h | 26.124 | steady |"
+        f"{GEOMETRY}.obj | - | r340 | s340 | p340 | NONE | - | - | 2h | 26.124 | steady |"
     )
     matrix = (
         _MATRIX_HEADER

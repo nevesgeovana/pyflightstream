@@ -131,10 +131,9 @@ Unlike post, a build refuses to replace outputs unless asked with `--overwrite`:
 its outputs are inputs of runs. Inspect the body before replacing them.
 For `build --rows POL --matrix FILE`, give both options or neither.
 
-The `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` aliases
-give the identical result but will be removed in v1.0.0. Their replacements
-are `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`,
-respectively.
+`pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` no longer exist: each is
+refused, naming `pyfs-workspace geometry refine`, `audit`, `inventory` or `degenerate`,
+which take the same arguments and give the same results.
 
 ## A trailing-edge points file from a node list
 
@@ -615,9 +614,8 @@ pyfs-workspace geometry sector-to-wheel sector.obj --copies 6 --axis x --blades 
     [--center X Y Z] [--tolerance 1e-4] [--out wheel.obj] [--overwrite] [--no-wake-terminations]
 ```
 
-`--hub` remains a deprecated coordinate alias for `--center`. The Python API accepts
-`center=` and the deprecated `hub=`. Equal old/new values are accepted once; conflicting
-values are refused. No removal release is assigned, and report keys remain unchanged.
+`--hub` and the Python argument `hub=` are refused, naming `--center` and `center=`.
+Report keys remain unchanged.
 The center is a rotor-axis point in mesh units, independent of repitch `reference_point`.
 
 
@@ -901,10 +899,8 @@ output without `--overwrite`, or a topology not found.
 
 ## The other geometry verbs
 
-`pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take
-the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and
-`degenerate` and give the same result. The `pyfs-matrix` names still work and
-warn that the group is their home.
+`pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` are the home of
+the four mesh commands. The `pyfs-matrix` names of them are refused, naming the group.
 
 `pyfs-workspace geometry beam <geometry> --families <family ...> --stations <n>
 [--visual-inspection]` cuts each named blade's sections from the mesh into

@@ -34,11 +34,7 @@ ENTRY_POINT = "pyflightstream.run.cli:main"
 
 #: Options of pyfs-matrix the cheatsheet leaves out on purpose, each with its
 #: reason. Empty: prefer documenting an option to listing it here.
-ALLOWED_ABSENT: dict[str, str] = {
-    "--chordwise": "hidden deprecated alias of --normal, accepted with a warning",
-    "--spanwise": "hidden deprecated alias of --parallel, accepted with a warning",
-    "--keep-first-row": "hidden earlier option, warned and skipped",
-}
+ALLOWED_ABSENT: dict[str, str] = {}
 
 
 def _generator():

@@ -1,6 +1,6 @@
 """Tier 1, 0.34.0: the thin blade derived from a blade mesh (FR-330, marker P0340-THIN-BLADE).
 
-Pipeline role: quality gate on the library core of ``pyfs-matrix degenerate
+Pipeline role: quality gate on the library core of ``pyfs-workspace geometry degenerate
 --kind thin-blade``, :func:`pyflightstream.workspace._degenerate.derive_thin_blade`.
 The command line itself (FR-628 and FR-634) is a later package's; what is held
 here is the geometry and the files.

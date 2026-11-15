@@ -263,7 +263,7 @@ would leave too few tube intervals or section nodes, it is raised to the tube's
 minimum with a warning (FR-3322).
 
 When the audit can wait, use `pyfs-workspace geometry refine wing.obj 2 --audit-off`
-(or `pyfs-matrix refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
+(or `pyfs-workspace geometry refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
 to `refine_mesh`. The level is written with the skipped audit recorded in
 `refine.json`; the console prints its exact later audit command. Run
 `pyfs-workspace geometry audit <level.obj> --against <source.obj>` when ready.
@@ -363,7 +363,7 @@ The groups ARE read for the SURFACE NAMES from the file's own text
 
 ## Refining or coarsening a mesh
 
-`pyfs-matrix refine` writes a finer or a coarser LEVEL of a panel mesh from its
+`pyfs-workspace geometry refine` writes a finer or a coarser LEVEL of a panel mesh from its
 OBJ, without returning to the pre-processor, and keeps what the mesh's author
 chose: the clustering, the trailing edge, the junctions between surfaces and
 the face order the solver reads. The source is never modified. The command
@@ -375,7 +375,7 @@ triangulated tip `Tip`.
 Refine with a factor on the command line:
 
 ```text
-pyfs-matrix refine inputs/geometries/W1/W1.obj 2
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2
 ```
 
 The level keeps the source's marking declarations. To mark its edges, edit the
@@ -430,9 +430,9 @@ target edge length of any other family. A study of three levels is three
 commands:
 
 ```text
-pyfs-matrix refine inputs/geometries/W1/W1.obj 0.5
-pyfs-matrix refine inputs/geometries/W1/W1.obj 1
-pyfs-matrix refine inputs/geometries/W1/W1.obj 2
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 0.5
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 1
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2
 ```
 
 They write `W1_R0p5`, `W1_R1` and `W1_R2` (`p` is the decimal point). The
@@ -446,8 +446,8 @@ perimeter, `--normal` across it. They are refused for a family that is
 remeshed, so here they go with `--families Wing`:
 
 ```text
-pyfs-matrix refine inputs/geometries/W1/W1.obj 2 --families Wing
-pyfs-matrix refine inputs/geometries/W1/W1.obj --normal 1.5 --parallel 0.7 --families Wing
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj 2 --families Wing
+pyfs-workspace geometry refine inputs/geometries/W1/W1.obj --normal 1.5 --parallel 0.7 --families Wing
 ```
 
 The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
@@ -628,7 +628,7 @@ Blade1 = ["Blade1_side", "Blade1_tip"]
 ```
 
 ```text
-pyfs-matrix refine inputs/geometries/B1/B1.obj
+pyfs-workspace geometry refine inputs/geometries/B1/B1.obj
 ```
 
 With no factor on the command line the factors come from `B1.refine.toml`
@@ -637,7 +637,7 @@ beside the mesh (or from `--config FILE`). `B1_R2.obj` holds one family
 `Blade1` in place of its members. `method = "grid"` makes the refinement refuse
 the side, naming why, if its grid is not recovered, rather than remesh it. The
 `[components]` and `[refine] tag` of a file beside the mesh are read whatever
-gives the factors, so `pyfs-matrix refine inputs/geometries/B1/B1.obj 2`
+gives the factors, so `pyfs-workspace geometry refine inputs/geometries/B1/B1.obj 2`
 merges the families too.
 
 ### From an OBJ to a marked level
@@ -731,7 +731,7 @@ optional.
 3. **Refine.**
 
    ```text
-   pyfs-matrix refine inputs/geometries/W1/W1_patches.obj
+   pyfs-workspace geometry refine inputs/geometries/W1/W1_patches.obj
    ```
 
    With no factor on the command line the factors come from the refine file
@@ -768,7 +768,7 @@ optional.
 To inspect a refinement as it is produced, run:
 
 ```text
-pyfs-matrix refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
+pyfs-workspace geometry refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
 ```
 
 Or call `refine_mesh("inputs/geometries/W1/W1_patches.obj", 2, visual_inspect=True)`.
@@ -878,12 +878,12 @@ component's members in the source (the components are read from the level's
 one family the solver sees. A figure within a millionth of a limit or a floor
 meets it.
 
-`pyfs-matrix audit-mesh` runs the same audit on any OBJ, alone or against the
+`pyfs-workspace geometry audit` runs the same audit on any OBJ, alone or against the
 mesh it was made from, and its exit status is the verdict: 0 when every gate
 and check passes, 1 when one fails, 2 when the input is refused.
 
 ```text
-pyfs-matrix audit-mesh inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --out W1_R2_audit.csv
+pyfs-workspace geometry audit inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --out W1_R2_audit.csv
 ```
 
 ### From Python

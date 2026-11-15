@@ -55,11 +55,11 @@ from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
     NotApplicableWarning,
-    PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
     warn,
 )
 from pyflightstream._lengths import METRES_PER_UNIT
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace._refine._obj import (
     ObjMesh,
@@ -1046,34 +1046,20 @@ def validate_blades(
 
 
 def _center_point(center: Sequence[float] | None, hub: Sequence[float] | None) -> Any:
-    """Resolve the rotor-axis point and its deprecated coordinate spelling."""
-    points = []
-    for name, value in (("center", center), ("hub", hub)):
-        if value is None:
-            continue
-        try:
-            point = numpy.asarray(value, dtype=float)
-        except (TypeError, ValueError) as error:
-            raise InputValueError(
-                f"{name} (CLI: --{name}) must be three finite numbers. {_NOTHING}"
-            ) from error
-        if point.shape != (3,) or not numpy.isfinite(point).all():
-            raise InputValueError(
-                f"{name} (CLI: --{name}) must be three finite numbers. {_NOTHING}"
-            )
-        points.append(point)
+    """Resolve the rotor-axis point; the retired ``hub`` coordinate spelling is refused."""
     if hub is not None:
-        warn(
-            "hub (CLI: --hub) is deprecated for coordinates; use center (CLI: --center)",
-            PyflightstreamDeprecationWarning,
-            stacklevel=3,
-        )
-    if len(points) == 2 and not numpy.array_equal(points[0], points[1]):
+        raise InputValueError(f"{REMOVED_FORMS['sector_to_wheel.hub'].message()} {_NOTHING}")
+    if center is None:
+        return numpy.zeros(3)
+    try:
+        point = numpy.asarray(center, dtype=float)
+    except (TypeError, ValueError) as error:
         raise InputValueError(
-            "center (CLI: --center) and hub (CLI: --hub) conflict; state one rotor-axis point. "
-            f"{_NOTHING}"
-        )
-    return points[0] if points else numpy.zeros(3)
+            f"center (CLI: --center) must be three finite numbers. {_NOTHING}"
+        ) from error
+    if point.shape != (3,) or not numpy.isfinite(point).all():
+        raise InputValueError(f"center (CLI: --center) must be three finite numbers. {_NOTHING}")
+    return point
 
 
 def sector_to_wheel(
@@ -1114,8 +1100,8 @@ def sector_to_wheel(
         A point of the axis, in the mesh's unit (default the origin).
         Independent of the repitch pitch-plane or off-axis ``reference_point``.
     hub : sequence of float, optional
-        Deprecated coordinate alias for ``center``; equal duplicates are accepted,
-        conflicting points are refused. Existing report keys remain unchanged.
+        The retired spelling of ``center``: any value is refused, naming ``center``.
+        Existing report keys remain unchanged.
     tolerance : float
         The distance, in metres, within which two nodes are one.
     out : str or Path, optional

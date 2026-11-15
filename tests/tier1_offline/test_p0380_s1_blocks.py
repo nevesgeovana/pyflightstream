@@ -445,7 +445,7 @@ def test_a_patch_side_a_factor_cannot_coarsen_is_kept_and_reported(tmp_path, cap
     refine.json lists the same under ``kept_sides``. The command exits 0.
     Control: exactly 1/4 keeps no side, and the report says so.
     """
-    from pyflightstream.run import cli
+    from tests.tier1_offline import _geometry_verbs as cli
 
     sheet = l_sheet()
     mesh = Composite(sheet.verts, {"M": sheet.faces}, np.zeros((0, 3)), {})
@@ -494,7 +494,7 @@ def test_refine_progress_names_each_stage_and_quiet_hides_it(tmp_path, capsys):
     nothing. The command prints the lines as ``[refine HH:MM:SS +N.N s] ...`` on
     stderr, and ``--log-level quiet`` hides them while the level is written.
     """
-    from pyflightstream.run import cli
+    from tests.tier1_offline import _geometry_verbs as cli
 
     sheet = l_sheet()
     mesh = Composite(sheet.verts, {"M": sheet.faces}, np.zeros((0, 3)), {})
