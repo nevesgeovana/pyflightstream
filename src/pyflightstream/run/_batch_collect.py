@@ -39,7 +39,7 @@ from pyflightstream.cases.workflows import (
     CUMULATIVE_LOG_SUFFIX,
     WALLTIME_CLOCK_STATE,
 )
-from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, REINIT_VERB
+from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, point_transitions
 from pyflightstream.results.log import point_log_text, split_job_log
 from pyflightstream.run._collect_logs import _profile_glob
 from pyflightstream.run._pending import _walltime_stop
@@ -312,21 +312,21 @@ def _opening_orders(workspace: CampaignWorkspace, job: JobEntry) -> tuple[int, .
     geometry, and their log segment carries the opening echo; a point after a
     ``REMOVE_INITIALIZATION`` takes it from the latest opening point before it.
     A steady polar may reopen inside itself (FR-403), so the polar's first
-    point is not always the one. None when the script cannot be read or its
-    blocks do not count the job's points.
+    point is not always the one. A job whose points do not export their logs
+    closes its last point with one more ``REMOVE_INITIALIZATION`` (PFS-2258),
+    which starts no point and is not counted. None when the script cannot be
+    read or its blocks do not count the job's points.
     """
     path = _job_dir(workspace, job) / PurePosixPath(job["script"]).name
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
     opening, order = [1], 1
-    for line in lines:
-        word = line.strip()
-        if word in (REINIT_VERB, REFRESH_VERB):
-            order += 1
-            if word == REFRESH_VERB:
-                opening.append(order)
+    for word in point_transitions(text):
+        order += 1
+        if word == REFRESH_VERB:
+            opening.append(order)
     return tuple(opening) if order == job["points"] else None
 
 
