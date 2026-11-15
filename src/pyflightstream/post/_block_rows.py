@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from pyflightstream._errors import ProductError, PyflightstreamError
 from pyflightstream._tokens import CONTEXT_COLUMNS
-from pyflightstream.post._block_scope import run_blocks
+from pyflightstream.post._block_scope import collect_block, run_blocks
 from pyflightstream.post._run_block import RUN_TYPES, RotorRunValues, run_block_row
 from pyflightstream.post._tables import context_row
 from pyflightstream.post.axes import rotor_frame
@@ -205,5 +205,9 @@ def run_block_scope(ctx: SimContext) -> Iterator[None]:
     except ProductError as error:
         ctx.skipped[f"run_block/{ctx.sim_id}"] = str(error)
         rows = {}
+    for name, row in rows.items():
+        record = ctx.record_of.get(name)
+        if record is not None:
+            collect_block(record.run_id, row)
     with run_blocks(rows, rotor_ids_of(ctx)):
         yield

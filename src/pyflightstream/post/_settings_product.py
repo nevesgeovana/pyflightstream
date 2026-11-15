@@ -21,7 +21,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream.post._block_scope import collected_block
 from pyflightstream.post._stage import post_note
+from pyflightstream.post._visual_block import run_block_text
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.settings_table import write_settings_table
 from pyflightstream.script.solver_setup import SolverSetup
@@ -84,6 +86,22 @@ def _table_sources(
     return sources
 
 
+def _key_of(sim_id: str, run_id: str) -> dict[str, str]:
+    """Return the key columns of one run's row: its run block, then ``RUN_ID``.
+
+    The block is the one the simulation's post built for the point (FR-3778). The
+    IDENTIFIERS the matrix row states are left to the table funnel, which puts
+    them after ``POL``. A run with no block keeps ``POL`` and ``RUN_ID``.
+    """
+    row = collected_block(run_id)
+    if row is None:
+        return {POLAR_ID_COLUMN: sim_id, "RUN_ID": run_id}
+    names = list(row)
+    first, last = names.index("POINT") + 1, names.index("RUN_TYPE")
+    own = {n: run_block_text(v) for n, v in row.items() if n not in names[first:last]}
+    return {**own, "RUN_ID": run_id}
+
+
 def _asking_sims(ctx: _CampaignProducts) -> list[str]:
     """Return the simulations whose pproc asks for the table, in post order."""
     asking = []
@@ -131,7 +149,7 @@ def write_settings_product(ctx: _CampaignProducts) -> None:
                     )
                     continue
                 setups.append(snapshot)
-                keys.append({POLAR_ID_COLUMN: sim_id, "RUN_ID": point.run_id})
+                keys.append(_key_of(sim_id, point.run_id))
     if not setups:
         post_note(
             "campaign",

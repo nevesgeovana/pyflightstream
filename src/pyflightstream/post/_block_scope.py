@@ -29,7 +29,11 @@ __all__ = [
     "BLOCK_FOLDERS",
     "RUN_BLOCK_LAST",
     "after_run_block",
+    "apply_row_blocks",
     "block_of_point",
+    "collect_block",
+    "collected_block",
+    "collecting_blocks",
     "run_blocks",
     "with_run_block",
 ]
@@ -99,6 +103,45 @@ def run_blocks(
         _SCOPE.reset(token)
 
 
+#: The run block row of every point of every simulation posted so far in this
+#: post, by run id, for the tables that span simulations (the settings table).
+_COLLECTED: ContextVar[dict[str, dict[str, object]] | None] = ContextVar(
+    "run_block_collected", default=None
+)
+
+
+@contextmanager
+def collecting_blocks() -> Iterator[None]:
+    """Remember the run block row of each run id posted inside this block, and only here."""
+    token = _COLLECTED.set({})
+    try:
+        yield
+    finally:
+        _COLLECTED.reset(token)
+
+
+def collect_block(run_id: str, row: Mapping[str, object]) -> None:
+    """Remember ``row`` as the run block of the run ``run_id``, inside :func:`collecting_blocks`."""
+    held = _COLLECTED.get()
+    if held is not None:
+        held[str(run_id)] = dict(row)
+
+
+def collected_block(run_id: str) -> dict[str, object] | None:
+    """Return the run block row remembered for ``run_id``, None where there is none.
+
+    Examples
+    --------
+    >>> with collecting_blocks():
+    ...     collect_block("r1", {"POL": "7001"})
+    ...     collected_block("r1"), collected_block("r2")
+    ({'POL': '7001'}, None)
+    """
+    held = _COLLECTED.get()
+    row = None if held is None else held.get(str(run_id))
+    return None if row is None else dict(row)
+
+
 def block_of_point(point: str) -> dict[str, object] | None:
     """Return the run block row of ``point`` in the open scope, None outside one.
 
@@ -158,33 +201,73 @@ def with_run_block(
     block = scope.of(target.name)
     if block is None:
         return columns, rows
+    return apply_row_blocks(columns, rows, [block] * len(rows), scope.rotor_ids, head=block)
+
+
+def apply_row_blocks(
+    columns: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    blocks: Sequence[Mapping[str, object] | None],
+    rotor_ids: Mapping[str, int] | None = None,
+    *,
+    head: Mapping[str, object] | None = None,
+) -> tuple[Sequence[str], Sequence[Sequence[object]]]:
+    """Return a table opened with the run block of each row's own point.
+
+    For a table that spans points (the quasi-steady tables): ``blocks`` holds the
+    block of each row, None for a row of no known point (its block columns read
+    ``NA``). The header is the block's, taken from ``head`` or the first block.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The table's header.
+    rows : sequence of sequence of object
+        Its rows.
+    blocks : sequence of mapping or None
+        One per row.
+    rotor_ids : mapping of str to int, optional
+        Each rotor alias to its id, for a ``ROTOR`` column.
+    head : mapping, optional
+        The block that names the columns; the first row's block by default.
+
+    Returns
+    -------
+    tuple
+        The table with the block first; untouched when no block is known or a row
+        has the wrong width.
+
+    Examples
+    --------
+    >>> apply_row_blocks(("X",), [(1,)], [None])
+    (('X',), [(1,)])
+    """
     header = [str(name) for name in columns]
-    if any(len(row) != len(header) for row in rows):
-        return columns, rows  # the funnel refuses it, naming the widths
+    block = head if head is not None else next((b for b in blocks if b is not None), None)
+    if block is None or any(len(row) != len(header) for row in rows):
+        return columns, rows  # the funnel refuses a wrong width, naming it
+    ids = dict(rotor_ids or {})
     own = {name: at for at, name in enumerate(header)}
     rest = [name for name in header if name not in block]
-    if _ROTOR_COLUMN in rest and _ROTOR_ID not in header and scope.rotor_ids:
+    if _ROTOR_COLUMN in rest and _ROTOR_ID not in header and ids:
         rest.insert(rest.index(_ROTOR_COLUMN), _ROTOR_ID)
-    out_columns = (*block, *rest)
     out_rows: list[list[object]] = []
-    for row in rows:
+    for row, one in zip(rows, blocks, strict=True):
         cells: list[object] = []
-        for name, value in block.items():
+        for name in block:
             at = own.get(name)
-            if at is not None and not _absent(row[at]):
-                cells.append(row[at])
-            elif name == POLAR_ID_COLUMN and at is not None:
+            stated = None if one is None else one.get(name)
+            if at is not None and (not _absent(row[at]) or name == POLAR_ID_COLUMN):
                 cells.append(row[at])
             else:
-                cells.append(value)
+                cells.append(stated)
         for name in rest:
             if name == _ROTOR_ID and name not in own:
-                alias = row[own[_ROTOR_COLUMN]]
-                cells.append(scope.rotor_ids.get(str(alias)))
+                cells.append(ids.get(str(row[own[_ROTOR_COLUMN]])))
             else:
                 cells.append(row[own[name]])
         out_rows.append(cells)
-    return out_columns, out_rows
+    return (*block, *rest), out_rows
 
 
 def after_run_block(columns: Sequence[str]) -> int:

@@ -528,6 +528,7 @@
       "tests/tier1_offline/test_p0580_l3_manifest_schema.py",
       "tests/tier1_offline/test_p0580_l3_run_block.py",
       "tests/tier1_offline/test_p0580_l3_sections.py",
+      "tests/tier1_offline/test_p0580_l3_settings_qsteady.py",
       "tests/tier1_offline/test_p0580_l3_surfaces.py",
       "tests/tier1_offline/test_p0580_l3_tree.py",
       "tests/tier1_offline/test_post_diagnostics.py",

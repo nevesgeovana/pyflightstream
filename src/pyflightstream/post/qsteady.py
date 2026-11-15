@@ -81,6 +81,7 @@ from pyflightstream.cases.qsteady import (
     strip_lengths,
     validity_file_name,
 )
+from pyflightstream.post._block_scope import apply_row_blocks, block_of_point
 from pyflightstream.post._tables import (
     _cell,
     _refuse_existing_product,
@@ -1538,6 +1539,8 @@ class WheelPoint:
     validity: PointValidity
     #: The rotor state of a wheel point, None where not taken.
     state: RotorState | None = None
+    #: The point's name, which gives its run block (FR-3778); None states none.
+    point: str | None = None
 
 
 def _condition_with_own_j(
@@ -1620,11 +1623,15 @@ def write_qsteady_tables(
     moment = tuple(reference.as_moment_point().values()) if reference is not None else (None,) * 3
     position_rows = []
     average_rows = []
+    position_blocks: list[dict[str, object] | None] = []
+    average_blocks: list[dict[str, object] | None] = []
     for point in usable:
+        block = None if point.point is None else block_of_point(point.point)
         context = context_row(_condition_with_own_j(point.condition, point.record), lengths)
         alias = point.record.rotor_alias
         count = len(point.clockings)
         for clocking in point.clockings:
+            position_blocks.append(block)
             position_rows.append(
                 (
                     point.pol,
@@ -1639,6 +1646,7 @@ def write_qsteady_tables(
                     *clocking.loads,
                 )
             )
+        average_blocks.append(block)
         average_rows.append(
             (
                 point.pol,
@@ -1657,19 +1665,17 @@ def write_qsteady_tables(
         )
     _refuse_existing_product(positions_path, overwrite)
     _refuse_existing_product(average_path, overwrite)
+    # THE RUN BLOCK OF EACH ROW'S POINT opens both tables (FR-3778); a point with
+    # none, or a call outside a post, keeps the spine as it was.
+    positions = apply_row_blocks(
+        (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns), position_rows, position_blocks
+    )
+    average = apply_row_blocks(
+        (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns), average_rows, average_blocks
+    )
     return (
-        write_csv_table(
-            positions_path,
-            (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns),
-            position_rows,
-            overwrite=overwrite,
-        ),
-        write_csv_table(
-            average_path,
-            (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns),
-            average_rows,
-            overwrite=overwrite,
-        ),
+        write_csv_table(positions_path, positions[0], positions[1], overwrite=overwrite),
+        write_csv_table(average_path, average[0], average[1], overwrite=overwrite),
     )
 
 

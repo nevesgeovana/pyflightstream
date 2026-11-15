@@ -847,6 +847,7 @@ def _qsteady_products(
                 clockings=clockings,
                 validity=validity,
                 state=state,
+                point=point.name,
             )
         )
         runs.setdefault(alias, []).append(record.run_id)
