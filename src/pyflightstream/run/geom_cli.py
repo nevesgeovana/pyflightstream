@@ -11,7 +11,8 @@ file with one ``[[sets]]`` table per set whose keys are the override paths, and 
 after a failed set. ``validate`` resolves the configuration and prints every value with its
 source; ``configurations`` and ``stages`` list what a configuration and the pipeline hold;
 ``schema``, ``identify`` and ``check`` read a component record or an original IGES;
-``add-control-surface`` and ``split-symmetry`` edit a written IGES.
+``add-control-surface`` and ``split-symmetry`` edit a written IGES; ``iges-convert`` rewrites
+IGES files as one IGES of B-spline faces, names kept.
 
 Exit codes: 0 accepted, 1 a run failed at a stage (the report names the stage and the check),
 2 an input is refused or the gmsh library cannot load, with the message on standard error,
@@ -32,6 +33,7 @@ from typing import Any
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream.geometry.stages import STAGE_ROWS, exit_code
+from pyflightstream.run._cli_morph import add_iges_convert_parser
 from pyflightstream.run._geom_cli_moved import add_moved_verbs, report_of
 
 __all__ = ["main"]
@@ -265,6 +267,9 @@ def _build_parser() -> argparse.ArgumentParser:
     split.add_argument("--plane", default="y", choices=("x", "y", "z"), help="plane (default y)")
     split.add_argument("--component", metavar="NAME", help="cut this component only")
     split.set_defaults(handler=_split_symmetry)
+
+    # CAD IN, CAD OUT (PFS-2260): the IGES rewrite makes no mesh, so it is a pyfs-geom verb.
+    add_iges_convert_parser(verbs)
     return parser
 
 

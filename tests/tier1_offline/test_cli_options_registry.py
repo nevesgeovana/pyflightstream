@@ -71,6 +71,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-geom", "stations"): SWITCH,
     ("pyfs-geom", "until"): SWITCH,
     ("pyfs-geom", "workers"): SWITCH,
+    # 0.58.0 (PFS-2260): iges-convert moved here; the NAME bytes' encoding is part of the case.
+    ("pyfs-geom", "name_encoding"): CASE,
     ("pyfs-workspace", "fsi_id"): SUBJECT,
     ("pyfs-workspace", "modes"): CASE,
     # 0.43.0 (FR-44): `pyfs-workspace excel create|preview|apply|cancel|check`. The
@@ -671,11 +673,23 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-geom", "component"): frozenset(
         {"add-control-surface", "check", "identify", "split-symmetry"}
     ),
-    ("pyfs-geom", "iges"): frozenset({"add-control-surface", "identify", "split-symmetry"}),
+    ("pyfs-geom", "iges"): frozenset(
+        {"add-control-surface", "identify", "iges-convert", "split-symmetry"}
+    ),
+    ("pyfs-geom", "name_encoding"): frozenset({"iges-convert"}),
     ("pyfs-geom", "entry"): frozenset({"add-control-surface"}),
     ("pyfs-geom", "sets"): frozenset({"doe"}),
     ("pyfs-geom", "out"): frozenset(
-        {"add-control-surface", "check", "doe", "identify", "run", "schema", "split-symmetry"}
+        {
+            "add-control-surface",
+            "check",
+            "doe",
+            "identify",
+            "iges-convert",
+            "run",
+            "schema",
+            "split-symmetry",
+        }
     ),
     ("pyfs-geom", "set"): frozenset({"run"}),
     ("pyfs-geom", "variant"): frozenset({"doe", "run"}),
