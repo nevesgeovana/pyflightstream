@@ -207,3 +207,17 @@ def test_p0580_refine_flag_is_refused_naming_its_successor(
     assert flag in said and successor in said and "no longer accepted" in said, said
     assert "Nothing was written." in said
     assert not (tmp_path / "levels").exists()
+
+
+def test_p0580_audit_csv_flag_is_refused_naming_out(tmp_path, capsys):
+    from tests.tier1_offline import _geometry_verbs as cli
+
+    src = _refine_source(tmp_path)
+    csv = tmp_path / "figures.csv"
+    capsys.readouterr()
+    code = cli.main(["audit-mesh", str(src), "--csv", str(csv)])
+    said = capsys.readouterr().err
+    assert code == 2, said
+    assert "--csv" in said and "--out" in said and "no longer accepted" in said, said
+    assert "Nothing was written." in said
+    assert not csv.exists()

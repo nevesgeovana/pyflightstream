@@ -109,6 +109,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
 | `[hub_rings] width` | `[hub_rings] band_width` |
 | `geometry refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
+| `geometry audit --csv` | `--out` |
 | `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
 | `pyfs-matrix run --sweep-csv`, `run_matrix(..., sweep_csv=...)`, `run_campaign(..., sweep_csv=...)`, `pyflightstream.run.SWEEP_TABLE_NAME` | none: the run writes no campaign table; join the `TOTAL` group files of the polars ([joining polars](pproc/index.md#joining-polars)) |
 

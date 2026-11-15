@@ -342,7 +342,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{geometry audit <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
 \begin{flags}
-\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
+\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed; \fl{--refresh} rewrites only the mesh counts and hash of an existing OBJ sidecar}

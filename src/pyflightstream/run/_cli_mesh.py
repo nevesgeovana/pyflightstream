@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._progress import say_line
 from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases.workflows._vocabulary import RAW_MESH_FORMATS
@@ -103,7 +103,7 @@ def add_mesh_parsers(subparsers: Any) -> None:
         "--csv",
         dest="csv_file",
         metavar="FILE",
-        help="deprecated alias of --out, with the identical result",
+        help=argparse.SUPPRESS,
     )
     add_console_arguments(audit, _VERBOSE_HELP)
     audit.set_defaults(mesh_command=run_audit_mesh)
@@ -120,35 +120,6 @@ def _removed_form(args: argparse.Namespace, *forms: tuple[str, str]) -> str | No
         if getattr(args, dest, None) is not None:
             return f"{REMOVED_FORMS[key].message()} Nothing was written."
     return None
-
-
-def _chosen(
-    args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str], *, since: str = "0.39.0"
-) -> tuple[str | None, str, str | None]:
-    """Return an option's value, the flag that gave it, and a refusal (NFR-45).
-
-    ``new`` and ``old`` are each ``(flag, dest)``: the option's name and its
-    deprecated alias. The alias gives the identical value and warns once
-    that it is deprecated; both together are refused, naming both.
-    ``since`` is the release that deprecated the alias.
-    """
-    value, alias = getattr(args, new[1]), getattr(args, old[1])
-    if alias is None:
-        return value, new[0], None
-    if value is not None:
-        return (
-            None,
-            new[0],
-            f"{old[0]} {alias} and {new[0]} {value}: {old[0]} is a deprecated alias of "
-            f"{new[0]}. Give {new[0]} alone and run again. Nothing was written.",
-        )
-    warn(
-        f"{old[0]} is deprecated since {since} and will be removed; it is an alias of "
-        f"{new[0]}, which gives the identical result: write {new[0]} {alias}.",
-        PyflightstreamWarning,
-        stacklevel=2,
-    )
-    return alias, old[0], None
 
 
 def _refused_csv(csv: str | None, flag: str = "--out") -> str | None:
@@ -244,12 +215,13 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
     """Audit one OBJ, alone or against its source, and write its audit beside it (FR-426).
 
     The summary goes to standard output, then the audit written and the CSV
-    of ``--out`` (or its deprecated alias ``--csv``), one path per line.
+    of ``--out``, one path per line.
     Every refusal, an error of the file system included, is printed in the
     standard shape (the object, the reason, what to do), ending "Nothing was
     written." only when that holds.
     """
-    csv_file, flag, refused = _chosen(args, ("--out", "out"), ("--csv", "csv_file"))
+    csv_file, flag = args.out, "--out"
+    refused = _removed_form(args, ("audit-mesh.--csv", "csv_file"))
     if refused is None:
         refused = _csv_collision(csv_file, args.mesh, args.against, flag)
     if refused is None:

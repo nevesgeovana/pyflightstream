@@ -678,10 +678,6 @@ A level is written into a staging folder, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
 
-`--csv` is a deprecated alias of `--out` on `audit-mesh`: it gives the identical
-result and warns once that it is deprecated, and an alias given together with
-`--out` is refused, naming both.
-
 An option the refinement no longer offers is warned and skipped, never
 refused: the `[trailing_edge]` and `[periodic]` tables of the refinement file,
 `keep_first_row` (the family key and the `refine_mesh`
