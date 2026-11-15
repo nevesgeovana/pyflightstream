@@ -69,6 +69,8 @@ A run matrix at the header of v0.56.0 (no `MESH_ROUTE` column) is no longer read
 
 The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 
+`pyfs-workspace geometry refine --chordwise`, `--spanwise`, `--keep-first-row` and `--out-dir` are refused. migration: write `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, which `--families` selects) and `--out`.
+
 `sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.
 
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.

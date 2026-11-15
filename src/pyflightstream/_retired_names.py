@@ -496,6 +496,12 @@ _GEOMETRY_GROUP = (
     "identical result."
 )
 
+_REFINE_DIRECTIONS = (
+    "The two directions are named by the reference perimeter, --parallel along it and "
+    "--normal across it."
+)
+_ONE_OUTPUT_FLAG = "The written file is named by --out on every command that writes one."
+
 #: THE FORMS REMOVED, each a refusal that names the new spelling. They are keyed
 #: by the call, flag, key or header the user wrote. They are not in :data:`RETIRED`,
 #: which the input readers match a file's text against, and they are not Python
@@ -577,6 +583,42 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         new="pyfs-workspace geometry degenerate",
         retired_in="0.58.0",
         why=_GEOMETRY_GROUP,
+    ),
+    "refine.--chordwise": RetiredName(
+        owner="the refine command",
+        old="--chordwise",
+        new="--normal",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.--spanwise": RetiredName(
+        owner="the refine command",
+        old="--spanwise",
+        new="--parallel",
+        retired_in="0.58.0",
+        why=_REFINE_DIRECTIONS,
+    ),
+    "refine.--keep-first-row": RetiredName(
+        owner="the refine command",
+        old="--keep-first-row",
+        new="nothing: a row kept at an interface is its own family, which --families selects",
+        retired_in="0.58.0",
+        why="The refinement no longer offers a kept first row.",
+        instead="Use",
+    ),
+    "refine.--out-dir": RetiredName(
+        owner="the refine command",
+        old="--out-dir",
+        new="--out",
+        retired_in="0.58.0",
+        why=_ONE_OUTPUT_FLAG,
+    ),
+    "audit-mesh.--csv": RetiredName(
+        owner="the audit-mesh command",
+        old="--csv",
+        new="--out",
+        retired_in="0.58.0",
+        why=_ONE_OUTPUT_FLAG,
     ),
     "matrix.layout-0.56.0": RetiredName(
         owner="a run matrix",

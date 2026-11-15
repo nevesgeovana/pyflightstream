@@ -363,7 +363,7 @@ def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, cap
     assert len(lf["A"]) == 4 * len(sf["A"])
     assert face_coordinates(lv, lf["B"]) == face_coordinates(sv, sf["B"])
     assert level.folder.name == "tubes_R-A2" and level.report["B"] == {"method": "copied"}
-    code, _, _ = _command(capsys, str(src), "--families", "A", "--out-dir", str(tmp_path / "cmd"))
+    code, _, _ = _command(capsys, str(src), "--families", "A", "--out", str(tmp_path / "cmd"))
     assert code == 0
     assert len(read_mesh(tmp_path / "cmd" / "tubes_R-A2" / "tubes_R-A2.obj")[1]["B"]) == 144
     both = refine_mesh(src, out_dir=tmp_path / "all")
@@ -1339,7 +1339,7 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     for seed in ("1", "2"):
         out = tmp_path / f"run{seed}"
         env = {**os.environ, "PYTHONPATH": root, "PYTHONHASHSEED": seed}
-        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out-dir", str(out)]
+        argv = ["geometry", "refine", str(src), "2", "--families", "G,T", "--out", str(out)]
         done = subprocess.run(
             [sys.executable, "-c", script, *argv], capture_output=True, env=env, timeout=300
         )

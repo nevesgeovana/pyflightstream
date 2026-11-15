@@ -174,3 +174,36 @@ def test_p0580_the_deprecation_ledger_holds_no_entry_and_no_form_is_promised():
         "MATRIX_LAYOUT_0_56_0",
     ):
         assert not hasattr(_deprecations, gone), gone
+
+
+def _refine_source(tmp_path):
+    from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
+
+    return write_source(
+        tmp_path / "src", "wing", sheet_with_strips((("T", "tri", (0.03, 0.04, 0.05)),))
+    )
+
+
+@pytest.mark.parametrize(
+    ("flag", "value", "successor"),
+    [
+        ("--chordwise", "1.5", "--normal"),
+        ("--spanwise", "1.5", "--parallel"),
+        ("--keep-first-row", "A", "--families"),
+        ("--out-dir", None, "--out"),
+    ],
+)
+def test_p0580_refine_flag_is_refused_naming_its_successor(
+    tmp_path, capsys, flag, value, successor
+):
+    from tests.tier1_offline import _geometry_verbs as cli
+
+    src = _refine_source(tmp_path)
+    given = value if value is not None else str(tmp_path / "levels")
+    capsys.readouterr()
+    code = cli.main(["refine", str(src), "2", flag, given])
+    said = capsys.readouterr().err
+    assert code == 2, said
+    assert flag in said and successor in said and "no longer accepted" in said, said
+    assert "Nothing was written." in said
+    assert not (tmp_path / "levels").exists()

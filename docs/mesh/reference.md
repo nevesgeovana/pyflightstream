@@ -656,12 +656,12 @@ pyfs-workspace geometry audit OBJ [--against SOURCE] [--out FILE]
 | `MESH` | `refine` | the source OBJ; it and its folder are never modified |
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
-| `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. `--spanwise F` and `--chordwise F` are read as `--parallel` and `--normal`, with a warning |
+| `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. |
 | `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal`, or stated `method = "grid"`, whose grid is not recovered, and a later grid whose layout the blocks refuse (a shared curve counted apart), with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
 | `--accept-unknown` | `refine` | warn and skip, in place of refusing, an unknown table or key of the refinement file, a value it cannot read (the key takes its default, a table left with no factor is skipped, a bad tag gives the built one), an implicit refinement file that cannot be read, a family table or `[components]` member the mesh does not hold, and a `--families` name it does not hold; the `accept_unknown` keyword of `refine_mesh` in Python |
 | `--strict-factors` | `refine` | refuse a grid factor below the least its grid allows (one interval per side, or what a tube's caps carry); by default it is raised to that least with a warning; `force_factors=False` of `refine_mesh` in Python |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
-| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
+| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python |
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
@@ -678,13 +678,13 @@ A level is written into a staging folder, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
 
-`--out-dir` and `--csv` are deprecated aliases of `--out` on their command: each
-gives the identical result and warns once that it is deprecated, and an alias
-given together with `--out` is refused, naming both.
+`--csv` is a deprecated alias of `--out` on `audit-mesh`: it gives the identical
+result and warns once that it is deprecated, and an alias given together with
+`--out` is refused, naming both.
 
 An option the refinement no longer offers is warned and skipped, never
 refused: the `[trailing_edge]` and `[periodic]` tables of the refinement file,
-`keep_first_row` (the family key, the command flag and the `refine_mesh`
+`keep_first_row` (the family key and the `refine_mesh`
 keyword), `trailing_edge_direction`, and the keys `axial`, `circumferential`,
 `axis` and `origin` of a family table. A family table that states `factor`
 beside the last four is refined by `factor`; one that states only them is

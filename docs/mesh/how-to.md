@@ -454,8 +454,8 @@ The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
 families are all grids takes `--normal 1.5 --parallel 0.7` alone, tagged
 `R1c1p5s0p7`. A family that is not a grid but is given a directional factor is
 refused; `--accept-remesh` remeshes it with FACTOR instead, with a warning.
-The earlier names `--chordwise` and `--spanwise` (and the keys `chordwise` and
-`spanwise`) are read as `--normal` and `--parallel`, with a warning.
+The keys `chordwise` and `spanwise` of a family table are read as `--normal` and
+`--parallel`, with a warning.
 
 A tag built from a long selection, more than 32 characters, is shortened to
 `R-<n>fam-<hash>`: the number of selected families and a hash of the

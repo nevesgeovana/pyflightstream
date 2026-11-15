@@ -52,35 +52,16 @@ def _tree(folder: Path) -> dict[str, bytes]:
     return {p.name: p.read_bytes() for p in sorted(folder.iterdir())}
 
 
-def test_refine_out_and_its_deprecated_alias_out_dir_write_the_same_level(tmp_path, capsys):
-    """P0390-REV38 (NFR-45, API-05): ``refine --out DIR``; ``--out-dir`` is its alias.
+def test_refine_out_writes_the_level_folder_under_the_directory_it_names(tmp_path, capsys):
+    """P0390-REV38 (NFR-45, API-05): ``refine --out DIR`` writes the level folder under DIR.
 
-    Both write the level folder under the directory they name, file for file
-    byte-identical; the alias warns once that it is deprecated and names
-    ``--out``, and ``--out`` warns of nothing. Both together are refused
-    naming both, exit 2, with nothing written.
+    The level is written whole, and ``--out`` warns of nothing.
     """
     src = _source(tmp_path)
     code, out, _, said = _run(capsys, "refine", str(src), "2", "--out", str(tmp_path / "new"))
     assert code == 0 and said == []
     level = next((tmp_path / "new").iterdir())
-    code, _, _, said = _run(capsys, "refine", str(src), "2", "--out-dir", str(tmp_path / "old"))
-    assert code == 0
-    assert len(said) == 1 and "--out-dir" in said[0] and "--out " in said[0]
-    assert _tree(tmp_path / "old" / level.name) == _tree(level)
     assert str(level / "wing_R2.obj") in out
-    code, _, err, _ = _run(
-        capsys,
-        "refine",
-        str(src),
-        "2",
-        "--out",
-        str(tmp_path / "a"),
-        "--out-dir",
-        str(tmp_path / "b"),
-    )
-    assert code == 2 and "--out-dir" in err and "--out" in err and "Nothing was written." in err
-    assert not (tmp_path / "a").exists() and not (tmp_path / "b").exists()
 
 
 def test_audit_mesh_out_and_its_deprecated_alias_csv_write_the_same_figures(tmp_path, capsys):

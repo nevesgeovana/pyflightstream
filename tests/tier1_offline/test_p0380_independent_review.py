@@ -133,7 +133,7 @@ def test_ind01_a_level_holding_the_source_is_refused_before_any_work(tmp_path, c
     pdf = src.with_suffix(".refine-refusal.pdf")
     assert "holds the source's folder" in text and text.endswith(f"A diagnostic PDF: {pdf}.")
     assert pdf.read_bytes().startswith(b"%PDF")
-    code = cli.main(["refine", str(src), "2", "--out-dir", str(tmp_path / "study"), "--overwrite"])
+    code = cli.main(["refine", str(src), "2", "--out", str(tmp_path / "study"), "--overwrite"])
     assert code == 2 and text in capsys.readouterr().err
     assert _tree(tmp_path / "study", ignore=pdf) == before
 
@@ -679,7 +679,7 @@ def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
     text = str(caught.value)
     assert f"the family {family!r}" in text and "one folder name" in text, text
     assert text.endswith(f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}.")
-    argv = ["refine", str(src), "1", "--families", family, "--out-dir", str(levels)]
+    argv = ["refine", str(src), "1", "--families", family, "--out", str(levels)]
     capsys.readouterr()
     assert cli.main(argv + (["--overwrite"] if overwrite else [])) == 2
     assert text in capsys.readouterr().err
