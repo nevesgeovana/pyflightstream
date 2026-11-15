@@ -1314,6 +1314,12 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
             assert current.pop("schema_version") == 2, name
             assert current.pop("tree"), name
             assert current.pop("migrated") == {}, name
+            # It also states the file kinds, the run block, the frames, families and groups
+            # and the polars of the post (design of the post outputs, section 6), sections
+            # the 0.38.0 capture predates; each is present and is taken out here.
+            for section in ("kinds", "run_block", "frames", "families", "groups", "polars"):
+                assert section in current, (name, section)
+                current.pop(section)
             expected = json.loads(captured[name].decode("utf-8"))
             # The polar entries are the ones of the new files, and the SUPER report left with
             # the SUPER file (design of the post outputs, section 2.2).
