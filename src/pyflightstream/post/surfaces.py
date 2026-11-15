@@ -40,7 +40,9 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
+from pyflightstream.post._block_scope import block_of_point
 from pyflightstream.post._tables import _one_refusal, _refuse_a_token
+from pyflightstream.post._visual_block import add_run_block_to_vtk, tecplot_run_block
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
@@ -281,6 +283,7 @@ def write_surface_average(
     *,
     vtk: str | Path | None = None,
     overwrite: bool = False,
+    run_block: Mapping[str, object] | None = None,
 ) -> list[Path]:
     """Write an averaged surface as Tecplot, and as VTK where asked.
 
@@ -298,6 +301,10 @@ def write_surface_average(
         The VTK file to write as well.
     overwrite : bool, optional
         Replace files that exist.
+    run_block : mapping, optional
+        The point's run block row: the Tecplot carries it as one
+        ``DATASETAUXDATA`` record per column, before the other records, and
+        the VTK as dataset field data.
 
     Returns
     -------
@@ -357,6 +364,10 @@ def write_surface_average(
             else "none"
         ),
     }
+    if run_block:
+        # The block's value wins a name both state; the other records follow it.
+        stated = tecplot_run_block(run_block)
+        auxdata = {**stated, **{k: v for k, v in auxdata.items() if k not in stated}}
     title = f"FlightStream surface, averaged over time steps {first} to {last} by pyflightstream"
     written = [
         write_tecplot_surface(
@@ -364,7 +375,10 @@ def write_surface_average(
         )
     ]
     if vtk is not None:
-        written.append(write_vtk_surface(vtk, average.surface, title=title, overwrite=overwrite))
+        made = write_vtk_surface(vtk, average.surface, title=title, overwrite=overwrite)
+        if run_block:
+            add_run_block_to_vtk(made, run_block)
+        written.append(made)
     return written
 
 
@@ -544,7 +558,13 @@ def write_point_surface_average(
     folder.mkdir(parents=True, exist_ok=True)
     dat_path = target(out / name)
     vtk_path = target(out / f"{SURFACES_DIR}/{dat.stem}_time_average.vtk") if vtk else None
-    written = write_surface_average(dat_path, average, vtk=vtk_path, overwrite=True)
+    written = write_surface_average(
+        dat_path,
+        average,
+        vtk=vtk_path,
+        overwrite=True,
+        run_block=block_of_point(str(record.point_name)),
+    )
     inputs = {
         Path(os.path.relpath(path, root)).as_posix(): digest
         for path, digest in average.inputs.items()

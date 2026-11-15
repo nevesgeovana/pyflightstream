@@ -29,6 +29,7 @@ __all__ = [
     "BLOCK_FOLDERS",
     "RUN_BLOCK_LAST",
     "after_run_block",
+    "block_of_point",
     "run_blocks",
     "with_run_block",
 ]
@@ -96,6 +97,24 @@ def run_blocks(
         yield
     finally:
         _SCOPE.reset(token)
+
+
+def block_of_point(point: str) -> dict[str, object] | None:
+    """Return the run block row of ``point`` in the open scope, None outside one.
+
+    Examples
+    --------
+    >>> block_of_point("AL+000") is None
+    True
+    >>> with run_blocks({"AL+000": {"POL": "P1"}}):
+    ...     block_of_point("AL+000")
+    {'POL': 'P1'}
+    """
+    scope = _SCOPE.get()
+    if scope is None:
+        return None
+    row = scope.rows.get(str(point))
+    return None if row is None else dict(row)
 
 
 def _absent(value: object) -> bool:
