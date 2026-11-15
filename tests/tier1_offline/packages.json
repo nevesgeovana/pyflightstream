@@ -104,6 +104,7 @@
       "tests/tier1_offline/test_p0540_mark_messages.py",
       "tests/tier1_offline/test_p0540_mark_progress.py",
       "tests/tier1_offline/test_p0540_separation_26100.py",
+      "tests/tier1_offline/test_p0580_l1_rotor_id.py",
       "tests/tier1_offline/test_periodic_native_zones.py",
       "tests/tier1_offline/test_reduce_by_rotor.py",
       "tests/tier1_offline/test_reference_normalization_setup.py",

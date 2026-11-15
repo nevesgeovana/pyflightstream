@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+A rotor block of the reference states an integer `id`, 0 or more, 0 when unwritten: the `<id>` of the rotor's frame `R<id>` and of its columns (`RPM0`, `CTR0`). `refuse_duplicate_rotor_ids` refuses two rotors of one reference that carry one id, two rotors without ids included, naming both aliases. migration: none for a reference with one rotor; a reference with several rotors gives each a distinct `id`.
+
 ### Changed
 
 A command-line user of a deprecated key or flag now sees the deprecation, once, naming the new spelling, under the interpreter's default warning filters (the `hub_rings` key `width`, `--hub`); the interpreter's default hid it, because the warning is a `DeprecationWarning` raised in library code. A warning option the user passes (`-W`, `PYTHONWARNINGS`) is left as chosen. migration: none.
