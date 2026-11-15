@@ -227,7 +227,12 @@ geometry it was cut from:
   wider (two equally sharp or round ends), the end ahead in the blade's
   motion sense is the leading edge, so `beta_deg` stays continuous along the
   span; the motion sense is the one measured from the reference section, as
-  the inputs carry no rotation. A blunt base is the run
+  the inputs carry no rotation. A section whose pitch then comes out beyond 90
+  degrees in magnitude (the end behind in the motion was taken for the leading
+  edge, as when the two end widths miss the tie by a few percent) is turned about
+  its mid-chord, so the end ahead leads. A propeller section's pitch is taken in
+  (-90, 90] in the rotor frame: a feathered or reversed blade beyond 90 degrees
+  is not supported by prop-slice, which reports it folded into that range. A blunt base is the run
   of section steps at more than 45 degrees to the chord next to the far end.
   `beta_deg` is the chord line's angle from the propeller plane, `t_c` the
   largest thickness at equal x, rake the centroid's aft distance over R.

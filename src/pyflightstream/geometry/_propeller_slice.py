@@ -266,7 +266,7 @@ def _leading_edge(points, k, te):
     return curve[best], dense[best], s[2]
 
 
-def edges_and_sides(flat, ahead=None):
+def edges_and_sides(flat, ahead=None, *, exchange=False):
     """Return leading edge, trailing-edge midpoint and the two sides of a closed section.
 
     The extreme pair of the section gives the chord's ends; the rounder end (wider at 5
@@ -278,7 +278,9 @@ def edges_and_sides(flat, ahead=None):
     the base region at the aftmost abscissa (:func:`_trailing_edge`), and the leading edge
     is the point farthest from it, the builder's definition; both are found twice, the
     second time along the refined chord. Each side runs from the leading edge to the base
-    region.
+    region. With ``exchange`` the two ends swap roles after the selection, the turn about
+    the mid-chord that :func:`section_parameters` applies to a section whose pitch lies
+    beyond 90 degrees.
     """
     n = len(flat)
     i, j = _diameter(flat)
@@ -290,6 +292,8 @@ def edges_and_sides(flat, ahead=None):
         if (flat[j] - flat[i]) @ np.asarray(ahead, float) > 0:
             i, j = j, i
     elif near < far_end:
+        i, j = j, i
+    if exchange:
         i, j = j, i
     le, far = flat[i], flat[j]
     for _ in range(2):
@@ -333,6 +337,13 @@ def section_parameters(flat, sense, r, radius):
     le, te, sides = edges_and_sides(plane, ahead=(1.0, 0.0))
     chord = float(np.linalg.norm(te - le))
     axis = (te - le) / chord
+    if axis[0] > 0:
+        # |beta| > 90 degrees: the end that trails the motion was taken for the leading edge
+        # (a miss of the tie by a few percent). Turn the section about its mid-chord so the
+        # end ahead leads and beta folds into (-90, 90].
+        le, te, sides = edges_and_sides(plane, ahead=(1.0, 0.0), exchange=True)
+        chord = float(np.linalg.norm(te - le))
+        axis = (te - le) / chord
     normal = np.array([axis[1], -axis[0]])
     frames = [
         np.column_stack(((side - le) @ axis / chord, (side - le) @ normal / chord))
