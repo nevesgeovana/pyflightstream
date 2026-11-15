@@ -23,6 +23,7 @@ from pyflightstream.post._tables import (
     plots_table_series,
     polar_file_name,
     write_csv_table,
+    write_fixed_width_table,
 )
 from pyflightstream.post._tables import read_csv_table as _post2_plots_tables__read_csv_table
 from pyflightstream.post._tables import read_csv_table as _post2_series_precision__read_csv_table
@@ -42,7 +43,7 @@ from pyflightstream.post.products import read_csv_table as _post_1_point_tables_
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.post.section_distributions import _integrated_strips
 from pyflightstream.post.settings_table import FLAG_IDS, settings_table
-from pyflightstream.post.superfile import _write_legacy_polar, measure_sections
+from pyflightstream.post.superfile import measure_sections
 from pyflightstream.post.unsteady_polar import _the_axes_of_the_unsteady_rows
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.script import Script, helpers
@@ -538,7 +539,7 @@ class TestPost2Superfile:
             ["3207", 1, "wing at cruise", "the matrix row"],
             ["3208", 0, "a description longer than sixteen", 0.5],
         ]
-        path = _write_legacy_polar(tmp_path / "SUPER.dat", _POST2_SUPERFILE__COLUMNS, rows)
+        path = write_fixed_width_table(tmp_path / "SUPER.dat", _POST2_SUPERFILE__COLUMNS, rows)
         lines = path.read_text(encoding="utf-8").splitlines()
         assert lines[0].split() == _POST2_SUPERFILE__COLUMNS
         for line in lines[1:]:
@@ -548,7 +549,7 @@ class TestPost2Superfile:
     @staticmethod
     def test_p0400_legacywidth_short_fields_keep_the_width_of_sixteen(tmp_path):
         """P0400-LEGACYWIDTH control: names and cells under 16 characters keep the 16 width."""
-        path = _write_legacy_polar(tmp_path / "SUPER.dat", ["POL", "CL"], [["3207", 0.5]])
+        path = write_fixed_width_table(tmp_path / "SUPER.dat", ["POL", "CL"], [["3207", 0.5]])
         lines = path.read_text(encoding="utf-8").splitlines()
         assert lines == ["POL".rjust(16) + "CL".rjust(16), "3207".rjust(16) + "0.50000".rjust(16)]
 
