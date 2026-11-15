@@ -46,7 +46,7 @@
   MZ` of a plot group the pproc declares with `frame = "MRP"`, in Newtons and
   Newton metres, averaged over the row's window like every other column, divided
   by `1/2 RHO VINF^2 SREF` (and by `CREF` for the moments) of THAT row, and
-  turned as [the axes of a steady polar](the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar) are. A
+  turned as [the axes and signs](axes-and-signs.md#axes-and-signs) are. A
   rotor's own frame is never the source: its axes are not the geometry's. A
   second global-frame group adds its own eighteen and renames none.
 - **A pproc that plots those six for no global-frame group gets one added by
@@ -99,7 +99,7 @@ FX_HUB_PUSHER = "FX_PUSHER"
 
 - It renames columns of the unsteady polar and of the averaged reductions
   (`time_average`, and the passage series). The plots table
-  `probes/<point>_plots.csv` stays as the export prints it, because it is the
+  `time_history/<point>_plots.csv` stays as the export prints it, because it is the
   source the others are read from; the per-blade and azimuthal tables carry
   columns that are no longer the export's own names and are not renamed.
 - Undeclared, every name passes through exactly as printed.

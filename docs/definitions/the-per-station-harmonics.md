@@ -4,7 +4,7 @@
     The 0P, 1P and 2P content of every blade station's load around the
     disc, from the sections the post already wrote.
 
-`sections/<point>_harmonics.csv`, one per rotor point that has samples at
+`reductions/<point>_harmonics.csv`, one per rotor point that has samples at
 several azimuths. For each rotor, each blade station and each sectional load
 quantity of the sections export, the least-squares fit
 
@@ -59,7 +59,7 @@ historical record lacks the moment point,
 Every sample with a known radius must hold its station within a thousandth (`1e-3`) of the
 first sample's largest radius: a station where one does not is left out and
 named in `products.json` `skipped` under
-`sections/<point>_harmonics.csv#rotor=<ALIAS>#station=<j>`, and a rotor whose
+`reductions/<point>_harmonics.csv#rotor=<ALIAS>#station=<j>`, and a rotor whose
 blocks hold different numbers of stations, or which has no block of one blade
 at a stated azimuth, under `...#rotor=<ALIAS>`; each is a WARNING line in
 `post.log` too, and the other stations are written.
@@ -107,7 +107,7 @@ and harmonic that is `NA` anywhere, naming how many rows and the fewest
 azimuths:
 
 ```
-WARNING point=<point> product=sections/<point>_harmonics.csv: rotor 'PROP': the 2P harmonic is NA in 9 row(s), whose stations hold as few as 4 distinct azimuth(s); a 2P fit needs 5
+WARNING point=<point> product=reductions/<point>_harmonics.csv: rotor 'PROP': the 2P harmonic is NA in 9 row(s), whose stations hold as few as 4 distinct azimuth(s); a 2P fit needs 5
 ```
 
 A wheel of 2 blades at 2 clockings (4 azimuths) has a 1P fit and no 2P. Nothing
@@ -131,7 +131,7 @@ when both terms are fitted), `RESIDUAL_RMS` describes the reduced fit, and
 of affected rows:
 
 ```
-WARNING point=<point> product=sections/<point>_harmonics.csv: rotor 'PROP': the 1P harmonic is NA in 9 row(s), whose samples do not go round the circle: a 1P fit needs the angles 1 psi with no gap over 180 deg
+WARNING point=<point> product=reductions/<point>_harmonics.csv: rotor 'PROP': the 1P harmonic is NA in 9 row(s), whose samples do not go round the circle: a 1P fit needs the angles 1 psi with no gap over 180 deg
 ```
 
 Samples evenly spaced round the whole circle, as a wheel's are, pass wherever
@@ -139,12 +139,12 @@ they pass the count. The table is still written.
 
 **Not written, and said.** An unsteady rotor whose record states no
 `steps_per_revolution`, or whose series holds no complete revolution, is named
-under `sections/<point>_harmonics.csv#rotor=<ALIAS>`; where no station of any
+under `reductions/<point>_harmonics.csv#rotor=<ALIAS>`; where no station of any
 rotor could be fitted the file is not written and `products.json` names it.
 An unsteady rotor point that cuts sections (its record states a sections
 layout) and has no sections series (its row exported no per-step sectional
 loads, or the series was not written), no export window, or no rotor its
-record states is named under `sections/<point>_harmonics.csv`, with
+record states is named under `reductions/<point>_harmonics.csv`, with
 a WARNING line in `post.log`.
 
 **The manifest.** `products.json` registers the file with `kind`

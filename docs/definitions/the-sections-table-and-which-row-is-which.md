@@ -2,16 +2,26 @@
 
 `sections/<point>_sections.csv` is ONE export of the solver holding EVERY
 distribution the pproc declares, the wing in `XZ` and each blade in its own
-frame, one after another with no marker between them. Each row leads with:
+frame, one after another with no marker between them. Each row opens with the
+[run block](the-run-block.md#the-run-block), then:
 
 | column | what it is |
 |---|---|
-| `POL` | the polar of the point, as the matrix names it |
+| `FAMILY` | the geometry family of the row's distribution, as the OBJ or FSM names it; several families are joined by `+` |
+| `FAMILY_ID` | the family's 1-based position in the geometry's boundary inventory, in file order; several are joined by `;`; `NA` where the inventory does not name it |
 | `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps. On a steady point, the solver iteration the export states. One name across every table |
-| `FAMILY` | the geometry families of the row's distribution, joined by `+` |
 | `PLANE` | the cutting plane of that distribution |
-| `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |
+| `ROTOR_ID` | the declared id of the rotor whose blades those families are; `NA` for a surface no rotor owns |
+| `ROTOR` | the alias of that rotor; `NA` for a surface no rotor owns |
 | `AZIMUTH` | where the block's blade is at `STEP`, in degrees, wrapped to one turn: the block's OWN blade when it cuts the families of one blade of its rotor, else where BLADE ONE OF THAT ROTOR is; `NA` without a rotor |
+
+Then the export's own seven columns, `Offset`, `Chord`, `X_QC`, `Z_QC`, `Fx`, `Fz` and `Moment`, in the
+export's units and in the section frame of the distribution.
+
+**How the files are split.** `[sections] split` chooses one file per point (`point`, the
+default), one per family (`family`, `<point>_FAM-<FAMILY>_sections.csv`) or both. Any other
+value is refused, naming the three; a sections file is never one per polar. The same key
+governs the Cp table, [`<point>_cp.csv`](../pproc/cp.md).
 
 `AZIMUTH = (blade1.azimuth_deg + sense * STEP * 360 / steps_per_revolution) mod 360`,
 with the datum, the sense of rotation (the sign of the rotor's speed) and the
@@ -30,7 +40,7 @@ WHEEL point hold every clocking, and there a block of one blade states where
 THAT blade is at its clocking ([The quasi-steady rotor](the-quasi-steady-rotor.md#the-quasi-steady-rotor)).
 
 The run records which distribution is which, because the script states
-surfaces by index and nothing at post can name them. A historical record with no section layout states `NA` in all four, and so does a record whose blocks do not add
+surfaces by index and nothing at post can name them. A historical record with no section layout states `NA` in all of them, and so does a record whose blocks do not add
 up to the rows the export holds: a row given its neighbour's family is worse
 than a row given none.
 

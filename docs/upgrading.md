@@ -4,7 +4,50 @@
 
 Every form that 0.57.0 and earlier still accepted with a deprecation warning is removed.
 Each old form is now refused, and the refusal names the new spelling, so the migration is
-one edit. Nothing else changes.
+one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).
+
+## 0.58.0 post tree
+
+Each product is written to the folder named by its kind, and every csv opens with the same
+run block. A file of the 0.57.0 layout already in `post/<matrix>/` is left untouched and
+named once per kind in one warning that ends with a pointer to this section; `products.json`
+lists it under `migrated`. A reader inside the package reads the new path and falls back to
+the earlier one with the same warning. The catalogue of the new layout is
+[the output catalogue](pproc/index.md).
+
+### The tree
+
+| 0.57.0 file | 0.58.0 |
+| --- | --- |
+| `probes/<point>_plots.csv` | `time_history/<point>_plots.csv` |
+| `probes/<point>_phase_locked[_<ALIAS>].csv` | `reductions/`, same name |
+| `probes/<point>_per_revolution[_<ALIAS>].csv` | `reductions/`, same name |
+| `sections/<point>_harmonics.csv` | `reductions/<point>_harmonics.csv` |
+| `sections/<point>_disc_<ROTOR>_<QUANTITY>.csv` | `reductions/`, same name |
+| `probes/<point>_time_average.csv` | retired: the window average of every family and group is its row in the polar files |
+| `probes/<point>_per_blade_<ALIAS>.csv` | retired: each blade is a family row of `FAM-ACOEF` and `FAM-RCOEF` |
+| `probes/<point>_probes.csv`, `_probes_history.csv` | unchanged |
+| `sections/<point>_sections.csv` | unchanged path; the identity columns changed, below |
+| the solver's `_cp.txt`, a run record only | `sections/<point>_cp.csv`, new |
+| `fields/`, `surfaces/`, `streamlines/`, `settings/`, `provenance/` | unchanged paths; the run block added where the file has a place for it |
+| `products.json` | `schema_version` 2, and the tree, the kinds, the run block, the frames, the families, the groups and `migrated` |
+
+The tables of `time_history/`, `reductions/`, `probes/` and `sections/` take their header
+from the run block, then their own columns; a table that named its rotor by alias keeps the
+alias and gains `ROTOR_ID` before it. The averaged surface carries the run block as
+Tecplot auxiliary data and VTK field data. The settings table opens each row with the run
+block of its point, then `RUN_ID`; the `IDENTIFIERS` of the matrix follow `POL`. The
+quasi-steady tables open each row with the block of its point.
+
+| Earlier header | Now |
+| --- | --- |
+| `POL, REDUCTION, ROTOR, WINDOW, FIRST_STEP, LAST_STEP, STEPS, ...condition, XMOM...` | the run block, then `REDUCTION, ROTOR_ID, ROTOR, WINDOW` and the reduction's own columns; the window columns are in the block |
+| `POL, STEP, FAMILY, PLANE, ROTOR, AZIMUTH, ...condition` of the sections table | the run block, then `FAMILY, FAMILY_ID, STEP, PLANE, ROTOR_ID, ROTOR, AZIMUTH`; `FAMILY` is the family as the OBJ or FSM names it and `FAMILY_ID` its index |
+| `[sections]` with one file per point only | `[sections] split` chooses `point` (the default), `family` or `both`; any other value is refused naming the three |
+| the plots history opening with `POL` and the export's header | the run block, then `Time-step` and the plotted columns |
+
+The `time_average` and `per_blade` tables are no longer written, and a pproc that asks for
+them is warned once. The file name of a reduction does not change.
 
 ## The mesh frame (0.58)
 

@@ -28,7 +28,7 @@ The operation, step by step:
 **The row of this product is an azimuthal position.** Not a passage, not a
 revolution, not a blade.
 
-**How the file carries it.** `probes/<point>_phase_locked[_<ALIAS>].csv` leads
+**How the file carries it.** `reductions/<point>_phase_locked[_<ALIAS>].csv` leads
 with `POL`, `REDUCTION`, `ROTOR`, `AZIMUTH`, `STEP`, `REVOLUTIONS`, the steps the
 revolutions span (`FIRST_STEP`, `LAST_STEP`, `STEPS`), the condition block and
 the moment point, then the plotted columns under the names the export prints.

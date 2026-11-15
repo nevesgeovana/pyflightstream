@@ -29,6 +29,14 @@ A mesh declares its frame in its boundaries sidecar with the optional key `mesh_
 
 The plan refuses an `unsteady_rotor` row whose averaging window is not a whole number of blade passages, at least one, of every rotor the row turns, naming the passages it spans and the nearest valid window. migration: write the nearest valid `LAST_REVS_AVG` or `LAST_ITERS_AVG` the refusal names; a row whose window already spans whole passages is unchanged.
 
+The post tree names each product's folder by its kind: the plots history is written to `time_history/`, the phase_locked and per_revolution reductions, the harmonics and the disc maps to `reductions/`, and `probes/` holds probe tables only. A file of the earlier layout already in the tree is left untouched and named once per kind in one warning; `products.json` states `schema_version` 2, the tree, and under `migrated` each earlier path with its new one. A reader inside the package falls back to the earlier path with the same warning. New pages: the output catalogue `pproc/index.md` and one page per output file, with the definitions of the post gathered beside them. migration: read the files from the new folders; `docs/upgrading.md#0580-post-tree` maps every path.
+
+Every csv written to `time_history/`, `reductions/`, `probes/` and `sections/`, the settings table and the quasi-steady tables open with the canonical run block, and the averaged surface carries it as Tecplot auxiliary data and VTK field data. A column the table and the block both state keeps the table's value in each row; a table that names its rotor by alias gains `ROTOR_ID` before it. migration: read columns by name; the identity and condition columns now come first, as the run block.
+
+The sections table keys its rows by `FAMILY` (as the OBJ or FSM names the family) and `FAMILY_ID` (its 1-based index in the boundary inventory) and states `ROTOR_ID` beside the alias; a new `sections/<point>_cp.csv` carries the surface-section export keyed the same way. `[sections] split` chooses one file per point (the default), per family (`<point>_FAM-<FAMILY>_sections.csv`, `_cp.csv`) or both, and refuses any other value naming the three. migration: none for a pproc that states no `split`.
+
+The `time_average` and `per_blade` reductions are no longer written, and a pproc that asks for one is warned once: the window average of every family and group is its row in the polar files. migration: read the window average from the polar files.
+
 ### Removed
 
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.

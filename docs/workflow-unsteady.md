@@ -135,25 +135,20 @@ requires a new run. With no `[phase_locked]` table, the reductions of
 `AL-020_plots.csv` land as
 
 ```text
-probes/AL-020_plots.csv raw, one row per step
-probes/AL-020_time_average.csv one row, steps 3 to 8
-probes/AL-020_phase_locked_PROP.csv three rows, steps 3 to 4, 5 to 6, 7 to 8
-probes/AL-020_per_blade_PROP.csv two rows, one per blade, steps 3 to 8
+time_history/AL-020_plots.csv raw, one row per step
+reductions/AL-020_phase_locked_PROP.csv three rows, steps 3 to 4, 5 to 6, 7 to 8
 ```
 
-each reduction file leading with its window and the flight condition, and then
+each file opening with the [run block](definitions/the-run-block.md#the-run-block), and then
 the plots table's own columns; the exact header of each is on [the definition of
 record](post-processing-definitions.md), which is the one place it is kept. And
 `products.json` names each:
 
 ```text
-"probes/AL-020_per_blade_PROP.csv": {
+"reductions/AL-020_phase_locked_PROP.csv": {
  "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/AL-020"],
- "reduction": "per_blade", "rotor": "PROP", "windows": [[3, 8]],
- "window_from": "the averaging window the row states, 6 steps, shared by every blade",
+ "reduction": "phase_locked", "rotor": "PROP", "windows": [[3, 4], [5, 6], [7, 8]],
+ "window_from": "the time-average window cut into blade passages",
  "period_steps": 2
 }
 ```
-
-A historical record keeps the windows it recorded, so its
-`per_blade` entry may still list one window per blade.

@@ -4,7 +4,7 @@
     The sectional load by radius and azimuth over the disc, from the
     sections the post already wrote.
 
-`sections/<point>_disc_<ROTOR>_<QUANTITY>.csv`, one per rotor and sectional
+`reductions/<point>_disc_<ROTOR>_<QUANTITY>.csv`, one per rotor and sectional
 load quantity (`Fx`, `Fz`, `Moment` on today's export) of a rotor point that
 has sections. Where the harmonics fit a load's content around the disc, the
 disc map is the load itself, sample by sample, so it can be drawn as a polar
@@ -39,10 +39,10 @@ per station at each; a value the export does not state is `NA`.
 
 **What is not mapped.** A rotor with no block that is one of its blades at a
 stated azimuth has no file, and is named under
-`sections/<point>_disc_#rotor=<ALIAS>` in the post's skips and warned in
+`reductions/<point>_disc_#rotor=<ALIAS>` in the post's skips and warned in
 `post.log`; so is a rotor of an unsteady point with no complete revolution,
 and a point with no readable table, sections series or export window (named
-under `sections/<point>_disc_`). The other products are written.
+under `reductions/<point>_disc_`). The other products are written.
 
 **The manifest.** `products.json` registers each file with `kind` `disc_map`,
 `source` `wheel clockings` or `unsteady last revolution`, `samples` (the blade

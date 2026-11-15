@@ -84,28 +84,32 @@ moment calibration together before using that combination.
 
 <a id="the-axes-of-a-steady-polar"></a>
 
-[The axes of a steady polar](definitions/the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar).
+[The axes of a steady polar](definitions/axes-and-signs.md#axes-and-signs).
+
+<a id="polar-derivatives"></a>
+
+[The derived polars](definitions/polar-derivatives.md#polar-derivatives).
 
 <a id="the-drag-split-of-26125"></a>
 
-[The drag split of 26.125, `CDV` and `CDP`](definitions/the-axes-of-a-steady-polar.md#the-drag-split-of-26125).
+[The drag split of 26.125, `CDV` and `CDP`](definitions/polar-derivatives.md#the-drag-split-of-26125).
 
 <a id="the-trimmed-polar"></a>
 
-[The trimmed polar](definitions/the-axes-of-a-steady-polar.md#the-trimmed-polar).
+[The trimmed polar](definitions/polar-derivatives.md#the-trimmed-polar).
 
 The trim selects a numeric moment and ordering axis with `trim_moment` and
 `trim_axis`; defaults remain `CMB25` and `ALPHA` (FR-3340 to FR-3342).
 
 <a id="the-interpolated-polar"></a>
 
-[Interpolation and re-parameterization](definitions/the-axes-of-a-steady-polar.md#the-interpolated-polar)
+[Interpolation and re-parameterization](definitions/polar-derivatives.md#the-interpolated-polar)
 sample a named numeric axis without extrapolation. Multiple brackets on a
 non-monotonic axis produce a warned NA row, never a selected branch.
 
 <a id="the-refinement-study-uncertainty"></a>
 
-[The refinement-study uncertainty](definitions/the-axes-of-a-steady-polar.md#the-refinement-study-uncertainty).
+[The refinement-study uncertainty](definitions/polar-derivatives.md#the-refinement-study-uncertainty).
 
 <a id="the-sections-table-and-which-row-is-which"></a>
 

@@ -201,7 +201,7 @@ least `min_revolutions`, counted over the whole run of THAT rotor
 window, and equal generates it. A run that turned less loses this one table,
 named under `skipped` in `products.json` with both numbers; its polar, its
 per-blade table and every other product are written as usual. And it sets the
-SHAPE: with the table, `probes/<point>_phase_locked[_<ALIAS>].csv` is one row
+SHAPE: with the table, `reductions/<point>_phase_locked[_<ALIAS>].csv` is one row
 per azimuthal position, the mean of the samples at that azimuth across the
 last `last_revolutions_avg` revolutions, as
 [the definition of record](post-processing-definitions.md#phase_locked) states
@@ -618,7 +618,7 @@ one of that rotor was (`AZIMUTH`), then the point's condition and the seven colu
 of its sectional loads export, in the export's units; a run that defined no
 distribution leaves an export declaring zero sections and gets no table. The
 FLOW-FIELD SAMPLES of a point under `probes/`, whatever the run type was
-`probes/<point>_plots.csv`, the unsteady plots export re-tabled
+`time_history/<point>_plots.csv`, the unsteady plots export re-tabled
 with its coefficient columns brought from the solver's reference
 velocity to the free stream, and `probes/<point>_probes.csv`, the probe
 table of a row of any kind. That table opens with `POL` and then the same six
@@ -660,7 +660,7 @@ its other products.
 And the REDUCTIONS of the plots table, one file per applicable reduction
 beside it, over the window the row states;
 [the reductions of an unsteady point](workflow-unsteady.md#the-reductions-of-an-unsteady-point)
-walks them. The steady polar arithmetic is defined in [the axes of a steady polar](definitions/the-axes-of-a-steady-polar.md).
+walks them. The steady polar arithmetic is defined in [the axes and signs](definitions/axes-and-signs.md).
 
 The run writes these after collection, under `post/<matrix stem>/`, the
 folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
@@ -844,7 +844,7 @@ non-monotonic axis produce NA rows and one warning per requested value. The
 requested axis value and common polar identity remain available on an NA row.
 Nothing is extrapolated. Sanitized filename collisions warn and skip the
 second entry. The manifest records kind `interpolated`, axis and values.
-See the [definition](definitions/the-axes-of-a-steady-polar.md#the-interpolated-polar)
+See the [definition](definitions/polar-derivatives.md#the-interpolated-polar)
 for exact hits, missing cells and non-monotonic axes. The finished-sweep example
 is exercised by `test_p0500_polar_at_is_reachable_and_names_its_provenance`.
 
