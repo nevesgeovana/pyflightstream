@@ -39,8 +39,8 @@ def _a_chain(tmp_path, *, linked: bool):
 
 
 def _polar_rows(workspace) -> list[dict[str, str]]:
-    polars = workspace.root / "post" / "products" / "polars"
-    (table,) = [path for path in polars.glob("P*.csv") if "SUPER" not in path.name]
+    # The TOTAL group's ACOEF file holds one row per point of the polar (0.58.0).
+    table = workspace.root / "post" / "products" / "polars" / "P7001-TOTAL-ACOEF.csv"
     return read_csv_table(table)[1]
 
 

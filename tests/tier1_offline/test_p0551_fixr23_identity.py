@@ -6,7 +6,6 @@ actual campaign writers; no force calculation or solver is substituted.
 
 import csv
 import importlib
-from types import SimpleNamespace
 
 import pytest
 
@@ -16,7 +15,6 @@ from pyflightstream.post._reduction_stage import _super_cells
 from pyflightstream.post.farfield_products import TREFFTZ_COLUMNS
 from pyflightstream.post.polar import CONTEXT_COLUMNS
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.post.unsteady_polar import write_unsteady_polar
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_p0551_reldocs_names import _row
 from tests.tier1_offline.test_post_products import LOADS
@@ -35,7 +33,7 @@ def _probe():
 @pytest.mark.requirement("FR-3660")
 @pytest.mark.parametrize("case", ["P0551-FIXR23-WRITERS"])
 @pytest.mark.parametrize("companion", ["p", "absent"])
-@pytest.mark.parametrize("writer", ["polar", "super"])
+@pytest.mark.parametrize("writer", ["TOTAL", "g01"])
 def test_p0551_fixr23_declared_identity_in_both_writers(
     tmp_path, monkeypatch, case, companion, writer
 ):
@@ -84,10 +82,11 @@ def test_p0551_fixr23_declared_identity_in_both_writers(
     with collecting_warnings():
         write_campaign_products(workspace)
     files = list((workspace.root / "post").rglob("*.csv"))
-    polars = [p for p in files if p.parent.name == "polars" and not p.name.startswith("SUPER-")]
-    supers = [p for p in files if p.name.startswith("SUPER-")]
-    assert polars and supers
-    for path in polars if writer == "polar" else supers:
+    # The polar table and its super file are retired (design-post-outputs 2.2): the declared
+    # identity is read from the ACOEF file of the TOTAL group and of the declared group g01.
+    polars = [p for p in files if p.parent.name == "polars" and p.name == f"P1-{writer}-ACOEF.csv"]
+    assert len(polars) == 1, [p.name for p in files]
+    for path in polars:
         with path.open(newline="", encoding="utf-8-sig") as stream:
             reader = csv.DictReader(stream)
             rows = list(reader)
@@ -168,28 +167,19 @@ def test_p0551_fixr23_collision_reservations_survive_missing_targets(case):
 
 @pytest.mark.requirement("FR-3663")
 @pytest.mark.parametrize("case", ["P0551-FIXR23-UNSTEADY-EMPTY"])
-def test_p0551_fixr23_unsteady_missing_cell_is_empty(tmp_path, case):
-    plots = tmp_path / "plots.csv"
-    plots.write_text("Time-step,CL\n1,1\n2,3\n", encoding="utf-8")
+def test_p0551_fixr23_unsteady_missing_cell_is_empty(case):
+    """The cells the long table gives a point: a missing one is absent, so a file writes it empty.
+
+    The unsteady polar that wrote them after its plotted columns is retired; the cells are what
+    any writer of the wide far-field columns is handed, and an explicit unavailable one is NA.
+    """
     with collecting_warnings():
         cells = _super_cells(_probe(), TREFFTZ_COLUMNS)
-    output = tmp_path / "polar.csv"
-    write_unsteady_polar(
-        output,
-        points=[SimpleNamespace(name=n) for n in ("p", "q")],
-        plots={n: plots for n in ("p", "q")},
-        window=(1, 2),
-        conditions=[{}, {}],
-        reference=None,
-        setup=cells,
-    )
-    with output.open(newline="", encoding="utf-8-sig") as stream:
-        p, q = csv.DictReader(stream)
-    assert float(p["CDI_FF_B_TOTAL_c05"]) == 0.05
-    assert float(q["CDI_FF_B_TOTAL_c05"]) == 0.06
-    assert q["CDI_FF_B_TOTAL_c10"] == ""
-    assert q["CL_FF_B_TOTAL_c05"] == "NA", "explicit unavailable diagnostics retain NA"
-    assert q["CL"] == "2.00000", "the plots still supply their own window average"
+    assert float(cells["p"]["CDI_FF_B_TOTAL_c05"]) == 0.05
+    assert float(cells["q"]["CDI_FF_B_TOTAL_c05"]) == 0.06
+    assert "CDI_FF_B_TOTAL_c10" not in cells["q"], "a missing cell is absent, never a number"
+    assert float(cells["p"]["CDI_FF_B_TOTAL_c10"]) == 0.10
+    assert cells["q"]["CL_FF_B_TOTAL_c05"] == "NA", "explicit unavailable diagnostics retain NA"
 
 
 @pytest.mark.requirement("FR-3620")

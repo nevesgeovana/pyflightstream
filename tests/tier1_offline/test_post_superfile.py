@@ -1,20 +1,13 @@
-"""FR-89: one derived file per polar and group carries everything the workspace knows.
+"""FR-89: the polar of a point carries everything the workspace knows of its condition.
 
-THE UNION IS BUILT FROM THE WORKSPACE HERE AND NEVER LISTED, which is the
-whole requirement and the reason this module is shaped the way it is. A test
-that spelled the expected column names out would pass for ever while a field
-added upstream never reached the file, and that defect is exactly what the
-author's acceptance sentence rules out: if she has to open a second file to
-know something about that simulation, it failed.
-
-So :func:`_the_union_the_workspace_knows` READS the workspace: the header of
-every polar table, the header of ``campaign_sweep.csv``, the header of every
-plots table, the cells of the run matrix and the keys inside them, and the
-manifest's own flight condition, rotor speeds and solver flags. It parses the
-matrix and the manifest with the standard library rather than through the
-package's own readers, deliberately: a gatherer shared with the writer would
-agree with the writer by construction, which is a fixture encoding the defect
-it should expose.
+Until 0.57.0 one derived super file per polar and group carried it. The super file is retired
+(design-post-outputs 2.2): the FAM and group files of ``polars/`` open with the run block, the
+setup codes are in ``settings/`` and the matrix row's description is in ``products.json``. The
+cases that remain on the library functions (`superfile_row`, `union_the_workspace_knows`,
+`measure_sections`, `release_tag`) pin helpers the post still calls; the cases that drove the
+post now read the files that replace the super file, and compare their cells with the run
+records, which this module reads with the standard library rather than through the package's
+own readers: a gatherer shared with the writer would agree with the writer by construction.
 
 The fixture is built from the shape of the workspace that RAN on the licensed
 machine on 2026-09-11, `GeoverseResearch/tools/fts_workspace/pfs0160`: two
@@ -454,7 +447,7 @@ def _post(workspace):
 
 
 # ---------------------------------------------------------------------------
-# The union, read off the workspace.
+# The files the post writes in place of the retired super file.
 
 
 def _header(path: Path) -> list[str]:
@@ -462,110 +455,59 @@ def _header(path: Path) -> list[str]:
         return next(csv.reader(handle))
 
 
-def _matrix_names(path: Path, pols: set[str]) -> set[str]:
-    """Every input of the matrix row: its columns, and the keys inside its cells.
-
-    Parsed here with `str.split` and not with the package's own matrix
-    reader, so this set is independent of the writer under test.
-
-    ``pols`` is the set of simulations the manifest RECORDED. The matrix's
-    own column names are a fact about the format and belong to every row;
-    the keys inside a cell belong to the row that wrote them, and a row
-    that never ran is a different simulation whose variables say nothing
-    about this one.
-    """
-    if not path.is_file():
-        # A workspace whose matrix is not in reach knows no matrix cell, and
-        # the file may then carry none: the two sides stay in step.
-        return set()
-    lines = [
-        line
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip() and set(line.strip()) != {"-"}
-    ]
-    header = [cell.strip() for cell in lines[0].split("|")]
-    names = set(header)
-    for line in lines[1:]:
-        cells = dict(zip(header, [cell.strip() for cell in line.split("|")], strict=True))
-        if cells.get("POL", "") not in pols:
-            continue
-        for pair in cells.get("FLIGHT_CONDITION", "").split(","):
-            if ":" in pair:
-                names.add(pair.split(":", 1)[0].strip())
-        for pair in cells.get("VAR_NAMES_VALUES", "").split("/"):
-            if ":" in pair:
-                names.add(pair.split(":", 1)[0].strip())
-    return names
-
-
-def _the_union_the_workspace_knows(workspace) -> set[str]:
-    """Everything the workspace knows about a simulation, gathered from the workspace."""
-    out = workspace.products_dir("matriz")
-    known: set[str] = set()
-    # The polar tables are found by shape, as ``test_products_layout`` finds them: every csv of
-    # polars/ that is not a superfile. They are named P<id>-...csv, so a POLAR-*.csv glob matched
-    # none and the union silently lacked every polar column (PFS-2135.024).
-    polar_names: set[str] = set()
-    for table in sorted((out / "polars").glob("*.csv")):
-        if not table.name.startswith("SUPER-"):
-            polar_names |= set(_header(table))
-    assert len(polar_names) >= 20, f"the polar tables gave only {sorted(polar_names)}"
-    known |= polar_names
-    known |= set(_header(out / "campaign_sweep.csv"))
-    for table in sorted((out / "probes").glob("*_plots.csv")):
-        known |= set(_header(table))
-    # RPM and the advance ratio are named by the requirement itself, which is
-    # why they are the only two words written here rather than read.
-    known |= {"RPM", "J"}
-    pols: set[str] = set()
-    document = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
-    for run in document["runs"]:
-        record = run["details"]
-        setup = document["solver_setups"][run["solver_setup_id"]]
-        pols.add(str(record.get("sim_id")))
-        known |= set(record.get("flight_condition") or {})
-        known |= set(record.get("flight_condition_defaults") or {})
-        known |= set(((setup or {}).get("flags")) or {})
-        rotors = ((record.get("reductions") or {}).get("rotors")) or {}
-        known |= {f"RPM_{alias}" for alias in rotors}
-    known |= _matrix_names(workspace.root / "matriz.fs", pols)
-    return known
-
-
-def _superfiles(workspace) -> dict[str, tuple[list[str], list[dict[str, str]]]]:
+def _polar_files(workspace) -> dict[str, tuple[list[str], list[dict[str, str]]]]:
+    """Every table of ``polars/``: the FAM files and the group files, by name."""
     from pyflightstream.post.products import read_csv_table
 
     found = {}
-    for path in sorted((workspace.products_dir("matriz") / "polars").glob("SUPER-*.csv")):
+    for path in sorted((workspace.products_dir("matriz") / "polars").glob("*.csv")):
         columns, rows = read_csv_table(path)
         found[path.name] = (list(columns), rows)
     return found
+
+
+def _records_by_run(workspace) -> dict[str, dict]:
+    return {
+        str(record.get("run_id")): record
+        for record in _read_record_rows(workspace.root / "runs.json")
+    }
 
 
 # ---------------------------------------------------------------------------
 # The requirement.
 
 
-def test_one_superfile_per_polar_and_group_named_with_sweep_and_the_group(tmp_path):
-    """FR-89's name: SUPER- instead of POLAR-, the swept variable as `sweep`, `_g<NN>`."""
+def test_one_file_set_per_polar_named_with_its_pol_and_its_groups(tmp_path):
+    """FR-89's successor: polars/ holds the FAM files and the group files of each POL.
+
+    The super file is retired (design-post-outputs 2.2): its name, with the sweep
+    and the group number, gives way to ``FAM-<KIND>-P<POL>.csv`` and
+    ``P<POL>-<GROUP>-<KIND>.csv``; the numbered groups of the pproc are ``g01``
+    and ``g02``, AIRFRAME and TOTAL are the reserved ones.
+    """
     workspace = _workspace(tmp_path)
     _post(workspace)
-    names = sorted(_superfiles(workspace))
-    assert names == [
-        "SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv",
-        "SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv",
-        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv",
-        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv",
-    ], "one file per polar and per group, the swept variable written literally as sweep"
+    names = set(_polar_files(workspace))
+    expected = set()
+    for pol in ("6001", "6002"):
+        expected |= {f"FAM-{kind}-P{pol}.csv" for kind in ("DIM", "ACOEF")}
+        expected |= {
+            f"P{pol}-{group}-{kind}.csv"
+            for group in ("TOTAL", "AIRFRAME", "g01", "g02")
+            for kind in ("DIM", "ACOEF")
+        }
+    assert names == expected, "one file set per polar and per group, no RCOEF without a rotor"
+    assert not [name for name in names if name.startswith("SUPER-")]
 
 
 def test_p0430_an_unemitted_documented_default_is_written_as_a_default(tmp_path, monkeypatch):
     """NL-RECS-2: a flag the script never set is the solver's default, not a measured value.
 
-    The snapshot already tells the classes apart (explicit, default emitted or
-    not, unknown); the superfile cell keeps the class: a documented default the
-    script did not emit reads ``<value> (default)``, an explicit or emitted value
-    reads as the value, and an unknown flag has none (NA).
+    The setup codes left the polar rows for ``settings/`` (design-post-outputs
+    2.2, "setup codes in settings/"), so the class of each flag is read from the
+    settings table through its codebook: provenance 1 is explicit, 2 a
+    documented default, 3 unknown; a documented default keeps its value, an
+    unknown flag has none (NA).
     """
     flags = _SOLVER_SETUP["flags"]
     assert isinstance(flags, dict)
@@ -595,10 +537,24 @@ def test_p0430_an_unemitted_documented_default_is_written_as_a_default(tmp_path,
     )
     workspace = _workspace(tmp_path)
     _post(workspace)
-    _, rows = _superfiles(workspace)["SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv"]
-    assert {row["SET_WAKE_ON_WAKE_INDUCTION"] for row in rows} == {"True (default)"}
-    assert {row["SET_WAKE_TERMINATION_TIME_STEPS"] for row in rows} == {"NA"}
-    assert {row["SET_SOLVER_CONVERGENCE_ITERATIONS"] for row in rows} == {"20"}
+    from pyflightstream.post.products import read_csv_table
+
+    out = workspace.products_dir("matriz") / "settings"
+    codebook = json.loads((out / "matriz_settings.codebook.json").read_text(encoding="utf-8"))
+    ids = codebook["flag_ids"]
+    codes = codebook["provenance_codes"]
+    _, rows = read_csv_table(out / "matriz_settings.csv")
+    rows = [row for row in rows if row["POL"] == "6001"]
+    assert rows, "no settings row of simulation 6001"
+    default_id = ids["SET_WAKE_ON_WAKE_INDUCTION"]
+    unknown_id = ids["SET_WAKE_TERMINATION_TIME_STEPS"]
+    explicit_id = ids["SET_SOLVER_CONVERGENCE_ITERATIONS"]
+    assert {row[f"f{default_id}_prov"] for row in rows} == {str(codes["default"])}
+    assert {row[f"f{default_id}_value"] for row in rows} == {"1.0"}
+    assert {row[f"f{unknown_id}_prov"] for row in rows} == {str(codes["unknown"])}
+    assert {row[f"f{unknown_id}_value"] for row in rows} == {"NA"}
+    assert {row[f"f{explicit_id}_prov"] for row in rows} == {str(codes["explicit"])}
+    assert {row[f"f{explicit_id}_value"] for row in rows} == {"20"}
 
 
 def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path):
@@ -673,16 +629,6 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
         if k != "POL" and mine[k] and mine[k] == theirs[k]
     }
     assert not borrowed, f"a point with no record carried {borrowed}"
-    # AND THE FILE'S HEADER IS STILL WHOLE, because `write_superfiles` unions
-    # the keys of every row and writes an empty cell for a row that lacks
-    # one. That is where the column set is decided, not here.
-    from pyflightstream.post.superfile import SuperfileDraft, write_superfiles
-
-    _files, _entries, columns = write_superfiles(
-        [SuperfileDraft(path=tmp_path / "SUPER-x_sweep_g01.csv", rows=[theirs, mine], entry={})],
-        target=lambda p: p,
-    )
-    assert from_record <= set(columns)
 
 
 def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
@@ -900,40 +846,45 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
     assert not typos, f"RECORD_SCALARS names {typos}, which no record carries"
 
 
-def test_the_column_set_is_a_superset_of_what_the_workspace_knows(tmp_path):
-    """The acceptance: no field is left out, and the union is BUILT rather than listed."""
+def test_every_polar_file_carries_the_whole_run_block_and_no_variable_of_a_run_that_never_ran(
+    tmp_path,
+):
+    """The acceptance of FR-89 in its new form: the condition is in the file, not in a second one.
+
+    Every table of ``polars/`` opens with the run block (design-post-outputs 3), so
+    a reader never opens another file to know the condition of a point. Row 6003 has
+    RUN 0 and never ran, so its own variable is a fact about a simulation this
+    campaign does not have.
+    """
+    from pyflightstream.post._run_block import run_block_columns
+
     workspace = _workspace(tmp_path)
     _post(workspace)
-    known = _the_union_the_workspace_knows(workspace)
-    assert known, "a superset test over an empty union passes on any file at all"
-    assert "digits" not in known, (
-        "row 6003 has RUN 0 and never ran, so its own variable is a fact about a "
-        "simulation this campaign does not have"
-    )
-    found = _superfiles(workspace)
-    assert found, "no superfile was written"
+    block = run_block_columns((), ())
+    found = _polar_files(workspace)
+    assert found, "no polar file was written"
     for name, (columns, _rows) in found.items():
-        missing = sorted(known - set(columns))
-        assert not missing, (
-            f"{name} leaves out {len(missing)} field(s) the workspace knows: {missing}"
-        )
+        assert columns[: len(block)] == list(block), f"{name} does not open with the run block"
+        assert "digits" not in columns, f"{name} carries the variable of a run that never ran"
 
 
 def test_one_row_per_converged_point_and_no_time_series(tmp_path):
-    """It is written AFTER the unsteady post-process, so nothing is repeated down the file."""
+    """A group file is written AFTER the unsteady post-process, so nothing repeats down the file."""
     workspace = _workspace(tmp_path)
     _post(workspace)
-    found = _superfiles(workspace)
-    rows_by_polar = {name: len(rows) for name, (_columns, rows) in found.items()}
+    found = _polar_files(workspace)
+    groups = {name: v for name, v in found.items() if not name.startswith("FAM-")}
+    rows_by_polar = {name: len(rows) for name, (_columns, rows) in groups.items()}
     assert rows_by_polar == {
-        "SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv": 2,
-        "SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv": 2,
-        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv": 1,
-        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv": 1,
+        f"P{pol}-{group}-{kind}.csv": count
+        for pol, count in (("6001", 2), ("6002", 1))
+        for group in ("TOTAL", "AIRFRAME", "g01", "g02")
+        for kind in ("DIM", "ACOEF")
     }, "one row per converged point, and the unsteady point's two time steps are not two rows"
-    for name, (_columns, rows) in found.items():
+    for name, (_columns, rows) in groups.items():
         points = {(row["ALPHA"], row["BETA"], row["J"]) for row in rows}
         assert len(points) == len(rows), f"{name} repeats a point down the file"
+        assert len({row["POINT_ID"] for row in rows}) == len(rows)
 
 
 @pytest.mark.requirement("FR-68")
@@ -941,47 +892,45 @@ def test_a_reader_cannot_tell_a_steady_polar_from_an_unsteady_one(tmp_path):
     """The steady file and the unsteady one carry the SAME columns, which is the transparency."""
     workspace = _workspace(tmp_path)
     _post(workspace)
-    found = _superfiles(workspace)
-    steady = found["SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv"][0]
-    unsteady = found["SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv"][0]
-    assert steady == unsteady, (
-        "the column set is the campaign's, so a reader cannot tell from the file "
-        "whether the run behind a row was steady or unsteady"
-    )
-    assert "CL_MRP_TOTAL" in steady, "the unsteady plots' parameters reach the steady file too"
+    found = _polar_files(workspace)
+    for kind in ("DIM", "ACOEF"):
+        steady = found[f"P6001-TOTAL-{kind}.csv"]
+        unsteady = found[f"P6002-TOTAL-{kind}.csv"]
+        assert steady[0] == unsteady[0], (
+            "the column set is the campaign's, so a reader cannot tell from the header "
+            "whether the run behind a row was steady or unsteady"
+        )
+        assert {row["RUN_TYPE"] for row in steady[1]} == {"steady"}
+        assert {row["RUN_TYPE"] for row in unsteady[1]} == {"unsteady_rotor"}
 
 
 def test_the_flight_condition_variables_are_all_there(tmp_path):
     """Her second instruction of the same evening: every variable that defines the condition."""
     workspace = _workspace(tmp_path)
     _post(workspace)
-    columns = set(_superfiles(workspace)["SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv"][0])
-    stated = {"MACH", "REmi", "ALPHA", "BETA", "ADVANCE_RATIO"}
-    # DERIVED, not a second literal: four of the seven names were written
-    # out here, which is a partial snapshot of a tuple that can grow.
-    # Round two, finding 3.
-    from pyflightstream.post.superfile import RECORD_SCALARS
-
-    assert stated <= columns and set(RECORD_SCALARS) <= columns
+    found = _polar_files(workspace)
+    columns = set(found["P6002-TOTAL-ACOEF.csv"][0])
+    stated = {"MACH", "RE", "ALPHA", "BETA", "J", "VINF", "RHO", "TEMP", "MU"}
+    assert stated <= columns
+    (row,) = found["P6002-TOTAL-ACOEF.csv"][1]
+    assert float(row["MACH"]) == pytest.approx(0.1441)
+    assert float(row["J"]) == pytest.approx(1.7)
 
 
 def test_the_post_stage_writes_its_own_measurement(tmp_path):
-    """The report the goal's superfile arm reads: the files written and the union."""
-    import pyflightstream
-    from pyflightstream.post.superfile import release_tag
-
+    """The report the goal's arm reads: products.json lists every polar file written."""
     workspace = _workspace(tmp_path)
     _post(workspace)
-    tag = release_tag(pyflightstream.__version__)
-    report = workspace.root / "post" / "matriz" / "reports" / f"superfile-{tag}.json"
-    assert report.is_file(), f"no superfile measurement at {report}"
     assert not (workspace.root / "reports").exists(), "the workspace root holds no reports"
-    payload = json.loads(report.read_text(encoding="utf-8"))
-    assert payload["known"], "the arm refuses an empty union, and so does this"
-    assert len(payload["files"]) == 4
-    for entry in payload["files"]:
-        assert entry["rows"] >= 1
-        assert set(payload["known"]) <= set(entry["columns"])
+    document = json.loads(
+        (workspace.products_dir("matriz") / "products.json").read_text(encoding="utf-8")
+    )
+    listed = {key for key in document["products"] if key.startswith("polars/")}
+    on_disk = {f"polars/{name}" for name in _polar_files(workspace)}
+    assert listed == on_disk
+    assert len(listed) == 20
+    for key in listed:
+        assert document["products"][key]["sim_id"] in {"6001", "6002"}
 
 
 def test_the_sections_measurement_lands_beside_the_matrix_products(tmp_path):
@@ -1029,23 +978,23 @@ def test_p0400_the_release_tag_is_the_three_numbers_of_a_release_dev_or_local_ve
     assert release_tag("0.0.0+uninstalled") == "000"
 
 
-def test_a_workspace_without_its_matrix_still_gets_a_superfile(tmp_path):
-    """The matrix cells are absent from the file AND from the union, never silently dropped.
+def test_a_workspace_without_its_matrix_still_gets_its_polar_files(tmp_path):
+    """The matrix cells are absent from the files, never silently dropped.
 
-    And the union still holds: the manifest is the OTHER source of the flight
-    condition, and with no matrix row in front of it, it is the only one.
+    The manifest is the OTHER source of the flight condition, and with no matrix
+    row in front of it, it is the only one.
     """
     workspace = _workspace(tmp_path)
     (workspace.root / "matriz.fs").unlink()
     _post(workspace)
-    found = _superfiles(workspace)
-    assert found, "no superfile was written"
-    known = _the_union_the_workspace_knows(workspace)
-    for name, (columns, _rows) in found.items():
-        missing = sorted(known - set(columns))
-        assert not missing, f"{name} leaves out {missing}"
-    columns = set(next(iter(found.values()))[0])
-    assert {"ALPHA", "MACH", "REmi"} <= columns and "AIRCRAFT" not in columns
+    found = _polar_files(workspace)
+    assert found, "no polar file was written"
+    for name, (columns, rows) in found.items():
+        assert {"ALPHA", "MACH", "RE"} <= set(columns), name
+        assert "AIRCRAFT" not in columns
+        assert rows, f"{name} has no row"
+    (row,) = found["P6002-TOTAL-ACOEF.csv"][1]
+    assert float(row["MACH"]) == pytest.approx(0.1441)
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -1055,55 +1004,40 @@ if __name__ == "__main__":  # pragma: no cover
 def test_every_record_scalar_reaches_the_file_with_its_value(tmp_path):
     """Round two, finding 1: the completeness claim was about column NAMES only.
 
-    Measured by mutation in an isolated tree at 67f7a8b: replacing the writer's
-    `_take(row, field, getattr(record, field, None))` with `_take(row, field,
-    "")` left every superfile in every test with an empty cell under all seven
-    record scalars, and the suite reported 104 passed, exit 0. The column
-    survives, so the superset check, the union, the report arm and the
-    flight-condition case were all satisfied by a file whose values were gone.
-
-    So this reads the VALUES back. It is not one asserted cell: every scalar
-    the record actually carries must appear under its own name in the row for
-    that point, which is the claim her acceptance sentence makes and the one no
-    case was making.
+    Measured by mutation at 67f7a8b: a writer that put an empty cell under every
+    record scalar left the suite green because the column survived. So this reads
+    the VALUES back. The record's condition now reaches the run block of every
+    point row (design-post-outputs 3); each is compared with the record's own
+    number, point by point.
     """
-    from pyflightstream.post.superfile import RECORD_SCALARS
-
     workspace = _workspace(tmp_path)
     _post(workspace)
 
-    records = {
-        str(record.get("run_id")): record
-        for record in _read_record_rows(workspace.root / "runs.json")
-    }
+    records = list(_records_by_run(workspace).values())
     assert records, "the fixture recorded nothing, so this proves nothing"
-
+    by_point = {(str(r["sim_id"]), float(r["point"]["alpha"])): r for r in records}
+    from_record = {
+        "RHO": "density_kg_m3",
+        "TEMP": "temperature_k",
+        "MU": "viscosity_pa_s",
+        "MACH": "mach",
+        "VINF": "velocity_requested_m_s",
+    }
+    found = _polar_files(workspace)
     checked = 0
-    for name, (_columns, rows) in _superfiles(workspace).items():
-        for row in rows:
-            record = records.get(str(row.get("run_id", "")))
-            if record is None:
-                continue
-            for field in RECORD_SCALARS:
-                want = record.get(field)
-                if want is None:
-                    continue
-                got = str(row.get(field, "")).strip()
-                assert got, (
-                    f"{name}: the row for {record['run_id']} carries a {field} column "
-                    f"and nothing under it; the record says {want!r}"
+    for name in ("P6001-TOTAL-ACOEF.csv", "P6002-TOTAL-ACOEF.csv"):
+        for row in found[name][1]:
+            record = by_point[(row["POL"], float(row["ALPHA"]))]
+            for column, field in from_record.items():
+                want = record[field]
+                got = row[column].strip()
+                assert got and got != "NA", f"{name}: {column} is empty, the record says {want!r}"
+                assert float(got) == pytest.approx(want, rel=1e-4), (
+                    f"{name}: {column} reads {got!r}, the record says {want!r}"
                 )
-                if isinstance(want, float):
-                    assert float(got) == want, (
-                        f"{name}: {field} reads {got!r}, the record says {want!r}"
-                    )
-                else:
-                    assert got == str(want), (
-                        f"{name}: {field} reads {got!r}, the record says {want!r}"
-                    )
                 checked += 1
-    assert checked >= len(RECORD_SCALARS), (
-        f"only {checked} scalar cell(s) were compared against a record; a case that "
+    assert checked >= 3 * len(from_record), (
+        f"only {checked} cell(s) were compared against a record; a case that "
         "matches no row asserts nothing"
     )
 
@@ -1148,25 +1082,28 @@ def test_the_union_sees_every_record_scalar(tmp_path):
 def test_goal019_bandd_editing_the_matrix_does_not_relabel_a_recorded_point(tmp_path):
     """The worst of the eight, because it rewrites history with UNCHANGED data.
 
-    The SUPER row took matrix values before recorded conditions and
-    `_take` does not replace a populated field, and the matrix is read
-    from the CURRENT workspace rather than from anything bound to the
-    run. The reviewer moved a recorded REmi of 11.7716754 to 99.0 in a
-    regenerated historical row while the run record still said
-    11.7716754.
+    The row took matrix values before recorded conditions, and the matrix is read
+    from the CURRENT workspace rather than from anything bound to the run. The
+    reviewer moved a recorded REmi of 11.7716754 to 99.0 in a regenerated
+    historical row while the run record still said 11.7716754. The Reynolds
+    number is column RE of the run block now.
 
     Taken WHOLE. This adds no gate: it removes a wrong number.
     """
     workspace = _workspace(tmp_path)
     _post(workspace)
-    files = _superfiles(workspace)
+    files = _polar_files(workspace)
     before = {
-        name: [row["REmi"] for row in rows]
+        name: [row["RE"] for row in rows]
         for name, (_columns, rows) in files.items()
         if "6001" in name
     }
-    assert before, f"no superfile of simulation 6001 among {sorted(files)}"
-    assert all(value == "11.7716754" for values in before.values() for value in values), before
+    assert before, f"no polar file of simulation 6001 among {sorted(files)}"
+    assert all(
+        float(value) == pytest.approx(11.7716754, abs=1e-4)
+        for values in before.values()
+        for value in values
+    ), before
 
     # ONLY THE MATRIX CHANGES. Nothing else in the workspace is touched:
     # the manifest, the outputs and their bytes are exactly as the run
@@ -1178,8 +1115,8 @@ def test_goal019_bandd_editing_the_matrix_does_not_relabel_a_recorded_point(tmp_
 
     _post(workspace)
     after = {
-        name: [row["REmi"] for row in rows]
-        for name, (_columns, rows) in _superfiles(workspace).items()
+        name: [row["RE"] for row in rows]
+        for name, (_columns, rows) in _polar_files(workspace).items()
         if "6001" in name
     }
     assert after == before, (
@@ -1191,18 +1128,22 @@ def test_goal019_bandd_editing_the_matrix_does_not_relabel_a_recorded_point(tmp_
 def test_goal019_bandd_the_matrix_still_supplies_what_the_record_does_not(tmp_path):
     """The control. The record wins where the two speak; the matrix speaks elsewhere.
 
-    A precedence change that simply dropped the matrix would empty
-    columns this file is supposed to carry, so what must be shown is that
-    every matrix cell the record says nothing about is still there.
+    A precedence change that simply dropped the matrix would empty what the post is
+    supposed to carry, so what must be shown is that every matrix cell the record
+    says nothing about is still there. DESCRIPTION leaves the polar rows for
+    ``products.json`` ``polars.<POL>.description`` (design-post-outputs 2.3 and 6);
+    WORKFLOW is the RUN_TYPE of the run block.
     """
     workspace = _workspace(tmp_path)
     _post(workspace)
-    for name, (_columns, rows) in _superfiles(workspace).items():
+    document = json.loads(
+        (workspace.products_dir("matriz") / "products.json").read_text(encoding="utf-8")
+    )
+    assert document["polars"]["6001"]["description"] == "CRUISE_wing_body_alpha_sweep"
+    assert document["polars"]["6002"]["description"] == "ROTOR_sector_periodic_J_sweep"
+    for name, (_columns, rows) in _polar_files(workspace).items():
         if "6001" not in name:
             continue
+        assert rows, name
         for row in rows:
-            assert row["DESCRIPTION"], f"{name} lost the matrix DESCRIPTION"
-            assert row["SET"], f"{name} lost the matrix SET cell"
-            assert row["WORKFLOW"], f"{name} lost the matrix WORKFLOW cell"
-            assert row["AIRCRAFT"], f"{name} lost the matrix AIRCRAFT cell"
-            assert row["FLIGHT_CONDITION"], f"{name} lost the matrix FLIGHT_CONDITION cell"
+            assert row["RUN_TYPE"] == "steady", f"{name} lost the matrix WORKFLOW cell"

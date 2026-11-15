@@ -4,9 +4,12 @@ The rule, as the requirement states it: a group of the ``[groups]`` table names
 ONE alias, so its value is a string and not a list.
 
     [groups]
-    PUSHER   = "PUSHER"      # a rotor: its families come from the reference
-    AIRFRAME = "airframe"    # an alias of the reference's [aliases] table
-    TOTAL    = "all"         # the selector
+    PROP     = "PUSHER"      # a rotor: its families come from the reference
+    NOSE     = "airframe"    # an alias of the reference's [aliases] table
+    EVERY    = "all"         # the selector
+
+(TOTAL, AIRFRAME and the alias of a rotor name groups the post makes itself since 0.58.0, so a
+``[groups]`` table declaring one is refused.)
 
 The key names the product file; the value says what is summed. It is what makes
 a STEADY polar per alias a one-line declaration.
@@ -49,11 +52,11 @@ def _rotor(alias: str, blades: list[str], general: list[str] | None = None) -> R
 def test_a_group_is_one_alias_written_as_a_string():
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamWarning)
-        spec = PprocSpec(groups={"PUSHER": "PUSHER", "AIRFRAME": "airframe", "TOTAL": "all"})
-    assert spec.group_alias("PUSHER") == "PUSHER"
-    assert spec.group_alias("AIRFRAME") == "airframe"
+        spec = PprocSpec(groups={"PROP": "PUSHER", "NOSE": "airframe", "EVERY": "all"})
+    assert spec.group_alias("PROP") == "PUSHER"
+    assert spec.group_alias("NOSE") == "airframe"
     # What the rest of the package iterates is unchanged in shape.
-    assert list(spec.groups["AIRFRAME"]) == ["airframe"]
+    assert list(spec.groups["NOSE"]) == ["airframe"]
 
 
 @pytest.mark.parametrize(
@@ -106,15 +109,19 @@ def test_a_group_that_selects_no_surface_is_a_named_skip_and_not_a_row_of_zeros(
     written = write_campaign_products(workspace)
     names = {Path(path).name for path in written}
     manifest = _products_manifest(workspace)
-    ghost = [key for key in manifest.get("skipped", {}) if key.endswith("_GHOST.csv")]
+    ghost = [key for key in manifest.get("skipped", {}) if key.endswith("-GHOST")]
     assert ghost, f"no skip names the group that selected nothing: {manifest.get('skipped')}"
     assert "Nacelle" in manifest["skipped"][ghost[0]]
-    assert not any(name.endswith("_GHOST.csv") for name in names), sorted(names)
-    assert any(name.endswith("_WB.csv") for name in names), sorted(names)
+    assert not any("-GHOST-" in name for name in names), sorted(names)
+    assert {"P7001-WB-DIM.csv", "P7001-WB-ACOEF.csv"} <= names, sorted(names)
 
 
 def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_path):
-    """`int(group)` on a name was a bare ValueError that stopped the whole stage."""
+    """`int(group)` on a name was a bare ValueError that stopped the whole stage.
+
+    The `.dat` is named after the group's ACOEF file (design-post-outputs 2.1) and its line
+    four states the group's number; no two groups of a polar state the same one.
+    """
     from pyflightstream.post.products import write_campaign_products
     from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
@@ -134,15 +141,17 @@ def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_pa
         encoding="utf-8",
     )
     written = write_campaign_products(workspace)
-    dats = sorted(Path(path) for path in written if str(path).endswith(".dat"))
-    assert [path.name.rsplit("_", 1)[-1] for path in dats] == ["FIRST.dat", "SECOND.dat"], (
-        [path.name for path in dats],
+    dats = {Path(path).name: Path(path) for path in written if str(path).endswith(".dat")}
+    assert {"P7001-FIRST-ACOEF.dat", "P7001-SECOND-ACOEF.dat"} <= set(dats), (
+        sorted(dats),
         _products_manifest(workspace).get("skipped"),
     )
-    # Line four: the count of reference columns, then the group's NUMBER, which for a
-    # named group is its 1-based position in the table.
-    numbers = [path.read_text(encoding="utf-8").splitlines()[3].split()[1] for path in dats]
-    assert numbers == ["01", "02"], numbers
+    # Line four: the count of reference columns, then the group's NUMBER.
+    numbers = {
+        name: path.read_text(encoding="utf-8").splitlines()[3].split()[1]
+        for name, path in dats.items()
+    }
+    assert len(set(numbers.values())) == len(numbers), numbers
 
 
 def test_the_replacement_for_an_empty_list_selects_every_family():

@@ -61,26 +61,24 @@ def test_empty_unsteady_log_warns_or_refuses(tmp_path, text, asked):
 
 @pytest.mark.parametrize("asked", [False, True])
 def test_sparse_average_guards_follow_all_three_writers(tmp_path, asked):
+    """The phase-locked reduction and the polar files (family files and every group file,
+    the rotor group's included) are the three writers of the window average since 0.58.0."""
     workspace = _post_workspace(tmp_path, 2411, (58, 61), rotor=True)
     _make_one_step_unreadable(workspace, 59)
     path = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_plots.txt"
     path.write_text(re.sub(r"(?m)^59\.0000,.*\n", "", path.read_text()))
     write_campaign_products(workspace, matrix_stem="products", check_frozen=asked)
     manifest = _products_manifest(workspace)
-    names = manifest["products"] | manifest["skipped"]
-    keys = [
-        "reductions/AL-020_phase_locked.csv",
-        next(key for key in names if key.endswith("_uns_avg.csv")),
-        next(key for key in names if key.endswith("_rotor.csv")),
-    ]
     log = (workspace.products_dir("products") / "post.log").read_text().replace("\\", "/")
-    for key in keys:
-        if key.endswith("_uns_avg.csv"):
-            # PFS-2130.047: a gap inside the declared window skips the polar, with a reason.
-            assert "gap" in manifest["skipped"][key], manifest["skipped"]
-            continue
-        assert key in manifest["products"], manifest["skipped"]
-        assert not any(key in line and "unread" in line for line in log.splitlines()), log
+    key = "reductions/AL-020_phase_locked.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    assert not any(key in line and "unread" in line for line in log.splitlines()), log
+    # PFS-2130.047: a gap inside the declared window skips the polar files, with a reason.
+    polar = "polars/P7001"
+    assert "gap" in manifest["skipped"][polar], manifest["skipped"]
+    assert not [name for name in manifest["products"] if name.startswith("polars/")], manifest[
+        "products"
+    ]
 
 
 def test_integration_follows_matrix_pproc_and_keeps_recorded_identity(tmp_path, monkeypatch):

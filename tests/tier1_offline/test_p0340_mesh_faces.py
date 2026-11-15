@@ -176,7 +176,7 @@ _POST_OPTIONS: dict[str, dict] = {
 
 
 def _posted(workspace, builder: str) -> dict[str, list[list[str]]]:
-    """Post a campaign and return its super files and unsteady polars, read as CSV."""
+    """Post a campaign and return the FAM files and group files of ``polars/``, read as CSV."""
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.post.products import write_campaign_products
 
@@ -185,7 +185,7 @@ def _posted(workspace, builder: str) -> dict[str, list[list[str]]]:
         write_campaign_products(workspace, **_POST_OPTIONS[builder])
     post = Path(workspace.root) / "post"
     tables = {}
-    for path in sorted([*post.rglob("SUPER-*.csv"), *post.rglob("*_uns_avg.csv")]):
+    for path in sorted(post.rglob("polars/*.csv")):
         if "archive" in path.relative_to(post).parts:
             continue  # a post again archives the products of the post before it
         with path.open(encoding="utf-8", newline="") as handle:
@@ -220,7 +220,7 @@ def _campaign(tmp_path: Path, monkeypatch, *, digest_of_the_run: str | None, bui
 def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
     tmp_path, monkeypatch, builder
 ):
-    """P0340-MESH-FACES, FR-348: the count reaches the super file and the unsteady polar, last.
+    """P0340-MESH-FACES, FR-348: the count reaches the FAM and group files of every polar, last.
 
     The run recorded the sha256 the inventory states, so every row carries 7
     and post.log holds no MESH_FACES warning. The same campaign whose run
@@ -243,8 +243,8 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
     assert warned, (requirement, "no warning where the sha256 differ")
     for line in warned:
         assert line.startswith("WARNING ") and counted in line and "0" * 64 in line, line
-    kinds = {"SUPER" if "SUPER-" in name else "uns_avg" for name in carried}
-    assert kinds == ({"SUPER"} if builder == "superfile" else {"uns_avg"}), (requirement, carried)
+    kinds = {name.rsplit("/", 1)[-1].split("-", 2)[0] for name in carried}
+    assert {"FAM", "P6001" if builder == "superfile" else "P7001"} <= kinds, (requirement, carried)
     assert set(carried) == set(replaced), requirement
     for name, table in carried.items():
         header, *rows = table
@@ -254,64 +254,6 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
         assert control_header == header, (requirement, name)
         assert all(row[-1] == "7" for row in control_rows), (requirement, name, control_rows)
         assert [row[:-1] for row in control_rows] == [row[:-1] for row in rows], (requirement, name)
-
-
-def test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348(tmp_path):
-    """P0340-MESH-FACES, FR-348: the campaign's union of columns still ends with MESH_FACES.
-
-    The second draft's row brings a column the first does not have, after its
-    own MESH_FACES; the files carry it before MESH_FACES, and a row without a
-    count reads NA.
-    """
-    requirement = "FR-348"
-    from pyflightstream.post.superfile import SuperfileDraft, write_superfiles
-
-    drafts = [
-        SuperfileDraft(tmp_path / "SUPER-1_g01.csv", ({"POL": "1", "MESH_FACES": "7"},), {}),
-        SuperfileDraft(
-            tmp_path / "SUPER-2_g01.csv", ({"POL": "2", "MESH_FACES": "", "CT": "0.1"},), {}
-        ),
-    ]
-    written, _entries, columns = write_superfiles(drafts, target=lambda path: path)
-    assert columns == ("POL", "CT", "MESH_FACES"), (requirement, columns)
-    first, second = (path.read_text(encoding="utf-8").splitlines() for path in written)
-    assert first == ["POL,CT,MESH_FACES", "1,NA,7"], (requirement, first)
-    assert second == ["POL,CT,MESH_FACES", "2,0.1,NA"], (requirement, second)
-
-
-def test_the_unsteady_polar_keeps_the_column_last_when_a_later_key_follows_it_fr_348(tmp_path):
-    """P0340-MESH-FACES, FR-348: MESH_FACES closes the unsteady polar, whatever the key order.
-
-    The point's super content states MESH_FACES and then another column. The
-    polar writes the other column first and MESH_FACES last, once, with the
-    point's count in its row.
-    """
-    requirement = "FR-348"
-    from pyflightstream.post.products import write_unsteady_polar
-
-    class _Point:
-        name = "a"
-
-    plots = tmp_path / "a.txt"
-    plots.write_text(
-        "Time-step,CL\n" + "".join(f"{step},{float(step):.5f}\n" for step in range(1, 9)),
-        encoding="utf-8",
-    )
-    written = write_unsteady_polar(
-        tmp_path / "out.csv",
-        points=[_Point()],
-        plots={"a": plots},
-        window=(1, 8),
-        conditions=[{"ALPHA": 2.0}],
-        reference=None,
-        setup={"a": {"MESH_FACES": "7", "LATER": "x"}},
-    )
-    assert written is not None, requirement
-    with written.open(encoding="utf-8", newline="") as handle:
-        header, *rows = list(csv.reader(handle))
-    assert header[-1] == "MESH_FACES" and "LATER" in header[:-1], (requirement, header)
-    assert header.count("MESH_FACES") == 1, (requirement, header)
-    assert rows and all(row[-1] == "7" and "x" in row[:-1] for row in rows), (requirement, rows)
 
 
 def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkeypatch):

@@ -4368,8 +4368,10 @@ def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tm
         assert [r.aliases for r in records] == [
             {"wing": ["W", "Missing"]} if folder == "alias" else {}
         ] * 2, "the record carries the reference's aliases"
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
-        assert len(polars) == 2, polars
+        # The group file set of each polar, its DIM and its ACOEF file (0.58.0 names them
+        # `P<POL>-<GROUP>-<KIND>.csv`, the numbered group `g<NN>`).
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-g01-*.csv"))
+        assert len(polars) == 4, polars
         tables[folder] = [path.read_bytes() for path in polars]
         # The provenance document carries them too, as it carries the raw
         # lines: a survived mutant of the QA lens of 2026-09-09 dropped the
@@ -4423,7 +4425,7 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
     assert [r.aliases for r in records] == [{"wing": ["W", "Missing"]}] * 2, (
         "the record carries the REFERENCE's aliases"
     )
-    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
+    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-g01-ACOEF.csv"))
     assert len(polars) == 2, polars
 
 
@@ -4661,20 +4663,16 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     ]
     assert not list(tree.rglob("*_time_average.csv"))
     manifest = json.loads((tree / "products.json").read_text(encoding="utf-8"))
-    uns_avg = manifest["products"]["polars/P7001_M200RE1177AL-020_uns_avg.csv"]
+    uns_avg = manifest["products"]["polars/FAM-ACOEF-P7001.csv"]
     assert uns_avg["windows"] == {"M200RE1177AL-020": [596, 720]}
     # The stub above writes the literal 'x' for every export it has no
     # fixture for, the probe points among them, so the probe table of
     # this point is a recorded SKIP naming the file (FR-87). It is a skip
     # and not the stage's refusal on purpose: the reductions beside it
     # are written, which is what the four files above say.
-    # AND, since 0.24.0, the axes block of the unsteady polar: the stub's plots hold
-    # no force or moment of the global frame, so the block is not written and says so.
+    # The rotor table and the axes block of the unsteady polar are retired since 0.58.0 (the
+    # frames W, S and B are columns of every ACOEF file), so neither is a skip any more.
     assert sorted(manifest["skipped"]) == [
-        # 0.25.0 B05: a rotor table that cannot be planned says so; this row's
-        # reference declares no blade families, and the absence was silent.
-        "polars/7001#rotor_tables",
-        "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
         # 0.31.0 (P0310-G2-PER-REV): the run's last revolution is partial, and the
         # per-revolution table says so rather than averaging it.
         "reductions/M200RE1177AL-020_per_revolution.csv#partial",
