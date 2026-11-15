@@ -15,6 +15,7 @@ import pytest
 
 from pyflightstream._errors import InputValueError
 from pyflightstream.geometry import Propeller
+from tests.tier1_offline._kernel_support import kernel_or_skip
 
 FIXTURES = Path(__file__).parent / "fixtures" / "propeller"
 EXACT_MM = 1e-6
@@ -483,7 +484,7 @@ def test_p0580_gm17_spinner_without_table_records_skipped(tmp_path):
 
 def test_p0580_gm17_spinner_written_rotor_is_closed_and_periodic(tmp_path):
     """P0580-G17-SPIN-IGES: three blades and their spinner write closed, periodic surfaces."""
-    pytest.importorskip("gmsh", reason="the written-rotor run needs the gmsh kernel")
+    kernel_or_skip()  # the written-rotor run needs the gmsh kernel
     from pyflightstream.workspace._iges_write import read_iges
     from pyflightstream.workspace.geometry_pipeline import run_geometry
 
