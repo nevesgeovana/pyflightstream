@@ -9,7 +9,7 @@ here once.
 | Key | Content |
 | --- | --- |
 | `schema_version` | the layout of the document, `2` |
-| `products` | every file written, with the runs it came from and its `kind` |
+| `products` | every file written, with the runs it came from, the `polar` it belongs to and its `kind` |
 | `tree` | each folder of the post tree, what it holds and the kinds of file in it |
 | `kinds` | each kind of table: what one row is, its key columns and every column after the run block, with `unit`, `frame`, `quantity`, `sign` where it has one, and the page that `definition` names |
 | `run_block` | each column of the [run block](../definitions/the-run-block.md#the-run-block), with its `unit`, its `source` and its definition |
@@ -24,6 +24,13 @@ Every column of every kind written is listed once, expanded: a per-rotor or per-
 column is listed by its own name (`CDR0`, `RPM0`). A column that is a scalar has the frame
 `null`. The header of every file is the run block of `run_block`, then the columns of its
 kind, in that order.
+
+`kinds` states the polar files (`FAM-DIM`, `FAM-ACOEF`, `FAM-RCOEF`, `DIM`, `ACOEF`,
+`RCOEF`), the sections table and the Cp table. `run_block`, `frames`, `families` and
+`groups` are stated over every polar of the matrix: a matrix whose polars use several
+references lists each rotor, family and group once, and `run_block` holds every
+`IDENTIFIERS` name and every rotor id met, while each file carries those of its own row. A
+post that writes no polar file states none of these sections.
 
 ### The tree
 

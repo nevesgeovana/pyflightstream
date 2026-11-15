@@ -43,6 +43,8 @@ Every csv written to `time_history/`, `reductions/`, `probes/` and `sections/`, 
 
 The sections table keys its rows by `FAMILY` (as the OBJ or FSM names the family) and `FAMILY_ID` (its 1-based index in the boundary inventory) and states `ROTOR_ID` beside the alias; a new `sections/<point>_cp.csv` carries the surface-section export keyed the same way. `[sections] split` chooses one file per point (the default), per family (`<point>_FAM-<FAMILY>_sections.csv`, `_cp.csv`) or both, and refuses any other value naming the three. migration: none for a pproc that states no `split`.
 
+`products.json` states, beside the files, what the columns of the polar files, the sections table and the Cp table are: `kinds` (unit, frame, quantity, sign and definition of every column), `run_block`, `frames` (one `R<id>` per rotor, with its pitch and toe), `families`, `groups` (with their `GROUP_ID` and member family ids) and `polars` (description and run type), and each product entry names its `polar`; a 0.57.0 polar file found under `polars/` is listed under `migrated` with the file that replaces it. The polar files open with the same run block as every other table of the point. migration: none.
+
 The `time_average` and `per_blade` reductions are no longer written, and a pproc that asks for one is warned once: the window average of every family and group is its row in the polar files. migration: read the window average from the polar files.
 
 ### Removed

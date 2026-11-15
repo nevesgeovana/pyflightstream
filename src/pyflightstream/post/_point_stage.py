@@ -96,7 +96,9 @@ def _machs(
 
 
 def _window(ctx: SimContext, point: PolarPoint) -> dict[str, object]:
-    span = ctx.point_windows.get(point.name)
+    # A point of an averaged simulation that resolved no window of its own is
+    # averaged over the simulation's (the polar step reads it so too).
+    span = ctx.point_windows.get(point.name, ctx.window)
     if span is None:
         return {}
     steps = span[1] - span[0] + 1

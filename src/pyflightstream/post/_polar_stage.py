@@ -35,6 +35,7 @@ from pyflightstream._errors import (
 from pyflightstream._identifier_columns import stated_identifiers
 from pyflightstream._tokens import FAMILY_PLOT_GROUP, NOT_APPLICABLE
 from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP
+from pyflightstream.post._block_scope import block_of_point
 from pyflightstream.post._family_columns import DEFAULT_DRAG_SPLIT
 from pyflightstream.post._family_polar import (
     Family,
@@ -49,7 +50,9 @@ from pyflightstream.post._family_polar import (
     polar_rotors,
     steady_family_loads,
 )
-from pyflightstream.post._run_block import RUN_TYPES, RotorRunValues, run_block_row
+from pyflightstream.post._manifest_schema import FamilyEntry, GroupEntry, note_polar
+from pyflightstream.post._point_stage import point_block_rows
+from pyflightstream.post._run_block import RUN_TYPES
 from pyflightstream.post._stage import (
     _PLOTS_CLOCK_COLUMNS,
     POLARS_DIR,
@@ -57,9 +60,7 @@ from pyflightstream.post._stage import (
 )
 from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
-    CONTEXT_COLUMNS,
     ProductError,
-    context_row,
     plots_table_series,
     write_csv_table,
 )
@@ -80,11 +81,6 @@ if TYPE_CHECKING:
     from pyflightstream.post.polar import PolarPoint
 
 __all__ = ["family_polar_products"]
-
-
-def _run_type(record: object) -> str:
-    recipe = str(getattr(record, "recipe", "") or "")
-    return recipe if recipe in RUN_TYPES else "steady"
 
 
 def _recorded_rpm(record: object, alias: str, rotor_count: int) -> float | None:
@@ -116,113 +112,6 @@ def _rotor_speeds(
             )
         speeds[rotor.rotor_id] = rpm
     return speeds
-
-
-def _machs(
-    record: object, rotor: PolarRotor, rpm: float | None, point: PolarPoint
-) -> tuple[object, object]:
-    from pyflightstream.cases.workflows import rotor_mach_numbers
-    from pyflightstream.post._condition import _free_stream_and_sound
-
-    if record is None or rpm is None:
-        return None, None
-    try:
-        air = _free_stream_and_sound(record)  # type: ignore[arg-type]
-        if air is None:
-            return None, None
-        # The tip and helical Mach numbers of the rotor tables (M1), at the point's
-        # own free stream and speed of sound; a value that is not a positive finite
-        # number costs these two cells and never the row.
-        mtip, mhel = rotor_mach_numbers(
-            rpm=float(rpm),
-            diameter_m=rotor.diameter_m,
-            velocity_m_per_s=float(air[0]),
-            sonic_velocity_m_per_s=float(air[1]),
-        )
-    except (PyflightstreamError, ValueError):
-        return None, None
-    return mtip, mhel
-
-
-def _window_columns(
-    ctx: SimContext, point: PolarPoint, span: tuple[int, int] | None, rotors: Sequence[PolarRotor]
-) -> dict[str, object]:
-    if span is None:
-        return {}
-    steps = span[1] - span[0] + 1
-    out: dict[str, object] = {"FIRST_STEP": span[0], "LAST_STEP": span[1], "STEPS": steps}
-    record = ctx.record_of.get(point.name)
-    reductions = getattr(record, "reductions", None)
-    if not isinstance(reductions, Mapping):
-        return out
-    per_rev = reductions.get("steps_per_revolution")
-    clock = str((getattr(ctx.matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "")
-    live = getattr(ctx.live, "rotors", None) or {}
-    block = next((b for a, b in live.items() if str(a).casefold() == clock.casefold()), None)
-    if block is None and len(live) == 1:
-        block = next(iter(live.values()))
-    if isinstance(per_rev, int | float) and not isinstance(per_rev, bool) and per_rev > 0:
-        revs = steps / float(per_rev)
-        out["WINDOW_REVS"] = revs
-        blades = getattr(block, "blade_count", None) if block is not None else None
-        if isinstance(blades, int) and blades > 0:
-            out["WINDOW_PASSAGES"] = revs * blades
-    return out
-
-
-def _run_block(
-    ctx: SimContext,
-    *,
-    index: int,
-    point: PolarPoint,
-    condition: Mapping[str, object],
-    rotors: Sequence[PolarRotor],
-    speeds: Mapping[int, float | None],
-    span: tuple[int, int] | None,
-) -> dict[str, object]:
-    record = ctx.record_of.get(point.name)
-    lengths = ctx.reference.as_lengths()
-    moment = ctx.reference.as_moment_point()
-    stated = dict(zip(CONTEXT_COLUMNS, context_row(condition, lengths), strict=True))
-    stated.update(
-        dict(
-            zip(
-                ("XMOM", "YMOM", "ZMOM"),
-                context_row(moment, None, columns=("XMOM", "YMOM", "ZMOM")),
-                strict=True,
-            )
-        )
-    )
-    stated = {key: value for key, value in stated.items() if value is not None}
-    stated.update(_window_columns(ctx, point, span, rotors))
-    variables = getattr(ctx.matrix_row, "variables", {}) or {}
-    if variables.get("ACTUATOR_THRUST") is not None:
-        stated["THRUST"] = variables.get("ACTUATOR_THRUST")
-    identifiers = dict(getattr(ctx.matrix_row, "identifiers", {}) or {})
-    rotor_values = []
-    for rotor in rotors:
-        rpm = speeds.get(rotor.rotor_id)
-        mtip, mhel = _machs(record, rotor, rpm, point)
-        rotor_values.append(
-            RotorRunValues(
-                rotor_id=rotor.rotor_id,
-                diameter_m=rotor.diameter_m,
-                pitch_deg=rotor.frame.pitch_deg,
-                toe_deg=rotor.frame.toe_deg,
-                rpm=rpm,
-                mtip=mtip if isinstance(mtip, float) else None,
-                mhel=mhel if isinstance(mhel, float) else None,
-            )
-        )
-    return run_block_row(
-        pol=str(ctx.sim_id),
-        point_id=index + 1,
-        point=point.name,
-        run_type=_run_type(record),
-        condition=stated,
-        identifiers=identifiers,
-        rotors=rotor_values,
-    )
 
 
 def _number(value: object) -> float | None:
@@ -448,19 +337,23 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
     """Return what every point of the polar contributes, in sweep order."""
     gathered = _Gathered()
     rotors = layout[1]
-    for index, (point, condition) in enumerate(zip(ctx.points, ctx.conditions, strict=True)):
+    built: dict[str, dict[str, object]] | None = None
+    for point, condition in zip(ctx.points, ctx.conditions, strict=True):
         found = _point_loads(ctx, point, condition, layout, gathered)
         if found is None:
             continue
         family_loads, own, split, declined, values = found
         speeds = _rotor_speeds(ctx, point, rotors)
-        span = ctx.point_windows.get(point.name, ctx.window) if ctx.window is not None else None
+        # ONE RUN BLOCK FOR EVERY TABLE OF THE POINT (FR-3778): the row the stage's
+        # scope laid out over the whole sweep, so POINT_ID is the point's place in
+        # it even where this step reads a filtered list of points.
+        block = block_of_point(point.name)
+        if block is None:
+            built = point_block_rows(ctx) if built is None else built
+            block = built[point.name]
         gathered.rows.append(
             PolarPointLoads(
-                run_block=_run_block(
-                    ctx, index=index, point=point, condition=condition, rotors=rotors,
-                    speeds=speeds, span=span,
-                ),
+                run_block=block,
                 alpha_deg=point.alpha_deg,
                 beta_deg=point.beta_deg,
                 density_kg_m3=_number(condition.get("RHO")),
@@ -547,6 +440,13 @@ def family_polar_products(ctx: SimContext) -> None:
         identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
     )
+    _note_the_polar(
+        ctx,
+        (families, rotors, groups),
+        files,
+        load_frame="MRP" if unsteady else _load_frame(ctx),
+        drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
+    )
     entry = _entry(ctx, gathered.held, instant=instant)
     if unsteady:
         _equations(ctx, files, gathered.plotted)
@@ -558,6 +458,57 @@ def family_polar_products(ctx: SimContext) -> None:
             ctx.add(target, {**entry, **({"group": polar.group} if polar.group else {})})
             if polar.group is not None and polar.kind == "ACOEF":
                 _derived_polars(ctx, target, polar, entry, groups)
+
+
+_NO_RCOEF_NOTE = "its members are not all inside one rotor, so it has DIM and ACOEF files only"
+
+
+def _note_the_polar(
+    ctx: SimContext,
+    layout: tuple[Sequence[Family], Sequence[PolarRotor], Sequence[PolarGroup]],
+    files: Sequence[PolarFile],
+    *,
+    load_frame: str,
+    drag_split: Sequence[str],
+) -> None:
+    """State the polar's families, groups and rotor frames for ``products.json`` (FR-3779)."""
+    families, rotors, groups = layout
+    ids = {family.name: family.family_id for family in families}
+    with_rcoef = {polar.group for polar in files if polar.kind == "RCOEF" and polar.group}
+    record = ctx.record_of.get(ctx.points[0].name) if ctx.points else None
+    recipe = str(getattr(record, "recipe", "") or "")
+    note_polar(
+        str(ctx.sim_id),
+        run_type=recipe if recipe in RUN_TYPES else "steady",
+        description=getattr(record, "description", None),
+        families=[
+            FamilyEntry(family.family_id, family.name, family.rotor_id) for family in families
+        ],
+        groups=[
+            GroupEntry(
+                group.group_id,
+                group.name,
+                group.origin,
+                tuple(sorted(ids[name] for name in group.members if name in ids)),
+                _NO_RCOEF_NOTE
+                if rotors and group.origin == "declared" and group.name not in with_rcoef
+                else None,
+            )
+            for group in groups
+        ],
+        rotors=[
+            {
+                "id": rotor.rotor_id,
+                "alias": rotor.alias,
+                "pitch_deg": rotor.frame.pitch_deg,
+                "toe_deg": rotor.frame.toe_deg,
+            }
+            for rotor in rotors
+        ],
+        load_frame=load_frame,
+        drag_split=drag_split,
+        identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
+    )
 
 
 def _load_frame(ctx: SimContext) -> str:

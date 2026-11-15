@@ -1080,6 +1080,7 @@ def _write_one_simulation(
     for name, entry in names.items():
         ctx.products_index[name] = {
             "sim_id": sim_id,
+            "polar": sim_id,
             "pproc": effective_pproc[0],
             **entry,
         }
@@ -1117,7 +1118,10 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
                 ids[pol] = rotor_ids_of(getattr(artifact, "rotors", None) or {})
         return ids[pol].get(alias.casefold())
 
-    warn_retired_polar_files(ctx.out, rotor_id)
+    # THE MIGRATED FILES OF THE POLAR LAYOUT join those of the tree in the manifest.
+    migrated = ctx.manifest.setdefault("migrated", {})
+    if isinstance(migrated, dict):
+        migrated.update(warn_retired_polar_files(ctx.out, rotor_id))
     partial = ctx.partial
     if partial is not None and partial.not_rebuilt:
         warn(

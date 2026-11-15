@@ -52,7 +52,13 @@ from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
 from pyflightstream.post._block_scope import collecting_blocks
-from pyflightstream.post._manifest_schema import MANIFEST_SCHEMA_VERSION, tree_section
+from pyflightstream.post._manifest_schema import (
+    MANIFEST_SCHEMA_VERSION,
+    manifest_notes,
+    noted_sections,
+    noting_manifest,
+    tree_section,
+)
 from pyflightstream.post._tables import _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, ProductError, read_csv_table
 from pyflightstream.post._tree_migration import note_earlier_layout, once_per_post
@@ -499,7 +505,7 @@ def post_notes() -> Iterator[list[_LogRecord]]:
     notes: list[_LogRecord] = []
     token = _POST_NOTES.set(notes)
     try:
-        with once_per_post(), collecting_blocks():
+        with once_per_post(), collecting_blocks(), noting_manifest():
             yield notes
     finally:
         _POST_NOTES.reset(token)
@@ -788,6 +794,11 @@ def write_manifest(out: Path, manifest: Mapping[str, Any], merge: ManifestMerge 
         document = merged_manifest(manifest, on_disk, merge)
         document["schema_version"] = MANIFEST_SCHEMA_VERSION
         document["tree"] = tree_section()
+        # WHAT EVERY COLUMN IS (FR-3779): the kinds, the run block, the frames, the
+        # families, the groups and the polars the polars of this post noted.
+        noted = manifest_notes()
+        if noted is not None and noted.polars:
+            document.update(noted_sections(noted))
         document["migrated"] = {
             **dict(document.get("migrated") or {}),
             **note_earlier_layout(out),

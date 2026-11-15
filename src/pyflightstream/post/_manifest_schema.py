@@ -13,8 +13,10 @@ all of them at once, the one call the products stage makes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import Any
 
 from pyflightstream._errors import ProductError
@@ -38,7 +40,12 @@ __all__ = [
     "TREE",
     "FamilyEntry",
     "GroupEntry",
+    "ManifestNotes",
     "expected_header",
+    "manifest_notes",
+    "note_polar",
+    "noted_sections",
+    "noting_manifest",
     "families_section",
     "frames_section",
     "group_id",
@@ -181,9 +188,10 @@ def kind_entry(
 
     Examples
     --------
-    >>> entry = kind_entry(dim_columns("MRP"), rows="one per point and family", keys=["POL"])
-    >>> entry["columns"][2]["name"], entry["run_block"]
-    ('FX_MRP', True)
+    >>> kind_entry(dim_columns("MRP"), rows="r", keys=["POL"])["columns"][2]["name"]
+    'FX_MRP'
+    >>> kind_entry(dim_columns("MRP"), rows="one per point", keys=["POL"])["run_block"]
+    True
     """
     return {
         "rows": rows,
@@ -462,8 +470,9 @@ def frames_section(
 
     Examples
     --------
-    >>> rotor = {"id": 0, "alias": "PUSHER", "pitch_deg": 0.0, "toe_deg": 0.0}
-    >>> frames_section(rotors=[rotor])["R0"]["rotor"]
+    >>> frames_section(
+    ...     rotors=[{"id": 0, "alias": "PUSHER", "pitch_deg": 0.0, "toe_deg": 0.0}]
+    ... )["R0"]["rotor"]
     'PUSHER'
     """
     out: dict[str, Any] = {
@@ -509,9 +518,9 @@ def expected_header(document: Mapping[str, Any], kind: str) -> list[str]:
 
     Examples
     --------
-    >>> kind = {"run_block": True, "columns": [{"name": "A"}]}
-    >>> doc = {"run_block": [{"name": "POL"}], "kinds": {"x": kind}}
-    >>> expected_header(doc, "x")
+    >>> expected_header(
+    ...     {"run_block": [{"name": "POL"}], "kinds": {"x": {"columns": [{"name": "A"}]}}}, "x"
+    ... )
     ['POL', 'A']
     """
     kinds = document.get("kinds", {})
@@ -569,9 +578,12 @@ def manifest_sections(
 
     Examples
     --------
-    >>> doc = manifest_sections(rotors=[{"id": 0, "alias": "P", "pitch_deg": 0.0, "toe_deg": 0.0}])
-    >>> doc["schema_version"], sorted(doc)[:2]
-    (2, ['families', 'frames'])
+    >>> manifest_sections(
+    ...     rotors=[{"id": 0, "alias": "P", "pitch_deg": 0.0, "toe_deg": 0.0}]
+    ... )["schema_version"]
+    2
+    >>> sorted(manifest_sections())[:2]
+    ['families', 'frames']
     """
     ids = sorted(int(rotor["id"]) for rotor in rotors)
     return {
@@ -597,3 +609,155 @@ def manifest_sections(
         "polars": {str(pol): dict(value) for pol, value in (polars or {}).items()},
         "migrated": dict(migrated or {}),
     }
+
+
+@dataclass
+class ManifestNotes:
+    """What the polars of one post state for the manifest, gathered as they are written.
+
+    Attributes
+    ----------
+    rotors : dict of int to dict
+        Each rotor id to ``{"id", "alias", "pitch_deg", "toe_deg"}``.
+    families : dict of int to FamilyEntry
+        Each FAMILY_ID to its family, the first polar that states it winning.
+    groups : dict of int to GroupEntry
+        Each GROUP_ID to its group, members merged over the polars.
+    polars : dict of str to dict
+        POL to ``{"description", "run_type"}``.
+    load_frames : list of str
+        The frames the loads exports state their loads in, in the order met.
+    drag_split : list of str
+        The drag split columns met, in the order met.
+    identifiers : list of str
+        The ``IDENTIFIERS`` names the polars' rows state, in the order met.
+    """
+
+    identifiers: list[str] = field(default_factory=list)
+    rotors: dict[int, dict[str, Any]] = field(default_factory=dict)
+    families: dict[int, FamilyEntry] = field(default_factory=dict)
+    groups: dict[int, GroupEntry] = field(default_factory=dict)
+    polars: dict[str, dict[str, Any]] = field(default_factory=dict)
+    load_frames: list[str] = field(default_factory=list)
+    drag_split: list[str] = field(default_factory=list)
+
+
+_NOTES: ContextVar[ManifestNotes | None] = ContextVar("manifest_notes", default=None)
+
+
+@contextmanager
+def noting_manifest() -> Iterator[ManifestNotes]:
+    """Gather what the polars written inside this block state, for ``products.json``.
+
+    Examples
+    --------
+    >>> with noting_manifest() as notes:
+    ...     manifest_notes() is notes
+    True
+    >>> manifest_notes() is None
+    True
+    """
+    notes = ManifestNotes()
+    token = _NOTES.set(notes)
+    try:
+        yield notes
+    finally:
+        _NOTES.reset(token)
+
+
+def manifest_notes() -> ManifestNotes | None:
+    """Return the notes of the open :func:`noting_manifest` block, None outside one."""
+    return _NOTES.get()
+
+
+def note_polar(
+    pol: str,
+    *,
+    run_type: str,
+    description: str | None,
+    families: Sequence[FamilyEntry],
+    groups: Sequence[GroupEntry],
+    rotors: Sequence[Mapping[str, Any]],
+    load_frame: str,
+    drag_split: Sequence[str],
+    identifiers: Sequence[str] = (),
+) -> None:
+    """Note one polar's families, groups, rotors and frame; nothing outside a notes block.
+
+    A family already noted keeps its first statement unless a later polar places
+    it inside a rotor; a rotor id keeps its first statement; a group id
+    already noted gains the members this polar adds.
+
+    Examples
+    --------
+    >>> with noting_manifest() as notes:
+    ...     note_polar(
+    ...         "7001", run_type="steady", description="sweep", families=[FamilyEntry(1, "W")],
+    ...         groups=[GroupEntry(0, "TOTAL", "default", (1,))], rotors=[],
+    ...         load_frame="MRP", drag_split=["CD0", "CDI"],
+    ...     )
+    ...     notes.polars, sorted(notes.groups)
+    ({'7001': {'description': 'sweep', 'run_type': 'steady'}}, [0])
+    """
+    notes = _NOTES.get()
+    if notes is None:
+        return
+    notes.polars[str(pol)] = {"description": description, "run_type": run_type}
+    _note_families(notes, families)
+    _note_groups(notes, groups)
+    for rotor in rotors:
+        notes.rotors.setdefault(int(rotor["id"]), dict(rotor))
+    _append_new(notes.load_frames, (load_frame,))
+    _append_new(notes.drag_split, drag_split)
+    _append_new(notes.identifiers, identifiers)
+
+
+def _append_new(held: list[str], names: Sequence[str]) -> None:
+    for name in names:
+        if str(name) not in held:
+            held.append(str(name))
+
+
+def _note_families(notes: ManifestNotes, families: Sequence[FamilyEntry]) -> None:
+    for entry in families:
+        held = notes.families.get(entry.family_id)
+        # A family one polar's reference places inside a rotor keeps that rotor.
+        if held is None or (held.rotor_id is None and entry.rotor_id is not None):
+            notes.families[entry.family_id] = entry
+
+
+def _note_groups(notes: ManifestNotes, groups: Sequence[GroupEntry]) -> None:
+    for group in groups:
+        held = notes.groups.get(group.group_id)
+        if held is None:
+            notes.groups[group.group_id] = group
+            continue
+        members = tuple(sorted({*held.members, *group.members}))
+        notes.groups[group.group_id] = GroupEntry(
+            held.group_id, held.group, held.origin, members, held.note or group.note
+        )
+
+
+def noted_sections(notes: ManifestNotes, *, integrated_sections: bool = False) -> dict[str, Any]:
+    """Return :func:`manifest_sections` of what ``notes`` gathered.
+
+    ``migrated`` is left out: the manifest writer gathers it from the folder.
+
+    Examples
+    --------
+    >>> with noting_manifest() as notes:
+    ...     sorted(noted_sections(notes))[:3]
+    ['families', 'frames', 'groups']
+    """
+    sections = manifest_sections(
+        identifiers=notes.identifiers,
+        rotors=[notes.rotors[key] for key in sorted(notes.rotors)],
+        load_frame=notes.load_frames[0] if notes.load_frames else "MRP",
+        drag_split=notes.drag_split or None,
+        integrated_sections=integrated_sections,
+        families=[notes.families[key] for key in sorted(notes.families)],
+        groups=[notes.groups[key] for key in sorted(notes.groups)],
+        polars=notes.polars,
+    )
+    sections.pop("migrated")
+    return sections
