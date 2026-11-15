@@ -197,3 +197,11 @@ def test_a_rotor_of_unknown_speed_states_no_power():
 def test_loads_that_are_not_numbers_give_na():
     row = _row(force=(math.nan, math.nan, math.nan), moment=(math.nan, math.nan, math.nan))
     assert set(row.values()) == {"NA"}
+
+
+def test_an_infinite_rate_states_na_never_zero():
+    """A non-finite rate is unknown: the over-n-squared set and P are NA, not a finite zero."""
+    for rpm in (math.inf, -math.inf):
+        row = _row(rpm=rpm)
+        for name in ("CT", "CQ", "CP", "CFZ", "CFY", "CMZ", "CMY", "ETA", "P"):
+            assert row[name] == "NA", (rpm, name, row[name])
