@@ -29,7 +29,14 @@ A `[groups]` key spelled `TOTAL` or `AIRFRAME` (in any case), or equal to a
 rotor's alias, is refused by name: the group is written without it. So is a key
 spelled `FAM` or `GRP`, or opening with `P` and a digit, which the file names
 cannot carry. A numbered key is written `g<NN>` (`"1"` is `g01`). A group that
-selects no family of the polar's loads is named under `skipped` and has no file.
+selects no family of the polar's loads is named under `skipped`, with what
+selects its families, and has no file. A group that selects no family of one
+point's loads has no row at that point, never a row of `NA`: the point is named
+under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`, with the group's
+selector and the families the point states, and is no run of the group's files.
+At a point that states only some of a group's families, the group's row is the
+sum of those it states; a FAM file has a row only for a family the point
+states.
 
 A group's values are formed from the SUM of its members' dimensional loads
 (forces and moments about the moment reference point; the moment about the

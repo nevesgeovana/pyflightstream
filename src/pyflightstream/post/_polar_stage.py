@@ -36,7 +36,7 @@ from pyflightstream._identifier_columns import stated_identifiers
 from pyflightstream._tokens import FAMILY_PLOT_GROUP, NOT_APPLICABLE
 from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP
 from pyflightstream.post._block_scope import block_of_point
-from pyflightstream.post._family_columns import DEFAULT_DRAG_SPLIT
+from pyflightstream.post._family_columns import DEFAULT_DRAG_SPLIT, group_id
 from pyflightstream.post._family_polar import (
     Family,
     Loads,
@@ -45,6 +45,7 @@ from pyflightstream.post._family_polar import (
     PolarPointLoads,
     PolarRotor,
     family_ids,
+    group_file_name,
     polar_files,
     polar_groups,
     polar_rotors,
@@ -259,11 +260,45 @@ def _layout(
         if not group.members:
             ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}-{group.name}"] = (
                 f"group {group.name!r} selects no family of the loads exports of simulation "
-                f"{ctx.sim_id!r} ({', '.join(surfaces)}); its files are not written."
+                f"{ctx.sim_id!r} ({', '.join(surfaces)}): {_selector(ctx, group)} names no "
+                "surface or alias there; its files are not written."
             )
     for rotor in rotors:
         warn_rotor_declared_aft(rotor.alias, rotor.frame)
     return families, rotors, [group for group in groups if group.members]
+
+
+def _selector(ctx: SimContext, group: PolarGroup) -> str:
+    """Name what selects a group's families: its ``[groups]`` alias, its rotor's families."""
+    if group.origin == "rotor":
+        block = (getattr(ctx.live, "rotors", None) or {}).get(group.name)
+        families = [str(name) for name in getattr(block, "members", None) or ()]
+        return f"rotor {group.name}'s families ({', '.join(families) or 'none declared'})"
+    if group.origin == "declared":
+        for position, (name, members) in enumerate(ctx.pproc.groups.items(), start=1):
+            if group_id("declared", position=position) == group.group_id:
+                return f"its selector {name} = {', '.join(str(m) for m in members) or 'all'}"
+    return "every family"
+
+
+def _say_omitted(
+    ctx: SimContext,
+    gathered: _Gathered,
+    groups: Sequence[PolarGroup],
+    omitted: Sequence[tuple[str, int]],
+) -> None:
+    """Name each group row a point does not have because the group selects nothing there."""
+    by_name = {group.name: group for group in groups}
+    for name, index in omitted:
+        point = gathered.held[index]
+        stated = ", ".join(str(s) for s in point.loads.surfaces) if point.loads else "none"
+        key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, name, 'ACOEF')}#{point.name}"
+        ctx.skipped[key] = (
+            f"point {point.name}: group {name!r} selects no surface of its loads export "
+            f"({stated}): {_selector(ctx, by_name[name])} names no surface or alias of that "
+            "point, so the point is no row of the group's files (never a row of NA)."
+        )
+        warn(ctx.skipped[key], PyflightstreamWarning, stacklevel=3)
 
 
 def _said_instant(ctx: SimContext) -> bool:
@@ -445,6 +480,7 @@ def family_polar_products(ctx: SimContext) -> None:
             stacklevel=2,
         )
     unsteady = ctx.window is not None
+    omitted: list[tuple[str, int]] = []
     files = polar_files(
         pol=ctx.sim_id,
         points=gathered.rows,
@@ -455,7 +491,9 @@ def family_polar_products(ctx: SimContext) -> None:
         load_frame="MRP" if unsteady else _load_frame(ctx),
         identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
+        omitted=omitted,
     )
+    _say_omitted(ctx, gathered, groups, omitted)
     _note_the_polar(
         ctx,
         (families, rotors, groups),
@@ -471,9 +509,21 @@ def family_polar_products(ctx: SimContext) -> None:
     with stated_identifiers({}):
         for polar in files:
             target = _write(ctx, polar)
-            ctx.add(target, {**entry, **({"group": polar.group} if polar.group else {})})
+            own = entry
+            if polar.group is not None:
+                # A FILE NAMES THE RUNS OF ITS OWN ROWS: a point the group selects
+                # nothing at is no row of it, so it is no run of it either.
+                gone = {index for name, index in omitted if name == polar.group}
+                runs = [
+                    rid
+                    for index, point in enumerate(gathered.held)
+                    if index not in gone
+                    for rid in ctx.sources[point.name]
+                ]
+                own = {**entry, "runs": runs, "group": polar.group}
+            ctx.add(target, own)
             if polar.group is not None and polar.kind == "ACOEF":
-                _derived_polars(ctx, target, polar, entry, groups)
+                _derived_polars(ctx, target, polar, own, groups)
 
 
 _NO_RCOEF_NOTE = "its members are not all inside one rotor, so it has DIM and ACOEF files only"

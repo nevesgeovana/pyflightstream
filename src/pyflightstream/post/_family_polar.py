@@ -592,8 +592,15 @@ def polar_files(
     load_frame: str,
     identifiers: Sequence[str] = (),
     drag_split: Sequence[str] = DEFAULT_DRAG_SPLIT,
+    omitted: list[tuple[str, int]] | None = None,
 ) -> list[PolarFile]:
     """Return every family and group file of one polar, built from its points.
+
+    A family is a row of a point only where the point's loads state it (a key of
+    ``family_loads``; its value None is an NA row). A group's row at a point is
+    the sum of the members that point states; a group that selects none of them
+    and has no loads of its own is no row of that point, never a row of NA, and
+    its name and the point's index go to ``omitted``.
 
     Parameters
     ----------
@@ -615,6 +622,9 @@ def polar_files(
         The row's ``IDENTIFIERS`` names, in the order written.
     drag_split : sequence of str, optional
         The drag split columns of the ACOEF files.
+    omitted : list of tuple of str and int, optional
+        Receives ``(group, point index)`` for every group row not written
+        because the group selects nothing at that point.
 
     Returns
     -------
@@ -634,6 +644,8 @@ def polar_files(
     family_tables = assembler.tables("family", with_rcoef=bool(rotors))
     for index, point in enumerate(points):
         for family in families:
+            if family.name not in point.family_loads:
+                continue  # the point's loads do not state this family: no row, never NA
             assembler.append(
                 family_tables,
                 index,
@@ -648,14 +660,19 @@ def polar_files(
         tables = assembler.tables("group", with_rcoef=rotor is not None)
         for index, point in enumerate(points):
             own = point.group_loads.get(group.name)
+            stated = [member for member in group.members if member in point.family_loads]
+            if own is None and not stated:
+                if omitted is not None:
+                    omitted.append((group.name, index))
+                continue
             assembler.append(
                 tables,
                 index,
                 identity=(group.name, group.group_id),
                 loads=own
                 if own is not None
-                else _summed([point.family_loads.get(member) for member in group.members]),
-                members=group.members,
+                else _summed([point.family_loads[member] for member in stated]),
+                members=tuple(stated) if own is None else group.members,
                 rotor=rotor,
             )
         files.extend(assembler.files(tables, partial(group_file_name, pol, group.name), group.name))
