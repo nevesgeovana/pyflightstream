@@ -22,7 +22,7 @@ the polar.
 | [FAM-DIM](fam-dim.md) | `polars/` | dimensional forces and moments per family, solver frame | | | [X] |
 | [FAM-ACOEF](fam-acoef.md) | `polars/` | airframe coefficients per family, frames W, S, B, R&lt;id&gt; | | | [X] |
 | [FAM-RCOEF](fam-rcoef.md) | `polars/` | rotor families: T, Q, P and propeller coefficients | | | [X] |
-| [`<GROUP>` files](group-files.md) | `polars/` | a group (declared, ROTOR, AIRFRAME, TOTAL) | | | [X] |
+| [group files](group-files.md) | `polars/` | a group (declared, ROTOR, AIRFRAME, TOTAL) | | | [X] |
 | [plots history](time-history.md) | `time_history/` | one row per step, unsteady | [X] | | |
 | [phase_locked](phase-locked.md) | `reductions/` | one row per azimuth, per rotor | [X] | | |
 | [per_revolution](per-revolution.md) | `reductions/` | one row per complete revolution, drift, per rotor | [X] | | |
