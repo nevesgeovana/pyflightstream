@@ -107,3 +107,11 @@ positional readers keep their places.
 An unsteady row averages each dimensional component arithmetically over the
 averaging window, then forms its coefficients from the averaged loads: the
 rotations are linear and the condition is fixed over the window.
+
+The drag split reads the family's coefficient plots over that same window,
+with `CDO` carried as `CD0` and `CDI` as `CDI`, or `CDV` and `CDP` under
+their own names. The source history is normalized by the free-stream velocity;
+the split is brought back to `q_ref` by multiplying by `(VINF / VREF)^2`.
+Each group's split is the sum of its members' splits. A missing family
+component leaves that component `NA` for the family and its groups; the
+native last-step loads export does not fill a window average.
