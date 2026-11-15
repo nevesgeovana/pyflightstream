@@ -522,6 +522,7 @@
       "tests/tier1_offline/test_p0550_identifiers.py",
       "tests/tier1_offline/test_p0550_merged_polar.py",
       "tests/tier1_offline/test_p0580_i1_manifest.py",
+      "tests/tier1_offline/test_p0580_i1_sections.py",
       "tests/tier1_offline/test_p0580_l1_family_columns.py",
       "tests/tier1_offline/test_p0580_l1_frames.py",
       "tests/tier1_offline/test_p0580_l1_rcoef.py",

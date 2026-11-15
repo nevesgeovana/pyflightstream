@@ -16,7 +16,7 @@ column (:func:`after_run_block`).
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -39,7 +39,10 @@ __all__ = [
     "collect_block",
     "collected_block",
     "collecting_blocks",
+    "rotor_ids_for",
     "run_blocks",
+    "scope_rotor_ids",
+    "with_rotor_alias",
     "with_run_block",
 ]
 
@@ -163,6 +166,84 @@ def block_of_point(point: str) -> dict[str, object] | None:
         return None
     row = scope.rows.get(str(point))
     return None if row is None else dict(row)
+
+
+def scope_rotor_ids() -> dict[str, int]:
+    """Return each rotor alias's declared id in the open scope, empty outside one.
+
+    Examples
+    --------
+    >>> scope_rotor_ids()
+    {}
+    """
+    scope = _SCOPE.get()
+    return {} if scope is None else dict(scope.rotor_ids)
+
+
+def rotor_ids_for(
+    aliases: Iterable[object], rotor_ids: Mapping[str, int] | None = None
+) -> dict[str, int]:
+    """Return each rotor alias's declared id: those given, else the open scope's.
+
+    Where neither states an id and the table knows one rotor only, that rotor
+    is rotor 0, the id a rotor block takes when it declares none (design D6).
+
+    Examples
+    --------
+    >>> rotor_ids_for(["PUSHER"], {"PUSHER": 2}), rotor_ids_for(["PROP"])
+    ({'PUSHER': 2}, {'PROP': 0})
+    >>> rotor_ids_for(["A", "B"])
+    {}
+    """
+    ids = dict(rotor_ids) if rotor_ids else scope_rotor_ids()
+    names = list(dict.fromkeys(str(alias) for alias in aliases if alias))
+    if not ids and len(names) == 1:
+        return {names[0]: 0}
+    return ids
+
+
+def with_rotor_alias(
+    rows: Sequence[Mapping[str, str]],
+    rotor_ids: Mapping[str, int] | None = None,
+    *,
+    aliases: Iterable[object] = (),
+) -> list[dict[str, str]]:
+    """Return the rows of a table that names its rotor by ``ROTOR_ID`` only, with its alias.
+
+    The sections table states the rotor by its declared id (``ROTOR_ID``); a
+    reader that selects a rotor's rows by alias reads ``ROTOR`` here, resolved
+    from the id through :func:`rotor_ids_for` of ``aliases`` (the rotors the
+    reader knows) and ``rotor_ids``. A row that already states ``ROTOR``, or
+    whose id names no rotor, is left as it is.
+
+    Parameters
+    ----------
+    rows : sequence of mapping
+        The table's rows as :func:`~pyflightstream.post._tables.read_csv_table` reads them.
+    rotor_ids : mapping of str to int, optional
+        Each rotor alias to its declared id.
+    aliases : iterable of str, optional
+        The rotors the reader knows.
+
+    Returns
+    -------
+    list of dict
+        The rows, each with ``ROTOR`` where its id resolves.
+
+    Examples
+    --------
+    >>> with_rotor_alias([{"ROTOR_ID": "2"}, {"ROTOR_ID": "NA"}], {"PUSHER": 2})
+    [{'ROTOR_ID': '2', 'ROTOR': 'PUSHER'}, {'ROTOR_ID': 'NA'}]
+    """
+    ids = rotor_ids_for(aliases, rotor_ids)
+    alias_of = {str(rotor_id): str(alias) for alias, rotor_id in ids.items()}
+    out: list[dict[str, str]] = []
+    for row in rows:
+        own = dict(row)
+        if _ROTOR_COLUMN not in own and (alias := alias_of.get(str(own.get(_ROTOR_ID)))):
+            own[_ROTOR_COLUMN] = alias
+        out.append(own)
+    return out
 
 
 def _absent(value: object) -> bool:

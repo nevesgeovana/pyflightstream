@@ -13,7 +13,7 @@ refused, naming the three; a sections file is never one per polar.
 | `FAMILY`, `FAMILY_ID` | the family the distribution cuts, as the OBJ or FSM names it, and its 1-based index in the boundary inventory |
 | `STEP` | the solver step the distribution was sampled at |
 | `PLANE` | the cutting plane of the distribution |
-| `ROTOR_ID`, `ROTOR` | the declared id and the alias of the rotor whose blades the family is; `NA` off a rotor |
+| `ROTOR_ID` | the declared id of the rotor whose blades the family is (0 for a rotor that declares none); `NA` off a rotor |
 | `AZIMUTH` | where the block's blade is at `STEP`, in degrees; `NA` off a rotor |
 | `Offset`, `Chord`, `X_QC`, `Z_QC` | the station's offset, chord and quarter-chord point, in m |
 | `Fx`, `Fz` | the sectional forces, in N/m |

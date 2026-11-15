@@ -86,6 +86,7 @@ from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
     _one_refusal,
     read_csv_table,
+    with_rotor_alias,
     write_csv_table,
 )
 from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
@@ -222,10 +223,12 @@ def corrected_name(relative: str) -> str:
 # ------------------------------------------------------------------ helpers
 
 
-def _read(path: Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
+def _read(path: Path, alias: str | None = None) -> tuple[tuple[str, ...], list[dict[str, str]]]:
     # The shared CSV reader is in post._tables (AD-10), avoiding an import
-    # back into post.products, which imports this module.
-    return read_csv_table(path)
+    # back into post.products, which imports this module. A sections table names
+    # its rotor by ROTOR_ID (design 4.5); its rows read the alias from the id.
+    columns, rows = read_csv_table(path)
+    return columns, with_rotor_alias(rows, aliases=() if alias is None else (alias,))
 
 
 @dataclass(frozen=True)
@@ -504,7 +507,7 @@ def _correct_wheel_point(
         )
         return written
     try:
-        section_columns, section_rows = _read(out / sections_rel)
+        section_columns, section_rows = _read(out / sections_rel, point.rotor_alias)
         harmonic_columns, harmonic_rows = _read(out / harmonics_rel)
     except (OSError, ValueError) as error:
         _say(
@@ -672,7 +675,7 @@ def _theodorsen_file(
 ) -> tuple[Path, dict[str, object]] | None:
     relative = f"{sections_rel.rpartition('/')[0]}/{point.name}{THEODORSEN_SUFFIX}"
     try:
-        _, section_rows = _read(out / sections_rel)
+        _, section_rows = _read(out / sections_rel, point.rotor_alias)
         _, harmonic_rows = _read(out / harmonics_rel)
     except (OSError, ValueError) as error:
         _say(

@@ -58,8 +58,9 @@ are `NA`, said once, and its group rows come from the group plots it has.
 | `products.json` | `schema_version` 2, and the tree, the kinds, the run block, the frames, the families, the groups and `migrated` |
 
 The tables of `time_history/`, `reductions/`, `probes/` and `sections/` take their header
-from the run block, then their own columns; a table that named its rotor by alias keeps the
-alias and gains `ROTOR_ID` before it. The averaged surface carries the run block as
+from the run block, then their own columns; a reduction that named its rotor by alias keeps
+the alias and gains `ROTOR_ID` before it, and the sections table names it by `ROTOR_ID`
+only (a rotor that declares no `id` is rotor 0). The averaged surface carries the run block as
 Tecplot auxiliary data and VTK field data. The settings table opens each row with the run
 block of its point, then `RUN_ID`; the `IDENTIFIERS` of the matrix follow `POL`. The
 quasi-steady tables open each row with the block of its point.
@@ -67,7 +68,7 @@ quasi-steady tables open each row with the block of its point.
 | Earlier header | Now |
 | --- | --- |
 | `POL, REDUCTION, ROTOR, WINDOW, FIRST_STEP, LAST_STEP, STEPS, ...condition, XMOM...` | the run block, then `REDUCTION, ROTOR_ID, ROTOR, WINDOW` and the reduction's own columns; the window columns are in the block |
-| `POL, STEP, FAMILY, PLANE, ROTOR, AZIMUTH, ...condition` of the sections table | the run block, then `FAMILY, FAMILY_ID, STEP, PLANE, ROTOR_ID, ROTOR, AZIMUTH`; `FAMILY` is the family as the OBJ or FSM names it and `FAMILY_ID` its index |
+| `POL, STEP, FAMILY, PLANE, ROTOR, AZIMUTH, ...condition` of the sections table | the run block, then `FAMILY, FAMILY_ID, STEP, PLANE, ROTOR_ID, AZIMUTH`; `FAMILY` is the family as the OBJ or FSM names it and `FAMILY_ID` its index |
 | `[sections]` with one file per point only | `[sections] split` chooses `point` (the default), `family` or `both`; any other value is refused naming the three |
 | the plots history opening with `POL` and the export's header | the run block, then `Time-step` and the plotted columns |
 

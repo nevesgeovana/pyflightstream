@@ -71,6 +71,7 @@ from pyflightstream.post._tables import (
     ProductExistsError,
     ReferenceValues,
     read_csv_table,
+    with_rotor_alias,
 )
 from pyflightstream.post.farfield_fields import non_metre_refusal
 from pyflightstream.post.point_tables import write_sections_table
@@ -206,6 +207,9 @@ def _write_harmonics(
     relative = f"{REDUCTIONS_DIR}/{point}{_harmonics.HARMONICS_SUFFIX}"
     try:
         columns, rows = read_csv_table(table)
+        # THE SECTIONS TABLE NAMES ITS ROTOR BY ROTOR_ID (design 4.5): the alias the
+        # rotors below are keyed by is read from the id.
+        rows = with_rotor_alias(rows, aliases=rotors)
     except (ProductError, OSError) as error:
         skipped[relative] = f"the table {table.name} cannot be read back: {error}"
         warn(

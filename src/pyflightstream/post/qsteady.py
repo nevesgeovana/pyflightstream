@@ -84,7 +84,7 @@ from pyflightstream.cases.qsteady import (
     strip_lengths,
     validity_file_name,
 )
-from pyflightstream.post._block_scope import apply_point_blocks
+from pyflightstream.post._block_scope import apply_point_blocks, rotor_ids_for
 from pyflightstream.post._tables import (
     _cell,
     _refuse_existing_product,
@@ -239,16 +239,44 @@ def _number(text: object) -> float | None:
     return value if math.isfinite(value) else None
 
 
-def _read_table(path: Path) -> tuple[list[str], list[list[str]]]:
+#: The rotor's alias, which the readers below select a rotor's rows by. The
+#: sections table states the rotor by ``ROTOR_ID`` only (design 4.5): the alias
+#: is read from the id, as the last column, and is never written back.
+_ALIAS_COLUMN = "ROTOR"
+_ROTOR_ID_COLUMN = "ROTOR_ID"
+
+
+def _read_table(path: Path, alias: str | None = None) -> tuple[list[str], list[list[str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
         columns = next(reader, None)
         if not columns:
             raise ProductError(f"{path.name}: empty sections table; export its header and rows")
-        return columns, [row for row in reader]
+        rows = [row for row in reader]
+    if _ALIAS_COLUMN in columns or _ROTOR_ID_COLUMN not in columns:
+        return columns, rows
+    at = columns.index(_ROTOR_ID_COLUMN)
+    ids = rotor_ids_for(() if alias is None else (alias,))
+    alias_of = {str(rotor_id): name for name, rotor_id in ids.items()}
+    return [*columns, _ALIAS_COLUMN], [
+        [*row, alias_of.get(row[at], NOT_APPLICABLE) if at < len(row) else NOT_APPLICABLE]
+        for row in rows
+    ]
+
+
+def _place_rotor(cells: list[str], index: Mapping[str, int], rotor: object) -> None:
+    """Set a sections row's rotor: its alias, read from, and its ``ROTOR_ID``, written."""
+    cells[index[_ALIAS_COLUMN]] = _cell(rotor)
+    stated = None if rotor is None else rotor_ids_for((rotor,)).get(str(rotor))
+    if _ROTOR_ID_COLUMN in index and stated is not None:
+        cells[index[_ROTOR_ID_COLUMN]] = _cell(stated)
 
 
 def _rewrite(path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> None:
+    if _ALIAS_COLUMN in columns and _ROTOR_ID_COLUMN in columns:
+        keep = [at for at, name in enumerate(columns) if name != _ALIAS_COLUMN]
+        columns = [columns[at] for at in keep]
+        rows = [[row[at] for at in keep] for row in rows]
     with _textio.open_text(path, "w") as handle:
         writer = _textio.csv_writer(handle)
         writer.writerow(columns)
@@ -545,7 +573,7 @@ def add_clockings_to_sections(
     ClockedSections
         The clockings left out and why, and the clockings whose stations differ from clocking 0's.
     """
-    columns, rows = _read_table(path)
+    columns, rows = _read_table(path, record.rotor_alias)
     index = {name: at for at, name in enumerate(columns)}
     by_clocking: dict[int, list[list[str]]] = {0: rows}
     result = ClockedSections(missing={}, misaligned=[])
@@ -570,7 +598,7 @@ def add_clockings_to_sections(
             if done is None:
                 result.missing[clocking] = f"{export.name} declares no section"
                 continue
-            more_columns, more = _read_table(done)
+            more_columns, more = _read_table(done, record.rotor_alias)
         except (ProductError, OSError) as error:
             result.missing[clocking] = f"{export.name}: {error}"
             continue
@@ -597,7 +625,7 @@ def add_clockings_to_sections(
                 family = cells[index["FAMILY"]]
                 families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
                 rotor, azimuth = wheel_block_identity(record, families, clocking)
-                cells[index["ROTOR"]] = _cell(rotor)
+                _place_rotor(cells, index, rotor)
                 cells[index["AZIMUTH"]] = _cell(azimuth)
             written.append([*cells, str(clocking)])
     _rewrite(path, [*columns, CLOCKING_COLUMN], written)
@@ -886,7 +914,7 @@ def add_reduced_frequency_to_sections(
     PointValidity or None
         None, and the table untouched, where no row is the rotor's.
     """
-    columns, rows = _read_table(path)
+    columns, rows = _read_table(path, record.rotor_alias)
     index = {name: at for at, name in enumerate(columns)}
     if (preflight := _section_validity_preflight(index, rows, record)) is not True:
         return preflight

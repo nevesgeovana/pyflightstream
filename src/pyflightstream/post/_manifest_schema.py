@@ -273,16 +273,8 @@ def kinds_section(
             keys=[*grp_keys, "ROTOR_ID"],
         )
     section_keys = [*fam_keys, "STEP", "PLANE", "ROTOR_ID", "AZIMUTH"]
-    sections = list(sections_columns(integrated=integrated_sections))
-    at = next(i for i, spec in enumerate(sections) if spec.name == "ROTOR_ID") + 1
-    sections.insert(
-        at,
-        ColumnSpec(
-            "ROTOR", "-", None, "the rotor's alias, NA off a rotor", sections[at - 1].definition
-        ),
-    )
     out["sections"] = kind_entry(
-        sections,
+        sections_columns(integrated=integrated_sections),
         rows="one per cut station of a distribution",
         keys=section_keys,
     )

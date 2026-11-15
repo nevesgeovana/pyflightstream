@@ -717,7 +717,9 @@ def test_a_wheel_s_sections_table_holds_every_clocking_with_each_blade_s_azimuth
     for row in rows:
         clocking, blade = int(row["CLOCKING"]), BLADES.index(row["FAMILY"])
         assert float(row["AZIMUTH"]) == pytest.approx(azimuths[clocking][blade])
-        assert row["ROTOR"] == "PROP"
+        # 0.58.0 (design 4.5): the table names the rotor by its id; PROP declares
+        # none, so it is rotor 0.
+        assert "ROTOR" not in row and row["ROTOR_ID"] == "0"
         # Each clocking's rows are its own export's: Fx is 10 i plus the blade's number.
         assert float(row["Fx"]) == pytest.approx(10.0 * clocking + blade + 1)
     stations = {

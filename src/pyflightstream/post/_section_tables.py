@@ -17,6 +17,7 @@ import numpy as np
 
 from pyflightstream._errors import ProductError, PyflightstreamError
 from pyflightstream._tokens import CELL_LIST_SEPARATOR, POLAR_ID_COLUMN
+from pyflightstream.post._block_scope import rotor_ids_for
 from pyflightstream.post._stage import _a_name_a_file_may_carry
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -174,7 +175,8 @@ def sections_rows(
         The export's seven columns, one row per section.
     identity : sequence of tuple
         ``(FAMILY, PLANE, ROTOR alias, AZIMUTH)`` of each row, as
-        :func:`~pyflightstream.post._tables.section_identity` returns it.
+        :func:`~pyflightstream.post._tables.section_identity` returns it; the
+        alias is written as its ``ROTOR_ID``.
     pol, step, inventory, rotor_ids, context
         The polar, the solver step, the boundary inventory, each rotor alias's
         id and the condition cells written beside every row.
@@ -184,6 +186,9 @@ def sections_rows(
     list of tuple
         One row per section.
     """
+    # THE ROTOR IS ITS ID (design 4.5): the ids given, else the post's, else rotor 0
+    # where the table knows one rotor and nothing states its id.
+    ids = rotor_ids_for((alias for _family, _plane, alias, _azimuth in identity), rotor_ids)
     return [
         (
             pol,
@@ -191,8 +196,7 @@ def sections_rows(
             family_cell(family, inventory),
             step,
             plane,
-            rotor_id_cell(alias, rotor_ids),
-            alias,
+            rotor_id_cell(alias, ids),
             azimuth,
             *context,
             *(float(value) for value in row),
@@ -336,6 +340,7 @@ def cp_rows(
         raise ProductError(f"the Cp export cannot be read: {error}") from error
     identity = section_identity(report.count, layout, rotors, step, azimuth_deg)
     context = context_row(condition, None if reference is None else reference.as_lengths())
+    ids = rotor_ids_for((alias for _family, _plane, alias, _azimuth in identity), rotor_ids)
     rows: list[tuple[object, ...]] = []
     for at, section in enumerate(report.sections):
         family, plane, alias, azimuth = identity[at]
@@ -345,7 +350,7 @@ def cp_rows(
             family_cell(family, inventory),
             step,
             plane,
-            rotor_id_cell(alias, rotor_ids),
+            rotor_id_cell(alias, ids),
             azimuth,
             section.index,
             *context,

@@ -38,20 +38,13 @@ def test_p0580_the_sections_table_names_family_and_ids(tmp_path):
         rotor_ids={"PUSHER": 3},
     )
     columns, rows = read_csv_table(written)
-    assert columns[:8] == (
-        "POL",
-        "FAMILY",
-        "FAMILY_ID",
-        "STEP",
-        "PLANE",
-        "ROTOR_ID",
-        "ROTOR",
-        "AZIMUTH",
-    )
+    # Design 4.5 (I1): the rotor's alias is no column of the sections table; ROTOR_ID is.
+    assert columns[:7] == ("POL", "FAMILY", "FAMILY_ID", "STEP", "PLANE", "ROTOR_ID", "AZIMUTH")
+    assert "ROTOR" not in columns
     assert columns == SECTION_COLUMNS
-    assert [(r["FAMILY"], r["FAMILY_ID"], r["ROTOR_ID"], r["ROTOR"]) for r in rows] == [
-        ("Wing", "2", "NA", "NA"),
-        ("Blade1", "3", "3", "PUSHER"),
+    assert [(r["FAMILY"], r["FAMILY_ID"], r["ROTOR_ID"]) for r in rows] == [
+        ("Wing", "2", "NA"),
+        ("Blade1", "3", "3"),
     ]
 
 
@@ -158,8 +151,9 @@ def test_p0580_the_cp_table_splits_by_family(tmp_path):
 def test_p0580_the_manifest_states_the_columns_the_tables_write(tmp_path):
     doc = ms.manifest_sections(rotors=[{"id": 0, "alias": "P", "pitch_deg": 0.0, "toe_deg": 0.0}])
     sections = [c["name"] for c in doc["kinds"]["sections"]["columns"]]
-    assert sections[:7] == list(SECTION_COLUMNS[1:8])
-    assert tuple(sections[:7]) == tuple(SECTION_COLUMNS[1:8])
+    # The identity of the sections table, without the rotor's alias (design 4.5).
+    assert sections[:6] == list(SECTION_COLUMNS[1:7])
+    assert "ROTOR" not in sections
     cp = [c["name"] for c in doc["kinds"]["cp"]["columns"]]
     assert cp == [name for name in CP_COLUMNS[1:] if name not in run_block_columns((), ())]
     assert [s.name for s in ms.cp_export_specs()] == list(SURFACE_SECTION_COLUMNS)

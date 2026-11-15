@@ -56,6 +56,7 @@ from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.windows import march_end
 from pyflightstream.post._block_scope import after_run_block, with_run_block
+from pyflightstream.post._block_scope import with_rotor_alias as with_rotor_alias
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
@@ -187,14 +188,14 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
 #: AZIMUTH is NA without a rotor, not zero, which is a real rotor angle.
 #: STEP names the solver step, or solver iteration on a steady run.
 #: FAMILY and FAMILY_ID (the family and its index in the boundary inventory),
-#: PLANE and ROTOR_ID (with its alias, ROTOR) identify the distribution.
+#: PLANE and ROTOR_ID (the rotor's declared id; its alias is no column of the
+#: table, design 4.5) identify the distribution.
 _SECTION_IDENTITY_COLUMNS: tuple[str, ...] = (
     "FAMILY",
     "FAMILY_ID",
     "STEP",
     "PLANE",
     "ROTOR_ID",
-    "ROTOR",
     "AZIMUTH",
 )
 
