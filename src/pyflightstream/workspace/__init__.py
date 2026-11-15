@@ -1642,8 +1642,8 @@ class CampaignWorkspace:
                 "NAME CANNOT RESOLVE THIS and is not offered: the same point renders the "
                 "same name, so the collision is with itself. Remove or rename "
                 f"{folder}/ to re-run this point, or archive the whole simulation "
-                "if you mean to start it over (pyfs-workspace archive <root> "
-                "<sim_id>), which takes every other point of the sweep with it. "
+                "if you mean to start it over (pyfs-workspace archive <sim_id> "
+                "--workspace <root>), which takes every other point of the sweep with it. "
                 "NOTHING HAS BEEN MOVED: every declared output is still where it was."
             )
         collected: list[str] = []

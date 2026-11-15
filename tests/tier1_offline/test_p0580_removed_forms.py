@@ -236,3 +236,20 @@ def test_p0580_probe_kind_alias_is_refused_naming_the_current_kind(old, new):
         said = str(refused.value)
         assert f'kind = "{old}"' in said and f'kind = "{new}"' in said, said
         assert "no longer accepted" in said, said
+
+
+def test_p0580_archive_positional_root_is_refused_naming_workspace(tmp_path, capsys):
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_workspace import make_record
+
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    workspace.write_script("8001", "point.txt", "START_SOLVER\n")
+    workspace.append_record(make_record(sim_id="8001", run_id="matriz/sim_8001/a+00.0"))
+    capsys.readouterr()
+    assert main(["archive", str(root), "8001"]) == 2
+    said = capsys.readouterr().err
+    assert "positional root" in said and "archive SIM_ID --workspace ROOT" in said, said
+    assert "no longer accepted" in said, said
+    assert not (root / "archive" / "sim_8001.zip").exists()
+    assert (root / "sims" / "sim_8001").exists()

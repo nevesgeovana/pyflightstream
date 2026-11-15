@@ -638,6 +638,13 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         retired_in="0.58.0",
         why=_PROBE_KINDS,
     ),
+    "archive.root": RetiredName(
+        owner="pyfs-workspace archive",
+        old="the positional root (archive ROOT SIM_ID)",
+        new="archive SIM_ID --workspace ROOT",
+        retired_in="0.58.0",
+        why="Every subcommand names its campaign with --workspace, so archive does too.",
+    ),
     "matrix.layout-0.56.0": RetiredName(
         owner="a run matrix",
         old="the header of v0.56.0 (no MESH_ROUTE column)",

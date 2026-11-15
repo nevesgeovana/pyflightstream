@@ -240,7 +240,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
-\sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
+\sub{archive <sim\_id> --workspace <root>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{migrate [root]}{preview conversion of a workspace from the 0.38.0 format; see Upgrading for the format boundary}

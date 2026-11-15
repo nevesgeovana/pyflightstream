@@ -434,7 +434,7 @@ def test_cli_init_builds_the_tree_and_returns_zero(tmp_path, capsys):
 
 
 def test_archive_subcommand_zips_a_recorded_simulation(tmp_path, capsys):
-    """``pyfs-workspace archive <root> <sim_id>`` zips one recorded simulation.
+    """``pyfs-workspace archive <sim_id> --workspace <root>`` zips one recorded simulation.
 
     The worked example of docs/workspace-and-workflows.md, executed: a
     completed simulation of the manifest goes under ``archive/`` as one zip
@@ -445,7 +445,7 @@ def test_archive_subcommand_zips_a_recorded_simulation(tmp_path, capsys):
     workspace = CampaignWorkspace.init(root)
     workspace.write_script("8001", "point.txt", "START_SOLVER\n")
     workspace.append_record(make_record(sim_id="8001", run_id="matriz/sim_8001/a+00.0"))
-    assert workspace_cli(["archive", str(root), "8001"]) == 0
+    assert workspace_cli(["archive", "8001", "--workspace", str(root)]) == 0
     bundle = root / "archive" / "sim_8001.zip"
     assert bundle.is_file()
     with zipfile.ZipFile(bundle) as archive:
@@ -465,7 +465,7 @@ def test_archive_subcommand_refuses_an_unrecorded_simulation(tmp_path, capsys):
     workspace = CampaignWorkspace.init(root)
     workspace.create_sim("8001")
     workspace.append_record(make_record(sim_id="8002", run_id="matriz/sim_8002/a+00.0"))
-    assert workspace_cli(["archive", str(root), "8001"]) == 2
+    assert workspace_cli(["archive", "8001", "--workspace", str(root)]) == 2
     err = capsys.readouterr().err
     assert "sim_8001" in err and "no record of this simulation" in err
     assert (root / "sims" / "sim_8001").is_dir()

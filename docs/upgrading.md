@@ -111,6 +111,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | `geometry refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
 | `geometry audit --csv` | `--out` |
 | `kind = "normal"`, `kind = "unsteady"` of `[[probes]]` and `[volume_section]` | `kind = "default"`, `kind = "instantaneous"` |
+| `pyfs-workspace archive ROOT SIM_ID` | `archive SIM_ID --workspace ROOT` |
 | `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
 | `pyfs-matrix run --sweep-csv`, `run_matrix(..., sweep_csv=...)`, `run_campaign(..., sweep_csv=...)`, `pyflightstream.run.SWEEP_TABLE_NAME` | none: the run writes no campaign table; join the `TOTAL` group files of the polars ([joining polars](pproc/index.md#joining-polars)) |
 
@@ -1376,7 +1377,7 @@ Run `pyfs-matrix post` to rebuild products from recorded solver exports.
 
 ### Additional workspace and command-line migrations
 
-- Use `pyfs-workspace archive SIM_ID --workspace ROOT`; positional `archive ROOT SIM_ID` remains available with a deprecation warning.
+- Use `pyfs-workspace archive SIM_ID --workspace ROOT`.
 - Convert in-row CCS, IGES or STL geometry and sidecar scale, rename or mirror operations with `pyfs-workspace geometry from-sidecar <file> --apply`, then build the folder and name its FSM or OBJ in `GEOMETRY`; these routes warn now and are refused in 0.41.0.
 - Move `CCS_SHEDDING` to `shedding` in the instruction's `[ccs]` table; changing the row to the built body changes its input set and runs its points again.
 - `--png` draws with matplotlib, which the base install includes.

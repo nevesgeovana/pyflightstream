@@ -73,6 +73,8 @@ The `[hub_rings]` key `width` is refused. migration: write `band_width`.
 
 `pyfs-workspace geometry audit --csv` is refused. migration: write `--out`.
 
+`pyfs-workspace archive ROOT SIM_ID` is refused. migration: write `archive SIM_ID --workspace ROOT`.
+
 The probe kinds `normal` and `unsteady` of a `[[probes]]` or `[volume_section]` entry are refused. migration: write `kind = "default"` and `kind = "instantaneous"`.
 
 `sector_to_wheel(hub=...)` and `pyfs-workspace geometry sector-to-wheel --hub` are refused. migration: write `center=` and `--center`.

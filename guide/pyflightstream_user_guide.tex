@@ -1352,7 +1352,7 @@ pyfs-qa cases                                         # print the case registry
 pyfs-qa update-reference PHY-01 --from-report report.yaml --reason "new measurement"
 pyfs-qa cost             DIR                          # reads existing timing records
 pyfs-workspace init      DIR                          # scaffold a workspace
-pyfs-workspace archive   DIR SIM_ID                   # zip one recorded simulation
+pyfs-workspace archive   SIM_ID --workspace DIR      # zip one recorded simulation
 pyfs-workspace migrate   DIR [--apply]                # preview first; see Upgrading
 pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and provenance
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
