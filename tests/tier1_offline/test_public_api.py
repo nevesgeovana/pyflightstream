@@ -444,6 +444,16 @@ def test_p0460_workspace_exports_are_documented_or_allowlisted():
     assert not exports - words - WORKSPACE_REFERENCE_ONLY
 
 
+def test_p0580_the_mesh_frame_record_reader_is_not_public():
+    """ARCH-A2: read_mesh_frame_record serves the run stage; it is on no public path."""
+    from pyflightstream import workspace
+    from pyflightstream.workspace import inputs, sidecars
+
+    assert not hasattr(workspace, "read_mesh_frame_record")
+    assert "read_mesh_frame_record" not in inputs.__all__
+    assert "read_mesh_frame_record" not in sidecars.__all__
+
+
 def test_p0460_boundary_marking_has_experimental_python_guidance():
     docs = Path(__file__).resolve().parents[2] / "docs" / "mesh-inputs.md"
     text = docs.read_text(encoding="utf-8")

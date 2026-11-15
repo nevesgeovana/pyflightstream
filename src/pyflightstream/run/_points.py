@@ -119,13 +119,13 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     datapoint_dir_name,
-    read_mesh_frame_record,
 )
 from pyflightstream.workspace.naming import (
     PointName,
     machine_description,
     submitted_by,
 )
+from pyflightstream.workspace.sidecars import read_mesh_frame_record
 
 
 def _translation_problems(translations: object) -> str:

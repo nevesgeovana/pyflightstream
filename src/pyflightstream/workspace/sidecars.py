@@ -79,7 +79,6 @@ __all__ = [
     "boundaries_for_matrix",
     "read_marking_record",
     "read_mesh_frame",
-    "read_mesh_frame_record",
     "refuse_a_frame_that_cannot_be_converted",
     "stage_mesh_frame",
     "ensure_inventory",
