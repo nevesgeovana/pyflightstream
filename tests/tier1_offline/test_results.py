@@ -979,6 +979,11 @@ _UNREACHABLE_FROM_ITS_PACKAGE_ROOT: dict[str, str] = {
     # codebook product (item S7) and the installed-frame copies (item S8) made the
     # post stage import them.
     # 0.41.0: qsteady_noise left this list when the post stage gained its report route.
+    "pyflightstream.post._cn_slope": (
+        "0.58.0: [products] rotor_cn_slope is a named skip, because its reader read the "
+        "retired rotor table; the module and its own tests stay for PFS-2241 (0.59.0), "
+        "which computes the slope from the rotor group RCOEF files and closes this row"
+    ),
 }
 
 
