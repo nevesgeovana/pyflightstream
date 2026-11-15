@@ -32,8 +32,8 @@ identify one exported half (FR-3612).
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_TOTAL_<entry>.csv`, with `wake` as the
 default entry name; entries `near` and `far` retain separate spanwise files.
-The polar, unsteady polar (`polars/P<sim>_<name>_uns_avg.csv`), merged polar and
-super file carry every far-field target as `<QUANTITY>_FF_<METHOD>_<TARGET>`.
+Every group ACOEF file (`polars/P<POL>-<GROUP>-ACOEF.csv`) carries every far-field target as
+trailing columns `<QUANTITY>_FF_<METHOD>_<TARGET>`, before `MESH_FACES`, which stays last.
 Methods are A, B, C, D and W; `net` becomes `TOTAL`, while family, blade and
 rotor names retain their spelling. Examples are `CL_FF_B_TOTAL`, `CDI_FF_B_W`,
 `CDI_FF_B_Blade1`, `CDI_FF_B_PUSHER` and `CL_FF_A_W`.

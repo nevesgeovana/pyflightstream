@@ -18,7 +18,6 @@ every simulation:
 
 | product | under `--sims` |
 |---|---|
-| the super files (`polars/SUPER-*`), whose columns are the union over every simulation of the matrix | the named simulations' are rewritten under the column set the others carry, read from the superfile measurement, and the others' are left as they were; when the named simulations bring a column the others lack, each other super file is named under `partial.not_rebuilt`. Without a readable measurement every super file is left as the last whole post wrote it |
 | `post/<matrix>/reports/superfile-<release>.json`, the measurement of the super files | rewritten with every super file, each kept one as the last measurement named it |
 | the settings table (`settings/<matrix>_settings.csv` and its codebook) | rewritten with the named simulations' rows and every other simulation's rows the last table held |
 | `post/<matrix>/reports/sections-<release>.json`, the sections measurement | rebuilt from every recorded simulation of the matrix, as a whole post rebuilds it, unless another simulation's folder is compacted or deleted; then left as it was |

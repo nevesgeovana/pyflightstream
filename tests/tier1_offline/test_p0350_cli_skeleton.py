@@ -255,7 +255,7 @@ def test_p0540_a_row_that_declares_no_advance_ratio_has_no_advance_ratio_point(w
 def test_p0540_the_command_writes_the_pdf_and_prints_its_path(workspace, capsys):
     code = main(
         [
-            "visual-inspect",
+            "plot-sweeps",
             "--workspace",
             str(workspace),
             "--name",
@@ -504,7 +504,7 @@ def test_p0530_vi_the_option_takes_products_or_sims_only(workspace):
 
 def test_p0530_vi_name_is_required_takes_pdf_once_and_refuses_a_folder(workspace, capsys):
     base = [
-        "visual-inspect",
+        "plot-sweeps",
         "--workspace",
         str(workspace),
         "--matrices",
@@ -535,7 +535,7 @@ def test_p0530_vi_an_existing_figure_is_kept_with_a_warning_unless_overwrite(wor
     assert visual_inspect(workspace, [_OFF], ["ALPHA"], name="keep", overwrite=True) == target
     assert target.read_bytes().startswith(b"%PDF")
     target.write_bytes(b"old")
-    base = ["visual-inspect", "--workspace", str(workspace), "--matrices", _OFF, "--name", "keep"]
+    base = ["plot-sweeps", "--workspace", str(workspace), "--matrices", _OFF, "--name", "keep"]
     with pytest.warns(NotApplicableWarning):
         assert main(base) == 0
     assert target.read_bytes() == b"old"

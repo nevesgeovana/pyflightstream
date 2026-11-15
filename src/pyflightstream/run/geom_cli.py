@@ -203,7 +203,15 @@ def _split_symmetry(args: argparse.Namespace) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pyfs-geom", description="Parametric geometry pipeline of pyflightstream."
+        prog="pyfs-geom",
+        description=(
+            "Parametric geometry pipeline of pyflightstream: run and doe generate an IGES "
+            "and its report, validate, configurations and stages describe them, identify "
+            "and check measure an original IGES and a rebuilt one, schema prints or checks "
+            "the component record, add-control-surface and split-symmetry edit an IGES, and "
+            "iges-convert rewrites IGES files as B-spline faces "
+            "(docs/geometry-parametrization.md)."
+        ),
     )
     verbs = parser.add_subparsers(dest="verb", required=True, metavar="VERB")
 

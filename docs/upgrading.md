@@ -169,7 +169,7 @@ lists without the leading `geometry`.
 ## The records, storage and query verbs move to pyfs-workspace (0.58)
 
 `pyfs-matrix` keeps the verbs that need a matrix to know what to do, and `status`: `plan`
-(and `inspect-setups`), `run`, `collect`, `post`, `noise`, `visual-inspect`, `support` and
+(and `inspect-setups`), `run`, `collect`, `post`, `noise`, `plot-sweeps`, `support` and
 `status`. The verbs that act on what the workspace already holds, whichever matrix wrote
 it, are `pyfs-workspace`'s, with the same names, arguments, defaults, outputs and exit
 codes; the settings files, the two matrix homes of `--matrix`, the `--runs` check and the
@@ -191,6 +191,7 @@ name, naming its new command. Replace the program and keep the rest of the line.
 | `analysis_setup(script, vorticity_drag_boundaries=...)` | `solver_settings(script, vorticity_drag_boundaries=...)` |
 | `plan_matrix(..., fs_version=...)`, `run_matrix(..., fs_version=...)` | `default_fs_version=...` (the `pyfs-matrix` option `--fs-version` is unchanged) |
 | `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-mesh refine`, `audit`, `inventory`, `degenerate`, with the same arguments |
+| `pyfs-matrix visual-inspect` | `pyfs-matrix plot-sweeps`, with the same arguments; the figure is still written to `post/visual-inspect/<name>.pdf`, and `pyfs-mesh visual-inspect` is unchanged |
 | `pyflightstream.post.inflow_tools.StationHarmonics` | `InflowStationHarmonics` |
 | a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
 | `[hub_rings] width` | `[hub_rings] band_width` |

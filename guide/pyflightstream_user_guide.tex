@@ -1363,21 +1363,21 @@ pyfs-mesh audit   mesh.obj [--against SRC.obj]  # judge a panel mesh, write its 
 pyfs-mesh refine       mesh.obj 2 [--out DIR]       # refine or coarsen into a new level folder
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
-pyfs-matrix space-in-use --workspace DIR              # sizes: folders, sims, extensions
-pyfs-matrix free-space   m001 --workspace DIR [--apply]  # a storage recipe
-pyfs-matrix delete-sims  --sims 4001 2009 --workspace DIR [--apply]  # sims, products, records
-pyfs-matrix sync         runs --workspace DIR [--apply]  # from sync-workspaces.toml
-pyfs-matrix restore      runs --workspace DIR [--apply]  # a records file, back from archive/
-pyfs-matrix rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
-pyfs-matrix mark-failed  --sims 2006 [--apply]        # a run found wrong, FAILED_MARKED
-pyfs-matrix mark-converged --sims 2006 --reason TEXT [--apply]  # your verdict, CONVERGED
-pyfs-matrix search-log-batch [--sims 4034] [--master FILE] [--apply]  # a batch point's log, from the master log
+pyfs-workspace space-in-use --workspace DIR              # sizes: folders, sims, extensions
+pyfs-workspace free-space   m001 --workspace DIR [--apply]  # a storage recipe
+pyfs-workspace delete-sims  --sims 4001 2009 --workspace DIR [--apply]  # sims, products, records
+pyfs-workspace sync         runs --workspace DIR [--apply]  # from sync-workspaces.toml
+pyfs-workspace restore      runs --workspace DIR [--apply]  # a records file, back from archive/
+pyfs-workspace rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
+pyfs-workspace mark-failed  --sims 2006 [--apply]        # a run found wrong, FAILED_MARKED
+pyfs-workspace mark-converged --sims 2006 --reason TEXT [--apply]  # your verdict, CONVERGED
+pyfs-workspace search-log-batch [--sims 4034] [--master FILE] [--apply]  # a batch point's log, from the master log
 pyfs-matrix status       --workspace DIR              # per polar: points, states, freshness
-pyfs-matrix show         9101_1 --workspace DIR       # one point's card, outcome first
-pyfs-matrix log          --workspace DIR [--problems] # recorded activity, post and storage
-pyfs-matrix trace        post/demo/polars/polar.csv   # a product back to its runs
-pyfs-matrix history      9101 --workspace DIR         # every recorded copy of a run
-pyfs-matrix diff         RUN_A RUN_B --workspace DIR  # two runs, field by field
+pyfs-workspace show         9101_1 --workspace DIR       # one point's card, outcome first
+pyfs-workspace log          --workspace DIR [--problems] # recorded activity, post and storage
+pyfs-workspace trace        post/demo/polars/polar.csv   # a product back to its runs
+pyfs-workspace history      9101 --workspace DIR         # every recorded copy of a run
+pyfs-workspace diff         RUN_A RUN_B --workspace DIR  # two runs, field by field
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition

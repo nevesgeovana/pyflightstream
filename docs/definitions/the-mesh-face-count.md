@@ -2,8 +2,8 @@
 
 ## The mesh face count
 
-- **`MESH_FACES` is the last column of every super file and of every unsteady
-  polar** (`polars/P<sim>_<name>_uns_avg.csv`), after every column 0.33 wrote,
+- **`MESH_FACES` is the last column of every FAM and group polar file** (`polars/FAM-*-P<POL>.csv`
+  and `polars/P<POL>-<GROUP>-*.csv`), after every other column,
   so a reader that takes those columns by position keeps each of them. It holds
   the face count of the geometry the row's run opened.
 - **It comes from the boundary inventory, and the post never counts a face.**

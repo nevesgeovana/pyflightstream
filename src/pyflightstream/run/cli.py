@@ -209,7 +209,8 @@ def _confirmed_destruction(yes: bool) -> bool:
 def _refused_campaign_file(argv: list[str] | None) -> bool:
     """Name the matrix replacement before parsing a retired convert invocation."""
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments[0] != "convert":
+    # The command is the first word past the global flags, none of which takes a value.
+    if next((item for item in arguments if not item.startswith("-")), None) != "convert":
         return False
     print(
         "Campaign-file conversion is not supported; the matrix is the sole campaign "
@@ -338,7 +339,7 @@ def _records_or_storage(args: argparse.Namespace) -> int | None:
     """Run the records or the storage command the arguments name, else return None."""
     if args.subcommand == "noise":
         return _cmd_noise(args)
-    if args.subcommand == "visual-inspect":
+    if args.subcommand == "plot-sweeps":
         from pyflightstream.run._plan_report import cmd_visual_inspect
 
         return cmd_visual_inspect(args)  # FR-3440

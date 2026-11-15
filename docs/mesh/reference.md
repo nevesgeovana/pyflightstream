@@ -39,6 +39,8 @@ iges-convert` ([IGES inputs](iges.md)) and the FSI beam cut is `pyfs-fsi beam`
 | `inventory` | write <stem>.fsm.boundaries.toml beside a saved simulation, from its mesh block, or <stem>.obj.boundaries.toml beside an OBJ, from its groups |
 | `degenerate` | derive a degenerate geometry, the thin blade first, from a blade mesh and write it beside the source |
 
+`build`, `accept` and `from-sidecar` sit in `pyfs-mesh` because their output is the mesh the run uses, though `from-sidecar` reads CAD.
+
 `--warning-refusals` and `--warning-off` stand before the verb, as for `pyfs-workspace`; the
 verbs that take `--verbose` and `--log-level` read the console level of the workspace
 settings files as `pyfs-workspace` does.
