@@ -77,8 +77,8 @@ SETUP = (
 PPROC = (
     'base_regions = ["Base", "TailBase"]\n'
     "[groups]\n"
-    'TOTAL = "all"\n'
-    'AIRFRAME = "airframe"\n'
+    'EVERY = "all"\n'
+    'HULL = "airframe"\n'
     'TAIL = "tail"\n'
 )
 
@@ -598,28 +598,28 @@ def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
         ),
         (
             without(SETUP, 'delete_surfaces = ["Sting"]\n'),
-            'base_regions = ["Base", "TailBase"]\n[groups]\nTOTAL = "all"\n',
+            'base_regions = ["Base", "TailBase"]\n[groups]\nEVERY = "all"\n',
             "base_regions",
             "TailBase",
             REFERENCE + STUDY,
         ),
         (
             'iterations = 500\nanalysis_families = ["Wing", "HTail"]\n',
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "analysis_families",
             "HTail",
             REFERENCE + STUDY,
         ),
         (
             'iterations = 500\nvorticity_drag_families = ["Wing", "HTail"]\n',
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "vorticity_drag_families",
             "HTail",
             REFERENCE + STUDY,
         ),
         (
             "iterations = 500\n" + CREATE_TAIL_BASE,
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "base_region_operations[1]",
             "TailBase",
             REFERENCE + STUDY,
@@ -628,21 +628,21 @@ def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
         # left out silently under the flag.
         (
             'iterations = 500\nanalysis_families = ["Wing", "HTail"]\n',
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "analysis_families",
             "HTail",
             REFERENCE,
         ),
         (
             'iterations = 500\nvorticity_drag_families = ["Wing", "HTail"]\n',
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "vorticity_drag_families",
             "HTail",
             REFERENCE,
         ),
         (
             "iterations = 500\n",
-            '[groups]\nTOTAL = "all"\nTAIL = "tail"\n',
+            '[groups]\nEVERY = "all"\nTAIL = "tail"\n',
             "groups.TAIL",
             "tail",
             REFERENCE,
@@ -671,7 +671,7 @@ def test_the_flag_refuses_an_axial_separation_family_before_the_build_guard(tmp_
     is BLOCKED by its build; the wing-body row is refused first, for the name.
     """
     setup = 'iterations = 500\naxial_separation_families = ["Wing", "HTail"]\n'
-    workspace, path = study(tmp_path, setup=setup, pproc='[groups]\nTOTAL = "all"\n')
+    workspace, path = study(tmp_path, setup=setup, pproc='[groups]\nEVERY = "all"\n')
     plan, _ = planned(workspace, path, ignore_missing_families=False)
     error = error_of(plan, "2001")
     assert "cites 'HTail' under axial_separation_families" in error
@@ -888,7 +888,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     for the rotor (item 15).
     """
     study_table = '[study]\nsurfaces = ["Wing", "Body", "Base"]\n'
-    pproc = 'base_regions = ["Base"]\n[groups]\nTOTAL = "all"\nP2 = "Prop2"\n'
+    pproc = 'base_regions = ["Base"]\n[groups]\nEVERY = "all"\nP2 = "Prop2"\n'
     workspace, path = study(
         tmp_path,
         reference=REFERENCE + study_table + ROTOR,
@@ -962,7 +962,7 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
         ),
         (
             without(SETUP, 'delete_surfaces = ["Sting"]\n'),
-            'base_regions = ["Base", "TailBase"]\n[groups]\nTOTAL = "all"\n',
+            'base_regions = ["Base", "TailBase"]\n[groups]\nEVERY = "all"\n',
             "base_regions",
             "TailBase",
             "states BASE_REGIONS with 'TailBase', and the sidecar "
@@ -970,7 +970,7 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
         ),
         (
             "iterations = 500\n" + CREATE_TAIL_BASE,
-            '[groups]\nTOTAL = "all"\n',
+            '[groups]\nEVERY = "all"\n',
             "base_region_operations[1]",
             "TailBase",
             "TailBase",

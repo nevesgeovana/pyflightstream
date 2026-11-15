@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 WORKFLOW_ROOT = Path(__file__).parent / "tier1_offline" / "goldens" / "workflows"
@@ -15,8 +16,22 @@ def workflow_payload(path: Path) -> Path:
     return path.with_name(WORKFLOW_PAYLOADS[path.name])
 
 
+#: One force plot of a family's own history, as 0.58.0 adds them (PFS-2231): six per
+#: boundary of the opened inventory, one boundary each, in the global frame.
+_FAMILY_PLOT_0580 = re.compile(
+    r"UNSTEADY_SOLVER_NEW_FORCE_PLOT\nFRAME \d+\nUNITS NEWTONS\nPARAMETER \w+\n"
+    r"NAME (?:FX|FY|FZ|MX|MY|MZ)_MRP_(?!TOTAL\n)[^\n]+\nBOUNDARIES 1\n\d+\n\n"
+)
+
+
+def before_family_plots_0580(text: str) -> str:
+    """Undo the per-family plots every unsteady row declares since 0.58.0, for older guards."""
+    return _FAMILY_PLOT_0580.sub("", text)
+
+
 def before_frame_labels_0451(text: str) -> str:
     """Undo only complete, digest-pinned PFS-2168 fixture edits for older guards."""
+    text = before_family_plots_0580(text)
     text = before_pressure_0460(before_hub_frames_0461(before_plots_scene_0530(text)))
     records = json.loads(
         (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()

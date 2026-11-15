@@ -106,6 +106,7 @@ blade1 = { azimuth_deg = 0.0, zero = "X" }
 
 [LIFT_R1]
 kind = "rotor"
+id = 1
 alias = "LIFT_R1"
 x_m = 1.2
 y_m = -2.4
@@ -119,6 +120,7 @@ blade1 = { azimuth_deg = 0.0, zero = "X" }
 
 [PUSHER]
 kind = "rotor"
+id = 2
 alias = "PUSHER"
 x_m = 7.2
 y_m = 0.0

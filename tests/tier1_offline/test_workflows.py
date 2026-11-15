@@ -5349,6 +5349,8 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
         # ...and, for the rotor table's window average, the rotor's own six.
         for group in ("MRP_TOTAL", "ROTOR_ROTOR")
     }
+    # ...and, since 0.58.0, every family's six for its FAM rows (PFS-2231).
+    added |= {name for name in plots if re.fullmatch(r"(?:FX|FY|FZ|MX|MY|MZ)_MRP_.+", name)}
     assert set(plots) - added == {"CL_LIFTERS_X", "CL_PUSHER_X"}, sorted(plots)
     assert added <= set(plots), sorted(plots)
     # The frame indices are read off the script's own coordinate-system blocks,

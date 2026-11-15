@@ -173,7 +173,7 @@ def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
 ):
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
     spec.products.polars = True
-    spec.groups = {"TOTAL": ["all"]}
+    spec.groups = {}  # TOTAL is written for every polar
     sim = workspace.sim_dir("7001")
     failed = healthy.model_copy(
         update={
@@ -225,7 +225,7 @@ def test_p0530_a_post_that_keeps_moves_a_renamed_polar_aside(tmp_path, monkeypat
     """
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
     spec.products.polars = True
-    spec.groups = {"TOTAL": ["all"]}
+    spec.groups = {}  # TOTAL is written for every polar
     sim = workspace.sim_dir("7001")
     failed = healthy.model_copy(
         update={

@@ -57,7 +57,7 @@ def test_ab_missing_group_surface_omits_only_its_point(tmp_path, monkeypatch):
 def test_ac_unassignable_failed_frame_keeps_healthy_polar(tmp_path, monkeypatch):
     workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
     spec.products.polars = True
-    spec.groups = {"TOTAL": ["all"]}
+    spec.groups = {}  # TOTAL is written for every polar
     failed = healthy.model_copy(
         update={
             "run_id": "bad-frame-first",
