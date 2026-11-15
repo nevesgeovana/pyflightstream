@@ -452,6 +452,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.post._tree_migration"><summary><code>pyflightstream.post._tree_migration</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.post.acoustics"><summary><code>pyflightstream.post.acoustics</code></summary><ul>

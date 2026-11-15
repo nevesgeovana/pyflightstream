@@ -395,7 +395,7 @@ def run_campaign(
         check, and every record of the run says the flag was used.
         Default False.
     sweep_csv : object, optional
-        Retired in 0.58.0 with the table it named; any value but None is refused
+        Retired with the table it named; any value but None is refused
         naming the successor.
     accepted_builds : collection of str
         The installations whose own entry of ``inputs/executables.local.toml``

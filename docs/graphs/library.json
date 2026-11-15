@@ -8878,6 +8878,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._tree_migration",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post.acoustics",
       "target": "pyflightstream._errors",
       "kind": "module"

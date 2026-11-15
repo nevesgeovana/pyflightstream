@@ -2451,7 +2451,7 @@ class PprocSpec(_SuggestsKeys):
     def _a_retired_reduction_is_warned_and_dropped(cls, value: object) -> object:
         """Warn once, with the retirement sentence, of a table asking for a retired reduction.
 
-        0.58.0 writes neither the time_average nor the per_blade table. A pproc that
+        The post writes neither the time_average nor the per_blade table. A pproc that
         states one is warned and the table is dropped: it never refuses the pproc, and a
         pproc that does not state one is never warned (the averaging windows the plan
         records ask for nothing).

@@ -822,7 +822,7 @@ def run_matrix(
         (PFS-2035.13); the command line spells it
         ``--ignore-missing-families``.
     sweep_csv : object, optional
-        Retired in 0.58.0 with the table it named; any value but None is refused
+        Retired with the table it named; any value but None is refused
         naming the successor.
     local : bool
         Keep the run on this machine: the cluster is not asked,
