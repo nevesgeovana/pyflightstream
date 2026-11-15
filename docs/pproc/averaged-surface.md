@@ -17,4 +17,6 @@ array for a number (`nan` where it has none) and a string array for a text colum
 name both state keeps the block's value.
 
 The variables, frames and the not-carried list are in
-[native surface flow exports](../definitions/native-surface-flow-exports.md#native-surface-flow-exports).
+[native surface flow exports](../definitions/native-surface-flow-exports.md#native-surface-flow-exports);
+its window is stated with [the reductions of an unsteady
+point](../post-processing-definitions.md#the-reductions-of-an-unsteady-point).

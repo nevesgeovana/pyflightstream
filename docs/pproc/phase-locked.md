@@ -15,5 +15,6 @@ for an unsteady-rotor point, once per point.
 | the plots | the plotted columns averaged over the row's window, in the plots history's units |
 
 The definition of record, the windows and the sense of the azimuth are on
-[`phase_locked`](../definitions/phase_locked.md#phase_locked). Its columns, units and
-frames are stated in [`products.json`](products-json.md).
+[`phase_locked`](../definitions/phase_locked.md#phase_locked), one of [the reductions of
+an unsteady point](../post-processing-definitions.md#the-reductions-of-an-unsteady-point).
+Its columns, units and frames are stated in [`products.json`](products-json.md).

@@ -690,6 +690,10 @@ _REDUCTION_NAMED = re.compile(
 )
 #: A claim a page once made against the definition of record (GEO-072 docs audit, item 6).
 _STALE_CLAIMS = ("What does NOT ship yet is the step that runs those four",)
+#: A row of the upgrading page's migration map (0.58.0 post tree): two cells, an earlier
+#: path and where it went, `reductions/` or retired. It says where a file moved, not what
+#: the reduction is, so it is no restatement; any other row naming a reduction file is.
+_MIGRATION_ROW = re.compile(r"^\| `[^`|]+` \| (`reductions/|retired: )[^|]*\|$")
 
 
 def _user_pages() -> dict[str, str]:
@@ -718,7 +722,9 @@ def reductions_restated(name: str, text: str) -> list[str]:
     found = [
         f"{name}: a table row defines a reduction file: {line.strip()[:80]}"
         for line in text.splitlines()
-        if line.lstrip().startswith("|") and _REDUCTION_FILE.search(line)
+        if line.lstrip().startswith("|")
+        and _REDUCTION_FILE.search(line)
+        and not (name == "upgrading.md" and _MIGRATION_ROW.match(line.strip()))
     ]
     found += [f"{name}: {claim!r}" for claim in _STALE_CLAIMS if claim in text]
     if _REDUCTION_NAMED.search(text) and REDUCTIONS_HOME not in text:
@@ -769,6 +775,10 @@ def test_the_reductions_check_refuses_planted_defects():
     assert reductions_restated("planted", unlinked) == [
         f"planted: names a reduction and does not link to {REDUCTIONS_HOME}"
     ]
+    # The upgrading page's migration rows pass; a defining row on that page does not.
+    upgrading = (DOCS / "upgrading.md").read_text(encoding="utf-8")
+    assert reductions_restated("upgrading.md", upgrading) == []
+    assert len(reductions_restated("upgrading.md", upgrading + row)) == 1
 
 
 # ----------------------------------------------------------------- __all__ of DOC-B

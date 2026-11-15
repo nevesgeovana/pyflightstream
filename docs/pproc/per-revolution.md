@@ -19,4 +19,5 @@ steps per revolution; a trailing partial revolution is not averaged and is named
 
 The drift limit `[per_revolution] drift_limit_pct` (default 1) warns in `post.log`
 when the last revolution is still moving, and blocks nothing. The definition of record
-is [`per_revolution`](../definitions/per_revolution.md#per_revolution).
+is [`per_revolution`](../definitions/per_revolution.md#per_revolution), one of [the
+reductions of an unsteady point](../post-processing-definitions.md#the-reductions-of-an-unsteady-point).
